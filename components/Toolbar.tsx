@@ -458,15 +458,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 	                </div>
 
                 <div className="flex items-center space-x-2">
-                        <button
-                            data-testid="btn-add-note"
-                            type="button"
-                            onClick={onAddNoteFromRest}
-                            disabled={mutationDisabled || !selectionActive || !onAddNoteFromRest}
-                            className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Add Note
-                        </button>
+	                    <button
+	                        data-testid="btn-add-note-top"
+	                        type="button"
+	                        onClick={onAddNoteFromRest}
+	                        disabled={mutationDisabled || !selectionActive || !onAddNoteFromRest}
+	                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+	                    >
+	                        Add Note
+	                    </button>
 	                    <button
 	                        data-testid="btn-pitch-down"
 	                        type="button"
@@ -805,6 +805,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 disabled={mutationDisabled}
                 testId="dropdown-rhythm-voice"
             >
+                <div className={dropdownLabelClass}>Notes</div>
+                <button
+                    data-testid="btn-add-note-dropdown"
+                    type="button"
+                    onClick={onAddNoteFromRest}
+                    disabled={mutationDisabled || !selectionActive || !onAddNoteFromRest}
+                    className={dropdownItemClass}
+                >
+                    Add Note
+                </button>
                 <div className={dropdownLabelClass}>Rhythm</div>
                 <button
                     data-testid="btn-dot"

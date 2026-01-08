@@ -189,6 +189,12 @@ Progress
 - Frontend calls the optional mutation APIs for selection, pitch/duration, delete, undo/redo, relayout; re-renders after each mutation.  
 - WASM glue patched to provide correct env imports/exports and default `-platform wasm`/ENV to bypass missing Qt offscreen plugin; artifacts copied to `public/`.
 
+Recent changes (last few commits)  
+- Toolbar reorganized into dropdowns with foregrounded menus.  
+- Header text editing for title/composer.  
+- Articulation mutation hook and stabilized WASM init.  
+- Instrument add/hide/remove APIs + Add Note (rest → note) mutation + regression coverage.
+
 Next steps / risks  
 - Rebuild webmscore with platform=`wasm` so the memory-initializer “offscreen” patch is no longer needed.  
 - Implement reliable selection/hit-testing (DOM or WASM hit-test) so mutations target the clicked element.  
@@ -196,6 +202,18 @@ Next steps / risks
 
 ## Webmscore rebuild + artifact sync
 
-**Rebuild** (preferred, from `webmscore-fork/web-public`): `npm run compile` (runs `make release` and ensures the expected memory initializer naming).  
-**Bundle JS wrappers** (from `webmscore-fork/web-public`): `npm run bundle` (needed after changing `src/*.js` wrappers).  
-**Sync for Next.js**: `npm run sync:wasm` copies artifacts into `public/` so the app serves the fresh build. Run this after every rebuild before restarting `npm run dev`.
+Incremental builds (preferred)  
+- From `webmscore-fork/web-public`: `npm run compile` (runs `make release` and keeps artifacts).  
+- If JS wrappers changed: from `webmscore-fork/web-public` run `npm run bundle`.  
+- From repo root: `npm run sync:wasm` to copy artifacts into `public/`.
+
+Optional direct make (advanced)  
+- From `webmscore-fork/web`: `make release`.  
+- From `webmscore-fork/web-public`: `mv webmscore.lib.js.mem webmscore.lib.mem.wasm` and `mv webmscore.lib.js.symbols webmscore.lib.symbols`.  
+- From repo root: `npm run sync:wasm`.
+
+Clean rebuild (avoid unless needed)  
+- From `webmscore-fork/web-public`: `npm run build` (runs `make clean` and removes artifacts).
+
+Feedback requested  
+- What should we prioritize next: selection model/hit-testing, note-entry UX, instrument management polish, or something else?
