@@ -43,6 +43,12 @@ test('hotkeys drive delete, undo/redo, and copy/paste', async ({ page }) => {
   await page.keyboard.press('Control+Z');
   await expect.poll(async () => countNotes(await readMscx()), { timeout: 20_000 }).toBe(initial);
 
+  await page.keyboard.press('Meta+Shift+Z');
+  await expect.poll(async () => countNotes(await readMscx()), { timeout: 20_000 }).toBe(initial - 1);
+
+  await page.keyboard.press('Control+Z');
+  await expect.poll(async () => countNotes(await readMscx()), { timeout: 20_000 }).toBe(initial);
+
   await page.locator('svg .Note').first().click();
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
   await page.keyboard.press('Control+C');

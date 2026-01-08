@@ -930,6 +930,25 @@ export default function ScoreEditor() {
                 }
             }
 
+            if (key === 'arrowup' || key === 'arrowdown') {
+                if (!mutationEnabled) {
+                    return;
+                }
+                const hasSelection = Boolean(selectedElement) || selectionBoxes.length > 0;
+                if (!hasSelection) {
+                    return;
+                }
+                event.preventDefault();
+                if (isMod) {
+                    handleTranspose(key === 'arrowup' ? 12 : -12);
+                } else if (key === 'arrowup') {
+                    handlePitchUp();
+                } else {
+                    handlePitchDown();
+                }
+                return;
+            }
+
             if (key === 'delete' || key === 'backspace') {
                 if (mutationEnabled && (selectedElement || selectionBoxes.length > 0)) {
                     event.preventDefault();
@@ -947,6 +966,9 @@ export default function ScoreEditor() {
         selectionBoxes.length,
         handleUndo,
         handleRedo,
+        handlePitchUp,
+        handlePitchDown,
+        handleTranspose,
         handleDeleteSelection,
         handleCopySelection,
         handlePasteSelection,

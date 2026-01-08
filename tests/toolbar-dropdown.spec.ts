@@ -51,3 +51,16 @@ test('dropdowns open/close and break buttons show disabled tooltips', async ({ p
   await dropdown.getByTestId('btn-acc-3').click();
   await expect(dropdown).not.toHaveAttribute('open', '');
 });
+
+test('shortcuts dropdown lists hotkeys', async ({ page }) => {
+  await page.goto('/?score=/test_scores/single_note_c4.musicxml');
+  await page.waitForSelector('svg .Note', { timeout: 60_000 });
+
+  const dropdown = page.getByTestId('dropdown-shortcuts');
+  await dropdown.locator('summary').click();
+
+  await expect(dropdown).toContainText('Delete / Backspace');
+  await expect(dropdown).toContainText('Ctrl/Cmd + Z');
+  await expect(dropdown).toContainText('Cmd + Shift + Z');
+  await expect(dropdown).toContainText('Ctrl/Cmd + V');
+});

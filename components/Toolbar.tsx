@@ -310,6 +310,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         'absolute mt-2 w-56 bg-white border border-gray-200 rounded shadow-lg p-2 flex flex-col gap-1';
     const dropdownItemClass =
         'px-3 py-1 text-left rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed';
+    const dropdownTextClass = 'px-3 py-1 text-sm text-gray-700';
     const dropdownLabelClass = 'text-xs uppercase tracking-wide text-gray-500 px-2 py-1';
     const instrumentOptions = instrumentGroups.flatMap(group =>
         group.instruments.map(instrument => ({
@@ -1003,6 +1004,17 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         {opt.label}
                     </button>
                 ))}
+            </ToolbarDropdown>
+
+            <ToolbarDropdown
+                label="Shortcuts"
+                testId="dropdown-shortcuts"
+            >
+                <div className={dropdownTextClass}>Delete: Delete / Backspace</div>
+                <div className={dropdownTextClass}>Undo: Ctrl/Cmd + Z</div>
+                <div className={dropdownTextClass}>Redo: Ctrl + Y, Cmd + Shift + Z</div>
+                <div className={dropdownTextClass}>Copy: Ctrl/Cmd + C</div>
+                <div className={dropdownTextClass}>Paste: Ctrl/Cmd + V</div>
             </ToolbarDropdown>
         </div>
     );
