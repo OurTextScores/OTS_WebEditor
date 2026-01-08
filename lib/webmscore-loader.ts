@@ -63,6 +63,7 @@ export interface Score {
     addExpressionText?: (text: string) => Promise<unknown> | unknown;
     addLyricText?: (text: string) => Promise<unknown> | unknown;
     addHarmonyText?: (variant: number, text: string) => Promise<unknown> | unknown;
+    addFingeringText?: (text: string) => Promise<unknown> | unknown;
     setTitleText?: (text: string) => Promise<unknown> | unknown;
     subtitle?: () => Promise<string> | string;
     setSubtitleText?: (text: string) => Promise<unknown> | unknown;

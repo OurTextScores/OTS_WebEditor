@@ -2372,6 +2372,11 @@ extern "C" {
     };
 
     EMSCRIPTEN_KEEPALIVE
+    bool addFingeringText(uintptr_t score_ptr, const char* plainText, int excerptId = -1) {
+        return _addTextForStyle(score_ptr, engraving::TextStyleType::FINGERING, plainText, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
     bool setTimeSignature(uintptr_t score_ptr, int numerator, int denominator, int excerptId = -1) {
         return _setTimeSignature(score_ptr, numerator, denominator, excerptId);
     };
