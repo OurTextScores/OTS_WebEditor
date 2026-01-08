@@ -1631,6 +1631,7 @@ export default function ScoreEditor() {
 
     return (
         <div className="flex flex-col h-screen">
+            <div className="relative" style={{ zIndex: 100 }}>
 	            <Toolbar
 	                onFileUpload={handleFileUpload}
                     onSoundFontUpload={handleSoundFontUpload}
@@ -1682,8 +1683,9 @@ export default function ScoreEditor() {
                 onAddSlur={handleAddSlur}
                 onAddTie={handleAddTie}
             />
+            </div>
 
-            <div className="flex-1 overflow-auto bg-gray-50 p-8">
+            <div className="relative z-0 flex-1 overflow-auto bg-gray-50 p-8">
                 {loading && (
                     <div className="flex items-center justify-center h-full">
                         <div className="text-xl text-gray-500">Loading score...</div>

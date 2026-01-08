@@ -132,23 +132,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 		{ label: '4/4', numerator: 4, denominator: 4 },
 		{ label: '3/4', numerator: 3, denominator: 4 },
 		{ label: '2/4', numerator: 2, denominator: 4 },
-        { label: '2/2', numerator: 2, denominator: 2 },
         { label: '6/8', numerator: 6, denominator: 8 },
+        { label: '2/2', numerator: 2, denominator: 2 },
+        { label: '5/4', numerator: 5, denominator: 4 },
+		{ label: '7/8', numerator: 7, denominator: 8 },
         { label: '3/8', numerator: 3, denominator: 8 },
         { label: '9/8', numerator: 9, denominator: 8 },
         { label: '12/8', numerator: 12, denominator: 8 },
-        { label: '5/4', numerator: 5, denominator: 4 },
-		{ label: '7/8', numerator: 7, denominator: 8 },
 	];
 
 	const keySignatureButtonOptions = keySignatureOptions ?? [
-		{ label: 'Cb', fifths: -7 },
-		{ label: 'Gb', fifths: -6 },
-		{ label: 'Db', fifths: -5 },
-		{ label: 'Ab', fifths: -4 },
-		{ label: 'Eb', fifths: -3 },
-		{ label: 'Bb', fifths: -2 },
-		{ label: 'F', fifths: -1 },
 		{ label: 'C', fifths: 0 },
 		{ label: 'G', fifths: 1 },
 		{ label: 'D', fifths: 2 },
@@ -157,10 +150,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 		{ label: 'B', fifths: 5 },
 		{ label: 'F#', fifths: 6 },
 		{ label: 'C#', fifths: 7 },
+		{ label: 'F', fifths: -1 },
+		{ label: 'Bb', fifths: -2 },
+		{ label: 'Eb', fifths: -3 },
+		{ label: 'Ab', fifths: -4 },
+		{ label: 'Db', fifths: -5 },
+		{ label: 'Gb', fifths: -6 },
+		{ label: 'Cb', fifths: -7 },
 	];
 
 	const clefButtonOptions = clefOptions ?? [
 		{ label: 'Treble', value: 0 },          // ClefType::G
+        { label: 'Bass', value: 20 },           // ClefType::F
 		{ label: 'French Violin', value: 7 },   // ClefType::G_1
 		{ label: 'Treble 15mb', value: 1 },     // ClefType::G15_MB
         { label: 'Treble 8vb', value: 2 },      // ClefType::G8_VB
@@ -180,7 +181,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         { label: 'C1 (F20c)', value: 17 },      // ClefType::C1_F20C
         { label: 'C3 (F20c)', value: 18 },      // ClefType::C3_F20C
         { label: 'C4 (F20c)', value: 19 },      // ClefType::C4_F20C
-        { label: 'Bass', value: 20 },           // ClefType::F
         { label: 'Bass 15mb', value: 21 },      // ClefType::F15_MB
         { label: 'Bass 8vb', value: 22 },       // ClefType::F8_VB
         { label: 'Bass 8va', value: 23 },       // ClefType::F_8VA
@@ -198,19 +198,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     ];
 
     const dynamicOptions = [
-        { label: 'pppppp', value: 1 }, // DynamicType::PPPPPP
-        { label: 'ppppp', value: 2 },  // DynamicType::PPPPP
-        { label: 'pppp', value: 3 },   // DynamicType::PPPP
-        { label: 'ppp', value: 4 },    // DynamicType::PPP
-        { label: 'pp', value: 5 },     // DynamicType::PP
         { label: 'p', value: 6 },      // DynamicType::P
         { label: 'mp', value: 7 },     // DynamicType::MP
         { label: 'mf', value: 8 },     // DynamicType::MF
         { label: 'f', value: 9 },      // DynamicType::F
+        { label: 'pp', value: 5 },     // DynamicType::PP
         { label: 'ff', value: 10 },    // DynamicType::FF
+        { label: 'ppp', value: 4 },    // DynamicType::PPP
         { label: 'fff', value: 11 },   // DynamicType::FFF
+        { label: 'pppp', value: 3 },   // DynamicType::PPPP
         { label: 'ffff', value: 12 },  // DynamicType::FFFF
+        { label: 'ppppp', value: 2 },  // DynamicType::PPPPP
         { label: 'fffff', value: 13 }, // DynamicType::FFFFF
+        { label: 'pppppp', value: 1 }, // DynamicType::PPPPPP
         { label: 'ffffff', value: 14 }, // DynamicType::FFFFFF
         { label: 'fp', value: 15 },    // DynamicType::FP
         { label: 'pf', value: 16 },    // DynamicType::PF
@@ -247,16 +247,60 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     };
 
     const accidentalOptions = [
+        { label: '♯', value: 3 },  // AccidentalType::SHARP
         { label: '♭', value: 1 },  // AccidentalType::FLAT
         { label: '♮', value: 2 },  // AccidentalType::NATURAL
-        { label: '♯', value: 3 },  // AccidentalType::SHARP
         { label: 'x', value: 4 },  // AccidentalType::SHARP2
         { label: '♭♭', value: 5 }, // AccidentalType::FLAT2
         { label: 'Clear', value: 0 }, // AccidentalType::NONE
     ];
 
+    const dropdownSummaryClass =
+        'px-3 py-1 bg-white border border-gray-300 rounded cursor-pointer hover:bg-gray-50 list-none';
+    const dropdownSummaryDisabledClass = 'opacity-50 cursor-not-allowed pointer-events-none';
+    const dropdownMenuClass =
+        'absolute mt-2 w-56 bg-white border border-gray-200 rounded shadow-lg p-2 flex flex-col gap-1';
+    const dropdownItemClass =
+        'px-3 py-1 text-left rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed';
+    const dropdownLabelClass = 'text-xs uppercase tracking-wide text-gray-500 px-2 py-1';
+
+    const ToolbarDropdown: React.FC<{
+        label: string;
+        disabled?: boolean;
+        children: React.ReactNode;
+        testId?: string;
+    }> = ({ label, disabled = false, children, testId }) => (
+        <details className="relative overflow-visible" data-testid={testId}>
+            <summary
+                className={`${dropdownSummaryClass} ${disabled ? dropdownSummaryDisabledClass : ''}`}
+            >
+                {label}
+            </summary>
+            {!disabled && (
+                <div
+                    className={dropdownMenuClass}
+                    style={{ zIndex: 110 }}
+                    onClick={(event) => {
+                        const target = event.target as HTMLElement | null;
+                        if (target?.closest('button')) {
+                            const details = target.closest('details');
+                            if (details) {
+                                details.removeAttribute('open');
+                            }
+                        }
+                    }}
+                >
+                    {children}
+                </div>
+            )}
+        </details>
+    );
+
     return (
-        <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-gray-100 border-b border-gray-300">
+        <div
+            className="relative flex flex-wrap items-center justify-between gap-4 p-4 bg-gray-100 border-b border-gray-300 overflow-visible"
+            style={{ zIndex: 100 }}
+        >
 	            <div className="flex items-center space-x-4">
 	                <label className="px-4 py-2 bg-blue-600 text-white rounded cursor-pointer hover:bg-blue-700">
 	                    Open Score
@@ -397,12 +441,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             disabled={mutationDisabled || !onTranspose}
                             className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            Octave ↑
-                        </button>
+	                        Octave ↑
+	                    </button>
 	                </div>
 
-                    <div className="flex items-center space-x-2">
-                        <span className="text-gray-600">Acc:</span>
+                    <ToolbarDropdown
+                        label="Accidental"
+                        disabled={mutationDisabled || !selectionActive || !onSetAccidental}
+                        testId="dropdown-accidental"
+                    >
                         {accidentalOptions.map(opt => (
                             <button
                                 key={opt.label}
@@ -410,12 +457,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                 type="button"
                                 onClick={() => onSetAccidental?.(opt.value)}
                                 disabled={mutationDisabled || !selectionActive || !onSetAccidental}
-                                className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className={dropdownItemClass}
                             >
                                 {opt.label}
                             </button>
                         ))}
-                    </div>
+                    </ToolbarDropdown>
 
 	                <div className="flex items-center space-x-2">
 	                    <button
@@ -439,72 +486,75 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 	                </div>
 	            </div>
 
-	            <div className="flex items-center space-x-2 text-sm">
-	                <span className="text-gray-600">Export:</span>
-	                <button
-	                    data-testid="btn-export-svg"
-	                    type="button"
-	                    onClick={onExportSvg}
-	                    disabled={!exportsEnabled || !onExportSvg}
-	                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-	                >
-	                    SVG
-	                </button>
-	                <button
-	                    data-testid="btn-export-pdf"
-	                    type="button"
-	                    onClick={onExportPdf}
-	                    disabled={!exportsEnabled || !onExportPdf}
-	                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-	                >
-	                    PDF
-	                </button>
-	                <button
-	                    data-testid="btn-export-png"
-	                    type="button"
-	                    onClick={onExportPng}
-	                    disabled={!exportsEnabled || !onExportPng || !pngAvailable}
-	                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-	                >
-	                    PNG
-	                </button>
-	                <button
-	                    data-testid="btn-export-mxl"
-	                    type="button"
-	                    onClick={onExportMxl}
-	                    disabled={!exportsEnabled || !onExportMxl}
-	                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-	                >
-	                    MXL
-	                </button>
-	                <button
-	                    data-testid="btn-export-mscz"
-	                    type="button"
-	                    onClick={onExportMscz}
-	                    disabled={!exportsEnabled || !onExportMscz}
-	                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-	                >
-	                    MSCZ
-	                </button>
-	                <button
-	                    data-testid="btn-export-midi"
-	                    type="button"
-	                    onClick={onExportMidi}
-	                    disabled={!exportsEnabled || !onExportMidi}
-	                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-	                >
-	                    MIDI
-	                </button>
-	                <button
-	                    data-testid="btn-export-audio"
-	                    type="button"
-	                    onClick={onExportAudio}
-	                    disabled={!exportsEnabled || !onExportAudio || !audioAvailable || audioBusy}
-	                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-	                >
-	                    {audioBusy ? 'Exporting…' : 'WAV'}
-	                </button>
-	            </div>
+	            <ToolbarDropdown
+                    label="Export"
+                    disabled={!exportsEnabled}
+                    testId="dropdown-export"
+                >
+                    <button
+                        data-testid="btn-export-svg"
+                        type="button"
+                        onClick={onExportSvg}
+                        disabled={!exportsEnabled || !onExportSvg}
+                        className={dropdownItemClass}
+                    >
+                        SVG
+                    </button>
+                    <button
+                        data-testid="btn-export-pdf"
+                        type="button"
+                        onClick={onExportPdf}
+                        disabled={!exportsEnabled || !onExportPdf}
+                        className={dropdownItemClass}
+                    >
+                        PDF
+                    </button>
+                    <button
+                        data-testid="btn-export-png"
+                        type="button"
+                        onClick={onExportPng}
+                        disabled={!exportsEnabled || !onExportPng || !pngAvailable}
+                        className={dropdownItemClass}
+                    >
+                        PNG
+                    </button>
+                    <button
+                        data-testid="btn-export-mxl"
+                        type="button"
+                        onClick={onExportMxl}
+                        disabled={!exportsEnabled || !onExportMxl}
+                        className={dropdownItemClass}
+                    >
+                        MXL
+                    </button>
+                    <button
+                        data-testid="btn-export-mscz"
+                        type="button"
+                        onClick={onExportMscz}
+                        disabled={!exportsEnabled || !onExportMscz}
+                        className={dropdownItemClass}
+                    >
+                        MSCZ
+                    </button>
+                    <button
+                        data-testid="btn-export-midi"
+                        type="button"
+                        onClick={onExportMidi}
+                        disabled={!exportsEnabled || !onExportMidi}
+                        className={dropdownItemClass}
+                    >
+                        MIDI
+                    </button>
+                    <button
+                        data-testid="btn-export-audio"
+                        type="button"
+                        onClick={onExportAudio}
+                        disabled={!exportsEnabled || !onExportAudio || !audioAvailable || audioBusy}
+                        className={dropdownItemClass}
+                    >
+                        {audioBusy ? 'Exporting…' : 'WAV'}
+                    </button>
+                </ToolbarDropdown>
 
 	            <div className="flex items-center space-x-2 text-sm">
 	                <button
@@ -547,99 +597,118 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 	                </button>
 	            </div>
 
-		            <div className="flex flex-wrap items-center gap-2 text-sm">
-		                <span className="text-gray-600">Signature:</span>
-		                {signatureOptions.map(opt => {
-		                    const handler = resolveTimeSigHandler(opt);
-		                    return (
-	                        <button
-	                            key={opt.label}
-	                            data-testid={`btn-timesig-${opt.numerator}-${opt.denominator}`}
-	                            type="button"
-	                            onClick={handler}
-	                            disabled={mutationDisabled || !handler}
-	                            className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-	                        >
-                            {opt.label}
-                        </button>
-                    );
-		                })}
-		            </div>
+		            <ToolbarDropdown
+                        label="Signature"
+                        disabled={mutationDisabled}
+                        testId="dropdown-signature"
+                    >
+                        {signatureOptions.map(opt => {
+                            const handler = resolveTimeSigHandler(opt);
+                            return (
+                                <button
+                                    key={opt.label}
+                                    data-testid={`btn-timesig-${opt.numerator}-${opt.denominator}`}
+                                    type="button"
+                                    onClick={handler}
+                                    disabled={mutationDisabled || !handler}
+                                    className={dropdownItemClass}
+                                >
+                                    {opt.label}
+                                </button>
+                            );
+                        })}
+                    </ToolbarDropdown>
 
-		            <div className="flex flex-wrap items-center gap-2 text-sm">
-		                <span className="text-gray-600">Key:</span>
-		                {keySignatureButtonOptions.map(opt => (
-		                    <button
-		                        key={opt.fifths}
-		                        data-testid={`btn-keysig-${opt.fifths}`}
-		                        type="button"
-		                        onClick={() => onSetKeySignature?.(opt.fifths)}
-		                        disabled={mutationDisabled || !onSetKeySignature}
-		                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-		                    >
-		                        {opt.label}
-		                    </button>
-		                ))}
-		            </div>
+		            <ToolbarDropdown
+                        label="Key"
+                        disabled={mutationDisabled || !onSetKeySignature}
+                        testId="dropdown-key"
+                    >
+                        <div className={dropdownLabelClass}>Major</div>
+                        {keySignatureButtonOptions.map(opt => (
+                            <button
+                                key={opt.fifths}
+                                data-testid={`btn-keysig-${opt.fifths}`}
+                                type="button"
+                                onClick={() => onSetKeySignature?.(opt.fifths)}
+                                disabled={mutationDisabled || !onSetKeySignature}
+                                className={dropdownItemClass}
+                            >
+                                {opt.label}
+                            </button>
+                        ))}
+                    </ToolbarDropdown>
 
-		            <div className="flex flex-wrap items-center gap-2 text-sm">
-		                <span className="text-gray-600">Clef:</span>
-		                {clefButtonOptions.map(opt => (
-		                    <button
-	                        key={opt.value}
-	                        data-testid={`btn-clef-${opt.value}`}
-	                        type="button"
-	                        onClick={() => onSetClef?.(opt.value)}
-	                        disabled={mutationDisabled || !onSetClef}
-	                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-	                    >
-                        {opt.label}
-                    </button>
-                ))}
-            </div>
+		            <ToolbarDropdown
+                        label="Clef"
+                        disabled={mutationDisabled || !onSetClef}
+                        testId="dropdown-clef"
+                    >
+                        <div className={dropdownLabelClass}>Common</div>
+                        {clefButtonOptions.map(opt => (
+                            <button
+                                key={opt.value}
+                                data-testid={`btn-clef-${opt.value}`}
+                                type="button"
+                                onClick={() => onSetClef?.(opt.value)}
+                                disabled={mutationDisabled || !onSetClef}
+                                className={dropdownItemClass}
+                            >
+                                {opt.label}
+                            </button>
+                        ))}
+                    </ToolbarDropdown>
 
-            <div className="flex items-center space-x-2 text-sm">
-                <span className="text-gray-600">Rhythm/Voice:</span>
-	                <button
-	                    data-testid="btn-dot"
-	                    type="button"
-	                    onClick={onToggleDot}
-	                    disabled={mutationDisabled || !selectionActive || !onToggleDot}
-	                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-	                >
-	                    Dot
-	                </button>
-	                <button
-	                    data-testid="btn-double-dot"
-	                    type="button"
-	                    onClick={onToggleDoubleDot}
-	                    disabled={mutationDisabled || !selectionActive || !onToggleDoubleDot}
-	                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-	                >
-	                    Double Dot
-	                </button>
+            <ToolbarDropdown
+                label="Rhythm/Voice"
+                disabled={mutationDisabled}
+                testId="dropdown-rhythm-voice"
+            >
+                <div className={dropdownLabelClass}>Rhythm</div>
+                <button
+                    data-testid="btn-dot"
+                    type="button"
+                    onClick={onToggleDot}
+                    disabled={mutationDisabled || !selectionActive || !onToggleDot}
+                    className={dropdownItemClass}
+                >
+                    Dot
+                </button>
+                <button
+                    data-testid="btn-double-dot"
+                    type="button"
+                    onClick={onToggleDoubleDot}
+                    disabled={mutationDisabled || !selectionActive || !onToggleDoubleDot}
+                    className={dropdownItemClass}
+                >
+                    Double Dot
+                </button>
+                <div className={dropdownLabelClass}>Voice</div>
                 {[1, 2, 3, 4].map(v => (
-	                    <button
-	                        key={v}
-	                        data-testid={`btn-voice-${v}`}
-	                        type="button"
-	                        onClick={() => onSetVoice?.(v - 1)}
-	                        disabled={mutationDisabled || !onSetVoice}
-	                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-	                    >
+                    <button
+                        key={v}
+                        data-testid={`btn-voice-${v}`}
+                        type="button"
+                        onClick={() => onSetVoice?.(v - 1)}
+                        disabled={mutationDisabled || !onSetVoice}
+                        className={dropdownItemClass}
+                    >
                         Voice {v}
                     </button>
                 ))}
-            </div>
+            </ToolbarDropdown>
 
-            <div className="flex items-center space-x-2 text-sm">
-                <span className="text-gray-600">Slur/Tie:</span>
+            <ToolbarDropdown
+                label="Slur/Tie"
+                disabled={mutationDisabled || !selectionActive}
+                testId="dropdown-slur-tie"
+            >
                 <button
                     data-testid="btn-slur"
                     type="button"
                     onClick={onAddSlur}
                     disabled={mutationDisabled || !selectionActive || !onAddSlur}
-                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={dropdownItemClass}
                 >
                     Slur
                 </button>
@@ -648,48 +717,56 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     type="button"
                     onClick={onAddTie}
                     disabled={mutationDisabled || !selectionActive || !onAddTie}
-                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={dropdownItemClass}
                 >
                     Tie
                 </button>
-            </div>
+            </ToolbarDropdown>
 
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-                <span className="text-gray-600">Markings:</span>
+            <ToolbarDropdown
+                label="Markings"
+                disabled={mutationDisabled}
+                testId="dropdown-markings"
+            >
+                <div className={dropdownLabelClass}>Dynamics</div>
                 {dynamicOptions.map(opt => (
                     <button
-	                        key={opt.label}
-	                        data-testid={`btn-dynamic-${opt.value}`}
-	                        type="button"
-	                        onClick={() => onAddDynamic?.(opt.value)}
-	                        disabled={mutationDisabled || !selectionActive || !onAddDynamic}
-	                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-	                    >
-	                        {opt.label}
-	                    </button>
-	                ))}
-	                <button
-	                    data-testid="btn-rehearsal"
-	                    type="button"
-	                    onClick={onAddRehearsalMark}
-	                    disabled={mutationDisabled || !selectionActive || !onAddRehearsalMark}
-	                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-	                >
-	                    Rehearsal
-	                </button>
+                        key={opt.label}
+                        data-testid={`btn-dynamic-${opt.value}`}
+                        type="button"
+                        onClick={() => onAddDynamic?.(opt.value)}
+                        disabled={mutationDisabled || !selectionActive || !onAddDynamic}
+                        className={dropdownItemClass}
+                    >
+                        {opt.label}
+                    </button>
+                ))}
+                <div className={dropdownLabelClass}>Text</div>
+                <button
+                    data-testid="btn-rehearsal"
+                    type="button"
+                    onClick={onAddRehearsalMark}
+                    disabled={mutationDisabled || !selectionActive || !onAddRehearsalMark}
+                    className={dropdownItemClass}
+                >
+                    Rehearsal
+                </button>
                 <button
                     data-testid="btn-tempo-120"
                     type="button"
                     onClick={() => onAddTempoText?.(120)}
                     disabled={mutationDisabled || !onAddTempoText}
-                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={dropdownItemClass}
                 >
                     Tempo 120
                 </button>
-            </div>
+            </ToolbarDropdown>
 
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-                <span className="text-gray-600">Articulations:</span>
+            <ToolbarDropdown
+                label="Articulations"
+                disabled={mutationDisabled || !selectionActive}
+                testId="dropdown-articulations"
+            >
                 {articulationOptions.map(opt => (
                     <button
                         key={opt.symbol}
@@ -697,12 +774,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         type="button"
                         onClick={() => onAddArticulation?.(opt.symbol)}
                         disabled={mutationDisabled || !selectionActive || !onAddArticulation}
-                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className={dropdownItemClass}
                     >
                         {opt.label}
                     </button>
                 ))}
-            </div>
+            </ToolbarDropdown>
         </div>
     );
 };
