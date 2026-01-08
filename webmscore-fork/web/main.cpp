@@ -54,8 +54,11 @@
 #include "engraving/libmscore/dynamic.h"
 #include "engraving/libmscore/rehearsalmark.h"
 #include "engraving/libmscore/articulation.h"
+#include "engraving/libmscore/barline.h"
 #include "engraving/libmscore/text.h"
 #include "engraving/libmscore/textbase.h"
+#include "engraving/libmscore/segment.h"
+#include "engraving/libmscore/volta.h"
 #include "engraving/libmscore/key.h"
 #include "engraving/libmscore/types.h"
 #include "engraving/libmscore/navigate.h"
@@ -428,6 +431,74 @@ static engraving::Part* partFromIndex(MainScore& score, int partIndex)
     return parts.at(static_cast<size_t>(partIndex));
 }
 
+static bool selectionMeasureRange(MainScore& score, engraving::Measure*& startMeasure, engraving::Measure*& endMeasure)
+{
+    startMeasure = nullptr;
+    endMeasure = nullptr;
+
+    if (score->selection().isNone()) {
+        return false;
+    }
+
+    if (score->selection().isRange() && score->selection().measureRange(&startMeasure, &endMeasure)) {
+        return startMeasure != nullptr;
+    }
+
+    engraving::Measure* measure = score->selection().findMeasure();
+    if (!measure) {
+        if (auto cr = score->selection().cr()) {
+            measure = cr->measure();
+            if (!measure) {
+                measure = score->tick2measure(cr->tick());
+            }
+        }
+    }
+
+    if (!measure) {
+        return false;
+    }
+
+    startMeasure = measure;
+    endMeasure = measure;
+    return true;
+}
+
+static engraving::BarLine* ensureEndBarLine(engraving::Measure* measure)
+{
+    if (!measure) {
+        return nullptr;
+    }
+
+    const engraving::BarLine* existing = measure->endBarLine();
+    if (existing) {
+        return const_cast<engraving::BarLine*>(existing);
+    }
+
+    engraving::Segment* segment = measure->undoGetSegmentR(engraving::SegmentType::EndBarLine, measure->ticks());
+    if (!segment) {
+        return nullptr;
+    }
+
+    engraving::BarLine* barLine = engraving::toBarLine(segment->element(0));
+    if (!barLine) {
+        barLine = engraving::Factory::createBarLine(segment);
+        if (!barLine) {
+            return nullptr;
+        }
+        barLine->setParent(segment);
+        barLine->setTrack(0);
+        barLine->setGenerated(false);
+        if (auto staff = measure->score()->staff(0)) {
+            barLine->setSpanStaff(staff->barLineSpan());
+            barLine->setSpanFrom(staff->barLineFrom());
+            barLine->setSpanTo(staff->barLineTo());
+        }
+        measure->score()->undoAddElement(barLine);
+    }
+
+    return barLine;
+}
+
 bool _appendPart(uintptr_t score_ptr, const char* instrumentId, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
@@ -570,6 +641,194 @@ bool _addNoteFromRest(uintptr_t score_ptr, int excerptId)
 
     score->startCmd();
     score->setNoteRest(segment, rest->track(), nval, rest->durationTypeTicks(), engraving::DirectionV::AUTO);
+    score->endCmd();
+    return true;
+}
+
+bool _toggleRepeatStart(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    engraving::Measure* startMeasure = nullptr;
+    engraving::Measure* endMeasure = nullptr;
+    if (!selectionMeasureRange(score, startMeasure, endMeasure) || !startMeasure) {
+        LOGW() << "toggleRepeatStart: no measure selected";
+        return false;
+    }
+
+    engraving::Measure* target = startMeasure->isMMRest() ? startMeasure->mmRestFirst() : startMeasure;
+    if (!target) {
+        LOGW() << "toggleRepeatStart: invalid target measure";
+        return false;
+    }
+
+    for (size_t staffIdx = 0; staffIdx < score->nstaves(); ++staffIdx) {
+        if (target->isMeasureRepeatGroupWithPrevM(staffIdx)) {
+            LOGW() << "toggleRepeatStart: cannot split measure repeat group";
+            return false;
+        }
+    }
+
+    const bool nextState = !target->repeatStart();
+    score->startCmd();
+    target->undoChangeProperty(engraving::Pid::REPEAT_START, nextState);
+    score->endCmd();
+    return true;
+}
+
+bool _toggleRepeatEnd(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    engraving::Measure* startMeasure = nullptr;
+    engraving::Measure* endMeasure = nullptr;
+    if (!selectionMeasureRange(score, startMeasure, endMeasure) || !endMeasure) {
+        LOGW() << "toggleRepeatEnd: no measure selected";
+        return false;
+    }
+
+    engraving::Measure* target = endMeasure->isMMRest() ? endMeasure->mmRestLast() : endMeasure;
+    if (!target) {
+        LOGW() << "toggleRepeatEnd: invalid target measure";
+        return false;
+    }
+
+    for (size_t staffIdx = 0; staffIdx < score->nstaves(); ++staffIdx) {
+        if (target->isMeasureRepeatGroupWithNextM(staffIdx)) {
+            LOGW() << "toggleRepeatEnd: cannot split measure repeat group";
+            return false;
+        }
+    }
+
+    const bool nextState = !target->repeatEnd();
+    score->startCmd();
+    target->undoChangeProperty(engraving::Pid::REPEAT_END, nextState);
+    score->endCmd();
+    return true;
+}
+
+bool _setRepeatCount(uintptr_t score_ptr, int count, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    if (count < 2) {
+        LOGW() << "setRepeatCount: invalid repeat count " << count;
+        return false;
+    }
+
+    engraving::Measure* startMeasure = nullptr;
+    engraving::Measure* endMeasure = nullptr;
+    if (!selectionMeasureRange(score, startMeasure, endMeasure) || !endMeasure) {
+        LOGW() << "setRepeatCount: no measure selected";
+        return false;
+    }
+
+    engraving::Measure* target = endMeasure->isMMRest() ? endMeasure->mmRestLast() : endMeasure;
+    if (!target) {
+        LOGW() << "setRepeatCount: invalid target measure";
+        return false;
+    }
+
+    for (size_t staffIdx = 0; staffIdx < score->nstaves(); ++staffIdx) {
+        if (target->isMeasureRepeatGroupWithNextM(staffIdx)) {
+            LOGW() << "setRepeatCount: cannot split measure repeat group";
+            return false;
+        }
+    }
+
+    score->startCmd();
+    if (!target->repeatEnd()) {
+        target->undoChangeProperty(engraving::Pid::REPEAT_END, true);
+    }
+    target->undoChangeProperty(engraving::Pid::REPEAT_COUNT, count);
+    score->endCmd();
+    return true;
+}
+
+bool _setBarLineType(uintptr_t score_ptr, int barLineType, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    engraving::Measure* startMeasure = nullptr;
+    engraving::Measure* endMeasure = nullptr;
+    if (!selectionMeasureRange(score, startMeasure, endMeasure) || !endMeasure) {
+        LOGW() << "setBarLineType: no measure selected";
+        return false;
+    }
+
+    engraving::Measure* target = endMeasure->isMMRest() ? endMeasure->mmRestLast() : endMeasure;
+    if (!target) {
+        LOGW() << "setBarLineType: invalid target measure";
+        return false;
+    }
+
+    const auto type = static_cast<engraving::BarLineType>(barLineType);
+    switch (type) {
+    case engraving::BarLineType::NORMAL:
+    case engraving::BarLineType::DOUBLE:
+    case engraving::BarLineType::END:
+    case engraving::BarLineType::BROKEN:
+    case engraving::BarLineType::DOTTED:
+    case engraving::BarLineType::REVERSE_END:
+    case engraving::BarLineType::HEAVY:
+    case engraving::BarLineType::DOUBLE_HEAVY:
+        break;
+    default:
+        LOGW() << "setBarLineType: unsupported barline type " << barLineType;
+        return false;
+    }
+
+    score->startCmd();
+    engraving::BarLine* barLine = ensureEndBarLine(target);
+    if (!barLine) {
+        score->endCmd();
+        LOGW() << "setBarLineType: failed to locate or create barline";
+        return false;
+    }
+    barLine->undoChangeProperty(engraving::Pid::BARLINE_TYPE, engraving::PropertyValue::fromValue(type));
+    score->endCmd();
+    return true;
+}
+
+bool _addVolta(uintptr_t score_ptr, int endingNumber, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    if (endingNumber < 1) {
+        LOGW() << "addVolta: invalid ending number " << endingNumber;
+        return false;
+    }
+
+    engraving::Measure* startMeasure = nullptr;
+    engraving::Measure* endMeasure = nullptr;
+    if (!selectionMeasureRange(score, startMeasure, endMeasure) || !startMeasure) {
+        LOGW() << "addVolta: no measure selected";
+        return false;
+    }
+
+    engraving::Measure* start = startMeasure->isMMRest() ? startMeasure->mmRestFirst() : startMeasure;
+    engraving::Measure* end = endMeasure ? (endMeasure->isMMRest() ? endMeasure->mmRestLast() : endMeasure) : start;
+    if (!start || !end) {
+        LOGW() << "addVolta: invalid target range";
+        return false;
+    }
+
+    engraving::Segment* startSegment = start->first(engraving::SegmentType::ChordRest);
+    if (!startSegment) {
+        startSegment = start->first();
+    }
+    engraving::Segment* endSegment = end->last();
+    if (!startSegment || !endSegment) {
+        LOGW() << "addVolta: missing segment for range";
+        return false;
+    }
+
+    auto volta = engraving::Factory::createVolta(score->dummy());
+    if (!volta) {
+        LOGW() << "addVolta: Factory returned null";
+        return false;
+    }
+    volta->endings().clear();
+    volta->endings().push_back(endingNumber);
+    volta->setText(String(u"%1.").arg(endingNumber));
+
+    score->startCmd();
+    score->cmdAddSpanner(volta, 0, startSegment, endSegment);
     score->endCmd();
     return true;
 }
@@ -1782,6 +2041,31 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool addNoteFromRest(uintptr_t score_ptr, int excerptId = -1) {
         return _addNoteFromRest(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool toggleRepeatStart(uintptr_t score_ptr, int excerptId = -1) {
+        return _toggleRepeatStart(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool toggleRepeatEnd(uintptr_t score_ptr, int excerptId = -1) {
+        return _toggleRepeatEnd(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool setRepeatCount(uintptr_t score_ptr, int count, int excerptId = -1) {
+        return _setRepeatCount(score_ptr, count, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool setBarLineType(uintptr_t score_ptr, int barLineType, int excerptId = -1) {
+        return _setBarLineType(score_ptr, barLineType, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool addVolta(uintptr_t score_ptr, int endingNumber, int excerptId = -1) {
+        return _addVolta(score_ptr, endingNumber, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE

@@ -87,6 +87,11 @@ interface ToolbarProps {
     onAddTie?: () => void;
     onAddTuplet?: (tupletCount: number) => void;
     onAddNoteFromRest?: () => void;
+    onToggleRepeatStart?: () => void;
+    onToggleRepeatEnd?: () => void;
+    onSetRepeatCount?: (count: number) => void;
+    onSetBarLineType?: (barLineType: number) => void;
+    onAddVolta?: (endingNumber: number) => void;
     parts?: PartSummary[];
     instrumentGroups?: InstrumentTemplateGroup[];
     onAddPart?: (instrumentId: string) => void;
@@ -156,6 +161,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     onAddTie,
     onAddTuplet,
     onAddNoteFromRest,
+    onToggleRepeatStart,
+    onToggleRepeatEnd,
+    onSetRepeatCount,
+    onSetBarLineType,
+    onAddVolta,
     parts = [],
     instrumentGroups = [],
     onAddPart,
@@ -296,6 +306,28 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         { label: 'Sextuplet', count: 6 },
         { label: 'Septuplet', count: 7 },
         { label: 'Octuplet', count: 8 },
+    ];
+
+    const repeatCountOptions = [
+        { label: '2x', count: 2 },
+        { label: '3x', count: 3 },
+        { label: '4x', count: 4 },
+    ];
+
+    const barlineOptions = [
+        { label: 'Normal', value: 1 },         // BarLineType::NORMAL
+        { label: 'Double', value: 2 },         // BarLineType::DOUBLE
+        { label: 'Final', value: 32 },         // BarLineType::END
+        { label: 'Heavy', value: 512 },        // BarLineType::HEAVY
+        { label: 'Heavy-Heavy', value: 1024 }, // BarLineType::DOUBLE_HEAVY
+        { label: 'Dashed', value: 16 },        // BarLineType::BROKEN
+        { label: 'Dotted', value: 128 },       // BarLineType::DOTTED
+        { label: 'Reverse Final', value: 256 }, // BarLineType::REVERSE_END
+    ];
+
+    const voltaOptions = [
+        { label: '1st Ending', ending: 1 },
+        { label: '2nd Ending', ending: 2 },
     ];
 
     const resolveTimeSigHandler = (opt: { label: string; numerator: number; denominator: number }) => {
@@ -931,6 +963,71 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             </button>
                         ))}
                     </ToolbarDropdown>
+
+            <ToolbarDropdown
+                label="Repeats/Barlines"
+                disabled={mutationDisabled || !selectionActive}
+                testId="dropdown-repeats"
+            >
+                <div className={dropdownLabelClass}>Repeats</div>
+                <button
+                    data-testid="btn-repeat-start"
+                    type="button"
+                    onClick={onToggleRepeatStart}
+                    disabled={mutationDisabled || !selectionActive || !onToggleRepeatStart}
+                    className={dropdownItemClass}
+                >
+                    Start Repeat
+                </button>
+                <button
+                    data-testid="btn-repeat-end"
+                    type="button"
+                    onClick={onToggleRepeatEnd}
+                    disabled={mutationDisabled || !selectionActive || !onToggleRepeatEnd}
+                    className={dropdownItemClass}
+                >
+                    End Repeat
+                </button>
+                <div className={dropdownLabelClass}>Repeat Count</div>
+                {repeatCountOptions.map(opt => (
+                    <button
+                        key={opt.count}
+                        data-testid={`btn-repeat-count-${opt.count}`}
+                        type="button"
+                        onClick={() => onSetRepeatCount?.(opt.count)}
+                        disabled={mutationDisabled || !selectionActive || !onSetRepeatCount}
+                        className={dropdownItemClass}
+                    >
+                        {opt.label}
+                    </button>
+                ))}
+                <div className={dropdownLabelClass}>Barlines</div>
+                {barlineOptions.map(opt => (
+                    <button
+                        key={opt.value}
+                        data-testid={`btn-barline-${opt.value}`}
+                        type="button"
+                        onClick={() => onSetBarLineType?.(opt.value)}
+                        disabled={mutationDisabled || !selectionActive || !onSetBarLineType}
+                        className={dropdownItemClass}
+                    >
+                        {opt.label}
+                    </button>
+                ))}
+                <div className={dropdownLabelClass}>Voltas</div>
+                {voltaOptions.map(opt => (
+                    <button
+                        key={opt.ending}
+                        data-testid={`btn-volta-${opt.ending}`}
+                        type="button"
+                        onClick={() => onAddVolta?.(opt.ending)}
+                        disabled={mutationDisabled || !selectionActive || !onAddVolta}
+                        className={dropdownItemClass}
+                    >
+                        {opt.label}
+                    </button>
+                ))}
+            </ToolbarDropdown>
 
             <ToolbarDropdown
                 label="Rhythm/Voice"

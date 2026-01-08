@@ -594,6 +594,26 @@ class WebMscoreW {
         return this.rpc('addNoteFromRest')
     }
 
+    toggleRepeatStart() {
+        return this.rpc('toggleRepeatStart')
+    }
+
+    toggleRepeatEnd() {
+        return this.rpc('toggleRepeatEnd')
+    }
+
+    setRepeatCount(count) {
+        return this.rpc('setRepeatCount', [count])
+    }
+
+    setBarLineType(barLineType) {
+        return this.rpc('setBarLineType', [barLineType])
+    }
+
+    addVolta(endingNumber) {
+        return this.rpc('addVolta', [endingNumber])
+    }
+
     /**
      * Undo the last command.
      * @returns {Promise<boolean>}

@@ -897,6 +897,44 @@ class WebMscore {
     }
 
     /**
+     * Toggle a repeat start on the selected measure
+     */
+    async toggleRepeatStart() {
+        return Module.ccall('toggleRepeatStart', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
+    }
+
+    /**
+     * Toggle a repeat end on the selected measure
+     */
+    async toggleRepeatEnd() {
+        return Module.ccall('toggleRepeatEnd', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
+    }
+
+    /**
+     * Set the repeat count on the selected measure
+     * @param {number} count
+     */
+    async setRepeatCount(count) {
+        return Module.ccall('setRepeatCount', 'boolean', ['number', 'number', 'number'], [this.scoreptr, count, this.excerptId])
+    }
+
+    /**
+     * Set the end barline type on the selected measure
+     * @param {number} barLineType
+     */
+    async setBarLineType(barLineType) {
+        return Module.ccall('setBarLineType', 'boolean', ['number', 'number', 'number'], [this.scoreptr, barLineType, this.excerptId])
+    }
+
+    /**
+     * Add a volta ending at the selected measure or range
+     * @param {number} endingNumber
+     */
+    async addVolta(endingNumber) {
+        return Module.ccall('addVolta', 'boolean', ['number', 'number', 'number'], [this.scoreptr, endingNumber, this.excerptId])
+    }
+
+    /**
      * Set the time signature (global) at the start of the score
      * @param {number} numerator
      * @param {number} denominator

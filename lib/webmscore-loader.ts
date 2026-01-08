@@ -67,6 +67,11 @@ export interface Score {
     setPartVisible?: (partIndex: number, visible: boolean) => Promise<unknown> | unknown;
     listInstrumentTemplates?: () => Promise<unknown> | unknown;
     addNoteFromRest?: () => Promise<unknown> | unknown;
+    toggleRepeatStart?: () => Promise<unknown> | unknown;
+    toggleRepeatEnd?: () => Promise<unknown> | unknown;
+    setRepeatCount?: (count: number) => Promise<unknown> | unknown;
+    setBarLineType?: (barLineType: number) => Promise<unknown> | unknown;
+    addVolta?: (endingNumber: number) => Promise<unknown> | unknown;
 }
 
 export interface WebMscoreInstance {

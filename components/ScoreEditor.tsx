@@ -56,6 +56,11 @@ type MutationMethods = Pick<
     | 'relayout'
     | 'setTimeSignature'
     | 'setClef'
+    | 'toggleRepeatStart'
+    | 'toggleRepeatEnd'
+    | 'setRepeatCount'
+    | 'setBarLineType'
+    | 'addVolta'
 >;
 
 interface InstrumentTemplate {
@@ -777,6 +782,41 @@ export default function ScoreEditor() {
         const fn = requireMutation('addNoteFromRest');
         if (!fn) return;
         return fn.call(score);
+    });
+
+    const handleToggleRepeatStart = () => performMutation('toggle repeat start', async () => {
+        await ensureSelectionInWasm();
+        const fn = requireMutation('toggleRepeatStart');
+        if (!fn) return;
+        return fn.call(score);
+    });
+
+    const handleToggleRepeatEnd = () => performMutation('toggle repeat end', async () => {
+        await ensureSelectionInWasm();
+        const fn = requireMutation('toggleRepeatEnd');
+        if (!fn) return;
+        return fn.call(score);
+    });
+
+    const handleSetRepeatCount = (count: number) => performMutation(`set repeat count ${count}`, async () => {
+        await ensureSelectionInWasm();
+        const fn = requireMutation('setRepeatCount');
+        if (!fn) return;
+        return fn.call(score, count);
+    });
+
+    const handleSetBarLineType = (barLineType: number) => performMutation(`set barline type ${barLineType}`, async () => {
+        await ensureSelectionInWasm();
+        const fn = requireMutation('setBarLineType');
+        if (!fn) return;
+        return fn.call(score, barLineType);
+    });
+
+    const handleAddVolta = (endingNumber: number) => performMutation(`add volta ${endingNumber}`, async () => {
+        await ensureSelectionInWasm();
+        const fn = requireMutation('addVolta');
+        if (!fn) return;
+        return fn.call(score, endingNumber);
     });
 
     const handleSetTitleText = async () => {
@@ -1969,6 +2009,11 @@ export default function ScoreEditor() {
                 onAddTie={handleAddTie}
                 onAddTuplet={handleAddTuplet}
                 onAddNoteFromRest={handleAddNoteFromRest}
+                onToggleRepeatStart={handleToggleRepeatStart}
+                onToggleRepeatEnd={handleToggleRepeatEnd}
+                onSetRepeatCount={handleSetRepeatCount}
+                onSetBarLineType={handleSetBarLineType}
+                onAddVolta={handleAddVolta}
                 parts={scoreParts}
                 instrumentGroups={instrumentGroups}
                 onAddPart={handleAddPart}
