@@ -21,6 +21,9 @@ type MutationMethods = Pick<
     | 'selectElementAtPoint'
     | 'selectElementAtPointWithMode'
     | 'clearSelection'
+    | 'selectionMimeType'
+    | 'selectionMimeData'
+    | 'pasteSelection'
     | 'deleteSelection'
     | 'pitchUp'
     | 'pitchDown'
@@ -130,6 +133,7 @@ export default function ScoreEditor() {
     const audioCtxRef = useRef<AudioContext | null>(null);
     const audioSourcesRef = useRef<AudioBufferSourceNode[]>([]);
     const streamIteratorRef = useRef<((cancel?: boolean) => Promise<any>) | null>(null);
+    const clipboardRef = useRef<{ mimeType: string; data: Uint8Array } | null>(null);
 
     const exposeScoreToWindow = (s: Score | null) => {
         // Handy for Playwright/debug sessions to poke at WASM bindings directly
@@ -844,6 +848,109 @@ export default function ScoreEditor() {
         }, { skipWasmReselect: true });
         await refreshScoreMetadata(score);
     };
+
+    const handleCopySelection = async () => {
+        if (!score) {
+            return false;
+        }
+        await ensureSelectionInWasm();
+        const getType = requireMutation('selectionMimeType');
+        const getData = requireMutation('selectionMimeData');
+        if (!getType || !getData) {
+            return false;
+        }
+        const mimeType = await getType.call(score);
+        if (!mimeType) {
+            return false;
+        }
+        const data = await getData.call(score);
+        if (!data || data.length === 0) {
+            return false;
+        }
+        clipboardRef.current = { mimeType, data: data instanceof Uint8Array ? data : new Uint8Array(data) };
+        return true;
+    };
+
+    const handlePasteSelection = () => performMutation('paste selection', async () => {
+        const clip = clipboardRef.current;
+        if (!clip) {
+            alert('Nothing copied yet.');
+            return false;
+        }
+        await ensureSelectionInWasm();
+        const fn = requireMutation('pasteSelection');
+        if (!fn) return;
+        return fn.call(score, clip.mimeType, clip.data);
+    }, { skipWasmReselect: true });
+
+    const isEditableTarget = (target: EventTarget | null) => {
+        if (!(target instanceof HTMLElement)) {
+            return false;
+        }
+        const tagName = target.tagName.toLowerCase();
+        return target.isContentEditable || tagName === 'input' || tagName === 'textarea' || tagName === 'select';
+    };
+
+    useEffect(() => {
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.defaultPrevented || !score) {
+                return;
+            }
+            if (isEditableTarget(event.target)) {
+                return;
+            }
+
+            const key = event.key.toLowerCase();
+            const isMod = event.ctrlKey || event.metaKey;
+
+            if (isMod) {
+                if (key === 'z') {
+                    event.preventDefault();
+                    if (event.shiftKey) {
+                        handleRedo();
+                    } else {
+                        handleUndo();
+                    }
+                    return;
+                }
+                if (key === 'y') {
+                    event.preventDefault();
+                    handleRedo();
+                    return;
+                }
+                if (key === 'c') {
+                    event.preventDefault();
+                    handleCopySelection();
+                    return;
+                }
+                if (key === 'v') {
+                    event.preventDefault();
+                    handlePasteSelection();
+                    return;
+                }
+            }
+
+            if (key === 'delete' || key === 'backspace') {
+                if (mutationEnabled && (selectedElement || selectionBoxes.length > 0)) {
+                    event.preventDefault();
+                    handleDeleteSelection();
+                }
+            }
+        };
+
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [
+        score,
+        mutationEnabled,
+        selectedElement,
+        selectionBoxes.length,
+        handleUndo,
+        handleRedo,
+        handleDeleteSelection,
+        handleCopySelection,
+        handlePasteSelection,
+    ]);
 
     const handleSetTimeSignature = async (num: number, den: number) => {
         if (!score || !score.setTimeSignature) return;

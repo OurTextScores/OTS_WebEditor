@@ -437,6 +437,32 @@ class WebMscoreW {
     }
 
     /**
+     * Get the selection MIME type for copy/paste.
+     * @returns {Promise<string>}
+     */
+    selectionMimeType() {
+        return this.rpc('selectionMimeType')
+    }
+
+    /**
+     * Get the selection MIME data for copy/paste.
+     * @returns {Promise<Uint8Array>}
+     */
+    selectionMimeData() {
+        return this.rpc('selectionMimeData')
+    }
+
+    /**
+     * Paste selection data at the current selection.
+     * @param {string} mimeType
+     * @param {Uint8Array} data
+     * @returns {Promise<boolean>}
+     */
+    pasteSelection(mimeType, data) {
+        return this.rpc('pasteSelection', [mimeType, data])
+    }
+
+    /**
      * Select element at point with mode.
      * @param {number} pageNumber
      * @param {number} x

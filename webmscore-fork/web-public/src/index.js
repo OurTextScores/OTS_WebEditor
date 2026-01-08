@@ -657,6 +657,42 @@ class WebMscore {
     }
 
     /**
+     * Get the selection MIME type for copy/paste.
+     * @returns {Promise<string>}
+     */
+    async selectionMimeType() {
+        const dataptr = Module.ccall('selectionMimeType', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])
+        return WasmRes.readText(dataptr)
+    }
+
+    /**
+     * Get the selection MIME data for copy/paste.
+     * @returns {Promise<Uint8Array>}
+     */
+    async selectionMimeData() {
+        const dataptr = Module.ccall('selectionMimeData', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])
+        return WasmRes.readData(dataptr)
+    }
+
+    /**
+     * Paste selection data at the current selection.
+     * @param {string} mimeType
+     * @param {Uint8Array} data
+     * @returns {Promise<boolean>}
+     */
+    async pasteSelection(mimeType, data) {
+        const mimePtr = getStrPtr(mimeType)
+        const dataPtr = getTypedArrayPtr(data)
+        const result = Module.ccall('pasteSelection', 'boolean',
+            ['number', 'number', 'number', 'number', 'number'],
+            [this.scoreptr, mimePtr, dataPtr, data.byteLength, this.excerptId]
+        )
+        freePtr(mimePtr)
+        freePtr(dataPtr)
+        return result
+    }
+
+    /**
      * Select the topmost selectable element near a page-relative point with mode
      * @param {number} pageNumber zero-based page index
      * @param {number} x

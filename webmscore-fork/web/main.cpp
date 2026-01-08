@@ -59,6 +59,7 @@
 #include "engraving/libmscore/key.h"
 #include "engraving/libmscore/types.h"
 #include "engraving/libmscore/navigate.h"
+#include "engraving/infrastructure/imimedata.h"
 #include "engraving/types/symnames.h"
 #include "engraving/types/types.h"
 
@@ -71,6 +72,42 @@ using project::INotationWriter;
 
 std::set<engraving::EngravingProjectPtr> instances;
 static auto s_globalContext = std::make_shared<context::GlobalContext>();
+
+namespace {
+class SimpleMimeData final : public engraving::IMimeData {
+public:
+    SimpleMimeData(std::string mimeType, ByteArray data)
+        : m_mimeType(std::move(mimeType))
+        , m_data(std::move(data)) {}
+
+    std::vector<std::string> formats() const override {
+        return { m_mimeType };
+    }
+
+    bool hasFormat(const std::string& mimeType) const override {
+        return mimeType == m_mimeType;
+    }
+
+    ByteArray data(const std::string& mimeType) const override {
+        if (mimeType != m_mimeType) {
+            return ByteArray();
+        }
+        return m_data;
+    }
+
+    bool hasImage() const override {
+        return false;
+    }
+
+    std::shared_ptr<draw::Pixmap> imageData() const override {
+        return nullptr;
+    }
+
+private:
+    std::string m_mimeType;
+    ByteArray m_data;
+};
+}
 
 /**
  * MSCZ/MSCX file format version
@@ -862,6 +899,34 @@ bool _clearSelection(uintptr_t score_ptr, int excerptId)
     score->deselectAll();
     score->updateSelection();
     score->setSelectionChanged(true);
+    return true;
+}
+
+WasmRes _selectionMimeType(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    return WasmRes(score->selection().mimeType());
+}
+
+WasmRes _selectionMimeData(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    return WasmRes(score->selection().mimeData());
+}
+
+bool _pasteSelection(uintptr_t score_ptr, const char* mimeType, const char* data, uint32_t size, int excerptId)
+{
+    if (!mimeType || !data || size == 0) {
+        return false;
+    }
+
+    MainScore score(score_ptr, excerptId);
+    const ByteArray payload(data, size);
+    SimpleMimeData mime(std::string(mimeType), payload);
+
+    score->startCmd();
+    score->cmdPaste(&mime, nullptr);
+    score->endCmd();
     return true;
 }
 
@@ -1724,6 +1789,21 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool clearSelection(uintptr_t score_ptr, int excerptId = -1) {
         return _clearSelection(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    WasmResBytes selectionMimeType(uintptr_t score_ptr, int excerptId = -1) {
+        return _selectionMimeType(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    WasmResBytes selectionMimeData(uintptr_t score_ptr, int excerptId = -1) {
+        return _selectionMimeData(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool pasteSelection(uintptr_t score_ptr, const char* mimeType, const char* data, uint32_t size, int excerptId = -1) {
+        return _pasteSelection(score_ptr, mimeType, data, size, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE

@@ -28,6 +28,9 @@ export interface Score {
         mode: 0 | 1 | 2,
     ) => Promise<unknown> | unknown;
     clearSelection?: () => Promise<unknown> | unknown;
+    selectionMimeType?: () => Promise<string> | string;
+    selectionMimeData?: () => Promise<Uint8Array> | Uint8Array;
+    pasteSelection?: (mimeType: string, data: Uint8Array) => Promise<unknown> | unknown;
     deleteSelection?: () => Promise<unknown> | unknown;
     pitchUp?: () => Promise<unknown> | unknown;
     pitchDown?: () => Promise<unknown> | unknown;
