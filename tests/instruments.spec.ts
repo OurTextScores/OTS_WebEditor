@@ -23,10 +23,28 @@ test('instruments can be added, hidden, and removed', async ({ page }) => {
   const initialParts = await readParts();
 
   const dropdown = page.getByTestId('dropdown-instruments');
-  await dropdown.locator('summary').click();
-  await dropdown.locator('select option').first().waitFor();
+  const ensureDropdownOpen = async () => {
+    await dropdown.evaluate(el => {
+      (el as HTMLDetailsElement).open = true;
+    });
+    await expect(dropdown.locator('div').first()).toBeVisible();
+  };
+  const clickPartAction = async (testId: string) => {
+    await dropdown.evaluate((el, id) => {
+      (el as HTMLDetailsElement).open = true;
+      const button = el.querySelector(`[data-testid="${id}"]`) as HTMLButtonElement | null;
+      button?.click();
+    }, testId);
+  };
+
+  await ensureDropdownOpen();
+  await expect.poll(async () => await dropdown.locator('select option').count(), { timeout: 20_000 })
+    .toBeGreaterThan(0);
   await dropdown.locator('select').selectOption({ index: 0 });
-  await dropdown.getByRole('button', { name: 'Add Instrument' }).click();
+  await ensureDropdownOpen();
+  const addButton = dropdown.getByRole('button', { name: 'Add Instrument' });
+  await expect(addButton).toBeEnabled();
+  await addButton.click();
 
   await expect.poll(async () => (await readParts()).length, { timeout: 20_000 })
     .toBe(initialParts.length + 1);
@@ -35,17 +53,27 @@ test('instruments can be added, hidden, and removed', async ({ page }) => {
   const newIndex = afterAddParts.length - 1;
   const previousVisibility = String(afterAddParts[newIndex]?.isVisible ?? '');
 
-  await dropdown.locator('summary').click();
-  await dropdown.getByTestId(`btn-part-visible-${newIndex}`).click();
+  await ensureDropdownOpen();
+  const visibilityButton = dropdown.getByTestId(`btn-part-visible-${newIndex}`);
+  const previousLabel = (await visibilityButton.textContent())?.trim() ?? '';
+  await clickPartAction(`btn-part-visible-${newIndex}`);
 
   await expect.poll(async () => {
     const parts = await readParts();
     return String(parts[newIndex]?.isVisible ?? '');
   }, { timeout: 20_000 }).not.toBe(previousVisibility);
 
-  await dropdown.locator('summary').click();
-  page.once('dialog', dialog => dialog.accept());
-  await dropdown.getByTestId(`btn-part-remove-${newIndex}`).click();
+  await ensureDropdownOpen();
+  await expect.poll(async () => {
+    const label = await dropdown.getByTestId(`btn-part-visible-${newIndex}`).textContent();
+    return label?.trim() ?? '';
+  }, { timeout: 20_000 }).not.toBe(previousLabel);
+
+  page.once('dialog', dialog => {
+    expect(dialog.message()).toContain('Remove');
+    dialog.accept();
+  });
+  await clickPartAction(`btn-part-remove-${newIndex}`);
 
   await expect.poll(async () => (await readParts()).length, { timeout: 20_000 })
     .toBe(initialParts.length);

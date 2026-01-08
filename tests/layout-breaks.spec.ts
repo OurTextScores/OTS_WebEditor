@@ -32,11 +32,23 @@ test('new line/page buttons toggle layout breaks on selection', async ({ page })
 
   await expect
     .poll(async () => countSubtype(await readMscx(), 'line'), { timeout: 20_000 })
-    .toBeGreaterThan(lineBefore);
+    .toBe(lineBefore + 1);
+
+  await page.getByTestId('btn-new-line').click();
+
+  await expect
+    .poll(async () => countSubtype(await readMscx(), 'line'), { timeout: 20_000 })
+    .toBe(lineBefore);
 
   await page.getByTestId('btn-new-page').click();
 
   await expect
     .poll(async () => countSubtype(await readMscx(), 'page'), { timeout: 20_000 })
-    .toBeGreaterThan(pageBefore);
+    .toBe(pageBefore + 1);
+
+  await page.getByTestId('btn-new-page').click();
+
+  await expect
+    .poll(async () => countSubtype(await readMscx(), 'page'), { timeout: 20_000 })
+    .toBe(pageBefore);
 });

@@ -25,3 +25,29 @@ test('toolbar dropdown renders above the score', async ({ page }) => {
 
   expect(menuOnTop).toBe(true);
 });
+
+test('dropdowns open/close and break buttons show disabled tooltips', async ({ page }) => {
+  await page.goto('/?score=/test_scores/single_note_c4.musicxml');
+  await page.waitForSelector('svg .Note', { timeout: 60_000 });
+
+  const tooltipText = 'Select a note or rest to split the bar.';
+  const newLineButton = page.getByTestId('btn-new-line');
+  const newPageButton = page.getByTestId('btn-new-page');
+
+  await expect(newLineButton).toBeDisabled();
+  await expect(newLineButton.locator('..')).toHaveAttribute('title', tooltipText);
+  await expect(newPageButton.locator('..')).toHaveAttribute('title', tooltipText);
+
+  await page.locator('svg .Note').first().click();
+  await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
+
+  await expect(newLineButton).toBeEnabled();
+  await expect(newLineButton.locator('..')).not.toHaveAttribute('title', tooltipText);
+
+  const dropdown = page.getByTestId('dropdown-accidental');
+  await dropdown.locator('summary').click();
+  await expect(dropdown).toHaveAttribute('open', '');
+
+  await dropdown.getByTestId('btn-acc-3').click();
+  await expect(dropdown).not.toHaveAttribute('open', '');
+});
