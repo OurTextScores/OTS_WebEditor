@@ -161,6 +161,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     onTogglePartVisible
 }) => {
     const [selectedInstrumentId, setSelectedInstrumentId] = useState('');
+    const [customTimeSigNumerator, setCustomTimeSigNumerator] = useState('4');
+    const [customTimeSigDenominator, setCustomTimeSigDenominator] = useState('4');
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
@@ -309,7 +311,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     const dropdownMenuClass =
         'absolute mt-2 w-56 bg-white border border-gray-200 rounded shadow-lg p-2 flex flex-col gap-1';
     const dropdownItemClass =
-        'px-3 py-1 text-left rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed';
+        'dropdown-item px-3 py-1 text-left rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed';
     const dropdownTextClass = 'px-3 py-1 text-sm text-gray-700';
     const dropdownLabelClass = 'text-xs uppercase tracking-wide text-gray-500 px-2 py-1';
     const instrumentOptions = instrumentGroups.flatMap(group =>
@@ -325,6 +327,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     const canAddInstrument = !mutationDisabled && Boolean(onAddPart) && hasInstrumentTemplates;
     const canToggleVisibility = !mutationDisabled && Boolean(onTogglePartVisible);
     const canRemovePart = !mutationDisabled && Boolean(onRemovePart);
+    const canSetCustomTimeSig = !mutationDisabled && Boolean(onSetTimeSignature);
+    const parsedCustomNumerator = Number.parseInt(customTimeSigNumerator, 10);
+    const parsedCustomDenominator = Number.parseInt(customTimeSigDenominator, 10);
+    const customTimeSigValid = Number.isInteger(parsedCustomNumerator)
+        && Number.isInteger(parsedCustomDenominator)
+        && parsedCustomNumerator > 0
+        && parsedCustomDenominator > 0;
 
     const ToolbarDropdown: React.FC<{
         label: string;
@@ -344,11 +353,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     style={{ zIndex: 110 }}
                     onClick={(event) => {
                         const target = event.target as HTMLElement | null;
-                        if (target?.closest('button')) {
-                            const details = target.closest('details');
-                            if (details) {
-                                details.removeAttribute('open');
-                            }
+                        const closeTrigger = target?.closest('.dropdown-item, [data-dropdown-close="true"]');
+                        if (!closeTrigger) {
+                            return;
+                        }
+                        const details = event.currentTarget.closest('details');
+                        if (details) {
+                            details.removeAttribute('open');
                         }
                     }}
                 >
@@ -813,7 +824,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 </ToolbarDropdown>
 
 		            <ToolbarDropdown
-                        label="Signature"
+                        label="Time Signature"
                         disabled={mutationDisabled}
                         testId="dropdown-signature"
                     >
@@ -833,6 +844,42 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             );
                         })}
                     </ToolbarDropdown>
+
+                    <div className="flex items-center gap-2 text-sm">
+                        <span className="text-gray-600">Custom Time:</span>
+                        <input
+                            data-testid="input-timesig-numerator"
+                            type="number"
+                            min={1}
+                            value={customTimeSigNumerator}
+                            onChange={(event) => setCustomTimeSigNumerator(event.target.value)}
+                            disabled={!canSetCustomTimeSig}
+                            className="w-16 px-2 py-1 border border-gray-300 rounded bg-white text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
+                        <span className="text-gray-500">/</span>
+                        <input
+                            data-testid="input-timesig-denominator"
+                            type="number"
+                            min={1}
+                            value={customTimeSigDenominator}
+                            onChange={(event) => setCustomTimeSigDenominator(event.target.value)}
+                            disabled={!canSetCustomTimeSig}
+                            className="w-16 px-2 py-1 border border-gray-300 rounded bg-white text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
+                        <button
+                            data-testid="btn-timesig-custom"
+                            type="button"
+                            onClick={() => {
+                                if (onSetTimeSignature && customTimeSigValid) {
+                                    onSetTimeSignature(parsedCustomNumerator, parsedCustomDenominator);
+                                }
+                            }}
+                            disabled={!canSetCustomTimeSig || !customTimeSigValid}
+                            className="px-2 py-1 text-sm border border-gray-300 rounded bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Apply
+                        </button>
+                    </div>
 
 		            <ToolbarDropdown
                         label="Key"
@@ -1013,6 +1060,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 <div className={dropdownTextClass}>Delete: Delete / Backspace</div>
                 <div className={dropdownTextClass}>Undo: Ctrl/Cmd + Z</div>
                 <div className={dropdownTextClass}>Redo: Ctrl + Y, Cmd + Shift + Z</div>
+                <div className={dropdownTextClass}>Pitch: Arrow Up/Down</div>
+                <div className={dropdownTextClass}>Octave: Ctrl/Cmd + Arrow Up/Down</div>
                 <div className={dropdownTextClass}>Copy: Ctrl/Cmd + C</div>
                 <div className={dropdownTextClass}>Paste: Ctrl/Cmd + V</div>
             </ToolbarDropdown>

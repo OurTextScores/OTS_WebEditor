@@ -62,5 +62,6 @@ test('shortcuts dropdown lists hotkeys', async ({ page }) => {
   await expect(dropdown).toContainText('Delete / Backspace');
   await expect(dropdown).toContainText('Ctrl/Cmd + Z');
   await expect(dropdown).toContainText('Cmd + Shift + Z');
+  await expect(dropdown).toContainText('Arrow Up/Down');
   await expect(dropdown).toContainText('Ctrl/Cmd + V');
 });
