@@ -172,6 +172,14 @@ class WebMscoreW {
     }
 
     /**
+     * Get the score subtitle
+     * @returns {Promise<string>}
+     */
+    subtitle() {
+        return this.rpc('subtitle')
+    }
+
+    /**
      * Get the score title (filename safe, replaced some characters)
      * @returns {Promise<string>}
      */
@@ -186,6 +194,15 @@ class WebMscoreW {
      */
     setTitleText(text) {
         return this.rpc('setTitleText', [text])
+    }
+
+    /**
+     * Set the score subtitle in the first title frame (VBox)
+     * @param {string} text
+     * @returns {Promise<boolean>}
+     */
+    setSubtitleText(text) {
+        return this.rpc('setSubtitleText', [text])
     }
 
     /**
@@ -496,6 +513,14 @@ class WebMscoreW {
 
     toggleDoubleDot() {
         return this.rpc('toggleDoubleDot')
+    }
+
+    toggleLineBreak() {
+        return this.rpc('toggleLineBreak')
+    }
+
+    togglePageBreak() {
+        return this.rpc('togglePageBreak')
     }
 
     setVoice(voiceIndex) {

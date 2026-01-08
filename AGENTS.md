@@ -215,5 +215,14 @@ Optional direct make (advanced)
 Clean rebuild (avoid unless needed)  
 - From `webmscore-fork/web-public`: `npm run build` (runs `make clean` and removes artifacts).
 
+## TODO: Unexposed webmscore APIs (engine -> app surface)
+
+- Static engine controls: `version`, `setLogLevel`, `addFont`.
+- Excerpt controls: `setExcerptId`, `getExcerptId`, `generateExcerpts`.
+- Title helpers: `title`, `titleFilenameSafe`.
+- Pagination + raw data: `npages`, `savePositions`, `saveMetadata`.
+- MusicXML export (uncompressed): `saveXml`.
+- Streaming audio surface: `synthAudio`, `synthAudioBatch`, `processSynth`, `processSynthBatch`.
+
 Feedback requested  
 - What should we prioritize next: selection model/hit-testing, note-entry UX, instrument management polish, or something else?

@@ -37,6 +37,8 @@ export interface Score {
     halfDuration?: () => Promise<unknown> | unknown;
     toggleDot?: () => Promise<unknown> | unknown;
     toggleDoubleDot?: () => Promise<unknown> | unknown;
+    toggleLineBreak?: () => Promise<unknown> | unknown;
+    togglePageBreak?: () => Promise<unknown> | unknown;
     setVoice?: (voiceIndex: number) => Promise<unknown> | unknown;
     undo?: () => Promise<unknown> | unknown;
     redo?: () => Promise<unknown> | unknown;
@@ -52,6 +54,8 @@ export interface Score {
     addSlur?: () => Promise<unknown> | unknown;
     addTie?: () => Promise<unknown> | unknown;
     setTitleText?: (text: string) => Promise<unknown> | unknown;
+    subtitle?: () => Promise<string> | string;
+    setSubtitleText?: (text: string) => Promise<unknown> | unknown;
     setComposerText?: (text: string) => Promise<unknown> | unknown;
     appendPart?: (instrumentId: string) => Promise<unknown> | unknown;
     appendPartByMusicXmlId?: (instrumentMusicXmlId: string) => Promise<unknown> | unknown;

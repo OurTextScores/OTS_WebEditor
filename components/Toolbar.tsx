@@ -28,10 +28,13 @@ interface PartSummary {
 interface ToolbarProps {
     onFileUpload: (file: File) => void;
     scoreTitle?: string;
+    scoreSubtitle?: string;
     scoreComposer?: string;
     onScoreTitleChange?: (title: string) => void;
+    onScoreSubtitleChange?: (subtitle: string) => void;
     onScoreComposerChange?: (composer: string) => void;
     onSetTitleText?: () => void;
+    onSetSubtitleText?: () => void;
     onSetComposerText?: () => void;
     headerTextAvailable?: boolean;
     onZoomIn: () => void;
@@ -71,9 +74,11 @@ interface ToolbarProps {
 	keySignatureOptions?: { label: string; fifths: number }[];
 	onSetClef?: (clefType: number) => void;
 	clefOptions?: { label: string; value: number }[];
-	onToggleDot?: () => void;
-	onToggleDoubleDot?: () => void;
-	onSetVoice?: (voiceIndex: number) => void;
+    onToggleDot?: () => void;
+    onToggleDoubleDot?: () => void;
+    onToggleLineBreak?: () => void;
+    onTogglePageBreak?: () => void;
+    onSetVoice?: (voiceIndex: number) => void;
     onAddDynamic?: (dynamicType: number) => void;
     onAddRehearsalMark?: () => void;
     onAddTempoText?: (bpm: number) => void;
@@ -91,10 +96,13 @@ interface ToolbarProps {
 export const Toolbar: React.FC<ToolbarProps> = ({
     onFileUpload,
     scoreTitle,
+    scoreSubtitle,
     scoreComposer,
     onScoreTitleChange,
+    onScoreSubtitleChange,
     onScoreComposerChange,
     onSetTitleText,
+    onSetSubtitleText,
     onSetComposerText,
     headerTextAvailable = false,
     onZoomIn,
@@ -134,9 +142,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 	keySignatureOptions,
 	onSetClef,
 	clefOptions,
-	onToggleDot,
+    onToggleDot,
     onToggleDoubleDot,
-	onSetVoice,
+    onToggleLineBreak,
+    onTogglePageBreak,
+    onSetVoice,
     onAddDynamic,
     onAddRehearsalMark,
     onAddTempoText,
@@ -400,6 +410,30 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             Set Title
                         </button>
                         <input
+                            data-testid="input-subtitle"
+                            type="text"
+                            value={scoreSubtitle ?? ''}
+                            onChange={(e) => onScoreSubtitleChange?.(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && onSetSubtitleText && !headerTextDisabled) {
+                                    e.preventDefault();
+                                    onSetSubtitleText();
+                                }
+                            }}
+                            placeholder="Subtitle"
+                            disabled={headerTextDisabled || !onScoreSubtitleChange}
+                            className="px-2 py-1 bg-white border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
+                        <button
+                            data-testid="btn-set-subtitle"
+                            type="button"
+                            onClick={onSetSubtitleText}
+                            disabled={headerTextDisabled || !onSetSubtitleText}
+                            className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Set Subtitle
+                        </button>
+                        <input
                             data-testid="input-composer"
                             type="text"
                             value={scoreComposer ?? ''}
@@ -427,12 +461,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 	            </div>
 
 	            <div className="flex items-center flex-wrap gap-2 text-sm">
-	                <div className="flex items-center space-x-2">
-	                    <button
-	                        data-testid="btn-delete"
-	                        type="button"
-	                        onClick={onDeleteSelection}
-	                        disabled={mutationDisabled || !onDeleteSelection || !selectionActive}
+                <div className="flex items-center space-x-2">
+                    <button
+                        data-testid="btn-delete"
+                        type="button"
+                        onClick={onDeleteSelection}
+                        disabled={mutationDisabled || !onDeleteSelection || !selectionActive}
 	                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
 	                    >
 	                        Delete
@@ -452,10 +486,31 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 	                        onClick={onRedo}
 	                        disabled={mutationDisabled || !onRedo}
 	                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-	                    >
-	                        Redo
-	                    </button>
-	                </div>
+                    >
+                        Redo
+                    </button>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                    <button
+                        data-testid="btn-new-line"
+                        type="button"
+                        onClick={onToggleLineBreak}
+                        disabled={mutationDisabled || !selectionActive || !onToggleLineBreak}
+                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        New Line
+                    </button>
+                    <button
+                        data-testid="btn-new-page"
+                        type="button"
+                        onClick={onTogglePageBreak}
+                        disabled={mutationDisabled || !selectionActive || !onTogglePageBreak}
+                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        New Page
+                    </button>
+                </div>
 
                 <div className="flex items-center space-x-2">
 	                    <button

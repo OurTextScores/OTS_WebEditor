@@ -228,6 +228,15 @@ class WebMscore {
     }
 
     /**
+     * Get the score subtitle
+     * @returns {Promise<string>}
+     */
+    async subtitle() {
+        const dataptr = Module.ccall('subtitle', 'number', ['number'], [this.scoreptr])
+        return WasmRes.readText(dataptr)
+    }
+
+    /**
      * Get the score title (filename safe, replaced some characters)
      */
     async titleFilenameSafe() {
@@ -244,6 +253,20 @@ class WebMscore {
         const strptr = getStrPtr(text == null ? '' : String(text))
         try {
             return Module.ccall('setTitleText', 'boolean', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    /**
+     * Set the score subtitle in the first title frame (VBox)
+     * @param {string} text
+     * @returns {Promise<boolean>}
+     */
+    async setSubtitleText(text) {
+        const strptr = getStrPtr(text == null ? '' : String(text))
+        try {
+            return Module.ccall('setSubtitleText', 'boolean', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
         } finally {
             freePtr(strptr)
         }
@@ -716,6 +739,20 @@ class WebMscore {
      */
     async toggleDoubleDot() {
         return Module.ccall('toggleDoubleDot', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
+    }
+
+    /**
+     * Toggle a line break on the selected measure
+     */
+    async toggleLineBreak() {
+        return Module.ccall('toggleLineBreak', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
+    }
+
+    /**
+     * Toggle a page break on the selected measure
+     */
+    async togglePageBreak() {
+        return Module.ccall('togglePageBreak', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
     }
 
     /**

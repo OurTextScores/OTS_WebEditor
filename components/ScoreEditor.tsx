@@ -30,6 +30,8 @@ type MutationMethods = Pick<
     | 'halfDuration'
     | 'toggleDot'
     | 'toggleDoubleDot'
+    | 'toggleLineBreak'
+    | 'togglePageBreak'
     | 'setVoice'
     | 'addDynamic'
     | 'addRehearsalMark'
@@ -38,6 +40,7 @@ type MutationMethods = Pick<
     | 'addSlur'
     | 'addTie'
     | 'setTitleText'
+    | 'setSubtitleText'
     | 'setComposerText'
     | 'appendPart'
     | 'appendPartByMusicXmlId'
@@ -116,6 +119,7 @@ export default function ScoreEditor() {
     const [soundFontLoaded, setSoundFontLoaded] = useState(false);
     const [triedSoundFont, setTriedSoundFont] = useState(false);
     const [scoreTitle, setScoreTitle] = useState('');
+    const [scoreSubtitle, setScoreSubtitle] = useState('');
     const [scoreComposer, setScoreComposer] = useState('');
     const [scoreParts, setScoreParts] = useState<PartSummary[]>([]);
     const [instrumentGroups, setInstrumentGroups] = useState<InstrumentTemplateGroup[]>([]);
@@ -173,6 +177,7 @@ export default function ScoreEditor() {
         setSoundFontLoaded(false);
         setTriedSoundFont(false);
         setScoreTitle('');
+        setScoreSubtitle('');
         setScoreComposer('');
         setScoreParts([]);
         setInstrumentGroups([]);
@@ -231,6 +236,7 @@ export default function ScoreEditor() {
         setSoundFontLoaded(false);
         setTriedSoundFont(false);
         setScoreTitle('');
+        setScoreSubtitle('');
         setScoreComposer('');
         setScoreParts([]);
         setInstrumentGroups([]);
@@ -290,6 +296,7 @@ export default function ScoreEditor() {
         try {
             const metadata = await currentScore.metadata();
             setScoreTitle(typeof metadata.title === 'string' ? metadata.title : '');
+            setScoreSubtitle(typeof (metadata as any).subtitle === 'string' ? (metadata as any).subtitle : '');
             setScoreComposer(typeof metadata.composer === 'string' ? metadata.composer : '');
             const parts = Array.isArray((metadata as any).parts) ? (metadata as any).parts : [];
             const nextParts = parts.map((part: any, index: number) => ({
@@ -302,6 +309,7 @@ export default function ScoreEditor() {
             setScoreParts(nextParts);
         } catch (err) {
             console.warn('Failed to read score metadata', err);
+            setScoreSubtitle('');
             setScoreParts([]);
         }
     };
@@ -687,6 +695,20 @@ export default function ScoreEditor() {
         return fn.call(score);
     });
 
+    const handleToggleLineBreak = () => performMutation('toggle line break', async () => {
+        await ensureSelectionInWasm();
+        const fn = requireMutation('toggleLineBreak');
+        if (!fn) return;
+        return fn.call(score);
+    }, { skipWasmReselect: true });
+
+    const handleTogglePageBreak = () => performMutation('toggle page break', async () => {
+        await ensureSelectionInWasm();
+        const fn = requireMutation('togglePageBreak');
+        if (!fn) return;
+        return fn.call(score);
+    }, { skipWasmReselect: true });
+
     const handleSetVoice = (voiceIndex: number) => performMutation(`set voice ${voiceIndex + 1}`, async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('setVoice');
@@ -754,6 +776,19 @@ export default function ScoreEditor() {
             const fn = requireMutation('setTitleText');
             if (!fn) return;
             return fn.call(score, scoreTitle);
+        }, { skipWasmReselect: true });
+        await refreshScoreMetadata(score);
+    };
+
+    const handleSetSubtitleText = async () => {
+        if (!score) {
+            return;
+        }
+
+        await performMutation('set subtitle', async () => {
+            const fn = requireMutation('setSubtitleText');
+            if (!fn) return;
+            return fn.call(score, scoreSubtitle);
         }, { skipWasmReselect: true });
         await refreshScoreMetadata(score);
     };
@@ -1744,10 +1779,13 @@ export default function ScoreEditor() {
 	                onFileUpload={handleFileUpload}
                     onSoundFontUpload={handleSoundFontUpload}
                     scoreTitle={scoreTitle}
+                    scoreSubtitle={scoreSubtitle}
                     scoreComposer={scoreComposer}
                     onScoreTitleChange={setScoreTitle}
+                    onScoreSubtitleChange={setScoreSubtitle}
                     onScoreComposerChange={setScoreComposer}
                     onSetTitleText={handleSetTitleText}
+                    onSetSubtitleText={handleSetSubtitleText}
                     onSetComposerText={handleSetComposerText}
                     headerTextAvailable={Boolean(score?.setTitleText && score?.setComposerText)}
 	                onZoomIn={handleZoomIn}
@@ -1783,6 +1821,8 @@ export default function ScoreEditor() {
                 onSetClef={handleSetClef}
                 onToggleDot={handleToggleDot}
                 onToggleDoubleDot={handleToggleDoubleDot}
+                onToggleLineBreak={handleToggleLineBreak}
+                onTogglePageBreak={handleTogglePageBreak}
                 onSetVoice={handleSetVoice}
                 onAddDynamic={handleAddDynamic}
                 onAddRehearsalMark={handleAddRehearsalMark}

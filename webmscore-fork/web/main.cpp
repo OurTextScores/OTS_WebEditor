@@ -54,11 +54,13 @@
 #include "engraving/libmscore/dynamic.h"
 #include "engraving/libmscore/rehearsalmark.h"
 #include "engraving/libmscore/articulation.h"
+#include "engraving/libmscore/text.h"
 #include "engraving/libmscore/textbase.h"
 #include "engraving/libmscore/key.h"
 #include "engraving/libmscore/types.h"
 #include "engraving/libmscore/navigate.h"
 #include "engraving/types/symnames.h"
+#include "engraving/types/types.h"
 
 #include "./score.h"
 #include "./wasmres.h"
@@ -331,6 +333,19 @@ WasmRes _title(uintptr_t score_ptr) {
     return WasmRes(title);
 }
 
+/**
+ * get the score subtitle
+ */
+WasmRes _subtitle(uintptr_t score_ptr) {
+    MainScore score(score_ptr);
+    String subtitle;
+    const engraving::Text* text = score->getText(engraving::TextStyleType::SUBTITLE);
+    if (text) {
+        subtitle = text->plainText();
+    }
+    return WasmRes(subtitle);
+}
+
 bool _setHeaderText(uintptr_t score_ptr, engraving::TextStyleType style, const char* plainText, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
@@ -355,6 +370,11 @@ bool _setHeaderText(uintptr_t score_ptr, engraving::TextStyleType style, const c
 bool _setTitleText(uintptr_t score_ptr, const char* plainText, int excerptId)
 {
     return _setHeaderText(score_ptr, engraving::TextStyleType::TITLE, plainText, excerptId);
+}
+
+bool _setSubtitleText(uintptr_t score_ptr, const char* plainText, int excerptId)
+{
+    return _setHeaderText(score_ptr, engraving::TextStyleType::SUBTITLE, plainText, excerptId);
 }
 
 bool _setComposerText(uintptr_t score_ptr, const char* plainText, int excerptId)
@@ -1108,6 +1128,30 @@ bool _toggleDoubleDot(uintptr_t score_ptr, int excerptId)
     return true;
 }
 
+bool _toggleLayoutBreak(uintptr_t score_ptr, engraving::LayoutBreakType type, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    if (score->selection().isNone()) {
+        LOGW() << "toggleLayoutBreak: no selection";
+        return false;
+    }
+
+    score->startCmd();
+    score->cmdToggleLayoutBreak(type);
+    score->endCmd();
+    return true;
+}
+
+bool _toggleLineBreak(uintptr_t score_ptr, int excerptId)
+{
+    return _toggleLayoutBreak(score_ptr, engraving::LayoutBreakType::LINE, excerptId);
+}
+
+bool _togglePageBreak(uintptr_t score_ptr, int excerptId)
+{
+    return _toggleLayoutBreak(score_ptr, engraving::LayoutBreakType::PAGE, excerptId);
+}
+
 bool _setVoice(uintptr_t score_ptr, int voiceIndex, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
@@ -1577,8 +1621,18 @@ extern "C" {
     };
 
     EMSCRIPTEN_KEEPALIVE
+    WasmResBytes subtitle(uintptr_t score_ptr) {
+        return _subtitle(score_ptr);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
     bool setTitleText(uintptr_t score_ptr, const char* plainText, int excerptId = -1) {
         return _setTitleText(score_ptr, plainText, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool setSubtitleText(uintptr_t score_ptr, const char* plainText, int excerptId = -1) {
+        return _setSubtitleText(score_ptr, plainText, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE
@@ -1735,6 +1789,16 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool toggleDoubleDot(uintptr_t score_ptr, int excerptId = -1) {
         return _toggleDoubleDot(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool toggleLineBreak(uintptr_t score_ptr, int excerptId = -1) {
+        return _toggleLineBreak(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool togglePageBreak(uintptr_t score_ptr, int excerptId = -1) {
+        return _togglePageBreak(score_ptr, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE
