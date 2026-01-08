@@ -492,24 +492,42 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 </div>
 
                 <div className="flex items-center space-x-2">
-                    <button
-                        data-testid="btn-new-line"
-                        type="button"
-                        onClick={onToggleLineBreak}
-                        disabled={mutationDisabled || !selectionActive || !onToggleLineBreak}
-                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    <span
+                        className="inline-flex"
+                        title={
+                            mutationDisabled || !selectionActive
+                                ? 'Select a note or rest to split the bar.'
+                                : undefined
+                        }
                     >
-                        New Line
-                    </button>
-                    <button
-                        data-testid="btn-new-page"
-                        type="button"
-                        onClick={onTogglePageBreak}
-                        disabled={mutationDisabled || !selectionActive || !onTogglePageBreak}
-                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        <button
+                            data-testid="btn-new-line"
+                            type="button"
+                            onClick={onToggleLineBreak}
+                            disabled={mutationDisabled || !selectionActive || !onToggleLineBreak}
+                            className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            New Line
+                        </button>
+                    </span>
+                    <span
+                        className="inline-flex"
+                        title={
+                            mutationDisabled || !selectionActive
+                                ? 'Select a note or rest to split the bar.'
+                                : undefined
+                        }
                     >
-                        New Page
-                    </button>
+                        <button
+                            data-testid="btn-new-page"
+                            type="button"
+                            onClick={onTogglePageBreak}
+                            disabled={mutationDisabled || !selectionActive || !onTogglePageBreak}
+                            className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            New Page
+                        </button>
+                    </span>
                 </div>
 
                 <div className="flex items-center space-x-2">
