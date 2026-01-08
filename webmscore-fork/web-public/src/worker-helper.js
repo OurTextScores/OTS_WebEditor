@@ -198,6 +198,51 @@ class WebMscoreW {
     }
 
     /**
+     * Append a new part using an instrument template id
+     * @param {string} instrumentId
+     * @returns {Promise<boolean>}
+     */
+    appendPart(instrumentId) {
+        return this.rpc('appendPart', [instrumentId])
+    }
+
+    /**
+     * Append a new part using a MusicXML instrument id
+     * @param {string} instrumentMusicXmlId
+     * @returns {Promise<boolean>}
+     */
+    appendPartByMusicXmlId(instrumentMusicXmlId) {
+        return this.rpc('appendPartByMusicXmlId', [instrumentMusicXmlId])
+    }
+
+    /**
+     * Remove a part by index
+     * @param {number} partIndex
+     * @returns {Promise<boolean>}
+     */
+    removePart(partIndex) {
+        return this.rpc('removePart', [partIndex])
+    }
+
+    /**
+     * Toggle part visibility by index
+     * @param {number} partIndex
+     * @param {boolean} visible
+     * @returns {Promise<boolean>}
+     */
+    setPartVisible(partIndex, visible) {
+        return this.rpc('setPartVisible', [partIndex, visible])
+    }
+
+    /**
+     * List available instrument templates
+     * @returns {Promise<any[]>}
+     */
+    listInstrumentTemplates() {
+        return this.rpc('listInstrumentTemplates')
+    }
+
+    /**
      * Get the number of pages in the score (or the excerpt if `excerptId` is set)
      * @returns {Promise<number>}
      */
@@ -479,6 +524,14 @@ class WebMscoreW {
 
     addTie() {
         return this.rpc('addTie')
+    }
+
+    /**
+     * Convert a selected rest into a note
+     * @returns {Promise<boolean>}
+     */
+    addNoteFromRest() {
+        return this.rpc('addNoteFromRest')
     }
 
     /**

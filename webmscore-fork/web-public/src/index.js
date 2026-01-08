@@ -264,6 +264,62 @@ class WebMscore {
     }
 
     /**
+     * Append a new part using an instrument template id
+     * @param {string} instrumentId
+     * @returns {Promise<boolean>}
+     */
+    async appendPart(instrumentId) {
+        const strptr = getStrPtr(instrumentId == null ? '' : String(instrumentId))
+        try {
+            return Module.ccall('appendPart', 'boolean', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    /**
+     * Append a new part using a MusicXML instrument id
+     * @param {string} instrumentMusicXmlId
+     * @returns {Promise<boolean>}
+     */
+    async appendPartByMusicXmlId(instrumentMusicXmlId) {
+        const strptr = getStrPtr(instrumentMusicXmlId == null ? '' : String(instrumentMusicXmlId))
+        try {
+            return Module.ccall('appendPartByMusicXmlId', 'boolean', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    /**
+     * Remove a part by index
+     * @param {number} partIndex
+     * @returns {Promise<boolean>}
+     */
+    async removePart(partIndex) {
+        return Module.ccall('removePart', 'boolean', ['number', 'number', 'number'], [this.scoreptr, partIndex, this.excerptId])
+    }
+
+    /**
+     * Toggle part visibility by index
+     * @param {number} partIndex
+     * @param {boolean} visible
+     * @returns {Promise<boolean>}
+     */
+    async setPartVisible(partIndex, visible) {
+        return Module.ccall('setPartVisible', 'boolean', ['number', 'number', 'number', 'number'], [this.scoreptr, partIndex, visible ? 1 : 0, this.excerptId])
+    }
+
+    /**
+     * List available instrument templates
+     * @returns {Promise<Array<{ id: string, name: string, groupId?: string, groupName?: string, familyId?: string, familyName?: string, staffCount?: number, isExtended?: boolean, instruments?: any[] }>>}
+     */
+    async listInstrumentTemplates() {
+        const dataptr = Module.ccall('listInstrumentTemplates', 'number', ['number'], [this.scoreptr])
+        return JSON.parse(WasmRes.readText(dataptr))
+    }
+
+    /**
      * Get the number of pages in the score (or the excerpt if `excerptId` is set)
      * @returns {Promise<number>}
      */
@@ -748,6 +804,14 @@ class WebMscore {
      */
     async addTie() {
         return Module.ccall('addTie', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
+    }
+
+    /**
+     * Convert a selected rest into a note
+     * @returns {Promise<boolean>}
+     */
+    async addNoteFromRest() {
+        return Module.ccall('addNoteFromRest', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
     }
 
     /**

@@ -2,6 +2,9 @@
 
 #include <QGuiApplication>
 #include <QFontDatabase>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QTemporaryFile>
 #include "global/log.h"
 #include "global/defer.h"
@@ -32,11 +35,16 @@
 #include "engraving/libmscore/timesig.h"
 #include "engraving/libmscore/clef.h"
 #include "engraving/libmscore/factory.h"
+#include "engraving/libmscore/note.h"
+#include "engraving/libmscore/rest.h"
 #include "converter/internal/compat/notationmeta.h"
 #include "notation/internal/notation.h"
 #include "notation/internal/mscnotationwriter.h"
 #include "engraving/libmscore/chord.h"
 #include "engraving/libmscore/editdata.h"
+#include "engraving/libmscore/instrtemplate.h"
+#include "engraving/libmscore/part.h"
+#include "engraving/libmscore/property.h"
 #include "importexport/midi/internal/midiexport/exportmidi.h"
 #include "./importexport/positionjsonwriter.h"
 #include "engraving/libmscore/page.h"
@@ -352,6 +360,161 @@ bool _setTitleText(uintptr_t score_ptr, const char* plainText, int excerptId)
 bool _setComposerText(uintptr_t score_ptr, const char* plainText, int excerptId)
 {
     return _setHeaderText(score_ptr, engraving::TextStyleType::COMPOSER, plainText, excerptId);
+}
+
+static engraving::Part* partFromIndex(MainScore& score, int partIndex)
+{
+    const auto& parts = score->parts();
+    if (partIndex < 0 || partIndex >= static_cast<int>(parts.size())) {
+        return nullptr;
+    }
+    return parts.at(static_cast<size_t>(partIndex));
+}
+
+bool _appendPart(uintptr_t score_ptr, const char* instrumentId, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    if (!instrumentId) {
+        LOGW() << "appendPart: missing instrument id";
+        return false;
+    }
+    const String id = String::fromUtf8(instrumentId);
+    const engraving::InstrumentTemplate* templ = engraving::searchTemplate(id);
+    if (!templ) {
+        LOGW() << "appendPart: instrument id not found" << id;
+        return false;
+    }
+
+    score->startCmd();
+    score->appendPart(templ);
+    score->endCmd();
+    return true;
+}
+
+bool _appendPartByMusicXmlId(uintptr_t score_ptr, const char* instrumentMusicXmlId, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    if (!instrumentMusicXmlId) {
+        LOGW() << "appendPartByMusicXmlId: missing instrument id";
+        return false;
+    }
+    const String id = String::fromUtf8(instrumentMusicXmlId);
+    const engraving::InstrumentTemplate* templ = engraving::searchTemplateForMusicXmlId(id);
+    if (!templ) {
+        LOGW() << "appendPartByMusicXmlId: instrument id not found" << id;
+        return false;
+    }
+
+    score->startCmd();
+    score->appendPart(templ);
+    score->endCmd();
+    return true;
+}
+
+bool _removePart(uintptr_t score_ptr, int partIndex, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    engraving::Part* part = partFromIndex(score, partIndex);
+    if (!part) {
+        LOGW() << "removePart: invalid part index" << partIndex;
+        return false;
+    }
+
+    score->startCmd();
+    score->cmdRemovePart(part);
+    score->endCmd();
+    return true;
+}
+
+bool _setPartVisible(uintptr_t score_ptr, int partIndex, bool visible, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    engraving::Part* part = partFromIndex(score, partIndex);
+    if (!part) {
+        LOGW() << "setPartVisible: invalid part index" << partIndex;
+        return false;
+    }
+
+    score->startCmd();
+    part->undoChangeProperty(engraving::Pid::VISIBLE, visible);
+    score->endCmd();
+    return true;
+}
+
+WasmRes _listInstrumentTemplates()
+{
+    QJsonArray groupsJson;
+
+    for (const engraving::InstrumentGroup* group : engraving::instrumentGroups) {
+        QJsonObject groupJson;
+        groupJson.insert("id", group->id.toQString());
+        groupJson.insert("name", group->name.toQString());
+
+        QJsonArray instrumentsJson;
+        for (const engraving::InstrumentTemplate* templ : group->instrumentTemplates) {
+            QJsonObject instrumentJson;
+            String name = templ->longNames.empty()
+                ? templ->trackName
+                : templ->longNames.front().toPlainText();
+            instrumentJson.insert("id", templ->id.toQString());
+            instrumentJson.insert("name", name.toQString());
+            instrumentJson.insert("groupId", templ->groupId.toQString());
+            instrumentJson.insert("groupName", group->name.toQString());
+            instrumentJson.insert("familyId", templ->family ? templ->family->id.toQString() : QString());
+            instrumentJson.insert("familyName", templ->family ? templ->family->name.toQString() : QString());
+            instrumentJson.insert("staffCount", static_cast<int>(templ->staffCount));
+            instrumentJson.insert("isExtended", templ->extended);
+            instrumentsJson.append(instrumentJson);
+        }
+        groupJson.insert("instruments", instrumentsJson);
+        groupsJson.append(groupJson);
+    }
+
+    return WasmRes(QJsonDocument(groupsJson).toJson(QJsonDocument::Compact));
+}
+
+bool _addNoteFromRest(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    engraving::EngravingItem* selected = score->selection().element();
+    if (!selected) {
+        LOGW() << "addNoteFromRest: no selection";
+        return false;
+    }
+    if (!selected->isRest()) {
+        LOGW() << "addNoteFromRest: selection is not a rest";
+        return false;
+    }
+
+    engraving::Rest* rest = engraving::toRest(selected);
+    engraving::Segment* segment = rest->segment();
+    if (!segment) {
+        LOGW() << "addNoteFromRest: rest has no segment";
+        return false;
+    }
+
+    engraving::Staff* staff = rest->staff();
+    if (!staff) {
+        LOGW() << "addNoteFromRest: rest has no staff";
+        return false;
+    }
+
+    engraving::Position pos;
+    pos.segment = segment;
+    pos.staffIdx = rest->staffIdx();
+    pos.line = staff->middleLine(segment->tick());
+
+    bool error = false;
+    engraving::NoteVal nval = score->noteValForPosition(pos, engraving::AccidentalType::NONE, error);
+    if (error) {
+        LOGW() << "addNoteFromRest: failed to compute note value";
+        return false;
+    }
+
+    score->startCmd();
+    score->setNoteRest(segment, rest->track(), nval, rest->durationTypeTicks(), engraving::DirectionV::AUTO);
+    score->endCmd();
+    return true;
 }
 
 /**
@@ -1421,6 +1584,37 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool setComposerText(uintptr_t score_ptr, const char* plainText, int excerptId = -1) {
         return _setComposerText(score_ptr, plainText, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool appendPart(uintptr_t score_ptr, const char* instrumentId, int excerptId = -1) {
+        return _appendPart(score_ptr, instrumentId, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool appendPartByMusicXmlId(uintptr_t score_ptr, const char* instrumentMusicXmlId, int excerptId = -1) {
+        return _appendPartByMusicXmlId(score_ptr, instrumentMusicXmlId, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool removePart(uintptr_t score_ptr, int partIndex, int excerptId = -1) {
+        return _removePart(score_ptr, partIndex, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool setPartVisible(uintptr_t score_ptr, int partIndex, bool visible, int excerptId = -1) {
+        return _setPartVisible(score_ptr, partIndex, visible, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    WasmResBytes listInstrumentTemplates(uintptr_t score_ptr) {
+        (void)score_ptr;
+        return _listInstrumentTemplates();
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool addNoteFromRest(uintptr_t score_ptr, int excerptId = -1) {
+        return _addNoteFromRest(score_ptr, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE

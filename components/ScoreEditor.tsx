@@ -39,12 +39,42 @@ type MutationMethods = Pick<
     | 'addTie'
     | 'setTitleText'
     | 'setComposerText'
+    | 'appendPart'
+    | 'appendPartByMusicXmlId'
+    | 'removePart'
+    | 'setPartVisible'
+    | 'addNoteFromRest'
     | 'undo'
     | 'redo'
     | 'relayout'
     | 'setTimeSignature'
     | 'setClef'
 >;
+
+interface InstrumentTemplate {
+    id: string;
+    name: string;
+    groupId?: string;
+    groupName?: string;
+    familyId?: string;
+    familyName?: string;
+    staffCount?: number;
+    isExtended?: boolean;
+}
+
+interface InstrumentTemplateGroup {
+    id: string;
+    name: string;
+    instruments: InstrumentTemplate[];
+}
+
+interface PartSummary {
+    index: number;
+    name: string;
+    instrumentName: string;
+    instrumentId: string;
+    isVisible: boolean;
+}
 
 const hasMutationApi = (score: Score | null): score is Score & MutationMethods => {
     if (!score) {
@@ -87,6 +117,8 @@ export default function ScoreEditor() {
     const [triedSoundFont, setTriedSoundFont] = useState(false);
     const [scoreTitle, setScoreTitle] = useState('');
     const [scoreComposer, setScoreComposer] = useState('');
+    const [scoreParts, setScoreParts] = useState<PartSummary[]>([]);
+    const [instrumentGroups, setInstrumentGroups] = useState<InstrumentTemplateGroup[]>([]);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [audioBusy, setAudioBusy] = useState(false);
@@ -142,6 +174,8 @@ export default function ScoreEditor() {
         setTriedSoundFont(false);
         setScoreTitle('');
         setScoreComposer('');
+        setScoreParts([]);
+        setInstrumentGroups([]);
         try {
             const response = await fetch(url, signal ? { signal } : undefined);
             if (!response.ok) throw new Error('Failed to fetch score');
@@ -172,7 +206,8 @@ export default function ScoreEditor() {
             }
             setMutationEnabled(true);
             await renderScore(loadedScore);
-            await refreshHeaderFields(loadedScore);
+            await refreshScoreMetadata(loadedScore);
+            await refreshInstrumentTemplates(loadedScore);
 
             // segmentPositions causes a crash in this version of webmscore/emscripten environment
             // We will use DOM-based hit testing on the SVG elements instead.
@@ -197,6 +232,8 @@ export default function ScoreEditor() {
         setTriedSoundFont(false);
         setScoreTitle('');
         setScoreComposer('');
+        setScoreParts([]);
+        setInstrumentGroups([]);
         try {
             const buffer = await file.arrayBuffer();
             const data = new Uint8Array(buffer);
@@ -225,7 +262,8 @@ export default function ScoreEditor() {
             setMutationEnabled(true);
 
             await renderScore(loadedScore);
-            await refreshHeaderFields(loadedScore);
+            await refreshScoreMetadata(loadedScore);
+            await refreshInstrumentTemplates(loadedScore);
 
         } catch (err) {
             console.error('Error loading file:', err);
@@ -248,13 +286,37 @@ export default function ScoreEditor() {
         }
     };
 
-    const refreshHeaderFields = async (currentScore: Score) => {
+    const refreshScoreMetadata = async (currentScore: Score) => {
         try {
             const metadata = await currentScore.metadata();
             setScoreTitle(typeof metadata.title === 'string' ? metadata.title : '');
             setScoreComposer(typeof metadata.composer === 'string' ? metadata.composer : '');
+            const parts = Array.isArray((metadata as any).parts) ? (metadata as any).parts : [];
+            const nextParts = parts.map((part: any, index: number) => ({
+                index,
+                name: typeof part?.name === 'string' ? part.name : '',
+                instrumentName: typeof part?.instrumentName === 'string' ? part.instrumentName : '',
+                instrumentId: typeof part?.instrumentId === 'string' ? part.instrumentId : '',
+                isVisible: String(part?.isVisible ?? '').toLowerCase() === 'true',
+            }));
+            setScoreParts(nextParts);
         } catch (err) {
             console.warn('Failed to read score metadata', err);
+            setScoreParts([]);
+        }
+    };
+
+    const refreshInstrumentTemplates = async (currentScore: Score) => {
+        if (!currentScore.listInstrumentTemplates) {
+            setInstrumentGroups([]);
+            return;
+        }
+        try {
+            const data = await currentScore.listInstrumentTemplates();
+            setInstrumentGroups(Array.isArray(data) ? data as InstrumentTemplateGroup[] : []);
+        } catch (err) {
+            console.warn('Failed to read instrument templates', err);
+            setInstrumentGroups([]);
         }
     };
 
@@ -676,6 +738,13 @@ export default function ScoreEditor() {
         return fn.call(score);
     });
 
+    const handleAddNoteFromRest = () => performMutation('add note', async () => {
+        await ensureSelectionInWasm();
+        const fn = requireMutation('addNoteFromRest');
+        if (!fn) return;
+        return fn.call(score);
+    });
+
     const handleSetTitleText = async () => {
         if (!score) {
             return;
@@ -686,7 +755,7 @@ export default function ScoreEditor() {
             if (!fn) return;
             return fn.call(score, scoreTitle);
         }, { skipWasmReselect: true });
-        await refreshHeaderFields(score);
+        await refreshScoreMetadata(score);
     };
 
     const handleSetComposerText = async () => {
@@ -699,7 +768,46 @@ export default function ScoreEditor() {
             if (!fn) return;
             return fn.call(score, scoreComposer);
         }, { skipWasmReselect: true });
-        await refreshHeaderFields(score);
+        await refreshScoreMetadata(score);
+    };
+
+    const handleAddPart = async (instrumentId: string) => {
+        if (!score || !instrumentId) {
+            return;
+        }
+
+        await performMutation('add instrument', async () => {
+            const fn = requireMutation('appendPart');
+            if (!fn) return;
+            return fn.call(score, instrumentId);
+        }, { skipWasmReselect: true });
+        await refreshScoreMetadata(score);
+    };
+
+    const handleRemovePart = async (partIndex: number) => {
+        if (!score) {
+            return;
+        }
+
+        await performMutation('remove instrument', async () => {
+            const fn = requireMutation('removePart');
+            if (!fn) return;
+            return fn.call(score, partIndex);
+        }, { clearSelection: true, skipWasmReselect: true });
+        await refreshScoreMetadata(score);
+    };
+
+    const handleTogglePartVisible = async (partIndex: number, visible: boolean) => {
+        if (!score) {
+            return;
+        }
+
+        await performMutation('toggle part visibility', async () => {
+            const fn = requireMutation('setPartVisible');
+            if (!fn) return;
+            return fn.call(score, partIndex, visible);
+        }, { skipWasmReselect: true });
+        await refreshScoreMetadata(score);
     };
 
     const handleSetTimeSignature = async (num: number, den: number) => {
@@ -1682,6 +1790,12 @@ export default function ScoreEditor() {
                 onAddArticulation={handleAddArticulation}
                 onAddSlur={handleAddSlur}
                 onAddTie={handleAddTie}
+                onAddNoteFromRest={handleAddNoteFromRest}
+                parts={scoreParts}
+                instrumentGroups={instrumentGroups}
+                onAddPart={handleAddPart}
+                onRemovePart={handleRemovePart}
+                onTogglePartVisible={handleTogglePartVisible}
             />
             </div>
 

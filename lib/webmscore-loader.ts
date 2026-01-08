@@ -53,6 +53,12 @@ export interface Score {
     addTie?: () => Promise<unknown> | unknown;
     setTitleText?: (text: string) => Promise<unknown> | unknown;
     setComposerText?: (text: string) => Promise<unknown> | unknown;
+    appendPart?: (instrumentId: string) => Promise<unknown> | unknown;
+    appendPartByMusicXmlId?: (instrumentMusicXmlId: string) => Promise<unknown> | unknown;
+    removePart?: (partIndex: number) => Promise<unknown> | unknown;
+    setPartVisible?: (partIndex: number, visible: boolean) => Promise<unknown> | unknown;
+    listInstrumentTemplates?: () => Promise<unknown> | unknown;
+    addNoteFromRest?: () => Promise<unknown> | unknown;
 }
 
 export interface WebMscoreInstance {

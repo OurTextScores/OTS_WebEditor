@@ -1,4 +1,29 @@
-import React from 'react';
+import React, { useState } from 'react';
+
+interface InstrumentTemplate {
+    id: string;
+    name: string;
+    groupId?: string;
+    groupName?: string;
+    familyId?: string;
+    familyName?: string;
+    staffCount?: number;
+    isExtended?: boolean;
+}
+
+interface InstrumentTemplateGroup {
+    id: string;
+    name: string;
+    instruments: InstrumentTemplate[];
+}
+
+interface PartSummary {
+    index: number;
+    name: string;
+    instrumentName: string;
+    instrumentId: string;
+    isVisible: boolean;
+}
 
 interface ToolbarProps {
     onFileUpload: (file: File) => void;
@@ -55,6 +80,12 @@ interface ToolbarProps {
     onAddArticulation?: (articulationSymbolName: string) => void;
     onAddSlur?: () => void;
     onAddTie?: () => void;
+    onAddNoteFromRest?: () => void;
+    parts?: PartSummary[];
+    instrumentGroups?: InstrumentTemplateGroup[];
+    onAddPart?: (instrumentId: string) => void;
+    onRemovePart?: (partIndex: number) => void;
+    onTogglePartVisible?: (partIndex: number, visible: boolean) => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -111,8 +142,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     onAddTempoText,
     onAddArticulation,
     onAddSlur,
-    onAddTie
+    onAddTie,
+    onAddNoteFromRest,
+    parts = [],
+    instrumentGroups = [],
+    onAddPart,
+    onRemovePart,
+    onTogglePartVisible
 }) => {
+    const [selectedInstrumentId, setSelectedInstrumentId] = useState('');
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
@@ -263,6 +301,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     const dropdownItemClass =
         'px-3 py-1 text-left rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed';
     const dropdownLabelClass = 'text-xs uppercase tracking-wide text-gray-500 px-2 py-1';
+    const instrumentOptions = instrumentGroups.flatMap(group =>
+        group.instruments.map(instrument => ({
+            ...instrument,
+            groupName: instrument.groupName ?? group.name,
+            groupId: instrument.groupId ?? group.id
+        }))
+    );
+    const hasInstrumentTemplates = instrumentOptions.length > 0;
+    const instrumentIdToAdd = selectedInstrumentId || (hasInstrumentTemplates ? instrumentOptions[0].id : '');
+    const instrumentsDisabled = !exportsEnabled;
+    const canAddInstrument = !mutationDisabled && Boolean(onAddPart) && hasInstrumentTemplates;
+    const canToggleVisibility = !mutationDisabled && Boolean(onTogglePartVisible);
+    const canRemovePart = !mutationDisabled && Boolean(onRemovePart);
 
     const ToolbarDropdown: React.FC<{
         label: string;
@@ -406,7 +457,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 	                    </button>
 	                </div>
 
-	                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2">
+                        <button
+                            data-testid="btn-add-note"
+                            type="button"
+                            onClick={onAddNoteFromRest}
+                            disabled={mutationDisabled || !selectionActive || !onAddNoteFromRest}
+                            className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Add Note
+                        </button>
 	                    <button
 	                        data-testid="btn-pitch-down"
 	                        type="button"
@@ -596,6 +656,87 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 	                    Stop
 	                </button>
 	            </div>
+
+                <ToolbarDropdown
+                    label="Instruments"
+                    disabled={instrumentsDisabled}
+                    testId="dropdown-instruments"
+                >
+                    <div className={dropdownLabelClass}>Add</div>
+                    {hasInstrumentTemplates ? (
+                        <>
+                            <select
+                                value={instrumentIdToAdd}
+                                onChange={(event) => setSelectedInstrumentId(event.target.value)}
+                                disabled={mutationDisabled}
+                                className="w-full px-2 py-1 border border-gray-300 rounded bg-white text-sm"
+                            >
+                                {instrumentGroups.map(group => (
+                                    <optgroup key={group.id} label={group.name}>
+                                        {group.instruments.map(instrument => (
+                                            <option key={instrument.id} value={instrument.id}>
+                                                {instrument.name}
+                                            </option>
+                                        ))}
+                                    </optgroup>
+                                ))}
+                            </select>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (instrumentIdToAdd && onAddPart) {
+                                        onAddPart(instrumentIdToAdd);
+                                    }
+                                }}
+                                disabled={!canAddInstrument || !instrumentIdToAdd}
+                                className={dropdownItemClass}
+                            >
+                                Add Instrument
+                            </button>
+                        </>
+                    ) : (
+                        <div className="px-2 py-1 text-xs text-gray-500">
+                            Instrument list unavailable.
+                        </div>
+                    )}
+
+                    <div className={dropdownLabelClass}>On Score</div>
+                    {parts.length ? (
+                        parts.map(part => (
+                            <div key={`${part.index}-${part.instrumentId}`} className="flex items-center gap-2">
+                                <span className="flex-1 text-sm truncate">
+                                    {part.name || part.instrumentName || part.instrumentId}
+                                </span>
+                                <button
+                                    data-testid={`btn-part-visible-${part.index}`}
+                                    type="button"
+                                    onClick={() => onTogglePartVisible?.(part.index, !part.isVisible)}
+                                    disabled={!canToggleVisibility}
+                                    className={dropdownItemClass}
+                                >
+                                    {part.isVisible ? 'Hide' : 'Show'}
+                                </button>
+                                <button
+                                    data-testid={`btn-part-remove-${part.index}`}
+                                    type="button"
+                                    onClick={() => {
+                                        if (!onRemovePart) return;
+                                        const label = part.name || part.instrumentName || 'this part';
+                                        if (typeof window === 'undefined' || window.confirm(`Remove ${label}?`)) {
+                                            onRemovePart(part.index);
+                                        }
+                                    }}
+                                    disabled={!canRemovePart}
+                                    className={dropdownItemClass}
+                                >
+                                    Remove
+                                </button>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="px-2 py-1 text-xs text-gray-500">No parts loaded.</div>
+                    )}
+                </ToolbarDropdown>
 
 		            <ToolbarDropdown
                         label="Signature"
