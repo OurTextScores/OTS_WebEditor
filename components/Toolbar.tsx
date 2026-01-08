@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 
+type HarmonyVariant = 0 | 1 | 2;
+
 interface InstrumentTemplate {
     id: string;
     name: string;
@@ -86,6 +88,7 @@ interface ToolbarProps {
     onAddSystemText?: () => void;
     onAddExpressionText?: () => void;
     onAddLyricText?: () => void;
+    onAddHarmonyText?: (variant: HarmonyVariant) => void;
     onAddArticulation?: (articulationSymbolName: string) => void;
     onAddSlur?: () => void;
     onAddTie?: () => void;
@@ -165,6 +168,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     onAddSystemText,
     onAddExpressionText,
     onAddLyricText,
+    onAddHarmonyText,
     onAddArticulation,
     onAddSlur,
     onAddTie,
@@ -1228,6 +1232,34 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     className={dropdownItemClass}
                 >
                     Lyrics
+                </button>
+                <div className={dropdownLabelClass}>Harmony</div>
+                <button
+                    data-testid="btn-text-harmony-standard"
+                    type="button"
+                    onClick={() => onAddHarmonyText?.(0)}
+                    disabled={mutationDisabled || !selectionActive || !onAddHarmonyText}
+                    className={dropdownItemClass}
+                >
+                    Chord Symbol
+                </button>
+                <button
+                    data-testid="btn-text-harmony-roman"
+                    type="button"
+                    onClick={() => onAddHarmonyText?.(1)}
+                    disabled={mutationDisabled || !selectionActive || !onAddHarmonyText}
+                    className={dropdownItemClass}
+                >
+                    Roman Numeral
+                </button>
+                <button
+                    data-testid="btn-text-harmony-nashville"
+                    type="button"
+                    onClick={() => onAddHarmonyText?.(2)}
+                    disabled={mutationDisabled || !selectionActive || !onAddHarmonyText}
+                    className={dropdownItemClass}
+                >
+                    Nashville Number
                 </button>
             </ToolbarDropdown>
 

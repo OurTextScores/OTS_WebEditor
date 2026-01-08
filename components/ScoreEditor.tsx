@@ -48,6 +48,7 @@ type MutationMethods = Pick<
     | 'addSystemText'
     | 'addExpressionText'
     | 'addLyricText'
+    | 'addHarmonyText'
     | 'setTitleText'
     | 'setSubtitleText'
     | 'setComposerText'
@@ -67,6 +68,8 @@ type MutationMethods = Pick<
     | 'setBarLineType'
     | 'addVolta'
 >;
+
+type HarmonyVariant = 0 | 1 | 2;
 
 interface InstrumentTemplate {
     id: string;
@@ -846,6 +849,26 @@ export default function ScoreEditor() {
             const fn = requireMutation('addLyricText');
             if (!fn) return;
             return fn.call(score, text);
+        });
+    };
+
+    const harmonyLabels: Record<HarmonyVariant, string> = {
+        0: 'Chord symbol',
+        1: 'Roman numeral',
+        2: 'Nashville number',
+    };
+
+    const handleAddHarmonyText = (variant: HarmonyVariant) => {
+        const label = harmonyLabels[variant];
+        const text = promptForText(`${label} text:`);
+        if (text === null) {
+            return;
+        }
+        return performMutation(`${label.toLowerCase()} text`, async () => {
+            await ensureSelectionInWasm();
+            const fn = requireMutation('addHarmonyText');
+            if (!fn) return;
+            return fn.call(score, variant, text);
         });
     };
 
@@ -2080,6 +2103,7 @@ export default function ScoreEditor() {
                 onAddSystemText={handleAddSystemText}
                 onAddExpressionText={handleAddExpressionText}
                 onAddLyricText={handleAddLyricText}
+                onAddHarmonyText={handleAddHarmonyText}
                 onAddArticulation={handleAddArticulation}
                 onAddSlur={handleAddSlur}
                 onAddTie={handleAddTie}

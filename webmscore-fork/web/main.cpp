@@ -458,6 +458,18 @@ static bool _addTextForStyle(uintptr_t score_ptr, engraving::TextStyleType style
     return _applyTextStyle(score, style, plainText);
 }
 
+static engraving::TextStyleType _harmonyStyle(int variant)
+{
+    switch (variant) {
+        case 1:
+            return engraving::TextStyleType::HARMONY_ROMAN;
+        case 2:
+            return engraving::TextStyleType::HARMONY_NASHVILLE;
+        default:
+            return engraving::TextStyleType::HARMONY_A;
+    }
+}
+
 static engraving::Part* partFromIndex(MainScore& score, int partIndex)
 {
     const auto& parts = score->parts();
@@ -2352,6 +2364,11 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool addLyricText(uintptr_t score_ptr, const char* plainText, int excerptId = -1) {
         return _addTextForStyle(score_ptr, engraving::TextStyleType::LYRICS_ODD, plainText, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool addHarmonyText(uintptr_t score_ptr, int variant, const char* plainText, int excerptId = -1) {
+        return _addTextForStyle(score_ptr, _harmonyStyle(variant), plainText, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE
