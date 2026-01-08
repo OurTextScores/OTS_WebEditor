@@ -1507,6 +1507,54 @@ bool _addTie(uintptr_t score_ptr, int excerptId)
     return true;
 }
 
+bool _addTuplet(uintptr_t score_ptr, int tupletCount, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    if (tupletCount < 2) {
+        LOGW() << "addTuplet: invalid tuplet count " << tupletCount;
+        return false;
+    }
+
+    const auto chordRests = score->getSelectedChordRests();
+    if (chordRests.empty()) {
+        LOGW() << "addTuplet: no chord/rest selected";
+        return false;
+    }
+
+    std::vector<engraving::ChordRest*> eligible;
+    for (engraving::ChordRest* chordRest : chordRests) {
+        if (!chordRest || chordRest->isGrace()) {
+            continue;
+        }
+        if (chordRest->durationType() < engraving::TDuration(engraving::DurationType::V_512TH)
+            && chordRest->durationType() != engraving::TDuration(engraving::DurationType::V_MEASURE)) {
+            LOGW() << "addTuplet: note value too short";
+            return false;
+        }
+        eligible.push_back(chordRest);
+    }
+
+    if (eligible.empty()) {
+        LOGW() << "addTuplet: no eligible chord/rests selected";
+        return false;
+    }
+
+    bool added = false;
+    score->startCmd();
+    for (engraving::ChordRest* chordRest : eligible) {
+        engraving::Fraction ratio(tupletCount, 2);
+        ratio.setDenominator(chordRest->dots() ? 3 : 2);
+        while (ratio.numerator() >= ratio.denominator() * 2) {
+            ratio.setDenominator(ratio.denominator() * 2);
+        }
+        if (score->addTuplet(chordRest, ratio, engraving::TupletNumberType::SHOW_NUMBER, engraving::TupletBracketType::AUTO_BRACKET)) {
+            added = true;
+        }
+    }
+    score->endCmd();
+    return added;
+}
+
 bool _setTimeSignature(uintptr_t score_ptr, int numerator, int denominator, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
@@ -1914,6 +1962,11 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool addTie(uintptr_t score_ptr, int excerptId = -1) {
         return _addTie(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool addTuplet(uintptr_t score_ptr, int tupletCount, int excerptId = -1) {
+        return _addTuplet(score_ptr, tupletCount, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE

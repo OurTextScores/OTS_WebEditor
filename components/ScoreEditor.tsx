@@ -42,6 +42,7 @@ type MutationMethods = Pick<
     | 'addArticulation'
     | 'addSlur'
     | 'addTie'
+    | 'addTuplet'
     | 'setTitleText'
     | 'setSubtitleText'
     | 'setComposerText'
@@ -762,6 +763,13 @@ export default function ScoreEditor() {
         const fn = requireMutation('addTie');
         if (!fn) return;
         return fn.call(score);
+    });
+
+    const handleAddTuplet = (tupletCount: number) => performMutation(`add tuplet ${tupletCount}`, async () => {
+        await ensureSelectionInWasm();
+        const fn = requireMutation('addTuplet');
+        if (!fn) return;
+        return fn.call(score, tupletCount);
     });
 
     const handleAddNoteFromRest = () => performMutation('add note', async () => {
@@ -1959,6 +1967,7 @@ export default function ScoreEditor() {
                 onAddArticulation={handleAddArticulation}
                 onAddSlur={handleAddSlur}
                 onAddTie={handleAddTie}
+                onAddTuplet={handleAddTuplet}
                 onAddNoteFromRest={handleAddNoteFromRest}
                 parts={scoreParts}
                 instrumentGroups={instrumentGroups}

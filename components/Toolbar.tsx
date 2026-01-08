@@ -85,6 +85,7 @@ interface ToolbarProps {
     onAddArticulation?: (articulationSymbolName: string) => void;
     onAddSlur?: () => void;
     onAddTie?: () => void;
+    onAddTuplet?: (tupletCount: number) => void;
     onAddNoteFromRest?: () => void;
     parts?: PartSummary[];
     instrumentGroups?: InstrumentTemplateGroup[];
@@ -153,6 +154,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     onAddArticulation,
     onAddSlur,
     onAddTie,
+    onAddTuplet,
     onAddNoteFromRest,
     parts = [],
     instrumentGroups = [],
@@ -285,6 +287,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         { label: 'Tenuto', symbol: 'articTenutoAbove' },
         { label: 'Marcato', symbol: 'articMarcatoAbove' },
         { label: 'Accent', symbol: 'articAccentAbove' },
+    ];
+
+    const tupletOptions = [
+        { label: 'Duplet', count: 2 },
+        { label: 'Triplet', count: 3 },
+        { label: 'Quintuplet', count: 5 },
+        { label: 'Sextuplet', count: 6 },
+        { label: 'Septuplet', count: 7 },
+        { label: 'Octuplet', count: 8 },
     ];
 
     const resolveTimeSigHandler = (opt: { label: string; numerator: number; denominator: number }) => {
@@ -955,6 +966,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 >
                     Double Dot
                 </button>
+                <div className={dropdownLabelClass}>Tuplets</div>
+                {tupletOptions.map(opt => (
+                    <button
+                        key={opt.count}
+                        data-testid={`btn-tuplet-${opt.count}`}
+                        type="button"
+                        onClick={() => onAddTuplet?.(opt.count)}
+                        disabled={mutationDisabled || !selectionActive || !onAddTuplet}
+                        className={dropdownItemClass}
+                    >
+                        {opt.label}
+                    </button>
+                ))}
                 <div className={dropdownLabelClass}>Voice</div>
                 {[1, 2, 3, 4].map(v => (
                     <button

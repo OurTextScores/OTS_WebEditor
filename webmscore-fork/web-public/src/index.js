@@ -880,6 +880,15 @@ class WebMscore {
     }
 
     /**
+     * Add a simple tuplet (e.g. 3, 5, 7) at the current selection.
+     * @param {number} tupletCount
+     * @returns {Promise<boolean>}
+     */
+    async addTuplet(tupletCount) {
+        return Module.ccall('addTuplet', 'boolean', ['number', 'number', 'number'], [this.scoreptr, tupletCount, this.excerptId])
+    }
+
+    /**
      * Convert a selected rest into a note
      * @returns {Promise<boolean>}
      */

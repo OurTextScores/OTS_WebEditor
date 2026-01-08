@@ -578,6 +578,15 @@ class WebMscoreW {
     }
 
     /**
+     * Add a simple tuplet (e.g. 3, 5, 7) at the current selection.
+     * @param {number} tupletCount
+     * @returns {Promise<boolean>}
+     */
+    addTuplet(tupletCount) {
+        return this.rpc('addTuplet', [tupletCount])
+    }
+
+    /**
      * Convert a selected rest into a note
      * @returns {Promise<boolean>}
      */
