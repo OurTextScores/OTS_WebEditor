@@ -85,6 +85,7 @@ interface ToolbarProps {
     onAddStaffText?: () => void;
     onAddSystemText?: () => void;
     onAddExpressionText?: () => void;
+    onAddLyricText?: () => void;
     onAddArticulation?: (articulationSymbolName: string) => void;
     onAddSlur?: () => void;
     onAddTie?: () => void;
@@ -163,6 +164,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     onAddStaffText,
     onAddSystemText,
     onAddExpressionText,
+    onAddLyricText,
     onAddArticulation,
     onAddSlur,
     onAddTie,
@@ -1217,6 +1219,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     className={dropdownItemClass}
                 >
                     Expression Text
+                </button>
+                <button
+                    data-testid="btn-text-lyrics"
+                    type="button"
+                    onClick={onAddLyricText}
+                    disabled={mutationDisabled || !selectionActive || !onAddLyricText}
+                    className={dropdownItemClass}
+                >
+                    Lyrics
                 </button>
             </ToolbarDropdown>
 

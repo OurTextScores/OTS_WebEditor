@@ -47,6 +47,7 @@ type MutationMethods = Pick<
     | 'addStaffText'
     | 'addSystemText'
     | 'addExpressionText'
+    | 'addLyricText'
     | 'setTitleText'
     | 'setSubtitleText'
     | 'setComposerText'
@@ -830,6 +831,19 @@ export default function ScoreEditor() {
         return performMutation('add expression text', async () => {
             await ensureSelectionInWasm();
             const fn = requireMutation('addExpressionText');
+            if (!fn) return;
+            return fn.call(score, text);
+        });
+    };
+
+    const handleAddLyricText = () => {
+        const text = promptForText('Lyrics text:');
+        if (text === null) {
+            return;
+        }
+        return performMutation('add lyric text', async () => {
+            await ensureSelectionInWasm();
+            const fn = requireMutation('addLyricText');
             if (!fn) return;
             return fn.call(score, text);
         });
@@ -2065,6 +2079,7 @@ export default function ScoreEditor() {
                 onAddStaffText={handleAddStaffText}
                 onAddSystemText={handleAddSystemText}
                 onAddExpressionText={handleAddExpressionText}
+                onAddLyricText={handleAddLyricText}
                 onAddArticulation={handleAddArticulation}
                 onAddSlur={handleAddSlur}
                 onAddTie={handleAddTie}
