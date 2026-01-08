@@ -82,6 +82,9 @@ interface ToolbarProps {
     onAddDynamic?: (dynamicType: number) => void;
     onAddRehearsalMark?: () => void;
     onAddTempoText?: (bpm: number) => void;
+    onAddStaffText?: () => void;
+    onAddSystemText?: () => void;
+    onAddExpressionText?: () => void;
     onAddArticulation?: (articulationSymbolName: string) => void;
     onAddSlur?: () => void;
     onAddTie?: () => void;
@@ -157,6 +160,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     onAddDynamic,
     onAddRehearsalMark,
     onAddTempoText,
+    onAddStaffText,
+    onAddSystemText,
+    onAddExpressionText,
     onAddArticulation,
     onAddSlur,
     onAddTie,
@@ -1177,6 +1183,40 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     className={dropdownItemClass}
                 >
                     Tempo 120
+                </button>
+            </ToolbarDropdown>
+
+            <ToolbarDropdown
+                label="Text"
+                disabled={mutationDisabled || !selectionActive}
+                testId="dropdown-text"
+            >
+                <button
+                    data-testid="btn-text-staff"
+                    type="button"
+                    onClick={onAddStaffText}
+                    disabled={mutationDisabled || !selectionActive || !onAddStaffText}
+                    className={dropdownItemClass}
+                >
+                    Staff Text
+                </button>
+                <button
+                    data-testid="btn-text-system"
+                    type="button"
+                    onClick={onAddSystemText}
+                    disabled={mutationDisabled || !selectionActive || !onAddSystemText}
+                    className={dropdownItemClass}
+                >
+                    System Text
+                </button>
+                <button
+                    data-testid="btn-text-expression"
+                    type="button"
+                    onClick={onAddExpressionText}
+                    disabled={mutationDisabled || !selectionActive || !onAddExpressionText}
+                    className={dropdownItemClass}
+                >
+                    Expression Text
                 </button>
             </ToolbarDropdown>
 

@@ -58,6 +58,9 @@ export interface Score {
     addTie?: () => Promise<unknown> | unknown;
     addGraceNote?: (graceType: number) => Promise<unknown> | unknown;
     addTuplet?: (tupletCount: number) => Promise<unknown> | unknown;
+    addStaffText?: (text: string) => Promise<unknown> | unknown;
+    addSystemText?: (text: string) => Promise<unknown> | unknown;
+    addExpressionText?: (text: string) => Promise<unknown> | unknown;
     setTitleText?: (text: string) => Promise<unknown> | unknown;
     subtitle?: () => Promise<string> | string;
     setSubtitleText?: (text: string) => Promise<unknown> | unknown;

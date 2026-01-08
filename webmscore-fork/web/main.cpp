@@ -55,6 +55,7 @@
 #include "engraving/libmscore/rehearsalmark.h"
 #include "engraving/libmscore/articulation.h"
 #include "engraving/libmscore/barline.h"
+#include "engraving/libmscore/figuredbass.h"
 #include "engraving/libmscore/text.h"
 #include "engraving/libmscore/textbase.h"
 #include "engraving/libmscore/segment.h"
@@ -65,6 +66,7 @@
 #include "engraving/infrastructure/imimedata.h"
 #include "engraving/types/symnames.h"
 #include "engraving/types/types.h"
+#include "engraving/types/typesconv.h"
 #include "engraving/types/constants.h"
 
 #include "./score.h"
@@ -421,6 +423,39 @@ bool _setSubtitleText(uintptr_t score_ptr, const char* plainText, int excerptId)
 bool _setComposerText(uintptr_t score_ptr, const char* plainText, int excerptId)
 {
     return _setHeaderText(score_ptr, engraving::TextStyleType::COMPOSER, plainText, excerptId);
+}
+
+static String _plainTextToString(const char* plainText)
+{
+    return plainText ? String::fromUtf8(plainText) : String();
+}
+
+static bool _applyTextStyle(MainScore& score, engraving::TextStyleType style, const char* plainText)
+{
+    engraving::EngravingItem* target = score->selection().element();
+    if (!target) {
+        LOGW() << "addText: no selection";
+        return false;
+    }
+
+    score->startCmd();
+    engraving::TextBase* textItem = score->addText(style, target);
+    if (!textItem) {
+        score->endCmd();
+        LOGW() << "addText: failed to create text style" << static_cast<int>(style);
+        return false;
+    }
+
+    const String xmlText = engraving::TextBase::plainToXmlText(_plainTextToString(plainText));
+    textItem->undoChangeProperty(engraving::Pid::TEXT, xmlText);
+    score->endCmd();
+    return true;
+}
+
+static bool _addTextForStyle(uintptr_t score_ptr, engraving::TextStyleType style, const char* plainText, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    return _applyTextStyle(score, style, plainText);
 }
 
 static engraving::Part* partFromIndex(MainScore& score, int partIndex)
@@ -2297,6 +2332,21 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool addTuplet(uintptr_t score_ptr, int tupletCount, int excerptId = -1) {
         return _addTuplet(score_ptr, tupletCount, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool addStaffText(uintptr_t score_ptr, const char* plainText, int excerptId = -1) {
+        return _addTextForStyle(score_ptr, engraving::TextStyleType::STAFF, plainText, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool addSystemText(uintptr_t score_ptr, const char* plainText, int excerptId = -1) {
+        return _addTextForStyle(score_ptr, engraving::TextStyleType::SYSTEM, plainText, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool addExpressionText(uintptr_t score_ptr, const char* plainText, int excerptId = -1) {
+        return _addTextForStyle(score_ptr, engraving::TextStyleType::EXPRESSION, plainText, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE

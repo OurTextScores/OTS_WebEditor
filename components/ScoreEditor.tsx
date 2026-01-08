@@ -44,6 +44,9 @@ type MutationMethods = Pick<
     | 'addTie'
     | 'addGraceNote'
     | 'addTuplet'
+    | 'addStaffText'
+    | 'addSystemText'
+    | 'addExpressionText'
     | 'setTitleText'
     | 'setSubtitleText'
     | 'setComposerText'
@@ -546,6 +549,14 @@ export default function ScoreEditor() {
         return fn;
     };
 
+    const promptForText = (label: string, defaultValue?: string) => {
+        if (typeof window === 'undefined') {
+            return null;
+        }
+        const response = window.prompt(label, defaultValue ?? '');
+        return response === null ? null : response;
+    };
+
     const performMutation = async (
         label: string,
         action?: (() => Promise<unknown> | unknown),
@@ -784,6 +795,45 @@ export default function ScoreEditor() {
         if (!fn) return;
         return fn.call(score, tupletCount);
     });
+
+    const handleAddStaffText = () => {
+        const text = promptForText('Staff text:');
+        if (text === null) {
+            return;
+        }
+        return performMutation('add staff text', async () => {
+            await ensureSelectionInWasm();
+            const fn = requireMutation('addStaffText');
+            if (!fn) return;
+            return fn.call(score, text);
+        });
+    };
+
+    const handleAddSystemText = () => {
+        const text = promptForText('System text:');
+        if (text === null) {
+            return;
+        }
+        return performMutation('add system text', async () => {
+            await ensureSelectionInWasm();
+            const fn = requireMutation('addSystemText');
+            if (!fn) return;
+            return fn.call(score, text);
+        });
+    };
+
+    const handleAddExpressionText = () => {
+        const text = promptForText('Expression text:');
+        if (text === null) {
+            return;
+        }
+        return performMutation('add expression text', async () => {
+            await ensureSelectionInWasm();
+            const fn = requireMutation('addExpressionText');
+            if (!fn) return;
+            return fn.call(score, text);
+        });
+    };
 
     const handleAddNoteFromRest = () => performMutation('add note', async () => {
         await ensureSelectionInWasm();
@@ -2012,6 +2062,9 @@ export default function ScoreEditor() {
                 onAddDynamic={handleAddDynamic}
                 onAddRehearsalMark={handleAddRehearsalMark}
                 onAddTempoText={handleAddTempoText}
+                onAddStaffText={handleAddStaffText}
+                onAddSystemText={handleAddSystemText}
+                onAddExpressionText={handleAddExpressionText}
                 onAddArticulation={handleAddArticulation}
                 onAddSlur={handleAddSlur}
                 onAddTie={handleAddTie}
