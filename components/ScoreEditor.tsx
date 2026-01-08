@@ -42,6 +42,7 @@ type MutationMethods = Pick<
     | 'addArticulation'
     | 'addSlur'
     | 'addTie'
+    | 'addGraceNote'
     | 'addTuplet'
     | 'setTitleText'
     | 'setSubtitleText'
@@ -768,6 +769,13 @@ export default function ScoreEditor() {
         const fn = requireMutation('addTie');
         if (!fn) return;
         return fn.call(score);
+    });
+
+    const handleAddGraceNote = (graceType: number) => performMutation(`add grace note ${graceType}`, async () => {
+        await ensureSelectionInWasm();
+        const fn = requireMutation('addGraceNote');
+        if (!fn) return;
+        return fn.call(score, graceType);
     });
 
     const handleAddTuplet = (tupletCount: number) => performMutation(`add tuplet ${tupletCount}`, async () => {
@@ -2007,6 +2015,7 @@ export default function ScoreEditor() {
                 onAddArticulation={handleAddArticulation}
                 onAddSlur={handleAddSlur}
                 onAddTie={handleAddTie}
+                onAddGraceNote={handleAddGraceNote}
                 onAddTuplet={handleAddTuplet}
                 onAddNoteFromRest={handleAddNoteFromRest}
                 onToggleRepeatStart={handleToggleRepeatStart}

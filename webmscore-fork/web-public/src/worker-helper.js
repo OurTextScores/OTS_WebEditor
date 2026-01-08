@@ -577,6 +577,10 @@ class WebMscoreW {
         return this.rpc('addTie')
     }
 
+    addGraceNote(graceType) {
+        return this.rpc('addGraceNote', [graceType])
+    }
+
     /**
      * Add a simple tuplet (e.g. 3, 5, 7) at the current selection.
      * @param {number} tupletCount

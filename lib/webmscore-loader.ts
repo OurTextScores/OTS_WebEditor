@@ -56,6 +56,7 @@ export interface Score {
     addArticulation?: (articulationSymbolName: string) => Promise<unknown> | unknown;
     addSlur?: () => Promise<unknown> | unknown;
     addTie?: () => Promise<unknown> | unknown;
+    addGraceNote?: (graceType: number) => Promise<unknown> | unknown;
     addTuplet?: (tupletCount: number) => Promise<unknown> | unknown;
     setTitleText?: (text: string) => Promise<unknown> | unknown;
     subtitle?: () => Promise<string> | string;

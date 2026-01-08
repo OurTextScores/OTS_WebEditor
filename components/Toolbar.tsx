@@ -85,6 +85,7 @@ interface ToolbarProps {
     onAddArticulation?: (articulationSymbolName: string) => void;
     onAddSlur?: () => void;
     onAddTie?: () => void;
+    onAddGraceNote?: (graceType: number) => void;
     onAddTuplet?: (tupletCount: number) => void;
     onAddNoteFromRest?: () => void;
     onToggleRepeatStart?: () => void;
@@ -159,6 +160,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     onAddArticulation,
     onAddSlur,
     onAddTie,
+    onAddGraceNote,
     onAddTuplet,
     onAddNoteFromRest,
     onToggleRepeatStart,
@@ -257,6 +259,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         { label: 'TAB4', value: 32 },           // ClefType::TAB4
         { label: 'TAB Serif', value: 33 },      // ClefType::TAB_SERIF
         { label: 'TAB4 Serif', value: 34 },     // ClefType::TAB4_SERIF
+	];
+
+    const graceNoteOptions = [
+        { label: 'Acciaccatura', value: 1, testId: 'btn-grace-acciaccatura' },    // NoteType::ACCIACCATURA
+        { label: 'Appoggiatura', value: 2, testId: 'btn-grace-appoggiatura' },    // NoteType::APPOGGIATURA
+        { label: 'Grace 16th', value: 8, testId: 'btn-grace-16' },                // NoteType::GRACE16
+        { label: 'Grace 32nd', value: 16, testId: 'btn-grace-32' },               // NoteType::GRACE32
+        { label: 'Grace 8th After', value: 32, testId: 'btn-grace-8-after' },     // NoteType::GRACE8_AFTER
+        { label: 'Grace 16th After', value: 64, testId: 'btn-grace-16-after' },   // NoteType::GRACE16_AFTER
+        { label: 'Grace 32nd After', value: 128, testId: 'btn-grace-32-after' },  // NoteType::GRACE32_AFTER
     ];
 
     const dynamicOptions = [
@@ -1044,6 +1056,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 >
                     Add Note
                 </button>
+                <div className={dropdownLabelClass}>Grace Notes</div>
+                {graceNoteOptions.map(opt => (
+                    <button
+                        key={opt.value}
+                        data-testid={opt.testId}
+                        type="button"
+                        onClick={() => onAddGraceNote?.(opt.value)}
+                        disabled={mutationDisabled || !selectionActive || !onAddGraceNote}
+                        className={dropdownItemClass}
+                    >
+                        {opt.label}
+                    </button>
+                ))}
                 <div className={dropdownLabelClass}>Rhythm</div>
                 <button
                     data-testid="btn-dot"

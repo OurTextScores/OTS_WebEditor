@@ -880,6 +880,15 @@ class WebMscore {
     }
 
     /**
+     * Add a grace note of the specified type to the selected note(s).
+     * @param {number} graceType
+     * @returns {Promise<boolean>}
+     */
+    async addGraceNote(graceType) {
+        return Module.ccall('addGraceNote', 'boolean', ['number', 'number', 'number'], [this.scoreptr, graceType, this.excerptId])
+    }
+
+    /**
      * Add a simple tuplet (e.g. 3, 5, 7) at the current selection.
      * @param {number} tupletCount
      * @returns {Promise<boolean>}

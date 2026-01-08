@@ -65,6 +65,7 @@
 #include "engraving/infrastructure/imimedata.h"
 #include "engraving/types/symnames.h"
 #include "engraving/types/types.h"
+#include "engraving/types/constants.h"
 
 #include "./score.h"
 #include "./wasmres.h"
@@ -1766,6 +1767,46 @@ bool _addTie(uintptr_t score_ptr, int excerptId)
     return true;
 }
 
+bool _addGraceNote(uintptr_t score_ptr, int graceType, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    if (score->selection().isNone()) {
+        LOGW() << "addGraceNote: no selection";
+        return false;
+    }
+
+    const auto type = static_cast<engraving::NoteType>(graceType);
+    int denominator = 1;
+    switch (type) {
+    case engraving::NoteType::GRACE4:
+    case engraving::NoteType::INVALID:
+    case engraving::NoteType::NORMAL:
+        denominator = 1;
+        break;
+    case engraving::NoteType::ACCIACCATURA:
+    case engraving::NoteType::APPOGGIATURA:
+    case engraving::NoteType::GRACE8_AFTER:
+        denominator = 2;
+        break;
+    case engraving::NoteType::GRACE16:
+    case engraving::NoteType::GRACE16_AFTER:
+        denominator = 4;
+        break;
+    case engraving::NoteType::GRACE32:
+    case engraving::NoteType::GRACE32_AFTER:
+        denominator = 8;
+        break;
+    default:
+        LOGW() << "addGraceNote: unsupported grace type " << graceType;
+        return false;
+    }
+
+    score->startCmd();
+    score->cmdAddGrace(type, engraving::Constants::division / denominator);
+    score->endCmd();
+    return true;
+}
+
 bool _addTuplet(uintptr_t score_ptr, int tupletCount, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
@@ -2246,6 +2287,11 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool addTie(uintptr_t score_ptr, int excerptId = -1) {
         return _addTie(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool addGraceNote(uintptr_t score_ptr, int graceType, int excerptId = -1) {
+        return _addGraceNote(score_ptr, graceType, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE
