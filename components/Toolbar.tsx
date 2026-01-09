@@ -85,6 +85,7 @@ interface ToolbarProps {
     onTogglePageBreak?: () => void;
     onSetVoice?: (voiceIndex: number) => void;
     onAddDynamic?: (dynamicType: number) => void;
+    onAddHairpin?: (hairpinType: number) => void;
     onAddRehearsalMark?: () => void;
     onAddTempoText?: (bpm: number) => void;
     onAddStaffText?: () => void;
@@ -175,6 +176,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     onTogglePageBreak,
     onSetVoice,
     onAddDynamic,
+    onAddHairpin,
     onAddRehearsalMark,
     onAddTempoText,
     onAddStaffText,
@@ -334,6 +336,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         { label: 's', value: 28 },     // DynamicType::S
         { label: 'z', value: 29 },     // DynamicType::Z
         { label: 'n', value: 30 },     // DynamicType::N
+    ];
+
+    const hairpinOptions = [
+        { label: 'Crescendo', value: 0, testId: 'btn-hairpin-cresc' },   // HairpinType::CRESC_HAIRPIN
+        { label: 'Decrescendo', value: 1, testId: 'btn-hairpin-decresc' }, // HairpinType::DECRESC_HAIRPIN
     ];
 
     const articulationOptions = [
@@ -1210,6 +1217,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         type="button"
                         onClick={() => onAddDynamic?.(opt.value)}
                         disabled={mutationDisabled || !selectionActive || !onAddDynamic}
+                        className={dropdownItemClass}
+                    >
+                        {opt.label}
+                    </button>
+                ))}
+                <div className={dropdownLabelClass}>Hairpins</div>
+                {hairpinOptions.map(opt => (
+                    <button
+                        key={opt.label}
+                        data-testid={opt.testId}
+                        type="button"
+                        onClick={() => onAddHairpin?.(opt.value)}
+                        disabled={mutationDisabled || !selectionActive || !onAddHairpin}
                         className={dropdownItemClass}
                     >
                         {opt.label}

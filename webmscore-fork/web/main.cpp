@@ -1,4 +1,5 @@
 #include <emscripten/emscripten.h>
+#include <algorithm>
 
 #include <QGuiApplication>
 #include <QFontDatabase>
@@ -52,6 +53,7 @@
 #include "engraving/libmscore/factory.h"
 #include "engraving/libmscore/tempotext.h"
 #include "engraving/libmscore/dynamic.h"
+#include "engraving/libmscore/hairpin.h"
 #include "engraving/libmscore/rehearsalmark.h"
 #include "engraving/libmscore/articulation.h"
 #include "engraving/libmscore/barline.h"
@@ -1577,6 +1579,33 @@ bool _addDynamic(uintptr_t score_ptr, int dynamicType, int excerptId)
     return true;
 }
 
+bool _addHairpin(uintptr_t score_ptr, int hairpinType, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    if (score->selection().isNone()) {
+        LOGW() << "addHairpin: no selection";
+        return false;
+    }
+    if (hairpinType < static_cast<int>(engraving::HairpinType::CRESC_HAIRPIN)
+        || hairpinType > static_cast<int>(engraving::HairpinType::DECRESC_LINE)) {
+        LOGW() << "addHairpin: invalid hairpin type " << hairpinType;
+        return false;
+    }
+
+    score->startCmd();
+    const auto type = static_cast<engraving::HairpinType>(hairpinType);
+    const auto hairpins = score->addHairpins(type);
+    score->endCmd();
+
+    const bool added = std::any_of(hairpins.begin(), hairpins.end(), [](engraving::Hairpin* hairpin) {
+        return hairpin != nullptr;
+    });
+    if (!added) {
+        LOGW() << "addHairpin: failed to add hairpin";
+    }
+    return added;
+}
+
 bool _addRehearsalMark(uintptr_t score_ptr, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
@@ -2331,6 +2360,11 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool addDynamic(uintptr_t score_ptr, int dynamicType, int excerptId = -1) {
         return _addDynamic(score_ptr, dynamicType, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool addHairpin(uintptr_t score_ptr, int hairpinType, int excerptId = -1) {
+        return _addHairpin(score_ptr, hairpinType, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE

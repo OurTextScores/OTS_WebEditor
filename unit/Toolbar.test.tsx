@@ -184,6 +184,29 @@ describe('Toolbar', () => {
     expect(onAddTempoText).toHaveBeenCalledWith(120);
   });
 
+  it('wires hairpin controls', async () => {
+    const user = userEvent.setup();
+    const onAddHairpin = vi.fn();
+
+    render(
+      <Toolbar
+        onFileUpload={() => {}}
+        onZoomIn={() => {}}
+        onZoomOut={() => {}}
+        zoomLevel={1}
+        mutationsEnabled
+        selectionActive
+        onAddHairpin={onAddHairpin}
+      />,
+    );
+
+    await user.click(screen.getByTestId('btn-hairpin-cresc'));
+    await user.click(screen.getByTestId('btn-hairpin-decresc'));
+
+    expect(onAddHairpin).toHaveBeenCalledWith(0);
+    expect(onAddHairpin).toHaveBeenCalledWith(1);
+  });
+
   it('wires sticking text', async () => {
     const user = userEvent.setup();
     const onAddStickingText = vi.fn();

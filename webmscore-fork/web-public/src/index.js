@@ -845,6 +845,15 @@ class WebMscore {
     }
 
     /**
+     * Add a hairpin at the current selection
+     * @param {number} hairpinType see engraving::HairpinType enum (0=cresc, 1=decresc)
+     * @returns {Promise<boolean>}
+     */
+    async addHairpin(hairpinType) {
+        return Module.ccall('addHairpin', 'boolean', ['number', 'number', 'number'], [this.scoreptr, hairpinType, this.excerptId])
+    }
+
+    /**
      * Add a rehearsal mark at the current selection
      * @returns {Promise<boolean>}
      */

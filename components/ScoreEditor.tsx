@@ -37,6 +37,7 @@ type MutationMethods = Pick<
     | 'togglePageBreak'
     | 'setVoice'
     | 'addDynamic'
+    | 'addHairpin'
     | 'addRehearsalMark'
     | 'addTempoText'
     | 'addArticulation'
@@ -765,6 +766,13 @@ export default function ScoreEditor() {
         const fn = requireMutation('addDynamic');
         if (!fn) return;
         return fn.call(score, dynamicType);
+    });
+
+    const handleAddHairpin = (hairpinType: number) => performMutation('add hairpin', async () => {
+        await ensureSelectionInWasm();
+        const fn = requireMutation('addHairpin');
+        if (!fn) return;
+        return fn.call(score, hairpinType);
     });
 
     const handleAddRehearsalMark = () => performMutation('add rehearsal mark', async () => {
@@ -2222,6 +2230,7 @@ export default function ScoreEditor() {
                 onTogglePageBreak={handleTogglePageBreak}
                 onSetVoice={handleSetVoice}
                 onAddDynamic={handleAddDynamic}
+                onAddHairpin={handleAddHairpin}
                 onAddRehearsalMark={handleAddRehearsalMark}
                 onAddTempoText={handleAddTempoText}
                 onAddStaffText={handleAddStaffText}

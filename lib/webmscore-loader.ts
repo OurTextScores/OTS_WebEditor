@@ -51,6 +51,7 @@ export interface Score {
     getKeySignature?: () => Promise<number> | number;
     setClef?: (clefType: number) => Promise<unknown> | unknown;
     addDynamic?: (dynamicType: number) => Promise<unknown> | unknown;
+    addHairpin?: (hairpinType: number) => Promise<unknown> | unknown;
     addRehearsalMark?: () => Promise<unknown> | unknown;
     addTempoText?: (bpm: number) => Promise<unknown> | unknown;
     addArticulation?: (articulationSymbolName: string) => Promise<unknown> | unknown;

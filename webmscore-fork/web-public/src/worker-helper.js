@@ -566,6 +566,10 @@ class WebMscoreW {
         return this.rpc('addDynamic', [dynamicType])
     }
 
+    addHairpin(hairpinType) {
+        return this.rpc('addHairpin', [hairpinType])
+    }
+
     addRehearsalMark() {
         return this.rpc('addRehearsalMark')
     }
