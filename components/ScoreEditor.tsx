@@ -33,6 +33,14 @@ type MutationMethods = Pick<
     | 'halfDuration'
     | 'toggleDot'
     | 'toggleDoubleDot'
+    | 'setNoteEntryMode'
+    | 'setNoteEntryMethod'
+    | 'setInputStateFromSelection'
+    | 'setInputAccidentalType'
+    | 'setInputDurationType'
+    | 'toggleInputDot'
+    | 'addPitchByStep'
+    | 'enterRest'
     | 'setDurationType'
     | 'toggleLineBreak'
     | 'togglePageBreak'
@@ -126,6 +134,7 @@ const hasMutationApi = (score: Score | null): score is Score & MutationMethods =
 export default function ScoreEditor() {
     const searchParams = useSearchParams();
     const [score, setScore] = useState<Score | null>(null);
+    const scoreRef = useRef<Score | null>(null);
     const [zoom, setZoom] = useState(1.0);
     const containerRef = useRef<HTMLDivElement>(null);
     const [loading, setLoading] = useState(false);
@@ -134,6 +143,7 @@ export default function ScoreEditor() {
     const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
     const [selectionBoxes, setSelectionBoxes] = useState<SelectionBox[]>([]);
     const [dragSelectionRect, setDragSelectionRect] = useState<{ x: number, y: number, w: number, h: number } | null>(null);
+    const [noteEntryEnabled, setNoteEntryEnabled] = useState(false);
     const ignoreNextClickRef = useRef(false);
     const dragKindRef = useRef<'pointer' | 'mouse' | null>(null);
     const dragPointerIdRef = useRef<number | null>(null);
@@ -159,6 +169,26 @@ export default function ScoreEditor() {
     const audioSourcesRef = useRef<AudioBufferSourceNode[]>([]);
     const streamIteratorRef = useRef<((cancel?: boolean) => Promise<any>) | null>(null);
     const clipboardRef = useRef<{ mimeType: string; data: Uint8Array } | null>(null);
+    const noteEntryAvailable = Boolean(
+        score?.setNoteEntryMode
+        && score?.setNoteEntryMethod
+        && score?.setInputStateFromSelection
+        && score?.addPitchByStep
+        && score?.setInputAccidentalType
+        && score?.setInputDurationType
+        && score?.toggleInputDot
+        && score?.enterRest,
+    );
+
+    useEffect(() => {
+        scoreRef.current = score;
+    }, [score]);
+
+    useEffect(() => {
+        if (!noteEntryAvailable && noteEntryEnabled) {
+            setNoteEntryEnabled(false);
+        }
+    }, [noteEntryAvailable, noteEntryEnabled]);
 
     const exposeScoreToWindow = (s: Score | null) => {
         // Handy for Playwright/debug sessions to poke at WASM bindings directly
@@ -211,6 +241,7 @@ export default function ScoreEditor() {
         setScoreLyricist('');
         setScoreParts([]);
         setInstrumentGroups([]);
+        setNoteEntryEnabled(false);
         try {
             const response = await fetch(url, signal ? { signal } : undefined);
             if (!response.ok) throw new Error('Failed to fetch score');
@@ -243,6 +274,9 @@ export default function ScoreEditor() {
             await renderScore(loadedScore);
             await refreshScoreMetadata(loadedScore);
             await refreshInstrumentTemplates(loadedScore);
+            if (loadedScore.saveAudio) {
+                await ensureSoundFontLoaded(loadedScore);
+            }
 
             // segmentPositions causes a crash in this version of webmscore/emscripten environment
             // We will use DOM-based hit testing on the SVG elements instead.
@@ -271,6 +305,7 @@ export default function ScoreEditor() {
         setScoreLyricist('');
         setScoreParts([]);
         setInstrumentGroups([]);
+        setNoteEntryEnabled(false);
         try {
             const buffer = await file.arrayBuffer();
             const data = new Uint8Array(buffer);
@@ -301,6 +336,9 @@ export default function ScoreEditor() {
             await renderScore(loadedScore);
             await refreshScoreMetadata(loadedScore);
             await refreshInstrumentTemplates(loadedScore);
+            if (loadedScore.saveAudio) {
+                await ensureSoundFontLoaded(loadedScore);
+            }
 
         } catch (err) {
             console.error('Error loading file:', err);
@@ -366,11 +404,12 @@ export default function ScoreEditor() {
         }
     };
 
-    const ensureSoundFontLoaded = async (): Promise<boolean> => {
+    const ensureSoundFontLoaded = async (targetScore?: Score): Promise<boolean> => {
         if (soundFontLoaded) {
             return true;
         }
-        if (!score || !score.setSoundFont) {
+        const activeScore = targetScore ?? score;
+        if (!activeScore || !activeScore.setSoundFont) {
             return false;
         }
         if (triedSoundFont) {
@@ -386,7 +425,7 @@ export default function ScoreEditor() {
                     continue;
                 }
                 const buf = new Uint8Array(await res.arrayBuffer());
-                await score.setSoundFont(buf);
+                await activeScore.setSoundFont(buf);
                 setSoundFontLoaded(true);
                 return true;
             } catch (err) {
@@ -563,14 +602,89 @@ export default function ScoreEditor() {
         console.log('[refreshSelectionOverlay] Done updating selection');
     };
 
+    const advanceSelectionOverlay = (
+        startIndex?: number | null,
+        startPoint?: { page: number, x: number, y: number } | null,
+        step: number = 1,
+    ) => {
+        if (!containerRef.current) {
+            return;
+        }
+        const allElements = Array.from(containerRef.current.querySelectorAll('.Note, .Rest, .Chord'));
+        if (allElements.length === 0) {
+            return;
+        }
+
+        let index = startIndex ?? selectedIndex;
+        const fallbackPoint = startPoint
+            ?? selectedPoint
+            ?? (selectedElement
+                ? { page: 0, x: selectedElement.x + selectedElement.w / 2, y: selectedElement.y + selectedElement.h / 2 }
+                : null);
+        if (fallbackPoint) {
+            const containerRect = containerRef.current.getBoundingClientRect();
+            index = allElements.reduce((bestIdx, el, idx) => {
+                const rect = el.getBoundingClientRect();
+                const centerX = (rect.left - containerRect.left + rect.width / 2) / zoom;
+                const centerY = (rect.top - containerRect.top + rect.height / 2) / zoom;
+                const bestRect = allElements[bestIdx]?.getBoundingClientRect();
+                const bestCenterX = bestRect
+                    ? (bestRect.left - containerRect.left + bestRect.width / 2) / zoom
+                    : centerX;
+                const bestCenterY = bestRect
+                    ? (bestRect.top - containerRect.top + bestRect.height / 2) / zoom
+                    : centerY;
+                const bestDist = Math.hypot(bestCenterX - fallbackPoint.x, bestCenterY - fallbackPoint.y);
+                const dist = Math.hypot(centerX - fallbackPoint.x, centerY - fallbackPoint.y);
+                return dist < bestDist ? idx : bestIdx;
+            }, 0);
+        }
+
+        const baseIndex = index ?? 0;
+        const nextIndex = Math.min(allElements.length - 1, Math.max(0, baseIndex + step));
+        const target = allElements[nextIndex];
+        if (!target) {
+            return;
+        }
+
+        const rect = target.getBoundingClientRect();
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const x = (rect.left - containerRect.left) / zoom;
+        const y = (rect.top - containerRect.top) / zoom;
+        const w = rect.width / zoom;
+        const h = rect.height / zoom;
+        if (!(w > 0 && h > 0)) {
+            return;
+        }
+        const page = extractPageIndex(target) ?? 0;
+        const centerX = x + w / 2;
+        const centerY = y + h / 2;
+        const box: SelectionBox = {
+            index: nextIndex,
+            page,
+            x,
+            y,
+            w,
+            h,
+            centerX,
+            centerY,
+        };
+
+        setSelectionBoxes([box]);
+        setSelectedElement({ x, y, w, h });
+        setSelectedPoint({ page, x: centerX, y: centerY });
+        setSelectedIndex(nextIndex);
+    };
+
     const requireMutation = (methodName: keyof MutationMethods) => {
-        const fn = score && (score as MutationMethods)[methodName];
+        const activeScore = scoreRef.current ?? score;
+        const fn = activeScore && (activeScore as MutationMethods)[methodName];
         if (!fn) {
             console.warn(`Mutation binding "${methodName}" is missing on Score instance.`);
             alert(`This build of webmscore does not expose "${methodName}".`);
             return null;
         }
-        return fn;
+        return (...args: any[]) => (fn as any).apply(activeScore, args);
     };
 
     const promptForText = (label: string, defaultValue?: string) => {
@@ -584,7 +698,13 @@ export default function ScoreEditor() {
     const performMutation = async (
         label: string,
         action?: (() => Promise<unknown> | unknown),
-        options?: { clearSelection?: boolean; skipWasmReselect?: boolean },
+        options?: {
+            clearSelection?: boolean;
+            skipWasmReselect?: boolean;
+            skipSelectionFallback?: boolean;
+            advanceSelection?: boolean;
+            advanceSelectionStep?: number;
+        },
     ) => {
         if (!score) {
             console.warn(`Mutation "${label}" requested but no score is loaded.`);
@@ -599,6 +719,7 @@ export default function ScoreEditor() {
         const preservedIndex = selectedIndex;
         const preservedPoint = selectedPoint;
         const preservedMultiSelection = selectionBoxes.length > 1;
+        const allowSelectionFallback = !options?.skipSelectionFallback;
 
         try {
             console.debug(`Mutation "${label}" start`);
@@ -635,7 +756,7 @@ export default function ScoreEditor() {
             }
 
             // If selection wasn't cleared, restore preserved state for fallback
-            if (!options?.clearSelection) {
+            if (!options?.clearSelection && allowSelectionFallback) {
                 if (preservedIndex !== null && selectedIndex === null) {
                     setSelectedIndex(preservedIndex);
                 }
@@ -651,17 +772,29 @@ export default function ScoreEditor() {
             // Schedule overlay refresh after the DOM has had time to update
             // Use a double-RAF to ensure the DOM is fully parsed and rendered
             // Pass preserved values to handle async state updates
-            console.log('[performMutation] Scheduling refresh with preservedIndex:', preservedIndex, 'preservedPoint:', preservedPoint);
+            const fallbackIndex = allowSelectionFallback ? preservedIndex : null;
+            const fallbackPoint = allowSelectionFallback ? preservedPoint : null;
+            const advanceSelection = options?.advanceSelection;
+            const advanceStep = options?.advanceSelectionStep ?? 1;
+            console.log('[performMutation] Scheduling refresh with preservedIndex:', fallbackIndex, 'preservedPoint:', fallbackPoint);
             if (typeof window !== 'undefined') {
                 window.requestAnimationFrame(() => {
                     console.log('[performMutation] RAF 1');
                     window.requestAnimationFrame(() => {
                         console.log('[performMutation] RAF 2, calling refreshSelectionOverlay');
-                        refreshSelectionOverlay(preservedIndex, preservedPoint);
+                        if (advanceSelection) {
+                            advanceSelectionOverlay(preservedIndex, preservedPoint, advanceStep);
+                        } else {
+                            refreshSelectionOverlay(fallbackIndex, fallbackPoint);
+                        }
                     });
                 });
             } else {
-                refreshSelectionOverlay(preservedIndex, preservedPoint);
+                if (advanceSelection) {
+                    advanceSelectionOverlay(preservedIndex, preservedPoint, advanceStep);
+                } else {
+                    refreshSelectionOverlay(fallbackIndex, fallbackPoint);
+                }
             }
         } catch (err) {
             console.error(`Mutation "${label}" failed:`, err);
@@ -687,7 +820,7 @@ export default function ScoreEditor() {
         await ensureSelectionInWasm();
         const del = requireMutation('deleteSelection');
         if (!del) return;
-        return await del.call(score);
+        return await del();
     }, { clearSelection: true });
     const handleUndo = () => performMutation('undo', score?.undo?.bind(score));
     const handleRedo = () => performMutation('redo', score?.redo?.bind(score));
@@ -695,99 +828,219 @@ export default function ScoreEditor() {
         await ensureSelectionInWasm();
         const fn = requireMutation('pitchUp');
         if (!fn) return;
-        return fn.call(score);
+        return fn();
     });
     const handlePitchDown = () => performMutation('lower pitch', async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('pitchDown');
         if (!fn) return;
-        return fn.call(score);
+        return fn();
     });
     const handleTranspose = (semitones: number) => performMutation(`transpose ${semitones}`, async () => {
         const fn = requireMutation('transpose');
         if (!fn) return;
-        return fn.call(score, semitones);
+        return fn(semitones);
     }, { skipWasmReselect: true });
-    const handleSetAccidental = (accidentalType: number) => performMutation(`set accidental ${accidentalType}`, async () => {
-        await ensureSelectionInWasm();
-        const fn = requireMutation('setAccidental');
+    const handleSetInputAccidentalType = async (accidentalType: number) => {
+        if (!score) return;
+        const fn = requireMutation('setInputAccidentalType');
         if (!fn) return;
-        return fn.call(score, accidentalType);
-    });
+        try {
+            await fn(accidentalType);
+        } catch (err) {
+            console.error('Failed to set note entry accidental', err);
+            alert('Unable to set accidental for note entry. See console for details.');
+        }
+    };
+    const handleSetInputDurationType = async (durationType: number) => {
+        if (!score) return;
+        const fn = requireMutation('setInputDurationType');
+        if (!fn) return;
+        try {
+            await fn(durationType);
+        } catch (err) {
+            console.error('Failed to set note entry duration', err);
+            alert('Unable to set note entry duration. See console for details.');
+        }
+    };
+    const handleToggleInputDot = async () => {
+        if (!score) return;
+        const fn = requireMutation('toggleInputDot');
+        if (!fn) return;
+        try {
+            await fn();
+        } catch (err) {
+            console.error('Failed to toggle note entry dot', err);
+            alert('Unable to toggle note dotting. See console for details.');
+        }
+    };
+    const handleSetAccidental = (accidentalType: number) => {
+        if (noteEntryEnabled) {
+            return handleSetInputAccidentalType(accidentalType);
+        }
+        return performMutation(`set accidental ${accidentalType}`, async () => {
+            await ensureSelectionInWasm();
+            const fn = requireMutation('setAccidental');
+            if (!fn) return;
+            return fn(accidentalType);
+        });
+    };
     const handleDurationLonger = () => performMutation('lengthen duration', async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('doubleDuration');
         if (!fn) return;
-        return fn.call(score);
+        return fn();
     });
     const handleDurationShorter = () => performMutation('shorten duration', async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('halfDuration');
         if (!fn) return;
-        return fn.call(score);
+        return fn();
     });
 
-    const handleToggleDot = () => performMutation('toggle dot', async () => {
-        await ensureSelectionInWasm();
-        const fn = requireMutation('toggleDot');
-        if (!fn) return;
-        return fn.call(score);
-    });
+    const handleToggleDot = () => {
+        if (noteEntryEnabled) {
+            return handleToggleInputDot();
+        }
+        return performMutation('toggle dot', async () => {
+            await ensureSelectionInWasm();
+            const fn = requireMutation('toggleDot');
+            if (!fn) return;
+            return fn();
+        });
+    };
 
     const handleToggleDoubleDot = () => performMutation('toggle double dot', async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('toggleDoubleDot');
         if (!fn) return;
-        return fn.call(score);
+        return fn();
     });
 
-    const handleSetDurationType = (durationType: number) => performMutation('set duration', async () => {
-        await ensureSelectionInWasm();
-        const fn = requireMutation('setDurationType');
+    const handleSetDurationType = (durationType: number) => {
+        if (noteEntryEnabled) {
+            return handleSetInputDurationType(durationType);
+        }
+        return performMutation('set duration', async () => {
+            await ensureSelectionInWasm();
+            const fn = requireMutation('setDurationType');
+            if (!fn) return;
+            return fn(durationType);
+        });
+    };
+
+    const syncInputStateFromSelection = async (): Promise<boolean> => {
+        if (!score) return false;
+        if (selectionBoxes.length > 1) {
+            console.warn('Note entry input state sync skipped for multi-selection.');
+            return false;
+        }
+        const fn = requireMutation('setInputStateFromSelection');
+        if (!fn) return false;
+        try {
+            await ensureSelectionInWasm();
+            return Boolean(await fn());
+        } catch (err) {
+            console.error('Failed to sync note entry state from selection', err);
+            return false;
+        }
+    };
+
+    const handleToggleNoteEntry = async () => {
+        if (!score) return;
+        const setMode = requireMutation('setNoteEntryMode');
+        if (!setMode) return;
+
+        if (!noteEntryEnabled) {
+            if (!selectedElement && selectionBoxes.length === 0) {
+                alert('Select a note or rest to start note input.');
+                return;
+            }
+            const setMethod = requireMutation('setNoteEntryMethod');
+            if (setMethod) {
+                await setMethod(1); // NoteEntryMethod::STEPTIME
+            }
+            const synced = await syncInputStateFromSelection();
+            if (!synced) {
+                alert('Unable to start note input. Select a note or rest and try again.');
+                return;
+            }
+            const result = await setMode(true);
+            if (result === false) {
+                alert('Unable to start note input. See console for details.');
+                return;
+            }
+            setNoteEntryEnabled(true);
+            return;
+        }
+
+        const result = await setMode(false);
+        if (result === false) {
+            alert('Unable to exit note input. See console for details.');
+            return;
+        }
+        setNoteEntryEnabled(false);
+    };
+
+    const handleAddPitchByStep = (noteIndex: number, addToChord: boolean) => {
+        const shouldAdvance = !addToChord;
+        return performMutation('add pitch', async () => {
+            const fn = requireMutation('addPitchByStep');
+            if (!fn) return;
+            return fn(noteIndex, addToChord, false);
+        }, {
+            skipWasmReselect: true,
+            skipSelectionFallback: shouldAdvance,
+            advanceSelection: shouldAdvance,
+        });
+    };
+
+    const handleEnterRest = () => performMutation('enter rest', async () => {
+        const fn = requireMutation('enterRest');
         if (!fn) return;
-        return fn.call(score, durationType);
-    });
+        return fn();
+    }, { skipWasmReselect: true, skipSelectionFallback: true, advanceSelection: true });
 
     const handleToggleLineBreak = () => performMutation('toggle line break', async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('toggleLineBreak');
         if (!fn) return;
-        return fn.call(score);
+        return fn();
     }, { skipWasmReselect: true });
 
     const handleTogglePageBreak = () => performMutation('toggle page break', async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('togglePageBreak');
         if (!fn) return;
-        return fn.call(score);
+        return fn();
     }, { skipWasmReselect: true });
 
     const handleSetVoice = (voiceIndex: number) => performMutation(`set voice ${voiceIndex + 1}`, async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('setVoice');
         if (!fn) return;
-        return fn.call(score, voiceIndex);
+        return fn(voiceIndex);
     });
 
     const handleAddDynamic = (dynamicType: number) => performMutation('add dynamic', async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('addDynamic');
         if (!fn) return;
-        return fn.call(score, dynamicType);
+        return fn(dynamicType);
     });
 
     const handleAddHairpin = (hairpinType: number) => performMutation('add hairpin', async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('addHairpin');
         if (!fn) return;
-        return fn.call(score, hairpinType);
+        return fn(hairpinType);
     });
 
     const handleAddRehearsalMark = () => performMutation('add rehearsal mark', async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('addRehearsalMark');
         if (!fn) return;
-        return fn.call(score);
+        return fn();
     });
 
     const handleAddTempoText = (bpm: number) => {
@@ -795,7 +1048,7 @@ export default function ScoreEditor() {
         return performMutation('add tempo text', async () => {
             const fn = requireMutation('addTempoText');
             if (!fn) return;
-            return fn.call(score, bpm);
+            return fn(bpm);
         }, hadSelection ? undefined : { clearSelection: true });
     };
 
@@ -803,35 +1056,35 @@ export default function ScoreEditor() {
         await ensureSelectionInWasm();
         const fn = requireMutation('addArticulation');
         if (!fn) return;
-        return fn.call(score, articulationSymbolName);
+        return fn(articulationSymbolName);
     });
 
     const handleAddSlur = () => performMutation('add slur', async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('addSlur');
         if (!fn) return;
-        return fn.call(score);
+        return fn();
     });
 
     const handleAddTie = () => performMutation('add tie', async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('addTie');
         if (!fn) return;
-        return fn.call(score);
+        return fn();
     });
 
     const handleAddGraceNote = (graceType: number) => performMutation(`add grace note ${graceType}`, async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('addGraceNote');
         if (!fn) return;
-        return fn.call(score, graceType);
+        return fn(graceType);
     });
 
     const handleAddTuplet = (tupletCount: number) => performMutation(`add tuplet ${tupletCount}`, async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('addTuplet');
         if (!fn) return;
-        return fn.call(score, tupletCount);
+        return fn(tupletCount);
     });
 
     const handleAddStaffText = () => {
@@ -843,7 +1096,7 @@ export default function ScoreEditor() {
             await ensureSelectionInWasm();
             const fn = requireMutation('addStaffText');
             if (!fn) return;
-            return fn.call(score, text);
+            return fn(text);
         });
     };
 
@@ -856,7 +1109,7 @@ export default function ScoreEditor() {
             await ensureSelectionInWasm();
             const fn = requireMutation('addSystemText');
             if (!fn) return;
-            return fn.call(score, text);
+            return fn(text);
         });
     };
 
@@ -869,7 +1122,7 @@ export default function ScoreEditor() {
             await ensureSelectionInWasm();
             const fn = requireMutation('addExpressionText');
             if (!fn) return;
-            return fn.call(score, text);
+            return fn(text);
         });
     };
 
@@ -882,7 +1135,7 @@ export default function ScoreEditor() {
             await ensureSelectionInWasm();
             const fn = requireMutation('addLyricText');
             if (!fn) return;
-            return fn.call(score, text);
+            return fn(text);
         });
     };
 
@@ -902,7 +1155,7 @@ export default function ScoreEditor() {
             await ensureSelectionInWasm();
             const fn = requireMutation('addHarmonyText');
             if (!fn) return;
-            return fn.call(score, variant, text);
+            return fn(variant, text);
         });
     };
 
@@ -915,7 +1168,7 @@ export default function ScoreEditor() {
             await ensureSelectionInWasm();
             const fn = requireMutation('addFingeringText');
             if (!fn) return;
-            return fn.call(score, text);
+            return fn(text);
         });
     };
 
@@ -928,7 +1181,7 @@ export default function ScoreEditor() {
             await ensureSelectionInWasm();
             const fn = requireMutation('addLeftHandGuitarFingeringText');
             if (!fn) return;
-            return fn.call(score, text);
+            return fn(text);
         });
     };
 
@@ -941,7 +1194,7 @@ export default function ScoreEditor() {
             await ensureSelectionInWasm();
             const fn = requireMutation('addRightHandGuitarFingeringText');
             if (!fn) return;
-            return fn.call(score, text);
+            return fn(text);
         });
     };
 
@@ -954,7 +1207,7 @@ export default function ScoreEditor() {
             await ensureSelectionInWasm();
             const fn = requireMutation('addStringNumberText');
             if (!fn) return;
-            return fn.call(score, text);
+            return fn(text);
         });
     };
 
@@ -967,7 +1220,7 @@ export default function ScoreEditor() {
             await ensureSelectionInWasm();
             const fn = requireMutation('addInstrumentChangeText');
             if (!fn) return;
-            return fn.call(score, text);
+            return fn(text);
         });
     };
 
@@ -980,7 +1233,7 @@ export default function ScoreEditor() {
             await ensureSelectionInWasm();
             const fn = requireMutation('addStickingText');
             if (!fn) return;
-            return fn.call(score, text);
+            return fn(text);
         });
     };
 
@@ -993,7 +1246,7 @@ export default function ScoreEditor() {
             await ensureSelectionInWasm();
             const fn = requireMutation('addFiguredBassText');
             if (!fn) return;
-            return fn.call(score, text);
+            return fn(text);
         });
     };
 
@@ -1001,42 +1254,42 @@ export default function ScoreEditor() {
         await ensureSelectionInWasm();
         const fn = requireMutation('addNoteFromRest');
         if (!fn) return;
-        return fn.call(score);
+        return fn();
     });
 
     const handleToggleRepeatStart = () => performMutation('toggle repeat start', async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('toggleRepeatStart');
         if (!fn) return;
-        return fn.call(score);
+        return fn();
     });
 
     const handleToggleRepeatEnd = () => performMutation('toggle repeat end', async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('toggleRepeatEnd');
         if (!fn) return;
-        return fn.call(score);
+        return fn();
     });
 
     const handleSetRepeatCount = (count: number) => performMutation(`set repeat count ${count}`, async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('setRepeatCount');
         if (!fn) return;
-        return fn.call(score, count);
+        return fn(count);
     });
 
     const handleSetBarLineType = (barLineType: number) => performMutation(`set barline type ${barLineType}`, async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('setBarLineType');
         if (!fn) return;
-        return fn.call(score, barLineType);
+        return fn(barLineType);
     });
 
     const handleAddVolta = (endingNumber: number) => performMutation(`add volta ${endingNumber}`, async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('addVolta');
         if (!fn) return;
-        return fn.call(score, endingNumber);
+        return fn(endingNumber);
     });
 
     const handleSetTitleText = async () => {
@@ -1047,7 +1300,7 @@ export default function ScoreEditor() {
         await performMutation('set title', async () => {
             const fn = requireMutation('setTitleText');
             if (!fn) return;
-            return fn.call(score, scoreTitle);
+            return fn(scoreTitle);
         }, { skipWasmReselect: true });
         await refreshScoreMetadata(score);
     };
@@ -1060,7 +1313,7 @@ export default function ScoreEditor() {
         await performMutation('set subtitle', async () => {
             const fn = requireMutation('setSubtitleText');
             if (!fn) return;
-            return fn.call(score, scoreSubtitle);
+            return fn(scoreSubtitle);
         }, { skipWasmReselect: true });
         await refreshScoreMetadata(score);
     };
@@ -1073,7 +1326,7 @@ export default function ScoreEditor() {
         await performMutation('set composer', async () => {
             const fn = requireMutation('setComposerText');
             if (!fn) return;
-            return fn.call(score, scoreComposer);
+            return fn(scoreComposer);
         }, { skipWasmReselect: true });
         await refreshScoreMetadata(score);
     };
@@ -1086,7 +1339,7 @@ export default function ScoreEditor() {
         await performMutation('set lyricist', async () => {
             const fn = requireMutation('setLyricistText');
             if (!fn) return;
-            return fn.call(score, scoreLyricist);
+            return fn(scoreLyricist);
         }, { skipWasmReselect: true });
         await refreshScoreMetadata(score);
     };
@@ -1099,7 +1352,7 @@ export default function ScoreEditor() {
         await performMutation('add instrument', async () => {
             const fn = requireMutation('appendPart');
             if (!fn) return;
-            return fn.call(score, instrumentId);
+            return fn(instrumentId);
         }, { skipWasmReselect: true });
         await refreshScoreMetadata(score);
     };
@@ -1112,7 +1365,7 @@ export default function ScoreEditor() {
         await performMutation('remove instrument', async () => {
             const fn = requireMutation('removePart');
             if (!fn) return;
-            return fn.call(score, partIndex);
+            return fn(partIndex);
         }, { clearSelection: true, skipWasmReselect: true });
         await refreshScoreMetadata(score);
     };
@@ -1125,7 +1378,7 @@ export default function ScoreEditor() {
         await performMutation('toggle part visibility', async () => {
             const fn = requireMutation('setPartVisible');
             if (!fn) return;
-            return fn.call(score, partIndex, visible);
+            return fn(partIndex, visible);
         }, { skipWasmReselect: true });
         await refreshScoreMetadata(score);
     };
@@ -1140,11 +1393,11 @@ export default function ScoreEditor() {
         if (!getType || !getData) {
             return false;
         }
-        const mimeType = await getType.call(score);
+        const mimeType = await getType();
         if (!mimeType) {
             return false;
         }
-        const data = await getData.call(score);
+        const data = await getData();
         if (!data || data.length === 0) {
             return false;
         }
@@ -1161,7 +1414,7 @@ export default function ScoreEditor() {
         await ensureSelectionInWasm();
         const fn = requireMutation('pasteSelection');
         if (!fn) return;
-        return fn.call(score, clip.mimeType, clip.data);
+        return fn(clip.mimeType, clip.data);
     }, { skipWasmReselect: true });
 
     const isEditableTarget = (target: EventTarget | null) => {
@@ -1181,7 +1434,8 @@ export default function ScoreEditor() {
                 return;
             }
 
-            const key = event.key.toLowerCase();
+            const rawKey = event.key;
+            const key = rawKey.toLowerCase();
             const isMod = event.ctrlKey || event.metaKey;
 
             if (isMod) {
@@ -1207,6 +1461,116 @@ export default function ScoreEditor() {
                 if (key === 'v') {
                     event.preventDefault();
                     handlePasteSelection();
+                    return;
+                }
+            }
+
+            if (noteEntryEnabled && noteEntryAvailable && !isMod) {
+                const noteMap: Record<string, number> = {
+                    c: 0,
+                    d: 1,
+                    e: 2,
+                    f: 3,
+                    g: 4,
+                    a: 5,
+                    b: 6,
+                };
+                const durationMap: Record<string, number> = {
+                    '1': 8, // DurationType::V_64TH
+                    '2': 7, // DurationType::V_32ND
+                    '3': 6, // DurationType::V_16TH
+                    '4': 5, // DurationType::V_EIGHTH
+                    '5': 4, // DurationType::V_QUARTER
+                    '6': 3, // DurationType::V_HALF
+                    '7': 2, // DurationType::V_WHOLE
+                    '8': 1, // DurationType::V_BREVE
+                };
+
+                if (rawKey in durationMap) {
+                    event.preventDefault();
+                    handleSetInputDurationType(durationMap[rawKey]);
+                    return;
+                }
+
+                if (rawKey === '0') {
+                    event.preventDefault();
+                    handleEnterRest();
+                    return;
+                }
+
+                if (rawKey === '.') {
+                    event.preventDefault();
+                    handleToggleInputDot();
+                    return;
+                }
+
+                if (rawKey === '+') {
+                    event.preventDefault();
+                    handleSetInputAccidentalType(3);
+                    return;
+                }
+
+                if (rawKey === '-') {
+                    event.preventDefault();
+                    handleSetInputAccidentalType(1);
+                    return;
+                }
+
+                if (rawKey === '=') {
+                    event.preventDefault();
+                    handleSetInputAccidentalType(2);
+                    return;
+                }
+
+                if (rawKey === 'T') {
+                    event.preventDefault();
+                    handleAddTie();
+                    return;
+                }
+
+                if (!event.altKey && key in noteMap) {
+                    event.preventDefault();
+                    handleAddPitchByStep(noteMap[key], event.shiftKey);
+                    return;
+                }
+            }
+
+            if (!noteEntryEnabled && !isMod) {
+                if (rawKey === 'ArrowRight' || rawKey === 'ArrowLeft') {
+                    event.preventDefault();
+                    const step = rawKey === 'ArrowRight' ? 1 : -1;
+                    advanceSelectionOverlay(undefined, undefined, step);
+                    return;
+                }
+
+                if (rawKey === '+' || rawKey === '-' || rawKey === '=') {
+                    if (!mutationEnabled) {
+                        return;
+                    }
+                    const hasSelection = Boolean(selectedElement) || selectionBoxes.length > 0;
+                    if (!hasSelection) {
+                        return;
+                    }
+                    event.preventDefault();
+                    const accidentalType = rawKey === '+'
+                        ? 3
+                        : rawKey === '-'
+                            ? 1
+                            : 2;
+                    handleSetAccidental(accidentalType);
+                    return;
+                }
+
+                if (rawKey === '.') {
+                    if (!mutationEnabled) {
+                        return;
+                    }
+                    const hasSelection = Boolean(selectedElement) || selectionBoxes.length > 0;
+                    if (!hasSelection) {
+                        return;
+                    }
+                    event.preventDefault();
+                    handleToggleDot();
                     return;
                 }
             }
@@ -1245,6 +1609,14 @@ export default function ScoreEditor() {
         mutationEnabled,
         selectedElement,
         selectionBoxes.length,
+        noteEntryEnabled,
+        noteEntryAvailable,
+        handleAddPitchByStep,
+        handleEnterRest,
+        handleSetInputAccidentalType,
+        handleSetInputDurationType,
+        handleToggleInputDot,
+        handleAddTie,
         handleUndo,
         handleRedo,
         handlePitchUp,
@@ -1253,6 +1625,26 @@ export default function ScoreEditor() {
         handleDeleteSelection,
         handleCopySelection,
         handlePasteSelection,
+    ]);
+
+    useEffect(() => {
+        if (!noteEntryEnabled || !noteEntryAvailable) {
+            return;
+        }
+        if (selectionBoxes.length > 1) {
+            return;
+        }
+        if (!selectedPoint && !selectedElement) {
+            return;
+        }
+        syncInputStateFromSelection();
+    }, [
+        noteEntryEnabled,
+        noteEntryAvailable,
+        selectedPoint,
+        selectedElement,
+        selectionBoxes.length,
+        syncInputStateFromSelection,
     ]);
 
     const handleSetTimeSignature = async (num: number, den: number) => {
@@ -2208,13 +2600,16 @@ export default function ScoreEditor() {
                 onUndo={handleUndo}
                 onRedo={handleRedo}
 	                onPitchUp={handlePitchUp}
-	                onPitchDown={handlePitchDown}
+                onPitchDown={handlePitchDown}
                     onTranspose={handleTranspose}
                     onSetAccidental={handleSetAccidental}
-	                onDurationLonger={handleDurationLonger}
+                    noteEntryEnabled={noteEntryEnabled}
+                    noteEntryAvailable={noteEntryAvailable}
+                    onToggleNoteEntry={handleToggleNoteEntry}
+                    onDurationLonger={handleDurationLonger}
 	                onDurationShorter={handleDurationShorter}
 	                mutationsEnabled={mutationEnabled}
-	                selectionActive={Boolean(selectedElement)}
+                selectionActive={Boolean(selectedElement) || selectionBoxes.length > 0 || Boolean(selectedPoint)}
                 onExportSvg={handleExportSvg}
                 onExportPdf={handleExportPdf}
                 onExportPng={handleExportPng}

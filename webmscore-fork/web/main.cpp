@@ -61,6 +61,7 @@
 #include "engraving/libmscore/text.h"
 #include "engraving/libmscore/textbase.h"
 #include "engraving/libmscore/segment.h"
+#include "engraving/libmscore/utils.h"
 #include "engraving/libmscore/volta.h"
 #include "engraving/libmscore/key.h"
 #include "engraving/libmscore/types.h"
@@ -1561,6 +1562,231 @@ bool _setDurationType(uintptr_t score_ptr, int durationType, int excerptId)
     return true;
 }
 
+bool _setNoteEntryMode(uintptr_t score_ptr, bool enabled, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    score->setNoteEntryMode(enabled);
+    if (enabled && !score->inputState().duration().isValid()) {
+        score->inputState().setDuration(engraving::TDuration(engraving::DurationType::V_QUARTER));
+    }
+    return true;
+}
+
+bool _setNoteEntryMethod(uintptr_t score_ptr, int method, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    if (method < static_cast<int>(engraving::NoteEntryMethod::UNKNOWN)
+        || method > static_cast<int>(engraving::NoteEntryMethod::TIMEWISE)) {
+        LOGW() << "setNoteEntryMethod: invalid method " << method;
+        return false;
+    }
+    score->setNoteEntryMethod(static_cast<engraving::NoteEntryMethod>(method));
+    return true;
+}
+
+bool _setInputStateFromSelection(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    auto* el = score->selection().element();
+    if (el && el->isNote()) {
+        el = el->parentItem();
+    }
+    auto* cr = el && el->isChordRest() ? engraving::toChordRest(el) : score->selection().cr();
+    if (!cr) {
+        LOGW() << "setInputStateFromSelection: no chord/rest selected";
+        return false;
+    }
+
+    score->inputState().setTrack(cr->track());
+    score->inputState().setSegment(cr->segment());
+    auto duration = cr->durationType();
+    if (duration.isMeasure()) {
+        duration = engraving::TDuration(cr->measure()->timesig());
+    }
+    score->inputState().setDuration(duration);
+    score->inputState().setRest(cr->isRest());
+    return true;
+}
+
+bool _setInputAccidentalType(uintptr_t score_ptr, int accidentalType, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    if (accidentalType < 0 || accidentalType >= static_cast<int>(engraving::AccidentalType::END)) {
+        LOGW() << "setInputAccidentalType: invalid accidental type " << accidentalType;
+        return false;
+    }
+    score->inputState().setAccidentalType(static_cast<engraving::AccidentalType>(accidentalType));
+    score->inputState().setRest(false);
+    return true;
+}
+
+bool _setInputDurationType(uintptr_t score_ptr, int durationType, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    if (durationType < static_cast<int>(engraving::DurationType::V_LONG)
+        || durationType >= static_cast<int>(engraving::DurationType::V_ZERO)) {
+        LOGW() << "setInputDurationType: invalid duration type " << durationType;
+        return false;
+    }
+
+    engraving::TDuration d(static_cast<engraving::DurationType>(durationType));
+    d.setDots(0);
+    if (!d.isValid() || d.isMeasure()) {
+        LOGW() << "setInputDurationType: invalid duration selection";
+        return false;
+    }
+
+    score->inputState().setDuration(d);
+    return true;
+}
+
+bool _toggleInputDot(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    auto duration = score->inputState().duration();
+    const int nextDots = duration.dots() > 0 ? 0 : 1;
+    score->inputState().setDots(nextDots);
+    return true;
+}
+
+bool _addPitchByStep(uintptr_t score_ptr, int note, bool addToChord, bool insert, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    if (note < 0 || note > 6) {
+        LOGW() << "addPitchByStep: invalid note index " << note;
+        return false;
+    }
+    auto& is = score->inputState();
+    if (is.track() == mu::nidx) {
+        LOGW() << "addPitchByStep: input track invalid";
+        return false;
+    }
+    if (!is.segment()) {
+        if (!_setInputStateFromSelection(score_ptr, excerptId)) {
+            LOGW() << "addPitchByStep: no input segment";
+            return false;
+        }
+    }
+    is.setRest(false);
+
+    const engraving::Drumset* ds = is.drumset();
+    int octave = 4;
+    if (ds) {
+        char note1 = "CDEFGAB"[note];
+        int pitch = -1;
+        int voice = 0;
+        for (int i = 0; i < 127; ++i) {
+            if (!ds->isValid(i)) {
+                continue;
+            }
+            if (ds->shortcut(i) && (ds->shortcut(i) == note1)) {
+                pitch = i;
+                voice = ds->voice(i);
+                break;
+            }
+        }
+        if (pitch == -1) {
+            LOGW() << "addPitchByStep: drum shortcut " << note1 << " not defined";
+            return false;
+        }
+        is.setDrumNote(pitch);
+        is.setTrack(engraving::trackZeroVoice(is.track()) + voice);
+        octave = pitch / 12;
+        if (is.segment()) {
+            auto* seg = is.segment();
+            while (seg) {
+                if (seg->element(is.track())) {
+                    break;
+                }
+                seg = seg->prev(engraving::SegmentType::ChordRest);
+            }
+            if (seg) {
+                is.setSegment(seg);
+            } else {
+                is.setSegment(is.segment()->measure()->first(engraving::SegmentType::ChordRest));
+            }
+        }
+    } else {
+        static const int tab[] = { 0, 2, 4, 5, 7, 9, 11 };
+        engraving::EngravingItem* el = score->selection().element();
+        if (addToChord && el && el->isNote()) {
+            auto* chord = engraving::toNote(el)->chord();
+            auto* n = chord->upNote();
+            int tpc = n->tpc();
+            octave = (n->epitch() - int(engraving::tpc2alter(tpc))) / engraving::PITCH_DELTA_OCTAVE;
+            if (note <= engraving::tpc2step(tpc)) {
+                octave++;
+            }
+        } else {
+            int curPitch = 60;
+            if (is.segment()) {
+                auto* staff = score->staff(is.track() / engraving::VOICES);
+                auto* seg = is.segment()->prev1(engraving::SegmentType::ChordRest
+                    | engraving::SegmentType::Clef
+                    | engraving::SegmentType::HeaderClef);
+                while (seg) {
+                    if (seg->isChordRestType()) {
+                        auto* p = seg->element(is.track());
+                        if (p && p->isChord()) {
+                            auto* n = engraving::toChord(p)->downNote();
+                            curPitch = n->epitch() - static_cast<int>(engraving::tpc2alter(n->tpc()));
+                            break;
+                        }
+                    } else if (seg->isClefType() || seg->isHeaderClefType()) {
+                        auto* p = seg->element(engraving::trackZeroVoice(is.track()));
+                        if (p && p->isClef()) {
+                            auto* clef = engraving::toClef(p);
+                            auto ctb = staff->clef(clef->tick() - engraving::Fraction::fromTicks(1));
+                            if (ctb != clef->clefType() || clef->tick().isZero()) {
+                                curPitch = engraving::line2pitch(4, clef->clefType(), engraving::Key::C);
+                                break;
+                            }
+                        }
+                    }
+                    seg = seg->prev1MM(engraving::SegmentType::ChordRest
+                        | engraving::SegmentType::Clef
+                        | engraving::SegmentType::HeaderClef);
+                }
+                octave = curPitch / 12;
+            }
+
+            int delta = octave * 12 + tab[note] - curPitch;
+            if (delta > 6) {
+                --octave;
+            } else if (delta < -6) {
+                ++octave;
+            }
+        }
+    }
+
+    int step = octave * 7 + note;
+    score->cmdAddPitch(step, addToChord, insert);
+    return true;
+}
+
+bool _enterRest(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    auto& is = score->inputState();
+    if (is.track() == mu::nidx) {
+        LOGW() << "enterRest: input track invalid";
+        return false;
+    }
+    if (!is.segment()) {
+        if (!_setInputStateFromSelection(score_ptr, excerptId)) {
+            LOGW() << "enterRest: no input segment";
+            return false;
+        }
+    }
+    auto duration = is.duration();
+    if (!duration.isValid() || duration.isMeasure()) {
+        duration = engraving::TDuration(engraving::DurationType::V_QUARTER);
+        is.setDuration(duration);
+    }
+    score->cmdEnterRest(duration);
+    return true;
+}
+
 bool _toggleLayoutBreak(uintptr_t score_ptr, engraving::LayoutBreakType type, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
@@ -2382,6 +2608,46 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool toggleDoubleDot(uintptr_t score_ptr, int excerptId = -1) {
         return _toggleDoubleDot(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool setNoteEntryMode(uintptr_t score_ptr, bool enabled, int excerptId = -1) {
+        return _setNoteEntryMode(score_ptr, enabled, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool setNoteEntryMethod(uintptr_t score_ptr, int method, int excerptId = -1) {
+        return _setNoteEntryMethod(score_ptr, method, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool setInputStateFromSelection(uintptr_t score_ptr, int excerptId = -1) {
+        return _setInputStateFromSelection(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool setInputAccidentalType(uintptr_t score_ptr, int accidentalType, int excerptId = -1) {
+        return _setInputAccidentalType(score_ptr, accidentalType, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool setInputDurationType(uintptr_t score_ptr, int durationType, int excerptId = -1) {
+        return _setInputDurationType(score_ptr, durationType, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool toggleInputDot(uintptr_t score_ptr, int excerptId = -1) {
+        return _toggleInputDot(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool addPitchByStep(uintptr_t score_ptr, int note, bool addToChord, bool insert, int excerptId = -1) {
+        return _addPitchByStep(score_ptr, note, addToChord, insert, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool enterRest(uintptr_t score_ptr, int excerptId = -1) {
+        return _enterRest(score_ptr, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE

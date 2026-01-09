@@ -792,6 +792,82 @@ class WebMscore {
     }
 
     /**
+     * Enable or disable note entry mode
+     * @param {boolean} enabled
+     * @returns {Promise<boolean>}
+     */
+    async setNoteEntryMode(enabled) {
+        return Module.ccall('setNoteEntryMode', 'boolean', ['number', 'number', 'number'], [this.scoreptr, enabled ? 1 : 0, this.excerptId])
+    }
+
+    /**
+     * Set note entry method
+     * @param {number} method see engraving::NoteEntryMethod enum
+     * @returns {Promise<boolean>}
+     */
+    async setNoteEntryMethod(method) {
+        return Module.ccall('setNoteEntryMethod', 'boolean', ['number', 'number', 'number'], [this.scoreptr, method, this.excerptId])
+    }
+
+    /**
+     * Seed input state (segment/track/duration) from the current selection
+     * @returns {Promise<boolean>}
+     */
+    async setInputStateFromSelection() {
+        return Module.ccall('setInputStateFromSelection', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
+    }
+
+    /**
+     * Set accidental type for note entry input
+     * @param {number} accidentalType see engraving::AccidentalType enum
+     * @returns {Promise<boolean>}
+     */
+    async setInputAccidentalType(accidentalType) {
+        return Module.ccall('setInputAccidentalType', 'boolean', ['number', 'number', 'number'], [this.scoreptr, accidentalType, this.excerptId])
+    }
+
+    /**
+     * Set input duration type for note entry
+     * @param {number} durationType see engraving::DurationType enum
+     * @returns {Promise<boolean>}
+     */
+    async setInputDurationType(durationType) {
+        return Module.ccall('setInputDurationType', 'boolean', ['number', 'number', 'number'], [this.scoreptr, durationType, this.excerptId])
+    }
+
+    /**
+     * Toggle dotting for the current input duration
+     * @returns {Promise<boolean>}
+     */
+    async toggleInputDot() {
+        return Module.ccall('toggleInputDot', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
+    }
+
+    /**
+     * Add a pitch by letter step (0=C ... 6=B)
+     * @param {number} note
+     * @param {boolean} addToChord
+     * @param {boolean} insert
+     * @returns {Promise<boolean>}
+     */
+    async addPitchByStep(note, addToChord = false, insert = false) {
+        return Module.ccall(
+            'addPitchByStep',
+            'boolean',
+            ['number', 'number', 'number', 'number', 'number'],
+            [this.scoreptr, note, addToChord ? 1 : 0, insert ? 1 : 0, this.excerptId],
+        )
+    }
+
+    /**
+     * Enter a rest at the input cursor using the current duration
+     * @returns {Promise<boolean>}
+     */
+    async enterRest() {
+        return Module.ccall('enterRest', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
+    }
+
+    /**
      * Set duration type for the current selection
      * @param {number} durationType see engraving::DurationType enum
      * @returns {Promise<boolean>}

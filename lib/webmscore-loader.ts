@@ -40,6 +40,14 @@ export interface Score {
     halfDuration?: () => Promise<unknown> | unknown;
     toggleDot?: () => Promise<unknown> | unknown;
     toggleDoubleDot?: () => Promise<unknown> | unknown;
+    setNoteEntryMode?: (enabled: boolean) => Promise<unknown> | unknown;
+    setNoteEntryMethod?: (method: number) => Promise<unknown> | unknown;
+    setInputStateFromSelection?: () => Promise<unknown> | unknown;
+    setInputAccidentalType?: (accidentalType: number) => Promise<unknown> | unknown;
+    setInputDurationType?: (durationType: number) => Promise<unknown> | unknown;
+    toggleInputDot?: () => Promise<unknown> | unknown;
+    addPitchByStep?: (note: number, addToChord?: boolean, insert?: boolean) => Promise<unknown> | unknown;
+    enterRest?: () => Promise<unknown> | unknown;
     setDurationType?: (durationType: number) => Promise<unknown> | unknown;
     toggleLineBreak?: () => Promise<unknown> | unknown;
     togglePageBreak?: () => Promise<unknown> | unknown;

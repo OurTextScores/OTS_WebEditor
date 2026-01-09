@@ -550,6 +550,38 @@ class WebMscoreW {
         return this.rpc('toggleDoubleDot')
     }
 
+    setNoteEntryMode(enabled) {
+        return this.rpc('setNoteEntryMode', [enabled ? 1 : 0])
+    }
+
+    setNoteEntryMethod(method) {
+        return this.rpc('setNoteEntryMethod', [method])
+    }
+
+    setInputStateFromSelection() {
+        return this.rpc('setInputStateFromSelection')
+    }
+
+    setInputAccidentalType(accidentalType) {
+        return this.rpc('setInputAccidentalType', [accidentalType])
+    }
+
+    setInputDurationType(durationType) {
+        return this.rpc('setInputDurationType', [durationType])
+    }
+
+    toggleInputDot() {
+        return this.rpc('toggleInputDot')
+    }
+
+    addPitchByStep(note, addToChord = false, insert = false) {
+        return this.rpc('addPitchByStep', [note, addToChord ? 1 : 0, insert ? 1 : 0])
+    }
+
+    enterRest() {
+        return this.rpc('enterRest')
+    }
+
     setDurationType(durationType) {
         return this.rpc('setDurationType', [durationType])
     }

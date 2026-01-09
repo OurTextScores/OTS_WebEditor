@@ -227,12 +227,12 @@ describe('ScoreEditor', () => {
     await user.click(screen.getByTestId('btn-pitch-up'));
     await user.click(screen.getByTestId('btn-transpose-12'));
     await user.click(screen.getByTestId('btn-duration-longer'));
-    await user.click(screen.getByTestId('btn-dot'));
-    await user.click(screen.getByTestId('btn-voice-2'));
-    await user.click(screen.getByTestId('btn-acc-3'));
-    await user.click(screen.getByTestId('btn-dynamic-6'));
-    await user.click(screen.getByTestId('btn-timesig-3-4'));
-    await user.click(screen.getByTestId('btn-keysig-0'));
+    fireEvent.click(screen.getByTestId('btn-dot'));
+    fireEvent.click(screen.getByTestId('btn-voice-2'));
+    fireEvent.click(screen.getByTestId('btn-acc-3'));
+    fireEvent.click(screen.getByTestId('btn-dynamic-6'));
+    fireEvent.click(screen.getByTestId('btn-timesig-3-4'));
+    fireEvent.click(screen.getByTestId('btn-keysig-0'));
 
     await waitFor(() => expect(score.pitchUp).toHaveBeenCalled());
     await waitFor(() => expect(score.transpose).toHaveBeenCalledWith(12));
@@ -244,7 +244,7 @@ describe('ScoreEditor', () => {
     await waitFor(() => expect(score.setTimeSignature).toHaveBeenCalledWith(3, 4));
     await waitFor(() => expect(score.setKeySignature).toHaveBeenCalledWith(0));
 
-    await user.click(screen.getByTestId('btn-export-svg'));
+    fireEvent.click(screen.getByTestId('btn-export-svg'));
     await waitFor(() => expect(score.saveSvg).toHaveBeenCalled());
     await waitFor(() => expect((globalThis as any).URL.createObjectURL).toHaveBeenCalled());
   });
@@ -374,11 +374,11 @@ describe('ScoreEditor', () => {
 
     await waitFor(() => expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy());
 
-    await user.click(screen.getByTestId('btn-export-pdf'));
-    await user.click(screen.getByTestId('btn-export-png'));
-    await user.click(screen.getByTestId('btn-export-mxl'));
-    await user.click(screen.getByTestId('btn-export-mscz'));
-    await user.click(screen.getByTestId('btn-export-midi'));
+    fireEvent.click(screen.getByTestId('btn-export-pdf'));
+    fireEvent.click(screen.getByTestId('btn-export-png'));
+    fireEvent.click(screen.getByTestId('btn-export-mxl'));
+    fireEvent.click(screen.getByTestId('btn-export-mscz'));
+    fireEvent.click(screen.getByTestId('btn-export-midi'));
 
     await waitFor(() => expect(score.savePdf).toHaveBeenCalled());
     await waitFor(() => expect(score.savePng).toHaveBeenCalledWith(0, true, true));
@@ -386,6 +386,141 @@ describe('ScoreEditor', () => {
     await waitFor(() => expect(score.saveMsc).toHaveBeenCalledWith('mscz'));
     await waitFor(() => expect(score.saveMidi).toHaveBeenCalledWith(true, true));
     await waitFor(() => expect((globalThis as any).URL.createObjectURL).toHaveBeenCalled());
+  });
+
+  it('supports note entry keyboard shortcuts', async () => {
+    const user = userEvent.setup();
+
+    const score: any = {
+      destroy: vi.fn(),
+      saveSvg: vi.fn(async () => '<svg><g class="Note"></g></svg>'),
+      relayout: vi.fn(async () => true),
+      selectElementAtPoint: vi.fn(async () => true),
+      setNoteEntryMode: vi.fn(async () => true),
+      setNoteEntryMethod: vi.fn(async () => true),
+      setInputStateFromSelection: vi.fn(async () => true),
+      addPitchByStep: vi.fn(async () => true),
+      setInputAccidentalType: vi.fn(async () => true),
+      setInputDurationType: vi.fn(async () => true),
+      toggleInputDot: vi.fn(async () => true),
+      enterRest: vi.fn(async () => true),
+      addTie: vi.fn(async () => true),
+      metadata: vi.fn(async () => ({})),
+      measurePositions: vi.fn(async () => ({})),
+      segmentPositions: vi.fn(async () => ({})),
+    };
+
+    const webmscore: any = {
+      ready: Promise.resolve(),
+      load: vi.fn(async () => score),
+    };
+
+    mocked.loadWebMscore.mockResolvedValue(webmscore);
+    (globalThis as any).fetch = vi.fn(async () => ({
+      ok: false,
+      arrayBuffer: async () => new ArrayBuffer(0),
+    }));
+
+    render(<ScoreEditor />);
+
+    const file = new File([new Uint8Array([1])], 'demo.mscz', { type: 'application/octet-stream' });
+    await user.upload(screen.getByTestId('open-score-input'), file);
+
+    await waitFor(() => expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy());
+
+    const note = screen.getByTestId('svg-container').querySelector('.Note');
+    expect(note).toBeTruthy();
+    fireEvent.click(note!);
+    await screen.findByTestId('selection-overlay');
+
+    await user.click(screen.getByTestId('btn-note-entry'));
+    await waitFor(() => expect(screen.getByTestId('btn-note-entry')).toHaveAttribute('aria-checked', 'true'));
+
+    fireEvent.keyDown(window, { key: '1' });
+    await waitFor(() => expect(score.setInputDurationType).toHaveBeenCalledWith(8));
+
+    fireEvent.keyDown(window, { key: '.' });
+    await waitFor(() => expect(score.toggleInputDot).toHaveBeenCalled());
+
+    fireEvent.keyDown(window, { key: '+' });
+    await waitFor(() => expect(score.setInputAccidentalType).toHaveBeenCalledWith(3));
+
+    fireEvent.keyDown(window, { key: '-' });
+    await waitFor(() => expect(score.setInputAccidentalType).toHaveBeenCalledWith(1));
+
+    fireEvent.keyDown(window, { key: '=' });
+    await waitFor(() => expect(score.setInputAccidentalType).toHaveBeenCalledWith(2));
+
+    fireEvent.keyDown(window, { key: 'c' });
+    await waitFor(() => expect(score.addPitchByStep).toHaveBeenCalledWith(0, false, false));
+
+    fireEvent.keyDown(window, { key: '0' });
+    await waitFor(() => expect(score.enterRest).toHaveBeenCalled());
+
+    fireEvent.keyDown(window, { key: 'T' });
+    await waitFor(() => expect(score.addTie).toHaveBeenCalled());
+  });
+
+  it('advances selection with left/right arrows', async () => {
+    const user = userEvent.setup();
+
+    const score: any = {
+      destroy: vi.fn(),
+      saveSvg: vi.fn(async () => '<svg><g class="Note note-1"></g><g class="Note note-2"></g></svg>'),
+      selectElementAtPoint: vi.fn(async () => true),
+      metadata: vi.fn(async () => ({})),
+      measurePositions: vi.fn(async () => ({})),
+      segmentPositions: vi.fn(async () => ({})),
+    };
+
+    const webmscore: any = {
+      ready: Promise.resolve(),
+      load: vi.fn(async () => score),
+    };
+
+    rectSpy?.mockImplementation(function (this: Element) {
+      const classes = this.getAttribute?.('class') || '';
+      if (classes.includes('note-2')) {
+        return {
+          ...boundingRect,
+          left: 120,
+          right: 220,
+        } as any;
+      }
+      if (classes.includes('note-1')) {
+        return {
+          ...boundingRect,
+          left: 0,
+          right: 100,
+        } as any;
+      }
+      return boundingRect as any;
+    });
+
+    mocked.loadWebMscore.mockResolvedValue(webmscore);
+    (globalThis as any).fetch = vi.fn(async () => ({
+      ok: false,
+      arrayBuffer: async () => new ArrayBuffer(0),
+    }));
+
+    render(<ScoreEditor />);
+
+    const file = new File([new Uint8Array([1])], 'demo.mscz', { type: 'application/octet-stream' });
+    await user.upload(screen.getByTestId('open-score-input'), file);
+    await waitFor(() => expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy());
+
+    const notes = screen.getByTestId('svg-container').querySelectorAll('.Note');
+    expect(notes.length).toBe(2);
+    fireEvent.click(notes[0]!);
+    await screen.findByTestId('selection-overlay');
+
+    await waitFor(() => expect(screen.getByTestId('selection-overlay')).toHaveStyle({ left: '0px' }));
+
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    await waitFor(() => expect(screen.getByTestId('selection-overlay')).toHaveStyle({ left: '120px' }));
+
+    fireEvent.keyDown(window, { key: 'ArrowLeft' });
+    await waitFor(() => expect(screen.getByTestId('selection-overlay')).toHaveStyle({ left: '0px' }));
   });
 
   it('alerts when optional export bindings are missing', async () => {

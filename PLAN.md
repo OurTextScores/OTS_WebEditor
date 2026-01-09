@@ -183,6 +183,8 @@ The system is designed so that libmscore can be swapped out later without rewrit
 - Custom webmscore fork exposes mutation/undo APIs; app wiring calls them when available.
 - WASM glue patched to fix instantiation, provide env imports/exports, and default Qt platform args/ENV to `wasm`; artifacts copied into `public/`.
 - Score loads and renders SVG at `/?score=/test_scores/bach_orig.mscz`; UI shows toolbar/zoom.
+- Note entry bindings are exposed and wired (setNoteEntryMode/method, setInputStateFromSelection, setInputAccidentalType, setInputDurationType, toggleInputDot, addPitchByStep, enterRest) with a Note Input toggle in the toolbar.
+- Input-by-note-name shortcuts are active when Note Input is enabled: A–G note names, accidentals before note (`+` sharp, `-` flat, `=` natural), `1–8` durations, `0` rest, `.` dot, `T` tie, `Shift` to add to chord.
 
 ## Next Steps
 1. Rebuild webmscore with platform=`wasm` baked in (remove memory-initializer `offscreen` patch) and automate copying `webmscore.lib.*` artifacts into `public/`.
@@ -196,6 +198,25 @@ The system is designed so that libmscore can be swapped out later without rewrit
      - 100% Vitest coverage for `app/`, `components/`, `lib/`, `scripts/` (excluding `.next/`, `public/`, `webmscore-fork/`).
      - 100% “wrapper surface” coverage: every JS↔WASM mutation/export wrapper has at least one Playwright test asserting a real score change (via MSCX export or SVG assertions).
    - Prefer stable selectors (`data-testid`) for Playwright to avoid ambiguous button names as the toolbar grows.
+
+## Input by Note Name Mode (Status + Next Steps)
+
+### Current Status
+- Note entry mode is toggled via the toolbar, using `NoteEntryMethod::STEPTIME`.
+- Keyboard input in note entry mode follows the handbook: accidentals before note name (`+`, `-`, `=`), A–G note names, `1–8` durations, `0` rest, `.` for dot, `T` for tie, `Shift` for chord entry.
+- In normal mode, accidentals and dotting apply to the selected note.
+- Unit coverage exists for note entry shortcuts in `unit/ScoreEditor.test.tsx`.
+
+### Next Steps
+1. **UI polish for note entry state**
+   - Add an on-screen legend or compact status widget showing current duration, dot state, and accidental while Note Input is enabled.
+   - Add keyboard hints for note entry (A–G, `1–8`, `0`, `.` , `+/-/=` , `T`).
+2. **Toolbar behavior in note entry mode**
+   - Allow accidental/duration controls to be active even if selection overlay is hidden, as long as Note Input is enabled.
+3. **Hotkeys to align with handbook**
+   - Add `N` to toggle Note Input on/off, `Esc` to exit note input.
+4. **Verification**
+   - Add/extend tests to confirm: toggling Note Input by keyboard; accidentals set before note insert in note entry mode; note entry UI state updates on key press.
 
 ## WASM Build / Sync (timed commands)
 - Debug rebuild (from `webmscore-fork/web/build.debug`): `/usr/bin/time -v emmake make -j8 webmscore`
@@ -396,3 +417,38 @@ Save/Reload: Verify changes persist in the session (AST is updated).
    * Because hairpins modify spans, ensure the mutation wrapper starts a command/relayout in WASM and the UI reselects the same element afterwards.
 4. **Testing**
    * Add a Playwright test verifying a crescendo/decrescendo symbol appears in the exported MSCX (`<hairpin type="crescendo">`).
+
+## Input by Note Name (Keyboard)
+
+Scope: keyboard note-name entry (A–G) with accidentals and ties. Skip mouse/MIDI/virtual piano pitch entry.
+
+1. **WASM API surface**
+   * Expose note-entry helpers in `web/main.cpp`:
+     - `setNoteEntryMode(bool)` and `setNoteEntryMethod(int)` (default to REPITCH/TIMEWISE as needed).
+     - `setInputStateFromSelection()` to seed `inputState.segment/track` from the current selection.
+     - `addPitchByStep(noteIndex, addToChord, insert)` that calls `Score::cmdAddPitch` and respects `inputState`.
+     - `enterRest()` wired to `Score::cmdEnterRest(inputState().duration())`.
+     - `setInputAccidentalType(int)` or `toggleAccidental(int)` wired to `Score::toggleAccidental` (note-entry path).
+     - `toggleTie()` wired to `Score::cmdAddTie`/`cmdToggleTie` for note-entry ties.
+   * Keep `setDurationType` as the primary way to set the input duration before letter entry.
+
+2. **UI state + controls**
+   * Add a "Note Input" toggle in the toolbar; when active, show an indicator and enable key capture.
+   * Reuse existing duration controls (32nd → whole) and voice selection to set input state for new notes.
+   * Add accidental buttons that switch between "edit selection" and "note-entry accidental" depending on note-entry mode.
+   * Add a "Tie" toggle/button to arm tying in note-entry mode.
+
+3. **Keyboard handling (ScoreEditor)**
+   * When note-entry mode is active, capture A–G to call `addPitchByStep` (0=C … 6=B).
+   * Support accidentals: `#` (sharp), `b` (flat), `n` (natural), `=` (natural) to set input accidental state.
+   * Support ties: `T` (or `+`) to toggle tie mode / call `toggleTie`.
+   * Respect focus: ignore keystrokes in text inputs/textarea/select to avoid stealing typing.
+
+4. **Selection + cursor behavior**
+   * Entering note-entry mode requires a selected chord/rest; otherwise prompt the user to select a starting point.
+   * After each note entry, reselect the newly created chord/rest and update the selection overlay.
+   * Keep input state aligned with selection changes (call `setInputStateFromSelection` after selection updates).
+
+5. **Tests**
+   * Unit tests for keyboard mapping (A–G, accidentals, tie) → WASM binding calls.
+   * Playwright: enable note-entry, press keys, assert MSCX changes for pitch and accidental; verify tie creation (`<Tie>`/`<Spanner>` in export).

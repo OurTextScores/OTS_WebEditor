@@ -54,6 +54,9 @@ interface ToolbarProps {
     onDurationShorter?: () => void;
     onTranspose?: (semitones: number) => void;
     onSetAccidental?: (accidentalType: number) => void;
+    noteEntryEnabled?: boolean;
+    noteEntryAvailable?: boolean;
+    onToggleNoteEntry?: () => void;
     mutationsEnabled?: boolean;
     selectionActive?: boolean;
     onExportSvg?: () => void;
@@ -146,6 +149,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     onDurationShorter,
     onTranspose,
     onSetAccidental,
+    noteEntryEnabled = false,
+    noteEntryAvailable = false,
+    onToggleNoteEntry,
     mutationsEnabled = false,
     selectionActive = false,
     onExportSvg,
@@ -419,6 +425,37 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         'dropdown-item px-3 py-1 text-left rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed';
     const dropdownTextClass = 'px-3 py-1 text-sm text-gray-700';
     const dropdownLabelClass = 'text-xs uppercase tracking-wide text-gray-500 px-2 py-1';
+    const noteEntryToggleDisabled = !noteEntryAvailable;
+    const noteEntryTooltip = !noteEntryAvailable
+        ? 'Note input is not available in this build.'
+        : !selectionActive && !noteEntryEnabled
+            ? 'Select a note or rest to start note input.'
+            : undefined;
+    const noteEntryTrackClass = 'inline-flex';
+    const noteEntryKnobClass = 'inline-block';
+    const noteEntryTrackStyle: React.CSSProperties = {
+        width: 44,
+        height: 24,
+        borderRadius: 9999,
+        backgroundColor: noteEntryEnabled ? '#059669' : '#d1d5db',
+        display: 'inline-flex',
+        alignItems: 'center',
+        padding: 2,
+        position: 'relative',
+        transition: 'background-color 150ms ease',
+        opacity: noteEntryToggleDisabled ? 0.5 : 1,
+        cursor: noteEntryToggleDisabled ? 'not-allowed' : 'pointer',
+        border: '1px solid #d1d5db',
+    };
+    const noteEntryKnobStyle: React.CSSProperties = {
+        width: 20,
+        height: 20,
+        borderRadius: 9999,
+        backgroundColor: '#ffffff',
+        transform: noteEntryEnabled ? 'translateX(20px)' : 'translateX(0px)',
+        transition: 'transform 150ms ease',
+        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.15)',
+    };
     const instrumentOptions = instrumentGroups.flatMap(group =>
         group.instruments.map(instrument => ({
             ...instrument,
@@ -439,7 +476,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         && Number.isInteger(parsedCustomDenominator)
         && parsedCustomNumerator > 0
         && parsedCustomDenominator > 0;
-
     const ToolbarDropdown: React.FC<{
         label: string;
         disabled?: boolean;
@@ -490,7 +526,26 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 	                        className="hidden"
 	                    />
 	                </label>
-	                <label className="px-4 py-2 bg-indigo-600 text-white rounded cursor-pointer hover:bg-indigo-700">
+                    <div
+                        className="inline-flex items-center space-x-2"
+                        title={noteEntryTooltip}
+                    >
+                        <span className="text-sm text-gray-600">Note Input</span>
+                        <button
+                            data-testid="btn-note-entry"
+                            type="button"
+                            role="switch"
+                            aria-label="Note input"
+                            aria-checked={noteEntryEnabled}
+                            onClick={onToggleNoteEntry}
+                            disabled={noteEntryToggleDisabled || !onToggleNoteEntry}
+                            className={noteEntryTrackClass}
+                            style={noteEntryTrackStyle}
+                        >
+                            <span className={noteEntryKnobClass} style={noteEntryKnobStyle} />
+                        </button>
+                    </div>
+	                <label className="px-3 py-1 bg-white border border-gray-300 rounded cursor-pointer hover:bg-gray-50">
 	                    Load SoundFont
 	                    <input
 	                        data-testid="soundfont-input"
@@ -672,11 +727,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 </div>
 
                 <div className="flex items-center space-x-2">
-	                    <button
-	                        data-testid="btn-add-note-top"
-	                        type="button"
-	                        onClick={onAddNoteFromRest}
-	                        disabled={mutationDisabled || !selectionActive || !onAddNoteFromRest}
+                    <button
+                        data-testid="btn-add-note-top"
+                        type="button"
+                        onClick={onAddNoteFromRest}
+                        disabled={mutationDisabled || !selectionActive || !onAddNoteFromRest}
 	                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
 	                    >
 	                        Add Note
