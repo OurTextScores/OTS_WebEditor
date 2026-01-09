@@ -50,6 +50,8 @@ type MutationMethods = Pick<
     | 'addLyricText'
     | 'addHarmonyText'
     | 'addFingeringText'
+    | 'addLeftHandGuitarFingeringText'
+    | 'addRightHandGuitarFingeringText'
     | 'addInstrumentChangeText'
     | 'addStickingText'
     | 'setTitleText'
@@ -883,6 +885,32 @@ export default function ScoreEditor() {
         return performMutation('add fingering text', async () => {
             await ensureSelectionInWasm();
             const fn = requireMutation('addFingeringText');
+            if (!fn) return;
+            return fn.call(score, text);
+        });
+    };
+
+    const handleAddLeftHandGuitarFingeringText = () => {
+        const text = promptForText('Left-hand guitar fingering text:');
+        if (text === null) {
+            return;
+        }
+        return performMutation('add left-hand guitar fingering text', async () => {
+            await ensureSelectionInWasm();
+            const fn = requireMutation('addLeftHandGuitarFingeringText');
+            if (!fn) return;
+            return fn.call(score, text);
+        });
+    };
+
+    const handleAddRightHandGuitarFingeringText = () => {
+        const text = promptForText('Right-hand guitar fingering text:');
+        if (text === null) {
+            return;
+        }
+        return performMutation('add right-hand guitar fingering text', async () => {
+            await ensureSelectionInWasm();
+            const fn = requireMutation('addRightHandGuitarFingeringText');
             if (!fn) return;
             return fn.call(score, text);
         });
@@ -2147,6 +2175,8 @@ export default function ScoreEditor() {
                 onAddLyricText={handleAddLyricText}
                 onAddHarmonyText={handleAddHarmonyText}
                 onAddFingeringText={handleAddFingeringText}
+                onAddLeftHandGuitarFingeringText={handleAddLeftHandGuitarFingeringText}
+                onAddRightHandGuitarFingeringText={handleAddRightHandGuitarFingeringText}
                 onAddInstrumentChangeText={handleAddInstrumentChangeText}
                 onAddStickingText={handleAddStickingText}
                 onAddArticulation={handleAddArticulation}

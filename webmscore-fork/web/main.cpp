@@ -2377,6 +2377,16 @@ extern "C" {
     };
 
     EMSCRIPTEN_KEEPALIVE
+    bool addLeftHandGuitarFingeringText(uintptr_t score_ptr, const char* plainText, int excerptId = -1) {
+        return _addTextForStyle(score_ptr, engraving::TextStyleType::LH_GUITAR_FINGERING, plainText, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool addRightHandGuitarFingeringText(uintptr_t score_ptr, const char* plainText, int excerptId = -1) {
+        return _addTextForStyle(score_ptr, engraving::TextStyleType::RH_GUITAR_FINGERING, plainText, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
     bool addInstrumentChangeText(uintptr_t score_ptr, const char* plainText, int excerptId = -1) {
         return _addTextForStyle(score_ptr, engraving::TextStyleType::INSTRUMENT_CHANGE, plainText, excerptId);
     };

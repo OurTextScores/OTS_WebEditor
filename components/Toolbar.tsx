@@ -90,6 +90,8 @@ interface ToolbarProps {
     onAddLyricText?: () => void;
     onAddHarmonyText?: (variant: HarmonyVariant) => void;
     onAddFingeringText?: () => void;
+    onAddLeftHandGuitarFingeringText?: () => void;
+    onAddRightHandGuitarFingeringText?: () => void;
     onAddInstrumentChangeText?: () => void;
     onAddStickingText?: () => void;
     onAddArticulation?: (articulationSymbolName: string) => void;
@@ -173,6 +175,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     onAddLyricText,
     onAddHarmonyText,
     onAddFingeringText,
+    onAddLeftHandGuitarFingeringText,
+    onAddRightHandGuitarFingeringText,
     onAddInstrumentChangeText,
     onAddStickingText,
     onAddArticulation,
@@ -1276,6 +1280,24 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     className={dropdownItemClass}
                 >
                     Fingering
+                </button>
+                <button
+                    data-testid="btn-text-fingering-lh"
+                    type="button"
+                    onClick={onAddLeftHandGuitarFingeringText}
+                    disabled={mutationDisabled || !selectionActive || !onAddLeftHandGuitarFingeringText}
+                    className={dropdownItemClass}
+                >
+                    LH Guitar Fingering
+                </button>
+                <button
+                    data-testid="btn-text-fingering-rh"
+                    type="button"
+                    onClick={onAddRightHandGuitarFingeringText}
+                    disabled={mutationDisabled || !selectionActive || !onAddRightHandGuitarFingeringText}
+                    className={dropdownItemClass}
+                >
+                    RH Guitar Fingering
                 </button>
                 <div className={dropdownLabelClass}>Sticking</div>
                 <button

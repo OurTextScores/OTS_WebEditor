@@ -204,6 +204,30 @@ describe('Toolbar', () => {
     expect(onAddStickingText).toHaveBeenCalledTimes(1);
   });
 
+  it('wires guitar fingering text', async () => {
+    const user = userEvent.setup();
+    const onAddLeftHandGuitarFingeringText = vi.fn();
+    const onAddRightHandGuitarFingeringText = vi.fn();
+
+    render(
+      <Toolbar
+        onFileUpload={() => {}}
+        onZoomIn={() => {}}
+        onZoomOut={() => {}}
+        zoomLevel={1}
+        mutationsEnabled
+        selectionActive
+        onAddLeftHandGuitarFingeringText={onAddLeftHandGuitarFingeringText}
+        onAddRightHandGuitarFingeringText={onAddRightHandGuitarFingeringText}
+      />,
+    );
+
+    await user.click(screen.getByTestId('btn-text-fingering-lh'));
+    await user.click(screen.getByTestId('btn-text-fingering-rh'));
+    expect(onAddLeftHandGuitarFingeringText).toHaveBeenCalledTimes(1);
+    expect(onAddRightHandGuitarFingeringText).toHaveBeenCalledTimes(1);
+  });
+
   it('shows busy labels for playback and audio export', () => {
     render(
       <Toolbar

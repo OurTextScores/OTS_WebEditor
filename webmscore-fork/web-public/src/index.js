@@ -933,6 +933,44 @@ class WebMscore {
     }
 
     /**
+     * Add left-hand guitar fingering text at the current selection
+     * @param {string} text
+     * @returns {Promise<boolean>}
+     */
+    async addLeftHandGuitarFingeringText(text) {
+        const strptr = getStrPtr(text == null ? '' : String(text))
+        try {
+            return Module.ccall(
+                'addLeftHandGuitarFingeringText',
+                'boolean',
+                ['number', 'number', 'number'],
+                [this.scoreptr, strptr, this.excerptId],
+            )
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    /**
+     * Add right-hand guitar fingering text at the current selection
+     * @param {string} text
+     * @returns {Promise<boolean>}
+     */
+    async addRightHandGuitarFingeringText(text) {
+        const strptr = getStrPtr(text == null ? '' : String(text))
+        try {
+            return Module.ccall(
+                'addRightHandGuitarFingeringText',
+                'boolean',
+                ['number', 'number', 'number'],
+                [this.scoreptr, strptr, this.excerptId],
+            )
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    /**
      * Add instrument change text at the current selection
      * @param {string} text
      * @returns {Promise<boolean>}
