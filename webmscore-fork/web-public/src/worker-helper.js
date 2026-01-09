@@ -565,6 +565,30 @@ class WebMscoreW {
         return this.rpc('addTempoText', [bpm])
     }
 
+    addStaffText(text) {
+        return this.rpc('addStaffText', [text])
+    }
+
+    addSystemText(text) {
+        return this.rpc('addSystemText', [text])
+    }
+
+    addExpressionText(text) {
+        return this.rpc('addExpressionText', [text])
+    }
+
+    addLyricText(text) {
+        return this.rpc('addLyricText', [text])
+    }
+
+    addHarmonyText(variant, text) {
+        return this.rpc('addHarmonyText', [variant, text])
+    }
+
+    addFingeringText(text) {
+        return this.rpc('addFingeringText', [text])
+    }
+
     addArticulation(articulationSymbolName) {
         return this.rpc('addArticulation', [articulationSymbolName])
     }

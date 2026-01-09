@@ -848,6 +848,91 @@ class WebMscore {
     }
 
     /**
+     * Add staff text at the current selection
+     * @param {string} text
+     * @returns {Promise<boolean>}
+     */
+    async addStaffText(text) {
+        const strptr = getStrPtr(text == null ? '' : String(text))
+        try {
+            return Module.ccall('addStaffText', 'boolean', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    /**
+     * Add system text at the current selection
+     * @param {string} text
+     * @returns {Promise<boolean>}
+     */
+    async addSystemText(text) {
+        const strptr = getStrPtr(text == null ? '' : String(text))
+        try {
+            return Module.ccall('addSystemText', 'boolean', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    /**
+     * Add expression text at the current selection
+     * @param {string} text
+     * @returns {Promise<boolean>}
+     */
+    async addExpressionText(text) {
+        const strptr = getStrPtr(text == null ? '' : String(text))
+        try {
+            return Module.ccall('addExpressionText', 'boolean', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    /**
+     * Add lyric text at the current selection
+     * @param {string} text
+     * @returns {Promise<boolean>}
+     */
+    async addLyricText(text) {
+        const strptr = getStrPtr(text == null ? '' : String(text))
+        try {
+            return Module.ccall('addLyricText', 'boolean', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    /**
+     * Add harmony text at the current selection
+     * @param {number} variant 0=standard, 1=roman, 2=nashville
+     * @param {string} text
+     * @returns {Promise<boolean>}
+     */
+    async addHarmonyText(variant, text) {
+        const strptr = getStrPtr(text == null ? '' : String(text))
+        try {
+            return Module.ccall('addHarmonyText', 'boolean', ['number', 'number', 'number', 'number'], [this.scoreptr, variant, strptr, this.excerptId])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    /**
+     * Add fingering text at the current selection
+     * @param {string} text
+     * @returns {Promise<boolean>}
+     */
+    async addFingeringText(text) {
+        const strptr = getStrPtr(text == null ? '' : String(text))
+        try {
+            return Module.ccall('addFingeringText', 'boolean', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    /**
      * Add or remove an articulation on the selected notes/chords.
      * @param {string} articulationSymbolName e.g. "articStaccatoAbove"
      * @returns {Promise<boolean>}
