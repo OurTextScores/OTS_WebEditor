@@ -2387,6 +2387,11 @@ extern "C" {
     };
 
     EMSCRIPTEN_KEEPALIVE
+    bool addStringNumberText(uintptr_t score_ptr, const char* plainText, int excerptId = -1) {
+        return _addTextForStyle(score_ptr, engraving::TextStyleType::STRING_NUMBER, plainText, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
     bool addInstrumentChangeText(uintptr_t score_ptr, const char* plainText, int excerptId = -1) {
         return _addTextForStyle(score_ptr, engraving::TextStyleType::INSTRUMENT_CHANGE, plainText, excerptId);
     };

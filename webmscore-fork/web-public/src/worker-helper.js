@@ -597,6 +597,10 @@ class WebMscoreW {
         return this.rpc('addRightHandGuitarFingeringText', [text])
     }
 
+    addStringNumberText(text) {
+        return this.rpc('addStringNumberText', [text])
+    }
+
     addInstrumentChangeText(text) {
         return this.rpc('addInstrumentChangeText', [text])
     }

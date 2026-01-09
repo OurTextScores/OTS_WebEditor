@@ -92,6 +92,7 @@ interface ToolbarProps {
     onAddFingeringText?: () => void;
     onAddLeftHandGuitarFingeringText?: () => void;
     onAddRightHandGuitarFingeringText?: () => void;
+    onAddStringNumberText?: () => void;
     onAddInstrumentChangeText?: () => void;
     onAddStickingText?: () => void;
     onAddArticulation?: (articulationSymbolName: string) => void;
@@ -177,6 +178,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     onAddFingeringText,
     onAddLeftHandGuitarFingeringText,
     onAddRightHandGuitarFingeringText,
+    onAddStringNumberText,
     onAddInstrumentChangeText,
     onAddStickingText,
     onAddArticulation,
@@ -1298,6 +1300,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     className={dropdownItemClass}
                 >
                     RH Guitar Fingering
+                </button>
+                <button
+                    data-testid="btn-text-string-number"
+                    type="button"
+                    onClick={onAddStringNumberText}
+                    disabled={mutationDisabled || !selectionActive || !onAddStringNumberText}
+                    className={dropdownItemClass}
+                >
+                    String Number
                 </button>
                 <div className={dropdownLabelClass}>Sticking</div>
                 <button

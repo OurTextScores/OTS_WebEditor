@@ -228,6 +228,26 @@ describe('Toolbar', () => {
     expect(onAddRightHandGuitarFingeringText).toHaveBeenCalledTimes(1);
   });
 
+  it('wires string number text', async () => {
+    const user = userEvent.setup();
+    const onAddStringNumberText = vi.fn();
+
+    render(
+      <Toolbar
+        onFileUpload={() => {}}
+        onZoomIn={() => {}}
+        onZoomOut={() => {}}
+        zoomLevel={1}
+        mutationsEnabled
+        selectionActive
+        onAddStringNumberText={onAddStringNumberText}
+      />,
+    );
+
+    await user.click(screen.getByTestId('btn-text-string-number'));
+    expect(onAddStringNumberText).toHaveBeenCalledTimes(1);
+  });
+
   it('shows busy labels for playback and audio export', () => {
     render(
       <Toolbar

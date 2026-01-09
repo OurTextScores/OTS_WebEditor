@@ -66,6 +66,7 @@ export interface Score {
     addFingeringText?: (text: string) => Promise<unknown> | unknown;
     addLeftHandGuitarFingeringText?: (text: string) => Promise<unknown> | unknown;
     addRightHandGuitarFingeringText?: (text: string) => Promise<unknown> | unknown;
+    addStringNumberText?: (text: string) => Promise<unknown> | unknown;
     addInstrumentChangeText?: (text: string) => Promise<unknown> | unknown;
     addStickingText?: (text: string) => Promise<unknown> | unknown;
     setTitleText?: (text: string) => Promise<unknown> | unknown;

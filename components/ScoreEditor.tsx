@@ -52,6 +52,7 @@ type MutationMethods = Pick<
     | 'addFingeringText'
     | 'addLeftHandGuitarFingeringText'
     | 'addRightHandGuitarFingeringText'
+    | 'addStringNumberText'
     | 'addInstrumentChangeText'
     | 'addStickingText'
     | 'setTitleText'
@@ -911,6 +912,19 @@ export default function ScoreEditor() {
         return performMutation('add right-hand guitar fingering text', async () => {
             await ensureSelectionInWasm();
             const fn = requireMutation('addRightHandGuitarFingeringText');
+            if (!fn) return;
+            return fn.call(score, text);
+        });
+    };
+
+    const handleAddStringNumberText = () => {
+        const text = promptForText('String number text:');
+        if (text === null) {
+            return;
+        }
+        return performMutation('add string number text', async () => {
+            await ensureSelectionInWasm();
+            const fn = requireMutation('addStringNumberText');
             if (!fn) return;
             return fn.call(score, text);
         });
@@ -2177,6 +2191,7 @@ export default function ScoreEditor() {
                 onAddFingeringText={handleAddFingeringText}
                 onAddLeftHandGuitarFingeringText={handleAddLeftHandGuitarFingeringText}
                 onAddRightHandGuitarFingeringText={handleAddRightHandGuitarFingeringText}
+                onAddStringNumberText={handleAddStringNumberText}
                 onAddInstrumentChangeText={handleAddInstrumentChangeText}
                 onAddStickingText={handleAddStickingText}
                 onAddArticulation={handleAddArticulation}

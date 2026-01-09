@@ -971,6 +971,20 @@ class WebMscore {
     }
 
     /**
+     * Add string number text at the current selection
+     * @param {string} text
+     * @returns {Promise<boolean>}
+     */
+    async addStringNumberText(text) {
+        const strptr = getStrPtr(text == null ? '' : String(text))
+        try {
+            return Module.ccall('addStringNumberText', 'boolean', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    /**
      * Add instrument change text at the current selection
      * @param {string} text
      * @returns {Promise<boolean>}
