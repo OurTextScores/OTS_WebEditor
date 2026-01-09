@@ -589,6 +589,10 @@ class WebMscoreW {
         return this.rpc('addFingeringText', [text])
     }
 
+    addInstrumentChangeText(text) {
+        return this.rpc('addInstrumentChangeText', [text])
+    }
+
     addArticulation(articulationSymbolName) {
         return this.rpc('addArticulation', [articulationSymbolName])
     }

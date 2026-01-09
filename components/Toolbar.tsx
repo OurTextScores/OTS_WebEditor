@@ -90,6 +90,7 @@ interface ToolbarProps {
     onAddLyricText?: () => void;
     onAddHarmonyText?: (variant: HarmonyVariant) => void;
     onAddFingeringText?: () => void;
+    onAddInstrumentChangeText?: () => void;
     onAddArticulation?: (articulationSymbolName: string) => void;
     onAddSlur?: () => void;
     onAddTie?: () => void;
@@ -171,6 +172,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     onAddLyricText,
     onAddHarmonyText,
     onAddFingeringText,
+    onAddInstrumentChangeText,
     onAddArticulation,
     onAddSlur,
     onAddTie,
@@ -1272,6 +1274,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     className={dropdownItemClass}
                 >
                     Fingering
+                </button>
+                <div className={dropdownLabelClass}>Instrument</div>
+                <button
+                    data-testid="btn-text-instrument-change"
+                    type="button"
+                    onClick={onAddInstrumentChangeText}
+                    disabled={mutationDisabled || !selectionActive || !onAddInstrumentChangeText}
+                    className={dropdownItemClass}
+                >
+                    Instrument Change
                 </button>
             </ToolbarDropdown>
 

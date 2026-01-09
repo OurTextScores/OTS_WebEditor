@@ -48,8 +48,9 @@ type MutationMethods = Pick<
     | 'addSystemText'
     | 'addExpressionText'
     | 'addLyricText'
-| 'addHarmonyText'
+    | 'addHarmonyText'
     | 'addFingeringText'
+    | 'addInstrumentChangeText'
     | 'setTitleText'
     | 'setSubtitleText'
     | 'setComposerText'
@@ -881,6 +882,19 @@ export default function ScoreEditor() {
         return performMutation('add fingering text', async () => {
             await ensureSelectionInWasm();
             const fn = requireMutation('addFingeringText');
+            if (!fn) return;
+            return fn.call(score, text);
+        });
+    };
+
+    const handleAddInstrumentChangeText = () => {
+        const text = promptForText('Instrument change text:');
+        if (text === null) {
+            return;
+        }
+        return performMutation('add instrument change text', async () => {
+            await ensureSelectionInWasm();
+            const fn = requireMutation('addInstrumentChangeText');
             if (!fn) return;
             return fn.call(score, text);
         });
@@ -2119,6 +2133,7 @@ export default function ScoreEditor() {
                 onAddLyricText={handleAddLyricText}
                 onAddHarmonyText={handleAddHarmonyText}
                 onAddFingeringText={handleAddFingeringText}
+                onAddInstrumentChangeText={handleAddInstrumentChangeText}
                 onAddArticulation={handleAddArticulation}
                 onAddSlur={handleAddSlur}
                 onAddTie={handleAddTie}
