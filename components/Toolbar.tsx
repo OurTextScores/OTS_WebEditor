@@ -1105,21 +1105,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             </ToolbarDropdown>
 
             <ToolbarDropdown
-                label="Rhythm/Voice"
+                label="Grace Notes"
                 disabled={mutationDisabled}
-                testId="dropdown-rhythm-voice"
+                testId="dropdown-grace-notes"
             >
-                <div className={dropdownLabelClass}>Notes</div>
-                <button
-                    data-testid="btn-add-note-dropdown"
-                    type="button"
-                    onClick={onAddNoteFromRest}
-                    disabled={mutationDisabled || !selectionActive || !onAddNoteFromRest}
-                    className={dropdownItemClass}
-                >
-                    Add Note
-                </button>
-                <div className={dropdownLabelClass}>Grace Notes</div>
                 {graceNoteOptions.map(opt => (
                     <button
                         key={opt.value}
@@ -1132,7 +1121,24 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         {opt.label}
                     </button>
                 ))}
-                <div className={dropdownLabelClass}>Rhythm</div>
+            </ToolbarDropdown>
+
+            <ToolbarDropdown
+                label="Rhythm"
+                disabled={mutationDisabled}
+                testId="dropdown-rhythm"
+            >
+                <div className={dropdownLabelClass}>Notes</div>
+                <button
+                    data-testid="btn-add-note-dropdown"
+                    type="button"
+                    onClick={onAddNoteFromRest}
+                    disabled={mutationDisabled || !selectionActive || !onAddNoteFromRest}
+                    className={dropdownItemClass}
+                >
+                    Add Note
+                </button>
+                <div className={dropdownLabelClass}>Dots</div>
                 <button
                     data-testid="btn-dot"
                     type="button"
@@ -1164,7 +1170,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         {opt.label}
                     </button>
                 ))}
-                <div className={dropdownLabelClass}>Voice</div>
+            </ToolbarDropdown>
+
+            <ToolbarDropdown
+                label="Voice"
+                disabled={mutationDisabled}
+                testId="dropdown-voice"
+            >
                 {[1, 2, 3, 4].map(v => (
                     <button
                         key={v}

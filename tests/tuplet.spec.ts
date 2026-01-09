@@ -21,7 +21,7 @@ test('tuplet adds a tuplet entry at selection', async ({ page }) => {
   await page.locator('svg .Note').first().click();
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
 
-  const dropdown = page.getByTestId('dropdown-rhythm-voice');
+  const dropdown = page.getByTestId('dropdown-rhythm');
   await dropdown.locator('summary').click();
   await dropdown.getByTestId('btn-tuplet-3').click();
 

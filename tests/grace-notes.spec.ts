@@ -21,7 +21,7 @@ test('acciaccatura adds a grace note to the selected note', async ({ page }) => 
   await page.locator('svg .Note').first().click();
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
 
-  const dropdown = page.getByTestId('dropdown-rhythm-voice');
+  const dropdown = page.getByTestId('dropdown-grace-notes');
   await dropdown.locator('summary').click();
   await dropdown.getByTestId('btn-grace-acciaccatura').click();
 

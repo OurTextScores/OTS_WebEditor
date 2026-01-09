@@ -13,7 +13,7 @@ test('add note control is available in the toolbar', async ({ page }) => {
   await expect(topLevel).toBeVisible();
   await expect(topLevel).toBeDisabled();
 
-  const dropdown = page.getByTestId('dropdown-rhythm-voice');
+  const dropdown = page.getByTestId('dropdown-rhythm');
   await dropdown.locator('summary').click();
 
   const addNoteButton = dropdown.getByTestId('btn-add-note-dropdown');
