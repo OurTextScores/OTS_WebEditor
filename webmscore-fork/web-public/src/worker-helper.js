@@ -618,6 +618,10 @@ class WebMscoreW {
         return this.rpc('addStickingText', [text])
     }
 
+    addFiguredBassText(text) {
+        return this.rpc('addFiguredBassText', [text])
+    }
+
     addArticulation(articulationSymbolName) {
         return this.rpc('addArticulation', [articulationSymbolName])
     }

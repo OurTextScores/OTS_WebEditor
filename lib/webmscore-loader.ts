@@ -69,6 +69,7 @@ export interface Score {
     addStringNumberText?: (text: string) => Promise<unknown> | unknown;
     addInstrumentChangeText?: (text: string) => Promise<unknown> | unknown;
     addStickingText?: (text: string) => Promise<unknown> | unknown;
+    addFiguredBassText?: (text: string) => Promise<unknown> | unknown;
     setTitleText?: (text: string) => Promise<unknown> | unknown;
     subtitle?: () => Promise<string> | string;
     setSubtitleText?: (text: string) => Promise<unknown> | unknown;

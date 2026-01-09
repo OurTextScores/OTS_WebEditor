@@ -1027,6 +1027,20 @@ class WebMscore {
     }
 
     /**
+     * Add figured bass text at the current selection
+     * @param {string} text
+     * @returns {Promise<boolean>}
+     */
+    async addFiguredBassText(text) {
+        const strptr = getStrPtr(text == null ? '' : String(text))
+        try {
+            return Module.ccall('addFiguredBassText', 'boolean', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    /**
      * Add or remove an articulation on the selected notes/chords.
      * @param {string} articulationSymbolName e.g. "articStaccatoAbove"
      * @returns {Promise<boolean>}

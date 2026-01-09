@@ -458,6 +458,23 @@ static bool _addTextForStyle(uintptr_t score_ptr, engraving::TextStyleType style
     return _applyTextStyle(score, style, plainText);
 }
 
+static bool _addFiguredBass(uintptr_t score_ptr, const char* plainText, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    score->startCmd();
+    engraving::FiguredBass* fb = score->addFiguredBass();
+    if (!fb) {
+        score->endCmd();
+        LOGW() << "addFiguredBassText: failed to create figured bass";
+        return false;
+    }
+
+    const String xmlText = engraving::TextBase::plainToXmlText(_plainTextToString(plainText));
+    fb->undoChangeProperty(engraving::Pid::TEXT, xmlText);
+    score->endCmd();
+    return true;
+}
+
 static engraving::TextStyleType _harmonyStyle(int variant)
 {
     switch (variant) {
@@ -2404,6 +2421,11 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool addStickingText(uintptr_t score_ptr, const char* plainText, int excerptId = -1) {
         return _addTextForStyle(score_ptr, engraving::TextStyleType::STICKING, plainText, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool addFiguredBassText(uintptr_t score_ptr, const char* plainText, int excerptId = -1) {
+        return _addFiguredBass(score_ptr, plainText, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE

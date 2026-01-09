@@ -98,6 +98,7 @@ interface ToolbarProps {
     onAddStringNumberText?: () => void;
     onAddInstrumentChangeText?: () => void;
     onAddStickingText?: () => void;
+    onAddFiguredBassText?: () => void;
     onAddArticulation?: (articulationSymbolName: string) => void;
     onAddSlur?: () => void;
     onAddTie?: () => void;
@@ -187,6 +188,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     onAddStringNumberText,
     onAddInstrumentChangeText,
     onAddStickingText,
+    onAddFiguredBassText,
     onAddArticulation,
     onAddSlur,
     onAddTie,
@@ -1302,6 +1304,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     className={dropdownItemClass}
                 >
                     Nashville Number
+                </button>
+                <div className={dropdownLabelClass}>Figured Bass</div>
+                <button
+                    data-testid="btn-text-figured-bass"
+                    type="button"
+                    onClick={onAddFiguredBassText}
+                    disabled={mutationDisabled || !selectionActive || !onAddFiguredBassText}
+                    className={dropdownItemClass}
+                >
+                    Figured Bass
                 </button>
                 <div className={dropdownLabelClass}>Fingering</div>
                 <button

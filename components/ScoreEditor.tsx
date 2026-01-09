@@ -55,6 +55,7 @@ type MutationMethods = Pick<
     | 'addStringNumberText'
     | 'addInstrumentChangeText'
     | 'addStickingText'
+    | 'addFiguredBassText'
     | 'setTitleText'
     | 'setSubtitleText'
     | 'setComposerText'
@@ -962,6 +963,19 @@ export default function ScoreEditor() {
         return performMutation('add sticking text', async () => {
             await ensureSelectionInWasm();
             const fn = requireMutation('addStickingText');
+            if (!fn) return;
+            return fn.call(score, text);
+        });
+    };
+
+    const handleAddFiguredBassText = () => {
+        const text = promptForText('Figured bass text:');
+        if (text === null) {
+            return;
+        }
+        return performMutation('add figured bass text', async () => {
+            await ensureSelectionInWasm();
+            const fn = requireMutation('addFiguredBassText');
             if (!fn) return;
             return fn.call(score, text);
         });
@@ -2221,6 +2235,7 @@ export default function ScoreEditor() {
                 onAddStringNumberText={handleAddStringNumberText}
                 onAddInstrumentChangeText={handleAddInstrumentChangeText}
                 onAddStickingText={handleAddStickingText}
+                onAddFiguredBassText={handleAddFiguredBassText}
                 onAddArticulation={handleAddArticulation}
                 onAddSlur={handleAddSlur}
                 onAddTie={handleAddTie}

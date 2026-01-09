@@ -248,6 +248,26 @@ describe('Toolbar', () => {
     expect(onAddStringNumberText).toHaveBeenCalledTimes(1);
   });
 
+  it('wires figured bass text', async () => {
+    const user = userEvent.setup();
+    const onAddFiguredBassText = vi.fn();
+
+    render(
+      <Toolbar
+        onFileUpload={() => {}}
+        onZoomIn={() => {}}
+        onZoomOut={() => {}}
+        zoomLevel={1}
+        mutationsEnabled
+        selectionActive
+        onAddFiguredBassText={onAddFiguredBassText}
+      />,
+    );
+
+    await user.click(screen.getByTestId('btn-text-figured-bass'));
+    expect(onAddFiguredBassText).toHaveBeenCalledTimes(1);
+  });
+
   it('wires lyricist header text', async () => {
     const user = userEvent.setup();
     const onScoreLyricistChange = vi.fn();
