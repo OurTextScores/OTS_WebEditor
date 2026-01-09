@@ -8,10 +8,12 @@ const fs = require('fs');
 const path = require('path');
 
 const defaultFiles = [
+  'public/webmscore.lib.js',
   'public/webmscore.lib.wasm',
   'public/webmscore.lib.data',
   'public/webmscore.lib.mem.wasm',
 ];
+const optionalFiles = ['public/webmscore.lib.js.mem'];
 
 const GIT_LFS_POINTER_PREFIX = 'version https://git-lfs.github.com/spec/v1';
 const WASM_MAGIC = Buffer.from([0x00, 0x61, 0x73, 0x6d]); // "\0asm"
@@ -37,6 +39,7 @@ function hasWasmMagic(headBuf) {
 
 function checkWasmArtifacts({
   files = defaultFiles,
+  optional = optionalFiles,
   cwd = process.cwd(),
   fsModule = fs,
   log = console.log,
@@ -44,13 +47,17 @@ function checkWasmArtifacts({
 } = {}) {
   let ok = true;
 
-  files.forEach((f) => {
+  function checkFile(f, { required = true } = {}) {
     const full = path.resolve(cwd, f);
     const exists = fsModule.existsSync(full);
     const size = exists ? fsModule.statSync(full).size : 0;
     if (!exists || size === 0) {
-      error(`[wasm-check] MISSING or empty: ${f}`);
-      ok = false;
+      if (required) {
+        error(`[wasm-check] MISSING or empty: ${f}`);
+        ok = false;
+      } else {
+        log(`[wasm-check] Optional missing: ${f}`);
+      }
       return;
     }
 
@@ -76,7 +83,10 @@ function checkWasmArtifacts({
     }
 
     log(`[wasm-check] OK ${f} (${size} bytes)`);
-  });
+  }
+
+  files.forEach((f) => checkFile(f, { required: true }));
+  optional.forEach((f) => checkFile(f, { required: false }));
 
   if (!ok) {
     error(
@@ -101,5 +111,6 @@ function checkWasmArtifacts({
 
 module.exports = {
   defaultFiles,
+  optionalFiles,
   checkWasmArtifacts,
 };

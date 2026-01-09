@@ -334,3 +334,65 @@ Manual Verification
 Delete Test: Select a note, press Delete. Verify it disappears.
 Undo Test: Press Undo. Verify the note reappears.
 Save/Reload: Verify changes persist in the session (AST is updated).
+
+## Text Feature Plan
+
+### Key text features and complexities
+
+1. **Title/Subtitle/Composer frames**
+   * Already have `setHeaderText`/`getText` helpers; complexity is ensuring text style exists before editing and syncing with `score.title()`/`subtitle()` calls.
+   * Needs toolbar input box + dedicated "Apply" controls to edit `TextStyleType::TITLE/SUBTITLE/COMPOSER`.
+
+2. **Staff/System/Expression text**
+   * `Score::addText` can create different text styles; requires ensuring selection is a chord/rest/measure to attach the annotation.
+   * Expressions need placement below staff (already default) and should reuse existing edit/undo infrastructure via commands, so our wrapper should call new WASM binding and rely on `TextBase::undoChangeProperty`.
+   * System text is anchored to a staff/chord but displayed centrally; tricky part is making sure selection is valid (system vs staff).
+
+3. **Lyrics**
+   * `Score::addLyrics` needs the selection to be a note/rest/lyrics; there are multiple lyric lines (`LYRICS_ODD`, `LYRICS_EVEN`) with numbering.
+   * Need to support inputting syllabic text and verifying that the text appears just below the note via `saveMsc` check.
+
+4. **Chord symbols (Harmony text)**
+   * Involves `Harmony` objects with parsing/realizing chord names; editing should trigger `Harmony::setHarmony` to keep MIDI playback in sync.
+   * Complexity: there are multiple harmony styles (standard, roman, Nashville). Need a dropdown for choosing style and prompt for chord text; also ensure invalid chord names degrade gracefully.
+
+5. **Fingering/String/Technique text**
+   * Already supported via `Score::addText` with note context; hooking up to new controls must verify selection is a Note (and respects tablature settings).
+   * Must map to `TextStyleType::FINGERING`, `LH_GUITAR_FINGERING`, etc., so UI can choose the desired text style.
+
+6. **Figured bass (FB)**
+   * `FiguredBass::addFiguredBassToSegment` attaches to the first voice; needs first track of staff selection and may create an annotation block.
+   * Adding multiple FB items per measure may require reusing existing segmentation; need to ensure our WASM binding returns the FB object for undo/redo but we can just call add and re-render.
+
+7. **Text blocks or standalone frames**
+   * MuseScore text blocks are anchored to frames (VBOX/TBOX); we probably skip full block editing for Phase 0, but note the extra UI would need a frame selection, so start with simpler annotations.
+
+8. **Special characters & formatting**
+   * Text input can include MuseScore symbol placeholders (`<sym>…</sym>`). Need to ensure our prompt defaults accept raw XML or plain text and rely on `TextBase::plainToXmlText`.
+   * Keep editing simple: allow plain text entry via `prompt()`, but document that advanced formatting is out of scope for now.
+
+9. **Editing vs. Adding text**
+   * We should expose both "insert text" and "edit selected text" paths; editing requires retrieving current `TextBase::plainText` before prompting, then setting via new binding.
+   * Selection overlay must know when the currently selected element is a text object to route commands appropriately.
+
+10. **Undo/Redo/Selection alignment**
+   * Every text mutation should call `score.relayout` after executing the WASM command, so the UI overlays stay sync'ed; reselect logic already handles strolling overlays.
+
+### Next steps summary
+
+* Prioritize features based on user needs (header text + staff/system/expression text are foundational).
+* Add precise WASM bindings for these actions with minimal UI prompts.
+* Expand toolbar with grouped dropdowns plus `data-testid` identifiers for Playwright coverage.
+* Document testing strategy focusing on MSCX output for inserted text.
+
+## Hairpin Text (Dynamics lines)
+
+1. **Hairpin creation**
+   * Already backed by `Score::addHairpin`; we only need a toolbar hook and WASM binding that toggles crescendo/decrescendo.
+   * Hairpins are drawn as `TextStyleType::HAIRPIN`, but creation occurs in `hairpin.cpp`, so our binding can directly call `Score::addHairpin`.
+2. **Placement context**
+   * Requires selecting a chord/rest because hairpins span between chord rests. We'll reuse the existing selection guard (must have selection).
+3. **Undo/Redo and relayout**
+   * Because hairpins modify spans, ensure the mutation wrapper starts a command/relayout in WASM and the UI reselects the same element afterwards.
+4. **Testing**
+   * Add a Playwright test verifying a crescendo/decrescendo symbol appears in the exported MSCX (`<hairpin type="crescendo">`).

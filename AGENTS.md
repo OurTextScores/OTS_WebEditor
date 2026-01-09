@@ -203,13 +203,15 @@ Next steps / risks
 ## Webmscore rebuild + artifact sync
 
 Incremental builds (preferred)  
+- Ensure build env: `export EMSDK_QUIET=1`, `source ~/workspace/emsdk/emsdk_env.sh`, `export Qt5_DIR=/home/jhlusko/workspace/emsdk/build.qt5/5.15.2/wasm_32`, and `export PATH="$Qt5_DIR/bin:$PATH"`.  
 - From `webmscore-fork/web-public`: `npm run compile` (runs `make release` and keeps artifacts).  
 - If JS wrappers changed: from `webmscore-fork/web-public` run `npm run bundle`.  
 - From repo root: `npm run sync:wasm` to copy artifacts into `public/`.
+- Expected artifacts (same build): `webmscore.lib.js`, `webmscore.lib.wasm`, `webmscore.lib.data`, `webmscore.lib.mem.wasm` (plus optional `webmscore.lib.js.mem`).
 
 Optional direct make (advanced)  
 - From `webmscore-fork/web`: `make release`.  
-- From `webmscore-fork/web-public`: `mv webmscore.lib.js.mem webmscore.lib.mem.wasm` and `mv webmscore.lib.js.symbols webmscore.lib.symbols`.  
+- From `webmscore-fork/web-public`: `mv webmscore.lib.js.mem webmscore.lib.mem.wasm` (if present) and `mv webmscore.lib.js.symbols webmscore.lib.symbols`.  
 - From repo root: `npm run sync:wasm`.
 
 Clean rebuild (avoid unless needed)  
