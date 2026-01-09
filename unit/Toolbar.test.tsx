@@ -248,6 +248,34 @@ describe('Toolbar', () => {
     expect(onAddStringNumberText).toHaveBeenCalledTimes(1);
   });
 
+  it('wires lyricist header text', async () => {
+    const user = userEvent.setup();
+    const onScoreLyricistChange = vi.fn();
+    const onSetLyricistText = vi.fn();
+
+    render(
+      <Toolbar
+        onFileUpload={() => {}}
+        onZoomIn={() => {}}
+        onZoomOut={() => {}}
+        zoomLevel={1}
+        mutationsEnabled
+        exportsEnabled
+        headerTextAvailable
+        scoreLyricist="Test"
+        onScoreLyricistChange={onScoreLyricistChange}
+        onSetLyricistText={onSetLyricistText}
+      />,
+    );
+
+    await user.clear(screen.getByTestId('input-lyricist'));
+    await user.type(screen.getByTestId('input-lyricist'), 'Lyricist');
+    expect(onScoreLyricistChange).toHaveBeenCalled();
+
+    await user.click(screen.getByTestId('btn-set-lyricist'));
+    expect(onSetLyricistText).toHaveBeenCalledTimes(1);
+  });
+
   it('shows busy labels for playback and audio export', () => {
     render(
       <Toolbar

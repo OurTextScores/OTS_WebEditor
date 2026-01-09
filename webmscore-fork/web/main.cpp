@@ -2101,6 +2101,11 @@ extern "C" {
     };
 
     EMSCRIPTEN_KEEPALIVE
+    bool setLyricistText(uintptr_t score_ptr, const char* plainText, int excerptId = -1) {
+        return _setHeaderText(score_ptr, engraving::TextStyleType::POET, plainText, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
     bool appendPart(uintptr_t score_ptr, const char* instrumentId, int excerptId = -1) {
         return _appendPart(score_ptr, instrumentId, excerptId);
     };

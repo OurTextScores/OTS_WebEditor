@@ -215,6 +215,15 @@ class WebMscoreW {
     }
 
     /**
+     * Set the score lyricist in the first title frame (VBox)
+     * @param {string} text
+     * @returns {Promise<boolean>}
+     */
+    setLyricistText(text) {
+        return this.rpc('setLyricistText', [text])
+    }
+
+    /**
      * Append a new part using an instrument template id
      * @param {string} instrumentId
      * @returns {Promise<boolean>}

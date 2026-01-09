@@ -287,6 +287,20 @@ class WebMscore {
     }
 
     /**
+     * Set the lyricist text in the title frame
+     * @param {string} text
+     * @returns {Promise<boolean>}
+     */
+    async setLyricistText(text) {
+        const strptr = getStrPtr(text == null ? '' : String(text))
+        try {
+            return Module.ccall('setLyricistText', 'boolean', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    /**
      * Append a new part using an instrument template id
      * @param {string} instrumentId
      * @returns {Promise<boolean>}

@@ -58,6 +58,7 @@ type MutationMethods = Pick<
     | 'setTitleText'
     | 'setSubtitleText'
     | 'setComposerText'
+    | 'setLyricistText'
     | 'appendPart'
     | 'appendPartByMusicXmlId'
     | 'removePart'
@@ -144,6 +145,7 @@ export default function ScoreEditor() {
     const [scoreTitle, setScoreTitle] = useState('');
     const [scoreSubtitle, setScoreSubtitle] = useState('');
     const [scoreComposer, setScoreComposer] = useState('');
+    const [scoreLyricist, setScoreLyricist] = useState('');
     const [scoreParts, setScoreParts] = useState<PartSummary[]>([]);
     const [instrumentGroups, setInstrumentGroups] = useState<InstrumentTemplateGroup[]>([]);
     const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -203,6 +205,7 @@ export default function ScoreEditor() {
         setScoreTitle('');
         setScoreSubtitle('');
         setScoreComposer('');
+        setScoreLyricist('');
         setScoreParts([]);
         setInstrumentGroups([]);
         try {
@@ -262,6 +265,7 @@ export default function ScoreEditor() {
         setScoreTitle('');
         setScoreSubtitle('');
         setScoreComposer('');
+        setScoreLyricist('');
         setScoreParts([]);
         setInstrumentGroups([]);
         try {
@@ -322,6 +326,12 @@ export default function ScoreEditor() {
             setScoreTitle(typeof metadata.title === 'string' ? metadata.title : '');
             setScoreSubtitle(typeof (metadata as any).subtitle === 'string' ? (metadata as any).subtitle : '');
             setScoreComposer(typeof metadata.composer === 'string' ? metadata.composer : '');
+            const lyricistValue = typeof (metadata as any).lyricist === 'string'
+                ? (metadata as any).lyricist
+                : typeof (metadata as any).poet === 'string'
+                    ? (metadata as any).poet
+                    : '';
+            setScoreLyricist(lyricistValue);
             const parts = Array.isArray((metadata as any).parts) ? (metadata as any).parts : [];
             const nextParts = parts.map((part: any, index: number) => ({
                 index,
@@ -334,6 +344,7 @@ export default function ScoreEditor() {
         } catch (err) {
             console.warn('Failed to read score metadata', err);
             setScoreSubtitle('');
+            setScoreLyricist('');
             setScoreParts([]);
         }
     };
@@ -1033,6 +1044,19 @@ export default function ScoreEditor() {
             const fn = requireMutation('setComposerText');
             if (!fn) return;
             return fn.call(score, scoreComposer);
+        }, { skipWasmReselect: true });
+        await refreshScoreMetadata(score);
+    };
+
+    const handleSetLyricistText = async () => {
+        if (!score) {
+            return;
+        }
+
+        await performMutation('set lyricist', async () => {
+            const fn = requireMutation('setLyricistText');
+            if (!fn) return;
+            return fn.call(score, scoreLyricist);
         }, { skipWasmReselect: true });
         await refreshScoreMetadata(score);
     };
@@ -2137,12 +2161,15 @@ export default function ScoreEditor() {
                     scoreTitle={scoreTitle}
                     scoreSubtitle={scoreSubtitle}
                     scoreComposer={scoreComposer}
+                    scoreLyricist={scoreLyricist}
                     onScoreTitleChange={setScoreTitle}
                     onScoreSubtitleChange={setScoreSubtitle}
                     onScoreComposerChange={setScoreComposer}
+                    onScoreLyricistChange={setScoreLyricist}
                     onSetTitleText={handleSetTitleText}
                     onSetSubtitleText={handleSetSubtitleText}
                     onSetComposerText={handleSetComposerText}
+                    onSetLyricistText={score?.setLyricistText ? handleSetLyricistText : undefined}
                     headerTextAvailable={Boolean(score?.setTitleText && score?.setComposerText)}
 	                onZoomIn={handleZoomIn}
 	                onZoomOut={handleZoomOut}

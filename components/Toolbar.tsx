@@ -32,12 +32,15 @@ interface ToolbarProps {
     scoreTitle?: string;
     scoreSubtitle?: string;
     scoreComposer?: string;
+    scoreLyricist?: string;
     onScoreTitleChange?: (title: string) => void;
     onScoreSubtitleChange?: (subtitle: string) => void;
     onScoreComposerChange?: (composer: string) => void;
+    onScoreLyricistChange?: (lyricist: string) => void;
     onSetTitleText?: () => void;
     onSetSubtitleText?: () => void;
     onSetComposerText?: () => void;
+    onSetLyricistText?: () => void;
     headerTextAvailable?: boolean;
     onZoomIn: () => void;
     onZoomOut: () => void;
@@ -118,12 +121,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     scoreTitle,
     scoreSubtitle,
     scoreComposer,
+    scoreLyricist,
     onScoreTitleChange,
     onScoreSubtitleChange,
     onScoreComposerChange,
+    onScoreLyricistChange,
     onSetTitleText,
     onSetSubtitleText,
     onSetComposerText,
+    onSetLyricistText,
     headerTextAvailable = false,
     onZoomIn,
     onZoomOut,
@@ -547,6 +553,30 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Set Composer
+                        </button>
+                        <input
+                            data-testid="input-lyricist"
+                            type="text"
+                            value={scoreLyricist ?? ''}
+                            onChange={(e) => onScoreLyricistChange?.(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && onSetLyricistText && !headerTextDisabled) {
+                                    e.preventDefault();
+                                    onSetLyricistText();
+                                }
+                            }}
+                            placeholder="Lyricist"
+                            disabled={headerTextDisabled || !onScoreLyricistChange}
+                            className="px-2 py-1 bg-white border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
+                        <button
+                            data-testid="btn-set-lyricist"
+                            type="button"
+                            onClick={onSetLyricistText}
+                            disabled={headerTextDisabled || !onSetLyricistText}
+                            className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Set Lyricist
                         </button>
                     </div>
 	            </div>

@@ -73,6 +73,7 @@ export interface Score {
     subtitle?: () => Promise<string> | string;
     setSubtitleText?: (text: string) => Promise<unknown> | unknown;
     setComposerText?: (text: string) => Promise<unknown> | unknown;
+    setLyricistText?: (text: string) => Promise<unknown> | unknown;
     appendPart?: (instrumentId: string) => Promise<unknown> | unknown;
     appendPartByMusicXmlId?: (instrumentMusicXmlId: string) => Promise<unknown> | unknown;
     removePart?: (partIndex: number) => Promise<unknown> | unknown;
