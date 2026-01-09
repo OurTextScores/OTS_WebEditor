@@ -593,6 +593,10 @@ class WebMscoreW {
         return this.rpc('addInstrumentChangeText', [text])
     }
 
+    addStickingText(text) {
+        return this.rpc('addStickingText', [text])
+    }
+
     addArticulation(articulationSymbolName) {
         return this.rpc('addArticulation', [articulationSymbolName])
     }

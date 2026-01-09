@@ -184,6 +184,26 @@ describe('Toolbar', () => {
     expect(onAddTempoText).toHaveBeenCalledWith(120);
   });
 
+  it('wires sticking text', async () => {
+    const user = userEvent.setup();
+    const onAddStickingText = vi.fn();
+
+    render(
+      <Toolbar
+        onFileUpload={() => {}}
+        onZoomIn={() => {}}
+        onZoomOut={() => {}}
+        zoomLevel={1}
+        mutationsEnabled
+        selectionActive
+        onAddStickingText={onAddStickingText}
+      />,
+    );
+
+    await user.click(screen.getByTestId('btn-text-sticking'));
+    expect(onAddStickingText).toHaveBeenCalledTimes(1);
+  });
+
   it('shows busy labels for playback and audio export', () => {
     render(
       <Toolbar

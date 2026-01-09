@@ -65,6 +65,7 @@ export interface Score {
     addHarmonyText?: (variant: number, text: string) => Promise<unknown> | unknown;
     addFingeringText?: (text: string) => Promise<unknown> | unknown;
     addInstrumentChangeText?: (text: string) => Promise<unknown> | unknown;
+    addStickingText?: (text: string) => Promise<unknown> | unknown;
     setTitleText?: (text: string) => Promise<unknown> | unknown;
     subtitle?: () => Promise<string> | string;
     setSubtitleText?: (text: string) => Promise<unknown> | unknown;
