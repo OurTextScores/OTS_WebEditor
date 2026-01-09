@@ -792,6 +792,15 @@ class WebMscore {
     }
 
     /**
+     * Set duration type for the current selection
+     * @param {number} durationType see engraving::DurationType enum
+     * @returns {Promise<boolean>}
+     */
+    async setDurationType(durationType) {
+        return Module.ccall('setDurationType', 'boolean', ['number', 'number', 'number'], [this.scoreptr, durationType, this.excerptId])
+    }
+
+    /**
      * Toggle a line break on the selected measure
      */
     async toggleLineBreak() {

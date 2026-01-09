@@ -550,6 +550,10 @@ class WebMscoreW {
         return this.rpc('toggleDoubleDot')
     }
 
+    setDurationType(durationType) {
+        return this.rpc('setDurationType', [durationType])
+    }
+
     toggleLineBreak() {
         return this.rpc('toggleLineBreak')
     }
