@@ -1519,6 +1519,48 @@ bool _toggleDoubleDot(uintptr_t score_ptr, int excerptId)
     return true;
 }
 
+bool _setDurationType(uintptr_t score_ptr, int durationType, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    auto* el = score->selection().element();
+    if (!el) {
+        LOGW() << "setDurationType: no element selected";
+        return false;
+    }
+    if (el->isNote()) {
+        el = el->parentItem();
+    }
+    if (!el || !el->isChordRest()) {
+        LOGW() << "setDurationType: selection is not chord/rest";
+        return false;
+    }
+
+    if (durationType < static_cast<int>(engraving::DurationType::V_LONG)
+        || durationType >= static_cast<int>(engraving::DurationType::V_ZERO)) {
+        LOGW() << "setDurationType: invalid duration type " << durationType;
+        return false;
+    }
+
+    auto cr = toChordRest(el);
+    engraving::TDuration d(static_cast<engraving::DurationType>(durationType));
+    d.setDots(0);
+    if (!d.isValid() || d.isMeasure()) {
+        LOGW() << "setDurationType: resulting duration invalid";
+        return false;
+    }
+
+    score->startCmd();
+    if (cr->isChord() && (toChord(cr)->noteType() != engraving::NoteType::NORMAL)) {
+        score->undoChangeChordRestLen(cr, d);
+    } else {
+        score->changeCRlen(cr, d);
+    }
+    score->inputState().setDuration(d);
+    score->inputState().setRest(cr->isRest());
+    score->endCmd();
+    return true;
+}
+
 bool _toggleLayoutBreak(uintptr_t score_ptr, engraving::LayoutBreakType type, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
@@ -2340,6 +2382,11 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool toggleDoubleDot(uintptr_t score_ptr, int excerptId = -1) {
         return _toggleDoubleDot(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool setDurationType(uintptr_t score_ptr, int durationType, int excerptId = -1) {
+        return _setDurationType(score_ptr, durationType, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE

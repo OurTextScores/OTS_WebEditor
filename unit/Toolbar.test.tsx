@@ -184,6 +184,37 @@ describe('Toolbar', () => {
     expect(onAddTempoText).toHaveBeenCalledWith(120);
   });
 
+  it('wires duration buttons', async () => {
+    const user = userEvent.setup();
+    const onSetDurationType = vi.fn();
+
+    render(
+      <Toolbar
+        onFileUpload={() => {}}
+        onZoomIn={() => {}}
+        onZoomOut={() => {}}
+        zoomLevel={1}
+        mutationsEnabled
+        selectionActive
+        onSetDurationType={onSetDurationType}
+      />,
+    );
+
+    await user.click(screen.getByTestId('btn-duration-32'));
+    await user.click(screen.getByTestId('btn-duration-16'));
+    await user.click(screen.getByTestId('btn-duration-8'));
+    await user.click(screen.getByTestId('btn-duration-4'));
+    await user.click(screen.getByTestId('btn-duration-2'));
+    await user.click(screen.getByTestId('btn-duration-1'));
+
+    expect(onSetDurationType).toHaveBeenCalledWith(7);
+    expect(onSetDurationType).toHaveBeenCalledWith(6);
+    expect(onSetDurationType).toHaveBeenCalledWith(5);
+    expect(onSetDurationType).toHaveBeenCalledWith(4);
+    expect(onSetDurationType).toHaveBeenCalledWith(3);
+    expect(onSetDurationType).toHaveBeenCalledWith(2);
+  });
+
   it('wires hairpin controls', async () => {
     const user = userEvent.setup();
     const onAddHairpin = vi.fn();

@@ -81,6 +81,7 @@ interface ToolbarProps {
 	clefOptions?: { label: string; value: number }[];
     onToggleDot?: () => void;
     onToggleDoubleDot?: () => void;
+    onSetDurationType?: (durationType: number) => void;
     onToggleLineBreak?: () => void;
     onTogglePageBreak?: () => void;
     onSetVoice?: (voiceIndex: number) => void;
@@ -172,6 +173,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 	clefOptions,
     onToggleDot,
     onToggleDoubleDot,
+    onSetDurationType,
     onToggleLineBreak,
     onTogglePageBreak,
     onSetVoice,
@@ -303,6 +305,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         { label: 'Grace 8th After', value: 32, testId: 'btn-grace-8-after' },     // NoteType::GRACE8_AFTER
         { label: 'Grace 16th After', value: 64, testId: 'btn-grace-16-after' },   // NoteType::GRACE16_AFTER
         { label: 'Grace 32nd After', value: 128, testId: 'btn-grace-32-after' },  // NoteType::GRACE32_AFTER
+    ];
+
+    const durationOptions = [
+        { label: '32nd', value: 7, testId: 'btn-duration-32' },   // DurationType::V_32ND
+        { label: '16th', value: 6, testId: 'btn-duration-16' },   // DurationType::V_16TH
+        { label: '8th', value: 5, testId: 'btn-duration-8' },     // DurationType::V_EIGHTH
+        { label: 'Quarter', value: 4, testId: 'btn-duration-4' }, // DurationType::V_QUARTER
+        { label: 'Half', value: 3, testId: 'btn-duration-2' },    // DurationType::V_HALF
+        { label: 'Whole', value: 2, testId: 'btn-duration-1' },   // DurationType::V_WHOLE
     ];
 
     const dynamicOptions = [
@@ -1138,6 +1149,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 >
                     Add Note
                 </button>
+                <div className={dropdownLabelClass}>Duration</div>
+                {durationOptions.map(opt => (
+                    <button
+                        key={opt.value}
+                        data-testid={opt.testId}
+                        type="button"
+                        onClick={() => onSetDurationType?.(opt.value)}
+                        disabled={mutationDisabled || !selectionActive || !onSetDurationType}
+                        className={dropdownItemClass}
+                    >
+                        {opt.label}
+                    </button>
+                ))}
                 <div className={dropdownLabelClass}>Dots</div>
                 <button
                     data-testid="btn-dot"

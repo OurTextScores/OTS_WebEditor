@@ -40,6 +40,7 @@ export interface Score {
     halfDuration?: () => Promise<unknown> | unknown;
     toggleDot?: () => Promise<unknown> | unknown;
     toggleDoubleDot?: () => Promise<unknown> | unknown;
+    setDurationType?: (durationType: number) => Promise<unknown> | unknown;
     toggleLineBreak?: () => Promise<unknown> | unknown;
     togglePageBreak?: () => Promise<unknown> | unknown;
     setVoice?: (voiceIndex: number) => Promise<unknown> | unknown;

@@ -33,6 +33,7 @@ type MutationMethods = Pick<
     | 'halfDuration'
     | 'toggleDot'
     | 'toggleDoubleDot'
+    | 'setDurationType'
     | 'toggleLineBreak'
     | 'togglePageBreak'
     | 'setVoice'
@@ -738,6 +739,13 @@ export default function ScoreEditor() {
         const fn = requireMutation('toggleDoubleDot');
         if (!fn) return;
         return fn.call(score);
+    });
+
+    const handleSetDurationType = (durationType: number) => performMutation('set duration', async () => {
+        await ensureSelectionInWasm();
+        const fn = requireMutation('setDurationType');
+        if (!fn) return;
+        return fn.call(score, durationType);
     });
 
     const handleToggleLineBreak = () => performMutation('toggle line break', async () => {
@@ -2226,6 +2234,7 @@ export default function ScoreEditor() {
                 onSetClef={handleSetClef}
                 onToggleDot={handleToggleDot}
                 onToggleDoubleDot={handleToggleDoubleDot}
+                onSetDurationType={handleSetDurationType}
                 onToggleLineBreak={handleToggleLineBreak}
                 onTogglePageBreak={handleTogglePageBreak}
                 onSetVoice={handleSetVoice}
