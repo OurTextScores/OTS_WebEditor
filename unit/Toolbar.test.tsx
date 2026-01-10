@@ -215,6 +215,27 @@ describe('Toolbar', () => {
     expect(onSetDurationType).toHaveBeenCalledWith(2);
   });
 
+  it('toggles note input mode', async () => {
+    const user = userEvent.setup();
+    const onToggleNoteEntry = vi.fn();
+
+    render(
+      <Toolbar
+        onFileUpload={() => {}}
+        onZoomIn={() => {}}
+        onZoomOut={() => {}}
+        zoomLevel={1}
+        mutationsEnabled
+        selectionActive
+        noteEntryAvailable
+        onToggleNoteEntry={onToggleNoteEntry}
+      />,
+    );
+
+    await user.click(screen.getByTestId('btn-note-entry'));
+    expect(onToggleNoteEntry).toHaveBeenCalledTimes(1);
+  });
+
   it('wires hairpin controls', async () => {
     const user = userEvent.setup();
     const onAddHairpin = vi.fn();
