@@ -328,11 +328,12 @@ class WebMscoreW {
     /**
      * Export score as the SVG file of one page
      * @param {number} pageNumber integer
-     * @param {boolean} drawPageBackground 
+     * @param {boolean} drawPageBackground
+     * @param {boolean} highlightSelection - if true, selected elements will be rendered with selection color
      * @returns {Promise<string>} contents of the SVG file (plain text)
      */
-    saveSvg(pageNumber = 0, drawPageBackground = false) {
-        return this.rpc('saveSvg', [pageNumber, drawPageBackground])
+    saveSvg(pageNumber = 0, drawPageBackground = false, highlightSelection = false) {
+        return this.rpc('saveSvg', [pageNumber, drawPageBackground, highlightSelection])
     }
 
     /**

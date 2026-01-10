@@ -420,14 +420,15 @@ class WebMscore {
     /**
      * Export score as the SVG file of one page
      * @param {number} pageNumber integer
-     * @param {boolean} drawPageBackground 
+     * @param {boolean} drawPageBackground
+     * @param {boolean} highlightSelection - if true, selected elements will be rendered with selection color
      * @returns {Promise<string>} contents of the SVG file (plain text)
      */
-    async saveSvg(pageNumber = 0, drawPageBackground = false) {
+    async saveSvg(pageNumber = 0, drawPageBackground = false, highlightSelection = false) {
         const dataptr = Module.ccall('saveSvg',
             'number',
-            ['number', 'number', 'boolean', 'number'],
-            [this.scoreptr, pageNumber, drawPageBackground, this.excerptId]
+            ['number', 'number', 'boolean', 'boolean', 'number'],
+            [this.scoreptr, pageNumber, drawPageBackground, highlightSelection, this.excerptId]
         )
         return WasmRes.readText(dataptr)
     }

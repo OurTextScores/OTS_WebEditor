@@ -1022,21 +1022,24 @@ WasmRes _saveMsc(uintptr_t score_ptr, bool compressed, int excerptId) {
 
 /**
  * export score as SVG
+ * @param highlightSelection - if true, selected elements will be rendered with selection color
  */
-WasmRes _saveSvg(uintptr_t score_ptr, int pageNumber, bool drawPageBackground, int excerptId) {
+WasmRes _saveSvg(uintptr_t score_ptr, int pageNumber, bool drawPageBackground, bool highlightSelection, int excerptId) {
     MainScore score(score_ptr, excerptId);
 
     // config
     score->switchToPageMode();
+
     INotationWriter::Options options {
         { INotationWriter::OptionKey::PAGE_NUMBER, Val(pageNumber) },
         { INotationWriter::OptionKey::TRANSPARENT_BACKGROUND, Val(!drawPageBackground) },
-        // { INotationWriter::OptionKey::BEATS_COLORS, Val::fromQVariant(beatsColors) }
+        { INotationWriter::OptionKey::HIGHLIGHT_SELECTION, Val(highlightSelection) },
     };
 
     QByteArray data;
     Ret ret = processWriter(u"svg", score, &data, options);
-    LOGI() << String(u"excerpt %1, page index %2, size %3 bytes").arg(excerptId, pageNumber, data.size());
+
+    LOGI() << String(u"excerpt %1, page index %2, highlightSelection %3, size %4 bytes").arg(excerptId).arg(pageNumber).arg(highlightSelection).arg(data.size());
     if (!ret.success()) {
         return WasmRes::fromRet(ret);
     }
@@ -2427,8 +2430,8 @@ extern "C" {
     };
 
     EMSCRIPTEN_KEEPALIVE
-    WasmResBytes saveSvg(uintptr_t score_ptr, int pageNumber, bool drawPageBackground, int excerptId = -1) {
-        return _saveSvg(score_ptr, pageNumber, drawPageBackground, excerptId);
+    WasmResBytes saveSvg(uintptr_t score_ptr, int pageNumber, bool drawPageBackground, bool highlightSelection = false, int excerptId = -1) {
+        return _saveSvg(score_ptr, pageNumber, drawPageBackground, highlightSelection, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE

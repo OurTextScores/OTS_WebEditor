@@ -317,7 +317,8 @@ export default function ScoreEditor() {
         if (!currentScore || !containerRef.current) return;
 
         try {
-            const svgData = await currentScore.saveSvg(0, true); // Page 0, with background
+            // Page 0, with background, with selection highlighting (colors selected elements directly in SVG)
+            const svgData = await currentScore.saveSvg(0, true, true);
             if (svgData) {
                 containerRef.current.innerHTML = svgData;
             }
@@ -2316,7 +2317,12 @@ export default function ScoreEditor() {
                 ? score!.selectElementAtPointWithMode!(pageIndex, centerX, centerY, mode as number)
                 : score?.selectElementAtPoint?.(pageIndex, centerX, centerY);
 
-            selectionPromise?.catch(err => {
+            // Re-render score after selection to show native highlighting
+            selectionPromise?.then(() => {
+                if (score) {
+                    renderScore(score);
+                }
+            }).catch(err => {
                 console.warn('selectElementAtPoint not available or failed:', err);
                 setSelectedElement(null);
                 setSelectionBoxes([]);
@@ -2509,6 +2515,9 @@ export default function ScoreEditor() {
                         />
                     )}
 
+                    {/* Selection highlighting is now done natively in the SVG via highlightSelection=true in saveSvg() */}
+                    {/* The overlays below are kept for reference but disabled - native coloring looks better */}
+                    {/*
                     {secondarySelectionBoxes.map(box => (
                         <div
                             key={box.index !== null ? `sel-${box.index}` : `sel-${box.page}-${box.x}-${box.y}-${box.w}-${box.h}`}
@@ -2534,6 +2543,7 @@ export default function ScoreEditor() {
 	                        }}
 	                    />
 	                )}
+                    */}
 	            </div>
             </div>
         </div>

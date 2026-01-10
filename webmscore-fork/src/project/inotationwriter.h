@@ -47,7 +47,8 @@ public:
         UNIT_TYPE,
         PAGE_NUMBER,
         TRANSPARENT_BACKGROUND,
-        BEATS_COLORS
+        BEATS_COLORS,
+        HIGHLIGHT_SELECTION  // When true, selected elements are rendered with selection color
     };
 
     using Options = QMap<OptionKey, Val>;

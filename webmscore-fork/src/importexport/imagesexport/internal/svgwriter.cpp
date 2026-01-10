@@ -58,7 +58,12 @@ mu::Ret SvgWriter::write(INotationPtr notation, QIODevice& destinationDevice, co
         return make_ret(Ret::Code::UnknownError);
     }
 
-    score->setPrinting(true); // don’t print page break symbols etc.
+    // Only set printing mode if we're not highlighting selection
+    // printing mode disables selection colors in curColor()
+    const bool highlightSelection = options.value(OptionKey::HIGHLIGHT_SELECTION, Val(false)).toBool();
+    if (!highlightSelection) {
+        score->setPrinting(true); // don't print page break symbols etc.
+    }
 
     mu::engraving::MScore::pdfPrinting = true;
     mu::engraving::MScore::svgPrinting = true;
