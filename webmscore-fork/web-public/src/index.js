@@ -687,6 +687,22 @@ class WebMscore {
     }
 
     /**
+     * Extend selection to the next chord (for Shift+Right arrow)
+     * @returns {Promise<boolean>}
+     */
+    async extendSelectionNextChord() {
+        return Module.ccall('extendSelectionNextChord', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
+    }
+
+    /**
+     * Extend selection to the previous chord (for Shift+Left arrow)
+     * @returns {Promise<boolean>}
+     */
+    async extendSelectionPrevChord() {
+        return Module.ccall('extendSelectionPrevChord', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
+    }
+
+    /**
      * Get the bounding box of the current selection
      * @returns {Promise<{page: number, x: number, y: number, width: number, height: number} | null>}
      */
@@ -698,6 +714,21 @@ class WebMscore {
             return JSON.parse(json)
         } catch (e) {
             return null
+        }
+    }
+
+    /**
+     * Get the bounding boxes of all selected elements (for range selection)
+     * @returns {Promise<Array<{page: number, x: number, y: number, width: number, height: number}>>}
+     */
+    async getSelectionBoundingBoxes() {
+        const dataptr = Module.ccall('getSelectionBoundingBoxes', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])
+        const json = WasmRes.readText(dataptr)
+        if (!json) return []
+        try {
+            return JSON.parse(json)
+        } catch (e) {
+            return []
         }
     }
 

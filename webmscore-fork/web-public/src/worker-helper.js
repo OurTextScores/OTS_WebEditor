@@ -462,11 +462,35 @@ class WebMscoreW {
     }
 
     /**
+     * Extend selection to the next chord (for Shift+Right arrow)
+     * @returns {Promise<boolean>}
+     */
+    extendSelectionNextChord() {
+        return this.rpc('extendSelectionNextChord')
+    }
+
+    /**
+     * Extend selection to the previous chord (for Shift+Left arrow)
+     * @returns {Promise<boolean>}
+     */
+    extendSelectionPrevChord() {
+        return this.rpc('extendSelectionPrevChord')
+    }
+
+    /**
      * Get the bounding box of the current selection
      * @returns {Promise<{page: number, x: number, y: number, width: number, height: number} | null>}
      */
     getSelectionBoundingBox() {
         return this.rpc('getSelectionBoundingBox')
+    }
+
+    /**
+     * Get the bounding boxes of all selected elements (for range selection)
+     * @returns {Promise<Array<{page: number, x: number, y: number, width: number, height: number}>>}
+     */
+    getSelectionBoundingBoxes() {
+        return this.rpc('getSelectionBoundingBoxes')
     }
 
     /**

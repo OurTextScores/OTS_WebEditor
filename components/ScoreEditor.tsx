@@ -793,6 +793,82 @@ export default function ScoreEditor() {
             }
         }
     };
+    const handleExtendSelectionNextChord = async () => {
+        if (!score) return;
+        console.log('[NAV] handleExtendSelectionNextChord called');
+        await ensureSelectionInWasm();
+        const extendFn = requireMutation('extendSelectionNextChord');
+        const getBBoxesFn = requireMutation('getSelectionBoundingBoxes');
+        if (!extendFn || !getBBoxesFn) {
+            console.log('[NAV] Missing functions for extend selection');
+            return;
+        }
+
+        const result = await extendFn.call(score);
+        console.log('[NAV] extendSelectionNextChord result:', result);
+        if (result) {
+            const bboxes = await getBBoxesFn.call(score);
+            console.log('[NAV] getSelectionBoundingBoxes result:', bboxes);
+
+            await renderScore(score);
+            if (bboxes && bboxes.length > 0) {
+                // Update selection boxes for all selected elements
+                const boxes = bboxes.map((bbox: { page: number; x: number; y: number; width: number; height: number }, index: number) => ({
+                    index,
+                    page: bbox.page,
+                    x: bbox.x,
+                    y: bbox.y,
+                    w: bbox.width,
+                    h: bbox.height,
+                    centerX: bbox.x + bbox.width / 2,
+                    centerY: bbox.y + bbox.height / 2,
+                }));
+                // Use the last element for selectedElement and selectedPoint
+                const lastBbox = bboxes[bboxes.length - 1];
+                setSelectedElement({ x: lastBbox.x, y: lastBbox.y, w: lastBbox.width, h: lastBbox.height });
+                setSelectedPoint({ page: lastBbox.page, x: lastBbox.x + lastBbox.width / 2, y: lastBbox.y + lastBbox.height / 2 });
+                setSelectionBoxes(boxes);
+            }
+        }
+    };
+    const handleExtendSelectionPrevChord = async () => {
+        if (!score) return;
+        console.log('[NAV] handleExtendSelectionPrevChord called');
+        await ensureSelectionInWasm();
+        const extendFn = requireMutation('extendSelectionPrevChord');
+        const getBBoxesFn = requireMutation('getSelectionBoundingBoxes');
+        if (!extendFn || !getBBoxesFn) {
+            console.log('[NAV] Missing functions for extend selection');
+            return;
+        }
+
+        const result = await extendFn.call(score);
+        console.log('[NAV] extendSelectionPrevChord result:', result);
+        if (result) {
+            const bboxes = await getBBoxesFn.call(score);
+            console.log('[NAV] getSelectionBoundingBoxes result:', bboxes);
+
+            await renderScore(score);
+            if (bboxes && bboxes.length > 0) {
+                // Update selection boxes for all selected elements
+                const boxes = bboxes.map((bbox: { page: number; x: number; y: number; width: number; height: number }, index: number) => ({
+                    index,
+                    page: bbox.page,
+                    x: bbox.x,
+                    y: bbox.y,
+                    w: bbox.width,
+                    h: bbox.height,
+                    centerX: bbox.x + bbox.width / 2,
+                    centerY: bbox.y + bbox.height / 2,
+                }));
+                // Use the first element for selectedElement and selectedPoint
+                const firstBbox = bboxes[0];
+                setSelectedElement({ x: firstBbox.x, y: firstBbox.y, w: firstBbox.width, h: firstBbox.height });
+                setSelectedPoint({ page: firstBbox.page, x: firstBbox.x + firstBbox.width / 2, y: firstBbox.y + firstBbox.height / 2 });
+                setSelectionBoxes(boxes);
+            }
+        }
+    };
     const handleSetAccidental = (accidentalType: number) => performMutation(`set accidental ${accidentalType}`, async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('setAccidental');
@@ -1324,10 +1400,20 @@ export default function ScoreEditor() {
                     return;
                 }
                 event.preventDefault();
-                if (key === 'arrowright') {
-                    handleSelectNextChord();
+                if (event.shiftKey) {
+                    // Shift+Arrow extends selection (range selection)
+                    if (key === 'arrowright') {
+                        handleExtendSelectionNextChord();
+                    } else {
+                        handleExtendSelectionPrevChord();
+                    }
                 } else {
-                    handleSelectPrevChord();
+                    // Arrow alone moves selection
+                    if (key === 'arrowright') {
+                        handleSelectNextChord();
+                    } else {
+                        handleSelectPrevChord();
+                    }
                 }
                 return;
             }
@@ -1354,6 +1440,8 @@ export default function ScoreEditor() {
         handleTranspose,
         handleSelectNextChord,
         handleSelectPrevChord,
+        handleExtendSelectionNextChord,
+        handleExtendSelectionPrevChord,
         handleDeleteSelection,
         handleCopySelection,
         handlePasteSelection,

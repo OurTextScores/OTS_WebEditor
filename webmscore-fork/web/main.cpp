@@ -1338,6 +1338,32 @@ bool _selectPrevChord(uintptr_t score_ptr, int excerptId)
     return false;
 }
 
+bool _extendSelectionNextChord(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    // Use selectMove() with "select-next-chord" - this uses SelectType::RANGE to extend selection
+    auto* el = score->selectMove(u"select-next-chord");
+    if (el) {
+        score->updateSelection();
+        score->setSelectionChanged(true);
+        return true;
+    }
+    return false;
+}
+
+bool _extendSelectionPrevChord(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    // Use selectMove() with "select-prev-chord" - this uses SelectType::RANGE to extend selection
+    auto* el = score->selectMove(u"select-prev-chord");
+    if (el) {
+        score->updateSelection();
+        score->setSelectionChanged(true);
+        return true;
+    }
+    return false;
+}
+
 WasmRes _getSelectionBoundingBox(uintptr_t score_ptr, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
@@ -1390,6 +1416,54 @@ WasmRes _getSelectionBoundingBox(uintptr_t score_ptr, int excerptId)
         .arg(bbox.width())
         .arg(bbox.height());
 
+    return WasmRes(json);
+}
+
+WasmRes _getSelectionBoundingBoxes(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    const auto& sel = score->selection();
+    const auto& elements = sel.elements();
+
+    printf("[WASM DEBUG] _getSelectionBoundingBoxes: elements.size=%zu\n", elements.size());
+
+    if (elements.empty()) {
+        return WasmRes(String(u"[]"));
+    }
+
+    String json = u"[";
+    bool first = true;
+
+    for (auto* el : elements) {
+        if (!el) continue;
+
+        mu::PointF pagePosition = el->pagePos();
+        mu::RectF bbox = el->bbox();
+
+        // Find which page this element is on
+        int pageNumber = 0;
+        const auto& pages = score->pages();
+        for (size_t i = 0; i < pages.size(); ++i) {
+            if (el->findAncestor(mu::engraving::ElementType::PAGE) == pages[i]) {
+                pageNumber = static_cast<int>(i);
+                break;
+            }
+        }
+
+        if (!first) {
+            json += u",";
+        }
+        first = false;
+
+        json += String(u"{\"page\":%1,\"x\":%2,\"y\":%3,\"width\":%4,\"height\":%5}")
+            .arg(pageNumber)
+            .arg(pagePosition.x())
+            .arg(pagePosition.y())
+            .arg(bbox.width())
+            .arg(bbox.height());
+    }
+
+    json += u"]";
     return WasmRes(json);
 }
 
@@ -2418,8 +2492,23 @@ extern "C" {
     };
 
     EMSCRIPTEN_KEEPALIVE
+    bool extendSelectionNextChord(uintptr_t score_ptr, int excerptId = -1) {
+        return _extendSelectionNextChord(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool extendSelectionPrevChord(uintptr_t score_ptr, int excerptId = -1) {
+        return _extendSelectionPrevChord(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
     WasmResBytes getSelectionBoundingBox(uintptr_t score_ptr, int excerptId = -1) {
         return _getSelectionBoundingBox(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    WasmResBytes getSelectionBoundingBoxes(uintptr_t score_ptr, int excerptId = -1) {
+        return _getSelectionBoundingBoxes(score_ptr, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE
