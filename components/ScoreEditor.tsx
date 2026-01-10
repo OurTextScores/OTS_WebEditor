@@ -1140,6 +1140,10 @@ export default function ScoreEditor() {
     const handleAddPitchByStep = (noteIndex: number, addToChord: boolean) => {
         const shouldAdvance = !addToChord;
         return performMutation('add pitch', async () => {
+            // Sync input state from current selection before adding pitch
+            // This ensures WASM cursor is at the right position even if
+            // the async useEffect hasn't run yet after a previous advancement
+            await syncInputStateFromSelection();
             const fn = requireMutation('addPitchByStep');
             if (!fn) return;
             return fn(noteIndex, addToChord, false);
@@ -1151,6 +1155,8 @@ export default function ScoreEditor() {
     };
 
     const handleEnterRest = () => performMutation('enter rest', async () => {
+        // Sync input state from current selection before entering rest
+        await syncInputStateFromSelection();
         const fn = requireMutation('enterRest');
         if (!fn) return;
         return fn();
