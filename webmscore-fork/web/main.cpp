@@ -1310,6 +1310,89 @@ bool _selectElementAtPointWithMode(uintptr_t score_ptr, int pageNumber, double x
     return true;
 }
 
+bool _selectNextChord(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    // Use move() with "next-chord" - this uses SelectType::SINGLE to replace selection
+    // instead of selectMove() which uses SelectType::RANGE and extends selection
+    auto* el = score->move(u"next-chord");
+    if (el) {
+        score->updateSelection();
+        score->setSelectionChanged(true);
+        return true;
+    }
+    return false;
+}
+
+bool _selectPrevChord(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    // Use move() with "prev-chord" - this uses SelectType::SINGLE to replace selection
+    // instead of selectMove() which uses SelectType::RANGE and extends selection
+    auto* el = score->move(u"prev-chord");
+    if (el) {
+        score->updateSelection();
+        score->setSelectionChanged(true);
+        return true;
+    }
+    return false;
+}
+
+WasmRes _getSelectionBoundingBox(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+
+    // Debug: log selection state
+    const auto& sel = score->selection();
+    printf("[WASM DEBUG] _getSelectionBoundingBox: state=%d elements.size=%zu element=%p activeCR=%p\n",
+           static_cast<int>(sel.state()), sel.elements().size(),
+           static_cast<void*>(sel.element()), static_cast<void*>(sel.activeCR()));
+
+    // Try multiple ways to get the selected element
+    mu::engraving::EngravingItem* el = score->selection().element();
+
+    // If element() returns null, try getting from the elements list
+    if (!el && !score->selection().elements().empty()) {
+        el = score->selection().elements().front();
+        printf("[WASM DEBUG] Using elements().front() = %p\n", static_cast<void*>(el));
+    }
+
+    // Still null? Try activeCR
+    if (!el) {
+        el = score->selection().activeCR();
+        printf("[WASM DEBUG] Using activeCR() = %p\n", static_cast<void*>(el));
+    }
+
+    if (!el) {
+        printf("[WASM DEBUG] No element found for bounding box\n");
+        return WasmRes(String());
+    }
+
+    // Get page position and bounding box
+    mu::PointF pagePosition = el->pagePos();
+    mu::RectF bbox = el->bbox();
+
+    // Find which page this element is on
+    int pageNumber = 0;
+    const auto& pages = score->pages();
+    for (size_t i = 0; i < pages.size(); ++i) {
+        if (el->findAncestor(mu::engraving::ElementType::PAGE) == pages[i]) {
+            pageNumber = static_cast<int>(i);
+            break;
+        }
+    }
+
+    // Build JSON string using mu::String
+    String json = String(u"{\"page\":%1,\"x\":%2,\"y\":%3,\"width\":%4,\"height\":%5}")
+        .arg(pageNumber)
+        .arg(pagePosition.x())
+        .arg(pagePosition.y())
+        .arg(bbox.width())
+        .arg(bbox.height());
+
+    return WasmRes(json);
+}
+
 bool _deleteSelection(uintptr_t score_ptr, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
@@ -2322,6 +2405,21 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool selectElementAtPointWithMode(uintptr_t score_ptr, int pageNumber, double x, double y, int mode, int excerptId = -1) {
         return _selectElementAtPointWithMode(score_ptr, pageNumber, x, y, mode, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool selectNextChord(uintptr_t score_ptr, int excerptId = -1) {
+        return _selectNextChord(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool selectPrevChord(uintptr_t score_ptr, int excerptId = -1) {
+        return _selectPrevChord(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    WasmResBytes getSelectionBoundingBox(uintptr_t score_ptr, int excerptId = -1) {
+        return _getSelectionBoundingBox(score_ptr, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE

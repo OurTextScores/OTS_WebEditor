@@ -226,5 +226,6 @@ Clean rebuild (avoid unless needed)
 - MusicXML export (uncompressed): `saveXml`.
 - Streaming audio surface: `synthAudio`, `synthAudioBatch`, `processSynth`, `processSynthBatch`.
 
-Feedback requested  
-- What should we prioritize next: selection model/hit-testing, note-entry UX, instrument management polish, or something else?
+## Current task:
+Me and Codex were working on/have uncomitted and unfinished changes for advancing the selection with as per: https://handbook.musescore.org/navigation/accessibility#navigating-the-score
+We were starting with left/right advancement, but after that I'd like to include the other navigation options as well. Can you help complete this work? Note: the current changes don't work, and if you prefer not to re-use them feel free to take a new approach.

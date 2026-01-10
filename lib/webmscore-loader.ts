@@ -27,6 +27,9 @@ export interface Score {
         y: number,
         mode: 0 | 1 | 2,
     ) => Promise<unknown> | unknown;
+    selectNextChord?: () => Promise<unknown> | unknown;
+    selectPrevChord?: () => Promise<unknown> | unknown;
+    getSelectionBoundingBox?: () => Promise<{page: number, x: number, y: number, width: number, height: number} | null> | {page: number, x: number, y: number, width: number, height: number} | null;
     clearSelection?: () => Promise<unknown> | unknown;
     selectionMimeType?: () => Promise<string> | string;
     selectionMimeData?: () => Promise<Uint8Array> | Uint8Array;

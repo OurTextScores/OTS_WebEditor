@@ -446,6 +446,30 @@ class WebMscoreW {
     }
 
     /**
+     * Move selection to the next chord
+     * @returns {Promise<boolean>}
+     */
+    selectNextChord() {
+        return this.rpc('selectNextChord')
+    }
+
+    /**
+     * Move selection to the previous chord
+     * @returns {Promise<boolean>}
+     */
+    selectPrevChord() {
+        return this.rpc('selectPrevChord')
+    }
+
+    /**
+     * Get the bounding box of the current selection
+     * @returns {Promise<{page: number, x: number, y: number, width: number, height: number} | null>}
+     */
+    getSelectionBoundingBox() {
+        return this.rpc('getSelectionBoundingBox')
+    }
+
+    /**
      * Get the selection MIME type for copy/paste.
      * @returns {Promise<string>}
      */

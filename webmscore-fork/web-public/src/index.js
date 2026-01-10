@@ -671,6 +671,37 @@ class WebMscore {
     }
 
     /**
+     * Move selection to the next chord
+     * @returns {Promise<boolean>}
+     */
+    async selectNextChord() {
+        return Module.ccall('selectNextChord', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
+    }
+
+    /**
+     * Move selection to the previous chord
+     * @returns {Promise<boolean>}
+     */
+    async selectPrevChord() {
+        return Module.ccall('selectPrevChord', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
+    }
+
+    /**
+     * Get the bounding box of the current selection
+     * @returns {Promise<{page: number, x: number, y: number, width: number, height: number} | null>}
+     */
+    async getSelectionBoundingBox() {
+        const dataptr = Module.ccall('getSelectionBoundingBox', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])
+        const json = WasmRes.readText(dataptr)
+        if (!json) return null
+        try {
+            return JSON.parse(json)
+        } catch (e) {
+            return null
+        }
+    }
+
+    /**
      * Get the selection MIME type for copy/paste.
      * @returns {Promise<string>}
      */

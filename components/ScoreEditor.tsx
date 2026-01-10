@@ -20,6 +20,9 @@ type MutationMethods = Pick<
     Score,
     | 'selectElementAtPoint'
     | 'selectElementAtPointWithMode'
+    | 'selectNextChord'
+    | 'selectPrevChord'
+    | 'getSelectionBoundingBox'
     | 'clearSelection'
     | 'selectionMimeType'
     | 'selectionMimeData'
@@ -584,7 +587,12 @@ export default function ScoreEditor() {
     const performMutation = async (
         label: string,
         action?: (() => Promise<unknown> | unknown),
-        options?: { clearSelection?: boolean; skipWasmReselect?: boolean },
+        options?: {
+            clearSelection?: boolean;
+            skipWasmReselect?: boolean;
+            skipSelectionFallback?: boolean;
+            skipRelayout?: boolean;
+        },
     ) => {
         if (!score) {
             console.warn(`Mutation "${label}" requested but no score is loaded.`);
@@ -599,6 +607,7 @@ export default function ScoreEditor() {
         const preservedIndex = selectedIndex;
         const preservedPoint = selectedPoint;
         const preservedMultiSelection = selectionBoxes.length > 1;
+        const allowSelectionFallback = !options?.skipSelectionFallback;
 
         try {
             console.debug(`Mutation "${label}" start`);
@@ -616,7 +625,7 @@ export default function ScoreEditor() {
                 setSelectedIndex(null);
             }
 
-            if (score.relayout) {
+            if (!options?.skipRelayout && score.relayout) {
                 try {
                     await score.relayout();
                 } catch (relayoutErr) {
@@ -635,7 +644,7 @@ export default function ScoreEditor() {
             }
 
             // If selection wasn't cleared, restore preserved state for fallback
-            if (!options?.clearSelection) {
+            if (!options?.clearSelection && allowSelectionFallback) {
                 if (preservedIndex !== null && selectedIndex === null) {
                     setSelectedIndex(preservedIndex);
                 }
@@ -651,17 +660,19 @@ export default function ScoreEditor() {
             // Schedule overlay refresh after the DOM has had time to update
             // Use a double-RAF to ensure the DOM is fully parsed and rendered
             // Pass preserved values to handle async state updates
+            const fallbackIndex = allowSelectionFallback ? preservedIndex : null;
+            const fallbackPoint = allowSelectionFallback ? preservedPoint : null;
             console.log('[performMutation] Scheduling refresh with preservedIndex:', preservedIndex, 'preservedPoint:', preservedPoint);
             if (typeof window !== 'undefined') {
                 window.requestAnimationFrame(() => {
                     console.log('[performMutation] RAF 1');
                     window.requestAnimationFrame(() => {
                         console.log('[performMutation] RAF 2, calling refreshSelectionOverlay');
-                        refreshSelectionOverlay(preservedIndex, preservedPoint);
+                        refreshSelectionOverlay(fallbackIndex, fallbackPoint);
                     });
                 });
             } else {
-                refreshSelectionOverlay(preservedIndex, preservedPoint);
+                refreshSelectionOverlay(fallbackIndex, fallbackPoint);
             }
         } catch (err) {
             console.error(`Mutation "${label}" failed:`, err);
@@ -708,6 +719,80 @@ export default function ScoreEditor() {
         if (!fn) return;
         return fn.call(score, semitones);
     }, { skipWasmReselect: true });
+    const handleSelectNextChord = async () => {
+        if (!score) return;
+        console.log('[NAV] handleSelectNextChord called');
+        await ensureSelectionInWasm();
+        const selectFn = requireMutation('selectNextChord');
+        const getBBoxFn = requireMutation('getSelectionBoundingBox');
+        if (!selectFn || !getBBoxFn) {
+            console.log('[NAV] Missing functions:', { selectFn: !!selectFn, getBBoxFn: !!getBBoxFn });
+            return;
+        }
+
+        const result = await selectFn.call(score);
+        console.log('[NAV] selectNextChord result:', result);
+        if (result) {
+            // Query the new selection's bounding box from WASM BEFORE rendering
+            // (renderScore might reset selection state)
+            const bbox = await getBBoxFn.call(score);
+            console.log('[NAV] getSelectionBoundingBox result:', bbox);
+
+            await renderScore(score);
+            if (bbox) {
+                const { page, x, y, width, height } = bbox;
+                const centerX = x + width / 2;
+                const centerY = y + height / 2;
+
+                console.log('[NAV] Setting selection box at:', { page, x, y, width, height, centerX, centerY });
+                setSelectedElement({ x, y, w: width, h: height });
+                setSelectedPoint({ page, x: centerX, y: centerY });
+                setSelectionBoxes([{
+                    index: null,
+                    page,
+                    x,
+                    y,
+                    w: width,
+                    h: height,
+                    centerX,
+                    centerY,
+                }]);
+            }
+        }
+    };
+    const handleSelectPrevChord = async () => {
+        if (!score) return;
+        await ensureSelectionInWasm();
+        const selectFn = requireMutation('selectPrevChord');
+        const getBBoxFn = requireMutation('getSelectionBoundingBox');
+        if (!selectFn || !getBBoxFn) return;
+
+        const result = await selectFn.call(score);
+        if (result) {
+            await renderScore(score);
+
+            // Query the new selection's bounding box from WASM
+            const bbox = await getBBoxFn.call(score);
+            if (bbox) {
+                const { page, x, y, width, height } = bbox;
+                const centerX = x + width / 2;
+                const centerY = y + height / 2;
+
+                setSelectedElement({ x, y, w: width, h: height });
+                setSelectedPoint({ page, x: centerX, y: centerY });
+                setSelectionBoxes([{
+                    index: null,
+                    page,
+                    x,
+                    y,
+                    w: width,
+                    h: height,
+                    centerX,
+                    centerY,
+                }]);
+            }
+        }
+    };
     const handleSetAccidental = (accidentalType: number) => performMutation(`set accidental ${accidentalType}`, async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('setAccidental');
@@ -1230,6 +1315,23 @@ export default function ScoreEditor() {
                 return;
             }
 
+            if (key === 'arrowleft' || key === 'arrowright') {
+                if (!mutationEnabled) {
+                    return;
+                }
+                const hasSelection = Boolean(selectedElement) || selectionBoxes.length > 0;
+                if (!hasSelection) {
+                    return;
+                }
+                event.preventDefault();
+                if (key === 'arrowright') {
+                    handleSelectNextChord();
+                } else {
+                    handleSelectPrevChord();
+                }
+                return;
+            }
+
             if (key === 'delete' || key === 'backspace') {
                 if (mutationEnabled && (selectedElement || selectionBoxes.length > 0)) {
                     event.preventDefault();
@@ -1250,6 +1352,8 @@ export default function ScoreEditor() {
         handlePitchUp,
         handlePitchDown,
         handleTranspose,
+        handleSelectNextChord,
+        handleSelectPrevChord,
         handleDeleteSelection,
         handleCopySelection,
         handlePasteSelection,
