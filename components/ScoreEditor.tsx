@@ -147,6 +147,11 @@ export default function ScoreEditor() {
     const [selectionBoxes, setSelectionBoxes] = useState<SelectionBox[]>([]);
     const [dragSelectionRect, setDragSelectionRect] = useState<{ x: number, y: number, w: number, h: number } | null>(null);
     const [noteEntryEnabled, setNoteEntryEnabled] = useState(false);
+    // Track the user's chosen input duration to preserve it across selection syncs
+    // We use both state (for React re-renders) and a ref (for immediate synchronous access)
+    // This avoids stale closure issues when quickly pressing duration key then note key
+    const [userInputDuration, setUserInputDuration] = useState<number | null>(null);
+    const userInputDurationRef = useRef<number | null>(null);
     const ignoreNextClickRef = useRef(false);
     const dragKindRef = useRef<'pointer' | 'mouse' | null>(null);
     const dragPointerIdRef = useRef<number | null>(null);
@@ -1008,9 +1013,14 @@ export default function ScoreEditor() {
         }
     };
     const handleSetInputDurationType = async (durationType: number) => {
+        console.log('[NoteEntry] handleSetInputDurationType called with:', durationType);
         if (!score) return;
         const fn = requireMutation('setInputDurationType');
         if (!fn) return;
+        // Save user's duration choice immediately (ref for sync access, state for React)
+        userInputDurationRef.current = durationType;
+        console.log('[NoteEntry] Set userInputDurationRef.current to:', durationType);
+        setUserInputDuration(durationType);
         try {
             await fn(durationType);
         } catch (err) {
@@ -1101,6 +1111,28 @@ export default function ScoreEditor() {
         }
     };
 
+    // Sync cursor position (track/segment) but preserve user's duration choice
+    const syncInputPositionOnly = async (): Promise<boolean> => {
+        console.log('[NoteEntry] syncInputPositionOnly - userInputDurationRef.current:', userInputDurationRef.current);
+        const synced = await syncInputStateFromSelection();
+        console.log('[NoteEntry] syncInputPositionOnly - synced:', synced);
+        // Restore user's duration if they've explicitly set one
+        // Use the ref for immediate access (avoids stale closure from state)
+        if (synced && userInputDurationRef.current !== null) {
+            console.log('[NoteEntry] Restoring user duration to:', userInputDurationRef.current);
+            const setDuration = requireMutation('setInputDurationType');
+            if (setDuration) {
+                try {
+                    await setDuration(userInputDurationRef.current);
+                    console.log('[NoteEntry] Duration restored successfully');
+                } catch (err) {
+                    console.error('Failed to restore user duration after sync', err);
+                }
+            }
+        }
+        return synced;
+    };
+
     const handleToggleNoteEntry = async () => {
         if (!score) return;
         const setMode = requireMutation('setNoteEntryMode');
@@ -1135,15 +1167,18 @@ export default function ScoreEditor() {
             return;
         }
         setNoteEntryEnabled(false);
+        // Clear saved duration when exiting note entry mode
+        userInputDurationRef.current = null;
+        setUserInputDuration(null);
     };
 
     const handleAddPitchByStep = (noteIndex: number, addToChord: boolean) => {
         const shouldAdvance = !addToChord;
         return performMutation('add pitch', async () => {
-            // Sync input state from current selection before adding pitch
+            // Sync cursor position but preserve user's duration choice
             // This ensures WASM cursor is at the right position even if
             // the async useEffect hasn't run yet after a previous advancement
-            await syncInputStateFromSelection();
+            await syncInputPositionOnly();
             const fn = requireMutation('addPitchByStep');
             if (!fn) return;
             return fn(noteIndex, addToChord, false);
@@ -1155,8 +1190,8 @@ export default function ScoreEditor() {
     };
 
     const handleEnterRest = () => performMutation('enter rest', async () => {
-        // Sync input state from current selection before entering rest
-        await syncInputStateFromSelection();
+        // Sync cursor position but preserve user's duration choice
+        await syncInputPositionOnly();
         const fn = requireMutation('enterRest');
         if (!fn) return;
         return fn();
@@ -1829,14 +1864,15 @@ export default function ScoreEditor() {
         if (!selectedPoint && !selectedElement) {
             return;
         }
-        syncInputStateFromSelection();
+        // Sync cursor position but preserve user's duration choice
+        syncInputPositionOnly();
     }, [
         noteEntryEnabled,
         noteEntryAvailable,
         selectedPoint,
         selectedElement,
         selectionBoxes.length,
-        syncInputStateFromSelection,
+        syncInputPositionOnly,
     ]);
 
     const handleSetTimeSignature = async (num: number, den: number) => {
