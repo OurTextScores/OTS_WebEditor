@@ -14,6 +14,7 @@ type SelectionBox = {
     h: number;
     centerX: number;
     centerY: number;
+    classes: string;
 };
 
 type SelectionFallback = {
@@ -173,6 +174,8 @@ export default function ScoreEditor() {
     const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
     const [selectionBoxes, setSelectionBoxes] = useState<SelectionBox[]>([]);
     const [overlaySuppressed, setOverlaySuppressed] = useState(false);
+    const [selectedElementClasses, setSelectedElementClasses] = useState<string>('');
+    const [selectedLayoutBreakSubtype, setSelectedLayoutBreakSubtype] = useState<'line'|'page'|null>(null);
     const [dragSelectionRect, setDragSelectionRect] = useState<{ x: number, y: number, w: number, h: number } | null>(null);
     const ignoreNextClickRef = useRef(false);
     const dragKindRef = useRef<'pointer' | 'mouse' | null>(null);
@@ -212,6 +215,45 @@ export default function ScoreEditor() {
     useEffect(() => {
         currentPageRef.current = currentPage;
     }, [currentPage]);
+
+    useEffect(() => {
+        let canceled = false;
+        if (!score || !selectedElementClasses.includes('LayoutBreak')) {
+            setSelectedLayoutBreakSubtype(null);
+            return;
+        }
+
+        const updateSubtype = async () => {
+            const data = await score.selectionMimeData?.();
+            if (canceled) {
+                return;
+            }
+            if (!data) {
+                setSelectedLayoutBreakSubtype(null);
+                return;
+            }
+            let text: string;
+            try {
+                text = new TextDecoder().decode(data);
+            } catch (decodeErr) {
+                console.warn('Failed to decode selection MIME data', decodeErr);
+                setSelectedLayoutBreakSubtype(null);
+                return;
+            }
+
+            const match = text.match(/<subtype>([^<]+)<\/subtype>/);
+            if (match && (match[1] === 'line' || match[1] === 'page')) {
+                setSelectedLayoutBreakSubtype(match[1] as 'line' | 'page');
+            } else {
+                setSelectedLayoutBreakSubtype(null);
+            }
+        };
+
+        updateSubtype();
+        return () => {
+            canceled = true;
+        };
+    }, [score, selectedElementClasses]);
 
     const exposeScoreToWindow = (s: Score | null) => {
         // Handy for Playwright/debug sessions to poke at WASM bindings directly
@@ -255,6 +297,8 @@ export default function ScoreEditor() {
         setSelectionBoxes([]);
         setSelectedPoint(null);
         setSelectedIndex(null);
+        setSelectedElementClasses('');
+        setSelectedLayoutBreakSubtype(null);
         setMutationEnabled(false);
         setSoundFontLoaded(false);
         setTriedSoundFont(false);
@@ -321,6 +365,8 @@ export default function ScoreEditor() {
         setSelectionBoxes([]);
         setSelectedPoint(null);
         setSelectedIndex(null);
+        setSelectedElementClasses('');
+        setSelectedLayoutBreakSubtype(null);
         setMutationEnabled(false);
         setSoundFontLoaded(false);
         setTriedSoundFont(false);
@@ -559,6 +605,7 @@ export default function ScoreEditor() {
                     const page = extractPageIndex(cand) ?? 0;
                     const centerX = x + w / 2;
                     const centerY = y + h / 2;
+                    const classAttr = cand.getAttribute('class') ?? '';
 
                     let idx = allElements.indexOf(cand);
                     if (idx < 0) {
@@ -579,6 +626,7 @@ export default function ScoreEditor() {
                         h,
                         centerX,
                         centerY,
+                        classes: classAttr,
                     } satisfies SelectionBox;
                 })
                 .filter((box): box is NonNullable<typeof box> => Boolean(box))
@@ -604,17 +652,19 @@ export default function ScoreEditor() {
                     const page = extractPageIndex(el) ?? 0;
                     const centerX = x + w / 2;
                     const centerY = y + h / 2;
-                    boxes = [{
-                        index: useIndex,
-                        page,
-                        x,
-                        y,
-                        w,
-                        h,
-                        centerX,
-                        centerY,
-                    }];
-                }
+                const fallbackClass = el.getAttribute('class') ?? '';
+                boxes = [{
+                    index: useIndex,
+                    page,
+                    x,
+                    y,
+                    w,
+                    h,
+                    centerX,
+                    centerY,
+                    classes: fallbackClass,
+                }];
+            }
             } else {
                 console.log('[refreshSelectionOverlay] No element at index', useIndex);
             }
@@ -626,6 +676,8 @@ export default function ScoreEditor() {
             setSelectedElement(null);
             setSelectedPoint(null);
             setSelectedIndex(null);
+            setSelectedElementClasses('');
+            setSelectedLayoutBreakSubtype(null);
             return;
         }
 
@@ -657,6 +709,7 @@ export default function ScoreEditor() {
         setSelectedElement({ x: primary.x, y: primary.y, w: primary.w, h: primary.h });
         setSelectedPoint({ page: primary.page, x: primary.centerX, y: primary.centerY });
         setSelectedIndex(primary.index);
+        setSelectedElementClasses(primary.classes);
         console.log('[refreshSelectionOverlay] Done updating selection');
     };
 
@@ -833,6 +886,8 @@ export default function ScoreEditor() {
                 setSelectionBoxes([]);
                 setSelectedPoint(null);
                 setSelectedIndex(null);
+                setSelectedElementClasses('');
+                setSelectedLayoutBreakSubtype(null);
             }
 
             if (!mutated) {
@@ -1008,6 +1063,7 @@ export default function ScoreEditor() {
                     h: height,
                     centerX,
                     centerY,
+                    classes: '',
                 }]);
             }
         }
@@ -1041,6 +1097,7 @@ export default function ScoreEditor() {
                     h: height,
                     centerX,
                     centerY,
+                    classes: '',
                 }]);
             }
         }
@@ -1777,6 +1834,14 @@ export default function ScoreEditor() {
             if (key === 'delete' || key === 'backspace') {
                 if (mutationEnabled && (selectedElement || selectionBoxes.length > 0)) {
                     event.preventDefault();
+                    if (selectedLayoutBreakSubtype === 'line') {
+                        handleToggleLineBreak();
+                        return;
+                    }
+                    if (selectedLayoutBreakSubtype === 'page') {
+                        handleTogglePageBreak();
+                        return;
+                    }
                     handleDeleteSelection();
                 }
             }
@@ -2262,6 +2327,8 @@ export default function ScoreEditor() {
                 setSelectionBoxes([]);
                 setSelectedPoint(null);
                 setSelectedIndex(null);
+                setSelectedElementClasses('');
+                setSelectedLayoutBreakSubtype(null);
                 if (score.clearSelection) {
                     await score.clearSelection().catch(err => {
                         console.warn('clearSelection not available or failed:', err);
@@ -2281,6 +2348,7 @@ export default function ScoreEditor() {
             h: hit.box.h,
             centerX: hit.centerX,
             centerY: hit.centerY,
+            classes: hit.el.getAttribute('class') ?? '',
         }));
         if (additive) {
             setSelectionBoxes(prev => {
@@ -2676,6 +2744,8 @@ export default function ScoreEditor() {
             setSelectionBoxes([]);
             setSelectedPoint(null);
             setSelectedIndex(null);
+            setSelectedElementClasses('');
+            setSelectedLayoutBreakSubtype(null);
             const refreshAfterClear = () => refreshSelectionFromSvg(null);
             blockOverlayRefreshRef.current = true;
             selectionOverlayGenerationRef.current += 1;
@@ -2731,6 +2801,7 @@ export default function ScoreEditor() {
                 }
             }
 
+            const classAttr = targetElement.getAttribute('class') ?? '';
             const box: SelectionBox = {
                 index: index >= 0 ? index : null,
                 page: pageIndex,
@@ -2740,6 +2811,7 @@ export default function ScoreEditor() {
                 h,
                 centerX,
                 centerY,
+                classes: classAttr,
             };
             const fallback: SelectionFallback = {
                 index: box.index,
@@ -2768,6 +2840,8 @@ export default function ScoreEditor() {
                 setSelectionBoxes([]);
                 setSelectedPoint(null);
                 setSelectedIndex(null);
+                setSelectedElementClasses('');
+                setSelectedLayoutBreakSubtype(null);
             });
 
             if (!additiveSelection) {
@@ -2807,6 +2881,8 @@ export default function ScoreEditor() {
             setSelectionBoxes([]);
             setSelectedPoint(null);
             setSelectedIndex(null);
+            setSelectedElementClasses('');
+            setSelectedLayoutBreakSubtype(null);
         }
     };
 
