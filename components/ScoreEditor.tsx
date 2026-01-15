@@ -129,6 +129,16 @@ const measureInsertTargetMap: Record<MeasureInsertTarget, number> = {
     end: 3,
 };
 
+const ELEMENT_SELECTION_SELECTOR = '.Note, .Rest, .Chord, .LayoutBreak';
+const ELEMENT_SELECTION_CLASSES = new Set(['Note', 'Rest', 'Chord', 'LayoutBreak']);
+
+const hasSelectableClass = (classAttr: string | null | undefined) => {
+    if (!classAttr) {
+        return false;
+    }
+    return classAttr.split(/\s+/).some(cls => ELEMENT_SELECTION_CLASSES.has(cls));
+};
+
 const hasMutationApi = (score: Score | null): score is Score & MutationMethods => {
     if (!score) {
         return false;
@@ -530,7 +540,7 @@ export default function ScoreEditor() {
         const candidates: Element[] = Array.from(
             new Set(selectors.flatMap(sel => Array.from(containerRef.current!.querySelectorAll(sel)))),
         );
-        const allElements = Array.from(containerRef.current.querySelectorAll('.Note, .Rest, .Chord'));
+        const allElements = Array.from(containerRef.current.querySelectorAll(ELEMENT_SELECTION_SELECTOR));
 
         console.log('[refreshSelectionOverlay] candidates.length:', candidates.length);
 
@@ -581,7 +591,7 @@ export default function ScoreEditor() {
         } else if (useIndex !== null) {
             // Fallback: use index if selection markers are missing in SVG
             console.log('[refreshSelectionOverlay] Using index fallback');
-            console.log('[refreshSelectionOverlay] Found', allElements.length, 'Note/Rest/Chord elements');
+            console.log('[refreshSelectionOverlay] Found', allElements.length, 'Note/Rest/Chord/LayoutBreak elements');
             const el = allElements[useIndex] ?? null;
             if (el) {
                 console.log('[refreshSelectionOverlay] Selected element at index', useIndex);
@@ -658,7 +668,7 @@ export default function ScoreEditor() {
         if (!containerRef.current) {
             return;
         }
-        const allElements = Array.from(containerRef.current.querySelectorAll('.Note, .Rest, .Chord'));
+        const allElements = Array.from(containerRef.current.querySelectorAll(ELEMENT_SELECTION_SELECTOR));
         if (allElements.length === 0) {
             return;
         }
@@ -2216,7 +2226,7 @@ export default function ScoreEditor() {
         }
 
         const containerRect = containerRef.current.getBoundingClientRect();
-        const allElements = Array.from(containerRef.current.querySelectorAll('.Note, .Rest, .Chord'));
+        const allElements = Array.from(containerRef.current.querySelectorAll(ELEMENT_SELECTION_SELECTOR));
 
         const hits = allElements
             .map((el, index) => {
@@ -2645,16 +2655,12 @@ export default function ScoreEditor() {
 
         // Traverse up to find a relevant class if needed
         // Note: containerRef.current is a div that contains the SVG, so we need to traverse
-        // up through the SVG structure to find Note/Rest/Chord elements
+        // up through the SVG structure to find Note/Rest/Chord/LayoutBreak elements
         let element: Element | null = target;
         let found = false;
 
         while (element) {
-            // Check using both classList and getAttribute for SVG compatibility
-            const classes = element.getAttribute('class') || '';
-            const hasNoteClass = classes.split(/\s+/).some(c => c === 'Note' || c === 'Rest' || c === 'Chord');
-
-            if (hasNoteClass) {
+            if (hasSelectableClass(element.getAttribute('class'))) {
                 found = true;
                 break;
             }
@@ -2700,13 +2706,13 @@ export default function ScoreEditor() {
             const centerX = x + w / 2;
             const centerY = y + h / 2;
 
-            // Find the index by looking for Note/Rest/Chord elements
+            // Find the index by looking for Note/Rest/Chord/LayoutBreak elements
             // If we found a specific element, use it; otherwise search from target
-            const allElements = Array.from(containerRef.current.querySelectorAll('.Note, .Rest, .Chord'));
+            const allElements = Array.from(containerRef.current.querySelectorAll(ELEMENT_SELECTION_SELECTOR));
             let index = -1;
 
             if (found && element) {
-                // We found a Note/Rest/Chord element, try to find its index
+                // We found a Note/Rest/Chord/LayoutBreak element, try to find its index
                 index = allElements.indexOf(element);
             }
 
