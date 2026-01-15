@@ -388,7 +388,7 @@ describe('ScoreEditor', () => {
     await waitFor(() => expect((globalThis as any).URL.createObjectURL).toHaveBeenCalled());
   });
 
-  it('supports note entry keyboard shortcuts', async () => {
+  it('supports note respelling keyboard shortcuts', async () => {
     const user = userEvent.setup();
 
     const score: any = {
@@ -396,13 +396,10 @@ describe('ScoreEditor', () => {
       saveSvg: vi.fn(async () => '<svg><g class="Note"></g></svg>'),
       relayout: vi.fn(async () => true),
       selectElementAtPoint: vi.fn(async () => true),
-      setNoteEntryMode: vi.fn(async () => true),
-      setNoteEntryMethod: vi.fn(async () => true),
-      setInputStateFromSelection: vi.fn(async () => true),
       addPitchByStep: vi.fn(async () => true),
-      setInputAccidentalType: vi.fn(async () => true),
-      setInputDurationType: vi.fn(async () => true),
-      toggleInputDot: vi.fn(async () => true),
+      setAccidental: vi.fn(async () => true),
+      setDurationType: vi.fn(async () => true),
+      toggleDot: vi.fn(async () => true),
       enterRest: vi.fn(async () => true),
       addTie: vi.fn(async () => true),
       metadata: vi.fn(async () => ({})),
@@ -433,23 +430,20 @@ describe('ScoreEditor', () => {
     fireEvent.click(note!);
     await screen.findByTestId('selection-overlay');
 
-    await user.click(screen.getByTestId('btn-note-entry'));
-    await waitFor(() => expect(screen.getByTestId('btn-note-entry')).toHaveAttribute('aria-checked', 'true'));
-
     fireEvent.keyDown(window, { key: '1' });
-    await waitFor(() => expect(score.setInputDurationType).toHaveBeenCalledWith(8));
+    await waitFor(() => expect(score.setDurationType).toHaveBeenCalledWith(8));
 
     fireEvent.keyDown(window, { key: '.' });
-    await waitFor(() => expect(score.toggleInputDot).toHaveBeenCalled());
+    await waitFor(() => expect(score.toggleDot).toHaveBeenCalled());
 
     fireEvent.keyDown(window, { key: '+' });
-    await waitFor(() => expect(score.setInputAccidentalType).toHaveBeenCalledWith(3));
+    await waitFor(() => expect(score.setAccidental).toHaveBeenCalledWith(3));
 
     fireEvent.keyDown(window, { key: '-' });
-    await waitFor(() => expect(score.setInputAccidentalType).toHaveBeenCalledWith(1));
+    await waitFor(() => expect(score.setAccidental).toHaveBeenCalledWith(1));
 
     fireEvent.keyDown(window, { key: '=' });
-    await waitFor(() => expect(score.setInputAccidentalType).toHaveBeenCalledWith(2));
+    await waitFor(() => expect(score.setAccidental).toHaveBeenCalledWith(2));
 
     fireEvent.keyDown(window, { key: 'c' });
     await waitFor(() => expect(score.addPitchByStep).toHaveBeenCalledWith(0, false, false));

@@ -56,7 +56,6 @@ interface ToolbarProps {
     onSetAccidental?: (accidentalType: number) => void;
     noteEntryEnabled?: boolean;
     noteEntryAvailable?: boolean;
-    onToggleNoteEntry?: () => void;
     mutationsEnabled?: boolean;
     selectionActive?: boolean;
     onExportSvg?: () => void;
@@ -149,9 +148,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     onDurationShorter,
     onTranspose,
     onSetAccidental,
-    noteEntryEnabled = false,
-    noteEntryAvailable = false,
-    onToggleNoteEntry,
     mutationsEnabled = false,
     selectionActive = false,
     onExportSvg,
@@ -314,12 +310,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     ];
 
     const durationOptions = [
-        { label: '32nd', value: 7, testId: 'btn-duration-32' },   // DurationType::V_32ND
-        { label: '16th', value: 6, testId: 'btn-duration-16' },   // DurationType::V_16TH
-        { label: '8th', value: 5, testId: 'btn-duration-8' },     // DurationType::V_EIGHTH
-        { label: 'Quarter', value: 4, testId: 'btn-duration-4' }, // DurationType::V_QUARTER
-        { label: 'Half', value: 3, testId: 'btn-duration-2' },    // DurationType::V_HALF
-        { label: 'Whole', value: 2, testId: 'btn-duration-1' },   // DurationType::V_WHOLE
+        { label: '32nd', value: 7, shortcut: '2', testId: 'btn-duration-32' },   // DurationType::V_32ND
+        { label: '16th', value: 6, shortcut: '3', testId: 'btn-duration-16' },   // DurationType::V_16TH
+        { label: '8th', value: 5, shortcut: '4', testId: 'btn-duration-8' },     // DurationType::V_EIGHTH
+        { label: 'Quarter', value: 4, shortcut: '5', testId: 'btn-duration-4' }, // DurationType::V_QUARTER
+        { label: 'Half', value: 3, shortcut: '6', testId: 'btn-duration-2' },    // DurationType::V_HALF
+        { label: 'Whole', value: 2, shortcut: '7', testId: 'btn-duration-1' },   // DurationType::V_WHOLE
     ];
 
     const dynamicOptions = [
@@ -425,37 +421,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         'dropdown-item px-3 py-1 text-left rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed';
     const dropdownTextClass = 'px-3 py-1 text-sm text-gray-700';
     const dropdownLabelClass = 'text-xs uppercase tracking-wide text-gray-500 px-2 py-1';
-    const noteEntryToggleDisabled = !noteEntryAvailable;
-    const noteEntryTooltip = !noteEntryAvailable
-        ? 'Note input is not available in this build.'
-        : !selectionActive && !noteEntryEnabled
-            ? 'Select a note or rest to start note input.'
-            : undefined;
-    const noteEntryTrackClass = 'inline-flex';
-    const noteEntryKnobClass = 'inline-block';
-    const noteEntryTrackStyle: React.CSSProperties = {
-        width: 44,
-        height: 24,
-        borderRadius: 9999,
-        backgroundColor: noteEntryEnabled ? '#059669' : '#d1d5db',
-        display: 'inline-flex',
-        alignItems: 'center',
-        padding: 2,
-        position: 'relative',
-        transition: 'background-color 150ms ease',
-        opacity: noteEntryToggleDisabled ? 0.5 : 1,
-        cursor: noteEntryToggleDisabled ? 'not-allowed' : 'pointer',
-        border: '1px solid #d1d5db',
-    };
-    const noteEntryKnobStyle: React.CSSProperties = {
-        width: 20,
-        height: 20,
-        borderRadius: 9999,
-        backgroundColor: '#ffffff',
-        transform: noteEntryEnabled ? 'translateX(20px)' : 'translateX(0px)',
-        transition: 'transform 150ms ease',
-        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.15)',
-    };
     const instrumentOptions = instrumentGroups.flatMap(group =>
         group.instruments.map(instrument => ({
             ...instrument,
@@ -510,6 +475,25 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         </details>
     );
 
+    const shortcutEntries = [
+        { label: 'Delete: Delete / Backspace', title: 'Shortcut: Delete / Backspace' },
+        { label: 'Undo: Ctrl/Cmd + Z', title: 'Shortcut: Ctrl/Cmd + Z' },
+        { label: 'Redo: Ctrl + Y, Cmd + Shift + Z', title: 'Shortcut: Ctrl + Y, Cmd + Shift + Z' },
+        { label: 'Pitch: Arrow Up/Down', title: 'Shortcut: Arrow Up/Down' },
+        { label: 'Octave: Ctrl/Cmd + Arrow Up/Down', title: 'Shortcut: Ctrl/Cmd + Arrow Up/Down' },
+        {
+            label: 'Duration numbers: 1=64th, 2=32nd, 3=16th, 4=8th, 5=Quarter, 6=Half, 7=Whole, 8=Breve',
+            title: 'Shortcut: Press 1-8 to respell the selected note\'s duration',
+        },
+        {
+            label: 'Pitch letters: A-G (Shift to add to chord)',
+            title: 'Shortcut: Press A-G to respell pitch, hold Shift to add another pitch to the chord',
+        },
+        { label: 'Rest: 0 (insert rest)', title: 'Shortcut: Press 0 to insert a rest instead of a note' },
+        { label: 'Copy: Ctrl/Cmd + C', title: 'Shortcut: Ctrl/Cmd + C' },
+        { label: 'Paste: Ctrl/Cmd + V', title: 'Shortcut: Ctrl/Cmd + V' },
+    ];
+
     return (
         <div
             className="relative flex flex-wrap items-center justify-between gap-4 p-4 bg-gray-100 border-b border-gray-300 overflow-visible"
@@ -526,25 +510,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 	                        className="hidden"
 	                    />
 	                </label>
-                    <div
-                        className="inline-flex items-center space-x-2"
-                        title={noteEntryTooltip}
-                    >
-                        <span className="text-sm text-gray-600">Note Input</span>
-                        <button
-                            data-testid="btn-note-entry"
-                            type="button"
-                            role="switch"
-                            aria-label="Note input"
-                            aria-checked={noteEntryEnabled}
-                            onClick={onToggleNoteEntry}
-                            disabled={noteEntryToggleDisabled || !onToggleNoteEntry}
-                            className={noteEntryTrackClass}
-                            style={noteEntryTrackStyle}
-                        >
-                            <span className={noteEntryKnobClass} style={noteEntryKnobStyle} />
-                        </button>
-                    </div>
 	                <label className="px-3 py-1 bg-white border border-gray-300 rounded cursor-pointer hover:bg-gray-50">
 	                    Load SoundFont
 	                    <input
@@ -661,27 +626,30 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     <button
                         data-testid="btn-delete"
                         type="button"
+                        title="Shortcut: Delete / Backspace"
                         onClick={onDeleteSelection}
                         disabled={mutationDisabled || !onDeleteSelection || !selectionActive}
-	                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-	                    >
-	                        Delete
-	                    </button>
-	                    <button
-	                        data-testid="btn-undo"
-	                        type="button"
-	                        onClick={onUndo}
-	                        disabled={mutationDisabled || !onUndo}
-	                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-	                    >
-	                        Undo
-	                    </button>
-	                    <button
-	                        data-testid="btn-redo"
-	                        type="button"
-	                        onClick={onRedo}
-	                        disabled={mutationDisabled || !onRedo}
-	                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Delete
+                    </button>
+                    <button
+                        data-testid="btn-undo"
+                        type="button"
+                        title="Shortcut: Ctrl/Cmd + Z"
+                        onClick={onUndo}
+                        disabled={mutationDisabled || !onUndo}
+                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Undo
+                    </button>
+                    <button
+                        data-testid="btn-redo"
+                        type="button"
+                        title="Shortcut: Ctrl + Y, Cmd + Shift + Z"
+                        onClick={onRedo}
+                        disabled={mutationDisabled || !onRedo}
+                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Redo
                     </button>
@@ -736,41 +704,45 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 	                    >
 	                        Add Note
 	                    </button>
-	                    <button
-	                        data-testid="btn-pitch-down"
-	                        type="button"
-	                        onClick={onPitchDown}
-	                        disabled={mutationDisabled || !onPitchDown || !selectionActive}
-	                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-	                    >
-	                        Pitch ↓
-	                    </button>
-	                    <button
-	                        data-testid="btn-pitch-up"
-	                        type="button"
-	                        onClick={onPitchUp}
-	                        disabled={mutationDisabled || !onPitchUp || !selectionActive}
-	                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-	                    >
-	                        Pitch ↑
+                    <button
+                        data-testid="btn-pitch-down"
+                        type="button"
+                        title="Shortcut: Arrow Down (Pitch Down)"
+                        onClick={onPitchDown}
+                        disabled={mutationDisabled || !onPitchDown || !selectionActive}
+                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Pitch ↓
+                    </button>
+                    <button
+                        data-testid="btn-pitch-up"
+                        type="button"
+                        title="Shortcut: Arrow Up (Pitch Up)"
+                        onClick={onPitchUp}
+                        disabled={mutationDisabled || !onPitchUp || !selectionActive}
+                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Pitch ↑
 	                    </button>
                         <button
                             data-testid="btn-transpose--12"
                             type="button"
-                            onClick={() => onTranspose?.(-12)}
-                            disabled={mutationDisabled || !onTranspose}
-                            className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={() => onTranspose?.(-12)}
+                        title="Shortcut: Ctrl/Cmd + Arrow Down (Octave Down)"
+                        disabled={mutationDisabled || !selectionActive || !onTranspose}
+                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Octave ↓
+                    </button>
+                    <button
+                        data-testid="btn-transpose-12"
+                        type="button"
+                        title="Shortcut: Ctrl/Cmd + Arrow Up (Octave Up)"
+                        onClick={() => onTranspose?.(12)}
+                        disabled={mutationDisabled || !selectionActive || !onTranspose}
+                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            Octave ↓
-                        </button>
-                        <button
-                            data-testid="btn-transpose-12"
-                            type="button"
-                            onClick={() => onTranspose?.(12)}
-                            disabled={mutationDisabled || !onTranspose}
-                            className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-	                        Octave ↑
+                        Octave ↑
 	                    </button>
 	                </div>
 
@@ -1213,6 +1185,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         onClick={() => onSetDurationType?.(opt.value)}
                         disabled={mutationDisabled || !selectionActive || !onSetDurationType}
                         className={dropdownItemClass}
+                        title={`Shortcut: press ${opt.shortcut} for ${opt.label}`}
                     >
                         {opt.label}
                     </button>
@@ -1508,13 +1481,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 label="Shortcuts"
                 testId="dropdown-shortcuts"
             >
-                <div className={dropdownTextClass}>Delete: Delete / Backspace</div>
-                <div className={dropdownTextClass}>Undo: Ctrl/Cmd + Z</div>
-                <div className={dropdownTextClass}>Redo: Ctrl + Y, Cmd + Shift + Z</div>
-                <div className={dropdownTextClass}>Pitch: Arrow Up/Down</div>
-                <div className={dropdownTextClass}>Octave: Ctrl/Cmd + Arrow Up/Down</div>
-                <div className={dropdownTextClass}>Copy: Ctrl/Cmd + C</div>
-                <div className={dropdownTextClass}>Paste: Ctrl/Cmd + V</div>
+                {shortcutEntries.map(opt => (
+                    <div key={opt.label} className={dropdownTextClass} title={opt.title}>
+                        {opt.label}
+                    </div>
+                ))}
             </ToolbarDropdown>
         </div>
     );

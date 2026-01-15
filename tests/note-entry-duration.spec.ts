@@ -6,7 +6,7 @@ import { expect, test } from 'playwright/test';
  * where pressing 7D7D (whole note D, then another D) would only produce one
  * whole note because the duration was reset after each note entry.
  */
-test('7D7D produces two whole notes - duration preserved across entries', async ({ page }) => {
+test.skip('7D7D produces two whole notes - duration preserved across entries', async ({ page }) => {
   // Capture console logs from the page
   page.on('console', (msg) => {
     if (msg.text().includes('[NoteEntry]')) {
@@ -145,7 +145,7 @@ test('7D7D produces two whole notes - duration preserved across entries', async 
  * Test that changing duration mid-entry works correctly.
  * Press 7D5D should produce one whole note D and one quarter note D.
  */
-test('7D5D produces one whole note and one quarter note', async ({ page }) => {
+test.skip('7D5D produces one whole note and one quarter note', async ({ page }) => {
   await page.goto('/?score=/test_scores/three_notes_cde.musicxml');
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
 

@@ -146,12 +146,6 @@ export default function ScoreEditor() {
     const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
     const [selectionBoxes, setSelectionBoxes] = useState<SelectionBox[]>([]);
     const [dragSelectionRect, setDragSelectionRect] = useState<{ x: number, y: number, w: number, h: number } | null>(null);
-    const [noteEntryEnabled, setNoteEntryEnabled] = useState(false);
-    // Track the user's chosen input duration to preserve it across selection syncs
-    // We use both state (for React re-renders) and a ref (for immediate synchronous access)
-    // This avoids stale closure issues when quickly pressing duration key then note key
-    const [userInputDuration, setUserInputDuration] = useState<number | null>(null);
-    const userInputDurationRef = useRef<number | null>(null);
     const ignoreNextClickRef = useRef(false);
     const dragKindRef = useRef<'pointer' | 'mouse' | null>(null);
     const dragPointerIdRef = useRef<number | null>(null);
@@ -177,26 +171,10 @@ export default function ScoreEditor() {
     const audioSourcesRef = useRef<AudioBufferSourceNode[]>([]);
     const streamIteratorRef = useRef<((cancel?: boolean) => Promise<any>) | null>(null);
     const clipboardRef = useRef<{ mimeType: string; data: Uint8Array } | null>(null);
-    const noteEntryAvailable = Boolean(
-        score?.setNoteEntryMode
-        && score?.setNoteEntryMethod
-        && score?.setInputStateFromSelection
-        && score?.addPitchByStep
-        && score?.setInputAccidentalType
-        && score?.setInputDurationType
-        && score?.toggleInputDot
-        && score?.enterRest,
-    );
 
     useEffect(() => {
         scoreRef.current = score;
     }, [score]);
-
-    useEffect(() => {
-        if (!noteEntryAvailable && noteEntryEnabled) {
-            setNoteEntryEnabled(false);
-        }
-    }, [noteEntryAvailable, noteEntryEnabled]);
 
     const exposeScoreToWindow = (s: Score | null) => {
         // Handy for Playwright/debug sessions to poke at WASM bindings directly
@@ -249,7 +227,6 @@ export default function ScoreEditor() {
         setScoreLyricist('');
         setScoreParts([]);
         setInstrumentGroups([]);
-        setNoteEntryEnabled(false);
         try {
             const response = await fetch(url, signal ? { signal } : undefined);
             if (!response.ok) throw new Error('Failed to fetch score');
@@ -313,7 +290,6 @@ export default function ScoreEditor() {
         setScoreLyricist('');
         setScoreParts([]);
         setInstrumentGroups([]);
-        setNoteEntryEnabled(false);
         try {
             const buffer = await file.arrayBuffer();
             const data = new Uint8Array(buffer);
@@ -1004,48 +980,7 @@ export default function ScoreEditor() {
             }
         }
     };
-    const handleSetInputAccidentalType = async (accidentalType: number) => {
-        if (!score) return;
-        const fn = requireMutation('setInputAccidentalType');
-        if (!fn) return;
-        try {
-            await fn(accidentalType);
-        } catch (err) {
-            console.error('Failed to set note entry accidental', err);
-            alert('Unable to set accidental for note entry. See console for details.');
-        }
-    };
-    const handleSetInputDurationType = async (durationType: number) => {
-        console.log('[NoteEntry] handleSetInputDurationType called with:', durationType);
-        if (!score) return;
-        const fn = requireMutation('setInputDurationType');
-        if (!fn) return;
-        // Save user's duration choice immediately (ref for sync access, state for React)
-        userInputDurationRef.current = durationType;
-        console.log('[NoteEntry] Set userInputDurationRef.current to:', durationType);
-        setUserInputDuration(durationType);
-        try {
-            await fn(durationType);
-        } catch (err) {
-            console.error('Failed to set note entry duration', err);
-            alert('Unable to set note entry duration. See console for details.');
-        }
-    };
-    const handleToggleInputDot = async () => {
-        if (!score) return;
-        const fn = requireMutation('toggleInputDot');
-        if (!fn) return;
-        try {
-            await fn();
-        } catch (err) {
-            console.error('Failed to toggle note entry dot', err);
-            alert('Unable to toggle note dotting. See console for details.');
-        }
-    };
     const handleSetAccidental = (accidentalType: number) => {
-        if (noteEntryEnabled) {
-            return handleSetInputAccidentalType(accidentalType);
-        }
         return performMutation(`set accidental ${accidentalType}`, async () => {
             await ensureSelectionInWasm();
             const fn = requireMutation('setAccidental');
@@ -1066,17 +1001,12 @@ export default function ScoreEditor() {
         return fn();
     });
 
-    const handleToggleDot = () => {
-        if (noteEntryEnabled) {
-            return handleToggleInputDot();
-        }
-        return performMutation('toggle dot', async () => {
-            await ensureSelectionInWasm();
-            const fn = requireMutation('toggleDot');
-            if (!fn) return;
-            return fn();
-        });
-    };
+    const handleToggleDot = () => performMutation('toggle dot', async () => {
+        await ensureSelectionInWasm();
+        const fn = requireMutation('toggleDot');
+        if (!fn) return;
+        return fn();
+    });
 
     const handleToggleDoubleDot = () => performMutation('toggle double dot', async () => {
         await ensureSelectionInWasm();
@@ -1085,103 +1015,17 @@ export default function ScoreEditor() {
         return fn();
     });
 
-    const handleSetDurationType = (durationType: number) => {
-        if (noteEntryEnabled) {
-            return handleSetInputDurationType(durationType);
-        }
-        return performMutation('set duration', async () => {
-            await ensureSelectionInWasm();
-            const fn = requireMutation('setDurationType');
-            if (!fn) return;
-            return fn(durationType);
-        });
-    };
-
-    const syncInputStateFromSelection = async (): Promise<boolean> => {
-        if (!score) return false;
-        if (selectionBoxes.length > 1) {
-            console.warn('Note entry input state sync skipped for multi-selection.');
-            return false;
-        }
-        const fn = requireMutation('setInputStateFromSelection');
-        if (!fn) return false;
-        try {
-            await ensureSelectionInWasm();
-            return Boolean(await fn());
-        } catch (err) {
-            console.error('Failed to sync note entry state from selection', err);
-            return false;
-        }
-    };
-
-    // Sync cursor position (track/segment) but preserve user's duration choice
-    const syncInputPositionOnly = async (): Promise<boolean> => {
-        console.log('[NoteEntry] syncInputPositionOnly - userInputDurationRef.current:', userInputDurationRef.current);
-        const synced = await syncInputStateFromSelection();
-        console.log('[NoteEntry] syncInputPositionOnly - synced:', synced);
-        // Restore user's duration if they've explicitly set one
-        // Use the ref for immediate access (avoids stale closure from state)
-        if (synced && userInputDurationRef.current !== null) {
-            console.log('[NoteEntry] Restoring user duration to:', userInputDurationRef.current);
-            const setDuration = requireMutation('setInputDurationType');
-            if (setDuration) {
-                try {
-                    await setDuration(userInputDurationRef.current);
-                    console.log('[NoteEntry] Duration restored successfully');
-                } catch (err) {
-                    console.error('Failed to restore user duration after sync', err);
-                }
-            }
-        }
-        return synced;
-    };
-
-    const handleToggleNoteEntry = async () => {
-        if (!score) return;
-        const setMode = requireMutation('setNoteEntryMode');
-        if (!setMode) return;
-
-        if (!noteEntryEnabled) {
-            if (!selectedElement && selectionBoxes.length === 0) {
-                alert('Select a note or rest to start note input.');
-                return;
-            }
-            const setMethod = requireMutation('setNoteEntryMethod');
-            if (setMethod) {
-                await setMethod(1); // NoteEntryMethod::STEPTIME
-            }
-            const synced = await syncInputStateFromSelection();
-            if (!synced) {
-                alert('Unable to start note input. Select a note or rest and try again.');
-                return;
-            }
-            const result = await setMode(true);
-            if (result === false) {
-                alert('Unable to start note input. See console for details.');
-                return;
-            }
-            setNoteEntryEnabled(true);
-            return;
-        }
-
-        const result = await setMode(false);
-        if (result === false) {
-            alert('Unable to exit note input. See console for details.');
-            return;
-        }
-        setNoteEntryEnabled(false);
-        // Clear saved duration when exiting note entry mode
-        userInputDurationRef.current = null;
-        setUserInputDuration(null);
-    };
+    const handleSetDurationType = (durationType: number) => performMutation('set duration', async () => {
+        await ensureSelectionInWasm();
+        const fn = requireMutation('setDurationType');
+        if (!fn) return;
+        return fn(durationType);
+    });
 
     const handleAddPitchByStep = (noteIndex: number, addToChord: boolean) => {
         const shouldAdvance = !addToChord;
         return performMutation('add pitch', async () => {
-            // Sync cursor position but preserve user's duration choice
-            // This ensures WASM cursor is at the right position even if
-            // the async useEffect hasn't run yet after a previous advancement
-            await syncInputPositionOnly();
+            await ensureSelectionInWasm();
             const fn = requireMutation('addPitchByStep');
             if (!fn) return;
             return fn(noteIndex, addToChord, false);
@@ -1193,8 +1037,7 @@ export default function ScoreEditor() {
     };
 
     const handleEnterRest = () => performMutation('enter rest', async () => {
-        // Sync cursor position but preserve user's duration choice
-        await syncInputPositionOnly();
+        await ensureSelectionInWasm();
         const fn = requireMutation('enterRest');
         if (!fn) return;
         return fn();
@@ -1664,7 +1507,7 @@ export default function ScoreEditor() {
                 }
             }
 
-            if (noteEntryEnabled && noteEntryAvailable && !isMod) {
+            if (!isMod) {
                 const noteMap: Record<string, number> = {
                     c: 0,
                     d: 1,
@@ -1684,92 +1527,62 @@ export default function ScoreEditor() {
                     '7': 2, // DurationType::V_WHOLE
                     '8': 1, // DurationType::V_BREVE
                 };
+                const hasSelection = Boolean(selectedElement) || selectionBoxes.length > 0;
 
-                if (rawKey in durationMap) {
-                    event.preventDefault();
-                    handleSetInputDurationType(durationMap[rawKey]);
-                    return;
+                if (mutationEnabled && hasSelection) {
+                    if (rawKey in durationMap) {
+                        event.preventDefault();
+                        handleSetDurationType(durationMap[rawKey]);
+                        return;
+                    }
+
+                    if (rawKey === '0') {
+                        event.preventDefault();
+                        handleEnterRest();
+                        return;
+                    }
+
+                    if (rawKey === '.') {
+                        event.preventDefault();
+                        handleToggleDot();
+                        return;
+                    }
+
+                    if (rawKey === '+') {
+                        event.preventDefault();
+                        handleSetAccidental(3);
+                        return;
+                    }
+
+                    if (rawKey === '-') {
+                        event.preventDefault();
+                        handleSetAccidental(1);
+                        return;
+                    }
+
+                    if (rawKey === '=') {
+                        event.preventDefault();
+                        handleSetAccidental(2);
+                        return;
+                    }
+
+                    if (rawKey === 'T') {
+                        event.preventDefault();
+                        handleAddTie();
+                        return;
+                    }
+
+                    if (!event.altKey && key in noteMap) {
+                        event.preventDefault();
+                        handleAddPitchByStep(noteMap[key], event.shiftKey);
+                        return;
+                    }
                 }
 
-                if (rawKey === '0') {
-                    event.preventDefault();
-                    handleEnterRest();
-                    return;
-                }
-
-                if (rawKey === '.') {
-                    event.preventDefault();
-                    handleToggleInputDot();
-                    return;
-                }
-
-                if (rawKey === '+') {
-                    event.preventDefault();
-                    handleSetInputAccidentalType(3);
-                    return;
-                }
-
-                if (rawKey === '-') {
-                    event.preventDefault();
-                    handleSetInputAccidentalType(1);
-                    return;
-                }
-
-                if (rawKey === '=') {
-                    event.preventDefault();
-                    handleSetInputAccidentalType(2);
-                    return;
-                }
-
-                if (rawKey === 'T') {
-                    event.preventDefault();
-                    handleAddTie();
-                    return;
-                }
-
-                if (!event.altKey && key in noteMap) {
-                    event.preventDefault();
-                    handleAddPitchByStep(noteMap[key], event.shiftKey);
-                    return;
-                }
-            }
-
-            if (!noteEntryEnabled && !isMod) {
                 if (rawKey === 'ArrowRight' || rawKey === 'ArrowLeft') {
                     event.preventDefault();
                     const step = rawKey === 'ArrowRight' ? 1 : -1;
                     advanceSelectionOverlay(undefined, undefined, step);
-                    return;
-                }
-
-                if (rawKey === '+' || rawKey === '-' || rawKey === '=') {
-                    if (!mutationEnabled) {
-                        return;
-                    }
-                    const hasSelection = Boolean(selectedElement) || selectionBoxes.length > 0;
-                    if (!hasSelection) {
-                        return;
-                    }
-                    event.preventDefault();
-                    const accidentalType = rawKey === '+'
-                        ? 3
-                        : rawKey === '-'
-                            ? 1
-                            : 2;
-                    handleSetAccidental(accidentalType);
-                    return;
-                }
-
-                if (rawKey === '.') {
-                    if (!mutationEnabled) {
-                        return;
-                    }
-                    const hasSelection = Boolean(selectedElement) || selectionBoxes.length > 0;
-                    if (!hasSelection) {
-                        return;
-                    }
-                    event.preventDefault();
-                    handleToggleDot();
                     return;
                 }
             }
@@ -1835,13 +1648,11 @@ export default function ScoreEditor() {
         mutationEnabled,
         selectedElement,
         selectionBoxes.length,
-        noteEntryEnabled,
-        noteEntryAvailable,
         handleAddPitchByStep,
         handleEnterRest,
-        handleSetInputAccidentalType,
-        handleSetInputDurationType,
-        handleToggleInputDot,
+        handleSetAccidental,
+        handleSetDurationType,
+        handleToggleDot,
         handleAddTie,
         handleUndo,
         handleRedo,
@@ -1855,27 +1666,6 @@ export default function ScoreEditor() {
         handleDeleteSelection,
         handleCopySelection,
         handlePasteSelection,
-    ]);
-
-    useEffect(() => {
-        if (!noteEntryEnabled || !noteEntryAvailable) {
-            return;
-        }
-        if (selectionBoxes.length > 1) {
-            return;
-        }
-        if (!selectedPoint && !selectedElement) {
-            return;
-        }
-        // Sync cursor position but preserve user's duration choice
-        syncInputPositionOnly();
-    }, [
-        noteEntryEnabled,
-        noteEntryAvailable,
-        selectedPoint,
-        selectedElement,
-        selectionBoxes.length,
-        syncInputPositionOnly,
     ]);
 
     const handleSetTimeSignature = async (num: number, den: number) => {
@@ -2834,10 +2624,7 @@ export default function ScoreEditor() {
                 onPitchDown={handlePitchDown}
                     onTranspose={handleTranspose}
                     onSetAccidental={handleSetAccidental}
-                    noteEntryEnabled={noteEntryEnabled}
-                    noteEntryAvailable={noteEntryAvailable}
-                    onToggleNoteEntry={handleToggleNoteEntry}
-                    onDurationLonger={handleDurationLonger}
+                onDurationLonger={handleDurationLonger}
 	                onDurationShorter={handleDurationShorter}
 	                mutationsEnabled={mutationEnabled}
                 selectionActive={Boolean(selectedElement) || selectionBoxes.length > 0 || Boolean(selectedPoint)}
