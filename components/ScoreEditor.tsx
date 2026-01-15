@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { ChangeEvent, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { loadWebMscore, Score, InputFileFormat } from '../lib/webmscore-loader';
 import { Toolbar, type MeasureInsertTarget } from './Toolbar';
@@ -188,10 +188,15 @@ export default function ScoreEditor() {
     const audioSourcesRef = useRef<AudioBufferSourceNode[]>([]);
     const streamIteratorRef = useRef<((cancel?: boolean) => Promise<any>) | null>(null);
     const clipboardRef = useRef<{ mimeType: string; data: Uint8Array } | null>(null);
+    const currentPageRef = useRef(currentPage);
 
     useEffect(() => {
         scoreRef.current = score;
     }, [score]);
+
+    useEffect(() => {
+        currentPageRef.current = currentPage;
+    }, [currentPage]);
 
     const exposeScoreToWindow = (s: Score | null) => {
         // Handy for Playwright/debug sessions to poke at WASM bindings directly
@@ -352,7 +357,7 @@ export default function ScoreEditor() {
         }
     };
 
-    const refreshPageCount = async (targetScore: Score, preferredPage: number = currentPage) => {
+    const refreshPageCount = async (targetScore: Score, preferredPage: number = currentPageRef.current) => {
         if (!targetScore?.npages) {
             setPageCount(1);
             setCurrentPage(0);
@@ -741,6 +746,14 @@ export default function ScoreEditor() {
         void goToPage(currentPage + 1);
     };
 
+    const handlePageSelect = (event: ChangeEvent<HTMLSelectElement>) => {
+        const value = Number(event.target.value);
+        if (Number.isNaN(value)) {
+            return;
+        }
+        void goToPage(value);
+    };
+
     const requireMutation = (methodName: keyof MutationMethods) => {
         const activeScore = scoreRef.current ?? score;
         const fn = activeScore && (activeScore as MutationMethods)[methodName];
@@ -818,7 +831,8 @@ export default function ScoreEditor() {
                     console.warn('Relayout after mutation failed:', relayoutErr);
                 }
             }
-            await renderScore(score);
+            const refreshedPage = await refreshPageCount(score, currentPageRef.current);
+            await renderScore(score, refreshedPage);
 
             // Re-establish selection inside WASM if we had a previously known point.
             if (!options?.skipWasmReselect && !preservedMultiSelection && preservedPoint && score.selectElementAtPoint) {
@@ -899,7 +913,7 @@ export default function ScoreEditor() {
         blockOverlayRefreshRef.current = false;
         try {
             setOverlaySuppressed(false);
-            await renderScore(score);
+            await renderScore(score, currentPageRef.current);
             const generation = ++selectionOverlayGenerationRef.current;
             scheduleSelectionOverlayRefresh(fallback?.index ?? null, fallback?.point ?? null, generation);
         } catch (err) {
@@ -961,7 +975,7 @@ export default function ScoreEditor() {
             const bbox = await getBBoxFn.call(score);
             console.log('[NAV] getSelectionBoundingBox result:', bbox);
 
-            await renderScore(score);
+            await renderScore(score, currentPageRef.current);
             if (bbox) {
                 const { page, x, y, width, height } = bbox;
                 const centerX = x + width / 2;
@@ -992,7 +1006,7 @@ export default function ScoreEditor() {
 
         const result = await selectFn.call(score);
         if (result) {
-            await renderScore(score);
+            await renderScore(score, currentPageRef.current);
 
             // Query the new selection's bounding box from WASM
             const bbox = await getBBoxFn.call(score);
@@ -1033,7 +1047,7 @@ export default function ScoreEditor() {
             const bboxes = await getBBoxesFn.call(score);
             console.log('[NAV] getSelectionBoundingBoxes result:', bboxes);
 
-            await renderScore(score);
+            await renderScore(score, currentPageRef.current);
             if (bboxes && bboxes.length > 0) {
                 // Update selection boxes for all selected elements
                 const boxes = bboxes.map((bbox: { page: number; x: number; y: number; width: number; height: number }, index: number) => ({
@@ -1071,7 +1085,7 @@ export default function ScoreEditor() {
             const bboxes = await getBBoxesFn.call(score);
             console.log('[NAV] getSelectionBoundingBoxes result:', bboxes);
 
-            await renderScore(score);
+            await renderScore(score, currentPageRef.current);
             if (bboxes && bboxes.length > 0) {
                 // Update selection boxes for all selected elements
                 const boxes = bboxes.map((bbox: { page: number; x: number; y: number; width: number; height: number }, index: number) => ({
@@ -2845,6 +2859,18 @@ export default function ScoreEditor() {
                         <span data-testid="page-indicator">
                             Page {currentPage + 1} of {pageCount}
                         </span>
+                        <select
+                            className="px-2 py-1 border border-gray-300 rounded bg-white text-sm"
+                            onChange={handlePageSelect}
+                            value={currentPage}
+                            data-testid="page-select"
+                        >
+                            {Array.from({ length: pageCount }, (_, index) => (
+                                <option key={index} value={index}>
+                                    Page {index + 1}
+                                </option>
+                            ))}
+                        </select>
                         <button
                             type="button"
                             onClick={() => handlePrevPage()}
