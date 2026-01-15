@@ -16,6 +16,11 @@ type SelectionBox = {
     centerY: number;
 };
 
+type SelectionFallback = {
+    index: number | null;
+    point: { page: number; x: number; y: number };
+} | null;
+
 type MutationMethods = Pick<
     Score,
     | 'selectElementAtPoint'
@@ -145,6 +150,7 @@ export default function ScoreEditor() {
     const [selectedPoint, setSelectedPoint] = useState<{ page: number, x: number, y: number } | null>(null);
     const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
     const [selectionBoxes, setSelectionBoxes] = useState<SelectionBox[]>([]);
+    const [overlaySuppressed, setOverlaySuppressed] = useState(false);
     const [dragSelectionRect, setDragSelectionRect] = useState<{ x: number, y: number, w: number, h: number } | null>(null);
     const ignoreNextClickRef = useRef(false);
     const dragKindRef = useRef<'pointer' | 'mouse' | null>(null);
@@ -154,6 +160,8 @@ export default function ScoreEditor() {
     const dragAdditiveRef = useRef(false);
     const dragActiveRef = useRef(false);
     const sawPointerMoveRef = useRef(false);
+    const blockOverlayRefreshRef = useRef(false);
+    const selectionOverlayGenerationRef = useRef(0);
     const [mutationEnabled, setMutationEnabled] = useState(false);
     const [soundFontLoaded, setSoundFontLoaded] = useState(false);
     const [triedSoundFont, setTriedSoundFont] = useState(false);
@@ -454,13 +462,22 @@ export default function ScoreEditor() {
         }
     };
 
-    const refreshSelectionOverlay = (fallbackIndex?: number | null, fallbackPoint?: { page: number, x: number, y: number } | null) => {
+    const refreshSelectionOverlay = (
+        fallbackIndex?: number | null,
+        fallbackPoint?: { page: number, x: number, y: number } | null,
+        generation?: number,
+    ) => {
         console.log('[refreshSelectionOverlay] Called with fallbackIndex:', fallbackIndex, 'fallbackPoint:', fallbackPoint);
         if (!containerRef.current) {
             console.log('[refreshSelectionOverlay] No containerRef, returning');
             return;
         }
-
+        if (generation !== undefined && generation !== selectionOverlayGenerationRef.current) {
+            return;
+        }
+        if (blockOverlayRefreshRef.current) {
+            return;
+        }
         const useIndex = fallbackIndex !== undefined ? fallbackIndex : selectedIndex;
         const usePoint = fallbackPoint !== undefined ? fallbackPoint : selectedPoint;
         console.log('[refreshSelectionOverlay] useIndex:', useIndex, 'usePoint:', usePoint);
@@ -714,16 +731,24 @@ export default function ScoreEditor() {
             console.debug(`Mutation "${label}" start`);
             const result = await action();
             console.debug(`Mutation "${label}" result:`, result);
-            if (result === false) {
+            const mutated = result !== false;
+            if (!mutated) {
                 console.warn(`Mutation "${label}" returned false (no-op).`);
             }
 
             // Clear selection if requested (e.g., for delete operations)
             if (options?.clearSelection) {
+                blockOverlayRefreshRef.current = true;
+                selectionOverlayGenerationRef.current += 1;
+                setOverlaySuppressed(true);
                 setSelectedElement(null);
                 setSelectionBoxes([]);
                 setSelectedPoint(null);
                 setSelectedIndex(null);
+            }
+
+            if (!mutated) {
+                return;
             }
 
             if (!options?.skipRelayout && score.relayout) {
@@ -791,24 +816,43 @@ export default function ScoreEditor() {
         }
     };
 
-    const scheduleSelectionOverlayRefresh = (fallbackIndex?: number | null, fallbackPoint?: { page: number, x: number, y: number } | null) => {
+    const scheduleSelectionOverlayRefresh = (
+        fallbackIndex?: number | null,
+        fallbackPoint?: { page: number, x: number, y: number } | null,
+        generation?: number,
+    ) => {
         // Use a double-RAF to ensure the new SVG is fully parsed and has layout boxes.
         if (typeof window === 'undefined') {
-            refreshSelectionOverlay(fallbackIndex, fallbackPoint);
+            refreshSelectionOverlay(fallbackIndex, fallbackPoint, generation);
             return;
         }
 
         window.requestAnimationFrame(() => {
             window.requestAnimationFrame(() => {
-                refreshSelectionOverlay(fallbackIndex, fallbackPoint);
+                refreshSelectionOverlay(fallbackIndex, fallbackPoint, generation);
             });
         });
+    };
+
+    const refreshSelectionFromSvg = async (fallback?: SelectionFallback) => {
+        if (!score) return;
+        blockOverlayRefreshRef.current = false;
+        try {
+            setOverlaySuppressed(false);
+            await renderScore(score);
+            const generation = ++selectionOverlayGenerationRef.current;
+            scheduleSelectionOverlayRefresh(fallback?.index ?? null, fallback?.point ?? null, generation);
+        } catch (err) {
+            console.warn('Failed to refresh selection highlight from SVG:', err);
+        }
     };
 
     const handleDeleteSelection = () => performMutation('delete selection', async () => {
         await ensureSelectionInWasm();
         const del = requireMutation('deleteSelection');
-        if (!del) return;
+        if (!del) {
+            return false;
+        }
         return await del();
     }, { clearSelection: true });
     const handleUndo = () => performMutation('undo', score?.undo?.bind(score));
@@ -1680,7 +1724,7 @@ export default function ScoreEditor() {
                 await score.relayout();
             }
             await renderScore(score);
-            scheduleSelectionOverlayRefresh(preservedIndex, preservedPoint);
+            scheduleSelectionOverlayRefresh(preservedIndex, preservedPoint, selectionOverlayGenerationRef.current);
         } catch (err) {
             console.error('Failed to set time signature', err);
             alert('Unable to set time signature. See console for details.');
@@ -1701,7 +1745,7 @@ export default function ScoreEditor() {
                 await score.relayout();
             }
             await renderScore(score);
-            scheduleSelectionOverlayRefresh(preservedIndex, preservedPoint);
+            scheduleSelectionOverlayRefresh(preservedIndex, preservedPoint, selectionOverlayGenerationRef.current);
         } catch (err) {
             console.error('Failed to set key signature', err);
             alert('Unable to set key signature. See console for details.');
@@ -1722,7 +1766,7 @@ export default function ScoreEditor() {
                 await score.relayout();
             }
             await renderScore(score);
-            scheduleSelectionOverlayRefresh(preservedIndex, preservedPoint);
+            scheduleSelectionOverlayRefresh(preservedIndex, preservedPoint, selectionOverlayGenerationRef.current);
         } catch (err) {
             console.error('Failed to set clef', err);
             alert('Unable to set clef. See console for details.');
@@ -2018,9 +2062,9 @@ export default function ScoreEditor() {
         b: { x: number, y: number, w: number, h: number },
     ) => a.x + a.w >= b.x && b.x + b.w >= a.x && a.y + a.h >= b.y && b.y + b.h >= a.y;
 
-    const performDragSelection = async (rect: { x: number, y: number, w: number, h: number }, additive: boolean) => {
+    const performDragSelection = async (rect: { x: number, y: number, w: number, h: number }, additive: boolean): Promise<SelectionFallback> => {
         if (!containerRef.current || !score) {
-            return;
+            return null;
         }
 
         const containerRect = containerRef.current.getBoundingClientRect();
@@ -2066,7 +2110,7 @@ export default function ScoreEditor() {
                     });
                 }
             }
-            return;
+            return null;
         }
 
         const first = hits[0];
@@ -2107,6 +2151,15 @@ export default function ScoreEditor() {
         setSelectedPoint({ page: first.pageIndex, x: first.centerX, y: first.centerY });
         setSelectedIndex(first.index);
 
+        const fallback: SelectionFallback = {
+            index: first.index,
+            point: {
+                page: first.pageIndex,
+                x: first.centerX,
+                y: first.centerY,
+            },
+        };
+
         if (score.selectElementAtPointWithMode) {
             const firstMode = additive ? 1 : 0;
             const selectionPromises = [
@@ -2116,12 +2169,12 @@ export default function ScoreEditor() {
             for (const promise of selectionPromises) {
                 await promise;
             }
-            return;
+            return fallback;
         }
 
         if (!score.selectElementAtPoint) {
             console.warn('selectElementAtPoint is not available; cannot update selection in WASM');
-            return;
+            return fallback;
         }
 
         if (!additive && score.clearSelection) {
@@ -2131,6 +2184,7 @@ export default function ScoreEditor() {
         }
 
         await score.selectElementAtPoint(first.pageIndex, first.centerX, first.centerY);
+        return fallback;
     };
 
     const handleScorePointerDown = (e: React.PointerEvent) => {
@@ -2251,8 +2305,9 @@ export default function ScoreEditor() {
         const rect = { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
 
         setDragSelectionRect(rect);
-        await performDragSelection(rect, additive);
+        const fallback = await performDragSelection(rect, additive);
         setDragSelectionRect(null);
+        await refreshSelectionFromSvg(fallback);
     };
 
     const handleScorePointerCancel = (e: React.PointerEvent) => {
@@ -2420,8 +2475,9 @@ export default function ScoreEditor() {
         const rect = { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
 
         setDragSelectionRect(rect);
-        await performDragSelection(rect, additive);
+        const fallback = await performDragSelection(rect, additive);
         setDragSelectionRect(null);
+        await refreshSelectionFromSvg(fallback);
     };
 
     const handleScoreClick = (e: React.MouseEvent) => {
@@ -2466,10 +2522,17 @@ export default function ScoreEditor() {
             setSelectionBoxes([]);
             setSelectedPoint(null);
             setSelectedIndex(null);
+            const refreshAfterClear = () => refreshSelectionFromSvg(null);
+            blockOverlayRefreshRef.current = true;
+            selectionOverlayGenerationRef.current += 1;
+            setOverlaySuppressed(true);
             if (score?.clearSelection) {
-                score.clearSelection().catch(err => {
-                    console.warn('clearSelection not available or failed:', err);
-                });
+                score.clearSelection()
+                    .then(refreshAfterClear)
+                    .catch(err => {
+                        console.warn('clearSelection not available or failed:', err);
+                        refreshAfterClear();
+                    });
             }
             return;
         }
@@ -2524,6 +2587,10 @@ export default function ScoreEditor() {
                 centerX,
                 centerY,
             };
+            const fallback: SelectionFallback = {
+                index: box.index,
+                point: { page: pageIndex, x: centerX, y: centerY },
+            };
 
             const canModeSelect = Boolean(score?.selectElementAtPointWithMode);
             const alreadySelected = additiveSelection && box.index !== null && selectionBoxes.some(existing => existing.index === box.index);
@@ -2536,6 +2603,10 @@ export default function ScoreEditor() {
             const selectionPromise = canModeSelect
                 ? score!.selectElementAtPointWithMode!(pageIndex, centerX, centerY, mode as number)
                 : score?.selectElementAtPoint?.(pageIndex, centerX, centerY);
+
+            selectionPromise?.then(() => {
+                refreshSelectionFromSvg(fallback);
+            });
 
             selectionPromise?.catch(err => {
                 console.warn('selectElementAtPoint not available or failed:', err);
@@ -2744,7 +2815,7 @@ export default function ScoreEditor() {
                         />
                     ))}
 
-                    {selectedElement && (
+                    {selectedElement && !overlaySuppressed && (
                         <div
                             data-testid="selection-overlay"
                             className="absolute pointer-events-none"
