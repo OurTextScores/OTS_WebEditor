@@ -178,6 +178,8 @@ export default function ScoreEditor() {
     const [scoreLyricist, setScoreLyricist] = useState('');
     const [scoreParts, setScoreParts] = useState<PartSummary[]>([]);
     const [instrumentGroups, setInstrumentGroups] = useState<InstrumentTemplateGroup[]>([]);
+    const [currentPage, setCurrentPage] = useState(0);
+    const [pageCount, setPageCount] = useState(1);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [audioBusy, setAudioBusy] = useState(false);
@@ -242,6 +244,8 @@ export default function ScoreEditor() {
         setScoreLyricist('');
         setScoreParts([]);
         setInstrumentGroups([]);
+        setCurrentPage(0);
+        setPageCount(1);
         try {
             const response = await fetch(url, signal ? { signal } : undefined);
             if (!response.ok) throw new Error('Failed to fetch score');
@@ -271,7 +275,8 @@ export default function ScoreEditor() {
                 console.warn('Mutation APIs not detected on loaded score; enabling toolbar anyway.');
             }
             setMutationEnabled(true);
-            await renderScore(loadedScore);
+            const initialPage = await refreshPageCount(loadedScore, 0);
+            await renderScore(loadedScore, initialPage);
             await refreshScoreMetadata(loadedScore);
             await refreshInstrumentTemplates(loadedScore);
             if (loadedScore.saveAudio) {
@@ -331,8 +336,8 @@ export default function ScoreEditor() {
                 console.warn('Mutation APIs not detected on loaded score; enabling toolbar anyway.');
             }
             setMutationEnabled(true);
-
-            await renderScore(loadedScore);
+            const initialPage = await refreshPageCount(loadedScore, 0);
+            await renderScore(loadedScore, initialPage);
             await refreshScoreMetadata(loadedScore);
             await refreshInstrumentTemplates(loadedScore);
             if (loadedScore.saveAudio) {
@@ -347,12 +352,33 @@ export default function ScoreEditor() {
         }
     };
 
-    const renderScore = async (currentScore: Score) => {
+    const refreshPageCount = async (targetScore: Score, preferredPage: number = currentPage) => {
+        if (!targetScore?.npages) {
+            setPageCount(1);
+            setCurrentPage(0);
+            return 0;
+        }
+
+        try {
+            const pages = Math.max(1, await targetScore.npages());
+            const clamped = Math.max(0, Math.min(preferredPage, pages - 1));
+            setPageCount(pages);
+            setCurrentPage(clamped);
+            return clamped;
+        } catch (err) {
+            console.warn('Failed to read page count:', err);
+            setPageCount(1);
+            setCurrentPage(0);
+            return 0;
+        }
+    };
+
+    const renderScore = async (currentScore: Score, pageIndex?: number) => {
         if (!currentScore || !containerRef.current) return;
 
         try {
-            // Page 0, with background, with selection highlighting (colors selected elements directly in SVG)
-            const svgData = await currentScore.saveSvg(0, true, true);
+            const targetPage = typeof pageIndex === 'number' ? pageIndex : currentPage;
+            const svgData = await currentScore.saveSvg(targetPage, true, true);
             if (svgData) {
                 containerRef.current.innerHTML = svgData;
             }
@@ -686,6 +712,33 @@ export default function ScoreEditor() {
         setSelectedElement({ x, y, w, h });
         setSelectedPoint({ page, x: centerX, y: centerY });
         setSelectedIndex(nextIndex);
+    };
+
+    const goToPage = async (targetPage: number) => {
+        if (!score || targetPage < 0 || targetPage >= pageCount) {
+            return;
+        }
+        setCurrentPage(targetPage);
+        try {
+            await renderScore(score, targetPage);
+            refreshSelectionOverlay(selectedIndex, selectedPoint);
+        } catch (err) {
+            console.error('Failed to change page:', err);
+        }
+    };
+
+    const handlePrevPage = () => {
+        if (currentPage <= 0) {
+            return;
+        }
+        void goToPage(currentPage - 1);
+    };
+
+    const handleNextPage = () => {
+        if (currentPage >= pageCount - 1) {
+            return;
+        }
+        void goToPage(currentPage + 1);
     };
 
     const requireMutation = (methodName: keyof MutationMethods) => {
@@ -2784,6 +2837,30 @@ export default function ScoreEditor() {
                 {!loading && !score && (
                     <div className="flex items-center justify-center h-full">
                         <div className="text-xl text-gray-400">No score loaded. Open a file to begin.</div>
+                    </div>
+                )}
+
+                {!loading && score && (
+                    <div className="mb-3 flex items-center justify-end gap-2 text-sm text-gray-600">
+                        <span data-testid="page-indicator">
+                            Page {currentPage + 1} of {pageCount}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => handlePrevPage()}
+                            disabled={currentPage <= 0}
+                            className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Prev
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleNextPage()}
+                            disabled={currentPage >= pageCount - 1}
+                            className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Next
+                        </button>
                     </div>
                 )}
 
