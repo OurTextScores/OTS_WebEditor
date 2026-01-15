@@ -89,15 +89,15 @@ describe('scripts', () => {
       repoRoot: '/repo',
       srcDir: '/repo/webmscore-fork/web-public',
       destDir: '/repo/public',
-      files: ['webmscore.lib.wasm'],
+      files: ['webmscore.lib.js'],
       fsModule,
       log: vi.fn(),
     });
 
     expect(ok).toBe(true);
     expect(fsModule.copyFileSync).toHaveBeenCalledWith(
-      '/repo/webmscore-fork/web-public/webmscore.lib.wasm',
-      '/repo/public/webmscore.lib.wasm',
+      '/repo/webmscore-fork/web-public/webmscore.lib.js',
+      '/repo/public/webmscore.lib.js',
     );
   });
 

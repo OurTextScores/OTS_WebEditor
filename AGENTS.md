@@ -189,19 +189,6 @@ Progress
 - Frontend calls the optional mutation APIs for selection, pitch/duration, delete, undo/redo, relayout; re-renders after each mutation.  
 - WASM glue patched to provide correct env imports/exports and default `-platform wasm`/ENV to bypass missing Qt offscreen plugin; artifacts copied to `public/`.
 
-Recent changes (last few commits)  
-- Toolbar reorganized into dropdowns with foregrounded menus.  
-- Header text editing for title/composer.  
-- Articulation mutation hook and stabilized WASM init.  
-- Instrument add/hide/remove APIs + Add Note (rest → note) mutation + regression coverage.
-
-Next steps / risks  
-- Rebuild webmscore with platform=`wasm` so the memory-initializer “offscreen” patch is no longer needed.  
-- Implement reliable selection/hit-testing (DOM or WASM hit-test) so mutations target the clicked element.  
-- Add lightweight regression checks to ensure WASM artifacts land in `public/` for dev/build.  
-- TODO: Align the `ScoreEditor` unit tests with the refactored selection overlay/mutation plumbing (tests such as `loads a score from file upload, supports selection, and applies clef`, `invokes mutation and export handlers from the toolbar`, `supports note entry keyboard shortcuts`, `advances selection with left/right arrows`, `extracts page index...`, `clears selection when clicking blank space...`, `refreshes selection overlay after mutation`, `alerts when a mutation binding is missing`, and `clears selection on delete even when the binding is missing` are failing because their DOM expectations no longer match the current renderer).  
-- TODO: Investigate stem flip coverage for beam groups—the new WASM `flipStem` RPC currently toggles only the primary chord’s stem, so a fully beamed cluster isn’t flipping together even when the outer selection includes every note.
-
 ## Webmscore rebuild + artifact sync
 
 Incremental builds (preferred)  

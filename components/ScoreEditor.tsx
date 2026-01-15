@@ -575,8 +575,11 @@ export default function ScoreEditor() {
         }
 
         if (boxes.length === 0) {
-            // No element found, keep previous selection visible
-            console.log('[refreshSelectionOverlay] No element found, returning');
+            console.log('[refreshSelectionOverlay] No element found, clearing selection state');
+            setSelectionBoxes([]);
+            setSelectedElement(null);
+            setSelectedPoint(null);
+            setSelectedIndex(null);
             return;
         }
 
@@ -2631,19 +2634,19 @@ export default function ScoreEditor() {
         setDragSelectionRect(null);
     };
 
-	    const handleScoreClick = (e: React.MouseEvent) => {
-            if (ignoreNextClickRef.current) {
-                ignoreNextClickRef.current = false;
-                return;
-            }
-	        if (!containerRef.current) return;
+    const handleScoreClick = (e: React.MouseEvent) => {
+        if (ignoreNextClickRef.current) {
+            ignoreNextClickRef.current = false;
+            return;
+        }
+        if (!containerRef.current) return;
 
-            const additiveSelection = e.metaKey || e.ctrlKey;
-	        // DOM-based hit testing
-	        const target = e.target as Element;
+        const additiveSelection = e.metaKey || e.ctrlKey;
+        // DOM-based hit testing
+        const target = e.target as Element;
 
-	        // Check if we clicked on a Note or Rest (or other interesting elements)
-	        // webmscore SVG classes: Note, Rest, Chord, etc.
+        // Check if we clicked on a Note or Rest (or other interesting elements)
+        // webmscore SVG classes: Note, Rest, Chord, etc.
         // Often the target is a <path> or <g> with the class.
 
         // Traverse up to find a relevant class if needed
@@ -2668,18 +2671,18 @@ export default function ScoreEditor() {
             element = element.parentElement;
         }
 
-	        if (!found || !element) {
-	            setSelectedElement(null);
-                setSelectionBoxes([]);
-	            setSelectedPoint(null);
-	            setSelectedIndex(null);
-                if (score?.clearSelection) {
-                    score.clearSelection().catch(err => {
-                        console.warn('clearSelection not available or failed:', err);
-                    });
-                }
-	            return;
-	        }
+        if (!found || !element) {
+            setSelectedElement(null);
+            setSelectionBoxes([]);
+            setSelectedPoint(null);
+            setSelectedIndex(null);
+            if (score?.clearSelection) {
+                score.clearSelection().catch(err => {
+                    console.warn('clearSelection not available or failed:', err);
+                });
+            }
+            return;
+        }
 
         const targetElement = element;
         const rect = targetElement.getBoundingClientRect();
@@ -2690,11 +2693,11 @@ export default function ScoreEditor() {
         const w = rect.width / zoom;
         const h = rect.height / zoom;
 
-	        if (w > 0 && h > 0) {
-	            const pageIndex = extractPageIndex(targetElement) ?? 0;
-	            // Use center of the box for selection to reduce edge misses
-	            const centerX = x + w / 2;
-	            const centerY = y + h / 2;
+        if (w > 0 && h > 0) {
+            const pageIndex = extractPageIndex(targetElement) ?? 0;
+            // Use center of the box for selection to reduce edge misses
+            const centerX = x + w / 2;
+            const centerY = y + h / 2;
 
             // Find the index by looking for Note/Rest/Chord elements
             // If we found a specific element, use it; otherwise search from target
@@ -2744,12 +2747,7 @@ export default function ScoreEditor() {
                 ? score!.selectElementAtPointWithMode!(pageIndex, centerX, centerY, mode as number)
                 : score?.selectElementAtPoint?.(pageIndex, centerX, centerY);
 
-            // Re-render score after selection to show native highlighting
-            selectionPromise?.then(() => {
-                if (score) {
-                    renderScore(score);
-                }
-            }).catch(err => {
+            selectionPromise?.catch(err => {
                 console.warn('selectElementAtPoint not available or failed:', err);
                 setSelectedElement(null);
                 setSelectionBoxes([]);
@@ -2945,9 +2943,7 @@ export default function ScoreEditor() {
                         />
                     )}
 
-                    {/* Selection highlighting is now done natively in the SVG via highlightSelection=true in saveSvg() */}
-                    {/* The overlays below are kept for reference but disabled - native coloring looks better */}
-                    {/*
+                    {/* Selection highlighting is now done natively in the SVG via highlightSelection=true in saveSvg(). Keep the overlays around for testing/interaction feedback. */}
                     {secondarySelectionBoxes.map(box => (
                         <div
                             key={box.index !== null ? `sel-${box.index}` : `sel-${box.page}-${box.x}-${box.y}-${box.w}-${box.h}`}
@@ -2961,19 +2957,18 @@ export default function ScoreEditor() {
                         />
                     ))}
 
-	                {selectedElement && (
-	                    <div
-	                        data-testid="selection-overlay"
-	                        className="absolute border-2 border-blue-500 bg-blue-200 bg-opacity-30 pointer-events-none"
-	                        style={{
-	                            left: selectedElement.x,
-	                            top: selectedElement.y,
-	                            width: selectedElement.w,
-	                            height: selectedElement.h
-	                        }}
-	                    />
-	                )}
-                    */}
+                    {selectedElement && (
+                        <div
+                            data-testid="selection-overlay"
+                            className="absolute border-2 border-blue-500 bg-blue-200 bg-opacity-30 pointer-events-none"
+                            style={{
+                                left: selectedElement.x,
+                                top: selectedElement.y,
+                                width: selectedElement.w,
+                                height: selectedElement.h
+                            }}
+                        />
+                    )}
 	            </div>
             </div>
         </div>
