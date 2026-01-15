@@ -1,5 +1,7 @@
 #include <emscripten/emscripten.h>
 #include <algorithm>
+#include <set>
+#include <vector>
 
 #include <QGuiApplication>
 #include <QFontDatabase>
@@ -1498,6 +1500,67 @@ bool _pitchDown(uintptr_t score_ptr, int excerptId)
     return true;
 }
 
+bool _flipStem(uintptr_t score_ptr, int excerptId)
+{
+    printf("[DEBUG] _flipStem called\n");
+    MainScore score(score_ptr, excerptId);
+    if (score->selection().isNone()) {
+        LOGW() << "flipStem: no selection";
+        printf("[DEBUG] flipStem: no selection\n");
+        return false;
+    }
+
+    std::set<engraving::Chord*> chords;
+    std::vector<engraving::Note*> notes = score->selection().noteList();
+    for (engraving::Note* note : notes) {
+        if (note && note->chord()) {
+            chords.insert(note->chord());
+        }
+    }
+
+    if (chords.empty()) {
+        engraving::EngravingItem* selected = score->selection().element();
+        if (selected) {
+            if (selected->isChord()) {
+                chords.insert(engraving::toChord(selected));
+            } else if (selected->isNote()) {
+                chords.insert(engraving::toNote(selected)->chord());
+            } else if (auto* cr = score->selection().cr()) {
+                if (cr->isChord()) {
+                    chords.insert(engraving::toChord(cr));
+                }
+            }
+        }
+    }
+
+    if (chords.empty()) {
+        LOGW() << "flipStem: selection is not a chord or note";
+        printf("[DEBUG] flipStem: selection is not a chord or note\n");
+        return false;
+    }
+
+    score->startCmd();
+    for (engraving::Chord* chord : chords) {
+        if (!chord) {
+            continue;
+        }
+
+        engraving::DirectionV currentDir = chord->stemDirection();
+        engraving::DirectionV newDir;
+        if (currentDir == engraving::DirectionV::UP) {
+            newDir = engraving::DirectionV::DOWN;
+        } else if (currentDir == engraving::DirectionV::DOWN) {
+            newDir = engraving::DirectionV::UP;
+        } else {
+            newDir = chord->up() ? engraving::DirectionV::DOWN : engraving::DirectionV::UP;
+        }
+        chord->undoChangeProperty(engraving::Pid::STEM_DIRECTION, static_cast<int>(newDir));
+    }
+    score->endCmd();
+    return true;
+}
+
+
 bool _transpose(uintptr_t score_ptr, int semitones, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
@@ -2755,6 +2818,12 @@ extern "C" {
     bool pitchDown(uintptr_t score_ptr, int excerptId = -1) {
         return _pitchDown(score_ptr, excerptId);
     };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool flipStem(uintptr_t score_ptr, int excerptId = -1) {
+        return _flipStem(score_ptr, excerptId);
+    };
+
 
     EMSCRIPTEN_KEEPALIVE
     bool transpose(uintptr_t score_ptr, int semitones, int excerptId = -1) {

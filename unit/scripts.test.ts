@@ -114,7 +114,14 @@ describe('scripts', () => {
 
     try {
       expect(() => mod.syncWasmArtifacts({ fsModule, log: vi.fn() })).toThrow('Missing source artifact');
-      expect(fsModule.existsSync).toHaveBeenCalledWith('/envroot/webmscore-fork/web-public/webmscore.lib.wasm');
+      expect(fsModule.existsSync).toHaveBeenNthCalledWith(
+        1,
+        '/envroot/webmscore-fork/web-public/webmscore.lib.js.mem',
+      );
+      expect(fsModule.existsSync).toHaveBeenNthCalledWith(
+        2,
+        '/envroot/webmscore-fork/web-public/webmscore.lib.js',
+      );
     } finally {
       if (originalEnv === undefined) delete process.env.OTS_WEB_REPO_ROOT;
       else process.env.OTS_WEB_REPO_ROOT = originalEnv;
@@ -134,7 +141,12 @@ describe('scripts', () => {
 
     try {
       expect(() => mod.syncWasmArtifacts({ fsModule, log: vi.fn() })).toThrow('Missing source artifact');
-      expect(fsModule.existsSync).toHaveBeenCalledWith(expect.stringContaining('webmscore-fork/web-public/webmscore.lib.wasm'));
+      expect(fsModule.existsSync).toHaveBeenCalledWith(
+        expect.stringContaining('webmscore-fork/web-public/webmscore.lib.js.mem'),
+      );
+      expect(fsModule.existsSync).toHaveBeenCalledWith(
+        expect.stringContaining('webmscore-fork/web-public/webmscore.lib.js'),
+      );
     } finally {
       if (originalEnv === undefined) delete process.env.OTS_WEB_REPO_ROOT;
       else process.env.OTS_WEB_REPO_ROOT = originalEnv;

@@ -198,7 +198,9 @@ Recent changes (last few commits)
 Next steps / risks  
 - Rebuild webmscore with platform=`wasm` so the memory-initializer “offscreen” patch is no longer needed.  
 - Implement reliable selection/hit-testing (DOM or WASM hit-test) so mutations target the clicked element.  
-- Add lightweight regression checks to ensure WASM artifacts land in `public/` for dev/build.
+- Add lightweight regression checks to ensure WASM artifacts land in `public/` for dev/build.  
+- TODO: Align the `ScoreEditor` unit tests with the refactored selection overlay/mutation plumbing (tests such as `loads a score from file upload, supports selection, and applies clef`, `invokes mutation and export handlers from the toolbar`, `supports note entry keyboard shortcuts`, `advances selection with left/right arrows`, `extracts page index...`, `clears selection when clicking blank space...`, `refreshes selection overlay after mutation`, `alerts when a mutation binding is missing`, and `clears selection on delete even when the binding is missing` are failing because their DOM expectations no longer match the current renderer).  
+- TODO: Investigate stem flip coverage for beam groups—the new WASM `flipStem` RPC currently toggles only the primary chord’s stem, so a fully beamed cluster isn’t flipping together even when the outer selection includes every note.
 
 ## Webmscore rebuild + artifact sync
 
@@ -216,16 +218,3 @@ Optional direct make (advanced)
 
 Clean rebuild (avoid unless needed)  
 - From `webmscore-fork/web-public`: `npm run build` (runs `make clean` and removes artifacts).
-
-## TODO: Unexposed webmscore APIs (engine -> app surface)
-
-- Static engine controls: `version`, `setLogLevel`, `addFont`.
-- Excerpt controls: `setExcerptId`, `getExcerptId`, `generateExcerpts`.
-- Title helpers: `title`, `titleFilenameSafe`.
-- Pagination + raw data: `npages`, `savePositions`, `saveMetadata`.
-- MusicXML export (uncompressed): `saveXml`.
-- Streaming audio surface: `synthAudio`, `synthAudioBatch`, `processSynth`, `processSynthBatch`.
-
-## Current task:
-Me and Codex were working on/have uncomitted and unfinished changes for advancing the selection with as per: https://handbook.musescore.org/navigation/accessibility#navigating-the-score
-We were starting with left/right advancement, but after that I'd like to include the other navigation options as well. Can you help complete this work? Note: the current changes don't work, and if you prefer not to re-use them feel free to take a new approach.
