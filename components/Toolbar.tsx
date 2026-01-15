@@ -46,6 +46,8 @@ interface ToolbarProps {
     headerTextAvailable?: boolean;
     onZoomIn: () => void;
     onZoomOut: () => void;
+    onFitWidth?: () => void;
+    onFitHeight?: () => void;
     zoomLevel: number;
     onDeleteSelection?: () => void;
     onUndo?: () => void;
@@ -142,6 +144,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     headerTextAvailable = false,
     onZoomIn,
     onZoomOut,
+    onFitWidth,
+    onFitHeight,
     zoomLevel,
     onDeleteSelection,
     onUndo,
@@ -906,6 +910,24 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 </ToolbarDropdown>
 
 	            <div className="flex items-center space-x-2 text-sm">
+	                <button
+	                    data-testid="btn-fit-width"
+	                    type="button"
+	                    onClick={onFitWidth}
+	                    disabled={!onFitWidth}
+	                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+	                >
+	                    Fit W
+	                </button>
+	                <button
+	                    data-testid="btn-fit-height"
+	                    type="button"
+	                    onClick={onFitHeight}
+	                    disabled={!onFitHeight}
+	                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+	                >
+	                    Fit H
+	                </button>
 	                <button
 	                    data-testid="btn-zoom-out"
 	                    type="button"

@@ -152,6 +152,11 @@ export default function ScoreEditor() {
     const scoreRef = useRef<Score | null>(null);
     const [zoom, setZoom] = useState(1.0);
     const containerRef = useRef<HTMLDivElement>(null);
+    const scoreWrapperRef = useRef<HTMLDivElement>(null);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const MIN_ZOOM = 0.5;
+    const MAX_ZOOM = 3.0;
+    const clampZoom = (value: number) => Math.min(Math.max(value, MIN_ZOOM), MAX_ZOOM);
     const [loading, setLoading] = useState(false);
     const [selectedElement, setSelectedElement] = useState<{ x: number, y: number, w: number, h: number } | null>(null);
     const [selectedPoint, setSelectedPoint] = useState<{ page: number, x: number, y: number } | null>(null);
@@ -2098,11 +2103,72 @@ export default function ScoreEditor() {
     };
 
     const handleZoomIn = () => {
-        setZoom(prev => Math.min(prev + 0.1, 3.0));
+        setZoom(prev => clampZoom(prev + 0.1));
     };
 
     const handleZoomOut = () => {
-        setZoom(prev => Math.max(prev - 0.1, 0.5));
+        setZoom(prev => clampZoom(prev - 0.1));
+    };
+
+    const parsePxValue = (value: string | null) => {
+        const parsed = value ? Number.parseFloat(value) : NaN;
+        return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    const computeFitZoom = (axis: 'width' | 'height'): number | null => {
+        if (!scrollContainerRef.current || !scoreWrapperRef.current || zoom <= 0) {
+            return null;
+        }
+
+        const container = scrollContainerRef.current;
+        const style = window.getComputedStyle(container);
+        const paddingLeft = parsePxValue(style.paddingLeft);
+        const paddingRight = parsePxValue(style.paddingRight);
+        const paddingBottom = parsePxValue(style.paddingBottom);
+
+        let availableSize = 0;
+        if (axis === 'width') {
+            availableSize = container.clientWidth - paddingLeft - paddingRight;
+        } else {
+            const wrapperOffsetTop = scoreWrapperRef.current.offsetTop;
+            availableSize = container.clientHeight - wrapperOffsetTop - paddingBottom;
+        }
+
+        if (availableSize <= 0) {
+            return null;
+        }
+
+        const wrapperRect = scoreWrapperRef.current.getBoundingClientRect();
+        const pageSize = axis === 'width' ? wrapperRect.width : wrapperRect.height;
+        if (pageSize <= 0) {
+            return null;
+        }
+
+        const unscaledSize = pageSize / zoom;
+        if (unscaledSize <= 0) {
+            return null;
+        }
+
+        const targetZoom = availableSize / unscaledSize;
+        if (!Number.isFinite(targetZoom)) {
+            return null;
+        }
+
+        return clampZoom(targetZoom);
+    };
+
+    const handleFitWidth = () => {
+        const fitZoom = computeFitZoom('width');
+        if (fitZoom !== null) {
+            setZoom(fitZoom);
+        }
+    };
+
+    const handleFitHeight = () => {
+        const fitZoom = computeFitZoom('height');
+        if (fitZoom !== null) {
+            setZoom(fitZoom);
+        }
     };
 
     const extractPageIndex = (element: Element | null): number | null => {
@@ -2766,10 +2832,12 @@ export default function ScoreEditor() {
                     onSetSubtitleText={handleSetSubtitleText}
                     onSetComposerText={handleSetComposerText}
                     onSetLyricistText={score?.setLyricistText ? handleSetLyricistText : undefined}
-                    headerTextAvailable={Boolean(score?.setTitleText && score?.setComposerText)}
+                headerTextAvailable={Boolean(score?.setTitleText && score?.setComposerText)}
 	                onZoomIn={handleZoomIn}
 	                onZoomOut={handleZoomOut}
 	                zoomLevel={zoom}
+                onFitWidth={handleFitWidth}
+                onFitHeight={handleFitHeight}
                 onDeleteSelection={handleDeleteSelection}
                 onUndo={handleUndo}
                 onRedo={handleRedo}
@@ -2841,7 +2909,10 @@ export default function ScoreEditor() {
             />
             </div>
 
-            <div className="relative z-0 flex-1 overflow-auto bg-gray-50 p-8">
+            <div
+                ref={scrollContainerRef}
+                className="relative z-0 flex-1 overflow-auto bg-gray-50 p-8"
+            >
                 {loading && (
                     <div className="flex items-center justify-center h-full">
                         <div className="text-xl text-gray-500">Loading score...</div>
@@ -2891,6 +2962,7 @@ export default function ScoreEditor() {
                 )}
 
 	            <div
+	                ref={scoreWrapperRef}
 	                className="relative origin-top-left transition-transform duration-200 ease-out bg-white shadow-lg mx-auto"
 	                data-testid="score-wrapper"
 	                style={{
