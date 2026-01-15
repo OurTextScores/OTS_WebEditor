@@ -60,7 +60,7 @@ namespace mu::engraving {
 //   undoChangeBarLineType
 //---------------------------------------------------------
 
-static void undoChangeBarLineType(BarLine* bl, BarLineType barType, bool allStaves)
+void undoChangeBarLineType(BarLine* bl, BarLineType barType, bool allStaves)
 {
     Measure* m = bl->measure();
     if (!m) {

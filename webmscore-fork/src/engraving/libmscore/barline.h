@@ -168,6 +168,7 @@ public:
 
     static const std::vector<BarLineTableItem> barLineTable;
 };
+void undoChangeBarLineType(BarLine* barLine, BarLineType barType, bool allStaves);
 } // namespace mu::engraving
 
 #endif
