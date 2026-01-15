@@ -2734,7 +2734,7 @@ export default function ScoreEditor() {
                     {secondarySelectionBoxes.map(box => (
                         <div
                             key={box.index !== null ? `sel-${box.index}` : `sel-${box.page}-${box.x}-${box.y}-${box.w}-${box.h}`}
-                            className="absolute border border-blue-500 bg-blue-200 bg-opacity-20 pointer-events-none"
+                            className="absolute pointer-events-none"
                             style={{
                                 left: box.x,
                                 top: box.y,
@@ -2747,7 +2747,7 @@ export default function ScoreEditor() {
                     {selectedElement && (
                         <div
                             data-testid="selection-overlay"
-                            className="absolute border-2 border-blue-500 bg-blue-200 bg-opacity-30 pointer-events-none"
+                            className="absolute pointer-events-none"
                             style={{
                                 left: selectedElement.x,
                                 top: selectedElement.y,
