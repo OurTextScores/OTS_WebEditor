@@ -205,3 +205,6 @@ Optional direct make (advanced)
 
 Clean rebuild (avoid unless needed)  
 - From `webmscore-fork/web-public`: `npm run build` (runs `make clean` and removes artifacts).
+
+### Example score
+You can use this for testing: http://localhost:3000/?score=%2Ftest_scores%2Fbach_orig.mscz

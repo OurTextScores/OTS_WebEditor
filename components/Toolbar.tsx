@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 
+export type MeasureInsertTarget = 'beginning' | 'after-selection' | 'end';
+
 type HarmonyVariant = 0 | 1 | 2;
 
 interface InstrumentTemplate {
@@ -114,6 +116,8 @@ interface ToolbarProps {
     onSetRepeatCount?: (count: number) => void;
     onSetBarLineType?: (barLineType: number) => void;
     onAddVolta?: (endingNumber: number) => void;
+    onInsertMeasures?: (count: number, target: MeasureInsertTarget) => void;
+    insertMeasuresDisabled?: boolean;
     parts?: PartSummary[];
     instrumentGroups?: InstrumentTemplateGroup[];
     onAddPart?: (instrumentId: string) => void;
@@ -206,6 +210,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     onSetRepeatCount,
     onSetBarLineType,
     onAddVolta,
+    onInsertMeasures,
+    insertMeasuresDisabled = false,
     parts = [],
     instrumentGroups = [],
     onAddPart,
@@ -214,6 +220,17 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 }) => {
     const [selectedInstrumentId, setSelectedInstrumentId] = useState('');
     const [customTimeSigNumerator, setCustomTimeSigNumerator] = useState('4');
+    const [measureCount, setMeasureCount] = useState(1);
+    const [measureTarget, setMeasureTarget] = useState<MeasureInsertTarget>('after-selection');
+
+    const handleApplyMeasures = () => {
+        if (!onInsertMeasures) {
+            return;
+        }
+        const sanitized = Math.max(1, Math.floor(measureCount));
+        setMeasureCount(sanitized);
+        onInsertMeasures(sanitized, measureTarget);
+    };
     const [customTimeSigDenominator, setCustomTimeSigDenominator] = useState('4');
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -229,6 +246,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     };
 
     const mutationDisabled = !mutationsEnabled;
+    const insertMeasuresBlocked = insertMeasuresDisabled || !onInsertMeasures || mutationDisabled;
     const headerTextDisabled = mutationDisabled || !exportsEnabled || !headerTextAvailable;
 	const signatureOptions = timeSignatureOptions ?? [
 		{ label: '4/4', numerator: 4, denominator: 4 },
@@ -765,26 +783,56 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         ))}
                     </ToolbarDropdown>
 
-	                <div className="flex items-center space-x-2">
-	                    <button
-	                        data-testid="btn-duration-shorter"
-	                        type="button"
-	                        onClick={onDurationShorter}
-	                        disabled={mutationDisabled || !onDurationShorter || !selectionActive}
-	                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-	                    >
-	                        Shorter
-	                    </button>
-	                    <button
-	                        data-testid="btn-duration-longer"
-	                        type="button"
-	                        onClick={onDurationLonger}
-	                        disabled={mutationDisabled || !onDurationLonger || !selectionActive}
-	                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-	                    >
-	                        Longer
-	                    </button>
-	                </div>
+                <div className="flex items-center space-x-2">
+                    <button
+                        data-testid="btn-duration-shorter"
+                        type="button"
+                        onClick={onDurationShorter}
+                        disabled={mutationDisabled || !onDurationShorter || !selectionActive}
+                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Shorter
+                    </button>
+                    <button
+                        data-testid="btn-duration-longer"
+                        type="button"
+                        onClick={onDurationLonger}
+                        disabled={mutationDisabled || !onDurationLonger || !selectionActive}
+                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Longer
+                    </button>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        Add measures
+                    </span>
+                    <input
+                        type="number"
+                        min={1}
+                        value={measureCount}
+                        onChange={event => setMeasureCount(Number(event.currentTarget.value) || 1)}
+                        className="w-16 px-2 py-1 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <select
+                        value={measureTarget}
+                        onChange={event => setMeasureTarget(event.currentTarget.value as MeasureInsertTarget)}
+                        className="px-2 py-1 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value="beginning">Beginning</option>
+                        <option value="after-selection">After Selection</option>
+                        <option value="end">End</option>
+                    </select>
+                    <button
+                        data-testid="btn-insert-measures"
+                        type="button"
+                        onClick={handleApplyMeasures}
+                        disabled={insertMeasuresBlocked}
+                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Apply
+                    </button>
+                </div>
 	            </div>
 
 	            <ToolbarDropdown

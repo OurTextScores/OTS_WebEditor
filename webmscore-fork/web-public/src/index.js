@@ -1294,6 +1294,15 @@ class WebMscore {
     }
 
     /**
+     * Insert new measures around the current selection or score edges.
+     * @param {number} count
+     * @param {number} target Target enum: 0 after selection, 1 before selection, 2 start of score, 3 end of score
+     */
+    async insertMeasures(count, target) {
+        return Module.ccall('insertMeasures', 'boolean', ['number', 'number', 'number', 'number'], [this.scoreptr, count, target, this.excerptId])
+    }
+
+    /**
      * Set the time signature (global) at the start of the score
      * @param {number} numerator
      * @param {number} denominator

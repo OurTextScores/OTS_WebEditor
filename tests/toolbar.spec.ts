@@ -1,0 +1,40 @@
+import { test, expect } from '@playwright/test';
+
+test('toolbar shows enabled add-measures apply button', async ({ page }) => {
+  page.on('console', (msg) => {
+    console.log('PAGE LOG:', msg.type(), msg.text());
+  });
+  page.on('requestfailed', (request) => {
+    console.log('REQUEST FAILED:', request.url(), request.failure()?.errorText);
+  });
+  page.on('response', (response) => {
+    if (response.status() === 404) {
+      console.log('RESPONSE 404:', response.url());
+    }
+  });
+  page.on('pageerror', (err) => {
+    console.log('PAGE ERROR:', err.message);
+  });
+  await page.goto('/?score=/test_scores/single_note_c4.musicxml', { waitUntil: 'networkidle' });
+  await page.waitForSelector('svg', { timeout: 20000 });
+  await page.waitForFunction(() => Boolean((window as any).__webmscore), { timeout: 20000 });
+  await page.waitForFunction(() => Boolean((window as any).__webmscore?.insertMeasures), { timeout: 20000 });
+  const hasInsert = await page.evaluate(() => Boolean((window as any).__webmscore?.insertMeasures));
+  const scoreProps = await page.evaluate(() => {
+    const score = (window as any).__webmscore;
+    if (!score) {
+      return { own: [], proto: [], hasInsert: false };
+    }
+    const proto = Object.getPrototypeOf(score);
+    return {
+      hasInsert: Boolean(score.insertMeasures),
+      own: Object.getOwnPropertyNames(score),
+      proto: proto ? Object.getOwnPropertyNames(proto) : [],
+    };
+  });
+  console.log('PAGE LOG: score properties', JSON.stringify(scoreProps));
+  console.log('PAGE LOG: has insertMeasures', hasInsert);
+  const applyButton = page.getByTestId('btn-insert-measures');
+  await expect(applyButton).toBeVisible();
+  await expect(applyButton).toBeEnabled();
+});

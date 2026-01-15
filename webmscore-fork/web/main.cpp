@@ -51,6 +51,8 @@
 #include "importexport/midi/internal/midiexport/exportmidi.h"
 #include "./importexport/positionjsonwriter.h"
 #include "engraving/libmscore/page.h"
+#include "engraving/libmscore/measurebase.h"
+#include "engraving/libmscore/measure.h"
 #include "engraving/libmscore/undo.h"
 #include "engraving/libmscore/factory.h"
 #include "engraving/libmscore/tempotext.h"
@@ -530,6 +532,131 @@ static bool selectionMeasureRange(MainScore& score, engraving::Measure*& startMe
 
     startMeasure = measure;
     endMeasure = measure;
+    return true;
+}
+
+enum class InsertMeasuresTarget {
+    AfterSelection = 0,
+    BeforeSelection = 1,
+    AtStartOfScore = 2,
+    AtEndOfScore = 3,
+};
+
+static InsertMeasuresTarget parseInsertMeasuresTarget(int target)
+{
+    switch (target) {
+    case 0:
+        return InsertMeasuresTarget::AfterSelection;
+    case 1:
+        return InsertMeasuresTarget::BeforeSelection;
+    case 2:
+        return InsertMeasuresTarget::AtStartOfScore;
+    case 3:
+        return InsertMeasuresTarget::AtEndOfScore;
+    default:
+        LOGW() << "insertMeasures: unknown target " << target << ", defaulting to end of score";
+        return InsertMeasuresTarget::AtEndOfScore;
+    }
+}
+
+static bool computeBeforeMeasureIndex(MainScore& score, InsertMeasuresTarget target, int& beforeIndex)
+{
+    beforeIndex = -1;
+
+    if (target == InsertMeasuresTarget::AfterSelection || target == InsertMeasuresTarget::BeforeSelection) {
+        auto& selection = score->selection();
+        if (selection.isNone()) {
+            LOGW() << "insertMeasures: selection required for target " << static_cast<int>(target);
+            return false;
+        }
+
+        if (selection.isRange()) {
+            engraving::Measure* startMeasure = nullptr;
+            engraving::Measure* endMeasure = nullptr;
+            if (selection.measureRange(&startMeasure, &endMeasure)) {
+                const int startIndex = startMeasure ? startMeasure->index() : 0;
+                const int endIndex = endMeasure ? endMeasure->index() : startIndex;
+                beforeIndex = (target == InsertMeasuresTarget::BeforeSelection) ? startIndex : (endIndex + 1);
+                return true;
+            }
+        }
+
+        const auto& elements = selection.elements();
+        for (engraving::EngravingItem* element : elements) {
+            if (!element) {
+                continue;
+            }
+            engraving::MeasureBase* measure = element->findMeasureBase();
+            if (!measure) {
+                continue;
+            }
+            const int index = measure->index();
+            if (index < 0) {
+                continue;
+            }
+
+            if (target == InsertMeasuresTarget::BeforeSelection) {
+                if (beforeIndex < 0 || index < beforeIndex) {
+                    beforeIndex = index;
+                }
+            } else {
+                if (index + 1 > beforeIndex) {
+                    beforeIndex = index + 1;
+                }
+            }
+        }
+
+        if (beforeIndex < 0) {
+            LOGW() << "insertMeasures: could not determine insertion point for selection target";
+            return false;
+        }
+
+        return true;
+    }
+
+    if (target == InsertMeasuresTarget::AtStartOfScore) {
+        engraving::Measure* firstMeasure = score->firstMeasure();
+        if (!firstMeasure) {
+            LOGW() << "insertMeasures: score has no measures";
+            return false;
+        }
+        beforeIndex = firstMeasure->index();
+        return beforeIndex >= 0;
+    }
+
+    if (target == InsertMeasuresTarget::AtEndOfScore) {
+        beforeIndex = -1;
+        return true;
+    }
+
+    return false;
+}
+
+static bool _insertMeasures(uintptr_t score_ptr, int count, InsertMeasuresTarget target, int excerptId)
+{
+    if (count < 1) {
+        LOGW() << "insertMeasures: invalid count " << count;
+        return false;
+    }
+
+    MainScore score(score_ptr, excerptId);
+    int beforeIndex = -1;
+    if (!computeBeforeMeasureIndex(score, target, beforeIndex)) {
+        return false;
+    }
+
+    engraving::MeasureBase* beforeMeasure = beforeIndex >= 0 ? score->measure(beforeIndex) : nullptr;
+
+    mu::engraving::Score::InsertMeasureOptions options;
+    options.createEmptyMeasures = false;
+    options.moveSignaturesClef = true;
+    options.needDeselectAll = false;
+
+    score->startCmd();
+    for (int i = 0; i < count; ++i) {
+        score->insertMeasure(engraving::ElementType::MEASURE, beforeMeasure, options);
+    }
+    score->endCmd();
     return true;
 }
 
@@ -2697,6 +2824,11 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool addVolta(uintptr_t score_ptr, int endingNumber, int excerptId = -1) {
         return _addVolta(score_ptr, endingNumber, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool insertMeasures(uintptr_t score_ptr, int count, int target, int excerptId = -1) {
+        return _insertMeasures(score_ptr, count, parseInsertMeasuresTarget(target), excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE

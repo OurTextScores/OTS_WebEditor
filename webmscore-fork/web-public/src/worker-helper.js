@@ -765,6 +765,14 @@ class WebMscoreW {
     }
 
     /**
+     * Insert new measures around the current selection or score edges.
+     * @see WebMscore.insertMeasures
+     */
+    insertMeasures(count, target) {
+        return this.rpc('insertMeasures', [count, target])
+    }
+
+    /**
      * Undo the last command.
      * @returns {Promise<boolean>}
      */

@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { loadWebMscore, Score, InputFileFormat } from '../lib/webmscore-loader';
-import { Toolbar } from './Toolbar';
+import { Toolbar, type MeasureInsertTarget } from './Toolbar';
 
 type SelectionBox = {
     index: number | null;
@@ -93,6 +93,7 @@ type MutationMethods = Pick<
     | 'setRepeatCount'
     | 'setBarLineType'
     | 'addVolta'
+    | 'insertMeasures'
 >;
 
 type HarmonyVariant = 0 | 1 | 2;
@@ -121,6 +122,12 @@ interface PartSummary {
     instrumentId: string;
     isVisible: boolean;
 }
+
+const measureInsertTargetMap: Record<MeasureInsertTarget, number> = {
+    beginning: 2,
+    'after-selection': 0,
+    end: 3,
+};
 
 const hasMutationApi = (score: Score | null): score is Score & MutationMethods => {
     if (!score) {
@@ -874,6 +881,14 @@ export default function ScoreEditor() {
         if (!fn) return;
         return fn(semitones);
     }, { skipWasmReselect: true });
+    const handleInsertMeasures = (count: number, target: MeasureInsertTarget) => performMutation('insert measures', async () => {
+        await ensureSelectionInWasm();
+        const fn = requireMutation('insertMeasures');
+        if (!fn) return false;
+        const sanitized = Math.max(1, Math.floor(count));
+        const targetValue = measureInsertTargetMap[target] ?? measureInsertTargetMap['after-selection'];
+        return fn(sanitized, targetValue);
+    });
     const handleSelectNextChord = async () => {
         if (!score) return;
         console.log('[NAV] handleSelectNextChord called');
@@ -2749,6 +2764,8 @@ export default function ScoreEditor() {
                 onSetRepeatCount={handleSetRepeatCount}
                 onSetBarLineType={handleSetBarLineType}
                 onAddVolta={handleAddVolta}
+                onInsertMeasures={handleInsertMeasures}
+                insertMeasuresDisabled={!score?.insertMeasures}
                 parts={scoreParts}
                 instrumentGroups={instrumentGroups}
                 onAddPart={handleAddPart}
