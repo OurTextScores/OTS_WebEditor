@@ -1160,79 +1160,63 @@ export default function ScoreEditor() {
     });
     const handleSelectNextChord = async () => {
         if (!score) return;
-        console.log('[NAV] handleSelectNextChord called');
         await ensureSelectionInWasm();
         const selectFn = requireMutation('selectNextChord');
-        const getBBoxFn = requireMutation('getSelectionBoundingBox');
-        if (!selectFn || !getBBoxFn) {
-            console.log('[NAV] Missing functions:', { selectFn: !!selectFn, getBBoxFn: !!getBBoxFn });
+        if (!selectFn) {
             return;
         }
 
         const result = await selectFn.call(score);
-        console.log('[NAV] selectNextChord result:', result);
-        if (result) {
-            // Query the new selection's bounding box from WASM BEFORE rendering
-            // (renderScore might reset selection state)
-            const bbox = await getBBoxFn.call(score);
-            console.log('[NAV] getSelectionBoundingBox result:', bbox);
+        if (!result) {
+            return;
+        }
 
-            await renderScore(score, currentPageRef.current);
-            if (bbox) {
-                const { page, x, y, width, height } = bbox;
-                const centerX = x + width / 2;
-                const centerY = y + height / 2;
-
-                console.log('[NAV] Setting selection box at:', { page, x, y, width, height, centerX, centerY });
-                setSelectedElement({ x, y, w: width, h: height });
-                setSelectedPoint({ page, x: centerX, y: centerY });
-                setSelectionBoxes([{
-                    index: null,
-                    page,
-                    x,
-                    y,
-                    w: width,
-                    h: height,
-                    centerX,
-                    centerY,
-                    classes: '',
-                }]);
+        let targetPage = currentPageRef.current;
+        const activeScore = scoreRef.current ?? score;
+        const getBBoxFn = (activeScore as MutationMethods).getSelectionBoundingBox;
+        if (typeof getBBoxFn === 'function') {
+            const bbox = await getBBoxFn.call(activeScore);
+            if (bbox && typeof bbox.page === 'number') {
+                targetPage = bbox.page;
             }
         }
+
+        if (targetPage !== currentPageRef.current) {
+            await goToPage(targetPage);
+            return;
+        }
+
+        await refreshSelectionFromSvg();
     };
     const handleSelectPrevChord = async () => {
         if (!score) return;
         await ensureSelectionInWasm();
         const selectFn = requireMutation('selectPrevChord');
-        const getBBoxFn = requireMutation('getSelectionBoundingBox');
-        if (!selectFn || !getBBoxFn) return;
+        if (!selectFn) {
+            return;
+        }
 
         const result = await selectFn.call(score);
-        if (result) {
-            await renderScore(score, currentPageRef.current);
+        if (!result) {
+            return;
+        }
 
-            // Query the new selection's bounding box from WASM
-            const bbox = await getBBoxFn.call(score);
-            if (bbox) {
-                const { page, x, y, width, height } = bbox;
-                const centerX = x + width / 2;
-                const centerY = y + height / 2;
-
-                setSelectedElement({ x, y, w: width, h: height });
-                setSelectedPoint({ page, x: centerX, y: centerY });
-                setSelectionBoxes([{
-                    index: null,
-                    page,
-                    x,
-                    y,
-                    w: width,
-                    h: height,
-                    centerX,
-                    centerY,
-                    classes: '',
-                }]);
+        let targetPage = currentPageRef.current;
+        const activeScore = scoreRef.current ?? score;
+        const getBBoxFn = (activeScore as MutationMethods).getSelectionBoundingBox;
+        if (typeof getBBoxFn === 'function') {
+            const bbox = await getBBoxFn.call(activeScore);
+            if (bbox && typeof bbox.page === 'number') {
+                targetPage = bbox.page;
             }
         }
+
+        if (targetPage !== currentPageRef.current) {
+            await goToPage(targetPage);
+            return;
+        }
+
+        await refreshSelectionFromSvg();
     };
     const handleExtendSelectionNextChord = async () => {
         if (!score) return;
@@ -1909,12 +1893,6 @@ export default function ScoreEditor() {
                     }
                 }
 
-                if (rawKey === 'ArrowRight' || rawKey === 'ArrowLeft') {
-                    event.preventDefault();
-                    const step = rawKey === 'ArrowRight' ? 1 : -1;
-                    advanceSelectionOverlay(undefined, undefined, step);
-                    return;
-                }
             }
 
             if (key === 'arrowup' || key === 'arrowdown') {

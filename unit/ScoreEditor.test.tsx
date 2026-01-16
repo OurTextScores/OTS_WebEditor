@@ -458,10 +458,26 @@ describe('ScoreEditor', () => {
   it('advances selection with left/right arrows', async () => {
     const user = userEvent.setup();
 
+    let selectedIndex: number | null = null;
     const score: any = {
       destroy: vi.fn(),
-      saveSvg: vi.fn(async () => '<svg><g class="Note note-1"></g><g class="Note note-2"></g></svg>'),
-      selectElementAtPoint: vi.fn(async () => true),
+      saveSvg: vi.fn(async () => {
+        const firstSelected = selectedIndex === 0 ? ' selected' : '';
+        const secondSelected = selectedIndex === 1 ? ' selected' : '';
+        return `<svg><g class="Note note-1${firstSelected}"></g><g class="Note note-2${secondSelected}"></g></svg>`;
+      }),
+      selectElementAtPoint: vi.fn(async (_page: number, x: number) => {
+        selectedIndex = x > 100 ? 1 : 0;
+        return true;
+      }),
+      selectNextChord: vi.fn(async () => {
+        selectedIndex = selectedIndex === null ? 0 : Math.min(1, selectedIndex + 1);
+        return true;
+      }),
+      selectPrevChord: vi.fn(async () => {
+        selectedIndex = selectedIndex === null ? 0 : Math.max(0, selectedIndex - 1);
+        return true;
+      }),
       metadata: vi.fn(async () => ({})),
       measurePositions: vi.fn(async () => ({})),
       segmentPositions: vi.fn(async () => ({})),
@@ -512,9 +528,11 @@ describe('ScoreEditor', () => {
 
     fireEvent.keyDown(window, { key: 'ArrowRight' });
     await waitFor(() => expect(screen.getByTestId('selection-overlay')).toHaveStyle({ left: '120px' }));
+    expect(score.selectNextChord).toHaveBeenCalled();
 
     fireEvent.keyDown(window, { key: 'ArrowLeft' });
     await waitFor(() => expect(screen.getByTestId('selection-overlay')).toHaveStyle({ left: '0px' }));
+    expect(score.selectPrevChord).toHaveBeenCalled();
   });
 
   it('alerts when optional export bindings are missing', async () => {
