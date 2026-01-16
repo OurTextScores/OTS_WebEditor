@@ -134,6 +134,7 @@ const measureInsertTargetMap: Record<MeasureInsertTarget, number> = {
 
 const TEXT_ELEMENT_CLASS_NAMES = [
     'Text',
+    'RehearsalMark',
     'StaffText',
     'SystemText',
     'ExpressionText',

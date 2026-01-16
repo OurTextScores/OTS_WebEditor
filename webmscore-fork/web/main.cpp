@@ -2426,12 +2426,15 @@ bool _addRehearsalMark(uintptr_t score_ptr, int excerptId)
         LOGW() << "addRehearsalMark: Factory returned null";
         return false;
     }
-    rm->setXmlText(score->createRehearsalMarkText(rm));
-    rm->setTrack(cr->track());
+    rm->setXmlText(u"A");
+    const String rehearsalText = score->createRehearsalMarkText(rm);
+    if (!rehearsalText.isEmpty()) {
+        rm->setXmlText(rehearsalText);
+    }
+    rm->setTrack(engraving::trackZeroVoice(cr->track()));
 
     score->startCmd();
     score->undo(new engraving::AddElement(rm));
-    score->cmdResequenceRehearsalMarks();
     score->endCmd();
     return true;
 }

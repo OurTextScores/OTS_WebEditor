@@ -752,7 +752,25 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             New Page
                         </button>
                     </span>
-                </div>
+                    <span
+                        className="inline-flex"
+                        title={
+                            mutationDisabled || !selectionActive
+                                ? 'Select a note or rest to add a rehearsal mark.'
+                                : undefined
+                        }
+                    >
+                        <button
+                            data-testid="btn-rehearsal"
+                            type="button"
+                            onClick={onAddRehearsalMark}
+                            disabled={mutationDisabled || !selectionActive || !onAddRehearsalMark}
+                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Rehearsal Mark
+                    </button>
+                </span>
+            </div>
 
                 <div className="flex items-center space-x-2">
                     <button
@@ -1407,16 +1425,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         {opt.label}
                     </button>
                 ))}
-                <div className={dropdownLabelClass}>Text</div>
-                <button
-                    data-testid="btn-rehearsal"
-                    type="button"
-                    onClick={onAddRehearsalMark}
-                    disabled={mutationDisabled || !selectionActive || !onAddRehearsalMark}
-                    className={dropdownItemClass}
-                >
-                    Rehearsal
-                </button>
+                <div className={dropdownLabelClass}>Tempo</div>
                 <button
                     data-testid="btn-tempo-120"
                     type="button"

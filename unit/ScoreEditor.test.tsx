@@ -193,6 +193,7 @@ describe('ScoreEditor', () => {
       toggleDot: vi.fn(async () => true),
       changeSelectedElementsVoice: vi.fn(async () => true),
       addDynamic: vi.fn(async () => true),
+      addRehearsalMark: vi.fn(async () => true),
       setTimeSignature: vi.fn(async () => true),
       setKeySignature: vi.fn(async () => true),
     };
@@ -231,6 +232,7 @@ describe('ScoreEditor', () => {
     fireEvent.click(screen.getByTestId('btn-voice-2'));
     fireEvent.click(screen.getByTestId('btn-acc-3'));
     fireEvent.click(screen.getByTestId('btn-dynamic-6'));
+    fireEvent.click(screen.getByTestId('btn-rehearsal'));
     fireEvent.click(screen.getByTestId('btn-timesig-3-4'));
     fireEvent.click(screen.getByTestId('btn-keysig-0'));
 
@@ -241,6 +243,7 @@ describe('ScoreEditor', () => {
     await waitFor(() => expect(score.toggleDot).toHaveBeenCalled());
     await waitFor(() => expect(score.changeSelectedElementsVoice).toHaveBeenCalledWith(1));
     await waitFor(() => expect(score.addDynamic).toHaveBeenCalledWith(6));
+    await waitFor(() => expect(score.addRehearsalMark).toHaveBeenCalled());
     await waitFor(() => expect(score.setTimeSignature).toHaveBeenCalledWith(3, 4));
     await waitFor(() => expect(score.setKeySignature).toHaveBeenCalledWith(0));
 
