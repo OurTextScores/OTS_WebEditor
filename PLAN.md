@@ -40,6 +40,7 @@
 ### Selection + rendering
 - After `changeSelectedElementsVoice`, relayout + `renderScore()` then refresh selection from SVG.
 - Preserve unified selection flow: avoid DOM-only reselect fallback except where SVG lacks selection markers.
+- When moving notes to voices 2-4, mark redundant rests in the affected measures as gap rests to reduce clutter.
 
 ### Tests
 - Unit test: voice button in edit mode calls `changeSelectedElementsVoice` and relayout.

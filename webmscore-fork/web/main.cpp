@@ -2303,9 +2303,56 @@ bool _changeSelectedElementsVoice(uintptr_t score_ptr, int voiceIndex, int excer
         return false;
     }
 
+    struct StaffTickRange {
+        engraving::staff_idx_t staff = 0;
+        engraving::Fraction start = engraving::Fraction(0, 1);
+        engraving::Fraction end = engraving::Fraction(0, 1);
+    };
+
+    std::vector<StaffTickRange> ranges;
+    for (auto* selected : score->selection().elements()) {
+        if (!selected || !selected->isNote()) {
+            continue;
+        }
+        auto* chord = engraving::toNote(selected)->chord();
+        if (!chord || !chord->measure()) {
+            continue;
+        }
+        const auto staff = chord->staffIdx();
+        const auto start = chord->measure()->tick();
+        const auto end = chord->measure()->tick() + chord->measure()->ticks();
+        auto it = std::find_if(ranges.begin(), ranges.end(), [staff](const StaffTickRange& range) {
+            return range.staff == staff;
+        });
+        if (it == ranges.end()) {
+            ranges.push_back({ staff, start, end });
+        } else {
+            if (start < it->start) {
+                it->start = start;
+            }
+            if (end > it->end) {
+                it->end = end;
+            }
+        }
+    }
+
     score->startCmd();
     // Older libmscore builds only support moving selected notes across voices.
     score->changeSelectedNotesVoice(voiceIndex);
+    if (voiceIndex > 0 && !ranges.empty()) {
+        for (const auto& range : ranges) {
+            const auto track = range.staff * engraving::VOICES + voiceIndex;
+            auto* seg = score->tick2segment(range.start, true, engraving::SegmentType::ChordRest, false);
+            for (; seg && seg->tick() < range.end; seg = seg->next(engraving::SegmentType::ChordRest)) {
+                auto* item = seg->element(track);
+                if (!item || !item->isRest()) {
+                    continue;
+                }
+                auto* rest = engraving::toRest(item);
+                rest->undoChangeProperty(engraving::Pid::GAP, true);
+            }
+        }
+    }
     score->endCmd();
     return true;
 }
