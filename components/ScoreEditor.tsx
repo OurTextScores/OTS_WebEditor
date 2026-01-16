@@ -65,7 +65,6 @@ type MutationMethods = Pick<
     | 'changeSelectedElementsVoice'
     | 'addDynamic'
     | 'addHairpin'
-    | 'addRehearsalMark'
     | 'addTempoText'
     | 'addArticulation'
     | 'addSlur'
@@ -281,6 +280,7 @@ export default function ScoreEditor() {
     const [checkpointLoading, setCheckpointLoading] = useState(false);
     const [checkpointError, setCheckpointError] = useState<string | null>(null);
     const [compareView, setCompareView] = useState<{ title: string; currentXml: string; checkpointXml: string } | null>(null);
+    const [checkpointsCollapsed, setCheckpointsCollapsed] = useState(false);
     const [currentPage, setCurrentPage] = useState(0);
     const [pageCount, setPageCount] = useState(1);
     const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -1617,13 +1617,6 @@ export default function ScoreEditor() {
         const fn = requireMutation('addHairpin');
         if (!fn) return;
         return fn(hairpinType);
-    });
-
-    const handleAddRehearsalMark = () => performMutation('add rehearsal mark', async () => {
-        await ensureSelectionInWasm();
-        const fn = requireMutation('addRehearsalMark');
-        if (!fn) return;
-        return fn();
     });
 
     const handleAddTempoText = (bpm: number) => {
@@ -3339,7 +3332,6 @@ export default function ScoreEditor() {
                 onSetVoice={handleSetVoice}
                 onAddDynamic={handleAddDynamic}
                 onAddHairpin={handleAddHairpin}
-                onAddRehearsalMark={handleAddRehearsalMark}
                 onAddTempoText={handleAddTempoText}
                 onAddStaffText={handleAddStaffText}
                 onAddSystemText={handleAddSystemText}
@@ -3381,107 +3373,130 @@ export default function ScoreEditor() {
 
             <div className="flex flex-1 min-h-0">
                 <aside
-                    className="w-72 shrink-0 border-r bg-white p-4 text-sm overflow-y-auto"
+                    className={`shrink-0 border-r bg-white text-sm ${checkpointsCollapsed ? 'w-12' : 'w-72'} ${
+                        checkpointsCollapsed ? '' : 'overflow-y-auto'
+                    }`}
                     data-testid="checkpoint-sidebar"
                 >
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                            Checkpoints
-                        </span>
-                        <button
-                            type="button"
-                            data-testid="btn-checkpoint-refresh"
-                            onClick={loadCheckpointList}
-                            disabled={checkpointControlsDisabled}
-                            className="text-xs font-medium text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Refresh
-                        </button>
-                    </div>
-                    <div className="mt-3 flex flex-col gap-2">
-                        <input
-                            data-testid="input-checkpoint-label"
-                            type="text"
-                            value={checkpointLabel}
-                            onChange={(event) => setCheckpointLabel(event.target.value)}
-                            placeholder="Checkpoint label"
-                            className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
-                        />
-                        <button
-                            type="button"
-                            data-testid="btn-checkpoint-save"
-                            onClick={handleSaveCheckpoint}
-                            disabled={checkpointSaveDisabled}
-                            className="w-full rounded border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Save Checkpoint
-                        </button>
-                        {!score && (
-                            <span className="text-xs text-gray-400">
-                                Load a score to enable checkpoints.
+                    <div className={checkpointsCollapsed ? 'flex items-center justify-center p-2' : 'flex items-center justify-between p-4'}>
+                        {!checkpointsCollapsed && (
+                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                Checkpoints
                             </span>
                         )}
-                    </div>
-                    {checkpointError && (
-                        <div className="mt-3 text-xs text-red-600">
-                            {checkpointError}
-                        </div>
-                    )}
-                    {checkpointLoading && (
-                        <div className="mt-3 text-xs text-gray-400">
-                            Loading checkpoints...
-                        </div>
-                    )}
-                    {!checkpointLoading && checkpoints.length === 0 && (
-                        <div className="mt-3 text-xs text-gray-400">
-                            No checkpoints yet.
-                        </div>
-                    )}
-                    <div className="mt-3 space-y-3">
-                        {checkpoints.map((checkpoint) => (
-                            <div
-                                key={checkpoint.id}
-                                className="rounded border border-gray-200 p-2"
+                        <div className={checkpointsCollapsed ? '' : 'flex items-center gap-2'}>
+                            {!checkpointsCollapsed && (
+                                <button
+                                    type="button"
+                                    data-testid="btn-checkpoint-refresh"
+                                    onClick={loadCheckpointList}
+                                    disabled={checkpointControlsDisabled}
+                                    className="text-xs font-medium text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Refresh
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                data-testid="btn-checkpoint-toggle"
+                                aria-expanded={!checkpointsCollapsed}
+                                aria-controls="checkpoint-sidebar-content"
+                                aria-label={checkpointsCollapsed ? 'Show checkpoints' : 'Hide checkpoints'}
+                                onClick={() => setCheckpointsCollapsed((prev) => !prev)}
+                                className="text-xs font-medium text-gray-600 hover:text-gray-900"
                             >
-                                <div className="text-sm font-medium text-gray-800">
-                                    {checkpoint.title}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                    {formatTimestamp(checkpoint.createdAt)}
-                                    {checkpoint.size ? ` · ${formatBytes(checkpoint.size)}` : ''}
-                                </div>
-                                <div className="mt-2 flex flex-wrap gap-2">
-                                    <button
-                                        type="button"
-                                        data-testid={`btn-checkpoint-restore-${checkpoint.id}`}
-                                        onClick={() => handleRestoreCheckpoint(checkpoint)}
-                                        disabled={checkpointControlsDisabled}
-                                        className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        Restore
-                                    </button>
-                                    <button
-                                        type="button"
-                                        data-testid={`btn-checkpoint-compare-${checkpoint.id}`}
-                                        onClick={() => handleCompareCheckpoint(checkpoint)}
-                                        disabled={checkpointCompareDisabled}
-                                        className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        Compare
-                                    </button>
-                                    <button
-                                        type="button"
-                                        data-testid={`btn-checkpoint-delete-${checkpoint.id}`}
-                                        onClick={() => handleDeleteCheckpoint(checkpoint)}
-                                        disabled={checkpointControlsDisabled}
-                                        className="rounded border border-gray-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        Delete
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
+                                {checkpointsCollapsed ? '>>' : '<<'}
+                            </button>
+                        </div>
                     </div>
+                    {!checkpointsCollapsed && (
+                        <div id="checkpoint-sidebar-content" className="px-4 pb-4">
+                            <div className="mt-3 flex flex-col gap-2">
+                                <input
+                                    data-testid="input-checkpoint-label"
+                                    type="text"
+                                    value={checkpointLabel}
+                                    onChange={(event) => setCheckpointLabel(event.target.value)}
+                                    placeholder="Checkpoint label"
+                                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                                />
+                                <button
+                                    type="button"
+                                    data-testid="btn-checkpoint-save"
+                                    onClick={handleSaveCheckpoint}
+                                    disabled={checkpointSaveDisabled}
+                                    className="w-full rounded border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Save Checkpoint
+                                </button>
+                                {!score && (
+                                    <span className="text-xs text-gray-400">
+                                        Load a score to enable checkpoints.
+                                    </span>
+                                )}
+                            </div>
+                            {checkpointError && (
+                                <div className="mt-3 text-xs text-red-600">
+                                    {checkpointError}
+                                </div>
+                            )}
+                            {checkpointLoading && (
+                                <div className="mt-3 text-xs text-gray-400">
+                                    Loading checkpoints...
+                                </div>
+                            )}
+                            {!checkpointLoading && checkpoints.length === 0 && (
+                                <div className="mt-3 text-xs text-gray-400">
+                                    No checkpoints yet.
+                                </div>
+                            )}
+                            <div className="mt-3 space-y-3">
+                                {checkpoints.map((checkpoint) => (
+                                    <div
+                                        key={checkpoint.id}
+                                        className="rounded border border-gray-200 p-2"
+                                    >
+                                        <div className="text-sm font-medium text-gray-800">
+                                            {checkpoint.title}
+                                        </div>
+                                        <div className="text-xs text-gray-500">
+                                            {formatTimestamp(checkpoint.createdAt)}
+                                            {checkpoint.size ? ` · ${formatBytes(checkpoint.size)}` : ''}
+                                        </div>
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                            <button
+                                                type="button"
+                                                data-testid={`btn-checkpoint-restore-${checkpoint.id}`}
+                                                onClick={() => handleRestoreCheckpoint(checkpoint)}
+                                                disabled={checkpointControlsDisabled}
+                                                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                Restore
+                                            </button>
+                                            <button
+                                                type="button"
+                                                data-testid={`btn-checkpoint-compare-${checkpoint.id}`}
+                                                onClick={() => handleCompareCheckpoint(checkpoint)}
+                                                disabled={checkpointCompareDisabled}
+                                                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                Compare
+                                            </button>
+                                            <button
+                                                type="button"
+                                                data-testid={`btn-checkpoint-delete-${checkpoint.id}`}
+                                                onClick={() => handleDeleteCheckpoint(checkpoint)}
+                                                disabled={checkpointControlsDisabled}
+                                                className="rounded border border-gray-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </aside>
 
                 <div

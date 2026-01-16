@@ -98,7 +98,6 @@ interface ToolbarProps {
     onSetVoice?: (voiceIndex: number) => void;
     onAddDynamic?: (dynamicType: number) => void;
     onAddHairpin?: (hairpinType: number) => void;
-    onAddRehearsalMark?: () => void;
     onAddTempoText?: (bpm: number) => void;
     onAddStaffText?: () => void;
     onAddSystemText?: () => void;
@@ -199,7 +198,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     onSetVoice,
     onAddDynamic,
     onAddHairpin,
-    onAddRehearsalMark,
     onAddTempoText,
     onAddStaffText,
     onAddSystemText,
@@ -764,24 +762,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             New Page
-                        </button>
-                    </span>
-                    <span
-                        className="inline-flex"
-                        title={
-                            mutationDisabled || !selectionActive
-                                ? 'Select a note or rest to add a rehearsal mark.'
-                                : undefined
-                        }
-                    >
-                        <button
-                            data-testid="btn-rehearsal"
-                            type="button"
-                            onClick={onAddRehearsalMark}
-                            disabled={mutationDisabled || !selectionActive || !onAddRehearsalMark}
-                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        Rehearsal Mark
                         </button>
                     </span>
                 </div>
