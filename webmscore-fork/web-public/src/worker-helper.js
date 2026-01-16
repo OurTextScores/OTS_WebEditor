@@ -667,6 +667,10 @@ class WebMscoreW {
         return this.rpc('setVoice', [voiceIndex])
     }
 
+    changeSelectedElementsVoice(voiceIndex) {
+        return this.rpc('changeSelectedElementsVoice', [voiceIndex])
+    }
+
     addDynamic(dynamicType) {
         return this.rpc('addDynamic', [dynamicType])
     }

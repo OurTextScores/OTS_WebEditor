@@ -56,6 +56,7 @@ export interface Score {
     toggleLineBreak?: () => Promise<unknown> | unknown;
     togglePageBreak?: () => Promise<unknown> | unknown;
     setVoice?: (voiceIndex: number) => Promise<unknown> | unknown;
+    changeSelectedElementsVoice?: (voiceIndex: number) => Promise<unknown> | unknown;
     undo?: () => Promise<unknown> | unknown;
     redo?: () => Promise<unknown> | unknown;
     relayout?: () => Promise<unknown> | unknown;

@@ -987,6 +987,15 @@ class WebMscore {
     }
 
     /**
+     * Move selected elements to another voice
+     * @param {number} voiceIndex
+     * @returns {Promise<boolean>}
+     */
+    async changeSelectedElementsVoice(voiceIndex) {
+        return Module.ccall('changeSelectedElementsVoice', 'boolean', ['number', 'number', 'number'], [this.scoreptr, voiceIndex, this.excerptId])
+    }
+
+    /**
      * Undo the last command
      */
     async undo() {

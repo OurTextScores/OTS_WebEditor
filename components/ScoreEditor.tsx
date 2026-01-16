@@ -54,6 +54,7 @@ type MutationMethods = Pick<
     | 'toggleLineBreak'
     | 'togglePageBreak'
     | 'setVoice'
+    | 'changeSelectedElementsVoice'
     | 'addDynamic'
     | 'addHairpin'
     | 'addRehearsalMark'
@@ -1371,12 +1372,19 @@ export default function ScoreEditor() {
         return fn();
     }, { skipWasmReselect: true });
 
-    const handleSetVoice = (voiceIndex: number) => performMutation(`set voice ${voiceIndex + 1}`, async () => {
-        await ensureSelectionInWasm();
-        const fn = requireMutation('setVoice');
-        if (!fn) return;
-        return fn(voiceIndex);
-    });
+    const handleSetVoice = (voiceIndex: number) => {
+        const hasSelection = Boolean(selectedElement) || selectionBoxes.length > 0;
+        if (!hasSelection) {
+            alert('Select notes or rests to move them to another voice.');
+            return;
+        }
+        return performMutation(`change voice ${voiceIndex + 1}`, async () => {
+            await ensureSelectionInWasm();
+            const fn = requireMutation('changeSelectedElementsVoice');
+            if (!fn) return;
+            return fn(voiceIndex);
+        });
+    };
 
     const handleAddDynamic = (dynamicType: number) => performMutation('add dynamic', async () => {
         await ensureSelectionInWasm();

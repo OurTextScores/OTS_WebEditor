@@ -2279,8 +2279,34 @@ bool _setVoice(uintptr_t score_ptr, int voiceIndex, int excerptId)
         LOGW() << "setVoice: invalid voice index " << voiceIndex;
         return false;
     }
+    auto& inputState = score->inputState();
+    if (inputState.track() == mu::nidx || !inputState.segment()) {
+        if (!_setInputStateFromSelection(score_ptr, excerptId)) {
+            LOGW() << "setVoice: no selection to seed input state";
+            return false;
+        }
+    }
     // Use input state to set current voice
     score->inputState().setVoice(voiceIndex);
+    return true;
+}
+
+bool _changeSelectedElementsVoice(uintptr_t score_ptr, int voiceIndex, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    if (voiceIndex < 0 || voiceIndex > 3) {
+        LOGW() << "changeSelectedElementsVoice: invalid voice index " << voiceIndex;
+        return false;
+    }
+    if (score->selection().isNone()) {
+        LOGW() << "changeSelectedElementsVoice: no selection";
+        return false;
+    }
+
+    score->startCmd();
+    // Older libmscore builds only support moving selected notes across voices.
+    score->changeSelectedNotesVoice(voiceIndex);
+    score->endCmd();
     return true;
 }
 
@@ -3180,6 +3206,11 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool setVoice(uintptr_t score_ptr, int voiceIndex, int excerptId = -1) {
         return _setVoice(score_ptr, voiceIndex, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool changeSelectedElementsVoice(uintptr_t score_ptr, int voiceIndex, int excerptId = -1) {
+        return _changeSelectedElementsVoice(score_ptr, voiceIndex, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE
