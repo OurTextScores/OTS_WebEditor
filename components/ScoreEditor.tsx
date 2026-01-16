@@ -11,6 +11,7 @@ import {
     saveCheckpoint,
     type CheckpointSummary,
 } from '../lib/checkpoints';
+import { CodeMirrorEditor } from './CodeMirrorEditor';
 import { Toolbar, type MeasureInsertTarget } from './Toolbar';
 
 type SelectionBox = {
@@ -281,6 +282,12 @@ export default function ScoreEditor() {
     const [checkpointError, setCheckpointError] = useState<string | null>(null);
     const [compareView, setCompareView] = useState<{ title: string; currentXml: string; checkpointXml: string } | null>(null);
     const [checkpointsCollapsed, setCheckpointsCollapsed] = useState(false);
+    const [scoreDirtySinceCheckpoint, setScoreDirtySinceCheckpoint] = useState(false);
+    const [xmlSidebarMode, setXmlSidebarMode] = useState<'closed' | 'open' | 'full'>('open');
+    const [xmlText, setXmlText] = useState('');
+    const [xmlDirty, setXmlDirty] = useState(false);
+    const [xmlLoading, setXmlLoading] = useState(false);
+    const [xmlError, setXmlError] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(0);
     const [pageCount, setPageCount] = useState(1);
     const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -415,6 +422,64 @@ export default function ScoreEditor() {
         return cleaned.length > 0 ? cleaned.slice(0, 64) : 'checkpoint';
     };
 
+    const normalizeXmlData = async (data: unknown): Promise<Uint8Array | null> => {
+        if (!data) {
+            return null;
+        }
+        if (data instanceof Uint8Array) {
+            return data;
+        }
+        if (data instanceof ArrayBuffer) {
+            return new Uint8Array(data);
+        }
+        if (ArrayBuffer.isView(data)) {
+            return new Uint8Array(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength));
+        }
+        if (typeof data === 'string') {
+            return new TextEncoder().encode(data);
+        }
+        if (data instanceof Blob) {
+            return new Uint8Array(await data.arrayBuffer());
+        }
+        console.warn('Unexpected saveXml response type', data);
+        return null;
+    };
+
+    const getScoreXmlData = useCallback(async () => {
+        const activeScore = scoreRef.current ?? score;
+        if (!activeScore?.saveXml) {
+            alert('This build of webmscore does not expose "saveXml".');
+            return null;
+        }
+        const data = await activeScore.saveXml();
+        return await normalizeXmlData(data);
+    }, [score]);
+
+    const loadXmlFromScore = useCallback(async () => {
+        if (!score) {
+            setXmlText('');
+            setXmlDirty(false);
+            return;
+        }
+        setXmlLoading(true);
+        setXmlError(null);
+        try {
+            const data = await getScoreXmlData();
+            if (!data) {
+                return;
+            }
+            const text = new TextDecoder().decode(data);
+            setXmlText(text);
+            setXmlDirty(false);
+        } catch (err) {
+            console.error('Failed to load MusicXML', err);
+            setXmlError('Unable to load MusicXML from the current score.');
+        } finally {
+            setXmlLoading(false);
+        }
+    }, [score, getScoreXmlData]);
+
+
     const loadCheckpointList = useCallback(async () => {
         if (!isIndexedDbAvailable()) {
             setCheckpointError('IndexedDB is not available in this browser.');
@@ -443,6 +508,18 @@ export default function ScoreEditor() {
     useEffect(() => {
         void loadCheckpointList();
     }, [loadCheckpointList]);
+
+    useEffect(() => {
+        if (!score) {
+            setXmlText('');
+            setXmlDirty(false);
+            return;
+        }
+        if (xmlDirty) {
+            return;
+        }
+        void loadXmlFromScore();
+    }, [score, xmlDirty, loadXmlFromScore]);
 
     useEffect(() => {
         const abortController = new AbortController();
@@ -484,6 +561,10 @@ export default function ScoreEditor() {
         setMutationEnabled(false);
         setSoundFontLoaded(false);
         setTriedSoundFont(false);
+        setScoreDirtySinceCheckpoint(false);
+        setXmlText('');
+        setXmlDirty(false);
+        setXmlError(null);
         setScoreTitle('');
         setScoreSubtitle('');
         setScoreComposer('');
@@ -552,6 +633,10 @@ export default function ScoreEditor() {
         setMutationEnabled(false);
         setSoundFontLoaded(false);
         setTriedSoundFont(false);
+        setScoreDirtySinceCheckpoint(false);
+        setXmlText('');
+        setXmlDirty(false);
+        setXmlError(null);
         setScoreTitle('');
         setScoreSubtitle('');
         setScoreComposer('');
@@ -726,39 +811,6 @@ export default function ScoreEditor() {
         }
     };
 
-    const normalizeXmlData = async (data: unknown): Promise<Uint8Array | null> => {
-        if (!data) {
-            return null;
-        }
-        if (data instanceof Uint8Array) {
-            return data;
-        }
-        if (data instanceof ArrayBuffer) {
-            return new Uint8Array(data);
-        }
-        if (ArrayBuffer.isView(data)) {
-            return new Uint8Array(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength));
-        }
-        if (typeof data === 'string') {
-            return new TextEncoder().encode(data);
-        }
-        if (data instanceof Blob) {
-            return new Uint8Array(await data.arrayBuffer());
-        }
-        console.warn('Unexpected saveXml response type', data);
-        return null;
-    };
-
-    const getScoreXmlData = async () => {
-        const activeScore = scoreRef.current ?? score;
-        if (!activeScore?.saveXml) {
-            alert('This build of webmscore does not expose "saveXml".');
-            return null;
-        }
-        const data = await activeScore.saveXml();
-        return await normalizeXmlData(data);
-    };
-
     const handleSaveCheckpoint = async () => {
         if (!score) {
             alert('Load a score before saving a checkpoint.');
@@ -783,6 +835,7 @@ export default function ScoreEditor() {
                 data: buffer,
                 size: data.byteLength,
             });
+            setScoreDirtySinceCheckpoint(false);
             setCheckpointLabel('');
             await loadCheckpointList();
         } catch (err) {
@@ -851,6 +904,70 @@ export default function ScoreEditor() {
             alert('Failed to compare checkpoint. See console for details.');
         } finally {
             setCheckpointBusy(false);
+        }
+    };
+
+    const handleRefreshXml = async () => {
+        if (!score) {
+            alert('Load a score before refreshing MusicXML.');
+            return;
+        }
+        if (xmlDirty && typeof window !== 'undefined') {
+            const ok = window.confirm('Discard local MusicXML edits and reload from the score?');
+            if (!ok) {
+                return;
+            }
+        }
+        await loadXmlFromScore();
+    };
+
+    const handleApplyXmlEdits = async () => {
+        if (!score) {
+            alert('Load a score before applying MusicXML edits.');
+            return;
+        }
+        if (!xmlText.trim()) {
+            alert('MusicXML text is empty.');
+            return;
+        }
+        if (!isIndexedDbAvailable()) {
+            alert('IndexedDB is not available; cannot verify checkpoint status.');
+            return;
+        }
+        setXmlLoading(true);
+        setXmlError(null);
+        try {
+            const latestCheckpoint = checkpoints[0];
+            if (!latestCheckpoint) {
+                alert('No checkpoints found. Please save one before applying MusicXML edits.');
+                return;
+            }
+            const [currentData, record] = await Promise.all([
+                getScoreXmlData(),
+                getCheckpoint(latestCheckpoint.id),
+            ]);
+            if (!currentData || !record) {
+                alert('Unable to verify checkpoint state.');
+                return;
+            }
+            const decoder = new TextDecoder();
+            const currentXml = decoder.decode(currentData);
+            const checkpointXml = decoder.decode(new Uint8Array(record.data));
+            if (currentXml !== checkpointXml) {
+                alert('Unsaved score changes detected since the last checkpoint. Please checkpoint before applying MusicXML edits.');
+                return;
+            }
+            const encoder = new TextEncoder();
+            const encoded = encoder.encode(xmlText);
+            const filenameBase = scoreTitle ? toSafeFilename(scoreTitle) : 'score';
+            const file = new File([encoded], `${filenameBase}.musicxml`, { type: 'application/xml' });
+            setXmlDirty(false);
+            await handleFileUpload(file);
+        } catch (err) {
+            console.error('Failed to apply MusicXML edits', err);
+            alert('Failed to apply MusicXML edits. See console for details.');
+        } finally {
+            setXmlLoading(false);
         }
     };
 
@@ -1234,6 +1351,7 @@ export default function ScoreEditor() {
             if (!mutated) {
                 return;
             }
+            setScoreDirtySinceCheckpoint(true);
 
             if (!options?.skipRelayout && score.relayout) {
                 try {
@@ -3271,6 +3389,8 @@ export default function ScoreEditor() {
     const checkpointControlsDisabled = checkpointBusy || checkpointLoading;
     const checkpointSaveDisabled = checkpointControlsDisabled || !score || !score?.saveXml;
     const checkpointCompareDisabled = checkpointControlsDisabled || !score;
+    const xmlControlsDisabled = xmlLoading || !score || !score?.saveXml;
+    const xmlApplyDisabled = xmlControlsDisabled || !xmlText.trim();
 
     return (
         <div className="flex flex-col h-screen">
@@ -3652,6 +3772,94 @@ export default function ScoreEditor() {
                     )}
                 </div>
             </div>
+
+            <aside
+                className={`shrink-0 border-l bg-white text-sm ${
+                    xmlSidebarMode === 'closed' ? 'w-12' : xmlSidebarMode === 'full' ? 'w-full' : 'w-80'
+                } ${xmlSidebarMode === 'closed' ? '' : 'overflow-y-auto'}`}
+                data-testid="xml-sidebar"
+            >
+                <div className={xmlSidebarMode === 'closed' ? 'flex items-center justify-center p-2' : 'flex items-center justify-between p-4'}>
+                    {xmlSidebarMode !== 'closed' && (
+                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            MusicXML
+                        </span>
+                    )}
+                    <button
+                        type="button"
+                        data-testid="btn-xml-toggle"
+                        aria-expanded={xmlSidebarMode !== 'closed'}
+                        aria-controls="xml-sidebar-content"
+                        aria-label={
+                            xmlSidebarMode === 'closed'
+                                ? 'Open MusicXML sidebar'
+                                : xmlSidebarMode === 'open'
+                                    ? 'Expand MusicXML sidebar'
+                                    : 'Close MusicXML sidebar'
+                        }
+                        onClick={() => {
+                            setXmlSidebarMode((prev) => (prev === 'closed' ? 'open' : prev === 'open' ? 'full' : 'closed'));
+                        }}
+                        className="text-xs font-medium text-gray-600 hover:text-gray-900"
+                    >
+                        {xmlSidebarMode === 'closed' ? 'Open' : xmlSidebarMode === 'open' ? 'Full' : 'Close'}
+                    </button>
+                </div>
+                {xmlSidebarMode !== 'closed' && (
+                    <div id="xml-sidebar-content" className="px-4 pb-4">
+                        <div className="flex items-center justify-between text-xs text-gray-500">
+                            <span>
+                                {checkpoints.length === 0
+                                    ? 'No checkpoint yet'
+                                    : scoreDirtySinceCheckpoint
+                                        ? 'Unsaved score changes'
+                                        : ''}
+                            </span>
+                            {xmlLoading && <span>Loading...</span>}
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                data-testid="btn-xml-apply"
+                                onClick={handleApplyXmlEdits}
+                                disabled={xmlApplyDisabled}
+                                className="flex-1 rounded border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Apply edits
+                            </button>
+                            <button
+                                type="button"
+                                data-testid="btn-xml-reload"
+                                onClick={handleRefreshXml}
+                                disabled={xmlControlsDisabled}
+                                className="flex-1 rounded border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Reload
+                            </button>
+                        </div>
+                        <div className="mt-2">
+                            <CodeMirrorEditor
+                                testId="xml-editor"
+                                value={xmlText}
+                                onChange={(nextValue) => {
+                                    setXmlText(nextValue);
+                                    setXmlDirty(true);
+                                }}
+                                readOnly={xmlControlsDisabled}
+                                placeholderText={score ? 'MusicXML will appear here.' : 'Load a score to view MusicXML.'}
+                            />
+                        </div>
+                        {xmlError && (
+                            <div className="mt-2 text-xs text-red-600">
+                                {xmlError}
+                            </div>
+                        )}
+                        <div className="mt-2 text-[11px] text-gray-500">
+                            Apply edits only when the score matches the last checkpoint.
+                        </div>
+                    </div>
+                )}
+            </aside>
 
             {compareView && (
                 <div
