@@ -180,8 +180,11 @@ describe('Toolbar', () => {
       />,
     );
 
-    await user.click(screen.getByTestId('btn-tempo-120'));
-    expect(onAddTempoText).toHaveBeenCalledWith(120);
+    const tempoInput = screen.getByTestId('input-tempo-bpm');
+    await user.clear(tempoInput);
+    await user.type(tempoInput, '144');
+    await user.click(screen.getByTestId('btn-tempo-apply'));
+    expect(onAddTempoText).toHaveBeenCalledWith(144);
   });
 
   it('wires duration buttons', async () => {

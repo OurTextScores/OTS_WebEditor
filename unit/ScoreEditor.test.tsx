@@ -313,9 +313,12 @@ describe('ScoreEditor', () => {
     await waitFor(() => expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy());
     expect(screen.queryByTestId('selection-overlay')).not.toBeInTheDocument();
 
-    await user.click(screen.getByTestId('btn-tempo-120'));
+    const tempoInput = screen.getByTestId('input-tempo-bpm');
+    await user.clear(tempoInput);
+    await user.type(tempoInput, '96');
+    await user.click(screen.getByTestId('btn-tempo-apply'));
 
-    await waitFor(() => expect(score.addTempoText).toHaveBeenCalledWith(120));
+    await waitFor(() => expect(score.addTempoText).toHaveBeenCalledWith(96));
   });
 
   it('zooms in/out and clamps zoom limits', async () => {
@@ -952,6 +955,11 @@ describe('ScoreEditor', () => {
     fireEvent.click(note!);
     await screen.findByTestId('selection-overlay');
 
+    const rhythmDropdown = screen.getByTestId('dropdown-rhythm');
+    const rhythmSummary = rhythmDropdown.querySelector('summary');
+    if (rhythmSummary) {
+      fireEvent.click(rhythmSummary);
+    }
     await user.click(screen.getByTestId('btn-double-dot'));
     expect((globalThis as any).alert).toHaveBeenCalledWith('This build of webmscore does not expose "toggleDoubleDot".');
   });

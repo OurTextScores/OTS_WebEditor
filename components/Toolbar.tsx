@@ -236,6 +236,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     const [customTimeSigNumerator, setCustomTimeSigNumerator] = useState('4');
     const [measureCount, setMeasureCount] = useState(1);
     const [measureTarget, setMeasureTarget] = useState<MeasureInsertTarget>('after-selection');
+    const [tempoBpm, setTempoBpm] = useState('120');
 
     const handleApplyMeasures = () => {
         if (!onInsertMeasures) {
@@ -244,6 +245,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         const sanitized = Math.max(1, Math.floor(measureCount));
         setMeasureCount(sanitized);
         onInsertMeasures(sanitized, measureTarget);
+    };
+    const handleApplyTempo = () => {
+        if (!onAddTempoText) {
+            return;
+        }
+        const trimmed = tempoBpm.trim();
+        if (!trimmed) {
+            return;
+        }
+        const parsed = Number(trimmed);
+        const sanitized = Number.isFinite(parsed) ? Math.max(1, Math.floor(parsed)) : 120;
+        setTempoBpm(String(sanitized));
+        onAddTempoText(sanitized);
     };
     const [customTimeSigDenominator, setCustomTimeSigDenominator] = useState('4');
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -768,9 +782,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Rehearsal Mark
-                    </button>
-                </span>
-            </div>
+                        </button>
+                    </span>
+                </div>
 
                 <div className="flex items-center space-x-2">
                     <button
@@ -819,7 +833,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         onClick={() => onTranspose?.(12)}
                         disabled={mutationDisabled || !selectionActive || !onTranspose}
                         className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
+                    >
                         Octave ↑
 	                    </button>
 	                </div>
@@ -861,6 +875,34 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Longer
+                    </button>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        Tempo
+                    </span>
+                    <input
+                        data-testid="input-tempo-bpm"
+                        type="number"
+                        min={1}
+                        value={tempoBpm}
+                        onChange={event => setTempoBpm(event.currentTarget.value)}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                                event.preventDefault();
+                                handleApplyTempo();
+                            }
+                        }}
+                        className="w-20 px-2 py-1 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                        data-testid="btn-tempo-apply"
+                        type="button"
+                        onClick={handleApplyTempo}
+                        disabled={mutationDisabled || !onAddTempoText}
+                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Tempo
                     </button>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -1425,16 +1467,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         {opt.label}
                     </button>
                 ))}
-                <div className={dropdownLabelClass}>Tempo</div>
-                <button
-                    data-testid="btn-tempo-120"
-                    type="button"
-                    onClick={() => onAddTempoText?.(120)}
-                    disabled={mutationDisabled || !onAddTempoText}
-                    className={dropdownItemClass}
-                >
-                    Tempo 120
-                </button>
             </ToolbarDropdown>
 
             <ToolbarDropdown
