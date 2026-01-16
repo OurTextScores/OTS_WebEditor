@@ -30,6 +30,7 @@ interface PartSummary {
 }
 
 interface ToolbarProps {
+    onNewScore?: () => void;
     onFileUpload: (file: File) => void;
     scoreTitle?: string;
     scoreSubtitle?: string;
@@ -132,6 +133,7 @@ interface ToolbarProps {
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
+    onNewScore,
     onFileUpload,
     scoreTitle,
     scoreSubtitle,
@@ -490,10 +492,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         disabled?: boolean;
         children: React.ReactNode;
         testId?: string;
-    }> = ({ label, disabled = false, children, testId }) => (
+        summaryClassName?: string;
+    }> = ({ label, disabled = false, children, testId, summaryClassName }) => (
         <details className="relative overflow-visible" data-testid={testId}>
             <summary
-                className={`${dropdownSummaryClass} ${disabled ? dropdownSummaryDisabledClass : ''}`}
+                className={`${summaryClassName ?? dropdownSummaryClass} ${disabled ? dropdownSummaryDisabledClass : ''}`}
             >
                 {label}
             </summary>
@@ -544,6 +547,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             style={{ zIndex: 100 }}
         >
 	            <div className="flex items-center space-x-4">
+                    <button
+                        type="button"
+                        onClick={onNewScore}
+                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={!onNewScore}
+                    >
+                        New Score
+                    </button>
 	                <label className="px-4 py-2 bg-blue-600 text-white rounded cursor-pointer hover:bg-blue-700">
 	                    Open Score
 	                    <input
@@ -554,6 +565,76 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 	                        className="hidden"
 	                    />
 	                </label>
+                    <ToolbarDropdown
+                        label="Export"
+                        disabled={!exportsEnabled}
+                        testId="dropdown-export"
+                        summaryClassName="px-3 py-2 bg-blue-600 text-white rounded cursor-pointer hover:bg-blue-700 list-none"
+                    >
+                        <button
+                            data-testid="btn-export-svg"
+                            type="button"
+                            onClick={onExportSvg}
+                            disabled={!exportsEnabled || !onExportSvg}
+                            className={dropdownItemClass}
+                        >
+                            SVG
+                        </button>
+                        <button
+                            data-testid="btn-export-pdf"
+                            type="button"
+                            onClick={onExportPdf}
+                            disabled={!exportsEnabled || !onExportPdf}
+                            className={dropdownItemClass}
+                        >
+                            PDF
+                        </button>
+                        <button
+                            data-testid="btn-export-png"
+                            type="button"
+                            onClick={onExportPng}
+                            disabled={!exportsEnabled || !onExportPng || !pngAvailable}
+                            className={dropdownItemClass}
+                        >
+                            PNG
+                        </button>
+                        <button
+                            data-testid="btn-export-mxl"
+                            type="button"
+                            onClick={onExportMxl}
+                            disabled={!exportsEnabled || !onExportMxl}
+                            className={dropdownItemClass}
+                        >
+                            MXL
+                        </button>
+                        <button
+                            data-testid="btn-export-mscz"
+                            type="button"
+                            onClick={onExportMscz}
+                            disabled={!exportsEnabled || !onExportMscz}
+                            className={dropdownItemClass}
+                        >
+                            MSCZ
+                        </button>
+                        <button
+                            data-testid="btn-export-midi"
+                            type="button"
+                            onClick={onExportMidi}
+                            disabled={!exportsEnabled || !onExportMidi}
+                            className={dropdownItemClass}
+                        >
+                            MIDI
+                        </button>
+                        <button
+                            data-testid="btn-export-audio"
+                            type="button"
+                            onClick={onExportAudio}
+                            disabled={!exportsEnabled || !onExportAudio || !audioAvailable || audioBusy}
+                            className={dropdownItemClass}
+                        >
+                            {audioBusy ? 'Exporting…' : 'WAV'}
+                        </button>
+                    </ToolbarDropdown>
 	                <label className="px-3 py-1 bg-white border border-gray-300 rounded cursor-pointer hover:bg-gray-50">
 	                    Load SoundFont
 	                    <input
@@ -916,76 +997,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     </button>
                 </div>
 	            </div>
-
-	            <ToolbarDropdown
-                    label="Export"
-                    disabled={!exportsEnabled}
-                    testId="dropdown-export"
-                >
-                    <button
-                        data-testid="btn-export-svg"
-                        type="button"
-                        onClick={onExportSvg}
-                        disabled={!exportsEnabled || !onExportSvg}
-                        className={dropdownItemClass}
-                    >
-                        SVG
-                    </button>
-                    <button
-                        data-testid="btn-export-pdf"
-                        type="button"
-                        onClick={onExportPdf}
-                        disabled={!exportsEnabled || !onExportPdf}
-                        className={dropdownItemClass}
-                    >
-                        PDF
-                    </button>
-                    <button
-                        data-testid="btn-export-png"
-                        type="button"
-                        onClick={onExportPng}
-                        disabled={!exportsEnabled || !onExportPng || !pngAvailable}
-                        className={dropdownItemClass}
-                    >
-                        PNG
-                    </button>
-                    <button
-                        data-testid="btn-export-mxl"
-                        type="button"
-                        onClick={onExportMxl}
-                        disabled={!exportsEnabled || !onExportMxl}
-                        className={dropdownItemClass}
-                    >
-                        MXL
-                    </button>
-                    <button
-                        data-testid="btn-export-mscz"
-                        type="button"
-                        onClick={onExportMscz}
-                        disabled={!exportsEnabled || !onExportMscz}
-                        className={dropdownItemClass}
-                    >
-                        MSCZ
-                    </button>
-                    <button
-                        data-testid="btn-export-midi"
-                        type="button"
-                        onClick={onExportMidi}
-                        disabled={!exportsEnabled || !onExportMidi}
-                        className={dropdownItemClass}
-                    >
-                        MIDI
-                    </button>
-                    <button
-                        data-testid="btn-export-audio"
-                        type="button"
-                        onClick={onExportAudio}
-                        disabled={!exportsEnabled || !onExportAudio || !audioAvailable || audioBusy}
-                        className={dropdownItemClass}
-                    >
-                        {audioBusy ? 'Exporting…' : 'WAV'}
-                    </button>
-                </ToolbarDropdown>
 
 	            <div className="flex items-center space-x-2 text-sm">
 	                <button

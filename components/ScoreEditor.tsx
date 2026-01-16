@@ -1,6 +1,6 @@
 'use client';
 
-import React, { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
+import React, { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { loadWebMscore, Score, InputFileFormat } from '../lib/webmscore-loader';
 import {
@@ -8,8 +8,10 @@ import {
     getCheckpoint,
     isIndexedDbAvailable,
     listCheckpoints,
+    listScoreSummaries,
     saveCheckpoint,
     type CheckpointSummary,
+    type ScoreSummary,
 } from '../lib/checkpoints';
 import { CodeMirrorEditor } from './CodeMirrorEditor';
 import { Toolbar, type MeasureInsertTarget } from './Toolbar';
@@ -294,6 +296,10 @@ export default function ScoreEditor() {
     const [checkpointError, setCheckpointError] = useState<string | null>(null);
     const [compareView, setCompareView] = useState<{ title: string; currentXml: string; checkpointXml: string } | null>(null);
     const [checkpointsCollapsed, setCheckpointsCollapsed] = useState(false);
+    const [leftSidebarTab, setLeftSidebarTab] = useState<'checkpoints' | 'scores'>('checkpoints');
+    const [scoreSummaries, setScoreSummaries] = useState<ScoreSummary[]>([]);
+    const [scoreSummariesLoading, setScoreSummariesLoading] = useState(false);
+    const [scoreSummariesError, setScoreSummariesError] = useState<string | null>(null);
     const [scoreDirtySinceCheckpoint, setScoreDirtySinceCheckpoint] = useState(false);
     const [scoreDirtySinceXml, setScoreDirtySinceXml] = useState(false);
     const [xmlSidebarMode, setXmlSidebarMode] = useState<'closed' | 'open' | 'full'>('open');
@@ -319,6 +325,15 @@ export default function ScoreEditor() {
     const [aiModelsError, setAiModelsError] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(0);
     const [pageCount, setPageCount] = useState(1);
+    const [scoreId, setScoreId] = useState('');
+    const [newScoreDialogOpen, setNewScoreDialogOpen] = useState(false);
+    const [newScoreTitle, setNewScoreTitle] = useState('');
+    const [newScoreComposer, setNewScoreComposer] = useState('');
+    const [newScoreInstrumentId, setNewScoreInstrumentId] = useState('');
+    const [newScoreMeasures, setNewScoreMeasures] = useState(4);
+    const [newScoreKeyFifths, setNewScoreKeyFifths] = useState(0);
+    const [newScoreTimeNumerator, setNewScoreTimeNumerator] = useState(4);
+    const [newScoreTimeDenominator, setNewScoreTimeDenominator] = useState(4);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [audioBusy, setAudioBusy] = useState(false);
@@ -471,6 +486,156 @@ export default function ScoreEditor() {
     const toSafeFilename = (name: string) => {
         const cleaned = name.replace(/[\\/:*?"<>|]+/g, '_').trim();
         return cleaned.length > 0 ? cleaned.slice(0, 64) : 'checkpoint';
+    };
+
+    const updateUrlScoreId = (nextScoreId: string) => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+        const url = new URL(window.location.href);
+        url.searchParams.set('scoreId', nextScoreId);
+        url.searchParams.delete('score');
+        window.history.replaceState({}, '', url.toString());
+    };
+
+    const ensureScoreId = (fallbackPrefix: string) => {
+        if (scoreId) {
+            return scoreId;
+        }
+        const generated = `${fallbackPrefix}:${crypto.randomUUID()}`;
+        setScoreId(generated);
+        updateUrlScoreId(generated);
+        return generated;
+    };
+
+    const summarizeScoreId = (id: string) => {
+        if (id.startsWith('url:')) {
+            const url = id.slice(4);
+            const name = url.split('/').pop() || url;
+            return { title: name, detail: url, type: 'url' as const };
+        }
+        if (id.startsWith('file:')) {
+            const parts = id.slice(5).split(':');
+            const name = parts[0] || 'File import';
+            return { title: name, detail: 'File import', type: 'file' as const };
+        }
+        if (id.startsWith('new:')) {
+            return { title: 'New score', detail: id.slice(4), type: 'new' as const };
+        }
+        if (id === 'legacy') {
+            return { title: 'Legacy checkpoints', detail: 'Unscoped checkpoints', type: 'legacy' as const };
+        }
+        return { title: id, detail: '', type: 'other' as const };
+    };
+
+    const escapeXml = (value: string) => value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+
+    const newScoreInstrumentOptions = useMemo(() => {
+        if (instrumentGroups.length) {
+            return instrumentGroups.flatMap((group) => group.instruments.map((instrument) => ({
+                id: instrument.id,
+                name: instrument.name,
+                label: group.name ? `${instrument.name} (${group.name})` : instrument.name,
+            })));
+        }
+        return [
+            { id: 'piano', name: 'Piano', label: 'Piano' },
+            { id: 'violin', name: 'Violin', label: 'Violin' },
+            { id: 'flute', name: 'Flute', label: 'Flute' },
+            { id: 'guitar', name: 'Guitar', label: 'Guitar' },
+            { id: 'voice', name: 'Voice', label: 'Voice' },
+        ];
+    }, [instrumentGroups]);
+
+    const newScoreTimeOptions = [
+        { label: '4/4', numerator: 4, denominator: 4 },
+        { label: '3/4', numerator: 3, denominator: 4 },
+        { label: '2/4', numerator: 2, denominator: 4 },
+        { label: '6/8', numerator: 6, denominator: 8 },
+        { label: '2/2', numerator: 2, denominator: 2 },
+        { label: '5/4', numerator: 5, denominator: 4 },
+        { label: '7/8', numerator: 7, denominator: 8 },
+        { label: '3/8', numerator: 3, denominator: 8 },
+        { label: '9/8', numerator: 9, denominator: 8 },
+        { label: '12/8', numerator: 12, denominator: 8 },
+    ];
+
+    const newScoreKeyOptions = [
+        { label: 'C', fifths: 0 },
+        { label: 'G', fifths: 1 },
+        { label: 'D', fifths: 2 },
+        { label: 'A', fifths: 3 },
+        { label: 'E', fifths: 4 },
+        { label: 'B', fifths: 5 },
+        { label: 'F#', fifths: 6 },
+        { label: 'C#', fifths: 7 },
+        { label: 'F', fifths: -1 },
+        { label: 'Bb', fifths: -2 },
+        { label: 'Eb', fifths: -3 },
+        { label: 'Ab', fifths: -4 },
+        { label: 'Db', fifths: -5 },
+        { label: 'Gb', fifths: -6 },
+        { label: 'Cb', fifths: -7 },
+    ];
+
+    const buildNewScoreXml = (options: {
+        title: string;
+        composer: string;
+        instrumentName: string;
+        measures: number;
+        keyFifths: number;
+        timeNumerator: number;
+        timeDenominator: number;
+    }) => {
+        const title = escapeXml(options.title.trim());
+        const instrumentName = escapeXml(options.instrumentName.trim() || 'Instrument');
+        const composer = escapeXml(options.composer.trim());
+        const divisions = 16;
+        const measureDuration = Math.round((divisions * 4 * options.timeNumerator) / options.timeDenominator);
+        const measuresXml = Array.from({ length: options.measures }, (_, index) => {
+            const attributes = index === 0
+                ? `
+      <attributes>
+        <divisions>${divisions}</divisions>
+        <key><fifths>${options.keyFifths}</fifths></key>
+        <time><beats>${options.timeNumerator}</beats><beat-type>${options.timeDenominator}</beat-type></time>
+        <clef><sign>G</sign><line>2</line></clef>
+      </attributes>`
+                : '';
+            return `    <measure number="${index + 1}">
+${attributes}
+      <note>
+        <rest measure="yes"/>
+        <duration>${measureDuration}</duration>
+        <voice>1</voice>
+      </note>
+    </measure>`;
+        }).join('\n');
+        const workLine = title ? `  <work><work-title>${title}</work-title></work>\n` : '';
+        const identificationLine = composer
+            ? `  <identification><creator type="composer">${composer}</creator></identification>\n`
+            : '';
+        return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="3.1">
+${workLine}${identificationLine}  <part-list>
+    <score-part id="P1">
+      <part-name>${instrumentName}</part-name>
+      <score-instrument id="P1-I1">
+        <instrument-name>${instrumentName}</instrument-name>
+      </score-instrument>
+    </score-part>
+  </part-list>
+  <part id="P1">
+${measuresXml}
+  </part>
+</score-partwise>
+`;
     };
 
     const normalizeXmlData = async (data: unknown): Promise<Uint8Array | null> => {
@@ -705,6 +870,7 @@ export default function ScoreEditor() {
             alert('Unable to read MusicXML for checkpointing.');
             return { ok: false, currentXml: '' };
         }
+        const activeScoreId = ensureScoreId('score');
         const decoder = new TextDecoder();
         const currentXml = decoder.decode(currentData);
         const latestCheckpoint = checkpoints[0];
@@ -725,6 +891,7 @@ export default function ScoreEditor() {
                 format: 'musicxml',
                 data: buffer,
                 size: currentData.byteLength,
+                scoreId: activeScoreId,
             });
             setScoreDirtySinceCheckpoint(false);
             await loadCheckpointList();
@@ -751,20 +918,56 @@ export default function ScoreEditor() {
         const filenameBase = scoreTitle ? toSafeFilename(scoreTitle) : 'score';
         const file = new File([encoded], `${filenameBase}.musicxml`, { type: 'application/xml' });
         setXmlDirty(false);
-        await handleFileUpload(file);
+        await handleFileUpload(file, { preserveScoreId: true, updateUrl: false });
         setScoreDirtySinceCheckpoint(willChange);
         setScoreDirtySinceXml(false);
     };
 
+
+    const loadScoreSummaryList = useCallback(async () => {
+        if (!isIndexedDbAvailable()) {
+            setScoreSummaries([]);
+            setScoreSummariesError('IndexedDB is not available in this browser.');
+            return;
+        }
+        setScoreSummariesLoading(true);
+        try {
+            const items = await listScoreSummaries();
+            let summaries = items;
+            if (scoreId && !items.some(item => item.scoreId === scoreId)) {
+                summaries = [
+                    {
+                        scoreId,
+                        title: scoreTitle || 'Current score',
+                        lastUpdated: Date.now(),
+                        count: 0,
+                    },
+                    ...items,
+                ];
+            }
+            setScoreSummaries(summaries);
+            setScoreSummariesError(null);
+        } catch (err) {
+            console.warn('Failed to load score summaries', err);
+            setScoreSummaries([]);
+            setScoreSummariesError('Unable to load scores from browser storage.');
+        } finally {
+            setScoreSummariesLoading(false);
+        }
+    }, [scoreId, scoreTitle]);
 
     const loadCheckpointList = useCallback(async () => {
         if (!isIndexedDbAvailable()) {
             setCheckpointError('IndexedDB is not available in this browser.');
             return;
         }
+        if (!scoreId) {
+            setCheckpoints([]);
+            return;
+        }
         setCheckpointLoading(true);
         try {
-            const items = await listCheckpoints();
+            const items = await listCheckpoints(scoreId);
             setCheckpoints(items);
             setCheckpointError(null);
         } catch (err) {
@@ -772,8 +975,9 @@ export default function ScoreEditor() {
             setCheckpointError('Unable to load checkpoints from browser storage.');
         } finally {
             setCheckpointLoading(false);
+            void loadScoreSummaryList();
         }
-    }, []);
+    }, [scoreId, loadScoreSummaryList]);
 
     const exposeScoreToWindow = (s: Score | null) => {
         // Handy for Playwright/debug sessions to poke at WASM bindings directly
@@ -785,6 +989,19 @@ export default function ScoreEditor() {
     useEffect(() => {
         void loadCheckpointList();
     }, [loadCheckpointList]);
+
+    useEffect(() => {
+        void loadScoreSummaryList();
+    }, [loadScoreSummaryList]);
+
+    useEffect(() => {
+        const paramScoreId = searchParams.get('scoreId');
+        const urlScore = searchParams.get('score');
+        const nextScoreId = paramScoreId || (urlScore ? `url:${urlScore}` : '');
+        if (nextScoreId && nextScoreId !== scoreId) {
+            setScoreId(nextScoreId);
+        }
+    }, [searchParams, scoreId]);
 
     useEffect(() => {
         if (!score) {
@@ -858,6 +1075,19 @@ export default function ScoreEditor() {
     }, [aiApiKey, aiModel]);
 
     useEffect(() => {
+        if (!newScoreDialogOpen) {
+            return;
+        }
+        if (newScoreInstrumentOptions.length === 0) {
+            return;
+        }
+        const hasInstrument = newScoreInstrumentOptions.some((option) => option.id === newScoreInstrumentId);
+        if (!hasInstrument) {
+            setNewScoreInstrumentId(newScoreInstrumentOptions[0].id);
+        }
+    }, [newScoreDialogOpen, newScoreInstrumentId, newScoreInstrumentOptions]);
+
+    useEffect(() => {
         const abortController = new AbortController();
 
         const boot = async () => {
@@ -886,6 +1116,10 @@ export default function ScoreEditor() {
     const handleUrlLoad = async (url: string, signal?: AbortSignal) => {
         if (signal?.aborted) {
             return;
+        }
+        const urlScoreId = searchParams.get('scoreId') || `url:${url}`;
+        if (urlScoreId !== scoreId) {
+            setScoreId(urlScoreId);
         }
         setLoading(true);
         setSelectedElement(null);
@@ -959,8 +1193,24 @@ export default function ScoreEditor() {
         }
     };
 
-    const handleFileUpload = async (file: File) => {
+    const handleFileUpload = async (
+        file: File,
+        options?: { preserveScoreId?: boolean; scoreIdOverride?: string; updateUrl?: boolean },
+    ) => {
         setLoading(true);
+        const shouldUpdateUrl = options?.updateUrl ?? true;
+        let nextScoreId = scoreId;
+        if (options?.scoreIdOverride) {
+            nextScoreId = options.scoreIdOverride;
+        } else if (!options?.preserveScoreId) {
+            nextScoreId = `file:${file.name}:${file.lastModified}`;
+        }
+        if (nextScoreId && nextScoreId !== scoreId) {
+            setScoreId(nextScoreId);
+            if (shouldUpdateUrl) {
+                updateUrlScoreId(nextScoreId);
+            }
+        }
         setSelectedElement(null);
         setSelectionBoxes([]);
         setSelectedPoint(null);
@@ -1149,6 +1399,69 @@ export default function ScoreEditor() {
         }
     };
 
+    const handleOpenNewScoreDialog = () => {
+        setNewScoreTitle('');
+        setNewScoreComposer('');
+        setNewScoreMeasures(4);
+        setNewScoreKeyFifths(0);
+        setNewScoreTimeNumerator(4);
+        setNewScoreTimeDenominator(4);
+        if (newScoreInstrumentOptions.length > 0) {
+            setNewScoreInstrumentId(newScoreInstrumentOptions[0].id);
+        }
+        setNewScoreDialogOpen(true);
+    };
+
+    const handleCreateNewScore = async () => {
+        const measures = Math.max(1, Math.floor(newScoreMeasures));
+        const instrumentOption = newScoreInstrumentOptions.find((option) => option.id === newScoreInstrumentId);
+        const instrumentName = instrumentOption?.name || newScoreInstrumentId || 'Instrument';
+        const xml = buildNewScoreXml({
+            title: newScoreTitle,
+            composer: newScoreComposer,
+            instrumentName,
+            measures,
+            keyFifths: newScoreKeyFifths,
+            timeNumerator: newScoreTimeNumerator,
+            timeDenominator: newScoreTimeDenominator,
+        });
+        const filenameBase = newScoreTitle.trim() ? toSafeFilename(newScoreTitle) : 'new_score';
+        const file = new File([new TextEncoder().encode(xml)], `${filenameBase}.musicxml`, {
+            type: 'application/xml',
+        });
+        setNewScoreDialogOpen(false);
+        const nextScoreId = `new:${crypto.randomUUID()}`;
+        setScoreId(nextScoreId);
+        updateUrlScoreId(nextScoreId);
+        await handleFileUpload(file, { scoreIdOverride: nextScoreId, updateUrl: false });
+    };
+
+    const handleSelectScoreSummary = (nextScoreId: string) => {
+        if (!nextScoreId) {
+            return;
+        }
+        setScoreId(nextScoreId);
+        if (!nextScoreId.startsWith('url:')) {
+            updateUrlScoreId(nextScoreId);
+        }
+        setLeftSidebarTab('checkpoints');
+    };
+
+    const handleOpenScoreFromSummary = (summary: ScoreSummary) => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+        if (!summary.scoreId.startsWith('url:')) {
+            handleSelectScoreSummary(summary.scoreId);
+            return;
+        }
+        const urlValue = summary.scoreId.slice(4);
+        const nextUrl = new URL(window.location.href);
+        nextUrl.searchParams.set('score', urlValue);
+        nextUrl.searchParams.delete('scoreId');
+        window.location.assign(nextUrl.toString());
+    };
+
     const handleSaveCheckpoint = async () => {
         if (!score) {
             alert('Load a score before saving a checkpoint.');
@@ -1164,6 +1477,7 @@ export default function ScoreEditor() {
             if (!data) {
                 return;
             }
+            const activeScoreId = ensureScoreId('score');
             const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
             const title = buildCheckpointTitle(checkpointLabel, scoreTitle);
             await saveCheckpoint({
@@ -1172,6 +1486,7 @@ export default function ScoreEditor() {
                 format: 'musicxml',
                 data: buffer,
                 size: data.byteLength,
+                scoreId: activeScoreId,
             });
             setScoreDirtySinceCheckpoint(false);
             setCheckpointLabel('');
@@ -1204,7 +1519,7 @@ export default function ScoreEditor() {
             }
             const filename = `${toSafeFilename(checkpoint.title)}.musicxml`;
             const file = new File([new Uint8Array(record.data)], filename, { type: 'application/xml' });
-            await handleFileUpload(file);
+            await handleFileUpload(file, { preserveScoreId: true, updateUrl: false });
         } catch (err) {
             console.error('Failed to restore checkpoint', err);
             alert('Failed to restore checkpoint. See console for details.');
@@ -3806,6 +4121,7 @@ export default function ScoreEditor() {
         <div className="flex flex-col h-screen">
             <div className="relative" style={{ zIndex: 100 }}>
 	            <Toolbar
+                    onNewScore={handleOpenNewScoreDialog}
 	                onFileUpload={handleFileUpload}
                     onSoundFontUpload={handleSoundFontUpload}
                     scoreTitle={scoreTitle}
@@ -3941,94 +4257,184 @@ export default function ScoreEditor() {
                     </div>
                     {!checkpointsCollapsed && (
                         <div id="checkpoint-sidebar-content" className="px-4 pb-4">
-                            <div className="mt-3 flex flex-col gap-2">
-                                <input
-                                    data-testid="input-checkpoint-label"
-                                    type="text"
-                                    value={checkpointLabel}
-                                    onChange={(event) => setCheckpointLabel(event.target.value)}
-                                    placeholder="Checkpoint label"
-                                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
-                                />
+                            <div className="mt-3 flex gap-2 text-xs font-medium text-gray-600">
                                 <button
                                     type="button"
-                                    data-testid="btn-checkpoint-save"
-                                    onClick={handleSaveCheckpoint}
-                                    disabled={checkpointSaveDisabled}
-                                    className={`w-full rounded border px-3 py-1 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
-                                        !checkpointSaveDisabled && scoreDirtySinceCheckpoint
-                                            ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
-                                            : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                                    data-testid="tab-checkpoints"
+                                    onClick={() => setLeftSidebarTab('checkpoints')}
+                                    className={`rounded border px-2 py-1 ${
+                                        leftSidebarTab === 'checkpoints'
+                                            ? 'border-gray-400 bg-gray-100 text-gray-900'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700'
                                     }`}
                                 >
-                                    Save Checkpoint
+                                    Checkpoints
                                 </button>
-                                {!score && (
-                                    <span className="text-xs text-gray-400">
-                                        Load a score to enable checkpoints.
-                                    </span>
-                                )}
+                                <button
+                                    type="button"
+                                    data-testid="tab-scores"
+                                    onClick={() => setLeftSidebarTab('scores')}
+                                    className={`rounded border px-2 py-1 ${
+                                        leftSidebarTab === 'scores'
+                                            ? 'border-gray-400 bg-gray-100 text-gray-900'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                                    }`}
+                                >
+                                    Scores
+                                </button>
                             </div>
-                            {checkpointError && (
-                                <div className="mt-3 text-xs text-red-600">
-                                    {checkpointError}
-                                </div>
-                            )}
-                            {checkpointLoading && (
-                                <div className="mt-3 text-xs text-gray-400">
-                                    Loading checkpoints...
-                                </div>
-                            )}
-                            {!checkpointLoading && checkpoints.length === 0 && (
-                                <div className="mt-3 text-xs text-gray-400">
-                                    No checkpoints yet.
-                                </div>
-                            )}
-                            <div className="mt-3 space-y-3">
-                                {checkpoints.map((checkpoint) => (
-                                    <div
-                                        key={checkpoint.id}
-                                        className="rounded border border-gray-200 p-2"
-                                    >
-                                        <div className="text-sm font-medium text-gray-800">
-                                            {checkpoint.title}
-                                        </div>
-                                        <div className="text-xs text-gray-500">
-                                            {formatTimestamp(checkpoint.createdAt)}
-                                            {checkpoint.size ? ` · ${formatBytes(checkpoint.size)}` : ''}
-                                        </div>
-                                        <div className="mt-2 flex flex-wrap gap-2">
-                                            <button
-                                                type="button"
-                                                data-testid={`btn-checkpoint-restore-${checkpoint.id}`}
-                                                onClick={() => handleRestoreCheckpoint(checkpoint)}
-                                                disabled={checkpointControlsDisabled}
-                                                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                Restore
-                                            </button>
-                                            <button
-                                                type="button"
-                                                data-testid={`btn-checkpoint-compare-${checkpoint.id}`}
-                                                onClick={() => handleCompareCheckpoint(checkpoint)}
-                                                disabled={checkpointCompareDisabled}
-                                                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                Compare
-                                            </button>
-                                            <button
-                                                type="button"
-                                                data-testid={`btn-checkpoint-delete-${checkpoint.id}`}
-                                                onClick={() => handleDeleteCheckpoint(checkpoint)}
-                                                disabled={checkpointControlsDisabled}
-                                                className="rounded border border-gray-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                Delete
-                                            </button>
-                                        </div>
+                            {leftSidebarTab === 'checkpoints' && (
+                                <>
+                                    <div className="mt-3 flex flex-col gap-2">
+                                        <input
+                                            data-testid="input-checkpoint-label"
+                                            type="text"
+                                            value={checkpointLabel}
+                                            onChange={(event) => setCheckpointLabel(event.target.value)}
+                                            placeholder="Checkpoint label"
+                                            className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                                        />
+                                        <button
+                                            type="button"
+                                            data-testid="btn-checkpoint-save"
+                                            onClick={handleSaveCheckpoint}
+                                            disabled={checkpointSaveDisabled}
+                                            className={`w-full rounded border px-3 py-1 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
+                                                !checkpointSaveDisabled && scoreDirtySinceCheckpoint
+                                                    ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
+                                                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                                            }`}
+                                        >
+                                            Save Checkpoint
+                                        </button>
+                                        {!score && (
+                                            <span className="text-xs text-gray-400">
+                                                Load a score to enable checkpoints.
+                                            </span>
+                                        )}
                                     </div>
-                                ))}
-                            </div>
+                                    {checkpointError && (
+                                        <div className="mt-3 text-xs text-red-600">
+                                            {checkpointError}
+                                        </div>
+                                    )}
+                                    {checkpointLoading && (
+                                        <div className="mt-3 text-xs text-gray-400">
+                                            Loading checkpoints...
+                                        </div>
+                                    )}
+                                    {!checkpointLoading && checkpoints.length === 0 && (
+                                        <div className="mt-3 text-xs text-gray-400">
+                                            No checkpoints yet.
+                                        </div>
+                                    )}
+                                    <div className="mt-3 space-y-3">
+                                        {checkpoints.map((checkpoint) => (
+                                            <div
+                                                key={checkpoint.id}
+                                                className="rounded border border-gray-200 p-2"
+                                            >
+                                                <div className="text-sm font-medium text-gray-800">
+                                                    {checkpoint.title}
+                                                </div>
+                                                <div className="text-xs text-gray-500">
+                                                    {formatTimestamp(checkpoint.createdAt)}
+                                                    {checkpoint.size ? ` · ${formatBytes(checkpoint.size)}` : ''}
+                                                </div>
+                                                <div className="mt-2 flex flex-wrap gap-2">
+                                                    <button
+                                                        type="button"
+                                                        data-testid={`btn-checkpoint-restore-${checkpoint.id}`}
+                                                        onClick={() => handleRestoreCheckpoint(checkpoint)}
+                                                        disabled={checkpointControlsDisabled}
+                                                        className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        Restore
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        data-testid={`btn-checkpoint-compare-${checkpoint.id}`}
+                                                        onClick={() => handleCompareCheckpoint(checkpoint)}
+                                                        disabled={checkpointCompareDisabled}
+                                                        className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        Compare
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        data-testid={`btn-checkpoint-delete-${checkpoint.id}`}
+                                                        onClick={() => handleDeleteCheckpoint(checkpoint)}
+                                                        disabled={checkpointControlsDisabled}
+                                                        className="rounded border border-gray-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+                            {leftSidebarTab === 'scores' && (
+                                <>
+                                    {scoreSummariesError && (
+                                        <div className="mt-3 text-xs text-red-600">
+                                            {scoreSummariesError}
+                                        </div>
+                                    )}
+                                    {scoreSummariesLoading && (
+                                        <div className="mt-3 text-xs text-gray-400">
+                                            Loading scores...
+                                        </div>
+                                    )}
+                                    {!scoreSummariesLoading && scoreSummaries.length === 0 && (
+                                        <div className="mt-3 text-xs text-gray-400">
+                                            No saved scores yet.
+                                        </div>
+                                    )}
+                                    <div className="mt-3 space-y-3">
+                                        {scoreSummaries.map((summary) => {
+                                            const info = summarizeScoreId(summary.scoreId);
+                                            const isCurrent = summary.scoreId === scoreId;
+                                            return (
+                                                <div
+                                                    key={summary.scoreId}
+                                                    className={`rounded border p-2 ${isCurrent ? 'border-blue-300 bg-blue-50' : 'border-gray-200'}`}
+                                                >
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <div className="text-sm font-medium text-gray-800">
+                                                            {info.title}
+                                                        </div>
+                                                        {isCurrent && (
+                                                            <span className="text-[10px] font-semibold uppercase text-blue-700">
+                                                                Current
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {info.detail && (
+                                                        <div className="text-xs text-gray-500 break-all">
+                                                            {info.detail}
+                                                        </div>
+                                                    )}
+                                                    <div className="mt-1 text-xs text-gray-500">
+                                                        {summary.count} checkpoint{summary.count === 1 ? '' : 's'}
+                                                        {summary.lastUpdated ? ` · ${formatTimestamp(summary.lastUpdated)}` : ''}
+                                                    </div>
+                                                    <div className="mt-2 flex flex-wrap gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleOpenScoreFromSummary(summary)}
+                                                            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                                                        >
+                                                            Open score
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </>
+                            )}
                         </div>
                     )}
                 </aside>
@@ -4467,6 +4873,142 @@ export default function ScoreEditor() {
                     </div>
                 )}
             </aside>
+
+            {newScoreDialogOpen && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
+                    data-testid="new-score-modal"
+                >
+                    <div className="w-full max-w-xl rounded bg-white p-4 shadow-lg">
+                        <div className="flex items-center justify-between">
+                            <div className="text-sm font-semibold text-gray-800">
+                                New Score
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setNewScoreDialogOpen(false)}
+                                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                            >
+                                Close
+                            </button>
+                        </div>
+                        <div className="mt-4 grid gap-3 text-sm text-gray-700">
+                            <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                                Creating a new score will replace the current score and switch to a new checkpoint set.
+                                Export your score if you want a copy; you can return to the previous URL to access older checkpoints.
+                            </div>
+                            <label className="flex flex-col gap-1">
+                                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                    Title
+                                </span>
+                                <input
+                                    type="text"
+                                    value={newScoreTitle}
+                                    onChange={(event) => setNewScoreTitle(event.target.value)}
+                                    className="rounded border border-gray-300 px-2 py-1 text-sm"
+                                    placeholder="Untitled score"
+                                />
+                            </label>
+                            <label className="flex flex-col gap-1">
+                                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                    Composer
+                                </span>
+                                <input
+                                    type="text"
+                                    value={newScoreComposer}
+                                    onChange={(event) => setNewScoreComposer(event.target.value)}
+                                    className="rounded border border-gray-300 px-2 py-1 text-sm"
+                                    placeholder="Composer"
+                                />
+                            </label>
+                            <label className="flex flex-col gap-1">
+                                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                    Instrument
+                                </span>
+                                <select
+                                    value={newScoreInstrumentId}
+                                    onChange={(event) => setNewScoreInstrumentId(event.target.value)}
+                                    className="rounded border border-gray-300 px-2 py-1 text-sm"
+                                >
+                                    {newScoreInstrumentOptions.map((option) => (
+                                        <option key={option.id} value={option.id}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <label className="flex flex-col gap-1">
+                                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                        Measures
+                                    </span>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        value={newScoreMeasures}
+                                        onChange={(event) => setNewScoreMeasures(Number(event.target.value) || 1)}
+                                        className="rounded border border-gray-300 px-2 py-1 text-sm"
+                                    />
+                                </label>
+                                <label className="flex flex-col gap-1">
+                                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                        Key Signature
+                                    </span>
+                                    <select
+                                        value={String(newScoreKeyFifths)}
+                                        onChange={(event) => setNewScoreKeyFifths(Number(event.target.value))}
+                                        className="rounded border border-gray-300 px-2 py-1 text-sm"
+                                    >
+                                        {newScoreKeyOptions.map((option) => (
+                                            <option key={option.fifths} value={option.fifths}>
+                                                {option.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                            </div>
+                            <label className="flex flex-col gap-1">
+                                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                    Time Signature
+                                </span>
+                                <select
+                                    value={`${newScoreTimeNumerator}/${newScoreTimeDenominator}`}
+                                    onChange={(event) => {
+                                        const [numerator, denominator] = event.target.value.split('/').map((value) => Number(value));
+                                        if (Number.isFinite(numerator) && Number.isFinite(denominator)) {
+                                            setNewScoreTimeNumerator(numerator);
+                                            setNewScoreTimeDenominator(denominator);
+                                        }
+                                    }}
+                                    className="rounded border border-gray-300 px-2 py-1 text-sm"
+                                >
+                                    {newScoreTimeOptions.map((option) => (
+                                        <option key={option.label} value={`${option.numerator}/${option.denominator}`}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                        </div>
+                        <div className="mt-4 flex gap-2">
+                            <button
+                                type="button"
+                                onClick={handleCreateNewScore}
+                                className="flex-1 rounded border border-gray-300 bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                            >
+                                Create Score
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setNewScoreDialogOpen(false)}
+                                className="flex-1 rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {compareView && (
                 <div
