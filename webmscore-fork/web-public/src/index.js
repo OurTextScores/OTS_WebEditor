@@ -1035,6 +1035,39 @@ class WebMscore {
     }
 
     /**
+     * Add a pedal marking at the current selection
+     * @param {number} pedalVariant 0=line, 1=text
+     * @returns {Promise<boolean>}
+     */
+    async addPedal(pedalVariant) {
+        return Module.ccall('addPedal', 'boolean', ['number', 'number', 'number'], [this.scoreptr, pedalVariant, this.excerptId])
+    }
+
+    /**
+     * Add a sostenuto pedal marking at the current selection
+     * @returns {Promise<boolean>}
+     */
+    async addSostenutoPedal() {
+        return Module.ccall('addSostenutoPedal', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
+    }
+
+    /**
+     * Add an una corda marking at the current selection
+     * @returns {Promise<boolean>}
+     */
+    async addUnaCorda() {
+        return Module.ccall('addUnaCorda', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
+    }
+
+    /**
+     * Split a pedal line at the current selection
+     * @returns {Promise<boolean>}
+     */
+    async splitPedal() {
+        return Module.ccall('splitPedal', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
+    }
+
+    /**
      * Add a rehearsal mark at the current selection
      * @returns {Promise<boolean>}
      */

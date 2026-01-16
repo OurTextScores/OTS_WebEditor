@@ -68,6 +68,10 @@ type MutationMethods = Pick<
     | 'changeSelectedElementsVoice'
     | 'addDynamic'
     | 'addHairpin'
+    | 'addPedal'
+    | 'addSostenutoPedal'
+    | 'addUnaCorda'
+    | 'splitPedal'
     | 'addTempoText'
     | 'addArticulation'
     | 'addSlur'
@@ -172,7 +176,7 @@ const TEXT_ELEMENT_CLASS_NAMES = [
     'TempoText',
 ];
 const TEXT_ELEMENT_SELECTOR = TEXT_ELEMENT_CLASS_NAMES.map(cls => `.${cls}`).join(', ');
-const ELEMENT_SELECTION_SELECTOR = ['.Note', '.Rest', '.Chord', '.LayoutBreak', TEXT_ELEMENT_SELECTOR]
+const ELEMENT_SELECTION_SELECTOR = ['.Note', '.Rest', '.Chord', '.LayoutBreak', '.Pedal', '.PedalSegment', TEXT_ELEMENT_SELECTOR]
     .filter(Boolean)
     .join(', ');
 const ELEMENT_SELECTION_CLASSES = new Set([
@@ -180,6 +184,8 @@ const ELEMENT_SELECTION_CLASSES = new Set([
     'Rest',
     'Chord',
     'LayoutBreak',
+    'Pedal',
+    'PedalSegment',
     ...TEXT_ELEMENT_CLASS_NAMES,
 ]);
 const TEXT_ELEMENT_CLASS_SET = new Set(TEXT_ELEMENT_CLASS_NAMES);
@@ -2674,6 +2680,34 @@ ${partsBodyXml}
         return fn(hairpinType);
     });
 
+    const handleAddPedal = (pedalVariant: number) => performMutation('add pedal', async () => {
+        await ensureSelectionInWasm();
+        const fn = requireMutation('addPedal');
+        if (!fn) return;
+        return fn(pedalVariant);
+    });
+
+    const handleAddSostenutoPedal = () => performMutation('add sostenuto pedal', async () => {
+        await ensureSelectionInWasm();
+        const fn = requireMutation('addSostenutoPedal');
+        if (!fn) return;
+        return fn();
+    });
+
+    const handleAddUnaCorda = () => performMutation('add una corda', async () => {
+        await ensureSelectionInWasm();
+        const fn = requireMutation('addUnaCorda');
+        if (!fn) return;
+        return fn();
+    });
+
+    const handleSplitPedal = () => performMutation('split pedal', async () => {
+        await ensureSelectionInWasm();
+        const fn = requireMutation('splitPedal');
+        if (!fn) return;
+        return fn();
+    });
+
     const handleAddTempoText = (bpm: number) => {
         const hadSelection = Boolean(selectedElement);
         return performMutation('add tempo text', async () => {
@@ -4407,6 +4441,10 @@ ${partsBodyXml}
                 onSetVoice={handleSetVoice}
                 onAddDynamic={handleAddDynamic}
                 onAddHairpin={handleAddHairpin}
+                onAddPedal={handleAddPedal}
+                onAddSostenutoPedal={handleAddSostenutoPedal}
+                onAddUnaCorda={handleAddUnaCorda}
+                onSplitPedal={handleSplitPedal}
                 onAddTempoText={handleAddTempoText}
                 onAddStaffText={handleAddStaffText}
                 onAddSystemText={handleAddSystemText}

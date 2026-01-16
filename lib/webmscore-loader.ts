@@ -68,6 +68,10 @@ export interface Score {
     setClef?: (clefType: number) => Promise<unknown> | unknown;
     addDynamic?: (dynamicType: number) => Promise<unknown> | unknown;
     addHairpin?: (hairpinType: number) => Promise<unknown> | unknown;
+    addPedal?: (pedalVariant: number) => Promise<unknown> | unknown;
+    addSostenutoPedal?: () => Promise<unknown> | unknown;
+    addUnaCorda?: () => Promise<unknown> | unknown;
+    splitPedal?: () => Promise<unknown> | unknown;
     addRehearsalMark?: () => Promise<unknown> | unknown;
     addTempoText?: (bpm: number) => Promise<unknown> | unknown;
     addArticulation?: (articulationSymbolName: string) => Promise<unknown> | unknown;

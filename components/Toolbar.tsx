@@ -99,6 +99,10 @@ interface ToolbarProps {
     onSetVoice?: (voiceIndex: number) => void;
     onAddDynamic?: (dynamicType: number) => void;
     onAddHairpin?: (hairpinType: number) => void;
+    onAddPedal?: (pedalVariant: number) => void;
+    onAddSostenutoPedal?: () => void;
+    onAddUnaCorda?: () => void;
+    onSplitPedal?: () => void;
     onAddTempoText?: (bpm: number) => void;
     onAddStaffText?: () => void;
     onAddSystemText?: () => void;
@@ -260,6 +264,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     onSetVoice,
     onAddDynamic,
     onAddHairpin,
+    onAddPedal,
+    onAddSostenutoPedal,
+    onAddUnaCorda,
+    onSplitPedal,
     onAddTempoText,
     onAddStaffText,
     onAddSystemText,
@@ -452,6 +460,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     const hairpinOptions = [
         { label: 'Crescendo', value: 0, testId: 'btn-hairpin-cresc' },   // HairpinType::CRESC_HAIRPIN
         { label: 'Decrescendo', value: 1, testId: 'btn-hairpin-decresc' }, // HairpinType::DECRESC_HAIRPIN
+    ];
+
+    const pedalOptions = [
+        { label: 'Pedal Line', value: 0, testId: 'btn-pedal-line' },
+        { label: 'Ped. *', value: 1, testId: 'btn-pedal-text' },
     ];
 
     const articulationOptions = [
@@ -1510,6 +1523,54 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         {opt.label}
                     </button>
                 ))}
+            </ToolbarDropdown>
+
+            <ToolbarDropdown
+                label="Pedal"
+                disabled={mutationDisabled}
+                testId="dropdown-pedal"
+            >
+                {pedalOptions.map(opt => (
+                    <button
+                        key={opt.label}
+                        data-testid={opt.testId}
+                        type="button"
+                        onClick={() => onAddPedal?.(opt.value)}
+                        disabled={mutationDisabled || !selectionActive || !onAddPedal}
+                        className={dropdownItemClass}
+                    >
+                        {opt.label}
+                    </button>
+                ))}
+                <div className={dropdownLabelClass}>Special</div>
+                <button
+                    data-testid="btn-pedal-sostenuto"
+                    type="button"
+                    onClick={onAddSostenutoPedal}
+                    disabled={mutationDisabled || !selectionActive || !onAddSostenutoPedal}
+                    className={dropdownItemClass}
+                >
+                    Sostenuto Pedal
+                </button>
+                <button
+                    data-testid="btn-pedal-una-corda"
+                    type="button"
+                    onClick={onAddUnaCorda}
+                    disabled={mutationDisabled || !selectionActive || !onAddUnaCorda}
+                    className={dropdownItemClass}
+                >
+                    Una Corda
+                </button>
+                <div className={dropdownLabelClass}>Variants</div>
+                <button
+                    data-testid="btn-pedal-split"
+                    type="button"
+                    onClick={onSplitPedal}
+                    disabled={mutationDisabled || !selectionActive || !onSplitPedal}
+                    className={dropdownItemClass}
+                >
+                    Pedal Change
+                </button>
             </ToolbarDropdown>
 
             <ToolbarDropdown

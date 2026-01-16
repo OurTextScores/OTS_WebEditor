@@ -679,6 +679,22 @@ class WebMscoreW {
         return this.rpc('addHairpin', [hairpinType])
     }
 
+    addPedal(pedalVariant) {
+        return this.rpc('addPedal', [pedalVariant])
+    }
+
+    addSostenutoPedal() {
+        return this.rpc('addSostenutoPedal')
+    }
+
+    addUnaCorda() {
+        return this.rpc('addUnaCorda')
+    }
+
+    splitPedal() {
+        return this.rpc('splitPedal')
+    }
+
     addRehearsalMark() {
         return this.rpc('addRehearsalMark')
     }
