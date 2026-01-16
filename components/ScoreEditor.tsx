@@ -284,10 +284,20 @@ export default function ScoreEditor() {
     const [checkpointsCollapsed, setCheckpointsCollapsed] = useState(false);
     const [scoreDirtySinceCheckpoint, setScoreDirtySinceCheckpoint] = useState(false);
     const [xmlSidebarMode, setXmlSidebarMode] = useState<'closed' | 'open' | 'full'>('open');
+    const [xmlSidebarTab, setXmlSidebarTab] = useState<'xml' | 'assistant'>('xml');
     const [xmlText, setXmlText] = useState('');
     const [xmlDirty, setXmlDirty] = useState(false);
     const [xmlLoading, setXmlLoading] = useState(false);
     const [xmlError, setXmlError] = useState<string | null>(null);
+    const [aiProvider, setAiProvider] = useState<'openai' | 'anthropic'>('openai');
+    const [aiModel, setAiModel] = useState('gpt-4.1');
+    const [aiApiKey, setAiApiKey] = useState('');
+    const [aiPrompt, setAiPrompt] = useState('');
+    const [aiIncludeXml, setAiIncludeXml] = useState(true);
+    const [aiMaxTokens, setAiMaxTokens] = useState(4096);
+    const [aiOutput, setAiOutput] = useState('');
+    const [aiBusy, setAiBusy] = useState(false);
+    const [aiError, setAiError] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(0);
     const [pageCount, setPageCount] = useState(1);
     const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -479,6 +489,93 @@ export default function ScoreEditor() {
         }
     }, [score, getScoreXmlData]);
 
+    const resolveXmlContext = useCallback(async () => {
+        if (xmlText.trim()) {
+            return xmlText;
+        }
+        const data = await getScoreXmlData();
+        if (!data) {
+            return '';
+        }
+        const text = new TextDecoder().decode(data);
+        setXmlText(text);
+        setXmlDirty(false);
+        return text;
+    }, [xmlText, getScoreXmlData]);
+
+    const extractXmlFromResponse = (responseText: string) => {
+        const fenced = responseText.match(/```(?:xml)?\s*([\s\S]*?)```/i);
+        if (fenced) {
+            return fenced[1].trim();
+        }
+        return responseText.trim();
+    };
+
+    const validateXmlString = (text: string) => {
+        if (!text.trim()) {
+            return { valid: false, message: 'AI response is empty.' };
+        }
+        if (typeof DOMParser === 'undefined') {
+            return { valid: true, message: '' };
+        }
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, 'application/xml');
+        const parserError = doc.querySelector('parsererror');
+        if (parserError) {
+            return { valid: false, message: 'AI response is not valid XML.' };
+        }
+        return { valid: true, message: '' };
+    };
+
+    const ensureScoreMatchesCheckpoint = async () => {
+        if (!isIndexedDbAvailable()) {
+            alert('IndexedDB is not available; cannot verify checkpoint status.');
+            return false;
+        }
+        const latestCheckpoint = checkpoints[0];
+        if (!latestCheckpoint) {
+            alert('No checkpoints found. Please save one before applying XML edits.');
+            return false;
+        }
+        const [currentData, record] = await Promise.all([
+            getScoreXmlData(),
+            getCheckpoint(latestCheckpoint.id),
+        ]);
+        if (!currentData || !record) {
+            alert('Unable to verify checkpoint state.');
+            return false;
+        }
+        const decoder = new TextDecoder();
+        const currentXml = decoder.decode(currentData);
+        const checkpointXml = decoder.decode(new Uint8Array(record.data));
+        if (currentXml !== checkpointXml) {
+            alert('Unsaved score changes detected since the last checkpoint. Please checkpoint before applying XML edits.');
+            return false;
+        }
+        return true;
+    };
+
+    const applyXmlToScore = async (sourceXml: string) => {
+        if (!score) {
+            alert('Load a score before applying XML edits.');
+            return;
+        }
+        if (!sourceXml.trim()) {
+            alert('XML content is empty.');
+            return;
+        }
+        const ok = await ensureScoreMatchesCheckpoint();
+        if (!ok) {
+            return;
+        }
+        const encoder = new TextEncoder();
+        const encoded = encoder.encode(sourceXml);
+        const filenameBase = scoreTitle ? toSafeFilename(scoreTitle) : 'score';
+        const file = new File([encoded], `${filenameBase}.musicxml`, { type: 'application/xml' });
+        setXmlDirty(false);
+        await handleFileUpload(file);
+    };
+
 
     const loadCheckpointList = useCallback(async () => {
         if (!isIndexedDbAvailable()) {
@@ -520,6 +617,12 @@ export default function ScoreEditor() {
         }
         void loadXmlFromScore();
     }, [score, xmlDirty, loadXmlFromScore]);
+
+    useEffect(() => {
+        if (xmlSidebarTab === 'assistant' && aiIncludeXml && !xmlText.trim()) {
+            void loadXmlFromScore();
+        }
+    }, [xmlSidebarTab, aiIncludeXml, xmlText, loadXmlFromScore]);
 
     useEffect(() => {
         const abortController = new AbortController();
@@ -922,47 +1025,10 @@ export default function ScoreEditor() {
     };
 
     const handleApplyXmlEdits = async () => {
-        if (!score) {
-            alert('Load a score before applying MusicXML edits.');
-            return;
-        }
-        if (!xmlText.trim()) {
-            alert('MusicXML text is empty.');
-            return;
-        }
-        if (!isIndexedDbAvailable()) {
-            alert('IndexedDB is not available; cannot verify checkpoint status.');
-            return;
-        }
         setXmlLoading(true);
         setXmlError(null);
         try {
-            const latestCheckpoint = checkpoints[0];
-            if (!latestCheckpoint) {
-                alert('No checkpoints found. Please save one before applying MusicXML edits.');
-                return;
-            }
-            const [currentData, record] = await Promise.all([
-                getScoreXmlData(),
-                getCheckpoint(latestCheckpoint.id),
-            ]);
-            if (!currentData || !record) {
-                alert('Unable to verify checkpoint state.');
-                return;
-            }
-            const decoder = new TextDecoder();
-            const currentXml = decoder.decode(currentData);
-            const checkpointXml = decoder.decode(new Uint8Array(record.data));
-            if (currentXml !== checkpointXml) {
-                alert('Unsaved score changes detected since the last checkpoint. Please checkpoint before applying MusicXML edits.');
-                return;
-            }
-            const encoder = new TextEncoder();
-            const encoded = encoder.encode(xmlText);
-            const filenameBase = scoreTitle ? toSafeFilename(scoreTitle) : 'score';
-            const file = new File([encoded], `${filenameBase}.musicxml`, { type: 'application/xml' });
-            setXmlDirty(false);
-            await handleFileUpload(file);
+            await applyXmlToScore(xmlText);
         } catch (err) {
             console.error('Failed to apply MusicXML edits', err);
             alert('Failed to apply MusicXML edits. See console for details.');
@@ -991,6 +1057,83 @@ export default function ScoreEditor() {
             alert('Failed to delete checkpoint. See console for details.');
         } finally {
             setCheckpointBusy(false);
+        }
+    };
+
+    const handleAiProviderChange = (value: 'openai' | 'anthropic') => {
+        setAiProvider(value);
+        if (value === 'openai' && aiModel.toLowerCase().includes('claude')) {
+            setAiModel('gpt-4.1');
+        }
+        if (value === 'anthropic' && aiModel.toLowerCase().includes('gpt')) {
+            setAiModel('claude-3-5-sonnet-20240620');
+        }
+    };
+
+    const handleAiRequest = async () => {
+        if (!aiApiKey.trim()) {
+            alert(`Enter your ${aiProvider === 'openai' ? 'OpenAI' : 'Anthropic'} API key.`);
+            return;
+        }
+        if (!aiPrompt.trim()) {
+            alert('Enter an instruction for the assistant.');
+            return;
+        }
+        setAiBusy(true);
+        setAiError(null);
+        setAiOutput('');
+        try {
+            const xmlContext = aiIncludeXml ? await resolveXmlContext() : '';
+            if (aiIncludeXml && !xmlContext.trim()) {
+                alert('Unable to load MusicXML for context.');
+                return;
+            }
+            const response = await fetch(`/api/llm/${aiProvider}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    apiKey: aiApiKey,
+                    model: aiModel,
+                    prompt: aiPrompt,
+                    xml: aiIncludeXml ? xmlContext : '',
+                    maxTokens: aiMaxTokens,
+                }),
+            });
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText || 'Request failed.');
+            }
+            const data = await response.json();
+            const rawText = typeof data?.text === 'string' ? data.text : '';
+            const extracted = extractXmlFromResponse(rawText);
+            if (!extracted) {
+                setAiError('No XML was returned by the model.');
+                return;
+            }
+            setAiOutput(extracted);
+        } catch (err) {
+            console.error('AI request failed', err);
+            setAiError('AI request failed. See console for details.');
+        } finally {
+            setAiBusy(false);
+        }
+    };
+
+    const handleApplyAiOutput = async () => {
+        const validation = validateXmlString(aiOutput);
+        if (!validation.valid) {
+            alert(validation.message || 'AI output is not valid XML.');
+            return;
+        }
+        setXmlLoading(true);
+        setXmlError(null);
+        try {
+            await applyXmlToScore(aiOutput);
+        } catch (err) {
+            console.error('Failed to apply AI XML', err);
+            alert('Failed to apply AI XML. See console for details.');
+        } finally {
+            setXmlLoading(false);
         }
     };
 
@@ -3391,6 +3534,8 @@ export default function ScoreEditor() {
     const checkpointCompareDisabled = checkpointControlsDisabled || !score;
     const xmlControlsDisabled = xmlLoading || !score || !score?.saveXml;
     const xmlApplyDisabled = xmlControlsDisabled || !xmlText.trim();
+    const aiOutputValidation = validateXmlString(aiOutput);
+    const aiApplyDisabled = xmlControlsDisabled || !aiOutput.trim() || !aiOutputValidation.valid;
 
     return (
         <div className="flex flex-col h-screen">
@@ -3817,38 +3962,178 @@ export default function ScoreEditor() {
                             </span>
                             {xmlLoading && <span>Loading...</span>}
                         </div>
-                        <div className="mt-3 flex flex-wrap gap-2">
+                        <div className="mt-3 flex gap-2 text-xs font-medium text-gray-600">
                             <button
                                 type="button"
-                                data-testid="btn-xml-apply"
-                                onClick={handleApplyXmlEdits}
-                                disabled={xmlApplyDisabled}
-                                className="flex-1 rounded border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                data-testid="tab-xml"
+                                onClick={() => setXmlSidebarTab('xml')}
+                                className={`rounded border px-2 py-1 ${
+                                    xmlSidebarTab === 'xml'
+                                        ? 'border-gray-400 bg-gray-100 text-gray-900'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                                }`}
                             >
-                                Apply edits
+                                XML
                             </button>
                             <button
                                 type="button"
-                                data-testid="btn-xml-reload"
-                                onClick={handleRefreshXml}
-                                disabled={xmlControlsDisabled}
-                                className="flex-1 rounded border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                data-testid="tab-ai"
+                                onClick={() => setXmlSidebarTab('assistant')}
+                                className={`rounded border px-2 py-1 ${
+                                    xmlSidebarTab === 'assistant'
+                                        ? 'border-gray-400 bg-gray-100 text-gray-900'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                                }`}
                             >
-                                Reload
+                                Assistant
                             </button>
                         </div>
-                        <div className="mt-2">
-                            <CodeMirrorEditor
-                                testId="xml-editor"
-                                value={xmlText}
-                                onChange={(nextValue) => {
-                                    setXmlText(nextValue);
-                                    setXmlDirty(true);
-                                }}
-                                readOnly={xmlControlsDisabled}
-                                placeholderText={score ? 'MusicXML will appear here.' : 'Load a score to view MusicXML.'}
-                            />
-                        </div>
+                        {xmlSidebarTab === 'xml' && (
+                            <>
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    <button
+                                        type="button"
+                                        data-testid="btn-xml-apply"
+                                        onClick={handleApplyXmlEdits}
+                                        disabled={xmlApplyDisabled}
+                                        className="flex-1 rounded border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Apply edits
+                                    </button>
+                                    <button
+                                        type="button"
+                                        data-testid="btn-xml-reload"
+                                        onClick={handleRefreshXml}
+                                        disabled={xmlControlsDisabled}
+                                        className="flex-1 rounded border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Reload
+                                    </button>
+                                </div>
+                                <div className="mt-2">
+                                    <CodeMirrorEditor
+                                        testId="xml-editor"
+                                        value={xmlText}
+                                        onChange={(nextValue) => {
+                                            setXmlText(nextValue);
+                                            setXmlDirty(true);
+                                        }}
+                                        readOnly={xmlControlsDisabled}
+                                        placeholderText={score ? 'MusicXML will appear here.' : 'Load a score to view MusicXML.'}
+                                    />
+                                </div>
+                            </>
+                        )}
+                        {xmlSidebarTab === 'assistant' && (
+                            <div className="mt-3 space-y-3 text-sm text-gray-700">
+                                <div>
+                                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                        Provider
+                                    </label>
+                                    <select
+                                        value={aiProvider}
+                                        onChange={(event) => handleAiProviderChange(event.target.value as 'openai' | 'anthropic')}
+                                        className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                    >
+                                        <option value="openai">OpenAI</option>
+                                        <option value="anthropic">Anthropic</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                        Model
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={aiModel}
+                                        onChange={(event) => setAiModel(event.target.value)}
+                                        className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                        placeholder={aiProvider === 'openai' ? 'gpt-4.1' : 'claude-3-5-sonnet-20240620'}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                        API Key
+                                    </label>
+                                    <input
+                                        type="password"
+                                        value={aiApiKey}
+                                        onChange={(event) => setAiApiKey(event.target.value)}
+                                        className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                        placeholder="Paste your key"
+                                    />
+                                </div>
+                                <div className="flex items-center justify-between gap-2 text-xs text-gray-600">
+                                    <label className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={aiIncludeXml}
+                                            onChange={(event) => setAiIncludeXml(event.target.checked)}
+                                        />
+                                        Include full MusicXML
+                                    </label>
+                                    <label className="flex items-center gap-2">
+                                        Max tokens
+                                        <input
+                                            type="number"
+                                            min={256}
+                                            value={aiMaxTokens}
+                                            onChange={(event) => setAiMaxTokens(Number(event.target.value) || 0)}
+                                            className="w-20 rounded border border-gray-300 px-2 py-1 text-xs"
+                                        />
+                                    </label>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                        Instruction
+                                    </label>
+                                    <textarea
+                                        value={aiPrompt}
+                                        onChange={(event) => setAiPrompt(event.target.value)}
+                                        rows={4}
+                                        className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                        placeholder="Describe the change you want in the MusicXML."
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={handleAiRequest}
+                                    disabled={aiBusy}
+                                    className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {aiBusy ? 'Working...' : 'Generate XML'}
+                                </button>
+                                {aiError && (
+                                    <div className="text-xs text-red-600">
+                                        {aiError}
+                                    </div>
+                                )}
+                                {aiOutput && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between text-xs text-gray-500">
+                                            <span>AI Output</span>
+                                            {!aiOutputValidation.valid && (
+                                                <span className="text-red-600">{aiOutputValidation.message}</span>
+                                            )}
+                                        </div>
+                                        <CodeMirrorEditor
+                                            value={aiOutput}
+                                            onChange={() => {}}
+                                            readOnly={true}
+                                            placeholderText="AI output will appear here."
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleApplyAiOutput}
+                                            disabled={aiApplyDisabled}
+                                            className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Apply AI Output
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                         {xmlError && (
                             <div className="mt-2 text-xs text-red-600">
                                 {xmlError}
