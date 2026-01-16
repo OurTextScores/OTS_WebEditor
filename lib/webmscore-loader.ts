@@ -21,6 +21,7 @@ export interface Score {
      * These methods may be undefined if the WASM bindings were not compiled with mutation support.
      */
     selectElementAtPoint?: (pageNumber: number, x: number, y: number) => Promise<unknown> | unknown;
+    selectTextElementAtPoint?: (pageNumber: number, x: number, y: number) => Promise<unknown> | unknown;
     selectElementAtPointWithMode?: (
         pageNumber: number,
         x: number,
@@ -88,6 +89,7 @@ export interface Score {
     setSubtitleText?: (text: string) => Promise<unknown> | unknown;
     setComposerText?: (text: string) => Promise<unknown> | unknown;
     setLyricistText?: (text: string) => Promise<unknown> | unknown;
+    setSelectedText?: (text: string) => Promise<unknown> | unknown;
     appendPart?: (instrumentId: string) => Promise<unknown> | unknown;
     appendPartByMusicXmlId?: (instrumentMusicXmlId: string) => Promise<unknown> | unknown;
     removePart?: (partIndex: number) => Promise<unknown> | unknown;

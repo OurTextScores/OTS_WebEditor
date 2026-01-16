@@ -224,6 +224,15 @@ class WebMscoreW {
     }
 
     /**
+     * Set the text value for the currently selected text element.
+     * @param {string} text
+     * @returns {Promise<boolean>}
+     */
+    setSelectedText(text) {
+        return this.rpc('setSelectedText', [text])
+    }
+
+    /**
      * Append a new part using an instrument template id
      * @param {string} instrumentId
      * @returns {Promise<boolean>}
@@ -436,6 +445,17 @@ class WebMscoreW {
      */
     selectElementAtPoint(pageNumber, x, y) {
         return this.rpc('selectElementAtPoint', [pageNumber, x, y])
+    }
+
+    /**
+     * Select a text element near a page-relative point.
+     * @param {number} pageNumber zero-based page index
+     * @param {number} x
+     * @param {number} y
+     * @returns {Promise<boolean>}
+     */
+    selectTextElementAtPoint(pageNumber, x, y) {
+        return this.rpc('selectTextElementAtPoint', [pageNumber, x, y])
     }
 
     /**

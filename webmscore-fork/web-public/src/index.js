@@ -300,6 +300,15 @@ class WebMscore {
         }
     }
 
+    async setSelectedText(text) {
+        const strptr = getStrPtr(text == null ? '' : String(text))
+        try {
+            return Module.ccall('setSelectedText', 'boolean', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
     /**
      * Append a new part using an instrument template id
      * @param {string} instrumentId
@@ -657,6 +666,21 @@ class WebMscore {
      */
     async selectElementAtPoint(pageNumber, x, y) {
         return Module.ccall('selectElementAtPoint',
+            'boolean',
+            ['number', 'number', 'number', 'number', 'number'],
+            [this.scoreptr, pageNumber, x, y, this.excerptId]
+        )
+    }
+
+    /**
+     * Select a text element near a page-relative point.
+     * @param {number} pageNumber zero-based page index
+     * @param {number} x
+     * @param {number} y
+     * @returns {Promise<boolean>}
+     */
+    async selectTextElementAtPoint(pageNumber, x, y) {
+        return Module.ccall('selectTextElementAtPoint',
             'boolean',
             ['number', 'number', 'number', 'number', 'number'],
             [this.scoreptr, pageNumber, x, y, this.excerptId]

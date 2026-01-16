@@ -64,6 +64,7 @@
 #include "engraving/libmscore/figuredbass.h"
 #include "engraving/libmscore/text.h"
 #include "engraving/libmscore/textbase.h"
+#include "engraving/libmscore/engravingobject.h"
 #include "engraving/libmscore/segment.h"
 #include "engraving/libmscore/utils.h"
 #include "engraving/libmscore/volta.h"
@@ -417,6 +418,42 @@ bool _setHeaderText(uintptr_t score_ptr, engraving::TextStyleType style, const c
     return true;
 }
 
+static String _plainTextToString(const char* plainText)
+{
+    return plainText ? String::fromUtf8(plainText) : String();
+}
+
+static bool _setSelectedText(uintptr_t score_ptr, const char* plainText, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    engraving::EngravingItem* target = score->selection().element();
+    if (!target || !target->isTextBase()) {
+        const auto& selected = score->selection().elements();
+        for (auto* candidate : selected) {
+            if (candidate && candidate->isTextBase()) {
+                target = candidate;
+                break;
+            }
+        }
+    }
+    if (!target || !target->isTextBase()) {
+        LOGW() << "setSelectedText: selection is not a text element";
+        return false;
+    }
+
+    engraving::TextBase* textItem = toTextBase(target);
+    if (!textItem) {
+        LOGW() << "setSelectedText: unable to resolve TextBase";
+        return false;
+    }
+
+    score->startCmd();
+    const String xmlText = engraving::TextBase::plainToXmlText(_plainTextToString(plainText));
+    textItem->undoChangeProperty(engraving::Pid::TEXT, xmlText);
+    score->endCmd();
+    return true;
+}
+
 bool _setTitleText(uintptr_t score_ptr, const char* plainText, int excerptId)
 {
     return _setHeaderText(score_ptr, engraving::TextStyleType::TITLE, plainText, excerptId);
@@ -430,11 +467,6 @@ bool _setSubtitleText(uintptr_t score_ptr, const char* plainText, int excerptId)
 bool _setComposerText(uintptr_t score_ptr, const char* plainText, int excerptId)
 {
     return _setHeaderText(score_ptr, engraving::TextStyleType::COMPOSER, plainText, excerptId);
-}
-
-static String _plainTextToString(const char* plainText)
-{
-    return plainText ? String::fromUtf8(plainText) : String();
 }
 
 static bool _applyTextStyle(MainScore& score, engraving::TextStyleType style, const char* plainText)
@@ -632,6 +664,8 @@ static bool computeBeforeMeasureIndex(MainScore& score, InsertMeasuresTarget tar
     return false;
 }
 
+static engraving::BarLine* ensureEndBarLine(engraving::Measure* measure);
+
 static bool _insertMeasures(uintptr_t score_ptr, int count, InsertMeasuresTarget target, int excerptId)
 {
     if (count < 1) {
@@ -652,10 +686,37 @@ static bool _insertMeasures(uintptr_t score_ptr, int count, InsertMeasuresTarget
     options.moveSignaturesClef = true;
     options.needDeselectAll = false;
 
+    engraving::Measure* oldLastMeasure = nullptr;
+    engraving::BarLineType oldBarLineType = engraving::BarLineType::DOUBLE;
+    bool oldHadCustomEnding = false;
+
     score->startCmd();
+    if (target == InsertMeasuresTarget::AtEndOfScore) {
+        oldLastMeasure = score->lastMeasure();
+        if (oldLastMeasure) {
+            if (auto barLine = ensureEndBarLine(oldLastMeasure)) {
+                oldBarLineType = barLine->barLineType();
+                oldHadCustomEnding = oldBarLineType != engraving::BarLineType::NORMAL;
+            }
+        }
+    }
+
     for (int i = 0; i < count; ++i) {
         score->insertMeasure(engraving::ElementType::MEASURE, beforeMeasure, options);
     }
+
+    if (target == InsertMeasuresTarget::AtEndOfScore && oldLastMeasure && oldHadCustomEnding) {
+        if (auto barLine = ensureEndBarLine(oldLastMeasure)) {
+            undoChangeBarLineType(barLine, engraving::BarLineType::NORMAL, true);
+        }
+        engraving::Measure* newLastMeasure = score->lastMeasure();
+        if (newLastMeasure && newLastMeasure != oldLastMeasure) {
+            if (auto newBarLine = ensureEndBarLine(newLastMeasure)) {
+                undoChangeBarLineType(newBarLine, oldBarLineType, true);
+            }
+        }
+    }
+
     score->endCmd();
     return true;
 }
@@ -1313,6 +1374,55 @@ static bool elementLower(const engraving::EngravingItem* e1, const engraving::En
         return true;
     }
     return e1->z() < e2->z();
+}
+
+static engraving::EngravingItem* pickTopmostTextItem(std::vector<engraving::EngravingItem*>& items)
+{
+    if (items.empty()) {
+        return nullptr;
+    }
+
+    std::sort(items.begin(), items.end(), elementLower);
+    for (auto it = items.rbegin(); it != items.rend(); ++it) {
+        engraving::EngravingItem* item = *it;
+        if (!item) {
+            continue;
+        }
+        if (item->isPage()) {
+            continue;
+        }
+        if (item->isTextBase()) {
+            return item;
+        }
+    }
+
+    return nullptr;
+}
+
+bool _selectTextElementAtPoint(uintptr_t score_ptr, int pageNumber, double x, double y, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    const auto& pages = score->pages();
+
+    if (pageNumber < 0 || pageNumber >= (int)pages.size()) {
+        LOGW() << "selectTextElementAtPoint: invalid page index " << pageNumber;
+        return false;
+    }
+
+    engraving::Page* page = pages.at(pageNumber);
+    const mu::PointF pt(x, y);
+
+    auto items = page->items(pt);
+    engraving::EngravingItem* target = pickTopmostTextItem(items);
+    if (!target) {
+        return false;
+    }
+
+    score->deselectAll();
+    score->select(target, engraving::SelectType::SINGLE, target->staffIdx());
+    score->updateSelection();
+    score->setSelectionChanged(true);
+    return true;
 }
 
 bool _selectElementAtPoint(uintptr_t score_ptr, int pageNumber, double x, double y, int excerptId)
@@ -2771,6 +2881,11 @@ extern "C" {
     };
 
     EMSCRIPTEN_KEEPALIVE
+    bool setSelectedText(uintptr_t score_ptr, const char* plainText, int excerptId = -1) {
+        return _setSelectedText(score_ptr, plainText, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
     bool appendPart(uintptr_t score_ptr, const char* instrumentId, int excerptId = -1) {
         return _appendPart(score_ptr, instrumentId, excerptId);
     };
@@ -2879,6 +2994,11 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool selectElementAtPoint(uintptr_t score_ptr, int pageNumber, double x, double y, int excerptId = -1) {
         return _selectElementAtPoint(score_ptr, pageNumber, x, y, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool selectTextElementAtPoint(uintptr_t score_ptr, int pageNumber, double x, double y, int excerptId = -1) {
+        return _selectTextElementAtPoint(score_ptr, pageNumber, x, y, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE

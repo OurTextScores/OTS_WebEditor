@@ -62,6 +62,11 @@ interface ToolbarProps {
     noteEntryAvailable?: boolean;
     mutationsEnabled?: boolean;
     selectionActive?: boolean;
+    selectedTextActive?: boolean;
+    selectedTextValue?: string;
+    onSelectedTextChange?: (value: string) => void;
+    onApplySelectedText?: () => void;
+    selectedTextDisabled?: boolean;
     onExportSvg?: () => void;
     onExportPdf?: () => void;
     onExportPng?: () => void;
@@ -158,6 +163,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     onSetAccidental,
     mutationsEnabled = false,
     selectionActive = false,
+    selectedTextActive = false,
+    selectedTextValue = '',
+    onSelectedTextChange,
+    onApplySelectedText,
+    selectedTextDisabled = false,
     onExportSvg,
     onExportPdf,
     onExportPng,
@@ -640,6 +650,34 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         >
                             Set Lyricist
                         </button>
+                        {selectedTextActive && (
+                            <div className="flex items-center gap-2">
+                                <input
+                                    data-testid="input-selected-text"
+                                    type="text"
+                                    value={selectedTextValue}
+                                    onChange={(e) => onSelectedTextChange?.(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            onApplySelectedText?.();
+                                        }
+                                    }}
+                                    placeholder="Edit selected text"
+                                    disabled={selectedTextDisabled}
+                                    className="min-w-[160px] flex-1 px-2 py-1 bg-white border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                                />
+                                <button
+                                    data-testid="btn-apply-selected-text"
+                                    type="button"
+                                    onClick={() => onApplySelectedText?.()}
+                                    disabled={selectedTextDisabled || !onApplySelectedText}
+                                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Apply
+                                </button>
+                            </div>
+                        )}
                     </div>
 	            </div>
 

@@ -79,6 +79,7 @@ type MutationMethods = Pick<
     | 'setSubtitleText'
     | 'setComposerText'
     | 'setLyricistText'
+    | 'setSelectedText'
     | 'appendPart'
     | 'appendPartByMusicXmlId'
     | 'removePart'
@@ -130,14 +131,80 @@ const measureInsertTargetMap: Record<MeasureInsertTarget, number> = {
     end: 3,
 };
 
-const ELEMENT_SELECTION_SELECTOR = '.Note, .Rest, .Chord, .LayoutBreak';
-const ELEMENT_SELECTION_CLASSES = new Set(['Note', 'Rest', 'Chord', 'LayoutBreak']);
+const TEXT_ELEMENT_CLASS_NAMES = [
+    'Text',
+    'StaffText',
+    'SystemText',
+    'ExpressionText',
+    'LyricText',
+    'HarmonyText',
+    'FingeringText',
+    'LeftHandGuitarFingeringText',
+    'RightHandGuitarFingeringText',
+    'StringNumberText',
+    'InstrumentChangeText',
+    'StickingText',
+    'FiguredBassText',
+    'TempoText',
+];
+const TEXT_ELEMENT_SELECTOR = TEXT_ELEMENT_CLASS_NAMES.map(cls => `.${cls}`).join(', ');
+const ELEMENT_SELECTION_SELECTOR = ['.Note', '.Rest', '.Chord', '.LayoutBreak', TEXT_ELEMENT_SELECTOR]
+    .filter(Boolean)
+    .join(', ');
+const ELEMENT_SELECTION_CLASSES = new Set([
+    'Note',
+    'Rest',
+    'Chord',
+    'LayoutBreak',
+    ...TEXT_ELEMENT_CLASS_NAMES,
+]);
+const TEXT_ELEMENT_CLASS_SET = new Set(TEXT_ELEMENT_CLASS_NAMES);
 
 const hasSelectableClass = (classAttr: string | null | undefined) => {
     if (!classAttr) {
         return false;
     }
     return classAttr.split(/\s+/).some(cls => ELEMENT_SELECTION_CLASSES.has(cls));
+};
+
+const hasTextElementClass = (classAttr: string | null | undefined) => {
+    if (!classAttr) {
+        return false;
+    }
+    return classAttr.split(/\s+/).some(cls => TEXT_ELEMENT_CLASS_SET.has(cls));
+};
+
+const isSvgTextElement = (element: Element | null) => {
+    if (!element) {
+        return false;
+    }
+    if (hasTextElementClass(element.getAttribute('class'))) {
+        return true;
+    }
+    const tagName = element.tagName?.toLowerCase();
+    if (tagName === 'text' || tagName === 'tspan') {
+        return true;
+    }
+    return Boolean(element.closest?.('text'));
+};
+
+const normalizeElementClasses = (element: Element, classAttr: string) => {
+    if (!isSvgTextElement(element)) {
+        return classAttr;
+    }
+    const tokens = classAttr.split(/\s+/).filter(Boolean);
+    if (tokens.includes('Text')) {
+        return classAttr;
+    }
+    return [...tokens, 'Text'].join(' ').trim() || 'Text';
+};
+
+const resolveTextElement = (element: Element) => {
+    const tagName = element.tagName?.toLowerCase();
+    if (tagName === 'tspan') {
+        return element.closest?.('text') ?? element;
+    }
+    return element;
 };
 
 const hasMutationApi = (score: Score | null): score is Score & MutationMethods => {
@@ -175,7 +242,9 @@ export default function ScoreEditor() {
     const [selectionBoxes, setSelectionBoxes] = useState<SelectionBox[]>([]);
     const [overlaySuppressed, setOverlaySuppressed] = useState(false);
     const [selectedElementClasses, setSelectedElementClasses] = useState<string>('');
+    const [selectedTextValue, setSelectedTextValue] = useState('');
     const [selectedLayoutBreakSubtype, setSelectedLayoutBreakSubtype] = useState<'line'|'page'|null>(null);
+    const [textEditorPosition, setTextEditorPosition] = useState<{ x: number; y: number } | null>(null);
     const [dragSelectionRect, setDragSelectionRect] = useState<{ x: number, y: number, w: number, h: number } | null>(null);
     const ignoreNextClickRef = useRef(false);
     const dragKindRef = useRef<'pointer' | 'mouse' | null>(null);
@@ -254,6 +323,50 @@ export default function ScoreEditor() {
             canceled = true;
         };
     }, [score, selectedElementClasses]);
+
+    useEffect(() => {
+        const shouldLoadText = hasTextElementClass(selectedElementClasses) || Boolean(textEditorPosition);
+        if (!score || !shouldLoadText) {
+            setSelectedTextValue('');
+            return;
+        }
+
+        let canceled = false;
+        const decoder = new TextDecoder();
+        const parser = typeof DOMParser !== 'undefined' ? new DOMParser() : null;
+
+        const updateText = async () => {
+            if (!score.selectionMimeData || !parser) {
+                setSelectedTextValue('');
+                return;
+            }
+            const data = await score.selectionMimeData?.();
+            if (canceled) {
+                return;
+            }
+            if (!data) {
+                setSelectedTextValue('');
+                return;
+            }
+            let decoded: string;
+            try {
+                decoded = decoder.decode(data);
+            } catch (decodeErr) {
+                console.warn('Failed to decode text selection MIME data', decodeErr);
+                setSelectedTextValue('');
+                return;
+            }
+            const doc = parser.parseFromString(decoded, 'application/xml');
+            const textNode = doc.querySelector('text');
+            const content = textNode?.textContent ?? '';
+            setSelectedTextValue(content.trim());
+        };
+
+        updateText();
+        return () => {
+            canceled = true;
+        };
+    }, [score, selectedElementClasses, textEditorPosition]);
 
     const exposeScoreToWindow = (s: Score | null) => {
         // Handy for Playwright/debug sessions to poke at WASM bindings directly
@@ -549,12 +662,20 @@ export default function ScoreEditor() {
         if (selectionBoxes.length > 1) {
             return;
         }
-        if (!score || !score.selectElementAtPoint || !selectedPoint) {
+        if (!score || !selectedPoint) {
             return;
         }
 
         try {
             const { page, x, y } = selectedPoint;
+            const preferTextSelection = hasTextElementClass(selectedElementClasses) || Boolean(textEditorPosition);
+            if (preferTextSelection && score.selectTextElementAtPoint) {
+                await score.selectTextElementAtPoint(page, x, y);
+                return;
+            }
+            if (!score.selectElementAtPoint) {
+                return;
+            }
             await score.selectElementAtPoint(page, x, y);
         } catch (err) {
             console.warn('Re-select in WASM failed; continuing anyway', err);
@@ -605,7 +726,7 @@ export default function ScoreEditor() {
                     const page = extractPageIndex(cand) ?? 0;
                     const centerX = x + w / 2;
                     const centerY = y + h / 2;
-                    const classAttr = cand.getAttribute('class') ?? '';
+                    const classAttr = normalizeElementClasses(cand, cand.getAttribute('class') ?? '');
 
                     let idx = allElements.indexOf(cand);
                     if (idx < 0) {
@@ -999,6 +1120,17 @@ export default function ScoreEditor() {
         }
         return await del();
     }, { clearSelection: true });
+    const handleSelectedTextChange = (value: string) => {
+        setSelectedTextValue(value);
+    };
+    const handleApplySelectedText = () => performMutation('set selected text', async () => {
+        await ensureSelectionInWasm();
+        const fn = requireMutation('setSelectedText');
+        if (!fn) {
+            return false;
+        }
+        return fn(selectedTextValue);
+    });
     const handleUndo = () => performMutation('undo', score?.undo?.bind(score));
     const handleRedo = () => performMutation('redo', score?.redo?.bind(score));
     const handlePitchUp = () => performMutation('raise pitch', async () => {
@@ -2728,8 +2860,14 @@ export default function ScoreEditor() {
         let found = false;
 
         while (element) {
-            if (hasSelectableClass(element.getAttribute('class'))) {
+            const classAttr = element.getAttribute('class');
+            if (hasSelectableClass(classAttr)) {
                 found = true;
+                break;
+            }
+            if (isSvgTextElement(element)) {
+                found = true;
+                element = resolveTextElement(element);
                 break;
             }
             // Stop if we've reached containerRef or gone past it
@@ -2801,18 +2939,18 @@ export default function ScoreEditor() {
                 }
             }
 
-            const classAttr = targetElement.getAttribute('class') ?? '';
-            const box: SelectionBox = {
-                index: index >= 0 ? index : null,
-                page: pageIndex,
-                x,
-                y,
-                w,
-                h,
-                centerX,
-                centerY,
-                classes: classAttr,
-            };
+        const classAttr = normalizeElementClasses(targetElement, targetElement.getAttribute('class') ?? '');
+        const box: SelectionBox = {
+            index: index >= 0 ? index : null,
+            page: pageIndex,
+            x,
+            y,
+            w,
+            h,
+            centerX,
+            centerY,
+            classes: classAttr,
+        };
             const fallback: SelectionFallback = {
                 index: box.index,
                 point: { page: pageIndex, x: centerX, y: centerY },
@@ -2886,6 +3024,41 @@ export default function ScoreEditor() {
         }
     };
 
+    const openTextEditorFromEvent = (e: React.MouseEvent) => {
+        if (!containerRef.current || !score) {
+            return;
+        }
+        let element: Element | null = e.target as Element | null;
+        let found = false;
+        while (element) {
+            if (isSvgTextElement(element)) {
+                found = true;
+                element = resolveTextElement(element);
+                break;
+            }
+            if (element === containerRef.current) {
+                break;
+            }
+            element = element.parentElement;
+        }
+        if (!found || !element) {
+            setTextEditorPosition(null);
+            return;
+        }
+
+        e.preventDefault();
+        handleScoreClick(e);
+        setTextEditorPosition({ x: e.clientX, y: e.clientY });
+    };
+
+    const handleScoreContextMenu = (e: React.MouseEvent) => {
+        openTextEditorFromEvent(e);
+    };
+
+    const closeTextEditor = () => {
+        setTextEditorPosition(null);
+    };
+
     const secondarySelectionBoxes = selectionBoxes.filter(box => {
         if (selectedIndex !== null && box.index === selectedIndex) {
             return false;
@@ -2895,6 +3068,8 @@ export default function ScoreEditor() {
         }
         return true;
     });
+    const textSelectionActive = hasTextElementClass(selectedElementClasses) || Boolean(textEditorPosition);
+    const selectedTextControlDisabled = !mutationEnabled || !score?.setSelectedText;
 
     return (
         <div className="flex flex-col h-screen">
@@ -2988,6 +3163,11 @@ export default function ScoreEditor() {
                 onAddPart={handleAddPart}
                 onRemovePart={handleRemovePart}
                 onTogglePartVisible={handleTogglePartVisible}
+                selectedTextActive={textSelectionActive}
+                selectedTextValue={selectedTextValue}
+                onSelectedTextChange={handleSelectedTextChange}
+                onApplySelectedText={handleApplySelectedText}
+                selectedTextDisabled={selectedTextControlDisabled}
             />
             </div>
 
@@ -3051,15 +3231,16 @@ export default function ScoreEditor() {
 	                    transform: `scale(${zoom})`,
 	                    width: 'fit-content'
 	                }}
-	                onClick={handleScoreClick}
-                    onPointerDown={handleScorePointerDown}
+                onClick={handleScoreClick}
+                onPointerDown={handleScorePointerDown}
                     onPointerMove={handleScorePointerMove}
                     onPointerUp={handleScorePointerUp}
                     onPointerCancel={handleScorePointerCancel}
-                    onMouseDown={handleScoreMouseDown}
-                    onMouseMove={handleScoreMouseMove}
-                    onMouseUp={handleScoreMouseUp}
-	            >
+                onMouseDown={handleScoreMouseDown}
+                onMouseMove={handleScoreMouseMove}
+                onMouseUp={handleScoreMouseUp}
+                onContextMenu={handleScoreContextMenu}
+            >
 	                <div ref={containerRef} data-testid="svg-container" />
 
                     {dragSelectionRect && (
@@ -3101,7 +3282,47 @@ export default function ScoreEditor() {
                             }}
                         />
                     )}
-	            </div>
+                    {textEditorPosition && (
+                        <div
+                            className="fixed z-50 flex flex-col gap-2 rounded border bg-white p-3 shadow-lg"
+                            style={{ left: textEditorPosition.x, top: textEditorPosition.y }}
+                            onClick={event => event.stopPropagation()}
+                            onMouseDown={event => event.stopPropagation()}
+                            onPointerDown={event => event.stopPropagation()}
+                        >
+                            <label className="text-xs uppercase tracking-wide text-gray-500">
+                                Text content
+                            </label>
+                            <input
+                                data-testid="ctxmenu-text-input"
+                                type="text"
+                                value={selectedTextValue}
+                                onChange={(event) => handleSelectedTextChange(event.target.value)}
+                                onClick={(event) => event.stopPropagation()}
+                                className="min-w-[200px] rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                            />
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        handleApplySelectedText();
+                                        closeTextEditor();
+                                    }}
+                                    className="flex-1 rounded border border-gray-300 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                                >
+                                    Save
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={closeTextEditor}
+                                    className="flex-1 rounded border border-gray-300 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
