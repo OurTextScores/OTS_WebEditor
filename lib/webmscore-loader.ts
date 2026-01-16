@@ -7,6 +7,7 @@ export interface Score {
     destroy: () => void;
     saveSvg: (pageNumber?: number, drawPageBackground?: boolean) => Promise<string>;
     savePdf: () => Promise<Uint8Array>;
+    saveXml?: () => Promise<Uint8Array>;
     saveMxl?: () => Promise<Uint8Array>;
     saveMsc?: (format?: 'mscz' | 'mscx') => Promise<Uint8Array>;
     saveMidi?: (midiExpandRepeats?: boolean, exportRPNs?: boolean) => Promise<Uint8Array>;

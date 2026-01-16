@@ -1,8 +1,16 @@
 'use client';
 
-import React, { ChangeEvent, useEffect, useRef, useState } from 'react';
+import React, { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { loadWebMscore, Score, InputFileFormat } from '../lib/webmscore-loader';
+import {
+    deleteCheckpoint,
+    getCheckpoint,
+    isIndexedDbAvailable,
+    listCheckpoints,
+    saveCheckpoint,
+    type CheckpointSummary,
+} from '../lib/checkpoints';
 import { Toolbar, type MeasureInsertTarget } from './Toolbar';
 
 type SelectionBox = {
@@ -267,6 +275,12 @@ export default function ScoreEditor() {
     const [scoreLyricist, setScoreLyricist] = useState('');
     const [scoreParts, setScoreParts] = useState<PartSummary[]>([]);
     const [instrumentGroups, setInstrumentGroups] = useState<InstrumentTemplateGroup[]>([]);
+    const [checkpoints, setCheckpoints] = useState<CheckpointSummary[]>([]);
+    const [checkpointLabel, setCheckpointLabel] = useState('');
+    const [checkpointBusy, setCheckpointBusy] = useState(false);
+    const [checkpointLoading, setCheckpointLoading] = useState(false);
+    const [checkpointError, setCheckpointError] = useState<string | null>(null);
+    const [compareView, setCompareView] = useState<{ title: string; currentXml: string; checkpointXml: string } | null>(null);
     const [currentPage, setCurrentPage] = useState(0);
     const [pageCount, setPageCount] = useState(1);
     const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -370,12 +384,65 @@ export default function ScoreEditor() {
         };
     }, [score, selectedElementClasses, textEditorPosition]);
 
+    const formatBytes = (bytes: number) => {
+        if (!Number.isFinite(bytes)) {
+            return '';
+        }
+        const units = ['B', 'KB', 'MB', 'GB'];
+        let size = bytes;
+        let unitIndex = 0;
+        while (size >= 1024 && unitIndex < units.length - 1) {
+            size /= 1024;
+            unitIndex += 1;
+        }
+        const precision = size >= 10 || unitIndex === 0 ? 0 : 1;
+        return `${size.toFixed(precision)} ${units[unitIndex]}`;
+    };
+
+    const formatTimestamp = (timestamp: number) => new Date(timestamp).toLocaleString();
+
+    const buildCheckpointTitle = (label: string, fallbackTitle: string) => {
+        const trimmed = label.trim();
+        if (trimmed) {
+            return trimmed;
+        }
+        const base = fallbackTitle.trim() || 'Untitled Score';
+        return `${base} ${formatTimestamp(Date.now())}`;
+    };
+
+    const toSafeFilename = (name: string) => {
+        const cleaned = name.replace(/[\\/:*?"<>|]+/g, '_').trim();
+        return cleaned.length > 0 ? cleaned.slice(0, 64) : 'checkpoint';
+    };
+
+    const loadCheckpointList = useCallback(async () => {
+        if (!isIndexedDbAvailable()) {
+            setCheckpointError('IndexedDB is not available in this browser.');
+            return;
+        }
+        setCheckpointLoading(true);
+        try {
+            const items = await listCheckpoints();
+            setCheckpoints(items);
+            setCheckpointError(null);
+        } catch (err) {
+            console.warn('Failed to load checkpoints', err);
+            setCheckpointError('Unable to load checkpoints from browser storage.');
+        } finally {
+            setCheckpointLoading(false);
+        }
+    }, []);
+
     const exposeScoreToWindow = (s: Score | null) => {
         // Handy for Playwright/debug sessions to poke at WASM bindings directly
         if (typeof window !== 'undefined') {
             (window as any).__webmscore = s;
         }
     };
+
+    useEffect(() => {
+        void loadCheckpointList();
+    }, [loadCheckpointList]);
 
     useEffect(() => {
         const abortController = new AbortController();
@@ -656,6 +723,157 @@ export default function ScoreEditor() {
         } catch (err) {
             console.error('Failed to load soundfont', err);
             alert('Failed to load soundfont. See console for details.');
+        }
+    };
+
+    const normalizeXmlData = async (data: unknown): Promise<Uint8Array | null> => {
+        if (!data) {
+            return null;
+        }
+        if (data instanceof Uint8Array) {
+            return data;
+        }
+        if (data instanceof ArrayBuffer) {
+            return new Uint8Array(data);
+        }
+        if (ArrayBuffer.isView(data)) {
+            return new Uint8Array(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength));
+        }
+        if (typeof data === 'string') {
+            return new TextEncoder().encode(data);
+        }
+        if (data instanceof Blob) {
+            return new Uint8Array(await data.arrayBuffer());
+        }
+        console.warn('Unexpected saveXml response type', data);
+        return null;
+    };
+
+    const getScoreXmlData = async () => {
+        const activeScore = scoreRef.current ?? score;
+        if (!activeScore?.saveXml) {
+            alert('This build of webmscore does not expose "saveXml".');
+            return null;
+        }
+        const data = await activeScore.saveXml();
+        return await normalizeXmlData(data);
+    };
+
+    const handleSaveCheckpoint = async () => {
+        if (!score) {
+            alert('Load a score before saving a checkpoint.');
+            return;
+        }
+        if (!isIndexedDbAvailable()) {
+            alert('IndexedDB is not available in this browser.');
+            return;
+        }
+        setCheckpointBusy(true);
+        try {
+            const data = await getScoreXmlData();
+            if (!data) {
+                return;
+            }
+            const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+            const title = buildCheckpointTitle(checkpointLabel, scoreTitle);
+            await saveCheckpoint({
+                title,
+                createdAt: Date.now(),
+                format: 'musicxml',
+                data: buffer,
+                size: data.byteLength,
+            });
+            setCheckpointLabel('');
+            await loadCheckpointList();
+        } catch (err) {
+            console.error('Failed to save checkpoint', err);
+            alert('Failed to save checkpoint. See console for details.');
+        } finally {
+            setCheckpointBusy(false);
+        }
+    };
+
+    const handleRestoreCheckpoint = async (checkpoint: CheckpointSummary) => {
+        if (!isIndexedDbAvailable()) {
+            alert('IndexedDB is not available in this browser.');
+            return;
+        }
+        if (typeof window !== 'undefined') {
+            const ok = window.confirm(`Restore checkpoint "${checkpoint.title}"? Unsaved changes will be lost.`);
+            if (!ok) {
+                return;
+            }
+        }
+        setCheckpointBusy(true);
+        try {
+            const record = await getCheckpoint(checkpoint.id);
+            if (!record) {
+                alert('Checkpoint not found.');
+                return;
+            }
+            const filename = `${toSafeFilename(checkpoint.title)}.musicxml`;
+            const file = new File([new Uint8Array(record.data)], filename, { type: 'application/xml' });
+            await handleFileUpload(file);
+        } catch (err) {
+            console.error('Failed to restore checkpoint', err);
+            alert('Failed to restore checkpoint. See console for details.');
+        } finally {
+            setCheckpointBusy(false);
+        }
+    };
+
+    const handleCompareCheckpoint = async (checkpoint: CheckpointSummary) => {
+        if (!score) {
+            alert('Load a score before comparing checkpoints.');
+            return;
+        }
+        if (!isIndexedDbAvailable()) {
+            alert('IndexedDB is not available in this browser.');
+            return;
+        }
+        setCheckpointBusy(true);
+        try {
+            const record = await getCheckpoint(checkpoint.id);
+            if (!record) {
+                alert('Checkpoint not found.');
+                return;
+            }
+            const currentData = await getScoreXmlData();
+            if (!currentData) {
+                return;
+            }
+            const decoder = new TextDecoder();
+            const currentXml = decoder.decode(currentData);
+            const checkpointXml = decoder.decode(new Uint8Array(record.data));
+            setCompareView({ title: checkpoint.title, currentXml, checkpointXml });
+        } catch (err) {
+            console.error('Failed to compare checkpoint', err);
+            alert('Failed to compare checkpoint. See console for details.');
+        } finally {
+            setCheckpointBusy(false);
+        }
+    };
+
+    const handleDeleteCheckpoint = async (checkpoint: CheckpointSummary) => {
+        if (!isIndexedDbAvailable()) {
+            alert('IndexedDB is not available in this browser.');
+            return;
+        }
+        if (typeof window !== 'undefined') {
+            const ok = window.confirm(`Delete checkpoint "${checkpoint.title}"?`);
+            if (!ok) {
+                return;
+            }
+        }
+        setCheckpointBusy(true);
+        try {
+            await deleteCheckpoint(checkpoint.id);
+            await loadCheckpointList();
+        } catch (err) {
+            console.error('Failed to delete checkpoint', err);
+            alert('Failed to delete checkpoint. See console for details.');
+        } finally {
+            setCheckpointBusy(false);
         }
     };
 
@@ -3057,6 +3275,9 @@ export default function ScoreEditor() {
     });
     const textSelectionActive = hasTextElementClass(selectedElementClasses) || Boolean(textEditorPosition);
     const selectedTextControlDisabled = !mutationEnabled || !score?.setSelectedText;
+    const checkpointControlsDisabled = checkpointBusy || checkpointLoading;
+    const checkpointSaveDisabled = checkpointControlsDisabled || !score || !score?.saveXml;
+    const checkpointCompareDisabled = checkpointControlsDisabled || !score;
 
     return (
         <div className="flex flex-col h-screen">
@@ -3158,10 +3379,115 @@ export default function ScoreEditor() {
             />
             </div>
 
-            <div
-                ref={scrollContainerRef}
-                className="relative z-0 flex-1 overflow-auto bg-gray-50 p-8"
-            >
+            <div className="flex flex-1 min-h-0">
+                <aside
+                    className="w-72 shrink-0 border-r bg-white p-4 text-sm overflow-y-auto"
+                    data-testid="checkpoint-sidebar"
+                >
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            Checkpoints
+                        </span>
+                        <button
+                            type="button"
+                            data-testid="btn-checkpoint-refresh"
+                            onClick={loadCheckpointList}
+                            disabled={checkpointControlsDisabled}
+                            className="text-xs font-medium text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Refresh
+                        </button>
+                    </div>
+                    <div className="mt-3 flex flex-col gap-2">
+                        <input
+                            data-testid="input-checkpoint-label"
+                            type="text"
+                            value={checkpointLabel}
+                            onChange={(event) => setCheckpointLabel(event.target.value)}
+                            placeholder="Checkpoint label"
+                            className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                        />
+                        <button
+                            type="button"
+                            data-testid="btn-checkpoint-save"
+                            onClick={handleSaveCheckpoint}
+                            disabled={checkpointSaveDisabled}
+                            className="w-full rounded border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Save Checkpoint
+                        </button>
+                        {!score && (
+                            <span className="text-xs text-gray-400">
+                                Load a score to enable checkpoints.
+                            </span>
+                        )}
+                    </div>
+                    {checkpointError && (
+                        <div className="mt-3 text-xs text-red-600">
+                            {checkpointError}
+                        </div>
+                    )}
+                    {checkpointLoading && (
+                        <div className="mt-3 text-xs text-gray-400">
+                            Loading checkpoints...
+                        </div>
+                    )}
+                    {!checkpointLoading && checkpoints.length === 0 && (
+                        <div className="mt-3 text-xs text-gray-400">
+                            No checkpoints yet.
+                        </div>
+                    )}
+                    <div className="mt-3 space-y-3">
+                        {checkpoints.map((checkpoint) => (
+                            <div
+                                key={checkpoint.id}
+                                className="rounded border border-gray-200 p-2"
+                            >
+                                <div className="text-sm font-medium text-gray-800">
+                                    {checkpoint.title}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                    {formatTimestamp(checkpoint.createdAt)}
+                                    {checkpoint.size ? ` · ${formatBytes(checkpoint.size)}` : ''}
+                                </div>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                    <button
+                                        type="button"
+                                        data-testid={`btn-checkpoint-restore-${checkpoint.id}`}
+                                        onClick={() => handleRestoreCheckpoint(checkpoint)}
+                                        disabled={checkpointControlsDisabled}
+                                        className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Restore
+                                    </button>
+                                    <button
+                                        type="button"
+                                        data-testid={`btn-checkpoint-compare-${checkpoint.id}`}
+                                        onClick={() => handleCompareCheckpoint(checkpoint)}
+                                        disabled={checkpointCompareDisabled}
+                                        className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Compare
+                                    </button>
+                                    <button
+                                        type="button"
+                                        data-testid={`btn-checkpoint-delete-${checkpoint.id}`}
+                                        onClick={() => handleDeleteCheckpoint(checkpoint)}
+                                        disabled={checkpointControlsDisabled}
+                                        className="rounded border border-gray-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </aside>
+
+                <div
+                    ref={scrollContainerRef}
+                    className="relative z-0 flex-1 overflow-auto bg-gray-50 p-8"
+                >
                 {loading && (
                     <div className="flex items-center justify-center h-full">
                         <div className="text-xl text-gray-500">Loading score...</div>
@@ -3310,6 +3636,51 @@ export default function ScoreEditor() {
                         </div>
                     )}
                 </div>
+            </div>
+
+            {compareView && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
+                    data-testid="checkpoint-compare-modal"
+                >
+                    <div className="flex w-full max-w-6xl flex-col gap-4 rounded bg-white p-4 shadow-lg">
+                        <div className="flex items-center justify-between">
+                            <div className="text-sm font-semibold text-gray-800">
+                                Compare Checkpoint
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setCompareView(null)}
+                                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                            >
+                                Close
+                            </button>
+                        </div>
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <div className="flex flex-col gap-2">
+                                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                    Current
+                                </span>
+                                <textarea
+                                    readOnly
+                                    value={compareView.currentXml}
+                                    className="h-96 w-full rounded border border-gray-200 bg-gray-50 p-2 font-mono text-xs text-gray-700"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                    {compareView.title}
+                                </span>
+                                <textarea
+                                    readOnly
+                                    value={compareView.checkpointXml}
+                                    className="h-96 w-full rounded border border-gray-200 bg-gray-50 p-2 font-mono text-xs text-gray-700"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
             </div>
         </div>
     );
