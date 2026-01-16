@@ -302,7 +302,7 @@ export default function ScoreEditor() {
     const [scoreSummariesError, setScoreSummariesError] = useState<string | null>(null);
     const [scoreDirtySinceCheckpoint, setScoreDirtySinceCheckpoint] = useState(false);
     const [scoreDirtySinceXml, setScoreDirtySinceXml] = useState(false);
-    const [xmlSidebarMode, setXmlSidebarMode] = useState<'closed' | 'open' | 'full'>('open');
+    const [xmlSidebarMode, setXmlSidebarMode] = useState<'closed' | 'open' | 'full'>('closed');
     const [xmlSidebarTab, setXmlSidebarTab] = useState<'xml' | 'assistant'>('xml');
     const [xmlText, setXmlText] = useState('');
     const [xmlDirty, setXmlDirty] = useState(false);
@@ -349,6 +349,7 @@ export default function ScoreEditor() {
     const clipboardRef = useRef<{ mimeType: string; data: Uint8Array } | null>(null);
     const currentPageRef = useRef(currentPage);
     const aiKeyStorageKey = 'ots_openai_api_key';
+    const autoFitPendingRef = useRef(true);
 
     useEffect(() => {
         scoreRef.current = score;
@@ -1322,6 +1323,7 @@ ${partsBodyXml}
         setInstrumentGroups([]);
         setCurrentPage(0);
         setPageCount(1);
+        autoFitPendingRef.current = true;
         try {
             const response = await fetch(url, signal ? { signal } : undefined);
             if (!response.ok) throw new Error('Failed to fetch score');
@@ -1353,6 +1355,17 @@ ${partsBodyXml}
             setMutationEnabled(true);
             const initialPage = await refreshPageCount(loadedScore, 0);
             await renderScore(loadedScore, initialPage);
+            if (autoFitPendingRef.current && typeof window !== 'undefined') {
+                window.requestAnimationFrame(() => {
+                    window.requestAnimationFrame(() => {
+                        handleFitWidth();
+                        autoFitPendingRef.current = false;
+                    });
+                });
+            } else {
+                handleFitWidth();
+                autoFitPendingRef.current = false;
+            }
             await refreshScoreMetadata(loadedScore);
             await refreshInstrumentTemplates(loadedScore);
             if (loadedScore.saveAudio) {
@@ -1409,6 +1422,7 @@ ${partsBodyXml}
         setScoreLyricist('');
         setScoreParts([]);
         setInstrumentGroups([]);
+        autoFitPendingRef.current = true;
         try {
             const buffer = await file.arrayBuffer();
             const data = new Uint8Array(buffer);
@@ -1435,9 +1449,20 @@ ${partsBodyXml}
                 console.warn('Mutation APIs not detected on loaded score; enabling toolbar anyway.');
             }
             setMutationEnabled(true);
-            const initialPage = await refreshPageCount(loadedScore, 0);
-            await renderScore(loadedScore, initialPage);
-            await refreshScoreMetadata(loadedScore);
+        const initialPage = await refreshPageCount(loadedScore, 0);
+        await renderScore(loadedScore, initialPage);
+        if (autoFitPendingRef.current && typeof window !== 'undefined') {
+            window.requestAnimationFrame(() => {
+                window.requestAnimationFrame(() => {
+                    handleFitWidth();
+                    autoFitPendingRef.current = false;
+                });
+            });
+        } else {
+            handleFitWidth();
+            autoFitPendingRef.current = false;
+        }
+        await refreshScoreMetadata(loadedScore);
             await refreshInstrumentTemplates(loadedScore);
             if (loadedScore.saveAudio) {
                 await ensureSoundFontLoaded(loadedScore);
@@ -3234,14 +3259,21 @@ ${partsBodyXml}
         handlePasteSelection,
     ]);
 
-    const handleSetTimeSignature = async (num: number, den: number) => {
+    const handleSetTimeSignature = async (num: number, den: number, timeSigType?: number) => {
         if (!score || !score.setTimeSignature) return;
         const preservedIndex = selectedIndex;
         const preservedPoint = selectedPoint;
         setAudioBusy(true);
         try {
             await ensureSelectionInWasm();
-            await score.setTimeSignature(num, den);
+            if (typeof timeSigType === 'number' && score.setTimeSignatureWithType) {
+                await score.setTimeSignatureWithType(num, den, timeSigType);
+            } else {
+                if (typeof timeSigType === 'number' && !score.setTimeSignatureWithType) {
+                    console.warn('Time signature type requested but not supported by this WASM build.');
+                }
+                await score.setTimeSignature(num, den);
+            }
             if (score.relayout) {
                 await score.relayout();
             }
@@ -4862,25 +4894,7 @@ ${partsBodyXml}
                                         Assistant
                                     </button>
                                 </div>
-                                <button
-                                    type="button"
-                                    data-testid="btn-xml-toggle-inline"
-                                    aria-expanded={xmlSidebarMode !== 'closed'}
-                                    aria-controls="xml-sidebar-content"
-                                    aria-label={
-                                        xmlSidebarMode === 'closed'
-                                            ? 'Open MusicXML sidebar'
-                                            : xmlSidebarMode === 'open'
-                                                ? 'Expand MusicXML sidebar'
-                                                : 'Close MusicXML sidebar'
-                                    }
-                                    onClick={() => {
-                                        setXmlSidebarMode((prev) => (prev === 'closed' ? 'open' : prev === 'open' ? 'full' : 'closed'));
-                                    }}
-                                    className="text-xs font-medium text-gray-600 hover:text-gray-900"
-                                >
-                                    {xmlSidebarMode === 'closed' ? 'Open' : xmlSidebarMode === 'open' ? 'Full' : 'Close'}
-                                </button>
+                                <div />
                             </div>
                         </div>
                     )}

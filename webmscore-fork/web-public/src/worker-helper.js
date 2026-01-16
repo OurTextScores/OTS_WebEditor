@@ -830,6 +830,10 @@ class WebMscoreW {
         return this.rpc('setTimeSignature', [numerator, denominator])
     }
 
+    setTimeSignatureWithType(numerator, denominator, timeSigType) {
+        return this.rpc('setTimeSignatureWithType', [numerator, denominator, timeSigType])
+    }
+
     /**
      * Set the key signature (global) at the start of the score.
      * @param {number} fifths -7..+7 (Cb..C#)

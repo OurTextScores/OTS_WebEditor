@@ -2794,6 +2794,50 @@ bool _setTimeSignature(uintptr_t score_ptr, int numerator, int denominator, int 
     return true;
 }
 
+bool _setTimeSignatureWithType(uintptr_t score_ptr, int numerator, int denominator, int timeSigType, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    if (numerator <= 0 || denominator <= 0) {
+        LOGW() << "setTimeSignatureWithType: invalid fraction " << numerator << "/" << denominator;
+        return false;
+    }
+
+    engraving::Measure* targetMeasure = nullptr;
+    if (auto cr = score->selection().cr()) {
+        targetMeasure = cr->measure();
+        if (!targetMeasure) {
+            targetMeasure = score->tick2measure(cr->tick());
+        }
+    }
+    if (!targetMeasure) {
+        targetMeasure = score->firstMeasure();
+    }
+    if (!targetMeasure) {
+        LOGW() << "setTimeSignatureWithType: no measures in score";
+        return false;
+    }
+
+    engraving::Segment* dummySeg = score->dummy()->segment();
+    auto ts = engraving::Factory::createTimeSig(dummySeg);
+    if (!ts) {
+        LOGW() << "setTimeSignatureWithType: Factory returned null";
+        return false;
+    }
+
+    auto type = engraving::TimeSigType::NORMAL;
+    const int minType = static_cast<int>(engraving::TimeSigType::NORMAL);
+    const int maxType = static_cast<int>(engraving::TimeSigType::CUT_TRIPLE);
+    if (timeSigType >= minType && timeSigType <= maxType) {
+        type = static_cast<engraving::TimeSigType>(timeSigType);
+    }
+    ts->setSig(engraving::Fraction(numerator, denominator), type);
+
+    score->startCmd();
+    score->cmdAddTimeSig(targetMeasure, 0, ts, /*local*/ false);
+    score->endCmd();
+    return true;
+}
+
 bool _setKeySignature(uintptr_t score_ptr, int fifths, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
@@ -3371,6 +3415,11 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool setTimeSignature(uintptr_t score_ptr, int numerator, int denominator, int excerptId = -1) {
         return _setTimeSignature(score_ptr, numerator, denominator, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool setTimeSignatureWithType(uintptr_t score_ptr, int numerator, int denominator, int timeSigType, int excerptId = -1) {
+        return _setTimeSignatureWithType(score_ptr, numerator, denominator, timeSigType, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE

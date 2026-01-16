@@ -1346,6 +1346,17 @@ class WebMscore {
     }
 
     /**
+     * Set the time signature (global) with a specific display type.
+     * @param {number} numerator
+     * @param {number} denominator
+     * @param {number} timeSigType 0=Normal, 1=Common time, 2=Cut time
+     * @returns {Promise<boolean>}
+     */
+    async setTimeSignatureWithType(numerator, denominator, timeSigType) {
+        return Module.ccall('setTimeSignatureWithType', 'boolean', ['number', 'number', 'number', 'number', 'number'], [this.scoreptr, numerator, denominator, timeSigType, this.excerptId])
+    }
+
+    /**
      * Set the key signature (global) at the start of the score.
      * @param {number} fifths -7..+7 (Cb..C#)
      * @returns {Promise<boolean>}

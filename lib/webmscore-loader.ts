@@ -62,6 +62,7 @@ export interface Score {
     redo?: () => Promise<unknown> | unknown;
     relayout?: () => Promise<unknown> | unknown;
     setTimeSignature?: (numerator: number, denominator: number) => Promise<unknown> | unknown;
+    setTimeSignatureWithType?: (numerator: number, denominator: number, timeSigType: number) => Promise<unknown> | unknown;
     setKeySignature?: (fifths: number) => Promise<unknown> | unknown;
     getKeySignature?: () => Promise<number> | number;
     setClef?: (clefType: number) => Promise<unknown> | unknown;
