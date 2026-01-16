@@ -4366,6 +4366,17 @@ void Score::appendPart(const InstrumentTemplate* t)
     }
     part->staves().front()->setBarLineSpan(static_cast<int>(part->nstaves()));
     undoInsertPart(part, static_cast<int>(n));
+    Measure* first = firstMeasure();
+    if (first) {
+        for (staff_idx_t i = 0; i < part->nstaves(); ++i) {
+            Staff* staff = part->staff(i);
+            if (!staff) {
+                continue;
+            }
+            const ClefType clef = part->instrument()->clefType(i)._concertClef;
+            undoChangeClef(staff, first, clef);
+        }
+    }
     setUpTempoMapLater();
     masterScore()->rebuildMidiMapping();
 }

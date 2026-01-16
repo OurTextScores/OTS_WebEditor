@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 export type MeasureInsertTarget = 'beginning' | 'after-selection' | 'end';
 
@@ -131,6 +131,66 @@ interface ToolbarProps {
     onRemovePart?: (partIndex: number) => void;
     onTogglePartVisible?: (partIndex: number, visible: boolean) => void;
 }
+
+const dropdownSummaryClass =
+    'px-3 py-1 bg-white border border-gray-300 rounded cursor-pointer hover:bg-gray-50 list-none';
+const dropdownSummaryDisabledClass = 'opacity-50 cursor-not-allowed pointer-events-none';
+const dropdownMenuClass =
+    'absolute mt-2 w-56 bg-white border border-gray-200 rounded shadow-lg p-2 flex flex-col gap-1';
+const dropdownItemClass =
+    'dropdown-item px-3 py-1 text-left rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed';
+const dropdownTextClass = 'px-3 py-1 text-sm text-gray-700';
+const dropdownLabelClass = 'text-xs uppercase tracking-wide text-gray-500 px-2 py-1';
+
+const ToolbarDropdown: React.FC<{
+    label: string;
+    disabled?: boolean;
+    children: React.ReactNode;
+    testId?: string;
+    summaryClassName?: string;
+}> = ({ label, disabled = false, children, testId, summaryClassName }) => {
+    const [open, setOpen] = useState(false);
+
+    useEffect(() => {
+        if (disabled) {
+            setOpen(false);
+        }
+    }, [disabled]);
+
+    return (
+        <div className="relative overflow-visible" data-testid={testId}>
+            <button
+                type="button"
+                className={`${summaryClassName ?? dropdownSummaryClass} ${disabled ? dropdownSummaryDisabledClass : ''}`}
+                onClick={() => {
+                    if (!disabled) {
+                        setOpen((prev) => !prev);
+                    }
+                }}
+                disabled={disabled}
+                aria-expanded={open}
+            >
+                {label}
+            </button>
+            {!disabled && open && (
+                <div
+                    className={dropdownMenuClass}
+                    style={{ zIndex: 110 }}
+                    onClick={(event) => {
+                        const target = event.target as HTMLElement | null;
+                        const closeTrigger = target?.closest('.dropdown-item, [data-dropdown-close="true"]');
+                        if (!closeTrigger) {
+                            return;
+                        }
+                        setOpen(false);
+                    }}
+                >
+                    {children}
+                </div>
+            )}
+        </div>
+    );
+};
 
 export const Toolbar: React.FC<ToolbarProps> = ({
     onNewScore,
@@ -458,15 +518,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         { label: 'Clear', value: 0 }, // AccidentalType::NONE
     ];
 
-    const dropdownSummaryClass =
-        'px-3 py-1 bg-white border border-gray-300 rounded cursor-pointer hover:bg-gray-50 list-none';
-    const dropdownSummaryDisabledClass = 'opacity-50 cursor-not-allowed pointer-events-none';
-    const dropdownMenuClass =
-        'absolute mt-2 w-56 bg-white border border-gray-200 rounded shadow-lg p-2 flex flex-col gap-1';
-    const dropdownItemClass =
-        'dropdown-item px-3 py-1 text-left rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed';
-    const dropdownTextClass = 'px-3 py-1 text-sm text-gray-700';
-    const dropdownLabelClass = 'text-xs uppercase tracking-wide text-gray-500 px-2 py-1';
     const instrumentOptions = instrumentGroups.flatMap(group =>
         group.instruments.map(instrument => ({
             ...instrument,
@@ -474,6 +525,41 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             groupId: instrument.groupId ?? group.id
         }))
     );
+    const commonInstrumentPreferences = useMemo(() => ([
+        { key: 'piano', ids: ['piano'] },
+        { key: 'violin', ids: ['violin'] },
+        { key: 'viola', ids: ['viola'] },
+        { key: 'cello', ids: ['violoncello', 'cello'] },
+        { key: 'double-bass', ids: ['double-bass', 'contrabass'], label: 'Double Bass' },
+        { key: 'flute', ids: ['flute'] },
+        { key: 'oboe', ids: ['oboe'] },
+        { key: 'clarinet', ids: ['clarinet'], label: 'Clarinet' },
+        { key: 'bassoon', ids: ['bassoon'] },
+        { key: 'trumpet', ids: ['trumpet'], label: 'Trumpet' },
+        { key: 'horn', ids: ['horn'] },
+        { key: 'trombone', ids: ['trombone'] },
+        { key: 'tuba', ids: ['tuba'] },
+        { key: 'alto-saxophone', ids: ['alto-saxophone'] },
+        { key: 'tenor-saxophone', ids: ['tenor-saxophone'] },
+        { key: 'bass-guitar', ids: ['bass-guitar'] },
+        { key: 'guitar', ids: ['guitar-nylon', 'guitar-steel'] },
+        { key: 'voice', ids: ['voice'] },
+        { key: 'drumset', ids: ['drumset'] },
+    ]), []);
+    const commonInstruments = useMemo(() => {
+        const results: { instrument: InstrumentTemplate; label: string }[] = [];
+        const used = new Set<string>();
+        for (const pref of commonInstrumentPreferences) {
+            const found = pref.ids
+                .map((id) => instrumentOptions.find((instrument) => instrument.id === id))
+                .find(Boolean);
+            if (found && !used.has(found.id)) {
+                used.add(found.id);
+                results.push({ instrument: found, label: pref.label ?? found.name });
+            }
+        }
+        return results;
+    }, [commonInstrumentPreferences, instrumentOptions]);
     const hasInstrumentTemplates = instrumentOptions.length > 0;
     const instrumentIdToAdd = selectedInstrumentId || (hasInstrumentTemplates ? instrumentOptions[0].id : '');
     const instrumentsDisabled = !exportsEnabled;
@@ -487,41 +573,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         && Number.isInteger(parsedCustomDenominator)
         && parsedCustomNumerator > 0
         && parsedCustomDenominator > 0;
-    const ToolbarDropdown: React.FC<{
-        label: string;
-        disabled?: boolean;
-        children: React.ReactNode;
-        testId?: string;
-        summaryClassName?: string;
-    }> = ({ label, disabled = false, children, testId, summaryClassName }) => (
-        <details className="relative overflow-visible" data-testid={testId}>
-            <summary
-                className={`${summaryClassName ?? dropdownSummaryClass} ${disabled ? dropdownSummaryDisabledClass : ''}`}
-            >
-                {label}
-            </summary>
-            {!disabled && (
-                <div
-                    className={dropdownMenuClass}
-                    style={{ zIndex: 110 }}
-                    onClick={(event) => {
-                        const target = event.target as HTMLElement | null;
-                        const closeTrigger = target?.closest('.dropdown-item, [data-dropdown-close="true"]');
-                        if (!closeTrigger) {
-                            return;
-                        }
-                        const details = event.currentTarget.closest('details');
-                        if (details) {
-                            details.removeAttribute('open');
-                        }
-                    }}
-                >
-                    {children}
-                </div>
-            )}
-        </details>
-    );
-
     const shortcutEntries = [
         { label: 'Delete: Delete / Backspace', title: 'Shortcut: Delete / Backspace' },
         { label: 'Undo: Ctrl/Cmd + Z', title: 'Shortcut: Ctrl/Cmd + Z' },
@@ -1071,6 +1122,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                 disabled={mutationDisabled}
                                 className="w-full px-2 py-1 border border-gray-300 rounded bg-white text-sm"
                             >
+                                {commonInstruments.length > 0 && (
+                                    <optgroup label="Common">
+                                        {commonInstruments.map((entry, index) => (
+                                            <option key={`common-${entry.instrument.id}-${index}`} value={entry.instrument.id}>
+                                                {entry.label}
+                                            </option>
+                                        ))}
+                                    </optgroup>
+                                )}
                                 {instrumentGroups.map(group => (
                                     <optgroup key={group.id} label={group.name}>
                                         {group.instruments.map(instrument => (

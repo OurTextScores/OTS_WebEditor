@@ -329,11 +329,16 @@ export default function ScoreEditor() {
     const [newScoreDialogOpen, setNewScoreDialogOpen] = useState(false);
     const [newScoreTitle, setNewScoreTitle] = useState('');
     const [newScoreComposer, setNewScoreComposer] = useState('');
-    const [newScoreInstrumentId, setNewScoreInstrumentId] = useState('');
+    const [newScoreInstrumentIds, setNewScoreInstrumentIds] = useState<string[]>([]);
+    const [newScoreInstrumentToAdd, setNewScoreInstrumentToAdd] = useState('');
     const [newScoreMeasures, setNewScoreMeasures] = useState(4);
     const [newScoreKeyFifths, setNewScoreKeyFifths] = useState(0);
     const [newScoreTimeNumerator, setNewScoreTimeNumerator] = useState(4);
     const [newScoreTimeDenominator, setNewScoreTimeDenominator] = useState(4);
+    const [instrumentClefMap, setInstrumentClefMap] = useState<Record<string, { staves: number; clefs: { staff: number; clef: string }[] }> | null>(null);
+    const [instrumentClefMapError, setInstrumentClefMapError] = useState<string | null>(null);
+    const [instrumentFallbackGroups, setInstrumentFallbackGroups] = useState<InstrumentTemplateGroup[]>([]);
+    const [instrumentFallbackError, setInstrumentFallbackError] = useState<string | null>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [audioBusy, setAudioBusy] = useState(false);
@@ -535,9 +540,11 @@ export default function ScoreEditor() {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&apos;');
 
+    const newScoreInstrumentGroups = instrumentGroups.length > 0 ? instrumentGroups : instrumentFallbackGroups;
+
     const newScoreInstrumentOptions = useMemo(() => {
-        if (instrumentGroups.length) {
-            return instrumentGroups.flatMap((group) => group.instruments.map((instrument) => ({
+        if (newScoreInstrumentGroups.length) {
+            return newScoreInstrumentGroups.flatMap((group) => group.instruments.map((instrument) => ({
                 id: instrument.id,
                 name: instrument.name,
                 label: group.name ? `${instrument.name} (${group.name})` : instrument.name,
@@ -550,7 +557,42 @@ export default function ScoreEditor() {
             { id: 'guitar', name: 'Guitar', label: 'Guitar' },
             { id: 'voice', name: 'Voice', label: 'Voice' },
         ];
-    }, [instrumentGroups]);
+    }, [newScoreInstrumentGroups]);
+    const newScoreCommonInstrumentPreferences = useMemo(() => ([
+        { key: 'piano', ids: ['piano'] },
+        { key: 'violin', ids: ['violin'] },
+        { key: 'viola', ids: ['viola'] },
+        { key: 'cello', ids: ['violoncello', 'cello'] },
+        { key: 'double-bass', ids: ['double-bass', 'contrabass'], label: 'Double Bass' },
+        { key: 'flute', ids: ['flute'] },
+        { key: 'oboe', ids: ['oboe'] },
+        { key: 'clarinet', ids: ['clarinet'], label: 'Clarinet' },
+        { key: 'bassoon', ids: ['bassoon'] },
+        { key: 'trumpet', ids: ['trumpet'], label: 'Trumpet' },
+        { key: 'horn', ids: ['horn'] },
+        { key: 'trombone', ids: ['trombone'] },
+        { key: 'tuba', ids: ['tuba'] },
+        { key: 'alto-saxophone', ids: ['alto-saxophone'] },
+        { key: 'tenor-saxophone', ids: ['tenor-saxophone'] },
+        { key: 'bass-guitar', ids: ['bass-guitar'] },
+        { key: 'guitar', ids: ['guitar-nylon', 'guitar-steel'] },
+        { key: 'voice', ids: ['voice'] },
+        { key: 'drumset', ids: ['drumset'] },
+    ]), []);
+    const newScoreCommonInstruments = useMemo(() => {
+        const results: { instrument: (typeof newScoreInstrumentOptions)[number]; label: string }[] = [];
+        const used = new Set<string>();
+        for (const pref of newScoreCommonInstrumentPreferences) {
+            const found = pref.ids
+                .map((id) => newScoreInstrumentOptions.find((instrument) => instrument.id === id))
+                .find(Boolean);
+            if (found && !used.has(found.id)) {
+                used.add(found.id);
+                results.push({ instrument: found, label: pref.label ?? found.name });
+            }
+        }
+        return results;
+    }, [newScoreCommonInstrumentPreferences, newScoreInstrumentOptions]);
 
     const newScoreTimeOptions = [
         { label: '4/4', numerator: 4, denominator: 4 },
@@ -583,57 +625,119 @@ export default function ScoreEditor() {
         { label: 'Cb', fifths: -7 },
     ];
 
+    const clefCodeMap: Record<string, { sign: string; line: number; octave?: number }> = {
+        G: { sign: 'G', line: 2 },
+        G8va: { sign: 'G', line: 2, octave: 1 },
+        G8vb: { sign: 'G', line: 2, octave: -1 },
+        G15ma: { sign: 'G', line: 2, octave: 2 },
+        F: { sign: 'F', line: 4 },
+        F8va: { sign: 'F', line: 4, octave: 1 },
+        F8vb: { sign: 'F', line: 4, octave: -1 },
+        F15ma: { sign: 'F', line: 4, octave: 2 },
+        C1: { sign: 'C', line: 1 },
+        C2: { sign: 'C', line: 2 },
+        C3: { sign: 'C', line: 3 },
+        C4: { sign: 'C', line: 4 },
+        C5: { sign: 'C', line: 5 },
+        PERC: { sign: 'percussion', line: 2 },
+    };
+
+    const resolveInstrumentClefs = (instrumentId: string, instrumentName: string) => {
+        const entry = instrumentClefMap?.[instrumentId];
+        if (entry) {
+            return entry;
+        }
+        const lowerName = instrumentName.toLowerCase();
+        if (lowerName.includes('piano') || lowerName.includes('organ') || lowerName.includes('harp')) {
+            return { staves: 2, clefs: [{ staff: 1, clef: 'G' }, { staff: 2, clef: 'F' }] };
+        }
+        if (lowerName.includes('viola')) {
+            return { staves: 1, clefs: [{ staff: 1, clef: 'C3' }] };
+        }
+        if (lowerName.includes('cello') || lowerName.includes('contrabass') || lowerName.includes('double bass') || lowerName.includes('tuba') || lowerName.includes('bassoon')) {
+            return { staves: 1, clefs: [{ staff: 1, clef: 'F' }] };
+        }
+        if (lowerName.includes('percussion') || lowerName.includes('drum')) {
+            return { staves: 1, clefs: [{ staff: 1, clef: 'PERC' }] };
+        }
+        return { staves: 1, clefs: [{ staff: 1, clef: 'G' }] };
+    };
+
     const buildNewScoreXml = (options: {
         title: string;
         composer: string;
-        instrumentName: string;
+        instruments: { id: string; name: string }[];
         measures: number;
         keyFifths: number;
         timeNumerator: number;
         timeDenominator: number;
     }) => {
         const title = escapeXml(options.title.trim());
-        const instrumentName = escapeXml(options.instrumentName.trim() || 'Instrument');
         const composer = escapeXml(options.composer.trim());
         const divisions = 16;
         const measureDuration = Math.round((divisions * 4 * options.timeNumerator) / options.timeDenominator);
-        const measuresXml = Array.from({ length: options.measures }, (_, index) => {
-            const attributes = index === 0
-                ? `
+        const partsXml = options.instruments.map((instrument, index) => {
+            const partId = `P${index + 1}`;
+            const rawName = instrument.name.trim() || 'Instrument';
+            const instrumentName = escapeXml(rawName);
+            const clefSpec = resolveInstrumentClefs(instrument.id, rawName);
+            const staves = Math.max(clefSpec.staves || 1, clefSpec.clefs.length || 1);
+            const clefXml = clefSpec.clefs.map((clefEntry) => {
+                const mapEntry = clefCodeMap[clefEntry.clef] ?? clefCodeMap.G;
+                const staffAttr = staves > 1 ? ` number="${clefEntry.staff}"` : '';
+                const octave = mapEntry.octave ? `\n        <clef-octave-change>${mapEntry.octave}</clef-octave-change>` : '';
+                return `        <clef${staffAttr}>\n          <sign>${mapEntry.sign}</sign>\n          <line>${mapEntry.line}</line>${octave}\n        </clef>`;
+            }).join('\n');
+            const measuresXml = Array.from({ length: options.measures }, (_, measureIndex) => {
+                const attributes = measureIndex === 0
+                    ? `
       <attributes>
         <divisions>${divisions}</divisions>
         <key><fifths>${options.keyFifths}</fifths></key>
         <time><beats>${options.timeNumerator}</beats><beat-type>${options.timeDenominator}</beat-type></time>
-        <clef><sign>G</sign><line>2</line></clef>
+        ${staves > 1 ? `<staves>${staves}</staves>` : ''}
+${clefXml}
       </attributes>`
-                : '';
-            return `    <measure number="${index + 1}">
-${attributes}
-      <note>
+                    : '';
+                const notesXml = Array.from({ length: staves }, (_, staffIndex) => {
+                    const staffNumber = staffIndex + 1;
+                    return `      <note>
         <rest measure="yes"/>
         <duration>${measureDuration}</duration>
         <voice>1</voice>
-      </note>
+        ${staves > 1 ? `<staff>${staffNumber}</staff>` : ''}
+      </note>`;
+                }).join('\n');
+                return `    <measure number="${measureIndex + 1}">
+${attributes}
+${notesXml}
     </measure>`;
-        }).join('\n');
+            }).join('\n');
+            return {
+                partList: `    <score-part id="${partId}">
+      <part-name>${instrumentName}</part-name>
+      <score-instrument id="${partId}-I1">
+        <instrument-name>${instrumentName}</instrument-name>
+      </score-instrument>
+    </score-part>`,
+                part: `  <part id="${partId}">
+${measuresXml}
+  </part>`,
+            };
+        });
         const workLine = title ? `  <work><work-title>${title}</work-title></work>\n` : '';
         const identificationLine = composer
             ? `  <identification><creator type="composer">${composer}</creator></identification>\n`
             : '';
+        const partListXml = partsXml.map((part) => part.partList).join('\n');
+        const partsBodyXml = partsXml.map((part) => part.part).join('\n');
         return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
 <score-partwise version="3.1">
 ${workLine}${identificationLine}  <part-list>
-    <score-part id="P1">
-      <part-name>${instrumentName}</part-name>
-      <score-instrument id="P1-I1">
-        <instrument-name>${instrumentName}</instrument-name>
-      </score-instrument>
-    </score-part>
+${partListXml}
   </part-list>
-  <part id="P1">
-${measuresXml}
-  </part>
+${partsBodyXml}
 </score-partwise>
 `;
     };
@@ -1081,11 +1185,85 @@ ${measuresXml}
         if (newScoreInstrumentOptions.length === 0) {
             return;
         }
-        const hasInstrument = newScoreInstrumentOptions.some((option) => option.id === newScoreInstrumentId);
-        if (!hasInstrument) {
-            setNewScoreInstrumentId(newScoreInstrumentOptions[0].id);
+        const fallbackId = newScoreInstrumentOptions[0].id;
+        if (!newScoreInstrumentToAdd || !newScoreInstrumentOptions.some((option) => option.id === newScoreInstrumentToAdd)) {
+            setNewScoreInstrumentToAdd(fallbackId);
         }
-    }, [newScoreDialogOpen, newScoreInstrumentId, newScoreInstrumentOptions]);
+        if (newScoreInstrumentIds.length === 0) {
+            setNewScoreInstrumentIds([fallbackId]);
+        }
+    }, [newScoreDialogOpen, newScoreInstrumentIds.length, newScoreInstrumentOptions, newScoreInstrumentToAdd]);
+
+    useEffect(() => {
+        if (!newScoreDialogOpen || !score) {
+            return;
+        }
+        if (instrumentGroups.length > 0) {
+            return;
+        }
+        void refreshInstrumentTemplates(score);
+    }, [newScoreDialogOpen, instrumentGroups.length, score]);
+
+    useEffect(() => {
+        if (!newScoreDialogOpen || instrumentClefMap) {
+            return;
+        }
+        let canceled = false;
+        const loadClefs = async () => {
+            try {
+                const response = await fetch('/api/instruments/clefs');
+                if (!response.ok) {
+                    throw new Error('Failed to load clef map.');
+                }
+                const data = await response.json();
+                if (!canceled) {
+                    setInstrumentClefMap(data?.map ?? null);
+                    setInstrumentClefMapError(null);
+                }
+            } catch (err) {
+                if (!canceled) {
+                    console.warn('Failed to load instrument clefs', err);
+                    setInstrumentClefMap(null);
+                    setInstrumentClefMapError('Unable to load clef defaults. Using treble clef.');
+                }
+            }
+        };
+        void loadClefs();
+        return () => {
+            canceled = true;
+        };
+    }, [newScoreDialogOpen, instrumentClefMap]);
+
+    useEffect(() => {
+        if (!newScoreDialogOpen || instrumentGroups.length > 0 || instrumentFallbackGroups.length > 0) {
+            return;
+        }
+        let canceled = false;
+        const loadFallbackInstruments = async () => {
+            try {
+                const response = await fetch('/api/instruments/templates');
+                if (!response.ok) {
+                    throw new Error('Failed to load instrument templates.');
+                }
+                const data = await response.json();
+                if (!canceled) {
+                    const groups = Array.isArray(data?.groups) ? data.groups as InstrumentTemplateGroup[] : [];
+                    setInstrumentFallbackGroups(groups);
+                    setInstrumentFallbackError(groups.length > 0 ? null : 'No instruments found.');
+                }
+            } catch (err) {
+                if (!canceled) {
+                    console.warn('Failed to load fallback instruments', err);
+                    setInstrumentFallbackGroups([]);
+                    setInstrumentFallbackError('Unable to load instrument list.');
+                }
+            }
+        };
+        void loadFallbackInstruments();
+        return () => {
+            canceled = true;
+        };
+    }, [newScoreDialogOpen, instrumentGroups.length, instrumentFallbackGroups.length]);
 
     useEffect(() => {
         const abortController = new AbortController();
@@ -1407,19 +1585,38 @@ ${measuresXml}
         setNewScoreTimeNumerator(4);
         setNewScoreTimeDenominator(4);
         if (newScoreInstrumentOptions.length > 0) {
-            setNewScoreInstrumentId(newScoreInstrumentOptions[0].id);
+            setNewScoreInstrumentToAdd(newScoreInstrumentOptions[0].id);
+            setNewScoreInstrumentIds([newScoreInstrumentOptions[0].id]);
         }
         setNewScoreDialogOpen(true);
     };
 
+    const handleAddNewScoreInstrument = () => {
+        if (!newScoreInstrumentToAdd) {
+            return;
+        }
+        setNewScoreInstrumentIds((prev) => [...prev, newScoreInstrumentToAdd]);
+    };
+
+    const handleRemoveNewScoreInstrument = (index: number) => {
+        setNewScoreInstrumentIds((prev) => prev.filter((_, idx) => idx !== index));
+    };
+
     const handleCreateNewScore = async () => {
         const measures = Math.max(1, Math.floor(newScoreMeasures));
-        const instrumentOption = newScoreInstrumentOptions.find((option) => option.id === newScoreInstrumentId);
-        const instrumentName = instrumentOption?.name || newScoreInstrumentId || 'Instrument';
+        const instrumentIds = newScoreInstrumentIds.length > 0 ? newScoreInstrumentIds : newScoreInstrumentOptions.slice(0, 1).map((option) => option.id);
+        if (instrumentIds.length === 0) {
+            alert('Select at least one instrument.');
+            return;
+        }
+        const instruments = instrumentIds.map((id) => {
+            const option = newScoreInstrumentOptions.find((entry) => entry.id === id);
+            return { id, name: option?.name || id || 'Instrument' };
+        });
         const xml = buildNewScoreXml({
             title: newScoreTitle,
             composer: newScoreComposer,
-            instrumentName,
+            instruments,
             measures,
             keyFifths: newScoreKeyFifths,
             timeNumerator: newScoreTimeNumerator,
@@ -4897,6 +5094,16 @@ ${measuresXml}
                                 Creating a new score will replace the current score and switch to a new checkpoint set.
                                 Export your score if you want a copy; you can return to the previous URL to access older checkpoints.
                             </div>
+                            {instrumentClefMapError && (
+                                <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                                    {instrumentClefMapError}
+                                </div>
+                            )}
+                            {instrumentFallbackError && (
+                                <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                                    {instrumentFallbackError}
+                                </div>
+                            )}
                             <label className="flex flex-col gap-1">
                                 <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                                     Title
@@ -4921,22 +5128,83 @@ ${measuresXml}
                                     placeholder="Composer"
                                 />
                             </label>
-                            <label className="flex flex-col gap-1">
+                            <div className="flex flex-col gap-2">
                                 <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                    Instrument
+                                    Instruments
                                 </span>
-                                <select
-                                    value={newScoreInstrumentId}
-                                    onChange={(event) => setNewScoreInstrumentId(event.target.value)}
-                                    className="rounded border border-gray-300 px-2 py-1 text-sm"
-                                >
-                                    {newScoreInstrumentOptions.map((option) => (
-                                        <option key={option.id} value={option.id}>
-                                            {option.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
+                                {newScoreInstrumentOptions.length > 0 ? (
+                                    <>
+                                        <div className="flex gap-2">
+                                            <select
+                                                value={newScoreInstrumentToAdd}
+                                                onChange={(event) => setNewScoreInstrumentToAdd(event.target.value)}
+                                                className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm"
+                                            >
+                                                {newScoreCommonInstruments.length > 0 && (
+                                                    <optgroup label="Common">
+                                                        {newScoreCommonInstruments.map((entry, index) => (
+                                                            <option key={`common-${entry.instrument.id}-${index}`} value={entry.instrument.id}>
+                                                                {entry.label}
+                                                            </option>
+                                                        ))}
+                                                    </optgroup>
+                                                )}
+                                                {newScoreInstrumentGroups.length > 0 ? (
+                                                    newScoreInstrumentGroups.map((group) => (
+                                                        <optgroup key={group.id} label={group.name}>
+                                                            {group.instruments.map((instrument) => (
+                                                                <option key={instrument.id} value={instrument.id}>
+                                                                    {instrument.name}
+                                                                </option>
+                                                            ))}
+                                                        </optgroup>
+                                                    ))
+                                                ) : (
+                                                    newScoreInstrumentOptions.map((option) => (
+                                                        <option key={option.id} value={option.id}>
+                                                            {option.label}
+                                                        </option>
+                                                    ))
+                                                )}
+                                            </select>
+                                            <button
+                                                type="button"
+                                                onClick={handleAddNewScoreInstrument}
+                                                disabled={!newScoreInstrumentToAdd}
+                                                className="rounded border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                            >
+                                                Add
+                                            </button>
+                                        </div>
+                                        <div className="space-y-1 rounded border border-gray-200 bg-gray-50 p-2 text-xs text-gray-700">
+                                            {newScoreInstrumentIds.length > 0 ? (
+                                                newScoreInstrumentIds.map((instrumentId, index) => {
+                                                    const option = newScoreInstrumentOptions.find((entry) => entry.id === instrumentId);
+                                                    const label = option?.label || option?.name || instrumentId;
+                                                    return (
+                                                        <div key={`${instrumentId}-${index}`} className="flex items-center gap-2">
+                                                            <span className="flex-1 truncate">{label}</span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleRemoveNewScoreInstrument(index)}
+                                                                className="rounded border border-gray-300 bg-white px-2 py-0.5 text-[11px] text-gray-700 hover:bg-gray-100"
+                                                            >
+                                                                Remove
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                })
+                                            ) : (
+                                                <div className="text-gray-500">No instruments selected.</div>
+                                            )}
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="rounded border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-500">
+                                        Instrument list unavailable.
+                                    </div>
+                                )}
+                            </div>
                             <div className="grid gap-3 sm:grid-cols-2">
                                 <label className="flex flex-col gap-1">
                                     <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
