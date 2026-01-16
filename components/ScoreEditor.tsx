@@ -109,6 +109,18 @@ type MutationMethods = Pick<
 
 type HarmonyVariant = 0 | 1 | 2;
 
+type MusicXmlPatchOp = {
+    op: 'replace' | 'setText' | 'setAttr' | 'insertBefore' | 'insertAfter' | 'delete';
+    path: string;
+    value?: string;
+    name?: string;
+};
+
+type MusicXmlPatch = {
+    format: 'musicxml-patch@1';
+    ops: MusicXmlPatchOp[];
+};
+
 interface InstrumentTemplate {
     id: string;
     name: string;
@@ -283,21 +295,28 @@ export default function ScoreEditor() {
     const [compareView, setCompareView] = useState<{ title: string; currentXml: string; checkpointXml: string } | null>(null);
     const [checkpointsCollapsed, setCheckpointsCollapsed] = useState(false);
     const [scoreDirtySinceCheckpoint, setScoreDirtySinceCheckpoint] = useState(false);
+    const [scoreDirtySinceXml, setScoreDirtySinceXml] = useState(false);
     const [xmlSidebarMode, setXmlSidebarMode] = useState<'closed' | 'open' | 'full'>('open');
     const [xmlSidebarTab, setXmlSidebarTab] = useState<'xml' | 'assistant'>('xml');
     const [xmlText, setXmlText] = useState('');
     const [xmlDirty, setXmlDirty] = useState(false);
     const [xmlLoading, setXmlLoading] = useState(false);
     const [xmlError, setXmlError] = useState<string | null>(null);
-    const [aiProvider, setAiProvider] = useState<'openai' | 'anthropic'>('openai');
-    const [aiModel, setAiModel] = useState('gpt-4.1');
+    const [aiModel, setAiModel] = useState('');
     const [aiApiKey, setAiApiKey] = useState('');
     const [aiPrompt, setAiPrompt] = useState('');
     const [aiIncludeXml, setAiIncludeXml] = useState(true);
+    const [aiMaxTokensMode, setAiMaxTokensMode] = useState<'auto' | 'custom'>('auto');
     const [aiMaxTokens, setAiMaxTokens] = useState(4096);
     const [aiOutput, setAiOutput] = useState('');
+    const [aiPatch, setAiPatch] = useState<MusicXmlPatch | null>(null);
+    const [aiPatchError, setAiPatchError] = useState<string | null>(null);
+    const [aiPatchedXml, setAiPatchedXml] = useState('');
     const [aiBusy, setAiBusy] = useState(false);
     const [aiError, setAiError] = useState<string | null>(null);
+    const [aiModels, setAiModels] = useState<string[]>([]);
+    const [aiModelsLoading, setAiModelsLoading] = useState(false);
+    const [aiModelsError, setAiModelsError] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(0);
     const [pageCount, setPageCount] = useState(1);
     const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -309,6 +328,7 @@ export default function ScoreEditor() {
     const streamIteratorRef = useRef<((cancel?: boolean) => Promise<any>) | null>(null);
     const clipboardRef = useRef<{ mimeType: string; data: Uint8Array } | null>(null);
     const currentPageRef = useRef(currentPage);
+    const aiKeyStorageKey = 'ots_openai_api_key';
 
     useEffect(() => {
         scoreRef.current = score;
@@ -317,6 +337,27 @@ export default function ScoreEditor() {
     useEffect(() => {
         currentPageRef.current = currentPage;
     }, [currentPage]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+        const cached = window.localStorage.getItem(aiKeyStorageKey);
+        if (cached) {
+            setAiApiKey(cached);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+        if (aiApiKey.trim()) {
+            window.localStorage.setItem(aiKeyStorageKey, aiApiKey);
+        } else {
+            window.localStorage.removeItem(aiKeyStorageKey);
+        }
+    }, [aiApiKey]);
 
     useEffect(() => {
         let canceled = false;
@@ -469,6 +510,7 @@ export default function ScoreEditor() {
         if (!score) {
             setXmlText('');
             setXmlDirty(false);
+            setScoreDirtySinceXml(false);
             return;
         }
         setXmlLoading(true);
@@ -481,6 +523,7 @@ export default function ScoreEditor() {
             const text = new TextDecoder().decode(data);
             setXmlText(text);
             setXmlDirty(false);
+            setScoreDirtySinceXml(false);
         } catch (err) {
             console.error('Failed to load MusicXML', err);
             setXmlError('Unable to load MusicXML from the current score.');
@@ -500,59 +543,193 @@ export default function ScoreEditor() {
         const text = new TextDecoder().decode(data);
         setXmlText(text);
         setXmlDirty(false);
+        setScoreDirtySinceXml(false);
         return text;
     }, [xmlText, getScoreXmlData]);
 
-    const extractXmlFromResponse = (responseText: string) => {
-        const fenced = responseText.match(/```(?:xml)?\s*([\s\S]*?)```/i);
+    const extractJsonFromResponse = (responseText: string) => {
+        const fenced = responseText.match(/```(?:json)?\s*([\s\S]*?)```/i);
         if (fenced) {
             return fenced[1].trim();
         }
         return responseText.trim();
     };
 
-    const validateXmlString = (text: string) => {
+    const parseMusicXmlPatch = (text: string) => {
         if (!text.trim()) {
-            return { valid: false, message: 'AI response is empty.' };
+            return { patch: null as MusicXmlPatch | null, error: 'AI response is empty.' };
         }
-        if (typeof DOMParser === 'undefined') {
-            return { valid: true, message: '' };
+        let parsed: any;
+        try {
+            parsed = JSON.parse(text);
+        } catch (err) {
+            return { patch: null, error: 'AI response is not valid JSON.' };
         }
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(text, 'application/xml');
-        const parserError = doc.querySelector('parsererror');
-        if (parserError) {
-            return { valid: false, message: 'AI response is not valid XML.' };
+        if (!parsed || parsed.format !== 'musicxml-patch@1' || !Array.isArray(parsed.ops)) {
+            return { patch: null, error: 'AI response is not a musicxml-patch@1 payload.' };
         }
-        return { valid: true, message: '' };
+        const ops: MusicXmlPatchOp[] = [];
+        const allowedOps = new Set(['replace', 'setText', 'setAttr', 'insertBefore', 'insertAfter', 'delete']);
+        for (let i = 0; i < parsed.ops.length; i += 1) {
+            const op = parsed.ops[i];
+            if (!op || typeof op !== 'object') {
+                return { patch: null, error: `Patch op ${i + 1} is not an object.` };
+            }
+            const opName = String(op.op || '');
+            if (!allowedOps.has(opName)) {
+                return { patch: null, error: `Patch op ${i + 1} has unsupported op "${opName}".` };
+            }
+            const path = typeof op.path === 'string' ? op.path.trim() : '';
+            if (!path) {
+                return { patch: null, error: `Patch op ${i + 1} is missing a valid path.` };
+            }
+            const nextOp: MusicXmlPatchOp = { op: opName as MusicXmlPatchOp['op'], path };
+            if (opName === 'setText' || opName === 'replace' || opName === 'insertBefore' || opName === 'insertAfter') {
+                if (typeof op.value !== 'string') {
+                    return { patch: null, error: `Patch op ${i + 1} requires a string value.` };
+                }
+                nextOp.value = op.value;
+            }
+            if (opName === 'setAttr') {
+                if (typeof op.name !== 'string' || !op.name.trim()) {
+                    return { patch: null, error: `Patch op ${i + 1} requires an attribute name.` };
+                }
+                if (typeof op.value !== 'string') {
+                    return { patch: null, error: `Patch op ${i + 1} requires a string value.` };
+                }
+                nextOp.name = op.name;
+                nextOp.value = op.value;
+            }
+            ops.push(nextOp);
+        }
+        return { patch: { format: 'musicxml-patch@1', ops }, error: '' };
     };
 
-    const ensureScoreMatchesCheckpoint = async () => {
+    const applyMusicXmlPatch = (baseXml: string, patch: MusicXmlPatch) => {
+        if (!baseXml.trim()) {
+            return { xml: '', error: 'Base MusicXML is empty.' };
+        }
+        if (typeof DOMParser === 'undefined') {
+            return { xml: '', error: 'XML parsing is unavailable in this environment.' };
+        }
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(baseXml, 'application/xml');
+        const parserError = doc.querySelector('parsererror');
+        if (parserError) {
+            return { xml: '', error: 'Base MusicXML is not valid XML.' };
+        }
+        const resolver = doc.createNSResolver(doc.documentElement);
+        const parseFragment = (value: string) => {
+            const fragmentDoc = parser.parseFromString(`<wrapper>${value}</wrapper>`, 'application/xml');
+            const fragmentError = fragmentDoc.querySelector('parsererror');
+            if (fragmentError) {
+                return { node: null as Node | null, error: 'Patch value is not valid XML.' };
+            }
+            const wrapper = fragmentDoc.documentElement;
+            const elementChildren = Array.from(wrapper.childNodes).filter(node => node.nodeType === Node.ELEMENT_NODE);
+            const textChildren = Array.from(wrapper.childNodes).filter(
+                node => node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim(),
+            );
+            if (elementChildren.length !== 1 || textChildren.length > 0) {
+                return { node: null, error: 'Patch value must contain exactly one element.' };
+            }
+            const imported = doc.importNode(elementChildren[0], true);
+            return { node: imported, error: '' };
+        };
+        const resolveSingleNode = (path: string) => {
+            try {
+                const result = doc.evaluate(path, doc, resolver, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+                if (result.snapshotLength !== 1) {
+                    return { node: null as Node | null, error: `XPath "${path}" matched ${result.snapshotLength} nodes.` };
+                }
+                return { node: result.snapshotItem(0), error: '' };
+            } catch (err) {
+                return { node: null as Node | null, error: `XPath "${path}" could not be evaluated.` };
+            }
+        };
+        for (let i = 0; i < patch.ops.length; i += 1) {
+            const op = patch.ops[i];
+            const { node, error } = resolveSingleNode(op.path);
+            if (error || !node) {
+                return { xml: '', error: `Patch op ${i + 1} failed: ${error || 'Target not found.'}` };
+            }
+            if (op.op === 'setText') {
+                node.textContent = op.value ?? '';
+                continue;
+            }
+            if (op.op === 'setAttr') {
+                if (node.nodeType !== Node.ELEMENT_NODE) {
+                    return { xml: '', error: `Patch op ${i + 1} targets a non-element node.` };
+                }
+                (node as Element).setAttribute(op.name ?? '', op.value ?? '');
+                continue;
+            }
+            if (op.op === 'delete') {
+                if (!node.parentNode) {
+                    return { xml: '', error: `Patch op ${i + 1} target has no parent.` };
+                }
+                node.parentNode.removeChild(node);
+                continue;
+            }
+            const fragment = parseFragment(op.value ?? '');
+            if (fragment.error || !fragment.node) {
+                return { xml: '', error: `Patch op ${i + 1} failed: ${fragment.error || 'Invalid value.'}` };
+            }
+            if (!node.parentNode) {
+                return { xml: '', error: `Patch op ${i + 1} target has no parent.` };
+            }
+            if (op.op === 'replace') {
+                node.parentNode.replaceChild(fragment.node, node);
+                continue;
+            }
+            if (op.op === 'insertBefore') {
+                node.parentNode.insertBefore(fragment.node, node);
+                continue;
+            }
+            if (op.op === 'insertAfter') {
+                node.parentNode.insertBefore(fragment.node, node.nextSibling);
+                continue;
+            }
+        }
+        const serializer = new XMLSerializer();
+        return { xml: serializer.serializeToString(doc), error: '' };
+    };
+
+    const ensureCheckpointBeforeApply = async () => {
         if (!isIndexedDbAvailable()) {
             alert('IndexedDB is not available; cannot verify checkpoint status.');
-            return false;
+            return { ok: false, currentXml: '' };
         }
-        const latestCheckpoint = checkpoints[0];
-        if (!latestCheckpoint) {
-            alert('No checkpoints found. Please save one before applying XML edits.');
-            return false;
-        }
-        const [currentData, record] = await Promise.all([
-            getScoreXmlData(),
-            getCheckpoint(latestCheckpoint.id),
-        ]);
-        if (!currentData || !record) {
-            alert('Unable to verify checkpoint state.');
-            return false;
+        const currentData = await getScoreXmlData();
+        if (!currentData) {
+            alert('Unable to read MusicXML for checkpointing.');
+            return { ok: false, currentXml: '' };
         }
         const decoder = new TextDecoder();
         const currentXml = decoder.decode(currentData);
-        const checkpointXml = decoder.decode(new Uint8Array(record.data));
-        if (currentXml !== checkpointXml) {
-            alert('Unsaved score changes detected since the last checkpoint. Please checkpoint before applying XML edits.');
-            return false;
+        const latestCheckpoint = checkpoints[0];
+        let needsCheckpoint = true;
+        if (latestCheckpoint) {
+            const record = await getCheckpoint(latestCheckpoint.id);
+            if (record) {
+                const checkpointXml = decoder.decode(new Uint8Array(record.data));
+                needsCheckpoint = currentXml !== checkpointXml;
+            }
         }
-        return true;
+        if (needsCheckpoint) {
+            const buffer = currentData.buffer.slice(currentData.byteOffset, currentData.byteOffset + currentData.byteLength);
+            const title = buildCheckpointTitle('', 'Auto checkpoint');
+            await saveCheckpoint({
+                title,
+                createdAt: Date.now(),
+                format: 'musicxml',
+                data: buffer,
+                size: currentData.byteLength,
+            });
+            setScoreDirtySinceCheckpoint(false);
+            await loadCheckpointList();
+        }
+        return { ok: true, currentXml };
     };
 
     const applyXmlToScore = async (sourceXml: string) => {
@@ -564,16 +741,19 @@ export default function ScoreEditor() {
             alert('XML content is empty.');
             return;
         }
-        const ok = await ensureScoreMatchesCheckpoint();
-        if (!ok) {
+        const checkpointState = await ensureCheckpointBeforeApply();
+        if (!checkpointState.ok) {
             return;
         }
+        const willChange = checkpointState.currentXml.trim() !== sourceXml.trim();
         const encoder = new TextEncoder();
         const encoded = encoder.encode(sourceXml);
         const filenameBase = scoreTitle ? toSafeFilename(scoreTitle) : 'score';
         const file = new File([encoded], `${filenameBase}.musicxml`, { type: 'application/xml' });
         setXmlDirty(false);
         await handleFileUpload(file);
+        setScoreDirtySinceCheckpoint(willChange);
+        setScoreDirtySinceXml(false);
     };
 
 
@@ -625,6 +805,59 @@ export default function ScoreEditor() {
     }, [xmlSidebarTab, aiIncludeXml, xmlText, loadXmlFromScore]);
 
     useEffect(() => {
+        const trimmedKey = aiApiKey.trim();
+        if (!trimmedKey) {
+            setAiModels([]);
+            setAiModelsError(null);
+            return;
+        }
+        let canceled = false;
+        setAiModelsLoading(true);
+        setAiModelsError(null);
+        const loadModels = async () => {
+            try {
+                const response = await fetch('/api/llm/openai/models', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ apiKey: trimmedKey }),
+                });
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText || 'Failed to load models.');
+                }
+                const data = await response.json();
+                const models = Array.isArray(data?.models)
+                    ? data.models.filter((id: unknown) => typeof id === 'string')
+                    : [];
+                if (canceled) {
+                    return;
+                }
+                const filtered = models.filter((id: string) => /^gpt-|^o/.test(id));
+                const sorted = [...new Set(filtered.length ? filtered : models)].sort();
+                setAiModels(sorted);
+                if (!aiModel || !sorted.includes(aiModel)) {
+                    const preferred = sorted.find((id: string) => id === 'gpt-5.2') || sorted[0] || '';
+                    setAiModel(preferred);
+                }
+            } catch (err) {
+                if (!canceled) {
+                    console.error('Failed to load OpenAI models', err);
+                    setAiModels([]);
+                    setAiModelsError('Failed to load models. Check your API key.');
+                }
+            } finally {
+                if (!canceled) {
+                    setAiModelsLoading(false);
+                }
+            }
+        };
+        void loadModels();
+        return () => {
+            canceled = true;
+        };
+    }, [aiApiKey, aiModel]);
+
+    useEffect(() => {
         const abortController = new AbortController();
 
         const boot = async () => {
@@ -665,6 +898,7 @@ export default function ScoreEditor() {
         setSoundFontLoaded(false);
         setTriedSoundFont(false);
         setScoreDirtySinceCheckpoint(false);
+        setScoreDirtySinceXml(false);
         setXmlText('');
         setXmlDirty(false);
         setXmlError(null);
@@ -737,6 +971,7 @@ export default function ScoreEditor() {
         setSoundFontLoaded(false);
         setTriedSoundFont(false);
         setScoreDirtySinceCheckpoint(false);
+        setScoreDirtySinceXml(false);
         setXmlText('');
         setXmlDirty(false);
         setXmlError(null);
@@ -1060,44 +1295,49 @@ export default function ScoreEditor() {
         }
     };
 
-    const handleAiProviderChange = (value: 'openai' | 'anthropic') => {
-        setAiProvider(value);
-        if (value === 'openai' && aiModel.toLowerCase().includes('claude')) {
-            setAiModel('gpt-4.1');
-        }
-        if (value === 'anthropic' && aiModel.toLowerCase().includes('gpt')) {
-            setAiModel('claude-3-5-sonnet-20240620');
-        }
-    };
-
     const handleAiRequest = async () => {
         if (!aiApiKey.trim()) {
-            alert(`Enter your ${aiProvider === 'openai' ? 'OpenAI' : 'Anthropic'} API key.`);
+            alert('Enter your OpenAI API key.');
             return;
         }
         if (!aiPrompt.trim()) {
             alert('Enter an instruction for the assistant.');
             return;
         }
+        if (!aiModel.trim()) {
+            alert('Select a model.');
+            return;
+        }
+        if (aiMaxTokensMode === 'custom' && aiMaxTokens <= 0) {
+            alert('Enter a max output token limit.');
+            return;
+        }
         setAiBusy(true);
         setAiError(null);
         setAiOutput('');
+        setAiPatch(null);
+        setAiPatchError(null);
+        setAiPatchedXml('');
         try {
             const xmlContext = aiIncludeXml ? await resolveXmlContext() : '';
             if (aiIncludeXml && !xmlContext.trim()) {
                 alert('Unable to load MusicXML for context.');
                 return;
             }
-            const response = await fetch(`/api/llm/${aiProvider}`, {
+            const baseXml = aiIncludeXml ? xmlContext : await resolveXmlContext();
+            const payload: Record<string, unknown> = {
+                apiKey: aiApiKey,
+                model: aiModel,
+                prompt: aiPrompt,
+                xml: aiIncludeXml ? xmlContext : '',
+            };
+            if (aiMaxTokensMode === 'custom') {
+                payload.maxTokens = aiMaxTokens;
+            }
+            const response = await fetch('/api/llm/openai', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    apiKey: aiApiKey,
-                    model: aiModel,
-                    prompt: aiPrompt,
-                    xml: aiIncludeXml ? xmlContext : '',
-                    maxTokens: aiMaxTokens,
-                }),
+                body: JSON.stringify(payload),
             });
             if (!response.ok) {
                 const errorText = await response.text();
@@ -1105,12 +1345,29 @@ export default function ScoreEditor() {
             }
             const data = await response.json();
             const rawText = typeof data?.text === 'string' ? data.text : '';
-            const extracted = extractXmlFromResponse(rawText);
+            const extracted = extractJsonFromResponse(rawText);
             if (!extracted) {
-                setAiError('No XML was returned by the model.');
+                setAiError('No patch was returned by the model.');
                 return;
             }
             setAiOutput(extracted);
+            const parsed = parseMusicXmlPatch(extracted);
+            if (parsed.error || !parsed.patch) {
+                setAiPatchError(parsed.error || 'Invalid patch payload.');
+                return;
+            }
+            setAiPatch(parsed.patch);
+            if (!baseXml.trim()) {
+                setAiPatchError('Unable to apply patch without MusicXML.');
+                return;
+            }
+            const applied = applyMusicXmlPatch(baseXml, parsed.patch);
+            if (applied.error || !applied.xml.trim()) {
+                setAiPatchError(applied.error || 'Failed to apply patch to MusicXML.');
+                return;
+            }
+            setAiPatchError(null);
+            setAiPatchedXml(applied.xml);
         } catch (err) {
             console.error('AI request failed', err);
             setAiError('AI request failed. See console for details.');
@@ -1120,15 +1377,14 @@ export default function ScoreEditor() {
     };
 
     const handleApplyAiOutput = async () => {
-        const validation = validateXmlString(aiOutput);
-        if (!validation.valid) {
-            alert(validation.message || 'AI output is not valid XML.');
+        if (!aiPatchedXml.trim()) {
+            alert(aiPatchError || 'AI patch has not produced valid MusicXML.');
             return;
         }
         setXmlLoading(true);
         setXmlError(null);
         try {
-            await applyXmlToScore(aiOutput);
+            await applyXmlToScore(aiPatchedXml);
         } catch (err) {
             console.error('Failed to apply AI XML', err);
             alert('Failed to apply AI XML. See console for details.');
@@ -1495,6 +1751,7 @@ export default function ScoreEditor() {
                 return;
             }
             setScoreDirtySinceCheckpoint(true);
+            setScoreDirtySinceXml(true);
 
             if (!options?.skipRelayout && score.relayout) {
                 try {
@@ -3533,9 +3790,17 @@ export default function ScoreEditor() {
     const checkpointSaveDisabled = checkpointControlsDisabled || !score || !score?.saveXml;
     const checkpointCompareDisabled = checkpointControlsDisabled || !score;
     const xmlControlsDisabled = xmlLoading || !score || !score?.saveXml;
-    const xmlApplyDisabled = xmlControlsDisabled || !xmlText.trim();
-    const aiOutputValidation = validateXmlString(aiOutput);
-    const aiApplyDisabled = xmlControlsDisabled || !aiOutput.trim() || !aiOutputValidation.valid;
+    const xmlApplyEnabled = !xmlControlsDisabled && xmlDirty;
+    const xmlReloadEnabled = !xmlControlsDisabled && scoreDirtySinceXml;
+    const xmlApplyDisabled = !xmlApplyEnabled;
+    const aiOutputValidation = aiOutput.trim()
+        ? aiPatchError
+            ? { valid: false, message: aiPatchError }
+            : aiPatch
+                ? { valid: true, message: `${aiPatch.ops.length} ops ready` }
+                : { valid: false, message: 'AI output is not a valid patch.' }
+        : { valid: true, message: '' };
+    const aiApplyDisabled = xmlControlsDisabled || !aiPatchedXml.trim() || Boolean(aiPatchError);
 
     return (
         <div className="flex flex-col h-screen">
@@ -3690,7 +3955,11 @@ export default function ScoreEditor() {
                                     data-testid="btn-checkpoint-save"
                                     onClick={handleSaveCheckpoint}
                                     disabled={checkpointSaveDisabled}
-                                    className="w-full rounded border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className={`w-full rounded border px-3 py-1 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
+                                        !checkpointSaveDisabled && scoreDirtySinceCheckpoint
+                                            ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
+                                            : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                                    }`}
                                 >
                                     Save Checkpoint
                                 </button>
@@ -3924,70 +4193,97 @@ export default function ScoreEditor() {
                 } ${xmlSidebarMode === 'closed' ? '' : 'overflow-y-auto'}`}
                 data-testid="xml-sidebar"
             >
-                <div className={xmlSidebarMode === 'closed' ? 'flex items-center justify-center p-2' : 'flex items-center justify-between p-4'}>
+                <div className="sticky top-0 z-10 bg-white">
+                    <div className={xmlSidebarMode === 'closed' ? 'flex items-center justify-center p-2' : 'flex items-center justify-between p-4'}>
+                        {xmlSidebarMode !== 'closed' && (
+                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                MusicXML
+                            </span>
+                        )}
+                        <button
+                            type="button"
+                            data-testid="btn-xml-toggle"
+                            aria-expanded={xmlSidebarMode !== 'closed'}
+                            aria-controls="xml-sidebar-content"
+                            aria-label={
+                                xmlSidebarMode === 'closed'
+                                    ? 'Open MusicXML sidebar'
+                                    : xmlSidebarMode === 'open'
+                                        ? 'Expand MusicXML sidebar'
+                                        : 'Close MusicXML sidebar'
+                            }
+                            onClick={() => {
+                                setXmlSidebarMode((prev) => (prev === 'closed' ? 'open' : prev === 'open' ? 'full' : 'closed'));
+                            }}
+                            className="text-xs font-medium text-gray-600 hover:text-gray-900"
+                        >
+                            {xmlSidebarMode === 'closed' ? 'Open' : xmlSidebarMode === 'open' ? 'Full' : 'Close'}
+                        </button>
+                    </div>
                     {xmlSidebarMode !== 'closed' && (
-                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                            MusicXML
-                        </span>
+                        <div className="px-4 pb-3">
+                            <div className="flex items-center justify-between text-xs text-gray-500">
+                                <span>
+                                    {checkpoints.length === 0
+                                        ? 'No checkpoint yet'
+                                        : scoreDirtySinceCheckpoint
+                                            ? 'Unsaved score changes'
+                                            : ''}
+                                </span>
+                                {xmlLoading && <span>Loading...</span>}
+                            </div>
+                            <div className="mt-3 flex items-center justify-between text-xs font-medium text-gray-600">
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        data-testid="tab-xml"
+                                        onClick={() => setXmlSidebarTab('xml')}
+                                        className={`rounded border px-2 py-1 ${
+                                            xmlSidebarTab === 'xml'
+                                                ? 'border-gray-400 bg-gray-100 text-gray-900'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                                        }`}
+                                    >
+                                        XML
+                                    </button>
+                                    <button
+                                        type="button"
+                                        data-testid="tab-ai"
+                                        onClick={() => setXmlSidebarTab('assistant')}
+                                        className={`rounded border px-2 py-1 ${
+                                            xmlSidebarTab === 'assistant'
+                                                ? 'border-gray-400 bg-gray-100 text-gray-900'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                                        }`}
+                                    >
+                                        Assistant
+                                    </button>
+                                </div>
+                                <button
+                                    type="button"
+                                    data-testid="btn-xml-toggle-inline"
+                                    aria-expanded={xmlSidebarMode !== 'closed'}
+                                    aria-controls="xml-sidebar-content"
+                                    aria-label={
+                                        xmlSidebarMode === 'closed'
+                                            ? 'Open MusicXML sidebar'
+                                            : xmlSidebarMode === 'open'
+                                                ? 'Expand MusicXML sidebar'
+                                                : 'Close MusicXML sidebar'
+                                    }
+                                    onClick={() => {
+                                        setXmlSidebarMode((prev) => (prev === 'closed' ? 'open' : prev === 'open' ? 'full' : 'closed'));
+                                    }}
+                                    className="text-xs font-medium text-gray-600 hover:text-gray-900"
+                                >
+                                    {xmlSidebarMode === 'closed' ? 'Open' : xmlSidebarMode === 'open' ? 'Full' : 'Close'}
+                                </button>
+                            </div>
+                        </div>
                     )}
-                    <button
-                        type="button"
-                        data-testid="btn-xml-toggle"
-                        aria-expanded={xmlSidebarMode !== 'closed'}
-                        aria-controls="xml-sidebar-content"
-                        aria-label={
-                            xmlSidebarMode === 'closed'
-                                ? 'Open MusicXML sidebar'
-                                : xmlSidebarMode === 'open'
-                                    ? 'Expand MusicXML sidebar'
-                                    : 'Close MusicXML sidebar'
-                        }
-                        onClick={() => {
-                            setXmlSidebarMode((prev) => (prev === 'closed' ? 'open' : prev === 'open' ? 'full' : 'closed'));
-                        }}
-                        className="text-xs font-medium text-gray-600 hover:text-gray-900"
-                    >
-                        {xmlSidebarMode === 'closed' ? 'Open' : xmlSidebarMode === 'open' ? 'Full' : 'Close'}
-                    </button>
                 </div>
                 {xmlSidebarMode !== 'closed' && (
                     <div id="xml-sidebar-content" className="px-4 pb-4">
-                        <div className="flex items-center justify-between text-xs text-gray-500">
-                            <span>
-                                {checkpoints.length === 0
-                                    ? 'No checkpoint yet'
-                                    : scoreDirtySinceCheckpoint
-                                        ? 'Unsaved score changes'
-                                        : ''}
-                            </span>
-                            {xmlLoading && <span>Loading...</span>}
-                        </div>
-                        <div className="mt-3 flex gap-2 text-xs font-medium text-gray-600">
-                            <button
-                                type="button"
-                                data-testid="tab-xml"
-                                onClick={() => setXmlSidebarTab('xml')}
-                                className={`rounded border px-2 py-1 ${
-                                    xmlSidebarTab === 'xml'
-                                        ? 'border-gray-400 bg-gray-100 text-gray-900'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700'
-                                }`}
-                            >
-                                XML
-                            </button>
-                            <button
-                                type="button"
-                                data-testid="tab-ai"
-                                onClick={() => setXmlSidebarTab('assistant')}
-                                className={`rounded border px-2 py-1 ${
-                                    xmlSidebarTab === 'assistant'
-                                        ? 'border-gray-400 bg-gray-100 text-gray-900'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700'
-                                }`}
-                            >
-                                Assistant
-                            </button>
-                        </div>
                         {xmlSidebarTab === 'xml' && (
                             <>
                                 <div className="mt-3 flex flex-wrap gap-2">
@@ -3996,7 +4292,12 @@ export default function ScoreEditor() {
                                         data-testid="btn-xml-apply"
                                         onClick={handleApplyXmlEdits}
                                         disabled={xmlApplyDisabled}
-                                        className="flex-1 rounded border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        title="Applying edits will auto-checkpoint if the score has unsaved changes."
+                                        className={`flex-1 rounded border px-3 py-1 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
+                                            xmlApplyEnabled
+                                                ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
+                                                : 'border-gray-300 bg-white text-gray-700'
+                                        }`}
                                     >
                                         Apply edits
                                     </button>
@@ -4004,8 +4305,17 @@ export default function ScoreEditor() {
                                         type="button"
                                         data-testid="btn-xml-reload"
                                         onClick={handleRefreshXml}
-                                        disabled={xmlControlsDisabled}
-                                        className="flex-1 rounded border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        disabled={!xmlReloadEnabled}
+                                        title={
+                                            xmlReloadEnabled
+                                                ? 'The score has changed, reload to update XML. Any XML changes will be lost on update.'
+                                                : undefined
+                                        }
+                                        className={`flex-1 rounded border px-3 py-1 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
+                                            xmlReloadEnabled
+                                                ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
+                                                : 'border-gray-300 bg-white text-gray-700'
+                                        }`}
                                     >
                                         Reload
                                     </button>
@@ -4028,28 +4338,27 @@ export default function ScoreEditor() {
                             <div className="mt-3 space-y-3 text-sm text-gray-700">
                                 <div>
                                     <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                        Provider
+                                        OpenAI Model
                                     </label>
                                     <select
-                                        value={aiProvider}
-                                        onChange={(event) => handleAiProviderChange(event.target.value as 'openai' | 'anthropic')}
-                                        className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                                    >
-                                        <option value="openai">OpenAI</option>
-                                        <option value="anthropic">Anthropic</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                        Model
-                                    </label>
-                                    <input
-                                        type="text"
                                         value={aiModel}
                                         onChange={(event) => setAiModel(event.target.value)}
                                         className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                                        placeholder={aiProvider === 'openai' ? 'gpt-4.1' : 'claude-3-5-sonnet-20240620'}
-                                    />
+                                        disabled={!aiModels.length}
+                                    >
+                                        {aiModelsLoading && <option>Loading models...</option>}
+                                        {!aiModelsLoading && !aiModels.length && <option>No models loaded</option>}
+                                        {aiModels.map((modelId) => (
+                                            <option key={modelId} value={modelId}>
+                                                {modelId}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {aiModelsError && (
+                                        <div className="mt-1 text-xs text-red-600">
+                                            {aiModelsError}
+                                        </div>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -4062,6 +4371,9 @@ export default function ScoreEditor() {
                                         className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
                                         placeholder="Paste your key"
                                     />
+                                    <div className="mt-1 text-[11px] text-gray-500">
+                                        Stored locally in this browser.
+                                    </div>
                                 </div>
                                 <div className="flex items-center justify-between gap-2 text-xs text-gray-600">
                                     <label className="flex items-center gap-2">
@@ -4072,16 +4384,26 @@ export default function ScoreEditor() {
                                         />
                                         Include full MusicXML
                                     </label>
-                                    <label className="flex items-center gap-2">
-                                        Max tokens
-                                        <input
-                                            type="number"
-                                            min={256}
-                                            value={aiMaxTokens}
-                                            onChange={(event) => setAiMaxTokens(Number(event.target.value) || 0)}
-                                            className="w-20 rounded border border-gray-300 px-2 py-1 text-xs"
-                                        />
-                                    </label>
+                                    <div className="flex items-center gap-2">
+                                        <span>Max output</span>
+                                        <select
+                                            value={aiMaxTokensMode}
+                                            onChange={(event) => setAiMaxTokensMode(event.target.value as 'auto' | 'custom')}
+                                            className="rounded border border-gray-300 px-2 py-1 text-xs"
+                                        >
+                                            <option value="auto">Auto</option>
+                                            <option value="custom">Custom</option>
+                                        </select>
+                                        {aiMaxTokensMode === 'custom' && (
+                                            <input
+                                                type="number"
+                                                min={256}
+                                                value={aiMaxTokens}
+                                                onChange={(event) => setAiMaxTokens(Number(event.target.value) || 0)}
+                                                className="w-20 rounded border border-gray-300 px-2 py-1 text-xs"
+                                            />
+                                        )}
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -4101,7 +4423,7 @@ export default function ScoreEditor() {
                                     disabled={aiBusy}
                                     className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    {aiBusy ? 'Working...' : 'Generate XML'}
+                                    {aiBusy ? 'Working...' : 'Generate Patch'}
                                 </button>
                                 {aiError && (
                                     <div className="text-xs text-red-600">
@@ -4111,24 +4433,27 @@ export default function ScoreEditor() {
                                 {aiOutput && (
                                     <div className="space-y-2">
                                         <div className="flex items-center justify-between text-xs text-gray-500">
-                                            <span>AI Output</span>
-                                            {!aiOutputValidation.valid && (
-                                                <span className="text-red-600">{aiOutputValidation.message}</span>
+                                            <span>AI Patch</span>
+                                            {aiOutputValidation.message && (
+                                                <span className={aiOutputValidation.valid ? 'text-gray-500' : 'text-red-600'}>
+                                                    {aiOutputValidation.message}
+                                                </span>
                                             )}
                                         </div>
                                         <CodeMirrorEditor
                                             value={aiOutput}
                                             onChange={() => {}}
                                             readOnly={true}
-                                            placeholderText="AI output will appear here."
+                                            placeholderText="AI patch will appear here."
                                         />
                                         <button
                                             type="button"
                                             onClick={handleApplyAiOutput}
                                             disabled={aiApplyDisabled}
+                                            title="Applying edits will auto-checkpoint if the score has unsaved changes."
                                             className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            Apply AI Output
+                                            Apply Patch
                                         </button>
                                     </div>
                                 )}
@@ -4139,9 +4464,6 @@ export default function ScoreEditor() {
                                 {xmlError}
                             </div>
                         )}
-                        <div className="mt-2 text-[11px] text-gray-500">
-                            Apply edits only when the score matches the last checkpoint.
-                        </div>
                     </div>
                 )}
             </aside>
