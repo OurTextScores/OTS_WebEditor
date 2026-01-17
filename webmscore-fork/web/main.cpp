@@ -1524,29 +1524,18 @@ bool _selectMeasureAtPoint(uintptr_t score_ptr, int pageNumber, double x, double
 
     score->deselectAll();
 
-    // Select all chords/rests in the measure on the clicked staff (all voices)
-    bool first = true;
-    for (auto* seg = measure->first(); seg; seg = seg->next()) {
-        if (seg->segmentType() != engraving::SegmentType::ChordRest) {
-            continue;
-        }
-
-        // Select elements in all voices of the clicked staff
-        for (int voice = 0; voice < mu::engraving::VOICES; ++voice) {
-            auto* el = seg->element(staffIdx * mu::engraving::VOICES + voice);
-            if (el && (el->isChord() || el->isRest())) {
-                if (first) {
-                    score->select(el, engraving::SelectType::SINGLE, staffIdx);
-                    first = false;
-                } else {
-                    score->select(el, engraving::SelectType::ADD, staffIdx);
-                }
-            }
-        }
-    }
-
+    // Use RANGE selection on the measure, which automatically selects all content
+    // This is how MuseScore does it - see Score::selectRange() in libmscore/score.cpp
+    printf("[WASM DEBUG] selectMeasureAtPoint: selecting measure with staffIdx=%d using RANGE\n", static_cast<int>(staffIdx));
+    score->select(measure, engraving::SelectType::RANGE, staffIdx);
     score->updateSelection();
     score->setSelectionChanged(true);
+
+    // Debug: check what was selected
+    const auto& sel = score->selection();
+    printf("[WASM DEBUG] After selection: state=%d isRange=%d elements.size=%zu\n",
+           static_cast<int>(sel.state()), sel.isRange(), sel.elements().size());
+
     return true;
 }
 
@@ -1764,47 +1753,111 @@ WasmRes _getSelectionBoundingBoxes(uintptr_t score_ptr, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
     const auto& sel = score->selection();
-    const auto& elements = sel.elements();
 
-    printf("[WASM DEBUG] _getSelectionBoundingBoxes: elements.size=%zu\n", elements.size());
-
-    if (elements.empty()) {
-        return WasmRes(String(u"[]"));
-    }
+    printf("[WASM DEBUG] _getSelectionBoundingBoxes: state=%d isRange=%d\n",
+           static_cast<int>(sel.state()), sel.isRange());
 
     String json = u"[";
     bool first = true;
 
-    for (auto* el : elements) {
-        if (!el) continue;
+    // Handle range selections (like when a measure is selected)
+    if (sel.isRange()) {
+        auto* startSeg = sel.startSegment();
+        auto* endSeg = sel.endSegment();
+        auto staffStart = sel.staffStart();
+        auto staffEnd = sel.staffEnd();
 
-        mu::PointF pagePosition = el->pagePos();
-        mu::RectF bbox = el->bbox();
+        printf("[WASM DEBUG] Range selection: staffStart=%d staffEnd=%d\n",
+               static_cast<int>(staffStart), static_cast<int>(staffEnd));
 
-        // Find which page this element is on
-        int pageNumber = 0;
-        const auto& pages = score->pages();
-        for (size_t i = 0; i < pages.size(); ++i) {
-            if (el->findAncestor(mu::engraving::ElementType::PAGE) == pages[i]) {
-                pageNumber = static_cast<int>(i);
-                break;
+        if (startSeg) {
+            int segCount = 0;
+            int elementCount = 0;
+            // Iterate through all segments in the range
+            for (auto* seg = startSeg; seg && seg != endSeg; seg = seg->next1()) {
+                if (seg->segmentType() != engraving::SegmentType::ChordRest) {
+                    continue;
+                }
+                segCount++;
+
+                // Iterate through all staves in the selection
+                for (auto staffIdx = staffStart; staffIdx < staffEnd; ++staffIdx) {
+                    // Check all voices in this staff
+                    for (int voice = 0; voice < mu::engraving::VOICES; ++voice) {
+                        auto* el = seg->element(staffIdx * mu::engraving::VOICES + voice);
+                        if (!el || (!el->isChord() && !el->isRest())) {
+                            continue;
+                        }
+                        elementCount++;
+                        printf("[WASM DEBUG] Found element %d: type=%d staff=%d voice=%d\n",
+                               elementCount, static_cast<int>(el->type()), static_cast<int>(staffIdx), voice);
+
+                        mu::PointF pagePosition = el->pagePos();
+                        mu::RectF bbox = el->bbox();
+
+                        // Find which page this element is on
+                        int pageNumber = 0;
+                        const auto& pages = score->pages();
+                        for (size_t i = 0; i < pages.size(); ++i) {
+                            if (el->findAncestor(mu::engraving::ElementType::PAGE) == pages[i]) {
+                                pageNumber = static_cast<int>(i);
+                                break;
+                            }
+                        }
+
+                        if (!first) {
+                            json += u",";
+                        }
+                        first = false;
+
+                        json += String(u"{\"page\":%1,\"x\":%2,\"y\":%3,\"width\":%4,\"height\":%5}")
+                            .arg(pageNumber)
+                            .arg(pagePosition.x())
+                            .arg(pagePosition.y())
+                            .arg(bbox.width())
+                            .arg(bbox.height());
+                    }
+                }
             }
+            printf("[WASM DEBUG] Processed %d ChordRest segments, found %d elements\n", segCount, elementCount);
         }
+    } else {
+        // Handle list selections (individual elements)
+        const auto& elements = sel.elements();
+        printf("[WASM DEBUG] List selection: elements.size=%zu\n", elements.size());
 
-        if (!first) {
-            json += u",";
+        for (auto* el : elements) {
+            if (!el) continue;
+
+            mu::PointF pagePosition = el->pagePos();
+            mu::RectF bbox = el->bbox();
+
+            // Find which page this element is on
+            int pageNumber = 0;
+            const auto& pages = score->pages();
+            for (size_t i = 0; i < pages.size(); ++i) {
+                if (el->findAncestor(mu::engraving::ElementType::PAGE) == pages[i]) {
+                    pageNumber = static_cast<int>(i);
+                    break;
+                }
+            }
+
+            if (!first) {
+                json += u",";
+            }
+            first = false;
+
+            json += String(u"{\"page\":%1,\"x\":%2,\"y\":%3,\"width\":%4,\"height\":%5}")
+                .arg(pageNumber)
+                .arg(pagePosition.x())
+                .arg(pagePosition.y())
+                .arg(bbox.width())
+                .arg(bbox.height());
         }
-        first = false;
-
-        json += String(u"{\"page\":%1,\"x\":%2,\"y\":%3,\"width\":%4,\"height\":%5}")
-            .arg(pageNumber)
-            .arg(pagePosition.x())
-            .arg(pagePosition.y())
-            .arg(bbox.width())
-            .arg(bbox.height());
     }
 
     json += u"]";
+    printf("[WASM DEBUG] Returning %d bounding boxes\n", first ? 0 : 1); // rough count
     return WasmRes(json);
 }
 
