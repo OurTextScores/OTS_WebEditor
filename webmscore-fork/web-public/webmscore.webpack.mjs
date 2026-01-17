@@ -1,7 +1,7 @@
 
-const libWasm = '/webmscore.lib.wasm'
-const libData = '/webmscore.lib.data'
-const libMem = '/webmscore.lib.mem.wasm'
+const libWasm = 'webmscore.lib.wasm'
+const libData = 'webmscore.lib.data'
+const libMem = 'webmscore.lib.mem.wasm'
 
 const WebMscoreWorker = function () { 
 (function () {

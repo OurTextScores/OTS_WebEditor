@@ -7,7 +7,8 @@
     "dev": "next dev --webpack",
     "prebuild": "npm run check:wasm",
     "build": "next build --webpack",
-    "build:embed": "NEXT_PUBLIC_SOUNDFONT_CDN_URL=https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General NEXT_PUBLIC_BUILD_MODE=embed BUILD_MODE=embed npm run build",
+    "build:embed": "NEXT_PUBLIC_BUILD_MODE=embed BUILD_MODE=embed npm run build",
+    "build:embed:full": "bash scripts/build-embed-with-soundfont.sh",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
@@ -17,7 +18,8 @@
     "sync:wasm": "node scripts/sync-wasm-cli.js",
     "generate:data": "node scripts/generate-static-data.js",
     "package:release": "node scripts/package-release.js",
-    "release:prepare": "npm run build:embed && npm run package:release"
+    "release:prepare": "npm run build:embed && npm run package:release",
+    "test:embed": "node test-embed/server.js"
   },
   "dependencies": {
     "@codemirror/lang-xml": "^6.1.0",

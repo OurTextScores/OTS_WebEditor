@@ -43,6 +43,17 @@ const nextConfig: NextConfig = {
         path: false,
         child_process: false,
       };
+
+      // Define MSCORE_SCRIPT_URL globally for webmscore WASM loader
+      // This must be set at build time so webmscore can find WASM files at the correct path
+      if (process.env.BUILD_MODE === 'embed') {
+        const webpack = require('webpack');
+        config.plugins.push(
+          new webpack.DefinePlugin({
+            'MSCORE_SCRIPT_URL': JSON.stringify('/score-editor/')
+          })
+        );
+      }
     }
     return config;
   },

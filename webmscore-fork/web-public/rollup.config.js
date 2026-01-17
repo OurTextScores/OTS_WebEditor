@@ -5,9 +5,9 @@ import { version } from './package.json'
 const MEM_FILE = 'webmscore.lib.mem.wasm'
 
 const WEBPACK_IMPORT = `
-const libWasm = '/webmscore.lib.wasm'
-const libData = '/webmscore.lib.data'
-const libMem = '/webmscore.lib.mem.wasm'
+const libWasm = 'webmscore.lib.wasm'
+const libData = 'webmscore.lib.data'
+const libMem = 'webmscore.lib.mem.wasm'
 `
 
 const CDN_IMPORT = `

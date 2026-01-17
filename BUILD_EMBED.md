@@ -66,6 +66,7 @@ The build generates a static export in the `out/` directory:
 - **Size**: ~38MB (without soundfonts bundled)
 - **Base path**: `/score-editor` (configurable in `next.config.ts`)
 - **Format**: Static HTML/JS/CSS + WASM artifacts
+- **Includes**: `<base href="/score-editor/">` tag for proper path resolution when embedded
 
 ## Soundfont Configuration
 

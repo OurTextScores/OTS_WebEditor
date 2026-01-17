@@ -1144,23 +1144,23 @@ ${partsBodyXml}
         setAiModelsLoading(true);
         setAiModelsError(null);
         const loadModels = async () => {
-            if (process.env.NEXT_PUBLIC_BUILD_MODE === 'embed') {
-                setAiModels([]);
-                return;
-            }
             try {
-                const response = await fetch('/api/llm/openai/models', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ apiKey: trimmedKey }),
+                // Call OpenAI directly (works in both embed and server modes)
+                const response = await fetch('https://api.openai.com/v1/models', {
+                    headers: {
+                        'Authorization': `Bearer ${trimmedKey}`,
+                        'Content-Type': 'application/json',
+                    },
                 });
                 if (!response.ok) {
                     const errorText = await response.text();
                     throw new Error(errorText || 'Failed to load models.');
                 }
                 const data = await response.json();
-                const models = Array.isArray(data?.models)
-                    ? data.models.filter((id: unknown) => typeof id === 'string')
+                const models = Array.isArray(data?.data)
+                    ? data.data
+                          .map((item: any) => item?.id)
+                          .filter((id: unknown) => typeof id === 'string')
                     : [];
                 if (canceled) {
                     return;
@@ -1593,10 +1593,10 @@ ${partsBodyXml}
                 `${cdnBase}/default.sf3`,
                 `${cdnBase}/MuseScore_General.sf2`,
                 `${cdnBase}/default.sf2`,
-                '/soundfonts/default.sf3',
-                '/soundfonts/default.sf2'
+                'soundfonts/default.sf3',
+                'soundfonts/default.sf2'
               ]
-            : ['/soundfonts/default.sf3', '/soundfonts/default.sf2'];
+            : ['soundfonts/default.sf3', 'soundfonts/default.sf2'];
 
         for (const url of candidates) {
             try {
@@ -1892,26 +1892,94 @@ ${partsBodyXml}
                 return;
             }
             const baseXml = aiIncludeXml ? xmlContext : await resolveXmlContext();
-            const payload: Record<string, unknown> = {
-                apiKey: aiApiKey,
+
+            // Build the prompt
+            const patchSpec = `Return ONLY valid JSON in the following format:
+{
+  "format": "musicxml-patch@1",
+  "ops": [
+    { "op": "replace", "path": "/score-partwise/part[@id='P1']/measure[@number='1']/note[1]", "value": "<note>...</note>" },
+    { "op": "setText", "path": "/score-partwise/part[@id='P1']/measure[@number='1']/note[1]/duration", "value": "2" },
+    { "op": "setAttr", "path": "/score-partwise/part[@id='P1']/measure[@number='1']/note[1]", "name": "default-x", "value": "123.45" },
+    { "op": "insertAfter", "path": "/score-partwise/part[@id='P1']/measure[@number='1']/note[1]", "value": "<note>...</note>" },
+    { "op": "delete", "path": "/score-partwise/part[@id='P1']/measure[@number='1']/note[2]" }
+  ]
+}
+Use ONLY these ops: replace, setText, setAttr, insertBefore, insertAfter, delete.
+Each XPath must match exactly one node.`;
+
+            const systemPrompt = 'You are a MusicXML editor. Return only a JSON patch payload (musicxml-patch@1), no markdown or commentary.';
+            const userPrompt = aiIncludeXml && xmlContext.trim()
+                ? `${aiPrompt}\n\nCurrent MusicXML:\n${xmlContext}\n\n${patchSpec}`
+                : `${aiPrompt}\n\n${patchSpec}`;
+
+            // Call OpenAI directly (works in both embed and server modes)
+            const requestPayload: Record<string, unknown> = {
                 model: aiModel,
-                prompt: aiPrompt,
-                xml: aiIncludeXml ? xmlContext : '',
+                instructions: systemPrompt,
+                input: userPrompt,
+                temperature: 0,
             };
             if (aiMaxTokensMode === 'custom') {
-                payload.maxTokens = aiMaxTokens;
+                requestPayload.max_output_tokens = aiMaxTokens;
             }
-            const response = await fetch('/api/llm/openai', {
+
+            let response = await fetch('https://api.openai.com/v1/responses', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${aiApiKey}`,
+                },
+                body: JSON.stringify(requestPayload),
             });
+
+            let rawText = '';
             if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(errorText || 'Request failed.');
+                // Fallback to chat completions for legacy models
+                const fallbackPayload: Record<string, unknown> = {
+                    model: aiModel,
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userPrompt },
+                    ],
+                    temperature: 0,
+                };
+                if (aiMaxTokensMode === 'custom') {
+                    fallbackPayload.max_tokens = aiMaxTokens;
+                }
+
+                response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${aiApiKey}`,
+                    },
+                    body: JSON.stringify(fallbackPayload),
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText || 'OpenAI request failed.');
+                }
+
+                const data = await response.json();
+                rawText = data?.choices?.[0]?.message?.content ?? '';
+            } else {
+                const data = await response.json();
+                // Parse responses API format
+                if (typeof data?.output_text === 'string') {
+                    rawText = data.output_text;
+                } else {
+                    const output = Array.isArray(data?.output) ? data.output : [];
+                    for (const item of output) {
+                        if (item?.type === 'message') {
+                            const content = Array.isArray(item?.content) ? item.content : [];
+                            rawText = content.map((part: any) => part?.text || '').join('');
+                            break;
+                        }
+                    }
+                }
             }
-            const data = await response.json();
-            const rawText = typeof data?.text === 'string' ? data.text : '';
             const extracted = extractJsonFromResponse(rawText);
             if (!extracted) {
                 setAiError('No patch was returned by the model.');

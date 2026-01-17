@@ -24,6 +24,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Base path for resolving relative URLs when embedded */}
+        <base href="/score-editor/" />
+        {/* Note: MSCORE_SCRIPT_URL is injected at build time via webpack.DefinePlugin in next.config.ts */}
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
