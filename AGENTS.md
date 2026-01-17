@@ -208,3 +208,69 @@ Clean rebuild (avoid unless needed)
 
 ### Example score
 You can use this for testing: http://localhost:3000/?score=%2Ftest_scores%2Fbach_orig.mscz
+
+## Soundfont CDN Configuration
+
+For production deployments and embed builds, soundfonts should be hosted on a CDN to avoid bundling large files (default.sf2 is 142MB).
+
+### Recommended: Use MuseScore_General from OSUOSL
+
+The easiest option is to use the free MuseScore_General soundfont hosted by Oregon State University Open Source Lab:
+
+**CDN URL:** `https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General`
+
+**Available files:**
+- `MuseScore_General.sf3` - 38MB (compressed, recommended)
+- `MuseScore_General.sf2` - 206MB (uncompressed)
+
+**Build command:**
+```bash
+# Move soundfonts out of public/ to avoid OOM during build
+mv public/soundfonts ~/soundfonts.backup
+
+# Run the build with OSUOSL CDN
+NEXT_PUBLIC_SOUNDFONT_CDN_URL=https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General \
+NEXT_PUBLIC_BUILD_MODE=embed \
+BUILD_MODE=embed \
+npm run build
+
+# Restore soundfonts for local development
+mv ~/soundfonts.backup public/soundfonts
+```
+
+The app will automatically try to load `MuseScore_General.sf3` first, then fall back to other naming conventions.
+
+### Custom CDN Setup (Alternative)
+
+If you need to host your own soundfonts:
+
+1. Upload soundfont files to your CDN:
+   - `default.sf3` (recommended, smaller compressed format)
+   - `default.sf2` (fallback, larger uncompressed format)
+   - Or: `MuseScore_General.sf3` / `MuseScore_General.sf2`
+
+2. Configure the CDN URL via environment variable:
+   ```bash
+   NEXT_PUBLIC_SOUNDFONT_CDN_URL=https://cdn.example.com/soundfonts
+   ```
+
+### CDN Hosting Options (Custom)
+- **GitHub Releases**: Upload soundfonts as release assets
+- **S3/CloudFront**: Use AWS S3 with CloudFront CDN
+- **Netlify/Vercel**: Use their built-in CDN for large assets
+- **OSUOSL Mirror**: Free public CDN (recommended, already available)
+
+### Local Development
+For local development without a CDN, keep soundfonts in `public/soundfonts/`:
+- `public/soundfonts/default.sf3`
+- `public/soundfonts/default.sf2`
+
+The app will try CDN URLs first (if configured), then fall back to local paths.
+
+### Build Output
+The static export build (`npm run build` with `BUILD_MODE=embed`) generates:
+- `out/` directory with all static files (~38MB without soundfonts)
+- WASM artifacts (webmscore.lib.wasm, webmscore.lib.mem.wasm, webmscore.lib.data)
+- Static data files (data/clefs.json, data/templates.json)
+- Next.js static assets
+- Base path: `/score-editor` (configurable in next.config.ts)

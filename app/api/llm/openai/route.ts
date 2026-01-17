@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-static';
+
 const buildPrompt = (prompt: string, xml?: string) => {
     const patchSpec = `Return ONLY valid JSON in the following format:
 {

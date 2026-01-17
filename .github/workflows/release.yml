@@ -1,0 +1,96 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate static data
+        run: npm run generate:data
+
+      - name: Build embed version
+        run: npm run build:embed
+        env:
+          NODE_OPTIONS: '--max-old-space-size=8192'
+
+      - name: Package release
+        run: npm run package:release
+
+      - name: Extract version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            release/score-editor-v${{ steps.get_version.outputs.VERSION }}.tar.gz
+            release/score-editor-v${{ steps.get_version.outputs.VERSION }}.zip
+            release/score-editor-v${{ steps.get_version.outputs.VERSION }}-README.md
+            release/score-editor-v${{ steps.get_version.outputs.VERSION }}-checksums.txt
+          body: |
+            # Score Editor v${{ steps.get_version.outputs.VERSION }}
+
+            Static export build ready for deployment.
+
+            ## Download Options
+
+            - **Tarball**: `score-editor-v${{ steps.get_version.outputs.VERSION }}.tar.gz`
+            - **Zip**: `score-editor-v${{ steps.get_version.outputs.VERSION }}.zip`
+
+            See the included README for deployment instructions.
+
+            ## Quick Start
+
+            ```bash
+            # Download and extract
+            wget https://github.com/${{ github.repository }}/releases/download/v${{ steps.get_version.outputs.VERSION }}/score-editor-v${{ steps.get_version.outputs.VERSION }}.tar.gz
+            tar -xzf score-editor-v${{ steps.get_version.outputs.VERSION }}.tar.gz -d score-editor
+
+            # Serve locally for testing
+            cd score-editor
+            python3 -m http.server 8080
+            ```
+
+            ## Configuration
+
+            - **Soundfonts**: Loaded from OSUOSL CDN (MuseScore_General.sf3, 38MB)
+            - **Base path**: `/score-editor`
+            - **Bundle size**: ~38MB
+
+            ## Checksums
+
+            See `score-editor-v${{ steps.get_version.outputs.VERSION }}-checksums.txt` for SHA256 checksums.
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts
+          path: release/
+          retention-days: 30

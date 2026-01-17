@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
+export const dynamic = 'force-static';
+
 type ClefEntry = { staff: number; clef: string };
 type InstrumentClefMap = Record<string, { staves: number; clefs: ClefEntry[] }>;
 type RawInstrument = {

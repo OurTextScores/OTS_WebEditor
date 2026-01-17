@@ -1,0 +1,5556 @@
+{
+  "map": {
+    "winds": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "eb-piccolo": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "db-piccolo": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "piccolo": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "treble-flute": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "danso": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "soprano-flute": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "irish-flute": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "traverso": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "flute": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "alto-flute": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bass-flute": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "contra-alto-flute": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "contrabass-flute": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "subcontra-alto-flute": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "double-contrabass-flute": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "hyperbass-flute": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "a-dizi": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "g-dizi": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "f-dizi": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "e-dizi": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "d-dizi": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "c-dizi": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "shakuhachi": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "fife": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "d-tin-whistle": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "c-tin-whistle": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "bflat-tin-whistle": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "slide-whistle": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "french-flageolet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "english-flageolet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "flageolet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "garklein-recorder": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G15ma"
+        }
+      ]
+    },
+    "sopranino-recorder": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "soprano-recorder": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "recorder": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "alto-recorder": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "tenor-recorder": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bass-recorder": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F8va"
+        }
+      ]
+    },
+    "greatbass-recorder": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F8va"
+        }
+      ]
+    },
+    "contrabass-recorder": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "g-soprano-ocarina": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "f-soprano-ocarina": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "ocarina": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "c-soprano-ocarina": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "bb-soprano-ocarina": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "g-alto-ocarina": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "f-alto-ocarina": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "c-alto-ocarina": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bb-alto-ocarina": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "c-bass-ocarina": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "gemshorn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "soprano-gemshorn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "alto-gemshorn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "tenor-gemshorn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bass-gemshorn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F8va"
+        }
+      ]
+    },
+    "pan-flute": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "quena": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "c-quena": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "g-quena": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "f-quena": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "d-quena": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "piccolo-heckelphone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "piccolo-oboe": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "baroque-oboe": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "oboe": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "oboe-d'amore": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "oboe-da-caccia": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "english-horn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bass-oboe": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "heckelphone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "lupophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "sopranino-shawm": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "soprano-shawm": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "alto-shawm": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "tenor-shawm": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "bass-shawm": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "great-bass-shawm": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "cromorne": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "crumhorn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "soprano-crumhorn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "alto-crumhorn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "tenor-crumhorn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "bass-crumhorn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "greatbass-crumhorn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "cornamuse": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "soprano-cornamuse": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "alto-cornamuse": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "tenor-cornamuse": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "bass-cornamuse": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "soprano-kelhorn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "alto-kelhorn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "tenor-kelhorn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "bass-kelhorn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "greatbass-kelhorn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "sopranino-rauschpfeife": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "rauschpfeife": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "soprano-rauschpfeife": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "f-duduk": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "e-duduk": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "d-duduk": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "c-duduk": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "b-duduk": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bb-duduk": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "duduk": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "a-duduk": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "g-duduk": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "a-bass-duduk": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "shenai": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "piccolo-clarinet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "soprano-clarinet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "eb-clarinet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "d-clarinet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "c-clarinet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bb-clarinet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "clarinet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "a-clarinet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "g-clarinet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "basset-clarinet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "alto-clarinet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "basset-horn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bass-clarinet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bb-bass-clarinet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bb-bass-clarinet-bass-clef": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "a-bass-clarinet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "a-bass-clarinet-bass-clef)": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "contra-alto-clarinet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "contrabass-clarinet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "sopranino-chalumeau": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "soprano-chalumeau": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "alto-chalumeau": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "chalumeau": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "tenor-chalumeau": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "bass-chalumeau": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "d-xaphoon": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "xaphoon": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bb-xaphoon": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "g-xaphoon": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "tarogato": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "octavin": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "sopranissimo-saxophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "sopranino-saxophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "aulochrome": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "soprano-saxophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "mezzo-soprano-saxophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "heckelphone-clarinet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "alto-saxophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "melody-saxophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "saxophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "tenor-saxophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "baritone-saxophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bass-saxophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "contrabass-saxophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "subcontrabass-saxophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bassoon": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "contrabassoon": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "reed-contrabass": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "dulcian": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "rackett": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "sopranino-sarrusophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "sarrusophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "soprano-sarrusophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "alto-sarrusophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "tenor-sarrusophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "baritone-sarrusophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bass-sarrusophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "contrabass-sarrusophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bagpipe": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "accordion": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "bandoneon": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "concertina": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "harmonica": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "harmonica-d10high-g": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "harmonica-d10f": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "harmonica-d10d": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "harmonica-d10c": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "harmonica-d10a": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "harmonica-d10g": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "harmonica-d10low-d": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "harmonica-c12c": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "harmonica-c12g": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "harmonica-c12tenor-c": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "harmonica-c14c": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "harmonica-c16c": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "harmonica-chordet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "bass-harmonica-hohner": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "bass-harmonica-huang": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "bass-harmonica": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "melodica": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "sheng": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "soprano-sheng": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "alto-sheng": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "C3"
+        }
+      ]
+    },
+    "tenor-sheng": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "C4"
+        }
+      ]
+    },
+    "bass-sheng": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "brass": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "c-horn-alto": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bb-horn-alto": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "a-horn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "ab-horn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "g-horn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "e-horn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "eb-horn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "d-horn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "horn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "c-horn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "c-horn-bass": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "bb-horn-basso": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "vienna-horn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bb-wagner-tuba": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "f-wagner-tuba": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "wagner-tuba": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "eb-cornet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "c-cornet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bb-cornet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "a-cornet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "saxhorn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "f-alto-horn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "eb-alto-horn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "baritone-horn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "baritone-horn-treble": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "baritone-horn-central-europe-treble": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "baritone-horn-central-europe": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "posthorn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "bb-piccolo-trumpet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "piccolo-trumpet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "a-piccolo-trumpet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "f-trumpet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "e-trumpet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "eb-trumpet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "d-trumpet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "c-trumpet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "trumpet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bb-trumpet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "a-trumpet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "pocket-trumpet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "slide-trumpet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "tenor-trumpet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "eb-bass-trumpet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "c-bass-trumpet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bass-trumpet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bb-bass-trumpet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "f-baroque-trumpet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "eb-baroque-trumpet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "d-baroque-trumpet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "c-baroque-trumpet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bb-baroque-trumpet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "baroque-trumpet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bugle": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "soprano-bugle": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "alto-bugle": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "mellophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "baritone-bugle": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "euphonium-bugle": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "mellophon-bugle": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "contrabass-bugle": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "fiscorn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "flugelhorn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "kuhlohorn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "f-alto-ophicleide": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "eb-alto-ophicleide": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "ophicleide": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "c-bass-ophicleide": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "bb-bass-ophicleide": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "eb-contrabass-ophicleide": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "cornettino": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "cornett": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "soprano-cornett": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "alto-cornett": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "tenor-cornett": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "serpent": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "soprano-trombone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "alto-trombone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "C3"
+        }
+      ]
+    },
+    "tenor-trombone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "trombone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "trombone-treble": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "contrabass-trombone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "bass-trombone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "cimbasso": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "alto-sackbut": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "tenor-sackbut": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "bass-sackbut": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "euphonium": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "euphonium-treble": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "tuba": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "f-tuba": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "eb-tuba": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "bass-eb-tuba": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "bass-f-tuba": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "eb-tuba-treble": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "c-tuba": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "bb-tuba": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "bb-tuba-treble": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "subcontrabass-tuba": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "bb-sousaphone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "bb-sousaphone-treble": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "sousaphone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "helicon": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "conch": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "horagai": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "alphorn": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "rag-dung": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "didgeridoo": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "shofar": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "vuvuzela": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "timpani": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "roto-toms": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "tubaphone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G15ma"
+        }
+      ]
+    },
+    "soprano-steel-drums": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "alto-steel-drums": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "guitar-steel-drums": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "tenor-steel-drums": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "cello-steel-drums": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "steel-drums": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "bass-steel-drums": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "glockenspiel": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "xylophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "xylomarimba": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "vibraphone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "dulcimer": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "cimbalom": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "marimba": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "marimba-single": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bass-marimba": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "contrabass-marimba": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F8vb"
+        }
+      ]
+    },
+    "crotales": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "almglocken": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G15ma"
+        },
+        {
+          "staff": 2,
+          "clef": "F15ma"
+        }
+      ]
+    },
+    "tubular-bells": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "carillon": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "tuned-gongs": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "hand-bells": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "orff-soprano-glockenspiel": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G15ma"
+        }
+      ]
+    },
+    "orff-alto-glockenspiel": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "orff-soprano-metallophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "orff-soprano-xylophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "metallophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "orff-alto-metallophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "orff-alto-xylophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "orff-bass-metallophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "orff-bass-xylophone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "flexatone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "musical-saw": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "musical-glasses": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8va"
+        }
+      ]
+    },
+    "glass-harmonica": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "tuned-klaxon-horns": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "alto-kalimba": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "kalimba": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "treble-kalimba": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "automobile-brake-drums": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "bongos": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "chinese-tom-toms": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "bass-drum": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "snare-drum": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "tom-toms": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "congas": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "cuica": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "drumset": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "military-drum": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "frame-drum": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "piccolo-snare-drum": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "slit-drum": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "tablas": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "timbales": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "anvil": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "bell-plate": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "bell-tree": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "bells": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "bowl-gongs": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "chains": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "chinese-cymbal": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "cowbell": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "crash-cymbal": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "cymbal": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "finger-cymbals": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "hi-hat": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "iron-pipes": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "mark-tree": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "metal-castanets": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "metal-wind-chimes": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "ride-cymbal": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "sleigh-bells": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "splash-cymbal": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "tam-tam": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "thundersheet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "triangle": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "bamboo-wind-chimes": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "castanets": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "claves": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "guiro": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "temple-blocks": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "wood-blocks": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "wooden-wind-chimes": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "cabasa": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "glass-wind-chimes": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "maracas": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "percussion": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "quijada": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "ratchet": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "sandpaper-blocks": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "shaker": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "shell-wind-chimes": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "stones": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "tambourine": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "tubo": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "vibraslap": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "whip": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "marching-snare": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "marching-tenor-drums": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "marching-bass-drums": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "marching-cymbals": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "finger-snap": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "hand-clap": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "slap": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "stamp": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "boy-soprano": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "soprano": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "soprano-c-clef": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "C1"
+        }
+      ]
+    },
+    "mezzo-soprano": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "mezzo-soprano-c-clef": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "C2"
+        }
+      ]
+    },
+    "countertenor": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "alto": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "alto-c-clef": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "C3"
+        }
+      ]
+    },
+    "contralto": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "tenor": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "tenor-c-clef": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "C4"
+        }
+      ]
+    },
+    "baritone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "baritone-c-clef": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "C5"
+        }
+      ]
+    },
+    "voice": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bass": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "women": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "men": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "kazoo": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "celesta": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "clavichord": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "clavinet": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "harpsichord": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "virginal": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "electric-piano": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "grand-piano": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "honky-tonk-piano": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "piano": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "toy-piano": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "upright-piano": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "hammond-organ": {
+      "staves": 3,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        },
+        {
+          "staff": 3,
+          "clef": "F"
+        }
+      ]
+    },
+    "organ": {
+      "staves": 3,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        },
+        {
+          "staff": 3,
+          "clef": "F"
+        }
+      ]
+    },
+    "percussive-organ": {
+      "staves": 3,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        },
+        {
+          "staff": 3,
+          "clef": "F"
+        }
+      ]
+    },
+    "pipe-organ": {
+      "staves": 3,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        },
+        {
+          "staff": 3,
+          "clef": "F8vb"
+        }
+      ]
+    },
+    "rotary-organ": {
+      "staves": 3,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        },
+        {
+          "staff": 3,
+          "clef": "F"
+        }
+      ]
+    },
+    "harmonium": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "reed-organ": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "mallet-synthesizer": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "ondes-martenot": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "percussion-synthesizer": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "PERC"
+        }
+      ]
+    },
+    "atmosphere-synth": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "bass-synthesizer": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "bowed-synth": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "brass-synthesizer": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "brightness-synth": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "choir-synth": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "crystal-synth": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "echoes-synth": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "effect-synth": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "goblins-synth": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "halo-synth": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "metallic-synth": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "new-age-synth": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "pad-synth": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "poly-synth": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "rain-synth": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "saw-synth": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "sci-fi-synth": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "sine-synth": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "soundtrack-synth": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "square-synth": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "string-synthesizer": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "sweep-synth": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "theremin": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "warm-synth": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "harp": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "cavaquinho": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "cavaquinho-tablature": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "soprano-guitar": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "alto-guitar": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "electric-guitar": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "electric-guitar-treble-clef": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "guitar-steel": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "guitar-steel-treble-clef": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "guitar-nylon": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "guitar-nylon-treble-clef": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "electric-guitar-tablature": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "guitar-nylon-tablature": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "guitar-steel-tablature": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "pedal-steel-guitar": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "baritone-guitar": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "contra-guitar": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "7-string-guitar": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "7-string-guitar-tablature": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "11-string-alto-guitar": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "12-string-guitar": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "5-string-electric-bass": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "5-string-electric-bass-high-c": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "5-string-electric-bass-tab": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "5-string-electric-bass-tab-high-c": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "6-string-electric-bass": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "6-string-electric-bass-tab": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "bass-guitar": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "electric-bass": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "fretless-electric-bass": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "acoustic-bass": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "bass-guitar-tablature": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "electric-bass-4-str-tab": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "banjo": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "tenor-banjo": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "banjo-tablature": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "irish-tenor-banjo": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "irish-tenor-banjo-tablature": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "tenor-ukulele": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "ukulele": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "ukulele-low-g": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "ukulele-4-str-tab": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "baritone-ukulele": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "mandolin": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "mandolin-tablature": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "alto-mandola": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "mandola": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "C3"
+        }
+      ]
+    },
+    "tenor-mandola": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "octave-mandolin": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "mandocello": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "mtn-dulcimer-std": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "mtn-dulcimer-std-chrom-tab": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "mtn-dulcimer-baritone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "mtn-dulcimer-bartn-chrom-tab": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "mtn-dulcimer-bass": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "mtn-dulcimer-bass-chrom-tab": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "lute": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "lute-tablature": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "ren.-tenor-lute-5-course": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "ren.-tenor-lute-6-course": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "ren.-tenor-lute-7-course": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "ren.-tenor-lute-8-course": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "ren.-tenor-lute-9-course": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "ren.-tenor-lute-10-course": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "baroque-lute-13-course": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "theorbo-14-course": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "archlute-14-course": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "balalaika-piccolo": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "balalaika": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "balalaika-prima": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "balalaika-secunda": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "balalaika-alto": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "balalaika-bass": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "balalaika-contrabass": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F8vb"
+        }
+      ]
+    },
+    "bouzouki-3-course": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bouzouki-4-course": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "koto": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "oud": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "shamisen": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "sitar": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "prim": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "brac": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bugarija": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "berda": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "celo": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bandurria": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "bandurria-tablature": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "laud": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "laud-tablature": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G8vb"
+        }
+      ]
+    },
+    "strings": {
+      "staves": 2,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        },
+        {
+          "staff": 2,
+          "clef": "F"
+        }
+      ]
+    },
+    "double-bass": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "violin": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "violins": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "viola": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "C3"
+        }
+      ]
+    },
+    "violas": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "C3"
+        }
+      ]
+    },
+    "violoncello": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "violoncellos": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "contrabass": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "contrabasses": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "treble-viol": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "alto-viol": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "C3"
+        }
+      ]
+    },
+    "pardessus-de-viole": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "tenor-viol": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "C3"
+        }
+      ]
+    },
+    "baryton": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "viola-da-gamba": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "viola-da-gamba-tablature": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "violone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F8vb"
+        }
+      ]
+    },
+    "d-violone": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F8vb"
+        }
+      ]
+    },
+    "octobass": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "F"
+        }
+      ]
+    },
+    "erhu": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    },
+    "nyckelharpa": {
+      "staves": 1,
+      "clefs": [
+        {
+          "staff": 1,
+          "clef": "G"
+        }
+      ]
+    }
+  }
+}
