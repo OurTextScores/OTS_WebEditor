@@ -59,3 +59,40 @@ test('hotkeys drive delete, undo/redo, and copy/paste', async ({ page }) => {
   await page.keyboard.press('Control+V');
   await expect.poll(async () => await readXml(), { timeout: 20_000 }).not.toBe(xmlBeforePaste);
 });
+
+test('multi-selection copy/paste with shift-click', async ({ page }) => {
+  await page.goto('/?score=/test_scores/three_notes_cde.musicxml');
+  await page.waitForSelector('svg .Note', { timeout: 60_000 });
+
+  const readXml = async (): Promise<string> => {
+    return page.evaluate(async () => {
+      const score = (window as any).__webmscore;
+      if (!score?.saveXml) {
+        throw new Error('window.__webmscore.saveXml is not available');
+      }
+      return score.saveXml();
+    });
+  };
+
+  // Select first note
+  await page.locator('svg .Note').first().click();
+  await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
+
+  // Shift-click second note to create range selection
+  await page.locator('svg .Note').nth(1).click({ modifiers: ['Shift'] });
+  await page.waitForTimeout(500);
+
+  // Copy the range selection
+  await page.keyboard.press('Control+C');
+  await page.waitForTimeout(300);
+
+  // Click on third note to set paste destination
+  await page.locator('svg .Note').nth(2).click();
+  await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
+
+  const xmlBeforePaste = await readXml();
+
+  // Paste
+  await page.keyboard.press('Control+V');
+  await expect.poll(async () => await readXml(), { timeout: 20_000 }).not.toBe(xmlBeforePaste);
+});

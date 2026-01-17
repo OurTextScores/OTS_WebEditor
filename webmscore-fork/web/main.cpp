@@ -1512,8 +1512,8 @@ bool _selectElementAtPointWithMode(uintptr_t score_ptr, int pageNumber, double x
         return false;
     }
 
-    // 0 = replace, 1 = add, 2 = toggle
-    if (mode < 0 || mode > 2) {
+    // 0 = replace, 1 = add, 2 = toggle, 3 = range
+    if (mode < 0 || mode > 3) {
         LOGW() << "selectElementAtPointWithMode: invalid selection mode " << mode;
         return false;
     }
@@ -1543,12 +1543,15 @@ bool _selectElementAtPointWithMode(uintptr_t score_ptr, int pageNumber, double x
         score->select(target, engraving::SelectType::SINGLE, target->staffIdx());
     } else if (mode == 1) {
         score->select(target, engraving::SelectType::ADD, target->staffIdx());
-    } else {
+    } else if (mode == 2) {
         if (target->selected()) {
             score->deselect(target);
         } else {
             score->select(target, engraving::SelectType::ADD, target->staffIdx());
         }
+    } else if (mode == 3) {
+        // RANGE selection - extends selection from current to target element
+        score->select(target, engraving::SelectType::RANGE, target->staffIdx());
     }
 
     score->updateSelection();
@@ -2125,8 +2128,10 @@ bool _addPitchByStep(uintptr_t score_ptr, int note, bool addToChord, bool insert
         LOGW() << "addPitchByStep: input track invalid";
         return false;
     }
-    if (!is.segment()) {
-        if (!_setInputStateFromSelection(score_ptr, excerptId)) {
+    // Always sync input state from selection to ensure duration matches the selected element.
+    // This prevents re-pitching a note from also changing its duration.
+    if (!_setInputStateFromSelection(score_ptr, excerptId)) {
+        if (!is.segment()) {
             LOGW() << "addPitchByStep: no input segment";
             return false;
         }
