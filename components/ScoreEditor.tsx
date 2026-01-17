@@ -111,6 +111,7 @@ type MutationMethods = Pick<
     | 'setBarLineType'
     | 'addVolta'
     | 'insertMeasures'
+    | 'removeTrailingEmptyMeasures'
 >;
 
 type HarmonyVariant = 0 | 1 | 2;
@@ -2445,6 +2446,11 @@ ${partsBodyXml}
         const targetValue = measureInsertTargetMap[target] ?? measureInsertTargetMap['after-selection'];
         return fn(sanitized, targetValue);
     });
+    const handleRemoveTrailingEmptyMeasures = () => performMutation('remove trailing empty measures', async () => {
+        const fn = requireMutation('removeTrailingEmptyMeasures');
+        if (!fn) return false;
+        return fn();
+    }, { clearSelection: true, skipWasmReselect: true });
     const handleSelectNextChord = async () => {
         if (!score) return;
         await ensureSelectionInWasm();
@@ -3819,13 +3825,37 @@ ${partsBodyXml}
         };
 
         if (score.selectElementAtPointWithMode) {
+            // Check if any hits are notes - notes need RANGE selection for copy/paste to work
+            const hasNotes = hits.some(hit => {
+                const classes = hit.el.getAttribute('class') ?? '';
+                return classes.includes('Note');
+            });
+
             const firstMode = additive ? 1 : 0;
-            const selectionPromises = [
-                score.selectElementAtPointWithMode(first.pageIndex, first.centerX, first.centerY, firstMode),
-                ...hits.slice(1).map(hit => score.selectElementAtPointWithMode!(hit.pageIndex, hit.centerX, hit.centerY, 1)),
-            ];
-            for (const promise of selectionPromises) {
-                await promise;
+
+            if (hasNotes && hits.length > 1) {
+                // For notes, use RANGE selection (mode 3) to enable copy/paste
+                // Find leftmost and rightmost hits (by x position) for proper time-based range
+                let leftmost = hits[0];
+                let rightmost = hits[0];
+                for (const hit of hits) {
+                    if (hit.box.x < leftmost.box.x) {
+                        leftmost = hit;
+                    }
+                    if (hit.box.x + hit.box.w > rightmost.box.x + rightmost.box.w) {
+                        rightmost = hit;
+                    }
+                }
+                // Select leftmost first, then extend range to rightmost
+                await score.selectElementAtPointWithMode(leftmost.pageIndex, leftmost.centerX, leftmost.centerY, firstMode);
+                await score.selectElementAtPointWithMode(rightmost.pageIndex, rightmost.centerX, rightmost.centerY, 3);
+            } else {
+                // For non-note elements (slurs, dynamics, etc.), use ADD mode (original behavior)
+                await score.selectElementAtPointWithMode(first.pageIndex, first.centerX, first.centerY, firstMode);
+                for (let i = 1; i < hits.length; i++) {
+                    const hit = hits[i];
+                    await score.selectElementAtPointWithMode(hit.pageIndex, hit.centerX, hit.centerY, 1);
+                }
             }
             return fallback;
         }
@@ -4168,7 +4198,8 @@ ${partsBodyXml}
             }
         };
 
-        const additiveSelection = e.metaKey || e.ctrlKey;
+        const additiveSelection = e.metaKey || e.ctrlKey || e.shiftKey;
+        const isShiftClick = e.shiftKey && !e.metaKey && !e.ctrlKey;
         // DOM-based hit testing
         const target = e.target as Element;
 
@@ -4345,10 +4376,17 @@ ${partsBodyXml}
 
             const canModeSelect = Boolean(score?.selectElementAtPointWithMode);
             const alreadySelected = additiveSelection && box.index !== null && selectionBoxes.some(existing => existing.index === box.index);
+            // Mode: 0 = replace, 1 = add, 2 = toggle, 3 = range
+            // Use range selection (mode 3) for shift-click when there's already a selection
+            const hasExistingSelection = selectionBoxes.length > 0;
             const mode = canModeSelect
                 ? additiveSelection
-                    ? alreadySelected ? 2 : 1
-                    : 0
+                    ? alreadySelected
+                        ? 2  // Toggle off if already selected
+                        : isShiftClick && hasExistingSelection
+                            ? 3  // Range selection for shift-click
+                            : 1  // Add selection for ctrl/cmd-click
+                    : 0  // Replace selection
                 : null;
 
             const selectionPromise = canModeSelect
@@ -4563,6 +4601,7 @@ ${partsBodyXml}
                 onSetBarLineType={handleSetBarLineType}
                 onAddVolta={handleAddVolta}
                 onInsertMeasures={handleInsertMeasures}
+                onRemoveTrailingEmptyMeasures={handleRemoveTrailingEmptyMeasures}
                 insertMeasuresDisabled={!score?.insertMeasures}
                 parts={scoreParts}
                 instrumentGroups={instrumentGroups}

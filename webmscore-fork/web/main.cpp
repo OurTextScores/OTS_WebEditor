@@ -725,6 +725,35 @@ static bool _insertMeasures(uintptr_t score_ptr, int count, InsertMeasuresTarget
     return true;
 }
 
+static bool _removeTrailingEmptyMeasures(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+
+    engraving::Measure* lastMeasure = score->lastMeasure();
+    if (!lastMeasure) {
+        return false;
+    }
+
+    // Walk backwards to find the first trailing empty measure
+    engraving::Measure* firstToDelete = nullptr;
+    engraving::Measure* current = lastMeasure;
+
+    while (current && current->isEmpty(mu::nidx)) {
+        firstToDelete = current;
+        current = current->prevMeasure();
+    }
+
+    // No empty measures to remove
+    if (!firstToDelete) {
+        return true;
+    }
+
+    score->startCmd();
+    score->deleteMeasures(firstToDelete, lastMeasure, false);
+    score->endCmd();
+    return true;
+}
+
 static engraving::BarLine* ensureEndBarLine(engraving::Measure* measure)
 {
     if (!measure) {
@@ -1568,8 +1597,8 @@ bool _selectElementAtPointWithMode(uintptr_t score_ptr, int pageNumber, double x
         return false;
     }
 
-    // 0 = replace, 1 = add, 2 = toggle
-    if (mode < 0 || mode > 2) {
+    // 0 = replace, 1 = add, 2 = toggle, 3 = range
+    if (mode < 0 || mode > 3) {
         LOGW() << "selectElementAtPointWithMode: invalid selection mode " << mode;
         return false;
     }
@@ -1599,12 +1628,15 @@ bool _selectElementAtPointWithMode(uintptr_t score_ptr, int pageNumber, double x
         score->select(target, engraving::SelectType::SINGLE, target->staffIdx());
     } else if (mode == 1) {
         score->select(target, engraving::SelectType::ADD, target->staffIdx());
-    } else {
+    } else if (mode == 2) {
         if (target->selected()) {
             score->deselect(target);
         } else {
             score->select(target, engraving::SelectType::ADD, target->staffIdx());
         }
+    } else if (mode == 3) {
+        // RANGE selection - extends selection from current to target element
+        score->select(target, engraving::SelectType::RANGE, target->staffIdx());
     }
 
     score->updateSelection();
@@ -2188,8 +2220,10 @@ bool _addPitchByStep(uintptr_t score_ptr, int note, bool addToChord, bool insert
         LOGW() << "addPitchByStep: input track invalid";
         return false;
     }
-    if (!is.segment()) {
-        if (!_setInputStateFromSelection(score_ptr, excerptId)) {
+    // Always sync input state from selection to ensure duration matches the selected element.
+    // This prevents re-pitching a note from also changing its duration.
+    if (!_setInputStateFromSelection(score_ptr, excerptId)) {
+        if (!is.segment()) {
             LOGW() << "addPitchByStep: no input segment";
             return false;
         }
@@ -3502,6 +3536,11 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool insertMeasures(uintptr_t score_ptr, int count, int target, int excerptId = -1) {
         return _insertMeasures(score_ptr, count, parseInsertMeasuresTarget(target), excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool removeTrailingEmptyMeasures(uintptr_t score_ptr, int excerptId = -1) {
+        return _removeTrailingEmptyMeasures(score_ptr, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE

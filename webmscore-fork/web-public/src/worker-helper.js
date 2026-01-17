@@ -824,6 +824,14 @@ class WebMscoreW {
     }
 
     /**
+     * Remove all trailing empty measures from the end of the score.
+     * @returns {Promise<boolean>}
+     */
+    removeTrailingEmptyMeasures() {
+        return this.rpc('removeTrailingEmptyMeasures')
+    }
+
+    /**
      * Undo the last command.
      * @returns {Promise<boolean>}
      */
