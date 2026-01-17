@@ -68,6 +68,7 @@
 #include "engraving/libmscore/engravingobject.h"
 #include "engraving/libmscore/segment.h"
 #include "engraving/libmscore/staff.h"
+#include "engraving/libmscore/stafflines.h"
 #include "engraving/libmscore/spannermap.h"
 #include "engraving/libmscore/utils.h"
 #include "engraving/libmscore/volta.h"
@@ -1460,6 +1461,40 @@ bool _selectElementAtPoint(uintptr_t score_ptr, int pageNumber, double x, double
 
     score->deselectAll();
     score->select(target, engraving::SelectType::SINGLE, target->staffIdx());
+    score->updateSelection();
+    score->setSelectionChanged(true);
+    return true;
+}
+
+bool _selectMeasureAtPoint(uintptr_t score_ptr, int pageNumber, double x, double y, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    const auto& pages = score->pages();
+
+    if (pageNumber < 0 || pageNumber >= (int)pages.size()) {
+        LOGW() << "selectMeasureAtPoint: invalid page index " << pageNumber;
+        return false;
+    }
+
+    engraving::Page* page = pages.at(pageNumber);
+    const mu::PointF pt(x, y);
+    const mu::PointF canvasPt = pt + page->pos();
+
+    engraving::staff_idx_t staffIdx = mu::nidx;
+    engraving::Segment* segment = nullptr;
+    mu::PointF offset;
+    engraving::Measure* measure = score->pos2measure(canvasPt, &staffIdx, nullptr, &segment, &offset);
+    if (!measure || staffIdx == mu::nidx) {
+        return false;
+    }
+
+    auto* staffLines = measure->staffLines(staffIdx);
+    if (!staffLines || !staffLines->canvasBoundingRect().contains(canvasPt)) {
+        return false;
+    }
+
+    score->deselectAll();
+    score->select(measure, engraving::SelectType::SINGLE, staffIdx);
     score->updateSelection();
     score->setSelectionChanged(true);
     return true;
@@ -3489,6 +3524,11 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool selectElementAtPoint(uintptr_t score_ptr, int pageNumber, double x, double y, int excerptId = -1) {
         return _selectElementAtPoint(score_ptr, pageNumber, x, y, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool selectMeasureAtPoint(uintptr_t score_ptr, int pageNumber, double x, double y, int excerptId = -1) {
+        return _selectMeasureAtPoint(score_ptr, pageNumber, x, y, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE

@@ -673,6 +673,21 @@ class WebMscore {
     }
 
     /**
+     * Select a measure near a page-relative point.
+     * @param {number} pageNumber zero-based page index
+     * @param {number} x
+     * @param {number} y
+     * @returns {Promise<boolean>}
+     */
+    async selectMeasureAtPoint(pageNumber, x, y) {
+        return Module.ccall('selectMeasureAtPoint',
+            'boolean',
+            ['number', 'number', 'number', 'number', 'number'],
+            [this.scoreptr, pageNumber, x, y, this.excerptId]
+        )
+    }
+
+    /**
      * Select a text element near a page-relative point.
      * @param {number} pageNumber zero-based page index
      * @param {number} x

@@ -4139,6 +4139,29 @@ ${partsBodyXml}
         }
         if (!containerRef.current) return;
 
+        const clearSelectionState = () => {
+            setSelectedElement(null);
+            setSelectionBoxes([]);
+            setSelectedPoint(null);
+            setSelectedIndex(null);
+            setSelectedElementClasses('');
+            setSelectedLayoutBreakSubtype(null);
+            const refreshAfterClear = () => refreshSelectionFromSvg(null);
+            blockOverlayRefreshRef.current = true;
+            selectionOverlayGenerationRef.current += 1;
+            setOverlaySuppressed(true);
+            if (score?.clearSelection) {
+                score.clearSelection()
+                    .then(refreshAfterClear)
+                    .catch(err => {
+                        console.warn('clearSelection not available or failed:', err);
+                        refreshAfterClear();
+                    });
+            } else {
+                refreshAfterClear();
+            }
+        };
+
         const additiveSelection = e.metaKey || e.ctrlKey;
         // DOM-based hit testing
         const target = e.target as Element;
@@ -4172,24 +4195,37 @@ ${partsBodyXml}
         }
 
         if (!found || !element) {
-            setSelectedElement(null);
-            setSelectionBoxes([]);
-            setSelectedPoint(null);
-            setSelectedIndex(null);
-            setSelectedElementClasses('');
-            setSelectedLayoutBreakSubtype(null);
-            const refreshAfterClear = () => refreshSelectionFromSvg(null);
-            blockOverlayRefreshRef.current = true;
-            selectionOverlayGenerationRef.current += 1;
-            setOverlaySuppressed(true);
-            if (score?.clearSelection) {
-                score.clearSelection()
-                    .then(refreshAfterClear)
+            const selectMeasureAtPoint = score?.selectMeasureAtPoint;
+            const selectElementAtPoint = score?.selectElementAtPoint;
+            if (selectMeasureAtPoint || selectElementAtPoint) {
+                const scorePoint = clientToScorePoint(e.clientX, e.clientY);
+                if (!scorePoint) {
+                    clearSelectionState();
+                    return;
+                }
+                const pageIndex = extractPageIndex(target) ?? currentPage;
+                const fallback: SelectionFallback = {
+                    index: null,
+                    point: { page: pageIndex, x: scorePoint.x, y: scorePoint.y },
+                };
+                const selectPromise = selectMeasureAtPoint
+                    ? selectMeasureAtPoint(pageIndex, scorePoint.x, scorePoint.y)
+                    : selectElementAtPoint?.(pageIndex, scorePoint.x, scorePoint.y);
+                Promise.resolve(selectPromise)
+                    .then((selected) => {
+                        if (selected === false) {
+                            clearSelectionState();
+                            return;
+                        }
+                        refreshSelectionFromSvg(fallback);
+                    })
                     .catch(err => {
-                        console.warn('clearSelection not available or failed:', err);
-                        refreshAfterClear();
+                        console.warn('selectMeasureAtPoint/selectElementAtPoint not available or failed:', err);
+                        clearSelectionState();
                     });
+                return;
             }
+            clearSelectionState();
             return;
         }
 
