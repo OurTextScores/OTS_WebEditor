@@ -176,7 +176,7 @@ const TEXT_ELEMENT_CLASS_NAMES = [
     'TempoText',
 ];
 const TEXT_ELEMENT_SELECTOR = TEXT_ELEMENT_CLASS_NAMES.map(cls => `.${cls}`).join(', ');
-const ELEMENT_SELECTION_SELECTOR = ['.Note', '.Rest', '.Chord', '.LayoutBreak', '.Pedal', '.PedalSegment', TEXT_ELEMENT_SELECTOR]
+const ELEMENT_SELECTION_SELECTOR = ['.Note', '.Rest', '.Chord', '.LayoutBreak', '.Pedal', '.PedalSegment', '.Measure', TEXT_ELEMENT_SELECTOR]
     .filter(Boolean)
     .join(', ');
 const ELEMENT_SELECTION_CLASSES = new Set([
@@ -186,6 +186,7 @@ const ELEMENT_SELECTION_CLASSES = new Set([
     'LayoutBreak',
     'Pedal',
     'PedalSegment',
+    'Measure',
     ...TEXT_ELEMENT_CLASS_NAMES,
 ]);
 const TEXT_ELEMENT_CLASS_SET = new Set(TEXT_ELEMENT_CLASS_NAMES);
@@ -364,6 +365,11 @@ export default function ScoreEditor() {
     useEffect(() => {
         currentPageRef.current = currentPage;
     }, [currentPage]);
+
+    useEffect(() => {
+        console.log('[ScoreEditor] selectedElement changed to:', selectedElement);
+        console.log('[ScoreEditor] overlaySuppressed:', overlaySuppressed);
+    }, [selectedElement, overlaySuppressed]);
 
     useEffect(() => {
         if (typeof window === 'undefined') {
@@ -4195,9 +4201,7 @@ ${partsBodyXml}
         }
 
         if (!found || !element) {
-            const selectMeasureAtPoint = score?.selectMeasureAtPoint;
-            const selectElementAtPoint = score?.selectElementAtPoint;
-            if (selectMeasureAtPoint || selectElementAtPoint) {
+            if (score?.selectMeasureAtPoint || score?.selectElementAtPoint) {
                 const scorePoint = clientToScorePoint(e.clientX, e.clientY);
                 if (!scorePoint) {
                     clearSelectionState();
@@ -4208,15 +4212,68 @@ ${partsBodyXml}
                     index: null,
                     point: { page: pageIndex, x: scorePoint.x, y: scorePoint.y },
                 };
-                const selectPromise = selectMeasureAtPoint
-                    ? selectMeasureAtPoint(pageIndex, scorePoint.x, scorePoint.y)
-                    : selectElementAtPoint?.(pageIndex, scorePoint.x, scorePoint.y);
-                Promise.resolve(selectPromise)
-                    .then((selected) => {
+
+                // Try selectElementAtPoint first, then fall back to selectMeasureAtPoint
+                const trySelect = async () => {
+                    if (score.selectElementAtPoint) {
+                        const elementSelected = await score.selectElementAtPoint(pageIndex, scorePoint.x, scorePoint.y);
+                        if (elementSelected) {
+                            return true;
+                        }
+                    }
+
+                    // If no element was selected, try selecting the measure
+                    if (score.selectMeasureAtPoint) {
+                        return await score.selectMeasureAtPoint(pageIndex, scorePoint.x, scorePoint.y);
+                    }
+
+                    return false;
+                };
+
+                trySelect()
+                    .then(async (selected) => {
                         if (selected === false) {
                             clearSelectionState();
                             return;
                         }
+
+                        // For measure selections, get all elements within the measure
+                        if (score.getSelectionBoundingBoxes) {
+                            const bboxes = await score.getSelectionBoundingBoxes();
+                            console.log('[ScoreEditor] getSelectionBoundingBoxes returned:', bboxes);
+                            if (bboxes && bboxes.length > 0) {
+                                console.log('[ScoreEditor] Setting measure selection with', bboxes.length, 'elements');
+
+                                // Re-render the SVG to show native selection highlighting
+                                await renderScore(score, pageIndex);
+
+                                // Create selection boxes for all elements in the measure
+                                const boxes = bboxes.map((bbox: any) => ({
+                                    index: null,
+                                    page: bbox.page,
+                                    x: bbox.x,
+                                    y: bbox.y,
+                                    w: bbox.width,
+                                    h: bbox.height,
+                                    centerX: bbox.x + bbox.width / 2,
+                                    centerY: bbox.y + bbox.height / 2,
+                                    classes: 'Measure',
+                                }));
+
+                                // Use the first element as the primary selection
+                                const firstBbox = bboxes[0];
+                                setSelectedElement({ x: firstBbox.x, y: firstBbox.y, w: firstBbox.width, h: firstBbox.height });
+                                setSelectedPoint({ page: firstBbox.page, x: firstBbox.x + firstBbox.width / 2, y: firstBbox.y + firstBbox.height / 2 });
+                                setSelectionBoxes(boxes);
+                                setSelectedIndex(null);
+                                setSelectedElementClasses('Measure');
+                                return;
+                            } else {
+                                console.log('[ScoreEditor] No bboxes returned for measure selection');
+                            }
+                        }
+
+                        // Fallback to SVG-based refresh
                         refreshSelectionFromSvg(fallback);
                     })
                     .catch(err => {
@@ -4844,7 +4901,7 @@ ${partsBodyXml}
                     {selectedElement && !overlaySuppressed && (
                         <div
                             data-testid="selection-overlay"
-                            className="absolute pointer-events-none"
+                            className="absolute pointer-events-none border-2 border-blue-600"
                             style={{
                                 left: selectedElement.x,
                                 top: selectedElement.y,

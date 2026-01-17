@@ -1494,7 +1494,28 @@ bool _selectMeasureAtPoint(uintptr_t score_ptr, int pageNumber, double x, double
     }
 
     score->deselectAll();
-    score->select(measure, engraving::SelectType::SINGLE, staffIdx);
+
+    // Select all chords/rests in the measure on the clicked staff (all voices)
+    bool first = true;
+    for (auto* seg = measure->first(); seg; seg = seg->next()) {
+        if (seg->segmentType() != engraving::SegmentType::ChordRest) {
+            continue;
+        }
+
+        // Select elements in all voices of the clicked staff
+        for (int voice = 0; voice < mu::engraving::VOICES; ++voice) {
+            auto* el = seg->element(staffIdx * mu::engraving::VOICES + voice);
+            if (el && (el->isChord() || el->isRest())) {
+                if (first) {
+                    score->select(el, engraving::SelectType::SINGLE, staffIdx);
+                    first = false;
+                } else {
+                    score->select(el, engraving::SelectType::ADD, staffIdx);
+                }
+            }
+        }
+    }
+
     score->updateSelection();
     score->setSelectionChanged(true);
     return true;
@@ -1679,6 +1700,11 @@ WasmRes _getSelectionBoundingBox(uintptr_t score_ptr, int excerptId)
     mu::PointF pagePosition = el->pagePos();
     mu::RectF bbox = el->bbox();
 
+    printf("[WASM DEBUG] Element type: %d\n", static_cast<int>(el->type()));
+    printf("[WASM DEBUG] pagePos: (%.2f, %.2f)\n", pagePosition.x(), pagePosition.y());
+    printf("[WASM DEBUG] bbox: (%.2f, %.2f, %.2f, %.2f)\n",
+           bbox.x(), bbox.y(), bbox.width(), bbox.height());
+
     // Find which page this element is on
     int pageNumber = 0;
     const auto& pages = score->pages();
@@ -1696,6 +1722,8 @@ WasmRes _getSelectionBoundingBox(uintptr_t score_ptr, int excerptId)
         .arg(pagePosition.y())
         .arg(bbox.width())
         .arg(bbox.height());
+
+    printf("[WASM DEBUG] JSON result: %s\n", json.toStdString().c_str());
 
     return WasmRes(json);
 }
