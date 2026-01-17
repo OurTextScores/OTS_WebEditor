@@ -128,6 +128,7 @@ interface ToolbarProps {
     onSetBarLineType?: (barLineType: number) => void;
     onAddVolta?: (endingNumber: number) => void;
     onInsertMeasures?: (count: number, target: MeasureInsertTarget) => void;
+    onRemoveTrailingEmptyMeasures?: () => void;
     insertMeasuresDisabled?: boolean;
     parts?: PartSummary[];
     instrumentGroups?: InstrumentTemplateGroup[];
@@ -293,6 +294,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     onSetBarLineType,
     onAddVolta,
     onInsertMeasures,
+    onRemoveTrailingEmptyMeasures,
     insertMeasuresDisabled = false,
     parts = [],
     instrumentGroups = [],
@@ -1027,6 +1029,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         Add measures
                     </span>
                     <input
+                        data-testid="input-measure-count"
                         type="number"
                         min={1}
                         value={measureCount}
@@ -1050,6 +1053,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Apply
+                    </button>
+                    <button
+                        data-testid="btn-remove-trailing-empty"
+                        type="button"
+                        onClick={onRemoveTrailingEmptyMeasures}
+                        disabled={mutationDisabled || !onRemoveTrailingEmptyMeasures}
+                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Remove Trailing Empty
                     </button>
                 </div>
 	            </div>

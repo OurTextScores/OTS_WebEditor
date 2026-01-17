@@ -1369,6 +1369,14 @@ class WebMscore {
     }
 
     /**
+     * Remove all trailing empty measures from the end of the score
+     * @returns {Promise<boolean>}
+     */
+    async removeTrailingEmptyMeasures() {
+        return Module.ccall('removeTrailingEmptyMeasures', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
+    }
+
+    /**
      * Set the time signature (global) at the start of the score
      * @param {number} numerator
      * @param {number} denominator

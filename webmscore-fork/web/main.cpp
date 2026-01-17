@@ -724,6 +724,35 @@ static bool _insertMeasures(uintptr_t score_ptr, int count, InsertMeasuresTarget
     return true;
 }
 
+static bool _removeTrailingEmptyMeasures(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+
+    engraving::Measure* lastMeasure = score->lastMeasure();
+    if (!lastMeasure) {
+        return false;
+    }
+
+    // Walk backwards to find the first trailing empty measure
+    engraving::Measure* firstToDelete = nullptr;
+    engraving::Measure* current = lastMeasure;
+
+    while (current && current->isEmpty(mu::nidx)) {
+        firstToDelete = current;
+        current = current->prevMeasure();
+    }
+
+    // No empty measures to remove
+    if (!firstToDelete) {
+        return true;
+    }
+
+    score->startCmd();
+    score->deleteMeasures(firstToDelete, lastMeasure, false);
+    score->endCmd();
+    return true;
+}
+
 static engraving::BarLine* ensureEndBarLine(engraving::Measure* measure)
 {
     if (!measure) {
@@ -3444,6 +3473,11 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool insertMeasures(uintptr_t score_ptr, int count, int target, int excerptId = -1) {
         return _insertMeasures(score_ptr, count, parseInsertMeasuresTarget(target), excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool removeTrailingEmptyMeasures(uintptr_t score_ptr, int excerptId = -1) {
+        return _removeTrailingEmptyMeasures(score_ptr, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE

@@ -111,6 +111,7 @@ type MutationMethods = Pick<
     | 'setBarLineType'
     | 'addVolta'
     | 'insertMeasures'
+    | 'removeTrailingEmptyMeasures'
 >;
 
 type HarmonyVariant = 0 | 1 | 2;
@@ -2439,6 +2440,11 @@ ${partsBodyXml}
         const targetValue = measureInsertTargetMap[target] ?? measureInsertTargetMap['after-selection'];
         return fn(sanitized, targetValue);
     });
+    const handleRemoveTrailingEmptyMeasures = () => performMutation('remove trailing empty measures', async () => {
+        const fn = requireMutation('removeTrailingEmptyMeasures');
+        if (!fn) return false;
+        return fn();
+    }, { clearSelection: true, skipWasmReselect: true });
     const handleSelectNextChord = async () => {
         if (!score) return;
         await ensureSelectionInWasm();
@@ -4502,6 +4508,7 @@ ${partsBodyXml}
                 onSetBarLineType={handleSetBarLineType}
                 onAddVolta={handleAddVolta}
                 onInsertMeasures={handleInsertMeasures}
+                onRemoveTrailingEmptyMeasures={handleRemoveTrailingEmptyMeasures}
                 insertMeasuresDisabled={!score?.insertMeasures}
                 parts={scoreParts}
                 instrumentGroups={instrumentGroups}
