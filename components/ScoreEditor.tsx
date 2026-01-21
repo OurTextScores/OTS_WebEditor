@@ -1593,10 +1593,15 @@ ${partsBodyXml}
                 `${cdnBase}/default.sf3`,
                 `${cdnBase}/MuseScore_General.sf2`,
                 `${cdnBase}/default.sf2`,
+                'https://cdn.ourtextscores.com/default.sf2',
                 'soundfonts/default.sf3',
                 'soundfonts/default.sf2'
               ]
-            : ['soundfonts/default.sf3', 'soundfonts/default.sf2'];
+            : [
+                'https://cdn.ourtextscores.com/default.sf2',
+                'soundfonts/default.sf3',
+                'soundfonts/default.sf2'
+              ];
 
         for (const url of candidates) {
             try {
