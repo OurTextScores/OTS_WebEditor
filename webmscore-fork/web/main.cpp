@@ -1488,19 +1488,78 @@ bool _selectElementAtPoint(uintptr_t score_ptr, int pageNumber, double x, double
         return false;
     }
 
+    printf("[WASM DEBUG] selectElementAtPoint: target type=%d isMeasure=%d\n",
+           static_cast<int>(target->type()), target->isMeasure());
+
     score->deselectAll();
-    score->select(target, engraving::SelectType::SINGLE, target->staffIdx());
+
+    // If target is StaffLines (type 13), get the parent Measure and select it as a range
+    if (target->type() == engraving::ElementType::STAFF_LINES) {
+        printf("[WASM DEBUG] Detected STAFF_LINES, looking for parent Measure\n");
+        auto* measure = target->findMeasure();
+        if (measure) {
+            auto staffIdx = target->staffIdx();
+            printf("[WASM DEBUG] Found parent Measure, staffIdx=%d\n", static_cast<int>(staffIdx));
+
+            auto* firstSeg = measure->first(engraving::SegmentType::ChordRest);
+            auto* lastSeg = measure->last();
+
+            printf("[WASM DEBUG] Measure range: firstSeg=%p lastSeg=%p\n",
+                   static_cast<void*>(firstSeg), static_cast<void*>(lastSeg));
+
+            if (firstSeg) {
+                score->selection().setRange(firstSeg, lastSeg, staffIdx, staffIdx + 1);
+                score->selection().setState(engraving::SelState::RANGE);
+                score->selection().setActiveTrack(staffIdx * mu::engraving::VOICES);
+
+                printf("[WASM DEBUG] After setRange, before updateSelection: state=%d isRange=%d\n",
+                       static_cast<int>(score->selection().state()), score->selection().isRange());
+            }
+        } else {
+            printf("[WASM DEBUG] Could not find parent Measure\n");
+            score->select(target, engraving::SelectType::SINGLE, target->staffIdx());
+        }
+    } else if (target->type() == engraving::ElementType::MEASURE) {
+        // Direct Measure selection (in case we ever hit this)
+        printf("[WASM DEBUG] Detected MEASURE type directly\n");
+        auto* measure = static_cast<engraving::Measure*>(target);
+        auto staffIdx = target->staffIdx();
+
+        auto* firstSeg = measure->first(engraving::SegmentType::ChordRest);
+        auto* lastSeg = measure->last();
+
+        if (firstSeg) {
+            score->selection().setRange(firstSeg, lastSeg, staffIdx, staffIdx + 1);
+            score->selection().setState(engraving::SelState::RANGE);
+            score->selection().setActiveTrack(staffIdx * mu::engraving::VOICES);
+        }
+    } else {
+        // Normal single element selection
+        score->select(target, engraving::SelectType::SINGLE, target->staffIdx());
+    }
+
+    printf("[WASM DEBUG] Before updateSelection: state=%d\n", static_cast<int>(score->selection().state()));
     score->updateSelection();
+    printf("[WASM DEBUG] After updateSelection: state=%d\n", static_cast<int>(score->selection().state()));
     score->setSelectionChanged(true);
+
+    // Debug: check result
+    const auto& sel = score->selection();
+    printf("[WASM DEBUG] selectElementAtPoint result: state=%d isRange=%d elements.size=%zu\n",
+           static_cast<int>(sel.state()), sel.isRange(), sel.elements().size());
+
     return true;
 }
 
 bool _selectMeasureAtPoint(uintptr_t score_ptr, int pageNumber, double x, double y, int excerptId)
 {
+    printf("[WASM DEBUG] _selectMeasureAtPoint CALLED: pageNumber=%d x=%.2f y=%.2f\n", pageNumber, x, y);
+
     MainScore score(score_ptr, excerptId);
     const auto& pages = score->pages();
 
     if (pageNumber < 0 || pageNumber >= (int)pages.size()) {
+        printf("[WASM DEBUG] selectMeasureAtPoint: invalid page index %d (pages.size=%zu)\n", pageNumber, pages.size());
         LOGW() << "selectMeasureAtPoint: invalid page index " << pageNumber;
         return false;
     }
@@ -1509,32 +1568,54 @@ bool _selectMeasureAtPoint(uintptr_t score_ptr, int pageNumber, double x, double
     const mu::PointF pt(x, y);
     const mu::PointF canvasPt = pt + page->pos();
 
+    printf("[WASM DEBUG] canvasPt: (%.2f, %.2f)\n", canvasPt.x(), canvasPt.y());
+
     engraving::staff_idx_t staffIdx = mu::nidx;
     engraving::Segment* segment = nullptr;
     mu::PointF offset;
     engraving::Measure* measure = score->pos2measure(canvasPt, &staffIdx, nullptr, &segment, &offset);
+
+    printf("[WASM DEBUG] pos2measure result: measure=%p staffIdx=%d\n", static_cast<void*>(measure), static_cast<int>(staffIdx));
+
     if (!measure || staffIdx == mu::nidx) {
+        printf("[WASM DEBUG] selectMeasureAtPoint: no measure found or invalid staff\n");
         return false;
     }
 
     auto* staffLines = measure->staffLines(staffIdx);
+    printf("[WASM DEBUG] staffLines=%p\n", static_cast<void*>(staffLines));
+
     if (!staffLines || !staffLines->canvasBoundingRect().contains(canvasPt)) {
+        printf("[WASM DEBUG] selectMeasureAtPoint: point not in staff lines bounding rect\n");
         return false;
     }
 
     score->deselectAll();
 
-    // Use RANGE selection on the measure, which automatically selects all content
-    // This is how MuseScore does it - see Score::selectRange() in libmscore/score.cpp
-    printf("[WASM DEBUG] selectMeasureAtPoint: selecting measure with staffIdx=%d using RANGE\n", static_cast<int>(staffIdx));
-    score->select(measure, engraving::SelectType::RANGE, staffIdx);
+    // Manually set up range selection like Score::selectRange() does
+    // See libmscore/score.cpp Score::selectRange() for reference
+    printf("[WASM DEBUG] selectMeasureAtPoint: setting up range selection for staffIdx=%d\n", static_cast<int>(staffIdx));
+
+    // Get first and last segments of the measure
+    auto* firstSeg = measure->first(engraving::SegmentType::ChordRest);
+    auto* lastSeg = measure->last();
+
+    printf("[WASM DEBUG] firstSeg=%p lastSeg=%p\n", static_cast<void*>(firstSeg), static_cast<void*>(lastSeg));
+
+    if (firstSeg) {
+        // Directly set the range selection
+        score->selection().setRange(firstSeg, lastSeg, staffIdx, staffIdx + 1);
+        score->selection().setState(engraving::SelState::RANGE);
+        score->selection().setActiveTrack(staffIdx * mu::engraving::VOICES);
+    }
+
     score->updateSelection();
     score->setSelectionChanged(true);
 
     // Debug: check what was selected
     const auto& sel = score->selection();
-    printf("[WASM DEBUG] After selection: state=%d isRange=%d elements.size=%zu\n",
-           static_cast<int>(sel.state()), sel.isRange(), sel.elements().size());
+    printf("[WASM DEBUG] After setRange: state=%d isRange=%d\n",
+           static_cast<int>(sel.state()), sel.isRange());
 
     return true;
 }

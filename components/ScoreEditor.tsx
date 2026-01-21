@@ -4246,16 +4246,21 @@ ${partsBodyXml}
 
                 // Try selectElementAtPoint first, then fall back to selectMeasureAtPoint
                 const trySelect = async () => {
+                    console.log('[ScoreEditor] Trying selectElementAtPoint...');
                     if (score.selectElementAtPoint) {
                         const elementSelected = await score.selectElementAtPoint(pageIndex, scorePoint.x, scorePoint.y);
+                        console.log('[ScoreEditor] selectElementAtPoint returned:', elementSelected);
                         if (elementSelected) {
                             return true;
                         }
                     }
 
                     // If no element was selected, try selecting the measure
+                    console.log('[ScoreEditor] Trying selectMeasureAtPoint...');
                     if (score.selectMeasureAtPoint) {
-                        return await score.selectMeasureAtPoint(pageIndex, scorePoint.x, scorePoint.y);
+                        const measureSelected = await score.selectMeasureAtPoint(pageIndex, scorePoint.x, scorePoint.y);
+                        console.log('[ScoreEditor] selectMeasureAtPoint returned:', measureSelected);
+                        return measureSelected;
                     }
 
                     return false;
