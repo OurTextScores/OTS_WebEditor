@@ -22,27 +22,26 @@ test('instruments can be added, hidden, and removed', async ({ page }) => {
 
   const initialParts = await readParts();
 
-  const dropdown = page.getByTestId('dropdown-instruments');
+  const dropdownTrigger = page.getByTestId('dropdown-instruments');
+  const instrumentSelect = page.getByTestId('select-instrument-add');
   const ensureDropdownOpen = async () => {
-    await dropdown.evaluate(el => {
-      (el as HTMLDetailsElement).open = true;
-    });
-    await expect(dropdown.locator('div').first()).toBeVisible();
+    if (!(await instrumentSelect.isVisible())) {
+      await dropdownTrigger.click();
+    }
+    await expect(instrumentSelect).toBeVisible();
   };
   const clickPartAction = async (testId: string) => {
-    await dropdown.evaluate((el, id) => {
-      (el as HTMLDetailsElement).open = true;
-      const button = el.querySelector(`[data-testid="${id}"]`) as HTMLButtonElement | null;
-      button?.click();
-    }, testId);
+    await ensureDropdownOpen();
+    await page.getByTestId(testId).click();
   };
 
   await ensureDropdownOpen();
-  await expect.poll(async () => await dropdown.locator('select option').count(), { timeout: 20_000 })
+  await instrumentSelect.click();
+  await expect.poll(async () => await page.getByRole('option').count(), { timeout: 20_000 })
     .toBeGreaterThan(0);
-  await dropdown.locator('select').selectOption({ index: 0 });
+  await page.getByRole('option').first().click();
   await ensureDropdownOpen();
-  const addButton = dropdown.getByRole('button', { name: 'Add Instrument' });
+  const addButton = page.getByRole('menuitem', { name: 'Add Instrument' });
   await expect(addButton).toBeEnabled();
   await addButton.click();
 

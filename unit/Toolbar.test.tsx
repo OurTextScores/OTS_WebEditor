@@ -80,7 +80,6 @@ describe('Toolbar', () => {
   });
 
   it('wires time signatures, key signatures, and clefs', async () => {
-    const user = userEvent.setup();
     const onSetTimeSignature = vi.fn();
     const onSetKeySignature = vi.fn();
     const onSetClef = vi.fn();
@@ -98,21 +97,21 @@ describe('Toolbar', () => {
       />,
     );
 
-    await user.click(screen.getByRole('button', { name: 'Time Signature' }));
-    await user.click(screen.getByTestId('btn-timesig-4-4'));
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Time Signature' }));
+    fireEvent.click(screen.getByTestId('btn-timesig-4-4'));
     expect(onSetTimeSignature).toHaveBeenCalledWith(4, 4, 1);
 
-    await user.click(screen.getByRole('button', { name: 'Key' }));
-    await user.click(screen.getByTestId('btn-keysig-0'));
-    await user.click(screen.getByRole('button', { name: 'Key' }));
-    await user.click(screen.getByTestId('btn-keysig--1'));
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Key' }));
+    fireEvent.click(screen.getByTestId('btn-keysig-0'));
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Key' }));
+    fireEvent.click(screen.getByTestId('btn-keysig--1'));
     expect(onSetKeySignature).toHaveBeenCalledWith(0);
     expect(onSetKeySignature).toHaveBeenCalledWith(-1);
 
-    await user.click(screen.getByRole('button', { name: 'Clef' }));
-    await user.click(screen.getByTestId('btn-clef-0'));
-    await user.click(screen.getByRole('button', { name: 'Clef' }));
-    await user.click(screen.getByTestId('btn-clef-20'));
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Clef' }));
+    fireEvent.click(screen.getByTestId('btn-clef-0'));
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Clef' }));
+    fireEvent.click(screen.getByTestId('btn-clef-20'));
     expect(onSetClef).toHaveBeenCalledWith(0);
     expect(onSetClef).toHaveBeenCalledWith(20);
   });
@@ -383,7 +382,7 @@ describe('Toolbar', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Export' }));
     expect(screen.getByTestId('btn-play')).toHaveTextContent('Working…');
     expect(screen.getByTestId('btn-export-audio')).toHaveTextContent('Exporting…');
   });

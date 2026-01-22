@@ -1,7 +1,26 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuTrigger,
+} from './ui/DropdownMenu';
+import {
+    Select,
+    SelectContent,
+    SelectGroup,
+    SelectItem,
+    SelectLabel,
+    SelectTrigger,
+    SelectValue,
+} from './ui/Select';
+import { Button } from './ui/Button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/Collapsible';
 
 export type MeasureInsertTarget = 'beginning' | 'after-selection' | 'end';
 export type HeaderTextTarget = 'title' | 'subtitle' | 'composer' | 'lyricist';
+export type HeaderEditorPoint = { clientX: number; clientY: number };
 
 type HarmonyVariant = 0 | 1 | 2;
 
@@ -119,33 +138,36 @@ interface ToolbarProps {
     onAddPart?: (instrumentId: string) => void;
     onRemovePart?: (partIndex: number) => void;
     onTogglePartVisible?: (partIndex: number, visible: boolean) => void;
-    onOpenHeaderEditor?: (target: HeaderTextTarget, event: React.MouseEvent) => void;
+    onOpenHeaderEditor?: (target: HeaderTextTarget, point?: HeaderEditorPoint) => void;
 }
 
-const toolbarButtonBase = 'rounded border text-xs font-medium sm:text-sm transition-colors';
-const toolbarButtonPadding = 'px-2 py-1 sm:px-3 sm:py-1.5';
-const toolbarButtonDisabled =
-    'disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-700 disabled:border-slate-300 disabled:opacity-100';
-const toolbarButtonPrimaryClass = `${toolbarButtonBase} ${toolbarButtonPadding} bg-blue-600 text-white border-blue-600 hover:bg-blue-700 ${toolbarButtonDisabled}`;
-const toolbarButtonSecondaryClass = `${toolbarButtonBase} ${toolbarButtonPadding} bg-blue-600 text-white border-blue-600 hover:bg-blue-700 ${toolbarButtonDisabled}`;
 const toolbarInputBaseClass =
     'rounded border border-gray-300 bg-white px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:border-gray-200 disabled:cursor-not-allowed';
-const dropdownSummaryClass = `${toolbarButtonSecondaryClass} cursor-pointer list-none`;
-const dropdownSummaryDisabledClass = 'cursor-not-allowed';
-const dropdownMenuClass =
-    'absolute mt-2 w-56 bg-white border border-gray-200 rounded shadow-lg p-2 flex flex-col gap-1';
-const dropdownItemClass =
-    'dropdown-item px-3 py-1 text-left rounded text-xs sm:text-sm text-blue-700 hover:bg-blue-50 disabled:text-slate-600 disabled:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-100';
 const dropdownTextClass = 'px-3 py-1 text-xs sm:text-sm text-gray-700';
-const dropdownLabelClass = 'text-[10px] sm:text-xs uppercase tracking-wide text-gray-500 px-2 py-1';
+
+const resolveMenuPoint = (event?: Event): HeaderEditorPoint => {
+    if (event && 'clientX' in event && typeof event.clientX === 'number' && typeof event.clientY === 'number') {
+        return { clientX: event.clientX, clientY: event.clientY };
+    }
+    const target = event?.currentTarget as HTMLElement | null;
+    if (target?.getBoundingClientRect) {
+        const rect = target.getBoundingClientRect();
+        return { clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
+    }
+    if (typeof window !== 'undefined') {
+        return { clientX: window.innerWidth / 2, clientY: window.innerHeight / 2 };
+    }
+    return { clientX: 0, clientY: 0 };
+};
 
 const ToolbarDropdown: React.FC<{
     label: string;
     disabled?: boolean;
     children: React.ReactNode;
     testId?: string;
-    summaryClassName?: string;
-}> = ({ label, disabled = false, children, testId, summaryClassName }) => {
+    triggerClassName?: string;
+    triggerVariant?: React.ComponentProps<typeof Button>['variant'];
+}> = ({ label, disabled = false, children, testId, triggerClassName, triggerVariant = 'secondary' }) => {
     const [open, setOpen] = useState(false);
 
     useEffect(() => {
@@ -155,37 +177,25 @@ const ToolbarDropdown: React.FC<{
     }, [disabled]);
 
     return (
-        <div className="relative overflow-visible" data-testid={testId}>
-            <button
-                type="button"
-                className={`${summaryClassName ?? dropdownSummaryClass} ${disabled ? dropdownSummaryDisabledClass : ''}`}
-                onClick={() => {
-                    if (!disabled) {
-                        setOpen((prev) => !prev);
-                    }
-                }}
-                disabled={disabled}
-                aria-expanded={open}
-            >
-                {label}
-            </button>
-            {!disabled && open && (
-                <div
-                    className={dropdownMenuClass}
-                    style={{ zIndex: 110 }}
-                    onClick={(event) => {
-                        const target = event.target as HTMLElement | null;
-                        const closeTrigger = target?.closest('.dropdown-item, [data-dropdown-close="true"]');
-                        if (!closeTrigger) {
-                            return;
-                        }
-                        setOpen(false);
-                    }}
+        <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
+            <DropdownMenuTrigger asChild>
+                <Button
+                    data-testid={testId}
+                    variant={triggerVariant}
+                    size="sm"
+                    className={triggerClassName}
+                    disabled={disabled}
+                    aria-expanded={open}
                 >
+                    {label}
+                </Button>
+            </DropdownMenuTrigger>
+            {!disabled && (
+                <DropdownMenuContent>
                     {children}
-                </div>
+                </DropdownMenuContent>
             )}
-        </div>
+        </DropdownMenu>
     );
 };
 
@@ -586,37 +596,42 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     ];
 
     return (
-        <div
-            className="relative flex flex-col border-b border-gray-300 bg-gray-100 p-2 sm:p-3 lg:p-4 overflow-visible"
-            style={{ zIndex: 100 }}
+        <Collapsible
+            open={!toolbarCollapsed}
+            onOpenChange={(open) => setToolbarCollapsed(!open)}
         >
-            <div className="flex items-center justify-between gap-2">
-                <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Toolbar
-                </span>
-                <button
-                    type="button"
-                    onClick={() => setToolbarCollapsed((prev) => !prev)}
-                    aria-expanded={!toolbarCollapsed}
-                    aria-controls="toolbar-content"
-                    className={toolbarButtonSecondaryClass}
-                >
-                    {toolbarCollapsed ? 'Show tools' : 'Hide tools'}
-                </button>
-            </div>
-            {!toolbarCollapsed && (
-                <div id="toolbar-content" className="flex flex-col gap-3 sm:gap-4">
+            <div
+                className="relative flex flex-col border-b border-gray-300 bg-gray-100 p-2 sm:p-3 lg:p-4 overflow-visible"
+                style={{ zIndex: 100 }}
+            >
+                <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        Toolbar
+                    </span>
+                    <CollapsibleTrigger asChild>
+                        <Button
+                            aria-expanded={!toolbarCollapsed}
+                            aria-controls="toolbar-content"
+                            variant="secondary"
+                            size="sm"
+                        >
+                            {toolbarCollapsed ? 'Show tools' : 'Hide tools'}
+                        </Button>
+                    </CollapsibleTrigger>
+                </div>
+                <CollapsibleContent id="toolbar-content" className="flex flex-col gap-3 sm:gap-4">
                     <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                         <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-                            <button
-                                type="button"
+                            <Button
                                 onClick={onNewScore}
-                                className={toolbarButtonPrimaryClass}
+                                variant="primary"
+                                size="sm"
                                 disabled={!onNewScore}
                             >
                                 New Score
-                            </button>
-                            <label className={`${toolbarButtonPrimaryClass} cursor-pointer`}>
+                            </Button>
+                            <Button asChild variant="primary" size="sm">
+                                <label className="cursor-pointer">
                                 Open Score
                                 <input
                                     data-testid="open-score-input"
@@ -625,149 +640,139 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                     onChange={handleFileChange}
                                     className="hidden"
                                 />
-                            </label>
+                                </label>
+                            </Button>
                             <ToolbarDropdown
                                 label="Export"
                                 disabled={!exportsEnabled}
                                 testId="dropdown-export"
-                                summaryClassName={`${toolbarButtonPrimaryClass} cursor-pointer list-none`}
+                                triggerVariant="primary"
                             >
-                                <button
+                                <DropdownMenuItem
                                     data-testid="btn-export-svg"
-                                    type="button"
-                                    onClick={onExportSvg}
                                     disabled={!exportsEnabled || !onExportSvg}
-                                    className={dropdownItemClass}
+                                    onSelect={() => onExportSvg?.()}
                                 >
                                     SVG
-                                </button>
-                                <button
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
                                     data-testid="btn-export-pdf"
-                                    type="button"
-                                    onClick={onExportPdf}
                                     disabled={!exportsEnabled || !onExportPdf}
-                                    className={dropdownItemClass}
+                                    onSelect={() => onExportPdf?.()}
                                 >
                                     PDF
-                                </button>
-                                <button
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
                                     data-testid="btn-export-png"
-                                    type="button"
-                                    onClick={onExportPng}
                                     disabled={!exportsEnabled || !onExportPng || !pngAvailable}
-                                    className={dropdownItemClass}
+                                    onSelect={() => onExportPng?.()}
                                 >
                                     PNG
-                                </button>
-                                <button
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
                                     data-testid="btn-export-mxl"
-                                    type="button"
-                                    onClick={onExportMxl}
                                     disabled={!exportsEnabled || !onExportMxl}
-                                    className={dropdownItemClass}
+                                    onSelect={() => onExportMxl?.()}
                                 >
                                     MXL
-                                </button>
-                                <button
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
                                     data-testid="btn-export-mscz"
-                                    type="button"
-                                    onClick={onExportMscz}
                                     disabled={!exportsEnabled || !onExportMscz}
-                                    className={dropdownItemClass}
+                                    onSelect={() => onExportMscz?.()}
                                 >
                                     MSCZ
-                                </button>
-                                <button
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
                                     data-testid="btn-export-midi"
-                                    type="button"
-                                    onClick={onExportMidi}
                                     disabled={!exportsEnabled || !onExportMidi}
-                                    className={dropdownItemClass}
+                                    onSelect={() => onExportMidi?.()}
                                 >
                                     MIDI
-                                </button>
-                                <button
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
                                     data-testid="btn-export-audio"
-                                    type="button"
-                                    onClick={onExportAudio}
                                     disabled={!exportsEnabled || !onExportAudio || !audioAvailable || audioBusy}
-                                    className={dropdownItemClass}
+                                    onSelect={() => onExportAudio?.()}
                                 >
                                     {audioBusy ? 'Exporting…' : 'WAV'}
-                                </button>
+                                </DropdownMenuItem>
                             </ToolbarDropdown>
-                            <label className={`${toolbarButtonSecondaryClass} cursor-pointer`}>
-                                Load SoundFont
-                                <input
-                                    data-testid="soundfont-input"
-                                    type="file"
-                                    accept=".sf2,.sf3"
-                                    onChange={handleSoundFontChange}
-                                    className="hidden"
-                                />
-                            </label>
+                            <Button asChild variant="secondary" size="sm">
+                                <label className="cursor-pointer">
+                                    Load SoundFont
+                                    <input
+                                        data-testid="soundfont-input"
+                                        type="file"
+                                        accept=".sf2,.sf3"
+                                        onChange={handleSoundFontChange}
+                                        className="hidden"
+                                    />
+                                </label>
+                            </Button>
                         </div>
                         <div className="ml-auto flex items-center gap-2">
-                            <button
+                            <Button
                                 data-testid="btn-fit-width"
-                                type="button"
                                 onClick={onFitWidth}
                                 disabled={!onFitWidth}
-                                className={toolbarButtonSecondaryClass}
+                                variant="secondary"
+                                size="sm"
                             >
                                 Fit W
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 data-testid="btn-fit-height"
-                                type="button"
                                 onClick={onFitHeight}
                                 disabled={!onFitHeight}
-                                className={toolbarButtonSecondaryClass}
+                                variant="secondary"
+                                size="sm"
                             >
                                 Fit H
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 data-testid="btn-zoom-out"
-                                type="button"
                                 onClick={onZoomOut}
-                                className={toolbarButtonSecondaryClass}
+                                variant="secondary"
+                                size="sm"
                             >
                                 -
-                            </button>
+                            </Button>
                             <span className="w-14 text-center text-xs sm:text-sm text-gray-600">
                                 {(zoomLevel * 100).toFixed(0)}%
                             </span>
-                            <button
+                            <Button
                                 data-testid="btn-zoom-in"
                                 onClick={onZoomIn}
-                                className={toolbarButtonSecondaryClass}
+                                variant="secondary"
+                                size="sm"
                             >
                                 +
-                            </button>
+                            </Button>
                         </div>
                     </div>
 
                 <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
                     <div className="flex items-center gap-2">
                         <span className="text-gray-600">Playback:</span>
-                        <button
+                        <Button
                             data-testid="btn-play"
-                            type="button"
                             onClick={onPlayAudio}
                             disabled={!audioAvailable || !onPlayAudio || audioBusy}
-                            className={toolbarButtonSecondaryClass}
+                            variant="secondary"
+                            size="sm"
                         >
                             {audioBusy ? 'Working…' : isPlaying ? 'Replay' : 'Play'}
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             data-testid="btn-stop"
-                            type="button"
                             onClick={onStopAudio}
                             disabled={!audioAvailable || !onStopAudio || audioBusy}
-                            className={toolbarButtonSecondaryClass}
+                            variant="secondary"
+                            size="sm"
                         >
                             Stop
-                        </button>
+                        </Button>
                     </div>
                     <div className="flex items-center gap-2">
                         <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -787,15 +792,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             }}
                             className={`${toolbarInputBaseClass} w-20`}
                         />
-                        <button
+                        <Button
                             data-testid="btn-tempo-apply"
-                            type="button"
                             onClick={handleApplyTempo}
                             disabled={mutationDisabled || !onAddTempoText}
-                            className={toolbarButtonSecondaryClass}
+                            variant="secondary"
+                            size="sm"
                         >
                             Tempo
-                        </button>
+                        </Button>
                     </div>
                 </div>
 
@@ -811,42 +816,46 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         onChange={event => setMeasureCount(Number(event.currentTarget.value) || 1)}
                         className={`${toolbarInputBaseClass} w-16`}
                     />
-                    <select
+                    <Select
                         value={measureTarget}
-                        onChange={event => setMeasureTarget(event.currentTarget.value as MeasureInsertTarget)}
-                        className={`${toolbarInputBaseClass} w-40`}
+                        onValueChange={(value) => setMeasureTarget(value as MeasureInsertTarget)}
                     >
-                        <option value="beginning">Beginning</option>
-                        <option value="after-selection">After Selection</option>
-                        <option value="end">End</option>
-                    </select>
-                    <button
+                        <SelectTrigger data-testid="select-measure-target" className="w-40">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="beginning">Beginning</SelectItem>
+                            <SelectItem value="after-selection">After Selection</SelectItem>
+                            <SelectItem value="end">End</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Button
                         data-testid="btn-insert-measures"
-                        type="button"
                         onClick={handleApplyMeasures}
                         disabled={insertMeasuresBlocked}
-                        className={toolbarButtonSecondaryClass}
+                        variant="secondary"
+                        size="sm"
                     >
                         Apply
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         data-testid="btn-remove-containing-measures"
-                        type="button"
                         onClick={onRemoveContainingMeasures}
                         disabled={mutationDisabled || !selectionActive || !onRemoveContainingMeasures}
-                        className={toolbarButtonSecondaryClass}
+                        variant="secondary"
+                        size="sm"
                     >
                         Remove Containing Measures
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         data-testid="btn-remove-trailing-empty"
-                        type="button"
                         onClick={onRemoveTrailingEmptyMeasures}
                         disabled={mutationDisabled || !onRemoveTrailingEmptyMeasures}
-                        className={toolbarButtonSecondaryClass}
+                        variant="secondary"
+                        size="sm"
                     >
                         Remove Trailing Empty Measures
-                    </button>
+                    </Button>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
@@ -858,16 +867,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         {signatureOptions.map(opt => {
                             const handler = resolveTimeSigHandler(opt);
                             return (
-                                <button
+                                <DropdownMenuItem
                                     key={opt.label}
                                     data-testid={`btn-timesig-${opt.numerator}-${opt.denominator}`}
-                                    type="button"
-                                    onClick={handler}
                                     disabled={mutationDisabled || !handler}
-                                    className={dropdownItemClass}
+                                    onSelect={() => handler?.()}
                                 >
                                     {opt.label}
-                                </button>
+                                </DropdownMenuItem>
                             );
                         })}
                     </ToolbarDropdown>
@@ -893,19 +900,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             disabled={!canSetCustomTimeSig}
                             className={`${toolbarInputBaseClass} w-16`}
                         />
-                        <button
+                        <Button
                             data-testid="btn-timesig-custom"
-                            type="button"
                             onClick={() => {
                                 if (onSetTimeSignature && customTimeSigValid) {
                                     onSetTimeSignature(parsedCustomNumerator, parsedCustomDenominator);
                                 }
                             }}
                             disabled={!canSetCustomTimeSig || !customTimeSigValid}
-                            className={toolbarButtonSecondaryClass}
+                            variant="secondary"
+                            size="sm"
                         >
                             Apply
-                        </button>
+                        </Button>
                     </div>
                 </div>
 
@@ -915,46 +922,50 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         disabled={instrumentsDisabled}
                         testId="dropdown-instruments"
                     >
-                        <div className={dropdownLabelClass}>Add</div>
+                        <DropdownMenuLabel>Add</DropdownMenuLabel>
                         {hasInstrumentTemplates ? (
                             <>
-                                <select
+                                <Select
                                     value={instrumentIdToAdd}
-                                    onChange={(event) => setSelectedInstrumentId(event.target.value)}
+                                    onValueChange={(value) => setSelectedInstrumentId(value)}
                                     disabled={mutationDisabled}
-                                    className={`${toolbarInputBaseClass} w-full`}
                                 >
-                                    {commonInstruments.length > 0 && (
-                                        <optgroup label="Common">
-                                            {commonInstruments.map((entry, index) => (
-                                                <option key={`common-${entry.instrument.id}-${index}`} value={entry.instrument.id}>
-                                                    {entry.label}
-                                                </option>
-                                            ))}
-                                        </optgroup>
-                                    )}
-                                    {instrumentGroups.map(group => (
-                                        <optgroup key={group.id} label={group.name}>
-                                            {group.instruments.map(instrument => (
-                                                <option key={instrument.id} value={instrument.id}>
-                                                    {instrument.name}
-                                                </option>
-                                            ))}
-                                        </optgroup>
-                                    ))}
-                                </select>
-                                <button
-                                    type="button"
-                                    onClick={() => {
+                                    <SelectTrigger data-testid="select-instrument-add" className="w-full">
+                                        <SelectValue placeholder="Select instrument" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {commonInstruments.length > 0 && (
+                                            <SelectGroup>
+                                                <SelectLabel>Common</SelectLabel>
+                                                {commonInstruments.map((entry, index) => (
+                                                    <SelectItem key={`common-${entry.instrument.id}-${index}`} value={entry.instrument.id}>
+                                                        {entry.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectGroup>
+                                        )}
+                                        {instrumentGroups.map(group => (
+                                            <SelectGroup key={group.id}>
+                                                <SelectLabel>{group.name}</SelectLabel>
+                                                {group.instruments.map(instrument => (
+                                                    <SelectItem key={instrument.id} value={instrument.id}>
+                                                        {instrument.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectGroup>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <DropdownMenuItem
+                                    disabled={!canAddInstrument || !instrumentIdToAdd}
+                                    onSelect={() => {
                                         if (instrumentIdToAdd && onAddPart) {
                                             onAddPart(instrumentIdToAdd);
                                         }
                                     }}
-                                    disabled={!canAddInstrument || !instrumentIdToAdd}
-                                    className={dropdownItemClass}
                                 >
                                     Add Instrument
-                                </button>
+                                </DropdownMenuItem>
                             </>
                         ) : (
                             <div className="px-2 py-1 text-xs text-gray-500">
@@ -962,37 +973,33 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             </div>
                         )}
 
-                        <div className={dropdownLabelClass}>On Score</div>
+                        <DropdownMenuLabel>On Score</DropdownMenuLabel>
                         {parts.length ? (
                             parts.map(part => (
                                 <div key={`${part.index}-${part.instrumentId}`} className="flex items-center gap-2">
                                     <span className="flex-1 text-xs sm:text-sm truncate">
                                         {part.name || part.instrumentName || part.instrumentId}
                                     </span>
-                                    <button
+                                    <DropdownMenuItem
                                         data-testid={`btn-part-visible-${part.index}`}
-                                        type="button"
-                                        onClick={() => onTogglePartVisible?.(part.index, !part.isVisible)}
                                         disabled={!canToggleVisibility}
-                                        className={dropdownItemClass}
+                                        onSelect={() => onTogglePartVisible?.(part.index, !part.isVisible)}
                                     >
                                         {part.isVisible ? 'Hide' : 'Show'}
-                                    </button>
-                                    <button
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
                                         data-testid={`btn-part-remove-${part.index}`}
-                                        type="button"
-                                        onClick={() => {
+                                        disabled={!canRemovePart}
+                                        onSelect={() => {
                                             if (!onRemovePart) return;
                                             const label = part.name || part.instrumentName || 'this part';
                                             if (typeof window === 'undefined' || window.confirm(`Remove ${label}?`)) {
                                                 onRemovePart(part.index);
                                             }
                                         }}
-                                        disabled={!canRemovePart}
-                                        className={dropdownItemClass}
                                     >
                                         Remove
-                                    </button>
+                                    </DropdownMenuItem>
                                 </div>
                             ))
                         ) : (
@@ -1005,18 +1012,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         disabled={mutationDisabled || !onSetKeySignature}
                         testId="dropdown-key"
                     >
-                        <div className={dropdownLabelClass}>Major</div>
+                        <DropdownMenuLabel>Major</DropdownMenuLabel>
                         {keySignatureButtonOptions.map(opt => (
-                            <button
+                            <DropdownMenuItem
                                 key={opt.fifths}
                                 data-testid={`btn-keysig-${opt.fifths}`}
-                                type="button"
-                                onClick={() => onSetKeySignature?.(opt.fifths)}
                                 disabled={mutationDisabled || !onSetKeySignature}
-                                className={dropdownItemClass}
+                                onSelect={() => onSetKeySignature?.(opt.fifths)}
                             >
                                 {opt.label}
-                            </button>
+                            </DropdownMenuItem>
                         ))}
                     </ToolbarDropdown>
 
@@ -1025,18 +1030,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         disabled={mutationDisabled || !onSetClef}
                         testId="dropdown-clef"
                     >
-                        <div className={dropdownLabelClass}>Common</div>
+                        <DropdownMenuLabel>Common</DropdownMenuLabel>
                         {clefButtonOptions.map(opt => (
-                            <button
+                            <DropdownMenuItem
                                 key={opt.value}
                                 data-testid={`btn-clef-${opt.value}`}
-                                type="button"
-                                onClick={() => onSetClef?.(opt.value)}
                                 disabled={mutationDisabled || !onSetClef}
-                                className={dropdownItemClass}
+                                onSelect={() => onSetClef?.(opt.value)}
                             >
                                 {opt.label}
-                            </button>
+                            </DropdownMenuItem>
                         ))}
                     </ToolbarDropdown>
 
@@ -1045,63 +1048,53 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 disabled={mutationDisabled || !selectionActive}
                 testId="dropdown-repeats"
             >
-                <div className={dropdownLabelClass}>Repeats</div>
-                <button
+                <DropdownMenuLabel>Repeats</DropdownMenuLabel>
+                <DropdownMenuItem
                     data-testid="btn-repeat-start"
-                    type="button"
-                    onClick={onToggleRepeatStart}
                     disabled={mutationDisabled || !selectionActive || !onToggleRepeatStart}
-                    className={dropdownItemClass}
+                    onSelect={() => onToggleRepeatStart?.()}
                 >
                     Start Repeat
-                </button>
-                <button
+                </DropdownMenuItem>
+                <DropdownMenuItem
                     data-testid="btn-repeat-end"
-                    type="button"
-                    onClick={onToggleRepeatEnd}
                     disabled={mutationDisabled || !selectionActive || !onToggleRepeatEnd}
-                    className={dropdownItemClass}
+                    onSelect={() => onToggleRepeatEnd?.()}
                 >
                     End Repeat
-                </button>
-                <div className={dropdownLabelClass}>Repeat Count</div>
+                </DropdownMenuItem>
+                <DropdownMenuLabel>Repeat Count</DropdownMenuLabel>
                 {repeatCountOptions.map(opt => (
-                    <button
+                    <DropdownMenuItem
                         key={opt.count}
                         data-testid={`btn-repeat-count-${opt.count}`}
-                        type="button"
-                        onClick={() => onSetRepeatCount?.(opt.count)}
                         disabled={mutationDisabled || !selectionActive || !onSetRepeatCount}
-                        className={dropdownItemClass}
+                        onSelect={() => onSetRepeatCount?.(opt.count)}
                     >
                         {opt.label}
-                    </button>
+                    </DropdownMenuItem>
                 ))}
-                <div className={dropdownLabelClass}>Barlines</div>
+                <DropdownMenuLabel>Barlines</DropdownMenuLabel>
                 {barlineOptions.map(opt => (
-                    <button
+                    <DropdownMenuItem
                         key={opt.value}
                         data-testid={`btn-barline-${opt.value}`}
-                        type="button"
-                        onClick={() => onSetBarLineType?.(opt.value)}
                         disabled={mutationDisabled || !selectionActive || !onSetBarLineType}
-                        className={dropdownItemClass}
+                        onSelect={() => onSetBarLineType?.(opt.value)}
                     >
                         {opt.label}
-                    </button>
+                    </DropdownMenuItem>
                 ))}
-                <div className={dropdownLabelClass}>Voltas</div>
+                <DropdownMenuLabel>Voltas</DropdownMenuLabel>
                 {voltaOptions.map(opt => (
-                    <button
+                    <DropdownMenuItem
                         key={opt.ending}
                         data-testid={`btn-volta-${opt.ending}`}
-                        type="button"
-                        onClick={() => onAddVolta?.(opt.ending)}
                         disabled={mutationDisabled || !selectionActive || !onAddVolta}
-                        className={dropdownItemClass}
+                        onSelect={() => onAddVolta?.(opt.ending)}
                     >
                         {opt.label}
-                    </button>
+                    </DropdownMenuItem>
                 ))}
             </ToolbarDropdown>
 
@@ -1111,16 +1104,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 testId="dropdown-grace-notes"
             >
                 {graceNoteOptions.map(opt => (
-                    <button
+                    <DropdownMenuItem
                         key={opt.value}
                         data-testid={opt.testId}
-                        type="button"
-                        onClick={() => onAddGraceNote?.(opt.value)}
                         disabled={mutationDisabled || !selectionActive || !onAddGraceNote}
-                        className={dropdownItemClass}
+                        onSelect={() => onAddGraceNote?.(opt.value)}
                     >
                         {opt.label}
-                    </button>
+                    </DropdownMenuItem>
                 ))}
             </ToolbarDropdown>
 
@@ -1129,61 +1120,51 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 disabled={mutationDisabled}
                 testId="dropdown-rhythm"
             >
-                <div className={dropdownLabelClass}>Notes</div>
-                <button
+                <DropdownMenuLabel>Notes</DropdownMenuLabel>
+                <DropdownMenuItem
                     data-testid="btn-add-note-dropdown"
-                    type="button"
-                    onClick={onAddNoteFromRest}
                     disabled={mutationDisabled || !selectionActive || !onAddNoteFromRest}
-                    className={dropdownItemClass}
+                    onSelect={() => onAddNoteFromRest?.()}
                 >
                     Add Note
-                </button>
-                <div className={dropdownLabelClass}>Duration</div>
+                </DropdownMenuItem>
+                <DropdownMenuLabel>Duration</DropdownMenuLabel>
                 {durationOptions.map(opt => (
-                    <button
+                    <DropdownMenuItem
                         key={opt.value}
                         data-testid={opt.testId}
-                        type="button"
-                        onClick={() => onSetDurationType?.(opt.value)}
                         disabled={mutationDisabled || !selectionActive || !onSetDurationType}
-                        className={dropdownItemClass}
                         title={`Shortcut: press ${opt.shortcut} for ${opt.label}`}
+                        onSelect={() => onSetDurationType?.(opt.value)}
                     >
                         {opt.label}
-                    </button>
+                    </DropdownMenuItem>
                 ))}
-                <div className={dropdownLabelClass}>Dots</div>
-                <button
+                <DropdownMenuLabel>Dots</DropdownMenuLabel>
+                <DropdownMenuItem
                     data-testid="btn-dot"
-                    type="button"
-                    onClick={onToggleDot}
                     disabled={mutationDisabled || !selectionActive || !onToggleDot}
-                    className={dropdownItemClass}
+                    onSelect={() => onToggleDot?.()}
                 >
                     Dot
-                </button>
-                <button
+                </DropdownMenuItem>
+                <DropdownMenuItem
                     data-testid="btn-double-dot"
-                    type="button"
-                    onClick={onToggleDoubleDot}
                     disabled={mutationDisabled || !selectionActive || !onToggleDoubleDot}
-                    className={dropdownItemClass}
+                    onSelect={() => onToggleDoubleDot?.()}
                 >
                     Double Dot
-                </button>
-                <div className={dropdownLabelClass}>Tuplets</div>
+                </DropdownMenuItem>
+                <DropdownMenuLabel>Tuplets</DropdownMenuLabel>
                 {tupletOptions.map(opt => (
-                    <button
+                    <DropdownMenuItem
                         key={opt.count}
                         data-testid={`btn-tuplet-${opt.count}`}
-                        type="button"
-                        onClick={() => onAddTuplet?.(opt.count)}
                         disabled={mutationDisabled || !selectionActive || !onAddTuplet}
-                        className={dropdownItemClass}
+                        onSelect={() => onAddTuplet?.(opt.count)}
                     >
                         {opt.label}
-                    </button>
+                    </DropdownMenuItem>
                 ))}
             </ToolbarDropdown>
 
@@ -1193,16 +1174,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 testId="dropdown-voice"
             >
                 {[1, 2, 3, 4].map(v => (
-                    <button
+                    <DropdownMenuItem
                         key={v}
                         data-testid={`btn-voice-${v}`}
-                        type="button"
-                        onClick={() => onSetVoice?.(v - 1)}
                         disabled={mutationDisabled || !onSetVoice}
-                        className={dropdownItemClass}
+                        onSelect={() => onSetVoice?.(v - 1)}
                     >
                         Voice {v}
-                    </button>
+                    </DropdownMenuItem>
                 ))}
             </ToolbarDropdown>
 
@@ -1211,24 +1190,20 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 disabled={mutationDisabled || !selectionActive}
                 testId="dropdown-slur-tie"
             >
-                <button
+                <DropdownMenuItem
                     data-testid="btn-slur"
-                    type="button"
-                    onClick={onAddSlur}
                     disabled={mutationDisabled || !selectionActive || !onAddSlur}
-                    className={dropdownItemClass}
+                    onSelect={() => onAddSlur?.()}
                 >
                     Slur
-                </button>
-                <button
+                </DropdownMenuItem>
+                <DropdownMenuItem
                     data-testid="btn-tie"
-                    type="button"
-                    onClick={onAddTie}
                     disabled={mutationDisabled || !selectionActive || !onAddTie}
-                    className={dropdownItemClass}
+                    onSelect={() => onAddTie?.()}
                 >
                     Tie
-                </button>
+                </DropdownMenuItem>
             </ToolbarDropdown>
 
             <ToolbarDropdown
@@ -1236,31 +1211,27 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 disabled={mutationDisabled}
                 testId="dropdown-markings"
             >
-                <div className={dropdownLabelClass}>Dynamics</div>
+                <DropdownMenuLabel>Dynamics</DropdownMenuLabel>
                 {dynamicOptions.map(opt => (
-                    <button
+                    <DropdownMenuItem
                         key={opt.label}
                         data-testid={`btn-dynamic-${opt.value}`}
-                        type="button"
-                        onClick={() => onAddDynamic?.(opt.value)}
                         disabled={mutationDisabled || !selectionActive || !onAddDynamic}
-                        className={dropdownItemClass}
+                        onSelect={() => onAddDynamic?.(opt.value)}
                     >
                         {opt.label}
-                    </button>
+                    </DropdownMenuItem>
                 ))}
-                <div className={dropdownLabelClass}>Hairpins</div>
+                <DropdownMenuLabel>Hairpins</DropdownMenuLabel>
                 {hairpinOptions.map(opt => (
-                    <button
+                    <DropdownMenuItem
                         key={opt.label}
                         data-testid={opt.testId}
-                        type="button"
-                        onClick={() => onAddHairpin?.(opt.value)}
                         disabled={mutationDisabled || !selectionActive || !onAddHairpin}
-                        className={dropdownItemClass}
+                        onSelect={() => onAddHairpin?.(opt.value)}
                     >
                         {opt.label}
-                    </button>
+                    </DropdownMenuItem>
                 ))}
             </ToolbarDropdown>
 
@@ -1270,46 +1241,38 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 testId="dropdown-pedal"
             >
                 {pedalOptions.map(opt => (
-                    <button
+                    <DropdownMenuItem
                         key={opt.label}
                         data-testid={opt.testId}
-                        type="button"
-                        onClick={() => onAddPedal?.(opt.value)}
                         disabled={mutationDisabled || !selectionActive || !onAddPedal}
-                        className={dropdownItemClass}
+                        onSelect={() => onAddPedal?.(opt.value)}
                     >
                         {opt.label}
-                    </button>
+                    </DropdownMenuItem>
                 ))}
-                <div className={dropdownLabelClass}>Special</div>
-                <button
+                <DropdownMenuLabel>Special</DropdownMenuLabel>
+                <DropdownMenuItem
                     data-testid="btn-pedal-sostenuto"
-                    type="button"
-                    onClick={onAddSostenutoPedal}
                     disabled={mutationDisabled || !selectionActive || !onAddSostenutoPedal}
-                    className={dropdownItemClass}
+                    onSelect={() => onAddSostenutoPedal?.()}
                 >
                     Sostenuto Pedal
-                </button>
-                <button
+                </DropdownMenuItem>
+                <DropdownMenuItem
                     data-testid="btn-pedal-una-corda"
-                    type="button"
-                    onClick={onAddUnaCorda}
                     disabled={mutationDisabled || !selectionActive || !onAddUnaCorda}
-                    className={dropdownItemClass}
+                    onSelect={() => onAddUnaCorda?.()}
                 >
                     Una Corda
-                </button>
-                <div className={dropdownLabelClass}>Variants</div>
-                <button
+                </DropdownMenuItem>
+                <DropdownMenuLabel>Variants</DropdownMenuLabel>
+                <DropdownMenuItem
                     data-testid="btn-pedal-split"
-                    type="button"
-                    onClick={onSplitPedal}
                     disabled={mutationDisabled || !selectionActive || !onSplitPedal}
-                    className={dropdownItemClass}
+                    onSelect={() => onSplitPedal?.()}
                 >
                     Pedal Change
-                </button>
+                </DropdownMenuItem>
             </ToolbarDropdown>
 
             <ToolbarDropdown
@@ -1317,175 +1280,139 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 disabled={textDropdownDisabled}
                 testId="dropdown-text"
             >
-                <div className={dropdownLabelClass}>Score Header</div>
-                <button
+                <DropdownMenuLabel>Score Header</DropdownMenuLabel>
+                <DropdownMenuItem
                     data-testid="btn-text-title"
-                    type="button"
-                    onClick={(event) => onOpenHeaderEditor?.('title', event)}
                     disabled={mutationDisabled || !onOpenHeaderEditor}
-                    className={dropdownItemClass}
+                    onSelect={(event) => onOpenHeaderEditor?.('title', resolveMenuPoint(event))}
                 >
                     Title…
-                </button>
-                <button
+                </DropdownMenuItem>
+                <DropdownMenuItem
                     data-testid="btn-text-subtitle"
-                    type="button"
-                    onClick={(event) => onOpenHeaderEditor?.('subtitle', event)}
                     disabled={mutationDisabled || !onOpenHeaderEditor}
-                    className={dropdownItemClass}
+                    onSelect={(event) => onOpenHeaderEditor?.('subtitle', resolveMenuPoint(event))}
                 >
                     Subtitle…
-                </button>
-                <button
+                </DropdownMenuItem>
+                <DropdownMenuItem
                     data-testid="btn-text-composer"
-                    type="button"
-                    onClick={(event) => onOpenHeaderEditor?.('composer', event)}
                     disabled={mutationDisabled || !onOpenHeaderEditor}
-                    className={dropdownItemClass}
+                    onSelect={(event) => onOpenHeaderEditor?.('composer', resolveMenuPoint(event))}
                 >
                     Composer…
-                </button>
-                <button
+                </DropdownMenuItem>
+                <DropdownMenuItem
                     data-testid="btn-text-lyricist"
-                    type="button"
-                    onClick={(event) => onOpenHeaderEditor?.('lyricist', event)}
                     disabled={mutationDisabled || !onOpenHeaderEditor}
-                    className={dropdownItemClass}
+                    onSelect={(event) => onOpenHeaderEditor?.('lyricist', resolveMenuPoint(event))}
                 >
                     Lyricist…
-                </button>
-                <div className={dropdownLabelClass}>Score Text</div>
-                <button
+                </DropdownMenuItem>
+                <DropdownMenuLabel>Score Text</DropdownMenuLabel>
+                <DropdownMenuItem
                     data-testid="btn-text-staff"
-                    type="button"
-                    onClick={onAddStaffText}
                     disabled={mutationDisabled || !selectionActive || !onAddStaffText}
-                    className={dropdownItemClass}
+                    onSelect={() => onAddStaffText?.()}
                 >
                     Staff Text
-                </button>
-                <button
+                </DropdownMenuItem>
+                <DropdownMenuItem
                     data-testid="btn-text-system"
-                    type="button"
-                    onClick={onAddSystemText}
                     disabled={mutationDisabled || !selectionActive || !onAddSystemText}
-                    className={dropdownItemClass}
+                    onSelect={() => onAddSystemText?.()}
                 >
                     System Text
-                </button>
-                <button
+                </DropdownMenuItem>
+                <DropdownMenuItem
                     data-testid="btn-text-expression"
-                    type="button"
-                    onClick={onAddExpressionText}
                     disabled={mutationDisabled || !selectionActive || !onAddExpressionText}
-                    className={dropdownItemClass}
+                    onSelect={() => onAddExpressionText?.()}
                 >
                     Expression Text
-                </button>
-                <button
+                </DropdownMenuItem>
+                <DropdownMenuItem
                     data-testid="btn-text-lyrics"
-                    type="button"
-                    onClick={onAddLyricText}
                     disabled={mutationDisabled || !selectionActive || !onAddLyricText}
-                    className={dropdownItemClass}
+                    onSelect={() => onAddLyricText?.()}
                 >
                     Lyrics
-                </button>
-                <div className={dropdownLabelClass}>Harmony</div>
-                <button
+                </DropdownMenuItem>
+                <DropdownMenuLabel>Harmony</DropdownMenuLabel>
+                <DropdownMenuItem
                     data-testid="btn-text-harmony-standard"
-                    type="button"
-                    onClick={() => onAddHarmonyText?.(0)}
                     disabled={mutationDisabled || !selectionActive || !onAddHarmonyText}
-                    className={dropdownItemClass}
+                    onSelect={() => onAddHarmonyText?.(0)}
                 >
                     Chord Symbol
-                </button>
-                <button
+                </DropdownMenuItem>
+                <DropdownMenuItem
                     data-testid="btn-text-harmony-roman"
-                    type="button"
-                    onClick={() => onAddHarmonyText?.(1)}
                     disabled={mutationDisabled || !selectionActive || !onAddHarmonyText}
-                    className={dropdownItemClass}
+                    onSelect={() => onAddHarmonyText?.(1)}
                 >
                     Roman Numeral
-                </button>
-                <button
+                </DropdownMenuItem>
+                <DropdownMenuItem
                     data-testid="btn-text-harmony-nashville"
-                    type="button"
-                    onClick={() => onAddHarmonyText?.(2)}
                     disabled={mutationDisabled || !selectionActive || !onAddHarmonyText}
-                    className={dropdownItemClass}
+                    onSelect={() => onAddHarmonyText?.(2)}
                 >
                     Nashville Number
-                </button>
-                <div className={dropdownLabelClass}>Figured Bass</div>
-                <button
+                </DropdownMenuItem>
+                <DropdownMenuLabel>Figured Bass</DropdownMenuLabel>
+                <DropdownMenuItem
                     data-testid="btn-text-figured-bass"
-                    type="button"
-                    onClick={onAddFiguredBassText}
                     disabled={mutationDisabled || !selectionActive || !onAddFiguredBassText}
-                    className={dropdownItemClass}
+                    onSelect={() => onAddFiguredBassText?.()}
                 >
                     Figured Bass
-                </button>
-                <div className={dropdownLabelClass}>Fingering</div>
-                <button
+                </DropdownMenuItem>
+                <DropdownMenuLabel>Fingering</DropdownMenuLabel>
+                <DropdownMenuItem
                     data-testid="btn-text-fingering"
-                    type="button"
-                    onClick={onAddFingeringText}
                     disabled={mutationDisabled || !selectionActive || !onAddFingeringText}
-                    className={dropdownItemClass}
+                    onSelect={() => onAddFingeringText?.()}
                 >
                     Fingering
-                </button>
-                <button
+                </DropdownMenuItem>
+                <DropdownMenuItem
                     data-testid="btn-text-fingering-lh"
-                    type="button"
-                    onClick={onAddLeftHandGuitarFingeringText}
                     disabled={mutationDisabled || !selectionActive || !onAddLeftHandGuitarFingeringText}
-                    className={dropdownItemClass}
+                    onSelect={() => onAddLeftHandGuitarFingeringText?.()}
                 >
                     LH Guitar Fingering
-                </button>
-                <button
+                </DropdownMenuItem>
+                <DropdownMenuItem
                     data-testid="btn-text-fingering-rh"
-                    type="button"
-                    onClick={onAddRightHandGuitarFingeringText}
                     disabled={mutationDisabled || !selectionActive || !onAddRightHandGuitarFingeringText}
-                    className={dropdownItemClass}
+                    onSelect={() => onAddRightHandGuitarFingeringText?.()}
                 >
                     RH Guitar Fingering
-                </button>
-                <button
+                </DropdownMenuItem>
+                <DropdownMenuItem
                     data-testid="btn-text-string-number"
-                    type="button"
-                    onClick={onAddStringNumberText}
                     disabled={mutationDisabled || !selectionActive || !onAddStringNumberText}
-                    className={dropdownItemClass}
+                    onSelect={() => onAddStringNumberText?.()}
                 >
                     String Number
-                </button>
-                <div className={dropdownLabelClass}>Sticking</div>
-                <button
+                </DropdownMenuItem>
+                <DropdownMenuLabel>Sticking</DropdownMenuLabel>
+                <DropdownMenuItem
                     data-testid="btn-text-sticking"
-                    type="button"
-                    onClick={onAddStickingText}
                     disabled={mutationDisabled || !selectionActive || !onAddStickingText}
-                    className={dropdownItemClass}
+                    onSelect={() => onAddStickingText?.()}
                 >
                     Sticking
-                </button>
-                <div className={dropdownLabelClass}>Instrument</div>
-                <button
+                </DropdownMenuItem>
+                <DropdownMenuLabel>Instrument</DropdownMenuLabel>
+                <DropdownMenuItem
                     data-testid="btn-text-instrument-change"
-                    type="button"
-                    onClick={onAddInstrumentChangeText}
                     disabled={mutationDisabled || !selectionActive || !onAddInstrumentChangeText}
-                    className={dropdownItemClass}
+                    onSelect={() => onAddInstrumentChangeText?.()}
                 >
                     Instrument Change
-                </button>
+                </DropdownMenuItem>
             </ToolbarDropdown>
 
             <ToolbarDropdown
@@ -1494,52 +1421,50 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 testId="dropdown-articulations"
             >
                 {articulationOptions.map(opt => (
-                    <button
+                    <DropdownMenuItem
                         key={opt.symbol}
                         data-testid={`btn-artic-${opt.symbol}`}
-                        type="button"
-                        onClick={() => onAddArticulation?.(opt.symbol)}
                         disabled={mutationDisabled || !selectionActive || !onAddArticulation}
-                        className={dropdownItemClass}
+                        onSelect={() => onAddArticulation?.(opt.symbol)}
                     >
                         {opt.label}
-                    </button>
+                    </DropdownMenuItem>
                 ))}
             </ToolbarDropdown>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
                     <div className="flex items-center gap-2">
-                        <button
+                        <Button
                             data-testid="btn-delete"
-                            type="button"
                             title="Shortcut: Delete / Backspace"
                             onClick={onDeleteSelection}
                             disabled={mutationDisabled || !onDeleteSelection || !selectionActive}
-                            className={toolbarButtonSecondaryClass}
+                            variant="secondary"
+                            size="sm"
                         >
                             Delete
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             data-testid="btn-undo"
-                            type="button"
                             title="Shortcut: Ctrl/Cmd + Z"
                             onClick={onUndo}
                             disabled={mutationDisabled || !onUndo}
-                            className={toolbarButtonSecondaryClass}
+                            variant="secondary"
+                            size="sm"
                         >
                             Undo
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             data-testid="btn-redo"
-                            type="button"
                             title="Shortcut: Ctrl + Y, Cmd + Shift + Z"
                             onClick={onRedo}
                             disabled={mutationDisabled || !onRedo}
-                            className={toolbarButtonSecondaryClass}
+                            variant="secondary"
+                            size="sm"
                         >
                             Redo
-                        </button>
+                        </Button>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -1551,15 +1476,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                     : undefined
                             }
                         >
-                            <button
+                            <Button
                                 data-testid="btn-new-line"
-                                type="button"
                                 onClick={onToggleLineBreak}
                                 disabled={mutationDisabled || !selectionActive || !onToggleLineBreak}
-                                className={toolbarButtonSecondaryClass}
+                                variant="secondary"
+                                size="sm"
                             >
                                 New Line
-                            </button>
+                            </Button>
                         </span>
                         <span
                             className="inline-flex"
@@ -1569,68 +1494,68 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                     : undefined
                             }
                         >
-                            <button
+                            <Button
                                 data-testid="btn-new-page"
-                                type="button"
                                 onClick={onTogglePageBreak}
                                 disabled={mutationDisabled || !selectionActive || !onTogglePageBreak}
-                                className={toolbarButtonSecondaryClass}
+                                variant="secondary"
+                                size="sm"
                             >
                                 New Page
-                            </button>
+                            </Button>
                         </span>
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <button
+                        <Button
                             data-testid="btn-add-note-top"
-                            type="button"
                             onClick={onAddNoteFromRest}
                             disabled={mutationDisabled || !selectionActive || !onAddNoteFromRest}
-                            className={toolbarButtonSecondaryClass}
+                            variant="secondary"
+                            size="sm"
                         >
                             Add Note
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             data-testid="btn-pitch-down"
-                            type="button"
                             title="Shortcut: Arrow Down (Pitch Down)"
                             onClick={onPitchDown}
                             disabled={mutationDisabled || !onPitchDown || !selectionActive}
-                            className={toolbarButtonSecondaryClass}
+                            variant="secondary"
+                            size="sm"
                         >
                             Pitch ↓
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             data-testid="btn-pitch-up"
-                            type="button"
                             title="Shortcut: Arrow Up (Pitch Up)"
                             onClick={onPitchUp}
                             disabled={mutationDisabled || !onPitchUp || !selectionActive}
-                            className={toolbarButtonSecondaryClass}
+                            variant="secondary"
+                            size="sm"
                         >
                             Pitch ↑
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             data-testid="btn-transpose--12"
-                            type="button"
                             onClick={() => onTranspose?.(-12)}
                             title="Shortcut: Ctrl/Cmd + Arrow Down (Octave Down)"
                             disabled={mutationDisabled || !selectionActive || !onTranspose}
-                            className={toolbarButtonSecondaryClass}
+                            variant="secondary"
+                            size="sm"
                         >
                             Octave ↓
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             data-testid="btn-transpose-12"
-                            type="button"
                             title="Shortcut: Ctrl/Cmd + Arrow Up (Octave Up)"
                             onClick={() => onTranspose?.(12)}
                             disabled={mutationDisabled || !selectionActive || !onTranspose}
-                            className={toolbarButtonSecondaryClass}
+                            variant="secondary"
+                            size="sm"
                         >
                             Octave ↑
-                        </button>
+                        </Button>
                     </div>
 
                     <ToolbarDropdown
@@ -1639,53 +1564,51 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         testId="dropdown-accidental"
                     >
                         {accidentalOptions.map(opt => (
-                            <button
+                            <DropdownMenuItem
                                 key={opt.label}
                                 data-testid={`btn-acc-${opt.value}`}
-                                type="button"
-                                onClick={() => onSetAccidental?.(opt.value)}
                                 disabled={mutationDisabled || !selectionActive || !onSetAccidental}
-                                className={dropdownItemClass}
+                                onSelect={() => onSetAccidental?.(opt.value)}
                             >
                                 {opt.label}
-                            </button>
+                            </DropdownMenuItem>
                         ))}
                     </ToolbarDropdown>
 
                     <div className="flex items-center gap-2">
-                        <button
+                        <Button
                             data-testid="btn-duration-shorter"
-                            type="button"
                             onClick={onDurationShorter}
                             disabled={mutationDisabled || !onDurationShorter || !selectionActive}
-                            className={toolbarButtonSecondaryClass}
+                            variant="secondary"
+                            size="sm"
                         >
                             Shorter
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             data-testid="btn-duration-longer"
-                            type="button"
                             onClick={onDurationLonger}
                             disabled={mutationDisabled || !onDurationLonger || !selectionActive}
-                            className={toolbarButtonSecondaryClass}
+                            variant="secondary"
+                            size="sm"
                         >
                             Longer
-                        </button>
+                        </Button>
                     </div>
 
-                    <ToolbarDropdown
-                        label="Shortcuts"
-                        testId="dropdown-shortcuts"
-                    >
-                        {shortcutEntries.map(opt => (
-                            <div key={opt.label} className={dropdownTextClass} title={opt.title}>
-                                {opt.label}
-                            </div>
-                        ))}
-                    </ToolbarDropdown>
+            <ToolbarDropdown
+                label="Shortcuts"
+                testId="dropdown-shortcuts"
+            >
+                {shortcutEntries.map(opt => (
+                    <div key={opt.label} className={dropdownTextClass} title={opt.title}>
+                        {opt.label}
+                    </div>
+                ))}
+            </ToolbarDropdown>
                 </div>
+                </CollapsibleContent>
             </div>
-            )}
-        </div>
+        </Collapsible>
     );
 };

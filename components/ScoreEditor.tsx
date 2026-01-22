@@ -14,7 +14,21 @@ import {
     type ScoreSummary,
 } from '../lib/checkpoints';
 import { CodeMirrorEditor } from './CodeMirrorEditor';
-import { Toolbar, type MeasureInsertTarget, type HeaderTextTarget } from './Toolbar';
+import { Toolbar, type MeasureInsertTarget, type HeaderTextTarget, type HeaderEditorPoint } from './Toolbar';
+import { Button } from './ui/Button';
+import { Checkbox } from './ui/Checkbox';
+import {
+    Select,
+    SelectContent,
+    SelectGroup,
+    SelectItem,
+    SelectLabel,
+    SelectTrigger,
+    SelectValue,
+} from './ui/Select';
+import { Dialog, DialogContent, DialogClose } from './ui/Dialog';
+import { Popover, PopoverAnchor, PopoverContent, PopoverPortal } from './ui/Popover';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/Tabs';
 
 type SelectionBox = {
     index: number | null;
@@ -2330,12 +2344,12 @@ Each XPath must match exactly one node.`;
         void goToPage(currentPage + 1);
     };
 
-    const handlePageSelect = (event: ChangeEvent<HTMLSelectElement>) => {
-        const value = Number(event.target.value);
-        if (Number.isNaN(value)) {
+    const handlePageSelectValue = (value: string) => {
+        const page = Number(value);
+        if (Number.isNaN(page)) {
             return;
         }
-        void goToPage(value);
+        void goToPage(page);
     };
 
     const requireMutation = (methodName: keyof MutationMethods) => {
@@ -4507,7 +4521,7 @@ Each XPath must match exactly one node.`;
         }
     };
 
-    const openHeaderTextEditor = (target: HeaderTextTarget, event: React.MouseEvent) => {
+    const openHeaderTextEditor = (target: HeaderTextTarget, point?: HeaderEditorPoint) => {
         if (!mutationEnabled) {
             return;
         }
@@ -4515,9 +4529,15 @@ Each XPath must match exactly one node.`;
             alert(`This build does not support editing ${target} text.`);
             return;
         }
+        const fallbackPoint = typeof window !== 'undefined'
+            ? { x: window.innerWidth / 2, y: window.innerHeight / 2 }
+            : { x: 0, y: 0 };
         setTextEditorMode(target);
         setTextEditorValue(resolveHeaderTextValue(target));
-        setTextEditorPosition({ x: event.clientX, y: event.clientY });
+        setTextEditorPosition({
+            x: point?.clientX ?? fallbackPoint.x,
+            y: point?.clientY ?? fallbackPoint.y,
+        });
     };
 
     const openTextEditorFromEvent = (e: React.MouseEvent) => {
@@ -4725,58 +4745,48 @@ Each XPath must match exactly one node.`;
                         )}
                         <div className={checkpointsCollapsed ? '' : 'flex items-center gap-2'}>
                             {!checkpointsCollapsed && (
-                                <button
-                                    type="button"
+                                <Button
                                     data-testid="btn-checkpoint-refresh"
                                     onClick={loadCheckpointList}
                                     disabled={checkpointControlsDisabled}
-                                    className="text-xs font-medium text-gray-600 hover:text-gray-900 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                    variant="ghost"
+                                    size="xs"
+                                    className="text-gray-600 hover:text-gray-900"
                                 >
                                     Refresh
-                                </button>
+                                </Button>
                             )}
-                            <button
-                                type="button"
+                            <Button
                                 data-testid="btn-checkpoint-toggle"
                                 aria-expanded={!checkpointsCollapsed}
                                 aria-controls="checkpoint-sidebar-content"
                                 aria-label={checkpointsCollapsed ? 'Open checkpoints' : 'Close checkpoints'}
                                 onClick={() => setCheckpointsCollapsed((prev) => !prev)}
-                                className="text-xs font-medium text-gray-600 hover:text-gray-900"
+                                variant="ghost"
+                                size="xs"
+                                className="text-gray-600 hover:text-gray-900"
                             >
                                 {checkpointsCollapsed ? 'Open' : 'Close'}
-                            </button>
+                            </Button>
                         </div>
                     </div>
                     {!checkpointsCollapsed && (
                         <div id="checkpoint-sidebar-content" className="px-4 pb-4">
-                            <div className="mt-3 flex gap-2 text-xs font-medium text-gray-600">
-                                <button
-                                    type="button"
-                                    data-testid="tab-checkpoints"
-                                    onClick={() => setLeftSidebarTab('checkpoints')}
-                                    className={`rounded border px-2 py-1 ${leftSidebarTab === 'checkpoints'
-                                            ? 'border-gray-400 bg-gray-100 text-gray-900'
-                                            : 'border-transparent text-gray-500 hover:text-gray-700'
-                                        }`}
-                                >
-                                    Checkpoints
-                                </button>
-                                <button
-                                    type="button"
-                                    data-testid="tab-scores"
-                                    onClick={() => setLeftSidebarTab('scores')}
-                                    className={`rounded border px-2 py-1 ${leftSidebarTab === 'scores'
-                                            ? 'border-gray-400 bg-gray-100 text-gray-900'
-                                            : 'border-transparent text-gray-500 hover:text-gray-700'
-                                        }`}
-                                >
-                                    Scores
-                                </button>
-                            </div>
-                            {leftSidebarTab === 'checkpoints' && (
-                                <>
-                                    <div className="mt-3 flex flex-col gap-2">
+                            <Tabs
+                                value={leftSidebarTab}
+                                onValueChange={(value) => setLeftSidebarTab(value as 'checkpoints' | 'scores')}
+                                className="mt-3"
+                            >
+                                <TabsList className="w-full justify-start">
+                                    <TabsTrigger value="checkpoints" data-testid="tab-checkpoints">
+                                        Checkpoints
+                                    </TabsTrigger>
+                                    <TabsTrigger value="scores" data-testid="tab-scores">
+                                        Scores
+                                    </TabsTrigger>
+                                </TabsList>
+                                <TabsContent value="checkpoints" className="mt-3 space-y-3">
+                                    <div className="flex flex-col gap-2">
                                         <input
                                             data-testid="input-checkpoint-label"
                                             type="text"
@@ -4785,18 +4795,16 @@ Each XPath must match exactly one node.`;
                                             placeholder="Checkpoint label"
                                             className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
                                         />
-                                        <button
-                                            type="button"
+                                        <Button
                                             data-testid="btn-checkpoint-save"
                                             onClick={handleSaveCheckpoint}
                                             disabled={checkpointSaveDisabled}
-                                            className={`w-full rounded border px-3 py-1 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-100 disabled:bg-gray-100 disabled:text-gray-500 disabled:border-gray-200 ${!checkpointSaveDisabled && scoreDirtySinceCheckpoint
-                                                    ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
-                                                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                                                }`}
+                                            variant={!checkpointSaveDisabled && scoreDirtySinceCheckpoint ? 'primary' : 'outline'}
+                                            size="sm"
+                                            className="w-full"
                                         >
                                             Save Checkpoint
-                                        </button>
+                                        </Button>
                                         {!score && (
                                             <span className="text-xs text-gray-400">
                                                 Load a score to enable checkpoints.
@@ -4804,21 +4812,21 @@ Each XPath must match exactly one node.`;
                                         )}
                                     </div>
                                     {checkpointError && (
-                                        <div className="mt-3 text-xs text-red-600">
+                                        <div className="text-xs text-red-600">
                                             {checkpointError}
                                         </div>
                                     )}
                                     {checkpointLoading && (
-                                        <div className="mt-3 text-xs text-gray-400">
+                                        <div className="text-xs text-gray-400">
                                             Loading checkpoints...
                                         </div>
                                     )}
                                     {!checkpointLoading && checkpoints.length === 0 && (
-                                        <div className="mt-3 text-xs text-gray-400">
+                                        <div className="text-xs text-gray-400">
                                             No checkpoints yet.
                                         </div>
                                     )}
-                                    <div className="mt-3 space-y-3">
+                                    <div className="space-y-3">
                                         {checkpoints.map((checkpoint) => (
                                             <div
                                                 key={checkpoint.id}
@@ -4832,57 +4840,55 @@ Each XPath must match exactly one node.`;
                                                     {checkpoint.size ? ` · ${formatBytes(checkpoint.size)}` : ''}
                                                 </div>
                                                 <div className="mt-2 flex flex-wrap gap-2">
-                                                        <button
-                                                            type="button"
-                                                            data-testid={`btn-checkpoint-restore-${checkpoint.id}`}
-                                                            onClick={() => handleRestoreCheckpoint(checkpoint)}
-                                                            disabled={checkpointControlsDisabled}
-                                                            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:border-gray-200 disabled:opacity-100"
-                                                        >
-                                                            Restore
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            data-testid={`btn-checkpoint-compare-${checkpoint.id}`}
-                                                            onClick={() => handleCompareCheckpoint(checkpoint)}
-                                                            disabled={checkpointCompareDisabled}
-                                                            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:border-gray-200 disabled:opacity-100"
-                                                        >
-                                                            Compare
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            data-testid={`btn-checkpoint-delete-${checkpoint.id}`}
-                                                            onClick={() => handleDeleteCheckpoint(checkpoint)}
-                                                            disabled={checkpointControlsDisabled}
-                                                            className="rounded border border-gray-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:border-gray-200 disabled:opacity-100"
-                                                        >
-                                                            Delete
-                                                        </button>
+                                                    <Button
+                                                        data-testid={`btn-checkpoint-restore-${checkpoint.id}`}
+                                                        onClick={() => handleRestoreCheckpoint(checkpoint)}
+                                                        disabled={checkpointControlsDisabled}
+                                                        variant="outline"
+                                                        size="xs"
+                                                    >
+                                                        Restore
+                                                    </Button>
+                                                    <Button
+                                                        data-testid={`btn-checkpoint-compare-${checkpoint.id}`}
+                                                        onClick={() => handleCompareCheckpoint(checkpoint)}
+                                                        disabled={checkpointCompareDisabled}
+                                                        variant="outline"
+                                                        size="xs"
+                                                    >
+                                                        Compare
+                                                    </Button>
+                                                    <Button
+                                                        data-testid={`btn-checkpoint-delete-${checkpoint.id}`}
+                                                        onClick={() => handleDeleteCheckpoint(checkpoint)}
+                                                        disabled={checkpointControlsDisabled}
+                                                        variant="danger"
+                                                        size="xs"
+                                                    >
+                                                        Delete
+                                                    </Button>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
-                                </>
-                            )}
-                            {leftSidebarTab === 'scores' && (
-                                <>
+                                </TabsContent>
+                                <TabsContent value="scores" className="mt-3 space-y-3">
                                     {scoreSummariesError && (
-                                        <div className="mt-3 text-xs text-red-600">
+                                        <div className="text-xs text-red-600">
                                             {scoreSummariesError}
                                         </div>
                                     )}
                                     {scoreSummariesLoading && (
-                                        <div className="mt-3 text-xs text-gray-400">
+                                        <div className="text-xs text-gray-400">
                                             Loading scores...
                                         </div>
                                     )}
                                     {!scoreSummariesLoading && scoreSummaries.length === 0 && (
-                                        <div className="mt-3 text-xs text-gray-400">
+                                        <div className="text-xs text-gray-400">
                                             No saved scores yet.
                                         </div>
                                     )}
-                                    <div className="mt-3 space-y-3">
+                                    <div className="space-y-3">
                                         {scoreSummaries.map((summary) => {
                                             const info = summarizeScoreId(summary.scoreId);
                                             const isCurrent = summary.scoreId === scoreId;
@@ -4911,20 +4917,20 @@ Each XPath must match exactly one node.`;
                                                         {summary.lastUpdated ? ` · ${formatTimestamp(summary.lastUpdated)}` : ''}
                                                     </div>
                                                     <div className="mt-2 flex flex-wrap gap-2">
-                                                        <button
-                                                            type="button"
+                                                        <Button
                                                             onClick={() => handleOpenScoreFromSummary(summary)}
-                                                            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                                                            variant="outline"
+                                                            size="xs"
                                                         >
                                                             Open score
-                                                        </button>
+                                                        </Button>
                                                     </div>
                                                 </div>
                                             );
                                         })}
                                     </div>
-                                </>
-                            )}
+                                </TabsContent>
+                            </Tabs>
                         </div>
                     )}
                 </aside>
@@ -4950,34 +4956,37 @@ Each XPath must match exactly one node.`;
                             <span data-testid="page-indicator">
                                 Page {currentPage + 1} of {pageCount}
                             </span>
-                            <select
-                                className="px-2 py-1 border border-gray-300 rounded bg-white text-sm"
-                                onChange={handlePageSelect}
-                                value={currentPage}
-                                data-testid="page-select"
+                            <Select
+                                value={String(currentPage)}
+                                onValueChange={handlePageSelectValue}
                             >
-                                {Array.from({ length: pageCount }, (_, index) => (
-                                    <option key={index} value={index}>
-                                        Page {index + 1}
-                                    </option>
-                                ))}
-                            </select>
-                            <button
-                                type="button"
+                                <SelectTrigger data-testid="page-select" className="w-36 text-sm">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {Array.from({ length: pageCount }, (_, index) => (
+                                        <SelectItem key={index} value={String(index)}>
+                                            Page {index + 1}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <Button
                                 onClick={() => handlePrevPage()}
                                 disabled={currentPage <= 0}
-                                className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:border-gray-200 disabled:opacity-100"
+                                variant="outline"
+                                size="sm"
                             >
                                 Prev
-                            </button>
-                            <button
-                                type="button"
+                            </Button>
+                            <Button
                                 onClick={() => handleNextPage()}
                                 disabled={currentPage >= pageCount - 1}
-                                className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:border-gray-200 disabled:opacity-100"
+                                variant="outline"
+                                size="sm"
                             >
                                 Next
-                            </button>
+                            </Button>
                         </div>
                     )}
 
@@ -5041,43 +5050,59 @@ Each XPath must match exactly one node.`;
                             />
                         )}
                         {textEditorPosition && (
-                            <div
-                                className="fixed z-50 flex max-w-[90vw] flex-col gap-2 rounded border bg-white p-3 shadow-lg"
-                                style={{ left: textEditorPosition.x, top: textEditorPosition.y }}
-                                onClick={event => event.stopPropagation()}
-                                onMouseDown={event => event.stopPropagation()}
-                                onPointerDown={event => event.stopPropagation()}
+                            <Popover
+                                open
+                                onOpenChange={(open) => {
+                                    if (!open) {
+                                        closeTextEditor();
+                                    }
+                                }}
                             >
-                                <label className="text-xs uppercase tracking-wide text-gray-500">
-                                    {resolveTextEditorLabel(textEditorMode)}
-                                </label>
-                                <textarea
-                                    data-testid="ctxmenu-text-input"
-                                    value={textEditorValue}
-                                    onChange={(event) => setTextEditorValue(event.target.value)}
-                                    onClick={(event) => event.stopPropagation()}
-                                    rows={4}
-                                    className="min-w-[360px] w-[480px] max-w-[90vw] rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                                <PopoverAnchor
+                                    style={{
+                                        position: 'fixed',
+                                        left: textEditorPosition.x,
+                                        top: textEditorPosition.y,
+                                        width: 0,
+                                        height: 0,
+                                    }}
                                 />
-                                <div className="flex gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={handleTextEditorSave}
-                                        className="flex-1 rounded border border-gray-300 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-100"
-                                    >
-                                        {textEditorMode && textEditorMode !== 'selected'
-                                            ? `Set ${resolveTextEditorLabel(textEditorMode)}`
-                                            : 'Save'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={closeTextEditor}
-                                        className="flex-1 rounded border border-gray-300 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-100"
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
+                                <PopoverPortal>
+                                    <PopoverContent className="flex max-w-[90vw] flex-col gap-2">
+                                        <label className="text-xs uppercase tracking-wide text-gray-500">
+                                            {resolveTextEditorLabel(textEditorMode)}
+                                        </label>
+                                        <textarea
+                                            data-testid="ctxmenu-text-input"
+                                            value={textEditorValue}
+                                            onChange={(event) => setTextEditorValue(event.target.value)}
+                                            rows={6}
+                                            autoFocus
+                                            className="min-w-[420px] w-[560px] max-w-[90vw] rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                                        />
+                                        <div className="flex gap-2">
+                                            <Button
+                                                onClick={handleTextEditorSave}
+                                                variant="primary"
+                                                size="sm"
+                                                className="flex-1"
+                                            >
+                                                {textEditorMode && textEditorMode !== 'selected'
+                                                    ? `Set ${resolveTextEditorLabel(textEditorMode)}`
+                                                    : 'Save'}
+                                            </Button>
+                                            <Button
+                                                onClick={closeTextEditor}
+                                                variant="outline"
+                                                size="sm"
+                                                className="flex-1"
+                                            >
+                                                Cancel
+                                            </Button>
+                                        </div>
+                                    </PopoverContent>
+                                </PopoverPortal>
+                            </Popover>
                         )}
                     </div>
                 </div>
@@ -5098,8 +5123,7 @@ Each XPath must match exactly one node.`;
                                     MusicXML
                                 </span>
                             )}
-                            <button
-                                type="button"
+                            <Button
                                 data-testid="btn-xml-toggle"
                                 aria-expanded={xmlSidebarMode !== 'closed'}
                                 aria-controls="xml-sidebar-content"
@@ -5113,461 +5137,469 @@ Each XPath must match exactly one node.`;
                                 onClick={() => {
                                     setXmlSidebarMode((prev) => (prev === 'closed' ? 'open' : prev === 'open' ? 'full' : 'closed'));
                                 }}
-                                className="text-xs font-medium text-gray-600 hover:text-gray-900"
+                                variant="ghost"
+                                size="xs"
                             >
                                 {xmlSidebarMode === 'closed' ? 'Open' : xmlSidebarMode === 'open' ? 'Expand' : 'Close'}
-                            </button>
+                            </Button>
                         </div>
                         {xmlSidebarMode !== 'closed' && (
-                            <div className="px-4 pb-3">
-                                <div className="flex items-center justify-between text-xs text-gray-500">
-                                    <span>
-                                        {checkpoints.length === 0
-                                            ? 'No checkpoint yet'
-                                            : scoreDirtySinceCheckpoint
-                                                ? 'Unsaved score changes'
-                                                : ''}
-                                    </span>
-                                    {xmlLoading && <span>Loading...</span>}
+                            <Tabs
+                                value={xmlSidebarTab}
+                                onValueChange={(value) => setXmlSidebarTab(value as 'xml' | 'assistant')}
+                                className="flex flex-col"
+                            >
+                                <div className="px-4 pb-3">
+                                    <div className="flex items-center justify-between text-xs text-gray-500">
+                                        <span>
+                                            {checkpoints.length === 0
+                                                ? 'No checkpoint yet'
+                                                : scoreDirtySinceCheckpoint
+                                                    ? 'Unsaved score changes'
+                                                    : ''}
+                                        </span>
+                                        {xmlLoading && <span>Loading...</span>}
+                                    </div>
+                                    <div className="mt-3 flex items-center justify-between text-xs font-medium text-gray-600">
+                                        <TabsList>
+                                            <TabsTrigger value="xml" data-testid="tab-xml">
+                                                XML
+                                            </TabsTrigger>
+                                            <TabsTrigger value="assistant" data-testid="tab-ai">
+                                                Assistant
+                                            </TabsTrigger>
+                                        </TabsList>
+                                        <div />
+                                    </div>
                                 </div>
-                                <div className="mt-3 flex items-center justify-between text-xs font-medium text-gray-600">
-                                    <div className="flex gap-2">
-                                        <button
-                                            type="button"
-                                            data-testid="tab-xml"
-                                            onClick={() => setXmlSidebarTab('xml')}
-                                            className={`rounded border px-2 py-1 ${xmlSidebarTab === 'xml'
-                                                    ? 'border-gray-400 bg-gray-100 text-gray-900'
-                                                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                                                }`}
-                                        >
-                                            XML
-                                        </button>
-                                        <button
-                                            type="button"
-                                            data-testid="tab-ai"
-                                            onClick={() => setXmlSidebarTab('assistant')}
-                                            className={`rounded border px-2 py-1 ${xmlSidebarTab === 'assistant'
-                                                    ? 'border-gray-400 bg-gray-100 text-gray-900'
-                                                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                                                }`}
-                                        >
-                                            Assistant
-                                        </button>
-                                    </div>
-                                    <div />
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                    {xmlSidebarMode !== 'closed' && (
-                        <div id="xml-sidebar-content" className="px-4 pb-4">
-                            {xmlSidebarTab === 'xml' && (
-                                <>
-                                    <div className="mt-3 flex flex-wrap gap-2">
-                                        <button
-                                            type="button"
-                                            data-testid="btn-xml-apply"
-                                            onClick={handleApplyXmlEdits}
-                                            disabled={xmlApplyDisabled}
-                                            title="Applying edits will auto-checkpoint if the score has unsaved changes."
-                                            className={`flex-1 rounded border px-3 py-1 text-xs font-medium disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:border-gray-200 disabled:opacity-100 ${xmlApplyEnabled
-                                                    ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
-                                                    : 'border-gray-300 bg-white text-gray-700'
-                                                }`}
-                                        >
-                                            Apply edits
-                                        </button>
-                                        <button
-                                            type="button"
-                                            data-testid="btn-xml-reload"
-                                            onClick={handleRefreshXml}
-                                            disabled={!xmlReloadEnabled}
-                                            title={
-                                                xmlReloadEnabled
-                                                    ? 'The score has changed, reload to update XML. Any XML changes will be lost on update.'
-                                                    : undefined
-                                            }
-                                            className={`flex-1 rounded border px-3 py-1 text-xs font-medium disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:border-gray-200 disabled:opacity-100 ${xmlReloadEnabled
-                                                    ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
-                                                    : 'border-gray-300 bg-white text-gray-700'
-                                                }`}
-                                        >
-                                            Reload
-                                        </button>
-                                    </div>
-                                    <div className="mt-2">
-                                        <CodeMirrorEditor
-                                            testId="xml-editor"
-                                            value={xmlText}
-                                            onChange={(nextValue) => {
-                                                setXmlText(nextValue);
-                                                setXmlDirty(true);
-                                            }}
-                                            readOnly={xmlControlsDisabled}
-                                            placeholderText={score ? 'MusicXML will appear here.' : 'Load a score to view MusicXML.'}
-                                        />
-                                    </div>
-                                </>
-                            )}
-                            {xmlSidebarTab === 'assistant' && (
-                                <div className="mt-3 space-y-3 text-sm text-gray-700">
-                                    <div>
-                                        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                            OpenAI Model
-                                        </label>
-                                        <select
-                                            value={aiModel}
-                                            onChange={(event) => setAiModel(event.target.value)}
-                                            className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                                            disabled={!aiModels.length}
-                                        >
-                                            {aiModelsLoading && <option>Loading models...</option>}
-                                            {!aiModelsLoading && !aiModels.length && <option>No models loaded</option>}
-                                            {aiModels.map((modelId) => (
-                                                <option key={modelId} value={modelId}>
-                                                    {modelId}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        {aiModelsError && (
-                                            <div className="mt-1 text-xs text-red-600">
-                                                {aiModelsError}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                            API Key
-                                        </label>
-                                        <input
-                                            type="password"
-                                            value={aiApiKey}
-                                            onChange={(event) => setAiApiKey(event.target.value)}
-                                            className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                                            placeholder="Paste your key"
-                                        />
-                                        <div className="mt-1 text-[11px] text-gray-500">
-                                            Stored locally in this browser.
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center justify-between gap-2 text-xs text-gray-600">
-                                        <label className="flex items-center gap-2">
-                                            <input
-                                                type="checkbox"
-                                                checked={aiIncludeXml}
-                                                onChange={(event) => setAiIncludeXml(event.target.checked)}
-                                            />
-                                            Include full MusicXML
-                                        </label>
-                                        <div className="flex items-center gap-2">
-                                            <span>Max output</span>
-                                            <select
-                                                value={aiMaxTokensMode}
-                                                onChange={(event) => setAiMaxTokensMode(event.target.value as 'auto' | 'custom')}
-                                                className="rounded border border-gray-300 px-2 py-1 text-xs"
+                                <div id="xml-sidebar-content" className="px-4 pb-4">
+                                    <TabsContent value="xml" className="space-y-2">
+                                        <div className="mt-3 flex flex-wrap gap-2">
+                                            <Button
+                                                data-testid="btn-xml-apply"
+                                                onClick={handleApplyXmlEdits}
+                                                disabled={xmlApplyDisabled}
+                                                title="Applying edits will auto-checkpoint if the score has unsaved changes."
+                                                variant={xmlApplyEnabled ? 'primary' : 'outline'}
+                                                size="sm"
+                                                className="flex-1"
                                             >
-                                                <option value="auto">Auto</option>
-                                                <option value="custom">Custom</option>
-                                            </select>
-                                            {aiMaxTokensMode === 'custom' && (
-                                                <input
-                                                    type="number"
-                                                    min={256}
-                                                    value={aiMaxTokens}
-                                                    onChange={(event) => setAiMaxTokens(Number(event.target.value) || 0)}
-                                                    className="w-20 rounded border border-gray-300 px-2 py-1 text-xs"
-                                                />
+                                                Apply edits
+                                            </Button>
+                                            <Button
+                                                data-testid="btn-xml-reload"
+                                                onClick={handleRefreshXml}
+                                                disabled={!xmlReloadEnabled}
+                                                title={
+                                                    xmlReloadEnabled
+                                                        ? 'The score has changed, reload to update XML. Any XML changes will be lost on update.'
+                                                        : undefined
+                                                }
+                                                variant={xmlReloadEnabled ? 'primary' : 'outline'}
+                                                size="sm"
+                                                className="flex-1"
+                                            >
+                                                Reload
+                                            </Button>
+                                        </div>
+                                        <div className="mt-2">
+                                            <CodeMirrorEditor
+                                                testId="xml-editor"
+                                                value={xmlText}
+                                                onChange={(nextValue) => {
+                                                    setXmlText(nextValue);
+                                                    setXmlDirty(true);
+                                                }}
+                                                readOnly={xmlControlsDisabled}
+                                                placeholderText={score ? 'MusicXML will appear here.' : 'Load a score to view MusicXML.'}
+                                            />
+                                        </div>
+                                    </TabsContent>
+                                    <TabsContent value="assistant" className="mt-3 space-y-3 text-sm text-gray-700">
+                                        <div>
+                                            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                OpenAI Model
+                                            </label>
+                                            <Select
+                                                value={aiModel}
+                                                onValueChange={setAiModel}
+                                                disabled={!aiModels.length}
+                                            >
+                                                <SelectTrigger className="mt-1 w-full text-sm">
+                                                    <SelectValue
+                                                        placeholder={aiModelsLoading ? 'Loading models...' : 'Select model'}
+                                                    />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {!aiModelsLoading && !aiModels.length && (
+                                                        <SelectItem value="none" disabled>
+                                                            No models loaded
+                                                        </SelectItem>
+                                                    )}
+                                                    {aiModels.map((modelId) => (
+                                                        <SelectItem key={modelId} value={modelId}>
+                                                            {modelId}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            {aiModelsError && (
+                                                <div className="mt-1 text-xs text-red-600">
+                                                    {aiModelsError}
+                                                </div>
                                             )}
                                         </div>
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                            Instruction
-                                        </label>
-                                        <textarea
-                                            value={aiPrompt}
-                                            onChange={(event) => setAiPrompt(event.target.value)}
-                                            rows={4}
-                                            className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                                            placeholder="Describe the change you want in the MusicXML."
-                                        />
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={handleAiRequest}
-                                        disabled={aiBusy}
-                                        className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:border-gray-200 disabled:opacity-100"
-                                    >
-                                        {aiBusy ? 'Working...' : 'Generate Patch'}
-                                    </button>
-                                    {aiError && (
-                                        <div className="text-xs text-red-600">
-                                            {aiError}
+                                        <div>
+                                            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                API Key
+                                            </label>
+                                            <input
+                                                type="password"
+                                                value={aiApiKey}
+                                                onChange={(event) => setAiApiKey(event.target.value)}
+                                                className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                                placeholder="Paste your key"
+                                            />
+                                            <div className="mt-1 text-[11px] text-gray-500">
+                                                Stored locally in this browser.
+                                            </div>
                                         </div>
-                                    )}
-                                    {aiOutput && (
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between text-xs text-gray-500">
-                                                <span>AI Patch</span>
-                                                {aiOutputValidation.message && (
-                                                    <span className={aiOutputValidation.valid ? 'text-gray-500' : 'text-red-600'}>
-                                                        {aiOutputValidation.message}
-                                                    </span>
+                                        <div className="flex items-center justify-between gap-2 text-xs text-gray-600">
+                                            <label className="flex items-center gap-2">
+                                                <Checkbox
+                                                    checked={aiIncludeXml}
+                                                    onCheckedChange={(value) => setAiIncludeXml(Boolean(value))}
+                                                    aria-label="Include full MusicXML"
+                                                />
+                                                Include full MusicXML
+                                            </label>
+                                            <div className="flex items-center gap-2">
+                                                <span>Max output</span>
+                                                <Select
+                                                    value={aiMaxTokensMode}
+                                                    onValueChange={(value) => setAiMaxTokensMode(value as 'auto' | 'custom')}
+                                                >
+                                                    <SelectTrigger className="w-28 text-xs">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="auto">Auto</SelectItem>
+                                                        <SelectItem value="custom">Custom</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                {aiMaxTokensMode === 'custom' && (
+                                                    <input
+                                                        type="number"
+                                                        min={256}
+                                                        value={aiMaxTokens}
+                                                        onChange={(event) => setAiMaxTokens(Number(event.target.value) || 0)}
+                                                        className="w-20 rounded border border-gray-300 px-2 py-1 text-xs"
+                                                    />
                                                 )}
                                             </div>
-                                            <CodeMirrorEditor
-                                                value={aiOutput}
-                                                onChange={() => { }}
-                                                readOnly={true}
-                                                placeholderText="AI patch will appear here."
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                Instruction
+                                            </label>
+                                            <textarea
+                                                value={aiPrompt}
+                                                onChange={(event) => setAiPrompt(event.target.value)}
+                                                rows={4}
+                                                className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                                placeholder="Describe the change you want in the MusicXML."
                                             />
-                                            <button
-                                                type="button"
-                                                onClick={handleApplyAiOutput}
-                                                disabled={aiApplyDisabled}
-                                                title="Applying edits will auto-checkpoint if the score has unsaved changes."
-                                                className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:border-gray-200 disabled:opacity-100"
-                                            >
-                                                Apply Patch
-                                            </button>
+                                        </div>
+                                        <Button
+                                            onClick={handleAiRequest}
+                                            disabled={aiBusy}
+                                            variant="primary"
+                                            size="md"
+                                            className="w-full"
+                                        >
+                                            {aiBusy ? 'Working...' : 'Generate Patch'}
+                                        </Button>
+                                        {aiError && (
+                                            <div className="text-xs text-red-600">
+                                                {aiError}
+                                            </div>
+                                        )}
+                                        {aiOutput && (
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between text-xs text-gray-500">
+                                                    <span>AI Patch</span>
+                                                    {aiOutputValidation.message && (
+                                                        <span className={aiOutputValidation.valid ? 'text-gray-500' : 'text-red-600'}>
+                                                            {aiOutputValidation.message}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <CodeMirrorEditor
+                                                    value={aiOutput}
+                                                    onChange={() => { }}
+                                                    readOnly={true}
+                                                    placeholderText="AI patch will appear here."
+                                                />
+                                                <Button
+                                                    onClick={handleApplyAiOutput}
+                                                    disabled={aiApplyDisabled}
+                                                    title="Applying edits will auto-checkpoint if the score has unsaved changes."
+                                                    variant="primary"
+                                                    size="md"
+                                                    className="w-full"
+                                                >
+                                                    Apply Patch
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </TabsContent>
+                                    {xmlError && (
+                                        <div className="mt-2 text-xs text-red-600">
+                                            {xmlError}
                                         </div>
                                     )}
                                 </div>
-                            )}
-                            {xmlError && (
-                                <div className="mt-2 text-xs text-red-600">
-                                    {xmlError}
-                                </div>
-                            )}
-                        </div>
-                    )}
+                            </Tabs>
+                        )}
+                    </div>
                 </aside>
 
-                {newScoreDialogOpen && (
-                    <div
-                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
-                        data-testid="new-score-modal"
-                    >
-                        <div className="w-full max-w-xl rounded bg-white p-4 shadow-lg">
-                            <div className="flex items-center justify-between">
-                                <div className="text-sm font-semibold text-gray-800">
-                                    New Score
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setNewScoreDialogOpen(false)}
-                                    className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
-                                >
-                                    Close
-                                </button>
+                <Dialog open={newScoreDialogOpen} onOpenChange={setNewScoreDialogOpen}>
+                    <DialogContent className="max-w-xl" data-testid="new-score-modal">
+                        <div className="flex items-center justify-between">
+                            <div className="text-sm font-semibold text-gray-800">
+                                New Score
                             </div>
-                            <div className="mt-4 grid gap-3 text-sm text-gray-700">
+                            <DialogClose asChild>
+                                <Button variant="outline" size="xs">
+                                    Close
+                                </Button>
+                            </DialogClose>
+                        </div>
+                        <div className="mt-4 grid gap-3 text-sm text-gray-700">
+                            <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                                Creating a new score will replace the current score and switch to a new checkpoint set.
+                                Export your score if you want a copy; you can return to the previous URL to access older checkpoints.
+                            </div>
+                            {instrumentClefMapError && (
                                 <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                                    Creating a new score will replace the current score and switch to a new checkpoint set.
-                                    Export your score if you want a copy; you can return to the previous URL to access older checkpoints.
+                                    {instrumentClefMapError}
                                 </div>
-                                {instrumentClefMapError && (
-                                    <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                                        {instrumentClefMapError}
-                                    </div>
-                                )}
-                                {instrumentFallbackError && (
-                                    <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                                        {instrumentFallbackError}
-                                    </div>
-                                )}
-                                <label className="flex flex-col gap-1">
-                                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                        Title
-                                    </span>
-                                    <input
-                                        type="text"
-                                        value={newScoreTitle}
-                                        onChange={(event) => setNewScoreTitle(event.target.value)}
-                                        className="rounded border border-gray-300 px-2 py-1 text-sm"
-                                        placeholder="Untitled score"
-                                    />
-                                </label>
-                                <label className="flex flex-col gap-1">
-                                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                        Composer
-                                    </span>
-                                    <input
-                                        type="text"
-                                        value={newScoreComposer}
-                                        onChange={(event) => setNewScoreComposer(event.target.value)}
-                                        className="rounded border border-gray-300 px-2 py-1 text-sm"
-                                        placeholder="Composer"
-                                    />
-                                </label>
-                                <div className="flex flex-col gap-2">
-                                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                        Instruments
-                                    </span>
-                                    {newScoreInstrumentOptions.length > 0 ? (
-                                        <>
-                                            <div className="flex gap-2">
-                                                <select
-                                                    value={newScoreInstrumentToAdd}
-                                                    onChange={(event) => setNewScoreInstrumentToAdd(event.target.value)}
-                                                    className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm"
-                                                >
+                            )}
+                            {instrumentFallbackError && (
+                                <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                                    {instrumentFallbackError}
+                                </div>
+                            )}
+                            <label className="flex flex-col gap-1">
+                                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                    Title
+                                </span>
+                                <input
+                                    type="text"
+                                    value={newScoreTitle}
+                                    onChange={(event) => setNewScoreTitle(event.target.value)}
+                                    className="rounded border border-gray-300 px-2 py-1 text-sm"
+                                    placeholder="Untitled score"
+                                />
+                            </label>
+                            <label className="flex flex-col gap-1">
+                                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                    Composer
+                                </span>
+                                <input
+                                    type="text"
+                                    value={newScoreComposer}
+                                    onChange={(event) => setNewScoreComposer(event.target.value)}
+                                    className="rounded border border-gray-300 px-2 py-1 text-sm"
+                                    placeholder="Composer"
+                                />
+                            </label>
+                            <div className="flex flex-col gap-2">
+                                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                    Instruments
+                                </span>
+                                {newScoreInstrumentOptions.length > 0 ? (
+                                    <>
+                                        <div className="flex gap-2">
+                                            <Select
+                                                value={newScoreInstrumentToAdd}
+                                                onValueChange={setNewScoreInstrumentToAdd}
+                                            >
+                                                <SelectTrigger className="flex-1 text-sm">
+                                                    <SelectValue placeholder="Select instrument" />
+                                                </SelectTrigger>
+                                                <SelectContent>
                                                     {newScoreCommonInstruments.length > 0 && (
-                                                        <optgroup label="Common">
+                                                        <SelectGroup>
+                                                            <SelectLabel>Common</SelectLabel>
                                                             {newScoreCommonInstruments.map((entry, index) => (
-                                                                <option key={`common-${entry.instrument.id}-${index}`} value={entry.instrument.id}>
+                                                                <SelectItem key={`common-${entry.instrument.id}-${index}`} value={entry.instrument.id}>
                                                                     {entry.label}
-                                                                </option>
+                                                                </SelectItem>
                                                             ))}
-                                                        </optgroup>
+                                                        </SelectGroup>
                                                     )}
                                                     {newScoreInstrumentGroups.length > 0 ? (
                                                         newScoreInstrumentGroups.map((group) => (
-                                                            <optgroup key={group.id} label={group.name}>
+                                                            <SelectGroup key={group.id}>
+                                                                <SelectLabel>{group.name}</SelectLabel>
                                                                 {group.instruments.map((instrument) => (
-                                                                    <option key={instrument.id} value={instrument.id}>
+                                                                    <SelectItem key={instrument.id} value={instrument.id}>
                                                                         {instrument.name}
-                                                                    </option>
+                                                                    </SelectItem>
                                                                 ))}
-                                                            </optgroup>
+                                                            </SelectGroup>
                                                         ))
                                                     ) : (
                                                         newScoreInstrumentOptions.map((option) => (
-                                                            <option key={option.id} value={option.id}>
+                                                            <SelectItem key={option.id} value={option.id}>
                                                                 {option.label}
-                                                            </option>
+                                                            </SelectItem>
                                                         ))
                                                     )}
-                                                </select>
-                                                <button
-                                                    type="button"
-                                                    onClick={handleAddNewScoreInstrument}
-                                                    disabled={!newScoreInstrumentToAdd}
-                                                    className="rounded border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:border-gray-200 disabled:opacity-100"
-                                                >
-                                                    Add
-                                                </button>
-                                            </div>
-                                            <div className="space-y-1 rounded border border-gray-200 bg-gray-50 p-2 text-xs text-gray-700">
-                                                {newScoreInstrumentIds.length > 0 ? (
-                                                    newScoreInstrumentIds.map((instrumentId, index) => {
-                                                        const option = newScoreInstrumentOptions.find((entry) => entry.id === instrumentId);
-                                                        const label = option?.label || option?.name || instrumentId;
-                                                        return (
-                                                            <div key={`${instrumentId}-${index}`} className="flex items-center gap-2">
-                                                                <span className="flex-1 truncate">{label}</span>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleRemoveNewScoreInstrument(index)}
-                                                                    className="rounded border border-gray-300 bg-white px-2 py-0.5 text-[11px] text-gray-700 hover:bg-gray-100"
-                                                                >
-                                                                    Remove
-                                                                </button>
-                                                            </div>
-                                                        );
-                                                    })
-                                                ) : (
-                                                    <div className="text-gray-500">No instruments selected.</div>
-                                                )}
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <div className="rounded border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-500">
-                                            Instrument list unavailable.
+                                                </SelectContent>
+                                            </Select>
+                                            <Button
+                                                onClick={handleAddNewScoreInstrument}
+                                                disabled={!newScoreInstrumentToAdd}
+                                                variant="outline"
+                                                size="sm"
+                                            >
+                                                Add
+                                            </Button>
                                         </div>
-                                    )}
-                                </div>
-                                <div className="grid gap-3 sm:grid-cols-2">
-                                    <label className="flex flex-col gap-1">
-                                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                            Measures
-                                        </span>
-                                        <input
-                                            type="number"
-                                            min={1}
-                                            value={newScoreMeasures}
-                                            onChange={(event) => setNewScoreMeasures(Number(event.target.value) || 1)}
-                                            className="rounded border border-gray-300 px-2 py-1 text-sm"
-                                        />
-                                    </label>
-                                    <label className="flex flex-col gap-1">
-                                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                            Key Signature
-                                        </span>
-                                        <select
-                                            value={String(newScoreKeyFifths)}
-                                            onChange={(event) => setNewScoreKeyFifths(Number(event.target.value))}
-                                            className="rounded border border-gray-300 px-2 py-1 text-sm"
-                                        >
-                                            {newScoreKeyOptions.map((option) => (
-                                                <option key={option.fifths} value={option.fifths}>
-                                                    {option.label}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </label>
-                                </div>
+                                        <div className="space-y-1 rounded border border-gray-200 bg-gray-50 p-2 text-xs text-gray-700">
+                                            {newScoreInstrumentIds.length > 0 ? (
+                                                newScoreInstrumentIds.map((instrumentId, index) => {
+                                                    const option = newScoreInstrumentOptions.find((entry) => entry.id === instrumentId);
+                                                    const label = option?.label || option?.name || instrumentId;
+                                                    return (
+                                                        <div key={`${instrumentId}-${index}`} className="flex items-center gap-2">
+                                                            <span className="flex-1 truncate">{label}</span>
+                                                            <Button
+                                                                onClick={() => handleRemoveNewScoreInstrument(index)}
+                                                                variant="outline"
+                                                                size="xs"
+                                                            >
+                                                                Remove
+                                                            </Button>
+                                                        </div>
+                                                    );
+                                                })
+                                            ) : (
+                                                <div className="text-gray-500">No instruments selected.</div>
+                                            )}
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="rounded border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-500">
+                                        Instrument list unavailable.
+                                    </div>
+                                )}
+                            </div>
+                            <div className="grid gap-3 sm:grid-cols-2">
                                 <label className="flex flex-col gap-1">
                                     <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                        Time Signature
+                                        Measures
                                     </span>
-                                    <select
-                                        value={`${newScoreTimeNumerator}/${newScoreTimeDenominator}`}
-                                        onChange={(event) => {
-                                            const [numerator, denominator] = event.target.value.split('/').map((value) => Number(value));
-                                            if (Number.isFinite(numerator) && Number.isFinite(denominator)) {
-                                                setNewScoreTimeNumerator(numerator);
-                                                setNewScoreTimeDenominator(denominator);
-                                            }
-                                        }}
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        value={newScoreMeasures}
+                                        onChange={(event) => setNewScoreMeasures(Number(event.target.value) || 1)}
                                         className="rounded border border-gray-300 px-2 py-1 text-sm"
+                                    />
+                                </label>
+                                <label className="flex flex-col gap-1">
+                                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                        Key Signature
+                                    </span>
+                                    <Select
+                                        value={String(newScoreKeyFifths)}
+                                        onValueChange={(value) => setNewScoreKeyFifths(Number(value))}
                                     >
-                                        {newScoreTimeOptions.map((option) => (
-                                            <option key={option.label} value={`${option.numerator}/${option.denominator}`}>
-                                                {option.label}
-                                            </option>
-                                        ))}
-                                    </select>
+                                        <SelectTrigger className="w-full text-sm">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {newScoreKeyOptions.map((option) => (
+                                                <SelectItem key={option.fifths} value={String(option.fifths)}>
+                                                    {option.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </label>
                             </div>
-                            <div className="mt-4 flex gap-2">
-                                <button
-                                    type="button"
-                                    onClick={handleCreateNewScore}
-                                    className="flex-1 rounded border border-gray-300 bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                            <label className="flex flex-col gap-1">
+                                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                    Time Signature
+                                </span>
+                                <Select
+                                    value={`${newScoreTimeNumerator}/${newScoreTimeDenominator}`}
+                                    onValueChange={(value) => {
+                                        const [numerator, denominator] = value.split('/').map((part) => Number(part));
+                                        if (Number.isFinite(numerator) && Number.isFinite(denominator)) {
+                                            setNewScoreTimeNumerator(numerator);
+                                            setNewScoreTimeDenominator(denominator);
+                                        }
+                                    }}
                                 >
-                                    Create Score
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setNewScoreDialogOpen(false)}
-                                    className="flex-1 rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                                    <SelectTrigger className="w-full text-sm">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {newScoreTimeOptions.map((option) => (
+                                            <SelectItem key={option.label} value={`${option.numerator}/${option.denominator}`}>
+                                                {option.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </label>
+                        </div>
+                        <div className="mt-4 flex gap-2">
+                            <Button
+                                onClick={handleCreateNewScore}
+                                variant="primary"
+                                size="md"
+                                className="flex-1"
+                            >
+                                Create Score
+                            </Button>
+                            <DialogClose asChild>
+                                <Button
+                                    variant="outline"
+                                    size="md"
+                                    className="flex-1"
                                 >
                                     Cancel
-                                </button>
-                            </div>
+                                </Button>
+                            </DialogClose>
                         </div>
-                    </div>
-                )}
+                    </DialogContent>
+                </Dialog>
 
-                {compareView && (
-                    <div
-                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
-                        data-testid="checkpoint-compare-modal"
-                    >
-                        <div className="flex w-full max-w-6xl flex-col gap-4 rounded bg-white p-4 shadow-lg">
+                <Dialog
+                    open={Boolean(compareView)}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setCompareView(null);
+                        }
+                    }}
+                >
+                    <DialogContent className="max-w-6xl" data-testid="checkpoint-compare-modal">
+                        <div className="flex flex-col gap-4">
                             <div className="flex items-center justify-between">
                                 <div className="text-sm font-semibold text-gray-800">
                                     Compare Checkpoint
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setCompareView(null)}
-                                    className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
-                                >
-                                    Close
-                                </button>
+                                <DialogClose asChild>
+                                    <Button variant="outline" size="xs">
+                                        Close
+                                    </Button>
+                                </DialogClose>
                             </div>
                             <div className="grid gap-4 md:grid-cols-2">
                                 <div className="flex flex-col gap-2">
@@ -5576,24 +5608,24 @@ Each XPath must match exactly one node.`;
                                     </span>
                                     <textarea
                                         readOnly
-                                        value={compareView.currentXml}
+                                        value={compareView?.currentXml ?? ''}
                                         className="h-96 w-full rounded border border-gray-200 bg-gray-50 p-2 font-mono text-xs text-gray-700"
                                     />
                                 </div>
                                 <div className="flex flex-col gap-2">
                                     <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                        {compareView.title}
+                                        {compareView?.title}
                                     </span>
                                     <textarea
                                         readOnly
-                                        value={compareView.checkpointXml}
+                                        value={compareView?.checkpointXml ?? ''}
                                         className="h-96 w-full rounded border border-gray-200 bg-gray-50 p-2 font-mono text-xs text-gray-700"
                                     />
                                 </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    </DialogContent>
+                </Dialog>
             </div>
         </div>
     );

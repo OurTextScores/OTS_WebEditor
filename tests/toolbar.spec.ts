@@ -60,7 +60,8 @@ test('remove trailing empty measures button works', async ({ page }) => {
   const initialMeasures = countMeasures(await readMscx());
 
   // Add 3 empty measures at the end
-  await page.locator('select').selectOption('end');
+  await page.getByTestId('select-measure-target').click();
+  await page.getByRole('option', { name: 'End' }).click();
   await page.getByTestId('input-measure-count').fill('3');
   await page.getByTestId('btn-insert-measures').click();
 
