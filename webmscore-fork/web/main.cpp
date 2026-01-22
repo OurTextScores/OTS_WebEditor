@@ -1251,10 +1251,6 @@ WasmRes _saveMsc(uintptr_t score_ptr, bool compressed, int excerptId) {
 WasmRes _saveSvg(uintptr_t score_ptr, int pageNumber, bool drawPageBackground, bool highlightSelection, int excerptId) {
     MainScore score(score_ptr, excerptId);
 
-    printf("[WASM DEBUG] _saveSvg: highlightSelection=%d, state=%d, isRange=%d, elements.size=%zu\n",
-           highlightSelection, static_cast<int>(score->selection().state()), score->selection().isRange(),
-           score->selection().elements().size());
-
     // config
     score->switchToPageMode();
 
@@ -1267,8 +1263,6 @@ WasmRes _saveSvg(uintptr_t score_ptr, int pageNumber, bool drawPageBackground, b
     std::vector<engraving::Note*> temporarilyMarkedNotes;
 
     if (highlightSelection && score->selection().isRange()) {
-        printf("[WASM DEBUG] _saveSvg: converting range to list for safe rendering\n");
-
         // Save range parameters
         hadRangeSelection = true;
         savedStartSeg = score->selection().startSegment();
@@ -1295,17 +1289,12 @@ WasmRes _saveSvg(uintptr_t score_ptr, int pageNumber, bool drawPageBackground, b
             }
         }
 
-        printf("[WASM DEBUG] _saveSvg: collected %zu notes from range\n", rangeNotes.size());
-
-        // Convert to list selection (DON'T call deselectAll - it might invalidate segments)
+        // Convert to list selection (don't call deselectAll - it might invalidate segments)
         score->selection().clear();
         for (auto* note : rangeNotes) {
             score->select(note, engraving::SelectType::ADD, 0);
         }
         score->selection().updateState();
-
-        printf("[WASM DEBUG] _saveSvg: converted to list, state=%d elements.size=%zu\n",
-               static_cast<int>(score->selection().state()), score->selection().elements().size());
     }
 
     // Mark notes within chords as selected for highlighting (for list selections)
@@ -1321,10 +1310,6 @@ WasmRes _saveSvg(uintptr_t score_ptr, int pageNumber, bool drawPageBackground, b
                 }
             }
         }
-        if (!temporarilyMarkedNotes.empty()) {
-            printf("[WASM DEBUG] _saveSvg: marked %zu notes as selected for highlighting\n",
-                   temporarilyMarkedNotes.size());
-        }
     }
 
     INotationWriter::Options options {
@@ -1337,24 +1322,14 @@ WasmRes _saveSvg(uintptr_t score_ptr, int pageNumber, bool drawPageBackground, b
     Ret ret = processWriter(u"svg", score, &data, options);
 
     // Unmark temporarily selected notes
-    if (!temporarilyMarkedNotes.empty()) {
-        printf("[WASM DEBUG] _saveSvg: unmarking %zu temporarily selected notes\n",
-               temporarilyMarkedNotes.size());
-        for (auto* note : temporarilyMarkedNotes) {
-            note->setSelected(false);
-        }
+    for (auto* note : temporarilyMarkedNotes) {
+        note->setSelected(false);
     }
 
     // Restore range selection if we converted it
     if (hadRangeSelection && savedStartSeg && savedEndSeg) {
-        printf("[WASM DEBUG] _saveSvg: restoring range selection (without deselectAll)\n");
         // Don't call deselectAll() - it might invalidate the segment pointers
-        // Just call setRange() directly which will update the selection state
         score->selection().setRange(savedStartSeg, savedEndSeg, savedStaffStart, savedStaffEnd);
-
-        printf("[WASM DEBUG] _saveSvg: restored, state=%d isRange=%d elements.size=%zu\n",
-               static_cast<int>(score->selection().state()), score->selection().isRange(),
-               score->selection().elements().size());
     }
 
     LOGI() << String(u"excerpt %1, page index %2, highlightSelection %3, size %4 bytes").arg(excerptId).arg(pageNumber).arg(highlightSelection).arg(data.size());
@@ -1582,25 +1557,19 @@ bool _selectElementAtPoint(uintptr_t score_ptr, int pageNumber, double x, double
         return false;
     }
 
-    printf("[WASM DEBUG] selectElementAtPoint: target type=%d isMeasure=%d\n",
-           static_cast<int>(target->type()), target->isMeasure());
 
     bool manuallySetRange = false;
     score->deselectAll();
 
     // If target is StaffLines (type 13), get the parent Measure and select it as a range
     if (target->type() == engraving::ElementType::STAFF_LINES) {
-        printf("[WASM DEBUG] Detected STAFF_LINES, looking for parent Measure\n");
         auto* measure = target->findMeasure();
         if (measure) {
             auto staffIdx = target->staffIdx();
-            printf("[WASM DEBUG] Found parent Measure, staffIdx=%d\n", static_cast<int>(staffIdx));
 
             auto* firstSeg = measure->first(engraving::SegmentType::ChordRest);
             auto* lastSeg = measure->last();
 
-            printf("[WASM DEBUG] Measure range: firstSeg=%p lastSeg=%p\n",
-                   static_cast<void*>(firstSeg), static_cast<void*>(lastSeg));
 
             if (firstSeg) {
                 score->selection().setRange(firstSeg, lastSeg, staffIdx, staffIdx + 1);
@@ -1608,16 +1577,12 @@ bool _selectElementAtPoint(uintptr_t score_ptr, int pageNumber, double x, double
                 score->selection().setActiveTrack(staffIdx * mu::engraving::VOICES);
                 manuallySetRange = true;
 
-                printf("[WASM DEBUG] After setRange, before updateSelection: state=%d isRange=%d\n",
-                       static_cast<int>(score->selection().state()), score->selection().isRange());
             }
         } else {
-            printf("[WASM DEBUG] Could not find parent Measure\n");
             score->select(target, engraving::SelectType::SINGLE, target->staffIdx());
         }
     } else if (target->type() == engraving::ElementType::MEASURE) {
         // Direct Measure selection (in case we ever hit this)
-        printf("[WASM DEBUG] Detected MEASURE type directly\n");
         auto* measure = static_cast<engraving::Measure*>(target);
         auto staffIdx = target->staffIdx();
 
@@ -1635,30 +1600,24 @@ bool _selectElementAtPoint(uintptr_t score_ptr, int pageNumber, double x, double
         score->select(target, engraving::SelectType::SINGLE, target->staffIdx());
     }
 
-    printf("[WASM DEBUG] Before updateSelection: state=%d\n", static_cast<int>(score->selection().state()));
     if (!manuallySetRange) {
         score->updateSelection();
     }
-    printf("[WASM DEBUG] After updateSelection: state=%d\n", static_cast<int>(score->selection().state()));
     score->setSelectionChanged(true);
 
     // Debug: check result
     const auto& sel = score->selection();
-    printf("[WASM DEBUG] selectElementAtPoint result: state=%d isRange=%d elements.size=%zu\n",
-           static_cast<int>(sel.state()), sel.isRange(), sel.elements().size());
 
     return true;
 }
 
 bool _selectMeasureAtPoint(uintptr_t score_ptr, int pageNumber, double x, double y, int excerptId)
 {
-    printf("[WASM DEBUG] _selectMeasureAtPoint CALLED: pageNumber=%d x=%.2f y=%.2f\n", pageNumber, x, y);
 
     MainScore score(score_ptr, excerptId);
     const auto& pages = score->pages();
 
     if (pageNumber < 0 || pageNumber >= (int)pages.size()) {
-        printf("[WASM DEBUG] selectMeasureAtPoint: invalid page index %d (pages.size=%zu)\n", pageNumber, pages.size());
         LOGW() << "selectMeasureAtPoint: invalid page index " << pageNumber;
         return false;
     }
@@ -1667,25 +1626,20 @@ bool _selectMeasureAtPoint(uintptr_t score_ptr, int pageNumber, double x, double
     const mu::PointF pt(x, y);
     const mu::PointF canvasPt = pt + page->pos();
 
-    printf("[WASM DEBUG] canvasPt: (%.2f, %.2f)\n", canvasPt.x(), canvasPt.y());
 
     engraving::staff_idx_t staffIdx = mu::nidx;
     engraving::Segment* segment = nullptr;
     mu::PointF offset;
     engraving::Measure* measure = score->pos2measure(canvasPt, &staffIdx, nullptr, &segment, &offset);
 
-    printf("[WASM DEBUG] pos2measure result: measure=%p staffIdx=%d\n", static_cast<void*>(measure), static_cast<int>(staffIdx));
 
     if (!measure || staffIdx == mu::nidx) {
-        printf("[WASM DEBUG] selectMeasureAtPoint: no measure found or invalid staff\n");
         return false;
     }
 
     auto* staffLines = measure->staffLines(staffIdx);
-    printf("[WASM DEBUG] staffLines=%p\n", static_cast<void*>(staffLines));
 
     if (!staffLines || !staffLines->canvasBoundingRect().contains(canvasPt)) {
-        printf("[WASM DEBUG] selectMeasureAtPoint: point not in staff lines bounding rect\n");
         return false;
     }
 
@@ -1693,13 +1647,11 @@ bool _selectMeasureAtPoint(uintptr_t score_ptr, int pageNumber, double x, double
 
     // Manually set up range selection like Score::selectRange() does
     // See libmscore/score.cpp Score::selectRange() for reference
-    printf("[WASM DEBUG] selectMeasureAtPoint: setting up range selection for staffIdx=%d\n", static_cast<int>(staffIdx));
 
     // Get first and last segments of the measure
     auto* firstSeg = measure->first(engraving::SegmentType::ChordRest);
     auto* lastSeg = measure->last();
 
-    printf("[WASM DEBUG] firstSeg=%p lastSeg=%p\n", static_cast<void*>(firstSeg), static_cast<void*>(lastSeg));
 
     if (firstSeg) {
         // Directly set the range selection
@@ -1713,8 +1665,6 @@ bool _selectMeasureAtPoint(uintptr_t score_ptr, int pageNumber, double x, double
 
     // Debug: check what was selected
     const auto& sel = score->selection();
-    printf("[WASM DEBUG] After setRange: state=%d isRange=%d\n",
-           static_cast<int>(sel.state()), sel.isRange());
 
     return true;
 }
@@ -1738,7 +1688,6 @@ bool _clearSelection(uintptr_t score_ptr, int excerptId)
     score->updateSelection();
     score->setSelectionChanged(true);
 
-    printf("[WASM DEBUG] clearSelection: done\n");
     return true;
 }
 
@@ -1762,9 +1711,6 @@ bool _convertRangeToListSelection(uintptr_t score_ptr, int excerptId)
         }
 
         if (hasChords) {
-            printf("[WASM DEBUG] convertRangeToListSelection: converting LIST of Chords to Notes (%zu elements)\n",
-                   score->selection().elements().size());
-
             std::vector<engraving::EngravingItem*> notes;
             for (auto* el : score->selection().elements()) {
                 if (el && el->isChord()) {
@@ -1783,36 +1729,24 @@ bool _convertRangeToListSelection(uintptr_t score_ptr, int excerptId)
             }
             score->updateSelection();
             score->setSelectionChanged(true);
-
-            printf("[WASM DEBUG] convertRangeToListSelection: converted to %zu notes\n", notes.size());
             return true;
         }
 
-        printf("[WASM DEBUG] convertRangeToListSelection: list selection has no Chords, skipping\n");
         return true;
     }
 
     if (!score->selection().isRange()) {
-        printf("[WASM DEBUG] convertRangeToListSelection: selection is not a range, skipping\n");
         return true;
     }
-
-    printf("[WASM DEBUG] convertRangeToListSelection: converting RANGE to list\n");
 
     auto* startSeg = score->selection().startSegment();
     auto* endSeg = score->selection().endSegment();
     auto staffStart = score->selection().staffStart();
     auto staffEnd = score->selection().staffEnd();
 
-    printf("[WASM DEBUG] Range boundaries: startSeg=%p endSeg=%p staffStart=%d staffEnd=%d\n",
-           static_cast<void*>(startSeg), static_cast<void*>(endSeg),
-           static_cast<int>(staffStart), static_cast<int>(staffEnd));
-
     // Collect all chord/rest elements AND their notes in the range
     std::vector<engraving::EngravingItem*> rangeElements;
-    int segmentCount = 0;
     for (auto* seg = startSeg; seg && seg != endSeg; seg = seg->next1()) {
-        segmentCount++;
         if (seg->segmentType() != engraving::SegmentType::ChordRest) {
             continue;
         }
@@ -1832,9 +1766,6 @@ bool _convertRangeToListSelection(uintptr_t score_ptr, int excerptId)
         }
     }
 
-    printf("[WASM DEBUG] convertRangeToListSelection: processed %d segments, collected %zu note/rest elements\n",
-           segmentCount, rangeElements.size());
-
     // Clear and rebuild as list selection with individual notes
     score->deselectAll();
     for (auto* el : rangeElements) {
@@ -1843,9 +1774,6 @@ bool _convertRangeToListSelection(uintptr_t score_ptr, int excerptId)
 
     score->updateSelection();
     score->setSelectionChanged(true);
-
-    printf("[WASM DEBUG] convertRangeToListSelection: done, state=%d elements.size=%zu\n",
-           static_cast<int>(score->selection().state()), score->selection().elements().size());
 
     return true;
 }
@@ -1995,9 +1923,6 @@ WasmRes _getSelectionBoundingBox(uintptr_t score_ptr, int excerptId)
 
     // Debug: log selection state
     const auto& sel = score->selection();
-    printf("[WASM DEBUG] _getSelectionBoundingBox: state=%d elements.size=%zu element=%p activeCR=%p\n",
-           static_cast<int>(sel.state()), sel.elements().size(),
-           static_cast<void*>(sel.element()), static_cast<void*>(sel.activeCR()));
 
     // Try multiple ways to get the selected element
     mu::engraving::EngravingItem* el = score->selection().element();
@@ -2005,28 +1930,20 @@ WasmRes _getSelectionBoundingBox(uintptr_t score_ptr, int excerptId)
     // If element() returns null, try getting from the elements list
     if (!el && !score->selection().elements().empty()) {
         el = score->selection().elements().front();
-        printf("[WASM DEBUG] Using elements().front() = %p\n", static_cast<void*>(el));
     }
 
     // Still null? Try activeCR
     if (!el) {
         el = score->selection().activeCR();
-        printf("[WASM DEBUG] Using activeCR() = %p\n", static_cast<void*>(el));
     }
 
     if (!el) {
-        printf("[WASM DEBUG] No element found for bounding box\n");
         return WasmRes(String());
     }
 
     // Get page position and bounding box
     mu::PointF pagePosition = el->pagePos();
     mu::RectF bbox = el->bbox();
-
-    printf("[WASM DEBUG] Element type: %d\n", static_cast<int>(el->type()));
-    printf("[WASM DEBUG] pagePos: (%.2f, %.2f)\n", pagePosition.x(), pagePosition.y());
-    printf("[WASM DEBUG] bbox: (%.2f, %.2f, %.2f, %.2f)\n",
-           bbox.x(), bbox.y(), bbox.width(), bbox.height());
 
     // Find which page this element is on
     int pageNumber = 0;
@@ -2046,7 +1963,6 @@ WasmRes _getSelectionBoundingBox(uintptr_t score_ptr, int excerptId)
         .arg(bbox.width())
         .arg(bbox.height());
 
-    printf("[WASM DEBUG] JSON result: %s\n", json.toStdString().c_str());
 
     return WasmRes(json);
 }
@@ -2056,8 +1972,6 @@ WasmRes _getSelectionBoundingBoxes(uintptr_t score_ptr, int excerptId)
     MainScore score(score_ptr, excerptId);
     const auto& sel = score->selection();
 
-    printf("[WASM DEBUG] _getSelectionBoundingBoxes: state=%d isRange=%d\n",
-           static_cast<int>(sel.state()), sel.isRange());
 
     String json = u"[";
     bool first = true;
@@ -2069,8 +1983,6 @@ WasmRes _getSelectionBoundingBoxes(uintptr_t score_ptr, int excerptId)
         auto staffStart = sel.staffStart();
         auto staffEnd = sel.staffEnd();
 
-        printf("[WASM DEBUG] Range selection: staffStart=%d staffEnd=%d\n",
-               static_cast<int>(staffStart), static_cast<int>(staffEnd));
 
         if (startSeg) {
             int segCount = 0;
@@ -2091,8 +2003,6 @@ WasmRes _getSelectionBoundingBoxes(uintptr_t score_ptr, int excerptId)
                             continue;
                         }
                         elementCount++;
-                        printf("[WASM DEBUG] Found element %d: type=%d staff=%d voice=%d\n",
-                               elementCount, static_cast<int>(el->type()), static_cast<int>(staffIdx), voice);
 
                         // For Chords, use the first note's bounding box (noteheads are child elements)
                         mu::RectF pageBbox;
@@ -2109,8 +2019,6 @@ WasmRes _getSelectionBoundingBoxes(uintptr_t score_ptr, int excerptId)
                             // For rests and other elements, use their own bbox
                             pageBbox = el->pageBoundingRect();
                         }
-                        printf("[WASM DEBUG] Element %d bbox: x=%.2f y=%.2f w=%.2f h=%.2f\n",
-                               elementCount, pageBbox.x(), pageBbox.y(), pageBbox.width(), pageBbox.height());
 
                         // Find which page this element is on
                         int pageNumber = 0;
@@ -2136,12 +2044,10 @@ WasmRes _getSelectionBoundingBoxes(uintptr_t score_ptr, int excerptId)
                     }
                 }
             }
-            printf("[WASM DEBUG] Processed %d ChordRest segments, found %d elements\n", segCount, elementCount);
         }
     } else {
         // Handle list selections (individual elements)
         const auto& elements = sel.elements();
-        printf("[WASM DEBUG] List selection: elements.size=%zu\n", elements.size());
 
         for (auto* el : elements) {
             if (!el) continue;
@@ -2187,7 +2093,6 @@ WasmRes _getSelectionBoundingBoxes(uintptr_t score_ptr, int excerptId)
     }
 
     json += u"]";
-    printf("[WASM DEBUG] Returning %d bounding boxes\n", first ? 0 : 1); // rough count
     return WasmRes(json);
 }
 
@@ -2204,43 +2109,13 @@ bool _pitchUp(uintptr_t score_ptr, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
 
-    printf("[WASM DEBUG] pitchUp: selection state=%d isRange=%d elements.size=%zu\n",
-           static_cast<int>(score->selection().state()), score->selection().isRange(),
-           score->selection().elements().size());
-
-    // CRITICAL FIX: Convert range to list selection with Notes before calling cmdPitchUp
+    // Convert range to list selection with Notes before calling cmdPitchUp
     _convertRangeToListSelection(score_ptr, excerptId);
-
-    printf("[WASM DEBUG] pitchUp: after conversion, state=%d elements.size=%zu\n",
-           static_cast<int>(score->selection().state()), score->selection().elements().size());
-
-    // Check what uniqueNotes() returns
-    auto notesList = score->selection().uniqueNotes();
-    printf("[WASM DEBUG] pitchUp: uniqueNotes() returned %zu notes\n", notesList.size());
-
-    // Log first 3 notes from uniqueNotes()
-    int noteCount = 0;
-    for (auto* note : notesList) {
-        if (noteCount < 3) {
-            printf("[WASM DEBUG] pitchUp BEFORE: uniqueNote %d pitch=%d\n", noteCount, note->pitch());
-        }
-        noteCount++;
-    }
 
     score->startCmd();
     score->cmdPitchUp();
     score->endCmd();
 
-    // Log pitches after
-    noteCount = 0;
-    for (auto* note : notesList) {
-        if (noteCount < 3) {
-            printf("[WASM DEBUG] pitchUp AFTER: uniqueNote %d pitch=%d\n", noteCount, note->pitch());
-        }
-        noteCount++;
-    }
-
-    printf("[WASM DEBUG] pitchUp: completed\n");
     return true;
 }
 

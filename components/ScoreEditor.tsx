@@ -369,8 +369,6 @@ export default function ScoreEditor() {
     }, [currentPage]);
 
     useEffect(() => {
-        console.log('[ScoreEditor] selectedElement changed to:', selectedElement);
-        console.log('[ScoreEditor] overlaySuppressed:', overlaySuppressed);
     }, [selectedElement, overlaySuppressed]);
 
     useEffect(() => {
@@ -2522,20 +2520,16 @@ ${partsBodyXml}
     };
     const handleExtendSelectionNextChord = async () => {
         if (!score) return;
-        console.log('[NAV] handleExtendSelectionNextChord called');
         await ensureSelectionInWasm();
         const extendFn = requireMutation('extendSelectionNextChord');
         const getBBoxesFn = requireMutation('getSelectionBoundingBoxes');
         if (!extendFn || !getBBoxesFn) {
-            console.log('[NAV] Missing functions for extend selection');
             return;
         }
 
         const result = await extendFn.call(score);
-        console.log('[NAV] extendSelectionNextChord result:', result);
         if (result) {
             const bboxes = await getBBoxesFn.call(score);
-            console.log('[NAV] getSelectionBoundingBoxes result:', bboxes);
 
             await renderScore(score, currentPageRef.current);
             if (bboxes && bboxes.length > 0) {
@@ -2560,20 +2554,16 @@ ${partsBodyXml}
     };
     const handleExtendSelectionPrevChord = async () => {
         if (!score) return;
-        console.log('[NAV] handleExtendSelectionPrevChord called');
         await ensureSelectionInWasm();
         const extendFn = requireMutation('extendSelectionPrevChord');
         const getBBoxesFn = requireMutation('getSelectionBoundingBoxes');
         if (!extendFn || !getBBoxesFn) {
-            console.log('[NAV] Missing functions for extend selection');
             return;
         }
 
         const result = await extendFn.call(score);
-        console.log('[NAV] extendSelectionPrevChord result:', result);
         if (result) {
             const bboxes = await getBBoxesFn.call(score);
-            console.log('[NAV] getSelectionBoundingBoxes result:', bboxes);
 
             await renderScore(score, currentPageRef.current);
             if (bboxes && bboxes.length > 0) {
@@ -4256,32 +4246,16 @@ ${partsBodyXml}
 
                 // Try selectElementAtPoint first, then fall back to selectMeasureAtPoint
                 const trySelect = async () => {
-                    console.log('[ScoreEditor] Trying selectElementAtPoint...');
                     if (score.selectElementAtPoint) {
                         const elementSelected = await score.selectElementAtPoint(pageIndex, scorePoint.x, scorePoint.y);
-                        console.log('[ScoreEditor] selectElementAtPoint returned:', elementSelected);
                         if (elementSelected) {
-                            // Convert range to list if needed (e.g., clicked on staff lines/measure)
-                            if (score.convertRangeToListSelection) {
-                                console.log('[ScoreEditor] Converting range to list selection after element select...');
-                                await score.convertRangeToListSelection();
-                            }
                             return true;
                         }
                     }
 
                     // If no element was selected, try selecting the measure
-                    console.log('[ScoreEditor] Trying selectMeasureAtPoint...');
                     if (score.selectMeasureAtPoint) {
                         const measureSelected = await score.selectMeasureAtPoint(pageIndex, scorePoint.x, scorePoint.y);
-                        console.log('[ScoreEditor] selectMeasureAtPoint returned:', measureSelected);
-
-                        // If measure was selected, convert range to list so buttons work
-                        if (measureSelected && score.convertRangeToListSelection) {
-                            console.log('[ScoreEditor] Converting range to list selection...');
-                            await score.convertRangeToListSelection();
-                        }
-
                         return measureSelected;
                     }
 
@@ -4295,20 +4269,12 @@ ${partsBodyXml}
                             return;
                         }
 
-                        // CRITICAL: Convert range to list BEFORE getting bounding boxes or rendering
-                        // This ensures mutations work on the first arrow press
-                        if (score.convertRangeToListSelection) {
-                            console.log('[ScoreEditor] Converting range to list selection immediately after select...');
-                            await score.convertRangeToListSelection();
-                        }
-
                         // Get selection bounding boxes for keyboard/button enablement
                         let hasMeasureSelection = false;
                         if (score.getSelectionBoundingBoxes) {
                             try {
                                 const bboxes = await score.getSelectionBoundingBoxes();
                                 if (bboxes && bboxes.length > 0) {
-                                    console.log('[ScoreEditor] Got', bboxes.length, 'bounding boxes for selection');
                                     hasMeasureSelection = true;
                                     // Set boxes for state tracking (keyboard shortcuts, button states)
                                     // Set backend highlighting flag to skip visual rendering (backend handles it)
@@ -4329,7 +4295,6 @@ ${partsBodyXml}
                         // Render with backend highlighting
                         // For measure selections, skip overlay refresh to preserve selectionBoxes state
                         if (hasMeasureSelection) {
-                            console.log('[ScoreEditor] Rendering measure selection without overlay refresh');
                             await renderScore(score, pageIndex);
                         } else {
                             // For single element selections, use normal flow with overlay
