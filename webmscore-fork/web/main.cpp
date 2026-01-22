@@ -753,6 +753,28 @@ static bool _removeTrailingEmptyMeasures(uintptr_t score_ptr, int excerptId)
     return true;
 }
 
+static bool _removeSelectedMeasures(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    engraving::Measure* startMeasure = nullptr;
+    engraving::Measure* endMeasure = nullptr;
+
+    if (!selectionMeasureRange(score, startMeasure, endMeasure)) {
+        LOGW() << "removeSelectedMeasures: no selection";
+        return false;
+    }
+
+    if (!startMeasure || !endMeasure) {
+        LOGW() << "removeSelectedMeasures: invalid measure range";
+        return false;
+    }
+
+    score->startCmd();
+    score->deleteMeasures(startMeasure, endMeasure, false);
+    score->endCmd();
+    return true;
+}
+
 static engraving::BarLine* ensureEndBarLine(engraving::Measure* measure)
 {
     if (!measure) {
@@ -3478,6 +3500,11 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool removeTrailingEmptyMeasures(uintptr_t score_ptr, int excerptId = -1) {
         return _removeTrailingEmptyMeasures(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool removeSelectedMeasures(uintptr_t score_ptr, int excerptId = -1) {
+        return _removeSelectedMeasures(score_ptr, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE

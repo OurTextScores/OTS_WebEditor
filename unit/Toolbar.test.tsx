@@ -98,15 +98,20 @@ describe('Toolbar', () => {
       />,
     );
 
-    await user.click(screen.getByTestId('btn-timesig-3-4'));
-    expect(onSetTimeSignature).toHaveBeenCalledWith(3, 4);
+    await user.click(screen.getByRole('button', { name: 'Time Signature' }));
+    await user.click(screen.getByTestId('btn-timesig-4-4'));
+    expect(onSetTimeSignature).toHaveBeenCalledWith(4, 4, 1);
 
+    await user.click(screen.getByRole('button', { name: 'Key' }));
     await user.click(screen.getByTestId('btn-keysig-0'));
+    await user.click(screen.getByRole('button', { name: 'Key' }));
     await user.click(screen.getByTestId('btn-keysig--1'));
     expect(onSetKeySignature).toHaveBeenCalledWith(0);
     expect(onSetKeySignature).toHaveBeenCalledWith(-1);
 
+    await user.click(screen.getByRole('button', { name: 'Clef' }));
     await user.click(screen.getByTestId('btn-clef-0'));
+    await user.click(screen.getByRole('button', { name: 'Clef' }));
     await user.click(screen.getByTestId('btn-clef-20'));
     expect(onSetClef).toHaveBeenCalledWith(0);
     expect(onSetClef).toHaveBeenCalledWith(20);
@@ -135,6 +140,7 @@ describe('Toolbar', () => {
     expect(onTranspose).toHaveBeenCalledWith(-12);
     expect(onTranspose).toHaveBeenCalledWith(12);
 
+    await user.click(screen.getByRole('button', { name: 'Accidental' }));
     await user.click(screen.getByTestId('btn-acc-3'));
     expect(onSetAccidental).toHaveBeenCalledWith(3);
   });
@@ -156,13 +162,16 @@ describe('Toolbar', () => {
       />,
     );
 
+    await user.click(screen.getByRole('button', { name: 'Time Signature' }));
     await user.click(screen.getByTestId('btn-timesig-4-4'));
-    await user.click(screen.getByTestId('btn-timesig-3-4'));
+    await user.click(screen.getByRole('button', { name: 'Time Signature' }));
+    await user.click(screen.getByTestId('btn-timesig-2-2'));
 
     expect(onSetTimeSignature44).toHaveBeenCalledTimes(1);
     expect(onSetTimeSignature34).toHaveBeenCalledTimes(1);
 
-    expect(screen.getByTestId('btn-timesig-2-2')).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Time Signature' }));
+    expect(screen.getByTestId('btn-timesig-2-2')).toBeEnabled();
   });
 
   it('wires tempo markings', async () => {
@@ -203,11 +212,17 @@ describe('Toolbar', () => {
       />,
     );
 
+    await user.click(screen.getByRole('button', { name: 'Rhythm' }));
     await user.click(screen.getByTestId('btn-duration-32'));
+    await user.click(screen.getByRole('button', { name: 'Rhythm' }));
     await user.click(screen.getByTestId('btn-duration-16'));
+    await user.click(screen.getByRole('button', { name: 'Rhythm' }));
     await user.click(screen.getByTestId('btn-duration-8'));
+    await user.click(screen.getByRole('button', { name: 'Rhythm' }));
     await user.click(screen.getByTestId('btn-duration-4'));
+    await user.click(screen.getByRole('button', { name: 'Rhythm' }));
     await user.click(screen.getByTestId('btn-duration-2'));
+    await user.click(screen.getByRole('button', { name: 'Rhythm' }));
     await user.click(screen.getByTestId('btn-duration-1'));
 
     expect(onSetDurationType).toHaveBeenCalledWith(7);
@@ -234,7 +249,9 @@ describe('Toolbar', () => {
       />,
     );
 
+    await user.click(screen.getByRole('button', { name: 'Markings' }));
     await user.click(screen.getByTestId('btn-hairpin-cresc'));
+    await user.click(screen.getByRole('button', { name: 'Markings' }));
     await user.click(screen.getByTestId('btn-hairpin-decresc'));
 
     expect(onAddHairpin).toHaveBeenCalledWith(0);
@@ -257,6 +274,7 @@ describe('Toolbar', () => {
       />,
     );
 
+    await user.click(screen.getByRole('button', { name: 'Text' }));
     await user.click(screen.getByTestId('btn-text-sticking'));
     expect(onAddStickingText).toHaveBeenCalledTimes(1);
   });
@@ -279,7 +297,9 @@ describe('Toolbar', () => {
       />,
     );
 
+    await user.click(screen.getByRole('button', { name: 'Text' }));
     await user.click(screen.getByTestId('btn-text-fingering-lh'));
+    await user.click(screen.getByRole('button', { name: 'Text' }));
     await user.click(screen.getByTestId('btn-text-fingering-rh'));
     expect(onAddLeftHandGuitarFingeringText).toHaveBeenCalledTimes(1);
     expect(onAddRightHandGuitarFingeringText).toHaveBeenCalledTimes(1);
@@ -301,6 +321,7 @@ describe('Toolbar', () => {
       />,
     );
 
+    await user.click(screen.getByRole('button', { name: 'Text' }));
     await user.click(screen.getByTestId('btn-text-string-number'));
     expect(onAddStringNumberText).toHaveBeenCalledTimes(1);
   });
@@ -321,14 +342,14 @@ describe('Toolbar', () => {
       />,
     );
 
+    await user.click(screen.getByRole('button', { name: 'Text' }));
     await user.click(screen.getByTestId('btn-text-figured-bass'));
     expect(onAddFiguredBassText).toHaveBeenCalledTimes(1);
   });
 
-  it('wires lyricist header text', async () => {
+  it('opens the header text editor from the Text dropdown', async () => {
     const user = userEvent.setup();
-    const onScoreLyricistChange = vi.fn();
-    const onSetLyricistText = vi.fn();
+    const onOpenHeaderEditor = vi.fn();
 
     render(
       <Toolbar
@@ -337,20 +358,13 @@ describe('Toolbar', () => {
         onZoomOut={() => {}}
         zoomLevel={1}
         mutationsEnabled
-        exportsEnabled
-        headerTextAvailable
-        scoreLyricist="Test"
-        onScoreLyricistChange={onScoreLyricistChange}
-        onSetLyricistText={onSetLyricistText}
+        onOpenHeaderEditor={onOpenHeaderEditor}
       />,
     );
 
-    await user.clear(screen.getByTestId('input-lyricist'));
-    await user.type(screen.getByTestId('input-lyricist'), 'Lyricist');
-    expect(onScoreLyricistChange).toHaveBeenCalled();
-
-    await user.click(screen.getByTestId('btn-set-lyricist'));
-    expect(onSetLyricistText).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole('button', { name: 'Text' }));
+    await user.click(screen.getByTestId('btn-text-title'));
+    expect(onOpenHeaderEditor).toHaveBeenCalledWith('title', expect.any(Object));
   });
 
   it('shows busy labels for playback and audio export', () => {
@@ -369,7 +383,31 @@ describe('Toolbar', () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole('button', { name: 'Export' }));
     expect(screen.getByTestId('btn-play')).toHaveTextContent('Working…');
     expect(screen.getByTestId('btn-export-audio')).toHaveTextContent('Exporting…');
+  });
+
+  it('wires remove-containing-measures and labels trailing measure removal', async () => {
+    const user = userEvent.setup();
+    const onRemoveContainingMeasures = vi.fn();
+    const onRemoveTrailingEmptyMeasures = vi.fn();
+
+    render(
+      <Toolbar
+        onFileUpload={() => {}}
+        onZoomIn={() => {}}
+        onZoomOut={() => {}}
+        zoomLevel={1}
+        mutationsEnabled
+        selectionActive
+        onRemoveContainingMeasures={onRemoveContainingMeasures}
+        onRemoveTrailingEmptyMeasures={onRemoveTrailingEmptyMeasures}
+      />,
+    );
+
+    await user.click(screen.getByTestId('btn-remove-containing-measures'));
+    expect(onRemoveContainingMeasures).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('btn-remove-trailing-empty')).toHaveTextContent('Remove Trailing Empty Measures');
   });
 });

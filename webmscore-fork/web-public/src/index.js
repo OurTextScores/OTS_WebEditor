@@ -1377,6 +1377,14 @@ class WebMscore {
     }
 
     /**
+     * Remove the measure(s) containing the current selection.
+     * @returns {Promise<boolean>}
+     */
+    async removeSelectedMeasures() {
+        return Module.ccall('removeSelectedMeasures', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
+    }
+
+    /**
      * Set the time signature (global) at the start of the score
      * @param {number} numerator
      * @param {number} denominator

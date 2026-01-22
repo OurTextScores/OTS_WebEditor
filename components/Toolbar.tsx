@@ -111,6 +111,7 @@ interface ToolbarProps {
     onSetBarLineType?: (barLineType: number) => void;
     onAddVolta?: (endingNumber: number) => void;
     onInsertMeasures?: (count: number, target: MeasureInsertTarget) => void;
+    onRemoveContainingMeasures?: () => void;
     onRemoveTrailingEmptyMeasures?: () => void;
     insertMeasuresDisabled?: boolean;
     parts?: PartSummary[];
@@ -267,6 +268,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     onSetBarLineType,
     onAddVolta,
     onInsertMeasures,
+    onRemoveContainingMeasures,
     onRemoveTrailingEmptyMeasures,
     insertMeasuresDisabled = false,
     parts = [],
@@ -828,13 +830,22 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         Apply
                     </button>
                     <button
+                        data-testid="btn-remove-containing-measures"
+                        type="button"
+                        onClick={onRemoveContainingMeasures}
+                        disabled={mutationDisabled || !selectionActive || !onRemoveContainingMeasures}
+                        className={toolbarButtonSecondaryClass}
+                    >
+                        Remove Containing Measures
+                    </button>
+                    <button
                         data-testid="btn-remove-trailing-empty"
                         type="button"
                         onClick={onRemoveTrailingEmptyMeasures}
                         disabled={mutationDisabled || !onRemoveTrailingEmptyMeasures}
                         className={toolbarButtonSecondaryClass}
                     >
-                        Remove Trailing Empty
+                        Remove Trailing Empty Measures
                     </button>
                 </div>
 

@@ -821,6 +821,14 @@ class WebMscoreW {
     }
 
     /**
+     * Remove the measure(s) containing the current selection.
+     * @returns {Promise<boolean>}
+     */
+    removeSelectedMeasures() {
+        return this.rpc('removeSelectedMeasures')
+    }
+
+    /**
      * Undo the last command.
      * @returns {Promise<boolean>}
      */

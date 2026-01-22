@@ -113,6 +113,7 @@ type MutationMethods = Pick<
     | 'setBarLineType'
     | 'addVolta'
     | 'insertMeasures'
+    | 'removeSelectedMeasures'
     | 'removeTrailingEmptyMeasures'
 >;
 
@@ -2551,6 +2552,12 @@ Each XPath must match exactly one node.`;
         const targetValue = measureInsertTargetMap[target] ?? measureInsertTargetMap['after-selection'];
         return fn(sanitized, targetValue);
     });
+    const handleRemoveContainingMeasures = () => performMutation('remove containing measures', async () => {
+        await ensureSelectionInWasm();
+        const fn = requireMutation('removeSelectedMeasures');
+        if (!fn) return false;
+        return fn();
+    }, { clearSelection: true, skipWasmReselect: true });
     const handleRemoveTrailingEmptyMeasures = () => performMutation('remove trailing empty measures', async () => {
         const fn = requireMutation('removeTrailingEmptyMeasures');
         if (!fn) return false;
@@ -4692,6 +4699,7 @@ Each XPath must match exactly one node.`;
                     onSetBarLineType={handleSetBarLineType}
                     onAddVolta={handleAddVolta}
                     onInsertMeasures={handleInsertMeasures}
+                    onRemoveContainingMeasures={handleRemoveContainingMeasures}
                     onRemoveTrailingEmptyMeasures={handleRemoveTrailingEmptyMeasures}
                     insertMeasuresDisabled={!score?.insertMeasures}
                     parts={scoreParts}
