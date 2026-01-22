@@ -1,6 +1,7 @@
 #include <emscripten/emscripten.h>
 #include <algorithm>
 #include <set>
+#include <string>
 #include <vector>
 
 #include <QGuiApplication>
@@ -70,6 +71,7 @@
 #include "engraving/libmscore/staff.h"
 #include "engraving/libmscore/stafflines.h"
 #include "engraving/libmscore/spannermap.h"
+#include "engraving/layout/layoutoptions.h"
 #include "engraving/libmscore/utils.h"
 #include "engraving/libmscore/volta.h"
 #include "engraving/libmscore/key.h"
@@ -568,6 +570,389 @@ static bool selectionMeasureRange(MainScore& score, engraving::Measure*& startMe
 
     startMeasure = measure;
     endMeasure = measure;
+    return true;
+}
+
+static engraving::Measure* measureAtIndex(MainScore& score, int measureIndex)
+{
+    if (measureIndex < 0) {
+        return nullptr;
+    }
+
+    int index = 0;
+    for (auto* measure = score->firstMeasureMM(); measure; measure = measure->nextMeasureMM()) {
+        if (index == measureIndex) {
+            return measure;
+        }
+        ++index;
+    }
+
+    return nullptr;
+}
+
+static int measureCount(MainScore& score)
+{
+    int count = 0;
+    for (auto* measure = score->firstMeasureMM(); measure; measure = measure->nextMeasureMM()) {
+        ++count;
+    }
+    return count;
+}
+
+static bool partStaffRange(const engraving::Part* part, engraving::staff_idx_t& staffStart, engraving::staff_idx_t& staffEnd)
+{
+    staffStart = mu::nidx;
+    staffEnd = mu::nidx;
+
+    if (!part) {
+        return false;
+    }
+
+    const auto& staves = part->staves();
+    if (staves.empty()) {
+        return false;
+    }
+
+    staffStart = staves.front()->idx();
+    staffEnd = staffStart + 1;
+
+    for (const auto* staff : staves) {
+        if (!staff) {
+            continue;
+        }
+        const auto idx = staff->idx();
+        if (idx < staffStart) {
+            staffStart = idx;
+        }
+        if (idx + 1 > staffEnd) {
+            staffEnd = idx + 1;
+        }
+    }
+
+    return staffStart != mu::nidx && staffEnd != mu::nidx;
+}
+
+static std::string fractionToString(const engraving::Fraction& fraction)
+{
+    if (!fraction.isValid() || fraction.denominator() == 0) {
+        return "?";
+    }
+
+    return std::to_string(fraction.numerator()) + "/" + std::to_string(fraction.denominator());
+}
+
+static bool durationBaseFraction(engraving::DurationType type, int& numerator, int& denominator)
+{
+    numerator = 0;
+    denominator = 0;
+
+    switch (type) {
+    case engraving::DurationType::V_1024TH: numerator = 1; denominator = 1024; break;
+    case engraving::DurationType::V_512TH: numerator = 1; denominator = 512; break;
+    case engraving::DurationType::V_256TH: numerator = 1; denominator = 256; break;
+    case engraving::DurationType::V_128TH: numerator = 1; denominator = 128; break;
+    case engraving::DurationType::V_64TH: numerator = 1; denominator = 64; break;
+    case engraving::DurationType::V_32ND: numerator = 1; denominator = 32; break;
+    case engraving::DurationType::V_16TH: numerator = 1; denominator = 16; break;
+    case engraving::DurationType::V_EIGHTH: numerator = 1; denominator = 8; break;
+    case engraving::DurationType::V_QUARTER: numerator = 1; denominator = 4; break;
+    case engraving::DurationType::V_HALF: numerator = 1; denominator = 2; break;
+    case engraving::DurationType::V_WHOLE: numerator = 1; denominator = 1; break;
+    case engraving::DurationType::V_BREVE: numerator = 2; denominator = 1; break;
+    case engraving::DurationType::V_LONG: numerator = 4; denominator = 1; break;
+    default:
+        return false;
+    }
+
+    return true;
+}
+
+static std::string durationToken(const engraving::ChordRest* chordRest)
+{
+    if (!chordRest) {
+        return "?";
+    }
+
+    if (chordRest->isRest()) {
+        auto* rest = static_cast<const engraving::Rest*>(chordRest);
+        if (rest->isFullMeasureRest()) {
+            return "M";
+        }
+    }
+
+    engraving::TDuration duration = chordRest->actualDurationType();
+    if (!duration.isValid()) {
+        duration = chordRest->durationType();
+    }
+
+    int numerator = 0;
+    int denominator = 0;
+    if (!durationBaseFraction(duration.type(), numerator, denominator)) {
+        return "?";
+    }
+
+    std::string base = (numerator == 1)
+        ? std::to_string(denominator)
+        : std::to_string(numerator) + "/" + std::to_string(denominator);
+
+    if (duration.dots() > 0) {
+        base.append(static_cast<size_t>(duration.dots()), '.');
+    }
+
+    return base;
+}
+
+static std::string chordToken(const engraving::Chord* chord)
+{
+    if (!chord) {
+        return "N?:?";
+    }
+
+    struct PitchInfo {
+        int pitch = 0;
+        int pc = 0;
+        int octave = 0;
+    };
+
+    std::vector<PitchInfo> pitches;
+    pitches.reserve(chord->notes().size());
+    for (const auto* note : chord->notes()) {
+        if (!note) {
+            continue;
+        }
+        const int pitch = note->epitch();
+        int pc = pitch % 12;
+        if (pc < 0) {
+            pc += 12;
+        }
+        pitches.push_back({ pitch, pc, note->octave() });
+    }
+
+    std::sort(pitches.begin(), pitches.end(), [](const PitchInfo& a, const PitchInfo& b) {
+        return a.pitch < b.pitch;
+    });
+
+    std::string noteList;
+    for (const auto& info : pitches) {
+        if (!noteList.empty()) {
+            noteList += "+";
+        }
+        noteList += std::to_string(info.pc) + "o" + std::to_string(info.octave);
+    }
+
+    return "N" + noteList + ":" + durationToken(chord);
+}
+
+static std::string voiceSignature(const engraving::Measure* measure, engraving::staff_idx_t staffIdx, int voice)
+{
+    if (!measure) {
+        return "";
+    }
+
+    std::string signature;
+    for (auto* segment = measure->first(engraving::SegmentType::ChordRest); segment; segment = segment->next()) {
+        if (!(segment->segmentType() & engraving::SegmentType::ChordRest)) {
+            continue;
+        }
+
+        auto* element = segment->element(staffIdx * mu::engraving::VOICES + voice);
+        if (!element) {
+            continue;
+        }
+
+        std::string token;
+        if (element->isChord()) {
+            token = chordToken(static_cast<engraving::Chord*>(element));
+        } else if (element->isRest()) {
+            token = "R:" + durationToken(static_cast<engraving::Rest*>(element));
+        } else {
+            continue;
+        }
+
+        if (!signature.empty()) {
+            signature += " ";
+        }
+        signature += token;
+    }
+
+    return signature;
+}
+
+static std::string measureSignature(engraving::Part* part, engraving::Measure* measure)
+{
+    if (!part || !measure) {
+        return "";
+    }
+
+    std::string signature = fractionToString(measure->timesig());
+
+    signature += "|";
+    std::string keyToken = "?";
+    if (!part->staves().empty()) {
+        if (auto* staff = part->staves().front()) {
+            const auto keyEvent = staff->keySigEvent(measure->tick());
+            if (keyEvent.isValid()) {
+                keyToken = std::to_string(static_cast<int>(keyEvent.key()));
+            }
+        }
+    }
+    signature += keyToken;
+
+    signature += "|";
+    signature += std::to_string(static_cast<int>(measure->endBarLineType()));
+
+    signature += "|";
+    bool firstStaff = true;
+    for (const auto* staff : part->staves()) {
+        if (!staff) {
+            continue;
+        }
+        if (!firstStaff) {
+            signature += ";";
+        }
+        firstStaff = false;
+
+        const auto staffIdx = staff->idx();
+        std::string staffSig = "S" + std::to_string(staffIdx) + ":";
+        for (int voice = 0; voice < mu::engraving::VOICES; ++voice) {
+            if (voice > 0) {
+                staffSig += ",";
+            }
+            staffSig += "V" + std::to_string(voice) + "=";
+            staffSig += voiceSignature(measure, staffIdx, voice);
+        }
+        signature += staffSig;
+    }
+
+    return signature;
+}
+
+WasmRes _measureSignatureCount(uintptr_t score_ptr, int partIndex, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    if (!partFromIndex(score, partIndex)) {
+        return WasmRes(static_cast<uint32_t>(0));
+    }
+
+    const uint32_t count = static_cast<uint32_t>(measureCount(score));
+    return WasmRes(count);
+}
+
+WasmRes _measureSignatureAt(uintptr_t score_ptr, int partIndex, int measureIndex, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    auto* part = partFromIndex(score, partIndex);
+    if (!part) {
+        return WasmRes(String());
+    }
+
+    auto* measure = measureAtIndex(score, measureIndex);
+    if (!measure) {
+        return WasmRes(String());
+    }
+
+    const std::string signature = measureSignature(part, measure);
+    return WasmRes(String::fromUtf8(signature.c_str()));
+}
+
+WasmRes _measureSignatures(uintptr_t score_ptr, int partIndex, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    auto* part = partFromIndex(score, partIndex);
+    if (!part) {
+        return WasmRes(String::fromUtf8("[]"));
+    }
+
+    QJsonArray signatures;
+    for (auto* measure = score->firstMeasureMM(); measure; measure = measure->nextMeasureMM()) {
+        const std::string signature = measureSignature(part, measure);
+        signatures.append(QString::fromUtf8(signature.c_str()));
+    }
+
+    const QJsonDocument doc(signatures);
+    return WasmRes(doc.toJson(QJsonDocument::Compact));
+}
+
+WasmRes _measureLineBreaks(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    QJsonArray breaks;
+    for (auto* measure = score->firstMeasureMM(); measure; measure = measure->nextMeasureMM()) {
+        breaks.append(measure->lineBreak());
+    }
+    const QJsonDocument doc(breaks);
+    return WasmRes(doc.toJson(QJsonDocument::Compact));
+}
+
+bool _setMeasureLineBreaks(uintptr_t score_ptr, const char* data, uint32_t size, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    if (!data || size == 0) {
+        LOGW() << "setMeasureLineBreaks: empty payload";
+        return false;
+    }
+
+    QJsonParseError parseError;
+    const QJsonDocument doc = QJsonDocument::fromJson(QByteArray(data, static_cast<int>(size)), &parseError);
+    if (doc.isNull() || !doc.isArray()) {
+        LOGW() << "setMeasureLineBreaks: invalid payload at offset " << parseError.offset
+               << " error " << parseError.error;
+        return false;
+    }
+
+    const QJsonArray breaks = doc.array();
+    int index = 0;
+    for (auto* measure = score->firstMeasureMM(); measure; measure = measure->nextMeasureMM()) {
+        const bool enabled = index < breaks.size() ? breaks.at(index).toBool() : false;
+        if (measure->lineBreak() != enabled) {
+            measure->undoSetLineBreak(enabled);
+        }
+        ++index;
+    }
+    score->setLayoutAll();
+    score->update();
+    return true;
+}
+
+bool _selectPartMeasureByIndex(uintptr_t score_ptr, int partIndex, int measureIndex, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    auto* part = partFromIndex(score, partIndex);
+    if (!part) {
+        LOGW() << "selectPartMeasureByIndex: invalid part index " << partIndex;
+        return false;
+    }
+
+    auto* measure = measureAtIndex(score, measureIndex);
+    if (!measure) {
+        LOGW() << "selectPartMeasureByIndex: invalid measure index " << measureIndex;
+        return false;
+    }
+
+    engraving::staff_idx_t staffStart = mu::nidx;
+    engraving::staff_idx_t staffEnd = mu::nidx;
+    if (!partStaffRange(part, staffStart, staffEnd)) {
+        LOGW() << "selectPartMeasureByIndex: no staves for part " << partIndex;
+        return false;
+    }
+
+    auto* startSeg = measure->first(engraving::SegmentType::ChordRest);
+    auto* endSeg = measure->last();
+    if (!startSeg) {
+        startSeg = measure->first();
+    }
+
+    if (!startSeg || !endSeg) {
+        LOGW() << "selectPartMeasureByIndex: empty measure " << measureIndex;
+        return false;
+    }
+
+    score->deselectAll();
+    score->selection().setRange(startSeg, endSeg, staffStart, staffEnd);
+    score->selection().setState(engraving::SelState::RANGE);
+    score->selection().setActiveTrack(staffStart * mu::engraving::VOICES);
+    score->updateSelection();
+    score->setSelectionChanged(true);
     return true;
 }
 
@@ -1273,9 +1658,6 @@ WasmRes _saveMsc(uintptr_t score_ptr, bool compressed, int excerptId) {
 WasmRes _saveSvg(uintptr_t score_ptr, int pageNumber, bool drawPageBackground, bool highlightSelection, int excerptId) {
     MainScore score(score_ptr, excerptId);
 
-    // config
-    score->switchToPageMode();
-
     // For range selections with highlighting, convert to list temporarily
     bool hadRangeSelection = false;
     engraving::Segment* savedStartSeg = nullptr;
@@ -1368,8 +1750,6 @@ WasmRes _saveSvg(uintptr_t score_ptr, int pageNumber, bool drawPageBackground, b
 WasmRes _savePng(uintptr_t score_ptr, int pageNumber, bool drawPageBackground, bool transparent, int excerptId) {
     MainScore score(score_ptr, excerptId);
 
-    // config
-    score->switchToPageMode();
     INotationWriter::Options options {
         { INotationWriter::OptionKey::PAGE_NUMBER, Val(pageNumber) },
         { INotationWriter::OptionKey::TRANSPARENT_BACKGROUND, Val(!drawPageBackground) },
@@ -1462,8 +1842,6 @@ WasmRes _saveAudio(uintptr_t score_ptr, const char* format, int excerptId) {
  */
 WasmRes _savePositions(uintptr_t score_ptr, bool ofSegments, int excerptId) {
     MainScore score(score_ptr, excerptId);
-    score->switchToPageMode();
-
     using W = notation::PositionJsonWriter;
     W writer(ofSegments ? W::ElementType::SEGMENT : W::ElementType::MEASURE);
     
@@ -2326,6 +2704,33 @@ bool _relayout(uintptr_t score_ptr, int excerptId)
     score->setLayoutAll();
     score->update();
     return true;
+}
+
+bool _setLayoutMode(uintptr_t score_ptr, int layoutMode, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    const int minMode = static_cast<int>(engraving::LayoutMode::PAGE);
+    const int maxMode = static_cast<int>(engraving::LayoutMode::HORIZONTAL_FIXED);
+    if (layoutMode < minMode || layoutMode > maxMode) {
+        LOGW() << "setLayoutMode: invalid mode " << layoutMode;
+        return false;
+    }
+
+    const auto mode = static_cast<engraving::LayoutMode>(layoutMode);
+    if (score->layoutMode() == mode) {
+        return true;
+    }
+
+    score->setLayoutMode(mode);
+    score->setLayoutAll();
+    score->update();
+    return true;
+}
+
+WasmRes _getLayoutMode(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    return WasmRes(static_cast<uint32_t>(score->layoutMode()));
 }
 
 bool _toggleDot(uintptr_t score_ptr, int excerptId)
@@ -3876,6 +4281,31 @@ extern "C" {
     };
 
     EMSCRIPTEN_KEEPALIVE
+    WasmResBytes measureSignatureCount(uintptr_t score_ptr, int partIndex, int excerptId = -1) {
+        return _measureSignatureCount(score_ptr, partIndex, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    WasmResBytes measureSignatureAt(uintptr_t score_ptr, int partIndex, int measureIndex, int excerptId = -1) {
+        return _measureSignatureAt(score_ptr, partIndex, measureIndex, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    WasmResBytes measureSignatures(uintptr_t score_ptr, int partIndex, int excerptId = -1) {
+        return _measureSignatures(score_ptr, partIndex, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    WasmResBytes measureLineBreaks(uintptr_t score_ptr, int excerptId = -1) {
+        return _measureLineBreaks(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool setMeasureLineBreaks(uintptr_t score_ptr, const char* data, uint32_t size, int excerptId = -1) {
+        return _setMeasureLineBreaks(score_ptr, data, size, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
     WasmResBytes saveXml(uintptr_t score_ptr, int excerptId = -1) {
         return _saveXml(score_ptr, excerptId);
     };
@@ -3923,6 +4353,11 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool selectMeasureAtPoint(uintptr_t score_ptr, int pageNumber, double x, double y, int excerptId = -1) {
         return _selectMeasureAtPoint(score_ptr, pageNumber, x, y, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool selectPartMeasureByIndex(uintptr_t score_ptr, int partIndex, int measureIndex, int excerptId = -1) {
+        return _selectPartMeasureByIndex(score_ptr, partIndex, measureIndex, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE
@@ -4044,6 +4479,16 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool relayout(uintptr_t score_ptr, int excerptId = -1) {
         return _relayout(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool setLayoutMode(uintptr_t score_ptr, int layoutMode, int excerptId = -1) {
+        return _setLayoutMode(score_ptr, layoutMode, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    WasmResBytes getLayoutMode(uintptr_t score_ptr, int excerptId = -1) {
+        return _getLayoutMode(score_ptr, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE

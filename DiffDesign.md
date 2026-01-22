@@ -53,6 +53,20 @@ Last updated: 2025-02-14
 - Multi-score in one module is theoretically possible but risky due to global context.
 - To make multi-score reliable, consider adding a binding like `setCurrentProject(score_ptr)` and calling it before each operation.
 
+## Continuous View (Pageless)
+- MuseScore supports continuous layout via `LayoutMode::LINE` (vertical continuous).
+- webmscore previously forced PAGE mode during SVG/position exports; added a `setLayoutMode` binding and removed forced PAGE mode so compare can render as continuous.
+
+## Reflow Mode (Text-Diff Layout)
+- Use `LayoutMode::SYSTEM` to keep a continuous view while honoring line breaks.
+- Add WASM bindings to get/set measure line breaks in bulk:
+  - `measureLineBreaks()` -> JSON array of booleans.
+  - `setMeasureLineBreaks(breaks)` -> applies line breaks without undo history.
+- Compare UI adds a `Score/Reflow` toggle:
+  - Reflow is the default compare view.
+  - Reflow adds line breaks before and after non-matching measure blocks (keeps matching runs flowing).
+  - Store original breaks per score and restore when reflow is disabled or compare closes.
+
 ## Swap Implementation Options
 1) Selection MIME copy/paste (WASM-native)
    - Use `selectionMimeType` + `selectionMimeData` on source,
@@ -80,16 +94,19 @@ Last updated: 2025-02-14
 
 #### Recommended Signature Format (WASM-side)
 - Goal: stable across layout changes, sensitive to musical content.
-- Per-part, per-measure signature string: `TS|KEY|BAR|V1|V2|V3|V4`.
+- Per-part, per-measure signature string:
+  `TS|KEY|BAR|S<staffIdx>:V0=<...>,V1=<...>,V2=<...>,V3=<...>;S<staffIdx>:...`
   - `TS`: time signature (e.g., `4/4`, `3/8`).
-  - `KEY`: key signature fifths (e.g., `0`, `-1`, `2`).
+  - `KEY`: key signature fifths (e.g., `0`, `-1`, `2`) or `?` if unknown.
   - `BAR`: barline type (enum or short token).
-  - `V1..V4`: voice tokens, each a compact sequence of events.
+  - `S<staffIdx>`: staff lanes within the part.
+  - `V0..V3`: voice tokens per staff, each a compact sequence of events.
     - Event token: `N<pc><oct>:<dur><dots>` for notes, `R:<dur><dots>` for rests.
-    - `pc` = pitch class 0-11, `oct` = octave number (optional if too noisy).
-    - `dur` = denominator-based duration (e.g., `4`, `8`, `16`), `dots` = `.` count.
+    - `pc` = pitch class 0-11, `oct` = octave number.
+    - `dur` = base duration value (e.g., `4`, `8`, `16`, `2/1`, `4/1`), `dots` = `.` count.
     - Chords: sort pitch classes ascending and join with `+` (e.g., `N0+4+7:4`).
-- Example: `4/4|0|S|N0+4+7:4 R:4 N2:8 N4:8|R:1| | `
+- Full-measure rests use `R:M`.
+- Example: `4/4|0|1|S0:V0=N0o4+4o4+7o4:4 R:4,V1=,V2=,V3=`
 
 ##### Phased Detail Strategy
 - Phase A (start): pitches + durations + rests + time/key/barline.
@@ -102,6 +119,7 @@ Last updated: 2025-02-14
 - `measureSignatureAt(score_ptr, partIndex, measureIndex)` -> UTF-8 string signature.
 - Optional batch: `measureSignatures(score_ptr, partIndex)` -> JSON array of strings.
 - Optional: `measureMetaAt(score_ptr, partIndex, measureIndex)` -> `{number, tick, timeSig, keySig, barline}` for debugging.
+- Measure indices should align with `measurePositions()` (i.e., `firstMeasureMM`/`nextMeasureMM` traversal).
 
 ## Open Questions
 - Do we want an explicit confidence indicator when content-aware alignment disagrees with index?
@@ -111,6 +129,7 @@ Last updated: 2025-02-14
 ## Implementation Plan
 1) Add WASM bindings for per-part measure signatures and swap actions (insert before/overwrite/after). Expose them in the webmscore JS API.
 2) Create a dual-score compare view: two independent webmscore workers, side-by-side SVG rendering, and locked scroll/zoom sync.
-3) Implement content-aware alignment (LCS on measure signatures per part) with index fallback; map measure bounds to gutter arrow overlays.
-4) Wire swap UI: bi-directional arrow clusters per measure/part, destination-only undo, and re-render after mutations.
-5) Add basic test/QA hooks: unit tests for alignment and a manual checklist for swap correctness.
+3) Add reflow compare layout: `SYSTEM` layout mode plus per-measure line breaks (toggleable, restores on exit).
+4) Implement content-aware alignment (LCS on measure signatures per part) with index fallback; map measure bounds to gutter arrow overlays.
+5) Wire swap UI: bi-directional arrow clusters per measure/part, destination-only undo, and re-render after mutations.
+6) Add basic test/QA hooks: unit tests for alignment and a manual checklist for swap correctness.

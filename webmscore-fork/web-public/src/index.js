@@ -375,6 +375,69 @@ class WebMscore {
     }
 
     /**
+     * Get the number of measures in a part (measure index basis for signatures).
+     * @param {number} partIndex
+     * @returns {Promise<number>}
+     */
+    async measureSignatureCount(partIndex) {
+        const dataptr = Module.ccall('measureSignatureCount', 'number', ['number', 'number', 'number'], [this.scoreptr, partIndex, this.excerptId])
+        return WasmRes.readNum(dataptr)
+    }
+
+    /**
+     * Get a compact signature string for a specific part measure.
+     * @param {number} partIndex
+     * @param {number} measureIndex
+     * @returns {Promise<string>}
+     */
+    async measureSignatureAt(partIndex, measureIndex) {
+        const dataptr = Module.ccall(
+            'measureSignatureAt',
+            'number',
+            ['number', 'number', 'number', 'number'],
+            [this.scoreptr, partIndex, measureIndex, this.excerptId]
+        )
+        return WasmRes.readText(dataptr)
+    }
+
+    /**
+     * Get all measure signatures for a part.
+     * @param {number} partIndex
+     * @returns {Promise<string[]>}
+     */
+    async measureSignatures(partIndex) {
+        const dataptr = Module.ccall('measureSignatures', 'number', ['number', 'number', 'number'], [this.scoreptr, partIndex, this.excerptId])
+        return JSON.parse(WasmRes.readText(dataptr))
+    }
+
+    /**
+     * Get line break flags for each measure in the score.
+     * @returns {Promise<boolean[]>}
+     */
+    async measureLineBreaks() {
+        const dataptr = Module.ccall('measureLineBreaks', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])
+        return JSON.parse(WasmRes.readText(dataptr))
+    }
+
+    /**
+     * Set line break flags for each measure in the score.
+     * @param {boolean[]} breaks
+     * @returns {Promise<boolean>}
+     */
+    async setMeasureLineBreaks(breaks) {
+        const payload = JSON.stringify(Array.isArray(breaks) ? breaks : [])
+        const payloadPtr = getStrPtr(payload)
+        const result = Module.ccall(
+            'setMeasureLineBreaks',
+            'boolean',
+            ['number', 'number', 'number', 'number'],
+            [this.scoreptr, payloadPtr, payload.length, this.excerptId]
+        )
+        freePtr(payloadPtr)
+        return result
+    }
+
+    /**
      * Get score metadata
      * @returns {Promise<import('../schemas').ScoreMetadata>}
      */
@@ -684,6 +747,20 @@ class WebMscore {
             'boolean',
             ['number', 'number', 'number', 'number', 'number'],
             [this.scoreptr, pageNumber, x, y, this.excerptId]
+        )
+    }
+
+    /**
+     * Select a measure by index for a specific part.
+     * @param {number} partIndex
+     * @param {number} measureIndex
+     * @returns {Promise<boolean>}
+     */
+    async selectPartMeasureByIndex(partIndex, measureIndex) {
+        return Module.ccall('selectPartMeasureByIndex',
+            'boolean',
+            ['number', 'number', 'number', 'number'],
+            [this.scoreptr, partIndex, measureIndex, this.excerptId]
         )
     }
 
@@ -1029,6 +1106,24 @@ class WebMscore {
      */
     async relayout() {
         return Module.ccall('relayout', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
+    }
+
+    /**
+     * Set the layout mode for rendering (e.g., PAGE, LINE).
+     * @param {number} layoutMode see engraving::LayoutMode enum
+     * @returns {Promise<boolean>}
+     */
+    async setLayoutMode(layoutMode) {
+        return Module.ccall('setLayoutMode', 'boolean', ['number', 'number', 'number'], [this.scoreptr, layoutMode, this.excerptId])
+    }
+
+    /**
+     * Get the current layout mode.
+     * @returns {Promise<number>}
+     */
+    async getLayoutMode() {
+        const dataptr = Module.ccall('getLayoutMode', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])
+        return WasmRes.readNum(dataptr)
     }
 
     /**

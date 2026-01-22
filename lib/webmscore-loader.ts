@@ -17,12 +17,18 @@ export interface Score {
     metadata: () => Promise<Record<string, unknown>>;
     measurePositions: () => Promise<Positions>;
     segmentPositions: () => Promise<Positions>;
+    measureSignatureCount?: (partIndex: number) => Promise<number> | number;
+    measureSignatureAt?: (partIndex: number, measureIndex: number) => Promise<string> | string;
+    measureSignatures?: (partIndex: number) => Promise<string[]> | string[];
+    measureLineBreaks?: () => Promise<boolean[]> | boolean[];
+    setMeasureLineBreaks?: (breaks: boolean[]) => Promise<boolean> | boolean;
     /**
      * Optional mutation/undo surface exposed by custom webmscore builds.
      * These methods may be undefined if the WASM bindings were not compiled with mutation support.
      */
     selectElementAtPoint?: (pageNumber: number, x: number, y: number) => Promise<unknown> | unknown;
     selectMeasureAtPoint?: (pageNumber: number, x: number, y: number) => Promise<unknown> | unknown;
+    selectPartMeasureByIndex?: (partIndex: number, measureIndex: number) => Promise<unknown> | unknown;
     selectTextElementAtPoint?: (pageNumber: number, x: number, y: number) => Promise<unknown> | unknown;
     selectElementAtPointWithMode?: (
         pageNumber: number,
@@ -62,6 +68,8 @@ export interface Score {
     undo?: () => Promise<unknown> | unknown;
     redo?: () => Promise<unknown> | unknown;
     relayout?: () => Promise<unknown> | unknown;
+    setLayoutMode?: (layoutMode: number) => Promise<unknown> | unknown;
+    getLayoutMode?: () => Promise<number> | number;
     setTimeSignature?: (numerator: number, denominator: number) => Promise<unknown> | unknown;
     setTimeSignatureWithType?: (numerator: number, denominator: number, timeSigType: number) => Promise<unknown> | unknown;
     setKeySignature?: (fifths: number) => Promise<unknown> | unknown;

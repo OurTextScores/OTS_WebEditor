@@ -290,6 +290,51 @@ class WebMscoreW {
     }
 
     /**
+     * Get the number of measures in a part (measure index basis for signatures).
+     * @param {number} partIndex
+     * @returns {Promise<number>}
+     */
+    measureSignatureCount(partIndex) {
+        return this.rpc('measureSignatureCount', [partIndex])
+    }
+
+    /**
+     * Get a compact signature string for a specific part measure.
+     * @param {number} partIndex
+     * @param {number} measureIndex
+     * @returns {Promise<string>}
+     */
+    measureSignatureAt(partIndex, measureIndex) {
+        return this.rpc('measureSignatureAt', [partIndex, measureIndex])
+    }
+
+    /**
+     * Get all measure signatures for a part.
+     * @param {number} partIndex
+     * @returns {Promise<string[]>}
+     */
+    measureSignatures(partIndex) {
+        return this.rpc('measureSignatures', [partIndex])
+    }
+
+    /**
+     * Get line break flags for each measure in the score.
+     * @returns {Promise<boolean[]>}
+     */
+    measureLineBreaks() {
+        return this.rpc('measureLineBreaks')
+    }
+
+    /**
+     * Set line break flags for each measure in the score.
+     * @param {boolean[]} breaks
+     * @returns {Promise<boolean>}
+     */
+    setMeasureLineBreaks(breaks) {
+        return this.rpc('setMeasureLineBreaks', [breaks])
+    }
+
+    /**
      * Get score metadata
      * @returns {Promise<import('../schemas').ScoreMetadata>}
      */
@@ -460,6 +505,16 @@ class WebMscoreW {
      */
     selectMeasureAtPoint(pageNumber, x, y) {
         return this.rpc('selectMeasureAtPoint', [pageNumber, x, y])
+    }
+
+    /**
+     * Select a measure by index for a specific part.
+     * @param {number} partIndex
+     * @param {number} measureIndex
+     * @returns {Promise<boolean>}
+     */
+    selectPartMeasureByIndex(partIndex, measureIndex) {
+        return this.rpc('selectPartMeasureByIndex', [partIndex, measureIndex])
     }
 
     /**
@@ -865,6 +920,23 @@ class WebMscoreW {
      */
     relayout() {
         return this.rpc('relayout')
+    }
+
+    /**
+     * Set the layout mode for rendering (e.g., PAGE, LINE).
+     * @param {number} layoutMode
+     * @returns {Promise<boolean>}
+     */
+    setLayoutMode(layoutMode) {
+        return this.rpc('setLayoutMode', [layoutMode])
+    }
+
+    /**
+     * Get the current layout mode.
+     * @returns {Promise<number>}
+     */
+    getLayoutMode() {
+        return this.rpc('getLayoutMode')
     }
 
     /**

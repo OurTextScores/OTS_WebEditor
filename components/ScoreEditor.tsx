@@ -33,6 +33,29 @@ type SelectionFallback = {
     point: { page: number; x: number; y: number };
 } | null;
 
+type MeasureAlignmentRow = {
+    leftIndex: number | null;
+    rightIndex: number | null;
+    match: boolean;
+};
+
+type PartAlignment = {
+    partIndex: number;
+    rows: MeasureAlignmentRow[];
+    strategy: 'index' | 'lcs';
+    lcsRatio: number;
+    leftCount: number;
+    rightCount: number;
+};
+
+const LAYOUT_MODES = {
+    PAGE: 0,
+    FLOAT: 1,
+    LINE: 2,
+    SYSTEM: 3,
+    HORIZONTAL_FIXED: 4,
+} as const;
+
 type MutationMethods = Pick<
     Score,
     | 'selectElementAtPoint'
@@ -313,12 +336,19 @@ export default function ScoreEditor() {
     const [compareZoom, setCompareZoom] = useState<number | null>(null);
     const [compareLeftSvgSize, setCompareLeftSvgSize] = useState<{ width: number; height: number } | null>(null);
     const [compareRightSvgSize, setCompareRightSvgSize] = useState<{ width: number; height: number } | null>(null);
+    const [compareAlignments, setCompareAlignments] = useState<PartAlignment[]>([]);
+    const [compareAlignmentLoading, setCompareAlignmentLoading] = useState(false);
+    const [compareContinuousMode, setCompareContinuousMode] = useState(false);
+    const [compareReflowMode, setCompareReflowMode] = useState(false);
+    const compareLayoutRestoreRef = useRef<number | null>(null);
+    const compareLineBreakRestoreRef = useRef<{ left: boolean[]; right: boolean[] } | null>(null);
     const compareLeftContainerRef = useRef<HTMLDivElement>(null);
     const compareRightContainerRef = useRef<HTMLDivElement>(null);
     const compareLeftWrapperRef = useRef<HTMLDivElement>(null);
     const compareRightWrapperRef = useRef<HTMLDivElement>(null);
     const compareLeftScrollRef = useRef<HTMLDivElement>(null);
     const compareRightScrollRef = useRef<HTMLDivElement>(null);
+    const compareGutterScrollRef = useRef<HTMLDivElement>(null);
     const compareScrollSyncRef = useRef(false);
     const compareRightRenderInFlightRef = useRef(false);
     const [checkpointsCollapsed, setCheckpointsCollapsed] = useState(false);
@@ -378,6 +408,152 @@ export default function ScoreEditor() {
     const currentPageRef = useRef(currentPage);
     const aiKeyStorageKey = 'ots_openai_api_key';
     const autoFitPendingRef = useRef(true);
+
+    const fetchMeasureSignatures = useCallback(async (targetScore: Score, partIndex: number) => {
+        if (targetScore.measureSignatures) {
+            const signatures = await targetScore.measureSignatures(partIndex);
+            return Array.isArray(signatures) ? signatures : [];
+        }
+
+        if (targetScore.measureSignatureCount && targetScore.measureSignatureAt) {
+            const count = await targetScore.measureSignatureCount(partIndex);
+            const signatures: string[] = [];
+            for (let i = 0; i < count; i += 1) {
+                signatures.push(await targetScore.measureSignatureAt(partIndex, i));
+            }
+            return signatures;
+        }
+
+        return [];
+    }, []);
+
+    const fetchMeasureLineBreaks = useCallback(async (targetScore: Score) => {
+        if (!targetScore.measureLineBreaks) {
+            return [];
+        }
+        const breaks = await targetScore.measureLineBreaks();
+        return Array.isArray(breaks) ? breaks.map(Boolean) : [];
+    }, []);
+
+    const applyMeasureLineBreaks = useCallback(async (targetScore: Score, breaks: boolean[]) => {
+        if (!targetScore.setMeasureLineBreaks) {
+            return false;
+        }
+        return targetScore.setMeasureLineBreaks(breaks);
+    }, []);
+
+    const buildMismatchBlocks = useCallback((rows: MeasureAlignmentRow[]) => {
+        const blocks: Array<{ start: number; end: number }> = [];
+        let start = -1;
+        rows.forEach((row, index) => {
+            const mismatch = !row.match;
+            if (mismatch && start === -1) {
+                start = index;
+            }
+            if (!mismatch && start !== -1) {
+                blocks.push({ start, end: index - 1 });
+                start = -1;
+            }
+        });
+        if (start !== -1) {
+            blocks.push({ start, end: rows.length - 1 });
+        }
+        return blocks;
+    }, []);
+
+    const buildMismatchBreaks = useCallback(
+        (rows: MeasureAlignmentRow[], side: 'left' | 'right', measureCount: number) => {
+            const breaks = Array.from({ length: measureCount }, () => false);
+            if (!rows.length || measureCount <= 0) {
+                return breaks;
+            }
+            const blocks = buildMismatchBlocks(rows);
+            for (const block of blocks) {
+                let startIndex: number | null = null;
+                let endIndex: number | null = null;
+                for (let i = block.start; i <= block.end; i += 1) {
+                    const index = side === 'left' ? rows[i].leftIndex : rows[i].rightIndex;
+                    if (index === null) {
+                        continue;
+                    }
+                    if (startIndex === null) {
+                        startIndex = index;
+                    }
+                    endIndex = index;
+                }
+                if (startIndex === null || endIndex === null) {
+                    continue;
+                }
+                if (startIndex > 0 && startIndex - 1 < measureCount) {
+                    breaks[startIndex - 1] = true;
+                }
+                if (endIndex >= 0 && endIndex < measureCount) {
+                    breaks[endIndex] = true;
+                }
+            }
+            return breaks;
+        },
+        [buildMismatchBlocks],
+    );
+
+    const buildIndexAlignment = useCallback((left: string[], right: string[]): MeasureAlignmentRow[] => {
+        const total = Math.max(left.length, right.length);
+        const rows: MeasureAlignmentRow[] = [];
+        for (let i = 0; i < total; i += 1) {
+            const leftIndex = i < left.length ? i : null;
+            const rightIndex = i < right.length ? i : null;
+            const match = leftIndex !== null && rightIndex !== null && left[leftIndex] === right[rightIndex];
+            rows.push({ leftIndex, rightIndex, match });
+        }
+        return rows;
+    }, []);
+
+    const buildLcsAlignment = useCallback((left: string[], right: string[]) => {
+        const n = left.length;
+        const m = right.length;
+        const dp: number[][] = Array.from({ length: n + 1 }, () => Array(m + 1).fill(0));
+
+        for (let i = 0; i < n; i += 1) {
+            for (let j = 0; j < m; j += 1) {
+                if (left[i] === right[j]) {
+                    dp[i + 1][j + 1] = dp[i][j] + 1;
+                } else {
+                    dp[i + 1][j + 1] = Math.max(dp[i][j + 1], dp[i + 1][j]);
+                }
+            }
+        }
+
+        const rows: MeasureAlignmentRow[] = [];
+        let i = n;
+        let j = m;
+        while (i > 0 && j > 0) {
+            if (left[i - 1] === right[j - 1]) {
+                rows.push({ leftIndex: i - 1, rightIndex: j - 1, match: true });
+                i -= 1;
+                j -= 1;
+            } else if (dp[i - 1][j] >= dp[i][j - 1]) {
+                rows.push({ leftIndex: i - 1, rightIndex: null, match: false });
+                i -= 1;
+            } else {
+                rows.push({ leftIndex: null, rightIndex: j - 1, match: false });
+                j -= 1;
+            }
+        }
+        while (i > 0) {
+            rows.push({ leftIndex: i - 1, rightIndex: null, match: false });
+            i -= 1;
+        }
+        while (j > 0) {
+            rows.push({ leftIndex: null, rightIndex: j - 1, match: false });
+            j -= 1;
+        }
+
+        rows.reverse();
+        const lcsLength = dp[n][m];
+        const maxLen = Math.max(n, m);
+        const lcsRatio = maxLen > 0 ? lcsLength / maxLen : 0;
+        return { rows, lcsRatio };
+    }, []);
 
     useEffect(() => {
         scoreRef.current = score;
@@ -644,7 +820,23 @@ export default function ScoreEditor() {
     }, [newScoreCommonInstrumentPreferences, newScoreInstrumentOptions]);
 
     const comparePartCount = Math.max(scoreParts.length, compareRightParts.length, 1);
-    const compareEffectiveZoom = compareZoom ?? zoom;
+    const compareSupportsReflow = Boolean(
+        score?.measureLineBreaks
+        && score?.setMeasureLineBreaks
+        && compareRightScore?.measureLineBreaks
+        && compareRightScore?.setMeasureLineBreaks
+        && score?.setLayoutMode
+        && compareRightScore?.setLayoutMode,
+    );
+    const compareAlignmentByPart = useMemo(() => {
+        const map = new Map<number, PartAlignment>();
+        for (const alignment of compareAlignments) {
+            map.set(alignment.partIndex, alignment);
+        }
+        return map;
+    }, [compareAlignments]);
+    const compareDefaultZoom = 0.5;
+    const compareEffectiveZoom = compareZoom ?? compareDefaultZoom;
     const compareZoomStyle = {
         width: compareLeftSvgSize ? `${compareLeftSvgSize.width * compareEffectiveZoom}px` : 'auto',
         height: compareLeftSvgSize ? `${compareLeftSvgSize.height * compareEffectiveZoom}px` : 'auto',
@@ -655,8 +847,9 @@ export default function ScoreEditor() {
     };
     const compareOverlayStyle = toolbarHeight > 0 ? { top: `${toolbarHeight}px` } : undefined;
     const compareModalMaxHeight = toolbarHeight > 0
-        ? `calc(100vh - ${toolbarHeight + 48}px)`
-        : 'calc(100vh - 3rem)';
+        ? `calc(100dvh - ${toolbarHeight + 48}px)`
+        : 'calc(100dvh - 3rem)';
+    const compareModalMaxWidth = 'calc(100dvw - 3rem)';
 
     const newScoreTimeOptions = [
         { label: '4/4', numerator: 4, denominator: 4 },
@@ -2005,19 +2198,10 @@ ${partsBodyXml}
         if (!compareView || !score) {
             return;
         }
-        if (compareLeftContainerRef.current && containerRef.current) {
-            compareLeftContainerRef.current.innerHTML = containerRef.current.innerHTML;
-            const svg = compareLeftContainerRef.current.querySelector('svg');
-            if (svg instanceof SVGSVGElement) {
-                svg.style.width = '100%';
-                svg.style.height = '100%';
-            }
-            syncCompareSvgSize(compareLeftContainerRef.current, setCompareLeftSvgSize);
-            return;
-        }
-        void renderScoreToContainer(score, compareLeftContainerRef.current, currentPage, false)
+        const targetPage = compareContinuousMode ? 0 : currentPage;
+        void renderScoreToContainer(score, compareLeftContainerRef.current, targetPage, false)
             .then(() => syncCompareSvgSize(compareLeftContainerRef.current, setCompareLeftSvgSize));
-    }, [compareView, score, currentPage, renderScoreToContainer, syncCompareSvgSize]);
+    }, [compareView, score, currentPage, compareContinuousMode, renderScoreToContainer, syncCompareSvgSize]);
 
     useEffect(() => {
         if (!compareView || !compareRightScore) {
@@ -2032,7 +2216,9 @@ ${partsBodyXml}
         if (compareRightRenderInFlightRef.current) {
             return;
         }
-        const targetPage = Math.min(currentPage, compareRightPageCount - 1);
+        const targetPage = compareContinuousMode
+            ? 0
+            : Math.min(currentPage, compareRightPageCount - 1);
         compareRightRenderInFlightRef.current = true;
         void renderScoreToContainer(compareRightScore, compareRightContainerRef.current, targetPage, false)
             .then((rendered) => {
@@ -2052,8 +2238,274 @@ ${partsBodyXml}
         compareRightError,
         compareRightLoading,
         currentPage,
+        compareContinuousMode,
         renderScoreToContainer,
         syncCompareSvgSize,
+    ]);
+
+    useEffect(() => {
+        if (!compareView) {
+            setCompareContinuousMode(false);
+            setCompareReflowMode(false);
+            const restoreMode = compareLayoutRestoreRef.current;
+            compareLayoutRestoreRef.current = null;
+            if (restoreMode !== null && score?.setLayoutMode) {
+                void score
+                    .setLayoutMode(restoreMode)
+                    .then(() => renderScore(score, currentPageRef.current))
+                    .catch((err) => {
+                        console.warn('Failed to restore layout mode after compare:', err);
+                    });
+            }
+            return;
+        }
+
+        if (!score || !compareRightScore) {
+            setCompareContinuousMode(false);
+            return;
+        }
+        if (!score.setLayoutMode || !compareRightScore.setLayoutMode) {
+            setCompareContinuousMode(false);
+            return;
+        }
+
+        let canceled = false;
+        const enableContinuous = async () => {
+            try {
+                if (compareLayoutRestoreRef.current === null && score.getLayoutMode) {
+                    compareLayoutRestoreRef.current = await score.getLayoutMode();
+                }
+                const targetLayout = compareReflowMode ? LAYOUT_MODES.SYSTEM : LAYOUT_MODES.LINE;
+                await score.setLayoutMode(targetLayout);
+                await compareRightScore.setLayoutMode(targetLayout);
+                if (canceled) {
+                    return;
+                }
+                setCompareContinuousMode(true);
+                const targetPage = 0;
+                await renderScoreToContainer(score, compareLeftContainerRef.current, targetPage, false);
+                syncCompareSvgSize(compareLeftContainerRef.current, setCompareLeftSvgSize);
+                await renderScoreToContainer(compareRightScore, compareRightContainerRef.current, targetPage, false);
+                syncCompareSvgSize(compareRightContainerRef.current, setCompareRightSvgSize);
+            } catch (err) {
+                console.warn('Failed to enable continuous layout for compare:', err);
+                if (!canceled) {
+                    setCompareContinuousMode(false);
+                }
+            }
+        };
+
+        enableContinuous();
+        return () => {
+            canceled = true;
+        };
+    }, [compareView, score, compareRightScore, compareReflowMode, renderScore, renderScoreToContainer, syncCompareSvgSize]);
+
+    useEffect(() => {
+        if (compareView && compareReflowMode && !compareSupportsReflow) {
+            setCompareReflowMode(false);
+        }
+    }, [compareView, compareReflowMode, compareSupportsReflow]);
+
+    useEffect(() => {
+        if (!compareView) {
+            return;
+        }
+        if (!compareSupportsReflow) {
+            return;
+        }
+        setCompareReflowMode(true);
+    }, [compareView, compareSupportsReflow]);
+
+    useEffect(() => {
+        if (!compareView) {
+            const restore = compareLineBreakRestoreRef.current;
+            compareLineBreakRestoreRef.current = null;
+            if (restore && score) {
+                void applyMeasureLineBreaks(score, restore.left);
+            }
+            return;
+        }
+
+        if (!compareReflowMode) {
+            const restore = compareLineBreakRestoreRef.current;
+            if (!restore) {
+                return;
+            }
+            compareLineBreakRestoreRef.current = null;
+            if (!score || !compareRightScore) {
+                return;
+            }
+            if (!compareSupportsReflow) {
+                return;
+            }
+            void Promise.all([
+                applyMeasureLineBreaks(score, restore.left),
+                applyMeasureLineBreaks(compareRightScore, restore.right),
+            ]).then(() => {
+                const targetPage = compareContinuousMode ? 0 : currentPageRef.current;
+                void renderScoreToContainer(score, compareLeftContainerRef.current, targetPage, false)
+                    .then(() => syncCompareSvgSize(compareLeftContainerRef.current, setCompareLeftSvgSize));
+                void renderScoreToContainer(compareRightScore, compareRightContainerRef.current, targetPage, false)
+                    .then(() => syncCompareSvgSize(compareRightContainerRef.current, setCompareRightSvgSize));
+            });
+            return;
+        }
+
+        if (!compareView || !score || !compareRightScore) {
+            return;
+        }
+        if (!compareSupportsReflow) {
+            return;
+        }
+
+        let canceled = false;
+        const applyReflow = async () => {
+            const cached = compareLineBreakRestoreRef.current;
+            let leftBreaks = cached?.left ?? [];
+            let rightBreaks = cached?.right ?? [];
+            if (!cached) {
+                [leftBreaks, rightBreaks] = await Promise.all([
+                    fetchMeasureLineBreaks(score),
+                    fetchMeasureLineBreaks(compareRightScore),
+                ]);
+            }
+            if (canceled) {
+                return;
+            }
+            if (!compareLineBreakRestoreRef.current) {
+                compareLineBreakRestoreRef.current = { left: leftBreaks, right: rightBreaks };
+            }
+            const leftMeasureCount = leftBreaks.length
+                || Math.max(0, ...compareAlignments.map((alignment) => alignment.leftCount));
+            const rightMeasureCount = rightBreaks.length
+                || Math.max(0, ...compareAlignments.map((alignment) => alignment.rightCount));
+            const normalizedLeft = Array.from({ length: leftMeasureCount }, (_, index) => Boolean(leftBreaks[index]));
+            const normalizedRight = Array.from({ length: rightMeasureCount }, (_, index) => Boolean(rightBreaks[index]));
+            const leftMismatch = Array.from({ length: leftMeasureCount }, () => false);
+            const rightMismatch = Array.from({ length: rightMeasureCount }, () => false);
+            compareAlignments.forEach((alignment) => {
+                const leftPartBreaks = buildMismatchBreaks(alignment.rows, 'left', leftMeasureCount);
+                const rightPartBreaks = buildMismatchBreaks(alignment.rows, 'right', rightMeasureCount);
+                leftPartBreaks.forEach((value, index) => {
+                    if (value) {
+                        leftMismatch[index] = true;
+                    }
+                });
+                rightPartBreaks.forEach((value, index) => {
+                    if (value) {
+                        rightMismatch[index] = true;
+                    }
+                });
+            });
+            const leftReflow = normalizedLeft.map((value, index) => value || leftMismatch[index]);
+            const rightReflow = normalizedRight.map((value, index) => value || rightMismatch[index]);
+            await applyMeasureLineBreaks(score, leftReflow);
+            await applyMeasureLineBreaks(compareRightScore, rightReflow);
+            if (canceled) {
+                return;
+            }
+            const targetPage = compareContinuousMode ? 0 : currentPageRef.current;
+            await renderScoreToContainer(score, compareLeftContainerRef.current, targetPage, false);
+            syncCompareSvgSize(compareLeftContainerRef.current, setCompareLeftSvgSize);
+            await renderScoreToContainer(compareRightScore, compareRightContainerRef.current, targetPage, false);
+            syncCompareSvgSize(compareRightContainerRef.current, setCompareRightSvgSize);
+        };
+
+        applyReflow();
+        return () => {
+            canceled = true;
+        };
+    }, [
+        compareView,
+        compareReflowMode,
+        compareSupportsReflow,
+        score,
+        compareRightScore,
+        compareContinuousMode,
+        applyMeasureLineBreaks,
+        fetchMeasureLineBreaks,
+        compareAlignments,
+        buildMismatchBreaks,
+        renderScoreToContainer,
+        syncCompareSvgSize,
+    ]);
+
+    useEffect(() => {
+        if (!compareView || !score || !compareRightScore) {
+            setCompareAlignments([]);
+            setCompareAlignmentLoading(false);
+            return;
+        }
+
+        let canceled = false;
+        const loadAlignments = async () => {
+            setCompareAlignmentLoading(true);
+            try {
+                const partCount = Math.max(scoreParts.length, compareRightParts.length, 1);
+                const leftSignatures = await Promise.all(
+                    Array.from({ length: partCount }, (_, index) => fetchMeasureSignatures(score, index)),
+                );
+                const rightSignatures = await Promise.all(
+                    Array.from({ length: partCount }, (_, index) => fetchMeasureSignatures(compareRightScore, index)),
+                );
+                if (canceled) {
+                    return;
+                }
+
+                const alignments: PartAlignment[] = leftSignatures.map((left, index) => {
+                    const right = rightSignatures[index] ?? [];
+                    if (left.length === 0 && right.length === 0) {
+                        return {
+                            partIndex: index,
+                            rows: [],
+                            strategy: 'index',
+                            lcsRatio: 0,
+                            leftCount: 0,
+                            rightCount: 0,
+                        };
+                    }
+
+                    const { rows, lcsRatio } = buildLcsAlignment(left, right);
+                    const strategy = rows.some((row) => row.match) ? 'lcs' : 'index';
+                    const alignedRows = strategy === 'lcs' ? rows : buildIndexAlignment(left, right);
+
+                    return {
+                        partIndex: index,
+                        rows: alignedRows,
+                        strategy,
+                        lcsRatio,
+                        leftCount: left.length,
+                        rightCount: right.length,
+                    };
+                });
+
+                setCompareAlignments(alignments);
+            } catch (err) {
+                console.error('Failed to compute compare alignment', err);
+                if (!canceled) {
+                    setCompareAlignments([]);
+                }
+            } finally {
+                if (!canceled) {
+                    setCompareAlignmentLoading(false);
+                }
+            }
+        };
+
+        loadAlignments();
+        return () => {
+            canceled = true;
+        };
+    }, [
+        compareView,
+        score,
+        compareRightScore,
+        scoreParts.length,
+        compareRightParts.length,
+        fetchMeasureSignatures,
+        buildLcsAlignment,
+        buildIndexAlignment,
     ]);
 
     useEffect(() => {
@@ -2062,28 +2514,33 @@ ${partsBodyXml}
         }
         const left = compareLeftScrollRef.current;
         const right = compareRightScrollRef.current;
-        if (!left || !right) {
+        const gutter = compareGutterScrollRef.current;
+        if (!left || !right || !gutter) {
             return;
         }
 
-        const syncScroll = (source: HTMLDivElement, target: HTMLDivElement) => {
+        const syncScroll = (source: HTMLDivElement, target: HTMLDivElement, gutterTarget: HTMLDivElement) => {
             if (compareScrollSyncRef.current) {
                 return;
             }
             compareScrollSyncRef.current = true;
             target.scrollTop = source.scrollTop;
             target.scrollLeft = source.scrollLeft;
+            gutterTarget.scrollTop = source.scrollTop;
             compareScrollSyncRef.current = false;
         };
 
-        const handleLeftScroll = () => syncScroll(left, right);
-        const handleRightScroll = () => syncScroll(right, left);
+        const handleLeftScroll = () => syncScroll(left, right, gutter);
+        const handleRightScroll = () => syncScroll(right, left, gutter);
+        const handleGutterScroll = () => syncScroll(gutter, left, right);
         left.addEventListener('scroll', handleLeftScroll);
         right.addEventListener('scroll', handleRightScroll);
+        gutter.addEventListener('scroll', handleGutterScroll);
 
         return () => {
             left.removeEventListener('scroll', handleLeftScroll);
             right.removeEventListener('scroll', handleRightScroll);
+            gutter.removeEventListener('scroll', handleGutterScroll);
         };
     }, [compareView]);
 
@@ -2110,7 +2567,8 @@ ${partsBodyXml}
                 return;
             }
             const clamped = Math.max(0.2, Math.min(fitZoom, 1.5));
-            const nextZoom = Math.min(zoom, clamped);
+            const maxZoom = compareZoom ?? compareDefaultZoom;
+            const nextZoom = Math.min(maxZoom, clamped);
             if (compareZoom === null || Math.abs(compareZoom - nextZoom) > 0.01) {
                 setCompareZoom(nextZoom);
             }
@@ -2121,7 +2579,6 @@ ${partsBodyXml}
         compareRightError,
         currentPage,
         compareEffectiveZoom,
-        zoom,
         compareZoom,
         compareLeftSvgSize,
         compareRightSvgSize,
@@ -5809,13 +6266,13 @@ ${partsBodyXml}
 
             {compareView && (
                 <div
-                    className="fixed bottom-0 left-0 right-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-6"
+                    className="fixed bottom-0 left-0 right-0 z-50 flex items-start justify-center overflow-hidden bg-black/40 p-6"
                     style={compareOverlayStyle}
                     data-testid="checkpoint-compare-modal"
                 >
                     <div
-                        className="flex w-full flex-col gap-4 overflow-hidden rounded bg-white p-4 shadow-lg"
-                        style={{ maxHeight: compareModalMaxHeight }}
+                        className="flex min-h-0 w-full flex-col gap-4 overflow-hidden rounded bg-white p-4 shadow-lg"
+                        style={{ maxHeight: compareModalMaxHeight, maxWidth: compareModalMaxWidth }}
                     >
                         <div className="flex flex-wrap items-center justify-between gap-3">
                             <div className="space-y-1">
@@ -5827,6 +6284,24 @@ ${partsBodyXml}
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
+                                <div className="flex items-center rounded border border-gray-200 bg-white text-[11px] text-gray-600">
+                                    <button
+                                        type="button"
+                                        disabled={!compareSupportsReflow}
+                                        onClick={() => setCompareReflowMode(false)}
+                                        className={`rounded-l px-2 py-1 transition ${compareReflowMode ? 'hover:bg-gray-100' : 'bg-gray-800 text-white'} disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400`}
+                                    >
+                                        Score
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={!compareSupportsReflow}
+                                        onClick={() => setCompareReflowMode(true)}
+                                        className={`rounded-r px-2 py-1 transition ${compareReflowMode ? 'bg-gray-800 text-white' : 'hover:bg-gray-100'} disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400`}
+                                    >
+                                        Reflow
+                                    </button>
+                                </div>
                                 <div className="rounded-full bg-gray-100 px-2 py-1 text-[11px] text-gray-600">
                                     Scroll + Zoom sync
                                 </div>
@@ -5873,68 +6348,125 @@ ${partsBodyXml}
                                                     const partName = scoreParts[index]?.name
                                                         || scoreParts[index]?.instrumentName
                                                         || `Part ${index + 1}`;
+                                                    const alignment = compareAlignmentByPart.get(index);
+                                                    const leftCount = alignment?.leftCount ?? 0;
+                                                    const rightCount = alignment?.rightCount ?? 0;
+                                                    const matchPct = alignment ? Math.round(alignment.lcsRatio * 100) : 0;
+                                                    const alignmentLabel = compareAlignmentLoading
+                                                        ? 'Aligning...'
+                                                        : alignment?.strategy === 'lcs'
+                                                            ? `Content ${matchPct}%`
+                                                            : 'Index aligned';
                                                     return (
                                                     <div
                                                         key={`compare-left-part-${index}`}
                                                         className="flex items-center justify-between rounded border border-dashed border-gray-200 bg-white px-2 py-2"
                                                     >
                                                         <span>{partName}</span>
-                                                        <span className="text-[10px] text-gray-400">Measure lanes</span>
+                                                        <span className="text-[10px] text-gray-400">
+                                                            {leftCount}/{rightCount} measures · {alignmentLabel}
+                                                        </span>
                                                     </div>
                                                     );
                                                 })}
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="flex w-36 flex-none flex-col items-center gap-2">
+                                    <div className="flex min-h-0 w-44 flex-none flex-col items-center gap-2">
                                         <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
                                             Swap gutter
                                         </div>
-                                        <div className="flex flex-col gap-3 rounded border border-gray-200 bg-gray-50 p-2 text-[10px] text-gray-500">
-                                            {Array.from({ length: comparePartCount }).map((_, index) => (
-                                                <div
-                                                    key={`compare-gutter-${index}`}
-                                                    className="flex flex-col items-center gap-1 rounded border border-dashed border-gray-200 bg-white px-2 py-2"
-                                                >
-                                                    <span className="text-[10px] uppercase tracking-wide text-gray-400">
-                                                        Part {index + 1}
-                                                    </span>
-                                                    <div className="flex flex-col gap-1">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="w-8 text-right text-gray-400">L&gt;R</span>
-                                                            <div className="flex gap-1">
-                                                                {['B', 'O', 'A'].map((label) => (
-                                                                    <button
-                                                                        key={`compare-gutter-l2r-${index}-${label}`}
-                                                                        type="button"
-                                                                        disabled
-                                                                        className="h-6 w-6 rounded border border-gray-200 bg-gray-100 text-[10px] text-gray-400"
-                                                                        aria-label={`Left to right ${label}`}
-                                                                    >
-                                                                        {label}
-                                                                    </button>
-                                                                ))}
-                                                            </div>
+                                        <div
+                                            ref={compareGutterScrollRef}
+                                            className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto rounded border border-gray-200 bg-gray-50 p-2 text-[10px] text-gray-500"
+                                        >
+                                            {compareAlignmentLoading && (
+                                                <div className="rounded border border-dashed border-gray-200 bg-white px-2 py-2 text-center text-[10px] text-gray-400">
+                                                    Aligning measures...
+                                                </div>
+                                            )}
+                                            {!compareAlignmentLoading && Array.from({ length: comparePartCount }).map((_, index) => {
+                                                const alignment = compareAlignmentByPart.get(index);
+                                                const rows = alignment?.rows ?? [];
+                                                const partName = scoreParts[index]?.name
+                                                    || scoreParts[index]?.instrumentName
+                                                    || compareRightParts[index]?.name
+                                                    || compareRightParts[index]?.instrumentName
+                                                    || `Part ${index + 1}`;
+                                                const matchPct = alignment ? Math.round(alignment.lcsRatio * 100) : 0;
+                                                const strategyLabel = alignment?.strategy === 'lcs'
+                                                    ? `Content ${matchPct}%`
+                                                    : 'Index aligned';
+                                                return (
+                                                    <div
+                                                        key={`compare-gutter-${index}`}
+                                                        className="flex flex-col gap-2 rounded border border-dashed border-gray-200 bg-white px-2 py-2"
+                                                    >
+                                                        <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                                                            <span>{partName}</span>
+                                                            <span>{strategyLabel}</span>
                                                         </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="w-8 text-right text-gray-400">R&gt;L</span>
-                                                            <div className="flex gap-1">
-                                                                {['B', 'O', 'A'].map((label) => (
-                                                                    <button
-                                                                        key={`compare-gutter-r2l-${index}-${label}`}
-                                                                        type="button"
-                                                                        disabled
-                                                                        className="h-6 w-6 rounded border border-gray-200 bg-gray-100 text-[10px] text-gray-400"
-                                                                        aria-label={`Right to left ${label}`}
+                                                        <div className="grid gap-2">
+                                                            {rows.length === 0 && (
+                                                                <div className="rounded border border-dashed border-gray-200 bg-gray-50 px-2 py-2 text-center text-[10px] text-gray-400">
+                                                                    No measures
+                                                                </div>
+                                                            )}
+                                                            {rows.map((row, rowIndex) => {
+                                                                const leftLabel = row.leftIndex !== null ? `L${row.leftIndex + 1}` : 'L–';
+                                                                const rightLabel = row.rightIndex !== null ? `R${row.rightIndex + 1}` : 'R–';
+                                                                const canLeft = row.leftIndex !== null;
+                                                                const canRight = row.rightIndex !== null;
+                                                                return (
+                                                                    <div
+                                                                        key={`compare-gutter-row-${index}-${rowIndex}`}
+                                                                        className={`rounded border px-2 py-2 ${row.match ? 'border-emerald-200 bg-emerald-50' : 'border-gray-200 bg-white'}`}
                                                                     >
-                                                                        {label}
-                                                                    </button>
-                                                                ))}
-                                                            </div>
+                                                                        <div className="flex items-center justify-between text-[9px] text-gray-400">
+                                                                            <span>{leftLabel}</span>
+                                                                            <span>{rightLabel}</span>
+                                                                        </div>
+                                                                        <div className="mt-1 flex flex-col gap-1">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span className="w-7 text-right text-gray-400">L&gt;R</span>
+                                                                                <div className="flex gap-1">
+                                                                                    {['B', 'O', 'A'].map((label) => (
+                                                                                        <button
+                                                                                            key={`compare-gutter-l2r-${index}-${rowIndex}-${label}`}
+                                                                                            type="button"
+                                                                                            disabled={!canLeft}
+                                                                                            className="h-5 w-5 rounded border border-gray-200 bg-gray-100 text-[9px] text-gray-400 disabled:opacity-50"
+                                                                                            aria-label={`Left to right ${label} for measure ${leftLabel}`}
+                                                                                        >
+                                                                                            {label}
+                                                                                        </button>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span className="w-7 text-right text-gray-400">R&gt;L</span>
+                                                                                <div className="flex gap-1">
+                                                                                    {['B', 'O', 'A'].map((label) => (
+                                                                                        <button
+                                                                                            key={`compare-gutter-r2l-${index}-${rowIndex}-${label}`}
+                                                                                            type="button"
+                                                                                            disabled={!canRight}
+                                                                                            className="h-5 w-5 rounded border border-gray-200 bg-gray-100 text-[9px] text-gray-400 disabled:opacity-50"
+                                                                                            aria-label={`Right to left ${label} for measure ${rightLabel}`}
+                                                                                        >
+                                                                                            {label}
+                                                                                        </button>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
                                                         </div>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                         <div className="text-center text-[10px] text-gray-400">
                                             B = before, O = overwrite, A = after
@@ -5971,13 +6503,24 @@ ${partsBodyXml}
                                                     const partName = compareRightParts[index]?.name
                                                         || compareRightParts[index]?.instrumentName
                                                         || `Part ${index + 1}`;
+                                                    const alignment = compareAlignmentByPart.get(index);
+                                                    const leftCount = alignment?.leftCount ?? 0;
+                                                    const rightCount = alignment?.rightCount ?? 0;
+                                                    const matchPct = alignment ? Math.round(alignment.lcsRatio * 100) : 0;
+                                                    const alignmentLabel = compareAlignmentLoading
+                                                        ? 'Aligning...'
+                                                        : alignment?.strategy === 'lcs'
+                                                            ? `Content ${matchPct}%`
+                                                            : 'Index aligned';
                                                     return (
                                                     <div
                                                         key={`compare-right-part-${index}`}
                                                         className="flex items-center justify-between rounded border border-dashed border-gray-200 bg-white px-2 py-2"
                                                     >
                                                         <span>{partName}</span>
-                                                        <span className="text-[10px] text-gray-400">Measure lanes</span>
+                                                        <span className="text-[10px] text-gray-400">
+                                                            {leftCount}/{rightCount} measures · {alignmentLabel}
+                                                        </span>
                                                     </div>
                                                     );
                                                 })}
