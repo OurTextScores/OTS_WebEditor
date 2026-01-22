@@ -448,6 +448,17 @@ class WebMscoreW {
     }
 
     /**
+     * Select a measure near a page-relative point.
+     * @param {number} pageNumber zero-based page index
+     * @param {number} x
+     * @param {number} y
+     * @returns {Promise<boolean>}
+     */
+    selectMeasureAtPoint(pageNumber, x, y) {
+        return this.rpc('selectMeasureAtPoint', [pageNumber, x, y])
+    }
+
+    /**
      * Select a text element near a page-relative point.
      * @param {number} pageNumber zero-based page index
      * @param {number} x

@@ -14,21 +14,7 @@ import {
     type ScoreSummary,
 } from '../lib/checkpoints';
 import { CodeMirrorEditor } from './CodeMirrorEditor';
-import { Toolbar, type MeasureInsertTarget, type HeaderTextTarget, type HeaderEditorPoint } from './Toolbar';
-import { Button } from './ui/Button';
-import { Checkbox } from './ui/Checkbox';
-import {
-    Select,
-    SelectContent,
-    SelectGroup,
-    SelectItem,
-    SelectLabel,
-    SelectTrigger,
-    SelectValue,
-} from './ui/Select';
-import { Dialog, DialogContent, DialogClose } from './ui/Dialog';
-import { Popover, PopoverAnchor, PopoverContent, PopoverPortal } from './ui/Popover';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/Tabs';
+import { Toolbar, type MeasureInsertTarget } from './Toolbar';
 
 type SelectionBox = {
     index: number | null;
@@ -46,8 +32,6 @@ type SelectionFallback = {
     index: number | null;
     point: { page: number; x: number; y: number };
 } | null;
-
-type TextEditorMode = 'selected' | HeaderTextTarget;
 
 type MutationMethods = Pick<
     Score,
@@ -127,7 +111,6 @@ type MutationMethods = Pick<
     | 'setBarLineType'
     | 'addVolta'
     | 'insertMeasures'
-    | 'removeSelectedMeasures'
     | 'removeTrailingEmptyMeasures'
 >;
 
@@ -194,7 +177,7 @@ const TEXT_ELEMENT_CLASS_NAMES = [
     'TempoText',
 ];
 const TEXT_ELEMENT_SELECTOR = TEXT_ELEMENT_CLASS_NAMES.map(cls => `.${cls}`).join(', ');
-const ELEMENT_SELECTION_SELECTOR = ['.Note', '.Rest', '.Chord', '.LayoutBreak', '.Pedal', '.PedalSegment', TEXT_ELEMENT_SELECTOR]
+const ELEMENT_SELECTION_SELECTOR = ['.Note', '.Rest', '.Chord', '.LayoutBreak', '.Pedal', '.PedalSegment', '.Measure', TEXT_ELEMENT_SELECTOR]
     .filter(Boolean)
     .join(', ');
 const ELEMENT_SELECTION_CLASSES = new Set([
@@ -204,6 +187,7 @@ const ELEMENT_SELECTION_CLASSES = new Set([
     'LayoutBreak',
     'Pedal',
     'PedalSegment',
+    'Measure',
     ...TEXT_ELEMENT_CLASS_NAMES,
 ]);
 const TEXT_ELEMENT_CLASS_SET = new Set(TEXT_ELEMENT_CLASS_NAMES);
@@ -289,12 +273,11 @@ export default function ScoreEditor() {
     const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
     const [selectionBoxes, setSelectionBoxes] = useState<SelectionBox[]>([]);
     const [overlaySuppressed, setOverlaySuppressed] = useState(false);
+    const [hasBackendHighlighting, setHasBackendHighlighting] = useState(false);
     const [selectedElementClasses, setSelectedElementClasses] = useState<string>('');
     const [selectedTextValue, setSelectedTextValue] = useState('');
-    const [selectedLayoutBreakSubtype, setSelectedLayoutBreakSubtype] = useState<'line' | 'page' | null>(null);
+    const [selectedLayoutBreakSubtype, setSelectedLayoutBreakSubtype] = useState<'line'|'page'|null>(null);
     const [textEditorPosition, setTextEditorPosition] = useState<{ x: number; y: number } | null>(null);
-    const [textEditorMode, setTextEditorMode] = useState<TextEditorMode | null>(null);
-    const [textEditorValue, setTextEditorValue] = useState('');
     const [dragSelectionRect, setDragSelectionRect] = useState<{ x: number, y: number, w: number, h: number } | null>(null);
     const ignoreNextClickRef = useRef(false);
     const dragKindRef = useRef<'pointer' | 'mouse' | null>(null);
@@ -386,6 +369,9 @@ export default function ScoreEditor() {
     }, [currentPage]);
 
     useEffect(() => {
+    }, [selectedElement, overlaySuppressed]);
+
+    useEffect(() => {
         if (typeof window === 'undefined') {
             return;
         }
@@ -446,8 +432,7 @@ export default function ScoreEditor() {
     }, [score, selectedElementClasses]);
 
     useEffect(() => {
-        const shouldLoadText = hasTextElementClass(selectedElementClasses)
-            || (textEditorMode === 'selected' && Boolean(textEditorPosition));
+        const shouldLoadText = hasTextElementClass(selectedElementClasses) || Boolean(textEditorPosition);
         if (!score || !shouldLoadText) {
             setSelectedTextValue('');
             return;
@@ -488,19 +473,7 @@ export default function ScoreEditor() {
         return () => {
             canceled = true;
         };
-    }, [score, selectedElementClasses, textEditorMode, textEditorPosition]);
-
-    useEffect(() => {
-        if (textEditorMode !== 'selected' || !textEditorPosition) {
-            return;
-        }
-        if (textEditorValue) {
-            return;
-        }
-        if (selectedTextValue) {
-            setTextEditorValue(selectedTextValue);
-        }
-    }, [selectedTextValue, textEditorMode, textEditorPosition, textEditorValue]);
+    }, [score, selectedElementClasses, textEditorPosition]);
 
     const formatBytes = (bytes: number) => {
         if (!Number.isFinite(bytes)) {
@@ -1177,22 +1150,18 @@ ${partsBodyXml}
         setAiModelsError(null);
         const loadModels = async () => {
             try {
-                // Call OpenAI directly (works in both embed and server modes)
-                const response = await fetch('https://api.openai.com/v1/models', {
-                    headers: {
-                        'Authorization': `Bearer ${trimmedKey}`,
-                        'Content-Type': 'application/json',
-                    },
+                const response = await fetch('/api/llm/openai/models', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ apiKey: trimmedKey }),
                 });
                 if (!response.ok) {
                     const errorText = await response.text();
                     throw new Error(errorText || 'Failed to load models.');
                 }
                 const data = await response.json();
-                const models = Array.isArray(data?.data)
-                    ? data.data
-                          .map((item: any) => item?.id)
-                          .filter((id: unknown) => typeof id === 'string')
+                const models = Array.isArray(data?.models)
+                    ? data.models.filter((id: unknown) => typeof id === 'string')
                     : [];
                 if (canceled) {
                     return;
@@ -1255,10 +1224,7 @@ ${partsBodyXml}
         let canceled = false;
         const loadClefs = async () => {
             try {
-                const url = process.env.NEXT_PUBLIC_BUILD_MODE === 'embed'
-                    ? '/score-editor/data/clefs.json'
-                    : '/api/instruments/clefs';
-                const response = await fetch(url);
+                const response = await fetch('/api/instruments/clefs');
                 if (!response.ok) {
                     throw new Error('Failed to load clef map.');
                 }
@@ -1288,10 +1254,7 @@ ${partsBodyXml}
         let canceled = false;
         const loadFallbackInstruments = async () => {
             try {
-                const url = process.env.NEXT_PUBLIC_BUILD_MODE === 'embed'
-                    ? '/score-editor/data/templates.json'
-                    : '/api/instruments/templates';
-                const response = await fetch(url);
+                const response = await fetch('/api/instruments/templates');
                 if (!response.ok) {
                     throw new Error('Failed to load instrument templates.');
                 }
@@ -1498,20 +1461,20 @@ ${partsBodyXml}
                 console.warn('Mutation APIs not detected on loaded score; enabling toolbar anyway.');
             }
             setMutationEnabled(true);
-            const initialPage = await refreshPageCount(loadedScore, 0);
-            await renderScore(loadedScore, initialPage);
-            if (autoFitPendingRef.current && typeof window !== 'undefined') {
+        const initialPage = await refreshPageCount(loadedScore, 0);
+        await renderScore(loadedScore, initialPage);
+        if (autoFitPendingRef.current && typeof window !== 'undefined') {
+            window.requestAnimationFrame(() => {
                 window.requestAnimationFrame(() => {
-                    window.requestAnimationFrame(() => {
-                        handleFitWidth();
-                        autoFitPendingRef.current = false;
-                    });
+                    handleFitWidth();
+                    autoFitPendingRef.current = false;
                 });
-            } else {
-                handleFitWidth();
-                autoFitPendingRef.current = false;
-            }
-            await refreshScoreMetadata(loadedScore);
+            });
+        } else {
+            handleFitWidth();
+            autoFitPendingRef.current = false;
+        }
+        await refreshScoreMetadata(loadedScore);
             await refreshInstrumentTemplates(loadedScore);
             if (loadedScore.saveAudio) {
                 await ensureSoundFontLoaded(loadedScore);
@@ -1546,12 +1509,12 @@ ${partsBodyXml}
         }
     };
 
-    const renderScore = async (currentScore: Score, pageIndex?: number) => {
+    const renderScore = async (currentScore: Score, pageIndex?: number, highlightSelection: boolean = true) => {
         if (!currentScore || !containerRef.current) return;
 
         try {
             const targetPage = typeof pageIndex === 'number' ? pageIndex : currentPage;
-            const svgData = await currentScore.saveSvg(targetPage, true, true);
+            const svgData = await currentScore.saveSvg(targetPage, true, highlightSelection);
             if (svgData) {
                 containerRef.current.innerHTML = svgData;
             }
@@ -1616,25 +1579,7 @@ ${partsBodyXml}
         }
 
         setTriedSoundFont(true);
-
-        // Use CDN URLs if configured, otherwise fall back to local paths
-        const cdnBase = process.env.NEXT_PUBLIC_SOUNDFONT_CDN_URL;
-        const candidates = cdnBase
-            ? [
-                `${cdnBase}/MuseScore_General.sf3`,
-                `${cdnBase}/default.sf3`,
-                `${cdnBase}/MuseScore_General.sf2`,
-                `${cdnBase}/default.sf2`,
-                'https://cdn.ourtextscores.com/default.sf2',
-                'soundfonts/default.sf3',
-                'soundfonts/default.sf2'
-              ]
-            : [
-                'https://cdn.ourtextscores.com/default.sf2',
-                'soundfonts/default.sf3',
-                'soundfonts/default.sf2'
-              ];
-
+        const candidates = ['/soundfonts/default.sf3', '/soundfonts/default.sf2'];
         for (const url of candidates) {
             try {
                 const res = await fetch(url);
@@ -1929,94 +1874,26 @@ ${partsBodyXml}
                 return;
             }
             const baseXml = aiIncludeXml ? xmlContext : await resolveXmlContext();
-
-            // Build the prompt
-            const patchSpec = `Return ONLY valid JSON in the following format:
-{
-  "format": "musicxml-patch@1",
-  "ops": [
-    { "op": "replace", "path": "/score-partwise/part[@id='P1']/measure[@number='1']/note[1]", "value": "<note>...</note>" },
-    { "op": "setText", "path": "/score-partwise/part[@id='P1']/measure[@number='1']/note[1]/duration", "value": "2" },
-    { "op": "setAttr", "path": "/score-partwise/part[@id='P1']/measure[@number='1']/note[1]", "name": "default-x", "value": "123.45" },
-    { "op": "insertAfter", "path": "/score-partwise/part[@id='P1']/measure[@number='1']/note[1]", "value": "<note>...</note>" },
-    { "op": "delete", "path": "/score-partwise/part[@id='P1']/measure[@number='1']/note[2]" }
-  ]
-}
-Use ONLY these ops: replace, setText, setAttr, insertBefore, insertAfter, delete.
-Each XPath must match exactly one node.`;
-
-            const systemPrompt = 'You are a MusicXML editor. Return only a JSON patch payload (musicxml-patch@1), no markdown or commentary.';
-            const userPrompt = aiIncludeXml && xmlContext.trim()
-                ? `${aiPrompt}\n\nCurrent MusicXML:\n${xmlContext}\n\n${patchSpec}`
-                : `${aiPrompt}\n\n${patchSpec}`;
-
-            // Call OpenAI directly (works in both embed and server modes)
-            const requestPayload: Record<string, unknown> = {
+            const payload: Record<string, unknown> = {
+                apiKey: aiApiKey,
                 model: aiModel,
-                instructions: systemPrompt,
-                input: userPrompt,
-                temperature: 0,
+                prompt: aiPrompt,
+                xml: aiIncludeXml ? xmlContext : '',
             };
             if (aiMaxTokensMode === 'custom') {
-                requestPayload.max_output_tokens = aiMaxTokens;
+                payload.maxTokens = aiMaxTokens;
             }
-
-            let response = await fetch('https://api.openai.com/v1/responses', {
+            const response = await fetch('/api/llm/openai', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${aiApiKey}`,
-                },
-                body: JSON.stringify(requestPayload),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
             });
-
-            let rawText = '';
             if (!response.ok) {
-                // Fallback to chat completions for legacy models
-                const fallbackPayload: Record<string, unknown> = {
-                    model: aiModel,
-                    messages: [
-                        { role: 'system', content: systemPrompt },
-                        { role: 'user', content: userPrompt },
-                    ],
-                    temperature: 0,
-                };
-                if (aiMaxTokensMode === 'custom') {
-                    fallbackPayload.max_tokens = aiMaxTokens;
-                }
-
-                response = await fetch('https://api.openai.com/v1/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${aiApiKey}`,
-                    },
-                    body: JSON.stringify(fallbackPayload),
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(errorText || 'OpenAI request failed.');
-                }
-
-                const data = await response.json();
-                rawText = data?.choices?.[0]?.message?.content ?? '';
-            } else {
-                const data = await response.json();
-                // Parse responses API format
-                if (typeof data?.output_text === 'string') {
-                    rawText = data.output_text;
-                } else {
-                    const output = Array.isArray(data?.output) ? data.output : [];
-                    for (const item of output) {
-                        if (item?.type === 'message') {
-                            const content = Array.isArray(item?.content) ? item.content : [];
-                            rawText = content.map((part: any) => part?.text || '').join('');
-                            break;
-                        }
-                    }
-                }
+                const errorText = await response.text();
+                throw new Error(errorText || 'Request failed.');
             }
+            const data = await response.json();
+            const rawText = typeof data?.text === 'string' ? data.text : '';
             const extracted = extractJsonFromResponse(rawText);
             if (!extracted) {
                 setAiError('No patch was returned by the model.');
@@ -2076,8 +1953,7 @@ Each XPath must match exactly one node.`;
 
         try {
             const { page, x, y } = selectedPoint;
-            const preferTextSelection = hasTextElementClass(selectedElementClasses)
-                || (textEditorMode === 'selected' && Boolean(textEditorPosition));
+            const preferTextSelection = hasTextElementClass(selectedElementClasses) || Boolean(textEditorPosition);
             if (preferTextSelection && score.selectTextElementAtPoint) {
                 await score.selectTextElementAtPoint(page, x, y);
                 return;
@@ -2182,19 +2058,19 @@ Each XPath must match exactly one node.`;
                     const page = extractPageIndex(el) ?? 0;
                     const centerX = x + w / 2;
                     const centerY = y + h / 2;
-                    const fallbackClass = el.getAttribute('class') ?? '';
-                    boxes = [{
-                        index: useIndex,
-                        page,
-                        x,
-                        y,
-                        w,
-                        h,
-                        centerX,
-                        centerY,
-                        classes: fallbackClass,
-                    }];
-                }
+                const fallbackClass = el.getAttribute('class') ?? '';
+                boxes = [{
+                    index: useIndex,
+                    page,
+                    x,
+                    y,
+                    w,
+                    h,
+                    centerX,
+                    centerY,
+                    classes: fallbackClass,
+                }];
+            }
             } else {
                 console.log('[refreshSelectionOverlay] No element at index', useIndex);
             }
@@ -2344,12 +2220,12 @@ Each XPath must match exactly one node.`;
         void goToPage(currentPage + 1);
     };
 
-    const handlePageSelectValue = (value: string) => {
-        const page = Number(value);
-        if (Number.isNaN(page)) {
+    const handlePageSelect = (event: ChangeEvent<HTMLSelectElement>) => {
+        const value = Number(event.target.value);
+        if (Number.isNaN(value)) {
             return;
         }
-        void goToPage(page);
+        void goToPage(value);
     };
 
     const requireMutation = (methodName: keyof MutationMethods) => {
@@ -2466,6 +2342,14 @@ Each XPath must match exactly one node.`;
             const fallbackPoint = allowSelectionFallback ? preservedPoint : null;
             const advanceSelection = options?.advanceSelection;
             const advanceStep = options?.advanceSelectionStep ?? 1;
+
+            // Skip overlay refresh for multi-selections (measure selections with backend highlighting)
+            // These don't add .selected classes to DOM, so refreshSelectionOverlay would clear them
+            if (preservedMultiSelection) {
+                console.log('[performMutation] Skipping overlay refresh for multi-selection (backend highlighting)');
+                return;
+            }
+
             console.log('[performMutation] Scheduling refresh with preservedIndex:', fallbackIndex, 'preservedPoint:', fallbackPoint);
             if (typeof window !== 'undefined') {
                 window.requestAnimationFrame(() => {
@@ -2531,24 +2415,27 @@ Each XPath must match exactly one node.`;
         }
         return await del();
     }, { clearSelection: true });
-    const handleApplySelectedText = (nextValue?: string) => performMutation('set selected text', async () => {
+    const handleSelectedTextChange = (value: string) => {
+        setSelectedTextValue(value);
+    };
+    const handleApplySelectedText = () => performMutation('set selected text', async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('setSelectedText');
         if (!fn) {
             return false;
         }
-        return fn(nextValue ?? selectedTextValue);
+        return fn(selectedTextValue);
     });
     const handleUndo = () => performMutation('undo', score?.undo?.bind(score));
     const handleRedo = () => performMutation('redo', score?.redo?.bind(score));
     const handlePitchUp = () => performMutation('raise pitch', async () => {
-        await ensureSelectionInWasm();
+        // Don't call ensureSelectionInWasm - it would replace multi-selections with single element
         const fn = requireMutation('pitchUp');
         if (!fn) return;
         return fn();
     });
     const handlePitchDown = () => performMutation('lower pitch', async () => {
-        await ensureSelectionInWasm();
+        // Don't call ensureSelectionInWasm - it would replace multi-selections with single element
         const fn = requireMutation('pitchDown');
         if (!fn) return;
         return fn();
@@ -2566,12 +2453,6 @@ Each XPath must match exactly one node.`;
         const targetValue = measureInsertTargetMap[target] ?? measureInsertTargetMap['after-selection'];
         return fn(sanitized, targetValue);
     });
-    const handleRemoveContainingMeasures = () => performMutation('remove containing measures', async () => {
-        await ensureSelectionInWasm();
-        const fn = requireMutation('removeSelectedMeasures');
-        if (!fn) return false;
-        return fn();
-    }, { clearSelection: true, skipWasmReselect: true });
     const handleRemoveTrailingEmptyMeasures = () => performMutation('remove trailing empty measures', async () => {
         const fn = requireMutation('removeTrailingEmptyMeasures');
         if (!fn) return false;
@@ -2639,20 +2520,16 @@ Each XPath must match exactly one node.`;
     };
     const handleExtendSelectionNextChord = async () => {
         if (!score) return;
-        console.log('[NAV] handleExtendSelectionNextChord called');
         await ensureSelectionInWasm();
         const extendFn = requireMutation('extendSelectionNextChord');
         const getBBoxesFn = requireMutation('getSelectionBoundingBoxes');
         if (!extendFn || !getBBoxesFn) {
-            console.log('[NAV] Missing functions for extend selection');
             return;
         }
 
         const result = await extendFn.call(score);
-        console.log('[NAV] extendSelectionNextChord result:', result);
         if (result) {
             const bboxes = await getBBoxesFn.call(score);
-            console.log('[NAV] getSelectionBoundingBoxes result:', bboxes);
 
             await renderScore(score, currentPageRef.current);
             if (bboxes && bboxes.length > 0) {
@@ -2677,20 +2554,16 @@ Each XPath must match exactly one node.`;
     };
     const handleExtendSelectionPrevChord = async () => {
         if (!score) return;
-        console.log('[NAV] handleExtendSelectionPrevChord called');
         await ensureSelectionInWasm();
         const extendFn = requireMutation('extendSelectionPrevChord');
         const getBBoxesFn = requireMutation('getSelectionBoundingBoxes');
         if (!extendFn || !getBBoxesFn) {
-            console.log('[NAV] Missing functions for extend selection');
             return;
         }
 
         const result = await extendFn.call(score);
-        console.log('[NAV] extendSelectionPrevChord result:', result);
         if (result) {
             const bboxes = await getBBoxesFn.call(score);
-            console.log('[NAV] getSelectionBoundingBoxes result:', bboxes);
 
             await renderScore(score, currentPageRef.current);
             if (bboxes && bboxes.length > 0) {
@@ -3095,7 +2968,7 @@ Each XPath must match exactly one node.`;
         return fn(endingNumber);
     });
 
-    const handleSetTitleText = async (nextValue?: string) => {
+    const handleSetTitleText = async () => {
         if (!score) {
             return;
         }
@@ -3103,12 +2976,12 @@ Each XPath must match exactly one node.`;
         await performMutation('set title', async () => {
             const fn = requireMutation('setTitleText');
             if (!fn) return;
-            return fn(nextValue ?? scoreTitle);
+            return fn(scoreTitle);
         }, { skipWasmReselect: true });
         await refreshScoreMetadata(score);
     };
 
-    const handleSetSubtitleText = async (nextValue?: string) => {
+    const handleSetSubtitleText = async () => {
         if (!score) {
             return;
         }
@@ -3116,12 +2989,12 @@ Each XPath must match exactly one node.`;
         await performMutation('set subtitle', async () => {
             const fn = requireMutation('setSubtitleText');
             if (!fn) return;
-            return fn(nextValue ?? scoreSubtitle);
+            return fn(scoreSubtitle);
         }, { skipWasmReselect: true });
         await refreshScoreMetadata(score);
     };
 
-    const handleSetComposerText = async (nextValue?: string) => {
+    const handleSetComposerText = async () => {
         if (!score) {
             return;
         }
@@ -3129,12 +3002,12 @@ Each XPath must match exactly one node.`;
         await performMutation('set composer', async () => {
             const fn = requireMutation('setComposerText');
             if (!fn) return;
-            return fn(nextValue ?? scoreComposer);
+            return fn(scoreComposer);
         }, { skipWasmReselect: true });
         await refreshScoreMetadata(score);
     };
 
-    const handleSetLyricistText = async (nextValue?: string) => {
+    const handleSetLyricistText = async () => {
         if (!score) {
             return;
         }
@@ -3142,7 +3015,7 @@ Each XPath must match exactly one node.`;
         await performMutation('set lyricist', async () => {
             const fn = requireMutation('setLyricistText');
             if (!fn) return;
-            return fn(nextValue ?? scoreLyricist);
+            return fn(scoreLyricist);
         }, { skipWasmReselect: true });
         await refreshScoreMetadata(score);
     };
@@ -3598,7 +3471,7 @@ Each XPath must match exactly one node.`;
             setAudioBusy(true);
             const ok = await ensureSoundFontLoaded();
             if (!ok) {
-                alert('No default soundfont found. Upload a .sf2/.sf3 soundfont file using the toolbar, or configure NEXT_PUBLIC_SOUNDFONT_CDN_URL to load from a CDN.');
+                alert('No default soundfont found. Upload a .sf2/.sf3 soundfont or place one at /public/soundfonts/default.sf3 or /public/soundfonts/default.sf2.');
                 return;
             }
             const wav = await score.saveAudio('wav');
@@ -3653,7 +3526,7 @@ Each XPath must match exactly one node.`;
             setAudioBusy(true);
             const ok = await ensureSoundFontLoaded();
             if (!ok) {
-                alert('No default soundfont found. Upload a .sf2/.sf3 soundfont file using the toolbar, or configure NEXT_PUBLIC_SOUNDFONT_CDN_URL to load from a CDN.');
+                alert('No default soundfont found. Upload a .sf2/.sf3 soundfont or place one at /public/soundfonts/default.sf3 or /public/soundfonts/default.sf2.');
                 return;
             }
             stopAudio();
@@ -4301,6 +4174,30 @@ Each XPath must match exactly one node.`;
         }
         if (!containerRef.current) return;
 
+        const clearSelectionState = () => {
+            setSelectedElement(null);
+            setSelectionBoxes([]);
+            setSelectedPoint(null);
+            setSelectedIndex(null);
+            setSelectedElementClasses('');
+            setSelectedLayoutBreakSubtype(null);
+            setHasBackendHighlighting(false);
+            const refreshAfterClear = () => renderScore(score, currentPage, false); // Render WITHOUT highlighting
+            blockOverlayRefreshRef.current = true;
+            selectionOverlayGenerationRef.current += 1;
+            setOverlaySuppressed(true);
+            if (score?.clearSelection) {
+                score.clearSelection()
+                    .then(refreshAfterClear)
+                    .catch(err => {
+                        console.warn('clearSelection not available or failed:', err);
+                        refreshAfterClear();
+                    });
+            } else {
+                refreshAfterClear();
+            }
+        };
+
         const additiveSelection = e.metaKey || e.ctrlKey || e.shiftKey;
         const isShiftClick = e.shiftKey && !e.metaKey && !e.ctrlKey;
         // DOM-based hit testing
@@ -4335,24 +4232,83 @@ Each XPath must match exactly one node.`;
         }
 
         if (!found || !element) {
-            setSelectedElement(null);
-            setSelectionBoxes([]);
-            setSelectedPoint(null);
-            setSelectedIndex(null);
-            setSelectedElementClasses('');
-            setSelectedLayoutBreakSubtype(null);
-            const refreshAfterClear = () => refreshSelectionFromSvg(null);
-            blockOverlayRefreshRef.current = true;
-            selectionOverlayGenerationRef.current += 1;
-            setOverlaySuppressed(true);
-            if (score?.clearSelection) {
-                score.clearSelection()
-                    .then(refreshAfterClear)
+            if (score?.selectMeasureAtPoint || score?.selectElementAtPoint) {
+                const scorePoint = clientToScorePoint(e.clientX, e.clientY);
+                if (!scorePoint) {
+                    clearSelectionState();
+                    return;
+                }
+                const pageIndex = extractPageIndex(target) ?? currentPage;
+                const fallback: SelectionFallback = {
+                    index: null,
+                    point: { page: pageIndex, x: scorePoint.x, y: scorePoint.y },
+                };
+
+                // Try selectElementAtPoint first, then fall back to selectMeasureAtPoint
+                const trySelect = async () => {
+                    if (score.selectElementAtPoint) {
+                        const elementSelected = await score.selectElementAtPoint(pageIndex, scorePoint.x, scorePoint.y);
+                        if (elementSelected) {
+                            return true;
+                        }
+                    }
+
+                    // If no element was selected, try selecting the measure
+                    if (score.selectMeasureAtPoint) {
+                        const measureSelected = await score.selectMeasureAtPoint(pageIndex, scorePoint.x, scorePoint.y);
+                        return measureSelected;
+                    }
+
+                    return false;
+                };
+
+                trySelect()
+                    .then(async (selected) => {
+                        if (selected === false) {
+                            clearSelectionState();
+                            return;
+                        }
+
+                        // Get selection bounding boxes for keyboard/button enablement
+                        let hasMeasureSelection = false;
+                        if (score.getSelectionBoundingBoxes) {
+                            try {
+                                const bboxes = await score.getSelectionBoundingBoxes();
+                                if (bboxes && bboxes.length > 0) {
+                                    hasMeasureSelection = true;
+                                    // Set boxes for state tracking (keyboard shortcuts, button states)
+                                    // Set backend highlighting flag to skip visual rendering (backend handles it)
+                                    const boxes = bboxes.map((bb: any) => ({
+                                        x: bb.x,
+                                        y: bb.y,
+                                        width: bb.width,
+                                        height: bb.height,
+                                    }));
+                                    setSelectionBoxes(boxes);
+                                    setHasBackendHighlighting(true);
+                                }
+                            } catch (err) {
+                                console.warn('[ScoreEditor] Failed to get selection bounding boxes:', err);
+                            }
+                        }
+
+                        // Render with backend highlighting
+                        // For measure selections, skip overlay refresh to preserve selectionBoxes state
+                        if (hasMeasureSelection) {
+                            await renderScore(score, pageIndex);
+                        } else {
+                            // For single element selections, use normal flow with overlay
+                            setHasBackendHighlighting(false);
+                            await refreshSelectionFromSvg();
+                        }
+                    })
                     .catch(err => {
-                        console.warn('clearSelection not available or failed:', err);
-                        refreshAfterClear();
+                        console.warn('selectMeasureAtPoint/selectElementAtPoint not available or failed:', err);
+                        clearSelectionState();
                     });
+                return;
             }
+            clearSelectionState();
             return;
         }
 
@@ -4396,18 +4352,18 @@ Each XPath must match exactly one node.`;
                 }
             }
 
-            const classAttr = normalizeElementClasses(targetElement, targetElement.getAttribute('class') ?? '');
-            const box: SelectionBox = {
-                index: index >= 0 ? index : null,
-                page: pageIndex,
-                x,
-                y,
-                w,
-                h,
-                centerX,
-                centerY,
-                classes: classAttr,
-            };
+        const classAttr = normalizeElementClasses(targetElement, targetElement.getAttribute('class') ?? '');
+        const box: SelectionBox = {
+            index: index >= 0 ? index : null,
+            page: pageIndex,
+            x,
+            y,
+            w,
+            h,
+            centerX,
+            centerY,
+            classes: classAttr,
+        };
             const fallback: SelectionFallback = {
                 index: box.index,
                 point: { page: pageIndex, x: centerX, y: centerY },
@@ -4488,58 +4444,6 @@ Each XPath must match exactly one node.`;
         }
     };
 
-    const resolveHeaderTextValue = (target: HeaderTextTarget) => {
-        switch (target) {
-            case 'title':
-                return scoreTitle;
-            case 'subtitle':
-                return scoreSubtitle;
-            case 'composer':
-                return scoreComposer;
-            case 'lyricist':
-                return scoreLyricist;
-            default:
-                return '';
-        }
-    };
-
-    const canEditHeaderText = (target: HeaderTextTarget) => {
-        if (!score) {
-            return false;
-        }
-        switch (target) {
-            case 'title':
-                return Boolean(score.setTitleText);
-            case 'subtitle':
-                return Boolean(score.setSubtitleText);
-            case 'composer':
-                return Boolean(score.setComposerText);
-            case 'lyricist':
-                return Boolean(score.setLyricistText);
-            default:
-                return false;
-        }
-    };
-
-    const openHeaderTextEditor = (target: HeaderTextTarget, point?: HeaderEditorPoint) => {
-        if (!mutationEnabled) {
-            return;
-        }
-        if (!canEditHeaderText(target)) {
-            alert(`This build does not support editing ${target} text.`);
-            return;
-        }
-        const fallbackPoint = typeof window !== 'undefined'
-            ? { x: window.innerWidth / 2, y: window.innerHeight / 2 }
-            : { x: 0, y: 0 };
-        setTextEditorMode(target);
-        setTextEditorValue(resolveHeaderTextValue(target));
-        setTextEditorPosition({
-            x: point?.clientX ?? fallbackPoint.x,
-            y: point?.clientY ?? fallbackPoint.y,
-        });
-    };
-
     const openTextEditorFromEvent = (e: React.MouseEvent) => {
         if (!containerRef.current || !score) {
             return;
@@ -4559,15 +4463,11 @@ Each XPath must match exactly one node.`;
         }
         if (!found || !element) {
             setTextEditorPosition(null);
-            setTextEditorMode(null);
-            setTextEditorValue('');
             return;
         }
 
         e.preventDefault();
         handleScoreClick(e);
-        setTextEditorMode('selected');
-        setTextEditorValue(selectedTextValue);
         setTextEditorPosition({ x: e.clientX, y: e.clientY });
     };
 
@@ -4577,44 +4477,6 @@ Each XPath must match exactly one node.`;
 
     const closeTextEditor = () => {
         setTextEditorPosition(null);
-        setTextEditorMode(null);
-        setTextEditorValue('');
-    };
-
-    const resolveTextEditorLabel = (mode: TextEditorMode | null) => {
-        switch (mode) {
-            case 'title':
-                return 'Title';
-            case 'subtitle':
-                return 'Subtitle';
-            case 'composer':
-                return 'Composer';
-            case 'lyricist':
-                return 'Lyricist';
-            default:
-                return 'Text content';
-        }
-    };
-
-    const handleTextEditorSave = async () => {
-        if (!textEditorMode) {
-            return;
-        }
-        if (textEditorMode === 'selected') {
-            await handleApplySelectedText(textEditorValue);
-            closeTextEditor();
-            return;
-        }
-        if (textEditorMode === 'title') {
-            await handleSetTitleText(textEditorValue);
-        } else if (textEditorMode === 'subtitle') {
-            await handleSetSubtitleText(textEditorValue);
-        } else if (textEditorMode === 'composer') {
-            await handleSetComposerText(textEditorValue);
-        } else if (textEditorMode === 'lyricist') {
-            await handleSetLyricistText(textEditorValue);
-        }
-        closeTextEditor();
     };
 
     const secondarySelectionBoxes = selectionBoxes.filter(box => {
@@ -4626,6 +4488,8 @@ Each XPath must match exactly one node.`;
         }
         return true;
     });
+    const textSelectionActive = hasTextElementClass(selectedElementClasses) || Boolean(textEditorPosition);
+    const selectedTextControlDisabled = !mutationEnabled || !score?.setSelectedText;
     const checkpointControlsDisabled = checkpointBusy || checkpointLoading;
     const checkpointSaveDisabled = checkpointControlsDisabled || !score || !score?.saveXml;
     const checkpointCompareDisabled = checkpointControlsDisabled || !score;
@@ -4645,96 +4509,113 @@ Each XPath must match exactly one node.`;
     return (
         <div className="flex flex-col h-screen">
             <div className="relative" style={{ zIndex: 100 }}>
-                <Toolbar
+	            <Toolbar
                     onNewScore={handleOpenNewScoreDialog}
-                    onFileUpload={handleFileUpload}
+	                onFileUpload={handleFileUpload}
                     onSoundFontUpload={handleSoundFontUpload}
-                    onZoomIn={handleZoomIn}
-                    onZoomOut={handleZoomOut}
-                    zoomLevel={zoom}
-                    onFitWidth={handleFitWidth}
-                    onFitHeight={handleFitHeight}
-                    onDeleteSelection={handleDeleteSelection}
-                    onUndo={handleUndo}
-                    onRedo={handleRedo}
-                    onPitchUp={handlePitchUp}
-                    onPitchDown={handlePitchDown}
+                    scoreTitle={scoreTitle}
+                    scoreSubtitle={scoreSubtitle}
+                    scoreComposer={scoreComposer}
+                    scoreLyricist={scoreLyricist}
+                    onScoreTitleChange={setScoreTitle}
+                    onScoreSubtitleChange={setScoreSubtitle}
+                    onScoreComposerChange={setScoreComposer}
+                    onScoreLyricistChange={setScoreLyricist}
+                    onSetTitleText={handleSetTitleText}
+                    onSetSubtitleText={handleSetSubtitleText}
+                    onSetComposerText={handleSetComposerText}
+                    onSetLyricistText={score?.setLyricistText ? handleSetLyricistText : undefined}
+                headerTextAvailable={Boolean(score?.setTitleText && score?.setComposerText)}
+	                onZoomIn={handleZoomIn}
+	                onZoomOut={handleZoomOut}
+	                zoomLevel={zoom}
+                onFitWidth={handleFitWidth}
+                onFitHeight={handleFitHeight}
+                onDeleteSelection={handleDeleteSelection}
+                onUndo={handleUndo}
+                onRedo={handleRedo}
+	                onPitchUp={handlePitchUp}
+                onPitchDown={handlePitchDown}
                     onTranspose={handleTranspose}
                     onSetAccidental={handleSetAccidental}
-                    onDurationLonger={handleDurationLonger}
-                    onDurationShorter={handleDurationShorter}
-                    mutationsEnabled={mutationEnabled}
-                    selectionActive={Boolean(selectedElement) || selectionBoxes.length > 0 || Boolean(selectedPoint)}
-                    onExportSvg={handleExportSvg}
-                    onExportPdf={handleExportPdf}
-                    onExportPng={handleExportPng}
-                    onExportMxl={handleExportMxl}
-                    onExportMscz={handleExportMscz}
-                    onExportMidi={handleExportMidi}
-                    onExportAudio={handleExportAudio}
-                    onPlayAudio={handlePlayAudio}
-                    onStopAudio={stopAudio}
-                    isPlaying={isPlaying}
-                    audioBusy={audioBusy}
-                    exportsEnabled={Boolean(score)}
-                    pngAvailable={Boolean(score?.savePng)}
-                    audioAvailable={Boolean(score?.saveAudio)}
-                    onSetTimeSignature={handleSetTimeSignature}
-                    onSetKeySignature={handleSetKeySignature}
-                    onSetClef={handleSetClef}
-                    onToggleDot={handleToggleDot}
-                    onToggleDoubleDot={handleToggleDoubleDot}
-                    onSetDurationType={handleSetDurationType}
-                    onToggleLineBreak={handleToggleLineBreak}
-                    onTogglePageBreak={handleTogglePageBreak}
-                    onSetVoice={handleSetVoice}
-                    onAddDynamic={handleAddDynamic}
-                    onAddHairpin={handleAddHairpin}
-                    onAddPedal={handleAddPedal}
-                    onAddSostenutoPedal={handleAddSostenutoPedal}
-                    onAddUnaCorda={handleAddUnaCorda}
-                    onSplitPedal={handleSplitPedal}
-                    onAddTempoText={handleAddTempoText}
-                    onAddStaffText={handleAddStaffText}
-                    onAddSystemText={handleAddSystemText}
-                    onAddExpressionText={handleAddExpressionText}
-                    onAddLyricText={handleAddLyricText}
-                    onAddHarmonyText={handleAddHarmonyText}
-                    onAddFingeringText={handleAddFingeringText}
-                    onAddLeftHandGuitarFingeringText={handleAddLeftHandGuitarFingeringText}
-                    onAddRightHandGuitarFingeringText={handleAddRightHandGuitarFingeringText}
-                    onAddStringNumberText={handleAddStringNumberText}
-                    onAddInstrumentChangeText={handleAddInstrumentChangeText}
-                    onAddStickingText={handleAddStickingText}
-                    onAddFiguredBassText={handleAddFiguredBassText}
-                    onAddArticulation={handleAddArticulation}
-                    onAddSlur={handleAddSlur}
-                    onAddTie={handleAddTie}
-                    onAddGraceNote={handleAddGraceNote}
-                    onAddTuplet={handleAddTuplet}
-                    onAddNoteFromRest={handleAddNoteFromRest}
-                    onToggleRepeatStart={handleToggleRepeatStart}
-                    onToggleRepeatEnd={handleToggleRepeatEnd}
-                    onSetRepeatCount={handleSetRepeatCount}
-                    onSetBarLineType={handleSetBarLineType}
-                    onAddVolta={handleAddVolta}
-                    onInsertMeasures={handleInsertMeasures}
-                    onRemoveContainingMeasures={handleRemoveContainingMeasures}
-                    onRemoveTrailingEmptyMeasures={handleRemoveTrailingEmptyMeasures}
-                    insertMeasuresDisabled={!score?.insertMeasures}
-                    parts={scoreParts}
-                    instrumentGroups={instrumentGroups}
-                    onAddPart={handleAddPart}
-                    onRemovePart={handleRemovePart}
-                    onTogglePartVisible={handleTogglePartVisible}
-                    onOpenHeaderEditor={score ? openHeaderTextEditor : undefined}
-                />
+                onDurationLonger={handleDurationLonger}
+	                onDurationShorter={handleDurationShorter}
+	                mutationsEnabled={mutationEnabled}
+                selectionActive={Boolean(selectedElement) || selectionBoxes.length > 0 || Boolean(selectedPoint)}
+                onExportSvg={handleExportSvg}
+                onExportPdf={handleExportPdf}
+                onExportPng={handleExportPng}
+                onExportMxl={handleExportMxl}
+                onExportMscz={handleExportMscz}
+                onExportMidi={handleExportMidi}
+                onExportAudio={handleExportAudio}
+                onPlayAudio={handlePlayAudio}
+                onStopAudio={stopAudio}
+                isPlaying={isPlaying}
+                audioBusy={audioBusy}
+                exportsEnabled={Boolean(score)}
+                pngAvailable={Boolean(score?.savePng)}
+                audioAvailable={Boolean(score?.saveAudio)}
+                onSetTimeSignature={handleSetTimeSignature}
+                onSetKeySignature={handleSetKeySignature}
+                onSetClef={handleSetClef}
+                onToggleDot={handleToggleDot}
+                onToggleDoubleDot={handleToggleDoubleDot}
+                onSetDurationType={handleSetDurationType}
+                onToggleLineBreak={handleToggleLineBreak}
+                onTogglePageBreak={handleTogglePageBreak}
+                onSetVoice={handleSetVoice}
+                onAddDynamic={handleAddDynamic}
+                onAddHairpin={handleAddHairpin}
+                onAddPedal={handleAddPedal}
+                onAddSostenutoPedal={handleAddSostenutoPedal}
+                onAddUnaCorda={handleAddUnaCorda}
+                onSplitPedal={handleSplitPedal}
+                onAddTempoText={handleAddTempoText}
+                onAddStaffText={handleAddStaffText}
+                onAddSystemText={handleAddSystemText}
+                onAddExpressionText={handleAddExpressionText}
+                onAddLyricText={handleAddLyricText}
+                onAddHarmonyText={handleAddHarmonyText}
+                onAddFingeringText={handleAddFingeringText}
+                onAddLeftHandGuitarFingeringText={handleAddLeftHandGuitarFingeringText}
+                onAddRightHandGuitarFingeringText={handleAddRightHandGuitarFingeringText}
+                onAddStringNumberText={handleAddStringNumberText}
+                onAddInstrumentChangeText={handleAddInstrumentChangeText}
+                onAddStickingText={handleAddStickingText}
+                onAddFiguredBassText={handleAddFiguredBassText}
+                onAddArticulation={handleAddArticulation}
+                onAddSlur={handleAddSlur}
+                onAddTie={handleAddTie}
+                onAddGraceNote={handleAddGraceNote}
+                onAddTuplet={handleAddTuplet}
+                onAddNoteFromRest={handleAddNoteFromRest}
+                onToggleRepeatStart={handleToggleRepeatStart}
+                onToggleRepeatEnd={handleToggleRepeatEnd}
+                onSetRepeatCount={handleSetRepeatCount}
+                onSetBarLineType={handleSetBarLineType}
+                onAddVolta={handleAddVolta}
+                onInsertMeasures={handleInsertMeasures}
+                onRemoveTrailingEmptyMeasures={handleRemoveTrailingEmptyMeasures}
+                insertMeasuresDisabled={!score?.insertMeasures}
+                parts={scoreParts}
+                instrumentGroups={instrumentGroups}
+                onAddPart={handleAddPart}
+                onRemovePart={handleRemovePart}
+                onTogglePartVisible={handleTogglePartVisible}
+                selectedTextActive={textSelectionActive}
+                selectedTextValue={selectedTextValue}
+                onSelectedTextChange={handleSelectedTextChange}
+                onApplySelectedText={handleApplySelectedText}
+                selectedTextDisabled={selectedTextControlDisabled}
+            />
             </div>
 
-            <div className="relative flex flex-1 min-h-0 overflow-hidden">
+            <div className="flex flex-1 min-h-0">
                 <aside
-                    className={`shrink-0 border-r bg-white text-sm ${checkpointsCollapsed ? 'w-12' : 'w-72'} ${checkpointsCollapsed ? '' : 'overflow-y-auto'
-                        }`}
+                    className={`shrink-0 border-r bg-white text-sm ${checkpointsCollapsed ? 'w-12' : 'w-72'} ${
+                        checkpointsCollapsed ? '' : 'overflow-y-auto'
+                    }`}
                     data-testid="checkpoint-sidebar"
                 >
                     <div className={checkpointsCollapsed ? 'flex items-center justify-center p-2' : 'flex items-center justify-between p-4'}>
@@ -4745,48 +4626,60 @@ Each XPath must match exactly one node.`;
                         )}
                         <div className={checkpointsCollapsed ? '' : 'flex items-center gap-2'}>
                             {!checkpointsCollapsed && (
-                                <Button
+                                <button
+                                    type="button"
                                     data-testid="btn-checkpoint-refresh"
                                     onClick={loadCheckpointList}
                                     disabled={checkpointControlsDisabled}
-                                    variant="ghost"
-                                    size="xs"
-                                    className="text-gray-600 hover:text-gray-900"
+                                    className="text-xs font-medium text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     Refresh
-                                </Button>
+                                </button>
                             )}
-                            <Button
+                            <button
+                                type="button"
                                 data-testid="btn-checkpoint-toggle"
                                 aria-expanded={!checkpointsCollapsed}
                                 aria-controls="checkpoint-sidebar-content"
-                                aria-label={checkpointsCollapsed ? 'Open checkpoints' : 'Close checkpoints'}
+                                aria-label={checkpointsCollapsed ? 'Show checkpoints' : 'Hide checkpoints'}
                                 onClick={() => setCheckpointsCollapsed((prev) => !prev)}
-                                variant="ghost"
-                                size="xs"
-                                className="text-gray-600 hover:text-gray-900"
+                                className="text-xs font-medium text-gray-600 hover:text-gray-900"
                             >
-                                {checkpointsCollapsed ? 'Open' : 'Close'}
-                            </Button>
+                                {checkpointsCollapsed ? '>>' : '<<'}
+                            </button>
                         </div>
                     </div>
                     {!checkpointsCollapsed && (
                         <div id="checkpoint-sidebar-content" className="px-4 pb-4">
-                            <Tabs
-                                value={leftSidebarTab}
-                                onValueChange={(value) => setLeftSidebarTab(value as 'checkpoints' | 'scores')}
-                                className="mt-3"
-                            >
-                                <TabsList className="w-full justify-start">
-                                    <TabsTrigger value="checkpoints" data-testid="tab-checkpoints">
-                                        Checkpoints
-                                    </TabsTrigger>
-                                    <TabsTrigger value="scores" data-testid="tab-scores">
-                                        Scores
-                                    </TabsTrigger>
-                                </TabsList>
-                                <TabsContent value="checkpoints" className="mt-3 space-y-3">
-                                    <div className="flex flex-col gap-2">
+                            <div className="mt-3 flex gap-2 text-xs font-medium text-gray-600">
+                                <button
+                                    type="button"
+                                    data-testid="tab-checkpoints"
+                                    onClick={() => setLeftSidebarTab('checkpoints')}
+                                    className={`rounded border px-2 py-1 ${
+                                        leftSidebarTab === 'checkpoints'
+                                            ? 'border-gray-400 bg-gray-100 text-gray-900'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                                    }`}
+                                >
+                                    Checkpoints
+                                </button>
+                                <button
+                                    type="button"
+                                    data-testid="tab-scores"
+                                    onClick={() => setLeftSidebarTab('scores')}
+                                    className={`rounded border px-2 py-1 ${
+                                        leftSidebarTab === 'scores'
+                                            ? 'border-gray-400 bg-gray-100 text-gray-900'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                                    }`}
+                                >
+                                    Scores
+                                </button>
+                            </div>
+                            {leftSidebarTab === 'checkpoints' && (
+                                <>
+                                    <div className="mt-3 flex flex-col gap-2">
                                         <input
                                             data-testid="input-checkpoint-label"
                                             type="text"
@@ -4795,16 +4688,19 @@ Each XPath must match exactly one node.`;
                                             placeholder="Checkpoint label"
                                             className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
                                         />
-                                        <Button
+                                        <button
+                                            type="button"
                                             data-testid="btn-checkpoint-save"
                                             onClick={handleSaveCheckpoint}
                                             disabled={checkpointSaveDisabled}
-                                            variant={!checkpointSaveDisabled && scoreDirtySinceCheckpoint ? 'primary' : 'outline'}
-                                            size="sm"
-                                            className="w-full"
+                                            className={`w-full rounded border px-3 py-1 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
+                                                !checkpointSaveDisabled && scoreDirtySinceCheckpoint
+                                                    ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
+                                                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                                            }`}
                                         >
                                             Save Checkpoint
-                                        </Button>
+                                        </button>
                                         {!score && (
                                             <span className="text-xs text-gray-400">
                                                 Load a score to enable checkpoints.
@@ -4812,21 +4708,21 @@ Each XPath must match exactly one node.`;
                                         )}
                                     </div>
                                     {checkpointError && (
-                                        <div className="text-xs text-red-600">
+                                        <div className="mt-3 text-xs text-red-600">
                                             {checkpointError}
                                         </div>
                                     )}
                                     {checkpointLoading && (
-                                        <div className="text-xs text-gray-400">
+                                        <div className="mt-3 text-xs text-gray-400">
                                             Loading checkpoints...
                                         </div>
                                     )}
                                     {!checkpointLoading && checkpoints.length === 0 && (
-                                        <div className="text-xs text-gray-400">
+                                        <div className="mt-3 text-xs text-gray-400">
                                             No checkpoints yet.
                                         </div>
                                     )}
-                                    <div className="space-y-3">
+                                    <div className="mt-3 space-y-3">
                                         {checkpoints.map((checkpoint) => (
                                             <div
                                                 key={checkpoint.id}
@@ -4840,55 +4736,57 @@ Each XPath must match exactly one node.`;
                                                     {checkpoint.size ? ` · ${formatBytes(checkpoint.size)}` : ''}
                                                 </div>
                                                 <div className="mt-2 flex flex-wrap gap-2">
-                                                    <Button
+                                                    <button
+                                                        type="button"
                                                         data-testid={`btn-checkpoint-restore-${checkpoint.id}`}
                                                         onClick={() => handleRestoreCheckpoint(checkpoint)}
                                                         disabled={checkpointControlsDisabled}
-                                                        variant="outline"
-                                                        size="xs"
+                                                        className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
                                                         Restore
-                                                    </Button>
-                                                    <Button
+                                                    </button>
+                                                    <button
+                                                        type="button"
                                                         data-testid={`btn-checkpoint-compare-${checkpoint.id}`}
                                                         onClick={() => handleCompareCheckpoint(checkpoint)}
                                                         disabled={checkpointCompareDisabled}
-                                                        variant="outline"
-                                                        size="xs"
+                                                        className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
                                                         Compare
-                                                    </Button>
-                                                    <Button
+                                                    </button>
+                                                    <button
+                                                        type="button"
                                                         data-testid={`btn-checkpoint-delete-${checkpoint.id}`}
                                                         onClick={() => handleDeleteCheckpoint(checkpoint)}
                                                         disabled={checkpointControlsDisabled}
-                                                        variant="danger"
-                                                        size="xs"
+                                                        className="rounded border border-gray-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
                                                         Delete
-                                                    </Button>
+                                                    </button>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
-                                </TabsContent>
-                                <TabsContent value="scores" className="mt-3 space-y-3">
+                                </>
+                            )}
+                            {leftSidebarTab === 'scores' && (
+                                <>
                                     {scoreSummariesError && (
-                                        <div className="text-xs text-red-600">
+                                        <div className="mt-3 text-xs text-red-600">
                                             {scoreSummariesError}
                                         </div>
                                     )}
                                     {scoreSummariesLoading && (
-                                        <div className="text-xs text-gray-400">
+                                        <div className="mt-3 text-xs text-gray-400">
                                             Loading scores...
                                         </div>
                                     )}
                                     {!scoreSummariesLoading && scoreSummaries.length === 0 && (
-                                        <div className="text-xs text-gray-400">
+                                        <div className="mt-3 text-xs text-gray-400">
                                             No saved scores yet.
                                         </div>
                                     )}
-                                    <div className="space-y-3">
+                                    <div className="mt-3 space-y-3">
                                         {scoreSummaries.map((summary) => {
                                             const info = summarizeScoreId(summary.scoreId);
                                             const isCurrent = summary.scoreId === scoreId;
@@ -4917,464 +4815,475 @@ Each XPath must match exactly one node.`;
                                                         {summary.lastUpdated ? ` · ${formatTimestamp(summary.lastUpdated)}` : ''}
                                                     </div>
                                                     <div className="mt-2 flex flex-wrap gap-2">
-                                                        <Button
+                                                        <button
+                                                            type="button"
                                                             onClick={() => handleOpenScoreFromSummary(summary)}
-                                                            variant="outline"
-                                                            size="xs"
+                                                            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
                                                         >
                                                             Open score
-                                                        </Button>
+                                                        </button>
                                                     </div>
                                                 </div>
                                             );
                                         })}
                                     </div>
-                                </TabsContent>
-                            </Tabs>
+                                </>
+                            )}
                         </div>
                     )}
                 </aside>
 
                 <div
                     ref={scrollContainerRef}
-                    className="relative z-0 flex-1 min-w-0 overflow-auto bg-gray-50 p-8"
+                    className="relative z-0 flex-1 overflow-auto bg-gray-50 p-8"
                 >
-                    {loading && (
-                        <div className="flex items-center justify-center h-full">
-                            <div className="text-xl text-gray-500">Loading score...</div>
-                        </div>
-                    )}
-
-                    {!loading && !score && (
-                        <div className="flex items-center justify-center h-full">
-                            <div className="text-xl text-gray-400">No score loaded. Open a file to begin.</div>
-                        </div>
-                    )}
-
-                    {!loading && score && (
-                        <div className="mb-3 flex items-center justify-end gap-2 text-sm text-gray-600">
-                            <span data-testid="page-indicator">
-                                Page {currentPage + 1} of {pageCount}
-                            </span>
-                            <Select
-                                value={String(currentPage)}
-                                onValueChange={handlePageSelectValue}
-                            >
-                                <SelectTrigger data-testid="page-select" className="w-36 text-sm">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {Array.from({ length: pageCount }, (_, index) => (
-                                        <SelectItem key={index} value={String(index)}>
-                                            Page {index + 1}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <Button
-                                onClick={() => handlePrevPage()}
-                                disabled={currentPage <= 0}
-                                variant="outline"
-                                size="sm"
-                            >
-                                Prev
-                            </Button>
-                            <Button
-                                onClick={() => handleNextPage()}
-                                disabled={currentPage >= pageCount - 1}
-                                variant="outline"
-                                size="sm"
-                            >
-                                Next
-                            </Button>
-                        </div>
-                    )}
-
-                    <div
-                        ref={scoreWrapperRef}
-                        className="relative origin-top-left transition-transform duration-200 ease-out bg-white shadow-lg mx-auto"
-                        data-testid="score-wrapper"
-                        style={{
-                            transform: `scale(${zoom})`,
-                            width: 'fit-content'
-                        }}
-                        onClick={handleScoreClick}
-                        onPointerDown={handleScorePointerDown}
-                        onPointerMove={handleScorePointerMove}
-                        onPointerUp={handleScorePointerUp}
-                        onPointerCancel={handleScorePointerCancel}
-                        onMouseDown={handleScoreMouseDown}
-                        onMouseMove={handleScoreMouseMove}
-                        onMouseUp={handleScoreMouseUp}
-                        onContextMenu={handleScoreContextMenu}
-                    >
-                        <div ref={containerRef} data-testid="svg-container" />
-
-                        {dragSelectionRect && (
-                            <div
-                                data-testid="drag-selection-rect"
-                                className="absolute border border-blue-600 bg-blue-200 bg-opacity-20 pointer-events-none"
-                                style={{
-                                    left: dragSelectionRect.x,
-                                    top: dragSelectionRect.y,
-                                    width: dragSelectionRect.w,
-                                    height: dragSelectionRect.h
-                                }}
-                            />
-                        )}
-
-                        {/* Selection highlighting is now done natively in the SVG via highlightSelection=true in saveSvg(). Keep the overlays around for testing/interaction feedback. */}
-                        {secondarySelectionBoxes.map(box => (
-                            <div
-                                key={box.index !== null ? `sel-${box.index}` : `sel-${box.page}-${box.x}-${box.y}-${box.w}-${box.h}`}
-                                className="absolute pointer-events-none"
-                                style={{
-                                    left: box.x,
-                                    top: box.y,
-                                    width: box.w,
-                                    height: box.h
-                                }}
-                            />
-                        ))}
-
-                        {selectedElement && !overlaySuppressed && (
-                            <div
-                                data-testid="selection-overlay"
-                                className="absolute pointer-events-none"
-                                style={{
-                                    left: selectedElement.x,
-                                    top: selectedElement.y,
-                                    width: selectedElement.w,
-                                    height: selectedElement.h
-                                }}
-                            />
-                        )}
-                        {textEditorPosition && (
-                            <Popover
-                                open
-                                onOpenChange={(open) => {
-                                    if (!open) {
-                                        closeTextEditor();
-                                    }
-                                }}
-                            >
-                                <PopoverAnchor
-                                    style={{
-                                        position: 'fixed',
-                                        left: textEditorPosition.x,
-                                        top: textEditorPosition.y,
-                                        width: 0,
-                                        height: 0,
-                                    }}
-                                />
-                                <PopoverPortal>
-                                    <PopoverContent className="flex max-w-[90vw] flex-col gap-2">
-                                        <label className="text-xs uppercase tracking-wide text-gray-500">
-                                            {resolveTextEditorLabel(textEditorMode)}
-                                        </label>
-                                        <textarea
-                                            data-testid="ctxmenu-text-input"
-                                            value={textEditorValue}
-                                            onChange={(event) => setTextEditorValue(event.target.value)}
-                                            rows={6}
-                                            autoFocus
-                                            className="min-w-[420px] w-[560px] max-w-[90vw] rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
-                                        />
-                                        <div className="flex gap-2">
-                                            <Button
-                                                onClick={handleTextEditorSave}
-                                                variant="primary"
-                                                size="sm"
-                                                className="flex-1"
-                                            >
-                                                {textEditorMode && textEditorMode !== 'selected'
-                                                    ? `Set ${resolveTextEditorLabel(textEditorMode)}`
-                                                    : 'Save'}
-                                            </Button>
-                                            <Button
-                                                onClick={closeTextEditor}
-                                                variant="outline"
-                                                size="sm"
-                                                className="flex-1"
-                                            >
-                                                Cancel
-                                            </Button>
-                                        </div>
-                                    </PopoverContent>
-                                </PopoverPortal>
-                            </Popover>
-                        )}
+                {loading && (
+                    <div className="flex items-center justify-center h-full">
+                        <div className="text-xl text-gray-500">Loading score...</div>
                     </div>
-                </div>
+                )}
 
-                <aside
-                    className={`shrink-0 border-l bg-white text-sm ${xmlSidebarMode === 'closed'
-                            ? 'w-12'
-                            : xmlSidebarMode === 'full'
-                                ? 'absolute inset-y-0 right-0 w-full max-w-full z-20 shadow-xl'
-                                : 'w-80 max-w-[85vw]'
-                        } ${xmlSidebarMode === 'closed' ? '' : 'overflow-y-auto'}`}
-                    data-testid="xml-sidebar"
-                >
-                    <div className="sticky top-0 z-10 bg-white">
-                        <div className={xmlSidebarMode === 'closed' ? 'flex items-center justify-center p-2' : 'flex items-center justify-between p-4'}>
-                            {xmlSidebarMode !== 'closed' && (
-                                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                    MusicXML
-                                </span>
-                            )}
-                            <Button
-                                data-testid="btn-xml-toggle"
-                                aria-expanded={xmlSidebarMode !== 'closed'}
-                                aria-controls="xml-sidebar-content"
-                                aria-label={
-                                    xmlSidebarMode === 'closed'
-                                        ? 'Open MusicXML sidebar'
-                                        : xmlSidebarMode === 'open'
-                                            ? 'Expand MusicXML sidebar'
-                                            : 'Close MusicXML sidebar'
-                                }
-                                onClick={() => {
-                                    setXmlSidebarMode((prev) => (prev === 'closed' ? 'open' : prev === 'open' ? 'full' : 'closed'));
-                                }}
-                                variant="ghost"
-                                size="xs"
-                            >
-                                {xmlSidebarMode === 'closed' ? 'Open' : xmlSidebarMode === 'open' ? 'Expand' : 'Close'}
-                            </Button>
+                {!loading && !score && (
+                    <div className="flex items-center justify-center h-full">
+                        <div className="text-xl text-gray-400">No score loaded. Open a file to begin.</div>
+                    </div>
+                )}
+
+                {!loading && score && (
+                    <div className="mb-3 flex items-center justify-end gap-2 text-sm text-gray-600">
+                        <span data-testid="page-indicator">
+                            Page {currentPage + 1} of {pageCount}
+                        </span>
+                        <select
+                            className="px-2 py-1 border border-gray-300 rounded bg-white text-sm"
+                            onChange={handlePageSelect}
+                            value={currentPage}
+                            data-testid="page-select"
+                        >
+                            {Array.from({ length: pageCount }, (_, index) => (
+                                <option key={index} value={index}>
+                                    Page {index + 1}
+                                </option>
+                            ))}
+                        </select>
+                        <button
+                            type="button"
+                            onClick={() => handlePrevPage()}
+                            disabled={currentPage <= 0}
+                            className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Prev
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleNextPage()}
+                            disabled={currentPage >= pageCount - 1}
+                            className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Next
+                        </button>
+                    </div>
+                )}
+
+	            <div
+	                ref={scoreWrapperRef}
+	                className="relative origin-top-left transition-transform duration-200 ease-out bg-white shadow-lg mx-auto"
+	                data-testid="score-wrapper"
+	                style={{
+	                    transform: `scale(${zoom})`,
+	                    width: 'fit-content'
+	                }}
+                onClick={handleScoreClick}
+                onPointerDown={handleScorePointerDown}
+                    onPointerMove={handleScorePointerMove}
+                    onPointerUp={handleScorePointerUp}
+                    onPointerCancel={handleScorePointerCancel}
+                onMouseDown={handleScoreMouseDown}
+                onMouseMove={handleScoreMouseMove}
+                onMouseUp={handleScoreMouseUp}
+                onContextMenu={handleScoreContextMenu}
+            >
+	                <div ref={containerRef} data-testid="svg-container" />
+
+                    {dragSelectionRect && (
+                        <div
+                            data-testid="drag-selection-rect"
+                            className="absolute border border-blue-600 bg-blue-200 bg-opacity-20 pointer-events-none"
+                            style={{
+                                left: dragSelectionRect.x,
+                                top: dragSelectionRect.y,
+                                width: dragSelectionRect.w,
+                                height: dragSelectionRect.h
+                            }}
+                        />
+                    )}
+
+                    {/* Selection highlighting is now done natively in the SVG via highlightSelection=true in saveSvg(). Keep the overlays around for testing/interaction feedback. */}
+                    {secondarySelectionBoxes.map(box => (
+                        <div
+                            key={box.index !== null ? `sel-${box.index}` : `sel-${box.page}-${box.x}-${box.y}-${box.w}-${box.h}`}
+                            className="absolute pointer-events-none"
+                            style={{
+                                left: box.x,
+                                top: box.y,
+                                width: box.w,
+                                height: box.h
+                            }}
+                        />
+                    ))}
+
+                    {selectedElement && !overlaySuppressed && selectionBoxes.length === 0 && (
+                        <div
+                            data-testid="selection-overlay"
+                            className="absolute pointer-events-none border-2 border-blue-600"
+                            style={{
+                                left: selectedElement.x,
+                                top: selectedElement.y,
+                                width: selectedElement.w,
+                                height: selectedElement.h
+                            }}
+                        />
+                    )}
+                    {selectionBoxes.length > 0 && !overlaySuppressed && !hasBackendHighlighting && selectionBoxes.map((box, index) => (
+                        <div
+                            key={index}
+                            data-testid={`selection-overlay-${index}`}
+                            className={`absolute pointer-events-none ${
+                                box.isMeasureBbox
+                                    ? 'border border-blue-400/50'
+                                    : 'bg-blue-200/40 border border-blue-400/60'
+                            }`}
+                            style={{
+                                left: box.x,
+                                top: box.y,
+                                width: box.w,
+                                height: box.h
+                            }}
+                        />
+                    ))}
+                    {textEditorPosition && (
+                        <div
+                            className="fixed z-50 flex flex-col gap-2 rounded border bg-white p-3 shadow-lg"
+                            style={{ left: textEditorPosition.x, top: textEditorPosition.y }}
+                            onClick={event => event.stopPropagation()}
+                            onMouseDown={event => event.stopPropagation()}
+                            onPointerDown={event => event.stopPropagation()}
+                        >
+                            <label className="text-xs uppercase tracking-wide text-gray-500">
+                                Text content
+                            </label>
+                            <input
+                                data-testid="ctxmenu-text-input"
+                                type="text"
+                                value={selectedTextValue}
+                                onChange={(event) => handleSelectedTextChange(event.target.value)}
+                                onClick={(event) => event.stopPropagation()}
+                                className="min-w-[200px] rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                            />
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        handleApplySelectedText();
+                                        closeTextEditor();
+                                    }}
+                                    className="flex-1 rounded border border-gray-300 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                                >
+                                    Save
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={closeTextEditor}
+                                    className="flex-1 rounded border border-gray-300 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
                         </div>
+                    )}
+                </div>
+            </div>
+
+            <aside
+                className={`shrink-0 border-l bg-white text-sm ${
+                    xmlSidebarMode === 'closed' ? 'w-12' : xmlSidebarMode === 'full' ? 'w-full' : 'w-80'
+                } ${xmlSidebarMode === 'closed' ? '' : 'overflow-y-auto'}`}
+                data-testid="xml-sidebar"
+            >
+                <div className="sticky top-0 z-10 bg-white">
+                    <div className={xmlSidebarMode === 'closed' ? 'flex items-center justify-center p-2' : 'flex items-center justify-between p-4'}>
                         {xmlSidebarMode !== 'closed' && (
-                            <Tabs
-                                value={xmlSidebarTab}
-                                onValueChange={(value) => setXmlSidebarTab(value as 'xml' | 'assistant')}
-                                className="flex flex-col"
-                            >
-                                <div className="px-4 pb-3">
-                                    <div className="flex items-center justify-between text-xs text-gray-500">
-                                        <span>
-                                            {checkpoints.length === 0
-                                                ? 'No checkpoint yet'
-                                                : scoreDirtySinceCheckpoint
-                                                    ? 'Unsaved score changes'
-                                                    : ''}
-                                        </span>
-                                        {xmlLoading && <span>Loading...</span>}
-                                    </div>
-                                    <div className="mt-3 flex items-center justify-between text-xs font-medium text-gray-600">
-                                        <TabsList>
-                                            <TabsTrigger value="xml" data-testid="tab-xml">
-                                                XML
-                                            </TabsTrigger>
-                                            <TabsTrigger value="assistant" data-testid="tab-ai">
-                                                Assistant
-                                            </TabsTrigger>
-                                        </TabsList>
-                                        <div />
-                                    </div>
+                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                MusicXML
+                            </span>
+                        )}
+                        <button
+                            type="button"
+                            data-testid="btn-xml-toggle"
+                            aria-expanded={xmlSidebarMode !== 'closed'}
+                            aria-controls="xml-sidebar-content"
+                            aria-label={
+                                xmlSidebarMode === 'closed'
+                                    ? 'Open MusicXML sidebar'
+                                    : xmlSidebarMode === 'open'
+                                        ? 'Expand MusicXML sidebar'
+                                        : 'Close MusicXML sidebar'
+                            }
+                            onClick={() => {
+                                setXmlSidebarMode((prev) => (prev === 'closed' ? 'open' : prev === 'open' ? 'full' : 'closed'));
+                            }}
+                            className="text-xs font-medium text-gray-600 hover:text-gray-900"
+                        >
+                            {xmlSidebarMode === 'closed' ? 'Open' : xmlSidebarMode === 'open' ? 'Full' : 'Close'}
+                        </button>
+                    </div>
+                    {xmlSidebarMode !== 'closed' && (
+                        <div className="px-4 pb-3">
+                            <div className="flex items-center justify-between text-xs text-gray-500">
+                                <span>
+                                    {checkpoints.length === 0
+                                        ? 'No checkpoint yet'
+                                        : scoreDirtySinceCheckpoint
+                                            ? 'Unsaved score changes'
+                                            : ''}
+                                </span>
+                                {xmlLoading && <span>Loading...</span>}
+                            </div>
+                            <div className="mt-3 flex items-center justify-between text-xs font-medium text-gray-600">
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        data-testid="tab-xml"
+                                        onClick={() => setXmlSidebarTab('xml')}
+                                        className={`rounded border px-2 py-1 ${
+                                            xmlSidebarTab === 'xml'
+                                                ? 'border-gray-400 bg-gray-100 text-gray-900'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                                        }`}
+                                    >
+                                        XML
+                                    </button>
+                                    <button
+                                        type="button"
+                                        data-testid="tab-ai"
+                                        onClick={() => setXmlSidebarTab('assistant')}
+                                        className={`rounded border px-2 py-1 ${
+                                            xmlSidebarTab === 'assistant'
+                                                ? 'border-gray-400 bg-gray-100 text-gray-900'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                                        }`}
+                                    >
+                                        Assistant
+                                    </button>
                                 </div>
-                                <div id="xml-sidebar-content" className="px-4 pb-4">
-                                    <TabsContent value="xml" className="space-y-2">
-                                        <div className="mt-3 flex flex-wrap gap-2">
-                                            <Button
-                                                data-testid="btn-xml-apply"
-                                                onClick={handleApplyXmlEdits}
-                                                disabled={xmlApplyDisabled}
-                                                title="Applying edits will auto-checkpoint if the score has unsaved changes."
-                                                variant={xmlApplyEnabled ? 'primary' : 'outline'}
-                                                size="sm"
-                                                className="flex-1"
-                                            >
-                                                Apply edits
-                                            </Button>
-                                            <Button
-                                                data-testid="btn-xml-reload"
-                                                onClick={handleRefreshXml}
-                                                disabled={!xmlReloadEnabled}
-                                                title={
-                                                    xmlReloadEnabled
-                                                        ? 'The score has changed, reload to update XML. Any XML changes will be lost on update.'
-                                                        : undefined
-                                                }
-                                                variant={xmlReloadEnabled ? 'primary' : 'outline'}
-                                                size="sm"
-                                                className="flex-1"
-                                            >
-                                                Reload
-                                            </Button>
-                                        </div>
-                                        <div className="mt-2">
-                                            <CodeMirrorEditor
-                                                testId="xml-editor"
-                                                value={xmlText}
-                                                onChange={(nextValue) => {
-                                                    setXmlText(nextValue);
-                                                    setXmlDirty(true);
-                                                }}
-                                                readOnly={xmlControlsDisabled}
-                                                placeholderText={score ? 'MusicXML will appear here.' : 'Load a score to view MusicXML.'}
-                                            />
-                                        </div>
-                                    </TabsContent>
-                                    <TabsContent value="assistant" className="mt-3 space-y-3 text-sm text-gray-700">
-                                        <div>
-                                            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                                OpenAI Model
-                                            </label>
-                                            <Select
-                                                value={aiModel}
-                                                onValueChange={setAiModel}
-                                                disabled={!aiModels.length}
-                                            >
-                                                <SelectTrigger className="mt-1 w-full text-sm">
-                                                    <SelectValue
-                                                        placeholder={aiModelsLoading ? 'Loading models...' : 'Select model'}
-                                                    />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {!aiModelsLoading && !aiModels.length && (
-                                                        <SelectItem value="none" disabled>
-                                                            No models loaded
-                                                        </SelectItem>
-                                                    )}
-                                                    {aiModels.map((modelId) => (
-                                                        <SelectItem key={modelId} value={modelId}>
-                                                            {modelId}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            {aiModelsError && (
-                                                <div className="mt-1 text-xs text-red-600">
-                                                    {aiModelsError}
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                                API Key
-                                            </label>
-                                            <input
-                                                type="password"
-                                                value={aiApiKey}
-                                                onChange={(event) => setAiApiKey(event.target.value)}
-                                                className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                                                placeholder="Paste your key"
-                                            />
-                                            <div className="mt-1 text-[11px] text-gray-500">
-                                                Stored locally in this browser.
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center justify-between gap-2 text-xs text-gray-600">
-                                            <label className="flex items-center gap-2">
-                                                <Checkbox
-                                                    checked={aiIncludeXml}
-                                                    onCheckedChange={(value) => setAiIncludeXml(Boolean(value))}
-                                                    aria-label="Include full MusicXML"
-                                                />
-                                                Include full MusicXML
-                                            </label>
-                                            <div className="flex items-center gap-2">
-                                                <span>Max output</span>
-                                                <Select
-                                                    value={aiMaxTokensMode}
-                                                    onValueChange={(value) => setAiMaxTokensMode(value as 'auto' | 'custom')}
-                                                >
-                                                    <SelectTrigger className="w-28 text-xs">
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="auto">Auto</SelectItem>
-                                                        <SelectItem value="custom">Custom</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                                {aiMaxTokensMode === 'custom' && (
-                                                    <input
-                                                        type="number"
-                                                        min={256}
-                                                        value={aiMaxTokens}
-                                                        onChange={(event) => setAiMaxTokens(Number(event.target.value) || 0)}
-                                                        className="w-20 rounded border border-gray-300 px-2 py-1 text-xs"
-                                                    />
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                                Instruction
-                                            </label>
-                                            <textarea
-                                                value={aiPrompt}
-                                                onChange={(event) => setAiPrompt(event.target.value)}
-                                                rows={4}
-                                                className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                                                placeholder="Describe the change you want in the MusicXML."
-                                            />
-                                        </div>
-                                        <Button
-                                            onClick={handleAiRequest}
-                                            disabled={aiBusy}
-                                            variant="primary"
-                                            size="md"
-                                            className="w-full"
-                                        >
-                                            {aiBusy ? 'Working...' : 'Generate Patch'}
-                                        </Button>
-                                        {aiError && (
-                                            <div className="text-xs text-red-600">
-                                                {aiError}
-                                            </div>
-                                        )}
-                                        {aiOutput && (
-                                            <div className="space-y-2">
-                                                <div className="flex items-center justify-between text-xs text-gray-500">
-                                                    <span>AI Patch</span>
-                                                    {aiOutputValidation.message && (
-                                                        <span className={aiOutputValidation.valid ? 'text-gray-500' : 'text-red-600'}>
-                                                            {aiOutputValidation.message}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <CodeMirrorEditor
-                                                    value={aiOutput}
-                                                    onChange={() => { }}
-                                                    readOnly={true}
-                                                    placeholderText="AI patch will appear here."
-                                                />
-                                                <Button
-                                                    onClick={handleApplyAiOutput}
-                                                    disabled={aiApplyDisabled}
-                                                    title="Applying edits will auto-checkpoint if the score has unsaved changes."
-                                                    variant="primary"
-                                                    size="md"
-                                                    className="w-full"
-                                                >
-                                                    Apply Patch
-                                                </Button>
-                                            </div>
-                                        )}
-                                    </TabsContent>
-                                    {xmlError && (
-                                        <div className="mt-2 text-xs text-red-600">
-                                            {xmlError}
+                                <div />
+                            </div>
+                        </div>
+                    )}
+                </div>
+                {xmlSidebarMode !== 'closed' && (
+                    <div id="xml-sidebar-content" className="px-4 pb-4">
+                        {xmlSidebarTab === 'xml' && (
+                            <>
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    <button
+                                        type="button"
+                                        data-testid="btn-xml-apply"
+                                        onClick={handleApplyXmlEdits}
+                                        disabled={xmlApplyDisabled}
+                                        title="Applying edits will auto-checkpoint if the score has unsaved changes."
+                                        className={`flex-1 rounded border px-3 py-1 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
+                                            xmlApplyEnabled
+                                                ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
+                                                : 'border-gray-300 bg-white text-gray-700'
+                                        }`}
+                                    >
+                                        Apply edits
+                                    </button>
+                                    <button
+                                        type="button"
+                                        data-testid="btn-xml-reload"
+                                        onClick={handleRefreshXml}
+                                        disabled={!xmlReloadEnabled}
+                                        title={
+                                            xmlReloadEnabled
+                                                ? 'The score has changed, reload to update XML. Any XML changes will be lost on update.'
+                                                : undefined
+                                        }
+                                        className={`flex-1 rounded border px-3 py-1 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
+                                            xmlReloadEnabled
+                                                ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
+                                                : 'border-gray-300 bg-white text-gray-700'
+                                        }`}
+                                    >
+                                        Reload
+                                    </button>
+                                </div>
+                                <div className="mt-2">
+                                    <CodeMirrorEditor
+                                        testId="xml-editor"
+                                        value={xmlText}
+                                        onChange={(nextValue) => {
+                                            setXmlText(nextValue);
+                                            setXmlDirty(true);
+                                        }}
+                                        readOnly={xmlControlsDisabled}
+                                        placeholderText={score ? 'MusicXML will appear here.' : 'Load a score to view MusicXML.'}
+                                    />
+                                </div>
+                            </>
+                        )}
+                        {xmlSidebarTab === 'assistant' && (
+                            <div className="mt-3 space-y-3 text-sm text-gray-700">
+                                <div>
+                                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                        OpenAI Model
+                                    </label>
+                                    <select
+                                        value={aiModel}
+                                        onChange={(event) => setAiModel(event.target.value)}
+                                        className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                        disabled={!aiModels.length}
+                                    >
+                                        {aiModelsLoading && <option>Loading models...</option>}
+                                        {!aiModelsLoading && !aiModels.length && <option>No models loaded</option>}
+                                        {aiModels.map((modelId) => (
+                                            <option key={modelId} value={modelId}>
+                                                {modelId}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {aiModelsError && (
+                                        <div className="mt-1 text-xs text-red-600">
+                                            {aiModelsError}
                                         </div>
                                     )}
                                 </div>
-                            </Tabs>
+                                <div>
+                                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                        API Key
+                                    </label>
+                                    <input
+                                        type="password"
+                                        value={aiApiKey}
+                                        onChange={(event) => setAiApiKey(event.target.value)}
+                                        className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                        placeholder="Paste your key"
+                                    />
+                                    <div className="mt-1 text-[11px] text-gray-500">
+                                        Stored locally in this browser.
+                                    </div>
+                                </div>
+                                <div className="flex items-center justify-between gap-2 text-xs text-gray-600">
+                                    <label className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={aiIncludeXml}
+                                            onChange={(event) => setAiIncludeXml(event.target.checked)}
+                                        />
+                                        Include full MusicXML
+                                    </label>
+                                    <div className="flex items-center gap-2">
+                                        <span>Max output</span>
+                                        <select
+                                            value={aiMaxTokensMode}
+                                            onChange={(event) => setAiMaxTokensMode(event.target.value as 'auto' | 'custom')}
+                                            className="rounded border border-gray-300 px-2 py-1 text-xs"
+                                        >
+                                            <option value="auto">Auto</option>
+                                            <option value="custom">Custom</option>
+                                        </select>
+                                        {aiMaxTokensMode === 'custom' && (
+                                            <input
+                                                type="number"
+                                                min={256}
+                                                value={aiMaxTokens}
+                                                onChange={(event) => setAiMaxTokens(Number(event.target.value) || 0)}
+                                                className="w-20 rounded border border-gray-300 px-2 py-1 text-xs"
+                                            />
+                                        )}
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                        Instruction
+                                    </label>
+                                    <textarea
+                                        value={aiPrompt}
+                                        onChange={(event) => setAiPrompt(event.target.value)}
+                                        rows={4}
+                                        className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                        placeholder="Describe the change you want in the MusicXML."
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={handleAiRequest}
+                                    disabled={aiBusy}
+                                    className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {aiBusy ? 'Working...' : 'Generate Patch'}
+                                </button>
+                                {aiError && (
+                                    <div className="text-xs text-red-600">
+                                        {aiError}
+                                    </div>
+                                )}
+                                {aiOutput && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between text-xs text-gray-500">
+                                            <span>AI Patch</span>
+                                            {aiOutputValidation.message && (
+                                                <span className={aiOutputValidation.valid ? 'text-gray-500' : 'text-red-600'}>
+                                                    {aiOutputValidation.message}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <CodeMirrorEditor
+                                            value={aiOutput}
+                                            onChange={() => {}}
+                                            readOnly={true}
+                                            placeholderText="AI patch will appear here."
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleApplyAiOutput}
+                                            disabled={aiApplyDisabled}
+                                            title="Applying edits will auto-checkpoint if the score has unsaved changes."
+                                            className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Apply Patch
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        {xmlError && (
+                            <div className="mt-2 text-xs text-red-600">
+                                {xmlError}
+                            </div>
                         )}
                     </div>
-                </aside>
+                )}
+            </aside>
 
-                <Dialog open={newScoreDialogOpen} onOpenChange={setNewScoreDialogOpen}>
-                    <DialogContent className="max-w-xl" data-testid="new-score-modal">
+            {newScoreDialogOpen && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
+                    data-testid="new-score-modal"
+                >
+                    <div className="w-full max-w-xl rounded bg-white p-4 shadow-lg">
                         <div className="flex items-center justify-between">
                             <div className="text-sm font-semibold text-gray-800">
                                 New Score
                             </div>
-                            <DialogClose asChild>
-                                <Button variant="outline" size="xs">
-                                    Close
-                                </Button>
-                            </DialogClose>
+                            <button
+                                type="button"
+                                onClick={() => setNewScoreDialogOpen(false)}
+                                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                            >
+                                Close
+                            </button>
                         </div>
                         <div className="mt-4 grid gap-3 text-sm text-gray-700">
                             <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
@@ -5422,52 +5331,46 @@ Each XPath must match exactly one node.`;
                                 {newScoreInstrumentOptions.length > 0 ? (
                                     <>
                                         <div className="flex gap-2">
-                                            <Select
+                                            <select
                                                 value={newScoreInstrumentToAdd}
-                                                onValueChange={setNewScoreInstrumentToAdd}
+                                                onChange={(event) => setNewScoreInstrumentToAdd(event.target.value)}
+                                                className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm"
                                             >
-                                                <SelectTrigger className="flex-1 text-sm">
-                                                    <SelectValue placeholder="Select instrument" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {newScoreCommonInstruments.length > 0 && (
-                                                        <SelectGroup>
-                                                            <SelectLabel>Common</SelectLabel>
-                                                            {newScoreCommonInstruments.map((entry, index) => (
-                                                                <SelectItem key={`common-${entry.instrument.id}-${index}`} value={entry.instrument.id}>
-                                                                    {entry.label}
-                                                                </SelectItem>
+                                                {newScoreCommonInstruments.length > 0 && (
+                                                    <optgroup label="Common">
+                                                        {newScoreCommonInstruments.map((entry, index) => (
+                                                            <option key={`common-${entry.instrument.id}-${index}`} value={entry.instrument.id}>
+                                                                {entry.label}
+                                                            </option>
+                                                        ))}
+                                                    </optgroup>
+                                                )}
+                                                {newScoreInstrumentGroups.length > 0 ? (
+                                                    newScoreInstrumentGroups.map((group) => (
+                                                        <optgroup key={group.id} label={group.name}>
+                                                            {group.instruments.map((instrument) => (
+                                                                <option key={instrument.id} value={instrument.id}>
+                                                                    {instrument.name}
+                                                                </option>
                                                             ))}
-                                                        </SelectGroup>
-                                                    )}
-                                                    {newScoreInstrumentGroups.length > 0 ? (
-                                                        newScoreInstrumentGroups.map((group) => (
-                                                            <SelectGroup key={group.id}>
-                                                                <SelectLabel>{group.name}</SelectLabel>
-                                                                {group.instruments.map((instrument) => (
-                                                                    <SelectItem key={instrument.id} value={instrument.id}>
-                                                                        {instrument.name}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </SelectGroup>
-                                                        ))
-                                                    ) : (
-                                                        newScoreInstrumentOptions.map((option) => (
-                                                            <SelectItem key={option.id} value={option.id}>
-                                                                {option.label}
-                                                            </SelectItem>
-                                                        ))
-                                                    )}
-                                                </SelectContent>
-                                            </Select>
-                                            <Button
+                                                        </optgroup>
+                                                    ))
+                                                ) : (
+                                                    newScoreInstrumentOptions.map((option) => (
+                                                        <option key={option.id} value={option.id}>
+                                                            {option.label}
+                                                        </option>
+                                                    ))
+                                                )}
+                                            </select>
+                                            <button
+                                                type="button"
                                                 onClick={handleAddNewScoreInstrument}
                                                 disabled={!newScoreInstrumentToAdd}
-                                                variant="outline"
-                                                size="sm"
+                                                className="rounded border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                                             >
                                                 Add
-                                            </Button>
+                                            </button>
                                         </div>
                                         <div className="space-y-1 rounded border border-gray-200 bg-gray-50 p-2 text-xs text-gray-700">
                                             {newScoreInstrumentIds.length > 0 ? (
@@ -5477,13 +5380,13 @@ Each XPath must match exactly one node.`;
                                                     return (
                                                         <div key={`${instrumentId}-${index}`} className="flex items-center gap-2">
                                                             <span className="flex-1 truncate">{label}</span>
-                                                            <Button
+                                                            <button
+                                                                type="button"
                                                                 onClick={() => handleRemoveNewScoreInstrument(index)}
-                                                                variant="outline"
-                                                                size="xs"
+                                                                className="rounded border border-gray-300 bg-white px-2 py-0.5 text-[11px] text-gray-700 hover:bg-gray-100"
                                                             >
                                                                 Remove
-                                                            </Button>
+                                                            </button>
                                                         </div>
                                                     );
                                                 })
@@ -5515,117 +5418,105 @@ Each XPath must match exactly one node.`;
                                     <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                                         Key Signature
                                     </span>
-                                    <Select
+                                    <select
                                         value={String(newScoreKeyFifths)}
-                                        onValueChange={(value) => setNewScoreKeyFifths(Number(value))}
+                                        onChange={(event) => setNewScoreKeyFifths(Number(event.target.value))}
+                                        className="rounded border border-gray-300 px-2 py-1 text-sm"
                                     >
-                                        <SelectTrigger className="w-full text-sm">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {newScoreKeyOptions.map((option) => (
-                                                <SelectItem key={option.fifths} value={String(option.fifths)}>
-                                                    {option.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                        {newScoreKeyOptions.map((option) => (
+                                            <option key={option.fifths} value={option.fifths}>
+                                                {option.label}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </label>
                             </div>
                             <label className="flex flex-col gap-1">
                                 <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                                     Time Signature
                                 </span>
-                                <Select
+                                <select
                                     value={`${newScoreTimeNumerator}/${newScoreTimeDenominator}`}
-                                    onValueChange={(value) => {
-                                        const [numerator, denominator] = value.split('/').map((part) => Number(part));
+                                    onChange={(event) => {
+                                        const [numerator, denominator] = event.target.value.split('/').map((value) => Number(value));
                                         if (Number.isFinite(numerator) && Number.isFinite(denominator)) {
                                             setNewScoreTimeNumerator(numerator);
                                             setNewScoreTimeDenominator(denominator);
                                         }
                                     }}
+                                    className="rounded border border-gray-300 px-2 py-1 text-sm"
                                 >
-                                    <SelectTrigger className="w-full text-sm">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {newScoreTimeOptions.map((option) => (
-                                            <SelectItem key={option.label} value={`${option.numerator}/${option.denominator}`}>
-                                                {option.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                    {newScoreTimeOptions.map((option) => (
+                                        <option key={option.label} value={`${option.numerator}/${option.denominator}`}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
                             </label>
                         </div>
                         <div className="mt-4 flex gap-2">
-                            <Button
+                            <button
+                                type="button"
                                 onClick={handleCreateNewScore}
-                                variant="primary"
-                                size="md"
-                                className="flex-1"
+                                className="flex-1 rounded border border-gray-300 bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
                             >
                                 Create Score
-                            </Button>
-                            <DialogClose asChild>
-                                <Button
-                                    variant="outline"
-                                    size="md"
-                                    className="flex-1"
-                                >
-                                    Cancel
-                                </Button>
-                            </DialogClose>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setNewScoreDialogOpen(false)}
+                                className="flex-1 rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                            >
+                                Cancel
+                            </button>
                         </div>
-                    </DialogContent>
-                </Dialog>
+                    </div>
+                </div>
+            )}
 
-                <Dialog
-                    open={Boolean(compareView)}
-                    onOpenChange={(open) => {
-                        if (!open) {
-                            setCompareView(null);
-                        }
-                    }}
+            {compareView && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
+                    data-testid="checkpoint-compare-modal"
                 >
-                    <DialogContent className="max-w-6xl" data-testid="checkpoint-compare-modal">
-                        <div className="flex flex-col gap-4">
-                            <div className="flex items-center justify-between">
-                                <div className="text-sm font-semibold text-gray-800">
-                                    Compare Checkpoint
-                                </div>
-                                <DialogClose asChild>
-                                    <Button variant="outline" size="xs">
-                                        Close
-                                    </Button>
-                                </DialogClose>
+                    <div className="flex w-full max-w-6xl flex-col gap-4 rounded bg-white p-4 shadow-lg">
+                        <div className="flex items-center justify-between">
+                            <div className="text-sm font-semibold text-gray-800">
+                                Compare Checkpoint
                             </div>
-                            <div className="grid gap-4 md:grid-cols-2">
-                                <div className="flex flex-col gap-2">
-                                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                        Current
-                                    </span>
-                                    <textarea
-                                        readOnly
-                                        value={compareView?.currentXml ?? ''}
-                                        className="h-96 w-full rounded border border-gray-200 bg-gray-50 p-2 font-mono text-xs text-gray-700"
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                        {compareView?.title}
-                                    </span>
-                                    <textarea
-                                        readOnly
-                                        value={compareView?.checkpointXml ?? ''}
-                                        className="h-96 w-full rounded border border-gray-200 bg-gray-50 p-2 font-mono text-xs text-gray-700"
-                                    />
-                                </div>
+                            <button
+                                type="button"
+                                onClick={() => setCompareView(null)}
+                                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                            >
+                                Close
+                            </button>
+                        </div>
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <div className="flex flex-col gap-2">
+                                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                    Current
+                                </span>
+                                <textarea
+                                    readOnly
+                                    value={compareView.currentXml}
+                                    className="h-96 w-full rounded border border-gray-200 bg-gray-50 p-2 font-mono text-xs text-gray-700"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                    {compareView.title}
+                                </span>
+                                <textarea
+                                    readOnly
+                                    value={compareView.checkpointXml}
+                                    className="h-96 w-full rounded border border-gray-200 bg-gray-50 p-2 font-mono text-xs text-gray-700"
+                                />
                             </div>
                         </div>
-                    </DialogContent>
-                </Dialog>
+                    </div>
+                </div>
+            )}
             </div>
         </div>
     );

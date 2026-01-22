@@ -68,6 +68,7 @@
 #include "engraving/libmscore/engravingobject.h"
 #include "engraving/libmscore/segment.h"
 #include "engraving/libmscore/staff.h"
+#include "engraving/libmscore/stafflines.h"
 #include "engraving/libmscore/spannermap.h"
 #include "engraving/libmscore/utils.h"
 #include "engraving/libmscore/volta.h"
@@ -1275,6 +1276,64 @@ WasmRes _saveSvg(uintptr_t score_ptr, int pageNumber, bool drawPageBackground, b
     // config
     score->switchToPageMode();
 
+    // For range selections with highlighting, convert to list temporarily
+    bool hadRangeSelection = false;
+    engraving::Segment* savedStartSeg = nullptr;
+    engraving::Segment* savedEndSeg = nullptr;
+    int savedStaffStart = 0;
+    int savedStaffEnd = 0;
+    std::vector<engraving::Note*> temporarilyMarkedNotes;
+
+    if (highlightSelection && score->selection().isRange()) {
+        // Save range parameters
+        hadRangeSelection = true;
+        savedStartSeg = score->selection().startSegment();
+        savedEndSeg = score->selection().endSegment();
+        savedStaffStart = score->selection().staffStart();
+        savedStaffEnd = score->selection().staffEnd();
+
+        // Collect all notes in the range
+        std::vector<engraving::Note*> rangeNotes;
+        for (auto* seg = savedStartSeg; seg && seg != savedEndSeg; seg = seg->next1()) {
+            if (seg->segmentType() != engraving::SegmentType::ChordRest) {
+                continue;
+            }
+            for (auto staffIdx = savedStaffStart; staffIdx < savedStaffEnd; ++staffIdx) {
+                for (int voice = 0; voice < mu::engraving::VOICES; ++voice) {
+                    auto* el = seg->element(staffIdx * mu::engraving::VOICES + voice);
+                    if (el && el->isChord()) {
+                        auto* chord = static_cast<engraving::Chord*>(el);
+                        for (auto* note : chord->notes()) {
+                            rangeNotes.push_back(note);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Convert to list selection (don't call deselectAll - it might invalidate segments)
+        score->selection().clear();
+        for (auto* note : rangeNotes) {
+            score->select(note, engraving::SelectType::ADD, 0);
+        }
+        score->selection().updateState();
+    }
+
+    // Mark notes within chords as selected for highlighting (for list selections)
+    if (highlightSelection && score->selection().state() == engraving::SelState::LIST) {
+        for (auto* el : score->selection().elements()) {
+            if (el && el->isChord()) {
+                auto* chord = static_cast<engraving::Chord*>(el);
+                for (auto* note : chord->notes()) {
+                    if (!note->selected()) {
+                        note->setSelected(true);
+                        temporarilyMarkedNotes.push_back(note);
+                    }
+                }
+            }
+        }
+    }
+
     INotationWriter::Options options {
         { INotationWriter::OptionKey::PAGE_NUMBER, Val(pageNumber) },
         { INotationWriter::OptionKey::TRANSPARENT_BACKGROUND, Val(!drawPageBackground) },
@@ -1283,6 +1342,17 @@ WasmRes _saveSvg(uintptr_t score_ptr, int pageNumber, bool drawPageBackground, b
 
     QByteArray data;
     Ret ret = processWriter(u"svg", score, &data, options);
+
+    // Unmark temporarily selected notes
+    for (auto* note : temporarilyMarkedNotes) {
+        note->setSelected(false);
+    }
+
+    // Restore range selection if we converted it
+    if (hadRangeSelection && savedStartSeg && savedEndSeg) {
+        // Don't call deselectAll() - it might invalidate the segment pointers
+        score->selection().setRange(savedStartSeg, savedEndSeg, savedStaffStart, savedStaffEnd);
+    }
 
     LOGI() << String(u"excerpt %1, page index %2, highlightSelection %3, size %4 bytes").arg(excerptId).arg(pageNumber).arg(highlightSelection).arg(data.size());
     if (!ret.success()) {
@@ -1509,19 +1579,224 @@ bool _selectElementAtPoint(uintptr_t score_ptr, int pageNumber, double x, double
         return false;
     }
 
+
+    bool manuallySetRange = false;
     score->deselectAll();
-    score->select(target, engraving::SelectType::SINGLE, target->staffIdx());
+
+    // If target is StaffLines (type 13), get the parent Measure and select it as a range
+    if (target->type() == engraving::ElementType::STAFF_LINES) {
+        auto* measure = target->findMeasure();
+        if (measure) {
+            auto staffIdx = target->staffIdx();
+
+            auto* firstSeg = measure->first(engraving::SegmentType::ChordRest);
+            auto* lastSeg = measure->last();
+
+
+            if (firstSeg) {
+                score->selection().setRange(firstSeg, lastSeg, staffIdx, staffIdx + 1);
+                score->selection().setState(engraving::SelState::RANGE);
+                score->selection().setActiveTrack(staffIdx * mu::engraving::VOICES);
+                manuallySetRange = true;
+
+            }
+        } else {
+            score->select(target, engraving::SelectType::SINGLE, target->staffIdx());
+        }
+    } else if (target->type() == engraving::ElementType::MEASURE) {
+        // Direct Measure selection (in case we ever hit this)
+        auto* measure = static_cast<engraving::Measure*>(target);
+        auto staffIdx = target->staffIdx();
+
+        auto* firstSeg = measure->first(engraving::SegmentType::ChordRest);
+        auto* lastSeg = measure->last();
+
+        if (firstSeg) {
+            score->selection().setRange(firstSeg, lastSeg, staffIdx, staffIdx + 1);
+            score->selection().setState(engraving::SelState::RANGE);
+            score->selection().setActiveTrack(staffIdx * mu::engraving::VOICES);
+            manuallySetRange = true;
+        }
+    } else {
+        // Normal single element selection
+        score->select(target, engraving::SelectType::SINGLE, target->staffIdx());
+    }
+
+    if (!manuallySetRange) {
+        score->updateSelection();
+    }
+    score->setSelectionChanged(true);
+
+    // Debug: check result
+    const auto& sel = score->selection();
+
+    return true;
+}
+
+bool _selectMeasureAtPoint(uintptr_t score_ptr, int pageNumber, double x, double y, int excerptId)
+{
+
+    MainScore score(score_ptr, excerptId);
+    const auto& pages = score->pages();
+
+    if (pageNumber < 0 || pageNumber >= (int)pages.size()) {
+        LOGW() << "selectMeasureAtPoint: invalid page index " << pageNumber;
+        return false;
+    }
+
+    engraving::Page* page = pages.at(pageNumber);
+    const mu::PointF pt(x, y);
+    const mu::PointF canvasPt = pt + page->pos();
+
+
+    engraving::staff_idx_t staffIdx = mu::nidx;
+    engraving::Segment* segment = nullptr;
+    mu::PointF offset;
+    engraving::Measure* measure = score->pos2measure(canvasPt, &staffIdx, nullptr, &segment, &offset);
+
+
+    if (!measure || staffIdx == mu::nidx) {
+        return false;
+    }
+
+    auto* staffLines = measure->staffLines(staffIdx);
+
+    if (!staffLines || !staffLines->canvasBoundingRect().contains(canvasPt)) {
+        return false;
+    }
+
+    score->deselectAll();
+
+    // Manually set up range selection like Score::selectRange() does
+    // See libmscore/score.cpp Score::selectRange() for reference
+
+    // Get first and last segments of the measure
+    auto* firstSeg = measure->first(engraving::SegmentType::ChordRest);
+    auto* lastSeg = measure->last();
+
+
+    if (firstSeg) {
+        // Directly set the range selection
+        score->selection().setRange(firstSeg, lastSeg, staffIdx, staffIdx + 1);
+        score->selection().setState(engraving::SelState::RANGE);
+        score->selection().setActiveTrack(staffIdx * mu::engraving::VOICES);
+    }
+
     score->updateSelection();
     score->setSelectionChanged(true);
+
+    // Debug: check what was selected
+    const auto& sel = score->selection();
+
     return true;
 }
 
 bool _clearSelection(uintptr_t score_ptr, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
+
+    // Before deselectAll, explicitly clear SELECTED flag on notes within chords
+    // (in case they were set directly for highlighting purposes)
+    for (auto* el : score->selection().elements()) {
+        if (el && el->isChord()) {
+            auto* chord = static_cast<engraving::Chord*>(el);
+            for (auto* note : chord->notes()) {
+                note->setSelected(false);
+            }
+        }
+    }
+
     score->deselectAll();
     score->updateSelection();
     score->setSelectionChanged(true);
+
+    return true;
+}
+
+/**
+ * Convert a range selection to a list selection by collecting all chord/rest elements
+ * OR convert a list of Chords to a list of Notes (for pitch operations)
+ * This makes the selection work with mutation operations like pitchUp/pitchDown
+ */
+bool _convertRangeToListSelection(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+
+    // If it's a list selection with Chords, convert Chords to Notes
+    if (score->selection().state() == engraving::SelState::LIST) {
+        bool hasChords = false;
+        for (auto* el : score->selection().elements()) {
+            if (el && el->isChord()) {
+                hasChords = true;
+                break;
+            }
+        }
+
+        if (hasChords) {
+            std::vector<engraving::EngravingItem*> notes;
+            for (auto* el : score->selection().elements()) {
+                if (el && el->isChord()) {
+                    auto* chord = static_cast<engraving::Chord*>(el);
+                    for (auto* note : chord->notes()) {
+                        notes.push_back(note);
+                    }
+                } else if (el && el->isRest()) {
+                    notes.push_back(el);
+                }
+            }
+
+            score->deselectAll();
+            for (auto* note : notes) {
+                score->select(note, engraving::SelectType::ADD, 0);
+            }
+            score->updateSelection();
+            score->setSelectionChanged(true);
+            return true;
+        }
+
+        return true;
+    }
+
+    if (!score->selection().isRange()) {
+        return true;
+    }
+
+    auto* startSeg = score->selection().startSegment();
+    auto* endSeg = score->selection().endSegment();
+    auto staffStart = score->selection().staffStart();
+    auto staffEnd = score->selection().staffEnd();
+
+    // Collect all chord/rest elements AND their notes in the range
+    std::vector<engraving::EngravingItem*> rangeElements;
+    for (auto* seg = startSeg; seg && seg != endSeg; seg = seg->next1()) {
+        if (seg->segmentType() != engraving::SegmentType::ChordRest) {
+            continue;
+        }
+        for (auto staffIdx = staffStart; staffIdx < staffEnd; ++staffIdx) {
+            for (int voice = 0; voice < mu::engraving::VOICES; ++voice) {
+                auto* el = seg->element(staffIdx * mu::engraving::VOICES + voice);
+                if (el && el->isChord()) {
+                    // For chords, select the individual notes (pitch operations work on notes)
+                    auto* chord = static_cast<engraving::Chord*>(el);
+                    for (auto* note : chord->notes()) {
+                        rangeElements.push_back(note);
+                    }
+                } else if (el && el->isRest()) {
+                    rangeElements.push_back(el);
+                }
+            }
+        }
+    }
+
+    // Clear and rebuild as list selection with individual notes
+    score->deselectAll();
+    for (auto* el : rangeElements) {
+        score->select(el, engraving::SelectType::ADD, 0);
+    }
+
+    score->updateSelection();
+    score->setSelectionChanged(true);
+
     return true;
 }
 
@@ -1670,9 +1945,6 @@ WasmRes _getSelectionBoundingBox(uintptr_t score_ptr, int excerptId)
 
     // Debug: log selection state
     const auto& sel = score->selection();
-    printf("[WASM DEBUG] _getSelectionBoundingBox: state=%d elements.size=%zu element=%p activeCR=%p\n",
-           static_cast<int>(sel.state()), sel.elements().size(),
-           static_cast<void*>(sel.element()), static_cast<void*>(sel.activeCR()));
 
     // Try multiple ways to get the selected element
     mu::engraving::EngravingItem* el = score->selection().element();
@@ -1680,17 +1952,14 @@ WasmRes _getSelectionBoundingBox(uintptr_t score_ptr, int excerptId)
     // If element() returns null, try getting from the elements list
     if (!el && !score->selection().elements().empty()) {
         el = score->selection().elements().front();
-        printf("[WASM DEBUG] Using elements().front() = %p\n", static_cast<void*>(el));
     }
 
     // Still null? Try activeCR
     if (!el) {
         el = score->selection().activeCR();
-        printf("[WASM DEBUG] Using activeCR() = %p\n", static_cast<void*>(el));
     }
 
     if (!el) {
-        printf("[WASM DEBUG] No element found for bounding box\n");
         return WasmRes(String());
     }
 
@@ -1716,6 +1985,7 @@ WasmRes _getSelectionBoundingBox(uintptr_t score_ptr, int excerptId)
         .arg(bbox.width())
         .arg(bbox.height());
 
+
     return WasmRes(json);
 }
 
@@ -1723,44 +1993,125 @@ WasmRes _getSelectionBoundingBoxes(uintptr_t score_ptr, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
     const auto& sel = score->selection();
-    const auto& elements = sel.elements();
 
-    printf("[WASM DEBUG] _getSelectionBoundingBoxes: elements.size=%zu\n", elements.size());
-
-    if (elements.empty()) {
-        return WasmRes(String(u"[]"));
-    }
 
     String json = u"[";
     bool first = true;
 
-    for (auto* el : elements) {
-        if (!el) continue;
+    // Handle range selections (like when a measure is selected)
+    if (sel.isRange()) {
+        auto* startSeg = sel.startSegment();
+        auto* endSeg = sel.endSegment();
+        auto staffStart = sel.staffStart();
+        auto staffEnd = sel.staffEnd();
 
-        mu::PointF pagePosition = el->pagePos();
-        mu::RectF bbox = el->bbox();
 
-        // Find which page this element is on
-        int pageNumber = 0;
-        const auto& pages = score->pages();
-        for (size_t i = 0; i < pages.size(); ++i) {
-            if (el->findAncestor(mu::engraving::ElementType::PAGE) == pages[i]) {
-                pageNumber = static_cast<int>(i);
-                break;
+        if (startSeg) {
+            int segCount = 0;
+            int elementCount = 0;
+            // Iterate through all segments in the range
+            for (auto* seg = startSeg; seg && seg != endSeg; seg = seg->next1()) {
+                if (seg->segmentType() != engraving::SegmentType::ChordRest) {
+                    continue;
+                }
+                segCount++;
+
+                // Iterate through all staves in the selection
+                for (auto staffIdx = staffStart; staffIdx < staffEnd; ++staffIdx) {
+                    // Check all voices in this staff
+                    for (int voice = 0; voice < mu::engraving::VOICES; ++voice) {
+                        auto* el = seg->element(staffIdx * mu::engraving::VOICES + voice);
+                        if (!el || (!el->isChord() && !el->isRest())) {
+                            continue;
+                        }
+                        elementCount++;
+
+                        // For Chords, use the first note's bounding box (noteheads are child elements)
+                        mu::RectF pageBbox;
+                        if (el->isChord()) {
+                            auto* chord = static_cast<engraving::Chord*>(el);
+                            if (!chord->notes().empty()) {
+                                // Use the first note's bounding box
+                                pageBbox = chord->notes()[0]->pageBoundingRect();
+                            } else {
+                                // Fallback to chord's own bbox
+                                pageBbox = el->pageBoundingRect();
+                            }
+                        } else {
+                            // For rests and other elements, use their own bbox
+                            pageBbox = el->pageBoundingRect();
+                        }
+
+                        // Find which page this element is on
+                        int pageNumber = 0;
+                        const auto& pages = score->pages();
+                        for (size_t i = 0; i < pages.size(); ++i) {
+                            if (el->findAncestor(mu::engraving::ElementType::PAGE) == pages[i]) {
+                                pageNumber = static_cast<int>(i);
+                                break;
+                            }
+                        }
+
+                        if (!first) {
+                            json += u",";
+                        }
+                        first = false;
+
+                        json += String(u"{\"page\":%1,\"x\":%2,\"y\":%3,\"width\":%4,\"height\":%5}")
+                            .arg(pageNumber)
+                            .arg(pageBbox.x())
+                            .arg(pageBbox.y())
+                            .arg(pageBbox.width())
+                            .arg(pageBbox.height());
+                    }
+                }
             }
         }
+    } else {
+        // Handle list selections (individual elements)
+        const auto& elements = sel.elements();
 
-        if (!first) {
-            json += u",";
+        for (auto* el : elements) {
+            if (!el) continue;
+
+            // For Chords, use the first note's bounding box (noteheads are child elements)
+            mu::RectF pageBbox;
+            if (el->isChord()) {
+                auto* chord = static_cast<engraving::Chord*>(el);
+                if (!chord->notes().empty()) {
+                    // Use the first note's bounding box
+                    pageBbox = chord->notes()[0]->pageBoundingRect();
+                } else {
+                    // Fallback to chord's own bbox
+                    pageBbox = el->pageBoundingRect();
+                }
+            } else {
+                // For rests and other elements, use their own bbox
+                pageBbox = el->pageBoundingRect();
+            }
+
+            // Find which page this element is on
+            int pageNumber = 0;
+            const auto& pages = score->pages();
+            for (size_t i = 0; i < pages.size(); ++i) {
+                if (el->findAncestor(mu::engraving::ElementType::PAGE) == pages[i]) {
+                    pageNumber = static_cast<int>(i);
+                    break;
+                }
+            }
+
+            if (!first) {
+                json += u",";
+            }
+            first = false;
+
+            json += String(u"{\"page\":%1,\"x\":%2,\"y\":%3,\"width\":%4,\"height\":%5}")
+                .arg(pageNumber)
+                .arg(pageBbox.x())
+                .arg(pageBbox.y())
+                .arg(pageBbox.width())
+                .arg(pageBbox.height());
         }
-        first = false;
-
-        json += String(u"{\"page\":%1,\"x\":%2,\"y\":%3,\"width\":%4,\"height\":%5}")
-            .arg(pageNumber)
-            .arg(pagePosition.x())
-            .arg(pagePosition.y())
-            .arg(bbox.width())
-            .arg(bbox.height());
     }
 
     json += u"]";
@@ -1779,15 +2130,24 @@ bool _deleteSelection(uintptr_t score_ptr, int excerptId)
 bool _pitchUp(uintptr_t score_ptr, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
+
+    // Convert range to list selection with Notes before calling cmdPitchUp
+    _convertRangeToListSelection(score_ptr, excerptId);
+
     score->startCmd();
     score->cmdPitchUp();
     score->endCmd();
+
     return true;
 }
 
 bool _pitchDown(uintptr_t score_ptr, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
+
+    // Convert range to list selection with Notes before calling cmdPitchDown
+    _convertRangeToListSelection(score_ptr, excerptId);
+
     score->startCmd();
     score->cmdPitchDown();
     score->endCmd();
@@ -1870,6 +2230,9 @@ bool _transpose(uintptr_t score_ptr, int semitones, int excerptId)
             return false;
         }
     }
+
+    // Convert Chords to Notes for transpose operation (uses upDown which needs uniqueNotes)
+    _convertRangeToListSelection(score_ptr, excerptId);
 
     score->startCmd();
     score->upDownDelta(semitones);
@@ -3558,6 +3921,11 @@ extern "C" {
     };
 
     EMSCRIPTEN_KEEPALIVE
+    bool selectMeasureAtPoint(uintptr_t score_ptr, int pageNumber, double x, double y, int excerptId = -1) {
+        return _selectMeasureAtPoint(score_ptr, pageNumber, x, y, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
     bool selectTextElementAtPoint(uintptr_t score_ptr, int pageNumber, double x, double y, int excerptId = -1) {
         return _selectTextElementAtPoint(score_ptr, pageNumber, x, y, excerptId);
     };
@@ -3565,6 +3933,11 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool clearSelection(uintptr_t score_ptr, int excerptId = -1) {
         return _clearSelection(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool convertRangeToListSelection(uintptr_t score_ptr, int excerptId = -1) {
+        return _convertRangeToListSelection(score_ptr, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE
