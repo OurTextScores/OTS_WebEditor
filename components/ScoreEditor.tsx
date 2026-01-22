@@ -4919,9 +4919,9 @@ ${partsBodyXml}
                     )}
 
                     {/* Selection highlighting is now done natively in the SVG via highlightSelection=true in saveSvg(). Keep the overlays around for testing/interaction feedback. */}
-                    {secondarySelectionBoxes.map(box => (
+                    {secondarySelectionBoxes.map((box, index) => (
                         <div
-                            key={box.index !== null ? `sel-${box.index}` : `sel-${box.page}-${box.x}-${box.y}-${box.w}-${box.h}`}
+                            key={index}
                             className="absolute pointer-events-none"
                             style={{
                                 left: box.x,
