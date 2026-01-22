@@ -4279,9 +4279,11 @@ ${partsBodyXml}
                             console.log('[ScoreEditor] getSelectionBoundingBoxes returned:', bboxes);
                             if (bboxes && bboxes.length > 0) {
                                 console.log('[ScoreEditor] Setting measure selection with', bboxes.length, 'elements');
+                                console.log('[ScoreEditor] First bbox:', bboxes[0]);
 
-                                // Re-render the SVG to show native selection highlighting
-                                await renderScore(score, pageIndex);
+                                // Note: We use JavaScript-based selection overlays instead of native MuseScore highlighting
+                                // to avoid WASM rendering issues. The selection is already set in WASM.
+                                // await renderScore(score, pageIndex);
 
                                 // Create selection boxes for all elements in the measure
                                 const boxes = bboxes.map((bbox: any) => ({
@@ -4296,11 +4298,29 @@ ${partsBodyXml}
                                     classes: 'Measure',
                                 }));
 
-                                // Use the first element as the primary selection
-                                const firstBbox = bboxes[0];
-                                setSelectedElement({ x: firstBbox.x, y: firstBbox.y, w: firstBbox.width, h: firstBbox.height });
-                                setSelectedPoint({ page: firstBbox.page, x: firstBbox.x + firstBbox.width / 2, y: firstBbox.y + firstBbox.height / 2 });
-                                setSelectionBoxes(boxes);
+                                // Calculate bounding box for the entire measure (union of all notes)
+                                const minX = Math.min(...bboxes.map((b: any) => b.x));
+                                const minY = Math.min(...bboxes.map((b: any) => b.y));
+                                const maxX = Math.max(...bboxes.map((b: any) => b.x + b.width));
+                                const maxY = Math.max(...bboxes.map((b: any) => b.y + b.height));
+                                const measureBbox = {
+                                    index: null,
+                                    page: bboxes[0].page,
+                                    x: minX,
+                                    y: minY,
+                                    w: maxX - minX,
+                                    h: maxY - minY,
+                                    centerX: (minX + maxX) / 2,
+                                    centerY: (minY + maxY) / 2,
+                                    classes: 'Measure',
+                                    isMeasureBbox: true,  // Flag to distinguish measure vs note boxes
+                                };
+
+                                // Use the measure bounding box as the primary selection
+                                setSelectedElement({ x: measureBbox.x, y: measureBbox.y, w: measureBbox.w, h: measureBbox.h });
+                                setSelectedPoint({ page: measureBbox.page, x: measureBbox.centerX, y: measureBbox.centerY });
+                                setSelectionBoxes([measureBbox, ...boxes]);
+                                console.log('[ScoreEditor] Set selectionBoxes with', boxes.length + 1, 'boxes (1 measure + ' + boxes.length + ' notes)');
                                 setSelectedIndex(null);
                                 setSelectedElementClasses('Measure');
                                 return;
@@ -4942,7 +4962,7 @@ ${partsBodyXml}
                         />
                     ))}
 
-                    {selectedElement && !overlaySuppressed && (
+                    {selectedElement && !overlaySuppressed && selectionBoxes.length === 0 && (
                         <div
                             data-testid="selection-overlay"
                             className="absolute pointer-events-none border-2 border-blue-600"
@@ -4954,6 +4974,23 @@ ${partsBodyXml}
                             }}
                         />
                     )}
+                    {selectionBoxes.length > 0 && !overlaySuppressed && selectionBoxes.map((box, index) => (
+                        <div
+                            key={index}
+                            data-testid={`selection-overlay-${index}`}
+                            className={`absolute pointer-events-none ${
+                                box.isMeasureBbox
+                                    ? 'border-2 border-blue-400'
+                                    : 'border-2 border-blue-600'
+                            }`}
+                            style={{
+                                left: box.x,
+                                top: box.y,
+                                width: box.w,
+                                height: box.h
+                            }}
+                        />
+                    ))}
                     {textEditorPosition && (
                         <div
                             className="fixed z-50 flex flex-col gap-2 rounded border bg-white p-3 shadow-lg"

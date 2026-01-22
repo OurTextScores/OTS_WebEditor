@@ -1491,6 +1491,7 @@ bool _selectElementAtPoint(uintptr_t score_ptr, int pageNumber, double x, double
     printf("[WASM DEBUG] selectElementAtPoint: target type=%d isMeasure=%d\n",
            static_cast<int>(target->type()), target->isMeasure());
 
+    bool manuallySetRange = false;
     score->deselectAll();
 
     // If target is StaffLines (type 13), get the parent Measure and select it as a range
@@ -1511,6 +1512,7 @@ bool _selectElementAtPoint(uintptr_t score_ptr, int pageNumber, double x, double
                 score->selection().setRange(firstSeg, lastSeg, staffIdx, staffIdx + 1);
                 score->selection().setState(engraving::SelState::RANGE);
                 score->selection().setActiveTrack(staffIdx * mu::engraving::VOICES);
+                manuallySetRange = true;
 
                 printf("[WASM DEBUG] After setRange, before updateSelection: state=%d isRange=%d\n",
                        static_cast<int>(score->selection().state()), score->selection().isRange());
@@ -1532,6 +1534,7 @@ bool _selectElementAtPoint(uintptr_t score_ptr, int pageNumber, double x, double
             score->selection().setRange(firstSeg, lastSeg, staffIdx, staffIdx + 1);
             score->selection().setState(engraving::SelState::RANGE);
             score->selection().setActiveTrack(staffIdx * mu::engraving::VOICES);
+            manuallySetRange = true;
         }
     } else {
         // Normal single element selection
@@ -1539,7 +1542,9 @@ bool _selectElementAtPoint(uintptr_t score_ptr, int pageNumber, double x, double
     }
 
     printf("[WASM DEBUG] Before updateSelection: state=%d\n", static_cast<int>(score->selection().state()));
-    score->updateSelection();
+    if (!manuallySetRange) {
+        score->updateSelection();
+    }
     printf("[WASM DEBUG] After updateSelection: state=%d\n", static_cast<int>(score->selection().state()));
     score->setSelectionChanged(true);
 
@@ -1873,8 +1878,23 @@ WasmRes _getSelectionBoundingBoxes(uintptr_t score_ptr, int excerptId)
                         printf("[WASM DEBUG] Found element %d: type=%d staff=%d voice=%d\n",
                                elementCount, static_cast<int>(el->type()), static_cast<int>(staffIdx), voice);
 
-                        mu::PointF pagePosition = el->pagePos();
-                        mu::RectF bbox = el->bbox();
+                        // For Chords, use the first note's bounding box (noteheads are child elements)
+                        mu::RectF pageBbox;
+                        if (el->isChord()) {
+                            auto* chord = static_cast<engraving::Chord*>(el);
+                            if (!chord->notes().empty()) {
+                                // Use the first note's bounding box
+                                pageBbox = chord->notes()[0]->pageBoundingRect();
+                            } else {
+                                // Fallback to chord's own bbox
+                                pageBbox = el->pageBoundingRect();
+                            }
+                        } else {
+                            // For rests and other elements, use their own bbox
+                            pageBbox = el->pageBoundingRect();
+                        }
+                        printf("[WASM DEBUG] Element %d bbox: x=%.2f y=%.2f w=%.2f h=%.2f\n",
+                               elementCount, pageBbox.x(), pageBbox.y(), pageBbox.width(), pageBbox.height());
 
                         // Find which page this element is on
                         int pageNumber = 0;
@@ -1893,10 +1913,10 @@ WasmRes _getSelectionBoundingBoxes(uintptr_t score_ptr, int excerptId)
 
                         json += String(u"{\"page\":%1,\"x\":%2,\"y\":%3,\"width\":%4,\"height\":%5}")
                             .arg(pageNumber)
-                            .arg(pagePosition.x())
-                            .arg(pagePosition.y())
-                            .arg(bbox.width())
-                            .arg(bbox.height());
+                            .arg(pageBbox.x())
+                            .arg(pageBbox.y())
+                            .arg(pageBbox.width())
+                            .arg(pageBbox.height());
                     }
                 }
             }
@@ -1910,8 +1930,21 @@ WasmRes _getSelectionBoundingBoxes(uintptr_t score_ptr, int excerptId)
         for (auto* el : elements) {
             if (!el) continue;
 
-            mu::PointF pagePosition = el->pagePos();
-            mu::RectF bbox = el->bbox();
+            // For Chords, use the first note's bounding box (noteheads are child elements)
+            mu::RectF pageBbox;
+            if (el->isChord()) {
+                auto* chord = static_cast<engraving::Chord*>(el);
+                if (!chord->notes().empty()) {
+                    // Use the first note's bounding box
+                    pageBbox = chord->notes()[0]->pageBoundingRect();
+                } else {
+                    // Fallback to chord's own bbox
+                    pageBbox = el->pageBoundingRect();
+                }
+            } else {
+                // For rests and other elements, use their own bbox
+                pageBbox = el->pageBoundingRect();
+            }
 
             // Find which page this element is on
             int pageNumber = 0;
@@ -1930,10 +1963,10 @@ WasmRes _getSelectionBoundingBoxes(uintptr_t score_ptr, int excerptId)
 
             json += String(u"{\"page\":%1,\"x\":%2,\"y\":%3,\"width\":%4,\"height\":%5}")
                 .arg(pageNumber)
-                .arg(pagePosition.x())
-                .arg(pagePosition.y())
-                .arg(bbox.width())
-                .arg(bbox.height());
+                .arg(pageBbox.x())
+                .arg(pageBbox.y())
+                .arg(pageBbox.width())
+                .arg(pageBbox.height());
         }
     }
 
