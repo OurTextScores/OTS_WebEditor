@@ -304,6 +304,23 @@ export default function ScoreEditor() {
     const [checkpointLoading, setCheckpointLoading] = useState(false);
     const [checkpointError, setCheckpointError] = useState<string | null>(null);
     const [compareView, setCompareView] = useState<{ title: string; currentXml: string; checkpointXml: string } | null>(null);
+    const [compareRightScore, setCompareRightScore] = useState<Score | null>(null);
+    const compareRightScoreRef = useRef<Score | null>(null);
+    const [compareRightParts, setCompareRightParts] = useState<PartSummary[]>([]);
+    const [compareRightPageCount, setCompareRightPageCount] = useState(1);
+    const [compareRightLoading, setCompareRightLoading] = useState(false);
+    const [compareRightError, setCompareRightError] = useState<string | null>(null);
+    const [compareZoom, setCompareZoom] = useState<number | null>(null);
+    const [compareLeftSvgSize, setCompareLeftSvgSize] = useState<{ width: number; height: number } | null>(null);
+    const [compareRightSvgSize, setCompareRightSvgSize] = useState<{ width: number; height: number } | null>(null);
+    const compareLeftContainerRef = useRef<HTMLDivElement>(null);
+    const compareRightContainerRef = useRef<HTMLDivElement>(null);
+    const compareLeftWrapperRef = useRef<HTMLDivElement>(null);
+    const compareRightWrapperRef = useRef<HTMLDivElement>(null);
+    const compareLeftScrollRef = useRef<HTMLDivElement>(null);
+    const compareRightScrollRef = useRef<HTMLDivElement>(null);
+    const compareScrollSyncRef = useRef(false);
+    const compareRightRenderInFlightRef = useRef(false);
     const [checkpointsCollapsed, setCheckpointsCollapsed] = useState(false);
     const [leftSidebarTab, setLeftSidebarTab] = useState<'checkpoints' | 'scores'>('checkpoints');
     const [scoreSummaries, setScoreSummaries] = useState<ScoreSummary[]>([]);
@@ -348,6 +365,8 @@ export default function ScoreEditor() {
     const [instrumentClefMapError, setInstrumentClefMapError] = useState<string | null>(null);
     const [instrumentFallbackGroups, setInstrumentFallbackGroups] = useState<InstrumentTemplateGroup[]>([]);
     const [instrumentFallbackError, setInstrumentFallbackError] = useState<string | null>(null);
+    const toolbarRef = useRef<HTMLDivElement>(null);
+    const [toolbarHeight, setToolbarHeight] = useState(0);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [audioBusy, setAudioBusy] = useState(false);
@@ -391,6 +410,23 @@ export default function ScoreEditor() {
             window.localStorage.removeItem(aiKeyStorageKey);
         }
     }, [aiApiKey]);
+
+    useEffect(() => {
+        if (!toolbarRef.current) {
+            return;
+        }
+        const updateHeight = () => {
+            const nextHeight = toolbarRef.current?.getBoundingClientRect().height ?? 0;
+            setToolbarHeight(Math.round(nextHeight));
+        };
+        updateHeight();
+        if (typeof ResizeObserver === 'undefined') {
+            return;
+        }
+        const observer = new ResizeObserver(() => updateHeight());
+        observer.observe(toolbarRef.current);
+        return () => observer.disconnect();
+    }, []);
 
     useEffect(() => {
         let canceled = false;
@@ -606,6 +642,21 @@ export default function ScoreEditor() {
         }
         return results;
     }, [newScoreCommonInstrumentPreferences, newScoreInstrumentOptions]);
+
+    const comparePartCount = Math.max(scoreParts.length, compareRightParts.length, 1);
+    const compareEffectiveZoom = compareZoom ?? zoom;
+    const compareZoomStyle = {
+        width: compareLeftSvgSize ? `${compareLeftSvgSize.width * compareEffectiveZoom}px` : 'auto',
+        height: compareLeftSvgSize ? `${compareLeftSvgSize.height * compareEffectiveZoom}px` : 'auto',
+    };
+    const compareRightZoomStyle = {
+        width: compareRightSvgSize ? `${compareRightSvgSize.width * compareEffectiveZoom}px` : 'auto',
+        height: compareRightSvgSize ? `${compareRightSvgSize.height * compareEffectiveZoom}px` : 'auto',
+    };
+    const compareOverlayStyle = toolbarHeight > 0 ? { top: `${toolbarHeight}px` } : undefined;
+    const compareModalMaxHeight = toolbarHeight > 0
+        ? `calc(100vh - ${toolbarHeight + 48}px)`
+        : 'calc(100vh - 3rem)';
 
     const newScoreTimeOptions = [
         { label: '4/4', numerator: 4, denominator: 4 },
@@ -1523,6 +1574,98 @@ ${partsBodyXml}
         }
     };
 
+    const renderScoreToContainer = useCallback(async (
+        currentScore: Score,
+        container: HTMLDivElement | null,
+        pageIndex?: number,
+        highlightSelection: boolean = false,
+    ): Promise<boolean> => {
+        if (!currentScore || !container) {
+            return false;
+        }
+
+        try {
+            const targetPage = typeof pageIndex === 'number' ? pageIndex : 0;
+            const svgData = await currentScore.saveSvg(targetPage, true, highlightSelection);
+            if (!svgData) {
+                return false;
+            }
+            container.innerHTML = svgData;
+            const svg = container.querySelector('svg');
+            if (svg instanceof SVGSVGElement) {
+                svg.style.width = '100%';
+                svg.style.height = '100%';
+            }
+            return true;
+        } catch (err) {
+            console.error('Error rendering compare score:', err);
+            return false;
+        }
+    }, []);
+
+    const parseSvgNumeric = (value: string | null) => {
+        if (!value) {
+            return null;
+        }
+        const parsed = Number.parseFloat(value);
+        return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    const getSvgNaturalSize = (svg: SVGSVGElement, zoomValue: number) => {
+        const widthAttr = parseSvgNumeric(svg.getAttribute('width'));
+        const heightAttr = parseSvgNumeric(svg.getAttribute('height'));
+        let width = widthAttr ?? null;
+        let height = heightAttr ?? null;
+        if ((!width || !height) && svg.getAttribute('viewBox')) {
+            const parts = svg
+                .getAttribute('viewBox')
+                ?.trim()
+                .split(/[\s,]+/)
+                .map((value) => Number.parseFloat(value));
+            if (parts && parts.length === 4) {
+                width = width ?? (Number.isFinite(parts[2]) ? parts[2] : null);
+                height = height ?? (Number.isFinite(parts[3]) ? parts[3] : null);
+            }
+        }
+        if (!width || !height) {
+            const rect = svg.getBoundingClientRect();
+            if (zoomValue > 0) {
+                width = width ?? rect.width / zoomValue;
+                height = height ?? rect.height / zoomValue;
+            }
+        }
+        if (!width || !height) {
+            return null;
+        }
+        return { width, height };
+    };
+
+    const syncCompareSvgSize = useCallback((
+        container: HTMLDivElement | null,
+        setSize: React.Dispatch<React.SetStateAction<{ width: number; height: number } | null>>,
+    ) => {
+        const svg = container?.querySelector('svg');
+        if (!(svg instanceof SVGSVGElement)) {
+            return;
+        }
+        const size = getSvgNaturalSize(svg, compareEffectiveZoom);
+        if (!size) {
+            return;
+        }
+        setSize(size);
+    }, [compareEffectiveZoom]);
+
+    const parsePartsFromMetadata = useCallback((metadata: any): PartSummary[] => {
+        const parts = Array.isArray(metadata?.parts) ? metadata.parts : [];
+        return parts.map((part: any, index: number) => ({
+            index,
+            name: typeof part?.name === 'string' ? part.name : '',
+            instrumentName: typeof part?.instrumentName === 'string' ? part.instrumentName : '',
+            instrumentId: typeof part?.instrumentId === 'string' ? part.instrumentId : '',
+            isVisible: String(part?.isVisible ?? '').toLowerCase() === 'true',
+        }));
+    }, []);
+
     const refreshScoreMetadata = async (currentScore: Score) => {
         try {
             const metadata = await currentScore.metadata();
@@ -1535,15 +1678,7 @@ ${partsBodyXml}
                     ? (metadata as any).poet
                     : '';
             setScoreLyricist(lyricistValue);
-            const parts = Array.isArray((metadata as any).parts) ? (metadata as any).parts : [];
-            const nextParts = parts.map((part: any, index: number) => ({
-                index,
-                name: typeof part?.name === 'string' ? part.name : '',
-                instrumentName: typeof part?.instrumentName === 'string' ? part.instrumentName : '',
-                instrumentId: typeof part?.instrumentId === 'string' ? part.instrumentId : '',
-                isVisible: String(part?.isVisible ?? '').toLowerCase() === 'true',
-            }));
-            setScoreParts(nextParts);
+            setScoreParts(parsePartsFromMetadata(metadata));
         } catch (err) {
             console.warn('Failed to read score metadata', err);
             setScoreSubtitle('');
@@ -1793,6 +1928,204 @@ ${partsBodyXml}
             setCheckpointBusy(false);
         }
     };
+
+    useEffect(() => {
+        if (!compareView) {
+            if (compareRightScoreRef.current) {
+                compareRightScoreRef.current.destroy();
+                compareRightScoreRef.current = null;
+            }
+            setCompareRightScore(null);
+            setCompareRightParts([]);
+            setCompareRightPageCount(1);
+            setCompareRightLoading(false);
+            setCompareRightError(null);
+            setCompareZoom(null);
+            setCompareLeftSvgSize(null);
+            setCompareRightSvgSize(null);
+            return;
+        }
+
+        let canceled = false;
+        const loadCompareScore = async () => {
+            setCompareRightLoading(true);
+            setCompareRightError(null);
+            if (compareRightScoreRef.current) {
+                compareRightScoreRef.current.destroy();
+                compareRightScoreRef.current = null;
+            }
+            try {
+                const WebMscore = await loadWebMscore();
+                const data = new TextEncoder().encode(compareView.checkpointXml);
+                const loadedScore = await WebMscore.load('musicxml', data);
+                if (canceled) {
+                    loadedScore.destroy();
+                    return;
+                }
+                compareRightScoreRef.current = loadedScore;
+                setCompareRightScore(loadedScore);
+                if (loadedScore.npages) {
+                    const pages = await loadedScore.npages();
+                    if (!canceled) {
+                        setCompareRightPageCount(Math.max(1, pages));
+                    }
+                }
+                const metadata = await loadedScore.metadata();
+                if (!canceled) {
+                    setCompareRightParts(parsePartsFromMetadata(metadata));
+                }
+            } catch (err) {
+                console.error('Failed to load compare checkpoint score', err);
+                if (!canceled) {
+                    setCompareRightError('Unable to load checkpoint score.');
+                }
+            } finally {
+                if (!canceled) {
+                    setCompareRightLoading(false);
+                }
+            }
+        };
+
+        loadCompareScore();
+        return () => {
+            canceled = true;
+        };
+    }, [compareView, parsePartsFromMetadata]);
+
+    useEffect(() => {
+        return () => {
+            if (compareRightScoreRef.current) {
+                compareRightScoreRef.current.destroy();
+                compareRightScoreRef.current = null;
+            }
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!compareView || !score) {
+            return;
+        }
+        if (compareLeftContainerRef.current && containerRef.current) {
+            compareLeftContainerRef.current.innerHTML = containerRef.current.innerHTML;
+            const svg = compareLeftContainerRef.current.querySelector('svg');
+            if (svg instanceof SVGSVGElement) {
+                svg.style.width = '100%';
+                svg.style.height = '100%';
+            }
+            syncCompareSvgSize(compareLeftContainerRef.current, setCompareLeftSvgSize);
+            return;
+        }
+        void renderScoreToContainer(score, compareLeftContainerRef.current, currentPage, false)
+            .then(() => syncCompareSvgSize(compareLeftContainerRef.current, setCompareLeftSvgSize));
+    }, [compareView, score, currentPage, renderScoreToContainer, syncCompareSvgSize]);
+
+    useEffect(() => {
+        if (!compareView || !compareRightScore) {
+            return;
+        }
+        if (compareRightLoading || compareRightError) {
+            return;
+        }
+        if (compareRightScoreRef.current && compareRightScoreRef.current !== compareRightScore) {
+            return;
+        }
+        if (compareRightRenderInFlightRef.current) {
+            return;
+        }
+        const targetPage = Math.min(currentPage, compareRightPageCount - 1);
+        compareRightRenderInFlightRef.current = true;
+        void renderScoreToContainer(compareRightScore, compareRightContainerRef.current, targetPage, false)
+            .then((rendered) => {
+                if (!rendered && !compareRightError) {
+                    setCompareRightError('No SVG output from checkpoint score.');
+                    return;
+                }
+                syncCompareSvgSize(compareRightContainerRef.current, setCompareRightSvgSize);
+            })
+            .finally(() => {
+                compareRightRenderInFlightRef.current = false;
+            });
+    }, [
+        compareView,
+        compareRightScore,
+        compareRightPageCount,
+        compareRightError,
+        compareRightLoading,
+        currentPage,
+        renderScoreToContainer,
+        syncCompareSvgSize,
+    ]);
+
+    useEffect(() => {
+        if (!compareView) {
+            return;
+        }
+        const left = compareLeftScrollRef.current;
+        const right = compareRightScrollRef.current;
+        if (!left || !right) {
+            return;
+        }
+
+        const syncScroll = (source: HTMLDivElement, target: HTMLDivElement) => {
+            if (compareScrollSyncRef.current) {
+                return;
+            }
+            compareScrollSyncRef.current = true;
+            target.scrollTop = source.scrollTop;
+            target.scrollLeft = source.scrollLeft;
+            compareScrollSyncRef.current = false;
+        };
+
+        const handleLeftScroll = () => syncScroll(left, right);
+        const handleRightScroll = () => syncScroll(right, left);
+        left.addEventListener('scroll', handleLeftScroll);
+        right.addEventListener('scroll', handleRightScroll);
+
+        return () => {
+            left.removeEventListener('scroll', handleLeftScroll);
+            right.removeEventListener('scroll', handleRightScroll);
+        };
+    }, [compareView]);
+
+    useEffect(() => {
+        if (!compareView || compareRightLoading || compareRightError) {
+            return;
+        }
+        const leftContainer = compareLeftScrollRef.current;
+        const rightContainer = compareRightScrollRef.current;
+        if (!leftContainer || !rightContainer || !compareLeftSvgSize || !compareRightSvgSize) {
+            return;
+        }
+        if (typeof window === 'undefined') {
+            return;
+        }
+        const leftWidth = leftContainer.clientWidth;
+        const rightWidth = rightContainer.clientWidth;
+        if (!leftWidth || !rightWidth) {
+            return;
+        }
+        window.requestAnimationFrame(() => {
+            const fitZoom = Math.min(leftWidth / compareLeftSvgSize.width, rightWidth / compareRightSvgSize.width);
+            if (!Number.isFinite(fitZoom) || fitZoom <= 0) {
+                return;
+            }
+            const clamped = Math.max(0.2, Math.min(fitZoom, 1.5));
+            const nextZoom = Math.min(zoom, clamped);
+            if (compareZoom === null || Math.abs(compareZoom - nextZoom) > 0.01) {
+                setCompareZoom(nextZoom);
+            }
+        });
+    }, [
+        compareView,
+        compareRightLoading,
+        compareRightError,
+        currentPage,
+        compareEffectiveZoom,
+        zoom,
+        compareZoom,
+        compareLeftSvgSize,
+        compareRightSvgSize,
+    ]);
 
     const handleRefreshXml = async () => {
         if (!score) {
@@ -4508,7 +4841,7 @@ ${partsBodyXml}
 
     return (
         <div className="flex flex-col h-screen">
-            <div className="relative" style={{ zIndex: 100 }}>
+            <div className="relative" style={{ zIndex: 100 }} ref={toolbarRef}>
 	            <Toolbar
                     onNewScore={handleOpenNewScoreDialog}
 	                onFileUpload={handleFileUpload}
@@ -5476,43 +5809,210 @@ ${partsBodyXml}
 
             {compareView && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
+                    className="fixed bottom-0 left-0 right-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-6"
+                    style={compareOverlayStyle}
                     data-testid="checkpoint-compare-modal"
                 >
-                    <div className="flex w-full max-w-6xl flex-col gap-4 rounded bg-white p-4 shadow-lg">
-                        <div className="flex items-center justify-between">
-                            <div className="text-sm font-semibold text-gray-800">
-                                Compare Checkpoint
+                    <div
+                        className="flex w-full flex-col gap-4 overflow-hidden rounded bg-white p-4 shadow-lg"
+                        style={{ maxHeight: compareModalMaxHeight }}
+                    >
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="space-y-1">
+                                <div className="text-sm font-semibold text-gray-800">
+                                    Compare Checkpoint
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                    Current vs {compareView.title}
+                                </div>
                             </div>
-                            <button
-                                type="button"
-                                onClick={() => setCompareView(null)}
-                                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
-                            >
-                                Close
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <div className="rounded-full bg-gray-100 px-2 py-1 text-[11px] text-gray-600">
+                                    Scroll + Zoom sync
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setCompareView(null)}
+                                    className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                                >
+                                    Close
+                                </button>
+                            </div>
                         </div>
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <div className="flex flex-col gap-2">
-                                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                    Current
-                                </span>
-                                <textarea
-                                    readOnly
-                                    value={compareView.currentXml}
-                                    className="h-96 w-full rounded border border-gray-200 bg-gray-50 p-2 font-mono text-xs text-gray-700"
-                                />
+                        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto">
+                            <div className="flex min-h-0 min-w-0 flex-1 overflow-x-auto">
+                                <div className="flex min-h-0 min-w-[960px] flex-1 gap-4">
+                                    <div className="flex min-h-0 min-w-0 flex-1 basis-0 flex-col gap-3">
+                                        <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                            <span>Current</span>
+                                            <span className="rounded bg-gray-100 px-2 py-0.5 text-[10px] font-normal text-gray-500">
+                                                Editable
+                                            </span>
+                                        </div>
+                                        <div className="flex min-h-0 flex-1 flex-col gap-3">
+                                            <div
+                                                ref={compareLeftScrollRef}
+                                                className="relative min-h-0 min-w-0 flex-1 overflow-auto rounded border border-gray-200 bg-white"
+                                                data-testid="compare-pane-left"
+                                            >
+                                                {!score && (
+                                                    <div className="p-3 text-xs text-gray-500">
+                                                        Load a score to compare.
+                                                    </div>
+                                                )}
+                                            <div
+                                                ref={compareLeftWrapperRef}
+                                                className="origin-top-left"
+                                                style={compareZoomStyle}
+                                            >
+                                                <div ref={compareLeftContainerRef} />
+                                            </div>
+                                            </div>
+                                            <div className="grid gap-2 text-xs text-gray-500">
+                                                {Array.from({ length: comparePartCount }).map((_, index) => {
+                                                    const partName = scoreParts[index]?.name
+                                                        || scoreParts[index]?.instrumentName
+                                                        || `Part ${index + 1}`;
+                                                    return (
+                                                    <div
+                                                        key={`compare-left-part-${index}`}
+                                                        className="flex items-center justify-between rounded border border-dashed border-gray-200 bg-white px-2 py-2"
+                                                    >
+                                                        <span>{partName}</span>
+                                                        <span className="text-[10px] text-gray-400">Measure lanes</span>
+                                                    </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex w-36 flex-none flex-col items-center gap-2">
+                                        <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                                            Swap gutter
+                                        </div>
+                                        <div className="flex flex-col gap-3 rounded border border-gray-200 bg-gray-50 p-2 text-[10px] text-gray-500">
+                                            {Array.from({ length: comparePartCount }).map((_, index) => (
+                                                <div
+                                                    key={`compare-gutter-${index}`}
+                                                    className="flex flex-col items-center gap-1 rounded border border-dashed border-gray-200 bg-white px-2 py-2"
+                                                >
+                                                    <span className="text-[10px] uppercase tracking-wide text-gray-400">
+                                                        Part {index + 1}
+                                                    </span>
+                                                    <div className="flex flex-col gap-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="w-8 text-right text-gray-400">L&gt;R</span>
+                                                            <div className="flex gap-1">
+                                                                {['B', 'O', 'A'].map((label) => (
+                                                                    <button
+                                                                        key={`compare-gutter-l2r-${index}-${label}`}
+                                                                        type="button"
+                                                                        disabled
+                                                                        className="h-6 w-6 rounded border border-gray-200 bg-gray-100 text-[10px] text-gray-400"
+                                                                        aria-label={`Left to right ${label}`}
+                                                                    >
+                                                                        {label}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="w-8 text-right text-gray-400">R&gt;L</span>
+                                                            <div className="flex gap-1">
+                                                                {['B', 'O', 'A'].map((label) => (
+                                                                    <button
+                                                                        key={`compare-gutter-r2l-${index}-${label}`}
+                                                                        type="button"
+                                                                        disabled
+                                                                        className="h-6 w-6 rounded border border-gray-200 bg-gray-100 text-[10px] text-gray-400"
+                                                                        aria-label={`Right to left ${label}`}
+                                                                    >
+                                                                        {label}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="text-center text-[10px] text-gray-400">
+                                            B = before, O = overwrite, A = after
+                                        </div>
+                                    </div>
+                                    <div className="flex min-h-0 min-w-0 flex-1 basis-0 flex-col gap-3">
+                                        <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                            <span>{compareView.title}</span>
+                                            <span className="rounded bg-gray-100 px-2 py-0.5 text-[10px] font-normal text-gray-500">
+                                                Editable
+                                            </span>
+                                        </div>
+                                        <div className="flex min-h-0 flex-1 flex-col gap-3">
+                                            <div
+                                                ref={compareRightScrollRef}
+                                                className="relative min-h-0 min-w-0 flex-1 overflow-auto rounded border border-gray-200 bg-white"
+                                                data-testid="compare-pane-right"
+                                            >
+                                                {(compareRightLoading || compareRightError || !compareRightScore) && (
+                                                    <div className="absolute inset-0 flex items-center justify-center bg-white/80 p-3 text-xs text-gray-500">
+                                                        {compareRightError ?? (compareRightLoading ? 'Loading checkpoint score...' : 'Score not loaded.')}
+                                                    </div>
+                                                )}
+                                            <div
+                                                ref={compareRightWrapperRef}
+                                                className="origin-top-left"
+                                                style={compareRightZoomStyle}
+                                            >
+                                                <div ref={compareRightContainerRef} />
+                                            </div>
+                                            </div>
+                                            <div className="grid gap-2 text-xs text-gray-500">
+                                                {Array.from({ length: comparePartCount }).map((_, index) => {
+                                                    const partName = compareRightParts[index]?.name
+                                                        || compareRightParts[index]?.instrumentName
+                                                        || `Part ${index + 1}`;
+                                                    return (
+                                                    <div
+                                                        key={`compare-right-part-${index}`}
+                                                        className="flex items-center justify-between rounded border border-dashed border-gray-200 bg-white px-2 py-2"
+                                                    >
+                                                        <span>{partName}</span>
+                                                        <span className="text-[10px] text-gray-400">Measure lanes</span>
+                                                    </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="flex flex-col gap-2">
-                                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                    {compareView.title}
-                                </span>
-                                <textarea
-                                    readOnly
-                                    value={compareView.checkpointXml}
-                                    className="h-96 w-full rounded border border-gray-200 bg-gray-50 p-2 font-mono text-xs text-gray-700"
-                                />
-                            </div>
+                            <details className="rounded border border-gray-200 bg-gray-50 px-3 py-2">
+                                <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                    Raw MusicXML (temporary)
+                                </summary>
+                                <div className="mt-3 grid gap-4 md:grid-cols-2">
+                                    <div className="flex flex-col gap-2">
+                                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                            Current
+                                        </span>
+                                        <textarea
+                                            readOnly
+                                            value={compareView.currentXml}
+                                            className="h-72 w-full rounded border border-gray-200 bg-white p-2 font-mono text-xs text-gray-700"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                            {compareView.title}
+                                        </span>
+                                        <textarea
+                                            readOnly
+                                            value={compareView.checkpointXml}
+                                            className="h-72 w-full rounded border border-gray-200 bg-white p-2 font-mono text-xs text-gray-700"
+                                        />
+                                    </div>
+                                </div>
+                            </details>
                         </div>
                     </div>
                 </div>
