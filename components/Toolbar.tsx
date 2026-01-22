@@ -816,19 +816,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         onChange={event => setMeasureCount(Number(event.currentTarget.value) || 1)}
                         className={`${toolbarInputBaseClass} w-16`}
                     />
-                    <Select
+                    <select
+                        data-testid="select-measure-target"
                         value={measureTarget}
-                        onValueChange={(value) => setMeasureTarget(value as MeasureInsertTarget)}
+                        onChange={(event) => setMeasureTarget(event.target.value as MeasureInsertTarget)}
+                        className={`${toolbarInputBaseClass} w-40`}
                     >
-                        <SelectTrigger data-testid="select-measure-target" className="w-40">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="beginning">Beginning</SelectItem>
-                            <SelectItem value="after-selection">After Selection</SelectItem>
-                            <SelectItem value="end">End</SelectItem>
-                        </SelectContent>
-                    </Select>
+                        <option value="beginning">Beginning</option>
+                        <option value="after-selection">After Selection</option>
+                        <option value="end">End</option>
+                    </select>
                     <Button
                         data-testid="btn-insert-measures"
                         onClick={handleApplyMeasures}
