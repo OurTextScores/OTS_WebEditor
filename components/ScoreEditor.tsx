@@ -4273,64 +4273,27 @@ ${partsBodyXml}
                             return;
                         }
 
-                        // For measure selections, get all elements within the measure
+                        // Check if this is a range selection (multiple elements)
+                        let isRangeSelection = false;
+                        let bboxes: any[] = [];
                         if (score.getSelectionBoundingBoxes) {
-                            const bboxes = await score.getSelectionBoundingBoxes();
-                            console.log('[ScoreEditor] getSelectionBoundingBoxes returned:', bboxes);
-                            if (bboxes && bboxes.length > 0) {
-                                console.log('[ScoreEditor] Setting measure selection with', bboxes.length, 'elements');
-                                console.log('[ScoreEditor] First bbox:', bboxes[0]);
-
-                                // Note: We use JavaScript-based selection overlays instead of native MuseScore highlighting
-                                // to avoid WASM rendering issues. The selection is already set in WASM.
-                                // await renderScore(score, pageIndex);
-
-                                // Create selection boxes for all elements in the measure
-                                const boxes = bboxes.map((bbox: any) => ({
-                                    index: null,
-                                    page: bbox.page,
-                                    x: bbox.x,
-                                    y: bbox.y,
-                                    w: bbox.width,
-                                    h: bbox.height,
-                                    centerX: bbox.x + bbox.width / 2,
-                                    centerY: bbox.y + bbox.height / 2,
-                                    classes: 'Measure',
-                                }));
-
-                                // Calculate bounding box for the entire measure (union of all notes)
-                                const minX = Math.min(...bboxes.map((b: any) => b.x));
-                                const minY = Math.min(...bboxes.map((b: any) => b.y));
-                                const maxX = Math.max(...bboxes.map((b: any) => b.x + b.width));
-                                const maxY = Math.max(...bboxes.map((b: any) => b.y + b.height));
-                                const measureBbox = {
-                                    index: null,
-                                    page: bboxes[0].page,
-                                    x: minX,
-                                    y: minY,
-                                    w: maxX - minX,
-                                    h: maxY - minY,
-                                    centerX: (minX + maxX) / 2,
-                                    centerY: (minY + maxY) / 2,
-                                    classes: 'Measure',
-                                    isMeasureBbox: true,  // Flag to distinguish measure vs note boxes
-                                };
-
-                                // Use the measure bounding box as the primary selection
-                                setSelectedElement({ x: measureBbox.x, y: measureBbox.y, w: measureBbox.w, h: measureBbox.h });
-                                setSelectedPoint({ page: measureBbox.page, x: measureBbox.centerX, y: measureBbox.centerY });
-                                setSelectionBoxes([measureBbox, ...boxes]);
-                                console.log('[ScoreEditor] Set selectionBoxes with', boxes.length + 1, 'boxes (1 measure + ' + boxes.length + ' notes)');
-                                setSelectedIndex(null);
-                                setSelectedElementClasses('Measure');
-                                return;
-                            } else {
-                                console.log('[ScoreEditor] No bboxes returned for measure selection');
-                            }
+                            bboxes = await score.getSelectionBoundingBoxes();
+                            isRangeSelection = bboxes && bboxes.length > 1;
                         }
 
-                        // Fallback to SVG-based refresh
-                        refreshSelectionFromSvg(fallback);
+                        // Use backend rendering (selection highlighting is baked into SVG)
+                        try {
+                            // For range selections, render without overlay refresh
+                            // (highlighting is baked into SVG from WASM, overlays would clear it)
+                            if (isRangeSelection) {
+                                await renderScore(score, pageIndex);
+                            } else {
+                                // For single selections, use the normal flow with overlay refresh
+                                await refreshSelectionFromSvg();
+                            }
+                        } catch (err) {
+                            console.error('[ScoreEditor] Backend rendering failed:', err);
+                        }
                     })
                     .catch(err => {
                         console.warn('selectMeasureAtPoint/selectElementAtPoint not available or failed:', err);
@@ -4980,8 +4943,8 @@ ${partsBodyXml}
                             data-testid={`selection-overlay-${index}`}
                             className={`absolute pointer-events-none ${
                                 box.isMeasureBbox
-                                    ? 'border-2 border-blue-400'
-                                    : 'border-2 border-blue-600'
+                                    ? 'border border-blue-400/50'
+                                    : 'bg-blue-200/40 border border-blue-400/60'
                             }`}
                             style={{
                                 left: box.x,

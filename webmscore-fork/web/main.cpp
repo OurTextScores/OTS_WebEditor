@@ -1251,17 +1251,92 @@ WasmRes _saveMsc(uintptr_t score_ptr, bool compressed, int excerptId) {
 WasmRes _saveSvg(uintptr_t score_ptr, int pageNumber, bool drawPageBackground, bool highlightSelection, int excerptId) {
     MainScore score(score_ptr, excerptId);
 
-    // config
+    printf("[WASM DEBUG] _saveSvg START: highlightSelection=%d, selectionState=%d, isRange=%d, elements.size=%zu\n",
+           highlightSelection, static_cast<int>(score->selection().state()), score->selection().isRange(),
+           score->selection().elements().size());
+
+    // config - do this BEFORE modifying selection to avoid clearing it
     score->switchToPageMode();
+    printf("[WASM DEBUG] After switchToPageMode\n");
+
+    // WORKAROUND: Range selections cause crashes during SVG rendering with highlighting
+    // Convert range to list selection by collecting all elements in the range
+    if (highlightSelection && score->selection().isRange()) {
+        printf("[WASM DEBUG] Converting range selection to list for rendering...\n");
+        auto* startSeg = score->selection().startSegment();
+        auto* endSeg = score->selection().endSegment();
+        auto staffStart = score->selection().staffStart();
+        auto staffEnd = score->selection().staffEnd();
+
+        // Collect all chord/rest elements in the range
+        std::vector<engraving::EngravingItem*> rangeElements;
+        for (auto* seg = startSeg; seg && seg != endSeg; seg = seg->next1()) {
+            if (seg->segmentType() != engraving::SegmentType::ChordRest) {
+                continue;
+            }
+            for (auto staffIdx = staffStart; staffIdx < staffEnd; ++staffIdx) {
+                for (int voice = 0; voice < mu::engraving::VOICES; ++voice) {
+                    auto* el = seg->element(staffIdx * mu::engraving::VOICES + voice);
+                    if (el && (el->isChord() || el->isRest())) {
+                        rangeElements.push_back(el);
+                    }
+                }
+            }
+        }
+
+        // Clear the range and select elements individually using Selection API
+        score->deselectAll();
+        for (auto* el : rangeElements) {
+            score->select(el, engraving::SelectType::ADD, 0);
+
+            // If this is a Chord, also explicitly mark all its notes as selected
+            if (el->isChord()) {
+                auto* chord = static_cast<engraving::Chord*>(el);
+                for (auto* note : chord->notes()) {
+                    note->setSelected(true);
+                }
+            }
+        }
+        printf("[WASM DEBUG] Converted to list selection with %zu elements, state=%d\n",
+               rangeElements.size(), static_cast<int>(score->selection().state()));
+
+        // Verify elements are actually selected
+        int selectedCount = 0;
+        int noteCount = 0;
+        for (auto* el : rangeElements) {
+            if (el->selected()) {
+                selectedCount++;
+            }
+            if (el->isChord()) {
+                auto* chord = static_cast<engraving::Chord*>(el);
+                for (auto* note : chord->notes()) {
+                    if (note->selected()) {
+                        noteCount++;
+                    }
+                }
+            }
+        }
+        printf("[WASM DEBUG] Verified: %d/%zu chords selected, %d notes selected\n",
+               selectedCount, rangeElements.size(), noteCount);
+
+        // Try calling updateSelection to ensure selection state is propagated
+        printf("[WASM DEBUG] Calling score->updateSelection()...\n");
+        score->updateSelection();
+        printf("[WASM DEBUG] After updateSelection(), state=%d, elements.size=%zu\n",
+               static_cast<int>(score->selection().state()), score->selection().elements().size());
+    }
 
     INotationWriter::Options options {
         { INotationWriter::OptionKey::PAGE_NUMBER, Val(pageNumber) },
         { INotationWriter::OptionKey::TRANSPARENT_BACKGROUND, Val(!drawPageBackground) },
         { INotationWriter::OptionKey::HIGHLIGHT_SELECTION, Val(highlightSelection) },
     };
+    printf("[WASM DEBUG] Options created\n");
 
     QByteArray data;
+    printf("[WASM DEBUG] About to call processWriter...\n");
     Ret ret = processWriter(u"svg", score, &data, options);
+    printf("[WASM DEBUG] processWriter returned, success=%d\n", ret.success());
 
     LOGI() << String(u"excerpt %1, page index %2, highlightSelection %3, size %4 bytes").arg(excerptId).arg(pageNumber).arg(highlightSelection).arg(data.size());
     if (!ret.success()) {
