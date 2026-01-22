@@ -1251,79 +1251,80 @@ WasmRes _saveMsc(uintptr_t score_ptr, bool compressed, int excerptId) {
 WasmRes _saveSvg(uintptr_t score_ptr, int pageNumber, bool drawPageBackground, bool highlightSelection, int excerptId) {
     MainScore score(score_ptr, excerptId);
 
-    printf("[WASM DEBUG] _saveSvg START: highlightSelection=%d, selectionState=%d, isRange=%d, elements.size=%zu\n",
+    printf("[WASM DEBUG] _saveSvg: highlightSelection=%d, state=%d, isRange=%d, elements.size=%zu\n",
            highlightSelection, static_cast<int>(score->selection().state()), score->selection().isRange(),
            score->selection().elements().size());
 
-    // config - do this BEFORE modifying selection to avoid clearing it
+    // config
     score->switchToPageMode();
-    printf("[WASM DEBUG] After switchToPageMode\n");
 
-    // WORKAROUND: Range selections cause crashes during SVG rendering with highlighting
-    // Convert range to list selection by collecting all elements in the range
+    // For range selections with highlighting, convert to list temporarily
+    bool hadRangeSelection = false;
+    engraving::Segment* savedStartSeg = nullptr;
+    engraving::Segment* savedEndSeg = nullptr;
+    int savedStaffStart = 0;
+    int savedStaffEnd = 0;
+    std::vector<engraving::Note*> temporarilyMarkedNotes;
+
     if (highlightSelection && score->selection().isRange()) {
-        printf("[WASM DEBUG] Converting range selection to list for rendering...\n");
-        auto* startSeg = score->selection().startSegment();
-        auto* endSeg = score->selection().endSegment();
-        auto staffStart = score->selection().staffStart();
-        auto staffEnd = score->selection().staffEnd();
+        printf("[WASM DEBUG] _saveSvg: converting range to list for safe rendering\n");
 
-        // Collect all chord/rest elements in the range
-        std::vector<engraving::EngravingItem*> rangeElements;
-        for (auto* seg = startSeg; seg && seg != endSeg; seg = seg->next1()) {
+        // Save range parameters
+        hadRangeSelection = true;
+        savedStartSeg = score->selection().startSegment();
+        savedEndSeg = score->selection().endSegment();
+        savedStaffStart = score->selection().staffStart();
+        savedStaffEnd = score->selection().staffEnd();
+
+        // Collect all notes in the range
+        std::vector<engraving::Note*> rangeNotes;
+        for (auto* seg = savedStartSeg; seg && seg != savedEndSeg; seg = seg->next1()) {
             if (seg->segmentType() != engraving::SegmentType::ChordRest) {
                 continue;
             }
-            for (auto staffIdx = staffStart; staffIdx < staffEnd; ++staffIdx) {
+            for (auto staffIdx = savedStaffStart; staffIdx < savedStaffEnd; ++staffIdx) {
                 for (int voice = 0; voice < mu::engraving::VOICES; ++voice) {
                     auto* el = seg->element(staffIdx * mu::engraving::VOICES + voice);
-                    if (el && (el->isChord() || el->isRest())) {
-                        rangeElements.push_back(el);
+                    if (el && el->isChord()) {
+                        auto* chord = static_cast<engraving::Chord*>(el);
+                        for (auto* note : chord->notes()) {
+                            rangeNotes.push_back(note);
+                        }
                     }
                 }
             }
         }
 
-        // Clear the range and select elements individually using Selection API
-        score->deselectAll();
-        for (auto* el : rangeElements) {
-            score->select(el, engraving::SelectType::ADD, 0);
+        printf("[WASM DEBUG] _saveSvg: collected %zu notes from range\n", rangeNotes.size());
 
-            // If this is a Chord, also explicitly mark all its notes as selected
-            if (el->isChord()) {
-                auto* chord = static_cast<engraving::Chord*>(el);
-                for (auto* note : chord->notes()) {
-                    note->setSelected(true);
-                }
-            }
+        // Convert to list selection (DON'T call deselectAll - it might invalidate segments)
+        score->selection().clear();
+        for (auto* note : rangeNotes) {
+            score->select(note, engraving::SelectType::ADD, 0);
         }
-        printf("[WASM DEBUG] Converted to list selection with %zu elements, state=%d\n",
-               rangeElements.size(), static_cast<int>(score->selection().state()));
+        score->selection().updateState();
 
-        // Verify elements are actually selected
-        int selectedCount = 0;
-        int noteCount = 0;
-        for (auto* el : rangeElements) {
-            if (el->selected()) {
-                selectedCount++;
-            }
-            if (el->isChord()) {
-                auto* chord = static_cast<engraving::Chord*>(el);
-                for (auto* note : chord->notes()) {
-                    if (note->selected()) {
-                        noteCount++;
-                    }
-                }
-            }
-        }
-        printf("[WASM DEBUG] Verified: %d/%zu chords selected, %d notes selected\n",
-               selectedCount, rangeElements.size(), noteCount);
-
-        // Try calling updateSelection to ensure selection state is propagated
-        printf("[WASM DEBUG] Calling score->updateSelection()...\n");
-        score->updateSelection();
-        printf("[WASM DEBUG] After updateSelection(), state=%d, elements.size=%zu\n",
+        printf("[WASM DEBUG] _saveSvg: converted to list, state=%d elements.size=%zu\n",
                static_cast<int>(score->selection().state()), score->selection().elements().size());
+    }
+
+    // Mark notes within chords as selected for highlighting (for list selections)
+    if (highlightSelection && score->selection().state() == engraving::SelState::LIST) {
+        for (auto* el : score->selection().elements()) {
+            if (el && el->isChord()) {
+                auto* chord = static_cast<engraving::Chord*>(el);
+                for (auto* note : chord->notes()) {
+                    if (!note->selected()) {
+                        note->setSelected(true);
+                        temporarilyMarkedNotes.push_back(note);
+                    }
+                }
+            }
+        }
+        if (!temporarilyMarkedNotes.empty()) {
+            printf("[WASM DEBUG] _saveSvg: marked %zu notes as selected for highlighting\n",
+                   temporarilyMarkedNotes.size());
+        }
     }
 
     INotationWriter::Options options {
@@ -1331,12 +1332,30 @@ WasmRes _saveSvg(uintptr_t score_ptr, int pageNumber, bool drawPageBackground, b
         { INotationWriter::OptionKey::TRANSPARENT_BACKGROUND, Val(!drawPageBackground) },
         { INotationWriter::OptionKey::HIGHLIGHT_SELECTION, Val(highlightSelection) },
     };
-    printf("[WASM DEBUG] Options created\n");
 
     QByteArray data;
-    printf("[WASM DEBUG] About to call processWriter...\n");
     Ret ret = processWriter(u"svg", score, &data, options);
-    printf("[WASM DEBUG] processWriter returned, success=%d\n", ret.success());
+
+    // Unmark temporarily selected notes
+    if (!temporarilyMarkedNotes.empty()) {
+        printf("[WASM DEBUG] _saveSvg: unmarking %zu temporarily selected notes\n",
+               temporarilyMarkedNotes.size());
+        for (auto* note : temporarilyMarkedNotes) {
+            note->setSelected(false);
+        }
+    }
+
+    // Restore range selection if we converted it
+    if (hadRangeSelection && savedStartSeg && savedEndSeg) {
+        printf("[WASM DEBUG] _saveSvg: restoring range selection (without deselectAll)\n");
+        // Don't call deselectAll() - it might invalidate the segment pointers
+        // Just call setRange() directly which will update the selection state
+        score->selection().setRange(savedStartSeg, savedEndSeg, savedStaffStart, savedStaffEnd);
+
+        printf("[WASM DEBUG] _saveSvg: restored, state=%d isRange=%d elements.size=%zu\n",
+               static_cast<int>(score->selection().state()), score->selection().isRange(),
+               score->selection().elements().size());
+    }
 
     LOGI() << String(u"excerpt %1, page index %2, highlightSelection %3, size %4 bytes").arg(excerptId).arg(pageNumber).arg(highlightSelection).arg(data.size());
     if (!ret.success()) {
@@ -1703,9 +1722,131 @@ bool _selectMeasureAtPoint(uintptr_t score_ptr, int pageNumber, double x, double
 bool _clearSelection(uintptr_t score_ptr, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
+
+    // Before deselectAll, explicitly clear SELECTED flag on notes within chords
+    // (in case they were set directly for highlighting purposes)
+    for (auto* el : score->selection().elements()) {
+        if (el && el->isChord()) {
+            auto* chord = static_cast<engraving::Chord*>(el);
+            for (auto* note : chord->notes()) {
+                note->setSelected(false);
+            }
+        }
+    }
+
     score->deselectAll();
     score->updateSelection();
     score->setSelectionChanged(true);
+
+    printf("[WASM DEBUG] clearSelection: done\n");
+    return true;
+}
+
+/**
+ * Convert a range selection to a list selection by collecting all chord/rest elements
+ * OR convert a list of Chords to a list of Notes (for pitch operations)
+ * This makes the selection work with mutation operations like pitchUp/pitchDown
+ */
+bool _convertRangeToListSelection(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+
+    // If it's a list selection with Chords, convert Chords to Notes
+    if (score->selection().state() == engraving::SelState::LIST) {
+        bool hasChords = false;
+        for (auto* el : score->selection().elements()) {
+            if (el && el->isChord()) {
+                hasChords = true;
+                break;
+            }
+        }
+
+        if (hasChords) {
+            printf("[WASM DEBUG] convertRangeToListSelection: converting LIST of Chords to Notes (%zu elements)\n",
+                   score->selection().elements().size());
+
+            std::vector<engraving::EngravingItem*> notes;
+            for (auto* el : score->selection().elements()) {
+                if (el && el->isChord()) {
+                    auto* chord = static_cast<engraving::Chord*>(el);
+                    for (auto* note : chord->notes()) {
+                        notes.push_back(note);
+                    }
+                } else if (el && el->isRest()) {
+                    notes.push_back(el);
+                }
+            }
+
+            score->deselectAll();
+            for (auto* note : notes) {
+                score->select(note, engraving::SelectType::ADD, 0);
+            }
+            score->updateSelection();
+            score->setSelectionChanged(true);
+
+            printf("[WASM DEBUG] convertRangeToListSelection: converted to %zu notes\n", notes.size());
+            return true;
+        }
+
+        printf("[WASM DEBUG] convertRangeToListSelection: list selection has no Chords, skipping\n");
+        return true;
+    }
+
+    if (!score->selection().isRange()) {
+        printf("[WASM DEBUG] convertRangeToListSelection: selection is not a range, skipping\n");
+        return true;
+    }
+
+    printf("[WASM DEBUG] convertRangeToListSelection: converting RANGE to list\n");
+
+    auto* startSeg = score->selection().startSegment();
+    auto* endSeg = score->selection().endSegment();
+    auto staffStart = score->selection().staffStart();
+    auto staffEnd = score->selection().staffEnd();
+
+    printf("[WASM DEBUG] Range boundaries: startSeg=%p endSeg=%p staffStart=%d staffEnd=%d\n",
+           static_cast<void*>(startSeg), static_cast<void*>(endSeg),
+           static_cast<int>(staffStart), static_cast<int>(staffEnd));
+
+    // Collect all chord/rest elements AND their notes in the range
+    std::vector<engraving::EngravingItem*> rangeElements;
+    int segmentCount = 0;
+    for (auto* seg = startSeg; seg && seg != endSeg; seg = seg->next1()) {
+        segmentCount++;
+        if (seg->segmentType() != engraving::SegmentType::ChordRest) {
+            continue;
+        }
+        for (auto staffIdx = staffStart; staffIdx < staffEnd; ++staffIdx) {
+            for (int voice = 0; voice < mu::engraving::VOICES; ++voice) {
+                auto* el = seg->element(staffIdx * mu::engraving::VOICES + voice);
+                if (el && el->isChord()) {
+                    // For chords, select the individual notes (pitch operations work on notes)
+                    auto* chord = static_cast<engraving::Chord*>(el);
+                    for (auto* note : chord->notes()) {
+                        rangeElements.push_back(note);
+                    }
+                } else if (el && el->isRest()) {
+                    rangeElements.push_back(el);
+                }
+            }
+        }
+    }
+
+    printf("[WASM DEBUG] convertRangeToListSelection: processed %d segments, collected %zu note/rest elements\n",
+           segmentCount, rangeElements.size());
+
+    // Clear and rebuild as list selection with individual notes
+    score->deselectAll();
+    for (auto* el : rangeElements) {
+        score->select(el, engraving::SelectType::ADD, 0);
+    }
+
+    score->updateSelection();
+    score->setSelectionChanged(true);
+
+    printf("[WASM DEBUG] convertRangeToListSelection: done, state=%d elements.size=%zu\n",
+           static_cast<int>(score->selection().state()), score->selection().elements().size());
+
     return true;
 }
 
@@ -2062,15 +2203,54 @@ bool _deleteSelection(uintptr_t score_ptr, int excerptId)
 bool _pitchUp(uintptr_t score_ptr, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
+
+    printf("[WASM DEBUG] pitchUp: selection state=%d isRange=%d elements.size=%zu\n",
+           static_cast<int>(score->selection().state()), score->selection().isRange(),
+           score->selection().elements().size());
+
+    // CRITICAL FIX: Convert range to list selection with Notes before calling cmdPitchUp
+    _convertRangeToListSelection(score_ptr, excerptId);
+
+    printf("[WASM DEBUG] pitchUp: after conversion, state=%d elements.size=%zu\n",
+           static_cast<int>(score->selection().state()), score->selection().elements().size());
+
+    // Check what uniqueNotes() returns
+    auto notesList = score->selection().uniqueNotes();
+    printf("[WASM DEBUG] pitchUp: uniqueNotes() returned %zu notes\n", notesList.size());
+
+    // Log first 3 notes from uniqueNotes()
+    int noteCount = 0;
+    for (auto* note : notesList) {
+        if (noteCount < 3) {
+            printf("[WASM DEBUG] pitchUp BEFORE: uniqueNote %d pitch=%d\n", noteCount, note->pitch());
+        }
+        noteCount++;
+    }
+
     score->startCmd();
     score->cmdPitchUp();
     score->endCmd();
+
+    // Log pitches after
+    noteCount = 0;
+    for (auto* note : notesList) {
+        if (noteCount < 3) {
+            printf("[WASM DEBUG] pitchUp AFTER: uniqueNote %d pitch=%d\n", noteCount, note->pitch());
+        }
+        noteCount++;
+    }
+
+    printf("[WASM DEBUG] pitchUp: completed\n");
     return true;
 }
 
 bool _pitchDown(uintptr_t score_ptr, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
+
+    // Convert range to list selection with Notes before calling cmdPitchDown
+    _convertRangeToListSelection(score_ptr, excerptId);
+
     score->startCmd();
     score->cmdPitchDown();
     score->endCmd();
@@ -2153,6 +2333,9 @@ bool _transpose(uintptr_t score_ptr, int semitones, int excerptId)
             return false;
         }
     }
+
+    // Convert Chords to Notes for transpose operation (uses upDown which needs uniqueNotes)
+    _convertRangeToListSelection(score_ptr, excerptId);
 
     score->startCmd();
     score->upDownDelta(semitones);
@@ -3848,6 +4031,11 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool clearSelection(uintptr_t score_ptr, int excerptId = -1) {
         return _clearSelection(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool convertRangeToListSelection(uintptr_t score_ptr, int excerptId = -1) {
+        return _convertRangeToListSelection(score_ptr, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE

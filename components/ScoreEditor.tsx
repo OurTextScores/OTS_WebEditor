@@ -273,6 +273,7 @@ export default function ScoreEditor() {
     const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
     const [selectionBoxes, setSelectionBoxes] = useState<SelectionBox[]>([]);
     const [overlaySuppressed, setOverlaySuppressed] = useState(false);
+    const [hasBackendHighlighting, setHasBackendHighlighting] = useState(false);
     const [selectedElementClasses, setSelectedElementClasses] = useState<string>('');
     const [selectedTextValue, setSelectedTextValue] = useState('');
     const [selectedLayoutBreakSubtype, setSelectedLayoutBreakSubtype] = useState<'line'|'page'|null>(null);
@@ -1510,12 +1511,12 @@ ${partsBodyXml}
         }
     };
 
-    const renderScore = async (currentScore: Score, pageIndex?: number) => {
+    const renderScore = async (currentScore: Score, pageIndex?: number, highlightSelection: boolean = true) => {
         if (!currentScore || !containerRef.current) return;
 
         try {
             const targetPage = typeof pageIndex === 'number' ? pageIndex : currentPage;
-            const svgData = await currentScore.saveSvg(targetPage, true, true);
+            const svgData = await currentScore.saveSvg(targetPage, true, highlightSelection);
             if (svgData) {
                 containerRef.current.innerHTML = svgData;
             }
@@ -2343,6 +2344,14 @@ ${partsBodyXml}
             const fallbackPoint = allowSelectionFallback ? preservedPoint : null;
             const advanceSelection = options?.advanceSelection;
             const advanceStep = options?.advanceSelectionStep ?? 1;
+
+            // Skip overlay refresh for multi-selections (measure selections with backend highlighting)
+            // These don't add .selected classes to DOM, so refreshSelectionOverlay would clear them
+            if (preservedMultiSelection) {
+                console.log('[performMutation] Skipping overlay refresh for multi-selection (backend highlighting)');
+                return;
+            }
+
             console.log('[performMutation] Scheduling refresh with preservedIndex:', fallbackIndex, 'preservedPoint:', fallbackPoint);
             if (typeof window !== 'undefined') {
                 window.requestAnimationFrame(() => {
@@ -2422,13 +2431,13 @@ ${partsBodyXml}
     const handleUndo = () => performMutation('undo', score?.undo?.bind(score));
     const handleRedo = () => performMutation('redo', score?.redo?.bind(score));
     const handlePitchUp = () => performMutation('raise pitch', async () => {
-        await ensureSelectionInWasm();
+        // Don't call ensureSelectionInWasm - it would replace multi-selections with single element
         const fn = requireMutation('pitchUp');
         if (!fn) return;
         return fn();
     });
     const handlePitchDown = () => performMutation('lower pitch', async () => {
-        await ensureSelectionInWasm();
+        // Don't call ensureSelectionInWasm - it would replace multi-selections with single element
         const fn = requireMutation('pitchDown');
         if (!fn) return;
         return fn();
@@ -4182,7 +4191,8 @@ ${partsBodyXml}
             setSelectedIndex(null);
             setSelectedElementClasses('');
             setSelectedLayoutBreakSubtype(null);
-            const refreshAfterClear = () => refreshSelectionFromSvg(null);
+            setHasBackendHighlighting(false);
+            const refreshAfterClear = () => renderScore(score, currentPage, false); // Render WITHOUT highlighting
             blockOverlayRefreshRef.current = true;
             selectionOverlayGenerationRef.current += 1;
             setOverlaySuppressed(true);
@@ -4251,6 +4261,11 @@ ${partsBodyXml}
                         const elementSelected = await score.selectElementAtPoint(pageIndex, scorePoint.x, scorePoint.y);
                         console.log('[ScoreEditor] selectElementAtPoint returned:', elementSelected);
                         if (elementSelected) {
+                            // Convert range to list if needed (e.g., clicked on staff lines/measure)
+                            if (score.convertRangeToListSelection) {
+                                console.log('[ScoreEditor] Converting range to list selection after element select...');
+                                await score.convertRangeToListSelection();
+                            }
                             return true;
                         }
                     }
@@ -4260,6 +4275,13 @@ ${partsBodyXml}
                     if (score.selectMeasureAtPoint) {
                         const measureSelected = await score.selectMeasureAtPoint(pageIndex, scorePoint.x, scorePoint.y);
                         console.log('[ScoreEditor] selectMeasureAtPoint returned:', measureSelected);
+
+                        // If measure was selected, convert range to list so buttons work
+                        if (measureSelected && score.convertRangeToListSelection) {
+                            console.log('[ScoreEditor] Converting range to list selection...');
+                            await score.convertRangeToListSelection();
+                        }
+
                         return measureSelected;
                     }
 
@@ -4273,26 +4295,46 @@ ${partsBodyXml}
                             return;
                         }
 
-                        // Check if this is a range selection (multiple elements)
-                        let isRangeSelection = false;
-                        let bboxes: any[] = [];
-                        if (score.getSelectionBoundingBoxes) {
-                            bboxes = await score.getSelectionBoundingBoxes();
-                            isRangeSelection = bboxes && bboxes.length > 1;
+                        // CRITICAL: Convert range to list BEFORE getting bounding boxes or rendering
+                        // This ensures mutations work on the first arrow press
+                        if (score.convertRangeToListSelection) {
+                            console.log('[ScoreEditor] Converting range to list selection immediately after select...');
+                            await score.convertRangeToListSelection();
                         }
 
-                        // Use backend rendering (selection highlighting is baked into SVG)
-                        try {
-                            // For range selections, render without overlay refresh
-                            // (highlighting is baked into SVG from WASM, overlays would clear it)
-                            if (isRangeSelection) {
-                                await renderScore(score, pageIndex);
-                            } else {
-                                // For single selections, use the normal flow with overlay refresh
-                                await refreshSelectionFromSvg();
+                        // Get selection bounding boxes for keyboard/button enablement
+                        let hasMeasureSelection = false;
+                        if (score.getSelectionBoundingBoxes) {
+                            try {
+                                const bboxes = await score.getSelectionBoundingBoxes();
+                                if (bboxes && bboxes.length > 0) {
+                                    console.log('[ScoreEditor] Got', bboxes.length, 'bounding boxes for selection');
+                                    hasMeasureSelection = true;
+                                    // Set boxes for state tracking (keyboard shortcuts, button states)
+                                    // Set backend highlighting flag to skip visual rendering (backend handles it)
+                                    const boxes = bboxes.map((bb: any) => ({
+                                        x: bb.x,
+                                        y: bb.y,
+                                        width: bb.width,
+                                        height: bb.height,
+                                    }));
+                                    setSelectionBoxes(boxes);
+                                    setHasBackendHighlighting(true);
+                                }
+                            } catch (err) {
+                                console.warn('[ScoreEditor] Failed to get selection bounding boxes:', err);
                             }
-                        } catch (err) {
-                            console.error('[ScoreEditor] Backend rendering failed:', err);
+                        }
+
+                        // Render with backend highlighting
+                        // For measure selections, skip overlay refresh to preserve selectionBoxes state
+                        if (hasMeasureSelection) {
+                            console.log('[ScoreEditor] Rendering measure selection without overlay refresh');
+                            await renderScore(score, pageIndex);
+                        } else {
+                            // For single element selections, use normal flow with overlay
+                            setHasBackendHighlighting(false);
+                            await refreshSelectionFromSvg();
                         }
                     })
                     .catch(err => {
@@ -4937,7 +4979,7 @@ ${partsBodyXml}
                             }}
                         />
                     )}
-                    {selectionBoxes.length > 0 && !overlaySuppressed && selectionBoxes.map((box, index) => (
+                    {selectionBoxes.length > 0 && !overlaySuppressed && !hasBackendHighlighting && selectionBoxes.map((box, index) => (
                         <div
                             key={index}
                             data-testid={`selection-overlay-${index}`}
