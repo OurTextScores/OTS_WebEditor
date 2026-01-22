@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
 export type MeasureInsertTarget = 'beginning' | 'after-selection' | 'end';
+export type HeaderTextTarget = 'title' | 'subtitle' | 'composer' | 'lyricist';
 
 type HarmonyVariant = 0 | 1 | 2;
 
@@ -32,19 +33,6 @@ interface PartSummary {
 interface ToolbarProps {
     onNewScore?: () => void;
     onFileUpload: (file: File) => void;
-    scoreTitle?: string;
-    scoreSubtitle?: string;
-    scoreComposer?: string;
-    scoreLyricist?: string;
-    onScoreTitleChange?: (title: string) => void;
-    onScoreSubtitleChange?: (subtitle: string) => void;
-    onScoreComposerChange?: (composer: string) => void;
-    onScoreLyricistChange?: (lyricist: string) => void;
-    onSetTitleText?: () => void;
-    onSetSubtitleText?: () => void;
-    onSetComposerText?: () => void;
-    onSetLyricistText?: () => void;
-    headerTextAvailable?: boolean;
     onZoomIn: () => void;
     onZoomOut: () => void;
     onFitWidth?: () => void;
@@ -63,11 +51,6 @@ interface ToolbarProps {
     noteEntryAvailable?: boolean;
     mutationsEnabled?: boolean;
     selectionActive?: boolean;
-    selectedTextActive?: boolean;
-    selectedTextValue?: string;
-    onSelectedTextChange?: (value: string) => void;
-    onApplySelectedText?: () => void;
-    selectedTextDisabled?: boolean;
     onExportSvg?: () => void;
     onExportPdf?: () => void;
     onExportPng?: () => void;
@@ -135,17 +118,25 @@ interface ToolbarProps {
     onAddPart?: (instrumentId: string) => void;
     onRemovePart?: (partIndex: number) => void;
     onTogglePartVisible?: (partIndex: number, visible: boolean) => void;
+    onOpenHeaderEditor?: (target: HeaderTextTarget, event: React.MouseEvent) => void;
 }
 
-const dropdownSummaryClass =
-    'px-3 py-1 bg-white border border-gray-300 rounded cursor-pointer hover:bg-gray-50 list-none';
-const dropdownSummaryDisabledClass = 'opacity-50 cursor-not-allowed pointer-events-none';
+const toolbarButtonBase = 'rounded border text-xs font-medium sm:text-sm transition-colors';
+const toolbarButtonPadding = 'px-2 py-1 sm:px-3 sm:py-1.5';
+const toolbarButtonDisabled =
+    'disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-700 disabled:border-slate-300 disabled:opacity-100';
+const toolbarButtonPrimaryClass = `${toolbarButtonBase} ${toolbarButtonPadding} bg-blue-600 text-white border-blue-600 hover:bg-blue-700 ${toolbarButtonDisabled}`;
+const toolbarButtonSecondaryClass = `${toolbarButtonBase} ${toolbarButtonPadding} bg-blue-600 text-white border-blue-600 hover:bg-blue-700 ${toolbarButtonDisabled}`;
+const toolbarInputBaseClass =
+    'rounded border border-gray-300 bg-white px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:border-gray-200 disabled:cursor-not-allowed';
+const dropdownSummaryClass = `${toolbarButtonSecondaryClass} cursor-pointer list-none`;
+const dropdownSummaryDisabledClass = 'cursor-not-allowed';
 const dropdownMenuClass =
     'absolute mt-2 w-56 bg-white border border-gray-200 rounded shadow-lg p-2 flex flex-col gap-1';
 const dropdownItemClass =
-    'dropdown-item px-3 py-1 text-left rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed';
-const dropdownTextClass = 'px-3 py-1 text-sm text-gray-700';
-const dropdownLabelClass = 'text-xs uppercase tracking-wide text-gray-500 px-2 py-1';
+    'dropdown-item px-3 py-1 text-left rounded text-xs sm:text-sm text-blue-700 hover:bg-blue-50 disabled:text-slate-600 disabled:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-100';
+const dropdownTextClass = 'px-3 py-1 text-xs sm:text-sm text-gray-700';
+const dropdownLabelClass = 'text-[10px] sm:text-xs uppercase tracking-wide text-gray-500 px-2 py-1';
 
 const ToolbarDropdown: React.FC<{
     label: string;
@@ -200,19 +191,6 @@ const ToolbarDropdown: React.FC<{
 export const Toolbar: React.FC<ToolbarProps> = ({
     onNewScore,
     onFileUpload,
-    scoreTitle,
-    scoreSubtitle,
-    scoreComposer,
-    scoreLyricist,
-    onScoreTitleChange,
-    onScoreSubtitleChange,
-    onScoreComposerChange,
-    onScoreLyricistChange,
-    onSetTitleText,
-    onSetSubtitleText,
-    onSetComposerText,
-    onSetLyricistText,
-    headerTextAvailable = false,
     onZoomIn,
     onZoomOut,
     onFitWidth,
@@ -229,11 +207,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     onSetAccidental,
     mutationsEnabled = false,
     selectionActive = false,
-    selectedTextActive = false,
-    selectedTextValue = '',
-    onSelectedTextChange,
-    onApplySelectedText,
-    selectedTextDisabled = false,
     onExportSvg,
     onExportPdf,
     onExportPng,
@@ -300,13 +273,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     instrumentGroups = [],
     onAddPart,
     onRemovePart,
-    onTogglePartVisible
+    onTogglePartVisible,
+    onOpenHeaderEditor
 }) => {
     const [selectedInstrumentId, setSelectedInstrumentId] = useState('');
     const [customTimeSigNumerator, setCustomTimeSigNumerator] = useState('4');
     const [measureCount, setMeasureCount] = useState(1);
     const [measureTarget, setMeasureTarget] = useState<MeasureInsertTarget>('after-selection');
     const [tempoBpm, setTempoBpm] = useState('120');
+    const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
 
     const handleApplyMeasures = () => {
         if (!onInsertMeasures) {
@@ -343,9 +318,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         }
     };
 
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+        if (window.innerWidth < 1024) {
+            setToolbarCollapsed(true);
+        }
+    }, []);
+
     const mutationDisabled = !mutationsEnabled;
     const insertMeasuresBlocked = insertMeasuresDisabled || !onInsertMeasures || mutationDisabled;
-    const headerTextDisabled = mutationDisabled || !exportsEnabled || !headerTextAvailable;
+    const textDropdownDisabled = mutationDisabled || (!selectionActive && !onOpenHeaderEditor);
 	const signatureOptions = timeSignatureOptions ?? [
 		{ label: 'Common time', numerator: 4, denominator: 4, timeSigType: 1 },
 		{ label: 'Cut time', numerator: 2, denominator: 2, timeSigType: 2 },
@@ -601,430 +585,219 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
     return (
         <div
-            className="relative flex flex-wrap items-center justify-between gap-4 p-4 bg-gray-100 border-b border-gray-300 overflow-visible"
+            className="relative flex flex-col border-b border-gray-300 bg-gray-100 p-2 sm:p-3 lg:p-4 overflow-visible"
             style={{ zIndex: 100 }}
         >
-	            <div className="flex items-center space-x-4">
-                    <button
-                        type="button"
-                        onClick={onNewScore}
-                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={!onNewScore}
-                    >
-                        New Score
-                    </button>
-	                <label className="px-4 py-2 bg-blue-600 text-white rounded cursor-pointer hover:bg-blue-700">
-	                    Open Score
-	                    <input
-	                        data-testid="open-score-input"
-	                        type="file"
-	                        accept=".mscz,.xml,.musicxml"
-	                        onChange={handleFileChange}
-	                        className="hidden"
-	                    />
-	                </label>
-                    <ToolbarDropdown
-                        label="Export"
-                        disabled={!exportsEnabled}
-                        testId="dropdown-export"
-                        summaryClassName="px-3 py-2 bg-blue-600 text-white rounded cursor-pointer hover:bg-blue-700 list-none"
-                    >
-                        <button
-                            data-testid="btn-export-svg"
-                            type="button"
-                            onClick={onExportSvg}
-                            disabled={!exportsEnabled || !onExportSvg}
-                            className={dropdownItemClass}
-                        >
-                            SVG
-                        </button>
-                        <button
-                            data-testid="btn-export-pdf"
-                            type="button"
-                            onClick={onExportPdf}
-                            disabled={!exportsEnabled || !onExportPdf}
-                            className={dropdownItemClass}
-                        >
-                            PDF
-                        </button>
-                        <button
-                            data-testid="btn-export-png"
-                            type="button"
-                            onClick={onExportPng}
-                            disabled={!exportsEnabled || !onExportPng || !pngAvailable}
-                            className={dropdownItemClass}
-                        >
-                            PNG
-                        </button>
-                        <button
-                            data-testid="btn-export-mxl"
-                            type="button"
-                            onClick={onExportMxl}
-                            disabled={!exportsEnabled || !onExportMxl}
-                            className={dropdownItemClass}
-                        >
-                            MXL
-                        </button>
-                        <button
-                            data-testid="btn-export-mscz"
-                            type="button"
-                            onClick={onExportMscz}
-                            disabled={!exportsEnabled || !onExportMscz}
-                            className={dropdownItemClass}
-                        >
-                            MSCZ
-                        </button>
-                        <button
-                            data-testid="btn-export-midi"
-                            type="button"
-                            onClick={onExportMidi}
-                            disabled={!exportsEnabled || !onExportMidi}
-                            className={dropdownItemClass}
-                        >
-                            MIDI
-                        </button>
-                        <button
-                            data-testid="btn-export-audio"
-                            type="button"
-                            onClick={onExportAudio}
-                            disabled={!exportsEnabled || !onExportAudio || !audioAvailable || audioBusy}
-                            className={dropdownItemClass}
-                        >
-                            {audioBusy ? 'Exporting…' : 'WAV'}
-                        </button>
-                    </ToolbarDropdown>
-	                <label className="px-3 py-1 bg-white border border-gray-300 rounded cursor-pointer hover:bg-gray-50">
-	                    Load SoundFont
-	                    <input
-	                        data-testid="soundfont-input"
-	                        type="file"
-	                        accept=".sf2,.sf3"
-	                        onChange={handleSoundFontChange}
-	                        className="hidden"
-	                    />
-	                </label>
-
-                    <div className="flex flex-wrap items-center gap-2 text-sm">
-                        <input
-                            data-testid="input-title"
-                            type="text"
-                            value={scoreTitle ?? ''}
-                            onChange={(e) => onScoreTitleChange?.(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && onSetTitleText && !headerTextDisabled) {
-                                    e.preventDefault();
-                                    onSetTitleText();
-                                }
-                            }}
-                            placeholder="Title"
-                            disabled={headerTextDisabled || !onScoreTitleChange}
-                            className="px-2 py-1 bg-white border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                        />
-                        <button
-                            data-testid="btn-set-title"
-                            type="button"
-                            onClick={onSetTitleText}
-                            disabled={headerTextDisabled || !onSetTitleText}
-                            className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Set Title
-                        </button>
-                        <input
-                            data-testid="input-subtitle"
-                            type="text"
-                            value={scoreSubtitle ?? ''}
-                            onChange={(e) => onScoreSubtitleChange?.(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && onSetSubtitleText && !headerTextDisabled) {
-                                    e.preventDefault();
-                                    onSetSubtitleText();
-                                }
-                            }}
-                            placeholder="Subtitle"
-                            disabled={headerTextDisabled || !onScoreSubtitleChange}
-                            className="px-2 py-1 bg-white border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                        />
-                        <button
-                            data-testid="btn-set-subtitle"
-                            type="button"
-                            onClick={onSetSubtitleText}
-                            disabled={headerTextDisabled || !onSetSubtitleText}
-                            className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Set Subtitle
-                        </button>
-                        <input
-                            data-testid="input-composer"
-                            type="text"
-                            value={scoreComposer ?? ''}
-                            onChange={(e) => onScoreComposerChange?.(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && onSetComposerText && !headerTextDisabled) {
-                                    e.preventDefault();
-                                    onSetComposerText();
-                                }
-                            }}
-                            placeholder="Composer"
-                            disabled={headerTextDisabled || !onScoreComposerChange}
-                            className="px-2 py-1 bg-white border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                        />
-                        <button
-                            data-testid="btn-set-composer"
-                            type="button"
-                            onClick={onSetComposerText}
-                            disabled={headerTextDisabled || !onSetComposerText}
-                            className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Set Composer
-                        </button>
-                        <input
-                            data-testid="input-lyricist"
-                            type="text"
-                            value={scoreLyricist ?? ''}
-                            onChange={(e) => onScoreLyricistChange?.(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && onSetLyricistText && !headerTextDisabled) {
-                                    e.preventDefault();
-                                    onSetLyricistText();
-                                }
-                            }}
-                            placeholder="Lyricist"
-                            disabled={headerTextDisabled || !onScoreLyricistChange}
-                            className="px-2 py-1 bg-white border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                        />
-                        <button
-                            data-testid="btn-set-lyricist"
-                            type="button"
-                            onClick={onSetLyricistText}
-                            disabled={headerTextDisabled || !onSetLyricistText}
-                            className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Set Lyricist
-                        </button>
-                        {selectedTextActive && (
-                            <div className="flex items-center gap-2">
-                                <input
-                                    data-testid="input-selected-text"
-                                    type="text"
-                                    value={selectedTextValue}
-                                    onChange={(e) => onSelectedTextChange?.(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                            e.preventDefault();
-                                            onApplySelectedText?.();
-                                        }
-                                    }}
-                                    placeholder="Edit selected text"
-                                    disabled={selectedTextDisabled}
-                                    className="min-w-[160px] flex-1 px-2 py-1 bg-white border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                                />
-                                <button
-                                    data-testid="btn-apply-selected-text"
-                                    type="button"
-                                    onClick={() => onApplySelectedText?.()}
-                                    disabled={selectedTextDisabled || !onApplySelectedText}
-                                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Apply
-                                </button>
-                            </div>
-                        )}
-                    </div>
-	            </div>
-
-	            <div className="flex items-center flex-wrap gap-2 text-sm">
-                <div className="flex items-center space-x-2">
-                    <button
-                        data-testid="btn-delete"
-                        type="button"
-                        title="Shortcut: Delete / Backspace"
-                        onClick={onDeleteSelection}
-                        disabled={mutationDisabled || !onDeleteSelection || !selectionActive}
-                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        Delete
-                    </button>
-                    <button
-                        data-testid="btn-undo"
-                        type="button"
-                        title="Shortcut: Ctrl/Cmd + Z"
-                        onClick={onUndo}
-                        disabled={mutationDisabled || !onUndo}
-                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        Undo
-                    </button>
-                    <button
-                        data-testid="btn-redo"
-                        type="button"
-                        title="Shortcut: Ctrl + Y, Cmd + Shift + Z"
-                        onClick={onRedo}
-                        disabled={mutationDisabled || !onRedo}
-                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        Redo
-                    </button>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                    <span
-                        className="inline-flex"
-                        title={
-                            mutationDisabled || !selectionActive
-                                ? 'Select a note or rest to split the bar.'
-                                : undefined
-                        }
-                    >
-                        <button
-                            data-testid="btn-new-line"
-                            type="button"
-                            onClick={onToggleLineBreak}
-                            disabled={mutationDisabled || !selectionActive || !onToggleLineBreak}
-                            className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            New Line
-                        </button>
-                    </span>
-                    <span
-                        className="inline-flex"
-                        title={
-                            mutationDisabled || !selectionActive
-                                ? 'Select a note or rest to split the bar.'
-                                : undefined
-                        }
-                    >
-                        <button
-                            data-testid="btn-new-page"
-                            type="button"
-                            onClick={onTogglePageBreak}
-                            disabled={mutationDisabled || !selectionActive || !onTogglePageBreak}
-                            className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            New Page
-                        </button>
-                    </span>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                    <button
-                        data-testid="btn-add-note-top"
-                        type="button"
-                        onClick={onAddNoteFromRest}
-                        disabled={mutationDisabled || !selectionActive || !onAddNoteFromRest}
-	                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-	                    >
-	                        Add Note
-	                    </button>
-                    <button
-                        data-testid="btn-pitch-down"
-                        type="button"
-                        title="Shortcut: Arrow Down (Pitch Down)"
-                        onClick={onPitchDown}
-                        disabled={mutationDisabled || !onPitchDown || !selectionActive}
-                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        Pitch ↓
-                    </button>
-                    <button
-                        data-testid="btn-pitch-up"
-                        type="button"
-                        title="Shortcut: Arrow Up (Pitch Up)"
-                        onClick={onPitchUp}
-                        disabled={mutationDisabled || !onPitchUp || !selectionActive}
-                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        Pitch ↑
-	                    </button>
-                        <button
-                            data-testid="btn-transpose--12"
-                            type="button"
-                        onClick={() => onTranspose?.(-12)}
-                        title="Shortcut: Ctrl/Cmd + Arrow Down (Octave Down)"
-                        disabled={mutationDisabled || !selectionActive || !onTranspose}
-                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        Octave ↓
-                    </button>
-                    <button
-                        data-testid="btn-transpose-12"
-                        type="button"
-                        title="Shortcut: Ctrl/Cmd + Arrow Up (Octave Up)"
-                        onClick={() => onTranspose?.(12)}
-                        disabled={mutationDisabled || !selectionActive || !onTranspose}
-                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        Octave ↑
-	                    </button>
-	                </div>
-
-                    <ToolbarDropdown
-                        label="Accidental"
-                        disabled={mutationDisabled || !selectionActive || !onSetAccidental}
-                        testId="dropdown-accidental"
-                    >
-                        {accidentalOptions.map(opt => (
+            <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Toolbar
+                </span>
+                <button
+                    type="button"
+                    onClick={() => setToolbarCollapsed((prev) => !prev)}
+                    aria-expanded={!toolbarCollapsed}
+                    aria-controls="toolbar-content"
+                    className={toolbarButtonSecondaryClass}
+                >
+                    {toolbarCollapsed ? 'Show tools' : 'Hide tools'}
+                </button>
+            </div>
+            {!toolbarCollapsed && (
+                <div id="toolbar-content" className="flex flex-col gap-3 sm:gap-4">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                             <button
-                                key={opt.label}
-                                data-testid={`btn-acc-${opt.value}`}
                                 type="button"
-                                onClick={() => onSetAccidental?.(opt.value)}
-                                disabled={mutationDisabled || !selectionActive || !onSetAccidental}
-                                className={dropdownItemClass}
+                                onClick={onNewScore}
+                                className={toolbarButtonPrimaryClass}
+                                disabled={!onNewScore}
                             >
-                                {opt.label}
+                                New Score
                             </button>
-                        ))}
-                    </ToolbarDropdown>
+                            <label className={`${toolbarButtonPrimaryClass} cursor-pointer`}>
+                                Open Score
+                                <input
+                                    data-testid="open-score-input"
+                                    type="file"
+                                    accept=".mscz,.xml,.musicxml"
+                                    onChange={handleFileChange}
+                                    className="hidden"
+                                />
+                            </label>
+                            <ToolbarDropdown
+                                label="Export"
+                                disabled={!exportsEnabled}
+                                testId="dropdown-export"
+                                summaryClassName={`${toolbarButtonPrimaryClass} cursor-pointer list-none`}
+                            >
+                                <button
+                                    data-testid="btn-export-svg"
+                                    type="button"
+                                    onClick={onExportSvg}
+                                    disabled={!exportsEnabled || !onExportSvg}
+                                    className={dropdownItemClass}
+                                >
+                                    SVG
+                                </button>
+                                <button
+                                    data-testid="btn-export-pdf"
+                                    type="button"
+                                    onClick={onExportPdf}
+                                    disabled={!exportsEnabled || !onExportPdf}
+                                    className={dropdownItemClass}
+                                >
+                                    PDF
+                                </button>
+                                <button
+                                    data-testid="btn-export-png"
+                                    type="button"
+                                    onClick={onExportPng}
+                                    disabled={!exportsEnabled || !onExportPng || !pngAvailable}
+                                    className={dropdownItemClass}
+                                >
+                                    PNG
+                                </button>
+                                <button
+                                    data-testid="btn-export-mxl"
+                                    type="button"
+                                    onClick={onExportMxl}
+                                    disabled={!exportsEnabled || !onExportMxl}
+                                    className={dropdownItemClass}
+                                >
+                                    MXL
+                                </button>
+                                <button
+                                    data-testid="btn-export-mscz"
+                                    type="button"
+                                    onClick={onExportMscz}
+                                    disabled={!exportsEnabled || !onExportMscz}
+                                    className={dropdownItemClass}
+                                >
+                                    MSCZ
+                                </button>
+                                <button
+                                    data-testid="btn-export-midi"
+                                    type="button"
+                                    onClick={onExportMidi}
+                                    disabled={!exportsEnabled || !onExportMidi}
+                                    className={dropdownItemClass}
+                                >
+                                    MIDI
+                                </button>
+                                <button
+                                    data-testid="btn-export-audio"
+                                    type="button"
+                                    onClick={onExportAudio}
+                                    disabled={!exportsEnabled || !onExportAudio || !audioAvailable || audioBusy}
+                                    className={dropdownItemClass}
+                                >
+                                    {audioBusy ? 'Exporting…' : 'WAV'}
+                                </button>
+                            </ToolbarDropdown>
+                            <label className={`${toolbarButtonSecondaryClass} cursor-pointer`}>
+                                Load SoundFont
+                                <input
+                                    data-testid="soundfont-input"
+                                    type="file"
+                                    accept=".sf2,.sf3"
+                                    onChange={handleSoundFontChange}
+                                    className="hidden"
+                                />
+                            </label>
+                        </div>
+                        <div className="ml-auto flex items-center gap-2">
+                            <button
+                                data-testid="btn-fit-width"
+                                type="button"
+                                onClick={onFitWidth}
+                                disabled={!onFitWidth}
+                                className={toolbarButtonSecondaryClass}
+                            >
+                                Fit W
+                            </button>
+                            <button
+                                data-testid="btn-fit-height"
+                                type="button"
+                                onClick={onFitHeight}
+                                disabled={!onFitHeight}
+                                className={toolbarButtonSecondaryClass}
+                            >
+                                Fit H
+                            </button>
+                            <button
+                                data-testid="btn-zoom-out"
+                                type="button"
+                                onClick={onZoomOut}
+                                className={toolbarButtonSecondaryClass}
+                            >
+                                -
+                            </button>
+                            <span className="w-14 text-center text-xs sm:text-sm text-gray-600">
+                                {(zoomLevel * 100).toFixed(0)}%
+                            </span>
+                            <button
+                                data-testid="btn-zoom-in"
+                                onClick={onZoomIn}
+                                className={toolbarButtonSecondaryClass}
+                            >
+                                +
+                            </button>
+                        </div>
+                    </div>
 
-                <div className="flex items-center space-x-2">
-                    <button
-                        data-testid="btn-duration-shorter"
-                        type="button"
-                        onClick={onDurationShorter}
-                        disabled={mutationDisabled || !onDurationShorter || !selectionActive}
-                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        Shorter
-                    </button>
-                    <button
-                        data-testid="btn-duration-longer"
-                        type="button"
-                        onClick={onDurationLonger}
-                        disabled={mutationDisabled || !onDurationLonger || !selectionActive}
-                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        Longer
-                    </button>
+                <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+                    <div className="flex items-center gap-2">
+                        <span className="text-gray-600">Playback:</span>
+                        <button
+                            data-testid="btn-play"
+                            type="button"
+                            onClick={onPlayAudio}
+                            disabled={!audioAvailable || !onPlayAudio || audioBusy}
+                            className={toolbarButtonSecondaryClass}
+                        >
+                            {audioBusy ? 'Working…' : isPlaying ? 'Replay' : 'Play'}
+                        </button>
+                        <button
+                            data-testid="btn-stop"
+                            type="button"
+                            onClick={onStopAudio}
+                            disabled={!audioAvailable || !onStopAudio || audioBusy}
+                            className={toolbarButtonSecondaryClass}
+                        >
+                            Stop
+                        </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            Tempo
+                        </span>
+                        <input
+                            data-testid="input-tempo-bpm"
+                            type="number"
+                            min={1}
+                            value={tempoBpm}
+                            onChange={event => setTempoBpm(event.currentTarget.value)}
+                            onKeyDown={(event) => {
+                                if (event.key === 'Enter') {
+                                    event.preventDefault();
+                                    handleApplyTempo();
+                                }
+                            }}
+                            className={`${toolbarInputBaseClass} w-20`}
+                        />
+                        <button
+                            data-testid="btn-tempo-apply"
+                            type="button"
+                            onClick={handleApplyTempo}
+                            disabled={mutationDisabled || !onAddTempoText}
+                            className={toolbarButtonSecondaryClass}
+                        >
+                            Tempo
+                        </button>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2 text-sm">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        Tempo
-                    </span>
-                    <input
-                        data-testid="input-tempo-bpm"
-                        type="number"
-                        min={1}
-                        value={tempoBpm}
-                        onChange={event => setTempoBpm(event.currentTarget.value)}
-                        onKeyDown={(event) => {
-                            if (event.key === 'Enter') {
-                                event.preventDefault();
-                                handleApplyTempo();
-                            }
-                        }}
-                        className="w-20 px-2 py-1 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <button
-                        data-testid="btn-tempo-apply"
-                        type="button"
-                        onClick={handleApplyTempo}
-                        disabled={mutationDisabled || !onAddTempoText}
-                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        Tempo
-                    </button>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 text-sm">
+
+                <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
                     <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                         Add measures
                     </span>
@@ -1034,12 +807,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         min={1}
                         value={measureCount}
                         onChange={event => setMeasureCount(Number(event.currentTarget.value) || 1)}
-                        className="w-16 px-2 py-1 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={`${toolbarInputBaseClass} w-16`}
                     />
                     <select
                         value={measureTarget}
                         onChange={event => setMeasureTarget(event.currentTarget.value as MeasureInsertTarget)}
-                        className="px-2 py-1 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={`${toolbarInputBaseClass} w-40`}
                     >
                         <option value="beginning">Beginning</option>
                         <option value="after-selection">After Selection</option>
@@ -1050,7 +823,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         type="button"
                         onClick={handleApplyMeasures}
                         disabled={insertMeasuresBlocked}
-                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className={toolbarButtonSecondaryClass}
                     >
                         Apply
                     </button>
@@ -1059,163 +832,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         type="button"
                         onClick={onRemoveTrailingEmptyMeasures}
                         disabled={mutationDisabled || !onRemoveTrailingEmptyMeasures}
-                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className={toolbarButtonSecondaryClass}
                     >
                         Remove Trailing Empty
                     </button>
                 </div>
-	            </div>
 
-	            <div className="flex items-center space-x-2 text-sm">
-	                <button
-	                    data-testid="btn-fit-width"
-	                    type="button"
-	                    onClick={onFitWidth}
-	                    disabled={!onFitWidth}
-	                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-	                >
-	                    Fit W
-	                </button>
-	                <button
-	                    data-testid="btn-fit-height"
-	                    type="button"
-	                    onClick={onFitHeight}
-	                    disabled={!onFitHeight}
-	                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-	                >
-	                    Fit H
-	                </button>
-	                <button
-	                    data-testid="btn-zoom-out"
-	                    type="button"
-	                    onClick={onZoomOut}
-	                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50"
-	                >
-	                    -
-	                </button>
-	                <span className="w-16 text-center">{(zoomLevel * 100).toFixed(0)}%</span>
-	                <button
-	                    data-testid="btn-zoom-in"
-	                    onClick={onZoomIn}
-	                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50"
-	                >
-	                    +
-	                </button>
-	            </div>
-
-	            <div className="flex items-center space-x-2 text-sm">
-	                <span className="text-gray-600">Playback:</span>
-	                <button
-	                    data-testid="btn-play"
-	                    type="button"
-	                    onClick={onPlayAudio}
-	                    disabled={!audioAvailable || !onPlayAudio || audioBusy}
-	                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-	                >
-	                    {audioBusy ? 'Working…' : isPlaying ? 'Replay' : 'Play'}
-	                </button>
-	                <button
-	                    data-testid="btn-stop"
-	                    type="button"
-	                    onClick={onStopAudio}
-	                    disabled={!audioAvailable || !onStopAudio || audioBusy}
-	                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-	                >
-	                    Stop
-	                </button>
-	            </div>
-
-                <ToolbarDropdown
-                    label="Instruments"
-                    disabled={instrumentsDisabled}
-                    testId="dropdown-instruments"
-                >
-                    <div className={dropdownLabelClass}>Add</div>
-                    {hasInstrumentTemplates ? (
-                        <>
-                            <select
-                                value={instrumentIdToAdd}
-                                onChange={(event) => setSelectedInstrumentId(event.target.value)}
-                                disabled={mutationDisabled}
-                                className="w-full px-2 py-1 border border-gray-300 rounded bg-white text-sm"
-                            >
-                                {commonInstruments.length > 0 && (
-                                    <optgroup label="Common">
-                                        {commonInstruments.map((entry, index) => (
-                                            <option key={`common-${entry.instrument.id}-${index}`} value={entry.instrument.id}>
-                                                {entry.label}
-                                            </option>
-                                        ))}
-                                    </optgroup>
-                                )}
-                                {instrumentGroups.map(group => (
-                                    <optgroup key={group.id} label={group.name}>
-                                        {group.instruments.map(instrument => (
-                                            <option key={instrument.id} value={instrument.id}>
-                                                {instrument.name}
-                                            </option>
-                                        ))}
-                                    </optgroup>
-                                ))}
-                            </select>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    if (instrumentIdToAdd && onAddPart) {
-                                        onAddPart(instrumentIdToAdd);
-                                    }
-                                }}
-                                disabled={!canAddInstrument || !instrumentIdToAdd}
-                                className={dropdownItemClass}
-                            >
-                                Add Instrument
-                            </button>
-                        </>
-                    ) : (
-                        <div className="px-2 py-1 text-xs text-gray-500">
-                            Instrument list unavailable.
-                        </div>
-                    )}
-
-                    <div className={dropdownLabelClass}>On Score</div>
-                    {parts.length ? (
-                        parts.map(part => (
-                            <div key={`${part.index}-${part.instrumentId}`} className="flex items-center gap-2">
-                                <span className="flex-1 text-sm truncate">
-                                    {part.name || part.instrumentName || part.instrumentId}
-                                </span>
-                                <button
-                                    data-testid={`btn-part-visible-${part.index}`}
-                                    type="button"
-                                    onClick={() => onTogglePartVisible?.(part.index, !part.isVisible)}
-                                    disabled={!canToggleVisibility}
-                                    className={dropdownItemClass}
-                                >
-                                    {part.isVisible ? 'Hide' : 'Show'}
-                                </button>
-                                <button
-                                    data-testid={`btn-part-remove-${part.index}`}
-                                    type="button"
-                                    onClick={() => {
-                                        if (!onRemovePart) return;
-                                        const label = part.name || part.instrumentName || 'this part';
-                                        if (typeof window === 'undefined' || window.confirm(`Remove ${label}?`)) {
-                                            onRemovePart(part.index);
-                                        }
-                                    }}
-                                    disabled={!canRemovePart}
-                                    className={dropdownItemClass}
-                                >
-                                    Remove
-                                </button>
-                            </div>
-                        ))
-                    ) : (
-                        <div className="px-2 py-1 text-xs text-gray-500">No parts loaded.</div>
-                    )}
-                </ToolbarDropdown>
-
-		            <ToolbarDropdown
+                <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+                    <ToolbarDropdown
                         label="Time Signature"
                         disabled={mutationDisabled}
                         testId="dropdown-signature"
@@ -1237,7 +861,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         })}
                     </ToolbarDropdown>
 
-                    <div className="flex items-center gap-2 text-sm">
+                    <div className="flex items-center gap-2">
                         <span className="text-gray-600">Custom Time:</span>
                         <input
                             data-testid="input-timesig-numerator"
@@ -1246,7 +870,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             value={customTimeSigNumerator}
                             onChange={(event) => setCustomTimeSigNumerator(event.target.value)}
                             disabled={!canSetCustomTimeSig}
-                            className="w-16 px-2 py-1 border border-gray-300 rounded bg-white text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            className={`${toolbarInputBaseClass} w-16`}
                         />
                         <span className="text-gray-500">/</span>
                         <input
@@ -1256,7 +880,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             value={customTimeSigDenominator}
                             onChange={(event) => setCustomTimeSigDenominator(event.target.value)}
                             disabled={!canSetCustomTimeSig}
-                            className="w-16 px-2 py-1 border border-gray-300 rounded bg-white text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            className={`${toolbarInputBaseClass} w-16`}
                         />
                         <button
                             data-testid="btn-timesig-custom"
@@ -1267,11 +891,103 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                 }
                             }}
                             disabled={!canSetCustomTimeSig || !customTimeSigValid}
-                            className="px-2 py-1 text-sm border border-gray-300 rounded bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className={toolbarButtonSecondaryClass}
                         >
                             Apply
                         </button>
                     </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+                    <ToolbarDropdown
+                        label="Instruments"
+                        disabled={instrumentsDisabled}
+                        testId="dropdown-instruments"
+                    >
+                        <div className={dropdownLabelClass}>Add</div>
+                        {hasInstrumentTemplates ? (
+                            <>
+                                <select
+                                    value={instrumentIdToAdd}
+                                    onChange={(event) => setSelectedInstrumentId(event.target.value)}
+                                    disabled={mutationDisabled}
+                                    className={`${toolbarInputBaseClass} w-full`}
+                                >
+                                    {commonInstruments.length > 0 && (
+                                        <optgroup label="Common">
+                                            {commonInstruments.map((entry, index) => (
+                                                <option key={`common-${entry.instrument.id}-${index}`} value={entry.instrument.id}>
+                                                    {entry.label}
+                                                </option>
+                                            ))}
+                                        </optgroup>
+                                    )}
+                                    {instrumentGroups.map(group => (
+                                        <optgroup key={group.id} label={group.name}>
+                                            {group.instruments.map(instrument => (
+                                                <option key={instrument.id} value={instrument.id}>
+                                                    {instrument.name}
+                                                </option>
+                                            ))}
+                                        </optgroup>
+                                    ))}
+                                </select>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (instrumentIdToAdd && onAddPart) {
+                                            onAddPart(instrumentIdToAdd);
+                                        }
+                                    }}
+                                    disabled={!canAddInstrument || !instrumentIdToAdd}
+                                    className={dropdownItemClass}
+                                >
+                                    Add Instrument
+                                </button>
+                            </>
+                        ) : (
+                            <div className="px-2 py-1 text-xs text-gray-500">
+                                Instrument list unavailable.
+                            </div>
+                        )}
+
+                        <div className={dropdownLabelClass}>On Score</div>
+                        {parts.length ? (
+                            parts.map(part => (
+                                <div key={`${part.index}-${part.instrumentId}`} className="flex items-center gap-2">
+                                    <span className="flex-1 text-xs sm:text-sm truncate">
+                                        {part.name || part.instrumentName || part.instrumentId}
+                                    </span>
+                                    <button
+                                        data-testid={`btn-part-visible-${part.index}`}
+                                        type="button"
+                                        onClick={() => onTogglePartVisible?.(part.index, !part.isVisible)}
+                                        disabled={!canToggleVisibility}
+                                        className={dropdownItemClass}
+                                    >
+                                        {part.isVisible ? 'Hide' : 'Show'}
+                                    </button>
+                                    <button
+                                        data-testid={`btn-part-remove-${part.index}`}
+                                        type="button"
+                                        onClick={() => {
+                                            if (!onRemovePart) return;
+                                            const label = part.name || part.instrumentName || 'this part';
+                                            if (typeof window === 'undefined' || window.confirm(`Remove ${label}?`)) {
+                                                onRemovePart(part.index);
+                                            }
+                                        }}
+                                        disabled={!canRemovePart}
+                                        className={dropdownItemClass}
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="px-2 py-1 text-xs text-gray-500">No parts loaded.</div>
+                        )}
+                    </ToolbarDropdown>
 
 		            <ToolbarDropdown
                         label="Key"
@@ -1587,9 +1303,47 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
             <ToolbarDropdown
                 label="Text"
-                disabled={mutationDisabled || !selectionActive}
+                disabled={textDropdownDisabled}
                 testId="dropdown-text"
             >
+                <div className={dropdownLabelClass}>Score Header</div>
+                <button
+                    data-testid="btn-text-title"
+                    type="button"
+                    onClick={(event) => onOpenHeaderEditor?.('title', event)}
+                    disabled={mutationDisabled || !onOpenHeaderEditor}
+                    className={dropdownItemClass}
+                >
+                    Title…
+                </button>
+                <button
+                    data-testid="btn-text-subtitle"
+                    type="button"
+                    onClick={(event) => onOpenHeaderEditor?.('subtitle', event)}
+                    disabled={mutationDisabled || !onOpenHeaderEditor}
+                    className={dropdownItemClass}
+                >
+                    Subtitle…
+                </button>
+                <button
+                    data-testid="btn-text-composer"
+                    type="button"
+                    onClick={(event) => onOpenHeaderEditor?.('composer', event)}
+                    disabled={mutationDisabled || !onOpenHeaderEditor}
+                    className={dropdownItemClass}
+                >
+                    Composer…
+                </button>
+                <button
+                    data-testid="btn-text-lyricist"
+                    type="button"
+                    onClick={(event) => onOpenHeaderEditor?.('lyricist', event)}
+                    disabled={mutationDisabled || !onOpenHeaderEditor}
+                    className={dropdownItemClass}
+                >
+                    Lyricist…
+                </button>
+                <div className={dropdownLabelClass}>Score Text</div>
                 <button
                     data-testid="btn-text-staff"
                     type="button"
@@ -1741,17 +1495,186 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     </button>
                 ))}
             </ToolbarDropdown>
+                </div>
 
-            <ToolbarDropdown
-                label="Shortcuts"
-                testId="dropdown-shortcuts"
-            >
-                {shortcutEntries.map(opt => (
-                    <div key={opt.label} className={dropdownTextClass} title={opt.title}>
-                        {opt.label}
+                <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+                    <div className="flex items-center gap-2">
+                        <button
+                            data-testid="btn-delete"
+                            type="button"
+                            title="Shortcut: Delete / Backspace"
+                            onClick={onDeleteSelection}
+                            disabled={mutationDisabled || !onDeleteSelection || !selectionActive}
+                            className={toolbarButtonSecondaryClass}
+                        >
+                            Delete
+                        </button>
+                        <button
+                            data-testid="btn-undo"
+                            type="button"
+                            title="Shortcut: Ctrl/Cmd + Z"
+                            onClick={onUndo}
+                            disabled={mutationDisabled || !onUndo}
+                            className={toolbarButtonSecondaryClass}
+                        >
+                            Undo
+                        </button>
+                        <button
+                            data-testid="btn-redo"
+                            type="button"
+                            title="Shortcut: Ctrl + Y, Cmd + Shift + Z"
+                            onClick={onRedo}
+                            disabled={mutationDisabled || !onRedo}
+                            className={toolbarButtonSecondaryClass}
+                        >
+                            Redo
+                        </button>
                     </div>
-                ))}
-            </ToolbarDropdown>
+
+                    <div className="flex items-center gap-2">
+                        <span
+                            className="inline-flex"
+                            title={
+                                mutationDisabled || !selectionActive
+                                    ? 'Select a note or rest to split the bar.'
+                                    : undefined
+                            }
+                        >
+                            <button
+                                data-testid="btn-new-line"
+                                type="button"
+                                onClick={onToggleLineBreak}
+                                disabled={mutationDisabled || !selectionActive || !onToggleLineBreak}
+                                className={toolbarButtonSecondaryClass}
+                            >
+                                New Line
+                            </button>
+                        </span>
+                        <span
+                            className="inline-flex"
+                            title={
+                                mutationDisabled || !selectionActive
+                                    ? 'Select a note or rest to split the bar.'
+                                    : undefined
+                            }
+                        >
+                            <button
+                                data-testid="btn-new-page"
+                                type="button"
+                                onClick={onTogglePageBreak}
+                                disabled={mutationDisabled || !selectionActive || !onTogglePageBreak}
+                                className={toolbarButtonSecondaryClass}
+                            >
+                                New Page
+                            </button>
+                        </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <button
+                            data-testid="btn-add-note-top"
+                            type="button"
+                            onClick={onAddNoteFromRest}
+                            disabled={mutationDisabled || !selectionActive || !onAddNoteFromRest}
+                            className={toolbarButtonSecondaryClass}
+                        >
+                            Add Note
+                        </button>
+                        <button
+                            data-testid="btn-pitch-down"
+                            type="button"
+                            title="Shortcut: Arrow Down (Pitch Down)"
+                            onClick={onPitchDown}
+                            disabled={mutationDisabled || !onPitchDown || !selectionActive}
+                            className={toolbarButtonSecondaryClass}
+                        >
+                            Pitch ↓
+                        </button>
+                        <button
+                            data-testid="btn-pitch-up"
+                            type="button"
+                            title="Shortcut: Arrow Up (Pitch Up)"
+                            onClick={onPitchUp}
+                            disabled={mutationDisabled || !onPitchUp || !selectionActive}
+                            className={toolbarButtonSecondaryClass}
+                        >
+                            Pitch ↑
+                        </button>
+                        <button
+                            data-testid="btn-transpose--12"
+                            type="button"
+                            onClick={() => onTranspose?.(-12)}
+                            title="Shortcut: Ctrl/Cmd + Arrow Down (Octave Down)"
+                            disabled={mutationDisabled || !selectionActive || !onTranspose}
+                            className={toolbarButtonSecondaryClass}
+                        >
+                            Octave ↓
+                        </button>
+                        <button
+                            data-testid="btn-transpose-12"
+                            type="button"
+                            title="Shortcut: Ctrl/Cmd + Arrow Up (Octave Up)"
+                            onClick={() => onTranspose?.(12)}
+                            disabled={mutationDisabled || !selectionActive || !onTranspose}
+                            className={toolbarButtonSecondaryClass}
+                        >
+                            Octave ↑
+                        </button>
+                    </div>
+
+                    <ToolbarDropdown
+                        label="Accidental"
+                        disabled={mutationDisabled || !selectionActive || !onSetAccidental}
+                        testId="dropdown-accidental"
+                    >
+                        {accidentalOptions.map(opt => (
+                            <button
+                                key={opt.label}
+                                data-testid={`btn-acc-${opt.value}`}
+                                type="button"
+                                onClick={() => onSetAccidental?.(opt.value)}
+                                disabled={mutationDisabled || !selectionActive || !onSetAccidental}
+                                className={dropdownItemClass}
+                            >
+                                {opt.label}
+                            </button>
+                        ))}
+                    </ToolbarDropdown>
+
+                    <div className="flex items-center gap-2">
+                        <button
+                            data-testid="btn-duration-shorter"
+                            type="button"
+                            onClick={onDurationShorter}
+                            disabled={mutationDisabled || !onDurationShorter || !selectionActive}
+                            className={toolbarButtonSecondaryClass}
+                        >
+                            Shorter
+                        </button>
+                        <button
+                            data-testid="btn-duration-longer"
+                            type="button"
+                            onClick={onDurationLonger}
+                            disabled={mutationDisabled || !onDurationLonger || !selectionActive}
+                            className={toolbarButtonSecondaryClass}
+                        >
+                            Longer
+                        </button>
+                    </div>
+
+                    <ToolbarDropdown
+                        label="Shortcuts"
+                        testId="dropdown-shortcuts"
+                    >
+                        {shortcutEntries.map(opt => (
+                            <div key={opt.label} className={dropdownTextClass} title={opt.title}>
+                                {opt.label}
+                            </div>
+                        ))}
+                    </ToolbarDropdown>
+                </div>
+            </div>
+            )}
         </div>
     );
 };

@@ -14,7 +14,7 @@ import {
     type ScoreSummary,
 } from '../lib/checkpoints';
 import { CodeMirrorEditor } from './CodeMirrorEditor';
-import { Toolbar, type MeasureInsertTarget } from './Toolbar';
+import { Toolbar, type MeasureInsertTarget, type HeaderTextTarget } from './Toolbar';
 
 type SelectionBox = {
     index: number | null;
@@ -32,6 +32,8 @@ type SelectionFallback = {
     index: number | null;
     point: { page: number; x: number; y: number };
 } | null;
+
+type TextEditorMode = 'selected' | HeaderTextTarget;
 
 type MutationMethods = Pick<
     Score,
@@ -276,6 +278,8 @@ export default function ScoreEditor() {
     const [selectedTextValue, setSelectedTextValue] = useState('');
     const [selectedLayoutBreakSubtype, setSelectedLayoutBreakSubtype] = useState<'line' | 'page' | null>(null);
     const [textEditorPosition, setTextEditorPosition] = useState<{ x: number; y: number } | null>(null);
+    const [textEditorMode, setTextEditorMode] = useState<TextEditorMode | null>(null);
+    const [textEditorValue, setTextEditorValue] = useState('');
     const [dragSelectionRect, setDragSelectionRect] = useState<{ x: number, y: number, w: number, h: number } | null>(null);
     const ignoreNextClickRef = useRef(false);
     const dragKindRef = useRef<'pointer' | 'mouse' | null>(null);
@@ -427,7 +431,8 @@ export default function ScoreEditor() {
     }, [score, selectedElementClasses]);
 
     useEffect(() => {
-        const shouldLoadText = hasTextElementClass(selectedElementClasses) || Boolean(textEditorPosition);
+        const shouldLoadText = hasTextElementClass(selectedElementClasses)
+            || (textEditorMode === 'selected' && Boolean(textEditorPosition));
         if (!score || !shouldLoadText) {
             setSelectedTextValue('');
             return;
@@ -468,7 +473,19 @@ export default function ScoreEditor() {
         return () => {
             canceled = true;
         };
-    }, [score, selectedElementClasses, textEditorPosition]);
+    }, [score, selectedElementClasses, textEditorMode, textEditorPosition]);
+
+    useEffect(() => {
+        if (textEditorMode !== 'selected' || !textEditorPosition) {
+            return;
+        }
+        if (textEditorValue) {
+            return;
+        }
+        if (selectedTextValue) {
+            setTextEditorValue(selectedTextValue);
+        }
+    }, [selectedTextValue, textEditorMode, textEditorPosition, textEditorValue]);
 
     const formatBytes = (bytes: number) => {
         if (!Number.isFinite(bytes)) {
@@ -2044,7 +2061,8 @@ Each XPath must match exactly one node.`;
 
         try {
             const { page, x, y } = selectedPoint;
-            const preferTextSelection = hasTextElementClass(selectedElementClasses) || Boolean(textEditorPosition);
+            const preferTextSelection = hasTextElementClass(selectedElementClasses)
+                || (textEditorMode === 'selected' && Boolean(textEditorPosition));
             if (preferTextSelection && score.selectTextElementAtPoint) {
                 await score.selectTextElementAtPoint(page, x, y);
                 return;
@@ -2498,16 +2516,13 @@ Each XPath must match exactly one node.`;
         }
         return await del();
     }, { clearSelection: true });
-    const handleSelectedTextChange = (value: string) => {
-        setSelectedTextValue(value);
-    };
-    const handleApplySelectedText = () => performMutation('set selected text', async () => {
+    const handleApplySelectedText = (nextValue?: string) => performMutation('set selected text', async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('setSelectedText');
         if (!fn) {
             return false;
         }
-        return fn(selectedTextValue);
+        return fn(nextValue ?? selectedTextValue);
     });
     const handleUndo = () => performMutation('undo', score?.undo?.bind(score));
     const handleRedo = () => performMutation('redo', score?.redo?.bind(score));
@@ -3059,7 +3074,7 @@ Each XPath must match exactly one node.`;
         return fn(endingNumber);
     });
 
-    const handleSetTitleText = async () => {
+    const handleSetTitleText = async (nextValue?: string) => {
         if (!score) {
             return;
         }
@@ -3067,12 +3082,12 @@ Each XPath must match exactly one node.`;
         await performMutation('set title', async () => {
             const fn = requireMutation('setTitleText');
             if (!fn) return;
-            return fn(scoreTitle);
+            return fn(nextValue ?? scoreTitle);
         }, { skipWasmReselect: true });
         await refreshScoreMetadata(score);
     };
 
-    const handleSetSubtitleText = async () => {
+    const handleSetSubtitleText = async (nextValue?: string) => {
         if (!score) {
             return;
         }
@@ -3080,12 +3095,12 @@ Each XPath must match exactly one node.`;
         await performMutation('set subtitle', async () => {
             const fn = requireMutation('setSubtitleText');
             if (!fn) return;
-            return fn(scoreSubtitle);
+            return fn(nextValue ?? scoreSubtitle);
         }, { skipWasmReselect: true });
         await refreshScoreMetadata(score);
     };
 
-    const handleSetComposerText = async () => {
+    const handleSetComposerText = async (nextValue?: string) => {
         if (!score) {
             return;
         }
@@ -3093,12 +3108,12 @@ Each XPath must match exactly one node.`;
         await performMutation('set composer', async () => {
             const fn = requireMutation('setComposerText');
             if (!fn) return;
-            return fn(scoreComposer);
+            return fn(nextValue ?? scoreComposer);
         }, { skipWasmReselect: true });
         await refreshScoreMetadata(score);
     };
 
-    const handleSetLyricistText = async () => {
+    const handleSetLyricistText = async (nextValue?: string) => {
         if (!score) {
             return;
         }
@@ -3106,7 +3121,7 @@ Each XPath must match exactly one node.`;
         await performMutation('set lyricist', async () => {
             const fn = requireMutation('setLyricistText');
             if (!fn) return;
-            return fn(scoreLyricist);
+            return fn(nextValue ?? scoreLyricist);
         }, { skipWasmReselect: true });
         await refreshScoreMetadata(score);
     };
@@ -4452,6 +4467,52 @@ Each XPath must match exactly one node.`;
         }
     };
 
+    const resolveHeaderTextValue = (target: HeaderTextTarget) => {
+        switch (target) {
+            case 'title':
+                return scoreTitle;
+            case 'subtitle':
+                return scoreSubtitle;
+            case 'composer':
+                return scoreComposer;
+            case 'lyricist':
+                return scoreLyricist;
+            default:
+                return '';
+        }
+    };
+
+    const canEditHeaderText = (target: HeaderTextTarget) => {
+        if (!score) {
+            return false;
+        }
+        switch (target) {
+            case 'title':
+                return Boolean(score.setTitleText);
+            case 'subtitle':
+                return Boolean(score.setSubtitleText);
+            case 'composer':
+                return Boolean(score.setComposerText);
+            case 'lyricist':
+                return Boolean(score.setLyricistText);
+            default:
+                return false;
+        }
+    };
+
+    const openHeaderTextEditor = (target: HeaderTextTarget, event: React.MouseEvent) => {
+        if (!mutationEnabled) {
+            return;
+        }
+        if (!canEditHeaderText(target)) {
+            alert(`This build does not support editing ${target} text.`);
+            return;
+        }
+        setTextEditorMode(target);
+        setTextEditorValue(resolveHeaderTextValue(target));
+        setTextEditorPosition({ x: event.clientX, y: event.clientY });
+    };
+
     const openTextEditorFromEvent = (e: React.MouseEvent) => {
         if (!containerRef.current || !score) {
             return;
@@ -4471,11 +4532,15 @@ Each XPath must match exactly one node.`;
         }
         if (!found || !element) {
             setTextEditorPosition(null);
+            setTextEditorMode(null);
+            setTextEditorValue('');
             return;
         }
 
         e.preventDefault();
         handleScoreClick(e);
+        setTextEditorMode('selected');
+        setTextEditorValue(selectedTextValue);
         setTextEditorPosition({ x: e.clientX, y: e.clientY });
     };
 
@@ -4485,6 +4550,44 @@ Each XPath must match exactly one node.`;
 
     const closeTextEditor = () => {
         setTextEditorPosition(null);
+        setTextEditorMode(null);
+        setTextEditorValue('');
+    };
+
+    const resolveTextEditorLabel = (mode: TextEditorMode | null) => {
+        switch (mode) {
+            case 'title':
+                return 'Title';
+            case 'subtitle':
+                return 'Subtitle';
+            case 'composer':
+                return 'Composer';
+            case 'lyricist':
+                return 'Lyricist';
+            default:
+                return 'Text content';
+        }
+    };
+
+    const handleTextEditorSave = async () => {
+        if (!textEditorMode) {
+            return;
+        }
+        if (textEditorMode === 'selected') {
+            await handleApplySelectedText(textEditorValue);
+            closeTextEditor();
+            return;
+        }
+        if (textEditorMode === 'title') {
+            await handleSetTitleText(textEditorValue);
+        } else if (textEditorMode === 'subtitle') {
+            await handleSetSubtitleText(textEditorValue);
+        } else if (textEditorMode === 'composer') {
+            await handleSetComposerText(textEditorValue);
+        } else if (textEditorMode === 'lyricist') {
+            await handleSetLyricistText(textEditorValue);
+        }
+        closeTextEditor();
     };
 
     const secondarySelectionBoxes = selectionBoxes.filter(box => {
@@ -4496,8 +4599,6 @@ Each XPath must match exactly one node.`;
         }
         return true;
     });
-    const textSelectionActive = hasTextElementClass(selectedElementClasses) || Boolean(textEditorPosition);
-    const selectedTextControlDisabled = !mutationEnabled || !score?.setSelectedText;
     const checkpointControlsDisabled = checkpointBusy || checkpointLoading;
     const checkpointSaveDisabled = checkpointControlsDisabled || !score || !score?.saveXml;
     const checkpointCompareDisabled = checkpointControlsDisabled || !score;
@@ -4521,19 +4622,6 @@ Each XPath must match exactly one node.`;
                     onNewScore={handleOpenNewScoreDialog}
                     onFileUpload={handleFileUpload}
                     onSoundFontUpload={handleSoundFontUpload}
-                    scoreTitle={scoreTitle}
-                    scoreSubtitle={scoreSubtitle}
-                    scoreComposer={scoreComposer}
-                    scoreLyricist={scoreLyricist}
-                    onScoreTitleChange={setScoreTitle}
-                    onScoreSubtitleChange={setScoreSubtitle}
-                    onScoreComposerChange={setScoreComposer}
-                    onScoreLyricistChange={setScoreLyricist}
-                    onSetTitleText={handleSetTitleText}
-                    onSetSubtitleText={handleSetSubtitleText}
-                    onSetComposerText={handleSetComposerText}
-                    onSetLyricistText={score?.setLyricistText ? handleSetLyricistText : undefined}
-                    headerTextAvailable={Boolean(score?.setTitleText && score?.setComposerText)}
                     onZoomIn={handleZoomIn}
                     onZoomOut={handleZoomOut}
                     zoomLevel={zoom}
@@ -4611,15 +4699,11 @@ Each XPath must match exactly one node.`;
                     onAddPart={handleAddPart}
                     onRemovePart={handleRemovePart}
                     onTogglePartVisible={handleTogglePartVisible}
-                    selectedTextActive={textSelectionActive}
-                    selectedTextValue={selectedTextValue}
-                    onSelectedTextChange={handleSelectedTextChange}
-                    onApplySelectedText={handleApplySelectedText}
-                    selectedTextDisabled={selectedTextControlDisabled}
+                    onOpenHeaderEditor={score ? openHeaderTextEditor : undefined}
                 />
             </div>
 
-            <div className="flex flex-1 min-h-0">
+            <div className="relative flex flex-1 min-h-0 overflow-hidden">
                 <aside
                     className={`shrink-0 border-r bg-white text-sm ${checkpointsCollapsed ? 'w-12' : 'w-72'} ${checkpointsCollapsed ? '' : 'overflow-y-auto'
                         }`}
@@ -4638,7 +4722,7 @@ Each XPath must match exactly one node.`;
                                     data-testid="btn-checkpoint-refresh"
                                     onClick={loadCheckpointList}
                                     disabled={checkpointControlsDisabled}
-                                    className="text-xs font-medium text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="text-xs font-medium text-gray-600 hover:text-gray-900 disabled:text-gray-400 disabled:cursor-not-allowed"
                                 >
                                     Refresh
                                 </button>
@@ -4648,11 +4732,11 @@ Each XPath must match exactly one node.`;
                                 data-testid="btn-checkpoint-toggle"
                                 aria-expanded={!checkpointsCollapsed}
                                 aria-controls="checkpoint-sidebar-content"
-                                aria-label={checkpointsCollapsed ? 'Show checkpoints' : 'Hide checkpoints'}
+                                aria-label={checkpointsCollapsed ? 'Open checkpoints' : 'Close checkpoints'}
                                 onClick={() => setCheckpointsCollapsed((prev) => !prev)}
                                 className="text-xs font-medium text-gray-600 hover:text-gray-900"
                             >
-                                {checkpointsCollapsed ? '>>' : '<<'}
+                                {checkpointsCollapsed ? 'Open' : 'Close'}
                             </button>
                         </div>
                     </div>
@@ -4698,7 +4782,7 @@ Each XPath must match exactly one node.`;
                                             data-testid="btn-checkpoint-save"
                                             onClick={handleSaveCheckpoint}
                                             disabled={checkpointSaveDisabled}
-                                            className={`w-full rounded border px-3 py-1 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed ${!checkpointSaveDisabled && scoreDirtySinceCheckpoint
+                                            className={`w-full rounded border px-3 py-1 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-100 disabled:bg-gray-100 disabled:text-gray-500 disabled:border-gray-200 ${!checkpointSaveDisabled && scoreDirtySinceCheckpoint
                                                     ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
                                                     : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
                                                 }`}
@@ -4740,33 +4824,33 @@ Each XPath must match exactly one node.`;
                                                     {checkpoint.size ? ` · ${formatBytes(checkpoint.size)}` : ''}
                                                 </div>
                                                 <div className="mt-2 flex flex-wrap gap-2">
-                                                    <button
-                                                        type="button"
-                                                        data-testid={`btn-checkpoint-restore-${checkpoint.id}`}
-                                                        onClick={() => handleRestoreCheckpoint(checkpoint)}
-                                                        disabled={checkpointControlsDisabled}
-                                                        className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    >
-                                                        Restore
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        data-testid={`btn-checkpoint-compare-${checkpoint.id}`}
-                                                        onClick={() => handleCompareCheckpoint(checkpoint)}
-                                                        disabled={checkpointCompareDisabled}
-                                                        className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    >
-                                                        Compare
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        data-testid={`btn-checkpoint-delete-${checkpoint.id}`}
-                                                        onClick={() => handleDeleteCheckpoint(checkpoint)}
-                                                        disabled={checkpointControlsDisabled}
-                                                        className="rounded border border-gray-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    >
-                                                        Delete
-                                                    </button>
+                                                        <button
+                                                            type="button"
+                                                            data-testid={`btn-checkpoint-restore-${checkpoint.id}`}
+                                                            onClick={() => handleRestoreCheckpoint(checkpoint)}
+                                                            disabled={checkpointControlsDisabled}
+                                                            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:border-gray-200 disabled:opacity-100"
+                                                        >
+                                                            Restore
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            data-testid={`btn-checkpoint-compare-${checkpoint.id}`}
+                                                            onClick={() => handleCompareCheckpoint(checkpoint)}
+                                                            disabled={checkpointCompareDisabled}
+                                                            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:border-gray-200 disabled:opacity-100"
+                                                        >
+                                                            Compare
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            data-testid={`btn-checkpoint-delete-${checkpoint.id}`}
+                                                            onClick={() => handleDeleteCheckpoint(checkpoint)}
+                                                            disabled={checkpointControlsDisabled}
+                                                            className="rounded border border-gray-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:border-gray-200 disabled:opacity-100"
+                                                        >
+                                                            Delete
+                                                        </button>
                                                 </div>
                                             </div>
                                         ))}
@@ -4839,7 +4923,7 @@ Each XPath must match exactly one node.`;
 
                 <div
                     ref={scrollContainerRef}
-                    className="relative z-0 flex-1 overflow-auto bg-gray-50 p-8"
+                    className="relative z-0 flex-1 min-w-0 overflow-auto bg-gray-50 p-8"
                 >
                     {loading && (
                         <div className="flex items-center justify-center h-full">
@@ -4874,7 +4958,7 @@ Each XPath must match exactly one node.`;
                                 type="button"
                                 onClick={() => handlePrevPage()}
                                 disabled={currentPage <= 0}
-                                className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:border-gray-200 disabled:opacity-100"
                             >
                                 Prev
                             </button>
@@ -4882,7 +4966,7 @@ Each XPath must match exactly one node.`;
                                 type="button"
                                 onClick={() => handleNextPage()}
                                 disabled={currentPage >= pageCount - 1}
-                                className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:border-gray-200 disabled:opacity-100"
                             >
                                 Next
                             </button>
@@ -4950,33 +5034,32 @@ Each XPath must match exactly one node.`;
                         )}
                         {textEditorPosition && (
                             <div
-                                className="fixed z-50 flex flex-col gap-2 rounded border bg-white p-3 shadow-lg"
+                                className="fixed z-50 flex max-w-[90vw] flex-col gap-2 rounded border bg-white p-3 shadow-lg"
                                 style={{ left: textEditorPosition.x, top: textEditorPosition.y }}
                                 onClick={event => event.stopPropagation()}
                                 onMouseDown={event => event.stopPropagation()}
                                 onPointerDown={event => event.stopPropagation()}
                             >
                                 <label className="text-xs uppercase tracking-wide text-gray-500">
-                                    Text content
+                                    {resolveTextEditorLabel(textEditorMode)}
                                 </label>
-                                <input
+                                <textarea
                                     data-testid="ctxmenu-text-input"
-                                    type="text"
-                                    value={selectedTextValue}
-                                    onChange={(event) => handleSelectedTextChange(event.target.value)}
+                                    value={textEditorValue}
+                                    onChange={(event) => setTextEditorValue(event.target.value)}
                                     onClick={(event) => event.stopPropagation()}
-                                    className="min-w-[200px] rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                                    rows={4}
+                                    className="min-w-[360px] w-[480px] max-w-[90vw] rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
                                 />
                                 <div className="flex gap-2">
                                     <button
                                         type="button"
-                                        onClick={() => {
-                                            handleApplySelectedText();
-                                            closeTextEditor();
-                                        }}
+                                        onClick={handleTextEditorSave}
                                         className="flex-1 rounded border border-gray-300 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-100"
                                     >
-                                        Save
+                                        {textEditorMode && textEditorMode !== 'selected'
+                                            ? `Set ${resolveTextEditorLabel(textEditorMode)}`
+                                            : 'Save'}
                                     </button>
                                     <button
                                         type="button"
@@ -4992,7 +5075,11 @@ Each XPath must match exactly one node.`;
                 </div>
 
                 <aside
-                    className={`shrink-0 border-l bg-white text-sm ${xmlSidebarMode === 'closed' ? 'w-12' : xmlSidebarMode === 'full' ? 'w-full' : 'w-80'
+                    className={`shrink-0 border-l bg-white text-sm ${xmlSidebarMode === 'closed'
+                            ? 'w-12'
+                            : xmlSidebarMode === 'full'
+                                ? 'absolute inset-y-0 right-0 w-full max-w-full z-20 shadow-xl'
+                                : 'w-80 max-w-[85vw]'
                         } ${xmlSidebarMode === 'closed' ? '' : 'overflow-y-auto'}`}
                     data-testid="xml-sidebar"
                 >
@@ -5020,7 +5107,7 @@ Each XPath must match exactly one node.`;
                                 }}
                                 className="text-xs font-medium text-gray-600 hover:text-gray-900"
                             >
-                                {xmlSidebarMode === 'closed' ? 'Open' : xmlSidebarMode === 'open' ? 'Full' : 'Close'}
+                                {xmlSidebarMode === 'closed' ? 'Open' : xmlSidebarMode === 'open' ? 'Expand' : 'Close'}
                             </button>
                         </div>
                         {xmlSidebarMode !== 'closed' && (
@@ -5076,7 +5163,7 @@ Each XPath must match exactly one node.`;
                                             onClick={handleApplyXmlEdits}
                                             disabled={xmlApplyDisabled}
                                             title="Applying edits will auto-checkpoint if the score has unsaved changes."
-                                            className={`flex-1 rounded border px-3 py-1 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed ${xmlApplyEnabled
+                                            className={`flex-1 rounded border px-3 py-1 text-xs font-medium disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:border-gray-200 disabled:opacity-100 ${xmlApplyEnabled
                                                     ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
                                                     : 'border-gray-300 bg-white text-gray-700'
                                                 }`}
@@ -5093,7 +5180,7 @@ Each XPath must match exactly one node.`;
                                                     ? 'The score has changed, reload to update XML. Any XML changes will be lost on update.'
                                                     : undefined
                                             }
-                                            className={`flex-1 rounded border px-3 py-1 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed ${xmlReloadEnabled
+                                            className={`flex-1 rounded border px-3 py-1 text-xs font-medium disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:border-gray-200 disabled:opacity-100 ${xmlReloadEnabled
                                                     ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
                                                     : 'border-gray-300 bg-white text-gray-700'
                                                 }`}
@@ -5202,7 +5289,7 @@ Each XPath must match exactly one node.`;
                                         type="button"
                                         onClick={handleAiRequest}
                                         disabled={aiBusy}
-                                        className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:border-gray-200 disabled:opacity-100"
                                     >
                                         {aiBusy ? 'Working...' : 'Generate Patch'}
                                     </button>
@@ -5232,7 +5319,7 @@ Each XPath must match exactly one node.`;
                                                 onClick={handleApplyAiOutput}
                                                 disabled={aiApplyDisabled}
                                                 title="Applying edits will auto-checkpoint if the score has unsaved changes."
-                                                className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:border-gray-200 disabled:opacity-100"
                                             >
                                                 Apply Patch
                                             </button>
@@ -5349,7 +5436,7 @@ Each XPath must match exactly one node.`;
                                                     type="button"
                                                     onClick={handleAddNewScoreInstrument}
                                                     disabled={!newScoreInstrumentToAdd}
-                                                    className="rounded border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                                    className="rounded border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:border-gray-200 disabled:opacity-100"
                                                 >
                                                     Add
                                                 </button>
