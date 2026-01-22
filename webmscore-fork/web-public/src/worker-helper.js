@@ -6,7 +6,11 @@
 import { WebMscoreWorker } from '../.cache/worker.js'
 import { getSelfURL, shimDom } from './utils.js'
 
-const MSCORE_SCRIPT_URL = getSelfURL()
+// Check if MSCORE_SCRIPT_URL is defined globally (by webpack DefinePlugin for embedded builds)
+// If not, fallback to getSelfURL() which extracts the path from the current script
+const MSCORE_SCRIPT_URL = typeof globalThis.MSCORE_SCRIPT_URL !== 'undefined'
+    ? globalThis.MSCORE_SCRIPT_URL
+    : getSelfURL()
 
 /**
  * Reconstruct `Error` objects sent from the web worker
