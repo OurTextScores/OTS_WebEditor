@@ -1645,8 +1645,14 @@ Ret processWriter(String writerName, engraving::MasterScore * score, QByteArray*
 WasmRes _saveXml(uintptr_t score_ptr, int excerptId) {
     MainScore score(score_ptr, excerptId);
 
+    score->setLayoutAll();
+    score->update();
+
     QByteArray data;
-    processWriter(u"xml", score, &data);
+    Ret ret = processWriter(u"xml", score, &data);
+    if (!ret) {
+        return WasmRes::fromRet(ret);
+    }
     LOGI() << String(u"excerpt %1, size %2 bytes").arg(excerptId, data.size());
 
     return WasmRes(data);

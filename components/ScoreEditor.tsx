@@ -564,6 +564,57 @@ export default function ScoreEditor() {
         });
     }, []);
 
+    const replaceMeasureInMusicXml = useCallback((
+        sourceXml: string,
+        targetXml: string,
+        partIndex: number,
+        sourceMeasureIndex: number,
+        targetMeasureIndex: number,
+    ) => {
+        if (!sourceXml.trim() || !targetXml.trim()) {
+            return { xml: '', error: 'MusicXML content is empty.' };
+        }
+        if (typeof DOMParser === 'undefined') {
+            return { xml: '', error: 'XML parsing is unavailable in this environment.' };
+        }
+        const parser = new DOMParser();
+        const sourceDoc = parser.parseFromString(sourceXml, 'application/xml');
+        const targetDoc = parser.parseFromString(targetXml, 'application/xml');
+        if (sourceDoc.querySelector('parsererror') || targetDoc.querySelector('parsererror')) {
+            return { xml: '', error: 'MusicXML is not valid XML.' };
+        }
+
+        const getPartMeasures = (doc: Document) => {
+            const parts = Array.from(doc.getElementsByTagName('part'));
+            const part = parts[partIndex] ?? null;
+            if (!part) {
+                return { part: null as Element | null, measures: [] as Element[] };
+            }
+            const measures = Array.from(part.children).filter(
+                (node) => node.nodeType === Node.ELEMENT_NODE && (node as Element).tagName === 'measure',
+            ) as Element[];
+            return { part, measures };
+        };
+
+        const { measures: sourceMeasures } = getPartMeasures(sourceDoc);
+        const { measures: targetMeasures } = getPartMeasures(targetDoc);
+        const sourceMeasure = sourceMeasures[sourceMeasureIndex];
+        const targetMeasure = targetMeasures[targetMeasureIndex];
+        if (!sourceMeasure || !targetMeasure) {
+            return { xml: '', error: 'Measure not found for the selected part/index.' };
+        }
+
+        const replacement = targetDoc.importNode(sourceMeasure, true) as Element;
+        const targetNumber = targetMeasure.getAttribute('number');
+        if (targetNumber) {
+            replacement.setAttribute('number', targetNumber);
+        }
+        targetMeasure.parentNode?.replaceChild(replacement, targetMeasure);
+
+        const serializer = new XMLSerializer();
+        return { xml: serializer.serializeToString(targetDoc), error: '' };
+    }, []);
+
     const buildMismatchBlocks = useCallback((rows: MeasureAlignmentRow[]) => {
         const blocks: Array<{ start: number; end: number }> = [];
         let start = -1;
@@ -630,6 +681,47 @@ export default function ScoreEditor() {
         return rows;
     }, []);
 
+    const normalizeAlignmentRows = useCallback((rows: MeasureAlignmentRow[]) => {
+        const normalized: MeasureAlignmentRow[] = [];
+        let pendingLeft: number[] = [];
+        let pendingRight: number[] = [];
+
+        const flush = () => {
+            const pairCount = Math.min(pendingLeft.length, pendingRight.length);
+            for (let i = 0; i < pairCount; i += 1) {
+                normalized.push({
+                    leftIndex: pendingLeft[i],
+                    rightIndex: pendingRight[i],
+                    match: false,
+                });
+            }
+            for (let i = pairCount; i < pendingLeft.length; i += 1) {
+                normalized.push({ leftIndex: pendingLeft[i], rightIndex: null, match: false });
+            }
+            for (let i = pairCount; i < pendingRight.length; i += 1) {
+                normalized.push({ leftIndex: null, rightIndex: pendingRight[i], match: false });
+            }
+            pendingLeft = [];
+            pendingRight = [];
+        };
+
+        rows.forEach((row) => {
+            if (row.match || (row.leftIndex !== null && row.rightIndex !== null)) {
+                flush();
+                normalized.push(row);
+                return;
+            }
+            if (row.leftIndex !== null) {
+                pendingLeft.push(row.leftIndex);
+            }
+            if (row.rightIndex !== null) {
+                pendingRight.push(row.rightIndex);
+            }
+        });
+        flush();
+        return normalized;
+    }, []);
+
     const buildLcsAlignment = useCallback((left: string[], right: string[]) => {
         const n = left.length;
         const m = right.length;
@@ -674,8 +766,8 @@ export default function ScoreEditor() {
         const lcsLength = dp[n][m];
         const maxLen = Math.max(n, m);
         const lcsRatio = maxLen > 0 ? lcsLength / maxLen : 0;
-        return { rows, lcsRatio };
-    }, []);
+        return { rows: normalizeAlignmentRows(rows), lcsRatio };
+    }, [normalizeAlignmentRows]);
 
     useEffect(() => {
         scoreRef.current = score;
@@ -1249,6 +1341,20 @@ ${partsBodyXml}
         }
         return new TextDecoder().decode(normalized);
     }, [normalizeXmlData]);
+
+    const getScoreMusicXmlText = useCallback(async (targetScore: Score | null, fallbackXml: string | null) => {
+        if (!targetScore?.saveXml) {
+            return fallbackXml;
+        }
+        try {
+            const data = await targetScore.saveXml();
+            const decoded = await decodeXmlData(data);
+            return decoded ?? fallbackXml;
+        } catch (err) {
+            console.warn('Failed to export MusicXML from score:', err);
+            return fallbackXml;
+        }
+    }, [decodeXmlData]);
 
     const getScoreXmlData = useCallback(async () => {
         const activeScore = scoreRef.current ?? score;
@@ -2109,47 +2215,37 @@ ${partsBodyXml}
         if (sourceMeasureIndex === null || targetMeasureIndex === null) {
             return;
         }
-        if (!sourceScore.selectPartMeasureByIndex || !sourceScore.selectionMimeType || !sourceScore.selectionMimeData) {
-            console.warn('Compare overwrite: source score does not expose selection exports.');
-            return;
-        }
-        if (!targetScore.selectPartMeasureByIndex || !targetScore.pasteSelection) {
-            console.warn('Compare overwrite: target score does not expose paste selection.');
-            return;
-        }
 
         setCompareSwapBusy(true);
         try {
-            const selectedSource = await sourceScore.selectPartMeasureByIndex(partIndex, sourceMeasureIndex);
-            if (!selectedSource) {
+            const fallbackSourceXml = sourceScore === score ? compareView?.currentXml ?? null : compareView?.checkpointXml ?? null;
+            const fallbackTargetXml = targetScore === score ? compareView?.currentXml ?? null : compareView?.checkpointXml ?? null;
+            const [sourceXml, targetXml] = await Promise.all([
+                getScoreMusicXmlText(sourceScore, fallbackSourceXml),
+                getScoreMusicXmlText(targetScore, fallbackTargetXml),
+            ]);
+            if (!sourceXml || !targetXml) {
+                console.warn('Compare overwrite: unable to load MusicXML for swap.');
                 return;
-            }
-            const mimeType = await sourceScore.selectionMimeType();
-            const rawData = await sourceScore.selectionMimeData();
-            if (!mimeType || !rawData) {
-                return;
-            }
-            const data = rawData instanceof Uint8Array ? rawData : new Uint8Array(rawData as ArrayBuffer);
-
-            const selectedTarget = await targetScore.selectPartMeasureByIndex(partIndex, targetMeasureIndex);
-            if (!selectedTarget) {
-                return;
-            }
-            await targetScore.pasteSelection(mimeType, data);
-            if (targetScore.relayout) {
-                await targetScore.relayout();
             }
 
-            const targetPage = compareContinuousMode ? 0 : currentPageRef.current;
+            const patched = replaceMeasureInMusicXml(
+                sourceXml,
+                targetXml,
+                partIndex,
+                sourceMeasureIndex,
+                targetMeasureIndex,
+            );
+            if (patched.error || !patched.xml) {
+                console.warn('Compare overwrite failed:', patched.error || 'Unknown error');
+                return;
+            }
+
             if (targetSide === 'left') {
-                await renderScoreToContainer(targetScore, compareLeftContainerRef.current, targetPage, false);
-                syncCompareSvgSize(compareLeftContainerRef.current, setCompareLeftSvgSize);
-                await refreshMeasurePositions(targetScore, setCompareLeftMeasurePositions);
-                await renderScore(targetScore, currentPageRef.current);
+                await applyXmlToScore(patched.xml);
+                setCompareView((prev) => (prev ? { ...prev, currentXml: patched.xml } : prev));
             } else {
-                await renderScoreToContainer(targetScore, compareRightContainerRef.current, targetPage, false);
-                syncCompareSvgSize(compareRightContainerRef.current, setCompareRightSvgSize);
-                await refreshMeasurePositions(targetScore, setCompareRightMeasurePositions);
+                setCompareView((prev) => (prev ? { ...prev, checkpointXml: patched.xml } : prev));
             }
             setCompareAlignmentRevision((value) => value + 1);
         } catch (err) {
@@ -2159,11 +2255,11 @@ ${partsBodyXml}
         }
     }, [
         compareSwapBusy,
-        compareContinuousMode,
-        refreshMeasurePositions,
-        renderScore,
-        renderScoreToContainer,
-        syncCompareSvgSize,
+        score,
+        compareView,
+        getScoreMusicXmlText,
+        replaceMeasureInMusicXml,
+        applyXmlToScore,
     ]);
 
     const parsePartsFromMetadata = useCallback((metadata: any): PartSummary[] => {
@@ -6739,6 +6835,7 @@ ${partsBodyXml}
                                                     {compareLeftHighlights.map((highlight) => (
                                                         <div
                                                             key={`compare-left-highlight-${highlight.id}`}
+                                                            data-testid="compare-left-highlight"
                                                             className="absolute rounded-sm border-2"
                                                             style={{
                                                                 left: `${highlight.left}px`,
@@ -6839,6 +6936,7 @@ ${partsBodyXml}
                                                                         />
                                                                     );
                                                                 }
+                                                                const canOverwrite = canLeft && canRight;
                                                                 return (
                                                                     <div
                                                                         key={`compare-gutter-row-${index}-${rowIndex}`}
@@ -6853,40 +6951,42 @@ ${partsBodyXml}
                                                                                 {rightLabel}
                                                                             </span>
                                                                         </div>
-                                                                        <div className="mt-1 flex items-center justify-between gap-2">
-                                                                            <button
-                                                                                type="button"
-                                                                                disabled={!canLeft || !canRight || compareSwapBusy || !score || !compareRightScore}
-                                                                                className="flex h-6 w-10 items-center justify-center rounded border border-gray-200 bg-gray-100 text-[10px] text-gray-500 disabled:opacity-50"
-                                                                                aria-label={`Overwrite right with ${leftLabel}`}
-                                                                                onClick={() => handleCompareOverwrite(
-                                                                                    score,
-                                                                                    compareRightScore,
-                                                                                    index,
-                                                                                    row.leftIndex,
-                                                                                    row.rightIndex,
-                                                                                    'right',
-                                                                                )}
-                                                                            >
-                                                                                -&gt;
-                                                                            </button>
-                                                                            <button
-                                                                                type="button"
-                                                                                disabled={!canLeft || !canRight || compareSwapBusy || !score || !compareRightScore}
-                                                                                className="flex h-6 w-10 items-center justify-center rounded border border-gray-200 bg-gray-100 text-[10px] text-gray-500 disabled:opacity-50"
-                                                                                aria-label={`Overwrite left with ${rightLabel}`}
-                                                                                onClick={() => handleCompareOverwrite(
-                                                                                    compareRightScore,
-                                                                                    score,
-                                                                                    index,
-                                                                                    row.rightIndex,
-                                                                                    row.leftIndex,
-                                                                                    'left',
-                                                                                )}
-                                                                            >
-                                                                                &lt;-
-                                                                            </button>
-                                                                        </div>
+                                                                        {canOverwrite && (
+                                                                            <div className="mt-1 flex items-center justify-between gap-2">
+                                                                                <button
+                                                                                    type="button"
+                                                                                    disabled={compareSwapBusy || !score || !compareRightScore}
+                                                                                    className="flex h-6 w-10 items-center justify-center rounded border border-gray-200 bg-gray-100 text-[10px] text-gray-500 disabled:opacity-50"
+                                                                                    aria-label={`Overwrite right with ${leftLabel}`}
+                                                                                    onClick={() => handleCompareOverwrite(
+                                                                                        score,
+                                                                                        compareRightScore,
+                                                                                        index,
+                                                                                        row.leftIndex,
+                                                                                        row.rightIndex,
+                                                                                        'right',
+                                                                                    )}
+                                                                                >
+                                                                                    -&gt;
+                                                                                </button>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    disabled={compareSwapBusy || !score || !compareRightScore}
+                                                                                    className="flex h-6 w-10 items-center justify-center rounded border border-gray-200 bg-gray-100 text-[10px] text-gray-500 disabled:opacity-50"
+                                                                                    aria-label={`Overwrite left with ${rightLabel}`}
+                                                                                    onClick={() => handleCompareOverwrite(
+                                                                                        compareRightScore,
+                                                                                        score,
+                                                                                        index,
+                                                                                        row.rightIndex,
+                                                                                        row.leftIndex,
+                                                                                        'left',
+                                                                                    )}
+                                                                                >
+                                                                                    &lt;-
+                                                                                </button>
+                                                                            </div>
+                                                                        )}
                                                                     </div>
                                                                 );
                                                             })}
@@ -6924,6 +7024,7 @@ ${partsBodyXml}
                                                     {compareRightHighlights.map((highlight) => (
                                                         <div
                                                             key={`compare-right-highlight-${highlight.id}`}
+                                                            data-testid="compare-right-highlight"
                                                             className="absolute rounded-sm border-2"
                                                             style={{
                                                                 left: `${highlight.left}px`,

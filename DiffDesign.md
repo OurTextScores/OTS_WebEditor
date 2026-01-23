@@ -76,8 +76,10 @@ Last updated: 2025-02-14
    - Export both scores to MusicXML, replace the target `<measure>` node,
      re-import on destination.
    - Easier to control per-part, but heavy and may reset selection state.
+   - NOTE: currently pursuing this option
 3) C++ helper for measure swap (fastest, most consistent) - preferred
    - Add new bindings to copy/replace/insert measures by part + index.
+   - NOTE: an abandoned attempt at this is on branch score-diff-overwrite-with-new-bindings
 
 ## Overlay & Alignment Strategy
 - Use `measurePositions()` from each score to map measure index to y-coordinate.
@@ -121,10 +123,6 @@ Last updated: 2025-02-14
 - Optional: `measureMetaAt(score_ptr, partIndex, measureIndex)` -> `{number, tick, timeSig, keySig, barline}` for debugging.
 - Measure indices should align with `measurePositions()` (i.e., `firstMeasureMM`/`nextMeasureMM` traversal).
 
-## Open Questions
-- Do we want an explicit confidence indicator when content-aware alignment disagrees with index?
-- How to highlight the exact per-part measure region (SVG class names or positions)?
-- If we add WASM bindings for measure signatures, what minimal signature yields stable alignment?
 
 ## Implementation Plan
 1) Add WASM bindings for per-part measure signatures and swap actions (insert before/overwrite/after). Expose them in the webmscore JS API.
@@ -134,38 +132,6 @@ Last updated: 2025-02-14
 5) Wire swap UI: bi-directional arrow clusters per measure/part, destination-only undo, and re-render after mutations.
 6) Add basic test/QA hooks: unit tests for alignment and a manual checklist for swap correctness.
 
-## Diff Highlighting Investigation (2025-02-14)
-### Problem
-- Reflow line breaks are correct (alignment works), but no red/green highlight overlays appear in either pane.
-- Gutter was oscillating between "Aligning measures..." and rows after enabling XML-based signatures.
-- A "Maximum update depth exceeded" error appeared after switching to MSCX-based signature extraction.
-
-### Attempts & Findings (detailed)
-1) **WASM measure signatures (C++ tokens)**
-   - Added bindings for `measureSignatures`/`measureSignatureAt` and used them to align measures.
-   - Alignment rows populated, but highlight overlays still not visible.
-   - Discovered overlay sizing bug: `measurePositions()` returns `sx/sy` (not `width/height`). Highlight boxes were sized with the wrong props, making them effectively invisible. Fixed to read `sx/sy` with `width/height` fallback.
-2) **MusicXML measure diff (JS-side)**
-   - Switched compare signatures to `<part><measure>` content from `saveXml()`.
-   - Result: `saveXml()` did **not** change after pitch/duration edits (XML before/after identical).
-   - Conclusion: `saveXml()` is not reflecting edits in this build; therefore MusicXML measure diff is ineffective for highlighting.
-3) **MSCX (MuseScore XML) as signature source**
-   - Verified `saveMsc('mscx')` changes with edits, unlike `saveXml()`.
-   - Added MSCX parsing: `<Score><Staff><Measure>` nodes, strip `LayoutBreak` and layout-only attributes.
-   - Alignment works and reflow breaks look correct, but highlight overlays still missing until the sizing fix landed.
-4) **Aligning loop + update depth**
-   - Alignment effect re-ran due to unstable callback dependencies introduced with XML decode helpers.
-   - Memoized `normalizeXmlData` and `decodeXmlData` via `useCallback`, and stabilized `getScoreMscxText` dependencies.
-   - This should stop the "Aligning measures..." loop and the maximum update depth error.
-
-### Next Steps
-- Verify highlights after fixing the dependency loop (ensure overlay boxes render with non-zero `sx/sy`).
-- If highlights still fail, add a temporary compare header badge:
-  - Counts of left/right signature lengths and mismatch count.
-  - This will confirm whether signature diffing is actually flagging measures.
-- Decide whether to:
-  - Keep MSCX-based signatures for Phase 0 (most reliable for edits), or
-  - Fix `saveXml()` export in webmscore if we want pure MusicXML-based diffing.
 
 ## Current Issues (2026-02-??)
 ### Issues
