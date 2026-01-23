@@ -2,7 +2,7 @@
 
 import React, { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { loadWebMscore, Score, InputFileFormat } from '../lib/webmscore-loader';
+import { loadWebMscore, Score, InputFileFormat, Positions } from '../lib/webmscore-loader';
 import {
     deleteCheckpoint,
     getCheckpoint,
@@ -336,8 +336,11 @@ export default function ScoreEditor() {
     const [compareZoom, setCompareZoom] = useState<number | null>(null);
     const [compareLeftSvgSize, setCompareLeftSvgSize] = useState<{ width: number; height: number } | null>(null);
     const [compareRightSvgSize, setCompareRightSvgSize] = useState<{ width: number; height: number } | null>(null);
+    const [compareLeftMeasurePositions, setCompareLeftMeasurePositions] = useState<Positions | null>(null);
+    const [compareRightMeasurePositions, setCompareRightMeasurePositions] = useState<Positions | null>(null);
     const [compareAlignments, setCompareAlignments] = useState<PartAlignment[]>([]);
     const [compareAlignmentLoading, setCompareAlignmentLoading] = useState(false);
+    const [compareSignatures, setCompareSignatures] = useState<{ left: string[][]; right: string[][] } | null>(null);
     const [compareContinuousMode, setCompareContinuousMode] = useState(false);
     const [compareReflowMode, setCompareReflowMode] = useState(false);
     const compareLayoutRestoreRef = useRef<number | null>(null);
@@ -410,9 +413,43 @@ export default function ScoreEditor() {
     const autoFitPendingRef = useRef(true);
 
     const fetchMeasureSignatures = useCallback(async (targetScore: Score, partIndex: number) => {
+        const parseSignatures = (value: unknown) => {
+            if (Array.isArray(value)) {
+                return value.filter((entry): entry is string => typeof entry === 'string');
+            }
+            if (typeof value === 'string') {
+                try {
+                    const parsed = JSON.parse(value);
+                    if (Array.isArray(parsed)) {
+                        return parsed.filter((entry): entry is string => typeof entry === 'string');
+                    }
+                } catch (err) {
+                    console.warn('Failed to parse measure signatures payload:', err);
+                }
+            }
+            return null;
+        };
+
         if (targetScore.measureSignatures) {
             const signatures = await targetScore.measureSignatures(partIndex);
-            return Array.isArray(signatures) ? signatures : [];
+            const parsed = parseSignatures(signatures);
+            if (parsed && parsed.length > 0) {
+                return parsed;
+            }
+            if (parsed && parsed.length === 0 && targetScore.measureSignatureCount && targetScore.measureSignatureAt) {
+                const count = await targetScore.measureSignatureCount(partIndex);
+                if (count > 0) {
+                    const fallback: string[] = [];
+                    for (let i = 0; i < count; i += 1) {
+                        fallback.push(await targetScore.measureSignatureAt(partIndex, i));
+                    }
+                    return fallback;
+                }
+                return parsed;
+            }
+            if (parsed) {
+                return parsed;
+            }
         }
 
         if (targetScore.measureSignatureCount && targetScore.measureSignatureAt) {
@@ -440,6 +477,88 @@ export default function ScoreEditor() {
             return false;
         }
         return targetScore.setMeasureLineBreaks(breaks);
+    }, []);
+
+    const refreshMeasurePositions = useCallback(async (targetScore: Score, setter: (positions: Positions | null) => void) => {
+        if (!targetScore.measurePositions) {
+            return;
+        }
+        try {
+            const positions = await targetScore.measurePositions();
+            setter(positions ?? null);
+        } catch (err) {
+            console.warn('Failed to load measure positions for compare highlight:', err);
+        }
+    }, []);
+
+    const extractMeasureSignaturesFromXml = useCallback((xml: string) => {
+        if (typeof DOMParser === 'undefined') {
+            return [];
+        }
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(xml, 'application/xml');
+        if (doc.getElementsByTagName('parsererror').length > 0) {
+            throw new Error('Invalid MusicXML');
+        }
+
+        const serializer = new XMLSerializer();
+        const normalize = (value: string) => value.replace(/>\s+</g, '><').trim();
+        const isMscx = doc.documentElement?.tagName === 'museScore';
+        const shouldStripAttribute = (name: string) => {
+            const lower = name.toLowerCase();
+            if (lower === 'width') {
+                return true;
+            }
+            if (lower === 'x' || lower === 'y') {
+                return true;
+            }
+            if (lower === 'default-x' || lower === 'default-y' || lower === 'relative-x' || lower === 'relative-y') {
+                return true;
+            }
+            if (lower.startsWith('font-')) {
+                return true;
+            }
+            return false;
+        };
+
+        const scrubElement = (element: Element) => {
+            Array.from(element.attributes).forEach((attr) => {
+                if (shouldStripAttribute(attr.name)) {
+                    element.removeAttribute(attr.name);
+                }
+            });
+            Array.from(element.children).forEach((child) => scrubElement(child));
+        };
+
+        const measureSignature = (measure: Element) => {
+            const clone = measure.cloneNode(true) as Element;
+            clone.removeAttribute('number');
+            clone.removeAttribute('width');
+            if (!isMscx) {
+                Array.from(clone.getElementsByTagName('print')).forEach((node) => node.remove());
+            }
+            Array.from(clone.getElementsByTagName('LayoutBreak')).forEach((node) => node.remove());
+            scrubElement(clone);
+            return normalize(serializer.serializeToString(clone));
+        };
+
+        if (isMscx) {
+            const score = doc.querySelector('Score');
+            if (!score) {
+                return [];
+            }
+            const staffs = Array.from(score.children).filter((node) => node.tagName === 'Staff') as Element[];
+            return staffs.map((staff) => {
+                const measures = Array.from(staff.getElementsByTagName('Measure'));
+                return measures.map((measure) => measureSignature(measure));
+            });
+        }
+
+        const parts = Array.from(doc.getElementsByTagName('part'));
+        return parts.map((part) => {
+            const measures = Array.from(part.getElementsByTagName('measure'));
+            return measures.map((measure) => measureSignature(measure));
+        });
     }, []);
 
     const buildMismatchBlocks = useCallback((rows: MeasureAlignmentRow[]) => {
@@ -845,6 +964,103 @@ export default function ScoreEditor() {
         width: compareRightSvgSize ? `${compareRightSvgSize.width * compareEffectiveZoom}px` : 'auto',
         height: compareRightSvgSize ? `${compareRightSvgSize.height * compareEffectiveZoom}px` : 'auto',
     };
+    const compareMeasureStatuses = useMemo(() => {
+        const leftCount = compareLeftMeasurePositions?.elements.length
+            ?? Math.max(0, ...compareAlignments.map((alignment) => alignment.leftCount));
+        const rightCount = compareRightMeasurePositions?.elements.length
+            ?? Math.max(0, ...compareAlignments.map((alignment) => alignment.rightCount));
+        const leftMismatch = Array.from({ length: leftCount }, () => false);
+        const rightMismatch = Array.from({ length: rightCount }, () => false);
+
+        compareAlignments.forEach((alignment) => {
+            alignment.rows.forEach((row) => {
+                if (!row.match) {
+                    if (row.leftIndex !== null && row.leftIndex >= 0 && row.leftIndex < leftMismatch.length) {
+                        leftMismatch[row.leftIndex] = true;
+                    }
+                    if (row.rightIndex !== null && row.rightIndex >= 0 && row.rightIndex < rightMismatch.length) {
+                        rightMismatch[row.rightIndex] = true;
+                    }
+                }
+            });
+        });
+
+        if (compareSignatures) {
+            const partCount = Math.max(compareSignatures.left.length, compareSignatures.right.length);
+            for (let partIndex = 0; partIndex < partCount; partIndex += 1) {
+                const leftPart = compareSignatures.left[partIndex] ?? [];
+                const rightPart = compareSignatures.right[partIndex] ?? [];
+                const total = Math.max(leftPart.length, rightPart.length);
+                for (let i = 0; i < total; i += 1) {
+                    const leftSig = leftPart[i];
+                    const rightSig = rightPart[i];
+                    if (leftSig === undefined && rightSig === undefined) {
+                        continue;
+                    }
+                    if (leftSig !== rightSig) {
+                        if (i < leftMismatch.length) {
+                            leftMismatch[i] = true;
+                        }
+                        if (i < rightMismatch.length) {
+                            rightMismatch[i] = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        return {
+            left: leftMismatch.map((value) => (value ? 'old-diff' : null)),
+            right: rightMismatch.map((value) => (value ? 'new-diff' : null)),
+        };
+    }, [compareAlignments, compareLeftMeasurePositions, compareRightMeasurePositions, compareSignatures]);
+    const buildMeasureHighlights = useCallback((
+        positions: Positions | null,
+        statuses: Array<'old-diff' | 'new-diff' | null>,
+        zoomValue: number,
+    ) => {
+        if (!positions || !positions.elements.length) {
+            return [];
+        }
+        const pageHeight = positions.pageSize?.height ?? 0;
+        return positions.elements.flatMap((element, index) => {
+            const measureIndex = index;
+            const status = statuses[measureIndex];
+            if (!status) {
+                return [];
+            }
+            const rawWidth = typeof element.sx === 'number'
+                ? element.sx
+                : typeof (element as { width?: number }).width === 'number'
+                    ? (element as { width?: number }).width
+                    : 0;
+            const rawHeight = typeof element.sy === 'number'
+                ? element.sy
+                : typeof (element as { height?: number }).height === 'number'
+                    ? (element as { height?: number }).height
+                    : 0;
+            const needsPageOffset = pageHeight > 0
+                && element.page > 0
+                && (element.y + rawHeight) <= (pageHeight * 1.2);
+            const pageOffset = needsPageOffset ? element.page * pageHeight : 0;
+            return [{
+                id: element.id ?? index,
+                status,
+                left: (element.x) * zoomValue,
+                top: (element.y + pageOffset) * zoomValue,
+                width: rawWidth * zoomValue,
+                height: rawHeight * zoomValue,
+            }];
+        });
+    }, []);
+    const compareLeftHighlights = useMemo(
+        () => buildMeasureHighlights(compareLeftMeasurePositions, compareMeasureStatuses.left, compareEffectiveZoom),
+        [buildMeasureHighlights, compareLeftMeasurePositions, compareMeasureStatuses.left, compareEffectiveZoom],
+    );
+    const compareRightHighlights = useMemo(
+        () => buildMeasureHighlights(compareRightMeasurePositions, compareMeasureStatuses.right, compareEffectiveZoom),
+        [buildMeasureHighlights, compareRightMeasurePositions, compareMeasureStatuses.right, compareEffectiveZoom],
+    );
     const compareOverlayStyle = toolbarHeight > 0 ? { top: `${toolbarHeight}px` } : undefined;
     const compareModalMaxHeight = toolbarHeight > 0
         ? `calc(100dvh - ${toolbarHeight + 48}px)`
@@ -999,7 +1215,7 @@ ${partsBodyXml}
 `;
     };
 
-    const normalizeXmlData = async (data: unknown): Promise<Uint8Array | null> => {
+    const normalizeXmlData = useCallback(async (data: unknown): Promise<Uint8Array | null> => {
         if (!data) {
             return null;
         }
@@ -1020,7 +1236,15 @@ ${partsBodyXml}
         }
         console.warn('Unexpected saveXml response type', data);
         return null;
-    };
+    }, []);
+
+    const decodeXmlData = useCallback(async (data: unknown): Promise<string | null> => {
+        const normalized = await normalizeXmlData(data);
+        if (!normalized) {
+            return null;
+        }
+        return new TextDecoder().decode(normalized);
+    }, [normalizeXmlData]);
 
     const getScoreXmlData = useCallback(async () => {
         const activeScore = scoreRef.current ?? score;
@@ -1030,7 +1254,7 @@ ${partsBodyXml}
         }
         const data = await activeScore.saveXml();
         return await normalizeXmlData(data);
-    }, [score]);
+    }, [score, normalizeXmlData]);
 
     const loadXmlFromScore = useCallback(async () => {
         if (!score) {
@@ -1057,6 +1281,14 @@ ${partsBodyXml}
             setXmlLoading(false);
         }
     }, [score, getScoreXmlData]);
+
+    const getScoreMscxText = useCallback(async (targetScore: Score) => {
+        if (!targetScore?.saveMsc) {
+            return null;
+        }
+        const data = await targetScore.saveMsc('mscx');
+        return await decodeXmlData(data);
+    }, [decodeXmlData]);
 
     const resolveXmlContext = useCallback(async () => {
         if (xmlText.trim()) {
@@ -1800,6 +2032,9 @@ ${partsBodyXml}
         if (!value) {
             return null;
         }
+        if (value.includes('%')) {
+            return null;
+        }
         const parsed = Number.parseFloat(value);
         return Number.isFinite(parsed) ? parsed : null;
     };
@@ -2136,6 +2371,9 @@ ${partsBodyXml}
             setCompareZoom(null);
             setCompareLeftSvgSize(null);
             setCompareRightSvgSize(null);
+            setCompareLeftMeasurePositions(null);
+            setCompareRightMeasurePositions(null);
+            setCompareSignatures(null);
             return;
         }
 
@@ -2200,8 +2438,19 @@ ${partsBodyXml}
         }
         const targetPage = compareContinuousMode ? 0 : currentPage;
         void renderScoreToContainer(score, compareLeftContainerRef.current, targetPage, false)
-            .then(() => syncCompareSvgSize(compareLeftContainerRef.current, setCompareLeftSvgSize));
-    }, [compareView, score, currentPage, compareContinuousMode, renderScoreToContainer, syncCompareSvgSize]);
+            .then(() => {
+                syncCompareSvgSize(compareLeftContainerRef.current, setCompareLeftSvgSize);
+                void refreshMeasurePositions(score, setCompareLeftMeasurePositions);
+            });
+    }, [
+        compareView,
+        score,
+        currentPage,
+        compareContinuousMode,
+        renderScoreToContainer,
+        syncCompareSvgSize,
+        refreshMeasurePositions,
+    ]);
 
     useEffect(() => {
         if (!compareView || !compareRightScore) {
@@ -2227,6 +2476,7 @@ ${partsBodyXml}
                     return;
                 }
                 syncCompareSvgSize(compareRightContainerRef.current, setCompareRightSvgSize);
+                void refreshMeasurePositions(compareRightScore, setCompareRightMeasurePositions);
             })
             .finally(() => {
                 compareRightRenderInFlightRef.current = false;
@@ -2241,6 +2491,7 @@ ${partsBodyXml}
         compareContinuousMode,
         renderScoreToContainer,
         syncCompareSvgSize,
+        refreshMeasurePositions,
     ]);
 
     useEffect(() => {
@@ -2345,9 +2596,15 @@ ${partsBodyXml}
             ]).then(() => {
                 const targetPage = compareContinuousMode ? 0 : currentPageRef.current;
                 void renderScoreToContainer(score, compareLeftContainerRef.current, targetPage, false)
-                    .then(() => syncCompareSvgSize(compareLeftContainerRef.current, setCompareLeftSvgSize));
+                    .then(() => {
+                        syncCompareSvgSize(compareLeftContainerRef.current, setCompareLeftSvgSize);
+                        void refreshMeasurePositions(score, setCompareLeftMeasurePositions);
+                    });
                 void renderScoreToContainer(compareRightScore, compareRightContainerRef.current, targetPage, false)
-                    .then(() => syncCompareSvgSize(compareRightContainerRef.current, setCompareRightSvgSize));
+                    .then(() => {
+                        syncCompareSvgSize(compareRightContainerRef.current, setCompareRightSvgSize);
+                        void refreshMeasurePositions(compareRightScore, setCompareRightMeasurePositions);
+                    });
             });
             return;
         }
@@ -2408,8 +2665,10 @@ ${partsBodyXml}
             const targetPage = compareContinuousMode ? 0 : currentPageRef.current;
             await renderScoreToContainer(score, compareLeftContainerRef.current, targetPage, false);
             syncCompareSvgSize(compareLeftContainerRef.current, setCompareLeftSvgSize);
+            await refreshMeasurePositions(score, setCompareLeftMeasurePositions);
             await renderScoreToContainer(compareRightScore, compareRightContainerRef.current, targetPage, false);
             syncCompareSvgSize(compareRightContainerRef.current, setCompareRightSvgSize);
+            await refreshMeasurePositions(compareRightScore, setCompareRightMeasurePositions);
         };
 
         applyReflow();
@@ -2427,14 +2686,16 @@ ${partsBodyXml}
         fetchMeasureLineBreaks,
         compareAlignments,
         buildMismatchBreaks,
+        refreshMeasurePositions,
         renderScoreToContainer,
         syncCompareSvgSize,
     ]);
 
     useEffect(() => {
-        if (!compareView || !score || !compareRightScore) {
+        if (!compareView) {
             setCompareAlignments([]);
             setCompareAlignmentLoading(false);
+            setCompareSignatures(null);
             return;
         }
 
@@ -2442,18 +2703,52 @@ ${partsBodyXml}
         const loadAlignments = async () => {
             setCompareAlignmentLoading(true);
             try {
-                const partCount = Math.max(scoreParts.length, compareRightParts.length, 1);
-                const leftSignatures = await Promise.all(
-                    Array.from({ length: partCount }, (_, index) => fetchMeasureSignatures(score, index)),
-                );
-                const rightSignatures = await Promise.all(
-                    Array.from({ length: partCount }, (_, index) => fetchMeasureSignatures(compareRightScore, index)),
-                );
+                let leftSignatures: string[][] = [];
+                let rightSignatures: string[][] = [];
+                let usedXml = false;
+                try {
+                    if (score && compareRightScore) {
+                        const [leftMscx, rightMscx] = await Promise.all([
+                            getScoreMscxText(score),
+                            getScoreMscxText(compareRightScore),
+                        ]);
+                        if (leftMscx && rightMscx) {
+                            leftSignatures = extractMeasureSignaturesFromXml(leftMscx);
+                            rightSignatures = extractMeasureSignaturesFromXml(rightMscx);
+                            usedXml = true;
+                        }
+                    }
+                    if (!usedXml && compareView.currentXml && compareView.checkpointXml) {
+                        leftSignatures = extractMeasureSignaturesFromXml(compareView.currentXml);
+                        rightSignatures = extractMeasureSignaturesFromXml(compareView.checkpointXml);
+                        usedXml = true;
+                    }
+                } catch (err) {
+                    console.warn('Failed to parse MusicXML for compare signatures; falling back to WASM.', err);
+                }
+
+                if (!usedXml) {
+                    if (!score || !compareRightScore) {
+                        setCompareAlignments([]);
+                        setCompareSignatures(null);
+                        return;
+                    }
+                    const partCount = Math.max(scoreParts.length, compareRightParts.length, 1);
+                    leftSignatures = await Promise.all(
+                        Array.from({ length: partCount }, (_, index) => fetchMeasureSignatures(score, index)),
+                    );
+                    rightSignatures = await Promise.all(
+                        Array.from({ length: partCount }, (_, index) => fetchMeasureSignatures(compareRightScore, index)),
+                    );
+                }
+
                 if (canceled) {
                     return;
                 }
 
-                const alignments: PartAlignment[] = leftSignatures.map((left, index) => {
+                const partCount = Math.max(leftSignatures.length, rightSignatures.length, 1);
+                const alignments: PartAlignment[] = Array.from({ length: partCount }, (_, index) => {
+                    const left = leftSignatures[index] ?? [];
                     const right = rightSignatures[index] ?? [];
                     if (left.length === 0 && right.length === 0) {
                         return {
@@ -2481,10 +2776,12 @@ ${partsBodyXml}
                 });
 
                 setCompareAlignments(alignments);
+                setCompareSignatures({ left: leftSignatures, right: rightSignatures });
             } catch (err) {
                 console.error('Failed to compute compare alignment', err);
                 if (!canceled) {
                     setCompareAlignments([]);
+                    setCompareSignatures(null);
                 }
             } finally {
                 if (!canceled) {
@@ -2499,13 +2796,15 @@ ${partsBodyXml}
         };
     }, [
         compareView,
-        score,
-        compareRightScore,
         scoreParts.length,
         compareRightParts.length,
+        score,
+        compareRightScore,
         fetchMeasureSignatures,
         buildLcsAlignment,
         buildIndexAlignment,
+        extractMeasureSignaturesFromXml,
+        getScoreMscxText,
     ]);
 
     useEffect(() => {
@@ -6337,10 +6636,24 @@ ${partsBodyXml}
                                                 )}
                                             <div
                                                 ref={compareLeftWrapperRef}
-                                                className="origin-top-left"
+                                                className="relative origin-top-left"
                                                 style={compareZoomStyle}
                                             >
                                                 <div ref={compareLeftContainerRef} />
+                                                <div className="pointer-events-none absolute inset-0 z-10">
+                                                    {compareLeftHighlights.map((highlight) => (
+                                                        <div
+                                                            key={`compare-left-highlight-${highlight.id}`}
+                                                            className={`absolute rounded-sm border ${highlight.status === 'new-diff' ? 'border-emerald-500/80 bg-emerald-300/35' : 'border-rose-500/80 bg-rose-300/35'}`}
+                                                            style={{
+                                                                left: `${highlight.left}px`,
+                                                                top: `${highlight.top}px`,
+                                                                width: `${highlight.width}px`,
+                                                                height: `${highlight.height}px`,
+                                                            }}
+                                                        />
+                                                    ))}
+                                                </div>
                                             </div>
                                             </div>
                                             <div className="grid gap-2 text-xs text-gray-500">
@@ -6417,14 +6730,20 @@ ${partsBodyXml}
                                                                 const rightLabel = row.rightIndex !== null ? `R${row.rightIndex + 1}` : 'R–';
                                                                 const canLeft = row.leftIndex !== null;
                                                                 const canRight = row.rightIndex !== null;
+                                                                const leftDiff = !row.match && row.leftIndex !== null;
+                                                                const rightDiff = !row.match && row.rightIndex !== null;
                                                                 return (
                                                                     <div
                                                                         key={`compare-gutter-row-${index}-${rowIndex}`}
                                                                         className={`rounded border px-2 py-2 ${row.match ? 'border-emerald-200 bg-emerald-50' : 'border-gray-200 bg-white'}`}
                                                                     >
                                                                         <div className="flex items-center justify-between text-[9px] text-gray-400">
-                                                                            <span>{leftLabel}</span>
-                                                                            <span>{rightLabel}</span>
+                                                                            <span className={`rounded px-1 py-0.5 ${leftDiff ? 'bg-rose-100 text-rose-600' : ''}`}>
+                                                                                {leftLabel}
+                                                                            </span>
+                                                                            <span className={`rounded px-1 py-0.5 ${rightDiff ? 'bg-emerald-100 text-emerald-600' : ''}`}>
+                                                                                {rightLabel}
+                                                                            </span>
                                                                         </div>
                                                                         <div className="mt-1 flex flex-col gap-1">
                                                                             <div className="flex items-center gap-2">
@@ -6492,10 +6811,24 @@ ${partsBodyXml}
                                                 )}
                                             <div
                                                 ref={compareRightWrapperRef}
-                                                className="origin-top-left"
+                                                className="relative origin-top-left"
                                                 style={compareRightZoomStyle}
                                             >
                                                 <div ref={compareRightContainerRef} />
+                                                <div className="pointer-events-none absolute inset-0 z-10">
+                                                    {compareRightHighlights.map((highlight) => (
+                                                        <div
+                                                            key={`compare-right-highlight-${highlight.id}`}
+                                                            className={`absolute rounded-sm border ${highlight.status === 'old-diff' ? 'border-rose-500/80 bg-rose-300/35' : 'border-emerald-500/80 bg-emerald-300/35'}`}
+                                                            style={{
+                                                                left: `${highlight.left}px`,
+                                                                top: `${highlight.top}px`,
+                                                                width: `${highlight.width}px`,
+                                                                height: `${highlight.height}px`,
+                                                            }}
+                                                        />
+                                                    ))}
+                                                </div>
                                             </div>
                                             </div>
                                             <div className="grid gap-2 text-xs text-gray-500">

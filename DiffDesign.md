@@ -57,7 +57,7 @@ Last updated: 2025-02-14
 - MuseScore supports continuous layout via `LayoutMode::LINE` (vertical continuous).
 - webmscore previously forced PAGE mode during SVG/position exports; added a `setLayoutMode` binding and removed forced PAGE mode so compare can render as continuous.
 
-## Reflow Mode (Text-Diff Layout)
+## Reflow Mode (JHLUSKO CHANGES)
 - Use `LayoutMode::SYSTEM` to keep a continuous view while honoring line breaks.
 - Add WASM bindings to get/set measure line breaks in bulk:
   - `measureLineBreaks()` -> JSON array of booleans.
@@ -133,3 +133,36 @@ Last updated: 2025-02-14
 4) Implement content-aware alignment (LCS on measure signatures per part) with index fallback; map measure bounds to gutter arrow overlays.
 5) Wire swap UI: bi-directional arrow clusters per measure/part, destination-only undo, and re-render after mutations.
 6) Add basic test/QA hooks: unit tests for alignment and a manual checklist for swap correctness.
+
+## Diff Highlighting Investigation (2025-02-14)
+### Problem
+- Reflow line breaks are correct (alignment works), but no red/green highlight overlays appear in either pane.
+- Gutter was oscillating between "Aligning measures..." and rows after enabling XML-based signatures.
+- A "Maximum update depth exceeded" error appeared after switching to MSCX-based signature extraction.
+
+### Attempts & Findings (detailed)
+1) **WASM measure signatures (C++ tokens)**
+   - Added bindings for `measureSignatures`/`measureSignatureAt` and used them to align measures.
+   - Alignment rows populated, but highlight overlays still not visible.
+   - Discovered overlay sizing bug: `measurePositions()` returns `sx/sy` (not `width/height`). Highlight boxes were sized with the wrong props, making them effectively invisible. Fixed to read `sx/sy` with `width/height` fallback.
+2) **MusicXML measure diff (JS-side)**
+   - Switched compare signatures to `<part><measure>` content from `saveXml()`.
+   - Result: `saveXml()` did **not** change after pitch/duration edits (XML before/after identical).
+   - Conclusion: `saveXml()` is not reflecting edits in this build; therefore MusicXML measure diff is ineffective for highlighting.
+3) **MSCX (MuseScore XML) as signature source**
+   - Verified `saveMsc('mscx')` changes with edits, unlike `saveXml()`.
+   - Added MSCX parsing: `<Score><Staff><Measure>` nodes, strip `LayoutBreak` and layout-only attributes.
+   - Alignment works and reflow breaks look correct, but highlight overlays still missing until the sizing fix landed.
+4) **Aligning loop + update depth**
+   - Alignment effect re-ran due to unstable callback dependencies introduced with XML decode helpers.
+   - Memoized `normalizeXmlData` and `decodeXmlData` via `useCallback`, and stabilized `getScoreMscxText` dependencies.
+   - This should stop the "Aligning measures..." loop and the maximum update depth error.
+
+### Next Steps
+- Verify highlights after fixing the dependency loop (ensure overlay boxes render with non-zero `sx/sy`).
+- If highlights still fail, add a temporary compare header badge:
+  - Counts of left/right signature lengths and mismatch count.
+  - This will confirm whether signature diffing is actually flagging measures.
+- Decide whether to:
+  - Keep MSCX-based signatures for Phase 0 (most reliable for edits), or
+  - Fix `saveXml()` export in webmscore if we want pure MusicXML-based diffing.
