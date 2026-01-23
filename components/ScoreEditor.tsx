@@ -340,6 +340,8 @@ export default function ScoreEditor() {
     const [compareRightMeasurePositions, setCompareRightMeasurePositions] = useState<Positions | null>(null);
     const [compareAlignments, setCompareAlignments] = useState<PartAlignment[]>([]);
     const [compareAlignmentLoading, setCompareAlignmentLoading] = useState(false);
+    const [compareAlignmentRevision, setCompareAlignmentRevision] = useState(0);
+    const [compareSwapBusy, setCompareSwapBusy] = useState(false);
     const [compareSignatures, setCompareSignatures] = useState<{ left: string[][]; right: string[][] } | null>(null);
     const [compareContinuousMode, setCompareContinuousMode] = useState(false);
     const [compareReflowMode, setCompareReflowMode] = useState(false);
@@ -490,6 +492,7 @@ export default function ScoreEditor() {
             console.warn('Failed to load measure positions for compare highlight:', err);
         }
     }, []);
+
 
     const extractMeasureSignaturesFromXml = useCallback((xml: string) => {
         if (typeof DOMParser === 'undefined') {
@@ -956,6 +959,7 @@ export default function ScoreEditor() {
     }, [compareAlignments]);
     const compareDefaultZoom = 0.5;
     const compareEffectiveZoom = compareZoom ?? compareDefaultZoom;
+    const compareGutterRowStyle = { minHeight: '3.5rem' };
     const compareZoomStyle = {
         width: compareLeftSvgSize ? `${compareLeftSvgSize.width * compareEffectiveZoom}px` : 'auto',
         height: compareLeftSvgSize ? `${compareLeftSvgSize.height * compareEffectiveZoom}px` : 'auto',
@@ -2088,6 +2092,80 @@ ${partsBodyXml}
         setSize(size);
     }, [compareEffectiveZoom]);
 
+    const handleCompareOverwrite = useCallback(async (
+        sourceScore: Score | null,
+        targetScore: Score | null,
+        partIndex: number,
+        sourceMeasureIndex: number | null,
+        targetMeasureIndex: number | null,
+        targetSide: 'left' | 'right',
+    ) => {
+        if (compareSwapBusy) {
+            return;
+        }
+        if (!sourceScore || !targetScore) {
+            return;
+        }
+        if (sourceMeasureIndex === null || targetMeasureIndex === null) {
+            return;
+        }
+        if (!sourceScore.selectPartMeasureByIndex || !sourceScore.selectionMimeType || !sourceScore.selectionMimeData) {
+            console.warn('Compare overwrite: source score does not expose selection exports.');
+            return;
+        }
+        if (!targetScore.selectPartMeasureByIndex || !targetScore.pasteSelection) {
+            console.warn('Compare overwrite: target score does not expose paste selection.');
+            return;
+        }
+
+        setCompareSwapBusy(true);
+        try {
+            const selectedSource = await sourceScore.selectPartMeasureByIndex(partIndex, sourceMeasureIndex);
+            if (!selectedSource) {
+                return;
+            }
+            const mimeType = await sourceScore.selectionMimeType();
+            const rawData = await sourceScore.selectionMimeData();
+            if (!mimeType || !rawData) {
+                return;
+            }
+            const data = rawData instanceof Uint8Array ? rawData : new Uint8Array(rawData as ArrayBuffer);
+
+            const selectedTarget = await targetScore.selectPartMeasureByIndex(partIndex, targetMeasureIndex);
+            if (!selectedTarget) {
+                return;
+            }
+            await targetScore.pasteSelection(mimeType, data);
+            if (targetScore.relayout) {
+                await targetScore.relayout();
+            }
+
+            const targetPage = compareContinuousMode ? 0 : currentPageRef.current;
+            if (targetSide === 'left') {
+                await renderScoreToContainer(targetScore, compareLeftContainerRef.current, targetPage, false);
+                syncCompareSvgSize(compareLeftContainerRef.current, setCompareLeftSvgSize);
+                await refreshMeasurePositions(targetScore, setCompareLeftMeasurePositions);
+                await renderScore(targetScore, currentPageRef.current);
+            } else {
+                await renderScoreToContainer(targetScore, compareRightContainerRef.current, targetPage, false);
+                syncCompareSvgSize(compareRightContainerRef.current, setCompareRightSvgSize);
+                await refreshMeasurePositions(targetScore, setCompareRightMeasurePositions);
+            }
+            setCompareAlignmentRevision((value) => value + 1);
+        } catch (err) {
+            console.warn('Compare overwrite failed:', err);
+        } finally {
+            setCompareSwapBusy(false);
+        }
+    }, [
+        compareSwapBusy,
+        compareContinuousMode,
+        refreshMeasurePositions,
+        renderScore,
+        renderScoreToContainer,
+        syncCompareSvgSize,
+    ]);
+
     const parsePartsFromMetadata = useCallback((metadata: any): PartSummary[] => {
         const parts = Array.isArray(metadata?.parts) ? metadata.parts : [];
         return parts.map((part: any, index: number) => ({
@@ -2801,6 +2879,7 @@ ${partsBodyXml}
         };
     }, [
         compareView,
+        compareAlignmentRevision,
         scoreParts.length,
         compareRightParts.length,
         score,
@@ -6750,10 +6829,21 @@ ${partsBodyXml}
                                                                 const canRight = row.rightIndex !== null;
                                                                 const leftDiff = !row.match && row.leftIndex !== null;
                                                                 const rightDiff = !row.match && row.rightIndex !== null;
+                                                                const hasDiff = !row.match;
+                                                                if (!hasDiff) {
+                                                                    return (
+                                                                        <div
+                                                                            key={`compare-gutter-row-${index}-${rowIndex}`}
+                                                                            className="rounded border border-transparent px-2 py-2"
+                                                                            style={compareGutterRowStyle}
+                                                                        />
+                                                                    );
+                                                                }
                                                                 return (
                                                                     <div
                                                                         key={`compare-gutter-row-${index}-${rowIndex}`}
-                                                                        className={`rounded border px-2 py-2 ${row.match ? 'border-emerald-200 bg-emerald-50' : 'border-gray-200 bg-white'}`}
+                                                                        className="rounded border border-gray-200 bg-white px-2 py-2"
+                                                                        style={compareGutterRowStyle}
                                                                     >
                                                                         <div className="flex items-center justify-between text-[9px] text-gray-400">
                                                                             <span className={`rounded px-1 py-0.5 ${leftDiff ? 'bg-rose-100 text-rose-600' : ''}`}>
@@ -6763,39 +6853,39 @@ ${partsBodyXml}
                                                                                 {rightLabel}
                                                                             </span>
                                                                         </div>
-                                                                        <div className="mt-1 flex flex-col gap-1">
-                                                                            <div className="flex items-center gap-2">
-                                                                                <span className="w-7 text-right text-gray-400">L&gt;R</span>
-                                                                                <div className="flex gap-1">
-                                                                                    {['B', 'O', 'A'].map((label) => (
-                                                                                        <button
-                                                                                            key={`compare-gutter-l2r-${index}-${rowIndex}-${label}`}
-                                                                                            type="button"
-                                                                                            disabled={!canLeft}
-                                                                                            className="h-5 w-5 rounded border border-gray-200 bg-gray-100 text-[9px] text-gray-400 disabled:opacity-50"
-                                                                                            aria-label={`Left to right ${label} for measure ${leftLabel}`}
-                                                                                        >
-                                                                                            {label}
-                                                                                        </button>
-                                                                                    ))}
-                                                                                </div>
-                                                                            </div>
-                                                                            <div className="flex items-center gap-2">
-                                                                                <span className="w-7 text-right text-gray-400">R&gt;L</span>
-                                                                                <div className="flex gap-1">
-                                                                                    {['B', 'O', 'A'].map((label) => (
-                                                                                        <button
-                                                                                            key={`compare-gutter-r2l-${index}-${rowIndex}-${label}`}
-                                                                                            type="button"
-                                                                                            disabled={!canRight}
-                                                                                            className="h-5 w-5 rounded border border-gray-200 bg-gray-100 text-[9px] text-gray-400 disabled:opacity-50"
-                                                                                            aria-label={`Right to left ${label} for measure ${rightLabel}`}
-                                                                                        >
-                                                                                            {label}
-                                                                                        </button>
-                                                                                    ))}
-                                                                                </div>
-                                                                            </div>
+                                                                        <div className="mt-1 flex items-center justify-between gap-2">
+                                                                            <button
+                                                                                type="button"
+                                                                                disabled={!canLeft || !canRight || compareSwapBusy || !score || !compareRightScore}
+                                                                                className="flex h-6 w-10 items-center justify-center rounded border border-gray-200 bg-gray-100 text-[10px] text-gray-500 disabled:opacity-50"
+                                                                                aria-label={`Overwrite right with ${leftLabel}`}
+                                                                                onClick={() => handleCompareOverwrite(
+                                                                                    score,
+                                                                                    compareRightScore,
+                                                                                    index,
+                                                                                    row.leftIndex,
+                                                                                    row.rightIndex,
+                                                                                    'right',
+                                                                                )}
+                                                                            >
+                                                                                -&gt;
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                disabled={!canLeft || !canRight || compareSwapBusy || !score || !compareRightScore}
+                                                                                className="flex h-6 w-10 items-center justify-center rounded border border-gray-200 bg-gray-100 text-[10px] text-gray-500 disabled:opacity-50"
+                                                                                aria-label={`Overwrite left with ${rightLabel}`}
+                                                                                onClick={() => handleCompareOverwrite(
+                                                                                    compareRightScore,
+                                                                                    score,
+                                                                                    index,
+                                                                                    row.rightIndex,
+                                                                                    row.leftIndex,
+                                                                                    'left',
+                                                                                )}
+                                                                            >
+                                                                                &lt;-
+                                                                            </button>
                                                                         </div>
                                                                     </div>
                                                                 );
@@ -6804,9 +6894,6 @@ ${partsBodyXml}
                                                     </div>
                                                 );
                                             })}
-                                        </div>
-                                        <div className="text-center text-[10px] text-gray-400">
-                                            B = before, O = overwrite, A = after
                                         </div>
                                     </div>
                                     <div className="flex min-h-0 min-w-0 flex-1 basis-0 flex-col gap-3">

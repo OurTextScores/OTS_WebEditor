@@ -166,3 +166,15 @@ Last updated: 2025-02-14
 - Decide whether to:
   - Keep MSCX-based signatures for Phase 0 (most reliable for edits), or
   - Fix `saveXml()` export in webmscore if we want pure MusicXML-based diffing.
+
+## Current Issues (2026-02-??)
+### Issues
+- Compare gutter row spacing is off after switching to overwrite-only arrows; rows no longer align with the expected measure rhythm in the gutter.
+- Overwrite arrows are placeholders only; no actual measure copy/paste is happening yet.
+
+### Next Steps
+- Normalize gutter row heights (single shared min-height) so empty rows preserve spacing without extra UI chrome.
+- Implement overwrite actions:
+  - Select source measure by part/index → export selection MIME.
+  - Select target measure by part/index → paste selection MIME (overwrite).
+  - Relayout, re-render target pane, refresh `measurePositions`, and re-run alignment.
