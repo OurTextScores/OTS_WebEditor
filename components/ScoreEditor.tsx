@@ -1985,12 +1985,12 @@ ${partsBodyXml}
         }
     };
 
-    const renderScore = async (currentScore: Score, pageIndex?: number) => {
+    const renderScore = async (currentScore: Score, pageIndex?: number, highlightSelection: boolean = true) => {
         if (!currentScore || !containerRef.current) return;
 
         try {
             const targetPage = typeof pageIndex === 'number' ? pageIndex : currentPage;
-            const svgData = await currentScore.saveSvg(targetPage, true);
+            const svgData = await currentScore.saveSvg(targetPage, true, highlightSelection);
             if (svgData) {
                 containerRef.current.innerHTML = svgData;
             }
@@ -2016,7 +2016,7 @@ ${partsBodyXml}
 
         try {
             const targetPage = typeof pageIndex === 'number' ? pageIndex : 0;
-            const svgData = await currentScore.saveSvg(targetPage, true);
+            const svgData = await currentScore.saveSvg(targetPage, true, highlightSelection);
             if (!svgData) {
                 return false;
             }
@@ -5276,7 +5276,7 @@ ${partsBodyXml}
             setSelectedElementClasses('');
             setSelectedLayoutBreakSubtype(null);
             setHasBackendHighlighting(false);
-            const refreshAfterClear = () => renderScore(score, currentPage);
+            const refreshAfterClear = () => renderScore(score, currentPage, false);
             blockOverlayRefreshRef.current = true;
             selectionOverlayGenerationRef.current += 1;
             setOverlaySuppressed(true);

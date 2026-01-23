@@ -5,7 +5,7 @@ export type { InputFileFormat, Positions };
 
 export interface Score {
     destroy: () => void;
-    saveSvg: (pageNumber?: number, drawPageBackground?: boolean) => Promise<string>;
+    saveSvg: (pageNumber?: number, drawPageBackground?: boolean, highlightSelection?: boolean) => Promise<string>;
     savePdf: () => Promise<Uint8Array>;
     saveXml?: () => Promise<Uint8Array>;
     saveMxl?: () => Promise<Uint8Array>;

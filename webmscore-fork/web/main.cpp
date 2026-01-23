@@ -827,6 +827,69 @@ static std::string measureSignature(engraving::Part* part, engraving::Measure* m
     return signature;
 }
 
+static bool selectMeasureRange(MainScore& score, engraving::Measure* measure, engraving::staff_idx_t staffIdx)
+{
+    if (!measure || staffIdx == mu::nidx) {
+        return false;
+    }
+
+    engraving::Measure* m = measure;
+    const engraving::Fraction tick = m->tick();
+    const engraving::Fraction etick = tick + m->ticks();
+    engraving::Segment* startSegment = m->tick2segment(tick);
+    if (!startSegment) {
+        startSegment = m->first(engraving::SegmentType::ChordRest);
+    }
+    if (!startSegment) {
+        return false;
+    }
+    engraving::Segment* endSegment = (m == score->lastMeasure()) ? nullptr : m->last();
+
+    auto& selection = score->selection();
+    if (selection.isNone() || (selection.isList() && !selection.isSingle())) {
+        if (selection.isList()) {
+            score->deselectAll();
+        }
+        selection.setRange(startSegment, endSegment, staffIdx, staffIdx + 1);
+    } else if (selection.isRange()) {
+        selection.extendRangeSelection(startSegment, endSegment, staffIdx, tick, etick);
+    } else if (selection.isSingle()) {
+        engraving::EngravingItem* oe = selection.element();
+        if (oe && (oe->isNote() || oe->isChordRest())) {
+            if (oe->isNote()) {
+                oe = oe->parentItem();
+            }
+            engraving::ChordRest* cr = engraving::toChordRest(oe);
+            const engraving::Fraction oetick = cr->segment()->tick();
+            engraving::Segment* rangeStart = cr->segment();
+            engraving::Segment* rangeEnd = m->last();
+            if (tick < oetick) {
+                rangeStart = m->tick2segment(tick);
+                if (etick <= oetick) {
+                    const auto st = engraving::SegmentType::ChordRest | engraving::SegmentType::EndBarLine | engraving::SegmentType::Clef;
+                    rangeEnd = cr->nextSegmentAfterCR(st);
+                }
+            }
+            engraving::staff_idx_t staffStart = staffIdx;
+            engraving::staff_idx_t endStaff = staffIdx + 1;
+            if (staffStart > cr->staffIdx()) {
+                staffStart = cr->staffIdx();
+            } else if (cr->staffIdx() >= endStaff) {
+                endStaff = cr->staffIdx() + 1;
+            }
+            selection.setRange(rangeStart, rangeEnd, staffStart, endStaff);
+        } else {
+            score->deselectAll();
+            selection.setRange(startSegment, endSegment, staffIdx, staffIdx + 1);
+        }
+    } else {
+        return false;
+    }
+    selection.updateSelectedElements();
+    selection.setActiveTrack(staffIdx * mu::engraving::VOICES);
+    return true;
+}
+
 WasmRes _measureSignatureCount(uintptr_t score_ptr, int partIndex, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
@@ -1842,10 +1905,29 @@ WasmRes _saveAudio(uintptr_t score_ptr, const char* format, int excerptId) {
  */
 WasmRes _savePositions(uintptr_t score_ptr, bool ofSegments, int excerptId) {
     MainScore score(score_ptr, excerptId);
+
+    // Save current layout mode and switch to PAGE for accurate click detection positions
+    auto originalMode = score->layoutMode();
+    bool needRestore = (originalMode != engraving::LayoutMode::PAGE);
+
+    if (needRestore) {
+        score->setLayoutMode(engraving::LayoutMode::PAGE);
+        score->setLayoutAll();
+        score->update();
+    }
+
     using W = notation::PositionJsonWriter;
     W writer(ofSegments ? W::ElementType::SEGMENT : W::ElementType::MEASURE);
-    
+
     QByteArray data = writer.jsonData(score);
+
+    // Restore original layout mode
+    if (needRestore) {
+        score->setLayoutMode(originalMode);
+        score->setLayoutAll();
+        score->update();
+    }
+
     LOGI() << String(u"excerpt %1, ofSegments %2, file size %3").arg(excerptId).arg(ofSegments).arg(data.size());
 
     return WasmRes(data);
@@ -1966,17 +2048,8 @@ bool _selectElementAtPoint(uintptr_t score_ptr, int pageNumber, double x, double
         auto* measure = target->findMeasure();
         if (measure) {
             auto staffIdx = target->staffIdx();
-
-            auto* firstSeg = measure->first(engraving::SegmentType::ChordRest);
-            auto* lastSeg = measure->last();
-
-
-            if (firstSeg) {
-                score->selection().setRange(firstSeg, lastSeg, staffIdx, staffIdx + 1);
-                score->selection().setState(engraving::SelState::RANGE);
-                score->selection().setActiveTrack(staffIdx * mu::engraving::VOICES);
+            if (selectMeasureRange(score, measure, staffIdx)) {
                 manuallySetRange = true;
-
             }
         } else {
             score->select(target, engraving::SelectType::SINGLE, target->staffIdx());
@@ -1985,14 +2058,7 @@ bool _selectElementAtPoint(uintptr_t score_ptr, int pageNumber, double x, double
         // Direct Measure selection (in case we ever hit this)
         auto* measure = static_cast<engraving::Measure*>(target);
         auto staffIdx = target->staffIdx();
-
-        auto* firstSeg = measure->first(engraving::SegmentType::ChordRest);
-        auto* lastSeg = measure->last();
-
-        if (firstSeg) {
-            score->selection().setRange(firstSeg, lastSeg, staffIdx, staffIdx + 1);
-            score->selection().setState(engraving::SelState::RANGE);
-            score->selection().setActiveTrack(staffIdx * mu::engraving::VOICES);
+        if (selectMeasureRange(score, measure, staffIdx)) {
             manuallySetRange = true;
         }
     } else {
@@ -2045,19 +2111,8 @@ bool _selectMeasureAtPoint(uintptr_t score_ptr, int pageNumber, double x, double
 
     score->deselectAll();
 
-    // Manually set up range selection like Score::selectRange() does
-    // See libmscore/score.cpp Score::selectRange() for reference
-
-    // Get first and last segments of the measure
-    auto* firstSeg = measure->first(engraving::SegmentType::ChordRest);
-    auto* lastSeg = measure->last();
-
-
-    if (firstSeg) {
-        // Directly set the range selection
-        score->selection().setRange(firstSeg, lastSeg, staffIdx, staffIdx + 1);
-        score->selection().setState(engraving::SelState::RANGE);
-        score->selection().setActiveTrack(staffIdx * mu::engraving::VOICES);
+    if (!selectMeasureRange(score, measure, staffIdx)) {
+        return false;
     }
 
     score->updateSelection();
