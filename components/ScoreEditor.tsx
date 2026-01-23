@@ -3102,7 +3102,7 @@ ${partsBodyXml}
                     if (!(w > 0 && h > 0)) {
                         return null;
                     }
-                    const page = extractPageIndex(cand) ?? 0;
+                    const page = resolvePageIndex(cand);
                     const centerX = x + w / 2;
                     const centerY = y + h / 2;
                     const classAttr = normalizeElementClasses(cand, cand.getAttribute('class') ?? '');
@@ -3149,7 +3149,7 @@ ${partsBodyXml}
                 const w = rect.width / zoom;
                 const h = rect.height / zoom;
                 if (w > 0 && h > 0) {
-                    const page = extractPageIndex(el) ?? 0;
+                    const page = resolvePageIndex(el);
                     const centerX = x + w / 2;
                     const centerY = y + h / 2;
                 const fallbackClass = el.getAttribute('class') ?? '';
@@ -3185,7 +3185,7 @@ ${partsBodyXml}
 
         let primary: SelectionBox | null = null;
         if (usePoint) {
-            const targetPage = usePoint.page ?? 0;
+            const targetPage = usePoint.page ?? currentPageRef.current;
             const samePage = boxes.filter(box => box.page === targetPage);
             const pool = samePage.length > 0 ? samePage : boxes;
             primary = pool.reduce((best, box) => {
@@ -3267,7 +3267,7 @@ ${partsBodyXml}
         if (!(w > 0 && h > 0)) {
             return;
         }
-        const page = extractPageIndex(target) ?? 0;
+        const page = resolvePageIndex(target);
         const centerX = x + w / 2;
         const centerY = y + h / 2;
         const box: SelectionBox = {
@@ -4799,6 +4799,17 @@ ${partsBodyXml}
         return null;
     };
 
+    const resolvePageIndex = (element: Element | null): number => {
+        const extracted = extractPageIndex(element);
+        if (extracted === null) {
+            return currentPageRef.current;
+        }
+        if (extracted === 0 && currentPageRef.current > 0) {
+            return currentPageRef.current;
+        }
+        return extracted;
+    };
+
     const clientToScorePoint = (clientX: number, clientY: number) => {
         if (!containerRef.current) {
             return null;
@@ -4839,7 +4850,7 @@ ${partsBodyXml}
                 if (!boxesIntersect(rect, box)) {
                     return null;
                 }
-                const pageIndex = extractPageIndex(el) ?? 0;
+                const pageIndex = resolvePageIndex(el);
                 const centerX = box.x + box.w / 2;
                 const centerY = box.y + box.h / 2;
                 return { el, index, pageIndex, box, centerX, centerY };
@@ -5332,7 +5343,7 @@ ${partsBodyXml}
                     clearSelectionState();
                     return;
                 }
-                const pageIndex = extractPageIndex(target) ?? currentPage;
+                const pageIndex = resolvePageIndex(target);
                 const fallback: SelectionFallback = {
                     index: null,
                     point: { page: pageIndex, x: scorePoint.x, y: scorePoint.y },
@@ -5416,7 +5427,7 @@ ${partsBodyXml}
         const h = rect.height / zoom;
 
         if (w > 0 && h > 0) {
-            const pageIndex = extractPageIndex(targetElement) ?? 0;
+            const pageIndex = resolvePageIndex(targetElement);
             // Use center of the box for selection to reduce edge misses
             const centerX = x + w / 2;
             const centerY = y + h / 2;
