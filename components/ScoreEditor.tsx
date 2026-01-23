@@ -1985,12 +1985,12 @@ ${partsBodyXml}
         }
     };
 
-    const renderScore = async (currentScore: Score, pageIndex?: number, highlightSelection: boolean = true) => {
+    const renderScore = async (currentScore: Score, pageIndex?: number) => {
         if (!currentScore || !containerRef.current) return;
 
         try {
             const targetPage = typeof pageIndex === 'number' ? pageIndex : currentPage;
-            const svgData = await currentScore.saveSvg(targetPage, true, highlightSelection);
+            const svgData = await currentScore.saveSvg(targetPage, true);
             if (svgData) {
                 containerRef.current.innerHTML = svgData;
             }
@@ -2009,9 +2009,14 @@ ${partsBodyXml}
             return false;
         }
 
+        if (!currentScore.saveSvg) {
+            console.error('Error rendering compare score: saveSvg method not available');
+            return false;
+        }
+
         try {
             const targetPage = typeof pageIndex === 'number' ? pageIndex : 0;
-            const svgData = await currentScore.saveSvg(targetPage, true, highlightSelection);
+            const svgData = await currentScore.saveSvg(targetPage, true);
             if (!svgData) {
                 return false;
             }
@@ -5271,7 +5276,7 @@ ${partsBodyXml}
             setSelectedElementClasses('');
             setSelectedLayoutBreakSubtype(null);
             setHasBackendHighlighting(false);
-            const refreshAfterClear = () => renderScore(score, currentPage, false); // Render WITHOUT highlighting
+            const refreshAfterClear = () => renderScore(score, currentPage);
             blockOverlayRefreshRef.current = true;
             selectionOverlayGenerationRef.current += 1;
             setOverlaySuppressed(true);
@@ -6644,12 +6649,14 @@ ${partsBodyXml}
                                                     {compareLeftHighlights.map((highlight) => (
                                                         <div
                                                             key={`compare-left-highlight-${highlight.id}`}
-                                                            className={`absolute rounded-sm border ${highlight.status === 'new-diff' ? 'border-emerald-500/80 bg-emerald-300/35' : 'border-rose-500/80 bg-rose-300/35'}`}
+                                                            className="absolute rounded-sm border-2"
                                                             style={{
                                                                 left: `${highlight.left}px`,
                                                                 top: `${highlight.top}px`,
                                                                 width: `${highlight.width}px`,
                                                                 height: `${highlight.height}px`,
+                                                                backgroundColor: highlight.status === 'new-diff' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(244, 63, 94, 0.3)',
+                                                                borderColor: highlight.status === 'new-diff' ? 'rgb(16, 185, 129)' : 'rgb(244, 63, 94)',
                                                             }}
                                                         />
                                                     ))}
@@ -6819,12 +6826,14 @@ ${partsBodyXml}
                                                     {compareRightHighlights.map((highlight) => (
                                                         <div
                                                             key={`compare-right-highlight-${highlight.id}`}
-                                                            className={`absolute rounded-sm border ${highlight.status === 'old-diff' ? 'border-rose-500/80 bg-rose-300/35' : 'border-emerald-500/80 bg-emerald-300/35'}`}
+                                                            className="absolute rounded-sm border-2"
                                                             style={{
                                                                 left: `${highlight.left}px`,
                                                                 top: `${highlight.top}px`,
                                                                 width: `${highlight.width}px`,
                                                                 height: `${highlight.height}px`,
+                                                                backgroundColor: highlight.status === 'old-diff' ? 'rgba(244, 63, 94, 0.3)' : 'rgba(16, 185, 129, 0.3)',
+                                                                borderColor: highlight.status === 'old-diff' ? 'rgb(244, 63, 94)' : 'rgb(16, 185, 129)',
                                                             }}
                                                         />
                                                     ))}
