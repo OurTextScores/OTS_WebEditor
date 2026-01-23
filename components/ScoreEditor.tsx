@@ -512,6 +512,9 @@ export default function ScoreEditor() {
             if (lower === 'width') {
                 return true;
             }
+            if (lower === 'id' || lower === 'xml:id') {
+                return true;
+            }
             if (lower === 'x' || lower === 'y') {
                 return true;
             }
@@ -564,12 +567,11 @@ export default function ScoreEditor() {
         });
     }, []);
 
-    const replaceMeasureInMusicXml = useCallback((
+    const replaceMeasuresInMusicXml = useCallback((
         sourceXml: string,
         targetXml: string,
         partIndex: number,
-        sourceMeasureIndex: number,
-        targetMeasureIndex: number,
+        replacements: Array<{ sourceIndex: number; targetIndex: number }>,
     ) => {
         if (!sourceXml.trim() || !targetXml.trim()) {
             return { xml: '', error: 'MusicXML content is empty.' };
@@ -598,22 +600,36 @@ export default function ScoreEditor() {
 
         const { measures: sourceMeasures } = getPartMeasures(sourceDoc);
         const { measures: targetMeasures } = getPartMeasures(targetDoc);
-        const sourceMeasure = sourceMeasures[sourceMeasureIndex];
-        const targetMeasure = targetMeasures[targetMeasureIndex];
-        if (!sourceMeasure || !targetMeasure) {
-            return { xml: '', error: 'Measure not found for the selected part/index.' };
+        for (const replacementPair of replacements) {
+            const sourceMeasure = sourceMeasures[replacementPair.sourceIndex];
+            const targetMeasure = targetMeasures[replacementPair.targetIndex];
+            if (!sourceMeasure || !targetMeasure) {
+                return { xml: '', error: 'Measure not found for the selected part/index.' };
+            }
+            const replacement = targetDoc.importNode(sourceMeasure, true) as Element;
+            const targetNumber = targetMeasure.getAttribute('number');
+            if (targetNumber) {
+                replacement.setAttribute('number', targetNumber);
+            }
+            targetMeasure.parentNode?.replaceChild(replacement, targetMeasure);
         }
-
-        const replacement = targetDoc.importNode(sourceMeasure, true) as Element;
-        const targetNumber = targetMeasure.getAttribute('number');
-        if (targetNumber) {
-            replacement.setAttribute('number', targetNumber);
-        }
-        targetMeasure.parentNode?.replaceChild(replacement, targetMeasure);
 
         const serializer = new XMLSerializer();
         return { xml: serializer.serializeToString(targetDoc), error: '' };
     }, []);
+
+    const replaceMeasureInMusicXml = useCallback((
+        sourceXml: string,
+        targetXml: string,
+        partIndex: number,
+        sourceMeasureIndex: number,
+        targetMeasureIndex: number,
+    ) => replaceMeasuresInMusicXml(
+        sourceXml,
+        targetXml,
+        partIndex,
+        [{ sourceIndex: sourceMeasureIndex, targetIndex: targetMeasureIndex }],
+    ), [replaceMeasuresInMusicXml]);
 
     const buildMismatchBlocks = useCallback((rows: MeasureAlignmentRow[]) => {
         const blocks: Array<{ start: number; end: number }> = [];
@@ -1051,7 +1067,8 @@ export default function ScoreEditor() {
     }, [compareAlignments]);
     const compareDefaultZoom = 0.5;
     const compareEffectiveZoom = compareZoom ?? compareDefaultZoom;
-    const compareGutterRowStyle = { minHeight: '3.5rem' };
+    const compareGutterRowHeight = 56;
+    const compareGutterRowStyle = { minHeight: `${compareGutterRowHeight}px` };
     const compareZoomStyle = {
         width: compareLeftSvgSize ? `${compareLeftSvgSize.width * compareEffectiveZoom}px` : 'auto',
         height: compareLeftSvgSize ? `${compareLeftSvgSize.height * compareEffectiveZoom}px` : 'auto',
@@ -1060,6 +1077,83 @@ export default function ScoreEditor() {
         width: compareRightSvgSize ? `${compareRightSvgSize.width * compareEffectiveZoom}px` : 'auto',
         height: compareRightSvgSize ? `${compareRightSvgSize.height * compareEffectiveZoom}px` : 'auto',
     };
+    const compareHeaderSpacerHeight = useMemo(() => {
+        const getHeaderOffset = (positions: Positions | null) => {
+            if (!positions || !positions.elements.length) {
+                return 0;
+            }
+            const pageHeight = positions.pageSize?.height ?? 0;
+            let minY = Number.POSITIVE_INFINITY;
+            positions.elements.forEach((element) => {
+                if (typeof element.y !== 'number') {
+                    return;
+                }
+                const rawHeight = typeof element.sy === 'number'
+                    ? element.sy
+                    : typeof (element as { height?: number }).height === 'number'
+                        ? (element as { height?: number }).height
+                        : 0;
+                const needsPageOffset = pageHeight > 0
+                    && element.page > 0
+                    && (element.y + rawHeight) <= (pageHeight * 1.2);
+                const pageOffset = needsPageOffset ? element.page * pageHeight : 0;
+                const y = element.y + pageOffset;
+                if (y < minY) {
+                    minY = y;
+                }
+            });
+            return Number.isFinite(minY) ? minY : 0;
+        };
+        const leftOffset = getHeaderOffset(compareLeftMeasurePositions);
+        const rightOffset = getHeaderOffset(compareRightMeasurePositions);
+        return Math.max(leftOffset, rightOffset, 0) * compareEffectiveZoom;
+    }, [compareLeftMeasurePositions, compareRightMeasurePositions, compareEffectiveZoom]);
+    const buildMeasureBounds = useCallback((positions: Positions | null, zoomValue: number) => {
+        if (!positions || !positions.elements.length) {
+            return [];
+        }
+        const pageHeight = positions.pageSize?.height ?? 0;
+        return positions.elements.map((element) => {
+            const rawHeight = typeof element.sy === 'number'
+                ? element.sy
+                : typeof (element as { height?: number }).height === 'number'
+                    ? (element as { height?: number }).height
+                    : 0;
+            const needsPageOffset = pageHeight > 0
+                && element.page > 0
+                && (element.y + rawHeight) <= (pageHeight * 1.2);
+            const pageOffset = needsPageOffset ? element.page * pageHeight : 0;
+            return {
+                top: (element.y + pageOffset) * zoomValue,
+                height: rawHeight * zoomValue,
+            };
+        });
+    }, []);
+    const compareLeftBounds = useMemo(
+        () => buildMeasureBounds(compareLeftMeasurePositions, compareEffectiveZoom),
+        [buildMeasureBounds, compareLeftMeasurePositions, compareEffectiveZoom],
+    );
+    const compareRightBounds = useMemo(
+        () => buildMeasureBounds(compareRightMeasurePositions, compareEffectiveZoom),
+        [buildMeasureBounds, compareRightMeasurePositions, compareEffectiveZoom],
+    );
+    const compareGutterTrackHeight = useMemo(() => {
+        const leftHeight = compareLeftSvgSize ? compareLeftSvgSize.height * compareEffectiveZoom : 0;
+        const rightHeight = compareRightSvgSize ? compareRightSvgSize.height * compareEffectiveZoom : 0;
+        const alignmentRows = Math.max(
+            0,
+            ...compareAlignments.map((alignment) => alignment.rows.length),
+        );
+        const fallbackHeight = compareHeaderSpacerHeight + alignmentRows * compareGutterRowHeight;
+        return Math.max(leftHeight, rightHeight, fallbackHeight);
+    }, [
+        compareLeftSvgSize,
+        compareRightSvgSize,
+        compareEffectiveZoom,
+        compareAlignments,
+        compareHeaderSpacerHeight,
+        compareGutterRowHeight,
+    ]);
     const compareMeasureStatuses = useMemo(() => {
         const leftCount = compareLeftMeasurePositions?.elements.length
             ?? Math.max(0, ...compareAlignments.map((alignment) => alignment.leftCount));
@@ -1081,35 +1175,11 @@ export default function ScoreEditor() {
             });
         });
 
-        if (compareSignatures) {
-            const partCount = Math.max(compareSignatures.left.length, compareSignatures.right.length);
-            for (let partIndex = 0; partIndex < partCount; partIndex += 1) {
-                const leftPart = compareSignatures.left[partIndex] ?? [];
-                const rightPart = compareSignatures.right[partIndex] ?? [];
-                const total = Math.max(leftPart.length, rightPart.length);
-                for (let i = 0; i < total; i += 1) {
-                    const leftSig = leftPart[i];
-                    const rightSig = rightPart[i];
-                    if (leftSig === undefined && rightSig === undefined) {
-                        continue;
-                    }
-                    if (leftSig !== rightSig) {
-                        if (i < leftMismatch.length) {
-                            leftMismatch[i] = true;
-                        }
-                        if (i < rightMismatch.length) {
-                            rightMismatch[i] = true;
-                        }
-                    }
-                }
-            }
-        }
-
         return {
             left: leftMismatch.map((value) => (value ? 'old-diff' : null)),
             right: rightMismatch.map((value) => (value ? 'new-diff' : null)),
         };
-    }, [compareAlignments, compareLeftMeasurePositions, compareRightMeasurePositions, compareSignatures]);
+    }, [compareAlignments, compareLeftMeasurePositions, compareRightMeasurePositions]);
     const buildMeasureHighlights = useCallback((
         positions: Positions | null,
         statuses: Array<'old-diff' | 'new-diff' | null>,
@@ -2198,12 +2268,11 @@ ${partsBodyXml}
         setSize(size);
     }, [compareEffectiveZoom]);
 
-    const handleCompareOverwrite = useCallback(async (
+    const handleCompareOverwriteBlock = useCallback(async (
         sourceScore: Score | null,
         targetScore: Score | null,
         partIndex: number,
-        sourceMeasureIndex: number | null,
-        targetMeasureIndex: number | null,
+        pairs: Array<{ leftIndex: number; rightIndex: number }>,
         targetSide: 'left' | 'right',
     ) => {
         if (compareSwapBusy) {
@@ -2212,7 +2281,7 @@ ${partsBodyXml}
         if (!sourceScore || !targetScore) {
             return;
         }
-        if (sourceMeasureIndex === null || targetMeasureIndex === null) {
+        if (pairs.length === 0) {
             return;
         }
 
@@ -2229,12 +2298,11 @@ ${partsBodyXml}
                 return;
             }
 
-            const patched = replaceMeasureInMusicXml(
+            const patched = replaceMeasuresInMusicXml(
                 sourceXml,
                 targetXml,
                 partIndex,
-                sourceMeasureIndex,
-                targetMeasureIndex,
+                pairs.map((pair) => ({ sourceIndex: pair.leftIndex, targetIndex: pair.rightIndex })),
             );
             if (patched.error || !patched.xml) {
                 console.warn('Compare overwrite failed:', patched.error || 'Unknown error');
@@ -2258,9 +2326,29 @@ ${partsBodyXml}
         score,
         compareView,
         getScoreMusicXmlText,
-        replaceMeasureInMusicXml,
+        replaceMeasuresInMusicXml,
         applyXmlToScore,
     ]);
+
+    const handleCompareOverwrite = useCallback(async (
+        sourceScore: Score | null,
+        targetScore: Score | null,
+        partIndex: number,
+        sourceMeasureIndex: number | null,
+        targetMeasureIndex: number | null,
+        targetSide: 'left' | 'right',
+    ) => {
+        if (sourceMeasureIndex === null || targetMeasureIndex === null) {
+            return;
+        }
+        await handleCompareOverwriteBlock(
+            sourceScore,
+            targetScore,
+            partIndex,
+            [{ leftIndex: sourceMeasureIndex, rightIndex: targetMeasureIndex }],
+            targetSide,
+        );
+    }, [handleCompareOverwriteBlock]);
 
     const parsePartsFromMetadata = useCallback((metadata: any): PartSummary[] => {
         const parts = Array.isArray(metadata?.parts) ? metadata.parts : [];
@@ -2886,7 +2974,11 @@ ${partsBodyXml}
                 let rightSignatures: string[][] = [];
                 let usedXml = false;
                 try {
-                    if (score && compareRightScore) {
+                    if (compareView.currentXml && compareView.checkpointXml) {
+                        leftSignatures = extractMeasureSignaturesFromXml(compareView.currentXml);
+                        rightSignatures = extractMeasureSignaturesFromXml(compareView.checkpointXml);
+                        usedXml = true;
+                    } else if (score && compareRightScore) {
                         const [leftMscx, rightMscx] = await Promise.all([
                             getScoreMscxText(score),
                             getScoreMscxText(compareRightScore),
@@ -2896,11 +2988,6 @@ ${partsBodyXml}
                             rightSignatures = extractMeasureSignaturesFromXml(rightMscx);
                             usedXml = true;
                         }
-                    }
-                    if (!usedXml && compareView.currentXml && compareView.checkpointXml) {
-                        leftSignatures = extractMeasureSignaturesFromXml(compareView.currentXml);
-                        rightSignatures = extractMeasureSignaturesFromXml(compareView.checkpointXml);
-                        usedXml = true;
                     }
                 } catch (err) {
                     console.warn('Failed to parse MusicXML for compare signatures; falling back to WASM.', err);
@@ -6895,6 +6982,7 @@ ${partsBodyXml}
                                             {!compareAlignmentLoading && Array.from({ length: comparePartCount }).map((_, index) => {
                                                 const alignment = compareAlignmentByPart.get(index);
                                                 const rows = alignment?.rows ?? [];
+                                                const blocks = buildMismatchBlocks(rows);
                                                 const partName = scoreParts[index]?.name
                                                     || scoreParts[index]?.instrumentName
                                                     || compareRightParts[index]?.name
@@ -6919,29 +7007,69 @@ ${partsBodyXml}
                                                                     No measures
                                                                 </div>
                                                             )}
-                                                            {rows.map((row, rowIndex) => {
-                                                                const leftLabel = row.leftIndex !== null ? `L${row.leftIndex + 1}` : 'L–';
-                                                                const rightLabel = row.rightIndex !== null ? `R${row.rightIndex + 1}` : 'R–';
-                                                                const canLeft = row.leftIndex !== null;
-                                                                const canRight = row.rightIndex !== null;
-                                                                const leftDiff = !row.match && row.leftIndex !== null;
-                                                                const rightDiff = !row.match && row.rightIndex !== null;
-                                                                const hasDiff = !row.match;
-                                                                if (!hasDiff) {
-                                                                    return (
-                                                                        <div
-                                                                            key={`compare-gutter-row-${index}-${rowIndex}`}
-                                                                            className="rounded border border-transparent px-2 py-2"
-                                                                            style={compareGutterRowStyle}
-                                                                        />
-                                                                    );
+                                                            {blocks.length === 0 && rows.length > 0 && (
+                                                                <div className="text-center text-[10px] text-gray-400">
+                                                                    No changes
+                                                                </div>
+                                                            )}
+                                                            {blocks.length > 0 && (
+                                                                <div
+                                                                    className="relative w-full"
+                                                                    style={{ height: `${compareGutterTrackHeight}px` }}
+                                                                >
+                                                                    {blocks.map((block, blockIndex) => {
+                                                                const blockRows = rows.slice(block.start, block.end + 1);
+                                                                const leftIndices = blockRows
+                                                                    .map((row) => row.leftIndex)
+                                                                    .filter((value): value is number => value !== null);
+                                                                const rightIndices = blockRows
+                                                                    .map((row) => row.rightIndex)
+                                                                    .filter((value): value is number => value !== null);
+                                                                const leftStart = leftIndices[0];
+                                                                const leftEnd = leftIndices[leftIndices.length - 1];
+                                                                const rightStart = rightIndices[0];
+                                                                const rightEnd = rightIndices[rightIndices.length - 1];
+                                                                const leftLabel = leftIndices.length
+                                                                    ? `L${leftStart + 1}${leftEnd !== leftStart ? `–${leftEnd + 1}` : ''}`
+                                                                    : 'L–';
+                                                                const rightLabel = rightIndices.length
+                                                                    ? `R${rightStart + 1}${rightEnd !== rightStart ? `–${rightEnd + 1}` : ''}`
+                                                                    : 'R–';
+                                                                const leftDiff = leftIndices.length > 0;
+                                                                const rightDiff = rightIndices.length > 0;
+                                                                const pairs = blockRows
+                                                                    .map((row) => (row.leftIndex !== null && row.rightIndex !== null
+                                                                    ? { leftIndex: row.leftIndex, rightIndex: row.rightIndex }
+                                                                    : null))
+                                                                    .filter((pair): pair is { leftIndex: number; rightIndex: number } => Boolean(pair));
+                                                                const canOverwrite = pairs.length > 0;
+                                                                const blockLayouts = blockRows.flatMap((row, rowOffset) => {
+                                                                    const bounds: Array<{ top: number; height: number }> = [];
+                                                                    if (row.leftIndex !== null && compareLeftBounds[row.leftIndex]) {
+                                                                        bounds.push(compareLeftBounds[row.leftIndex]);
+                                                                    }
+                                                                    if (row.rightIndex !== null && compareRightBounds[row.rightIndex]) {
+                                                                        bounds.push(compareRightBounds[row.rightIndex]);
+                                                                    }
+                                                                    if (bounds.length === 0) {
+                                                                        const fallbackTop = compareHeaderSpacerHeight + (block.start + rowOffset) * compareGutterRowHeight;
+                                                                        return [{ top: fallbackTop, height: compareGutterRowHeight }];
+                                                                    }
+                                                                    return bounds;
+                                                                });
+                                                                let blockTop = compareHeaderSpacerHeight + block.start * compareGutterRowHeight;
+                                                                let blockHeight = (block.end - block.start + 1) * compareGutterRowHeight;
+                                                                if (blockLayouts.length) {
+                                                                    const minTop = Math.min(...blockLayouts.map((item) => item.top));
+                                                                    const maxBottom = Math.max(...blockLayouts.map((item) => item.top + item.height));
+                                                                    blockTop = minTop;
+                                                                    blockHeight = Math.max(compareGutterRowHeight, maxBottom - minTop);
                                                                 }
-                                                                const canOverwrite = canLeft && canRight;
                                                                 return (
                                                                     <div
-                                                                        key={`compare-gutter-row-${index}-${rowIndex}`}
-                                                                        className="rounded border border-gray-200 bg-white px-2 py-2"
-                                                                        style={compareGutterRowStyle}
+                                                                        key={`compare-gutter-block-${index}-${blockIndex}`}
+                                                                        className="absolute left-0 right-0 rounded border border-gray-200 bg-white px-2 py-2"
+                                                                        style={{ top: `${blockTop}px`, height: `${blockHeight}px` }}
                                                                     >
                                                                         <div className="flex items-center justify-between text-[9px] text-gray-400">
                                                                             <span className={`rounded px-1 py-0.5 ${leftDiff ? 'bg-rose-100 text-rose-600' : ''}`}>
@@ -6958,12 +7086,11 @@ ${partsBodyXml}
                                                                                     disabled={compareSwapBusy || !score || !compareRightScore}
                                                                                     className="flex h-6 w-10 items-center justify-center rounded border border-gray-200 bg-gray-100 text-[10px] text-gray-500 disabled:opacity-50"
                                                                                     aria-label={`Overwrite right with ${leftLabel}`}
-                                                                                    onClick={() => handleCompareOverwrite(
+                                                                                    onClick={() => handleCompareOverwriteBlock(
                                                                                         score,
                                                                                         compareRightScore,
                                                                                         index,
-                                                                                        row.leftIndex,
-                                                                                        row.rightIndex,
+                                                                                        pairs,
                                                                                         'right',
                                                                                     )}
                                                                                 >
@@ -6974,12 +7101,14 @@ ${partsBodyXml}
                                                                                     disabled={compareSwapBusy || !score || !compareRightScore}
                                                                                     className="flex h-6 w-10 items-center justify-center rounded border border-gray-200 bg-gray-100 text-[10px] text-gray-500 disabled:opacity-50"
                                                                                     aria-label={`Overwrite left with ${rightLabel}`}
-                                                                                    onClick={() => handleCompareOverwrite(
+                                                                                    onClick={() => handleCompareOverwriteBlock(
                                                                                         compareRightScore,
                                                                                         score,
                                                                                         index,
-                                                                                        row.rightIndex,
-                                                                                        row.leftIndex,
+                                                                                        pairs.map((pair) => ({
+                                                                                            leftIndex: pair.rightIndex,
+                                                                                            rightIndex: pair.leftIndex,
+                                                                                        })),
                                                                                         'left',
                                                                                     )}
                                                                                 >
@@ -6990,6 +7119,8 @@ ${partsBodyXml}
                                                                     </div>
                                                                 );
                                                             })}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 );
