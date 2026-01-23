@@ -1905,28 +1905,10 @@ WasmRes _saveAudio(uintptr_t score_ptr, const char* format, int excerptId) {
  */
 WasmRes _savePositions(uintptr_t score_ptr, bool ofSegments, int excerptId) {
     MainScore score(score_ptr, excerptId);
-
-    // Save current layout mode and switch to PAGE for accurate click detection positions
-    auto originalMode = score->layoutMode();
-    bool needRestore = (originalMode != engraving::LayoutMode::PAGE);
-
-    if (needRestore) {
-        score->setLayoutMode(engraving::LayoutMode::PAGE);
-        score->setLayoutAll();
-        score->update();
-    }
-
     using W = notation::PositionJsonWriter;
     W writer(ofSegments ? W::ElementType::SEGMENT : W::ElementType::MEASURE);
 
     QByteArray data = writer.jsonData(score);
-
-    // Restore original layout mode
-    if (needRestore) {
-        score->setLayoutMode(originalMode);
-        score->setLayoutAll();
-        score->update();
-    }
 
     LOGI() << String(u"excerpt %1, ofSegments %2, file size %3").arg(excerptId).arg(ofSegments).arg(data.size());
 
