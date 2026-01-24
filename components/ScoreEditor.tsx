@@ -281,6 +281,14 @@ const hasMutationApi = (score: Score | null): score is Score & MutationMethods =
 
 export default function ScoreEditor() {
     const searchParams = useSearchParams();
+
+    // Embed mode: Load external XML files for comparison
+    const compareLeftUrl = searchParams.get('compareLeft');
+    const compareRightUrl = searchParams.get('compareRight');
+    const leftLabel = searchParams.get('leftLabel') || 'Left';
+    const rightLabel = searchParams.get('rightLabel') || 'Right';
+    const isEmbedMode = Boolean(compareLeftUrl && compareRightUrl);
+
     const [score, setScore] = useState<Score | null>(null);
     const scoreRef = useRef<Score | null>(null);
     const [zoom, setZoom] = useState(1.0);
@@ -838,6 +846,51 @@ export default function ScoreEditor() {
         return () => observer.disconnect();
     }, []);
 
+    // Load external XML files in embed mode
+    useEffect(() => {
+        if (!compareLeftUrl || !compareRightUrl) return;
+
+        const loadExternalCompare = async () => {
+            setCheckpointBusy(true);
+            try {
+                // Load both files in parallel
+                const [leftResponse, rightResponse] = await Promise.all([
+                    fetch(compareLeftUrl),
+                    fetch(compareRightUrl),
+                ]);
+
+                if (!leftResponse.ok || !rightResponse.ok) {
+                    throw new Error('Failed to fetch files');
+                }
+
+                const leftXml = await leftResponse.text();
+                const rightXml = await rightResponse.text();
+
+                // Load right file as main score
+                const rightBlob = new Blob([rightXml], { type: 'application/xml' });
+                const rightFile = new File([rightBlob], 'right.xml');
+                await handleFileUpload(rightFile, { preserveScoreId: false, updateUrl: false });
+
+                // Set up compare view
+                setCompareView({
+                    title: leftLabel,
+                    currentXml: rightXml,
+                    checkpointXml: leftXml,
+                });
+
+            } catch (err) {
+                console.error('Failed to load comparison:', err);
+                const message = err instanceof Error ? err.message : 'Unknown error';
+                alert(`Failed to load files:\n${message}`);
+            } finally {
+                setCheckpointBusy(false);
+            }
+        };
+
+        loadExternalCompare();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [compareLeftUrl, compareRightUrl, leftLabel]);
+
     useEffect(() => {
         let canceled = false;
         if (!score || !selectedElementClasses.includes('LayoutBreak')) {
@@ -1059,8 +1112,12 @@ export default function ScoreEditor() {
     const compareRightScoreDisplay = useMemo(() => compareSwapped ? score : compareRightScore, [compareSwapped, score, compareRightScore]);
     const compareLeftParts = useMemo(() => compareSwapped ? compareRightParts : scoreParts, [compareSwapped, compareRightParts, scoreParts]);
     const compareRightPartsDisplay = useMemo(() => compareSwapped ? scoreParts : compareRightParts, [compareSwapped, scoreParts, compareRightParts]);
-    const compareLeftLabel = compareSwapped ? compareCheckpointTitle : 'Current';
-    const compareRightLabel = compareSwapped ? 'Current' : compareCheckpointTitle;
+    const compareLeftLabel = isEmbedMode
+        ? (compareSwapped ? rightLabel : leftLabel)
+        : (compareSwapped ? compareCheckpointTitle : 'Current');
+    const compareRightLabel = isEmbedMode
+        ? (compareSwapped ? leftLabel : rightLabel)
+        : (compareSwapped ? 'Current' : compareCheckpointTitle);
     const compareLeftXml = compareView
         ? (compareSwapped ? compareView.checkpointXml : compareView.currentXml)
         : '';
@@ -6007,6 +6064,7 @@ ${partsBodyXml}
 
     return (
         <div className="flex flex-col h-screen">
+            {!isEmbedMode && (
             <div className="relative" style={{ zIndex: 100 }} ref={toolbarRef}>
 	            <Toolbar
                     onNewScore={handleOpenNewScoreDialog}
@@ -6109,8 +6167,10 @@ ${partsBodyXml}
                 selectedTextDisabled={selectedTextControlDisabled}
             />
             </div>
+            )}
 
             <div className="flex flex-1 min-h-0">
+                {!isEmbedMode && (
                 <aside
                     className={`shrink-0 border-r bg-white text-sm ${checkpointsCollapsed ? 'w-12' : 'w-72'} ${
                         checkpointsCollapsed ? '' : 'overflow-y-auto'
@@ -6331,6 +6391,7 @@ ${partsBodyXml}
                         </div>
                     )}
                 </aside>
+                )}
 
                 <div
                     ref={scrollContainerRef}
@@ -6975,14 +7036,19 @@ ${partsBodyXml}
 
             {compareView && (
                 <div
-                    className="fixed bottom-0 left-0 right-0 z-50 flex items-start justify-center overflow-hidden bg-black/40 p-6"
-                    style={compareOverlayStyle}
+                    className={isEmbedMode
+                        ? "fixed inset-0 z-50 flex items-start justify-center overflow-hidden bg-gray-50"
+                        : "fixed bottom-0 left-0 right-0 z-50 flex items-start justify-center overflow-hidden bg-black/40 p-6"}
+                    style={isEmbedMode ? {} : compareOverlayStyle}
                     data-testid="checkpoint-compare-modal"
                 >
                     <div
-                        className="flex min-h-0 w-full flex-col gap-4 overflow-hidden rounded bg-white p-4 shadow-lg"
-                        style={{ maxHeight: compareModalMaxHeight, maxWidth: compareModalMaxWidth }}
+                        className={isEmbedMode
+                            ? "flex min-h-0 w-full h-full flex-col gap-4 overflow-hidden bg-white"
+                            : "flex min-h-0 w-full flex-col gap-4 overflow-hidden rounded bg-white p-4 shadow-lg"}
+                        style={isEmbedMode ? {} : { maxHeight: compareModalMaxHeight, maxWidth: compareModalMaxWidth }}
                     >
+                        {!isEmbedMode && (
                         <div className="flex flex-wrap items-center justify-between gap-3">
                             <div className="space-y-1">
                                 <div className="text-sm font-semibold text-gray-800">
@@ -7002,7 +7068,8 @@ ${partsBodyXml}
                                 </button>
                             </div>
                         </div>
-                        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto">
+                        )}
+                        <div className={isEmbedMode ? "flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4" : "flex min-h-0 flex-1 flex-col gap-4 overflow-auto"}>
                             <div className="flex min-h-0 min-w-0 flex-1 overflow-x-auto">
                                 <div className="flex min-h-0 min-w-[960px] flex-1 gap-4">
                                     <div className="flex min-h-0 min-w-0 flex-1 basis-0 flex-col gap-3">
@@ -7015,6 +7082,7 @@ ${partsBodyXml}
                                                     </span>
                                                 )}
                                             </div>
+                                            {!isEmbedMode && (
                                             <div className="flex items-center gap-2">
                                                 <input
                                                     type="text"
@@ -7033,6 +7101,7 @@ ${partsBodyXml}
                                                     💾 Save checkpoint
                                                 </button>
                                             </div>
+                                            )}
                                         </div>
                                         <div className="flex min-h-0 flex-1 flex-col gap-3">
                                             <div
@@ -7206,7 +7275,7 @@ ${partsBodyXml}
                                                                                 {rightLabel}
                                                                             </span>
                                                                         </div>
-                                                                        {canOverwrite && (
+                                                                        {!isEmbedMode && canOverwrite && (
                                                                             <div className="mt-1 flex items-center justify-between gap-2">
                                                                                 <button
                                                                                     type="button"
@@ -7262,6 +7331,7 @@ ${partsBodyXml}
                                                     </span>
                                                 )}
                                             </div>
+                                            {!isEmbedMode && (
                                             <div className="flex items-center gap-2">
                                                 <input
                                                     type="text"
@@ -7280,6 +7350,7 @@ ${partsBodyXml}
                                                     💾 Save checkpoint
                                                 </button>
                                             </div>
+                                            )}
                                         </div>
                                         <div className="flex min-h-0 flex-1 flex-col gap-3">
                                             <div
@@ -7370,6 +7441,15 @@ ${partsBodyXml}
                                 </div>
                             </details>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {isEmbedMode && checkpointBusy && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-white">
+                    <div className="text-center">
+                        <div className="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600"></div>
+                        <p className="text-sm text-gray-600">Loading comparison...</p>
                     </div>
                 </div>
             )}

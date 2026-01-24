@@ -23,3 +23,54 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+## Embed Mode - External XML Comparison
+
+The score editor can be embedded as a standalone XML diff viewer by providing two external XML file URLs as URL parameters.
+
+### URL Parameters
+
+```
+/?compareLeft=<url>&compareRight=<url>&leftLabel=<label>&rightLabel=<label>
+```
+
+| Parameter | Required | Description | Example |
+|-----------|----------|-------------|---------|
+| `compareLeft` | Yes | URL to left/old XML file | `https://example.com/v1.xml` |
+| `compareRight` | Yes | URL to right/new XML file | `https://example.com/v2.xml` |
+| `leftLabel` | No | Label for left pane (default: "Left") | `Version 1` |
+| `rightLabel` | No | Label for right pane (default: "Right") | `Version 2` |
+
+### Example Usage
+
+**Basic comparison:**
+```
+http://localhost:3000/?compareLeft=https://raw.githubusercontent.com/user/repo/main/old.xml&compareRight=https://raw.githubusercontent.com/user/repo/main/new.xml
+```
+
+**With custom labels:**
+```
+http://localhost:3000/?compareLeft=https://example.com/old.xml&compareRight=https://example.com/new.xml&leftLabel=Before&rightLabel=After
+```
+
+### Embed Mode Features
+
+- **Full-screen compare view**: Only the diff viewer is displayed (no editor toolbar or sidebar)
+- **Visual diff highlighting**: Shows differences between scores with color-coded blocks
+- **Swap functionality**: Switch left and right panes
+- **Read-only mode**: No editing controls (checkpoint saving and overwrite features are hidden)
+- **CORS support**: Can load files from external URLs (requires proper CORS headers)
+
+### iframe Integration
+
+You can embed the diff viewer in other web pages:
+
+```html
+<iframe
+  src="https://your-domain.com/?compareLeft=https://example.com/v1.xml&compareRight=https://example.com/v2.xml&leftLabel=Old&rightLabel=New"
+  width="100%"
+  height="800px"
+  frameborder="0"
+  style="border: 1px solid #ccc; border-radius: 4px;"
+></iframe>
+```

@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Score Comparison Embed - Test Page</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+        .description {
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        .iframe-container {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            background: white;
+        }
+        iframe {
+            width: 100%;
+            height: 800px;
+            border: none;
+            display: block;
+        }
+        .controls {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .controls label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #333;
+        }
+        .controls input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: monospace;
+        }
+        .controls button {
+            margin-top: 10px;
+            padding: 10px 20px;
+            background: #0070f3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .controls button:hover {
+            background: #0051cc;
+        }
+        .url-display {
+            margin-top: 15px;
+            padding: 10px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            word-break: break-all;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Music Score Comparison - Embed Mode Test</h1>
+
+        <div class="description">
+            <p>This page demonstrates the embed mode for comparing two MusicXML scores. The comparison viewer below is embedded via an iframe and loads two sample files with different melodies to show the diff highlighting feature.</p>
+            <p><strong>Features visible:</strong> Full-screen compare view, no toolbar/sidebar, swap functionality, diff highlighting</p>
+        </div>
+
+        <div class="controls">
+            <label>Left File URL:</label>
+            <input type="text" id="leftUrl" value="http://localhost:3000/sample-left.xml">
+
+            <label>Right File URL:</label>
+            <input type="text" id="rightUrl" value="http://localhost:3000/sample-right.xml">
+
+            <label>Left Label:</label>
+            <input type="text" id="leftLabel" value="Version 1" placeholder="Left">
+
+            <label>Right Label:</label>
+            <input type="text" id="rightLabel" value="Version 2" placeholder="Right">
+
+            <button onclick="updateIframe()">🔄 Update Comparison</button>
+
+            <div class="url-display" id="urlDisplay"></div>
+        </div>
+
+        <div class="iframe-container">
+            <iframe id="embedFrame" src=""></iframe>
+        </div>
+    </div>
+
+    <script>
+        function buildEmbedUrl() {
+            const leftUrl = document.getElementById('leftUrl').value;
+            const rightUrl = document.getElementById('rightUrl').value;
+            const leftLabel = document.getElementById('leftLabel').value;
+            const rightLabel = document.getElementById('rightLabel').value;
+
+            const params = new URLSearchParams({
+                compareLeft: leftUrl,
+                compareRight: rightUrl
+            });
+
+            if (leftLabel) params.set('leftLabel', leftLabel);
+            if (rightLabel) params.set('rightLabel', rightLabel);
+
+            return `http://localhost:3000/?${params.toString()}`;
+        }
+
+        function updateIframe() {
+            const url = buildEmbedUrl();
+            document.getElementById('embedFrame').src = url;
+            document.getElementById('urlDisplay').textContent = `Embed URL: ${url}`;
+        }
+
+        // Initialize on load
+        updateIframe();
+    </script>
+</body>
+</html>
