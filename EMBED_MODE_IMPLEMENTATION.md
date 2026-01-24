@@ -33,6 +33,7 @@ const isEmbedMode = Boolean(compareLeftUrl && compareRightUrl);
 - **Checkpoint sidebar hidden** (line 6169): Wrapped in `{!isEmbedMode && ...}`
 - **Save checkpoint buttons hidden** (lines 7075, 7324): Wrapped in `{!isEmbedMode && ...}`
 - **Overwrite arrows hidden** (line 7267): Changed condition to `{!isEmbedMode && canOverwrite && ...}`
+- **"Open in Editor" buttons shown** (lines 7084, 7362): Wrapped in `{isEmbedMode && ...}` - allows users to open either score in the full editor
 
 #### Custom Labels (lines 1114-1119)
 ```typescript
@@ -46,6 +47,30 @@ const compareRightLabel = isEmbedMode
 
 #### Loading Overlay (lines 7437-7445)
 Full-screen loading spinner displayed while fetching external files in embed mode.
+
+#### Open in Editor Handler (lines 2792-2810)
+```typescript
+const handleOpenScoreInEditor = useCallback(async (side: 'left' | 'right') => {
+    if (!compareView) return;
+
+    // Get the XML for the selected side
+    const xml = side === 'left' ? compareLeftXml : compareRightXml;
+    const label = side === 'left' ? compareLeftLabel : compareRightLabel;
+
+    // Create a File object from the XML
+    const blob = new Blob([xml], { type: 'application/xml' });
+    const filename = `${label.replace(/[^a-zA-Z0-9]/g, '_')}.xml`;
+    const file = new File([blob], filename);
+
+    // Close compare view
+    setCompareView(null);
+
+    // Load the file in the editor
+    await handleFileUpload(file, { preserveScoreId: false, updateUrl: false });
+}, [compareView, compareLeftXml, compareRightXml, compareLeftLabel, compareRightLabel]);
+```
+
+This handler allows users to transition from read-only compare mode to the full editor with editing capabilities.
 
 ### 2. README.md Documentation
 Added comprehensive documentation including:

@@ -38,6 +38,7 @@ These files have intentional differences to demonstrate the diff highlighting fe
 - ✅ Custom labels appear if provided
 - ✅ Diff highlighting shows differences in yellow/red/green
 - ✅ Swap button in center gutter
+- ✅ "📝 Open in Editor" buttons above each score pane
 - ✅ No "💾 Save checkpoint" buttons
 - ✅ No "→" and "←" overwrite arrows (read-only mode)
 
@@ -45,8 +46,13 @@ These files have intentional differences to demonstrate the diff highlighting fe
 1. **Loading State**: Should see "Loading comparison..." spinner briefly
 2. **Score Rendering**: Both panes should show rendered musical scores
 3. **Swap Function**: Click swap button, labels and scores should exchange positions
-4. **Scroll Sync**: Scrolling one pane should sync with the other
-5. **Zoom**: Zoom controls should work for both panes
+4. **Open in Editor**: Click "📝 Open in Editor" button on either pane
+   - Compare view should close
+   - Full editor UI should appear (toolbar, sidebar)
+   - Selected score should load in the editor
+   - Score should be editable with all editor features available
+5. **Scroll Sync**: Scrolling one pane should sync with the other
+6. **Zoom**: Zoom controls should work for both panes
 
 ## Run Automated Tests
 
@@ -79,6 +85,9 @@ The test suite includes:
 10. ✅ Swap functionality
 11. ✅ Single URL parameter (should not activate embed mode)
 12. ✅ Score pane rendering
+13. ✅ "Open in Editor" buttons visible
+14. ✅ Open left score in full editor
+15. ✅ Open right score in full editor
 
 ## Testing with External URLs
 

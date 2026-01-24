@@ -2790,6 +2790,25 @@ ${partsBodyXml}
         setCompareSwapped((prev) => !prev);
     }, []);
 
+    const handleOpenScoreInEditor = useCallback(async (side: 'left' | 'right') => {
+        if (!compareView) return;
+
+        // Get the XML for the selected side
+        const xml = side === 'left' ? compareLeftXml : compareRightXml;
+        const label = side === 'left' ? compareLeftLabel : compareRightLabel;
+
+        // Create a File object from the XML
+        const blob = new Blob([xml], { type: 'application/xml' });
+        const filename = `${label.replace(/[^a-zA-Z0-9]/g, '_')}.xml`;
+        const file = new File([blob], filename);
+
+        // Close compare view
+        setCompareView(null);
+
+        // Load the file in the editor
+        await handleFileUpload(file, { preserveScoreId: false, updateUrl: false });
+    }, [compareView, compareLeftXml, compareRightXml, compareLeftLabel, compareRightLabel]);
+
     useEffect(() => {
         if (!compareView) {
             if (compareRightScoreRef.current) {
@@ -7081,6 +7100,16 @@ ${partsBodyXml}
                                                         Checkpoint
                                                     </span>
                                                 )}
+                                                {isEmbedMode && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleOpenScoreInEditor('left')}
+                                                        className="rounded border border-blue-500 bg-blue-50 px-2 py-0.5 text-[10px] font-normal text-blue-700 hover:bg-blue-100"
+                                                        title="Open this score in the full editor"
+                                                    >
+                                                        📝 Open in Editor
+                                                    </button>
+                                                )}
                                             </div>
                                             {!isEmbedMode && (
                                             <div className="flex items-center gap-2">
@@ -7329,6 +7358,16 @@ ${partsBodyXml}
                                                     <span className="rounded bg-blue-100 px-2 py-0.5 text-[10px] font-normal text-blue-700">
                                                         Checkpoint
                                                     </span>
+                                                )}
+                                                {isEmbedMode && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleOpenScoreInEditor('right')}
+                                                        className="rounded border border-blue-500 bg-blue-50 px-2 py-0.5 text-[10px] font-normal text-blue-700 hover:bg-blue-100"
+                                                        title="Open this score in the full editor"
+                                                    >
+                                                        📝 Open in Editor
+                                                    </button>
                                                 )}
                                             </div>
                                             {!isEmbedMode && (
