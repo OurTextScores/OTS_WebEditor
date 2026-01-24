@@ -327,8 +327,12 @@ export default function ScoreEditor() {
     const [checkpointLoading, setCheckpointLoading] = useState(false);
     const [checkpointError, setCheckpointError] = useState<string | null>(null);
     const [compareView, setCompareView] = useState<{ title: string; currentXml: string; checkpointXml: string } | null>(null);
+    const [compareSwapped, setCompareSwapped] = useState(false);
+    const [compareLeftCheckpointLabel, setCompareLeftCheckpointLabel] = useState('');
+    const [compareRightCheckpointLabel, setCompareRightCheckpointLabel] = useState('');
     const [compareRightScore, setCompareRightScore] = useState<Score | null>(null);
     const compareRightScoreRef = useRef<Score | null>(null);
+    const compareLoadedCheckpointXmlRef = useRef<string | null>(null);
     const [compareRightParts, setCompareRightParts] = useState<PartSummary[]>([]);
     const [compareRightPageCount, setCompareRightPageCount] = useState(1);
     const [compareRightLoading, setCompareRightLoading] = useState(false);
@@ -346,7 +350,7 @@ export default function ScoreEditor() {
     const [compareContinuousMode, setCompareContinuousMode] = useState(false);
     const [compareReflowMode, setCompareReflowMode] = useState(false);
     const compareLayoutRestoreRef = useRef<number | null>(null);
-    const compareLineBreakRestoreRef = useRef<{ left: boolean[]; right: boolean[] } | null>(null);
+    const compareLineBreakRestoreRef = useRef<{ current: boolean[]; checkpoint: boolean[] } | null>(null);
     const compareLeftContainerRef = useRef<HTMLDivElement>(null);
     const compareRightContainerRef = useRef<HTMLDivElement>(null);
     const compareLeftWrapperRef = useRef<HTMLDivElement>(null);
@@ -1050,6 +1054,21 @@ export default function ScoreEditor() {
     }, [newScoreCommonInstrumentPreferences, newScoreInstrumentOptions]);
 
     const comparePartCount = Math.max(scoreParts.length, compareRightParts.length, 1);
+    const compareCheckpointTitle = compareView?.title || 'Checkpoint';
+    const compareLeftScore = useMemo(() => compareSwapped ? compareRightScore : score, [compareSwapped, compareRightScore, score]);
+    const compareRightScoreDisplay = useMemo(() => compareSwapped ? score : compareRightScore, [compareSwapped, score, compareRightScore]);
+    const compareLeftParts = useMemo(() => compareSwapped ? compareRightParts : scoreParts, [compareSwapped, compareRightParts, scoreParts]);
+    const compareRightPartsDisplay = useMemo(() => compareSwapped ? scoreParts : compareRightParts, [compareSwapped, scoreParts, compareRightParts]);
+    const compareLeftLabel = compareSwapped ? compareCheckpointTitle : 'Current';
+    const compareRightLabel = compareSwapped ? 'Current' : compareCheckpointTitle;
+    const compareLeftXml = compareView
+        ? (compareSwapped ? compareView.checkpointXml : compareView.currentXml)
+        : '';
+    const compareRightXml = compareView
+        ? (compareSwapped ? compareView.currentXml : compareView.checkpointXml)
+        : '';
+    const compareLeftIsCurrent = compareLeftScore === score;
+    const compareRightIsCurrent = compareRightScoreDisplay === score;
     const compareSupportsReflow = Boolean(
         score?.measureLineBreaks
         && score?.setMeasureLineBreaks
@@ -2268,12 +2287,27 @@ ${partsBodyXml}
         setSize(size);
     }, [compareEffectiveZoom]);
 
+    const getCompareTargetPage = useCallback((targetScore: Score | null) => {
+        if (compareContinuousMode) {
+            return 0;
+        }
+        if (!targetScore) {
+            return 0;
+        }
+        if (targetScore === score) {
+            return currentPage;
+        }
+        if (targetScore === compareRightScore) {
+            return Math.min(currentPage, Math.max(compareRightPageCount - 1, 0));
+        }
+        return currentPage;
+    }, [compareContinuousMode, score, compareRightScore, currentPage, compareRightPageCount]);
+
     const handleCompareOverwriteBlock = useCallback(async (
         sourceScore: Score | null,
         targetScore: Score | null,
         partIndex: number,
         pairs: Array<{ leftIndex: number; rightIndex: number }>,
-        targetSide: 'left' | 'right',
     ) => {
         if (compareSwapBusy) {
             return;
@@ -2309,7 +2343,7 @@ ${partsBodyXml}
                 return;
             }
 
-            if (targetSide === 'left') {
+            if (targetScore === score) {
                 await applyXmlToScore(patched.xml);
                 setCompareView((prev) => (prev ? { ...prev, currentXml: patched.xml } : prev));
             } else {
@@ -2336,7 +2370,6 @@ ${partsBodyXml}
         partIndex: number,
         sourceMeasureIndex: number | null,
         targetMeasureIndex: number | null,
-        targetSide: 'left' | 'right',
     ) => {
         if (sourceMeasureIndex === null || targetMeasureIndex === null) {
             return;
@@ -2346,7 +2379,6 @@ ${partsBodyXml}
             targetScore,
             partIndex,
             [{ leftIndex: sourceMeasureIndex, rightIndex: targetMeasureIndex }],
-            targetSide,
         );
     }, [handleCompareOverwriteBlock]);
 
@@ -2563,6 +2595,79 @@ ${partsBodyXml}
         }
     };
 
+    const handleSaveCompareCheckpoint = useCallback(async (side: 'left' | 'right') => {
+        if (!compareView) {
+            return;
+        }
+        if (!isIndexedDbAvailable()) {
+            alert('IndexedDB is not available in this browser.');
+            return;
+        }
+
+        const targetIsCurrent = side === 'left' ? compareLeftIsCurrent : compareRightIsCurrent;
+        const customLabel = side === 'left' ? compareLeftCheckpointLabel : compareRightCheckpointLabel;
+        const sourceLabel = side === 'left' ? compareLeftLabel : compareRightLabel;
+
+        setCheckpointBusy(true);
+        try {
+            let xmlData: Uint8Array;
+
+            if (targetIsCurrent) {
+                // Saving the current score - get its XML directly
+                const currentXmlData = await getScoreXmlData();
+                if (!currentXmlData) {
+                    alert('Unable to read current score MusicXML.');
+                    return;
+                }
+                xmlData = currentXmlData;
+            } else {
+                // Saving a checkpoint - get its XML
+                const xml = await getScoreMusicXmlText(compareRightScore, compareView.checkpointXml);
+                if (!xml) {
+                    alert('Unable to read checkpoint MusicXML.');
+                    return;
+                }
+                xmlData = new TextEncoder().encode(xml);
+            }
+
+            const activeScoreId = ensureScoreId('score');
+            const title = buildCheckpointTitle(customLabel, sourceLabel);
+            await saveCheckpoint({
+                title,
+                createdAt: Date.now(),
+                format: 'musicxml',
+                data: xmlData.buffer.slice(xmlData.byteOffset, xmlData.byteOffset + xmlData.byteLength),
+                size: xmlData.byteLength,
+                scoreId: activeScoreId,
+            });
+            await loadCheckpointList();
+            // Clear the label field after saving
+            if (side === 'left') {
+                setCompareLeftCheckpointLabel('');
+            } else {
+                setCompareRightCheckpointLabel('');
+            }
+        } catch (err) {
+            console.error('Failed to save compare checkpoint', err);
+            alert('Failed to save compare checkpoint. See console for details.');
+        } finally {
+            setCheckpointBusy(false);
+        }
+    }, [
+        compareView,
+        compareLeftIsCurrent,
+        compareRightIsCurrent,
+        compareLeftCheckpointLabel,
+        compareRightCheckpointLabel,
+        compareLeftLabel,
+        compareRightLabel,
+        compareRightScore,
+        getScoreXmlData,
+        getScoreMusicXmlText,
+        ensureScoreId,
+        loadCheckpointList,
+    ]);
+
     const handleRestoreCheckpoint = async (checkpoint: CheckpointSummary) => {
         if (!isIndexedDbAvailable()) {
             alert('IndexedDB is not available in this browser.');
@@ -2624,12 +2729,17 @@ ${partsBodyXml}
         }
     };
 
+    const handleCompareSwapSides = useCallback(() => {
+        setCompareSwapped((prev) => !prev);
+    }, []);
+
     useEffect(() => {
         if (!compareView) {
             if (compareRightScoreRef.current) {
                 compareRightScoreRef.current.destroy();
                 compareRightScoreRef.current = null;
             }
+            compareLoadedCheckpointXmlRef.current = null;
             setCompareRightScore(null);
             setCompareRightParts([]);
             setCompareRightPageCount(1);
@@ -2641,6 +2751,14 @@ ${partsBodyXml}
             setCompareLeftMeasurePositions(null);
             setCompareRightMeasurePositions(null);
             setCompareSignatures(null);
+            setCompareSwapped(false);
+            setCompareLeftCheckpointLabel('');
+            setCompareRightCheckpointLabel('');
+            return;
+        }
+
+        // Only reload checkpoint score if the XML has actually changed
+        if (compareLoadedCheckpointXmlRef.current === compareView.checkpointXml) {
             return;
         }
 
@@ -2661,6 +2779,7 @@ ${partsBodyXml}
                     return;
                 }
                 compareRightScoreRef.current = loadedScore;
+                compareLoadedCheckpointXmlRef.current = compareView.checkpointXml;
                 setCompareRightScore(loadedScore);
                 if (loadedScore.npages) {
                     const pages = await loadedScore.npages();
@@ -2700,65 +2819,77 @@ ${partsBodyXml}
     }, []);
 
     useEffect(() => {
-        if (!compareView || !score) {
+        if (!compareView || !compareLeftScore) {
             return;
         }
-        const targetPage = compareContinuousMode ? 0 : currentPage;
-        void renderScoreToContainer(score, compareLeftContainerRef.current, targetPage, false)
+        // Only check loading state when left pane is showing the checkpoint (not swapped)
+        if (!compareSwapped && compareLeftScore === compareRightScore) {
+            if (compareRightLoading || compareRightError) {
+                return;
+            }
+            if (compareRightScoreRef.current && compareRightScoreRef.current !== compareRightScore) {
+                return;
+            }
+        }
+        const targetPage = getCompareTargetPage(compareLeftScore);
+        void renderScoreToContainer(compareLeftScore, compareLeftContainerRef.current, targetPage, false)
             .then(() => {
                 syncCompareSvgSize(compareLeftContainerRef.current, setCompareLeftSvgSize);
-                void refreshMeasurePositions(score, setCompareLeftMeasurePositions);
+                void refreshMeasurePositions(compareLeftScore, setCompareLeftMeasurePositions);
             });
     }, [
         compareView,
-        score,
-        currentPage,
-        compareContinuousMode,
+        compareLeftScore,
+        compareRightScore,
+        compareRightLoading,
+        compareRightError,
+        compareSwapped,
         renderScoreToContainer,
         syncCompareSvgSize,
         refreshMeasurePositions,
+        getCompareTargetPage,
     ]);
 
     useEffect(() => {
-        if (!compareView || !compareRightScore) {
+        if (!compareView || !compareRightScoreDisplay) {
             return;
         }
-        if (compareRightLoading || compareRightError) {
-            return;
-        }
-        if (compareRightScoreRef.current && compareRightScoreRef.current !== compareRightScore) {
-            return;
+        const isCheckpoint = compareRightScoreDisplay === compareRightScore;
+        if (isCheckpoint) {
+            if (compareRightLoading || compareRightError) {
+                return;
+            }
+            if (compareRightScoreRef.current && compareRightScoreRef.current !== compareRightScore) {
+                return;
+            }
         }
         if (compareRightRenderInFlightRef.current) {
             return;
         }
-        const targetPage = compareContinuousMode
-            ? 0
-            : Math.min(currentPage, compareRightPageCount - 1);
+        const targetPage = getCompareTargetPage(compareRightScoreDisplay);
         compareRightRenderInFlightRef.current = true;
-        void renderScoreToContainer(compareRightScore, compareRightContainerRef.current, targetPage, false)
+        void renderScoreToContainer(compareRightScoreDisplay, compareRightContainerRef.current, targetPage, false)
             .then((rendered) => {
-                if (!rendered && !compareRightError) {
+                if (!rendered && !compareRightError && isCheckpoint) {
                     setCompareRightError('No SVG output from checkpoint score.');
                     return;
                 }
                 syncCompareSvgSize(compareRightContainerRef.current, setCompareRightSvgSize);
-                void refreshMeasurePositions(compareRightScore, setCompareRightMeasurePositions);
+                void refreshMeasurePositions(compareRightScoreDisplay, setCompareRightMeasurePositions);
             })
             .finally(() => {
                 compareRightRenderInFlightRef.current = false;
             });
     }, [
         compareView,
+        compareRightScoreDisplay,
         compareRightScore,
-        compareRightPageCount,
         compareRightError,
         compareRightLoading,
-        currentPage,
-        compareContinuousMode,
         renderScoreToContainer,
         syncCompareSvgSize,
         refreshMeasurePositions,
+        getCompareTargetPage,
     ]);
 
     useEffect(() => {
@@ -2801,9 +2932,10 @@ ${partsBodyXml}
                 }
                 setCompareContinuousMode(true);
                 const targetPage = 0;
-                await renderScoreToContainer(score, compareLeftContainerRef.current, targetPage, false);
+                // Use swapped scores to render to the correct panes
+                await renderScoreToContainer(compareLeftScore, compareLeftContainerRef.current, targetPage, false);
                 syncCompareSvgSize(compareLeftContainerRef.current, setCompareLeftSvgSize);
-                await renderScoreToContainer(compareRightScore, compareRightContainerRef.current, targetPage, false);
+                await renderScoreToContainer(compareRightScoreDisplay, compareRightContainerRef.current, targetPage, false);
                 syncCompareSvgSize(compareRightContainerRef.current, setCompareRightSvgSize);
             } catch (err) {
                 console.warn('Failed to enable continuous layout for compare:', err);
@@ -2817,7 +2949,7 @@ ${partsBodyXml}
         return () => {
             canceled = true;
         };
-    }, [compareView, score, compareRightScore, compareReflowMode, renderScore, renderScoreToContainer, syncCompareSvgSize]);
+    }, [compareView, score, compareRightScore, compareReflowMode, renderScore, renderScoreToContainer, syncCompareSvgSize, compareLeftScore, compareRightScoreDisplay]);
 
     useEffect(() => {
         if (compareView && compareReflowMode && !compareSupportsReflow) {
@@ -6861,27 +6993,6 @@ ${partsBodyXml}
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
-                                <div className="flex items-center rounded border border-gray-200 bg-white text-[11px] text-gray-600">
-                                    <button
-                                        type="button"
-                                        disabled={!compareSupportsReflow}
-                                        onClick={() => setCompareReflowMode(false)}
-                                        className={`rounded-l px-2 py-1 transition ${compareReflowMode ? 'hover:bg-gray-100' : 'bg-gray-800 text-white'} disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400`}
-                                    >
-                                        Score
-                                    </button>
-                                    <button
-                                        type="button"
-                                        disabled={!compareSupportsReflow}
-                                        onClick={() => setCompareReflowMode(true)}
-                                        className={`rounded-r px-2 py-1 transition ${compareReflowMode ? 'bg-gray-800 text-white' : 'hover:bg-gray-100'} disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400`}
-                                    >
-                                        Reflow
-                                    </button>
-                                </div>
-                                <div className="rounded-full bg-gray-100 px-2 py-1 text-[11px] text-gray-600">
-                                    Scroll + Zoom sync
-                                </div>
                                 <button
                                     type="button"
                                     onClick={() => setCompareView(null)}
@@ -6896,10 +7007,32 @@ ${partsBodyXml}
                                 <div className="flex min-h-0 min-w-[960px] flex-1 gap-4">
                                     <div className="flex min-h-0 min-w-0 flex-1 basis-0 flex-col gap-3">
                                         <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                            <span>Current</span>
-                                            <span className="rounded bg-gray-100 px-2 py-0.5 text-[10px] font-normal text-gray-500">
-                                                Editable
-                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <span>{compareLeftLabel}</span>
+                                                {!compareLeftIsCurrent && (
+                                                    <span className="rounded bg-blue-100 px-2 py-0.5 text-[10px] font-normal text-blue-700">
+                                                        Checkpoint
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={compareLeftCheckpointLabel}
+                                                    onChange={(e) => setCompareLeftCheckpointLabel(e.target.value)}
+                                                    placeholder="Label (optional)"
+                                                    className="w-32 rounded border border-gray-300 bg-white px-2 py-0.5 text-[10px] text-gray-700 placeholder-gray-400"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleSaveCompareCheckpoint('left')}
+                                                    disabled={checkpointBusy}
+                                                    className="rounded border border-gray-300 bg-white px-2 py-0.5 text-[10px] font-normal text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                                                    title={compareLeftIsCurrent ? 'Save current score as checkpoint' : 'Save this checkpoint'}
+                                                >
+                                                    💾 Save checkpoint
+                                                </button>
+                                            </div>
                                         </div>
                                         <div className="flex min-h-0 flex-1 flex-col gap-3">
                                             <div
@@ -6907,7 +7040,7 @@ ${partsBodyXml}
                                                 className="relative min-h-0 min-w-0 flex-1 overflow-auto rounded border border-gray-200 bg-white"
                                                 data-testid="compare-pane-left"
                                             >
-                                                {!score && (
+                                                {!compareLeftScore && (
                                                     <div className="p-3 text-xs text-gray-500">
                                                         Load a score to compare.
                                                     </div>
@@ -6939,18 +7072,12 @@ ${partsBodyXml}
                                             </div>
                                             <div className="grid gap-2 text-xs text-gray-500">
                                                 {Array.from({ length: comparePartCount }).map((_, index) => {
-                                                    const partName = scoreParts[index]?.name
-                                                        || scoreParts[index]?.instrumentName
+                                                    const partName = compareLeftParts[index]?.name
+                                                        || compareLeftParts[index]?.instrumentName
                                                         || `Part ${index + 1}`;
                                                     const alignment = compareAlignmentByPart.get(index);
                                                     const leftCount = alignment?.leftCount ?? 0;
                                                     const rightCount = alignment?.rightCount ?? 0;
-                                                    const matchPct = alignment ? Math.round(alignment.lcsRatio * 100) : 0;
-                                                    const alignmentLabel = compareAlignmentLoading
-                                                        ? 'Aligning...'
-                                                        : alignment?.strategy === 'lcs'
-                                                            ? `Content ${matchPct}%`
-                                                            : 'Index aligned';
                                                     return (
                                                     <div
                                                         key={`compare-left-part-${index}`}
@@ -6958,7 +7085,7 @@ ${partsBodyXml}
                                                     >
                                                         <span>{partName}</span>
                                                         <span className="text-[10px] text-gray-400">
-                                                            {leftCount}/{rightCount} measures · {alignmentLabel}
+                                                            {leftCount}/{rightCount} measures
                                                         </span>
                                                     </div>
                                                     );
@@ -6967,9 +7094,14 @@ ${partsBodyXml}
                                         </div>
                                     </div>
                                     <div className="flex min-h-0 w-44 flex-none flex-col items-center gap-2">
-                                        <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-                                            Swap gutter
-                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={handleCompareSwapSides}
+                                            className="rounded border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                                            title="Swap left and right panes"
+                                        >
+                                            ⇄ Swap
+                                        </button>
                                         <div
                                             ref={compareGutterScrollRef}
                                             className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto rounded border border-gray-200 bg-gray-50 p-2 text-[10px] text-gray-500"
@@ -6983,15 +7115,11 @@ ${partsBodyXml}
                                                 const alignment = compareAlignmentByPart.get(index);
                                                 const rows = alignment?.rows ?? [];
                                                 const blocks = buildMismatchBlocks(rows);
-                                                const partName = scoreParts[index]?.name
-                                                    || scoreParts[index]?.instrumentName
-                                                    || compareRightParts[index]?.name
-                                                    || compareRightParts[index]?.instrumentName
+                                                const partName = compareLeftParts[index]?.name
+                                                    || compareLeftParts[index]?.instrumentName
+                                                    || compareRightPartsDisplay[index]?.name
+                                                    || compareRightPartsDisplay[index]?.instrumentName
                                                     || `Part ${index + 1}`;
-                                                const matchPct = alignment ? Math.round(alignment.lcsRatio * 100) : 0;
-                                                const strategyLabel = alignment?.strategy === 'lcs'
-                                                    ? `Content ${matchPct}%`
-                                                    : 'Index aligned';
                                                 return (
                                                     <div
                                                         key={`compare-gutter-${index}`}
@@ -6999,7 +7127,6 @@ ${partsBodyXml}
                                                     >
                                                         <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-gray-400">
                                                             <span>{partName}</span>
-                                                            <span>{strategyLabel}</span>
                                                         </div>
                                                         <div className="grid gap-2">
                                                             {rows.length === 0 && (
@@ -7083,33 +7210,31 @@ ${partsBodyXml}
                                                                             <div className="mt-1 flex items-center justify-between gap-2">
                                                                                 <button
                                                                                     type="button"
-                                                                                    disabled={compareSwapBusy || !score || !compareRightScore}
+                                                                                    disabled={compareSwapBusy || !compareLeftScore || !compareRightScoreDisplay}
                                                                                     className="flex h-6 w-10 items-center justify-center rounded border border-gray-200 bg-gray-100 text-[10px] text-gray-500 disabled:opacity-50"
                                                                                     aria-label={`Overwrite right with ${leftLabel}`}
                                                                                     onClick={() => handleCompareOverwriteBlock(
-                                                                                        score,
-                                                                                        compareRightScore,
+                                                                                        compareLeftScore,
+                                                                                        compareRightScoreDisplay,
                                                                                         index,
                                                                                         pairs,
-                                                                                        'right',
                                                                                     )}
                                                                                 >
                                                                                     -&gt;
                                                                                 </button>
                                                                                 <button
                                                                                     type="button"
-                                                                                    disabled={compareSwapBusy || !score || !compareRightScore}
+                                                                                    disabled={compareSwapBusy || !compareLeftScore || !compareRightScoreDisplay}
                                                                                     className="flex h-6 w-10 items-center justify-center rounded border border-gray-200 bg-gray-100 text-[10px] text-gray-500 disabled:opacity-50"
                                                                                     aria-label={`Overwrite left with ${rightLabel}`}
                                                                                     onClick={() => handleCompareOverwriteBlock(
-                                                                                        compareRightScore,
-                                                                                        score,
+                                                                                        compareRightScoreDisplay,
+                                                                                        compareLeftScore,
                                                                                         index,
                                                                                         pairs.map((pair) => ({
                                                                                             leftIndex: pair.rightIndex,
                                                                                             rightIndex: pair.leftIndex,
                                                                                         })),
-                                                                                        'left',
                                                                                     )}
                                                                                 >
                                                                                     &lt;-
@@ -7129,10 +7254,32 @@ ${partsBodyXml}
                                     </div>
                                     <div className="flex min-h-0 min-w-0 flex-1 basis-0 flex-col gap-3">
                                         <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                            <span>{compareView.title}</span>
-                                            <span className="rounded bg-gray-100 px-2 py-0.5 text-[10px] font-normal text-gray-500">
-                                                Editable
-                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <span>{compareRightLabel}</span>
+                                                {!compareRightIsCurrent && (
+                                                    <span className="rounded bg-blue-100 px-2 py-0.5 text-[10px] font-normal text-blue-700">
+                                                        Checkpoint
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={compareRightCheckpointLabel}
+                                                    onChange={(e) => setCompareRightCheckpointLabel(e.target.value)}
+                                                    placeholder="Label (optional)"
+                                                    className="w-32 rounded border border-gray-300 bg-white px-2 py-0.5 text-[10px] text-gray-700 placeholder-gray-400"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleSaveCompareCheckpoint('right')}
+                                                    disabled={checkpointBusy}
+                                                    className="rounded border border-gray-300 bg-white px-2 py-0.5 text-[10px] font-normal text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                                                    title={compareRightIsCurrent ? 'Save current score as checkpoint' : 'Save this checkpoint'}
+                                                >
+                                                    💾 Save checkpoint
+                                                </button>
+                                            </div>
                                         </div>
                                         <div className="flex min-h-0 flex-1 flex-col gap-3">
                                             <div
@@ -7172,18 +7319,12 @@ ${partsBodyXml}
                                             </div>
                                             <div className="grid gap-2 text-xs text-gray-500">
                                                 {Array.from({ length: comparePartCount }).map((_, index) => {
-                                                    const partName = compareRightParts[index]?.name
-                                                        || compareRightParts[index]?.instrumentName
+                                                    const partName = compareRightPartsDisplay[index]?.name
+                                                        || compareRightPartsDisplay[index]?.instrumentName
                                                         || `Part ${index + 1}`;
                                                     const alignment = compareAlignmentByPart.get(index);
                                                     const leftCount = alignment?.leftCount ?? 0;
                                                     const rightCount = alignment?.rightCount ?? 0;
-                                                    const matchPct = alignment ? Math.round(alignment.lcsRatio * 100) : 0;
-                                                    const alignmentLabel = compareAlignmentLoading
-                                                        ? 'Aligning...'
-                                                        : alignment?.strategy === 'lcs'
-                                                            ? `Content ${matchPct}%`
-                                                            : 'Index aligned';
                                                     return (
                                                     <div
                                                         key={`compare-right-part-${index}`}
@@ -7191,7 +7332,7 @@ ${partsBodyXml}
                                                     >
                                                         <span>{partName}</span>
                                                         <span className="text-[10px] text-gray-400">
-                                                            {leftCount}/{rightCount} measures · {alignmentLabel}
+                                                            {leftCount}/{rightCount} measures
                                                         </span>
                                                     </div>
                                                     );
@@ -7203,9 +7344,9 @@ ${partsBodyXml}
                             </div>
                             <details className="rounded border border-gray-200 bg-gray-50 px-3 py-2">
                                 <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                    Raw MusicXML (temporary)
+                                    Raw MusicXML
                                 </summary>
-                                <div className="mt-3 grid gap-4 md:grid-cols-2">
+                                <div className="mt-3 grid gap-4 md:grid-cols-2" style={{ height: 'calc(100vh - 300px)' }}>
                                     <div className="flex flex-col gap-2">
                                         <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                                             Current
@@ -7213,7 +7354,7 @@ ${partsBodyXml}
                                         <textarea
                                             readOnly
                                             value={compareView.currentXml}
-                                            className="h-72 w-full rounded border border-gray-200 bg-white p-2 font-mono text-xs text-gray-700"
+                                            className="min-h-0 flex-1 w-full rounded border border-gray-200 bg-white p-2 font-mono text-xs text-gray-700"
                                         />
                                     </div>
                                     <div className="flex flex-col gap-2">
@@ -7223,7 +7364,7 @@ ${partsBodyXml}
                                         <textarea
                                             readOnly
                                             value={compareView.checkpointXml}
-                                            className="h-72 w-full rounded border border-gray-200 bg-white p-2 font-mono text-xs text-gray-700"
+                                            className="min-h-0 flex-1 w-full rounded border border-gray-200 bg-white p-2 font-mono text-xs text-gray-700"
                                         />
                                     </div>
                                 </div>
