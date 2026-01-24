@@ -47,10 +47,11 @@ These files have intentional differences to demonstrate the diff highlighting fe
 2. **Score Rendering**: Both panes should show rendered musical scores
 3. **Swap Function**: Click swap button, labels and scores should exchange positions
 4. **Open in Editor**: Click "📝 Open in Editor" button on either pane
-   - Compare view should close
-   - Full editor UI should appear (toolbar, sidebar)
-   - Selected score should load in the editor
+   - A new browser tab should open
+   - New tab shows the full editor UI (toolbar, sidebar, all features)
+   - Selected score should load in the new tab
    - Score should be editable with all editor features available
+   - Original embed mode tab remains open with comparison view
 5. **Scroll Sync**: Scrolling one pane should sync with the other
 6. **Zoom**: Zoom controls should work for both panes
 

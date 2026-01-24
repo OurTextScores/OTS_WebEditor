@@ -235,57 +235,71 @@ test.describe('Embed Mode - External XML Comparison', () => {
         await expect(openInEditorButtons.nth(1)).toBeVisible();
     });
 
-    test('should open left score in full editor when clicking "Open in Editor"', async ({ page }) => {
+    test('should open left score in full editor in new tab when clicking "Open in Editor"', async ({ page, context }) => {
         await page.goto(`/?compareLeft=${encodeURIComponent(leftXmlUrl)}&compareRight=${encodeURIComponent(rightXmlUrl)}&leftLabel=Version%201&rightLabel=Version%202`);
         await page.waitForTimeout(3000);
+
+        // Listen for new page (tab) to open
+        const pagePromise = context.waitForEvent('page');
 
         // Click the "Open in Editor" button for the left pane
         const openInEditorButtons = page.getByRole('button', { name: /Open in Editor/ });
         await openInEditorButtons.first().click();
 
-        // Wait for editor to load
-        await page.waitForTimeout(3000);
+        // Wait for new tab to open
+        const newPage = await pagePromise;
+        await newPage.waitForLoadState();
+        await newPage.waitForTimeout(3000);
 
-        // Compare modal should be closed
+        // Original page should still show compare view
         const compareModal = page.getByTestId('checkpoint-compare-modal');
-        await expect(compareModal).not.toBeVisible();
+        await expect(compareModal).toBeVisible();
 
-        // Toolbar should now be visible (full editor mode)
-        const toolbar = page.locator('div').filter({ has: page.getByText('New Score') });
+        // New tab should show full editor
+        const toolbar = newPage.locator('div').filter({ has: newPage.getByText('New Score') });
         await expect(toolbar).toBeVisible();
 
-        // Sidebar should be visible
-        await expect(page.getByTestId('checkpoint-sidebar')).toBeVisible();
+        // Sidebar should be visible in new tab
+        await expect(newPage.getByTestId('checkpoint-sidebar')).toBeVisible();
 
-        // Score should be loaded in main editor
-        const mainScoreContainer = page.locator('[ref="containerRef"]').first();
-        // Check that score is rendered (SVG present)
-        await expect(page.locator('svg').first()).toBeVisible({ timeout: 5000 });
+        // Score should be loaded in new tab
+        await expect(newPage.locator('svg').first()).toBeVisible({ timeout: 10000 });
+
+        // Clean up
+        await newPage.close();
     });
 
-    test('should open right score in full editor when clicking "Open in Editor"', async ({ page }) => {
+    test('should open right score in full editor in new tab when clicking "Open in Editor"', async ({ page, context }) => {
         await page.goto(`/?compareLeft=${encodeURIComponent(leftXmlUrl)}&compareRight=${encodeURIComponent(rightXmlUrl)}&leftLabel=Version%201&rightLabel=Version%202`);
         await page.waitForTimeout(3000);
+
+        // Listen for new page (tab) to open
+        const pagePromise = context.waitForEvent('page');
 
         // Click the "Open in Editor" button for the right pane
         const openInEditorButtons = page.getByRole('button', { name: /Open in Editor/ });
         await openInEditorButtons.nth(1).click();
 
-        // Wait for editor to load
-        await page.waitForTimeout(3000);
+        // Wait for new tab to open
+        const newPage = await pagePromise;
+        await newPage.waitForLoadState();
+        await newPage.waitForTimeout(3000);
 
-        // Compare modal should be closed
+        // Original page should still show compare view
         const compareModal = page.getByTestId('checkpoint-compare-modal');
-        await expect(compareModal).not.toBeVisible();
+        await expect(compareModal).toBeVisible();
 
-        // Toolbar should now be visible (full editor mode)
-        const toolbar = page.locator('div').filter({ has: page.getByText('New Score') });
+        // New tab should show full editor
+        const toolbar = newPage.locator('div').filter({ has: newPage.getByText('New Score') });
         await expect(toolbar).toBeVisible();
 
-        // Sidebar should be visible
-        await expect(page.getByTestId('checkpoint-sidebar')).toBeVisible();
+        // Sidebar should be visible in new tab
+        await expect(newPage.getByTestId('checkpoint-sidebar')).toBeVisible();
 
-        // Score should be loaded in main editor
-        await expect(page.locator('svg').first()).toBeVisible({ timeout: 5000 });
+        // Score should be loaded in new tab
+        await expect(newPage.locator('svg').first()).toBeVisible({ timeout: 10000 });
+
+        // Clean up
+        await newPage.close();
     });
 });

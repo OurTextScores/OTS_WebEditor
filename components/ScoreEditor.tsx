@@ -891,6 +891,31 @@ export default function ScoreEditor() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [compareLeftUrl, compareRightUrl, leftLabel]);
 
+    // Load score from sessionStorage if opened from "Open in Editor" button
+    useEffect(() => {
+        const openInEditorData = sessionStorage.getItem('openInEditor');
+        if (!openInEditorData) return;
+
+        const loadScoreFromSession = async () => {
+            try {
+                const { xml, filename } = JSON.parse(openInEditorData);
+
+                // Clear the sessionStorage
+                sessionStorage.removeItem('openInEditor');
+
+                // Create a File object and load it
+                const blob = new Blob([xml], { type: 'application/xml' });
+                const file = new File([blob], filename);
+                await handleFileUpload(file, { preserveScoreId: false, updateUrl: false });
+            } catch (err) {
+                console.error('Failed to load score from session:', err);
+            }
+        };
+
+        loadScoreFromSession();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     useEffect(() => {
         let canceled = false;
         if (!score || !selectedElementClasses.includes('LayoutBreak')) {
@@ -2790,23 +2815,19 @@ ${partsBodyXml}
         setCompareSwapped((prev) => !prev);
     }, []);
 
-    const handleOpenScoreInEditor = useCallback(async (side: 'left' | 'right') => {
+    const handleOpenScoreInEditor = useCallback((side: 'left' | 'right') => {
         if (!compareView) return;
 
         // Get the XML for the selected side
         const xml = side === 'left' ? compareLeftXml : compareRightXml;
         const label = side === 'left' ? compareLeftLabel : compareRightLabel;
 
-        // Create a File object from the XML
-        const blob = new Blob([xml], { type: 'application/xml' });
+        // Store XML in sessionStorage for the new tab to pick up
         const filename = `${label.replace(/[^a-zA-Z0-9]/g, '_')}.xml`;
-        const file = new File([blob], filename);
+        sessionStorage.setItem('openInEditor', JSON.stringify({ xml, filename }));
 
-        // Close compare view
-        setCompareView(null);
-
-        // Load the file in the editor
-        await handleFileUpload(file, { preserveScoreId: false, updateUrl: false });
+        // Open a new tab with the full editor
+        window.open('/', '_blank');
     }, [compareView, compareLeftXml, compareRightXml, compareLeftLabel, compareRightLabel]);
 
     useEffect(() => {

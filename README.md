@@ -58,7 +58,7 @@ http://localhost:3000/?compareLeft=https://example.com/old.xml&compareRight=http
 - **Full-screen compare view**: Only the diff viewer is displayed (no editor toolbar or sidebar)
 - **Visual diff highlighting**: Shows differences between scores with color-coded blocks
 - **Swap functionality**: Switch left and right panes
-- **Open in Editor**: Click "📝 Open in Editor" button above each score to load it in the full editor for editing
+- **Open in Editor**: Click "📝 Open in Editor" button above each score to open it in a new tab with the full editor for editing
 - **Read-only compare mode**: No editing controls in compare view (checkpoint saving and overwrite features are hidden)
 - **CORS support**: Can load files from external URLs (requires proper CORS headers)
 

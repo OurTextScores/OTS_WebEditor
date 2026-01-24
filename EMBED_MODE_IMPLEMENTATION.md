@@ -48,29 +48,57 @@ const compareRightLabel = isEmbedMode
 #### Loading Overlay (lines 7437-7445)
 Full-screen loading spinner displayed while fetching external files in embed mode.
 
-#### Open in Editor Handler (lines 2792-2810)
+#### Open in Editor Handler (lines 2793-2804)
 ```typescript
-const handleOpenScoreInEditor = useCallback(async (side: 'left' | 'right') => {
+const handleOpenScoreInEditor = useCallback((side: 'left' | 'right') => {
     if (!compareView) return;
 
     // Get the XML for the selected side
     const xml = side === 'left' ? compareLeftXml : compareRightXml;
     const label = side === 'left' ? compareLeftLabel : compareRightLabel;
 
-    // Create a File object from the XML
-    const blob = new Blob([xml], { type: 'application/xml' });
+    // Store XML in sessionStorage for the new tab to pick up
     const filename = `${label.replace(/[^a-zA-Z0-9]/g, '_')}.xml`;
-    const file = new File([blob], filename);
+    sessionStorage.setItem('openInEditor', JSON.stringify({ xml, filename }));
 
-    // Close compare view
-    setCompareView(null);
-
-    // Load the file in the editor
-    await handleFileUpload(file, { preserveScoreId: false, updateUrl: false });
+    // Open a new tab with the full editor
+    window.open('/', '_blank');
 }, [compareView, compareLeftXml, compareRightXml, compareLeftLabel, compareRightLabel]);
 ```
 
-This handler allows users to transition from read-only compare mode to the full editor with editing capabilities.
+This handler:
+1. Extracts the XML from the selected side
+2. Stores it in sessionStorage with a sanitized filename
+3. Opens a new browser tab to the root URL
+4. The new tab picks up the XML from sessionStorage and loads it in the full editor
+
+#### Load from Session Storage (lines 894-915)
+```typescript
+useEffect(() => {
+    const openInEditorData = sessionStorage.getItem('openInEditor');
+    if (!openInEditorData) return;
+
+    const loadScoreFromSession = async () => {
+        try {
+            const { xml, filename } = JSON.parse(openInEditorData);
+
+            // Clear the sessionStorage
+            sessionStorage.removeItem('openInEditor');
+
+            // Create a File object and load it
+            const blob = new Blob([xml], { type: 'application/xml' });
+            const file = new File([blob], filename);
+            await handleFileUpload(file, { preserveScoreId: false, updateUrl: false });
+        } catch (err) {
+            console.error('Failed to load score from session:', err);
+        }
+    };
+
+    loadScoreFromSession();
+}, []);
+```
+
+This effect runs once on component mount, checks for XML in sessionStorage, and loads it if present. This allows seamless transfer of score data between the embed mode tab and the new editor tab.
 
 ### 2. README.md Documentation
 Added comprehensive documentation including:
