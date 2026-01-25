@@ -2827,7 +2827,8 @@ ${partsBodyXml}
         sessionStorage.setItem('openInEditor', JSON.stringify({ xml, filename }));
 
         // Open a new tab with the full editor
-        window.open('/', '_blank');
+        // Use absolute path to avoid base tag interference when embedded
+        window.open('/score-editor/index.html', '_blank');
     }, [compareView, compareLeftXml, compareRightXml, compareLeftLabel, compareRightLabel]);
 
     useEffect(() => {
