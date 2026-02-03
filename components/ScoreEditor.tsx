@@ -56,6 +56,8 @@ const LAYOUT_MODES = {
     HORIZONTAL_FIXED: 4,
 } as const;
 
+type AiProvider = 'openai' | 'anthropic' | 'gemini';
+
 type MutationMethods = Pick<
     Score,
     | 'selectElementAtPoint'
@@ -136,6 +138,26 @@ type MutationMethods = Pick<
     | 'insertMeasures'
     | 'removeTrailingEmptyMeasures'
 >;
+
+const AI_PROVIDER_LABELS: Record<AiProvider, string> = {
+    openai: 'OpenAI',
+    anthropic: 'Claude',
+    gemini: 'Gemini',
+};
+
+const DEFAULT_MODEL_BY_PROVIDER: Record<AiProvider, string> = {
+    openai: 'gpt-5.2',
+    anthropic: 'claude-opus-4-1',
+    gemini: 'gemini-3-pro-preview',
+};
+
+const DEFAULT_MAX_TOKENS_BY_PROVIDER: Record<AiProvider, number> = {
+    openai: 2048,
+    anthropic: 2048,
+    gemini: 2048,
+};
+
+const ANTHROPIC_VERSION = '2023-06-01';
 
 type HarmonyVariant = 0 | 1 | 2;
 
@@ -279,8 +301,72 @@ const hasMutationApi = (score: Score | null): score is Score & MutationMethods =
     );
 };
 
+const buildAiPrompt = (prompt: string, xml?: string) => {
+    const patchSpec = `Return ONLY valid JSON in the following format:
+{
+  "format": "musicxml-patch@1",
+  "ops": [
+    { "op": "replace", "path": "/score-partwise/part[@id='P1']/measure[@number='1']/note[1]", "value": "<note>...</note>" },
+    { "op": "setText", "path": "/score-partwise/part[@id='P1']/measure[@number='1']/note[1]/duration", "value": "2" },
+    { "op": "setAttr", "path": "/score-partwise/part[@id='P1']/measure[@number='1']/note[1]", "name": "default-x", "value": "123.45" },
+    { "op": "insertAfter", "path": "/score-partwise/part[@id='P1']/measure[@number='1']/note[1]", "value": "<note>...</note>" },
+    { "op": "delete", "path": "/score-partwise/part[@id='P1']/measure[@number='1']/note[2]" }
+  ]
+}
+Use ONLY these ops: replace, setText, setAttr, insertBefore, insertAfter, delete.
+Each XPath must match exactly one node.`;
+
+    if (xml && xml.trim()) {
+        return `${prompt}\n\nCurrent MusicXML:\n${xml}\n\n${patchSpec}`;
+    }
+    return `${prompt}\n\n${patchSpec}`;
+};
+
+const parseOpenAiResponsesText = (data: any) => {
+    if (typeof data?.output_text === 'string') {
+        return data.output_text;
+    }
+    const output = Array.isArray(data?.output) ? data.output : [];
+    for (const item of output) {
+        if (item?.type === 'message') {
+            const content = Array.isArray(item?.content) ? item.content : [];
+            return content.map((part: any) => part?.text || '').join('');
+        }
+    }
+    return '';
+};
+
+const parseOpenAiChatCompletionsText = (data: any) => data?.choices?.[0]?.message?.content ?? '';
+
+const parseAnthropicText = (data: any) => {
+    const content = Array.isArray(data?.content) ? data.content : [];
+    return content.map((part: any) => (part?.type === 'text' ? part?.text || '' : '')).join('');
+};
+
+const parseGeminiText = (data: any) => {
+    const parts = data?.candidates?.[0]?.content?.parts;
+    return Array.isArray(parts) ? parts.map((part: any) => part?.text || '').join('') : '';
+};
+
+const normalizeGeminiModel = (model: string) => {
+    const trimmed = model.trim();
+    if (!trimmed) {
+        return '';
+    }
+    if (trimmed.includes('/')) {
+        return trimmed;
+    }
+    return `models/${trimmed}`;
+};
+
 export default function ScoreEditor() {
     const searchParams = useSearchParams();
+    const isEmbedBuild = process.env.NEXT_PUBLIC_BUILD_MODE === 'embed';
+    const llmProxyBaseUrl = (process.env.NEXT_PUBLIC_LLM_PROXY_URL || '').trim();
+    const llmProxyBase = llmProxyBaseUrl.replace(/\/+$/, '');
+    const useLlmProxy = !isEmbedBuild || Boolean(llmProxyBase);
+    const aiEnabled = true;
+    const proxyUrlFor = useCallback((path: string) => (llmProxyBase ? `${llmProxyBase}${path}` : path), [llmProxyBase]);
 
     // Embed mode: Load external XML files for comparison
     const compareLeftUrl = searchParams.get('compareLeft');
@@ -381,6 +467,7 @@ export default function ScoreEditor() {
     const [xmlDirty, setXmlDirty] = useState(false);
     const [xmlLoading, setXmlLoading] = useState(false);
     const [xmlError, setXmlError] = useState<string | null>(null);
+    const [aiProvider, setAiProvider] = useState<AiProvider>('openai');
     const [aiModel, setAiModel] = useState('');
     const [aiApiKey, setAiApiKey] = useState('');
     const [aiPrompt, setAiPrompt] = useState('');
@@ -423,7 +510,8 @@ export default function ScoreEditor() {
     const streamIteratorRef = useRef<((cancel?: boolean) => Promise<any>) | null>(null);
     const clipboardRef = useRef<{ mimeType: string; data: Uint8Array } | null>(null);
     const currentPageRef = useRef(currentPage);
-    const aiKeyStorageKey = 'ots_openai_api_key';
+    const aiKeyStorageKey = `ots_${aiProvider}_api_key`;
+    const aiModelStorageKey = `ots_${aiProvider}_model`;
     const autoFitPendingRef = useRef(true);
 
     const fetchMeasureSignatures = useCallback(async (targetScore: Score, partIndex: number) => {
@@ -812,14 +900,18 @@ export default function ScoreEditor() {
         if (typeof window === 'undefined') {
             return;
         }
-        const cached = window.localStorage.getItem(aiKeyStorageKey);
-        if (cached) {
-            setAiApiKey(cached);
+        if (!aiEnabled) {
+            return;
         }
-    }, []);
+        const cached = window.localStorage.getItem(aiKeyStorageKey);
+        setAiApiKey(cached ?? '');
+    }, [aiEnabled, aiKeyStorageKey]);
 
     useEffect(() => {
         if (typeof window === 'undefined') {
+            return;
+        }
+        if (!aiEnabled) {
             return;
         }
         if (aiApiKey.trim()) {
@@ -827,7 +919,45 @@ export default function ScoreEditor() {
         } else {
             window.localStorage.removeItem(aiKeyStorageKey);
         }
-    }, [aiApiKey]);
+    }, [aiApiKey, aiEnabled, aiKeyStorageKey]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+        if (!aiEnabled) {
+            return;
+        }
+        const cached = window.localStorage.getItem(aiModelStorageKey);
+        if (cached) {
+            setAiModel(cached);
+            return;
+        }
+        setAiModel(DEFAULT_MODEL_BY_PROVIDER[aiProvider] ?? '');
+    }, [aiEnabled, aiModelStorageKey, aiProvider]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+        if (!aiEnabled) {
+            return;
+        }
+        if (aiModel.trim()) {
+            window.localStorage.setItem(aiModelStorageKey, aiModel);
+        } else {
+            window.localStorage.removeItem(aiModelStorageKey);
+        }
+    }, [aiEnabled, aiModel, aiModelStorageKey]);
+
+    useEffect(() => {
+        if (aiEnabled) {
+            return;
+        }
+        if (xmlSidebarTab === 'assistant') {
+            setXmlSidebarTab('xml');
+        }
+    }, [aiEnabled, xmlSidebarTab]);
 
     useEffect(() => {
         if (!toolbarRef.current) {
@@ -1896,10 +2026,17 @@ ${partsBodyXml}
     }, [xmlSidebarTab, aiIncludeXml, xmlText, loadXmlFromScore]);
 
     useEffect(() => {
+        if (!aiEnabled) {
+            setAiModels([]);
+            setAiModelsError(null);
+            setAiModelsLoading(false);
+            return;
+        }
         const trimmedKey = aiApiKey.trim();
         if (!trimmedKey) {
             setAiModels([]);
             setAiModelsError(null);
+            setAiModelsLoading(false);
             return;
         }
         let canceled = false;
@@ -1907,34 +2044,111 @@ ${partsBodyXml}
         setAiModelsError(null);
         const loadModels = async () => {
             try {
-                const response = await fetch('/api/llm/openai/models', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ apiKey: trimmedKey }),
-                });
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(errorText || 'Failed to load models.');
+                let models: string[] = [];
+                if (aiProvider === 'openai') {
+                    const response = useLlmProxy
+                        ? await fetch(proxyUrlFor('/api/llm/openai/models'), {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ apiKey: trimmedKey }),
+                        })
+                        : await fetch('https://api.openai.com/v1/models', {
+                            headers: {
+                                Authorization: `Bearer ${trimmedKey}`,
+                                'Content-Type': 'application/json',
+                            },
+                        });
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(errorText || 'Failed to load models.');
+                    }
+                    const data = await response.json();
+                    models = Array.isArray(data?.models)
+                        ? data.models.filter((id: unknown) => typeof id === 'string')
+                        : Array.isArray(data?.data)
+                            ? data.data.map((item: any) => item?.id).filter((id: unknown) => typeof id === 'string')
+                            : [];
+                } else if (aiProvider === 'anthropic') {
+                    const response = useLlmProxy
+                        ? await fetch(proxyUrlFor('/api/llm/anthropic/models'), {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ apiKey: trimmedKey }),
+                        })
+                        : await fetch('https://api.anthropic.com/v1/models', {
+                            headers: {
+                                'x-api-key': trimmedKey,
+                                'anthropic-version': ANTHROPIC_VERSION,
+                                'Content-Type': 'application/json',
+                            },
+                        });
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(errorText || 'Failed to load models.');
+                    }
+                    const data = await response.json();
+                    models = Array.isArray(data?.models)
+                        ? data.models.map((item: any) => item?.id).filter((id: unknown) => typeof id === 'string')
+                        : Array.isArray(data?.data)
+                            ? data.data.map((item: any) => item?.id).filter((id: unknown) => typeof id === 'string')
+                            : [];
+                } else if (aiProvider === 'gemini') {
+                    const response = useLlmProxy
+                        ? await fetch(proxyUrlFor('/api/llm/gemini/models'), {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ apiKey: trimmedKey }),
+                        })
+                        : await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'x-goog-api-key': trimmedKey,
+                            },
+                        });
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(errorText || 'Failed to load models.');
+                    }
+                    const data = await response.json();
+                    const rawModels = Array.isArray(data?.models) ? data.models : [];
+                    const filtered = rawModels.filter((item: any) => {
+                        const methods = Array.isArray(item?.supportedGenerationMethods)
+                            ? item.supportedGenerationMethods
+                            : [];
+                        return methods.length === 0 || methods.includes('generateContent');
+                    });
+                    const ids: string[] = [];
+                    for (const item of filtered) {
+                        if (typeof item?.baseModelId === 'string') {
+                            ids.push(item.baseModelId);
+                        }
+                        if (typeof item?.name === 'string') {
+                            ids.push(item.name.replace(/^models\//, ''));
+                        }
+                    }
+                    models = ids.filter((id) => typeof id === 'string');
                 }
-                const data = await response.json();
-                const models = Array.isArray(data?.models)
-                    ? data.models.filter((id: unknown) => typeof id === 'string')
-                    : [];
+
                 if (canceled) {
                     return;
                 }
-                const filtered = models.filter((id: string) => /^gpt-|^o/.test(id));
+                const filtered = aiProvider === 'openai'
+                    ? models.filter((id: string) => /^gpt-|^o/.test(id))
+                    : models;
                 const sorted = [...new Set(filtered.length ? filtered : models)].sort();
                 setAiModels(sorted);
                 if (!aiModel || !sorted.includes(aiModel)) {
-                    const preferred = sorted.find((id: string) => id === 'gpt-5.2') || sorted[0] || '';
+                    const preferred = sorted.find((id: string) => id === DEFAULT_MODEL_BY_PROVIDER[aiProvider])
+                        || sorted[0]
+                        || DEFAULT_MODEL_BY_PROVIDER[aiProvider]
+                        || '';
                     setAiModel(preferred);
                 }
             } catch (err) {
                 if (!canceled) {
-                    console.error('Failed to load OpenAI models', err);
+                    console.error(`Failed to load ${AI_PROVIDER_LABELS[aiProvider]} models`, err);
                     setAiModels([]);
-                    setAiModelsError('Failed to load models. Check your API key.');
+                    setAiModelsError('Failed to load models. Check your API key or enter a model manually.');
                 }
             } finally {
                 if (!canceled) {
@@ -1946,7 +2160,7 @@ ${partsBodyXml}
         return () => {
             canceled = true;
         };
-    }, [aiApiKey, aiModel]);
+    }, [aiApiKey, aiModel, aiEnabled, aiProvider, useLlmProxy, proxyUrlFor]);
 
     useEffect(() => {
         if (!newScoreDialogOpen) {
@@ -3430,9 +3644,164 @@ ${partsBodyXml}
         }
     };
 
+    const requestAiText = async (payload: {
+        provider: AiProvider;
+        apiKey: string;
+        model: string;
+        prompt: string;
+        xml: string;
+        maxTokens: number | null;
+    }) => {
+        const { provider, apiKey, model, prompt, xml, maxTokens } = payload;
+        const systemPrompt = 'You are a MusicXML editor. Return only a JSON patch payload (musicxml-patch@1), no markdown or commentary.';
+        const userPrompt = buildAiPrompt(prompt, xml);
+
+        if (useLlmProxy) {
+            const response = await fetch(proxyUrlFor(`/api/llm/${provider}`), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    apiKey,
+                    model,
+                    prompt,
+                    xml,
+                    maxTokens: maxTokens ?? undefined,
+                }),
+            });
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText || 'Request failed.');
+            }
+            const data = await response.json();
+            return typeof data?.text === 'string' ? data.text : '';
+        }
+
+        if (provider === 'openai') {
+            const responsePayload: Record<string, unknown> = {
+                model,
+                instructions: systemPrompt,
+                input: userPrompt,
+                temperature: 0,
+            };
+            if (maxTokens) {
+                responsePayload.max_output_tokens = maxTokens;
+            }
+
+            const response = await fetch('https://api.openai.com/v1/responses', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${apiKey}`,
+                },
+                body: JSON.stringify(responsePayload),
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                const fallbackPayload: Record<string, unknown> = {
+                    model,
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userPrompt },
+                    ],
+                    temperature: 0,
+                };
+                if (maxTokens) {
+                    fallbackPayload.max_tokens = maxTokens;
+                }
+                const fallbackResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${apiKey}`,
+                    },
+                    body: JSON.stringify(fallbackPayload),
+                });
+                if (!fallbackResponse.ok) {
+                    const fallbackError = await fallbackResponse.text();
+                    throw new Error(fallbackError || errorText || 'OpenAI request failed.');
+                }
+                const fallbackData = await fallbackResponse.json();
+                return parseOpenAiChatCompletionsText(fallbackData);
+            }
+
+            const data = await response.json();
+            return parseOpenAiResponsesText(data);
+        }
+
+        if (provider === 'anthropic') {
+            const responsePayload: Record<string, unknown> = {
+                model,
+                max_tokens: maxTokens ?? DEFAULT_MAX_TOKENS_BY_PROVIDER.anthropic,
+                temperature: 0,
+                system: systemPrompt,
+                messages: [
+                    { role: 'user', content: userPrompt },
+                ],
+            };
+
+            const response = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': apiKey,
+                    'anthropic-version': ANTHROPIC_VERSION,
+                },
+                body: JSON.stringify(responsePayload),
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText || 'Anthropic request failed.');
+            }
+            const data = await response.json();
+            return parseAnthropicText(data);
+        }
+
+        const normalizedModel = normalizeGeminiModel(model);
+        if (!normalizedModel) {
+            throw new Error('Missing Gemini model.');
+        }
+        const geminiPayload: Record<string, unknown> = {
+            systemInstruction: {
+                parts: [{ text: systemPrompt }],
+            },
+            contents: [
+                {
+                    role: 'user',
+                    parts: [{ text: userPrompt }],
+                },
+            ],
+            generationConfig: {
+                temperature: 0,
+            },
+        };
+        if (maxTokens) {
+            (geminiPayload.generationConfig as Record<string, unknown>).maxOutputTokens = maxTokens;
+        }
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${normalizedModel}:generateContent`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': apiKey,
+            },
+            body: JSON.stringify(geminiPayload),
+        });
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || 'Gemini request failed.');
+        }
+        const data = await response.json();
+        return parseGeminiText(data);
+    };
+
     const handleAiRequest = async () => {
+        if (!aiEnabled) {
+            alert('AI features are disabled.');
+            return;
+        }
         if (!aiApiKey.trim()) {
-            alert('Enter your OpenAI API key.');
+            alert(`Enter your ${AI_PROVIDER_LABELS[aiProvider]} API key.`);
             return;
         }
         if (!aiPrompt.trim()) {
@@ -3460,26 +3829,15 @@ ${partsBodyXml}
                 return;
             }
             const baseXml = aiIncludeXml ? xmlContext : await resolveXmlContext();
-            const payload: Record<string, unknown> = {
+            const maxTokens = aiMaxTokensMode === 'custom' ? aiMaxTokens : null;
+            const rawText = await requestAiText({
+                provider: aiProvider,
                 apiKey: aiApiKey,
                 model: aiModel,
                 prompt: aiPrompt,
                 xml: aiIncludeXml ? xmlContext : '',
-            };
-            if (aiMaxTokensMode === 'custom') {
-                payload.maxTokens = aiMaxTokens;
-            }
-            const response = await fetch('/api/llm/openai', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
+                maxTokens,
             });
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(errorText || 'Request failed.');
-            }
-            const data = await response.json();
-            const rawText = typeof data?.text === 'string' ? data.text : '';
             const extracted = extractJsonFromResponse(rawText);
             if (!extracted) {
                 setAiError('No patch was returned by the model.');
@@ -6101,6 +6459,22 @@ ${partsBodyXml}
                 ? { valid: true, message: `${aiPatch.ops.length} ops ready` }
                 : { valid: false, message: 'AI output is not a valid patch.' }
         : { valid: true, message: '' };
+    const aiModelHint = useMemo(() => {
+        const trimmed = aiModel.trim();
+        if (!trimmed) {
+            return null;
+        }
+        if (aiProvider === 'openai' && !/^gpt-|^o/.test(trimmed)) {
+            return 'OpenAI model names usually start with gpt- or o- (still allowed).';
+        }
+        if (aiProvider === 'anthropic' && !/^claude-/.test(trimmed)) {
+            return 'Claude model names usually start with claude- (still allowed).';
+        }
+        if (aiProvider === 'gemini' && !/^gemini-/.test(trimmed) && !trimmed.includes('/')) {
+            return 'Gemini models usually start with gemini- (still allowed).';
+        }
+        return null;
+    }, [aiModel, aiProvider]);
     const aiApplyDisabled = xmlControlsDisabled || !aiPatchedXml.trim() || Boolean(aiPatchError);
 
     return (
@@ -6664,18 +7038,20 @@ ${partsBodyXml}
                                     >
                                         XML
                                     </button>
-                                    <button
-                                        type="button"
-                                        data-testid="tab-ai"
-                                        onClick={() => setXmlSidebarTab('assistant')}
-                                        className={`rounded border px-2 py-1 ${
-                                            xmlSidebarTab === 'assistant'
-                                                ? 'border-gray-400 bg-gray-100 text-gray-900'
-                                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                                        }`}
-                                    >
-                                        Assistant
-                                    </button>
+                                    {aiEnabled && (
+                                        <button
+                                            type="button"
+                                            data-testid="tab-ai"
+                                            onClick={() => setXmlSidebarTab('assistant')}
+                                            className={`rounded border px-2 py-1 ${
+                                                xmlSidebarTab === 'assistant'
+                                                    ? 'border-gray-400 bg-gray-100 text-gray-900'
+                                                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                                            }`}
+                                        >
+                                            Assistant
+                                        </button>
+                                    )}
                                 </div>
                                 <div />
                             </div>
@@ -6734,35 +7110,64 @@ ${partsBodyXml}
                                 </div>
                             </>
                         )}
-                        {xmlSidebarTab === 'assistant' && (
+                        {xmlSidebarTab === 'assistant' && aiEnabled && (
                             <div className="mt-3 space-y-3 text-sm text-gray-700">
                                 <div>
                                     <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                        OpenAI Model
+                                        Provider
                                     </label>
                                     <select
-                                        value={aiModel}
-                                        onChange={(event) => setAiModel(event.target.value)}
+                                        value={aiProvider}
+                                        onChange={(event) => setAiProvider(event.target.value as AiProvider)}
                                         className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                                        disabled={!aiModels.length}
                                     >
-                                        {aiModelsLoading && <option>Loading models...</option>}
-                                        {!aiModelsLoading && !aiModels.length && <option>No models loaded</option>}
-                                        {aiModels.map((modelId) => (
-                                            <option key={modelId} value={modelId}>
-                                                {modelId}
+                                        {(Object.keys(AI_PROVIDER_LABELS) as AiProvider[]).map((provider) => (
+                                            <option key={provider} value={provider}>
+                                                {AI_PROVIDER_LABELS[provider]}
                                             </option>
                                         ))}
                                     </select>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                        Model
+                                    </label>
+                                    <input
+                                        list="ai-models"
+                                        value={aiModel}
+                                        onChange={(event) => setAiModel(event.target.value)}
+                                        className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                        placeholder="Enter model name"
+                                    />
+                                    <datalist id="ai-models">
+                                        {aiModels.map((modelId) => (
+                                            <option key={modelId} value={modelId} />
+                                        ))}
+                                    </datalist>
+                                    {aiModelsLoading && (
+                                        <div className="mt-1 text-[11px] text-gray-500">
+                                            Loading models...
+                                        </div>
+                                    )}
+                                    {!aiModelsLoading && !aiModels.length && !aiModelsError && (
+                                        <div className="mt-1 text-[11px] text-gray-500">
+                                            No models loaded. Enter a model name manually.
+                                        </div>
+                                    )}
                                     {aiModelsError && (
                                         <div className="mt-1 text-xs text-red-600">
                                             {aiModelsError}
                                         </div>
                                     )}
+                                    {aiModelHint && (
+                                        <div className="mt-1 text-[11px] text-amber-600">
+                                            {aiModelHint}
+                                        </div>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                        API Key
+                                        API Key ({AI_PROVIDER_LABELS[aiProvider]})
                                     </label>
                                     <input
                                         type="password"
@@ -6772,7 +7177,7 @@ ${partsBodyXml}
                                         placeholder="Paste your key"
                                     />
                                     <div className="mt-1 text-[11px] text-gray-500">
-                                        Stored locally in this browser.
+                                        Stored locally in this browser. Requests are sent directly unless a proxy is configured.
                                     </div>
                                 </div>
                                 <div className="flex items-center justify-between gap-2 text-xs text-gray-600">

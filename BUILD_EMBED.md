@@ -170,10 +170,13 @@ If you get OOM errors during build:
 
 ### API Routes Not Working in Export
 
-API routes that require server-side logic (like OpenAI integration) won't work in static export mode. The build automatically:
-- Disables OpenAI model loading in embed mode
+API routes that require server-side logic (like LLM integration) won't work in static export mode. The build:
 - Uses static JSON files for instrument templates/clefs
 - Disables features that require server-side processing
+
+LLM calls in embed builds must either:
+- Call providers directly from the browser (user supplies API key), or
+- Use an external proxy via `NEXT_PUBLIC_LLM_PROXY_URL`
 
 ### Soundfont Not Loading
 
