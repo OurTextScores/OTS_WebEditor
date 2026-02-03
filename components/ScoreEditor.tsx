@@ -147,7 +147,7 @@ const AI_PROVIDER_LABELS: Record<AiProvider, string> = {
 
 const DEFAULT_MODEL_BY_PROVIDER: Record<AiProvider, string> = {
     openai: 'gpt-5.2',
-    anthropic: 'claude-opus-4-1',
+    anthropic: 'claude-opus-4-5',
     gemini: 'gemini-3-pro-preview',
 };
 
@@ -478,6 +478,7 @@ export default function ScoreEditor() {
     const [aiPatch, setAiPatch] = useState<MusicXmlPatch | null>(null);
     const [aiPatchError, setAiPatchError] = useState<string | null>(null);
     const [aiPatchedXml, setAiPatchedXml] = useState('');
+    const [aiBaseXml, setAiBaseXml] = useState('');
     const [aiBusy, setAiBusy] = useState(false);
     const [aiError, setAiError] = useState<string | null>(null);
     const [aiModels, setAiModels] = useState<string[]>([]);
@@ -3795,6 +3796,35 @@ ${partsBodyXml}
         return parseGeminiText(data);
     };
 
+    const updateAiOutput = useCallback(async (nextText: string, baseXmlOverride?: string) => {
+        setAiOutput(nextText);
+        setAiPatch(null);
+        setAiPatchError(null);
+        setAiPatchedXml('');
+        if (!nextText.trim()) {
+            setAiPatchError('AI output is empty.');
+            return;
+        }
+        const parsed = parseMusicXmlPatch(nextText);
+        if (parsed.error || !parsed.patch) {
+            setAiPatchError(parsed.error || 'Invalid patch payload.');
+            return;
+        }
+        setAiPatch(parsed.patch);
+        const baseXml = baseXmlOverride ?? aiBaseXml ?? await resolveXmlContext();
+        if (!baseXml.trim()) {
+            setAiPatchError('Unable to apply patch without MusicXML.');
+            return;
+        }
+        const applied = applyMusicXmlPatch(baseXml, parsed.patch);
+        if (applied.error || !applied.xml.trim()) {
+            setAiPatchError(applied.error || 'Failed to apply patch to MusicXML.');
+            return;
+        }
+        setAiPatchError(null);
+        setAiPatchedXml(applied.xml);
+    }, [aiBaseXml, resolveXmlContext]);
+
     const handleAiRequest = async () => {
         if (!aiEnabled) {
             alert('AI features are disabled.');
@@ -3829,6 +3859,7 @@ ${partsBodyXml}
                 return;
             }
             const baseXml = aiIncludeXml ? xmlContext : await resolveXmlContext();
+            setAiBaseXml(baseXml);
             const maxTokens = aiMaxTokensMode === 'custom' ? aiMaxTokens : null;
             const rawText = await requestAiText({
                 provider: aiProvider,
@@ -3843,24 +3874,7 @@ ${partsBodyXml}
                 setAiError('No patch was returned by the model.');
                 return;
             }
-            setAiOutput(extracted);
-            const parsed = parseMusicXmlPatch(extracted);
-            if (parsed.error || !parsed.patch) {
-                setAiPatchError(parsed.error || 'Invalid patch payload.');
-                return;
-            }
-            setAiPatch(parsed.patch);
-            if (!baseXml.trim()) {
-                setAiPatchError('Unable to apply patch without MusicXML.');
-                return;
-            }
-            const applied = applyMusicXmlPatch(baseXml, parsed.patch);
-            if (applied.error || !applied.xml.trim()) {
-                setAiPatchError(applied.error || 'Failed to apply patch to MusicXML.');
-                return;
-            }
-            setAiPatchError(null);
-            setAiPatchedXml(applied.xml);
+            await updateAiOutput(extracted, baseXml);
         } catch (err) {
             console.error('AI request failed', err);
             setAiError('AI request failed. See console for details.');
@@ -6452,6 +6466,8 @@ ${partsBodyXml}
     const xmlApplyEnabled = !xmlControlsDisabled && xmlDirty;
     const xmlReloadEnabled = !xmlControlsDisabled && scoreDirtySinceXml;
     const xmlApplyDisabled = !xmlApplyEnabled;
+    const xmlEditorHeight = xmlSidebarMode === 'full' ? '55vh' : '45vh';
+    const xmlEditorMaxHeight = xmlSidebarMode === 'full' ? '65vh' : '55vh';
     const aiOutputValidation = aiOutput.trim()
         ? aiPatchError
             ? { valid: false, message: aiPatchError }
@@ -6476,6 +6492,8 @@ ${partsBodyXml}
         return null;
     }, [aiModel, aiProvider]);
     const aiApplyDisabled = xmlControlsDisabled || !aiPatchedXml.trim() || Boolean(aiPatchError);
+    const patchEditorHeight = '35vh';
+    const patchEditorMaxHeight = '45vh';
 
     return (
         <div className="flex flex-col h-screen">
@@ -6587,9 +6605,9 @@ ${partsBodyXml}
             <div className="flex flex-1 min-h-0">
                 {!isEmbedMode && (
                 <aside
-                    className={`shrink-0 border-r bg-white text-sm ${checkpointsCollapsed ? 'w-12' : 'w-72'} ${
-                        checkpointsCollapsed ? '' : 'overflow-y-auto'
-                    }`}
+                    className={`shrink-0 border-r bg-white text-sm ${
+                        xmlSidebarMode === 'full' ? 'hidden' : checkpointsCollapsed ? 'w-12' : 'w-72'
+                    } ${checkpointsCollapsed ? '' : 'overflow-y-auto'}`}
                     data-testid="checkpoint-sidebar"
                 >
                     <div className={checkpointsCollapsed ? 'flex items-center justify-center p-2' : 'flex items-center justify-between p-4'}>
@@ -6810,7 +6828,7 @@ ${partsBodyXml}
 
                 <div
                     ref={scrollContainerRef}
-                    className="relative z-0 flex-1 overflow-auto bg-gray-50 p-8"
+                    className={`relative z-0 flex-1 overflow-auto bg-gray-50 p-8 ${xmlSidebarMode === 'full' ? 'hidden' : ''}`}
                 >
                 {loading && (
                     <div className="flex items-center justify-center h-full">
@@ -6981,7 +6999,11 @@ ${partsBodyXml}
 
             <aside
                 className={`shrink-0 border-l bg-white text-sm ${
-                    xmlSidebarMode === 'closed' ? 'w-12' : xmlSidebarMode === 'full' ? 'w-full' : 'w-80'
+                    xmlSidebarMode === 'closed'
+                        ? 'w-12'
+                        : xmlSidebarMode === 'full'
+                            ? 'flex-1 w-full max-w-full'
+                            : 'w-80'
                 } ${xmlSidebarMode === 'closed' ? '' : 'overflow-y-auto'}`}
                 data-testid="xml-sidebar"
             >
@@ -7106,6 +7128,9 @@ ${partsBodyXml}
                                         }}
                                         readOnly={xmlControlsDisabled}
                                         placeholderText={score ? 'MusicXML will appear here.' : 'Load a score to view MusicXML.'}
+                                        language="xml"
+                                        height={xmlEditorHeight}
+                                        maxHeight={xmlEditorMaxHeight}
                                     />
                                 </div>
                             </>
@@ -7245,12 +7270,6 @@ ${partsBodyXml}
                                                 </span>
                                             )}
                                         </div>
-                                        <CodeMirrorEditor
-                                            value={aiOutput}
-                                            onChange={() => {}}
-                                            readOnly={true}
-                                            placeholderText="AI patch will appear here."
-                                        />
                                         <button
                                             type="button"
                                             onClick={handleApplyAiOutput}
@@ -7260,6 +7279,17 @@ ${partsBodyXml}
                                         >
                                             Apply Patch
                                         </button>
+                                        <CodeMirrorEditor
+                                            value={aiOutput}
+                                            onChange={(nextValue) => {
+                                                void updateAiOutput(nextValue);
+                                            }}
+                                            readOnly={false}
+                                            language="json"
+                                            placeholderText="AI patch will appear here."
+                                            height={patchEditorHeight}
+                                            maxHeight={patchEditorMaxHeight}
+                                        />
                                     </div>
                                 )}
                             </div>

@@ -6,6 +6,7 @@ import { Compartment, EditorState, type Extension } from '@codemirror/state';
 import { foldGutter, foldKeymap, syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language';
 import { linter, lintGutter, type Diagnostic } from '@codemirror/lint';
 import { xml } from '@codemirror/lang-xml';
+import { json } from '@codemirror/lang-json';
 import { basicSetup } from 'codemirror';
 
 type CodeMirrorEditorProps = {
@@ -15,11 +16,16 @@ type CodeMirrorEditorProps = {
     placeholderText?: string;
     testId?: string;
     className?: string;
+    language?: 'xml' | 'json' | 'none';
+    lint?: boolean;
+    height?: string;
+    maxHeight?: string;
 };
 
 const editorTheme = EditorView.theme({
     '&': {
-        height: '80vh',
+        height: 'var(--cm-height, 80vh)',
+        maxHeight: 'var(--cm-max-height, none)',
         backgroundColor: '#ffffff',
     },
     '&.cm-editor.cm-focused': {
@@ -101,6 +107,29 @@ const xmlDiagnostics = (text: string): Diagnostic[] => {
 
 const xmlLinter = linter((view) => xmlDiagnostics(view.state.doc.toString()));
 
+const jsonDiagnostics = (text: string): Diagnostic[] => {
+    if (!text.trim()) {
+        return [];
+    }
+    try {
+        JSON.parse(text);
+        return [];
+    } catch (err) {
+        const message = err instanceof Error ? err.message : 'Invalid JSON.';
+        const match = message.match(/position (\d+)/i);
+        const pos = match ? Number(match[1]) : 0;
+        const from = Number.isFinite(pos) ? Math.max(0, Math.min(pos, text.length)) : 0;
+        return [{
+            from,
+            to: Math.min(from + 1, text.length),
+            severity: 'error',
+            message,
+        }];
+    }
+};
+
+const jsonLinter = linter((view) => jsonDiagnostics(view.state.doc.toString()));
+
 export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     value,
     onChange,
@@ -108,6 +137,10 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     placeholderText,
     testId,
     className,
+    language = 'xml',
+    lint = true,
+    height,
+    maxHeight,
 }) => {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const viewRef = useRef<EditorView | null>(null);
@@ -130,6 +163,17 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
         if (readOnly) {
             extensions.push(readOnlyTheme);
         }
+        if (language === 'xml') {
+            extensions.push(xml());
+            if (lint) {
+                extensions.push(xmlLinter, lintGutter());
+            }
+        } else if (language === 'json') {
+            extensions.push(json());
+            if (lint) {
+                extensions.push(jsonLinter, lintGutter());
+            }
+        }
         return extensions;
     };
 
@@ -141,9 +185,6 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
             doc: value,
             extensions: [
                 basicSetup,
-                xml(),
-                xmlLinter,
-                lintGutter(),
                 foldGutter(),
                 keymap.of(foldKeymap),
                 syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
@@ -193,13 +234,17 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
         view.dispatch({
             effects: configCompartmentRef.current.reconfigure(buildConfigExtensions()),
         });
-    }, [readOnly, placeholderText]);
+    }, [readOnly, placeholderText, language, lint]);
 
     return (
         <div
             ref={containerRef}
             data-testid={testId}
             className={`w-full rounded border border-gray-300 ${className ?? ''}`}
+            style={{
+                '--cm-height': height ?? undefined,
+                '--cm-max-height': maxHeight ?? undefined,
+            } as React.CSSProperties}
         />
     );
 };

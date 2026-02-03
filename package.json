@@ -22,6 +22,7 @@
     "test:embed": "node test-embed/server.js"
   },
   "dependencies": {
+    "@codemirror/lang-json": "^6.0.2",
     "@codemirror/lang-xml": "^6.1.0",
     "@codemirror/language": "^6.12.1",
     "@codemirror/lint": "^6.8.4",
