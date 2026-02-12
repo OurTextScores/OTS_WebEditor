@@ -2831,10 +2831,51 @@ ${partsBodyXml}
             console.debug('[AUDIO] retrying soundfont load after previous failure');
         }
 
+        const buildSoundFontCandidates = (): string[] => {
+            const urls: string[] = [];
+            const seen = new Set<string>();
+            const add = (url: string) => {
+                if (!url || seen.has(url)) {
+                    return;
+                }
+                seen.add(url);
+                urls.push(url);
+            };
+
+            const cdnRaw = (process.env.NEXT_PUBLIC_SOUNDFONT_CDN_URL || '').trim();
+            if (cdnRaw) {
+                const cdn = cdnRaw.replace(/\/+$/, '');
+                const lower = cdn.toLowerCase();
+                const pointsToFile = lower.endsWith('.sf2') || lower.endsWith('.sf3');
+
+                if (pointsToFile) {
+                    add(cdn);
+                } else {
+                    // Support both:
+                    // 1) prefix style: .../MuseScore_General -> .../MuseScore_General.sf3
+                    // 2) directory style: .../soundfonts -> .../soundfonts/default.sf3
+                    add(`${cdn}.sf3`);
+                    add(`${cdn}.sf2`);
+                    add(`${cdn}/MuseScore_General.sf3`);
+                    add(`${cdn}/MuseScore_General.sf2`);
+                    add(`${cdn}/default.sf3`);
+                    add(`${cdn}/default.sf2`);
+                }
+            }
+
+            add('/soundfonts/MuseScore_General.sf3');
+            add('/soundfonts/MuseScore_General.sf2');
+            add('/soundfonts/default.sf3');
+            add('/soundfonts/default.sf2');
+
+            return urls;
+        };
+
         const loadPromise = (async () => {
             triedSoundFontRef.current = true;
             setTriedSoundFont(true);
-            const candidates = ['/soundfonts/default.sf3', '/soundfonts/default.sf2'];
+            const candidates = buildSoundFontCandidates();
+            console.debug('[AUDIO] soundfont candidates', { candidates });
             for (const url of candidates) {
                 try {
                     const res = await fetch(url);
@@ -5552,7 +5593,7 @@ ${partsBodyXml}
             setAudioBusy(true);
             const ok = await ensureSoundFontLoaded(undefined, { forceRetry: true });
             if (!ok) {
-                alert('No default soundfont found. Upload a .sf2/.sf3 soundfont or place one at /public/soundfonts/default.sf3 or /public/soundfonts/default.sf2.');
+                alert('No default soundfont found. Configure NEXT_PUBLIC_SOUNDFONT_CDN_URL or provide /public/soundfonts/default.sf3 (or .sf2).');
                 return;
             }
             const wav = await score.saveAudio('wav');
@@ -5729,7 +5770,7 @@ ${partsBodyXml}
             setAudioBusy(true);
             const ok = await ensureSoundFontLoaded(undefined, { forceRetry: true });
             if (!ok) {
-                alert('No default soundfont found. Upload a .sf2/.sf3 soundfont or place one at /public/soundfonts/default.sf3 or /public/soundfonts/default.sf2.');
+                alert('No default soundfont found. Configure NEXT_PUBLIC_SOUNDFONT_CDN_URL or provide /public/soundfonts/default.sf3 (or .sf2).');
                 return;
             }
             await stopAudio({ awaitCancel: true });
