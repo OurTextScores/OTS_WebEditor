@@ -112,7 +112,7 @@ class WebMscoreW {
      * Communicate with the worker thread with JSON-RPC
      * @private
      * @typedef {{ id: number; result?: any; error?: any; }} RPCRes
-     * @param {keyof import('./index').default | '_synthAudio' | 'processSynth' | 'processSynthBatch' | 'load' | 'ready' | 'setLogLevel'} method 
+     * @param {keyof import('./index').default | '_synthAudio' | '_synthAudioFromSelection' | '_synthAudioSelectionPreview' | 'processSynth' | 'processSynthBatch' | 'load' | 'ready' | 'setLogLevel'} method 
      * @param {any[]} params 
      * @param {Transferable[]} transfer
      */
@@ -471,6 +471,31 @@ class WebMscoreW {
      */
     async synthAudioBatch(starttime, batchSize) {
         const fnptr = await this.rpc('_synthAudio', [starttime])
+        return (cancel) => {
+            return this.rpc('processSynthBatch', [fnptr, batchSize, cancel])
+        }
+    }
+
+    /**
+     * Synthesize audio frames from the current cursor/selection playback position.
+     * @param {number} batchSize - max number of result SynthRes' (n * 512 frames)
+     * @returns {Promise<(cancel?: boolean) => Promise<import('../schemas').SynthRes[]>>}
+     */
+    async synthAudioBatchFromSelection(batchSize) {
+        const fnptr = await this.rpc('_synthAudioFromSelection')
+        return (cancel) => {
+            return this.rpc('processSynthBatch', [fnptr, batchSize, cancel])
+        }
+    }
+
+    /**
+     * Synthesize a short isolated preview for the current selection (note/chord).
+     * @param {number} batchSize - max number of result SynthRes' (n * 512 frames)
+     * @param {number} durationMs - preview duration in milliseconds
+     * @returns {Promise<(cancel?: boolean) => Promise<import('../schemas').SynthRes[]>>}
+     */
+    async synthSelectionPreviewBatch(batchSize, durationMs = 500) {
+        const fnptr = await this.rpc('_synthAudioSelectionPreview', [durationMs])
         return (cancel) => {
             return this.rpc('processSynthBatch', [fnptr, batchSize, cancel])
         }

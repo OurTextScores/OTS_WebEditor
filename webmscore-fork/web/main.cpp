@@ -1,5 +1,6 @@
 #include <emscripten/emscripten.h>
 #include <algorithm>
+#include <optional>
 #include <set>
 #include <string>
 #include <vector>
@@ -12,6 +13,7 @@
 #include <QTemporaryFile>
 #include "global/log.h"
 #include "global/defer.h"
+#include "global/async/processevents.h"
 #include "global/io/buffer.h"
 
 #include "modularity/ioc.h"
@@ -44,6 +46,7 @@
 #include "converter/internal/compat/notationmeta.h"
 #include "notation/internal/notation.h"
 #include "notation/internal/mscnotationwriter.h"
+#include "playback/iplaybackcontroller.h"
 #include "engraving/libmscore/chord.h"
 #include "engraving/libmscore/editdata.h"
 #include "engraving/libmscore/instrtemplate.h"
@@ -54,6 +57,7 @@
 #include "engraving/libmscore/page.h"
 #include "engraving/libmscore/measurebase.h"
 #include "engraving/libmscore/measure.h"
+#include "engraving/libmscore/repeatlist.h"
 #include "engraving/libmscore/undo.h"
 #include "engraving/libmscore/factory.h"
 #include "engraving/libmscore/tempotext.h"
@@ -149,6 +153,7 @@ void _init(int argc, char** argv) {
     char* forcedArgv[] = { arg0, arg1, arg2, nullptr };
     int forcedArgc = 3;
     new QGuiApplication(forcedArgc, forcedArgv);
+    printf("[WASM BUILD] audition-sequence-fix-v3\n");
     (void)argc;
     (void)argv;
 
@@ -1971,6 +1976,24 @@ static engraving::EngravingItem* pickTopmostTextItem(std::vector<engraving::Engr
     return nullptr;
 }
 
+static engraving::EngravingItem* pickTopmostSelectableItem(std::vector<engraving::EngravingItem*>& items)
+{
+    if (items.empty()) {
+        return nullptr;
+    }
+
+    std::sort(items.begin(), items.end(), elementLower);
+    for (auto it = items.rbegin(); it != items.rend(); ++it) {
+        engraving::EngravingItem* item = *it;
+        if (!item || item->isPage() || !item->selectable()) {
+            continue;
+        }
+        return item;
+    }
+
+    return nullptr;
+}
+
 bool _selectTextElementAtPoint(uintptr_t score_ptr, int pageNumber, double x, double y, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
@@ -2015,17 +2038,18 @@ bool _selectElementAtPoint(uintptr_t score_ptr, int pageNumber, double x, double
         return false;
     }
 
-    std::sort(items.begin(), items.end(), elementLower);
-    engraving::EngravingItem* target = items.front();
-
-    // Skip page frames
-    if (target && target->isPage()) {
-        target = items.size() > 1 ? items.at(1) : nullptr;
-    }
+    engraving::EngravingItem* target = pickTopmostSelectableItem(items);
 
     if (!target) {
         return false;
     }
+
+    printf("[WASM SELECT] page=%d x=%.2f y=%.2f type=%d tick=%d\n",
+           pageNumber,
+           x,
+           y,
+           static_cast<int>(target->type()),
+           target->tick().ticks());
 
 
     bool manuallySetRange = false;
@@ -2273,13 +2297,7 @@ bool _selectElementAtPointWithMode(uintptr_t score_ptr, int pageNumber, double x
         return false;
     }
 
-    std::sort(items.begin(), items.end(), elementLower);
-    engraving::EngravingItem* target = items.front();
-
-    // Skip page frames
-    if (target && target->isPage()) {
-        target = items.size() > 1 ? items.at(1) : nullptr;
-    }
+    engraving::EngravingItem* target = pickTopmostSelectableItem(items);
 
     if (!target) {
         return false;
@@ -2360,12 +2378,231 @@ bool _extendSelectionPrevChord(uintptr_t score_ptr, int excerptId)
     return false;
 }
 
+static engraving::EngravingItem* resolvePrimarySelectionElement(engraving::Score* score)
+{
+    if (!score) {
+        return nullptr;
+    }
+
+    auto& selection = score->selection();
+    if (auto* selected = selection.element()) {
+        return selected;
+    }
+
+    if (auto* activeCr = selection.activeCR()) {
+        return activeCr;
+    }
+
+    if (auto* currentCr = selection.currentCR()) {
+        return currentCr;
+    }
+
+    if (auto* firstCr = selection.firstChordRest()) {
+        return firstCr;
+    }
+
+    if (!selection.elements().empty()) {
+        // Prefer the most recently-added list-selection element over the first one.
+        // Using front() can pin audition to an older element when list selection grows.
+        return selection.elements().back();
+    }
+
+    return nullptr;
+}
+
+static engraving::EngravingItem* resolvePreviewPlayableElement(engraving::EngravingItem* selected)
+{
+    if (!selected) {
+        return nullptr;
+    }
+
+    if (selected->isNote() || selected->isChord() || selected->isHarmony()) {
+        return selected;
+    }
+
+    if (auto* chord = selected->findAncestor(mu::engraving::ElementType::CHORD)) {
+        return chord;
+    }
+
+    if (auto* note = selected->findAncestor(mu::engraving::ElementType::NOTE)) {
+        return note;
+    }
+
+    if (auto* harmony = selected->findAncestor(mu::engraving::ElementType::HARMONY)) {
+        return harmony;
+    }
+
+    return nullptr;
+}
+
+static std::optional<midi::tick_t> resolveSelectionRawTick(engraving::MasterScore* score)
+{
+    if (!score) {
+        return std::nullopt;
+    }
+
+    const auto& selection = score->selection();
+    if (selection.isRange()) {
+        if (auto* start = selection.startSegment()) {
+            return start->tick().ticks();
+        }
+    }
+
+    if (auto* cr = selection.activeCR()) {
+        return cr->tick().ticks();
+    }
+
+    if (auto* cr = selection.currentCR()) {
+        return cr->tick().ticks();
+    }
+
+    if (auto* firstCr = selection.firstChordRest()) {
+        return firstCr->tick().ticks();
+    }
+
+    if (auto* el = resolvePrimarySelectionElement(score)) {
+        if (el->isSegment()) {
+            return el->tick().ticks();
+        }
+        if (auto* seg = el->findAncestor(mu::engraving::ElementType::SEGMENT)) {
+            return seg->tick().ticks();
+        }
+        return el->tick().ticks();
+    }
+
+    if (auto* firstMeasure = score->firstMeasure()) {
+        return firstMeasure->tick().ticks();
+    }
+
+    return 0;
+}
+
+static float selectionPlaybackStartTime(engraving::MasterScore* score)
+{
+    const auto rawTick = resolveSelectionRawTick(score);
+    if (!rawTick.has_value()) {
+        return 0.f;
+    }
+
+    const midi::tick_t playedTick = score->repeatList().tick2utick(rawTick.value());
+    return static_cast<float>(score->utick2utime(playedTick));
+}
+
+static bool waitForPlaybackReady(playback::IPlaybackController* playbackController, int maxPumps = 400)
+{
+    if (!playbackController) {
+        return false;
+    }
+
+    for (int i = 0; i < maxPumps; ++i) {
+        const bool hasSequence = playbackController->currentTrackSequenceId() != -1;
+        const bool hasTracks = !playbackController->instrumentTrackIdMap().empty();
+        if (hasSequence && hasTracks) {
+            if (i > 0) {
+                LOGI() << "waitForPlaybackReady: ready after " << i << " processEvents() pumps";
+            }
+            return true;
+        }
+        mu::async::processEvents();
+    }
+
+    LOGW() << "waitForPlaybackReady: timed out waiting for sequence/tracks";
+    return false;
+}
+
+bool _triggerSelectionPreview(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    const auto& selection = score->selection();
+    LOGI() << "triggerSelectionPreview: sel state=" << static_cast<int>(selection.state())
+           << " isSingle=" << selection.isSingle()
+           << " isRange=" << selection.isRange()
+           << " isList=" << selection.isList()
+           << " size=" << selection.elements().size();
+
+    auto* selected = resolvePreviewPlayableElement(resolvePrimarySelectionElement(score));
+
+    if (!selected) {
+        for (auto it = selection.elements().rbegin(); it != selection.elements().rend(); ++it) {
+            selected = resolvePreviewPlayableElement(*it);
+            if (selected) {
+                break;
+            }
+        }
+    }
+
+    if (!selected) {
+        selected = resolvePreviewPlayableElement(score->selection().activeCR());
+    }
+
+    if (!selected) {
+        selected = resolvePreviewPlayableElement(score->selection().currentCR());
+    }
+
+    if (!selected) {
+        selected = resolvePreviewPlayableElement(score->selection().firstChordRest());
+    }
+
+    if (!selected) {
+        LOGW() << "triggerSelectionPreview: no playable selection found";
+        printf("[WASM PREVIEW] no playable selection\n");
+        return false;
+    }
+
+    printf("[WASM PREVIEW] type=%d tick=%d\n",
+           static_cast<int>(selected->type()),
+           selected->tick().ticks());
+
+    LOGI() << "triggerSelectionPreview: selected type=" << static_cast<int>(selected->type())
+           << " tick=" << selected->tick().ticks();
+
+    auto playbackController = modularity::ioc()->resolve<playback::IPlaybackController>("");
+    if (!playbackController) {
+        LOGW() << "triggerSelectionPreview: playback controller unavailable";
+        return false;
+    }
+
+    waitForPlaybackReady(playbackController.get());
+    playbackController->reset();
+    mu::async::processEvents();
+
+    const std::vector<const notation::EngravingItem*> elements { selected };
+    playbackController->playElements(elements);
+    mu::async::processEvents();
+    mu::async::processEvents();
+    return true;
+}
+
+float _selectionPlaybackStartTime(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    return selectionPlaybackStartTime(score);
+}
+
+uintptr_t _synthAudioFromSelection(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    const float starttime = selectionPlaybackStartTime(score);
+    return MainAudio::Synth::start(score, starttime);
+}
+
+uintptr_t _synthAudioSelectionPreview(uintptr_t score_ptr, float durationSeconds, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    LOGI() << "synthAudioSelectionPreview: requested durationSeconds=" << durationSeconds;
+    if (!_triggerSelectionPreview(score_ptr, excerptId)) {
+        LOGW() << "synthAudioSelectionPreview: preview trigger failed";
+        return 0;
+    }
+
+    const uintptr_t synth = MainAudio::Synth::startPreview(score, durationSeconds);
+    LOGI() << "synthAudioSelectionPreview: synth iterator created";
+    return synth;
+}
+
 WasmRes _getSelectionBoundingBox(uintptr_t score_ptr, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
-
-    // Debug: log selection state
-    const auto& sel = score->selection();
 
     // Try multiple ways to get the selected element
     mu::engraving::EngravingItem* el = score->selection().element();
@@ -4763,6 +5000,21 @@ extern "C" {
     uintptr_t synthAudio(uintptr_t score_ptr, float starttime, int excerptId = -1) {
         MainScore score(score_ptr, excerptId);
         return MainAudio::Synth::start(score, starttime);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    uintptr_t synthAudioFromSelection(uintptr_t score_ptr, int excerptId = -1) {
+        return _synthAudioFromSelection(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    uintptr_t synthAudioSelectionPreview(uintptr_t score_ptr, float durationSeconds, int excerptId = -1) {
+        return _synthAudioSelectionPreview(score_ptr, durationSeconds, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    float selectionPlaybackStartTime(uintptr_t score_ptr, int excerptId = -1) {
+        return _selectionPlaybackStartTime(score_ptr, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE

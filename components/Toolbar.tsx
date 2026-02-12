@@ -82,6 +82,7 @@ interface ToolbarProps {
     pngAvailable?: boolean;
     audioAvailable?: boolean;
     onPlayAudio?: () => void;
+    onPlayFromSelectionAudio?: () => void;
     onStopAudio?: () => void;
     isPlaying?: boolean;
 	audioBusy?: boolean;
@@ -230,6 +231,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     pngAvailable = false,
     audioAvailable = false,
     onPlayAudio,
+    onPlayFromSelectionAudio,
     onStopAudio,
     isPlaying = false,
 	audioBusy = false,
@@ -765,9 +767,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             {audioBusy ? 'Working…' : isPlaying ? 'Replay' : 'Play'}
                         </Button>
                         <Button
+                            data-testid="btn-play-from-selection"
+                            onClick={onPlayFromSelectionAudio}
+                            disabled={!audioAvailable || !onPlayFromSelectionAudio || !selectionActive || audioBusy}
+                            variant="secondary"
+                            size="sm"
+                        >
+                            From Selection
+                        </Button>
+                        <Button
                             data-testid="btn-stop"
                             onClick={onStopAudio}
-                            disabled={!audioAvailable || !onStopAudio || audioBusy}
+                            disabled={!audioAvailable || !onStopAudio}
                             variant="secondary"
                             size="sm"
                         >

@@ -106,7 +106,8 @@ describe('ScoreEditor', () => {
 
     await screen.findByTestId('selection-overlay');
 
-    await user.click(screen.getByTestId('btn-clef-0'));
+    await user.click(screen.getByTestId('dropdown-clef'));
+    await user.click(await screen.findByTestId('btn-clef-0'));
 
     await waitFor(() => expect(score.setClef).toHaveBeenCalledWith(0));
     expect(score.relayout).toHaveBeenCalled();
@@ -170,6 +171,7 @@ describe('ScoreEditor', () => {
     await user.upload(screen.getByTestId('open-score-input'), file);
 
     await waitFor(() => expect(score.setSoundFont).toHaveBeenCalled());
+    await user.click(screen.getByTestId('dropdown-export'));
     await waitFor(() => expect(screen.getByTestId('btn-export-audio')).toBeEnabled());
   });
 
@@ -227,12 +229,18 @@ describe('ScoreEditor', () => {
     await user.click(screen.getByTestId('btn-pitch-up'));
     await user.click(screen.getByTestId('btn-transpose-12'));
     await user.click(screen.getByTestId('btn-duration-longer'));
-    fireEvent.click(screen.getByTestId('btn-dot'));
-    fireEvent.click(screen.getByTestId('btn-voice-2'));
-    fireEvent.click(screen.getByTestId('btn-acc-3'));
-    fireEvent.click(screen.getByTestId('btn-dynamic-6'));
-    fireEvent.click(screen.getByTestId('btn-timesig-3-4'));
-    fireEvent.click(screen.getByTestId('btn-keysig-0'));
+    await user.click(screen.getByTestId('dropdown-rhythm'));
+    await user.click(await screen.findByTestId('btn-dot'));
+    await user.click(screen.getByTestId('dropdown-voice'));
+    await user.click(await screen.findByTestId('btn-voice-2'));
+    await user.click(screen.getByTestId('dropdown-accidental'));
+    await user.click(await screen.findByTestId('btn-acc-3'));
+    await user.click(screen.getByTestId('dropdown-markings'));
+    await user.click(await screen.findByTestId('btn-dynamic-6'));
+    await user.click(screen.getByTestId('dropdown-signature'));
+    await user.click(await screen.findByTestId('btn-timesig-4-4'));
+    await user.click(screen.getByTestId('dropdown-key'));
+    await user.click(await screen.findByTestId('btn-keysig-0'));
 
     await waitFor(() => expect(score.pitchUp).toHaveBeenCalled());
     await waitFor(() => expect(score.transpose).toHaveBeenCalledWith(12));
@@ -241,13 +249,14 @@ describe('ScoreEditor', () => {
     await waitFor(() => expect(score.toggleDot).toHaveBeenCalled());
     await waitFor(() => expect(score.changeSelectedElementsVoice).toHaveBeenCalledWith(1));
     await waitFor(() => expect(score.addDynamic).toHaveBeenCalledWith(6));
-    await waitFor(() => expect(score.setTimeSignature).toHaveBeenCalledWith(3, 4));
+    await waitFor(() => expect(score.setTimeSignature).toHaveBeenCalledWith(4, 4));
     await waitFor(() => expect(score.setKeySignature).toHaveBeenCalledWith(0));
 
-    fireEvent.click(screen.getByTestId('btn-export-svg'));
+    await user.click(screen.getByTestId('dropdown-export'));
+    await user.click(await screen.findByTestId('btn-export-svg'));
     await waitFor(() => expect(score.saveSvg).toHaveBeenCalled());
     await waitFor(() => expect((globalThis as any).URL.createObjectURL).toHaveBeenCalled());
-  });
+  }, 15000);
 
   it('auto-loads a score from the URL query param', async () => {
     scoreParamValue = '/test_scores/demo.musicxml';
@@ -377,11 +386,16 @@ describe('ScoreEditor', () => {
 
     await waitFor(() => expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy());
 
-    fireEvent.click(screen.getByTestId('btn-export-pdf'));
-    fireEvent.click(screen.getByTestId('btn-export-png'));
-    fireEvent.click(screen.getByTestId('btn-export-mxl'));
-    fireEvent.click(screen.getByTestId('btn-export-mscz'));
-    fireEvent.click(screen.getByTestId('btn-export-midi'));
+    await user.click(screen.getByTestId('dropdown-export'));
+    await user.click(await screen.findByTestId('btn-export-pdf'));
+    await user.click(screen.getByTestId('dropdown-export'));
+    await user.click(await screen.findByTestId('btn-export-png'));
+    await user.click(screen.getByTestId('dropdown-export'));
+    await user.click(await screen.findByTestId('btn-export-mxl'));
+    await user.click(screen.getByTestId('dropdown-export'));
+    await user.click(await screen.findByTestId('btn-export-mscz'));
+    await user.click(screen.getByTestId('dropdown-export'));
+    await user.click(await screen.findByTestId('btn-export-midi'));
 
     await waitFor(() => expect(score.savePdf).toHaveBeenCalled());
     await waitFor(() => expect(score.savePng).toHaveBeenCalledWith(0, true, true));
@@ -568,13 +582,16 @@ describe('ScoreEditor', () => {
 
     await waitFor(() => expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy());
 
-    await user.click(screen.getByTestId('btn-export-mxl'));
+    await user.click(screen.getByTestId('dropdown-export'));
+    await user.click(await screen.findByTestId('btn-export-mxl'));
     expect((globalThis as any).alert).toHaveBeenCalledWith('MXL export is not available in this build.');
 
-    await user.click(screen.getByTestId('btn-export-mscz'));
+    await user.click(screen.getByTestId('dropdown-export'));
+    await user.click(await screen.findByTestId('btn-export-mscz'));
     expect((globalThis as any).alert).toHaveBeenCalledWith('MSCZ export is not available in this build.');
 
-    await user.click(screen.getByTestId('btn-export-midi'));
+    await user.click(screen.getByTestId('dropdown-export'));
+    await user.click(await screen.findByTestId('btn-export-midi'));
     expect((globalThis as any).alert).toHaveBeenCalledWith('MIDI export is not available in this build.');
   });
 
@@ -752,6 +769,163 @@ describe('ScoreEditor', () => {
     await waitFor(() => expect(screen.getByTestId('btn-play')).toHaveTextContent('Play'));
     expect(batchFn).toHaveBeenCalledWith(true);
     expect(createdSources[0].stop).toHaveBeenCalled();
+  });
+
+  it('plays transport from selection when the dedicated streaming binding is available', async () => {
+    const user = userEvent.setup();
+
+    const floatChunk = new Float32Array(512);
+    const chunkBytes = new Uint8Array(floatChunk.buffer);
+    const fromSelectionBatchFn = vi.fn(async (cancel?: boolean) => {
+      if (cancel) return [];
+      return [
+        {
+          chunk: chunkBytes,
+          startTime: 0,
+          done: true,
+        },
+      ];
+    });
+
+    const score: any = {
+      destroy: vi.fn(),
+      saveSvg: vi.fn(async () => '<svg><g class="Note"></g></svg>'),
+      saveAudio: vi.fn(async () => new Uint8Array([0])),
+      setSoundFont: vi.fn(async () => {}),
+      synthAudioBatchFromSelection: vi.fn(async () => fromSelectionBatchFn),
+      selectElementAtPoint: vi.fn(async () => true),
+      metadata: vi.fn(async () => ({})),
+      measurePositions: vi.fn(async () => ({})),
+      segmentPositions: vi.fn(async () => ({})),
+    };
+
+    const webmscore: any = {
+      ready: Promise.resolve(),
+      load: vi.fn(async () => score),
+    };
+
+    mocked.loadWebMscore.mockResolvedValue(webmscore);
+    (globalThis as any).fetch = vi.fn(async () => ({
+      ok: true,
+      arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+    }));
+
+    class MockAudioContext {
+      state: 'running' | 'suspended' = 'suspended';
+      currentTime = 0;
+      sampleRate = 44100;
+      destination = {};
+      resume = vi.fn(async () => {
+        this.state = 'running';
+      });
+      createBuffer = vi.fn(() => ({
+        copyToChannel: vi.fn(),
+      }));
+      createBufferSource = vi.fn(() => ({
+        buffer: null as any,
+        connect: vi.fn(),
+        start: vi.fn(),
+        stop: vi.fn(),
+        onended: null as any,
+      }));
+    }
+    (globalThis as any).AudioContext = MockAudioContext;
+
+    render(<ScoreEditor />);
+
+    const file = new File([new Uint8Array([1])], 'demo.mscz', { type: 'application/octet-stream' });
+    await user.upload(screen.getByTestId('open-score-input'), file);
+    await waitFor(() => expect(score.setSoundFont).toHaveBeenCalled());
+
+    const note = screen.getByTestId('svg-container').querySelector('.Note');
+    expect(note).toBeTruthy();
+    fireEvent.click(note!);
+    await screen.findByTestId('selection-overlay');
+
+    await user.click(screen.getByTestId('btn-play-from-selection'));
+    await waitFor(() => expect(score.synthAudioBatchFromSelection).toHaveBeenCalledWith(1));
+    expect(score.saveAudio).not.toHaveBeenCalled();
+  });
+
+  it('triggers isolated preview audio on selection and note mutation', async () => {
+    const user = userEvent.setup();
+
+    const floatChunk = new Float32Array(512);
+    const chunkBytes = new Uint8Array(floatChunk.buffer);
+    const previewBatchFn = vi.fn(async (cancel?: boolean) => {
+      if (cancel) return [];
+      return [
+        {
+          chunk: chunkBytes,
+          startTime: 0,
+          endTime: 0.5,
+          done: true,
+        },
+      ];
+    });
+
+    const score: any = {
+      destroy: vi.fn(),
+      saveSvg: vi.fn(async () => '<svg><g class="Note"></g></svg>'),
+      saveAudio: vi.fn(async () => new Uint8Array([0])),
+      setSoundFont: vi.fn(async () => {}),
+      selectElementAtPoint: vi.fn(async () => true),
+      addPitchByStep: vi.fn(async () => true),
+      relayout: vi.fn(async () => true),
+      synthSelectionPreviewBatch: vi.fn(async () => previewBatchFn),
+      metadata: vi.fn(async () => ({})),
+      measurePositions: vi.fn(async () => ({})),
+      segmentPositions: vi.fn(async () => ({})),
+    };
+
+    const webmscore: any = {
+      ready: Promise.resolve(),
+      load: vi.fn(async () => score),
+    };
+
+    mocked.loadWebMscore.mockResolvedValue(webmscore);
+    (globalThis as any).fetch = vi.fn(async () => ({
+      ok: true,
+      arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+    }));
+
+    class MockAudioContext {
+      state: 'running' | 'suspended' = 'suspended';
+      currentTime = 0;
+      sampleRate = 44100;
+      destination = {};
+      resume = vi.fn(async () => {
+        this.state = 'running';
+      });
+      createBuffer = vi.fn(() => ({
+        copyToChannel: vi.fn(),
+      }));
+      createBufferSource = vi.fn(() => ({
+        buffer: null as any,
+        connect: vi.fn(),
+        start: vi.fn(),
+        stop: vi.fn(),
+        onended: null as any,
+      }));
+    }
+    (globalThis as any).AudioContext = MockAudioContext;
+
+    render(<ScoreEditor />);
+
+    const file = new File([new Uint8Array([1])], 'demo.mscz', { type: 'application/octet-stream' });
+    await user.upload(screen.getByTestId('open-score-input'), file);
+    await waitFor(() => expect(score.setSoundFont).toHaveBeenCalled());
+
+    const note = screen.getByTestId('svg-container').querySelector('.Note');
+    expect(note).toBeTruthy();
+    fireEvent.click(note!);
+    await screen.findByTestId('selection-overlay');
+
+    await waitFor(() => expect(score.synthSelectionPreviewBatch).toHaveBeenCalled());
+
+    fireEvent.keyDown(window, { key: 'c' });
+    await waitFor(() => expect(score.addPitchByStep).toHaveBeenCalledWith(0, false, false));
+    await waitFor(() => expect(score.synthSelectionPreviewBatch.mock.calls.length).toBeGreaterThanOrEqual(2));
   });
 
   it('extracts page index from SVG ancestry and clears selection on invalid boxes', async () => {
@@ -952,12 +1126,8 @@ describe('ScoreEditor', () => {
     fireEvent.click(note!);
     await screen.findByTestId('selection-overlay');
 
-    const rhythmDropdown = screen.getByTestId('dropdown-rhythm');
-    const rhythmSummary = rhythmDropdown.querySelector('summary');
-    if (rhythmSummary) {
-      fireEvent.click(rhythmSummary);
-    }
-    await user.click(screen.getByTestId('btn-double-dot'));
+    await user.click(screen.getByTestId('dropdown-rhythm'));
+    await user.click(await screen.findByTestId('btn-double-dot'));
     expect((globalThis as any).alert).toHaveBeenCalledWith('This build of webmscore does not expose "toggleDoubleDot".');
   });
 

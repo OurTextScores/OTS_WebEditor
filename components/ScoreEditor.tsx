@@ -39,6 +39,21 @@ type MeasureAlignmentRow = {
     match: boolean;
 };
 
+type SynthBatchChunk = {
+    chunk: Uint8Array;
+    startTime: number;
+    endTime?: number;
+    done?: boolean;
+};
+
+type SynthBatchIterator = (cancel?: boolean) => Promise<SynthBatchChunk[]>;
+
+const TRANSPORT_SYNTH_BATCH_SIZE = 2;
+const SELECTION_SYNTH_BATCH_SIZE = 1;
+const PREVIEW_SYNTH_BATCH_SIZE = 1;
+const PREVIEW_DURATION_MS = 350;
+const SYNTH_START_PREROLL_SECONDS = 0.015;
+
 type PartAlignment = {
     partIndex: number;
     rows: MeasureAlignmentRow[];
@@ -409,6 +424,9 @@ export default function ScoreEditor() {
     const [mutationEnabled, setMutationEnabled] = useState(false);
     const [soundFontLoaded, setSoundFontLoaded] = useState(false);
     const [triedSoundFont, setTriedSoundFont] = useState(false);
+    const soundFontLoadedRef = useRef(soundFontLoaded);
+    const triedSoundFontRef = useRef(triedSoundFont);
+    const soundFontLoadPromiseRef = useRef<Promise<boolean> | null>(null);
     const [scoreTitle, setScoreTitle] = useState('');
     const [scoreSubtitle, setScoreSubtitle] = useState('');
     const [scoreComposer, setScoreComposer] = useState('');
@@ -509,8 +527,13 @@ export default function ScoreEditor() {
     const audioCtxRef = useRef<AudioContext | null>(null);
     const audioSourcesRef = useRef<AudioBufferSourceNode[]>([]);
     const streamIteratorRef = useRef<((cancel?: boolean) => Promise<any>) | null>(null);
+    const transportPlaybackGenerationRef = useRef(0);
+    const previewAudioSourcesRef = useRef<AudioBufferSourceNode[]>([]);
+    const previewStreamIteratorRef = useRef<((cancel?: boolean) => Promise<any>) | null>(null);
+    const previewPlaybackGenerationRef = useRef(0);
     const clipboardRef = useRef<{ mimeType: string; data: Uint8Array } | null>(null);
     const currentPageRef = useRef(currentPage);
+    const selectedPointRef = useRef<{ page: number, x: number, y: number } | null>(selectedPoint);
     const aiKeyStorageKey = `ots_${aiProvider}_api_key`;
     const aiModelStorageKey = `ots_${aiProvider}_model`;
     const autoFitPendingRef = useRef(true);
@@ -893,6 +916,18 @@ export default function ScoreEditor() {
     useEffect(() => {
         currentPageRef.current = currentPage;
     }, [currentPage]);
+
+    useEffect(() => {
+        selectedPointRef.current = selectedPoint;
+    }, [selectedPoint]);
+
+    useEffect(() => {
+        soundFontLoadedRef.current = soundFontLoaded;
+    }, [soundFontLoaded]);
+
+    useEffect(() => {
+        triedSoundFontRef.current = triedSoundFont;
+    }, [triedSoundFont]);
 
     useEffect(() => {
     }, [selectedElement, overlaySuppressed]);
@@ -2292,6 +2327,9 @@ ${partsBodyXml}
         setSelectedElementClasses('');
         setSelectedLayoutBreakSubtype(null);
         setMutationEnabled(false);
+        soundFontLoadedRef.current = false;
+        triedSoundFontRef.current = false;
+        soundFontLoadPromiseRef.current = null;
         setSoundFontLoaded(false);
         setTriedSoundFont(false);
         setScoreDirtySinceCheckpoint(false);
@@ -2393,6 +2431,9 @@ ${partsBodyXml}
         setSelectedElementClasses('');
         setSelectedLayoutBreakSubtype(null);
         setMutationEnabled(false);
+        soundFontLoadedRef.current = false;
+        triedSoundFontRef.current = false;
+        soundFontLoadPromiseRef.current = null;
         setSoundFontLoaded(false);
         setTriedSoundFont(false);
         setScoreDirtySinceCheckpoint(false);
@@ -2725,35 +2766,63 @@ ${partsBodyXml}
         }
     };
 
-    const ensureSoundFontLoaded = async (targetScore?: Score): Promise<boolean> => {
-        if (soundFontLoaded) {
+    const ensureSoundFontLoaded = async (
+        targetScore?: Score,
+        options?: { forceRetry?: boolean },
+    ): Promise<boolean> => {
+        if (soundFontLoadedRef.current) {
+            console.debug('[AUDIO] soundfont already loaded');
             return true;
         }
         const activeScore = targetScore ?? score;
         if (!activeScore || !activeScore.setSoundFont) {
+            console.warn('[AUDIO] soundfont load skipped: setSoundFont unavailable');
             return false;
         }
-        if (triedSoundFont) {
+        const forceRetry = Boolean(options?.forceRetry);
+        if (triedSoundFontRef.current && !forceRetry) {
+            console.warn('[AUDIO] soundfont load skipped: previous attempt already failed');
             return false;
+        }
+        if (soundFontLoadPromiseRef.current) {
+            return soundFontLoadPromiseRef.current;
+        }
+        if (forceRetry && triedSoundFontRef.current) {
+            console.debug('[AUDIO] retrying soundfont load after previous failure');
         }
 
-        setTriedSoundFont(true);
-        const candidates = ['/soundfonts/default.sf3', '/soundfonts/default.sf2'];
-        for (const url of candidates) {
-            try {
-                const res = await fetch(url);
-                if (!res.ok) {
-                    continue;
+        const loadPromise = (async () => {
+            triedSoundFontRef.current = true;
+            setTriedSoundFont(true);
+            const candidates = ['/soundfonts/default.sf3', '/soundfonts/default.sf2'];
+            for (const url of candidates) {
+                try {
+                    const res = await fetch(url);
+                    if (!res.ok) {
+                        console.warn('[AUDIO] soundfont candidate not found', { url, status: res.status });
+                        continue;
+                    }
+                    const buf = new Uint8Array(await res.arrayBuffer());
+                    await activeScore.setSoundFont(buf);
+                    soundFontLoadedRef.current = true;
+                    setSoundFontLoaded(true);
+                    console.debug('[AUDIO] soundfont loaded', { url, bytes: buf.byteLength });
+                    return true;
+                } catch (err) {
+                    console.warn('Default soundfont load failed for', url, err);
                 }
-                const buf = new Uint8Array(await res.arrayBuffer());
-                await activeScore.setSoundFont(buf);
-                setSoundFontLoaded(true);
-                return true;
-            } catch (err) {
-                console.warn('Default soundfont load failed for', url, err);
+            }
+            return false;
+        })();
+
+        soundFontLoadPromiseRef.current = loadPromise;
+        try {
+            return await loadPromise;
+        } finally {
+            if (soundFontLoadPromiseRef.current === loadPromise) {
+                soundFontLoadPromiseRef.current = null;
             }
         }
-        return false;
     };
 
     const handleSoundFontUpload = async (file: File) => {
@@ -2765,6 +2834,9 @@ ${partsBodyXml}
             const buffer = await file.arrayBuffer();
             const data = new Uint8Array(buffer);
             await score.setSoundFont(data);
+            soundFontLoadedRef.current = true;
+            triedSoundFontRef.current = true;
+            soundFontLoadPromiseRef.current = null;
             setSoundFontLoaded(true);
             setTriedSoundFont(true);
         } catch (err) {
@@ -4215,6 +4287,7 @@ ${partsBodyXml}
             skipRelayout?: boolean;
             advanceSelection?: boolean;
             advanceSelectionStep?: number;
+            playSelectionPreview?: boolean;
         },
     ) => {
         if (!score) {
@@ -4231,6 +4304,7 @@ ${partsBodyXml}
         const preservedPoint = selectedPoint;
         const preservedMultiSelection = selectionBoxes.length > 1;
         const allowSelectionFallback = !options?.skipSelectionFallback;
+        const shouldPlaySelectionPreview = Boolean(options?.playSelectionPreview);
 
         try {
             console.debug(`Mutation "${label}" start`);
@@ -4291,6 +4365,10 @@ ${partsBodyXml}
 
             if (options?.clearSelection) {
                 return;
+            }
+
+            if (shouldPlaySelectionPreview) {
+                void playSelectionPreview(`mutation:${label}`, preservedPoint ?? undefined, { reselect: true });
             }
 
             // Schedule overlay refresh after the DOM has had time to update
@@ -4391,18 +4469,18 @@ ${partsBodyXml}
         const fn = requireMutation('pitchUp');
         if (!fn) return;
         return fn();
-    });
+    }, { playSelectionPreview: true });
     const handlePitchDown = () => performMutation('lower pitch', async () => {
         // Don't call ensureSelectionInWasm - it would replace multi-selections with single element
         const fn = requireMutation('pitchDown');
         if (!fn) return;
         return fn();
-    });
+    }, { playSelectionPreview: true });
     const handleTranspose = (semitones: number) => performMutation(`transpose ${semitones}`, async () => {
         const fn = requireMutation('transpose');
         if (!fn) return;
         return fn(semitones);
-    }, { skipWasmReselect: true });
+    }, { skipWasmReselect: true, playSelectionPreview: true });
     const handleInsertMeasures = (count: number, target: MeasureInsertTarget) => performMutation('insert measures', async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('insertMeasures');
@@ -4441,10 +4519,12 @@ ${partsBodyXml}
 
         if (targetPage !== currentPageRef.current) {
             await goToPage(targetPage);
+            void playSelectionPreview('select-next-chord');
             return;
         }
 
         await refreshSelectionFromSvg();
+        void playSelectionPreview('select-next-chord');
     };
     const handleSelectPrevChord = async () => {
         if (!score) return;
@@ -4471,10 +4551,12 @@ ${partsBodyXml}
 
         if (targetPage !== currentPageRef.current) {
             await goToPage(targetPage);
+            void playSelectionPreview('select-prev-chord');
             return;
         }
 
         await refreshSelectionFromSvg();
+        void playSelectionPreview('select-prev-chord');
     };
     const handleExtendSelectionNextChord = async () => {
         if (!score) return;
@@ -4550,41 +4632,41 @@ ${partsBodyXml}
             const fn = requireMutation('setAccidental');
             if (!fn) return;
             return fn(accidentalType);
-        });
+        }, { playSelectionPreview: true });
     };
     const handleDurationLonger = () => performMutation('lengthen duration', async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('doubleDuration');
         if (!fn) return;
         return fn();
-    });
+    }, { playSelectionPreview: true });
     const handleDurationShorter = () => performMutation('shorten duration', async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('halfDuration');
         if (!fn) return;
         return fn();
-    });
+    }, { playSelectionPreview: true });
 
     const handleToggleDot = () => performMutation('toggle dot', async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('toggleDot');
         if (!fn) return;
         return fn();
-    });
+    }, { playSelectionPreview: true });
 
     const handleToggleDoubleDot = () => performMutation('toggle double dot', async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('toggleDoubleDot');
         if (!fn) return;
         return fn();
-    });
+    }, { playSelectionPreview: true });
 
     const handleSetDurationType = (durationType: number) => performMutation('set duration', async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('setDurationType');
         if (!fn) return;
         return fn(durationType);
-    });
+    }, { playSelectionPreview: true });
 
     const handleAddPitchByStep = (noteIndex: number, addToChord: boolean) => {
         const shouldAdvance = !addToChord;
@@ -4597,6 +4679,7 @@ ${partsBodyXml}
             skipWasmReselect: true,
             skipSelectionFallback: shouldAdvance,
             advanceSelection: shouldAdvance,
+            playSelectionPreview: true,
         });
     };
 
@@ -4889,7 +4972,7 @@ ${partsBodyXml}
         const fn = requireMutation('addNoteFromRest');
         if (!fn) return;
         return fn();
-    });
+    }, { playSelectionPreview: true });
 
     const handleToggleRepeatStart = () => performMutation('toggle repeat start', async () => {
         await ensureSelectionInWasm();
@@ -5427,7 +5510,7 @@ ${partsBodyXml}
         }
         try {
             setAudioBusy(true);
-            const ok = await ensureSoundFontLoaded();
+            const ok = await ensureSoundFontLoaded(undefined, { forceRetry: true });
             if (!ok) {
                 alert('No default soundfont found. Upload a .sf2/.sf3 soundfont or place one at /public/soundfonts/default.sf3 or /public/soundfonts/default.sf2.');
                 return;
@@ -5442,25 +5525,147 @@ ${partsBodyXml}
         }
     };
 
-    const stopAudio = () => {
-        if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current.currentTime = 0;
-        }
-        audioSourcesRef.current.forEach(src => {
+    const stopSynthStream = async (
+        sourcesRef: React.MutableRefObject<AudioBufferSourceNode[]>,
+        iteratorRef: React.MutableRefObject<((cancel?: boolean) => Promise<any>) | null>,
+        options?: { awaitCancel?: boolean },
+    ) => {
+        sourcesRef.current.forEach(src => {
             try {
                 src.stop();
             } catch (_) {
                 // ignore
             }
         });
-        audioSourcesRef.current = [];
-        const iter = streamIteratorRef.current;
+        sourcesRef.current = [];
+        const iter = iteratorRef.current;
+        iteratorRef.current = null;
         if (iter) {
-            iter(true).catch(() => { /* ignore */ });
-            streamIteratorRef.current = null;
+            const cancelPromise = iter(true).catch(() => { /* ignore */ });
+            if (options?.awaitCancel) {
+                await cancelPromise;
+            }
         }
+    };
+
+    const stopPreviewAudio = async (options?: { awaitCancel?: boolean }) => {
+        previewPlaybackGenerationRef.current += 1;
+        await stopSynthStream(previewAudioSourcesRef, previewStreamIteratorRef, options);
+    };
+
+    const stopAudio = async (options?: { awaitCancel?: boolean }) => {
+        transportPlaybackGenerationRef.current += 1;
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+        }
+        await stopSynthStream(audioSourcesRef, streamIteratorRef, options);
+        await stopPreviewAudio(options);
         setIsPlaying(false);
+    };
+
+    const ensureAudioContextReady = async () => {
+        const audioCtx = audioCtxRef.current || new AudioContext({ sampleRate: 44100 });
+        audioCtxRef.current = audioCtx;
+        if (audioCtx.state === 'suspended') {
+            await audioCtx.resume();
+        }
+        return audioCtx;
+    };
+
+    const playSynthBatchStream = async (
+        batchFn: SynthBatchIterator,
+        options: {
+            sourcesRef: React.MutableRefObject<AudioBufferSourceNode[]>;
+            iteratorRef: React.MutableRefObject<((cancel?: boolean) => Promise<any>) | null>;
+            generationRef: React.MutableRefObject<number>;
+            maxDurationSeconds?: number;
+            trackTransportState: boolean;
+        },
+    ) => {
+        const audioCtx = await ensureAudioContextReady();
+        const generation = ++options.generationRef.current;
+        options.iteratorRef.current = batchFn;
+        const baseTime = audioCtx.currentTime + SYNTH_START_PREROLL_SECONDS;
+        let streamStartTimeSeconds: number | null = null;
+        let lastSource: AudioBufferSourceNode | null = null;
+        let startedAny = false;
+
+        while (options.generationRef.current === generation) {
+            const batch = await batchFn(false);
+            if (!Array.isArray(batch) || batch.length === 0) {
+                break;
+            }
+
+            let hitDone = false;
+            for (const res of batch) {
+                if (!res) continue;
+                const absoluteChunkStart = Number.isFinite(res.startTime) ? Number(res.startTime) : 0;
+                if (streamStartTimeSeconds === null) {
+                    streamStartTimeSeconds = absoluteChunkStart;
+                }
+                const relativeChunkStart = Math.max(0, absoluteChunkStart - streamStartTimeSeconds);
+
+                if (res.done) {
+                    hitDone = true;
+                }
+                const relativeChunkEnd = typeof res.endTime === 'number'
+                    ? Math.max(0, res.endTime - streamStartTimeSeconds)
+                    : null;
+                if (options.maxDurationSeconds && typeof relativeChunkEnd === 'number' && relativeChunkEnd >= options.maxDurationSeconds) {
+                    hitDone = true;
+                }
+
+                const floats = new Float32Array(res.chunk.buffer, res.chunk.byteOffset, res.chunk.byteLength / 4);
+                const framesPerChannel = 512;
+                let channels = Math.floor(floats.length / framesPerChannel);
+                if (!Number.isInteger(channels) || channels < 1) channels = 1;
+                if (channels > 2) channels = 2;
+                const buffer = audioCtx.createBuffer(channels, framesPerChannel, audioCtx.sampleRate);
+                for (let ch = 0; ch < channels; ch++) {
+                    const start = ch * framesPerChannel;
+                    const slice = floats.subarray(start, start + framesPerChannel);
+                    buffer.copyToChannel(slice, ch);
+                }
+                const source = audioCtx.createBufferSource();
+                source.buffer = buffer;
+                source.connect(audioCtx.destination);
+                source.start(baseTime + relativeChunkStart);
+                options.sourcesRef.current.push(source);
+                lastSource = source;
+                startedAny = true;
+                if (options.trackTransportState) {
+                    setIsPlaying(true);
+                }
+
+                if (hitDone) break;
+            }
+
+            if (hitDone) {
+                break;
+            }
+        }
+
+        if (!startedAny || options.generationRef.current !== generation) {
+            stopSynthStream(options.sourcesRef, options.iteratorRef);
+            if (options.trackTransportState) {
+                setIsPlaying(false);
+            }
+            return;
+        }
+
+        if (lastSource) {
+            lastSource.onended = () => {
+                if (options.generationRef.current !== generation) {
+                    return;
+                }
+                options.sourcesRef.current = [];
+                options.iteratorRef.current = null;
+                if (options.trackTransportState) {
+                    setIsPlaying(false);
+                }
+            };
+        }
     };
 
     const playFromUrl = async (url: string) => {
@@ -5475,83 +5680,60 @@ ${partsBodyXml}
         setIsPlaying(true);
     };
 
-    const handlePlayAudio = async () => {
+    const playTransportAudio = async (fromSelection: boolean) => {
         if (!score || !score.saveAudio) {
             alert('Audio playback is not available in this build.');
             return;
         }
         try {
             setAudioBusy(true);
-            const ok = await ensureSoundFontLoaded();
+            const ok = await ensureSoundFontLoaded(undefined, { forceRetry: true });
             if (!ok) {
                 alert('No default soundfont found. Upload a .sf2/.sf3 soundfont or place one at /public/soundfonts/default.sf3 or /public/soundfonts/default.sf2.');
                 return;
             }
-            stopAudio();
+            await stopAudio({ awaitCancel: true });
 
-            // Prefer streaming via synthAudioBatch if available
-            const useStreaming = typeof (score as any).synthAudioBatch === 'function';
+            const useSelectionStreaming = fromSelection && typeof score.synthAudioBatchFromSelection === 'function';
+            const useStreaming = fromSelection
+                ? useSelectionStreaming
+                : typeof (score as any).synthAudioBatch === 'function';
             let streamed = false;
+            let streamFailure: unknown = null;
             if (useStreaming) {
                 try {
-                    const audioCtx = audioCtxRef.current || new AudioContext({ sampleRate: 44100 });
-                    audioCtxRef.current = audioCtx;
-                    if (audioCtx.state === 'suspended') {
-                        await audioCtx.resume();
-                    }
-                    const batchFn = await (score as any).synthAudioBatch(0, 16);
-                    streamIteratorRef.current = batchFn;
-                    const baseTime = audioCtx.currentTime + 0.05;
-                    let lastSource: AudioBufferSourceNode | null = null;
-                    // Stream chunks until done
-                    while (true) {
-                        const batch = await batchFn(false);
-                        if (!Array.isArray(batch) || batch.length === 0) {
-                            break;
-                        }
-                        let hitDone = false;
-                        for (const res of batch) {
-                            if (!res) continue;
-                            if (res.done) {
-                                hitDone = true;
-                            }
-                            const floats = new Float32Array(res.chunk.buffer, res.chunk.byteOffset, res.chunk.byteLength / 4);
-                            const framesPerChannel = 512; // from synthAudio docs
-                            let channels = Math.floor(floats.length / framesPerChannel);
-                            if (!Number.isInteger(channels) || channels < 1) channels = 1;
-                            if (channels > 2) channels = 2; // cap to stereo
-                            const buffer = audioCtx.createBuffer(channels, framesPerChannel, audioCtx.sampleRate);
-                            for (let ch = 0; ch < channels; ch++) {
-                                const start = ch * framesPerChannel;
-                                const slice = floats.subarray(start, start + framesPerChannel);
-                                buffer.copyToChannel(slice, ch);
-                            }
-                            const source = audioCtx.createBufferSource();
-                            source.buffer = buffer;
-                            source.connect(audioCtx.destination);
-                            const startTime = baseTime + res.startTime;
-                            source.start(startTime);
-                            audioSourcesRef.current.push(source);
-                            lastSource = source;
-                            if (hitDone) break;
-                        }
-                        if (hitDone) break;
-                    }
-                    if (lastSource) {
-                        lastSource.onended = () => {
-                            setIsPlaying(false);
-                            audioSourcesRef.current = [];
-                            streamIteratorRef.current = null;
-                        };
-                    }
-                    setIsPlaying(true);
+                    const batchFn = useSelectionStreaming
+                        ? await score.synthAudioBatchFromSelection!(SELECTION_SYNTH_BATCH_SIZE) as SynthBatchIterator
+                        : await (score as any).synthAudioBatch(0, TRANSPORT_SYNTH_BATCH_SIZE) as SynthBatchIterator;
+
+                    await playSynthBatchStream(batchFn, {
+                        sourcesRef: audioSourcesRef,
+                        iteratorRef: streamIteratorRef,
+                        generationRef: transportPlaybackGenerationRef,
+                        trackTransportState: true,
+                    });
                     streamed = true;
                 } catch (streamErr) {
                     console.warn('Streaming playback failed; falling back to WAV', streamErr);
-                    stopAudio();
+                    streamFailure = streamErr;
+                    await stopAudio({ awaitCancel: true });
                 }
             }
             if (!streamed) {
+                if (fromSelection) {
+                    const hasSelectionStreamingApi = typeof score.synthAudioBatchFromSelection === 'function';
+                    if (!hasSelectionStreamingApi) {
+                        alert('Play from selection is not available in this running build. Rebuild webmscore JS glue (`cd webmscore-fork/web-public && npm run bundle`) and restart `npm run dev`.');
+                    } else if (streamFailure) {
+                        const streamMessage = streamFailure instanceof Error
+                            ? streamFailure.message
+                            : String(streamFailure);
+                        alert(`Play from selection failed: ${streamMessage}`);
+                    } else {
+                        alert('Play from selection is not available in this build.');
+                    }
+                    return;
+                }
                 // Fallback to full WAV generation
                 if (audioUrlRef.current) {
                     await playFromUrl(audioUrlRef.current);
@@ -5566,10 +5748,81 @@ ${partsBodyXml}
         } catch (err) {
             console.error('Failed to play audio', err);
             alert('Unable to play audio. See console for details.');
-            stopAudio();
+            await stopAudio({ awaitCancel: true });
         } finally {
             setAudioBusy(false);
         }
+    };
+
+    const playSelectionPreview = async (
+        trigger: string = 'unknown',
+        selectionPoint?: { page: number, x: number, y: number },
+        options?: { reselect?: boolean },
+    ) => {
+        const activeScore = scoreRef.current ?? score;
+        if (!activeScore || !activeScore.synthSelectionPreviewBatch || isPlaying || audioBusy) {
+            console.debug('[AUDITION] skipped preview request', {
+                trigger,
+                hasScore: Boolean(activeScore),
+                hasPreviewApi: Boolean(activeScore?.synthSelectionPreviewBatch),
+                isPlaying,
+                audioBusy,
+            });
+            return;
+        }
+
+        const shouldReselectForPreview = options?.reselect ?? trigger.startsWith('mutation:');
+        const previewPoint = selectionPoint ?? selectedPointRef.current;
+        if (shouldReselectForPreview && previewPoint && activeScore.selectElementAtPoint) {
+            try {
+                const selected = await activeScore.selectElementAtPoint(previewPoint.page, previewPoint.x, previewPoint.y);
+                if (selected === false) {
+                    console.warn('[AUDITION] preview reselection returned false', {
+                        trigger,
+                        page: previewPoint.page,
+                        x: previewPoint.x,
+                        y: previewPoint.y,
+                    });
+                }
+            } catch (err) {
+                console.warn('[AUDITION] preview reselection failed', { trigger, err });
+            }
+        }
+
+        const ok = await ensureSoundFontLoaded(activeScore, { forceRetry: true });
+        if (!ok) {
+            console.warn('[AUDITION] skipped preview: soundfont unavailable', { trigger });
+            return;
+        }
+
+        await stopPreviewAudio({ awaitCancel: true });
+        try {
+            console.debug('[AUDITION] requesting preview stream', {
+                trigger,
+                batchSize: PREVIEW_SYNTH_BATCH_SIZE,
+                durationMs: PREVIEW_DURATION_MS,
+            });
+            const batchFn = await activeScore.synthSelectionPreviewBatch(PREVIEW_SYNTH_BATCH_SIZE, PREVIEW_DURATION_MS) as SynthBatchIterator;
+            await playSynthBatchStream(batchFn, {
+                sourcesRef: previewAudioSourcesRef,
+                iteratorRef: previewStreamIteratorRef,
+                generationRef: previewPlaybackGenerationRef,
+                maxDurationSeconds: 0.6,
+                trackTransportState: false,
+            });
+            console.debug('[AUDITION] preview playback started', { trigger });
+        } catch (err) {
+            console.warn('[AUDITION] selection preview playback failed', { trigger, err });
+            await stopPreviewAudio({ awaitCancel: true });
+        }
+    };
+
+    const handlePlayAudio = async () => {
+        await playTransportAudio(false);
+    };
+
+    const handlePlayFromSelectionAudio = async () => {
+        await playTransportAudio(true);
     };
 
     const handleZoomIn = () => {
@@ -6265,10 +6518,12 @@ ${partsBodyXml}
                         // For measure selections, skip overlay refresh to preserve selectionBoxes state
                         if (hasMeasureSelection) {
                             await renderScore(score, pageIndex);
+                            void playSelectionPreview('selection-click:measure', fallback.point);
                         } else {
                             // For single element selections, use normal flow with overlay
                             setHasBackendHighlighting(false);
                             await refreshSelectionFromSvg();
+                            void playSelectionPreview('selection-click:element', fallback.point, { reselect: true });
                         }
                     })
                     .catch(err => {
@@ -6357,19 +6612,31 @@ ${partsBodyXml}
                 ? score!.selectElementAtPointWithMode!(pageIndex, centerX, centerY, mode as number)
                 : score?.selectElementAtPoint?.(pageIndex, centerX, centerY);
 
-            selectionPromise?.then(() => {
-                refreshSelectionFromSvg(fallback);
-            });
-
-            selectionPromise?.catch(err => {
-                console.warn('selectElementAtPoint not available or failed:', err);
-                setSelectedElement(null);
-                setSelectionBoxes([]);
-                setSelectedPoint(null);
-                setSelectedIndex(null);
-                setSelectedElementClasses('');
-                setSelectedLayoutBreakSubtype(null);
-            });
+            if (selectionPromise !== undefined) {
+                Promise.resolve(selectionPromise)
+                    .then((selected) => {
+                        if (selected === false) {
+                            throw new Error('selectElementAtPoint returned false');
+                        }
+                        return refreshSelectionFromSvg(fallback);
+                    })
+                    .then(() => {
+                        void playSelectionPreview(
+                            'selection-click:element',
+                            fallback.point,
+                            { reselect: !additiveSelection && !isShiftClick },
+                        );
+                    })
+                    .catch(err => {
+                        console.warn('selectElementAtPoint not available or failed:', err);
+                        setSelectedElement(null);
+                        setSelectionBoxes([]);
+                        setSelectedPoint(null);
+                        setSelectedIndex(null);
+                        setSelectedElementClasses('');
+                        setSelectedLayoutBreakSubtype(null);
+                    });
+            }
 
             if (!additiveSelection) {
                 setSelectionBoxes([box]);
@@ -6457,6 +6724,16 @@ ${partsBodyXml}
         }
         return true;
     });
+    const primarySelectionRect = selectedElement
+        ? { x: selectedElement.x, y: selectedElement.y, w: selectedElement.w, h: selectedElement.h }
+        : selectionBoxes.length === 1
+            ? {
+                x: selectionBoxes[0].x,
+                y: selectionBoxes[0].y,
+                w: selectionBoxes[0].w,
+                h: selectionBoxes[0].h,
+            }
+            : null;
     const textSelectionActive = hasTextElementClass(selectedElementClasses) || Boolean(textEditorPosition);
     const selectedTextControlDisabled = !mutationEnabled || !score?.setSelectedText;
     const checkpointControlsDisabled = checkpointBusy || checkpointLoading;
@@ -6540,7 +6817,8 @@ ${partsBodyXml}
                 onExportMidi={handleExportMidi}
                 onExportAudio={handleExportAudio}
                 onPlayAudio={handlePlayAudio}
-                onStopAudio={stopAudio}
+                onPlayFromSelectionAudio={handlePlayFromSelectionAudio}
+                onStopAudio={() => { void stopAudio({ awaitCancel: true }); }}
                 isPlaying={isPlaying}
                 audioBusy={audioBusy}
                 exportsEnabled={Boolean(score)}
@@ -6925,19 +7203,19 @@ ${partsBodyXml}
                         />
                     ))}
 
-                    {selectedElement && !overlaySuppressed && selectionBoxes.length === 0 && (
+                    {primarySelectionRect && !overlaySuppressed && selectionBoxes.length <= 1 && (
                         <div
                             data-testid="selection-overlay"
                             className="absolute pointer-events-none border-2 border-blue-600"
                             style={{
-                                left: selectedElement.x,
-                                top: selectedElement.y,
-                                width: selectedElement.w,
-                                height: selectedElement.h
+                                left: primarySelectionRect.x,
+                                top: primarySelectionRect.y,
+                                width: primarySelectionRect.w,
+                                height: primarySelectionRect.h
                             }}
                         />
                     )}
-                    {selectionBoxes.length > 0 && !overlaySuppressed && !hasBackendHighlighting && selectionBoxes.map((box, index) => (
+                    {selectionBoxes.length > 1 && !overlaySuppressed && !hasBackendHighlighting && selectionBoxes.map((box, index) => (
                         <div
                             key={index}
                             data-testid={`selection-overlay-${index}`}

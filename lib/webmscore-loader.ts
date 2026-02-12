@@ -14,6 +14,8 @@ export interface Score {
     saveAudio?: (format: 'wav' | 'ogg' | 'flac' | 'mp3') => Promise<Uint8Array>;
     savePng?: (pageNumber?: number, drawPageBackground?: boolean, transparent?: boolean) => Promise<Uint8Array>;
     setSoundFont: (data: Uint8Array) => Promise<void>;
+    synthAudioBatchFromSelection?: (batchSize: number) => Promise<(cancel?: boolean) => Promise<unknown[]>> | ((cancel?: boolean) => Promise<unknown[]>);
+    synthSelectionPreviewBatch?: (batchSize: number, durationMs?: number) => Promise<(cancel?: boolean) => Promise<unknown[]>> | ((cancel?: boolean) => Promise<unknown[]>);
     metadata: () => Promise<Record<string, unknown>>;
     measurePositions: () => Promise<Positions>;
     segmentPositions: () => Promise<Positions>;

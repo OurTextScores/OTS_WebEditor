@@ -601,6 +601,58 @@ class WebMscore {
     }
 
     /**
+     * Synthesize audio frames from the current cursor/selection playback position.
+     * @param {number} batchSize - max number of result SynthRes' (n * 512 frames)
+     * @returns {Promise<(cancel?: boolean) => Promise<import('../schemas').SynthRes[]>>}
+     */
+    async synthAudioBatchFromSelection(batchSize) {
+        if (!WebMscore.hasSoundfont) {
+            throw new Error('The soundfont is not set.')
+        }
+
+        const iteratorFnPtr = Module.ccall('synthAudioFromSelection',
+            'number',
+            ['number', 'number'],
+            [this.scoreptr, this.excerptId]
+        )
+
+        if (!iteratorFnPtr) {
+            throw new Error('synthAudioFromSelection: Internal Error.')
+        }
+
+        return (cancel) => {
+            return this.processSynthBatch(iteratorFnPtr, batchSize, cancel)
+        }
+    }
+
+    /**
+     * Synthesize a short isolated preview for the current selection (note/chord).
+     * @param {number} batchSize - max number of result SynthRes' (n * 512 frames)
+     * @param {number} durationMs - preview duration in milliseconds
+     * @returns {Promise<(cancel?: boolean) => Promise<import('../schemas').SynthRes[]>>}
+     */
+    async synthSelectionPreviewBatch(batchSize, durationMs = 500) {
+        if (!WebMscore.hasSoundfont) {
+            throw new Error('The soundfont is not set.')
+        }
+
+        const seconds = Math.max(0.05, Number(durationMs) / 1000)
+        const iteratorFnPtr = Module.ccall('synthAudioSelectionPreview',
+            'number',
+            ['number', 'number', 'number'],
+            [this.scoreptr, seconds, this.excerptId]
+        )
+
+        if (!iteratorFnPtr) {
+            throw new Error('synthAudioSelectionPreview: Internal Error.')
+        }
+
+        return (cancel) => {
+            return this.processSynthBatch(iteratorFnPtr, batchSize, cancel)
+        }
+    }
+
+    /**
      * Synthesize audio frames
      * @private
      * @todo GC this iterator function
@@ -621,6 +673,56 @@ class WebMscore {
         const success = iteratorFnPtr !== 0
         if (!success) {
             throw new Error('synthAudio: Internal Error.')
+        }
+
+        return iteratorFnPtr
+    }
+
+    /**
+     * Synthesize audio frames from the current cursor/selection playback position.
+     * @private
+     * @returns {Promise<number>} Pointer to the iterator function
+     */
+    async _synthAudioFromSelection() {
+        if (!WebMscore.hasSoundfont) {
+            throw new Error('The soundfont is not set.')
+        }
+
+        const iteratorFnPtr = Module.ccall('synthAudioFromSelection',
+            'number',
+            ['number', 'number'],
+            [this.scoreptr, this.excerptId]
+        )
+
+        const success = iteratorFnPtr !== 0
+        if (!success) {
+            throw new Error('synthAudioFromSelection: Internal Error.')
+        }
+
+        return iteratorFnPtr
+    }
+
+    /**
+     * Synthesize a short isolated preview for the current selection (note/chord).
+     * @private
+     * @param {number} durationMs - preview duration in milliseconds
+     * @returns {Promise<number>} Pointer to the iterator function
+     */
+    async _synthAudioSelectionPreview(durationMs = 500) {
+        if (!WebMscore.hasSoundfont) {
+            throw new Error('The soundfont is not set.')
+        }
+
+        const seconds = Math.max(0.05, Number(durationMs) / 1000)
+        const iteratorFnPtr = Module.ccall('synthAudioSelectionPreview',
+            'number',
+            ['number', 'number', 'number'],
+            [this.scoreptr, seconds, this.excerptId]
+        )
+
+        const success = iteratorFnPtr !== 0
+        if (!success) {
+            throw new Error('synthAudioSelectionPreview: Internal Error.')
         }
 
         return iteratorFnPtr
