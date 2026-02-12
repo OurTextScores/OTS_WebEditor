@@ -5,6 +5,19 @@ import { describe, expect, it, vi } from 'vitest';
 import { Toolbar } from '../components/Toolbar';
 
 describe('Toolbar', () => {
+  it('shows Load Score button label', () => {
+    render(
+      <Toolbar
+        onFileUpload={() => {}}
+        onZoomIn={() => {}}
+        onZoomOut={() => {}}
+        zoomLevel={1}
+      />,
+    );
+
+    expect(screen.getByText('Load Score')).toBeInTheDocument();
+  });
+
   it('uploads score files', async () => {
     const user = userEvent.setup();
     const onFileUpload = vi.fn();

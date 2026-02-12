@@ -1996,18 +1996,19 @@ ${partsBodyXml}
         }
     }, [scoreId, scoreTitle]);
 
-    const loadCheckpointList = useCallback(async () => {
+    const loadCheckpointList = useCallback(async (targetScoreId?: string) => {
         if (!isIndexedDbAvailable()) {
             setCheckpointError('IndexedDB is not available in this browser.');
             return;
         }
-        if (!scoreId) {
+        const activeScoreId = targetScoreId ?? scoreId;
+        if (!activeScoreId) {
             setCheckpoints([]);
             return;
         }
         setCheckpointLoading(true);
         try {
-            const items = await listCheckpoints(scoreId);
+            const items = await listCheckpoints(activeScoreId);
             setCheckpoints(items);
             setCheckpointError(null);
         } catch (err) {
@@ -2018,6 +2019,35 @@ ${partsBodyXml}
             void loadScoreSummaryList();
         }
     }, [scoreId, loadScoreSummaryList]);
+
+    const createInitialLoadCheckpoint = useCallback(async (loadedScore: Score, preferredScoreId?: string) => {
+        if (!isIndexedDbAvailable() || !loadedScore?.saveXml) {
+            return;
+        }
+
+        try {
+            const xmlRaw = await loadedScore.saveXml();
+            const xmlData = await normalizeXmlData(xmlRaw);
+            if (!xmlData || xmlData.byteLength === 0) {
+                return;
+            }
+
+            const activeScoreId = preferredScoreId || ensureScoreId('score');
+            await saveCheckpoint({
+                title: 'Init on Load Score',
+                createdAt: Date.now(),
+                format: 'musicxml',
+                data: xmlData.buffer.slice(xmlData.byteOffset, xmlData.byteOffset + xmlData.byteLength),
+                size: xmlData.byteLength,
+                scoreId: activeScoreId,
+            });
+
+            await loadCheckpointList(activeScoreId);
+            setScoreDirtySinceCheckpoint(false);
+        } catch (err) {
+            console.warn('Failed to create initial load checkpoint', err);
+        }
+    }, [ensureScoreId, loadCheckpointList, normalizeXmlData]);
 
     const exposeScoreToWindow = (s: Score | null) => {
         // Handy for Playwright/debug sessions to poke at WASM bindings directly
@@ -2408,7 +2438,12 @@ ${partsBodyXml}
 
     const handleFileUpload = async (
         file: File,
-        options?: { preserveScoreId?: boolean; scoreIdOverride?: string; updateUrl?: boolean },
+        options?: {
+            preserveScoreId?: boolean;
+            scoreIdOverride?: string;
+            updateUrl?: boolean;
+            createInitialCheckpoint?: boolean;
+        },
     ) => {
         setLoading(true);
         const shouldUpdateUrl = options?.updateUrl ?? true;
@@ -2487,10 +2522,13 @@ ${partsBodyXml}
             handleFitWidth();
             autoFitPendingRef.current = false;
         }
-        await refreshScoreMetadata(loadedScore);
+            await refreshScoreMetadata(loadedScore);
             await refreshInstrumentTemplates(loadedScore);
             if (loadedScore.saveAudio) {
                 await ensureSoundFontLoaded(loadedScore);
+            }
+            if (options?.createInitialCheckpoint) {
+                await createInitialLoadCheckpoint(loadedScore, nextScoreId);
             }
 
         } catch (err) {
@@ -2500,6 +2538,8 @@ ${partsBodyXml}
             setLoading(false);
         }
     };
+
+    const handleLoadScoreUpload = (file: File) => handleFileUpload(file, { createInitialCheckpoint: true });
 
     const refreshPageCount = async (targetScore: Score, preferredPage: number = currentPageRef.current) => {
         if (!targetScore?.npages) {
@@ -6778,7 +6818,7 @@ ${partsBodyXml}
             <div className="relative" style={{ zIndex: 100 }} ref={toolbarRef}>
 	            <Toolbar
                     onNewScore={handleOpenNewScoreDialog}
-	                onFileUpload={handleFileUpload}
+	                onFileUpload={handleLoadScoreUpload}
                     onSoundFontUpload={handleSoundFontUpload}
                     scoreTitle={scoreTitle}
                     scoreSubtitle={scoreSubtitle}

@@ -634,7 +634,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             </Button>
                             <Button asChild variant="primary" size="sm">
                                 <label className="cursor-pointer">
-                                Open Score
+                                Load Score
                                 <input
                                     data-testid="open-score-input"
                                     type="file"
