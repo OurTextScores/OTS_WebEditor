@@ -2416,7 +2416,17 @@ static engraving::EngravingItem* resolvePreviewPlayableElement(engraving::Engrav
         return nullptr;
     }
 
-    if (selected->isNote() || selected->isChord() || selected->isHarmony()) {
+    // MuseScore audition behavior plays the whole chord when a notehead is the
+    // selected/playable target (e.g. adding to an existing chord).
+    if (selected->isNote()) {
+        auto* note = engraving::toNote(selected);
+        if (note && note->chord()) {
+            return note->chord();
+        }
+        return selected;
+    }
+
+    if (selected->isChord() || selected->isHarmony()) {
         return selected;
     }
 
