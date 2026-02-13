@@ -1,8 +1,10 @@
 #include <emscripten/emscripten.h>
 #include <algorithm>
+#include <chrono>
 #include <optional>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <QGuiApplication>
@@ -131,6 +133,53 @@ private:
     std::string m_mimeType;
     ByteArray m_data;
 };
+
+std::unordered_map<uintptr_t, QJsonObject> s_loadProfilesByScore;
+
+static double steadyNowMs()
+{
+    using Clock = std::chrono::steady_clock;
+    return std::chrono::duration<double, std::milli>(Clock::now().time_since_epoch()).count();
+}
+
+constexpr int kDeferredLoadBootstrapMeasures = 8;
+
+static bool bootstrapRangeEndTick(engraving::MasterScore* score, engraving::Fraction& endTick)
+{
+    IF_ASSERT_FAILED(score) {
+        return false;
+    }
+
+    engraving::Measure* measure = score->firstMeasure();
+    if (!measure) {
+        return false;
+    }
+
+    for (int i = 1; i < kDeferredLoadBootstrapMeasures && measure->nextMeasure(); ++i) {
+        measure = measure->nextMeasure();
+    }
+
+    endTick = measure->tick() + measure->ticks();
+    return true;
+}
+
+static void bootstrapDeferredLayout(engraving::MasterScore* score)
+{
+    IF_ASSERT_FAILED(score) {
+        return;
+    }
+
+    score->cmdState().reset();
+
+    engraving::Fraction endTick;
+    if (bootstrapRangeEndTick(score, endTick)) {
+        // Keep deferred mode incremental: layout only a tiny prefix for first paint.
+        score->doLayoutRange(engraving::Fraction(0, 1), endTick);
+    } else {
+        score->setLayoutAll();
+        score->update();
+    }
+}
 }
 
 /**
@@ -223,37 +272,57 @@ bool _addFont(const char* fontPath) {
  * Load MSCX/MSCZ
  * https://github.com/LibreScore/webmscore/blob/v4.0/src/project/internal/notationproject.cpp#L187-L223
  */
-Ret _doLoad(engraving::EngravingProjectPtr proj, QString filePath, bool doLayout) {
-    // read score using the `compat` method
-    engraving::Err err = engraving::compat::loadMsczOrMscx(proj->masterScore(), filePath, true);
-    if (err != engraving::Err::NoError) {
-        return make_ret(err);
-    }
-
+Ret _doLoad(engraving::EngravingProjectPtr proj, QString filePath, bool doLayout, QJsonObject* loadProfile = nullptr) {
     engraving::MasterScore* score = proj->masterScore();
     IF_ASSERT_FAILED(score) {
         return make_ret(engraving::Err::UnknownError);
     }
 
-    // make `score->update()` in `doSetupMasterScore` have no effect,
-    // so that we could "do layout" later
-    score->lockUpdates(true);
-    DEFER {
-        score->lockUpdates(false);
-    };
+    const bool deferLayout = !doLayout;
+    if (deferLayout) {
+        // Suppress importer-time updates for deferred loading; we will bootstrap layout explicitly later.
+        score->lockUpdates(true);
+    }
 
-    // Setup master score
+    // read score using the `compat` method
+    const double parseStartMs = steadyNowMs();
+    engraving::Err err = engraving::compat::loadMsczOrMscx(proj->masterScore(), filePath, true);
+    if (loadProfile) {
+        (*loadProfile)[QStringLiteral("parseMs")] = steadyNowMs() - parseStartMs;
+    }
+    if (err != engraving::Err::NoError) {
+        if (deferLayout) {
+            score->lockUpdates(false);
+        }
+        return make_ret(err);
+    }
+
+    if (!deferLayout) {
+        // Eager path still suppresses setup-time layout to avoid duplicate full passes.
+        score->lockUpdates(true);
+    }
+
+    const double setupStartMs = steadyNowMs();
     err = proj->setupMasterScore(true);
+    score->lockUpdates(false);
+    if (loadProfile) {
+        (*loadProfile)[QStringLiteral("setupMs")] = steadyNowMs() - setupStartMs;
+    }
     if (err != engraving::Err::NoError) {
         return make_ret(err);
     }
 
-    // do layout ...
-    score->lockUpdates(false);
+    const double layoutStartMs = steadyNowMs();
     if (doLayout) {
-        score->setLayoutAll(); // FIXME: 
+        score->setLayoutAll();
         score->update();
         score->switchToPageMode();  // the default _layoutMode is LayoutMode::PAGE, but the score file may be saved in continuous mode
+    } else {
+        bootstrapDeferredLayout(score);
+        score->switchToPageMode();
+    }
+    if (loadProfile) {
+        (*loadProfile)[QStringLiteral("initialLayoutMs")] = steadyNowMs() - layoutStartMs;
     }
 
     return make_ok();
@@ -263,7 +332,7 @@ Ret _doLoad(engraving::EngravingProjectPtr proj, QString filePath, bool doLayout
  * Load other file formats
  * https://github.com/LibreScore/webmscore/blob/v4.0/src/project/internal/notationproject.cpp#L246-L291
  */
-Ret _doImport(engraving::EngravingProjectPtr proj, QString filePath, bool doLayout) {
+Ret _doImport(engraving::EngravingProjectPtr proj, QString filePath, bool doLayout, QJsonObject* loadProfile = nullptr) {
     // Find import reader
     std::string suffix = io::suffix(filePath.toStdString());
     auto readers = modularity::ioc()->resolve<project::INotationReadersRegister>("");
@@ -278,8 +347,21 @@ Ret _doImport(engraving::EngravingProjectPtr proj, QString filePath, bool doLayo
 
     // Read(import) master score
     engraving::MasterScore* score = proj->masterScore();
+    const bool deferLayout = !doLayout;
+    if (deferLayout) {
+        // Keep import parser from triggering expensive update/layout work.
+        score->lockUpdates(true);
+    }
+
+    const double parseStartMs = steadyNowMs();
     Ret ret = scoreReader->read(score, filePath, options);
+    if (loadProfile) {
+        (*loadProfile)[QStringLiteral("parseMs")] = steadyNowMs() - parseStartMs;
+    }
     if (!ret.success()) {
+        if (deferLayout) {
+            score->lockUpdates(false);
+        }
         return ret;
     }
 
@@ -287,18 +369,25 @@ Ret _doImport(engraving::EngravingProjectPtr proj, QString filePath, bool doLayo
     score->setMetaTag(u"originalFormat", QString::fromStdString(suffix));
     score->connectTies(); // HACK: ???
 
-    if (!doLayout) {
-        // make `score->update()` in `doSetupMasterScore` have no effect
-        score->lockUpdates(true);
-        DEFER {
-            score->lockUpdates(false);
-        };
-    }
-
     // Setup master score
+    const double setupStartMs = steadyNowMs();
     engraving::Err err = proj->setupMasterScore(true);
+    if (deferLayout) {
+        score->lockUpdates(false);
+    }
+    if (loadProfile) {
+        (*loadProfile)[QStringLiteral("setupMs")] = steadyNowMs() - setupStartMs;
+    }
     if (err != engraving::Err::NoError) {
         return make_ret(err);
+    }
+
+    const double layoutStartMs = steadyNowMs();
+    if (deferLayout) {
+        bootstrapDeferredLayout(score);
+    }
+    if (loadProfile) {
+        (*loadProfile)[QStringLiteral("initialLayoutMs")] = steadyNowMs() - layoutStartMs;
     }
 
     return make_ok();
@@ -309,6 +398,14 @@ Ret _doImport(engraving::EngravingProjectPtr proj, QString filePath, bool doLayo
  */
 WasmRes _load(const char* format, const char* data, const uint32_t size, bool doLayout) {
     String _format = String::fromUtf8(format);  // file format of the data
+    QJsonObject loadProfile;
+    loadProfile[QStringLiteral("format")] = QString::fromUtf8(format);
+    loadProfile[QStringLiteral("dataBytes")] = static_cast<double>(size);
+    loadProfile[QStringLiteral("doLayoutRequested")] = doLayout;
+    loadProfile[QStringLiteral("deferredRequested")] = !doLayout;
+    const bool museScoreFormat = engraving::isMuseScoreFile(format);
+    loadProfile[QStringLiteral("readerKind")] = museScoreFormat ? QStringLiteral("native") : QStringLiteral("import");
+    const double totalStartMs = steadyNowMs();
 
     // create a temporary file, and write `data` into it
     QTemporaryFile tempfile("XXXXXX." + _format);  // filename template for the temporary file
@@ -337,9 +434,9 @@ WasmRes _load(const char* format, const char* data, const uint32_t size, bool do
     // proj->setFileInfoProvider(std::make_shared<engraving::LocalFileInfoProvider>(filePath));
     
     // do load
-    Ret ret = engraving::isMuseScoreFile(format)
-        ? _doLoad(proj, filePath, doLayout)
-        : _doImport(proj, filePath, doLayout);
+    Ret ret = museScoreFormat
+        ? _doLoad(proj, filePath, doLayout, &loadProfile)
+        : _doImport(proj, filePath, doLayout, &loadProfile);
 
     // handle exceptions
     if (!ret.success()) {
@@ -350,6 +447,10 @@ WasmRes _load(const char* format, const char* data, const uint32_t size, bool do
     notationProj->m_masterNotation->setMasterScore(score);
 
     auto score_ptr = reinterpret_cast<uintptr_t>(score);
+    loadProfile[QStringLiteral("totalLoadMs")] = steadyNowMs() - totalStartMs;
+    loadProfile[QStringLiteral("pagesAfterLoad")] = static_cast<int>(score->npages());
+    loadProfile[QStringLiteral("deferredActive")] = !doLayout;
+    s_loadProfilesByScore[score_ptr] = loadProfile;
     return WasmRes(score_ptr);
 }
 
@@ -604,6 +705,32 @@ static int measureCount(MainScore& score)
     return count;
 }
 
+static engraving::Measure* layoutMeasureAtIndex(MainScore& score, int measureIndex)
+{
+    if (measureIndex < 0) {
+        return nullptr;
+    }
+
+    int index = 0;
+    for (auto* measure = score->firstMeasure(); measure; measure = measure->nextMeasure()) {
+        if (index == measureIndex) {
+            return measure;
+        }
+        ++index;
+    }
+
+    return nullptr;
+}
+
+static int layoutMeasureCount(MainScore& score)
+{
+    int count = 0;
+    for (auto* measure = score->firstMeasure(); measure; measure = measure->nextMeasure()) {
+        ++count;
+    }
+    return count;
+}
+
 static bool partStaffRange(const engraving::Part* part, engraving::staff_idx_t& staffStart, engraving::staff_idx_t& staffEnd)
 {
     staffStart = mu::nidx;
@@ -644,6 +771,53 @@ static std::string fractionToString(const engraving::Fraction& fraction)
     }
 
     return std::to_string(fraction.numerator()) + "/" + std::to_string(fraction.denominator());
+}
+
+struct LayoutProgressInfo {
+    int totalMeasures = 0;
+    int laidOutMeasures = 0;
+    int availablePages = 0;
+    long long loadedUntilTick = -1;
+    bool hasMorePages = false;
+    bool isComplete = false;
+};
+
+static LayoutProgressInfo captureLayoutProgress(MainScore& score)
+{
+    LayoutProgressInfo info;
+    info.totalMeasures = layoutMeasureCount(score);
+    info.availablePages = static_cast<int>(score->npages());
+
+    for (auto* measure = score->firstMeasure(); measure; measure = measure->nextMeasure()) {
+        if (!measure->system()) {
+            continue;
+        }
+
+        ++info.laidOutMeasures;
+        const long long endTick = static_cast<long long>((measure->tick() + measure->ticks()).ticks());
+        if (endTick > info.loadedUntilTick) {
+            info.loadedUntilTick = endTick;
+        }
+    }
+
+    info.hasMorePages = info.totalMeasures > info.laidOutMeasures;
+    info.isComplete = !info.hasMorePages;
+    return info;
+}
+
+static QJsonObject layoutProgressJson(MainScore& score, int targetPage, bool targetSatisfied)
+{
+    LayoutProgressInfo info = captureLayoutProgress(score);
+    QJsonObject json;
+    json.insert(QStringLiteral("targetPage"), targetPage);
+    json.insert(QStringLiteral("targetSatisfied"), targetSatisfied);
+    json.insert(QStringLiteral("availablePages"), info.availablePages);
+    json.insert(QStringLiteral("totalMeasures"), info.totalMeasures);
+    json.insert(QStringLiteral("laidOutMeasures"), info.laidOutMeasures);
+    json.insert(QStringLiteral("loadedUntilTick"), static_cast<double>(info.loadedUntilTick));
+    json.insert(QStringLiteral("hasMorePages"), info.hasMorePages);
+    json.insert(QStringLiteral("isComplete"), info.isComplete);
+    return json;
 }
 
 static bool durationBaseFraction(engraving::DurationType type, int& numerator, int& denominator)
@@ -1938,6 +2112,19 @@ WasmRes _saveMetadata(uintptr_t score_ptr) {
     );
 }
 
+WasmRes _loadProfile(uintptr_t score_ptr)
+{
+    QJsonObject json;
+    auto it = s_loadProfilesByScore.find(score_ptr);
+    if (it == s_loadProfilesByScore.end()) {
+        json.insert(QStringLiteral("available"), false);
+    } else {
+        json = it->second;
+        json.insert(QStringLiteral("available"), true);
+    }
+    return WasmRes(QJsonDocument(json).toJson(QJsonDocument::Compact));
+}
+
 // ---------------------------
 //  Interaction helpers
 // ---------------------------
@@ -2994,6 +3181,68 @@ bool _relayout(uintptr_t score_ptr, int excerptId)
     score->setLayoutAll();
     score->update();
     return true;
+}
+
+bool _layoutUntilPage(uintptr_t score_ptr, int targetPage, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    if (targetPage < 0) {
+        targetPage = 0;
+    }
+
+    if (static_cast<int>(score->npages()) > targetPage) {
+        return true;
+    }
+
+    const int totalMeasures = layoutMeasureCount(score);
+    if (totalMeasures <= 0) {
+        score->setLayoutAll();
+        score->update();
+        return static_cast<int>(score->npages()) > targetPage;
+    }
+
+    // Expand the laid-out range in geometric chunks until the target page exists.
+    int probeMeasureIndex = std::min(totalMeasures - 1, 7);
+    int attempts = 0;
+    while (attempts < 32) {
+        auto* probeMeasure = layoutMeasureAtIndex(score, probeMeasureIndex);
+        if (!probeMeasure) {
+            break;
+        }
+
+        const engraving::Fraction endTick = probeMeasure->tick() + probeMeasure->ticks();
+        score->doLayoutRange(engraving::Fraction(0, 1), endTick);
+        if (static_cast<int>(score->npages()) > targetPage) {
+            return true;
+        }
+
+        if (probeMeasureIndex >= totalMeasures - 1) {
+            break;
+        }
+
+        const int nextProbe = std::min(totalMeasures - 1, probeMeasureIndex * 2 + 1);
+        if (nextProbe <= probeMeasureIndex) {
+            break;
+        }
+        probeMeasureIndex = nextProbe;
+        ++attempts;
+    }
+
+    // Fallback for edge cases where incremental ranges still did not materialize target page.
+    score->setLayoutAll();
+    score->update();
+    return static_cast<int>(score->npages()) > targetPage;
+}
+
+WasmRes _layoutUntilPageState(uintptr_t score_ptr, int targetPage, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    if (targetPage < 0) {
+        targetPage = 0;
+    }
+
+    const bool targetSatisfied = _layoutUntilPage(score_ptr, targetPage, excerptId);
+    return WasmRes(QJsonDocument(layoutProgressJson(score, targetPage, targetSatisfied)).toJson(QJsonDocument::Compact));
 }
 
 bool _setLayoutMode(uintptr_t score_ptr, int layoutMode, int excerptId)
@@ -4772,6 +5021,16 @@ extern "C" {
     };
 
     EMSCRIPTEN_KEEPALIVE
+    bool layoutUntilPage(uintptr_t score_ptr, int targetPage, int excerptId = -1) {
+        return _layoutUntilPage(score_ptr, targetPage, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    WasmResBytes layoutUntilPageState(uintptr_t score_ptr, int targetPage, int excerptId = -1) {
+        return _layoutUntilPageState(score_ptr, targetPage, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
     bool setLayoutMode(uintptr_t score_ptr, int layoutMode, int excerptId = -1) {
         return _setLayoutMode(score_ptr, layoutMode, excerptId);
     };
@@ -5048,7 +5307,13 @@ extern "C" {
     };
 
     EMSCRIPTEN_KEEPALIVE
+    WasmResBytes loadProfile(uintptr_t score_ptr) {
+        return _loadProfile(score_ptr);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
     void destroy(uintptr_t score_ptr) {
+        s_loadProfilesByScore.erase(score_ptr);
         // remove the only alive reference to the smart pointer
         engraving::EngravingProjectPtr a = ((engraving::MasterScore*)score_ptr)->project().lock();
         instances.erase(a);

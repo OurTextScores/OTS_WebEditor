@@ -1,4 +1,4 @@
-import WebMscore from 'webmscore';
+import WebMscoreImport from 'webmscore';
 import { InputFileFormat, Positions } from 'webmscore/schemas';
 
 export type { InputFileFormat, Positions };
@@ -70,6 +70,9 @@ export interface Score {
     undo?: () => Promise<unknown> | unknown;
     redo?: () => Promise<unknown> | unknown;
     relayout?: () => Promise<unknown> | unknown;
+    layoutUntilPage?: (pageNumber: number) => Promise<unknown> | unknown;
+    layoutUntilPageState?: (pageNumber: number) => Promise<LayoutProgressState> | LayoutProgressState;
+    loadProfile?: () => Promise<Record<string, unknown>> | Record<string, unknown>;
     setLayoutMode?: (layoutMode: number) => Promise<unknown> | unknown;
     getLayoutMode?: () => Promise<number> | number;
     setTimeSignature?: (numerator: number, denominator: number) => Promise<unknown> | unknown;
@@ -124,10 +127,46 @@ export interface Score {
     removeTrailingEmptyMeasures?: () => Promise<unknown> | unknown;
 }
 
+export interface LayoutProgressState {
+    targetPage: number;
+    targetSatisfied: boolean;
+    availablePages: number;
+    totalMeasures: number;
+    laidOutMeasures: number;
+    loadedUntilTick: number;
+    hasMorePages: boolean;
+    isComplete: boolean;
+}
+
 export interface WebMscoreInstance {
     load: (format: InputFileFormat, data: Uint8Array, fonts?: Uint8Array[], doLayout?: boolean) => Promise<Score>;
     ready: Promise<void>;
 }
+
+// NOTE:
+// The `webmscore` package can present different module shapes depending on
+// runtime/bundler interop (CJS/ESM default wrapping). Resolve once so callers
+// always receive an object with { ready, load }.
+const resolveWebMscore = (mod: unknown): WebMscoreInstance => {
+    const candidates = [
+        mod as Record<string, unknown> | undefined,
+        (mod as any)?.default as Record<string, unknown> | undefined,
+        (mod as any)?.default?.default as Record<string, unknown> | undefined,
+    ];
+
+    for (const candidate of candidates) {
+        if (!candidate) continue;
+        const load = candidate.load;
+        const ready = candidate.ready;
+        if (typeof load === 'function' && ready && typeof (ready as Promise<void>).then === 'function') {
+            return candidate as unknown as WebMscoreInstance;
+        }
+    }
+
+    throw new Error('Unexpected webmscore module shape: missing ready/load');
+};
+
+const WebMscore = resolveWebMscore(WebMscoreImport as unknown);
 
 let initialized = false;
 

@@ -24,6 +24,12 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## webmscore Module Interop Note
+
+`webmscore` can expose different default-export shapes depending on runtime/bundler
+interop (CJS/ESM wrapping). Use `lib/webmscore-loader.ts` as the single import
+point so module shape normalization happens in one place.
+
 ## Embed Mode - External XML Comparison
 
 The score editor can be embedded as a standalone XML diff viewer by providing two external XML file URLs as URL parameters.

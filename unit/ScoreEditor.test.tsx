@@ -114,6 +114,97 @@ describe('ScoreEditor', () => {
     expect(score.selectElementAtPoint.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 
+  it('detects .mxl uploads and loads them with mxl format', async () => {
+    const user = userEvent.setup();
+    const largeData = new Uint8Array((2 * 1024 * 1024) + 8);
+
+    const score: any = {
+      destroy: vi.fn(),
+      saveSvg: vi.fn(async () => '<svg></svg>'),
+      savePdf: vi.fn(async () => new Uint8Array([1])),
+      setSoundFont: vi.fn(async () => {}),
+      metadata: vi.fn(async () => ({})),
+      measurePositions: vi.fn(async () => ({})),
+      segmentPositions: vi.fn(async () => ({})),
+      npages: vi.fn(async () => 1),
+    };
+
+    const webmscore: any = {
+      ready: Promise.resolve(),
+      load: vi.fn(async () => score),
+    };
+
+    mocked.loadWebMscore.mockResolvedValue(webmscore);
+    (globalThis as any).fetch = vi.fn(async () => ({
+      ok: false,
+      arrayBuffer: async () => new ArrayBuffer(0),
+    }));
+
+    render(<ScoreEditor />);
+
+    const file = new File([largeData], 'beethoven.mxl', {
+      type: 'application/vnd.recordare.musicxml',
+    });
+    await user.upload(screen.getByTestId('open-score-input'), file);
+
+    await waitFor(() => expect(webmscore.load).toHaveBeenCalled());
+    expect(webmscore.load).toHaveBeenNthCalledWith(1, 'mxl', expect.any(Uint8Array));
+  });
+
+  it('progressively lays out the next page when navigating large .musicxml scores', async () => {
+    const user = userEvent.setup();
+    const largeData = new Uint8Array((2 * 1024 * 1024) + 8);
+    let pages = 1;
+
+    const score: any = {
+      destroy: vi.fn(),
+      saveSvg: vi.fn(async (pageIndex?: number) => `<svg><text>page-${pageIndex ?? 0}</text></svg>`),
+      savePdf: vi.fn(async () => new Uint8Array([1])),
+      setSoundFont: vi.fn(async () => {}),
+      metadata: vi.fn(async () => ({})),
+      measurePositions: vi.fn(async () => ({})),
+      segmentPositions: vi.fn(async () => ({})),
+      layoutUntilPage: vi.fn(async (targetPage: number) => {
+        if (targetPage === 0) {
+          pages = 1;
+          return true;
+        }
+        if (targetPage === 1) {
+          pages = 2;
+          return true;
+        }
+        return false;
+      }),
+      npages: vi.fn(async () => pages),
+    };
+
+    const webmscore: any = {
+      ready: Promise.resolve(),
+      load: vi.fn(async () => score),
+    };
+
+    mocked.loadWebMscore.mockResolvedValue(webmscore);
+    (globalThis as any).fetch = vi.fn(async () => ({
+      ok: false,
+      arrayBuffer: async () => new ArrayBuffer(0),
+    }));
+
+    render(<ScoreEditor />);
+
+    const file = new File([largeData], 'beethoven.musicxml', { type: 'application/xml' });
+    await user.upload(screen.getByTestId('open-score-input'), file);
+
+    await waitFor(() => expect(webmscore.load).toHaveBeenNthCalledWith(1, 'musicxml', expect.any(Uint8Array), [], false));
+    await waitFor(() => expect(score.layoutUntilPage).toHaveBeenCalledWith(0));
+    await waitFor(() => expect(screen.getByTestId('page-indicator').textContent).toContain('Page 1 of 1+'));
+
+    await user.click(screen.getByText('Next'));
+
+    await waitFor(() => expect(score.layoutUntilPage).toHaveBeenCalledWith(1));
+    await waitFor(() => expect(screen.getByTestId('page-indicator').textContent).toContain('Page 2 of 2+'));
+    await waitFor(() => expect(score.saveSvg).toHaveBeenCalledWith(1, true, true));
+  });
+
   it('alerts when score load fails', async () => {
     const user = userEvent.setup();
 

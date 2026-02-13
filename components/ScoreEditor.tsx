@@ -2,7 +2,7 @@
 
 import React, { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { loadWebMscore, Score, InputFileFormat, Positions } from '../lib/webmscore-loader';
+import { loadWebMscore, Score, InputFileFormat, Positions, type LayoutProgressState } from '../lib/webmscore-loader';
 import {
     deleteCheckpoint,
     getCheckpoint,
@@ -504,6 +504,9 @@ export default function ScoreEditor() {
     const [aiModelsError, setAiModelsError] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(0);
     const [pageCount, setPageCount] = useState(1);
+    const [progressivePagingActive, setProgressivePagingActive] = useState(false);
+    const [progressiveHasMorePages, setProgressiveHasMorePages] = useState(false);
+    const [progressiveLoadEnabled, setProgressiveLoadEnabled] = useState(true);
     const [scoreId, setScoreId] = useState('');
     const [newScoreDialogOpen, setNewScoreDialogOpen] = useState(false);
     const [newScoreTitle, setNewScoreTitle] = useState('');
@@ -534,6 +537,21 @@ export default function ScoreEditor() {
     const clipboardRef = useRef<{ mimeType: string; data: Uint8Array } | null>(null);
     const currentPageRef = useRef(currentPage);
     const selectedPointRef = useRef<{ page: number, x: number, y: number } | null>(selectedPoint);
+    const progressivePageLoadInFlightRef = useRef(false);
+
+    const detectInputFormat = (source: string): InputFileFormat => {
+        const normalized = source.toLowerCase().split('#')[0].split('?')[0];
+        if (normalized.endsWith('.xml') || normalized.endsWith('.musicxml')) {
+            return 'musicxml';
+        }
+        if (normalized.endsWith('.mxl')) {
+            return 'mxl';
+        }
+        if (normalized.endsWith('.mscx')) {
+            return 'mscx';
+        }
+        return 'mscz';
+    };
     const aiKeyStorageKey = `ots_${aiProvider}_api_key`;
     const aiModelStorageKey = `ots_${aiProvider}_model`;
     const autoFitPendingRef = useRef(true);
@@ -2341,6 +2359,130 @@ ${partsBodyXml}
         return () => abortController.abort();
     }, [searchParams]);
 
+    const parseLayoutProgressState = (value: unknown): LayoutProgressState | null => {
+        if (!value || typeof value !== 'object') {
+            return null;
+        }
+
+        const state = value as Partial<LayoutProgressState>;
+        if (
+            typeof state.targetPage !== 'number'
+            || typeof state.targetSatisfied !== 'boolean'
+            || typeof state.availablePages !== 'number'
+            || typeof state.totalMeasures !== 'number'
+            || typeof state.laidOutMeasures !== 'number'
+            || typeof state.loadedUntilTick !== 'number'
+            || typeof state.hasMorePages !== 'boolean'
+            || typeof state.isComplete !== 'boolean'
+        ) {
+            return null;
+        }
+
+        return state as LayoutProgressState;
+    };
+
+    const requestLayoutProgress = async (targetScore: Score, targetPage: number): Promise<LayoutProgressState> => {
+        if (targetScore.layoutUntilPageState) {
+            const raw = await Promise.resolve(targetScore.layoutUntilPageState(targetPage));
+            const parsed = parseLayoutProgressState(raw);
+            if (parsed) {
+                return parsed;
+            }
+        }
+
+        const targetSatisfied = Boolean(await Promise.resolve(targetScore.layoutUntilPage?.(targetPage)));
+        const availablePages = targetScore.npages ? Math.max(1, await targetScore.npages()) : targetPage + (targetSatisfied ? 1 : 0);
+        return {
+            targetPage,
+            targetSatisfied,
+            availablePages,
+            totalMeasures: -1,
+            laidOutMeasures: -1,
+            loadedUntilTick: -1,
+            hasMorePages: targetSatisfied,
+            isComplete: !targetSatisfied,
+        };
+    };
+
+    const shouldUseProgressiveLoad = (format: InputFileFormat, data: Uint8Array) => {
+        if (!progressiveLoadEnabled) {
+            return false;
+        }
+        // In this webmscore build, deferred layout is stable for plain MusicXML.
+        // Compressed formats can fail in no-layout mode on large scores.
+        if (format !== 'musicxml') {
+            return false;
+        }
+        return data.byteLength >= (2 * 1024 * 1024);
+    };
+
+    const runWithTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> => {
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+        try {
+            return await Promise.race([
+                promise,
+                new Promise<T>((_, reject) => {
+                    timeoutId = setTimeout(() => {
+                        reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+                    }, timeoutMs);
+                }),
+            ]);
+        } finally {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+        }
+    };
+
+    const loadScoreWithInitialLayout = async (
+        WebMscore: Awaited<ReturnType<typeof loadWebMscore>>,
+        format: InputFileFormat,
+        data: Uint8Array,
+    ): Promise<{ loadedScore: Score; progressivePaging: boolean; progressiveHasMore: boolean }> => {
+        if (!shouldUseProgressiveLoad(format, data)) {
+            const loadedScore = await WebMscore.load(format, data);
+            return { loadedScore, progressivePaging: false, progressiveHasMore: false };
+        }
+
+        try {
+            const loadedScore = await runWithTimeout(
+                WebMscore.load(format, data, [], false),
+                12_000,
+                `Progressive load for ${format}`,
+            );
+            if (loadedScore.layoutUntilPage || loadedScore.layoutUntilPageState) {
+                const firstPageState = await runWithTimeout(
+                    requestLayoutProgress(loadedScore, 0),
+                    10_000,
+                    'Initial incremental layout',
+                );
+                if (firstPageState.targetSatisfied) {
+                    return {
+                        loadedScore,
+                        progressivePaging: true,
+                        progressiveHasMore: firstPageState.hasMorePages,
+                    };
+                }
+            }
+
+            if (loadedScore.relayout) {
+                await runWithTimeout(
+                    Promise.resolve(loadedScore.relayout()),
+                    20_000,
+                    'Progressive relayout fallback',
+                );
+                return { loadedScore, progressivePaging: false, progressiveHasMore: false };
+            }
+
+            loadedScore.destroy();
+        } catch (err) {
+            console.warn('Progressive score load failed, retrying with eager layout.', err);
+        }
+
+        const fallbackScore = await WebMscore.load(format, data);
+        return { loadedScore: fallbackScore, progressivePaging: false, progressiveHasMore: false };
+    };
+
     const handleUrlLoad = async (url: string, signal?: AbortSignal) => {
         if (signal?.aborted) {
             return;
@@ -2375,6 +2517,8 @@ ${partsBodyXml}
         setInstrumentGroups([]);
         setCurrentPage(0);
         setPageCount(1);
+        setProgressivePagingActive(false);
+        setProgressiveHasMorePages(false);
         autoFitPendingRef.current = true;
         try {
             const response = await fetch(url, signal ? { signal } : undefined);
@@ -2383,22 +2527,20 @@ ${partsBodyXml}
             const data = new Uint8Array(buffer);
             const WebMscore = await loadWebMscore();
 
-            // Guess format
-            let format: InputFileFormat = 'mscz';
-            if (url.endsWith('.xml') || url.endsWith('.musicxml')) {
-                format = 'musicxml';
-            }
+            const format = detectInputFormat(url);
 
             if (score) {
                 score.destroy();
             }
 
-            const loadedScore = await WebMscore.load(format, data);
+            const { loadedScore, progressivePaging, progressiveHasMore } = await loadScoreWithInitialLayout(WebMscore, format, data);
             if (signal?.aborted) {
                 loadedScore.destroy();
                 return;
             }
             setScore(loadedScore);
+            setProgressivePagingActive(progressivePaging);
+            setProgressiveHasMorePages(progressivePaging && progressiveHasMore);
             exposeScoreToWindow(loadedScore);
             const mutationsAvailable = hasMutationApi(loadedScore);
             if (!mutationsAvailable) {
@@ -2482,46 +2624,46 @@ ${partsBodyXml}
         setScoreLyricist('');
         setScoreParts([]);
         setInstrumentGroups([]);
+        setCurrentPage(0);
+        setPageCount(1);
+        setProgressivePagingActive(false);
+        setProgressiveHasMorePages(false);
         autoFitPendingRef.current = true;
         try {
             const buffer = await file.arrayBuffer();
             const data = new Uint8Array(buffer);
             const WebMscore = await loadWebMscore();
 
-            // Determine format based on extension
-            const name = file.name.toLowerCase();
-            let format: InputFileFormat = 'mscz';
-            if (name.endsWith('.xml') || name.endsWith('.musicxml')) {
-                format = 'musicxml';
-            }
+            const format = detectInputFormat(file.name);
 
             // But wait, we need to destroy previous score if exists
             if (score) {
                 score.destroy();
             }
 
-            // Re-load with default layout
-            const loadedScore = await WebMscore.load(format, data);
+            const { loadedScore, progressivePaging, progressiveHasMore } = await loadScoreWithInitialLayout(WebMscore, format, data);
             setScore(loadedScore);
+            setProgressivePagingActive(progressivePaging);
+            setProgressiveHasMorePages(progressivePaging && progressiveHasMore);
             exposeScoreToWindow(loadedScore);
             const mutationsAvailable = hasMutationApi(loadedScore);
             if (!mutationsAvailable) {
                 console.warn('Mutation APIs not detected on loaded score; enabling toolbar anyway.');
             }
             setMutationEnabled(true);
-        const initialPage = await refreshPageCount(loadedScore, 0);
-        await renderScore(loadedScore, initialPage);
-        if (autoFitPendingRef.current && typeof window !== 'undefined') {
-            window.requestAnimationFrame(() => {
+            const initialPage = await refreshPageCount(loadedScore, 0);
+            await renderScore(loadedScore, initialPage);
+            if (autoFitPendingRef.current && typeof window !== 'undefined') {
                 window.requestAnimationFrame(() => {
-                    handleFitWidth();
-                    autoFitPendingRef.current = false;
+                    window.requestAnimationFrame(() => {
+                        handleFitWidth();
+                        autoFitPendingRef.current = false;
+                    });
                 });
-            });
-        } else {
-            handleFitWidth();
-            autoFitPendingRef.current = false;
-        }
+            } else {
+                handleFitWidth();
+                autoFitPendingRef.current = false;
+            }
             await refreshScoreMetadata(loadedScore);
             await refreshInstrumentTemplates(loadedScore);
             if (loadedScore.saveAudio) {
@@ -2559,6 +2701,35 @@ ${partsBodyXml}
             setPageCount(1);
             setCurrentPage(0);
             return 0;
+        }
+    };
+
+    const ensurePageIsLaidOut = async (targetScore: Score, targetPage: number): Promise<boolean> => {
+        if (!targetScore.layoutUntilPage && !targetScore.layoutUntilPageState) {
+            return targetPage < pageCount;
+        }
+        if (progressivePageLoadInFlightRef.current) {
+            return false;
+        }
+
+        progressivePageLoadInFlightRef.current = true;
+        try {
+            const layoutState = await requestLayoutProgress(targetScore, targetPage);
+            const pages = Math.max(1, layoutState.availablePages || 1);
+            setPageCount((prev) => Math.max(prev, pages));
+            setProgressiveHasMorePages(layoutState.hasMorePages);
+
+            if (!layoutState.targetSatisfied || pages <= targetPage) {
+                return false;
+            }
+
+            return true;
+        } catch (err) {
+            console.warn('Failed incremental page layout:', err);
+            setProgressiveHasMorePages(false);
+            return false;
+        } finally {
+            progressivePageLoadInFlightRef.current = false;
         }
     };
 
@@ -4305,12 +4476,32 @@ ${partsBodyXml}
     };
 
     const goToPage = async (targetPage: number) => {
-        if (!score || targetPage < 0 || targetPage >= pageCount) {
+        if (!score || targetPage < 0) {
             return;
         }
-        setCurrentPage(targetPage);
+        let knownPages = pageCount;
+        if (targetPage >= pageCount) {
+            const canExpand = progressivePagingActive && progressiveHasMorePages;
+            if (!canExpand) {
+                return;
+            }
+            const ready = await ensurePageIsLaidOut(score, targetPage);
+            if (!ready) {
+                return;
+            }
+            if (score.npages) {
+                knownPages = Math.max(1, await score.npages());
+                setPageCount((prev) => Math.max(prev, knownPages));
+            } else {
+                knownPages = Math.max(pageCount, targetPage + 1);
+            }
+        }
+
+        const maxKnownPage = Math.max(knownPages - 1, 0);
+        const clampedTarget = Math.min(targetPage, maxKnownPage);
+        setCurrentPage(clampedTarget);
         try {
-            await renderScore(score, targetPage);
+            await renderScore(score, clampedTarget);
             refreshSelectionOverlay(selectedIndex, selectedPoint);
         } catch (err) {
             console.error('Failed to change page:', err);
@@ -4325,7 +4516,8 @@ ${partsBodyXml}
     };
 
     const handleNextPage = () => {
-        if (currentPage >= pageCount - 1) {
+        const atKnownEnd = currentPage >= pageCount - 1;
+        if (atKnownEnd && !(progressivePagingActive && progressiveHasMorePages)) {
             return;
         }
         void goToPage(currentPage + 1);
@@ -7203,8 +7395,16 @@ ${partsBodyXml}
 
                 {!loading && score && (
                     <div className="mb-3 flex items-center justify-end gap-2 text-sm text-gray-600">
+                        <button
+                            type="button"
+                            onClick={() => setProgressiveLoadEnabled((prev) => !prev)}
+                            className="px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50"
+                            title="Applies to future score loads"
+                        >
+                            Progressive load: {progressiveLoadEnabled ? 'On' : 'Off'}
+                        </button>
                         <span data-testid="page-indicator">
-                            Page {currentPage + 1} of {pageCount}
+                            Page {currentPage + 1} of {progressivePagingActive && progressiveHasMorePages ? `${pageCount}+` : pageCount}
                         </span>
                         <select
                             className="px-2 py-1 border border-gray-300 rounded bg-white text-sm"
@@ -7229,7 +7429,7 @@ ${partsBodyXml}
                         <button
                             type="button"
                             onClick={() => handleNextPage()}
-                            disabled={currentPage >= pageCount - 1}
+                            disabled={currentPage >= pageCount - 1 && !(progressivePagingActive && progressiveHasMorePages)}
                             className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Next

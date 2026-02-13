@@ -638,7 +638,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                 <input
                                     data-testid="open-score-input"
                                     type="file"
-                                    accept=".mscz,.xml,.musicxml"
+                                    accept=".mscz,.mscx,.mxl,.xml,.musicxml"
                                     onChange={handleFileChange}
                                     className="hidden"
                                 />

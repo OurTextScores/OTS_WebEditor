@@ -948,6 +948,32 @@ class WebMscoreW {
     }
 
     /**
+     * Read load-stage timing/profile data for this score.
+     * @returns {Promise<Record<string, any>>}
+     */
+    loadProfile() {
+        return this.rpc('loadProfile')
+    }
+
+    /**
+     * Incrementally layout enough measures so the target page can be rendered.
+     * @param {number} pageNumber zero-based page index
+     * @returns {Promise<boolean>}
+     */
+    layoutUntilPage(pageNumber = 0) {
+        return this.rpc('layoutUntilPage', [pageNumber])
+    }
+
+    /**
+     * Incrementally layout until target page and return structured progress state.
+     * @param {number} pageNumber zero-based page index
+     * @returns {Promise<Record<string, any>>}
+     */
+    layoutUntilPageState(pageNumber = 0) {
+        return this.rpc('layoutUntilPageState', [pageNumber])
+    }
+
+    /**
      * Set the layout mode for rendering (e.g., PAGE, LINE).
      * @param {number} layoutMode
      * @returns {Promise<boolean>}

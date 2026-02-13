@@ -823,6 +823,15 @@ class WebMscore {
     }
 
     /**
+     * Read load-stage timing/profile data for this score.
+     * @returns {Promise<Record<string, any>>}
+     */
+    async loadProfile() {
+        const dataptr = Module.ccall('loadProfile', 'number', ['number'], [this.scoreptr])
+        return JSON.parse(WasmRes.readText(dataptr))
+    }
+
+    /**
      * Select the topmost selectable element near a page-relative point
      * @param {number} pageNumber zero-based page index
      * @param {number} x
@@ -1208,6 +1217,26 @@ class WebMscore {
      */
     async relayout() {
         return Module.ccall('relayout', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
+    }
+
+    /**
+     * Incrementally layout enough of the score so `pageNumber` can be exported.
+     * Useful for faster first paint on very large scores loaded with `doLayout=false`.
+     * @param {number} pageNumber zero-based target page index
+     * @returns {Promise<boolean>}
+     */
+    async layoutUntilPage(pageNumber = 0) {
+        return Module.ccall('layoutUntilPage', 'boolean', ['number', 'number', 'number'], [this.scoreptr, pageNumber, this.excerptId])
+    }
+
+    /**
+     * Incrementally layout until target page and return structured progress state.
+     * @param {number} pageNumber zero-based target page index
+     * @returns {Promise<Record<string, any>>}
+     */
+    async layoutUntilPageState(pageNumber = 0) {
+        const dataptr = Module.ccall('layoutUntilPageState', 'number', ['number', 'number', 'number'], [this.scoreptr, pageNumber, this.excerptId])
+        return JSON.parse(WasmRes.readText(dataptr))
     }
 
     /**
