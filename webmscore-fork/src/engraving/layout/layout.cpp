@@ -241,7 +241,11 @@ void Layout::doLayout(const LayoutOptions& options, LayoutContext& lc)
         //    c) this page ends with the same measure as the previous layout
         //    pageOldMeasure will be last measure from previous layout if range was completed on or before this page
         //    it will be nullptr if this page was never laid out or if we collected a system for next page
-    } while (lc.curSystem && !(lc.rangeDone && lmb == lc.pageOldMeasure));
+        const bool reachedStablePoint = lc.rangeDone && (!lc.pageOldMeasure || lmb == lc.pageOldMeasure);
+        if (reachedStablePoint) {
+            break;
+        }
+    } while (lc.curSystem);
     // && page->system(0)->measures().back()->tick() > endTick // FIXME: perhaps the first measure was meant? Or last system?
 
     if (!lc.curSystem) {

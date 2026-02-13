@@ -7,18 +7,28 @@ Current benchmark files:
 - `/home/jhlusko/Downloads/beethoven-symphony-no-9-op-125.mscz`
 - `/home/jhlusko/Downloads/beethoven-symphony-no-9-op-125.mxl`
 
-Checkpoint commit for the work completed so far:
+Checkpoint commits for the work completed so far:
 - `de790d5`
+- `16dbde4`
 
 ## Current State (Measured)
-From direct Node/WASM probes after `de790d5`:
-- `.mscz` deferred (`doLayout=false`): ~89.7s load, 196 pages already laid out.
-- `.mscz` eager (`doLayout=true`): ~91.3s load, 196 pages.
-- `.mxl` deferred (`doLayout=false`): ~150.4s load, 278 pages already laid out.
+From direct Node/WASM probes on the current in-progress engine:
+- `.mscz` deferred (`doLayout=false`):
+  - load: ~39.8s
+  - first demand layout (`layoutUntilPageState(0)`): ~4.8s
+  - pages after first demand layout: `6`
+  - deep navigation (`layoutUntilPageState(6)`): ~42.8s one-time fallback to full layout
+- `.mscz` eager (`doLayout=true`):
+  - load: ~56.6s
+- `.mxl` deferred (`doLayout=false`):
+  - load: ~88.4s
+  - pages immediately available: `1`
+  - navigating to page 2 (`layoutUntilPageState(1)`): ~45.4s one-time fallback to full layout
 
 Interpretation:
-- Deferred mode is currently not materially reducing total layout for `.mscz`/`.mxl`.
-- The biggest remaining blocker is in engine setup/layout internals, not UI paging.
+- Initial first-page latency is materially improved for large `.mscz`.
+- The implementation is now stable (no page-6 crash in the current probe path).
+- Remaining issue is a mid-navigation cliff: once the initial incremental window is exceeded, we still fall back to full layout.
 
 ## Mapping to the Original 5 Items
 
@@ -28,9 +38,10 @@ Status: **Implemented**
 - Enables objective comparison of eager vs deferred behavior.
 
 ### 2) Reader-level deferred mode (highest value)
-Status: **Partially implemented, not effective yet**
-- Deferred path exists in web entrypoints, but engine setup still triggers full-layout behavior.
-- This is the primary remaining work.
+Status: **Implemented (hybrid), needs refinement**
+- Added a true deferred setup path for native readers so load-time setup can skip eager `setLayoutAll()/update()`.
+- Cold start now does a small range bootstrap, then falls back to full layout once outside the initial window.
+- This is stable and faster for first paint, but not yet fully incremental across many pages.
 
 ### 3) Structured progressive API
 Status: **Implemented**
@@ -51,52 +62,61 @@ Status: **Implemented (initial)**
 - Logic currently keeps progressive mode scoped conservatively.
 - Safe fallback to eager layout remains in place.
 
-## Proposed Next Steps (What happens next)
+## Proposed Next Steps (Mapped back to items 1-5)
 
-### Phase A: Make item #2 truly effective in engine
+### Phase A: Remove the page-window cliff (items #2 + #3)
 Goal:
-- Ensure `doLayout=false` for large scores avoids full pagination at load time.
+- Keep page-demand layout incremental beyond page 6 instead of triggering one large full-layout fallback.
 
 Work:
-1. Add a true deferred setup mode in `EngravingProject::doSetupMasterScore()` so load-time setup does not force full layout/update.
-2. Add explicit load/setup options in WASM entrypoint to select deferred setup behavior.
-3. Return a capability bit/state from WASM indicating whether deferred mode is genuinely active.
+1. Stabilize continuation after cold-start partial layout so `layoutUntilPageState(k)` can extend the laid-out frontier repeatedly.
+2. Expand incrementally in bounded windows (for example, doubling measure windows) and stop as soon as target page exists.
+3. Keep `layoutUntilPageState` fields authoritative so UI can show `N+` page counts during partial state.
 
 Acceptance criteria:
-- On Beethoven `.mscz`, deferred load is materially faster than eager (target: significant reduction in initial load wall time, then page-demand layout for later pages).
-- `layoutUntilPageState(0)` reports incomplete total layout after initial load (`hasMorePages=true`).
+- Sequential calls for `targetPage=0..20` on Beethoven `.mscz` complete without crashes.
+- No single call incurs a full-score fallback unless explicitly requested.
 
-### Phase B: Expand progressive eligibility safely (items #4/#5 follow-through)
+### Phase B: Normalize import and native behavior (items #2 + #4)
 Goal:
-- Enable progressive mode for `.mscz`/`.mxl` when engine capability confirms true deferred operation.
+- Make `.mscz` and `.mxl` share consistent progressive semantics and avoid format-specific surprises.
 
 Work:
-1. Gate format eligibility by capability (not by extension only).
-2. Keep current fallback and toggle as safety valves.
-3. Add telemetry logs around fallback triggers for debugging.
+1. Align deferred-load setup behavior across native reader and import reader paths.
+2. Ensure first-page availability is explicit and cheap for both paths.
+3. Keep identical app-side handling of progressive state regardless of file format.
 
 Acceptance criteria:
-- `.mscz` and `.mxl` can use progressive mode when engine says it is safe.
-- If capability is absent or fails, app falls back cleanly to eager load.
+- Both `.mscz` and `.mxl` report partial-progress states consistently after deferred load.
+- Navigation semantics in the editor are the same for both formats.
 
-### Phase C: Hardening and regression coverage
+### Phase C: Capability-gated rollout and user control (items #4 + #5)
 Goal:
-- Prevent regressions in loading, pagination, and editing behavior.
+- Expose progressive mode only when the engine confirms stable incremental behavior.
 
 Work:
-1. Add/extend tests for:
-   - progressive load selection,
-   - `layoutUntilPageState` handling,
-   - fallback behavior.
-2. Verify representative operations on partially laid-out scores:
-   - selection,
-   - mutation,
-   - undo/redo,
-   - export of current page.
+1. Add an engine capability flag for "stable multi-step incremental pagination."
+2. Gate app-side progressive default by that capability.
+3. Keep the existing user toggle (`Progressive load: On/Off`) as an override.
+
+Acceptance criteria:
+- Progressive mode defaults on only when capability is true.
+- Users can still opt out (or in for experiments) via UI toggle.
+
+### Phase D: Observability and regression coverage (items #1 + #3 + #4)
+Goal:
+- Make regressions visible and prevent accidental fallback/crash regressions.
+
+Work:
+1. Extend probe/test coverage to assert:
+   - deferred first-page latency does not regress badly,
+   - `layoutUntilPageState` remains monotonic (`availablePages`, `laidOutMeasures`),
+   - no crash at page-boundary transitions.
+2. Keep focused unit tests for editor progressive navigation and fallback behavior.
 
 Acceptance criteria:
 - Existing tests pass.
-- New progressive-path tests pass in CI.
+- New progressive engine probe checks pass on Beethoven benchmark files.
 
 ## Risks
 - Engine internals may still trigger global layout indirectly in update paths.

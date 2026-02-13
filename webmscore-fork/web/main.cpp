@@ -180,6 +180,42 @@ static void bootstrapDeferredLayout(engraving::MasterScore* score)
         score->update();
     }
 }
+
+static engraving::Err setupMasterScoreDeferred(engraving::MasterScore* score, bool forceMode)
+{
+    IF_ASSERT_FAILED(score) {
+        return engraving::Err::UnknownError;
+    }
+
+    score->createPaddingTable();
+    score->connectTies();
+
+    for (auto* part : score->parts()) {
+        if (part) {
+            part->updateHarmonyChannels(false);
+        }
+    }
+
+    score->rebuildMidiMapping();
+    score->setSoloMute();
+
+    for (auto* s : score->scoreList()) {
+        if (!s) {
+            continue;
+        }
+        s->setPlaylistDirty();
+        s->addLayoutFlags(engraving::LayoutFlag::FIX_PITCH_VELO);
+        // Intentionally avoid setLayoutAll()/update() to keep deferred loading fast.
+    }
+
+    score->updateChannel();
+
+    if (!forceMode && !score->sanityCheck()) {
+        return engraving::Err::FileCorrupted;
+    }
+
+    return engraving::Err::NoError;
+}
 }
 
 /**
@@ -303,10 +339,17 @@ Ret _doLoad(engraving::EngravingProjectPtr proj, QString filePath, bool doLayout
     }
 
     const double setupStartMs = steadyNowMs();
-    err = proj->setupMasterScore(true);
+    if (deferLayout) {
+        err = setupMasterScoreDeferred(score, true);
+    } else {
+        err = proj->setupMasterScore(true);
+    }
     score->lockUpdates(false);
     if (loadProfile) {
         (*loadProfile)[QStringLiteral("setupMs")] = steadyNowMs() - setupStartMs;
+        (*loadProfile)[QStringLiteral("setupMode")] = deferLayout
+            ? QStringLiteral("deferred-minimal")
+            : QStringLiteral("full");
     }
     if (err != engraving::Err::NoError) {
         return make_ret(err);
@@ -318,8 +361,11 @@ Ret _doLoad(engraving::EngravingProjectPtr proj, QString filePath, bool doLayout
         score->update();
         score->switchToPageMode();  // the default _layoutMode is LayoutMode::PAGE, but the score file may be saved in continuous mode
     } else {
-        bootstrapDeferredLayout(score);
-        score->switchToPageMode();
+        if (score->layoutMode() != engraving::LayoutMode::PAGE) {
+            score->setLayoutMode(engraving::LayoutMode::PAGE);
+        }
+        // For MSCX/MSCZ deferred load, avoid any layout work at load time.
+        // Page-demand layout (or existing cached layout from file) is handled later.
     }
     if (loadProfile) {
         (*loadProfile)[QStringLiteral("initialLayoutMs")] = steadyNowMs() - layoutStartMs;
@@ -3190,7 +3236,8 @@ bool _layoutUntilPage(uintptr_t score_ptr, int targetPage, int excerptId)
         targetPage = 0;
     }
 
-    if (static_cast<int>(score->npages()) > targetPage) {
+    int availablePages = static_cast<int>(score->npages());
+    if (availablePages > targetPage) {
         return true;
     }
 
@@ -3201,34 +3248,20 @@ bool _layoutUntilPage(uintptr_t score_ptr, int targetPage, int excerptId)
         return static_cast<int>(score->npages()) > targetPage;
     }
 
-    // Expand the laid-out range in geometric chunks until the target page exists.
-    int probeMeasureIndex = std::min(totalMeasures - 1, 7);
-    int attempts = 0;
-    while (attempts < 32) {
-        auto* probeMeasure = layoutMeasureAtIndex(score, probeMeasureIndex);
-        if (!probeMeasure) {
-            break;
+    // On cold start, bootstrap a small prefix quickly for first paint.
+    if (availablePages <= 0) {
+        auto* probeMeasure = layoutMeasureAtIndex(score, std::min(totalMeasures - 1, 7));
+        if (probeMeasure) {
+            const engraving::Fraction endTick = probeMeasure->tick() + probeMeasure->ticks();
+            score->doLayoutRange(engraving::Fraction(0, 1), endTick);
+            availablePages = static_cast<int>(score->npages());
+            if (availablePages > targetPage) {
+                return true;
+            }
         }
-
-        const engraving::Fraction endTick = probeMeasure->tick() + probeMeasure->ticks();
-        score->doLayoutRange(engraving::Fraction(0, 1), endTick);
-        if (static_cast<int>(score->npages()) > targetPage) {
-            return true;
-        }
-
-        if (probeMeasureIndex >= totalMeasures - 1) {
-            break;
-        }
-
-        const int nextProbe = std::min(totalMeasures - 1, probeMeasureIndex * 2 + 1);
-        if (nextProbe <= probeMeasureIndex) {
-            break;
-        }
-        probeMeasureIndex = nextProbe;
-        ++attempts;
     }
 
-    // Fallback for edge cases where incremental ranges still did not materialize target page.
+    // Fallback for deeper navigation beyond the initial incremental window.
     score->setLayoutAll();
     score->update();
     return static_cast<int>(score->npages()) > targetPage;

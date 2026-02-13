@@ -338,8 +338,12 @@ System* LayoutSystem::collectSystem(const LayoutOptions& options, LayoutContext&
 
     if (ctx.endTick < ctx.prevMeasure->tick()) {
         // we've processed the entire range
-        // but we need to continue layout until we reach a system whose last measure is the same as previous layout
-        if (ctx.prevMeasure == ctx.systemOldMeasure) {
+        // with no prior system baseline (cold start), we can stop as soon as range is complete
+        if (ctx.systemOldMeasure == nullptr) {
+            ctx.rangeDone = true;
+        }
+        // for incremental relayouts, keep the original stability check against old system boundary
+        else if (ctx.prevMeasure == ctx.systemOldMeasure) {
             // this system ends in the same place as the previous layout
             // ok to stop
             if (ctx.curMeasure && ctx.curMeasure->isMeasure()) {
