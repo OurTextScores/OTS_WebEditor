@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -143,8 +143,11 @@ interface ToolbarProps {
 }
 
 const toolbarInputBaseClass =
-    'rounded border border-gray-300 bg-white px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:border-gray-200 disabled:cursor-not-allowed';
-const dropdownTextClass = 'px-3 py-1 text-xs sm:text-sm text-gray-700';
+    'rounded-lg border-0 bg-white px-2.5 py-1.5 text-sm font-medium leading-5 text-slate-800 shadow-sm ring-1 ring-slate-200 transition focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:cursor-not-allowed disabled:ring-slate-100 disabled:bg-slate-50 disabled:text-slate-500';
+const dropdownTextClass = 'px-3 py-1.5 text-sm font-medium leading-5 text-slate-800';
+const toolbarRowClass =
+    'flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3 text-sm font-medium leading-5 [&_button]:mx-0.5 [&_label.cursor-pointer]:mx-0.5 border-b border-slate-100 bg-white hover:bg-slate-50/30 transition-colors';
+const toolbarSectionLabelClass = 'text-xs font-bold uppercase tracking-wider text-slate-600 mr-2';
 
 const resolveMenuPoint = (event?: Event): HeaderEditorPoint => {
     if (event && 'clientX' in event && typeof event.clientX === 'number' && typeof event.clientY === 'number') {
@@ -168,25 +171,24 @@ const ToolbarDropdown: React.FC<{
     testId?: string;
     triggerClassName?: string;
     triggerVariant?: React.ComponentProps<typeof Button>['variant'];
-}> = ({ label, disabled = false, children, testId, triggerClassName, triggerVariant = 'secondary' }) => {
+}> = ({ label, disabled = false, children, testId, triggerClassName, triggerVariant = 'outline' }) => {
     const [open, setOpen] = useState(false);
-
-    useEffect(() => {
-        if (disabled) {
-            setOpen(false);
-        }
-    }, [disabled]);
+    const menuOpen = disabled ? false : open;
 
     return (
-        <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
+        <DropdownMenu
+            open={menuOpen}
+            onOpenChange={(nextOpen) => setOpen(disabled ? false : nextOpen)}
+            modal={false}
+        >
             <DropdownMenuTrigger asChild>
                 <Button
                     data-testid={testId}
                     variant={triggerVariant}
                     size="sm"
-                    className={triggerClassName}
+                    className={`rounded-lg ${triggerClassName ?? ''}`.trim()}
                     disabled={disabled}
-                    aria-expanded={open}
+                    aria-expanded={menuOpen}
                 >
                     {label}
                 </Button>
@@ -295,7 +297,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     const [measureCount, setMeasureCount] = useState(1);
     const [measureTarget, setMeasureTarget] = useState<MeasureInsertTarget>('after-selection');
     const [tempoBpm, setTempoBpm] = useState('120');
-    const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
+    const [toolbarCollapsed, setToolbarCollapsed] = useState(
+        () => typeof window !== 'undefined' && window.innerWidth < 1024,
+    );
 
     const handleApplyMeasures = () => {
         if (!onInsertMeasures) {
@@ -331,15 +335,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             onSoundFontUpload(file);
         }
     };
-
-    useEffect(() => {
-        if (typeof window === 'undefined') {
-            return;
-        }
-        if (window.innerWidth < 1024) {
-            setToolbarCollapsed(true);
-        }
-    }, []);
 
     const mutationDisabled = !mutationsEnabled;
     const insertMeasuresBlocked = insertMeasuresDisabled || !onInsertMeasures || mutationDisabled;
@@ -603,36 +598,43 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             onOpenChange={(open) => setToolbarCollapsed(!open)}
         >
             <div
-                className="relative flex flex-col border-b border-gray-300 bg-gray-100 p-2 sm:p-3 lg:p-4 overflow-visible"
+                className="relative flex flex-col gap-0 overflow-visible border-b border-slate-200 bg-white shadow-sm"
                 style={{ zIndex: 100 }}
             >
-                <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        Toolbar
-                    </span>
+                <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-gradient-to-r from-blue-50 via-slate-50 to-blue-50 px-4 py-2.5">
+                    <div className="flex items-center gap-2">
+                        <div className="h-6 w-1 rounded-full bg-blue-600"></div>
+                        <span className="text-sm font-bold tracking-wide text-slate-800">
+                            Score Tools
+                        </span>
+                    </div>
                     <CollapsibleTrigger asChild>
                         <Button
                             aria-expanded={!toolbarCollapsed}
                             aria-controls="toolbar-content"
-                            variant="secondary"
+                            variant="ghost"
                             size="sm"
+                            className="text-xs font-semibold text-blue-700 hover:bg-blue-100"
                         >
-                            {toolbarCollapsed ? 'Show tools' : 'Hide tools'}
+                            {toolbarCollapsed ? '▼ Show Tools' : '▲ Hide Tools'}
                         </Button>
                     </CollapsibleTrigger>
                 </div>
-                <CollapsibleContent id="toolbar-content" className="flex flex-col gap-3 sm:gap-4">
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-                        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                <CollapsibleContent id="toolbar-content" className="flex flex-col gap-0 bg-gradient-to-b from-slate-50 to-white">
+                    <div className={`${toolbarRowClass} sm:gap-4`}>
+                        <div className="flex flex-wrap items-center gap-2 rounded-lg bg-blue-50/40 px-3 py-2">
+                            <span className={toolbarSectionLabelClass}>File</span>
+                            <div className="h-4 w-px bg-slate-200"></div>
                             <Button
                                 onClick={onNewScore}
                                 variant="primary"
                                 size="sm"
                                 disabled={!onNewScore}
+                                className="shadow-sm"
                             >
                                 New Score
                             </Button>
-                            <Button asChild variant="primary" size="sm">
+                            <Button asChild variant="primary" size="sm" className="shadow-sm">
                                 <label className="cursor-pointer">
                                 Load Score
                                 <input
@@ -649,6 +651,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                 disabled={!exportsEnabled}
                                 testId="dropdown-export"
                                 triggerVariant="primary"
+                                triggerClassName="shadow-sm"
                             >
                                 <DropdownMenuItem
                                     data-testid="btn-export-svg"
@@ -700,7 +703,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                     {audioBusy ? 'Exporting…' : 'WAV'}
                                 </DropdownMenuItem>
                             </ToolbarDropdown>
-                            <Button asChild variant="secondary" size="sm">
+                            <div className="h-4 w-px bg-slate-200"></div>
+                            <Button asChild variant="outline" size="sm" className="shadow-sm">
                                 <label className="cursor-pointer">
                                     Load SoundFont
                                     <input
@@ -713,82 +717,92 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                 </label>
                             </Button>
                         </div>
-                        <div className="ml-auto flex items-center gap-2">
+                        <div className="ml-auto flex items-center gap-2 rounded-lg bg-slate-50/50 px-3 py-2">
+                            <span className={toolbarSectionLabelClass}>View</span>
+                            <div className="h-4 w-px bg-slate-200"></div>
                             <Button
                                 data-testid="btn-fit-width"
                                 onClick={onFitWidth}
                                 disabled={!onFitWidth}
-                                variant="secondary"
+                                variant="outline"
                                 size="sm"
+                                className="shadow-sm"
                             >
-                                Fit W
+                                Fit Width
                             </Button>
                             <Button
                                 data-testid="btn-fit-height"
                                 onClick={onFitHeight}
                                 disabled={!onFitHeight}
-                                variant="secondary"
+                                variant="outline"
                                 size="sm"
+                                className="shadow-sm"
                             >
-                                Fit H
+                                Fit Height
                             </Button>
+                            <div className="h-4 w-px bg-slate-200"></div>
                             <Button
                                 data-testid="btn-zoom-out"
                                 onClick={onZoomOut}
-                                variant="secondary"
+                                variant="outline"
                                 size="sm"
+                                className="shadow-sm"
                             >
-                                -
+                                −
                             </Button>
-                            <span className="w-14 text-center text-xs sm:text-sm text-gray-600">
+                            <span className="min-w-[3rem] rounded bg-white px-2 py-1 text-center text-xs font-bold text-slate-700 shadow-sm">
                                 {(zoomLevel * 100).toFixed(0)}%
                             </span>
                             <Button
                                 data-testid="btn-zoom-in"
                                 onClick={onZoomIn}
-                                variant="secondary"
+                                variant="outline"
                                 size="sm"
+                                className="shadow-sm"
                             >
                                 +
                             </Button>
                         </div>
                     </div>
 
-                <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
-                    <div className="flex items-center gap-2">
-                        <span className="text-gray-600">Playback:</span>
+                <div className={toolbarRowClass}>
+                    <div className="flex flex-wrap items-center gap-2 rounded-lg bg-green-50/40 px-3 py-2">
+                        <span className={toolbarSectionLabelClass}>Playback</span>
+                        <div className="h-4 w-px bg-slate-200"></div>
                         <Button
                             data-testid="btn-play"
                             onClick={onPlayAudio}
                             disabled={!audioAvailable || !onPlayAudio || audioBusy}
-                            variant="secondary"
+                            variant="primary"
                             size="sm"
+                            className="shadow-sm bg-green-600 hover:bg-green-700 border-green-600"
                         >
-                            {audioBusy ? 'Working…' : isPlaying ? 'Replay' : 'Play'}
+                            {audioBusy ? 'Working…' : isPlaying ? '▶ Replay' : '▶ Play'}
                         </Button>
                         <Button
                             data-testid="btn-play-from-selection"
                             onClick={onPlayFromSelectionAudio}
                             disabled={!audioAvailable || !onPlayFromSelectionAudio || !selectionActive || audioBusy}
-                            variant="secondary"
+                            variant="outline"
                             size="sm"
+                            className="shadow-sm"
                         >
-                            From Selection
+                            ▶ From Selection
                         </Button>
                         <Button
                             data-testid="btn-stop"
                             onClick={onStopAudio}
                             disabled={!audioAvailable || !onStopAudio}
-                            variant="secondary"
+                            variant="outline"
                             size="sm"
+                            className="shadow-sm"
                         >
-                            Stop
+                            ■ Stop
                         </Button>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                            Tempo
-                        </span>
+                    <div className="flex items-center gap-2 rounded-lg bg-purple-50/40 px-3 py-2">
+                        <span className={toolbarSectionLabelClass}>Tempo</span>
+                        <div className="h-4 w-px bg-slate-200"></div>
                         <input
                             data-testid="input-tempo-bpm"
                             type="number"
@@ -807,70 +821,83 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             data-testid="btn-tempo-apply"
                             onClick={handleApplyTempo}
                             disabled={mutationDisabled || !onAddTempoText}
-                            variant="secondary"
+                            variant="outline"
                             size="sm"
+                            className="shadow-sm"
                         >
-                            Tempo
+                            Apply
                         </Button>
                     </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        Add measures
-                    </span>
-                    <input
-                        data-testid="input-measure-count"
-                        type="number"
-                        min={1}
-                        value={measureCount}
-                        onChange={event => setMeasureCount(Number(event.currentTarget.value) || 1)}
-                        className={`${toolbarInputBaseClass} w-16`}
-                    />
-                    <select
-                        data-testid="select-measure-target"
-                        value={measureTarget}
-                        onChange={(event) => setMeasureTarget(event.target.value as MeasureInsertTarget)}
-                        className={`${toolbarInputBaseClass} w-40`}
-                    >
-                        <option value="beginning">Beginning</option>
-                        <option value="after-selection">After Selection</option>
-                        <option value="end">End</option>
-                    </select>
-                    <Button
-                        data-testid="btn-insert-measures"
-                        onClick={handleApplyMeasures}
-                        disabled={insertMeasuresBlocked}
-                        variant="secondary"
-                        size="sm"
-                    >
-                        Apply
-                    </Button>
-                    <Button
-                        data-testid="btn-remove-containing-measures"
-                        onClick={onRemoveContainingMeasures}
-                        disabled={mutationDisabled || !selectionActive || !onRemoveContainingMeasures}
-                        variant="secondary"
-                        size="sm"
-                    >
-                        Remove Containing Measures
-                    </Button>
-                    <Button
-                        data-testid="btn-remove-trailing-empty"
-                        onClick={onRemoveTrailingEmptyMeasures}
-                        disabled={mutationDisabled || !onRemoveTrailingEmptyMeasures}
-                        variant="secondary"
-                        size="sm"
-                    >
-                        Remove Trailing Empty Measures
-                    </Button>
+                <div className={toolbarRowClass}>
+                    <div className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50/40 px-3 py-2">
+                        <span className={toolbarSectionLabelClass}>Measures</span>
+                        <div className="h-4 w-px bg-slate-200"></div>
+                        <input
+                            data-testid="input-measure-count"
+                            type="number"
+                            min={1}
+                            value={measureCount}
+                            onChange={event => setMeasureCount(Number(event.currentTarget.value) || 1)}
+                            className={`${toolbarInputBaseClass} w-16`}
+                        />
+                        <Select
+                            value={measureTarget}
+                            onValueChange={(value) => setMeasureTarget(value as MeasureInsertTarget)}
+                        >
+                            <SelectTrigger data-testid="select-measure-target" className="w-40 shadow-sm">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="beginning">Beginning</SelectItem>
+                                <SelectItem value="after-selection">After Selection</SelectItem>
+                                <SelectItem value="end">End</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Button
+                            data-testid="btn-insert-measures"
+                            onClick={handleApplyMeasures}
+                            disabled={insertMeasuresBlocked}
+                            variant="outline"
+                            size="sm"
+                            className="shadow-sm"
+                        >
+                            Add
+                        </Button>
+                        <div className="h-4 w-px bg-slate-200"></div>
+                        <Button
+                            data-testid="btn-remove-containing-measures"
+                            onClick={onRemoveContainingMeasures}
+                            disabled={mutationDisabled || !selectionActive || !onRemoveContainingMeasures}
+                            variant="outline"
+                            size="sm"
+                            className="shadow-sm"
+                        >
+                            Remove Selected
+                        </Button>
+                        <Button
+                            data-testid="btn-remove-trailing-empty"
+                            onClick={onRemoveTrailingEmptyMeasures}
+                            disabled={mutationDisabled || !onRemoveTrailingEmptyMeasures}
+                            variant="outline"
+                            size="sm"
+                            className="shadow-sm"
+                        >
+                            Remove Trailing
+                        </Button>
+                    </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+                <div className={toolbarRowClass}>
+                    <div className="flex flex-wrap items-center gap-2 rounded-lg bg-indigo-50/40 px-3 py-2">
+                        <span className={toolbarSectionLabelClass}>Signatures</span>
+                        <div className="h-4 w-px bg-slate-200"></div>
                     <ToolbarDropdown
                         label="Time Signature"
                         disabled={mutationDisabled}
                         testId="dropdown-signature"
+                        triggerClassName="shadow-sm"
                     >
                         {signatureOptions.map(opt => {
                             const handler = resolveTimeSigHandler(opt);
@@ -886,9 +913,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             );
                         })}
                     </ToolbarDropdown>
-
-                    <div className="flex items-center gap-2">
-                        <span className="text-gray-600">Custom Time:</span>
+                        <div className="h-4 w-px bg-slate-200"></div>
+                        <span className="text-xs font-medium text-slate-600">Custom:</span>
                         <input
                             data-testid="input-timesig-numerator"
                             type="number"
@@ -896,9 +922,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             value={customTimeSigNumerator}
                             onChange={(event) => setCustomTimeSigNumerator(event.target.value)}
                             disabled={!canSetCustomTimeSig}
-                            className={`${toolbarInputBaseClass} w-16`}
+                            className={`${toolbarInputBaseClass} w-14`}
                         />
-                        <span className="text-gray-500">/</span>
+                        <span className="text-slate-600">/</span>
                         <input
                             data-testid="input-timesig-denominator"
                             type="number"
@@ -906,7 +932,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             value={customTimeSigDenominator}
                             onChange={(event) => setCustomTimeSigDenominator(event.target.value)}
                             disabled={!canSetCustomTimeSig}
-                            className={`${toolbarInputBaseClass} w-16`}
+                            className={`${toolbarInputBaseClass} w-14`}
                         />
                         <Button
                             data-testid="btn-timesig-custom"
@@ -916,19 +942,24 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                 }
                             }}
                             disabled={!canSetCustomTimeSig || !customTimeSigValid}
-                            variant="secondary"
+                            variant="outline"
                             size="sm"
+                            className="shadow-sm"
                         >
                             Apply
                         </Button>
                     </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+                <div className={toolbarRowClass}>
+                    <div className="flex flex-wrap items-center gap-2 rounded-lg bg-rose-50/40 px-3 py-2">
+                        <span className={toolbarSectionLabelClass}>Score</span>
+                        <div className="h-4 w-px bg-slate-200"></div>
                     <ToolbarDropdown
                         label="Instruments"
                         disabled={instrumentsDisabled}
                         testId="dropdown-instruments"
+                        triggerClassName="shadow-sm"
                     >
                         <DropdownMenuLabel>Add</DropdownMenuLabel>
                         {hasInstrumentTemplates ? (
@@ -976,7 +1007,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                 </DropdownMenuItem>
                             </>
                         ) : (
-                            <div className="px-2 py-1 text-xs text-gray-500">
+                            <div className="px-2 py-1 text-sm text-slate-600">
                                 Instrument list unavailable.
                             </div>
                         )}
@@ -984,8 +1015,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         <DropdownMenuLabel>On Score</DropdownMenuLabel>
                         {parts.length ? (
                             parts.map(part => (
-                                <div key={`${part.index}-${part.instrumentId}`} className="flex items-center gap-2">
-                                    <span className="flex-1 text-xs sm:text-sm truncate">
+                                <div key={`${part.index}-${part.instrumentId}`} className="flex items-center gap-3">
+                                    <span className="flex-1 truncate text-sm text-slate-800">
                                         {part.name || part.instrumentName || part.instrumentId}
                                     </span>
                                     <DropdownMenuItem
@@ -1011,14 +1042,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                 </div>
                             ))
                         ) : (
-                            <div className="px-2 py-1 text-xs text-gray-500">No parts loaded.</div>
+                            <div className="px-2 py-1 text-sm text-slate-600">No parts loaded.</div>
                         )}
                     </ToolbarDropdown>
-
+                        <div className="h-4 w-px bg-slate-200"></div>
 		            <ToolbarDropdown
                         label="Key"
                         disabled={mutationDisabled || !onSetKeySignature}
                         testId="dropdown-key"
+                        triggerClassName="shadow-sm"
                     >
                         <DropdownMenuLabel>Major</DropdownMenuLabel>
                         {keySignatureButtonOptions.map(opt => (
@@ -1032,11 +1064,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             </DropdownMenuItem>
                         ))}
                     </ToolbarDropdown>
-
+                        <div className="h-4 w-px bg-slate-200"></div>
 		            <ToolbarDropdown
                         label="Clef"
                         disabled={mutationDisabled || !onSetClef}
                         testId="dropdown-clef"
+                        triggerClassName="shadow-sm"
                     >
                         <DropdownMenuLabel>Common</DropdownMenuLabel>
                         {clefButtonOptions.map(opt => (
@@ -1050,11 +1083,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             </DropdownMenuItem>
                         ))}
                     </ToolbarDropdown>
-
+                        <div className="h-4 w-px bg-slate-200"></div>
             <ToolbarDropdown
                 label="Repeats/Barlines"
                 disabled={mutationDisabled || !selectionActive}
                 testId="dropdown-repeats"
+                triggerClassName="shadow-sm"
             >
                 <DropdownMenuLabel>Repeats</DropdownMenuLabel>
                 <DropdownMenuItem
@@ -1105,11 +1139,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     </DropdownMenuItem>
                 ))}
             </ToolbarDropdown>
-
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 rounded-lg bg-teal-50/40 px-3 py-2">
+                        <span className={toolbarSectionLabelClass}>Notes</span>
+                        <div className="h-4 w-px bg-slate-200"></div>
             <ToolbarDropdown
                 label="Grace Notes"
                 disabled={mutationDisabled}
                 testId="dropdown-grace-notes"
+                triggerClassName="shadow-sm"
             >
                 {graceNoteOptions.map(opt => (
                     <DropdownMenuItem
@@ -1122,64 +1160,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     </DropdownMenuItem>
                 ))}
             </ToolbarDropdown>
-
-            <ToolbarDropdown
-                label="Rhythm"
-                disabled={mutationDisabled}
-                testId="dropdown-rhythm"
-            >
-                <DropdownMenuLabel>Notes</DropdownMenuLabel>
-                <DropdownMenuItem
-                    data-testid="btn-add-note-dropdown"
-                    disabled={mutationDisabled || !selectionActive || !onAddNoteFromRest}
-                    onSelect={() => onAddNoteFromRest?.()}
-                >
-                    Add Note
-                </DropdownMenuItem>
-                <DropdownMenuLabel>Duration</DropdownMenuLabel>
-                {durationOptions.map(opt => (
-                    <DropdownMenuItem
-                        key={opt.value}
-                        data-testid={opt.testId}
-                        disabled={mutationDisabled || !selectionActive || !onSetDurationType}
-                        title={`Shortcut: press ${opt.shortcut} for ${opt.label}`}
-                        onSelect={() => onSetDurationType?.(opt.value)}
-                    >
-                        {opt.label}
-                    </DropdownMenuItem>
-                ))}
-                <DropdownMenuLabel>Dots</DropdownMenuLabel>
-                <DropdownMenuItem
-                    data-testid="btn-dot"
-                    disabled={mutationDisabled || !selectionActive || !onToggleDot}
-                    onSelect={() => onToggleDot?.()}
-                >
-                    Dot
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                    data-testid="btn-double-dot"
-                    disabled={mutationDisabled || !selectionActive || !onToggleDoubleDot}
-                    onSelect={() => onToggleDoubleDot?.()}
-                >
-                    Double Dot
-                </DropdownMenuItem>
-                <DropdownMenuLabel>Tuplets</DropdownMenuLabel>
-                {tupletOptions.map(opt => (
-                    <DropdownMenuItem
-                        key={opt.count}
-                        data-testid={`btn-tuplet-${opt.count}`}
-                        disabled={mutationDisabled || !selectionActive || !onAddTuplet}
-                        onSelect={() => onAddTuplet?.(opt.count)}
-                    >
-                        {opt.label}
-                    </DropdownMenuItem>
-                ))}
-            </ToolbarDropdown>
-
+                        <div className="h-4 w-px bg-slate-200"></div>
             <ToolbarDropdown
                 label="Voice"
                 disabled={mutationDisabled}
                 testId="dropdown-voice"
+                triggerClassName="shadow-sm"
             >
                 {[1, 2, 3, 4].map(v => (
                     <DropdownMenuItem
@@ -1192,11 +1178,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     </DropdownMenuItem>
                 ))}
             </ToolbarDropdown>
-
+                        <div className="h-4 w-px bg-slate-200"></div>
             <ToolbarDropdown
                 label="Slur/Tie"
                 disabled={mutationDisabled || !selectionActive}
                 testId="dropdown-slur-tie"
+                triggerClassName="shadow-sm"
             >
                 <DropdownMenuItem
                     data-testid="btn-slur"
@@ -1213,11 +1200,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     Tie
                 </DropdownMenuItem>
             </ToolbarDropdown>
-
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 rounded-lg bg-cyan-50/40 px-3 py-2">
+                        <span className={toolbarSectionLabelClass}>Expression</span>
+                        <div className="h-4 w-px bg-slate-200"></div>
             <ToolbarDropdown
                 label="Markings"
                 disabled={mutationDisabled}
                 testId="dropdown-markings"
+                triggerClassName="shadow-sm"
             >
                 <DropdownMenuLabel>Dynamics</DropdownMenuLabel>
                 {dynamicOptions.map(opt => (
@@ -1242,11 +1233,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     </DropdownMenuItem>
                 ))}
             </ToolbarDropdown>
-
+                        <div className="h-4 w-px bg-slate-200"></div>
             <ToolbarDropdown
                 label="Pedal"
                 disabled={mutationDisabled}
                 testId="dropdown-pedal"
+                triggerClassName="shadow-sm"
             >
                 {pedalOptions.map(opt => (
                     <DropdownMenuItem
@@ -1282,11 +1274,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     Pedal Change
                 </DropdownMenuItem>
             </ToolbarDropdown>
-
+                        <div className="h-4 w-px bg-slate-200"></div>
             <ToolbarDropdown
                 label="Text"
                 disabled={textDropdownDisabled}
                 testId="dropdown-text"
+                triggerClassName="shadow-sm"
             >
                 <DropdownMenuLabel>Score Header</DropdownMenuLabel>
                 <DropdownMenuItem
@@ -1422,11 +1415,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     Instrument Change
                 </DropdownMenuItem>
             </ToolbarDropdown>
-
+                        <div className="h-4 w-px bg-slate-200"></div>
             <ToolbarDropdown
                 label="Articulations"
                 disabled={mutationDisabled || !selectionActive}
                 testId="dropdown-articulations"
+                triggerClassName="shadow-sm"
             >
                 {articulationOptions.map(opt => (
                     <DropdownMenuItem
@@ -1439,43 +1433,52 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     </DropdownMenuItem>
                 ))}
             </ToolbarDropdown>
+                    </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
-                    <div className="flex items-center gap-2">
+                <div className={toolbarRowClass}>
+                    <div className="flex flex-wrap items-center gap-2 rounded-lg bg-red-50/40 px-3 py-2">
+                        <span className={toolbarSectionLabelClass}>Edit</span>
+                        <div className="h-4 w-px bg-slate-200"></div>
                         <Button
                             data-testid="btn-delete"
                             title="Shortcut: Delete / Backspace"
                             onClick={onDeleteSelection}
                             disabled={mutationDisabled || !onDeleteSelection || !selectionActive}
-                            variant="secondary"
+                            variant="outline"
                             size="sm"
+                            className="shadow-sm"
                         >
                             Delete
                         </Button>
+                        <div className="h-4 w-px bg-slate-200"></div>
                         <Button
                             data-testid="btn-undo"
                             title="Shortcut: Ctrl/Cmd + Z"
                             onClick={onUndo}
                             disabled={mutationDisabled || !onUndo}
-                            variant="secondary"
+                            variant="outline"
                             size="sm"
+                            className="shadow-sm"
                         >
-                            Undo
+                            ↶ Undo
                         </Button>
                         <Button
                             data-testid="btn-redo"
                             title="Shortcut: Ctrl + Y, Cmd + Shift + Z"
                             onClick={onRedo}
                             disabled={mutationDisabled || !onRedo}
-                            variant="secondary"
+                            variant="outline"
                             size="sm"
+                            className="shadow-sm"
                         >
-                            Redo
+                            ↷ Redo
                         </Button>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 rounded-lg bg-lime-50/40 px-3 py-2">
+                        <span className={toolbarSectionLabelClass}>Layout</span>
+                        <div className="h-4 w-px bg-slate-200"></div>
                         <span
                             className="inline-flex"
                             title={
@@ -1488,8 +1491,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                 data-testid="btn-new-line"
                                 onClick={onToggleLineBreak}
                                 disabled={mutationDisabled || !selectionActive || !onToggleLineBreak}
-                                variant="secondary"
+                                variant="outline"
                                 size="sm"
+                                className="shadow-sm"
                             >
                                 New Line
                             </Button>
@@ -1506,31 +1510,37 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                 data-testid="btn-new-page"
                                 onClick={onTogglePageBreak}
                                 disabled={mutationDisabled || !selectionActive || !onTogglePageBreak}
-                                variant="secondary"
+                                variant="outline"
                                 size="sm"
+                                className="shadow-sm"
                             >
                                 New Page
                             </Button>
                         </span>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 rounded-lg bg-sky-50/40 px-3 py-2">
+                        <span className={toolbarSectionLabelClass}>Pitch</span>
+                        <div className="h-4 w-px bg-slate-200"></div>
                         <Button
                             data-testid="btn-add-note-top"
                             onClick={onAddNoteFromRest}
                             disabled={mutationDisabled || !selectionActive || !onAddNoteFromRest}
-                            variant="secondary"
+                            variant="outline"
                             size="sm"
+                            className="shadow-sm"
                         >
                             Add Note
                         </Button>
+                        <div className="h-4 w-px bg-slate-200"></div>
                         <Button
                             data-testid="btn-pitch-down"
                             title="Shortcut: Arrow Down (Pitch Down)"
                             onClick={onPitchDown}
                             disabled={mutationDisabled || !onPitchDown || !selectionActive}
-                            variant="secondary"
+                            variant="outline"
                             size="sm"
+                            className="shadow-sm"
                         >
                             Pitch ↓
                         </Button>
@@ -1539,18 +1549,21 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             title="Shortcut: Arrow Up (Pitch Up)"
                             onClick={onPitchUp}
                             disabled={mutationDisabled || !onPitchUp || !selectionActive}
-                            variant="secondary"
+                            variant="outline"
                             size="sm"
+                            className="shadow-sm"
                         >
                             Pitch ↑
                         </Button>
+                        <div className="h-4 w-px bg-slate-200"></div>
                         <Button
                             data-testid="btn-transpose--12"
                             onClick={() => onTranspose?.(-12)}
                             title="Shortcut: Ctrl/Cmd + Arrow Down (Octave Down)"
                             disabled={mutationDisabled || !selectionActive || !onTranspose}
-                            variant="secondary"
+                            variant="outline"
                             size="sm"
+                            className="shadow-sm"
                         >
                             Octave ↓
                         </Button>
@@ -1559,17 +1572,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             title="Shortcut: Ctrl/Cmd + Arrow Up (Octave Up)"
                             onClick={() => onTranspose?.(12)}
                             disabled={mutationDisabled || !selectionActive || !onTranspose}
-                            variant="secondary"
+                            variant="outline"
                             size="sm"
+                            className="shadow-sm"
                         >
                             Octave ↑
                         </Button>
-                    </div>
-
+                        <div className="h-4 w-px bg-slate-200"></div>
                     <ToolbarDropdown
                         label="Accidental"
                         disabled={mutationDisabled || !selectionActive || !onSetAccidental}
                         testId="dropdown-accidental"
+                        triggerClassName="shadow-sm"
                     >
                         {accidentalOptions.map(opt => (
                             <DropdownMenuItem
@@ -1582,38 +1596,102 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             </DropdownMenuItem>
                         ))}
                     </ToolbarDropdown>
+                    </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 rounded-lg bg-violet-50/40 px-3 py-2">
+                        <span className={toolbarSectionLabelClass}>Duration</span>
+                        <div className="h-4 w-px bg-slate-200"></div>
                         <Button
                             data-testid="btn-duration-shorter"
                             onClick={onDurationShorter}
                             disabled={mutationDisabled || !onDurationShorter || !selectionActive}
-                            variant="secondary"
+                            variant="outline"
                             size="sm"
+                            className="shadow-sm"
                         >
-                            Shorter
+                            ← Shorter
                         </Button>
                         <Button
                             data-testid="btn-duration-longer"
                             onClick={onDurationLonger}
                             disabled={mutationDisabled || !onDurationLonger || !selectionActive}
-                            variant="secondary"
+                            variant="outline"
                             size="sm"
+                            className="shadow-sm"
                         >
-                            Longer
+                            Longer →
                         </Button>
-                    </div>
-
+                        <div className="h-4 w-px bg-slate-200"></div>
             <ToolbarDropdown
-                label="Shortcuts"
-                testId="dropdown-shortcuts"
+                label="Rhythm"
+                disabled={mutationDisabled}
+                testId="dropdown-rhythm"
+                triggerClassName="shadow-sm"
             >
-                {shortcutEntries.map(opt => (
-                    <div key={opt.label} className={dropdownTextClass} title={opt.title}>
+                <DropdownMenuLabel>Notes</DropdownMenuLabel>
+                <DropdownMenuItem
+                    data-testid="btn-add-note-dropdown"
+                    disabled={mutationDisabled || !selectionActive || !onAddNoteFromRest}
+                    onSelect={() => onAddNoteFromRest?.()}
+                >
+                    Add Note
+                </DropdownMenuItem>
+                <DropdownMenuLabel>Duration</DropdownMenuLabel>
+                {durationOptions.map(opt => (
+                    <DropdownMenuItem
+                        key={opt.value}
+                        data-testid={opt.testId}
+                        disabled={mutationDisabled || !selectionActive || !onSetDurationType}
+                        title={`Shortcut: press ${opt.shortcut} for ${opt.label}`}
+                        onSelect={() => onSetDurationType?.(opt.value)}
+                    >
                         {opt.label}
-                    </div>
+                    </DropdownMenuItem>
+                ))}
+                <DropdownMenuLabel>Dots</DropdownMenuLabel>
+                <DropdownMenuItem
+                    data-testid="btn-dot"
+                    disabled={mutationDisabled || !selectionActive || !onToggleDot}
+                    onSelect={() => onToggleDot?.()}
+                >
+                    Dot
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                    data-testid="btn-double-dot"
+                    disabled={mutationDisabled || !selectionActive || !onToggleDoubleDot}
+                    onSelect={() => onToggleDoubleDot?.()}
+                >
+                    Double Dot
+                </DropdownMenuItem>
+                <DropdownMenuLabel>Tuplets</DropdownMenuLabel>
+                {tupletOptions.map(opt => (
+                    <DropdownMenuItem
+                        key={opt.count}
+                        data-testid={`btn-tuplet-${opt.count}`}
+                        disabled={mutationDisabled || !selectionActive || !onAddTuplet}
+                        onSelect={() => onAddTuplet?.(opt.count)}
+                    >
+                        {opt.label}
+                    </DropdownMenuItem>
                 ))}
             </ToolbarDropdown>
+                    </div>
+
+                    <div className="ml-auto flex flex-wrap items-center gap-2 rounded-lg bg-slate-50/60 px-3 py-2">
+                        <span className={toolbarSectionLabelClass}>Help</span>
+                        <div className="h-4 w-px bg-slate-200"></div>
+                        <ToolbarDropdown
+                            label="⌨ Shortcuts"
+                            testId="dropdown-shortcuts"
+                            triggerClassName="shadow-sm"
+                        >
+                            {shortcutEntries.map(opt => (
+                                <div key={opt.label} className={dropdownTextClass} title={opt.title}>
+                                    {opt.label}
+                                </div>
+                            ))}
+                        </ToolbarDropdown>
+                    </div>
                 </div>
                 </CollapsibleContent>
             </div>
