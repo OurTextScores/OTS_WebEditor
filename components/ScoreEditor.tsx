@@ -2,6 +2,9 @@
 
 import React, { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import ReactMarkdown from 'react-markdown';
+import remarkBreaks from 'remark-breaks';
+import remarkGfm from 'remark-gfm';
 import { loadWebMscore, Score, InputFileFormat, Positions, type LayoutProgressState } from '../lib/webmscore-loader';
 import {
     deleteCheckpoint,
@@ -13,7 +16,7 @@ import {
     type CheckpointSummary,
     type ScoreSummary,
 } from '../lib/checkpoints';
-import { CodeMirrorEditor } from './CodeMirrorEditor';
+import { CodeMirrorEditor, type CodeEditorThemeMode } from './CodeMirrorEditor';
 import { Toolbar, type MeasureInsertTarget } from './Toolbar';
 
 type SelectionBox = {
@@ -188,6 +191,27 @@ type MusicXmlPatch = {
     ops: MusicXmlPatchOp[];
 };
 
+type AiPromptSection = {
+    title: string;
+    content: string;
+};
+
+type AiImageAttachment = {
+    mediaType: 'image/png';
+    base64: string;
+};
+
+type AiPdfAttachment = {
+    mediaType: 'application/pdf';
+    base64: string;
+    filename: string;
+};
+
+type AiChatMessage = {
+    role: 'user' | 'assistant';
+    text: string;
+};
+
 interface InstrumentTemplate {
     id: string;
     name: string;
@@ -229,6 +253,22 @@ const ENGINE_OPERATION_STALL_RELEASE_MS = 600_000;
 const LARGE_SCORE_BACKGROUND_TASK_DELAY_MS = 15_000;
 const LARGE_SCORE_BACKGROUND_TASK_RETRY_DELAY_MS = 5_000;
 const LARGE_SCORE_BACKGROUND_TASK_MAX_RETRIES = 12;
+const AI_PAGE_SVG_CONTEXT_MAX_CHARS = 180_000;
+const AI_SELECTION_CONTEXT_MAX_CHARS = 40_000;
+const AI_SELECTION_BOX_CONTEXT_LIMIT = 24;
+const AI_PDF_ATTACHMENT_MAX_BYTES = 15 * 1024 * 1024;
+const AI_CHAT_CONTEXT_MAX_CHARS = 40_000;
+const AI_CHAT_CONTEXT_MAX_MESSAGES = 24;
+const AI_PATCH_SYSTEM_PROMPT = 'You are a MusicXML editor. Return only a JSON patch payload (musicxml-patch@1), no markdown or commentary.';
+const AI_CHAT_SYSTEM_PROMPT = 'You are a helpful music notation assistant. Answer clearly and practically for score editing and engraving workflows.';
+const CODE_EDITOR_THEME_STORAGE_KEY = 'ots_code_editor_theme';
+const CODE_EDITOR_THEME_OPTIONS: Array<{ value: CodeEditorThemeMode; label: string }> = [
+    { value: 'light', label: 'Light' },
+    { value: 'light-contrast', label: 'Light High Contrast' },
+    { value: 'dark', label: 'Dark' },
+    { value: 'dark-contrast', label: 'Dark High Contrast' },
+];
+const CODE_EDITOR_THEME_VALUES = new Set<CodeEditorThemeMode>(CODE_EDITOR_THEME_OPTIONS.map((option) => option.value));
 
 const TEXT_ELEMENT_CLASS_NAMES = [
     'Text',
@@ -327,7 +367,28 @@ const hasMutationApi = (score: Score | null): score is Score & MutationMethods =
     );
 };
 
-const buildAiPrompt = (prompt: string, xml?: string) => {
+const buildPromptWithSections = (prompt: string, sections: AiPromptSection[] = []) => {
+    const trimmedPrompt = prompt.trim();
+    const contextSections = sections
+        .map((section) => ({
+            title: section.title.trim(),
+            content: section.content.trim(),
+        }))
+        .filter((section) => Boolean(section.title) && Boolean(section.content));
+    if (!contextSections.length) {
+        return trimmedPrompt;
+    }
+
+    const contextText = contextSections
+        .map((section, index) => `[Context ${index + 1}] ${section.title}\n${section.content}`)
+        .join('\n\n');
+    if (!trimmedPrompt) {
+        return contextText;
+    }
+    return `${trimmedPrompt}\n\n${contextText}`;
+};
+
+const buildAiPrompt = (prompt: string, sections: AiPromptSection[] = []) => {
     const patchSpec = `Return ONLY valid JSON in the following format:
 {
   "format": "musicxml-patch@1",
@@ -341,11 +402,62 @@ const buildAiPrompt = (prompt: string, xml?: string) => {
 }
 Use ONLY these ops: replace, setText, setAttr, insertBefore, insertAfter, delete.
 Each XPath must match exactly one node.`;
-
-    if (xml && xml.trim()) {
-        return `${prompt}\n\nCurrent MusicXML:\n${xml}\n\n${patchSpec}`;
+    const promptWithContext = buildPromptWithSections(prompt, sections);
+    if (!promptWithContext) {
+        return patchSpec;
     }
-    return `${prompt}\n\n${patchSpec}`;
+    return `${promptWithContext}\n\n${patchSpec}`;
+};
+
+const truncateAiContext = (text: string, maxChars: number) => {
+    const trimmed = text.trim();
+    if (trimmed.length <= maxChars) {
+        return {
+            value: trimmed,
+            truncated: false,
+            originalLength: trimmed.length,
+        };
+    }
+    return {
+        value: trimmed.slice(0, maxChars),
+        truncated: true,
+        originalLength: trimmed.length,
+    };
+};
+
+const encodeBase64 = (data: Uint8Array) => {
+    const globalBuffer = (globalThis as { Buffer?: { from: (bytes: Uint8Array) => { toString: (encoding: string) => string } } }).Buffer;
+    if (globalBuffer) {
+        return globalBuffer.from(data).toString('base64');
+    }
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let offset = 0; offset < data.length; offset += chunkSize) {
+        const chunk = data.subarray(offset, offset + chunkSize);
+        binary += String.fromCharCode(...chunk);
+    }
+    if (typeof btoa === 'function') {
+        return btoa(binary);
+    }
+    throw new Error('No base64 encoder available in this environment.');
+};
+
+const buildAiChatTranscript = (messages: AiChatMessage[]) => {
+    const recentMessages = messages.slice(-AI_CHAT_CONTEXT_MAX_MESSAGES);
+    if (!recentMessages.length) {
+        return '';
+    }
+    const transcriptRaw = recentMessages
+        .map((message) => `${message.role === 'assistant' ? 'Assistant' : 'User'}: ${message.text.trim()}`)
+        .filter(Boolean)
+        .join('\n\n');
+    if (!transcriptRaw.trim()) {
+        return '';
+    }
+    const transcript = truncateAiContext(transcriptRaw, AI_CHAT_CONTEXT_MAX_CHARS);
+    return `${transcript.value}${transcript.truncated
+        ? `\n\n[Chat transcript truncated from ${transcript.originalLength} characters.]`
+        : ''}`;
 };
 
 const parseOpenAiResponsesText = (data: any) => {
@@ -492,6 +604,7 @@ export default function ScoreEditor() {
     const [scoreDirtySinceXml, setScoreDirtySinceXml] = useState(false);
     const [xmlSidebarMode, setXmlSidebarMode] = useState<'closed' | 'open' | 'full'>('closed');
     const [xmlSidebarTab, setXmlSidebarTab] = useState<'xml' | 'assistant'>('xml');
+    const [codeEditorTheme, setCodeEditorTheme] = useState<CodeEditorThemeMode>('light');
     const [xmlText, setXmlText] = useState('');
     const [xmlDirty, setXmlDirty] = useState(false);
     const [xmlLoading, setXmlLoading] = useState(false);
@@ -499,10 +612,18 @@ export default function ScoreEditor() {
     const [aiProvider, setAiProvider] = useState<AiProvider>('openai');
     const [aiModel, setAiModel] = useState('');
     const [aiApiKey, setAiApiKey] = useState('');
+    const [aiMode, setAiMode] = useState<'patch' | 'chat'>('patch');
     const [aiPrompt, setAiPrompt] = useState('');
     const [aiIncludeXml, setAiIncludeXml] = useState(true);
+    const [aiIncludePdf, setAiIncludePdf] = useState(false);
+    const [aiIncludePage, setAiIncludePage] = useState(false);
+    const [aiIncludeSelection, setAiIncludeSelection] = useState(false);
+    const [aiIncludeChat, setAiIncludeChat] = useState(false);
+    const [aiIncludeRenderedImage, setAiIncludeRenderedImage] = useState(false);
     const [aiMaxTokensMode, setAiMaxTokensMode] = useState<'auto' | 'custom'>('auto');
     const [aiMaxTokens, setAiMaxTokens] = useState(4096);
+    const [aiChatInput, setAiChatInput] = useState('');
+    const [aiChatMessages, setAiChatMessages] = useState<AiChatMessage[]>([]);
     const [aiOutput, setAiOutput] = useState('');
     const [aiPatch, setAiPatch] = useState<MusicXmlPatch | null>(null);
     const [aiPatchError, setAiPatchError] = useState<string | null>(null);
@@ -1032,6 +1153,26 @@ export default function ScoreEditor() {
             window.localStorage.removeItem(aiModelStorageKey);
         }
     }, [aiEnabled, aiModel, aiModelStorageKey]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+        const cached = window.localStorage.getItem(CODE_EDITOR_THEME_STORAGE_KEY);
+        if (!cached) {
+            return;
+        }
+        if (CODE_EDITOR_THEME_VALUES.has(cached as CodeEditorThemeMode)) {
+            setCodeEditorTheme(cached as CodeEditorThemeMode);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+        window.localStorage.setItem(CODE_EDITOR_THEME_STORAGE_KEY, codeEditorTheme);
+    }, [codeEditorTheme]);
 
     useEffect(() => {
         if (aiEnabled) {
@@ -2544,6 +2685,194 @@ ${partsBodyXml}
             release();
         }
     }, []);
+
+    const resolveCurrentPageSvgContext = useCallback(async () => {
+        const renderedSvg = containerRef.current?.querySelector('svg');
+        if (renderedSvg instanceof SVGSVGElement) {
+            return renderedSvg.outerHTML || '';
+        }
+        const activeScore = scoreRef.current ?? score;
+        if (!activeScore?.saveSvg) {
+            return '';
+        }
+        const pageIndex = Math.max(0, currentPageRef.current || 0);
+        try {
+            const svgData = await runSerializedScoreOperation(
+                () => activeScore.saveSvg(pageIndex, true, true),
+                `saveSvg(ai-context-page=${pageIndex + 1})`,
+            );
+            return typeof svgData === 'string' ? svgData : '';
+        } catch (err) {
+            console.warn('Failed to capture page SVG context for AI request:', err);
+            return '';
+        }
+    }, [score, runSerializedScoreOperation]);
+
+    const resolveSelectionContext = useCallback(async () => {
+        const lines: string[] = [];
+        const primaryPoint = selectedPointRef.current;
+        if (primaryPoint) {
+            lines.push(
+                `Primary selection point: page=${primaryPoint.page + 1}, x=${primaryPoint.x.toFixed(2)}, y=${primaryPoint.y.toFixed(2)}`,
+            );
+        }
+        const classList = selectedElementClasses.trim();
+        if (classList) {
+            lines.push(`Primary selection classes: ${classList}`);
+        }
+
+        const rawBoxes = selectionBoxes.length
+            ? selectionBoxes
+            : selectedElement
+                ? [{
+                    index: selectedIndex,
+                    page: primaryPoint?.page ?? currentPageRef.current ?? 0,
+                    x: selectedElement.x,
+                    y: selectedElement.y,
+                    w: selectedElement.w,
+                    h: selectedElement.h,
+                    classes: classList || 'unknown',
+                }]
+                : [];
+
+        const boxes = rawBoxes
+            .map((box: any, index: number) => {
+                const x = typeof box?.x === 'number' ? box.x : NaN;
+                const y = typeof box?.y === 'number' ? box.y : NaN;
+                const w = typeof box?.w === 'number'
+                    ? box.w
+                    : (typeof box?.width === 'number' ? box.width : NaN);
+                const h = typeof box?.h === 'number'
+                    ? box.h
+                    : (typeof box?.height === 'number' ? box.height : NaN);
+                if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(w) || !Number.isFinite(h)) {
+                    return null;
+                }
+                return {
+                    index: typeof box?.index === 'number' ? box.index : index,
+                    page: typeof box?.page === 'number' ? box.page : (primaryPoint?.page ?? currentPageRef.current ?? 0),
+                    x,
+                    y,
+                    w,
+                    h,
+                    classes: typeof box?.classes === 'string' && box.classes.trim()
+                        ? box.classes
+                        : 'n/a',
+                };
+            })
+            .filter((box): box is {
+                index: number;
+                page: number;
+                x: number;
+                y: number;
+                w: number;
+                h: number;
+                classes: string;
+            } => Boolean(box));
+
+        if (boxes.length) {
+            const shown = boxes.slice(0, AI_SELECTION_BOX_CONTEXT_LIMIT);
+            const selectionLines = shown.map((box, index) => (
+                `#${index + 1}: page=${box.page + 1}, x=${box.x.toFixed(2)}, y=${box.y.toFixed(2)}, w=${box.w.toFixed(2)}, h=${box.h.toFixed(2)}, index=${box.index ?? 'n/a'}, classes=${box.classes || 'n/a'}`
+            ));
+            lines.push(`Selection boxes (${boxes.length} total):\n${selectionLines.join('\n')}`);
+            if (boxes.length > shown.length) {
+                lines.push(`Selection boxes truncated to first ${shown.length} entries.`);
+            }
+        } else {
+            lines.push('No active selection boxes.');
+        }
+
+        const activeScore = scoreRef.current ?? score;
+        if (activeScore?.selectionMimeData) {
+            try {
+                const mimeData = await runSerializedScoreOperation(
+                    () => Promise.resolve(activeScore.selectionMimeData!()),
+                    'selectionMimeData(ai-context)',
+                );
+                if (mimeData instanceof Uint8Array && mimeData.byteLength > 0) {
+                    const decoded = new TextDecoder().decode(mimeData);
+                    if (decoded.trim()) {
+                        const truncated = truncateAiContext(decoded, AI_SELECTION_CONTEXT_MAX_CHARS);
+                        lines.push(
+                            `Selection MIME XML:\n${truncated.value}${truncated.truncated
+                                ? `\n[Selection MIME XML truncated from ${truncated.originalLength} characters.]`
+                                : ''}`,
+                        );
+                    }
+                }
+            } catch (err) {
+                console.warn('Failed to capture selection MIME context for AI request:', err);
+            }
+        }
+
+        return lines.join('\n\n').trim();
+    }, [score, selectedElement, selectedElementClasses, selectedIndex, selectionBoxes, runSerializedScoreOperation]);
+
+    const resolveCurrentPageImageAttachment = useCallback(async (): Promise<AiImageAttachment | null> => {
+        const activeScore = scoreRef.current ?? score;
+        if (!activeScore?.savePng) {
+            return null;
+        }
+        const pageIndex = Math.max(0, currentPageRef.current || 0);
+        try {
+            const png = await runSerializedScoreOperation(
+                () => Promise.resolve(activeScore.savePng!(pageIndex, true, true)),
+                `savePng(ai-context-page=${pageIndex + 1})`,
+            );
+            const bytes = png instanceof Uint8Array
+                ? png
+                : png instanceof ArrayBuffer
+                    ? new Uint8Array(png)
+                    : null;
+            if (!bytes || bytes.byteLength === 0) {
+                return null;
+            }
+            return {
+                mediaType: 'image/png',
+                base64: encodeBase64(bytes),
+            };
+        } catch (err) {
+            console.warn('Failed to capture page PNG context for AI request:', err);
+            return null;
+        }
+    }, [score, runSerializedScoreOperation]);
+
+    const resolveScorePdfAttachment = useCallback(async (): Promise<AiPdfAttachment | null> => {
+        const activeScore = scoreRef.current ?? score;
+        if (!activeScore?.savePdf) {
+            return null;
+        }
+        try {
+            const pdf = await runSerializedScoreOperation(
+                () => Promise.resolve(activeScore.savePdf()),
+                'savePdf(ai-context)',
+            );
+            const bytes = pdf instanceof Uint8Array
+                ? pdf
+                : pdf instanceof ArrayBuffer
+                    ? new Uint8Array(pdf)
+                    : null;
+            if (!bytes || bytes.byteLength === 0) {
+                return null;
+            }
+            if (bytes.byteLength > AI_PDF_ATTACHMENT_MAX_BYTES) {
+                console.warn('PDF context exceeds upload limit for AI request; skipping.', {
+                    bytes: bytes.byteLength,
+                    limit: AI_PDF_ATTACHMENT_MAX_BYTES,
+                });
+                return null;
+            }
+            return {
+                mediaType: 'application/pdf',
+                base64: encodeBase64(bytes),
+                filename: 'score-context.pdf',
+            };
+        } catch (err) {
+            console.warn('Failed to capture score PDF context for AI request:', err);
+            return null;
+        }
+    }, [score, runSerializedScoreOperation]);
 
     const loadScoreWithInitialLayout = async (
         WebMscore: Awaited<ReturnType<typeof loadWebMscore>>,
@@ -4433,13 +4762,32 @@ ${partsBodyXml}
         provider: AiProvider;
         apiKey: string;
         model: string;
-        prompt: string;
-        xml: string;
+        promptText: string;
+        systemPrompt?: string;
+        prompt?: string;
+        xml?: string;
+        image?: AiImageAttachment | null;
+        pdf?: AiPdfAttachment | null;
         maxTokens: number | null;
     }) => {
-        const { provider, apiKey, model, prompt, xml, maxTokens } = payload;
-        const systemPrompt = 'You are a MusicXML editor. Return only a JSON patch payload (musicxml-patch@1), no markdown or commentary.';
-        const userPrompt = buildAiPrompt(prompt, xml);
+        const {
+            provider,
+            apiKey,
+            model,
+            promptText,
+            systemPrompt: systemPromptOverride = '',
+            prompt = '',
+            xml = '',
+            image = null,
+            pdf = null,
+            maxTokens,
+        } = payload;
+        const systemPrompt = systemPromptOverride.trim() || AI_PATCH_SYSTEM_PROMPT;
+        const userPrompt = promptText.trim() || buildPromptWithSections(prompt, xml.trim() ? [{ title: 'Current MusicXML', content: xml }] : []);
+        const hasImage = Boolean(image?.base64);
+        const hasPdf = Boolean(pdf?.base64);
+        const imageDataUrl = hasImage ? `data:${image!.mediaType};base64,${image!.base64}` : '';
+        const pdfDataUrl = hasPdf ? `data:${pdf!.mediaType};base64,${pdf!.base64}` : '';
 
         if (useLlmProxy) {
             const response = await fetch(proxyUrlFor(`/api/llm/${provider}`), {
@@ -4450,6 +4798,13 @@ ${partsBodyXml}
                     model,
                     prompt,
                     xml,
+                    systemPrompt: systemPrompt || undefined,
+                    promptText: userPrompt,
+                    imageBase64: image?.base64 ?? '',
+                    imageMediaType: image?.mediaType ?? '',
+                    pdfBase64: pdf?.base64 ?? '',
+                    pdfMediaType: pdf?.mediaType ?? '',
+                    pdfFilename: pdf?.filename ?? '',
                     maxTokens: maxTokens ?? undefined,
                 }),
             });
@@ -4462,10 +4817,31 @@ ${partsBodyXml}
         }
 
         if (provider === 'openai') {
+            const userContent: Record<string, unknown>[] = [
+                { type: 'input_text', text: userPrompt },
+            ];
+            if (hasImage) {
+                userContent.push({ type: 'input_image', image_url: imageDataUrl });
+            }
+            if (hasPdf) {
+                userContent.push({
+                    type: 'input_file',
+                    filename: pdf!.filename,
+                    file_data: pdfDataUrl,
+                });
+            }
+            const responseInput: unknown = (hasImage || hasPdf)
+                ? [
+                    {
+                        role: 'user',
+                        content: userContent,
+                    },
+                ]
+                : userPrompt;
             const responsePayload: Record<string, unknown> = {
                 model,
                 instructions: systemPrompt,
-                input: userPrompt,
+                input: responseInput,
                 temperature: 0,
             };
             if (maxTokens) {
@@ -4483,11 +4859,25 @@ ${partsBodyXml}
 
             if (!response.ok) {
                 const errorText = await response.text();
+                if (hasPdf) {
+                    throw new Error(errorText || 'OpenAI request failed.');
+                }
+                const userMessageContent: unknown = hasImage
+                    ? [
+                        { type: 'text', text: userPrompt },
+                        {
+                            type: 'image_url',
+                            image_url: {
+                                url: imageDataUrl,
+                            },
+                        },
+                    ]
+                    : userPrompt;
                 const fallbackPayload: Record<string, unknown> = {
                     model,
                     messages: [
                         { role: 'system', content: systemPrompt },
-                        { role: 'user', content: userPrompt },
+                        { role: 'user', content: userMessageContent },
                     ],
                     temperature: 0,
                 };
@@ -4515,13 +4905,36 @@ ${partsBodyXml}
         }
 
         if (provider === 'anthropic') {
+            const anthropicContent: Array<Record<string, unknown>> = [
+                { type: 'text', text: userPrompt },
+            ];
+            if (hasImage) {
+                anthropicContent.push({
+                    type: 'image',
+                    source: {
+                        type: 'base64',
+                        media_type: image!.mediaType,
+                        data: image!.base64,
+                    },
+                });
+            }
+            if (hasPdf) {
+                anthropicContent.push({
+                    type: 'document',
+                    source: {
+                        type: 'base64',
+                        media_type: pdf!.mediaType,
+                        data: pdf!.base64,
+                    },
+                });
+            }
             const responsePayload: Record<string, unknown> = {
                 model,
                 max_tokens: maxTokens ?? DEFAULT_MAX_TOKENS_BY_PROVIDER.anthropic,
                 temperature: 0,
                 system: systemPrompt,
                 messages: [
-                    { role: 'user', content: userPrompt },
+                    { role: 'user', content: anthropicContent },
                 ],
             };
 
@@ -4554,7 +4967,25 @@ ${partsBodyXml}
             contents: [
                 {
                     role: 'user',
-                    parts: [{ text: userPrompt }],
+                    parts: [
+                        { text: userPrompt },
+                        ...(hasImage
+                            ? [{
+                                inlineData: {
+                                    mimeType: image!.mediaType,
+                                    data: image!.base64,
+                                },
+                            }]
+                            : []),
+                        ...(hasPdf
+                            ? [{
+                                inlineData: {
+                                    mimeType: pdf!.mediaType,
+                                    data: pdf!.base64,
+                                },
+                            }]
+                            : []),
+                    ],
                 },
             ],
             generationConfig: {
@@ -4637,20 +5068,80 @@ ${partsBodyXml}
         setAiPatchError(null);
         setAiPatchedXml('');
         try {
+            const promptSections: AiPromptSection[] = [];
             const xmlContext = aiIncludeXml ? await resolveXmlContext() : '';
             if (aiIncludeXml && !xmlContext.trim()) {
                 alert('Unable to load MusicXML for context.');
                 return;
             }
+            if (aiIncludeXml && xmlContext.trim()) {
+                promptSections.push({
+                    title: 'Current MusicXML text',
+                    content: xmlContext,
+                });
+            }
+            const pdfAttachment = aiIncludePdf
+                ? await resolveScorePdfAttachment()
+                : null;
+            if (aiIncludePdf) {
+                promptSections.push({
+                    title: 'Rendered score PDF',
+                    content: pdfAttachment
+                        ? `Attached as ${pdfAttachment.filename}.`
+                        : `PDF attachment unavailable (or exceeds ${Math.round(AI_PDF_ATTACHMENT_MAX_BYTES / (1024 * 1024))} MB limit).`,
+                });
+            }
+            if (aiIncludePage) {
+                const pageContextRaw = await resolveCurrentPageSvgContext();
+                if (pageContextRaw.trim()) {
+                    const pageContext = truncateAiContext(pageContextRaw, AI_PAGE_SVG_CONTEXT_MAX_CHARS);
+                    promptSections.push({
+                        title: `Current rendered page SVG (page ${Math.max(0, currentPageRef.current) + 1})`,
+                        content: `${pageContext.value}${pageContext.truncated
+                            ? `\n[Page SVG truncated from ${pageContext.originalLength} characters.]`
+                            : ''}`,
+                    });
+                } else {
+                    promptSections.push({
+                        title: `Current rendered page SVG (page ${Math.max(0, currentPageRef.current) + 1})`,
+                        content: 'Page SVG context is unavailable.',
+                    });
+                }
+            }
+            if (aiIncludeSelection) {
+                const selectionContext = await resolveSelectionContext();
+                promptSections.push({
+                    title: 'Current selection context',
+                    content: selectionContext || 'No active selection.',
+                });
+            }
+            if (aiIncludeChat) {
+                const chatTranscript = buildAiChatTranscript(aiChatMessages);
+                promptSections.push({
+                    title: 'Assistant chat history',
+                    content: chatTranscript || 'No prior chat messages.',
+                });
+            }
+            const imageAttachment = aiIncludeRenderedImage
+                ? await resolveCurrentPageImageAttachment()
+                : null;
+            if (aiIncludeRenderedImage && !imageAttachment) {
+                console.warn('Rendered image context requested, but PNG capture is unavailable.');
+            }
             const baseXml = aiIncludeXml ? xmlContext : await resolveXmlContext();
             setAiBaseXml(baseXml);
             const maxTokens = aiMaxTokensMode === 'custom' ? aiMaxTokens : null;
+            const promptText = buildAiPrompt(aiPrompt, promptSections);
             const rawText = await requestAiText({
                 provider: aiProvider,
                 apiKey: aiApiKey,
                 model: aiModel,
+                promptText,
+                systemPrompt: AI_PATCH_SYSTEM_PROMPT,
                 prompt: aiPrompt,
                 xml: aiIncludeXml ? xmlContext : '',
+                image: imageAttachment,
+                pdf: pdfAttachment,
                 maxTokens,
             });
             const extracted = extractJsonFromResponse(rawText);
@@ -4662,6 +5153,128 @@ ${partsBodyXml}
         } catch (err) {
             console.error('AI request failed', err);
             setAiError('AI request failed. See console for details.');
+        } finally {
+            setAiBusy(false);
+        }
+    };
+
+    const handleAiChatSend = async () => {
+        if (!aiEnabled) {
+            alert('AI features are disabled.');
+            return;
+        }
+        if (!aiApiKey.trim()) {
+            alert(`Enter your ${AI_PROVIDER_LABELS[aiProvider]} API key.`);
+            return;
+        }
+        if (!aiModel.trim()) {
+            alert('Select a model.');
+            return;
+        }
+        if (!aiChatInput.trim()) {
+            alert('Enter a chat message.');
+            return;
+        }
+        if (aiMaxTokensMode === 'custom' && aiMaxTokens <= 0) {
+            alert('Enter a max output token limit.');
+            return;
+        }
+
+        const userMessage: AiChatMessage = { role: 'user', text: aiChatInput.trim() };
+        const nextMessages = [...aiChatMessages, userMessage];
+
+        setAiBusy(true);
+        setAiError(null);
+        try {
+            const promptSections: AiPromptSection[] = [];
+            const xmlContext = aiIncludeXml ? await resolveXmlContext() : '';
+            if (aiIncludeXml && !xmlContext.trim()) {
+                alert('Unable to load MusicXML for context.');
+                return;
+            }
+            if (aiIncludeXml && xmlContext.trim()) {
+                promptSections.push({
+                    title: 'Current MusicXML text',
+                    content: xmlContext,
+                });
+            }
+            const pdfAttachment = aiIncludePdf
+                ? await resolveScorePdfAttachment()
+                : null;
+            if (aiIncludePdf) {
+                promptSections.push({
+                    title: 'Rendered score PDF',
+                    content: pdfAttachment
+                        ? `Attached as ${pdfAttachment.filename}.`
+                        : `PDF attachment unavailable (or exceeds ${Math.round(AI_PDF_ATTACHMENT_MAX_BYTES / (1024 * 1024))} MB limit).`,
+                });
+            }
+            if (aiIncludePage) {
+                const pageContextRaw = await resolveCurrentPageSvgContext();
+                if (pageContextRaw.trim()) {
+                    const pageContext = truncateAiContext(pageContextRaw, AI_PAGE_SVG_CONTEXT_MAX_CHARS);
+                    promptSections.push({
+                        title: `Current rendered page SVG (page ${Math.max(0, currentPageRef.current) + 1})`,
+                        content: `${pageContext.value}${pageContext.truncated
+                            ? `\n[Page SVG truncated from ${pageContext.originalLength} characters.]`
+                            : ''}`,
+                    });
+                } else {
+                    promptSections.push({
+                        title: `Current rendered page SVG (page ${Math.max(0, currentPageRef.current) + 1})`,
+                        content: 'Page SVG context is unavailable.',
+                    });
+                }
+            }
+            if (aiIncludeSelection) {
+                const selectionContext = await resolveSelectionContext();
+                promptSections.push({
+                    title: 'Current selection context',
+                    content: selectionContext || 'No active selection.',
+                });
+            }
+            if (aiIncludeChat) {
+                const chatTranscript = buildAiChatTranscript(nextMessages);
+                promptSections.push({
+                    title: 'Assistant chat history',
+                    content: chatTranscript || 'No prior chat messages.',
+                });
+            }
+            const imageAttachment = aiIncludeRenderedImage
+                ? await resolveCurrentPageImageAttachment()
+                : null;
+            if (aiIncludeRenderedImage && !imageAttachment) {
+                console.warn('Rendered image context requested, but PNG capture is unavailable.');
+            }
+
+            const promptText = buildPromptWithSections(
+                `Latest user message:\n${userMessage.text}\n\nRespond directly to the latest user message.`,
+                promptSections,
+            );
+            setAiChatInput('');
+            setAiChatMessages(nextMessages);
+            const maxTokens = aiMaxTokensMode === 'custom' ? aiMaxTokens : null;
+            const rawText = await requestAiText({
+                provider: aiProvider,
+                apiKey: aiApiKey,
+                model: aiModel,
+                promptText,
+                systemPrompt: AI_CHAT_SYSTEM_PROMPT,
+                prompt: userMessage.text,
+                xml: aiIncludeXml ? xmlContext : '',
+                image: imageAttachment,
+                pdf: pdfAttachment,
+                maxTokens,
+            });
+            const responseText = rawText.trim();
+            if (!responseText) {
+                setAiError('No response was returned by the model.');
+                return;
+            }
+            setAiChatMessages((prev) => [...prev, { role: 'assistant', text: responseText }]);
+        } catch (err) {
+            console.error('AI chat request failed', err);
+            setAiError('AI chat request failed. See console for details.');
         } finally {
             setAiBusy(false);
         }
@@ -7286,12 +7899,30 @@ ${partsBodyXml}
                                     hasMeasureSelection = true;
                                     // Set boxes for state tracking (keyboard shortcuts, button states)
                                     // Set backend highlighting flag to skip visual rendering (backend handles it)
-                                    const boxes = bboxes.map((bb: any) => ({
-                                        x: bb.x,
-                                        y: bb.y,
-                                        width: bb.width,
-                                        height: bb.height,
-                                    }));
+                                    const boxes: SelectionBox[] = bboxes.map((bb: any, index: number) => {
+                                        const x = typeof bb?.x === 'number' ? bb.x : 0;
+                                        const y = typeof bb?.y === 'number' ? bb.y : 0;
+                                        const w = typeof bb?.w === 'number'
+                                            ? bb.w
+                                            : (typeof bb?.width === 'number' ? bb.width : 0);
+                                        const h = typeof bb?.h === 'number'
+                                            ? bb.h
+                                            : (typeof bb?.height === 'number' ? bb.height : 0);
+                                        const page = typeof bb?.page === 'number' ? bb.page : pageIndex;
+                                        return {
+                                            index: typeof bb?.index === 'number' ? bb.index : index,
+                                            page,
+                                            x,
+                                            y,
+                                            w,
+                                            h,
+                                            centerX: x + (w / 2),
+                                            centerY: y + (h / 2),
+                                            classes: typeof bb?.classes === 'string' && bb.classes.trim()
+                                                ? bb.classes
+                                                : 'Measure',
+                                        };
+                                    });
                                     setSelectionBoxes(boxes);
                                     setHasBackendHighlighting(true);
                                 }
@@ -8147,7 +8778,21 @@ ${partsBodyXml}
                                         </button>
                                     )}
                                 </div>
-                                <div />
+                                <label className="flex items-center gap-2">
+                                    <span className="text-[11px] uppercase tracking-wide text-gray-500">Theme</span>
+                                    <select
+                                        value={codeEditorTheme}
+                                        onChange={(event) => setCodeEditorTheme(event.target.value as CodeEditorThemeMode)}
+                                        className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700"
+                                        data-testid="select-code-editor-theme"
+                                    >
+                                        {CODE_EDITOR_THEME_OPTIONS.map((option) => (
+                                            <option key={option.value} value={option.value}>
+                                                {option.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
                             </div>
                         </div>
                     )}
@@ -8203,6 +8848,7 @@ ${partsBodyXml}
                                         language="xml"
                                         height={xmlEditorHeight}
                                         maxHeight={xmlEditorMaxHeight}
+                                        themeMode={codeEditorTheme}
                                     />
                                 </div>
                             </>
@@ -8277,91 +8923,249 @@ ${partsBodyXml}
                                         Stored locally in this browser. Requests are sent directly unless a proxy is configured.
                                     </div>
                                 </div>
-                                <div className="flex items-center justify-between gap-2 text-xs text-gray-600">
-                                    <label className="flex items-center gap-2">
-                                        <input
-                                            type="checkbox"
-                                            checked={aiIncludeXml}
-                                            onChange={(event) => setAiIncludeXml(event.target.checked)}
-                                        />
-                                        Include full MusicXML
-                                    </label>
-                                    <div className="flex items-center gap-2">
-                                        <span>Max output</span>
-                                        <select
-                                            value={aiMaxTokensMode}
-                                            onChange={(event) => setAiMaxTokensMode(event.target.value as 'auto' | 'custom')}
-                                            className="rounded border border-gray-300 px-2 py-1 text-xs"
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2 text-xs">
+                                        <button
+                                            type="button"
+                                            onClick={() => setAiMode('patch')}
+                                            className={`rounded border px-2 py-1 ${aiMode === 'patch' ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
                                         >
-                                            <option value="auto">Auto</option>
-                                            <option value="custom">Custom</option>
-                                        </select>
-                                        {aiMaxTokensMode === 'custom' && (
-                                            <input
-                                                type="number"
-                                                min={256}
-                                                value={aiMaxTokens}
-                                                onChange={(event) => setAiMaxTokens(Number(event.target.value) || 0)}
-                                                className="w-20 rounded border border-gray-300 px-2 py-1 text-xs"
-                                            />
+                                            Patch
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setAiMode('chat')}
+                                            className={`rounded border px-2 py-1 ${aiMode === 'chat' ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+                                        >
+                                            Chat
+                                        </button>
+                                        <div className="ml-auto flex items-center gap-2 text-xs text-gray-600">
+                                            <span>Max output</span>
+                                            <select
+                                                value={aiMaxTokensMode}
+                                                onChange={(event) => setAiMaxTokensMode(event.target.value as 'auto' | 'custom')}
+                                                className="rounded border border-gray-300 px-2 py-1 text-xs"
+                                            >
+                                                <option value="auto">Auto</option>
+                                                <option value="custom">Custom</option>
+                                            </select>
+                                            {aiMaxTokensMode === 'custom' && (
+                                                <input
+                                                    type="number"
+                                                    min={256}
+                                                    value={aiMaxTokens}
+                                                    onChange={(event) => setAiMaxTokens(Number(event.target.value) || 0)}
+                                                    className="w-20 rounded border border-gray-300 px-2 py-1 text-xs"
+                                                />
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2 text-xs text-gray-600">
+                                        <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                                            Context
+                                        </div>
+                                        <div className="flex flex-col items-start gap-y-2">
+                                            <label className="flex items-center gap-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={aiIncludeSelection}
+                                                    onChange={(event) => setAiIncludeSelection(event.target.checked)}
+                                                />
+                                                Include selection
+                                            </label>
+                                            <label className="flex items-center gap-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={aiIncludePage}
+                                                    onChange={(event) => setAiIncludePage(event.target.checked)}
+                                                />
+                                                Include current page
+                                            </label>
+                                            <label className="flex items-center gap-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={aiIncludeRenderedImage}
+                                                    onChange={(event) => setAiIncludeRenderedImage(event.target.checked)}
+                                                />
+                                                Include rendered image
+                                            </label>
+                                            <label className="flex items-center gap-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={aiIncludePdf}
+                                                    onChange={(event) => setAiIncludePdf(event.target.checked)}
+                                                />
+                                                Include score PDF
+                                            </label>
+                                            <label className="flex items-center gap-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={aiIncludeChat}
+                                                    onChange={(event) => setAiIncludeChat(event.target.checked)}
+                                                />
+                                                Include chat
+                                            </label>
+                                            <label className="flex items-center gap-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={aiIncludeXml}
+                                                    onChange={(event) => setAiIncludeXml(event.target.checked)}
+                                                />
+                                                Include MusicXML text
+                                            </label>
+                                        </div>
+                                        {aiIncludeRenderedImage && !score?.savePng && (
+                                            <div className="text-[11px] text-amber-600">
+                                                PNG capture is not available in this build. The request will continue without image context.
+                                            </div>
+                                        )}
+                                        {aiIncludePdf && (
+                                            <div className="text-[11px] text-gray-500">
+                                                PDF context is generated from the current score and attached when available.
+                                            </div>
                                         )}
                                     </div>
+                                    {aiMode === 'patch' ? (
+                                        <div className="space-y-2">
+                                            <div>
+                                                <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                    Instruction
+                                                </label>
+                                                <textarea
+                                                    value={aiPrompt}
+                                                    onChange={(event) => setAiPrompt(event.target.value)}
+                                                    rows={4}
+                                                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                                    placeholder="Describe the change you want in the MusicXML."
+                                                />
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={handleAiRequest}
+                                                disabled={aiBusy}
+                                                className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                {aiBusy ? 'Working...' : 'Generate Patch'}
+                                            </button>
+                                            {aiOutput && (
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center justify-between text-xs text-gray-500">
+                                                        <span>AI Patch</span>
+                                                        {aiOutputValidation.message && (
+                                                            <span className={aiOutputValidation.valid ? 'text-gray-500' : 'text-red-600'}>
+                                                                {aiOutputValidation.message}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleApplyAiOutput}
+                                                        disabled={aiApplyDisabled}
+                                                        title="Applying edits will auto-checkpoint if the score has unsaved changes."
+                                                        className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        Apply Patch
+                                                    </button>
+                                                    <CodeMirrorEditor
+                                                        value={aiOutput}
+                                                        onChange={(nextValue) => {
+                                                            void updateAiOutput(nextValue);
+                                                        }}
+                                                        readOnly={false}
+                                                        language="json"
+                                                        placeholderText="AI patch will appear here."
+                                                        height={patchEditorHeight}
+                                                        maxHeight={patchEditorMaxHeight}
+                                                        themeMode={codeEditorTheme}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between text-xs text-gray-500">
+                                                <span>Open Chat</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setAiChatMessages([])}
+                                                    disabled={aiBusy || !aiChatMessages.length}
+                                                    className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    Clear
+                                                </button>
+                                            </div>
+                                            <div className="max-h-64 min-h-[140px] overflow-y-auto rounded border border-gray-200 bg-gray-50 p-2">
+                                                {aiChatMessages.length ? (
+                                                    <div className="space-y-2">
+                                                        {aiChatMessages.map((message, index) => (
+                                                            <div
+                                                                key={`${message.role}-${index}-${message.text.slice(0, 12)}`}
+                                                                className={`rounded px-2 py-1 text-xs ${message.role === 'assistant' ? 'bg-blue-50 text-blue-900' : 'bg-white text-gray-800'}`}
+                                                            >
+                                                                <span className="mb-1 block text-[10px] uppercase tracking-wide text-gray-500">
+                                                                    {message.role === 'assistant' ? 'Assistant' : 'You'}
+                                                                </span>
+                                                                <div className="leading-relaxed">
+                                                                    <ReactMarkdown
+                                                                        remarkPlugins={[remarkGfm, remarkBreaks]}
+                                                                        components={{
+                                                                            p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                                                                            ul: ({ children }) => <ul className="mb-2 list-disc pl-5 last:mb-0">{children}</ul>,
+                                                                            ol: ({ children }) => <ol className="mb-2 list-decimal pl-5 last:mb-0">{children}</ol>,
+                                                                            li: ({ children }) => <li className="mb-1 last:mb-0">{children}</li>,
+                                                                            code: ({ className, children }) => {
+                                                                                const languageClass = className ?? '';
+                                                                                const isBlock = languageClass.includes('language-');
+                                                                                if (isBlock) {
+                                                                                    return (
+                                                                                        <code className="block overflow-x-auto rounded bg-black/10 px-2 py-1 font-mono text-[11px]">
+                                                                                            {children}
+                                                                                        </code>
+                                                                                    );
+                                                                                }
+                                                                                return (
+                                                                                    <code className="rounded bg-black/10 px-1 py-0.5 font-mono text-[11px]">
+                                                                                        {children}
+                                                                                    </code>
+                                                                                );
+                                                                            },
+                                                                            pre: ({ children }) => <pre className="mb-2 overflow-x-auto rounded bg-black/5 p-2">{children}</pre>,
+                                                                            hr: () => <hr className="my-2 border-gray-300/70" />,
+                                                                        }}
+                                                                    >
+                                                                        {message.text}
+                                                                    </ReactMarkdown>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-xs text-gray-500">
+                                                        Start a conversation about this score. You can include this chat when generating patches.
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <textarea
+                                                value={aiChatInput}
+                                                onChange={(event) => setAiChatInput(event.target.value)}
+                                                rows={3}
+                                                className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                                placeholder="Ask a question or request guidance."
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={handleAiChatSend}
+                                                disabled={aiBusy}
+                                                className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                {aiBusy ? 'Working...' : 'Send Message'}
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
-                                <div>
-                                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                        Instruction
-                                    </label>
-                                    <textarea
-                                        value={aiPrompt}
-                                        onChange={(event) => setAiPrompt(event.target.value)}
-                                        rows={4}
-                                        className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                                        placeholder="Describe the change you want in the MusicXML."
-                                    />
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={handleAiRequest}
-                                    disabled={aiBusy}
-                                    className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {aiBusy ? 'Working...' : 'Generate Patch'}
-                                </button>
                                 {aiError && (
                                     <div className="text-xs text-red-600">
                                         {aiError}
-                                    </div>
-                                )}
-                                {aiOutput && (
-                                    <div className="space-y-2">
-                                        <div className="flex items-center justify-between text-xs text-gray-500">
-                                            <span>AI Patch</span>
-                                            {aiOutputValidation.message && (
-                                                <span className={aiOutputValidation.valid ? 'text-gray-500' : 'text-red-600'}>
-                                                    {aiOutputValidation.message}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={handleApplyAiOutput}
-                                            disabled={aiApplyDisabled}
-                                            title="Applying edits will auto-checkpoint if the score has unsaved changes."
-                                            className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Apply Patch
-                                        </button>
-                                        <CodeMirrorEditor
-                                            value={aiOutput}
-                                            onChange={(nextValue) => {
-                                                void updateAiOutput(nextValue);
-                                            }}
-                                            readOnly={false}
-                                            language="json"
-                                            placeholderText="AI patch will appear here."
-                                            height={patchEditorHeight}
-                                            maxHeight={patchEditorMaxHeight}
-                                        />
                                     </div>
                                 )}
                             </div>

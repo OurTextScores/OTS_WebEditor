@@ -45,20 +45,43 @@ export async function POST(request: Request) {
         const apiKey = String(body?.apiKey || '').trim();
         const model = String(body?.model || '').trim();
         const prompt = String(body?.prompt || '').trim();
+        const promptText = typeof body?.promptText === 'string' ? body.promptText.trim() : '';
+        const systemPromptInput = typeof body?.systemPrompt === 'string' ? body.systemPrompt.trim() : '';
         const xml = typeof body?.xml === 'string' ? body.xml : '';
+        const imageBase64 = typeof body?.imageBase64 === 'string' ? body.imageBase64.trim() : '';
+        const imageMediaType = typeof body?.imageMediaType === 'string' ? body.imageMediaType.trim() : 'image/png';
+        const pdfBase64 = typeof body?.pdfBase64 === 'string' ? body.pdfBase64.trim() : '';
+        const pdfMediaType = typeof body?.pdfMediaType === 'string' ? body.pdfMediaType.trim() : 'application/pdf';
         const maxTokensRaw = body?.maxTokens;
         const maxTokensValue = Number(maxTokensRaw);
         const maxTokens = Number.isFinite(maxTokensValue) && maxTokensValue > 0 ? maxTokensValue : null;
 
-        if (!apiKey || !model || !prompt) {
-            return NextResponse.json({ error: 'Missing apiKey, model, or prompt.' }, { status: 400 });
+        if (!apiKey || !model || (!promptText && !prompt)) {
+            return NextResponse.json({ error: 'Missing apiKey, model, or prompt/promptText.' }, { status: 400 });
         }
 
-        const systemPrompt = 'You are a MusicXML editor. Return only a JSON patch payload (musicxml-patch@1), no markdown or commentary.';
-        const userPrompt = buildPrompt(prompt, xml);
+        const systemPrompt = systemPromptInput || 'You are a MusicXML editor. Return only a JSON patch payload (musicxml-patch@1), no markdown or commentary.';
+        const userPrompt = promptText || buildPrompt(prompt, xml);
         const normalizedModel = normalizeGeminiModel(model);
         if (!normalizedModel) {
             return NextResponse.json({ error: 'Missing model.' }, { status: 400 });
+        }
+        const parts: Array<Record<string, unknown>> = [{ text: userPrompt }];
+        if (imageBase64) {
+            parts.push({
+                inlineData: {
+                    mimeType: imageMediaType,
+                    data: imageBase64,
+                },
+            });
+        }
+        if (pdfBase64) {
+            parts.push({
+                inlineData: {
+                    mimeType: pdfMediaType,
+                    data: pdfBase64,
+                },
+            });
         }
 
         const generationConfig: Record<string, unknown> = {
@@ -81,7 +104,7 @@ export async function POST(request: Request) {
                 contents: [
                     {
                         role: 'user',
-                        parts: [{ text: userPrompt }],
+                        parts,
                     },
                 ],
                 generationConfig,

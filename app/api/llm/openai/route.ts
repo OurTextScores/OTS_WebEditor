@@ -45,22 +45,54 @@ export async function POST(request: Request) {
         const apiKey = String(body?.apiKey || '').trim();
         const model = String(body?.model || '').trim();
         const prompt = String(body?.prompt || '').trim();
+        const promptText = typeof body?.promptText === 'string' ? body.promptText.trim() : '';
+        const systemPromptInput = typeof body?.systemPrompt === 'string' ? body.systemPrompt.trim() : '';
         const xml = typeof body?.xml === 'string' ? body.xml : '';
+        const imageBase64 = typeof body?.imageBase64 === 'string' ? body.imageBase64.trim() : '';
+        const imageMediaType = typeof body?.imageMediaType === 'string' ? body.imageMediaType.trim() : 'image/png';
+        const pdfBase64 = typeof body?.pdfBase64 === 'string' ? body.pdfBase64.trim() : '';
+        const pdfMediaType = typeof body?.pdfMediaType === 'string' ? body.pdfMediaType.trim() : 'application/pdf';
+        const pdfFilename = typeof body?.pdfFilename === 'string' ? body.pdfFilename.trim() : 'score-context.pdf';
         const maxTokensRaw = body?.maxTokens;
         const maxTokensValue = Number(maxTokensRaw);
         const maxTokens = Number.isFinite(maxTokensValue) && maxTokensValue > 0 ? maxTokensValue : null;
 
-        if (!apiKey || !model || !prompt) {
-            return NextResponse.json({ error: 'Missing apiKey, model, or prompt.' }, { status: 400 });
+        if (!apiKey || !model || (!promptText && !prompt)) {
+            return NextResponse.json({ error: 'Missing apiKey, model, or prompt/promptText.' }, { status: 400 });
         }
 
-        const systemPrompt = 'You are a MusicXML editor. Return only a JSON patch payload (musicxml-patch@1), no markdown or commentary.';
-        const userPrompt = buildPrompt(prompt, xml);
+        const systemPrompt = systemPromptInput || 'You are a MusicXML editor. Return only a JSON patch payload (musicxml-patch@1), no markdown or commentary.';
+        const userPrompt = promptText || buildPrompt(prompt, xml);
+        const hasImage = Boolean(imageBase64);
+        const hasPdf = Boolean(pdfBase64);
+        const imageDataUrl = hasImage ? `data:${imageMediaType};base64,${imageBase64}` : '';
+        const pdfDataUrl = hasPdf ? `data:${pdfMediaType};base64,${pdfBase64}` : '';
+        const userContent: Record<string, unknown>[] = [
+            { type: 'input_text', text: userPrompt },
+        ];
+        if (hasImage) {
+            userContent.push({ type: 'input_image', image_url: imageDataUrl });
+        }
+        if (hasPdf) {
+            userContent.push({
+                type: 'input_file',
+                filename: pdfFilename,
+                file_data: pdfDataUrl,
+            });
+        }
+        const responseInput: unknown = (hasImage || hasPdf)
+            ? [
+                {
+                    role: 'user',
+                    content: userContent,
+                },
+            ]
+            : userPrompt;
 
         const responsePayload: Record<string, unknown> = {
             model,
             instructions: systemPrompt,
-            input: userPrompt,
+            input: responseInput,
             temperature: 0,
         };
         if (maxTokens) {
@@ -78,12 +110,26 @@ export async function POST(request: Request) {
 
         if (!response.ok) {
             const errorText = await response.text();
+            if (hasPdf) {
+                return NextResponse.json({ error: errorText || 'OpenAI request failed.' }, { status: response.status });
+            }
+            const userMessageContent: unknown = hasImage
+                ? [
+                    { type: 'text', text: userPrompt },
+                    {
+                        type: 'image_url',
+                        image_url: {
+                            url: imageDataUrl,
+                        },
+                    },
+                ]
+                : userPrompt;
             // Fallback for legacy chat-only models.
             const fallbackPayload: Record<string, unknown> = {
                 model,
                 messages: [
                     { role: 'system', content: systemPrompt },
-                    { role: 'user', content: userPrompt },
+                    { role: 'user', content: userMessageContent },
                 ],
                 temperature: 0,
             };

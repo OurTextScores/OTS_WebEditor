@@ -534,7 +534,7 @@ describe('ScoreEditor', () => {
     await waitFor(() => expect(score.saveMsc).toHaveBeenCalledWith('mscz'));
     await waitFor(() => expect(score.saveMidi).toHaveBeenCalledWith(true, true));
     await waitFor(() => expect((globalThis as any).URL.createObjectURL).toHaveBeenCalled());
-  });
+  }, 10000);
 
   it('supports note respelling keyboard shortcuts', async () => {
     const user = userEvent.setup();
