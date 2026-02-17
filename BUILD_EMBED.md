@@ -24,12 +24,18 @@ If you need to build from source or customize the build:
 # 1. Move soundfonts out of public/ to avoid OOM during build
 mv public/soundfonts ~/soundfonts.backup
 
-# 2. Build embed version (one command)
+# 2. Build embed version with CDN soundfont baked into static JS
+NEXT_PUBLIC_SOUNDFONT_CDN_URL=https://cdn.ourtextscores.com/soundfonts/default.sf2 \
 npm run build:embed
 
 # 3. Restore soundfonts for local development
 mv ~/soundfonts.backup public/soundfonts
 ```
+
+Important:
+- `NEXT_PUBLIC_SOUNDFONT_CDN_URL` is compile-time for static export builds.
+- If you omit it, the built app will only try local `/soundfonts/*` fallback files.
+- If `public/soundfonts/default.sf2` exists locally and you do not move/remove it before build, it will be copied into `out/` and may break downstream git pushes (GitHub 100MB file limit).
 
 #### Option 2: Full release package (with archives)
 
@@ -38,6 +44,7 @@ mv ~/soundfonts.backup public/soundfonts
 mv public/soundfonts ~/soundfonts.backup
 
 # 2. Build and package (creates .tar.gz and .zip in release/)
+NEXT_PUBLIC_SOUNDFONT_CDN_URL=https://cdn.ourtextscores.com/soundfonts/default.sf2 \
 npm run release:prepare
 
 # 3. Restore soundfonts
@@ -68,6 +75,26 @@ The build generates a static export in the `out/` directory:
 - **Format**: Static HTML/JS/CSS + WASM artifacts
 - **Includes**: `<base href="/score-editor/">` tag for proper path resolution when embedded
 
+### Guardrail: Prevent Large Soundfont Files in `out/`
+
+Before syncing `out/` into another repository (for example `OurTextScores/frontend/public/score-editor/`), verify `out/soundfonts/` is absent:
+
+```bash
+ls -la out/soundfonts 2>/dev/null || echo "OK: no out/soundfonts directory"
+```
+
+If it exists, remove it before copy:
+
+```bash
+rm -rf out/soundfonts
+```
+
+Safe sync command:
+
+```bash
+rsync -a --delete --exclude 'soundfonts/' out/ ../OurTextScores/frontend/public/score-editor/
+```
+
 ## Soundfont Configuration
 
 ### Using the Recommended CDN (MuseScore_General)
@@ -94,6 +121,10 @@ If you need to use a different soundfont:
    NEXT_PUBLIC_BUILD_MODE=embed \
    BUILD_MODE=embed \
    npm run build
+   ```
+   You can also set a direct file URL:
+   ```bash
+   NEXT_PUBLIC_SOUNDFONT_CDN_URL=https://cdn.example.com/soundfonts/default.sf2 npm run build:embed
    ```
 
 ### Local Soundfonts (Development Only)
@@ -182,11 +213,22 @@ LLM calls in embed builds must either:
 
 If soundfonts don't load in production:
 
-1. Verify the CDN URL is correct and accessible
-2. Check browser console for CORS errors
-3. Ensure the soundfont file exists at the CDN URL:
+1. Verify the CDN URL is correct and accessible:
    ```bash
-   curl -I https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/MuseScore_General.sf3
+   curl -I https://cdn.ourtextscores.com/soundfonts/default.sf2
+   ```
+2. Verify CORS from the app origin:
+   ```bash
+   curl -I -H "Origin: https://www.ourtextscores.com" https://cdn.ourtextscores.com/soundfonts/default.sf2
+   ```
+   Response should include `access-control-allow-origin`.
+3. Verify the URL is baked into the exported JS bundle:
+   ```bash
+   grep -Rho "https://cdn.ourtextscores.com/soundfonts/default.sf2" out/_next/static/chunks | head -n 1
+   ```
+4. Verify you did not accidentally ship a local bundled soundfont:
+   ```bash
+   ls -la out/soundfonts 2>/dev/null || echo "OK: no bundled soundfonts"
    ```
 
 ## Configuration Options
@@ -197,7 +239,7 @@ All options are set via environment variables:
 |----------|-------------|---------|
 | `BUILD_MODE` | Enable static export | `embed` |
 | `NEXT_PUBLIC_BUILD_MODE` | Client-side build mode flag | `embed` |
-| `NEXT_PUBLIC_SOUNDFONT_CDN_URL` | CDN URL for soundfonts | `https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General` |
+| `NEXT_PUBLIC_SOUNDFONT_CDN_URL` | CDN URL for soundfonts | `https://cdn.ourtextscores.com/soundfonts/default.sf2` |
 
 See `.env.example` for more details.
 

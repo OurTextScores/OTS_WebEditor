@@ -240,6 +240,11 @@ mv ~/soundfonts.backup public/soundfonts
 
 The app will automatically try to load `MuseScore_General.sf3` first, then fall back to other naming conventions.
 
+Important:
+- `NEXT_PUBLIC_SOUNDFONT_CDN_URL` is compile-time for static export builds.
+- If `public/soundfonts/default.sf2` is present during build, it may be copied into `out/soundfonts/` and cause GitHub push failures (100MB limit) when syncing artifacts to another repo.
+- Before syncing `out/`, verify and remove `out/soundfonts/` if present.
+
 ### Custom CDN Setup (Alternative)
 
 If you need to host your own soundfonts:
@@ -274,3 +279,9 @@ The static export build (`npm run build` with `BUILD_MODE=embed`) generates:
 - Static data files (data/clefs.json, data/templates.json)
 - Next.js static assets
 - Base path: `/score-editor` (configurable in next.config.ts)
+
+Safe artifact sync example:
+```bash
+ls -la out/soundfonts 2>/dev/null || echo "OK: no out/soundfonts directory"
+rsync -a --delete --exclude 'soundfonts/' out/ ../OurTextScores/frontend/public/score-editor/
+```
