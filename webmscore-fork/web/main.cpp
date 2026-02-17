@@ -866,6 +866,23 @@ static QJsonObject layoutProgressJson(MainScore& score, int targetPage, bool tar
     return json;
 }
 
+static int layoutChunkMeasureCount(const LayoutProgressInfo& info)
+{
+    // Grow by roughly 6 pages at a time to avoid all-pages layout spikes.
+    constexpr int kTargetChunkPages = 6;
+    constexpr int kDefaultChunkMeasures = 24;
+    constexpr int kMinChunkMeasures = 12;
+    constexpr int kMaxChunkMeasures = 160;
+
+    if (info.availablePages <= 0 || info.laidOutMeasures <= 0) {
+        return kDefaultChunkMeasures;
+    }
+
+    const int pages = std::max(1, info.availablePages);
+    const int estimated = (info.laidOutMeasures * kTargetChunkPages + pages - 1) / pages;
+    return std::clamp(estimated, kMinChunkMeasures, kMaxChunkMeasures);
+}
+
 static bool durationBaseFraction(engraving::DurationType type, int& numerator, int& denominator)
 {
     numerator = 0;
@@ -3261,9 +3278,43 @@ bool _layoutUntilPage(uintptr_t score_ptr, int targetPage, int excerptId)
         }
     }
 
-    // Fallback for deeper navigation beyond the initial incremental window.
-    score->setLayoutAll();
-    score->update();
+    // Expand incrementally in bounded chunks instead of forcing all-pages layout.
+    LayoutProgressInfo progress = captureLayoutProgress(score);
+    int chunkMeasures = layoutChunkMeasureCount(progress);
+    int attempts = 0;
+    constexpr int kMaxChunkAttempts = 3;
+    while (availablePages <= targetPage && attempts < kMaxChunkAttempts) {
+        const int laidOut = std::max(0, progress.laidOutMeasures);
+        if (laidOut >= totalMeasures) {
+            break;
+        }
+
+        const int probeIndex = std::min(totalMeasures - 1, laidOut + chunkMeasures - 1);
+        auto* probeMeasure = layoutMeasureAtIndex(score, probeIndex);
+        if (!probeMeasure) {
+            break;
+        }
+
+        const engraving::Fraction endTick = probeMeasure->tick() + probeMeasure->ticks();
+        score->doLayoutRange(engraving::Fraction(0, 1), endTick);
+        availablePages = static_cast<int>(score->npages());
+        if (availablePages > targetPage) {
+            return true;
+        }
+
+        LayoutProgressInfo nextProgress = captureLayoutProgress(score);
+        if (nextProgress.laidOutMeasures <= progress.laidOutMeasures) {
+            if (probeIndex >= totalMeasures - 1) {
+                break;
+            }
+            chunkMeasures = std::min(totalMeasures, chunkMeasures * 2);
+        } else {
+            progress = nextProgress;
+            chunkMeasures = layoutChunkMeasureCount(progress);
+        }
+        ++attempts;
+    }
+
     return static_cast<int>(score->npages()) > targetPage;
 }
 
