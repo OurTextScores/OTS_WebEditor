@@ -225,6 +225,10 @@ const LARGE_PROGRESSIVE_PAGE_RENDER_TIMEOUT_MS = 180_000;
 const PROGRESSIVE_PAGE_LAYOUT_TIMEOUT_MS = 90_000;
 const PROGRESSIVE_PAGE_LAYOUT_CONFIRM_TIMEOUT_MS = 120_000;
 const PROGRESSIVE_PAGE_LAYOUT_EXPAND_TIMEOUT_MS = 300_000;
+const ENGINE_OPERATION_STALL_RELEASE_MS = 600_000;
+const LARGE_SCORE_BACKGROUND_TASK_DELAY_MS = 15_000;
+const LARGE_SCORE_BACKGROUND_TASK_RETRY_DELAY_MS = 5_000;
+const LARGE_SCORE_BACKGROUND_TASK_MAX_RETRIES = 12;
 
 const TEXT_ELEMENT_CLASS_NAMES = [
     'Text',
@@ -548,6 +552,8 @@ export default function ScoreEditor() {
     const pageNavigationInFlightRef = useRef(false);
     const largeScoreSessionRef = useRef(false);
     const largeSessionXmlAutoloadDeferredLoggedRef = useRef(false);
+    const backgroundInitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const scoreOperationQueueRef = useRef<Promise<void>>(Promise.resolve());
 
     const detectInputFormat = (source: string): InputFileFormat => {
         const normalized = source.toLowerCase().split('#')[0].split('?')[0];
@@ -955,6 +961,12 @@ export default function ScoreEditor() {
     useEffect(() => {
         selectedPointRef.current = selectedPoint;
     }, [selectedPoint]);
+
+    useEffect(() => {
+        return () => {
+            clearScheduledBackgroundInit();
+        };
+    }, []);
 
     useEffect(() => {
         soundFontLoadedRef.current = soundFontLoaded;
@@ -1719,7 +1731,10 @@ ${partsBodyXml}
             return fallbackXml;
         }
         try {
-            const data = await targetScore.saveXml();
+            const data = await runSerializedScoreOperation(
+                () => targetScore.saveXml!(),
+                'saveXml',
+            );
             const decoded = await decodeXmlData(data);
             return decoded ?? fallbackXml;
         } catch (err) {
@@ -1734,7 +1749,10 @@ ${partsBodyXml}
             alert('This build of webmscore does not expose "saveXml".');
             return null;
         }
-        const data = await activeScore.saveXml();
+        const data = await runSerializedScoreOperation(
+            () => activeScore.saveXml!(),
+            'saveXml',
+        );
         return await normalizeXmlData(data);
     }, [score, normalizeXmlData]);
 
@@ -2061,7 +2079,10 @@ ${partsBodyXml}
         }
 
         try {
-            const xmlRaw = await loadedScore.saveXml();
+            const xmlRaw = await runSerializedScoreOperation(
+                () => loadedScore.saveXml!(),
+                'saveXml(initial-checkpoint)',
+            );
             const xmlData = await normalizeXmlData(xmlRaw);
             if (!xmlData || xmlData.byteLength === 0) {
                 return;
@@ -2403,15 +2424,31 @@ ${partsBodyXml}
 
     const requestLayoutProgress = async (targetScore: Score, targetPage: number): Promise<LayoutProgressState> => {
         if (targetScore.layoutUntilPageState) {
-            const raw = await Promise.resolve(targetScore.layoutUntilPageState(targetPage));
+            const raw = await runSerializedScoreOperation(
+                () => Promise.resolve(targetScore.layoutUntilPageState!(targetPage)),
+                `layoutUntilPageState(page=${targetPage + 1})`,
+            );
             const parsed = parseLayoutProgressState(raw);
             if (parsed) {
                 return parsed;
             }
         }
 
-        const targetSatisfied = Boolean(await Promise.resolve(targetScore.layoutUntilPage?.(targetPage)));
-        const availablePages = targetScore.npages ? Math.max(1, await targetScore.npages()) : targetPage + (targetSatisfied ? 1 : 0);
+        const targetSatisfied = Boolean(await runSerializedScoreOperation(
+            () => Promise.resolve(targetScore.layoutUntilPage?.(targetPage)),
+            `layoutUntilPage(page=${targetPage + 1})`,
+        ));
+        const availablePages = targetScore.npages
+            ? Math.max(
+                1,
+                await runSerializedScoreOperation(
+                    () => Promise.resolve(targetScore.npages!()),
+                    'npages',
+                ),
+            )
+            : targetPage + (targetSatisfied ? 1 : 0);
+        // Without structured state support, we do not have authoritative completion info.
+        // Keep pagination optimistic to avoid disabling navigation prematurely.
         return {
             targetPage,
             targetSatisfied,
@@ -2419,8 +2456,8 @@ ${partsBodyXml}
             totalMeasures: -1,
             laidOutMeasures: -1,
             loadedUntilTick: -1,
-            hasMorePages: targetSatisfied,
-            isComplete: !targetSatisfied,
+            hasMorePages: true,
+            isComplete: false,
         };
     };
 
@@ -2468,6 +2505,45 @@ ${partsBodyXml}
             }
         }
     };
+
+    const clearScheduledBackgroundInit = useCallback(() => {
+        if (backgroundInitTimerRef.current) {
+            clearTimeout(backgroundInitTimerRef.current);
+            backgroundInitTimerRef.current = null;
+        }
+    }, []);
+
+    const runSerializedScoreOperation = useCallback(async <T,>(operation: () => Promise<T>, label: string): Promise<T> => {
+        const waitForPriorOperation = scoreOperationQueueRef.current;
+        let releaseQueueSlot: (() => void) | null = null;
+        scoreOperationQueueRef.current = new Promise<void>((resolve) => {
+            releaseQueueSlot = resolve;
+        });
+
+        await waitForPriorOperation;
+
+        let released = false;
+        const release = () => {
+            if (released) {
+                return;
+            }
+            released = true;
+            releaseQueueSlot?.();
+        };
+
+        const operationPromise = Promise.resolve().then(operation);
+        const forceReleaseTimer = setTimeout(() => {
+            console.warn(`[engine-queue] force release after ${ENGINE_OPERATION_STALL_RELEASE_MS}ms`, { label });
+            release();
+        }, ENGINE_OPERATION_STALL_RELEASE_MS);
+
+        try {
+            return await operationPromise;
+        } finally {
+            clearTimeout(forceReleaseTimer);
+            release();
+        }
+    }, []);
 
     const loadScoreWithInitialLayout = async (
         WebMscore: Awaited<ReturnType<typeof loadWebMscore>>,
@@ -2524,7 +2600,10 @@ ${partsBodyXml}
             if (loadedScore.relayout) {
                 logLargeLoad('relayout-fallback:start');
                 await runWithTimeout(
-                    Promise.resolve(loadedScore.relayout()),
+                    runSerializedScoreOperation(
+                        () => Promise.resolve(loadedScore.relayout!()),
+                        'relayout(progressive-fallback)',
+                    ),
                     20_000,
                     'Progressive relayout fallback',
                 );
@@ -2544,10 +2623,139 @@ ${partsBodyXml}
         return { loadedScore: fallbackScore, progressivePaging: false, progressiveHasMore: false, initialAvailablePages: 1 };
     };
 
+    const scheduleBackgroundInitTasks = (
+        loadedScore: Score,
+        options: {
+            format: InputFileFormat;
+            inputByteLength: number;
+            isLargeInput: boolean;
+            progressivePaging: boolean;
+            createInitialCheckpoint?: boolean;
+            checkpointScoreId?: string;
+            logStage?: (stage: string, extra?: unknown) => void;
+        },
+    ) => {
+        const {
+            format,
+            inputByteLength,
+            isLargeInput,
+            progressivePaging,
+            createInitialCheckpoint,
+            checkpointScoreId,
+            logStage,
+        } = options;
+
+        const log = (stage: string, extra?: unknown) => {
+            if (!logStage) {
+                return;
+            }
+            logStage(stage, extra);
+        };
+
+        clearScheduledBackgroundInit();
+
+        const runTasks = async (attempt: number) => {
+            if (scoreRef.current !== loadedScore) {
+                backgroundInitTimerRef.current = null;
+                return;
+            }
+            if (
+                isLargeInput
+                && (pageNavigationInFlightRef.current || progressivePageLoadInFlightRef.current)
+            ) {
+                if (attempt >= LARGE_SCORE_BACKGROUND_TASK_MAX_RETRIES) {
+                    log('background-tasks:skipped', { reason: 'busy-navigation', attempts: attempt });
+                    backgroundInitTimerRef.current = null;
+                    return;
+                }
+                backgroundInitTimerRef.current = setTimeout(() => {
+                    void runTasks(attempt + 1);
+                }, LARGE_SCORE_BACKGROUND_TASK_RETRY_DELAY_MS);
+                return;
+            }
+
+            backgroundInitTimerRef.current = null;
+            log('background-tasks:start', { attempt });
+
+            log('refresh-metadata:start');
+            try {
+                await runWithTimeout(
+                    refreshScoreMetadata(loadedScore),
+                    20_000,
+                    'Score metadata refresh',
+                );
+                log('refresh-metadata:done');
+            } catch (err) {
+                log('refresh-metadata:failed', err);
+                console.warn('Background score metadata refresh timed out or failed.', err);
+            }
+
+            log('refresh-instruments:start');
+            try {
+                await runWithTimeout(
+                    refreshInstrumentTemplates(loadedScore),
+                    20_000,
+                    'Instrument template refresh',
+                );
+                log('refresh-instruments:done');
+            } catch (err) {
+                log('refresh-instruments:failed', err);
+                console.warn('Background instrument template refresh timed out or failed.', err);
+            }
+
+            if (loadedScore.saveAudio) {
+                log('soundfont:start');
+                try {
+                    await runWithTimeout(
+                        ensureSoundFontLoaded(loadedScore),
+                        25_000,
+                        'SoundFont load',
+                    );
+                    log('soundfont:done');
+                } catch (err) {
+                    log('soundfont:failed', err);
+                    console.warn('Background SoundFont load timed out or failed.', err);
+                }
+            }
+
+            if (createInitialCheckpoint) {
+                log('checkpoint:start');
+                try {
+                    await runWithTimeout(
+                        createInitialLoadCheckpoint(loadedScore, checkpointScoreId),
+                        20_000,
+                        'Initial checkpoint creation',
+                    );
+                    log('checkpoint:done');
+                } catch (err) {
+                    log('checkpoint:failed', err);
+                    console.warn('Background initial checkpoint creation timed out or failed.', err);
+                }
+            }
+        };
+
+        if (isLargeInput) {
+            log('background-tasks:deferred', {
+                reason: 'large-upload',
+                bytes: inputByteLength,
+                format,
+                progressivePaging,
+                delayMs: LARGE_SCORE_BACKGROUND_TASK_DELAY_MS,
+            });
+            backgroundInitTimerRef.current = setTimeout(() => {
+                void runTasks(0);
+            }, LARGE_SCORE_BACKGROUND_TASK_DELAY_MS);
+            return;
+        }
+
+        void runTasks(0);
+    };
+
     const handleUrlLoad = async (url: string, signal?: AbortSignal) => {
         if (signal?.aborted) {
             return;
         }
+        clearScheduledBackgroundInit();
         const urlScoreId = searchParams.get('scoreId') || `url:${url}`;
         if (urlScoreId !== scoreId) {
             setScoreId(urlScoreId);
@@ -2607,6 +2815,7 @@ ${partsBodyXml}
                 return;
             }
             setScore(loadedScore);
+            scoreRef.current = loadedScore;
             setProgressivePagingActive(progressivePaging);
             setProgressiveHasMorePages(progressivePaging && progressiveHasMore);
             exposeScoreToWindow(loadedScore);
@@ -2656,45 +2865,21 @@ ${partsBodyXml}
             if (!signal?.aborted) {
                 setLoading(false);
             }
-            const deferBackgroundTasks = inputIsLarge;
-            if (deferBackgroundTasks) {
-                console.info(`[large-load] ${format} background-init:deferred`, {
-                    reason: 'large-score',
-                    bytes: inputByteLength,
-                });
-            } else {
-                void (async () => {
-                    try {
-                        await runWithTimeout(
-                            refreshScoreMetadata(loadedScore),
-                            20_000,
-                            'Score metadata refresh',
-                        );
-                    } catch (err) {
-                        console.warn('Background score metadata refresh timed out or failed.', err);
-                    }
-                    try {
-                        await runWithTimeout(
-                            refreshInstrumentTemplates(loadedScore),
-                            20_000,
-                            'Instrument template refresh',
-                        );
-                    } catch (err) {
-                        console.warn('Background instrument template refresh timed out or failed.', err);
-                    }
-                    if (loadedScore.saveAudio) {
-                        try {
-                            await runWithTimeout(
-                                ensureSoundFontLoaded(loadedScore),
-                                25_000,
-                                'SoundFont load',
-                            );
-                        } catch (err) {
-                            console.warn('Background SoundFont load timed out or failed.', err);
+            scheduleBackgroundInitTasks(loadedScore, {
+                format,
+                inputByteLength,
+                isLargeInput: inputIsLarge,
+                progressivePaging,
+                logStage: inputIsLarge
+                    ? (stage: string, extra?: unknown) => {
+                        if (typeof extra === 'undefined') {
+                            console.info(`[large-load] ${format} ${stage}`);
+                            return;
                         }
+                        console.info(`[large-load] ${format} ${stage}`, extra);
                     }
-                })();
-            }
+                    : undefined,
+            });
 
             // segmentPositions causes a crash in this version of webmscore/emscripten environment
             // We will use DOM-based hit testing on the SVG elements instead.
@@ -2717,6 +2902,7 @@ ${partsBodyXml}
             createInitialCheckpoint?: boolean;
         },
     ) => {
+        clearScheduledBackgroundInit();
         setLoading(true);
         const uploadStart = performance.now();
         const isLargeUpload = file.size >= LARGE_SCORE_THRESHOLD_BYTES;
@@ -2793,6 +2979,7 @@ ${partsBodyXml}
             const { loadedScore, progressivePaging, progressiveHasMore, initialAvailablePages } = await loadScoreWithInitialLayout(WebMscore, format, data);
             logUploadStage('load-score:done', { progressivePaging, progressiveHasMore, initialAvailablePages });
             setScore(loadedScore);
+            scoreRef.current = loadedScore;
             setProgressivePagingActive(progressivePaging);
             setProgressiveHasMorePages(progressivePaging && progressiveHasMore);
             exposeScoreToWindow(loadedScore);
@@ -2844,69 +3031,15 @@ ${partsBodyXml}
                 autoFitPendingRef.current = false;
             }
             setLoading(false);
-            if (isLargeUpload) {
-                logUploadStage('background-tasks:deferred', {
-                    reason: 'large-upload',
-                    bytes: inputByteLength,
-                    format,
-                    progressivePaging,
-                });
-            } else {
-                void (async () => {
-                    logUploadStage('refresh-metadata:start');
-                    try {
-                        await runWithTimeout(
-                            refreshScoreMetadata(loadedScore),
-                            20_000,
-                            'Score metadata refresh',
-                        );
-                        logUploadStage('refresh-metadata:done');
-                    } catch (err) {
-                        logUploadStage('refresh-metadata:failed', err);
-                        console.warn('Background score metadata refresh timed out or failed.', err);
-                    }
-
-                    logUploadStage('refresh-instruments:start');
-                    try {
-                        await runWithTimeout(
-                            refreshInstrumentTemplates(loadedScore),
-                            20_000,
-                            'Instrument template refresh',
-                        );
-                        logUploadStage('refresh-instruments:done');
-                    } catch (err) {
-                        logUploadStage('refresh-instruments:failed', err);
-                        console.warn('Background instrument template refresh timed out or failed.', err);
-                    }
-
-                    if (loadedScore.saveAudio) {
-                        logUploadStage('soundfont:start');
-                        try {
-                            await runWithTimeout(
-                                ensureSoundFontLoaded(loadedScore),
-                                25_000,
-                                'SoundFont load',
-                            );
-                            logUploadStage('soundfont:done');
-                        } catch (err) {
-                            logUploadStage('soundfont:failed', err);
-                            console.warn('Background SoundFont load timed out or failed.', err);
-                        }
-                    }
-
-                    if (options?.createInitialCheckpoint) {
-                        try {
-                            await runWithTimeout(
-                                createInitialLoadCheckpoint(loadedScore, nextScoreId),
-                                20_000,
-                                'Initial checkpoint creation',
-                            );
-                        } catch (err) {
-                            console.warn('Background initial checkpoint creation timed out or failed.', err);
-                        }
-                    }
-                })();
-            }
+            scheduleBackgroundInitTasks(loadedScore, {
+                format,
+                inputByteLength,
+                isLargeInput: isLargeUpload,
+                progressivePaging,
+                createInitialCheckpoint: options?.createInitialCheckpoint,
+                checkpointScoreId: nextScoreId,
+                logStage: logUploadStage,
+            });
 
         } catch (err) {
             console.error('Error loading file:', err);
@@ -2926,7 +3059,13 @@ ${partsBodyXml}
         }
 
         try {
-            const pages = Math.max(1, await targetScore.npages());
+            const pages = Math.max(
+                1,
+                await runSerializedScoreOperation(
+                    () => targetScore.npages!(),
+                    'npages',
+                ),
+            );
             const clamped = Math.max(0, Math.min(preferredPage, pages - 1));
             setPageCount(pages);
             setCurrentPage(clamped);
@@ -2954,12 +3093,21 @@ ${partsBodyXml}
                 // For expansion into unknown pages, call layoutUntilPage directly.
                 // layoutUntilPageState can stall for very large scores when advancing.
                 const expanded = Boolean(await runWithTimeout(
-                    Promise.resolve(targetScore.layoutUntilPage(targetPage)),
+                    runSerializedScoreOperation(
+                        () => Promise.resolve(targetScore.layoutUntilPage!(targetPage)),
+                        `layoutUntilPage(page=${targetPage + 1})`,
+                    ),
                     PROGRESSIVE_PAGE_LAYOUT_EXPAND_TIMEOUT_MS,
                     `Expand layout to page ${targetPage + 1}`,
                 ));
                 if (targetScore.npages) {
-                    const pages = Math.max(1, await Promise.resolve(targetScore.npages()));
+                    const pages = Math.max(
+                        1,
+                        await runSerializedScoreOperation(
+                            () => Promise.resolve(targetScore.npages!()),
+                            'npages',
+                        ),
+                    );
                     setPageCount((prev) => Math.max(prev, pages));
                     if (expanded && pages > targetPage) {
                         return true;
@@ -2984,7 +3132,10 @@ ${partsBodyXml}
                 // Confirm the target page is fully materialized before rendering it.
                 // layoutUntilPageState can report optimistic availability on very large scores.
                 targetSatisfied = Boolean(await runWithTimeout(
-                    Promise.resolve(targetScore.layoutUntilPage(targetPage)),
+                    runSerializedScoreOperation(
+                        () => Promise.resolve(targetScore.layoutUntilPage!(targetPage)),
+                        `layoutUntilPage(page=${targetPage + 1})`,
+                    ),
                     PROGRESSIVE_PAGE_LAYOUT_CONFIRM_TIMEOUT_MS,
                     `Layout page ${targetPage + 1}`,
                 ));
@@ -3017,7 +3168,10 @@ ${partsBodyXml}
                 ? LARGE_PROGRESSIVE_PAGE_RENDER_TIMEOUT_MS
                 : DEFAULT_PAGE_RENDER_TIMEOUT_MS;
             const svgData = await runWithTimeout(
-                currentScore.saveSvg(targetPage, true, highlightSelection),
+                runSerializedScoreOperation(
+                    () => currentScore.saveSvg(targetPage, true, highlightSelection),
+                    `saveSvg(page=${targetPage + 1})`,
+                ),
                 timeoutMs,
                 `Render page ${targetPage + 1}`,
             );
@@ -3049,7 +3203,10 @@ ${partsBodyXml}
 
         try {
             const targetPage = typeof pageIndex === 'number' ? pageIndex : 0;
-            const svgData = await currentScore.saveSvg(targetPage, true, highlightSelection);
+            const svgData = await runSerializedScoreOperation(
+                () => currentScore.saveSvg(targetPage, true, highlightSelection),
+                `saveSvg(compare-page=${targetPage + 1})`,
+            );
             if (!svgData) {
                 return false;
             }
@@ -3229,7 +3386,10 @@ ${partsBodyXml}
 
     const refreshScoreMetadata = async (currentScore: Score) => {
         try {
-            const metadata = await currentScore.metadata();
+            const metadata = await runSerializedScoreOperation(
+                () => currentScore.metadata(),
+                'metadata',
+            );
             setScoreTitle(typeof metadata.title === 'string' ? metadata.title : '');
             setScoreSubtitle(typeof (metadata as any).subtitle === 'string' ? (metadata as any).subtitle : '');
             setScoreComposer(typeof metadata.composer === 'string' ? metadata.composer : '');
@@ -3254,7 +3414,10 @@ ${partsBodyXml}
             return;
         }
         try {
-            const data = await currentScore.listInstrumentTemplates();
+            const data = await runSerializedScoreOperation(
+                () => Promise.resolve(currentScore.listInstrumentTemplates!()),
+                'listInstrumentTemplates',
+            );
             setInstrumentGroups(Array.isArray(data) ? data as InstrumentTemplateGroup[] : []);
         } catch (err) {
             console.warn('Failed to read instrument templates', err);
@@ -3340,7 +3503,10 @@ ${partsBodyXml}
                         continue;
                     }
                     const buf = new Uint8Array(await res.arrayBuffer());
-                    await activeScore.setSoundFont(buf);
+                    await runSerializedScoreOperation(
+                        () => activeScore.setSoundFont(buf),
+                        'setSoundFont',
+                    );
                     soundFontLoadedRef.current = true;
                     setSoundFontLoaded(true);
                     console.debug('[AUDIO] soundfont loaded', { url, bytes: buf.byteLength });
@@ -3370,7 +3536,10 @@ ${partsBodyXml}
         try {
             const buffer = await file.arrayBuffer();
             const data = new Uint8Array(buffer);
-            await score.setSoundFont(data);
+            await runSerializedScoreOperation(
+                () => score.setSoundFont(data),
+                'setSoundFont(upload)',
+            );
             soundFontLoadedRef.current = true;
             triedSoundFontRef.current = true;
             soundFontLoadPromiseRef.current = null;
@@ -3704,12 +3873,18 @@ ${partsBodyXml}
                 compareLoadedCheckpointXmlRef.current = compareView.checkpointXml;
                 setCompareRightScore(loadedScore);
                 if (loadedScore.npages) {
-                    const pages = await loadedScore.npages();
+                    const pages = await runSerializedScoreOperation(
+                        () => loadedScore.npages!(),
+                        'npages(compare)',
+                    );
                     if (!canceled) {
                         setCompareRightPageCount(Math.max(1, pages));
                     }
                 }
-                const metadata = await loadedScore.metadata();
+                const metadata = await runSerializedScoreOperation(
+                    () => loadedScore.metadata(),
+                    'metadata(compare)',
+                );
                 if (!canceled) {
                     setCompareRightParts(parsePartsFromMetadata(metadata));
                 }
@@ -4794,7 +4969,13 @@ ${partsBodyXml}
                     console.info('[large-nav] layout:ensure:done', { targetPage });
                 }
                 if (score.npages) {
-                    knownPages = Math.max(1, await score.npages());
+                    knownPages = Math.max(
+                        1,
+                        await runSerializedScoreOperation(
+                            () => score.npages!(),
+                            'npages',
+                        ),
+                    );
                     setPageCount((prev) => Math.max(prev, knownPages));
                 } else {
                     knownPages = Math.max(pageCount, targetPage + 1);
@@ -6030,7 +6211,10 @@ ${partsBodyXml}
     const handleExportSvg = async () => {
         if (!score) return;
         try {
-            const svg = await score.saveSvg(0, true);
+            const svg = await runSerializedScoreOperation(
+                () => score.saveSvg(0, true),
+                'saveSvg(export)',
+            );
             downloadBlob(svg, 'score.svg', 'image/svg+xml');
         } catch (err) {
             console.error('Failed to export SVG', err);

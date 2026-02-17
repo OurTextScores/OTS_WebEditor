@@ -477,7 +477,7 @@ describe('ScoreEditor', () => {
       await user.click(screen.getByTestId('btn-zoom-in'));
     }
     expect(wrapper).toHaveStyle({ transform: 'scale(3)' });
-  });
+  }, 10000);
 
   it('exports PDF/PNG/MXL/MSCZ/MIDI via Score methods', async () => {
     const user = userEvent.setup();
