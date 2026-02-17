@@ -4,6 +4,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 
 const mocked = vi.hoisted(() => ({
   loadWebMscore: vi.fn(),
+  loadWebMscoreInProcess: vi.fn(),
 }));
 
 const mockedNavigation = vi.hoisted(() => ({
@@ -16,6 +17,7 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('../lib/webmscore-loader', () => ({
   loadWebMscore: mocked.loadWebMscore,
+  loadWebMscoreInProcess: mocked.loadWebMscoreInProcess,
 }));
 
 import ScoreEditor from '../components/ScoreEditor';
@@ -54,6 +56,9 @@ describe('ScoreEditor', () => {
 
   beforeEach(() => {
     scoreParamValue = null;
+    mocked.loadWebMscore.mockReset();
+    mocked.loadWebMscoreInProcess.mockReset();
+    mocked.loadWebMscoreInProcess.mockImplementation(() => mocked.loadWebMscore());
     mockedNavigation.useSearchParams.mockReturnValue(searchParams);
 
     rectSpy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(boundingRect as any);
@@ -148,7 +153,42 @@ describe('ScoreEditor', () => {
     await user.upload(screen.getByTestId('open-score-input'), file);
 
     await waitFor(() => expect(webmscore.load).toHaveBeenCalled());
-    expect(webmscore.load).toHaveBeenNthCalledWith(1, 'mxl', expect.any(Uint8Array));
+    expect(webmscore.load).toHaveBeenNthCalledWith(1, 'mxl', expect.any(Uint8Array), [], false);
+  });
+
+  it('detects .mscz uploads and starts with deferred load', async () => {
+    const user = userEvent.setup();
+    const largeData = new Uint8Array((2 * 1024 * 1024) + 256);
+    const score: any = {
+      destroy: vi.fn(),
+      saveSvg: vi.fn(async () => '<svg></svg>'),
+      savePdf: vi.fn(async () => new Uint8Array([1])),
+      setSoundFont: vi.fn(async () => {}),
+      metadata: vi.fn(async () => ({})),
+      measurePositions: vi.fn(async () => ({})),
+      segmentPositions: vi.fn(async () => ({})),
+      npages: vi.fn(async () => 1),
+    };
+    const webmscore: any = {
+      ready: Promise.resolve(),
+      load: vi.fn(async () => score),
+    };
+
+    mocked.loadWebMscore.mockResolvedValue(webmscore);
+    (globalThis as any).fetch = vi.fn(async () => ({
+      ok: false,
+      arrayBuffer: async () => new ArrayBuffer(0),
+    }));
+
+    render(<ScoreEditor />);
+
+    const file = new File([largeData], 'beethoven.mscz', {
+      type: 'application/octet-stream',
+    });
+    await user.upload(screen.getByTestId('open-score-input'), file);
+
+    await waitFor(() => expect(webmscore.load).toHaveBeenCalled());
+    expect(webmscore.load).toHaveBeenNthCalledWith(1, 'mscz', expect.any(Uint8Array), [], false);
   });
 
   it('progressively lays out the next page when navigating large .musicxml scores', async () => {

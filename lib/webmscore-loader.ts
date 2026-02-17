@@ -4,7 +4,7 @@ import { InputFileFormat, Positions } from 'webmscore/schemas';
 export type { InputFileFormat, Positions };
 
 export interface Score {
-    destroy: () => void;
+    destroy: (soft?: boolean) => void;
     saveSvg: (pageNumber?: number, drawPageBackground?: boolean, highlightSelection?: boolean) => Promise<string>;
     savePdf: () => Promise<Uint8Array>;
     saveXml?: () => Promise<Uint8Array>;
@@ -169,6 +169,21 @@ const resolveWebMscore = (mod: unknown): WebMscoreInstance => {
 const WebMscore = resolveWebMscore(WebMscoreImport as unknown);
 
 let initialized = false;
+let inProcessInitialized = false;
+let inProcessWebMscore: WebMscoreInstance | null = null;
+let inProcessInitPromise: Promise<WebMscoreInstance> | null = null;
+
+const ensureBrowserMscoreScriptUrl = () => {
+    if (typeof window === 'undefined') {
+        return;
+    }
+    const globalScope = globalThis as Record<string, unknown>;
+    if (typeof globalScope.MSCORE_SCRIPT_URL === 'string' && globalScope.MSCORE_SCRIPT_URL.length > 0) {
+        return;
+    }
+    const base = typeof document !== 'undefined' ? document.baseURI : window.location.href;
+    globalScope.MSCORE_SCRIPT_URL = new URL('.', base).href;
+};
 
 export const loadWebMscore = async (): Promise<WebMscoreInstance> => {
     if (initialized) {
@@ -178,4 +193,29 @@ export const loadWebMscore = async (): Promise<WebMscoreInstance> => {
     await WebMscore.ready;
     initialized = true;
     return WebMscore as unknown as WebMscoreInstance;
+};
+
+export const loadWebMscoreInProcess = async (): Promise<WebMscoreInstance> => {
+    if (inProcessInitialized && inProcessWebMscore) {
+        return inProcessWebMscore;
+    }
+    if (inProcessInitPromise) {
+        return inProcessInitPromise;
+    }
+
+    inProcessInitPromise = (async () => {
+        ensureBrowserMscoreScriptUrl();
+        const inProcessImport = await import('../webmscore-fork/web-public/src/index.js');
+        const resolved = resolveWebMscore(inProcessImport as unknown);
+        await resolved.ready;
+        inProcessWebMscore = resolved;
+        inProcessInitialized = true;
+        return resolved;
+    })();
+
+    try {
+        return await inProcessInitPromise;
+    } finally {
+        inProcessInitPromise = null;
+    }
 };

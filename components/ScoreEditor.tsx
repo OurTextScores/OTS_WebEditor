@@ -219,6 +219,13 @@ const measureInsertTargetMap: Record<MeasureInsertTarget, number> = {
     end: 3,
 };
 
+const LARGE_SCORE_THRESHOLD_BYTES = 2 * 1024 * 1024;
+const DEFAULT_PAGE_RENDER_TIMEOUT_MS = 45_000;
+const LARGE_PROGRESSIVE_PAGE_RENDER_TIMEOUT_MS = 180_000;
+const PROGRESSIVE_PAGE_LAYOUT_TIMEOUT_MS = 90_000;
+const PROGRESSIVE_PAGE_LAYOUT_CONFIRM_TIMEOUT_MS = 120_000;
+const PROGRESSIVE_PAGE_LAYOUT_EXPAND_TIMEOUT_MS = 300_000;
+
 const TEXT_ELEMENT_CLASS_NAMES = [
     'Text',
     'RehearsalMark',
@@ -538,6 +545,9 @@ export default function ScoreEditor() {
     const currentPageRef = useRef(currentPage);
     const selectedPointRef = useRef<{ page: number, x: number, y: number } | null>(selectedPoint);
     const progressivePageLoadInFlightRef = useRef(false);
+    const pageNavigationInFlightRef = useRef(false);
+    const largeScoreSessionRef = useRef(false);
+    const largeSessionXmlAutoloadDeferredLoggedRef = useRef(false);
 
     const detectInputFormat = (source: string): InputFileFormat => {
         const normalized = source.toLowerCase().split('#')[0].split('?')[0];
@@ -551,6 +561,13 @@ export default function ScoreEditor() {
             return 'mscx';
         }
         return 'mscz';
+    };
+    const isLargeScoreData = (data: Uint8Array) => data.byteLength >= LARGE_SCORE_THRESHOLD_BYTES;
+    const shouldSkipCoverPageFirstRender = (format: InputFileFormat, data: Uint8Array) => (
+        isLargeScoreData(data) && (format === 'mscz' || format === 'mscx' || format === 'mxl')
+    );
+    const resolveWebMscoreEngine = async () => {
+        return { webMscore: await loadWebMscore(), mode: 'worker' as const };
     };
     const aiKeyStorageKey = `ots_${aiProvider}_api_key`;
     const aiModelStorageKey = `ots_${aiProvider}_model`;
@@ -2095,13 +2112,22 @@ ${partsBodyXml}
         if (!score) {
             setXmlText('');
             setXmlDirty(false);
+            largeSessionXmlAutoloadDeferredLoggedRef.current = false;
             return;
         }
         if (xmlDirty) {
             return;
         }
+        if (largeScoreSessionRef.current && xmlSidebarMode === 'closed') {
+            if (!largeSessionXmlAutoloadDeferredLoggedRef.current) {
+                console.info('[large-load] xml-autoload:deferred');
+                largeSessionXmlAutoloadDeferredLoggedRef.current = true;
+            }
+            return;
+        }
+        largeSessionXmlAutoloadDeferredLoggedRef.current = false;
         void loadXmlFromScore();
-    }, [score, xmlDirty, loadXmlFromScore]);
+    }, [score, xmlDirty, xmlSidebarMode, loadXmlFromScore]);
 
     useEffect(() => {
         if (xmlSidebarTab === 'assistant' && aiIncludeXml && !xmlText.trim()) {
@@ -2338,12 +2364,6 @@ ${partsBodyXml}
 
         const boot = async () => {
             try {
-                await loadWebMscore();
-                if (abortController.signal.aborted) {
-                    return;
-                }
-                console.log('webmscore initialized');
-
                 const scoreUrl = searchParams.get('score');
                 if (scoreUrl) {
                     await handleUrlLoad(scoreUrl, abortController.signal);
@@ -2408,12 +2428,27 @@ ${partsBodyXml}
         if (!progressiveLoadEnabled) {
             return false;
         }
-        // In this webmscore build, deferred layout is stable for plain MusicXML.
-        // Compressed formats can fail in no-layout mode on large scores.
-        if (format !== 'musicxml') {
+        if (!isLargeScoreData(data)) {
             return false;
         }
-        return data.byteLength >= (2 * 1024 * 1024);
+        // Progressive path is critical for large native/compressed formats, otherwise
+        // eager full-layout can take minutes before first render.
+        return format === 'musicxml' || format === 'mscz' || format === 'mscx' || format === 'mxl';
+    };
+
+    const progressiveLoadTimeoutMs = (format: InputFileFormat) => {
+        if (format === 'musicxml') {
+            return 12_000;
+        }
+        // Native/compressed formats can take substantially longer to parse in WASM.
+        return 180_000;
+    };
+
+    const progressiveFirstPageTimeoutMs = (format: InputFileFormat) => {
+        if (format === 'musicxml') {
+            return 10_000;
+        }
+        return 90_000;
     };
 
     const runWithTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> => {
@@ -2438,49 +2473,75 @@ ${partsBodyXml}
         WebMscore: Awaited<ReturnType<typeof loadWebMscore>>,
         format: InputFileFormat,
         data: Uint8Array,
-    ): Promise<{ loadedScore: Score; progressivePaging: boolean; progressiveHasMore: boolean }> => {
+    ): Promise<{ loadedScore: Score; progressivePaging: boolean; progressiveHasMore: boolean; initialAvailablePages: number }> => {
+        const loadStart = performance.now();
+        const largeScore = isLargeScoreData(data);
+        const logLargeLoad = (stage: string, extra?: unknown) => {
+            if (!largeScore) {
+                return;
+            }
+            const elapsedMs = Math.round(performance.now() - loadStart);
+            if (typeof extra === 'undefined') {
+                console.info(`[large-load] ${format} ${stage} @ ${elapsedMs}ms`);
+                return;
+            }
+            console.info(`[large-load] ${format} ${stage} @ ${elapsedMs}ms`, extra);
+        };
+
         if (!shouldUseProgressiveLoad(format, data)) {
+            logLargeLoad('eager-load:start');
             const loadedScore = await WebMscore.load(format, data);
-            return { loadedScore, progressivePaging: false, progressiveHasMore: false };
+            logLargeLoad('eager-load:done');
+            return { loadedScore, progressivePaging: false, progressiveHasMore: false, initialAvailablePages: 1 };
         }
 
         try {
+            logLargeLoad('progressive-load:start', { timeoutMs: progressiveLoadTimeoutMs(format) });
             const loadedScore = await runWithTimeout(
                 WebMscore.load(format, data, [], false),
-                12_000,
+                progressiveLoadTimeoutMs(format),
                 `Progressive load for ${format}`,
             );
+            logLargeLoad('progressive-load:done');
             if (loadedScore.layoutUntilPage || loadedScore.layoutUntilPageState) {
+                logLargeLoad('initial-layout:start', { timeoutMs: progressiveFirstPageTimeoutMs(format) });
                 const firstPageState = await runWithTimeout(
                     requestLayoutProgress(loadedScore, 0),
-                    10_000,
+                    progressiveFirstPageTimeoutMs(format),
                     'Initial incremental layout',
                 );
+                logLargeLoad('initial-layout:done', firstPageState);
                 if (firstPageState.targetSatisfied) {
                     return {
                         loadedScore,
                         progressivePaging: true,
                         progressiveHasMore: firstPageState.hasMorePages,
+                        initialAvailablePages: Math.max(1, firstPageState.availablePages || 1),
                     };
                 }
             }
 
             if (loadedScore.relayout) {
+                logLargeLoad('relayout-fallback:start');
                 await runWithTimeout(
                     Promise.resolve(loadedScore.relayout()),
                     20_000,
                     'Progressive relayout fallback',
                 );
-                return { loadedScore, progressivePaging: false, progressiveHasMore: false };
+                logLargeLoad('relayout-fallback:done');
+                return { loadedScore, progressivePaging: false, progressiveHasMore: false, initialAvailablePages: 1 };
             }
 
             loadedScore.destroy();
         } catch (err) {
             console.warn('Progressive score load failed, retrying with eager layout.', err);
+            logLargeLoad('progressive-load:failed', err);
         }
 
+        logLargeLoad('eager-fallback:start');
         const fallbackScore = await WebMscore.load(format, data);
-        return { loadedScore: fallbackScore, progressivePaging: false, progressiveHasMore: false };
+        logLargeLoad('eager-fallback:done');
+        return { loadedScore: fallbackScore, progressivePaging: false, progressiveHasMore: false, initialAvailablePages: 1 };
     };
 
     const handleUrlLoad = async (url: string, signal?: AbortSignal) => {
@@ -2519,21 +2580,28 @@ ${partsBodyXml}
         setPageCount(1);
         setProgressivePagingActive(false);
         setProgressiveHasMorePages(false);
+        largeScoreSessionRef.current = false;
+        largeSessionXmlAutoloadDeferredLoggedRef.current = false;
         autoFitPendingRef.current = true;
         try {
             const response = await fetch(url, signal ? { signal } : undefined);
             if (!response.ok) throw new Error('Failed to fetch score');
             const buffer = await response.arrayBuffer();
             const data = new Uint8Array(buffer);
-            const WebMscore = await loadWebMscore();
-
+            const inputByteLength = data.byteLength;
+            const inputIsLarge = isLargeScoreData(data);
+            largeScoreSessionRef.current = inputIsLarge;
             const format = detectInputFormat(url);
+            const { webMscore: WebMscore, mode: engineMode } = await resolveWebMscoreEngine();
+            if (inputIsLarge) {
+                console.info(`[large-load] ${format} engine:${engineMode}`);
+            }
 
             if (score) {
                 score.destroy();
             }
 
-            const { loadedScore, progressivePaging, progressiveHasMore } = await loadScoreWithInitialLayout(WebMscore, format, data);
+            const { loadedScore, progressivePaging, progressiveHasMore, initialAvailablePages } = await loadScoreWithInitialLayout(WebMscore, format, data);
             if (signal?.aborted) {
                 loadedScore.destroy();
                 return;
@@ -2547,8 +2615,33 @@ ${partsBodyXml}
                 console.warn('Mutation APIs not detected on loaded score; enabling toolbar anyway.');
             }
             setMutationEnabled(true);
-            const initialPage = await refreshPageCount(loadedScore, 0);
-            await renderScore(loadedScore, initialPage);
+            const skipCoverPage = shouldSkipCoverPageFirstRender(format, data);
+            let initialPage = 0;
+            if (progressivePaging) {
+                const progressivePages = Math.max(1, initialAvailablePages || 1);
+                const preferredInitialPage = skipCoverPage && progressivePages > 1 ? 1 : 0;
+                initialPage = Math.max(0, Math.min(preferredInitialPage, progressivePages - 1));
+                setPageCount(progressivePages);
+                setCurrentPage(initialPage);
+            } else {
+                const preferredInitialPage = skipCoverPage ? 1 : 0;
+                initialPage = await refreshPageCount(loadedScore, preferredInitialPage);
+            }
+            let rendered = await renderScore(loadedScore, initialPage, false);
+            if (!rendered && progressivePaging && initialAvailablePages > 1) {
+                const fallbackPage = initialPage === 0 ? 1 : 0;
+                if (fallbackPage >= 0 && fallbackPage < initialAvailablePages) {
+                    const fallbackRendered = await renderScore(loadedScore, fallbackPage, false);
+                    if (fallbackRendered) {
+                        initialPage = fallbackPage;
+                        setCurrentPage(fallbackPage);
+                        rendered = true;
+                    }
+                }
+            }
+            if (!rendered) {
+                console.warn('Initial render did not produce SVG content.');
+            }
             if (autoFitPendingRef.current && typeof window !== 'undefined') {
                 window.requestAnimationFrame(() => {
                     window.requestAnimationFrame(() => {
@@ -2560,10 +2653,47 @@ ${partsBodyXml}
                 handleFitWidth();
                 autoFitPendingRef.current = false;
             }
-            await refreshScoreMetadata(loadedScore);
-            await refreshInstrumentTemplates(loadedScore);
-            if (loadedScore.saveAudio) {
-                await ensureSoundFontLoaded(loadedScore);
+            if (!signal?.aborted) {
+                setLoading(false);
+            }
+            const deferBackgroundTasks = inputIsLarge;
+            if (deferBackgroundTasks) {
+                console.info(`[large-load] ${format} background-init:deferred`, {
+                    reason: 'large-score',
+                    bytes: inputByteLength,
+                });
+            } else {
+                void (async () => {
+                    try {
+                        await runWithTimeout(
+                            refreshScoreMetadata(loadedScore),
+                            20_000,
+                            'Score metadata refresh',
+                        );
+                    } catch (err) {
+                        console.warn('Background score metadata refresh timed out or failed.', err);
+                    }
+                    try {
+                        await runWithTimeout(
+                            refreshInstrumentTemplates(loadedScore),
+                            20_000,
+                            'Instrument template refresh',
+                        );
+                    } catch (err) {
+                        console.warn('Background instrument template refresh timed out or failed.', err);
+                    }
+                    if (loadedScore.saveAudio) {
+                        try {
+                            await runWithTimeout(
+                                ensureSoundFontLoaded(loadedScore),
+                                25_000,
+                                'SoundFont load',
+                            );
+                        } catch (err) {
+                            console.warn('Background SoundFont load timed out or failed.', err);
+                        }
+                    }
+                })();
             }
 
             // segmentPositions causes a crash in this version of webmscore/emscripten environment
@@ -2588,6 +2718,19 @@ ${partsBodyXml}
         },
     ) => {
         setLoading(true);
+        const uploadStart = performance.now();
+        const isLargeUpload = file.size >= LARGE_SCORE_THRESHOLD_BYTES;
+        const logUploadStage = (stage: string, extra?: unknown) => {
+            if (!isLargeUpload) {
+                return;
+            }
+            const elapsedMs = Math.round(performance.now() - uploadStart);
+            if (typeof extra === 'undefined') {
+                console.info(`[large-upload] ${file.name} ${stage} @ ${elapsedMs}ms`);
+                return;
+            }
+            console.info(`[large-upload] ${file.name} ${stage} @ ${elapsedMs}ms`, extra);
+        };
         const shouldUpdateUrl = options?.updateUrl ?? true;
         let nextScoreId = scoreId;
         if (options?.scoreIdOverride) {
@@ -2628,20 +2771,27 @@ ${partsBodyXml}
         setPageCount(1);
         setProgressivePagingActive(false);
         setProgressiveHasMorePages(false);
+        largeScoreSessionRef.current = false;
+        largeSessionXmlAutoloadDeferredLoggedRef.current = false;
         autoFitPendingRef.current = true;
         try {
+            logUploadStage('read-buffer:start');
             const buffer = await file.arrayBuffer();
             const data = new Uint8Array(buffer);
-            const WebMscore = await loadWebMscore();
-
+            const inputByteLength = data.byteLength;
+            largeScoreSessionRef.current = isLargeUpload;
+            logUploadStage('read-buffer:done', { bytes: inputByteLength });
             const format = detectInputFormat(file.name);
+            const { webMscore: WebMscore, mode: engineMode } = await resolveWebMscoreEngine();
+            logUploadStage('webmscore-ready', { engineMode });
 
             // But wait, we need to destroy previous score if exists
             if (score) {
                 score.destroy();
             }
 
-            const { loadedScore, progressivePaging, progressiveHasMore } = await loadScoreWithInitialLayout(WebMscore, format, data);
+            const { loadedScore, progressivePaging, progressiveHasMore, initialAvailablePages } = await loadScoreWithInitialLayout(WebMscore, format, data);
+            logUploadStage('load-score:done', { progressivePaging, progressiveHasMore, initialAvailablePages });
             setScore(loadedScore);
             setProgressivePagingActive(progressivePaging);
             setProgressiveHasMorePages(progressivePaging && progressiveHasMore);
@@ -2651,8 +2801,37 @@ ${partsBodyXml}
                 console.warn('Mutation APIs not detected on loaded score; enabling toolbar anyway.');
             }
             setMutationEnabled(true);
-            const initialPage = await refreshPageCount(loadedScore, 0);
-            await renderScore(loadedScore, initialPage);
+            const skipCoverPage = shouldSkipCoverPageFirstRender(format, data);
+            let initialPage = 0;
+            if (progressivePaging) {
+                const progressivePages = Math.max(1, initialAvailablePages || 1);
+                const preferredInitialPage = skipCoverPage && progressivePages > 1 ? 1 : 0;
+                initialPage = Math.max(0, Math.min(preferredInitialPage, progressivePages - 1));
+                setPageCount(progressivePages);
+                setCurrentPage(initialPage);
+                logUploadStage('refresh-page-count:done', { initialPage, progressivePages });
+            } else {
+                logUploadStage('refresh-page-count:start');
+                const preferredInitialPage = skipCoverPage ? 1 : 0;
+                initialPage = await refreshPageCount(loadedScore, preferredInitialPage);
+                logUploadStage('refresh-page-count:done', { initialPage });
+            }
+            logUploadStage('render-score:start', { initialPage });
+            let rendered = await renderScore(loadedScore, initialPage, false);
+            if (!rendered && progressivePaging && initialAvailablePages > 1) {
+                const fallbackPage = initialPage === 0 ? 1 : 0;
+                if (fallbackPage >= 0 && fallbackPage < initialAvailablePages) {
+                    logUploadStage('render-score:fallback-start', { fallbackPage });
+                    const fallbackRendered = await renderScore(loadedScore, fallbackPage, false);
+                    if (fallbackRendered) {
+                        initialPage = fallbackPage;
+                        setCurrentPage(fallbackPage);
+                        rendered = true;
+                        logUploadStage('render-score:fallback-done', { fallbackPage });
+                    }
+                }
+            }
+            logUploadStage('render-score:done', { rendered, initialPage });
             if (autoFitPendingRef.current && typeof window !== 'undefined') {
                 window.requestAnimationFrame(() => {
                     window.requestAnimationFrame(() => {
@@ -2664,13 +2843,69 @@ ${partsBodyXml}
                 handleFitWidth();
                 autoFitPendingRef.current = false;
             }
-            await refreshScoreMetadata(loadedScore);
-            await refreshInstrumentTemplates(loadedScore);
-            if (loadedScore.saveAudio) {
-                await ensureSoundFontLoaded(loadedScore);
-            }
-            if (options?.createInitialCheckpoint) {
-                await createInitialLoadCheckpoint(loadedScore, nextScoreId);
+            setLoading(false);
+            if (isLargeUpload) {
+                logUploadStage('background-tasks:deferred', {
+                    reason: 'large-upload',
+                    bytes: inputByteLength,
+                    format,
+                    progressivePaging,
+                });
+            } else {
+                void (async () => {
+                    logUploadStage('refresh-metadata:start');
+                    try {
+                        await runWithTimeout(
+                            refreshScoreMetadata(loadedScore),
+                            20_000,
+                            'Score metadata refresh',
+                        );
+                        logUploadStage('refresh-metadata:done');
+                    } catch (err) {
+                        logUploadStage('refresh-metadata:failed', err);
+                        console.warn('Background score metadata refresh timed out or failed.', err);
+                    }
+
+                    logUploadStage('refresh-instruments:start');
+                    try {
+                        await runWithTimeout(
+                            refreshInstrumentTemplates(loadedScore),
+                            20_000,
+                            'Instrument template refresh',
+                        );
+                        logUploadStage('refresh-instruments:done');
+                    } catch (err) {
+                        logUploadStage('refresh-instruments:failed', err);
+                        console.warn('Background instrument template refresh timed out or failed.', err);
+                    }
+
+                    if (loadedScore.saveAudio) {
+                        logUploadStage('soundfont:start');
+                        try {
+                            await runWithTimeout(
+                                ensureSoundFontLoaded(loadedScore),
+                                25_000,
+                                'SoundFont load',
+                            );
+                            logUploadStage('soundfont:done');
+                        } catch (err) {
+                            logUploadStage('soundfont:failed', err);
+                            console.warn('Background SoundFont load timed out or failed.', err);
+                        }
+                    }
+
+                    if (options?.createInitialCheckpoint) {
+                        try {
+                            await runWithTimeout(
+                                createInitialLoadCheckpoint(loadedScore, nextScoreId),
+                                20_000,
+                                'Initial checkpoint creation',
+                            );
+                        } catch (err) {
+                            console.warn('Background initial checkpoint creation timed out or failed.', err);
+                        }
+                    }
+                })();
             }
 
         } catch (err) {
@@ -2714,18 +2949,58 @@ ${partsBodyXml}
 
         progressivePageLoadInFlightRef.current = true;
         try {
-            const layoutState = await requestLayoutProgress(targetScore, targetPage);
+            const isExpandingBeyondKnownPages = targetPage >= pageCount;
+            if (isExpandingBeyondKnownPages && targetScore.layoutUntilPage) {
+                // For expansion into unknown pages, call layoutUntilPage directly.
+                // layoutUntilPageState can stall for very large scores when advancing.
+                const expanded = Boolean(await runWithTimeout(
+                    Promise.resolve(targetScore.layoutUntilPage(targetPage)),
+                    PROGRESSIVE_PAGE_LAYOUT_EXPAND_TIMEOUT_MS,
+                    `Expand layout to page ${targetPage + 1}`,
+                ));
+                if (targetScore.npages) {
+                    const pages = Math.max(1, await Promise.resolve(targetScore.npages()));
+                    setPageCount((prev) => Math.max(prev, pages));
+                    if (expanded && pages > targetPage) {
+                        return true;
+                    }
+                } else if (expanded) {
+                    setPageCount((prev) => Math.max(prev, targetPage + 1));
+                    return true;
+                }
+            }
+
+            const layoutState = await runWithTimeout(
+                requestLayoutProgress(targetScore, targetPage),
+                PROGRESSIVE_PAGE_LAYOUT_TIMEOUT_MS,
+                `Layout state for page ${targetPage + 1}`,
+            );
             const pages = Math.max(1, layoutState.availablePages || 1);
             setPageCount((prev) => Math.max(prev, pages));
             setProgressiveHasMorePages(layoutState.hasMorePages);
 
-            if (!layoutState.targetSatisfied || pages <= targetPage) {
+            let targetSatisfied = layoutState.targetSatisfied;
+            if (targetSatisfied && targetScore.layoutUntilPage && targetPage > 0) {
+                // Confirm the target page is fully materialized before rendering it.
+                // layoutUntilPageState can report optimistic availability on very large scores.
+                targetSatisfied = Boolean(await runWithTimeout(
+                    Promise.resolve(targetScore.layoutUntilPage(targetPage)),
+                    PROGRESSIVE_PAGE_LAYOUT_CONFIRM_TIMEOUT_MS,
+                    `Layout page ${targetPage + 1}`,
+                ));
+            }
+
+            if (!targetSatisfied || pages <= targetPage) {
                 return false;
             }
 
             return true;
         } catch (err) {
             console.warn('Failed incremental page layout:', err);
+            if (targetPage < pageCount) {
+                // If page count already claims this page exists, allow a best-effort render attempt.
+                return true;
+            }
             setProgressiveHasMorePages(false);
             return false;
         } finally {
@@ -2733,17 +3008,27 @@ ${partsBodyXml}
         }
     };
 
-    const renderScore = async (currentScore: Score, pageIndex?: number, highlightSelection: boolean = true) => {
-        if (!currentScore || !containerRef.current) return;
+    const renderScore = async (currentScore: Score, pageIndex?: number, highlightSelection: boolean = true): Promise<boolean> => {
+        if (!currentScore || !containerRef.current) return false;
 
         try {
             const targetPage = typeof pageIndex === 'number' ? pageIndex : currentPage;
-            const svgData = await currentScore.saveSvg(targetPage, true, highlightSelection);
+            const timeoutMs = (largeScoreSessionRef.current && progressivePagingActive)
+                ? LARGE_PROGRESSIVE_PAGE_RENDER_TIMEOUT_MS
+                : DEFAULT_PAGE_RENDER_TIMEOUT_MS;
+            const svgData = await runWithTimeout(
+                currentScore.saveSvg(targetPage, true, highlightSelection),
+                timeoutMs,
+                `Render page ${targetPage + 1}`,
+            );
             if (svgData) {
                 containerRef.current.innerHTML = svgData;
+                return true;
             }
+            return false;
         } catch (err) {
             console.error('Error rendering score:', err);
+            return false;
         }
     };
 
@@ -4479,32 +4764,76 @@ ${partsBodyXml}
         if (!score || targetPage < 0) {
             return;
         }
-        let knownPages = pageCount;
-        if (targetPage >= pageCount) {
-            const canExpand = progressivePagingActive && progressiveHasMorePages;
-            if (!canExpand) {
-                return;
-            }
-            const ready = await ensurePageIsLaidOut(score, targetPage);
-            if (!ready) {
-                return;
-            }
-            if (score.npages) {
-                knownPages = Math.max(1, await score.npages());
-                setPageCount((prev) => Math.max(prev, knownPages));
-            } else {
-                knownPages = Math.max(pageCount, targetPage + 1);
-            }
+        if (pageNavigationInFlightRef.current) {
+            return;
         }
-
-        const maxKnownPage = Math.max(knownPages - 1, 0);
-        const clampedTarget = Math.min(targetPage, maxKnownPage);
-        setCurrentPage(clampedTarget);
+        pageNavigationInFlightRef.current = true;
+        const previousPage = currentPageRef.current;
+        let knownPages = pageCount;
         try {
-            await renderScore(score, clampedTarget);
+            if (largeScoreSessionRef.current) {
+                console.info('[large-nav] goToPage:start', {
+                    targetPage,
+                    knownPages: pageCount,
+                    progressivePagingActive,
+                    progressiveHasMorePages,
+                });
+            }
+            if (progressivePagingActive && targetPage >= pageCount) {
+                if (largeScoreSessionRef.current) {
+                    console.info('[large-nav] layout:ensure:start', { targetPage });
+                }
+                const ready = await ensurePageIsLaidOut(score, targetPage);
+                if (!ready) {
+                    if (largeScoreSessionRef.current) {
+                        console.info('[large-nav] goToPage:not-ready', { targetPage });
+                    }
+                    return;
+                }
+                if (largeScoreSessionRef.current) {
+                    console.info('[large-nav] layout:ensure:done', { targetPage });
+                }
+                if (score.npages) {
+                    knownPages = Math.max(1, await score.npages());
+                    setPageCount((prev) => Math.max(prev, knownPages));
+                } else {
+                    knownPages = Math.max(pageCount, targetPage + 1);
+                }
+            } else if (targetPage >= pageCount) {
+                return;
+            }
+
+            const maxKnownPage = Math.max(knownPages - 1, 0);
+            const clampedTarget = Math.min(targetPage, maxKnownPage);
+            setCurrentPage(clampedTarget);
+            if (largeScoreSessionRef.current) {
+                console.info('[large-nav] render:start', { targetPage: clampedTarget });
+            }
+            let rendered = await renderScore(score, clampedTarget);
+            if (!rendered && progressivePagingActive) {
+                if (largeScoreSessionRef.current) {
+                    console.info('[large-nav] render:retry-layout:start', { targetPage: clampedTarget });
+                }
+                const readyAfterRetry = await ensurePageIsLaidOut(score, clampedTarget);
+                if (readyAfterRetry) {
+                    rendered = await renderScore(score, clampedTarget);
+                }
+            }
+            if (!rendered) {
+                setCurrentPage(previousPage);
+                if (largeScoreSessionRef.current) {
+                    console.info('[large-nav] render:failed', { targetPage: clampedTarget, previousPage });
+                }
+                return;
+            }
+            if (largeScoreSessionRef.current) {
+                console.info('[large-nav] render:done', { targetPage: clampedTarget });
+            }
             refreshSelectionOverlay(selectedIndex, selectedPoint);
         } catch (err) {
             console.error('Failed to change page:', err);
+        } finally {
+            pageNavigationInFlightRef.current = false;
         }
     };
 

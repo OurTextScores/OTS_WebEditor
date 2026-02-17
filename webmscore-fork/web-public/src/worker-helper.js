@@ -6,6 +6,9 @@
 import { WebMscoreWorker } from '../.cache/worker.js'
 import { getSelfURL, shimDom } from './utils.js'
 
+const SVG_UTF8_RESULT_KEY = '__webmscoreSvgUtf8'
+const svgTextDecoder = typeof TextDecoder !== 'undefined' ? new TextDecoder() : null
+
 // Check if MSCORE_SCRIPT_URL is defined globally (by webpack DefinePlugin for embedded builds)
 // If not, fallback to getSelfURL() which extracts the path from the current script
 const MSCORE_SCRIPT_URL = typeof globalThis.MSCORE_SCRIPT_URL !== 'undefined'
@@ -118,15 +121,36 @@ class WebMscoreW {
      */
     async rpc(method, params = [], transfer = []) {
         const id = Math.random()
+        const debugRenderRpc = method === 'saveSvg' || method === 'savePng'
+        const debugStart = debugRenderRpc ? Date.now() : 0
+        if (debugRenderRpc) {
+            console.info(`[webmscore-rpc] ${method}:start`, { id, params })
+        }
 
         return new Promise((resolve, reject) => {
             const listener = (e) => {
                 /** @type {RPCRes} */
                 const data = e.data
                 if (data.id === id) {
+                    let result = data.result
+                    if (method === 'saveSvg' && result && typeof result === 'object') {
+                        const encoded = result[SVG_UTF8_RESULT_KEY]
+                        if (encoded instanceof Uint8Array && svgTextDecoder) {
+                            result = svgTextDecoder.decode(encoded)
+                        }
+                    }
+                    if (debugRenderRpc) {
+                        console.info(`[webmscore-rpc] ${method}:response`, {
+                            id,
+                            ms: Date.now() - debugStart,
+                            hasError: !!data.error,
+                            resultType: typeof result,
+                            resultLength: typeof result === 'string' ? result.length : null,
+                        })
+                    }
                     if (data.error) { reject(new WorkerError(data.error)) }
                     this.worker.removeEventListener('message', listener)
-                    resolve(data.result)
+                    resolve(result)
                 }
             }
 

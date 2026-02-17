@@ -3,6 +3,8 @@
 
 import WebMscore from './index.js'
 
+const SVG_UTF8_RESULT_KEY = '__webmscoreSvgUtf8'
+
 /** @type {WebMscore} */
 let score
 
@@ -80,11 +82,39 @@ self.onmessage = async (e) => {
 
             default:
                 if (!score) { rpcErr(id, new Error('Score not loaded')) }
+                if (method === 'saveSvg' || method === 'savePng') {
+                    console.info(`[webmscore-worker] ${method}:start`, { id, params })
+                }
+                if (method === 'saveSvg' && typeof score.saveSvgRaw === 'function') {
+                    const svgBytes = await score.saveSvgRaw.apply(score, params)
+                    if (method === 'saveSvg' || method === 'savePng') {
+                        console.info(`[webmscore-worker] ${method}:done`, {
+                            id,
+                            resultType: typeof svgBytes,
+                            resultLength: svgBytes?.length ?? null,
+                        })
+                    }
+                    rpcRes(id, { [SVG_UTF8_RESULT_KEY]: svgBytes }, [svgBytes.buffer])
+                    break
+                }
                 const result = await score[method].apply(score, params)
-                rpcRes(id, result, getTransferable(result))
+                if (method === 'saveSvg' || method === 'savePng') {
+                    console.info(`[webmscore-worker] ${method}:done`, {
+                        id,
+                        resultType: typeof result,
+                        resultLength: typeof result === 'string' ? result.length : (result?.length ?? null),
+                    })
+                }
+                if (method === 'saveSvg' && typeof result === 'string') {
+                    // Transfer UTF-8 bytes instead of a giant JS string payload.
+                    // This reduces structured-clone overhead for large pages.
+                    const encoded = new TextEncoder().encode(result)
+                    rpcRes(id, { [SVG_UTF8_RESULT_KEY]: encoded }, [encoded.buffer])
+                } else {
+                    rpcRes(id, result, getTransferable(result))
+                }
         }
     } catch (err) {
         rpcErr(id, err)
     }
 }
-

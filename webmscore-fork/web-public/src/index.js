@@ -13,6 +13,7 @@ import {
 
 /** @see WebMscore.hasSoundfont */
 let _hasSoundfont = false
+const _utf8Decoder = typeof TextDecoder !== 'undefined' ? new TextDecoder() : null
 /**
  * Don't turn off logs if already set log level before `WebMscore.load(...)` is called
  * @see WebMscore.setLogLevel
@@ -494,15 +495,35 @@ class WebMscore {
      * @param {number} pageNumber integer
      * @param {boolean} drawPageBackground
      * @param {boolean} highlightSelection - if true, selected elements will be rendered with selection color
-     * @returns {Promise<string>} contents of the SVG file (plain text)
+     * @returns {Promise<Uint8Array>} UTF-8 SVG bytes
      */
-    async saveSvg(pageNumber = 0, drawPageBackground = false, highlightSelection = false) {
+    async saveSvgRaw(pageNumber = 0, drawPageBackground = false, highlightSelection = false) {
         const dataptr = Module.ccall('saveSvg',
             'number',
             ['number', 'number', 'boolean', 'boolean', 'number'],
             [this.scoreptr, pageNumber, drawPageBackground, highlightSelection, this.excerptId]
         )
-        return WasmRes.readText(dataptr)
+        return WasmRes.readData(dataptr)
+    }
+
+    /**
+     * Export score as the SVG file of one page
+     * @param {number} pageNumber integer
+     * @param {boolean} drawPageBackground
+     * @param {boolean} highlightSelection - if true, selected elements will be rendered with selection color
+     * @returns {Promise<string>} contents of the SVG file (plain text)
+     */
+    async saveSvg(pageNumber = 0, drawPageBackground = false, highlightSelection = false) {
+        const svgBytes = await this.saveSvgRaw(pageNumber, drawPageBackground, highlightSelection)
+        if (_utf8Decoder) {
+            return _utf8Decoder.decode(svgBytes)
+        }
+        // TextDecoder should exist in browser/worker runtimes, but keep a fallback for safety.
+        let text = ''
+        for (let i = 0; i < svgBytes.length; i += 1) {
+            text += String.fromCharCode(svgBytes[i])
+        }
+        return decodeURIComponent(escape(text))
     }
 
     /**

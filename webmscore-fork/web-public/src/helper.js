@@ -29,7 +29,7 @@ moduleOptions.arguments = moduleOptions.arguments || moduleOptions.getArguments(
 moduleOptions.ENV = moduleOptions.ENV || {}
 moduleOptions.ENV.QT_QPA_PLATFORM = moduleOptions.ENV.QT_QPA_PLATFORM || "wasm"
 // webmscore/libmscore is memory-hungry; start with a larger heap to avoid early OOM / resize issues.
-moduleOptions.INITIAL_MEMORY = moduleOptions.INITIAL_MEMORY || 268435456
+moduleOptions.INITIAL_MEMORY = moduleOptions.INITIAL_MEMORY || 536870912
 moduleOptions.__cxa_atexit = moduleOptions.__cxa_atexit || function () { return 0 }
 moduleOptions.___cxa_atexit = moduleOptions.___cxa_atexit || moduleOptions.__cxa_atexit
 
