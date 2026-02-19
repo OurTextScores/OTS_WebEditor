@@ -205,9 +205,11 @@ API routes that require server-side logic (like LLM integration) won't work in s
 - Uses static JSON files for instrument templates/clefs
 - Disables features that require server-side processing
 
-LLM calls in embed builds must either:
-- Call providers directly from the browser (user supplies API key), or
-- Use an external proxy via `NEXT_PUBLIC_LLM_PROXY_URL`
+LLM calls in embed builds should use a proxy:
+- The app first tries same-origin `/api/llm/*` routes.
+- You can force a different proxy origin with `NEXT_PUBLIC_LLM_PROXY_URL`.
+- Claude/Anthropic requires a proxy because browser-direct Anthropic calls are blocked by CORS.
+- OpenAI/Gemini can fall back to browser-direct calls if no proxy route exists.
 
 ### Soundfont Not Loading
 

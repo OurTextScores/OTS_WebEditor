@@ -27,6 +27,9 @@ npm run test:embed
 
 # Option 2: Using node directly
 node test-embed/server.js
+
+# Optional: choose a different port
+PORT=8091 node test-embed/server.js
 ```
 
 ### 3. Open in browser
@@ -40,6 +43,8 @@ This test application simulates how the score editor works when embedded in anot
 - **Main page**: `http://localhost:8080/` - Shows an iframe embedding the editor
 - **Score editor**: `http://localhost:8080/score-editor/` - The actual embedded editor
 - **WASM files**: Should load from `http://localhost:8080/score-editor/webmscore.lib.*`
+- **Claude proxy**: `http://localhost:8080/api/llm/anthropic*` - Local Anthropic proxy for embed-mode Claude
+- **Gemini proxy**: `http://localhost:8080/api/llm/gemini*` - Local Gemini proxy for embed-mode Gemini
 
 ## Expected Behavior
 
@@ -83,7 +88,10 @@ Make sure nothing else is using port 8080:
 lsof -i :8080
 ```
 
-To use a different port, edit `test-embed/server.js` and change `PORT = 8080`.
+To use a different port, set `PORT` when starting the server:
+```bash
+PORT=8091 node test-embed/server.js
+```
 
 ## How It Works
 
@@ -91,6 +99,8 @@ The test server (`server.js`) routes requests:
 
 - `http://localhost:8080/` → `test-embed/index.html` (wrapper page)
 - `http://localhost:8080/score-editor/*` → `out/*` (embedded build)
+- `http://localhost:8080/api/llm/anthropic*` → Anthropic API proxy
+- `http://localhost:8080/api/llm/gemini*` → Gemini API proxy
 
 This exactly simulates the setup in OurTextScores where:
 - Next.js serves the main application

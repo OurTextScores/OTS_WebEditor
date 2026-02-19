@@ -176,6 +176,11 @@ const DEFAULT_MAX_TOKENS_BY_PROVIDER: Record<AiProvider, number> = {
 };
 
 const ANTHROPIC_VERSION = '2023-06-01';
+const PROXY_MISSING_STATUSES = new Set([404, 405, 501]);
+const ANTHROPIC_EMBED_PROXY_ERROR = [
+    'Claude requires an LLM proxy in embed mode because browser-direct Anthropic calls are blocked by CORS.',
+    'Configure NEXT_PUBLIC_LLM_PROXY_URL or serve /api/llm/anthropic on the same origin.',
+].join(' ');
 
 type HarmonyVariant = 0 | 1 | 2;
 
@@ -497,12 +502,17 @@ const normalizeGeminiModel = (model: string) => {
     return `models/${trimmed}`;
 };
 
+const isMissingProxyStatus = (status: number) => PROXY_MISSING_STATUSES.has(status);
+
+const errorMessage = (err: unknown) => (err instanceof Error ? err.message.trim() : '');
+
 export default function ScoreEditor() {
     const searchParams = useSearchParams();
     const isEmbedBuild = process.env.NEXT_PUBLIC_BUILD_MODE === 'embed';
     const llmProxyBaseUrl = (process.env.NEXT_PUBLIC_LLM_PROXY_URL || '').trim();
     const llmProxyBase = llmProxyBaseUrl.replace(/\/+$/, '');
-    const useLlmProxy = !isEmbedBuild || Boolean(llmProxyBase);
+    // Always try proxy first; embed mode falls back to direct calls only for providers that support browser CORS.
+    const useLlmProxy = true;
     const aiEnabled = true;
     const proxyUrlFor = useCallback((path: string) => (llmProxyBase ? `${llmProxyBase}${path}` : path), [llmProxyBase]);
 
@@ -2318,18 +2328,28 @@ ${partsBodyXml}
             try {
                 let models: string[] = [];
                 if (aiProvider === 'openai') {
-                    const response = useLlmProxy
-                        ? await fetch(proxyUrlFor('/api/llm/openai/models'), {
+                    let response: Response | null = null;
+                    if (useLlmProxy) {
+                        const proxyResponse = await fetch(proxyUrlFor('/api/llm/openai/models'), {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ apiKey: trimmedKey }),
-                        })
-                        : await fetch('https://api.openai.com/v1/models', {
+                        });
+                        if (proxyResponse.ok) {
+                            response = proxyResponse;
+                        } else if (!(isEmbedBuild && !llmProxyBase && isMissingProxyStatus(proxyResponse.status))) {
+                            const errorText = await proxyResponse.text();
+                            throw new Error(errorText || 'Failed to load models.');
+                        }
+                    }
+                    if (!response) {
+                        response = await fetch('https://api.openai.com/v1/models', {
                             headers: {
                                 Authorization: `Bearer ${trimmedKey}`,
                                 'Content-Type': 'application/json',
                             },
                         });
+                    }
                     if (!response.ok) {
                         const errorText = await response.text();
                         throw new Error(errorText || 'Failed to load models.');
@@ -2341,19 +2361,25 @@ ${partsBodyXml}
                             ? data.data.map((item: any) => item?.id).filter((id: unknown) => typeof id === 'string')
                             : [];
                 } else if (aiProvider === 'anthropic') {
-                    const response = useLlmProxy
-                        ? await fetch(proxyUrlFor('/api/llm/anthropic/models'), {
+                    let response: Response;
+                    if (useLlmProxy) {
+                        response = await fetch(proxyUrlFor('/api/llm/anthropic/models'), {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ apiKey: trimmedKey }),
-                        })
-                        : await fetch('https://api.anthropic.com/v1/models', {
+                        });
+                        if (!response.ok && isEmbedBuild && !llmProxyBase && isMissingProxyStatus(response.status)) {
+                            throw new Error(ANTHROPIC_EMBED_PROXY_ERROR);
+                        }
+                    } else {
+                        response = await fetch('https://api.anthropic.com/v1/models', {
                             headers: {
                                 'x-api-key': trimmedKey,
                                 'anthropic-version': ANTHROPIC_VERSION,
                                 'Content-Type': 'application/json',
                             },
                         });
+                    }
                     if (!response.ok) {
                         const errorText = await response.text();
                         throw new Error(errorText || 'Failed to load models.');
@@ -2365,18 +2391,28 @@ ${partsBodyXml}
                             ? data.data.map((item: any) => item?.id).filter((id: unknown) => typeof id === 'string')
                             : [];
                 } else if (aiProvider === 'gemini') {
-                    const response = useLlmProxy
-                        ? await fetch(proxyUrlFor('/api/llm/gemini/models'), {
+                    let response: Response | null = null;
+                    if (useLlmProxy) {
+                        const proxyResponse = await fetch(proxyUrlFor('/api/llm/gemini/models'), {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ apiKey: trimmedKey }),
-                        })
-                        : await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
+                        });
+                        if (proxyResponse.ok) {
+                            response = proxyResponse;
+                        } else if (!(isEmbedBuild && !llmProxyBase && isMissingProxyStatus(proxyResponse.status))) {
+                            const errorText = await proxyResponse.text();
+                            throw new Error(errorText || 'Failed to load models.');
+                        }
+                    }
+                    if (!response) {
+                        response = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
                             headers: {
                                 'Content-Type': 'application/json',
                                 'x-goog-api-key': trimmedKey,
                             },
                         });
+                    }
                     if (!response.ok) {
                         const errorText = await response.text();
                         throw new Error(errorText || 'Failed to load models.');
@@ -2420,7 +2456,8 @@ ${partsBodyXml}
                 if (!canceled) {
                     console.error(`Failed to load ${AI_PROVIDER_LABELS[aiProvider]} models`, err);
                     setAiModels([]);
-                    setAiModelsError('Failed to load models. Check your API key or enter a model manually.');
+                    const message = errorMessage(err);
+                    setAiModelsError(message || 'Failed to load models. Check your API key or enter a model manually.');
                 }
             } finally {
                 if (!canceled) {
@@ -2432,7 +2469,7 @@ ${partsBodyXml}
         return () => {
             canceled = true;
         };
-    }, [aiApiKey, aiModel, aiEnabled, aiProvider, useLlmProxy, proxyUrlFor]);
+    }, [aiApiKey, aiModel, aiEnabled, aiProvider, isEmbedBuild, llmProxyBase, useLlmProxy, proxyUrlFor]);
 
     useEffect(() => {
         if (!newScoreDialogOpen) {
@@ -4808,12 +4845,18 @@ ${partsBodyXml}
                     maxTokens: maxTokens ?? undefined,
                 }),
             });
-            if (!response.ok) {
+            if (response.ok) {
+                const data = await response.json();
+                return typeof data?.text === 'string' ? data.text : '';
+            }
+            if (provider === 'anthropic' && isEmbedBuild && !llmProxyBase && isMissingProxyStatus(response.status)) {
+                throw new Error(ANTHROPIC_EMBED_PROXY_ERROR);
+            }
+            const canFallbackDirect = provider !== 'anthropic' && isEmbedBuild && !llmProxyBase && isMissingProxyStatus(response.status);
+            if (!canFallbackDirect) {
                 const errorText = await response.text();
                 throw new Error(errorText || 'Request failed.');
             }
-            const data = await response.json();
-            return typeof data?.text === 'string' ? data.text : '';
         }
 
         if (provider === 'openai') {
@@ -5152,7 +5195,8 @@ ${partsBodyXml}
             await updateAiOutput(extracted, baseXml);
         } catch (err) {
             console.error('AI request failed', err);
-            setAiError('AI request failed. See console for details.');
+            const message = errorMessage(err);
+            setAiError(message || 'AI request failed. See console for details.');
         } finally {
             setAiBusy(false);
         }
@@ -5274,7 +5318,8 @@ ${partsBodyXml}
             setAiChatMessages((prev) => [...prev, { role: 'assistant', text: responseText }]);
         } catch (err) {
             console.error('AI chat request failed', err);
-            setAiError('AI chat request failed. See console for details.');
+            const message = errorMessage(err);
+            setAiError(message || 'AI chat request failed. See console for details.');
         } finally {
             setAiBusy(false);
         }
