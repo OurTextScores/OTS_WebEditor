@@ -187,7 +187,4 @@ npm run package:release
 ```
 
 ## Questions?
-
-- Check BUILD_EMBED.md for deployment details
-- Check AGENTS.md for development details
 - Open an issue for questions or problems
