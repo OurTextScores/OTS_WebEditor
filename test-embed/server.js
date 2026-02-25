@@ -8,6 +8,12 @@
  * - /api/llm/anthropic/models
  * - /api/llm/gemini
  * - /api/llm/gemini/models
+ * - /api/llm/grok
+ * - /api/llm/grok/models
+ * - /api/llm/deepseek
+ * - /api/llm/deepseek/models
+ * - /api/llm/kimi
+ * - /api/llm/kimi/models
  */
 /* eslint-disable @typescript-eslint/no-require-imports */
 
@@ -18,6 +24,23 @@ const path = require('path');
 const PORT = Number(process.env.PORT || 8080);
 const ANTHROPIC_VERSION = '2023-06-01';
 const DEFAULT_MAX_TOKENS = 2048;
+const OPENAI_COMPATIBLE_LLMS = {
+  grok: {
+    label: 'Grok',
+    baseUrl: process.env.LLM_GROK_API_BASE_URL || 'https://api.x.ai/v1',
+    supportsPdf: false,
+  },
+  deepseek: {
+    label: 'DeepSeek',
+    baseUrl: process.env.LLM_DEEPSEEK_API_BASE_URL || 'https://api.deepseek.com/v1',
+    supportsPdf: false,
+  },
+  kimi: {
+    label: 'Kimi',
+    baseUrl: process.env.LLM_KIMI_API_BASE_URL || 'https://api.moonshot.ai/v1',
+    supportsPdf: false,
+  },
+};
 
 // MIME types
 const mimeTypes = {
@@ -85,6 +108,17 @@ const parseAnthropicText = (data) => {
 const parseGeminiText = (data) => {
   const parts = data?.candidates?.[0]?.content?.parts;
   return Array.isArray(parts) ? parts.map((part) => part?.text || '').join('') : '';
+};
+
+const parseOpenAiCompatibleChatText = (data) => {
+  const content = data?.choices?.[0]?.message?.content;
+  if (typeof content === 'string') {
+    return content;
+  }
+  if (Array.isArray(content)) {
+    return content.map((part) => part?.text || '').join('');
+  }
+  return '';
 };
 
 const normalizeGeminiModel = (model) => {
@@ -337,6 +371,115 @@ const handleGeminiRequest = async (req, res) => {
   }
 };
 
+const handleOpenAiCompatibleModels = async (req, res, provider) => {
+  const config = OPENAI_COMPATIBLE_LLMS[provider];
+  try {
+    const body = await readJsonBody(req);
+    const apiKey = String(body?.apiKey || '').trim();
+    if (!apiKey) {
+      sendJson(res, 400, { error: 'Missing apiKey.' });
+      return;
+    }
+
+    const response = await fetch(`${String(config.baseUrl).replace(/\/+$/, '')}/models`, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      sendJson(res, response.status, { error: errorText || `${config.label} request failed.` });
+      return;
+    }
+
+    const data = await response.json();
+    const models = Array.isArray(data?.data)
+      ? data.data.map((item) => item?.id).filter((id) => typeof id === 'string')
+      : Array.isArray(data?.models)
+        ? data.models.map((item) => (typeof item === 'string' ? item : item?.id)).filter((id) => typeof id === 'string')
+        : [];
+    sendJson(res, 200, { models });
+  } catch (err) {
+    console.error(`${config.label} models proxy error`, err);
+    sendJson(res, 500, { error: `${config.label} models proxy error.` });
+  }
+};
+
+const handleOpenAiCompatibleRequest = async (req, res, provider) => {
+  const config = OPENAI_COMPATIBLE_LLMS[provider];
+  const baseUrl = String(config.baseUrl).replace(/\/+$/, '');
+  try {
+    const body = await readJsonBody(req);
+    const apiKey = String(body?.apiKey || '').trim();
+    const model = String(body?.model || '').trim();
+    const prompt = String(body?.prompt || '').trim();
+    const promptText = typeof body?.promptText === 'string' ? body.promptText.trim() : '';
+    const systemPromptInput = typeof body?.systemPrompt === 'string' ? body.systemPrompt.trim() : '';
+    const imageBase64 = typeof body?.imageBase64 === 'string' ? body.imageBase64.trim() : '';
+    const imageMediaType = typeof body?.imageMediaType === 'string' ? body.imageMediaType.trim() : 'image/png';
+    const pdfBase64 = typeof body?.pdfBase64 === 'string' ? body.pdfBase64.trim() : '';
+    const maxTokensRaw = body?.maxTokens;
+    const maxTokensValue = Number(maxTokensRaw);
+    const maxTokens = Number.isFinite(maxTokensValue) && maxTokensValue > 0 ? maxTokensValue : null;
+
+    if (!apiKey || !model || (!promptText && !prompt)) {
+      sendJson(res, 400, { error: 'Missing apiKey, model, or prompt/promptText.' });
+      return;
+    }
+    if (pdfBase64 && !config.supportsPdf) {
+      sendJson(res, 400, { error: `${config.label} proxy does not support PDF attachments yet.` });
+      return;
+    }
+
+    const systemPrompt = systemPromptInput || 'You are a MusicXML editor. Return only a JSON patch payload (musicxml-patch@1), no markdown or commentary.';
+    const userPrompt = promptText || prompt;
+    const userMessageContent = imageBase64
+      ? [
+        { type: 'text', text: userPrompt },
+        {
+          type: 'image_url',
+          image_url: {
+            url: `data:${imageMediaType};base64,${imageBase64}`,
+          },
+        },
+      ]
+      : userPrompt;
+
+    const payload = {
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessageContent },
+      ],
+      temperature: 0,
+      ...(maxTokens ? { max_tokens: maxTokens } : {}),
+    };
+
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      sendJson(res, response.status, { error: errorText || `${config.label} request failed.` });
+      return;
+    }
+
+    const data = await response.json();
+    sendJson(res, 200, { text: parseOpenAiCompatibleChatText(data) });
+  } catch (err) {
+    console.error(`${config.label} proxy error`, err);
+    sendJson(res, 500, { error: `${config.label} proxy error.` });
+  }
+};
+
 const tryHandleLlmProxy = async (req, res, pathname) => {
   if (!pathname.startsWith('/api/llm/')) {
     return false;
@@ -370,6 +513,36 @@ const tryHandleLlmProxy = async (req, res, pathname) => {
 
   if (pathname === '/api/llm/gemini') {
     await handleGeminiRequest(req, res);
+    return true;
+  }
+
+  if (pathname === '/api/llm/grok/models') {
+    await handleOpenAiCompatibleModels(req, res, 'grok');
+    return true;
+  }
+
+  if (pathname === '/api/llm/grok') {
+    await handleOpenAiCompatibleRequest(req, res, 'grok');
+    return true;
+  }
+
+  if (pathname === '/api/llm/deepseek/models') {
+    await handleOpenAiCompatibleModels(req, res, 'deepseek');
+    return true;
+  }
+
+  if (pathname === '/api/llm/deepseek') {
+    await handleOpenAiCompatibleRequest(req, res, 'deepseek');
+    return true;
+  }
+
+  if (pathname === '/api/llm/kimi/models') {
+    await handleOpenAiCompatibleModels(req, res, 'kimi');
+    return true;
+  }
+
+  if (pathname === '/api/llm/kimi') {
+    await handleOpenAiCompatibleRequest(req, res, 'kimi');
     return true;
   }
 
@@ -432,5 +605,8 @@ server.listen(PORT, () => {
   console.log(`  - http://localhost:${PORT}/score-editor/  -> out/ (embedded build)`);
   console.log(`  - http://localhost:${PORT}/api/llm/anthropic* -> local Anthropic proxy`);
   console.log(`  - http://localhost:${PORT}/api/llm/gemini* -> local Gemini proxy`);
+  console.log(`  - http://localhost:${PORT}/api/llm/grok* -> local Grok proxy`);
+  console.log(`  - http://localhost:${PORT}/api/llm/deepseek* -> local DeepSeek proxy`);
+  console.log(`  - http://localhost:${PORT}/api/llm/kimi* -> local Kimi proxy`);
   console.log('\nPress Ctrl+C to stop\n');
 });

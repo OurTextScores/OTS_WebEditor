@@ -18,6 +18,17 @@ import {
 } from '../lib/checkpoints';
 import { CodeMirrorEditor, type CodeEditorThemeMode } from './CodeMirrorEditor';
 import { Toolbar, type MeasureInsertTarget } from './Toolbar';
+import {
+    AI_PROVIDER_CAPABILITIES,
+    AI_PROVIDER_CONFIGS,
+    AI_PROVIDER_LABELS,
+    DEFAULT_MAX_TOKENS_BY_PROVIDER,
+    DEFAULT_MODEL_BY_PROVIDER,
+    isOpenAiCompatibleProvider,
+    loadAiModelsDirect,
+    requestAiTextDirect,
+    type AiProvider,
+} from '../lib/ai-provider-adapters';
 
 type SelectionBox = {
     index: number | null;
@@ -73,8 +84,6 @@ const LAYOUT_MODES = {
     SYSTEM: 3,
     HORIZONTAL_FIXED: 4,
 } as const;
-
-type AiProvider = 'openai' | 'anthropic' | 'gemini';
 
 type MutationMethods = Pick<
     Score,
@@ -157,25 +166,6 @@ type MutationMethods = Pick<
     | 'removeTrailingEmptyMeasures'
 >;
 
-const AI_PROVIDER_LABELS: Record<AiProvider, string> = {
-    openai: 'OpenAI',
-    anthropic: 'Claude',
-    gemini: 'Gemini',
-};
-
-const DEFAULT_MODEL_BY_PROVIDER: Record<AiProvider, string> = {
-    openai: 'gpt-5.2',
-    anthropic: 'claude-opus-4-5',
-    gemini: 'gemini-3-pro-preview',
-};
-
-const DEFAULT_MAX_TOKENS_BY_PROVIDER: Record<AiProvider, number> = {
-    openai: 2048,
-    anthropic: 2048,
-    gemini: 2048,
-};
-
-const ANTHROPIC_VERSION = '2023-06-01';
 const PROXY_MISSING_STATUSES = new Set([404, 405, 501]);
 const ANTHROPIC_EMBED_PROXY_ERROR = [
     'Claude requires an LLM proxy in embed mode because browser-direct Anthropic calls are blocked by CORS.',
@@ -265,6 +255,13 @@ const AI_PDF_ATTACHMENT_MAX_BYTES = 15 * 1024 * 1024;
 const AI_CHAT_CONTEXT_MAX_CHARS = 40_000;
 const AI_CHAT_CONTEXT_MAX_MESSAGES = 24;
 const AI_PATCH_SYSTEM_PROMPT = 'You are a MusicXML editor. Return only a JSON patch payload (musicxml-patch@1), no markdown or commentary.';
+const AI_PATCH_STRICT_RETRY_SUFFIX = [
+    'IMPORTANT RETRY INSTRUCTIONS:',
+    'Return ONLY the raw JSON object for a musicxml-patch@1 payload.',
+    'Do not wrap in markdown fences.',
+    'Do not include commentary before or after the JSON.',
+].join('\n');
+const AI_PATCH_REQUEST_RETRY_DELAY_MS = 600;
 const AI_CHAT_SYSTEM_PROMPT = 'You are a helpful music notation assistant. Answer clearly and practically for score editing and engraving workflows.';
 const CODE_EDITOR_THEME_STORAGE_KEY = 'ots_code_editor_theme';
 const CODE_EDITOR_THEME_OPTIONS: Array<{ value: CodeEditorThemeMode; label: string }> = [
@@ -465,46 +462,31 @@ const buildAiChatTranscript = (messages: AiChatMessage[]) => {
         : ''}`;
 };
 
-const parseOpenAiResponsesText = (data: any) => {
-    if (typeof data?.output_text === 'string') {
-        return data.output_text;
-    }
-    const output = Array.isArray(data?.output) ? data.output : [];
-    for (const item of output) {
-        if (item?.type === 'message') {
-            const content = Array.isArray(item?.content) ? item.content : [];
-            return content.map((part: any) => part?.text || '').join('');
-        }
-    }
-    return '';
-};
-
-const parseOpenAiChatCompletionsText = (data: any) => data?.choices?.[0]?.message?.content ?? '';
-
-const parseAnthropicText = (data: any) => {
-    const content = Array.isArray(data?.content) ? data.content : [];
-    return content.map((part: any) => (part?.type === 'text' ? part?.text || '' : '')).join('');
-};
-
-const parseGeminiText = (data: any) => {
-    const parts = data?.candidates?.[0]?.content?.parts;
-    return Array.isArray(parts) ? parts.map((part: any) => part?.text || '').join('') : '';
-};
-
-const normalizeGeminiModel = (model: string) => {
-    const trimmed = model.trim();
-    if (!trimmed) {
-        return '';
-    }
-    if (trimmed.includes('/')) {
-        return trimmed;
-    }
-    return `models/${trimmed}`;
-};
-
 const isMissingProxyStatus = (status: number) => PROXY_MISSING_STATUSES.has(status);
 
 const errorMessage = (err: unknown) => (err instanceof Error ? err.message.trim() : '');
+
+const shouldRetryAiPatchRequestError = (err: unknown) => {
+    const message = errorMessage(err).toLowerCase();
+    if (!message) {
+        return true;
+    }
+    if (
+        message.includes('missing api') ||
+        message.includes('invalid api') ||
+        message.includes('unauthorized') ||
+        message.includes('forbidden') ||
+        message.includes('unsupported') ||
+        message.includes('does not support pdf') ||
+        message.includes('select a model') ||
+        message.includes('missing model')
+    ) {
+        return false;
+    }
+    return true;
+};
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 export default function ScoreEditor() {
     const searchParams = useSearchParams();
@@ -613,6 +595,10 @@ export default function ScoreEditor() {
     const [scoreDirtySinceCheckpoint, setScoreDirtySinceCheckpoint] = useState(false);
     const [scoreDirtySinceXml, setScoreDirtySinceXml] = useState(false);
     const [xmlSidebarMode, setXmlSidebarMode] = useState<'closed' | 'open' | 'full'>('closed');
+    const [xmlSidebarWidth, setXmlSidebarWidth] = useState<number>(384); // default 'open' width (w-96)
+    const [isResizingSidebar, setIsResizingSidebar] = useState(false);
+    const sidebarResizeStartXRef = useRef<number>(0);
+    const sidebarResizeStartWidthRef = useRef<number>(0);
     const [xmlSidebarTab, setXmlSidebarTab] = useState<'xml' | 'assistant'>('xml');
     const [codeEditorTheme, setCodeEditorTheme] = useState<CodeEditorThemeMode>('light');
     const [xmlText, setXmlText] = useState('');
@@ -2307,6 +2293,22 @@ ${partsBodyXml}
         }
     }, [xmlSidebarTab, aiIncludeXml, xmlText, loadXmlFromScore]);
 
+    const aiProviderCapabilities = AI_PROVIDER_CAPABILITIES[aiProvider];
+
+    useEffect(() => {
+        if (!aiProviderCapabilities.supportsPdfContext && aiIncludePdf) {
+            setAiIncludePdf(false);
+        }
+        if (!aiProviderCapabilities.supportsRenderedImageContext && aiIncludeRenderedImage) {
+            setAiIncludeRenderedImage(false);
+        }
+    }, [
+        aiIncludePdf,
+        aiIncludeRenderedImage,
+        aiProviderCapabilities.supportsPdfContext,
+        aiProviderCapabilities.supportsRenderedImageContext,
+    ]);
+
     useEffect(() => {
         if (!aiEnabled) {
             setAiModels([]);
@@ -2327,114 +2329,33 @@ ${partsBodyXml}
         const loadModels = async () => {
             try {
                 let models: string[] = [];
-                if (aiProvider === 'openai') {
-                    let response: Response | null = null;
-                    if (useLlmProxy) {
-                        const proxyResponse = await fetch(proxyUrlFor('/api/llm/openai/models'), {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ apiKey: trimmedKey }),
-                        });
-                        if (proxyResponse.ok) {
-                            response = proxyResponse;
-                        } else if (!(isEmbedBuild && !llmProxyBase && isMissingProxyStatus(proxyResponse.status))) {
-                            const errorText = await proxyResponse.text();
-                            throw new Error(errorText || 'Failed to load models.');
-                        }
-                    }
-                    if (!response) {
-                        response = await fetch('https://api.openai.com/v1/models', {
-                            headers: {
-                                Authorization: `Bearer ${trimmedKey}`,
-                                'Content-Type': 'application/json',
-                            },
-                        });
-                    }
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(errorText || 'Failed to load models.');
-                    }
-                    const data = await response.json();
-                    models = Array.isArray(data?.models)
-                        ? data.models.filter((id: unknown) => typeof id === 'string')
-                        : Array.isArray(data?.data)
-                            ? data.data.map((item: any) => item?.id).filter((id: unknown) => typeof id === 'string')
-                            : [];
-                } else if (aiProvider === 'anthropic') {
-                    let response: Response;
-                    if (useLlmProxy) {
-                        response = await fetch(proxyUrlFor('/api/llm/anthropic/models'), {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ apiKey: trimmedKey }),
-                        });
-                        if (!response.ok && isEmbedBuild && !llmProxyBase && isMissingProxyStatus(response.status)) {
-                            throw new Error(ANTHROPIC_EMBED_PROXY_ERROR);
-                        }
-                    } else {
-                        response = await fetch('https://api.anthropic.com/v1/models', {
-                            headers: {
-                                'x-api-key': trimmedKey,
-                                'anthropic-version': ANTHROPIC_VERSION,
-                                'Content-Type': 'application/json',
-                            },
-                        });
-                    }
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(errorText || 'Failed to load models.');
-                    }
-                    const data = await response.json();
-                    models = Array.isArray(data?.models)
-                        ? data.models.map((item: any) => item?.id).filter((id: unknown) => typeof id === 'string')
-                        : Array.isArray(data?.data)
-                            ? data.data.map((item: any) => item?.id).filter((id: unknown) => typeof id === 'string')
-                            : [];
-                } else if (aiProvider === 'gemini') {
-                    let response: Response | null = null;
-                    if (useLlmProxy) {
-                        const proxyResponse = await fetch(proxyUrlFor('/api/llm/gemini/models'), {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ apiKey: trimmedKey }),
-                        });
-                        if (proxyResponse.ok) {
-                            response = proxyResponse;
-                        } else if (!(isEmbedBuild && !llmProxyBase && isMissingProxyStatus(proxyResponse.status))) {
-                            const errorText = await proxyResponse.text();
-                            throw new Error(errorText || 'Failed to load models.');
-                        }
-                    }
-                    if (!response) {
-                        response = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'x-goog-api-key': trimmedKey,
-                            },
-                        });
-                    }
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(errorText || 'Failed to load models.');
-                    }
-                    const data = await response.json();
-                    const rawModels = Array.isArray(data?.models) ? data.models : [];
-                    const filtered = rawModels.filter((item: any) => {
-                        const methods = Array.isArray(item?.supportedGenerationMethods)
-                            ? item.supportedGenerationMethods
-                            : [];
-                        return methods.length === 0 || methods.includes('generateContent');
+                let proxyResponse: Response | null = null;
+                if (useLlmProxy) {
+                    const nextProxyResponse = await fetch(proxyUrlFor(`/api/llm/${aiProvider}/models`), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ apiKey: trimmedKey }),
                     });
-                    const ids: string[] = [];
-                    for (const item of filtered) {
-                        if (typeof item?.baseModelId === 'string') {
-                            ids.push(item.baseModelId);
-                        }
-                        if (typeof item?.name === 'string') {
-                            ids.push(item.name.replace(/^models\//, ''));
-                        }
+                    if (nextProxyResponse.ok) {
+                        proxyResponse = nextProxyResponse;
+                    } else if (aiProvider === 'anthropic' && isEmbedBuild && !llmProxyBase && isMissingProxyStatus(nextProxyResponse.status)) {
+                        throw new Error(ANTHROPIC_EMBED_PROXY_ERROR);
+                    } else if (!(isEmbedBuild && !llmProxyBase && isMissingProxyStatus(nextProxyResponse.status))) {
+                        const errorText = await nextProxyResponse.text();
+                        throw new Error(errorText || 'Failed to load models.');
                     }
-                    models = ids.filter((id) => typeof id === 'string');
+                }
+
+                if (proxyResponse) {
+                    const data = await proxyResponse.json();
+                    models = Array.isArray(data?.models)
+                        ? data.models.filter((id: unknown): id is string => typeof id === 'string')
+                        : [];
+                } else {
+                    models = await loadAiModelsDirect({
+                        provider: aiProvider,
+                        apiKey: trimmedKey,
+                    });
                 }
 
                 if (canceled) {
@@ -4821,10 +4742,6 @@ ${partsBodyXml}
         } = payload;
         const systemPrompt = systemPromptOverride.trim() || AI_PATCH_SYSTEM_PROMPT;
         const userPrompt = promptText.trim() || buildPromptWithSections(prompt, xml.trim() ? [{ title: 'Current MusicXML', content: xml }] : []);
-        const hasImage = Boolean(image?.base64);
-        const hasPdf = Boolean(pdf?.base64);
-        const imageDataUrl = hasImage ? `data:${image!.mediaType};base64,${image!.base64}` : '';
-        const pdfDataUrl = hasPdf ? `data:${pdf!.mediaType};base64,${pdf!.base64}` : '';
 
         if (useLlmProxy) {
             const response = await fetch(proxyUrlFor(`/api/llm/${provider}`), {
@@ -4859,199 +4776,82 @@ ${partsBodyXml}
             }
         }
 
-        if (provider === 'openai') {
-            const userContent: Record<string, unknown>[] = [
-                { type: 'input_text', text: userPrompt },
-            ];
-            if (hasImage) {
-                userContent.push({ type: 'input_image', image_url: imageDataUrl });
-            }
-            if (hasPdf) {
-                userContent.push({
-                    type: 'input_file',
-                    filename: pdf!.filename,
-                    file_data: pdfDataUrl,
-                });
-            }
-            const responseInput: unknown = (hasImage || hasPdf)
-                ? [
-                    {
-                        role: 'user',
-                        content: userContent,
-                    },
-                ]
-                : userPrompt;
-            const responsePayload: Record<string, unknown> = {
-                model,
-                instructions: systemPrompt,
-                input: responseInput,
-                temperature: 0,
-            };
-            if (maxTokens) {
-                responsePayload.max_output_tokens = maxTokens;
-            }
-
-            const response = await fetch('https://api.openai.com/v1/responses', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${apiKey}`,
-                },
-                body: JSON.stringify(responsePayload),
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                if (hasPdf) {
-                    throw new Error(errorText || 'OpenAI request failed.');
-                }
-                const userMessageContent: unknown = hasImage
-                    ? [
-                        { type: 'text', text: userPrompt },
-                        {
-                            type: 'image_url',
-                            image_url: {
-                                url: imageDataUrl,
-                            },
-                        },
-                    ]
-                    : userPrompt;
-                const fallbackPayload: Record<string, unknown> = {
-                    model,
-                    messages: [
-                        { role: 'system', content: systemPrompt },
-                        { role: 'user', content: userMessageContent },
-                    ],
-                    temperature: 0,
-                };
-                if (maxTokens) {
-                    fallbackPayload.max_tokens = maxTokens;
-                }
-                const fallbackResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${apiKey}`,
-                    },
-                    body: JSON.stringify(fallbackPayload),
-                });
-                if (!fallbackResponse.ok) {
-                    const fallbackError = await fallbackResponse.text();
-                    throw new Error(fallbackError || errorText || 'OpenAI request failed.');
-                }
-                const fallbackData = await fallbackResponse.json();
-                return parseOpenAiChatCompletionsText(fallbackData);
-            }
-
-            const data = await response.json();
-            return parseOpenAiResponsesText(data);
-        }
-
-        if (provider === 'anthropic') {
-            const anthropicContent: Array<Record<string, unknown>> = [
-                { type: 'text', text: userPrompt },
-            ];
-            if (hasImage) {
-                anthropicContent.push({
-                    type: 'image',
-                    source: {
-                        type: 'base64',
-                        media_type: image!.mediaType,
-                        data: image!.base64,
-                    },
-                });
-            }
-            if (hasPdf) {
-                anthropicContent.push({
-                    type: 'document',
-                    source: {
-                        type: 'base64',
-                        media_type: pdf!.mediaType,
-                        data: pdf!.base64,
-                    },
-                });
-            }
-            const responsePayload: Record<string, unknown> = {
-                model,
-                max_tokens: maxTokens ?? DEFAULT_MAX_TOKENS_BY_PROVIDER.anthropic,
-                temperature: 0,
-                system: systemPrompt,
-                messages: [
-                    { role: 'user', content: anthropicContent },
-                ],
-            };
-
-            const response = await fetch('https://api.anthropic.com/v1/messages', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-api-key': apiKey,
-                    'anthropic-version': ANTHROPIC_VERSION,
-                },
-                body: JSON.stringify(responsePayload),
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(errorText || 'Anthropic request failed.');
-            }
-            const data = await response.json();
-            return parseAnthropicText(data);
-        }
-
-        const normalizedModel = normalizeGeminiModel(model);
-        if (!normalizedModel) {
-            throw new Error('Missing Gemini model.');
-        }
-        const geminiPayload: Record<string, unknown> = {
-            systemInstruction: {
-                parts: [{ text: systemPrompt }],
-            },
-            contents: [
-                {
-                    role: 'user',
-                    parts: [
-                        { text: userPrompt },
-                        ...(hasImage
-                            ? [{
-                                inlineData: {
-                                    mimeType: image!.mediaType,
-                                    data: image!.base64,
-                                },
-                            }]
-                            : []),
-                        ...(hasPdf
-                            ? [{
-                                inlineData: {
-                                    mimeType: pdf!.mediaType,
-                                    data: pdf!.base64,
-                                },
-                            }]
-                            : []),
-                    ],
-                },
-            ],
-            generationConfig: {
-                temperature: 0,
-            },
-        };
-        if (maxTokens) {
-            (geminiPayload.generationConfig as Record<string, unknown>).maxOutputTokens = maxTokens;
-        }
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${normalizedModel}:generateContent`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-goog-api-key': apiKey,
-            },
-            body: JSON.stringify(geminiPayload),
+        return requestAiTextDirect({
+            provider,
+            apiKey,
+            model,
+            promptText: userPrompt,
+            systemPrompt,
+            maxTokens,
+            image,
+            pdf,
         });
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(errorText || 'Gemini request failed.');
+    };
+
+    const requestAiPatchTextWithRetry = async (payload: Parameters<typeof requestAiText>[0]) => {
+        const requestPatchAttempt = async (attemptLabel: string) => {
+            try {
+                return await requestAiText(payload);
+            } catch (err) {
+                if (!shouldRetryAiPatchRequestError(err)) {
+                    throw err;
+                }
+                console.warn('[AI] Patch request failed; retrying once on the same provider.', {
+                    provider: payload.provider,
+                    model: payload.model,
+                    attempt: attemptLabel,
+                    error: errorMessage(err) || String(err),
+                });
+                await sleep(AI_PATCH_REQUEST_RETRY_DELAY_MS);
+                return requestAiText(payload);
+            }
+        };
+
+        const firstRawText = await requestPatchAttempt('initial');
+        const firstExtracted = extractJsonFromResponse(firstRawText);
+        if (firstExtracted) {
+            return {
+                rawText: firstRawText,
+                extracted: firstExtracted,
+                retried: false,
+            };
         }
-        const data = await response.json();
-        return parseGeminiText(data);
+
+        console.warn('[AI] Patch response did not contain JSON patch payload on first attempt. Retrying with stricter JSON instructions.', {
+            provider: payload.provider,
+            model: payload.model,
+        });
+
+        const retryPromptText = [payload.promptText.trim(), AI_PATCH_STRICT_RETRY_SUFFIX]
+            .filter(Boolean)
+            .join('\n\n');
+        const retryPayload = {
+            ...payload,
+            promptText: retryPromptText,
+            systemPrompt: AI_PATCH_SYSTEM_PROMPT,
+        };
+        const retryRawText = await (async () => {
+            try {
+                return await requestAiText(retryPayload);
+            } catch (err) {
+                if (!shouldRetryAiPatchRequestError(err)) {
+                    throw err;
+                }
+                console.warn('[AI] Strict-JSON patch retry request failed; retrying once on the same provider.', {
+                    provider: payload.provider,
+                    model: payload.model,
+                    error: errorMessage(err) || String(err),
+                });
+                await sleep(AI_PATCH_REQUEST_RETRY_DELAY_MS);
+                return requestAiText(retryPayload);
+            }
+        })();
+        const retryExtracted = extractJsonFromResponse(retryRawText);
+        return {
+            rawText: retryRawText,
+            extracted: retryExtracted,
+            retried: true,
+        };
     };
 
     const updateAiOutput = useCallback(async (nextText: string, baseXmlOverride?: string) => {
@@ -5175,7 +4975,7 @@ ${partsBodyXml}
             setAiBaseXml(baseXml);
             const maxTokens = aiMaxTokensMode === 'custom' ? aiMaxTokens : null;
             const promptText = buildAiPrompt(aiPrompt, promptSections);
-            const rawText = await requestAiText({
+            const patchResponse = await requestAiPatchTextWithRetry({
                 provider: aiProvider,
                 apiKey: aiApiKey,
                 model: aiModel,
@@ -5187,12 +4987,16 @@ ${partsBodyXml}
                 pdf: pdfAttachment,
                 maxTokens,
             });
-            const extracted = extractJsonFromResponse(rawText);
-            if (!extracted) {
-                setAiError('No patch was returned by the model.');
+            if (!patchResponse.extracted) {
+                setAiOutput(patchResponse.rawText || '');
+                setAiError(
+                    patchResponse.retried
+                        ? 'No patch was returned by the model after a retry with stricter JSON instructions.'
+                        : 'No patch was returned by the model.',
+                );
                 return;
             }
-            await updateAiOutput(extracted, baseXml);
+            await updateAiOutput(patchResponse.extracted, baseXml);
         } catch (err) {
             console.error('AI request failed', err);
             const message = errorMessage(err);
@@ -8207,6 +8011,43 @@ ${partsBodyXml}
     const xmlApplyDisabled = !xmlApplyEnabled;
     const xmlEditorHeight = xmlSidebarMode === 'full' ? '55vh' : '45vh';
     const xmlEditorMaxHeight = xmlSidebarMode === 'full' ? '65vh' : '55vh';
+
+    const MIN_SIDEBAR_WIDTH = 280; // minimum resizable width
+    const MAX_SIDEBAR_WIDTH = 800; // maximum resizable width
+
+    const handleSidebarResizeStart = useCallback((e: React.MouseEvent) => {
+        if (xmlSidebarMode !== 'open') return;
+        e.preventDefault();
+        setIsResizingSidebar(true);
+        sidebarResizeStartXRef.current = e.clientX;
+        sidebarResizeStartWidthRef.current = xmlSidebarWidth;
+    }, [xmlSidebarMode, xmlSidebarWidth]);
+
+    useEffect(() => {
+        if (!isResizingSidebar) return;
+
+        const handleMouseMove = (e: MouseEvent) => {
+            const delta = sidebarResizeStartXRef.current - e.clientX;
+            const newWidth = Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, sidebarResizeStartWidthRef.current + delta));
+            setXmlSidebarWidth(newWidth);
+        };
+
+        const handleMouseUp = () => {
+            setIsResizingSidebar(false);
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+        };
+    }, [isResizingSidebar]);
     const aiOutputValidation = aiOutput.trim()
         ? aiPatchError
             ? { valid: false, message: aiPatchError }
@@ -8219,14 +8060,9 @@ ${partsBodyXml}
         if (!trimmed) {
             return null;
         }
-        if (aiProvider === 'openai' && !/^gpt-|^o/.test(trimmed)) {
-            return 'OpenAI model names usually start with gpt- or o- (still allowed).';
-        }
-        if (aiProvider === 'anthropic' && !/^claude-/.test(trimmed)) {
-            return 'Claude model names usually start with claude- (still allowed).';
-        }
-        if (aiProvider === 'gemini' && !/^gemini-/.test(trimmed) && !trimmed.includes('/')) {
-            return 'Gemini models usually start with gemini- (still allowed).';
+        const providerHint = AI_PROVIDER_CONFIGS[aiProvider].modelHint;
+        if (providerHint && !providerHint.pattern.test(trimmed)) {
+            return providerHint.message;
         }
         return null;
     }, [aiModel, aiProvider]);
@@ -8746,16 +8582,39 @@ ${partsBodyXml}
             </div>
 
             <aside
-                className={`shrink-0 border-l bg-white text-sm ${
+                className={`shrink-0 border-l bg-white text-sm flex ${
                     xmlSidebarMode === 'closed'
                         ? 'w-12'
                         : xmlSidebarMode === 'full'
                             ? 'flex-1 w-full max-w-full'
-                            : 'w-80'
-                } ${xmlSidebarMode === 'closed' ? '' : 'overflow-y-auto'}`}
+                            : ''
+                }`}
+                style={xmlSidebarMode === 'open' ? { width: `${xmlSidebarWidth}px` } : undefined}
                 data-testid="xml-sidebar"
             >
-                <div className="sticky top-0 z-10 bg-white">
+                {/* Resize Handle Container */}
+                {xmlSidebarMode === 'open' && (
+                    <div
+                        className="shrink-0 cursor-ew-resize bg-slate-300 hover:bg-blue-500 transition-colors border-r border-slate-400 hover:border-blue-700 flex items-center justify-center"
+                        style={{ width: '24px' }}
+                        onMouseDown={handleSidebarResizeStart}
+                        title="Drag to resize sidebar"
+                        data-testid="sidebar-resize-handle"
+                    >
+                        {/* Vertical grip icon (three vertical bars with rounded ends) */}
+                        <svg width="14" height="24" viewBox="0 0 14 24" fill="none" className="pointer-events-none">
+                            {/* Left bar */}
+                            <rect x="2" y="2" width="3" height="20" rx="1.5" fill="#475569" />
+                            {/* Middle bar */}
+                            <rect x="5.5" y="2" width="3" height="20" rx="1.5" fill="#475569" />
+                            {/* Right bar */}
+                            <rect x="9" y="2" width="3" height="20" rx="1.5" fill="#475569" />
+                        </svg>
+                    </div>
+                )}
+                {/* Sidebar Content */}
+                <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                    <div className="sticky top-0 z-10 bg-white">
                     <div className={xmlSidebarMode === 'closed' ? 'flex items-center justify-center p-2' : 'flex items-center justify-between p-4'}>
                         {xmlSidebarMode !== 'closed' && (
                             <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -8843,7 +8702,7 @@ ${partsBodyXml}
                     )}
                 </div>
                 {xmlSidebarMode !== 'closed' && (
-                    <div id="xml-sidebar-content" className="px-4 pb-4">
+                    <div id="xml-sidebar-content" className="flex-1 overflow-y-auto pb-4 px-4">
                         {xmlSidebarTab === 'xml' && (
                             <>
                                 <div className="mt-3 flex flex-wrap gap-2">
@@ -8967,6 +8826,18 @@ ${partsBodyXml}
                                     <div className="mt-1 text-[11px] text-gray-500">
                                         Stored locally in this browser. Requests are sent directly unless a proxy is configured.
                                     </div>
+                                    {AI_PROVIDER_CONFIGS[aiProvider].apiKeyUrl && (
+                                        <div className="mt-1 text-[11px]">
+                                            <a
+                                                href={AI_PROVIDER_CONFIGS[aiProvider].apiKeyUrl}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-blue-600 hover:text-blue-700 hover:underline"
+                                            >
+                                                Create {AI_PROVIDER_LABELS[aiProvider]} API key
+                                            </a>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-2 text-xs">
@@ -9031,6 +8902,7 @@ ${partsBodyXml}
                                                     type="checkbox"
                                                     checked={aiIncludeRenderedImage}
                                                     onChange={(event) => setAiIncludeRenderedImage(event.target.checked)}
+                                                    disabled={!aiProviderCapabilities.supportsRenderedImageContext}
                                                 />
                                                 Include rendered image
                                             </label>
@@ -9039,6 +8911,7 @@ ${partsBodyXml}
                                                     type="checkbox"
                                                     checked={aiIncludePdf}
                                                     onChange={(event) => setAiIncludePdf(event.target.checked)}
+                                                    disabled={!aiProviderCapabilities.supportsPdfContext}
                                                 />
                                                 Include score PDF
                                             </label>
@@ -9062,6 +8935,16 @@ ${partsBodyXml}
                                         {aiIncludeRenderedImage && !score?.savePng && (
                                             <div className="text-[11px] text-amber-600">
                                                 PNG capture is not available in this build. The request will continue without image context.
+                                            </div>
+                                        )}
+                                        {!aiProviderCapabilities.supportsRenderedImageContext && (
+                                            <div className="text-[11px] text-gray-500">
+                                                {AI_PROVIDER_LABELS[aiProvider]} image attachments are disabled in this integration.
+                                            </div>
+                                        )}
+                                        {!aiProviderCapabilities.supportsPdfContext && (
+                                            <div className="text-[11px] text-gray-500">
+                                                {AI_PROVIDER_LABELS[aiProvider]} PDF attachments are not yet enabled in this integration.
                                             </div>
                                         )}
                                         {aiIncludePdf && (
@@ -9222,6 +9105,7 @@ ${partsBodyXml}
                         )}
                     </div>
                 )}
+                </div>
             </aside>
 
             {newScoreDialogOpen && (
