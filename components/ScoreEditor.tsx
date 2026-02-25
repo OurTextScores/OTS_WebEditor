@@ -29,6 +29,11 @@ import {
     requestAiTextDirect,
     type AiProvider,
 } from '../lib/ai-provider-adapters';
+import {
+    getLegacyLlmProxyBase,
+    getScoreEditorApiBase,
+    resolveLlmApiPath,
+} from '../lib/score-editor-api-client';
 
 type SelectionBox = {
     index: number | null;
@@ -169,7 +174,7 @@ type MutationMethods = Pick<
 const PROXY_MISSING_STATUSES = new Set([404, 405, 501]);
 const ANTHROPIC_EMBED_PROXY_ERROR = [
     'Claude requires an LLM proxy in embed mode because browser-direct Anthropic calls are blocked by CORS.',
-    'Configure NEXT_PUBLIC_LLM_PROXY_URL or serve /api/llm/anthropic on the same origin.',
+    'Configure NEXT_PUBLIC_SCORE_EDITOR_API_BASE (recommended) or NEXT_PUBLIC_LLM_PROXY_URL, or serve /api/llm/anthropic on the same origin.',
 ].join(' ');
 
 type HarmonyVariant = 0 | 1 | 2;
@@ -264,6 +269,16 @@ const AI_PATCH_STRICT_RETRY_SUFFIX = [
 const AI_PATCH_REQUEST_RETRY_DELAY_MS = 600;
 const AI_CHAT_SYSTEM_PROMPT = 'You are a helpful music notation assistant. Answer clearly and practically for score editing and engraving workflows.';
 const CODE_EDITOR_THEME_STORAGE_KEY = 'ots_code_editor_theme';
+const MUSIC_SPECIALISTS_HF_TOKEN_STORAGE_KEY = 'ots_music_specialists_hf_token';
+const MUSIC_SPECIALISTS_NOTAGEN_MODEL_STORAGE_KEY = 'ots_music_specialists_notagen_model';
+const MUSIC_SPECIALISTS_NOTAGEN_REVISION_STORAGE_KEY = 'ots_music_specialists_notagen_revision';
+const MUSIC_SPECIALISTS_CHATMUSICIAN_MODEL_STORAGE_KEY = 'ots_music_specialists_chatmusician_model';
+const MUSIC_SPECIALISTS_CHATMUSICIAN_REVISION_STORAGE_KEY = 'ots_music_specialists_chatmusician_revision';
+const MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_MODEL = (process.env.NEXT_PUBLIC_MUSIC_NOTAGEN_DEFAULT_MODEL_ID || '').trim();
+const MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_REVISION = (process.env.NEXT_PUBLIC_MUSIC_NOTAGEN_DEFAULT_REVISION || '').trim();
+const MUSIC_SPECIALISTS_DEFAULT_CHATMUSICIAN_MODEL = (process.env.NEXT_PUBLIC_MUSIC_CHATMUSICIAN_DEFAULT_MODEL_ID || '').trim();
+const MUSIC_SPECIALISTS_DEFAULT_CHATMUSICIAN_REVISION = (process.env.NEXT_PUBLIC_MUSIC_CHATMUSICIAN_DEFAULT_REVISION || '').trim();
+const HUGGING_FACE_TOKENS_URL = 'https://huggingface.co/settings/tokens';
 const CODE_EDITOR_THEME_OPTIONS: Array<{ value: CodeEditorThemeMode; label: string }> = [
     { value: 'light', label: 'Light' },
     { value: 'light-contrast', label: 'Light High Contrast' },
@@ -491,12 +506,12 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 export default function ScoreEditor() {
     const searchParams = useSearchParams();
     const isEmbedBuild = process.env.NEXT_PUBLIC_BUILD_MODE === 'embed';
-    const llmProxyBaseUrl = (process.env.NEXT_PUBLIC_LLM_PROXY_URL || '').trim();
-    const llmProxyBase = llmProxyBaseUrl.replace(/\/+$/, '');
+    const scoreEditorApiBase = getScoreEditorApiBase();
+    const llmProxyBase = scoreEditorApiBase || getLegacyLlmProxyBase();
     // Always try proxy first; embed mode falls back to direct calls only for providers that support browser CORS.
     const useLlmProxy = true;
     const aiEnabled = true;
-    const proxyUrlFor = useCallback((path: string) => (llmProxyBase ? `${llmProxyBase}${path}` : path), [llmProxyBase]);
+    const proxyUrlFor = useCallback((path: string) => resolveLlmApiPath(path), []);
 
     // Embed mode: Load external XML files for comparison
     const compareLeftUrl = searchParams.get('compareLeft');
@@ -608,6 +623,11 @@ export default function ScoreEditor() {
     const [aiProvider, setAiProvider] = useState<AiProvider>('openai');
     const [aiModel, setAiModel] = useState('');
     const [aiApiKey, setAiApiKey] = useState('');
+    const [musicHfToken, setMusicHfToken] = useState('');
+    const [musicNotaGenModelId, setMusicNotaGenModelId] = useState(MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_MODEL);
+    const [musicNotaGenRevision, setMusicNotaGenRevision] = useState(MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_REVISION);
+    const [musicChatMusicianModelId, setMusicChatMusicianModelId] = useState(MUSIC_SPECIALISTS_DEFAULT_CHATMUSICIAN_MODEL);
+    const [musicChatMusicianRevision, setMusicChatMusicianRevision] = useState(MUSIC_SPECIALISTS_DEFAULT_CHATMUSICIAN_REVISION);
     const [aiMode, setAiMode] = useState<'patch' | 'chat'>('patch');
     const [aiPrompt, setAiPrompt] = useState('');
     const [aiIncludeXml, setAiIncludeXml] = useState(true);
@@ -1149,6 +1169,60 @@ export default function ScoreEditor() {
             window.localStorage.removeItem(aiModelStorageKey);
         }
     }, [aiEnabled, aiModel, aiModelStorageKey]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+        if (!aiEnabled) {
+            return;
+        }
+        setMusicHfToken(window.localStorage.getItem(MUSIC_SPECIALISTS_HF_TOKEN_STORAGE_KEY) ?? '');
+        setMusicNotaGenModelId(
+            window.localStorage.getItem(MUSIC_SPECIALISTS_NOTAGEN_MODEL_STORAGE_KEY)
+            ?? MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_MODEL,
+        );
+        setMusicNotaGenRevision(
+            window.localStorage.getItem(MUSIC_SPECIALISTS_NOTAGEN_REVISION_STORAGE_KEY)
+            ?? MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_REVISION,
+        );
+        setMusicChatMusicianModelId(
+            window.localStorage.getItem(MUSIC_SPECIALISTS_CHATMUSICIAN_MODEL_STORAGE_KEY)
+            ?? MUSIC_SPECIALISTS_DEFAULT_CHATMUSICIAN_MODEL,
+        );
+        setMusicChatMusicianRevision(
+            window.localStorage.getItem(MUSIC_SPECIALISTS_CHATMUSICIAN_REVISION_STORAGE_KEY)
+            ?? MUSIC_SPECIALISTS_DEFAULT_CHATMUSICIAN_REVISION,
+        );
+    }, [aiEnabled]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+        if (!aiEnabled) {
+            return;
+        }
+        const persistValue = (key: string, value: string) => {
+            if (value.trim()) {
+                window.localStorage.setItem(key, value);
+            } else {
+                window.localStorage.removeItem(key);
+            }
+        };
+        persistValue(MUSIC_SPECIALISTS_HF_TOKEN_STORAGE_KEY, musicHfToken);
+        persistValue(MUSIC_SPECIALISTS_NOTAGEN_MODEL_STORAGE_KEY, musicNotaGenModelId);
+        persistValue(MUSIC_SPECIALISTS_NOTAGEN_REVISION_STORAGE_KEY, musicNotaGenRevision);
+        persistValue(MUSIC_SPECIALISTS_CHATMUSICIAN_MODEL_STORAGE_KEY, musicChatMusicianModelId);
+        persistValue(MUSIC_SPECIALISTS_CHATMUSICIAN_REVISION_STORAGE_KEY, musicChatMusicianRevision);
+    }, [
+        aiEnabled,
+        musicHfToken,
+        musicNotaGenModelId,
+        musicNotaGenRevision,
+        musicChatMusicianModelId,
+        musicChatMusicianRevision,
+    ]);
 
     useEffect(() => {
         if (typeof window === 'undefined') {
@@ -8838,6 +8912,86 @@ ${partsBodyXml}
                                             </a>
                                         </div>
                                     )}
+                                </div>
+                                <div className="space-y-2 rounded border border-gray-200 bg-gray-50/70 p-3">
+                                    <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                                        Music Specialists (BYO Hugging Face)
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                            Hugging Face Token
+                                        </label>
+                                        <input
+                                            type="password"
+                                            value={musicHfToken}
+                                            onChange={(event) => setMusicHfToken(event.target.value)}
+                                            className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                            placeholder="hf_..."
+                                        />
+                                        <div className="mt-1 text-[11px] text-gray-500">
+                                            Stored locally in this browser. Used for `NotaGen` and `ChatMusician` via `/api/music/*`.
+                                        </div>
+                                        <div className="mt-1 text-[11px]">
+                                            <a
+                                                href={HUGGING_FACE_TOKENS_URL}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-blue-600 hover:text-blue-700 hover:underline"
+                                            >
+                                                Create Hugging Face token
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-2">
+                                        <div>
+                                            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                NotaGen Model
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={musicNotaGenModelId}
+                                                onChange={(event) => setMusicNotaGenModelId(event.target.value)}
+                                                className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                                placeholder="e.g. manoskary/NotaGenX-Quantized"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                NotaGen Revision (optional)
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={musicNotaGenRevision}
+                                                onChange={(event) => setMusicNotaGenRevision(event.target.value)}
+                                                className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                                placeholder="main or commit sha"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                ChatMusician Model
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={musicChatMusicianModelId}
+                                                onChange={(event) => setMusicChatMusicianModelId(event.target.value)}
+                                                className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                                placeholder="HF model id"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                ChatMusician Revision (optional)
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={musicChatMusicianRevision}
+                                                onChange={(event) => setMusicChatMusicianRevision(event.target.value)}
+                                                className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                                placeholder="main or commit sha"
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-2 text-xs">

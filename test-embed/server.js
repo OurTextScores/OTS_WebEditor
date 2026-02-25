@@ -14,6 +14,9 @@
  * - /api/llm/deepseek/models
  * - /api/llm/kimi
  * - /api/llm/kimi/models
+ * Also supports same-origin embed proxy aliases:
+ * - /api/score-editor/llm/*  -> local /api/llm/* test proxies
+ * - /api/score-editor/music/* -> proxied to TEST_EMBED_EDITOR_API_ORIGIN (if configured)
  */
 /* eslint-disable @typescript-eslint/no-require-imports */
 
@@ -24,6 +27,7 @@ const path = require('path');
 const PORT = Number(process.env.PORT || 8080);
 const ANTHROPIC_VERSION = '2023-06-01';
 const DEFAULT_MAX_TOKENS = 2048;
+const TEST_EMBED_EDITOR_API_ORIGIN = (process.env.TEST_EMBED_EDITOR_API_ORIGIN || '').replace(/\/+$/, '');
 const OPENAI_COMPATIBLE_LLMS = {
   grok: {
     label: 'Grok',
@@ -95,6 +99,15 @@ const readJsonBody = (req) => new Promise((resolve, reject) => {
       reject(error);
     }
   });
+  req.on('error', reject);
+});
+
+const readRawBody = (req) => new Promise((resolve, reject) => {
+  const chunks = [];
+  req.on('data', (chunk) => {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  });
+  req.on('end', () => resolve(Buffer.concat(chunks)));
   req.on('error', reject);
 });
 
@@ -551,9 +564,138 @@ const tryHandleLlmProxy = async (req, res, pathname) => {
   return true;
 };
 
+const proxyToEditorApiOrigin = async (req, res, targetUrl) => {
+  try {
+    const method = req.method || 'GET';
+    const shouldSendBody = !['GET', 'HEAD'].includes(method);
+    const rawBody = shouldSendBody ? await readRawBody(req) : null;
+    const headers = {};
+    if (req.headers['content-type']) {
+      headers['content-type'] = req.headers['content-type'];
+    }
+    if (req.headers.accept) {
+      headers.accept = req.headers.accept;
+    }
+
+    const response = await fetch(targetUrl, {
+      method,
+      headers,
+      body: rawBody && rawBody.length ? rawBody : undefined,
+    });
+
+    const responseBuffer = Buffer.from(await response.arrayBuffer());
+    const contentType = response.headers.get('content-type') || 'application/octet-stream';
+    const responseHeaders = {
+      'Content-Type': contentType,
+      'Access-Control-Allow-Origin': '*',
+    };
+    res.writeHead(response.status, responseHeaders);
+    res.end(responseBuffer);
+  } catch (err) {
+    console.error('Score editor API proxy error', err);
+    sendJson(res, 502, { error: 'Score editor API proxy error.' });
+  }
+};
+
+const tryHandleScoreEditorApiProxy = async (req, res, requestUrl, pathname) => {
+  if (!pathname.startsWith('/api/score-editor/')) {
+    return false;
+  }
+
+  if (pathname === '/api/score-editor/music/__proxy-health') {
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, {
+        ...jsonHeaders,
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      });
+      res.end();
+      return true;
+    }
+    if (req.method !== 'GET') {
+      sendJson(res, 405, { error: 'Method not allowed.' });
+      return true;
+    }
+    if (!TEST_EMBED_EDITOR_API_ORIGIN) {
+      sendJson(res, 200, {
+        ok: false,
+        configured: false,
+        origin: null,
+        message: 'TEST_EMBED_EDITOR_API_ORIGIN is not set.',
+      });
+      return true;
+    }
+    const targetUrl = `${TEST_EMBED_EDITOR_API_ORIGIN}/api/music/convert`;
+    try {
+      const response = await fetch(targetUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ health_check: true }),
+      });
+      const text = await response.text();
+      let parsed = null;
+      try {
+        parsed = text ? JSON.parse(text) : null;
+      } catch {
+        parsed = null;
+      }
+      sendJson(res, response.ok ? 200 : 502, {
+        ok: response.ok,
+        configured: true,
+        origin: TEST_EMBED_EDITOR_API_ORIGIN,
+        targetUrl,
+        upstreamStatus: response.status,
+        upstreamMethod: 'POST',
+        upstreamJson: parsed,
+        upstreamTextPreview: typeof text === 'string' ? text.slice(0, 500) : '',
+      });
+    } catch (err) {
+      sendJson(res, 502, {
+        ok: false,
+        configured: true,
+        origin: TEST_EMBED_EDITOR_API_ORIGIN,
+        targetUrl,
+        error: err instanceof Error ? err.message : 'Unknown proxy health error.',
+      });
+    }
+    return true;
+  }
+
+  if (pathname.startsWith('/api/score-editor/llm/')) {
+    const localLlmPath = `/api${pathname.slice('/api/score-editor'.length)}`;
+    return tryHandleLlmProxy(req, res, localLlmPath);
+  }
+
+  if (pathname.startsWith('/api/score-editor/music/')) {
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, {
+        ...jsonHeaders,
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      });
+      res.end();
+      return true;
+    }
+    if (!TEST_EMBED_EDITOR_API_ORIGIN) {
+      sendJson(res, 501, {
+        error: 'No test music proxy configured. Set TEST_EMBED_EDITOR_API_ORIGIN (e.g. http://localhost:3000) to forward /api/score-editor/music/*.',
+      });
+      return true;
+    }
+    const upstreamPath = `/api${pathname.slice('/api/score-editor'.length)}${requestUrl.search || ''}`;
+    await proxyToEditorApiOrigin(req, res, `${TEST_EMBED_EDITOR_API_ORIGIN}${upstreamPath}`);
+    return true;
+  }
+
+  sendJson(res, 404, { error: `No test proxy route for ${pathname}` });
+  return true;
+};
+
 const server = http.createServer(async (req, res) => {
   const requestUrl = new URL(req.url || '/', `http://${req.headers.host || `localhost:${PORT}`}`);
   const pathname = requestUrl.pathname;
+
+  if (await tryHandleScoreEditorApiProxy(req, res, requestUrl, pathname)) {
+    return;
+  }
 
   if (await tryHandleLlmProxy(req, res, pathname)) {
     return;
@@ -608,5 +750,8 @@ server.listen(PORT, () => {
   console.log(`  - http://localhost:${PORT}/api/llm/grok* -> local Grok proxy`);
   console.log(`  - http://localhost:${PORT}/api/llm/deepseek* -> local DeepSeek proxy`);
   console.log(`  - http://localhost:${PORT}/api/llm/kimi* -> local Kimi proxy`);
+  console.log(`  - http://localhost:${PORT}/api/score-editor/llm* -> alias to local LLM proxies`);
+  console.log(`  - http://localhost:${PORT}/api/score-editor/music* -> proxy via TEST_EMBED_EDITOR_API_ORIGIN${TEST_EMBED_EDITOR_API_ORIGIN ? ` (${TEST_EMBED_EDITOR_API_ORIGIN})` : ' (not configured)'}`);
+  console.log(`  - http://localhost:${PORT}/api/score-editor/music/__proxy-health -> test proxy health check`);
   console.log('\nPress Ctrl+C to stop\n');
 });
