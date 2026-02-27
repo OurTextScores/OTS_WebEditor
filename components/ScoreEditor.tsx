@@ -290,6 +290,7 @@ const MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_ID = (process.env.NEXT_PUBLIC_MUSI
 const MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_PERIOD = (process.env.NEXT_PUBLIC_MUSIC_NOTAGEN_SPACE_DEFAULT_PERIOD || 'Classical').trim();
 const MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_COMPOSER = (process.env.NEXT_PUBLIC_MUSIC_NOTAGEN_SPACE_DEFAULT_COMPOSER || 'Mozart, Wolfgang Amadeus').trim();
 const MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_INSTRUMENTATION = (process.env.NEXT_PUBLIC_MUSIC_NOTAGEN_SPACE_DEFAULT_INSTRUMENTATION || 'Keyboard').trim();
+const MUSIC_AGENT_DEFAULT_MODEL = (process.env.NEXT_PUBLIC_MUSIC_AGENT_DEFAULT_MODEL || 'gpt-5.2').trim();
 const CODE_EDITOR_THEME_OPTIONS: Array<{ value: CodeEditorThemeMode; label: string }> = [
     { value: 'light', label: 'Light' },
     { value: 'light-contrast', label: 'Light High Contrast' },
@@ -626,7 +627,7 @@ export default function ScoreEditor() {
     const [isResizingSidebar, setIsResizingSidebar] = useState(false);
     const sidebarResizeStartXRef = useRef<number>(0);
     const sidebarResizeStartWidthRef = useRef<number>(0);
-    const [xmlSidebarTab, setXmlSidebarTab] = useState<'xml' | 'assistant' | 'notagen'>('xml');
+    const [xmlSidebarTab, setXmlSidebarTab] = useState<'xml' | 'assistant' | 'notagen' | 'agent'>('xml');
     const [codeEditorTheme, setCodeEditorTheme] = useState<CodeEditorThemeMode>('light');
     const [xmlText, setXmlText] = useState('');
     const [xmlDirty, setXmlDirty] = useState(false);
@@ -657,6 +658,19 @@ export default function ScoreEditor() {
     const [musicNotaGenSpaceCombinations, setMusicNotaGenSpaceCombinations] = useState<NotaGenSpaceCombinations | null>(null);
     const [musicNotaGenSpaceOptionsLoading, setMusicNotaGenSpaceOptionsLoading] = useState(false);
     const [musicNotaGenSpaceOptionsError, setMusicNotaGenSpaceOptionsError] = useState<string | null>(null);
+    const [musicAgentPrompt, setMusicAgentPrompt] = useState('');
+    const [musicAgentModel, setMusicAgentModel] = useState(MUSIC_AGENT_DEFAULT_MODEL);
+    const [musicAgentMaxTurns, setMusicAgentMaxTurns] = useState(6);
+    const [musicAgentUseFallbackOnly, setMusicAgentUseFallbackOnly] = useState(false);
+    const [musicAgentIncludeCurrentXml, setMusicAgentIncludeCurrentXml] = useState(true);
+    const [musicAgentBusy, setMusicAgentBusy] = useState(false);
+    const [musicAgentError, setMusicAgentError] = useState<string | null>(null);
+    const [musicAgentResult, setMusicAgentResult] = useState<Record<string, unknown> | null>(null);
+    const [musicAgentPatch, setMusicAgentPatch] = useState<MusicXmlPatch | null>(null);
+    const [musicAgentPatchError, setMusicAgentPatchError] = useState<string | null>(null);
+    const [musicAgentPatchedXml, setMusicAgentPatchedXml] = useState('');
+    const [musicAgentThread, setMusicAgentThread] = useState<AiChatMessage[]>([]);
+    const musicAgentThreadRef = useRef<HTMLDivElement | null>(null);
     const [aiMode, setAiMode] = useState<'patch' | 'chat'>('patch');
     const [aiPrompt, setAiPrompt] = useState('');
     const [aiIncludeXml, setAiIncludeXml] = useState(true);
@@ -1351,6 +1365,14 @@ export default function ScoreEditor() {
         }
         el.scrollTop = el.scrollHeight;
     }, [musicNotaGenProgressLog, musicNotaGenStatusText]);
+
+    useEffect(() => {
+        const el = musicAgentThreadRef.current;
+        if (!el) {
+            return;
+        }
+        el.scrollTop = el.scrollHeight;
+    }, [musicAgentThread, musicAgentBusy]);
 
     useEffect(() => {
         if (aiEnabled) {
@@ -2213,41 +2235,62 @@ ${partsBodyXml}
             const imported = doc.importNode(elementChildren[0], true);
             return { node: imported, error: '' };
         };
-        const resolveSingleNode = (path: string) => {
+        const resolveNodes = (path: string) => {
             try {
                 const result = doc.evaluate(path, doc, resolver, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
-                if (result.snapshotLength !== 1) {
-                    return { node: null as Node | null, error: `XPath "${path}" matched ${result.snapshotLength} nodes.` };
+                if (result.snapshotLength < 1) {
+                    return { nodes: [] as Node[], error: `XPath "${path}" matched 0 nodes.` };
                 }
-                return { node: result.snapshotItem(0), error: '' };
+                const nodes: Node[] = [];
+                for (let i = 0; i < result.snapshotLength; i += 1) {
+                    const node = result.snapshotItem(i);
+                    if (node) {
+                        nodes.push(node);
+                    }
+                }
+                return { nodes, error: '' };
             } catch (err) {
-                return { node: null as Node | null, error: `XPath "${path}" could not be evaluated.` };
+                return { nodes: [] as Node[], error: `XPath "${path}" could not be evaluated.` };
             }
         };
         for (let i = 0; i < patch.ops.length; i += 1) {
             const op = patch.ops[i];
-            const { node, error } = resolveSingleNode(op.path);
-            if (error || !node) {
+            const { nodes, error } = resolveNodes(op.path);
+            if (op.op === 'delete' && nodes.length === 0 && !error) {
+                continue;
+            }
+            if (error || nodes.length === 0) {
                 return { xml: '', error: `Patch op ${i + 1} failed: ${error || 'Target not found.'}` };
             }
             if (op.op === 'setText') {
-                node.textContent = op.value ?? '';
+                for (const node of nodes) {
+                    node.textContent = op.value ?? '';
+                }
                 continue;
             }
             if (op.op === 'setAttr') {
-                if (node.nodeType !== Node.ELEMENT_NODE) {
-                    return { xml: '', error: `Patch op ${i + 1} targets a non-element node.` };
+                for (const node of nodes) {
+                    if (node.nodeType !== Node.ELEMENT_NODE) {
+                        return { xml: '', error: `Patch op ${i + 1} targets a non-element node.` };
+                    }
+                    (node as Element).setAttribute(op.name ?? '', op.value ?? '');
                 }
-                (node as Element).setAttribute(op.name ?? '', op.value ?? '');
                 continue;
             }
             if (op.op === 'delete') {
-                if (!node.parentNode) {
-                    return { xml: '', error: `Patch op ${i + 1} target has no parent.` };
+                for (let nodeIndex = nodes.length - 1; nodeIndex >= 0; nodeIndex -= 1) {
+                    const node = nodes[nodeIndex];
+                    if (!node.parentNode) {
+                        continue;
+                    }
+                    node.parentNode.removeChild(node);
                 }
-                node.parentNode.removeChild(node);
                 continue;
             }
+            if (nodes.length !== 1) {
+                return { xml: '', error: `Patch op ${i + 1} failed: XPath "${op.path}" matched ${nodes.length} nodes.` };
+            }
+            const node = nodes[0];
             const fragment = parseFragment(op.value ?? '');
             if (fragment.error || !fragment.node) {
                 return { xml: '', error: `Patch op ${i + 1} failed: ${fragment.error || 'Invalid value.'}` };
@@ -2470,12 +2513,15 @@ ${partsBodyXml}
     }, [score, xmlDirty, xmlSidebarMode, loadXmlFromScore]);
 
     useEffect(() => {
-        if ((xmlSidebarTab === 'assistant' || xmlSidebarTab === 'notagen')
-            && aiIncludeXml
-            && !xmlText.trim()) {
+        const needsXmlForSidebarTab = (
+            (xmlSidebarTab === 'assistant' && aiIncludeXml)
+            || xmlSidebarTab === 'notagen'
+            || (xmlSidebarTab === 'agent' && musicAgentIncludeCurrentXml)
+        );
+        if (needsXmlForSidebarTab && !xmlText.trim()) {
             void loadXmlFromScore();
         }
-    }, [xmlSidebarTab, aiIncludeXml, xmlText, loadXmlFromScore]);
+    }, [xmlSidebarTab, aiIncludeXml, musicAgentIncludeCurrentXml, xmlText, loadXmlFromScore]);
 
     const aiProviderCapabilities = AI_PROVIDER_CAPABILITIES[aiProvider];
 
@@ -5330,6 +5376,152 @@ ${partsBodyXml}
         }
         return asRecord(payload) || {};
     }, []);
+
+    const handleMusicAgentSend = async () => {
+        const prompt = musicAgentPrompt.trim();
+        if (!prompt) {
+            alert('Enter a prompt for the Agent.');
+            return;
+        }
+
+        setMusicAgentBusy(true);
+        setMusicAgentError(null);
+        setMusicAgentResult(null);
+        setMusicAgentPatch(null);
+        setMusicAgentPatchError(null);
+        setMusicAgentPatchedXml('');
+        try {
+            let xmlContext = '';
+            if (musicAgentIncludeCurrentXml) {
+                xmlContext = await resolveXmlContext();
+                if (!xmlContext.trim()) {
+                    alert('Load a score before including MusicXML context.');
+                    return;
+                }
+            }
+
+            const toolInput: Record<string, unknown> = {};
+            if (xmlContext.trim()) {
+                toolInput.context = {
+                    content: xmlContext,
+                };
+                toolInput.convert = {
+                    inputFormat: 'musicxml',
+                    outputFormat: 'abc',
+                    content: xmlContext,
+                    includeContent: true,
+                };
+                toolInput.patch = {
+                    content: xmlContext,
+                    prompt,
+                    model: musicAgentModel.trim() || undefined,
+                    apiKey: aiApiKey.trim() || undefined,
+                };
+            }
+
+            const payload: Record<string, unknown> = {
+                prompt,
+                maxTurns: Math.max(1, Math.floor(musicAgentMaxTurns) || 1),
+            };
+            const model = musicAgentModel.trim();
+            if (model) {
+                payload.model = model;
+            }
+            if (musicAgentUseFallbackOnly) {
+                payload.useFallbackOnly = true;
+            }
+            if (Object.keys(toolInput).length > 0) {
+                payload.toolInput = toolInput;
+            }
+
+            setMusicAgentPrompt('');
+            setMusicAgentThread((prev) => [...prev, { role: 'user', text: prompt }]);
+
+            const response = await fetch(resolveScoreEditorApiPath('/api/music/agent'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+            const parsedPayload = await response.json().catch(() => ({}));
+            const parsed = asRecord(parsedPayload) || {};
+            setMusicAgentResult(parsed);
+
+            const selectedTool = typeof parsed?.selectedTool === 'string' ? parsed.selectedTool : '';
+            if (selectedTool === 'music.patch') {
+                const resultPayload = asRecord(parsed?.result);
+                const maybePatch = asRecord(resultPayload?.patch);
+                if (maybePatch) {
+                    const parsedPatch = parseMusicXmlPatch(JSON.stringify(maybePatch));
+                    if (parsedPatch.patch) {
+                        setMusicAgentPatch(parsedPatch.patch);
+                        const baseXml = xmlContext.trim() ? xmlContext : await resolveXmlContext();
+                        if (!baseXml.trim()) {
+                            setMusicAgentPatchError('Unable to load MusicXML for patch preview.');
+                        } else {
+                            const applied = applyMusicXmlPatch(baseXml, parsedPatch.patch);
+                            if (applied.error) {
+                                setMusicAgentPatchError(applied.error);
+                            } else {
+                                setMusicAgentPatchedXml(applied.xml);
+                            }
+                        }
+                    } else {
+                        setMusicAgentPatchError(parsedPatch.error || 'Agent returned an invalid patch payload.');
+                    }
+                } else if (resultPayload && typeof resultPayload.error === 'string') {
+                    setMusicAgentPatchError(resultPayload.error);
+                }
+            }
+
+            if (!response.ok) {
+                const nonOkMessage = typeof parsed?.error === 'string' && parsed.error.trim()
+                    ? parsed.error.trim()
+                    : `Request failed: ${response.status}`;
+                setMusicAgentError(nonOkMessage);
+            }
+
+            const resultError = (() => {
+                const resultPayload = asRecord(parsed?.result);
+                if (typeof resultPayload?.error === 'string' && resultPayload.error.trim()) {
+                    return resultPayload.error.trim();
+                }
+                return '';
+            })();
+            const responseText = typeof parsed?.response === 'string' && parsed.response.trim()
+                ? parsed.response.trim()
+                : (resultError
+                    ? resultError
+                    : (typeof parsed?.error === 'string' && parsed.error.trim()
+                        ? parsed.error.trim()
+                        : (response.ok ? 'No response returned by the Agent.' : `Request failed: ${response.status}`)));
+            setMusicAgentThread((prev) => [...prev, { role: 'assistant', text: responseText }]);
+        } catch (err) {
+            console.error('Music Agent request failed', err);
+            setMusicAgentError(errorMessage(err) || 'Music Agent request failed.');
+        } finally {
+            setMusicAgentBusy(false);
+        }
+    };
+
+    const handleApplyMusicAgentPatch = async () => {
+        if (!musicAgentPatchedXml.trim()) {
+            alert(musicAgentPatchError || 'No agent-generated patch output is available yet.');
+            return;
+        }
+        setXmlLoading(true);
+        setXmlError(null);
+        try {
+            await applyXmlToScore(musicAgentPatchedXml);
+            setXmlSidebarTab('xml');
+        } catch (err) {
+            console.error('Failed to apply Music Agent patch output', err);
+            alert('Failed to apply Music Agent output. See console for details.');
+        } finally {
+            setXmlLoading(false);
+        }
+    };
 
     const loadNotaGenSpaceOptions = useCallback(async (spaceIdOverride?: string) => {
         const targetSpaceId = (spaceIdOverride ?? musicNotaGenSpaceId).trim() || 'ElectricAlexis/NotaGen';
@@ -9179,6 +9371,20 @@ ${partsBodyXml}
                                             NotaGen
                                         </button>
                                     )}
+                                    {aiEnabled && (
+                                        <button
+                                            type="button"
+                                            data-testid="tab-agent"
+                                            onClick={() => setXmlSidebarTab('agent')}
+                                            className={`rounded border px-2 py-1 ${
+                                                xmlSidebarTab === 'agent'
+                                                    ? 'border-gray-400 bg-gray-100 text-gray-900'
+                                                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                                            }`}
+                                        >
+                                            Agent
+                                        </button>
+                                    )}
                                 </div>
                                 <label className="flex items-center gap-2">
                                     <span className="text-[11px] uppercase tracking-wide text-gray-500">Theme</span>
@@ -9731,6 +9937,178 @@ ${partsBodyXml}
                                             {JSON.stringify(musicNotaGenResult, null, 2)}
                                         </pre>
                                     </div>
+                                )}
+                            </div>
+                        )}
+                        {xmlSidebarTab === 'agent' && aiEnabled && (
+                            <div className="mt-3 space-y-3 text-sm text-gray-700">
+                                <div className="rounded border border-gray-200 bg-gray-50/70 p-3 space-y-3">
+                                    <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                                        Music Agent Router
+                                    </div>
+                                    <div className="grid gap-2 sm:grid-cols-2">
+                                        <div>
+                                            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                Model
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={musicAgentModel}
+                                                onChange={(event) => setMusicAgentModel(event.target.value)}
+                                                className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                                placeholder="gpt-5.2"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                Max Turns
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                max={20}
+                                                value={musicAgentMaxTurns}
+                                                onChange={(event) => setMusicAgentMaxTurns(Math.max(1, Math.min(20, Number(event.target.value) || 1)))}
+                                                className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                            OpenAI API Key (optional)
+                                        </label>
+                                        <input
+                                            type="password"
+                                            value={aiApiKey}
+                                            onChange={(event) => setAiApiKey(event.target.value)}
+                                            className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                            placeholder="Used for fallback patch generation"
+                                        />
+                                    </div>
+                                    <label className="flex items-center gap-2 text-xs text-gray-600">
+                                        <input
+                                            type="checkbox"
+                                            checked={musicAgentIncludeCurrentXml}
+                                            onChange={(event) => setMusicAgentIncludeCurrentXml(event.target.checked)}
+                                            className="h-4 w-4 rounded border-gray-300"
+                                        />
+                                        Include current score MusicXML as tool context
+                                    </label>
+                                    <label className="flex items-center gap-2 text-xs text-gray-600">
+                                        <input
+                                            type="checkbox"
+                                            checked={musicAgentUseFallbackOnly}
+                                            onChange={(event) => setMusicAgentUseFallbackOnly(event.target.checked)}
+                                            className="h-4 w-4 rounded border-gray-300"
+                                        />
+                                        Force fallback mode (no Agents SDK run)
+                                    </label>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between text-xs text-gray-500">
+                                        <span>Conversation</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setMusicAgentThread([]);
+                                                setMusicAgentError(null);
+                                                setMusicAgentResult(null);
+                                                setMusicAgentPatch(null);
+                                                setMusicAgentPatchError(null);
+                                                setMusicAgentPatchedXml('');
+                                            }}
+                                            disabled={musicAgentBusy || (!musicAgentThread.length && !musicAgentResult && !musicAgentPatch)}
+                                            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Clear
+                                        </button>
+                                    </div>
+                                    <div
+                                        ref={musicAgentThreadRef}
+                                        className="max-h-64 min-h-[140px] overflow-y-auto rounded border border-gray-200 bg-gray-50 p-2"
+                                    >
+                                        {musicAgentThread.length ? (
+                                            <div className="space-y-2">
+                                                {musicAgentThread.map((message, index) => (
+                                                    <div
+                                                        key={`${message.role}-${index}-${message.text.slice(0, 12)}`}
+                                                        className={`rounded px-2 py-1 text-xs ${message.role === 'assistant' ? 'bg-blue-50 text-blue-900' : 'bg-white text-gray-800'}`}
+                                                    >
+                                                        <span className="mb-1 block text-[10px] uppercase tracking-wide text-gray-500">
+                                                            {message.role === 'assistant' ? 'Agent' : 'You'}
+                                                        </span>
+                                                        <div className="leading-relaxed whitespace-pre-wrap">
+                                                            {message.text}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="text-xs text-gray-500">
+                                                Ask the router to analyze context, convert notation, or prepare generation requests.
+                                            </div>
+                                        )}
+                                    </div>
+                                    <textarea
+                                        value={musicAgentPrompt}
+                                        onChange={(event) => setMusicAgentPrompt(event.target.value)}
+                                        rows={3}
+                                        className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                        placeholder="Describe what you want the agent to do."
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={handleMusicAgentSend}
+                                        disabled={musicAgentBusy}
+                                        className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {musicAgentBusy ? 'Working...' : 'Send to Agent'}
+                                    </button>
+                                </div>
+                                {musicAgentError && (
+                                    <div className="text-xs text-red-600">
+                                        {musicAgentError}
+                                    </div>
+                                )}
+                                {musicAgentPatchError && (
+                                    <div className="text-xs text-red-600">
+                                        {musicAgentPatchError}
+                                    </div>
+                                )}
+                                {musicAgentPatch && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between text-xs text-gray-500">
+                                            <span>Generated Patch</span>
+                                            <button
+                                                type="button"
+                                                onClick={handleApplyMusicAgentPatch}
+                                                disabled={musicAgentBusy || !musicAgentPatchedXml.trim()}
+                                                className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                Apply Patch
+                                            </button>
+                                        </div>
+                                        <CodeMirrorEditor
+                                            value={JSON.stringify(musicAgentPatch, null, 2)}
+                                            onChange={() => {}}
+                                            readOnly={true}
+                                            language="json"
+                                            placeholderText="Patch output will appear here."
+                                            height={180}
+                                            maxHeight={240}
+                                            themeMode={codeEditorTheme}
+                                        />
+                                    </div>
+                                )}
+                                {musicAgentResult && (
+                                    <details className="rounded border border-gray-200 bg-gray-50 p-2">
+                                        <summary className="cursor-pointer text-xs font-medium text-gray-700">
+                                            Last raw response
+                                        </summary>
+                                        <pre className="mt-2 max-h-64 overflow-auto text-[11px] leading-relaxed text-gray-700 whitespace-pre-wrap">
+                                            {JSON.stringify(musicAgentResult, null, 2)}
+                                        </pre>
+                                    </details>
                                 )}
                             </div>
                         )}

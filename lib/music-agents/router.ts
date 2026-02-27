@@ -3,18 +3,21 @@ import { z } from 'zod';
 import { runMusicContextService } from '../music-services/context-service';
 import { runMusicConvertService } from '../music-services/convert-service';
 import { runMusicGenerateService } from '../music-services/generate-service';
+import { runMusicPatchService } from '../music-services/patch-service';
 import {
   MUSIC_CONTEXT_TOOL_CONTRACT,
   MUSIC_CONVERT_TOOL_CONTRACT,
   MUSIC_GENERATE_TOOL_CONTRACT,
+  MUSIC_PATCH_TOOL_CONTRACT,
 } from '../music-services/contracts';
 
-type MusicAgentToolName = 'music.context' | 'music.convert' | 'music.generate';
+type MusicAgentToolName = 'music.context' | 'music.convert' | 'music.generate' | 'music.patch';
 
 type ToolDefaults = {
   context?: Record<string, unknown>;
   convert?: Record<string, unknown>;
   generate?: Record<string, unknown>;
+  patch?: Record<string, unknown>;
 };
 
 type MusicAgentRunnerContext = {
@@ -33,11 +36,12 @@ const asRecord = (value: unknown): Record<string, unknown> | null => (
 const DEFAULT_MODEL = (process.env.MUSIC_AGENT_MODEL || 'gpt-5.2').trim();
 
 const AGENT_OUTPUT_SCHEMA = z.object({
-  selectedTool: z.enum(['music.context', 'music.convert', 'music.generate']),
+  selectedTool: z.enum(['music.context', 'music.convert', 'music.generate', 'music.patch']),
   toolStatus: z.number().int(),
   toolOk: z.boolean(),
   response: z.string(),
   error: z.string().optional(),
+  result: z.record(z.unknown()).optional(),
 });
 
 function mergeToolInput(
@@ -60,6 +64,10 @@ function classifyPrompt(prompt: string): MusicAgentToolName {
     && (/\bto abc\b/.test(normalized) || /\bto musicxml\b/.test(normalized) || /\bto xml\b/.test(normalized));
   if (isConvert) {
     return 'music.convert';
+  }
+  const isPatch = /\b(change|edit|fix|remove|delete|move|transpose|revoice|beam|re-beam|rest|clef|key signature|time signature|patch|apply)\b/.test(normalized);
+  if (isPatch) {
+    return 'music.patch';
   }
   return 'music.context';
 }
@@ -100,6 +108,34 @@ async function runFallbackRouter(prompt: string, toolInput?: ToolDefaults): Prom
         response: result.status < 400
           ? 'Conversion completed via fallback router.'
           : 'Conversion failed in fallback router.',
+        result: result.body,
+      },
+    };
+  }
+  if (selectedTool === 'music.patch') {
+    const patchDefaults = {
+      ...(toolInput?.patch || {}),
+    };
+    const contextDefaults = asRecord(toolInput?.context);
+    if (!patchDefaults.content && typeof contextDefaults?.content === 'string') {
+      patchDefaults.content = contextDefaults.content;
+    }
+    const result = await runMusicPatchService({
+      ...patchDefaults,
+      prompt: typeof patchDefaults.prompt === 'string' && patchDefaults.prompt.trim()
+        ? patchDefaults.prompt
+        : prompt,
+    });
+    return {
+      status: result.status,
+      body: {
+        mode: 'fallback',
+        selectedTool,
+        toolStatus: result.status,
+        toolOk: result.status < 400,
+        response: result.status < 400
+          ? 'Patch generated via fallback router.'
+          : 'Patch generation failed in fallback router.',
         result: result.body,
       },
     };
@@ -177,6 +213,24 @@ function createMusicRouterAgent() {
     },
   });
 
+  const musicPatchTool = tool({
+    name: MUSIC_PATCH_TOOL_CONTRACT.name,
+    description: MUSIC_PATCH_TOOL_CONTRACT.description,
+    parameters: MUSIC_PATCH_TOOL_CONTRACT.inputSchema,
+    strict: false,
+    execute: async (input, runContext) => {
+      const defaults = (runContext?.context as MusicAgentRunnerContext | undefined)?.toolInput?.patch;
+      const payload = mergeToolInput(defaults, input);
+      const result = await runMusicPatchService(payload);
+      return {
+        tool: 'music.patch',
+        status: result.status,
+        ok: result.status < 400,
+        body: result.body,
+      };
+    },
+  });
+
   return new Agent({
     name: 'MusicRouter',
     model: DEFAULT_MODEL,
@@ -186,10 +240,12 @@ function createMusicRouterAgent() {
       '- music.context: score context extraction and analysis prep.',
       '- music.convert: format conversion between MusicXML and ABC.',
       '- music.generate: generation/composition requests.',
+      '- music.patch: score edit requests that should produce a musicxml-patch@1 payload.',
       'Call one tool first, inspect its result, then produce final output using the required schema.',
+      'When available, include the chosen tool output body in `result`.',
       'Keep response concise and mention why the selected tool was chosen.',
     ].join('\n'),
-    tools: [musicContextTool, musicConvertTool, musicGenerateTool],
+    tools: [musicContextTool, musicConvertTool, musicGenerateTool, musicPatchTool],
     outputType: AGENT_OUTPUT_SCHEMA,
   });
 }
@@ -208,7 +264,17 @@ export async function runMusicAgentRouter(body: unknown): Promise<MusicAgentResu
   const useFallbackOnly = Boolean(data?.useFallbackOnly);
   const openaiApiKey = (process.env.OPENAI_API_KEY || '').trim();
   if (useFallbackOnly || !openaiApiKey) {
-    return runFallbackRouter(prompt, toolInput || undefined);
+    try {
+      return await runFallbackRouter(prompt, toolInput || undefined);
+    } catch (error) {
+      return {
+        status: 500,
+        body: {
+          error: error instanceof Error ? error.message : 'Fallback music router failed.',
+          mode: 'fallback',
+        },
+      };
+    }
   }
 
   const requestedModel = typeof data?.model === 'string' ? data.model.trim() : '';

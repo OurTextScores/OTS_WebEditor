@@ -5,6 +5,7 @@ const mocked = vi.hoisted(() => ({
   runMusicContextService: vi.fn(),
   runMusicConvertService: vi.fn(),
   runMusicGenerateService: vi.fn(),
+  runMusicPatchService: vi.fn(),
 }));
 
 vi.mock('@openai/agents', () => {
@@ -31,6 +32,10 @@ vi.mock('../lib/music-services/convert-service', () => ({
 
 vi.mock('../lib/music-services/generate-service', () => ({
   runMusicGenerateService: mocked.runMusicGenerateService,
+}));
+
+vi.mock('../lib/music-services/patch-service', () => ({
+  runMusicPatchService: mocked.runMusicPatchService,
 }));
 
 import { runMusicAgentRouter } from '../lib/music-agents/router';
@@ -116,6 +121,42 @@ describe('runMusicAgentRouter', () => {
     );
   });
 
+  it('uses fallback router and patch service for edit prompts', async () => {
+    delete process.env.OPENAI_API_KEY;
+    mocked.runMusicPatchService.mockResolvedValue({
+      status: 200,
+      body: {
+        mode: 'openai-responses',
+        patch: {
+          format: 'musicxml-patch@1',
+          ops: [{ op: 'delete', path: '/score-partwise/part[@id=\'P1\']/measure[@number=\'1\']/direction[1]' }],
+        },
+      },
+    });
+
+    const result = await runMusicAgentRouter({
+      prompt: 'Change key signature to G major and remove CLEAN VERSION text',
+      toolInput: {
+        context: {
+          content: '<score-partwise version="3.1"></score-partwise>',
+        },
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({
+      mode: 'fallback',
+      selectedTool: 'music.patch',
+      toolOk: true,
+    });
+    expect(mocked.runMusicPatchService).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: 'Change key signature to G major and remove CLEAN VERSION text',
+        content: '<score-partwise version="3.1"></score-partwise>',
+      }),
+    );
+  });
+
   it('uses Agents SDK path when OPENAI_API_KEY is set', async () => {
     process.env.OPENAI_API_KEY = 'sk-test';
     mocked.run.mockResolvedValue({
@@ -164,4 +205,3 @@ describe('runMusicAgentRouter', () => {
     });
   });
 });
-

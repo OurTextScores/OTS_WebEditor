@@ -12,7 +12,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:music-services": "vitest run unit/music-conversion.test.ts unit/convert-service.test.ts unit/context-service.test.ts unit/generate-service.test.ts unit/convert-route.test.ts unit/context-route.test.ts unit/generate-route.test.ts unit/music-agent-router.test.ts unit/music-agent-route.test.ts unit/music-specialists-tool.test.ts unit/music-service-contracts.test.ts",
+    "test:music-services": "vitest run unit/music-conversion.test.ts unit/convert-service.test.ts unit/context-service.test.ts unit/generate-service.test.ts unit/patch-service.test.ts unit/convert-route.test.ts unit/context-route.test.ts unit/generate-route.test.ts unit/music-agent-router.test.ts unit/music-agent-route.test.ts unit/music-specialists-tool.test.ts unit/music-service-contracts.test.ts",
     "test:watch": "vitest",
     "test:e2e:music": "playwright test tests/music-api-smoke.spec.ts --workers=1",
     "coverage": "vitest run --coverage",
