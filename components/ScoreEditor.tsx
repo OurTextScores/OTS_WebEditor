@@ -35,6 +35,11 @@ import {
     resolveLlmApiPath,
     resolveScoreEditorApiPath,
 } from '../lib/score-editor-api-client';
+import {
+    extractTraceContextFromHeaders,
+    getOrCreateEditorSessionId,
+    trackEditorAnalyticsEvent,
+} from '../lib/editor-analytics';
 
 type SelectionBox = {
     index: number | null;
@@ -217,6 +222,20 @@ type AiPdfAttachment = {
 type AiChatMessage = {
     role: 'user' | 'assistant';
     text: string;
+};
+
+type EditorTraceContext = {
+    requestId?: string;
+    traceId?: string;
+};
+
+type EditorTelemetryCounters = {
+    documentsLoaded: number;
+    documentLoadFailures: number;
+    aiRequests: number;
+    aiFailures: number;
+    patchApplies: number;
+    patchApplyFailures: number;
 };
 
 interface InstrumentTemplate {
@@ -734,6 +753,74 @@ export default function ScoreEditor() {
     const largeSessionXmlAutoloadDeferredLoggedRef = useRef(false);
     const backgroundInitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const scoreOperationQueueRef = useRef<Promise<void>>(Promise.resolve());
+    const editorSessionIdRef = useRef('');
+    const editorMountedAtRef = useRef(0);
+    const lastApiTraceContextRef = useRef<EditorTraceContext>({});
+    const telemetryCountersRef = useRef<EditorTelemetryCounters>({
+        documentsLoaded: 0,
+        documentLoadFailures: 0,
+        aiRequests: 0,
+        aiFailures: 0,
+        patchApplies: 0,
+        patchApplyFailures: 0,
+    });
+
+    const captureApiTraceContext = useCallback((headers: Headers | null | undefined) => {
+        const trace = extractTraceContextFromHeaders(headers);
+        if (trace.requestId || trace.traceId) {
+            lastApiTraceContextRef.current = trace;
+        }
+        return trace;
+    }, []);
+
+    const emitEditorTelemetry = useCallback((
+        eventName: string,
+        properties?: Record<string, string | number | boolean | null | undefined>,
+        options?: { beacon?: boolean },
+    ) => {
+        const sessionId = editorSessionIdRef.current || getOrCreateEditorSessionId();
+        editorSessionIdRef.current = sessionId;
+        const lastTrace = lastApiTraceContextRef.current;
+        trackEditorAnalyticsEvent(eventName, {
+            editor_surface: isEmbedBuild ? 'embedded' : 'standalone',
+            editor_session_id: sessionId || undefined,
+            api_request_id: lastTrace.requestId || undefined,
+            api_trace_id: lastTrace.traceId || undefined,
+            ...(properties || {}),
+        }, options);
+    }, [isEmbedBuild]);
+
+    useEffect(() => {
+        if (!editorSessionIdRef.current) {
+            editorSessionIdRef.current = getOrCreateEditorSessionId();
+        }
+        editorMountedAtRef.current = Date.now();
+        emitEditorTelemetry('score_editor_runtime_loaded');
+        return () => {
+            const durationMs = Math.max(0, Date.now() - editorMountedAtRef.current);
+            const counters = telemetryCountersRef.current;
+            // In React strict-mode development mounts can be immediately torn down.
+            // Ignore near-zero lifecycle noise unless actual user work happened.
+            const hasActivity = (
+                counters.documentsLoaded > 0
+                || counters.documentLoadFailures > 0
+                || counters.aiRequests > 0
+                || counters.patchApplies > 0
+            );
+            if (durationMs < 1500 && !hasActivity) {
+                return;
+            }
+            emitEditorTelemetry('score_editor_session_summary', {
+                duration_ms: durationMs,
+                documents_loaded: counters.documentsLoaded,
+                document_load_failures: counters.documentLoadFailures,
+                ai_requests: counters.aiRequests,
+                ai_failures: counters.aiFailures,
+                patch_applies: counters.patchApplies,
+                patch_apply_failures: counters.patchApplyFailures,
+            }, { beacon: true });
+        };
+    }, [emitEditorTelemetry]);
 
     const detectInputFormat = (source: string): InputFileFormat => {
         const normalized = source.toLowerCase().split('#')[0].split('?')[0];
@@ -1423,7 +1510,11 @@ export default function ScoreEditor() {
                 // Load right file as main score
                 const rightBlob = new Blob([rightXml], { type: 'application/xml' });
                 const rightFile = new File([rightBlob], 'right.xml');
-                await handleFileUpload(rightFile, { preserveScoreId: false, updateUrl: false });
+                await handleFileUpload(rightFile, {
+                    preserveScoreId: false,
+                    updateUrl: false,
+                    telemetrySource: 'compare_load_right',
+                });
 
                 // Set up compare view
                 setCompareView({
@@ -1460,7 +1551,11 @@ export default function ScoreEditor() {
                 // Create a File object and load it
                 const blob = new Blob([xml], { type: 'application/xml' });
                 const file = new File([blob], filename);
-                await handleFileUpload(file, { preserveScoreId: false, updateUrl: false });
+                await handleFileUpload(file, {
+                    preserveScoreId: false,
+                    updateUrl: false,
+                    telemetrySource: 'session_restore',
+                });
             } catch (err) {
                 console.error('Failed to load score from session:', err);
             }
@@ -2354,7 +2449,13 @@ ${partsBodyXml}
         return { ok: true, currentXml };
     };
 
-    const applyXmlToScore = async (sourceXml: string) => {
+    const applyXmlToScore = async (
+        sourceXml: string,
+        options?: {
+            telemetrySource?: string;
+            inputFormat?: string;
+        },
+    ) => {
         if (!score) {
             alert('Load a score before applying XML edits.');
             return;
@@ -2373,9 +2474,31 @@ ${partsBodyXml}
         const filenameBase = scoreTitle ? toSafeFilename(scoreTitle) : 'score';
         const file = new File([encoded], `${filenameBase}.musicxml`, { type: 'application/xml' });
         setXmlDirty(false);
-        await handleFileUpload(file, { preserveScoreId: true, updateUrl: false });
-        setScoreDirtySinceCheckpoint(willChange);
-        setScoreDirtySinceXml(false);
+        const applyStartedAt = Date.now();
+        const applied = await handleFileUpload(file, {
+            preserveScoreId: true,
+            updateUrl: false,
+            telemetrySource: options?.telemetrySource || 'xml_apply',
+        });
+        if (applied) {
+            telemetryCountersRef.current.patchApplies += 1;
+            emitEditorTelemetry('score_editor_patch_applied', {
+                source: options?.telemetrySource || 'xml_apply',
+                input_format: options?.inputFormat || 'musicxml',
+                outcome: 'success',
+                duration_ms: Math.max(0, Date.now() - applyStartedAt),
+            });
+            setScoreDirtySinceCheckpoint(willChange);
+            setScoreDirtySinceXml(false);
+        } else {
+            telemetryCountersRef.current.patchApplyFailures += 1;
+            emitEditorTelemetry('score_editor_patch_applied', {
+                source: options?.telemetrySource || 'xml_apply',
+                input_format: options?.inputFormat || 'musicxml',
+                outcome: 'failure',
+                duration_ms: Math.max(0, Date.now() - applyStartedAt),
+            });
+        }
     };
 
 
@@ -3268,10 +3391,11 @@ ${partsBodyXml}
         void runTasks(0);
     };
 
-    const handleUrlLoad = async (url: string, signal?: AbortSignal) => {
+    const handleUrlLoad = async (url: string, signal?: AbortSignal): Promise<boolean> => {
         if (signal?.aborted) {
-            return;
+            return false;
         }
+        const loadStartedAt = Date.now();
         clearScheduledBackgroundInit();
         const urlScoreId = searchParams.get('scoreId') || `url:${url}`;
         if (urlScoreId !== scoreId) {
@@ -3398,11 +3522,29 @@ ${partsBodyXml}
                     : undefined,
             });
 
+            telemetryCountersRef.current.documentsLoaded += 1;
+            emitEditorTelemetry('score_editor_document_loaded', {
+                load_source: 'url',
+                input_format: format,
+                input_bytes: inputByteLength,
+                duration_ms: Math.max(0, Date.now() - loadStartedAt),
+                progressive_paging: progressivePaging,
+                has_more_pages: progressivePaging && progressiveHasMore,
+                engine_mode: engineMode,
+            });
+
             // segmentPositions causes a crash in this version of webmscore/emscripten environment
             // We will use DOM-based hit testing on the SVG elements instead.
-
+            return true;
         } catch (err) {
             console.error('Error auto-loading file:', err);
+            telemetryCountersRef.current.documentLoadFailures += 1;
+            emitEditorTelemetry('score_editor_document_load_failed', {
+                load_source: 'url',
+                duration_ms: Math.max(0, Date.now() - loadStartedAt),
+                error: errorMessage(err),
+            });
+            return false;
         } finally {
             if (!signal?.aborted) {
                 setLoading(false);
@@ -3417,12 +3559,15 @@ ${partsBodyXml}
             scoreIdOverride?: string;
             updateUrl?: boolean;
             createInitialCheckpoint?: boolean;
+            telemetrySource?: string;
         },
-    ) => {
+    ): Promise<boolean> => {
         clearScheduledBackgroundInit();
         setLoading(true);
+        const loadStartedAt = Date.now();
         const uploadStart = performance.now();
         const isLargeUpload = file.size >= LARGE_SCORE_THRESHOLD_BYTES;
+        const telemetrySource = options?.telemetrySource || 'file_upload';
         const logUploadStage = (stage: string, extra?: unknown) => {
             if (!isLargeUpload) {
                 return;
@@ -3477,15 +3622,22 @@ ${partsBodyXml}
         largeScoreSessionRef.current = false;
         largeSessionXmlAutoloadDeferredLoggedRef.current = false;
         autoFitPendingRef.current = true;
+        let format: InputFileFormat | '' = '';
+        let inputByteLength = 0;
+        let engineMode: string | undefined;
+        let progressivePaging = false;
+        let progressiveHasMore = false;
         try {
             logUploadStage('read-buffer:start');
             const buffer = await file.arrayBuffer();
             const data = new Uint8Array(buffer);
-            const inputByteLength = data.byteLength;
+            inputByteLength = data.byteLength;
             largeScoreSessionRef.current = isLargeUpload;
             logUploadStage('read-buffer:done', { bytes: inputByteLength });
-            const format = detectInputFormat(file.name);
-            const { webMscore: WebMscore, mode: engineMode } = await resolveWebMscoreEngine();
+            format = detectInputFormat(file.name);
+            const resolvedEngine = await resolveWebMscoreEngine();
+            const WebMscore = resolvedEngine.webMscore;
+            engineMode = resolvedEngine.mode;
             logUploadStage('webmscore-ready', { engineMode });
 
             // But wait, we need to destroy previous score if exists
@@ -3493,7 +3645,10 @@ ${partsBodyXml}
                 score.destroy();
             }
 
-            const { loadedScore, progressivePaging, progressiveHasMore, initialAvailablePages } = await loadScoreWithInitialLayout(WebMscore, format, data);
+            const loadResult = await loadScoreWithInitialLayout(WebMscore, format, data);
+            const { loadedScore, progressivePaging: nextProgressivePaging, progressiveHasMore: nextProgressiveHasMore, initialAvailablePages } = loadResult;
+            progressivePaging = nextProgressivePaging;
+            progressiveHasMore = nextProgressiveHasMore;
             logUploadStage('load-score:done', { progressivePaging, progressiveHasMore, initialAvailablePages });
             setScore(loadedScore);
             scoreRef.current = loadedScore;
@@ -3557,16 +3712,40 @@ ${partsBodyXml}
                 checkpointScoreId: nextScoreId,
                 logStage: logUploadStage,
             });
+            telemetryCountersRef.current.documentsLoaded += 1;
+            emitEditorTelemetry('score_editor_document_loaded', {
+                load_source: telemetrySource,
+                input_format: format,
+                input_bytes: inputByteLength,
+                duration_ms: Math.max(0, Date.now() - loadStartedAt),
+                progressive_paging: progressivePaging,
+                has_more_pages: progressivePaging && progressiveHasMore,
+                engine_mode: engineMode,
+            });
+            return true;
 
         } catch (err) {
             console.error('Error loading file:', err);
             alert('Failed to load score. See console for details.');
+            telemetryCountersRef.current.documentLoadFailures += 1;
+            emitEditorTelemetry('score_editor_document_load_failed', {
+                load_source: telemetrySource,
+                input_format: format || undefined,
+                input_bytes: inputByteLength || undefined,
+                duration_ms: Math.max(0, Date.now() - loadStartedAt),
+                engine_mode: engineMode,
+                error: errorMessage(err),
+            });
+            return false;
         } finally {
             setLoading(false);
         }
     };
 
-    const handleLoadScoreUpload = (file: File) => handleFileUpload(file, { createInitialCheckpoint: true });
+    const handleLoadScoreUpload = (file: File) => handleFileUpload(file, {
+        createInitialCheckpoint: true,
+        telemetrySource: 'file_upload',
+    });
 
     const refreshPageCount = async (targetScore: Score, preferredPage: number = currentPageRef.current) => {
         if (!targetScore?.npages) {
@@ -3852,7 +4031,7 @@ ${partsBodyXml}
             }
 
             if (targetScore === score) {
-                await applyXmlToScore(patched.xml);
+                await applyXmlToScore(patched.xml, { telemetrySource: 'compare_overwrite' });
                 setCompareView((prev) => (prev ? { ...prev, currentXml: patched.xml } : prev));
             } else {
                 setCompareView((prev) => (prev ? { ...prev, checkpointXml: patched.xml } : prev));
@@ -4121,7 +4300,11 @@ ${partsBodyXml}
         const nextScoreId = `new:${crypto.randomUUID()}`;
         setScoreId(nextScoreId);
         updateUrlScoreId(nextScoreId);
-        await handleFileUpload(file, { scoreIdOverride: nextScoreId, updateUrl: false });
+        await handleFileUpload(file, {
+            scoreIdOverride: nextScoreId,
+            updateUrl: false,
+            telemetrySource: 'new_score',
+        });
     };
 
     const handleSelectScoreSummary = (nextScoreId: string) => {
@@ -4280,7 +4463,11 @@ ${partsBodyXml}
             }
             const filename = `${toSafeFilename(checkpoint.title)}.musicxml`;
             const file = new File([new Uint8Array(record.data)], filename, { type: 'application/xml' });
-            await handleFileUpload(file, { preserveScoreId: true, updateUrl: false });
+            await handleFileUpload(file, {
+                preserveScoreId: true,
+                updateUrl: false,
+                telemetrySource: 'checkpoint_restore',
+            });
         } catch (err) {
             console.error('Failed to restore checkpoint', err);
             alert('Failed to restore checkpoint. See console for details.');
@@ -4914,7 +5101,7 @@ ${partsBodyXml}
         setXmlLoading(true);
         setXmlError(null);
         try {
-            await applyXmlToScore(xmlText);
+            await applyXmlToScore(xmlText, { telemetrySource: 'manual_xml' });
         } catch (err) {
             console.error('Failed to apply MusicXML edits', err);
             alert('Failed to apply MusicXML edits. See console for details.');
@@ -4992,6 +5179,7 @@ ${partsBodyXml}
                     maxTokens: maxTokens ?? undefined,
                 }),
             });
+            captureApiTraceContext(response.headers);
             if (response.ok) {
                 const data = await response.json();
                 return typeof data?.text === 'string' ? data.text : '';
@@ -5140,6 +5328,10 @@ ${partsBodyXml}
         setAiPatch(null);
         setAiPatchError(null);
         setAiPatchedXml('');
+        const requestStartedAt = Date.now();
+        let requestIssued = false;
+        let outcome: 'success' | 'failure' = 'failure';
+        let failureReason = '';
         try {
             const promptSections: AiPromptSection[] = [];
             const xmlContext = aiIncludeXml ? await resolveXmlContext() : '';
@@ -5205,6 +5397,8 @@ ${partsBodyXml}
             setAiBaseXml(baseXml);
             const maxTokens = aiMaxTokensMode === 'custom' ? aiMaxTokens : null;
             const promptText = buildAiPrompt(aiPrompt, promptSections);
+            requestIssued = true;
+            telemetryCountersRef.current.aiRequests += 1;
             const patchResponse = await requestAiPatchTextWithRetry({
                 provider: aiProvider,
                 apiKey: aiApiKey,
@@ -5218,21 +5412,36 @@ ${partsBodyXml}
                 maxTokens,
             });
             if (!patchResponse.extracted) {
+                const missingPatchMessage = patchResponse.retried
+                    ? 'No patch was returned by the model after a retry with stricter JSON instructions.'
+                    : 'No patch was returned by the model.';
+                failureReason = missingPatchMessage;
                 setAiOutput(patchResponse.rawText || '');
-                setAiError(
-                    patchResponse.retried
-                        ? 'No patch was returned by the model after a retry with stricter JSON instructions.'
-                        : 'No patch was returned by the model.',
-                );
+                setAiError(missingPatchMessage);
                 return;
             }
             await updateAiOutput(patchResponse.extracted, baseXml);
+            outcome = 'success';
         } catch (err) {
             console.error('AI request failed', err);
             const message = errorMessage(err);
+            failureReason = message || 'AI request failed. See console for details.';
             setAiError(message || 'AI request failed. See console for details.');
         } finally {
             setAiBusy(false);
+            if (requestIssued) {
+                if (outcome === 'failure') {
+                    telemetryCountersRef.current.aiFailures += 1;
+                }
+                emitEditorTelemetry('score_editor_ai_request', {
+                    channel: 'assistant_patch',
+                    provider: aiProvider,
+                    model: aiModel,
+                    outcome,
+                    duration_ms: Math.max(0, Date.now() - requestStartedAt),
+                    error: outcome === 'failure' ? failureReason || undefined : undefined,
+                });
+            }
         }
     };
 
@@ -5263,6 +5472,10 @@ ${partsBodyXml}
 
         setAiBusy(true);
         setAiError(null);
+        const requestStartedAt = Date.now();
+        let requestIssued = false;
+        let outcome: 'success' | 'failure' = 'failure';
+        let failureReason = '';
         try {
             const promptSections: AiPromptSection[] = [];
             const xmlContext = aiIncludeXml ? await resolveXmlContext() : '';
@@ -5332,6 +5545,8 @@ ${partsBodyXml}
             setAiChatInput('');
             setAiChatMessages(nextMessages);
             const maxTokens = aiMaxTokensMode === 'custom' ? aiMaxTokens : null;
+            requestIssued = true;
+            telemetryCountersRef.current.aiRequests += 1;
             const rawText = await requestAiText({
                 provider: aiProvider,
                 apiKey: aiApiKey,
@@ -5346,16 +5561,32 @@ ${partsBodyXml}
             });
             const responseText = rawText.trim();
             if (!responseText) {
-                setAiError('No response was returned by the model.');
+                failureReason = 'No response was returned by the model.';
+                setAiError(failureReason);
                 return;
             }
             setAiChatMessages((prev) => [...prev, { role: 'assistant', text: responseText }]);
+            outcome = 'success';
         } catch (err) {
             console.error('AI chat request failed', err);
             const message = errorMessage(err);
-            setAiError(message || 'AI chat request failed. See console for details.');
+            failureReason = message || 'AI chat request failed. See console for details.';
+            setAiError(failureReason);
         } finally {
             setAiBusy(false);
+            if (requestIssued) {
+                if (outcome === 'failure') {
+                    telemetryCountersRef.current.aiFailures += 1;
+                }
+                emitEditorTelemetry('score_editor_ai_request', {
+                    channel: 'assistant_chat',
+                    provider: aiProvider,
+                    model: aiModel,
+                    outcome,
+                    duration_ms: Math.max(0, Date.now() - requestStartedAt),
+                    error: outcome === 'failure' ? failureReason || undefined : undefined,
+                });
+            }
         }
     };
 
@@ -5367,6 +5598,7 @@ ${partsBodyXml}
             },
             body: JSON.stringify(body),
         });
+        captureApiTraceContext(response.headers);
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
             const message = typeof asRecord(payload)?.error === 'string'
@@ -5375,7 +5607,7 @@ ${partsBodyXml}
             throw new Error(message);
         }
         return asRecord(payload) || {};
-    }, []);
+    }, [captureApiTraceContext]);
 
     const handleMusicAgentSend = async () => {
         const prompt = musicAgentPrompt.trim();
@@ -5390,6 +5622,11 @@ ${partsBodyXml}
         setMusicAgentPatch(null);
         setMusicAgentPatchError(null);
         setMusicAgentPatchedXml('');
+        const requestStartedAt = Date.now();
+        let requestIssued = false;
+        let outcome: 'success' | 'failure' = 'failure';
+        let failureReason = '';
+        let selectedTool = '';
         try {
             let xmlContext = '';
             if (musicAgentIncludeCurrentXml) {
@@ -5445,6 +5682,8 @@ ${partsBodyXml}
             setMusicAgentPrompt('');
             setMusicAgentThread((prev) => [...prev, { role: 'user', text: prompt }]);
 
+            requestIssued = true;
+            telemetryCountersRef.current.aiRequests += 1;
             const response = await fetch(resolveScoreEditorApiPath('/api/music/agent'), {
                 method: 'POST',
                 headers: {
@@ -5452,11 +5691,12 @@ ${partsBodyXml}
                 },
                 body: JSON.stringify(payload),
             });
+            captureApiTraceContext(response.headers);
             const parsedPayload = await response.json().catch(() => ({}));
             const parsed = asRecord(parsedPayload) || {};
             setMusicAgentResult(parsed);
 
-            const selectedTool = typeof parsed?.selectedTool === 'string' ? parsed.selectedTool : '';
+            selectedTool = typeof parsed?.selectedTool === 'string' ? parsed.selectedTool : '';
             if (selectedTool === 'music.patch') {
                 const resultPayload = asRecord(parsed?.result);
                 const maybePatch = asRecord(resultPayload?.patch);
@@ -5488,7 +5728,7 @@ ${partsBodyXml}
                 const nextXml = typeof outputPayload?.content === 'string' ? outputPayload.content : '';
                 if (nextXml.trim()) {
                     try {
-                        await applyXmlToScore(nextXml);
+                        await applyXmlToScore(nextXml, { telemetrySource: 'music_agent_scoreops' });
                         setXmlSidebarTab('xml');
                     } catch (applyErr) {
                         console.error('Failed to apply Music Agent scoreops output', applyErr);
@@ -5504,6 +5744,7 @@ ${partsBodyXml}
                     ? parsed.error.trim()
                     : `Request failed: ${response.status}`;
                 setMusicAgentError(nonOkMessage);
+                failureReason = nonOkMessage;
             }
 
             const resultError = (() => {
@@ -5513,6 +5754,9 @@ ${partsBodyXml}
                 }
                 return '';
             })();
+            if (resultError && !failureReason) {
+                failureReason = resultError;
+            }
             const responseText = typeof parsed?.response === 'string' && parsed.response.trim()
                 ? parsed.response.trim()
                 : (resultError
@@ -5521,11 +5765,30 @@ ${partsBodyXml}
                         ? parsed.error.trim()
                         : (response.ok ? 'No response returned by the Agent.' : `Request failed: ${response.status}`)));
             setMusicAgentThread((prev) => [...prev, { role: 'assistant', text: responseText }]);
+            if (response.ok && !failureReason) {
+                outcome = 'success';
+            }
         } catch (err) {
             console.error('Music Agent request failed', err);
-            setMusicAgentError(errorMessage(err) || 'Music Agent request failed.');
+            failureReason = errorMessage(err) || 'Music Agent request failed.';
+            setMusicAgentError(failureReason);
         } finally {
             setMusicAgentBusy(false);
+            if (requestIssued) {
+                if (outcome === 'failure') {
+                    telemetryCountersRef.current.aiFailures += 1;
+                }
+                emitEditorTelemetry('score_editor_ai_request', {
+                    channel: 'music_agent',
+                    model: musicAgentModel.trim() || undefined,
+                    selected_tool: selectedTool || undefined,
+                    fallback_only: musicAgentUseFallbackOnly,
+                    include_xml: musicAgentIncludeCurrentXml,
+                    outcome,
+                    duration_ms: Math.max(0, Date.now() - requestStartedAt),
+                    error: outcome === 'failure' ? failureReason || undefined : undefined,
+                });
+            }
         }
     };
 
@@ -5537,7 +5800,7 @@ ${partsBodyXml}
         setXmlLoading(true);
         setXmlError(null);
         try {
-            await applyXmlToScore(musicAgentPatchedXml);
+            await applyXmlToScore(musicAgentPatchedXml, { telemetrySource: 'music_agent_patch' });
             setXmlSidebarTab('xml');
         } catch (err) {
             console.error('Failed to apply Music Agent patch output', err);
@@ -5607,8 +5870,14 @@ ${partsBodyXml}
         setMusicNotaGenGeneratedAbc('');
         setMusicNotaGenProgressLog('');
         setMusicNotaGenStatusText('');
+        const requestStartedAt = Date.now();
+        let requestIssued = false;
+        let outcome: 'success' | 'failure' = 'failure';
+        let failureReason = '';
         try {
             if (!musicNotaGenDryRun) {
+                requestIssued = true;
+                telemetryCountersRef.current.aiRequests += 1;
                 const response = await fetch(resolveScoreEditorApiPath('/api/music/generate/stream'), {
                     method: 'POST',
                     headers: {
@@ -5625,11 +5894,13 @@ ${partsBodyXml}
                         includeContent: true,
                     }),
                 });
+                captureApiTraceContext(response.headers);
                 if (!response.ok || !response.body) {
                     const payload = await response.json().catch(() => ({}));
                     const message = typeof asRecord(payload)?.error === 'string'
                         ? String(asRecord(payload)?.error)
                         : `Request failed: ${response.status}`;
+                    failureReason = message;
                     throw new Error(message);
                 }
 
@@ -5707,6 +5978,7 @@ ${partsBodyXml}
                             handleSseEvent(eventName, dataLines.join('\n'));
                         }
                         if (streamError && !finalResult) {
+                            failureReason = streamError;
                             throw new Error(streamError);
                         }
                         sepIndex = buffer.indexOf('\n\n');
@@ -5718,7 +5990,8 @@ ${partsBodyXml}
                 }
 
                 if (!finalResult) {
-                    throw new Error(streamError || 'NotaGen Space stream ended without a final result.');
+                    failureReason = streamError || 'NotaGen Space stream ended without a final result.';
+                    throw new Error(failureReason);
                 }
 
                 setMusicNotaGenResult(finalResult);
@@ -5729,9 +6002,12 @@ ${partsBodyXml}
                 const musicxml = typeof content?.musicxml === 'string' ? content.musicxml : '';
                 setMusicNotaGenGeneratedAbc(abc);
                 setMusicNotaGenGeneratedXml(musicxml);
+                outcome = 'success';
                 return;
             }
 
+            requestIssued = true;
+            telemetryCountersRef.current.aiRequests += 1;
             const payload = await postScoreEditorJson('/api/music/generate', {
                 backend: 'huggingface-space',
                 spaceId: musicNotaGenSpaceId || undefined,
@@ -5752,11 +6028,30 @@ ${partsBodyXml}
             const musicxml = typeof content?.musicxml === 'string' ? content.musicxml : '';
             setMusicNotaGenGeneratedAbc(abc);
             setMusicNotaGenGeneratedXml(musicxml);
+            outcome = 'success';
         } catch (err) {
             console.error('NotaGen request failed', err);
-            setMusicNotaGenError(errorMessage(err) || 'NotaGen request failed.');
+            failureReason = errorMessage(err) || 'NotaGen request failed.';
+            setMusicNotaGenError(failureReason);
         } finally {
             setMusicNotaGenBusy(false);
+            if (requestIssued) {
+                if (outcome === 'failure') {
+                    telemetryCountersRef.current.aiFailures += 1;
+                }
+                emitEditorTelemetry('score_editor_ai_request', {
+                    channel: 'notagen',
+                    backend: 'huggingface-space',
+                    model: musicNotaGenModelId.trim() || undefined,
+                    space_id: musicNotaGenSpaceId.trim() || undefined,
+                    period: musicNotaGenSpacePeriod,
+                    composer: musicNotaGenSpaceComposer,
+                    instrumentation: musicNotaGenSpaceInstrumentation,
+                    outcome,
+                    duration_ms: Math.max(0, Date.now() - requestStartedAt),
+                    error: outcome === 'failure' ? failureReason || undefined : undefined,
+                });
+            }
         }
     };
 
@@ -5816,9 +6111,13 @@ ${partsBodyXml}
                     ? `notagen-${toSafeFilename(musicNotaGenSpaceComposer)}`
                     : 'notagen-output';
                 const file = new File([encoded], `${filenameBase}.musicxml`, { type: 'application/xml' });
-                await handleFileUpload(file, { preserveScoreId: false, updateUrl: false });
+                await handleFileUpload(file, {
+                    preserveScoreId: false,
+                    updateUrl: false,
+                    telemetrySource: 'notagen_output',
+                });
             } else {
-                await applyXmlToScore(musicNotaGenGeneratedXml);
+                await applyXmlToScore(musicNotaGenGeneratedXml, { telemetrySource: 'notagen_output' });
             }
             setXmlSidebarTab('xml');
         } catch (err) {
@@ -5837,7 +6136,7 @@ ${partsBodyXml}
         setXmlLoading(true);
         setXmlError(null);
         try {
-            await applyXmlToScore(aiPatchedXml);
+            await applyXmlToScore(aiPatchedXml, { telemetrySource: 'assistant_patch' });
         } catch (err) {
             console.error('Failed to apply AI XML', err);
             alert('Failed to apply AI XML. See console for details.');
