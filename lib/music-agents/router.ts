@@ -32,6 +32,18 @@ type MusicAgentResult = {
   body: Record<string, unknown>;
 };
 
+type MusicAgentTraceLogLevel = 'info' | 'warn' | 'error';
+
+type MusicAgentTraceContext = {
+  traceId?: string;
+  detailed?: boolean;
+  log?: (level: MusicAgentTraceLogLevel, event: string, payload: Record<string, unknown>) => void;
+};
+
+type RunMusicAgentRouterOptions = {
+  trace?: MusicAgentTraceContext;
+};
+
 const asRecord = (value: unknown): Record<string, unknown> | null => (
   value && typeof value === 'object' ? value as Record<string, unknown> : null
 );
@@ -55,6 +67,21 @@ function mergeToolInput(
     ...(defaults || {}),
     ...(asRecord(input) || {}),
   };
+}
+
+function traceLog(
+  trace: MusicAgentTraceContext | undefined,
+  event: string,
+  payload: Record<string, unknown>,
+  level: MusicAgentTraceLogLevel = 'info',
+) {
+  if (!trace?.detailed || !trace.log) {
+    return;
+  }
+  trace.log(level, event, {
+    ...(trace.traceId ? { traceId: trace.traceId } : {}),
+    ...payload,
+  });
 }
 
 function classifyPrompt(prompt: string): MusicAgentToolName {
@@ -94,7 +121,11 @@ async function runPatchFallback(
   patchDefaults: Record<string, unknown>,
   scoreOpsAttempt: unknown,
   reason: string,
+  trace?: MusicAgentTraceContext,
 ): Promise<MusicAgentResult> {
+  traceLog(trace, 'music_agent.patch_fallback.start', {
+    reason,
+  });
   const patchResult = await runMusicPatchService({
     ...patchDefaults,
     prompt: typeof patchDefaults.prompt === 'string' && patchDefaults.prompt.trim()
@@ -121,8 +152,15 @@ async function runPatchFallback(
   };
 }
 
-async function runFallbackRouter(prompt: string, toolInput?: ToolDefaults): Promise<MusicAgentResult> {
+async function runFallbackRouter(
+  prompt: string,
+  toolInput?: ToolDefaults,
+  trace?: MusicAgentTraceContext,
+): Promise<MusicAgentResult> {
   const selectedTool = classifyPrompt(prompt);
+  traceLog(trace, 'music_agent.fallback.selected_tool', {
+    selectedTool,
+  });
   if (selectedTool === 'music.generate') {
     const result = await runMusicGenerateService({
       ...(toolInput?.generate || {}),
@@ -211,6 +249,12 @@ async function runFallbackRouter(prompt: string, toolInput?: ToolDefaults): Prom
       unsupportedSteps,
       hasSupportedPlan,
     } = extractPlannerDetails(scoreOpsBody);
+    traceLog(trace, 'music_agent.scoreops.initial_result', {
+      status: scoreOpsResult.status,
+      hasSupportedPlan,
+      parsedOpsCount: parsedOps.length,
+      unsupportedStepCount: unsupportedSteps.length,
+    });
 
     if (scoreOpsResult.status < 400) {
       return {
@@ -243,10 +287,13 @@ async function runFallbackRouter(prompt: string, toolInput?: ToolDefaults): Prom
     const errorCode = typeof error?.code === 'string' ? error.code : '';
 
     if (errorCode === 'unsupported_op' && !hasSupportedPlan) {
-      return runPatchFallback(prompt, patchDefaults, scoreOpsResult.body, 'no_mappable_steps');
+      return runPatchFallback(prompt, patchDefaults, scoreOpsResult.body, 'no_mappable_steps', trace);
     }
 
     if (hasSupportedPlan && parsedOps.length > 0) {
+      traceLog(trace, 'music_agent.scoreops.retry_xml.start', {
+        parsedOpsCount: parsedOps.length,
+      });
       const retryResult = await runMusicScoreOpsService({
         action: 'apply',
         scoreSessionId: scoreOpsPayload.scoreSessionId,
@@ -264,6 +311,9 @@ async function runFallbackRouter(prompt: string, toolInput?: ToolDefaults): Prom
           preferredExecutor: 'xml',
         },
       }, 'apply');
+      traceLog(trace, 'music_agent.scoreops.retry_xml.result', {
+        status: retryResult.status,
+      });
 
       if (retryResult.status < 400) {
         return {
@@ -292,10 +342,10 @@ async function runFallbackRouter(prompt: string, toolInput?: ToolDefaults): Prom
       return runPatchFallback(prompt, patchDefaults, {
         initial: scoreOpsResult.body,
         retry: retryResult.body,
-      }, 'execution_failed_after_plan_retry_failed');
+      }, 'execution_failed_after_plan_retry_failed', trace);
     }
 
-    return runPatchFallback(prompt, patchDefaults, scoreOpsResult.body, 'scoreops_failed_no_recoverable_plan');
+    return runPatchFallback(prompt, patchDefaults, scoreOpsResult.body, 'scoreops_failed_no_recoverable_plan', trace);
   }
   const result = await runMusicContextService({
     ...(toolInput?.context || {}),
@@ -431,10 +481,23 @@ function createMusicRouterAgent() {
   });
 }
 
-export async function runMusicAgentRouter(body: unknown): Promise<MusicAgentResult> {
+export async function runMusicAgentRouter(
+  body: unknown,
+  options?: RunMusicAgentRouterOptions,
+): Promise<MusicAgentResult> {
+  const trace = options?.trace;
   const data = asRecord(body);
   const prompt = typeof data?.prompt === 'string' ? data.prompt.trim() : '';
+  traceLog(trace, 'music_agent.router.start', {
+    hasPrompt: Boolean(prompt),
+    promptLength: prompt.length,
+    hasToolInput: Boolean(data?.toolInput),
+    useFallbackOnly: Boolean(data?.useFallbackOnly),
+  });
   if (!prompt) {
+    traceLog(trace, 'music_agent.router.invalid_request', {
+      reason: 'missing_prompt',
+    }, 'warn');
     return {
       status: 400,
       body: { error: 'Missing prompt for music agent router.' },
@@ -446,8 +509,16 @@ export async function runMusicAgentRouter(body: unknown): Promise<MusicAgentResu
   const openaiApiKey = (process.env.OPENAI_API_KEY || '').trim();
   if (useFallbackOnly || !openaiApiKey) {
     try {
-      return await runFallbackRouter(prompt, toolInput || undefined);
+      const fallbackResult = await runFallbackRouter(prompt, toolInput || undefined, trace);
+      traceLog(trace, 'music_agent.router.fallback.complete', {
+        status: fallbackResult.status,
+        selectedTool: (fallbackResult.body.selectedTool as string | undefined) || null,
+      });
+      return fallbackResult;
     } catch (error) {
+      traceLog(trace, 'music_agent.router.fallback.error', {
+        message: error instanceof Error ? error.message : 'Fallback music router failed.',
+      }, 'error');
       return {
         status: 500,
         body: {
@@ -461,6 +532,10 @@ export async function runMusicAgentRouter(body: unknown): Promise<MusicAgentResu
   const requestedModel = typeof data?.model === 'string' ? data.model.trim() : '';
   const maxTurnsRaw = Number(data?.maxTurns);
   const maxTurns = Number.isFinite(maxTurnsRaw) && maxTurnsRaw > 0 ? Math.floor(maxTurnsRaw) : 6;
+  traceLog(trace, 'music_agent.router.agents_sdk.start', {
+    model: requestedModel || DEFAULT_MODEL,
+    maxTurns,
+  });
   const agent = createMusicRouterAgent();
   if (requestedModel) {
     agent.model = requestedModel;
@@ -476,6 +551,9 @@ export async function runMusicAgentRouter(body: unknown): Promise<MusicAgentResu
 
     const finalOutput = asRecord(result.finalOutput);
     if (!finalOutput) {
+      traceLog(trace, 'music_agent.router.agents_sdk.invalid_output', {
+        reason: 'missing_structured_output',
+      }, 'warn');
       return {
         status: 502,
         body: {
@@ -485,6 +563,10 @@ export async function runMusicAgentRouter(body: unknown): Promise<MusicAgentResu
       };
     }
 
+    traceLog(trace, 'music_agent.router.agents_sdk.complete', {
+      status: 200,
+      selectedTool: (finalOutput.selectedTool as string | undefined) || null,
+    });
     return {
       status: 200,
       body: {
@@ -494,6 +576,9 @@ export async function runMusicAgentRouter(body: unknown): Promise<MusicAgentResu
       },
     };
   } catch (error) {
+    traceLog(trace, 'music_agent.router.agents_sdk.error', {
+      message: error instanceof Error ? error.message : 'Music agent router failed.',
+    }, 'error');
     return {
       status: 500,
       body: {
