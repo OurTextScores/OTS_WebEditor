@@ -6,6 +6,7 @@ const mocked = vi.hoisted(() => ({
   runMusicConvertService: vi.fn(),
   runMusicGenerateService: vi.fn(),
   runMusicScoreOpsPromptService: vi.fn(),
+  runMusicScoreOpsService: vi.fn(),
   runMusicPatchService: vi.fn(),
 }));
 
@@ -37,6 +38,7 @@ vi.mock('../lib/music-services/generate-service', () => ({
 
 vi.mock('../lib/music-services/scoreops-service', () => ({
   runMusicScoreOpsPromptService: mocked.runMusicScoreOpsPromptService,
+  runMusicScoreOpsService: mocked.runMusicScoreOpsService,
 }));
 
 vi.mock('../lib/music-services/patch-service', () => ({
@@ -202,6 +204,88 @@ describe('runMusicAgentRouter', () => {
       toolOk: true,
     });
     expect(mocked.runMusicPatchService).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps scoreops path when prompt is partially mappable', async () => {
+    delete process.env.OPENAI_API_KEY;
+    mocked.runMusicScoreOpsPromptService.mockResolvedValue({
+      status: 200,
+      body: {
+        ok: true,
+        planner: {
+          parsedOps: [{ op: 'set_key_signature', fifths: 1 }],
+          supportedSteps: [{ index: 0, text: 'Change key signature to G major', opCount: 1 }],
+          unsupportedSteps: [{ index: 1, text: 'Fix beaming in bars 10-12', reason: 'unsupported' }],
+        },
+        execution: { ok: true },
+      },
+    });
+
+    const result = await runMusicAgentRouter({
+      prompt: 'Change key signature to G major and fix beaming in bars 10-12',
+      toolInput: {
+        context: {
+          content: '<score-partwise version="3.1"></score-partwise>',
+        },
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({
+      mode: 'fallback',
+      selectedTool: 'music.scoreops',
+      scoreOpsRouting: {
+        reason: 'partially_mappable',
+        path: 'scoreops',
+      },
+    });
+    expect(mocked.runMusicPatchService).toHaveBeenCalledTimes(0);
+  });
+
+  it('retries scoreops apply in xml mode before patch fallback', async () => {
+    delete process.env.OPENAI_API_KEY;
+    mocked.runMusicScoreOpsPromptService.mockResolvedValue({
+      status: 422,
+      body: {
+        ok: false,
+        error: {
+          code: 'execution_failure',
+        },
+        planner: {
+          parsedOps: [{ op: 'set_key_signature', fifths: 1 }],
+          supportedSteps: [{ index: 0, text: 'Change key signature to G major', opCount: 1 }],
+          unsupportedSteps: [],
+        },
+      },
+    });
+    mocked.runMusicScoreOpsService.mockResolvedValue({
+      status: 200,
+      body: {
+        ok: true,
+        newRevision: 1,
+      },
+    });
+
+    const result = await runMusicAgentRouter({
+      prompt: 'Change key signature to G major',
+      toolInput: {
+        context: {
+          content: '<score-partwise version="3.1"></score-partwise>',
+        },
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({
+      mode: 'fallback',
+      selectedTool: 'music.scoreops',
+      scoreOpsRouting: {
+        reason: 'execution_failed_after_plan_retry_success',
+        path: 'scoreops',
+      },
+    });
+    expect(mocked.runMusicScoreOpsService).toHaveBeenCalledTimes(1);
+    expect(mocked.runMusicPatchService).toHaveBeenCalledTimes(0);
   });
 
   it('uses Agents SDK path when OPENAI_API_KEY is set', async () => {

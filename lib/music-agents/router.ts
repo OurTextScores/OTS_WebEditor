@@ -4,7 +4,7 @@ import { runMusicContextService } from '../music-services/context-service';
 import { runMusicConvertService } from '../music-services/convert-service';
 import { runMusicGenerateService } from '../music-services/generate-service';
 import { runMusicPatchService } from '../music-services/patch-service';
-import { runMusicScoreOpsPromptService } from '../music-services/scoreops-service';
+import { runMusicScoreOpsPromptService, runMusicScoreOpsService } from '../music-services/scoreops-service';
 import {
   MUSIC_CONTEXT_TOOL_CONTRACT,
   MUSIC_CONVERT_TOOL_CONTRACT,
@@ -73,6 +73,52 @@ function classifyPrompt(prompt: string): MusicAgentToolName {
     return 'music.scoreops';
   }
   return 'music.context';
+}
+
+function extractPlannerDetails(scoreOpsBody: Record<string, unknown> | null) {
+  const planner = asRecord(scoreOpsBody?.planner);
+  const parsedOps = Array.isArray(planner?.parsedOps) ? planner.parsedOps : [];
+  const supportedSteps = Array.isArray(planner?.supportedSteps) ? planner.supportedSteps : [];
+  const unsupportedSteps = Array.isArray(planner?.unsupportedSteps) ? planner.unsupportedSteps : [];
+  return {
+    planner,
+    parsedOps,
+    supportedSteps,
+    unsupportedSteps,
+    hasSupportedPlan: parsedOps.length > 0 || supportedSteps.length > 0,
+  };
+}
+
+async function runPatchFallback(
+  prompt: string,
+  patchDefaults: Record<string, unknown>,
+  scoreOpsAttempt: unknown,
+  reason: string,
+): Promise<MusicAgentResult> {
+  const patchResult = await runMusicPatchService({
+    ...patchDefaults,
+    prompt: typeof patchDefaults.prompt === 'string' && patchDefaults.prompt.trim()
+      ? patchDefaults.prompt
+      : prompt,
+  });
+  return {
+    status: patchResult.status,
+    body: {
+      mode: 'fallback',
+      selectedTool: 'music.patch',
+      toolStatus: patchResult.status,
+      toolOk: patchResult.status < 400,
+      response: patchResult.status < 400
+        ? 'Generated patch fallback after ScoreOps routing decision.'
+        : 'ScoreOps routing and patch fallback both failed.',
+      result: patchResult.body,
+      scoreOpsAttempt,
+      scoreOpsRouting: {
+        reason,
+        path: 'patch',
+      },
+    },
+  };
 }
 
 async function runFallbackRouter(prompt: string, toolInput?: ToolDefaults): Promise<MusicAgentResult> {
@@ -151,12 +197,21 @@ async function runFallbackRouter(prompt: string, toolInput?: ToolDefaults): Prom
     if (!scoreOpsDefaults.content && typeof contextDefaults?.content === 'string') {
       scoreOpsDefaults.content = contextDefaults.content;
     }
-    const scoreOpsResult = await runMusicScoreOpsPromptService({
+    const scoreOpsPayload = {
       ...scoreOpsDefaults,
       prompt: typeof scoreOpsDefaults.prompt === 'string' && scoreOpsDefaults.prompt.trim()
         ? scoreOpsDefaults.prompt
         : prompt,
-    });
+    };
+    const scoreOpsResult = await runMusicScoreOpsPromptService(scoreOpsPayload);
+    const scoreOpsBody = asRecord(scoreOpsResult.body);
+    const {
+      planner,
+      parsedOps,
+      unsupportedSteps,
+      hasSupportedPlan,
+    } = extractPlannerDetails(scoreOpsBody);
+
     if (scoreOpsResult.status < 400) {
       return {
         status: scoreOpsResult.status,
@@ -165,8 +220,15 @@ async function runFallbackRouter(prompt: string, toolInput?: ToolDefaults): Prom
           selectedTool,
           toolStatus: scoreOpsResult.status,
           toolOk: true,
-          response: 'Score operations applied via fallback router.',
+          response: unsupportedSteps.length
+            ? 'Applied supported ScoreOps steps; some requested steps are not yet supported.'
+            : 'Score operations applied via fallback router.',
           result: scoreOpsResult.body,
+          scoreOpsRouting: {
+            reason: unsupportedSteps.length ? 'partially_mappable' : 'fully_mappable',
+            path: 'scoreops',
+            unsupportedStepCount: unsupportedSteps.length,
+          },
         },
       };
     }
@@ -177,26 +239,63 @@ async function runFallbackRouter(prompt: string, toolInput?: ToolDefaults): Prom
     if (!patchDefaults.content && typeof contextDefaults?.content === 'string') {
       patchDefaults.content = contextDefaults.content;
     }
-    const patchResult = await runMusicPatchService({
-      ...patchDefaults,
-      prompt: typeof patchDefaults.prompt === 'string' && patchDefaults.prompt.trim()
-        ? patchDefaults.prompt
-        : prompt,
-    });
-    return {
-      status: patchResult.status,
-      body: {
-        mode: 'fallback',
-        selectedTool: 'music.patch',
-        toolStatus: patchResult.status,
-        toolOk: patchResult.status < 400,
-        response: patchResult.status < 400
-          ? 'ScoreOps unsupported; generated patch via fallback router.'
-          : 'ScoreOps and patch fallback both failed.',
-        result: patchResult.body,
-        scoreOpsAttempt: scoreOpsResult.body,
-      },
-    };
+    const error = asRecord(scoreOpsBody?.error);
+    const errorCode = typeof error?.code === 'string' ? error.code : '';
+
+    if (errorCode === 'unsupported_op' && !hasSupportedPlan) {
+      return runPatchFallback(prompt, patchDefaults, scoreOpsResult.body, 'no_mappable_steps');
+    }
+
+    if (hasSupportedPlan && parsedOps.length > 0) {
+      const retryResult = await runMusicScoreOpsService({
+        action: 'apply',
+        scoreSessionId: scoreOpsPayload.scoreSessionId,
+        baseRevision: scoreOpsPayload.baseRevision,
+        inputArtifactId: scoreOpsPayload.inputArtifactId,
+        input_artifact_id: scoreOpsPayload.input_artifact_id,
+        content: scoreOpsPayload.content,
+        text: scoreOpsPayload.text,
+        ops: parsedOps,
+        options: {
+          atomic: true,
+          includeXml: true,
+          includePatch: false,
+          includeMeasureDiff: true,
+          preferredExecutor: 'xml',
+        },
+      }, 'apply');
+
+      if (retryResult.status < 400) {
+        return {
+          status: retryResult.status,
+          body: {
+            mode: 'fallback',
+            selectedTool: 'music.scoreops',
+            toolStatus: retryResult.status,
+            toolOk: true,
+            response: 'Recovered ScoreOps execution via xml executor retry.',
+            result: {
+              ok: true,
+              mode: 'scoreops-retry',
+              planner,
+              execution: retryResult.body,
+            },
+            scoreOpsRouting: {
+              reason: 'execution_failed_after_plan_retry_success',
+              path: 'scoreops',
+            },
+            scoreOpsAttempt: scoreOpsResult.body,
+          },
+        };
+      }
+
+      return runPatchFallback(prompt, patchDefaults, {
+        initial: scoreOpsResult.body,
+        retry: retryResult.body,
+      }, 'execution_failed_after_plan_retry_failed');
+    }
+
+    return runPatchFallback(prompt, patchDefaults, scoreOpsResult.body, 'scoreops_failed_no_recoverable_plan');
   }
   const result = await runMusicContextService({
     ...(toolInput?.context || {}),
