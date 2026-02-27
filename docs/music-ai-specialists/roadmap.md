@@ -146,11 +146,12 @@ Use this matrix to plan rollout, QA, and UI behavior:
 5. Add a regression corpus of representative scores (simple, polyphonic, ornamented, atypical meters).
 6. Implement `ScoreOpsTool` MVP over curated `webmscore` methods (metadata edits, transpose, basic structure edits, exports).
 7. Implement `/api/music/context` (MusicXML-first, selection/range/search snippets, bounded output size).
-8. Define and deploy the embed companion API topology:
+8. Freeze tool input/output schemas for `music.context`, `music.convert`, and `music.generate` for agent/MCP reuse.
+9. Define and deploy the embed companion API topology:
    - OTS static embed UI in `OurTextScores` (`/score-editor/*`)
    - OTS Editor API service for `/api/llm/*` and `/api/music/*`
    - OurTextScores reverse proxy paths (`/api/score-editor/llm/*`, `/api/score-editor/music/*`)
-9. Add a shared embed API base config in OTS (`NEXT_PUBLIC_SCORE_EDITOR_API_BASE`) so LLM and music tools use one proxy base.
+10. Add a shared embed API base config in OTS (`NEXT_PUBLIC_SCORE_EDITOR_API_BASE`) so LLM and music tools use one proxy base.
 
 ## Phase 2 (3-6 weeks): Introduce Dedicated Specialists in Product
 

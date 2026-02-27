@@ -339,6 +339,12 @@ Why:
 - `POST /api/llm/:provider` (first-class assistant chat/patch generation proxy)
 - `GET /api/llm/:provider/models` (model list proxy)
 
+Contract source of truth for agent tools:
+
+- `lib/music-services/contracts/music-context-contract.ts`
+- `lib/music-services/contracts/music-convert-contract.ts`
+- `lib/music-services/contracts/music-generate-contract.ts`
+
 ## Embed + Proxy Deployment Topology (OurTextScores)
 
 Because `OTS_Web` is often deployed as a static embed build inside `OurTextScores`, split deployment responsibilities:
