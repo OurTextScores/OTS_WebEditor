@@ -121,6 +121,77 @@ const SCORE_OP_SCHEMA = z.discriminatedUnion('op', [
 
 type ScoreOp = z.infer<typeof SCORE_OP_SCHEMA>;
 
+type ScoreOpName = ScoreOp['op'];
+
+type ScoreOpsMutationOpSupport = Record<ScoreOpName, {
+  xml: boolean;
+  wasm: boolean;
+}>;
+
+const SCOREOPS_MUTATION_OPS: ScoreOpName[] = [
+  'set_metadata_text',
+  'set_key_signature',
+  'set_time_signature',
+  'set_clef',
+  'delete_selection',
+  'insert_measures',
+  'remove_measures',
+  'delete_text_by_content',
+];
+
+const SCOREOPS_WASM_ELIGIBLE_OPS = new Set<ScoreOpName>([
+  'set_metadata_text',
+  'set_key_signature',
+  'set_time_signature',
+  'set_clef',
+  'delete_selection',
+  'insert_measures',
+  'remove_measures',
+]);
+
+const SCOREOPS_INSPECT_OPS = [
+  'inspect_score',
+  'inspect_scope',
+  'inspect_selection',
+] as const;
+
+const SCOREOPS_CAPABILITY_PROBE_XML = `<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="4.0">
+  <part-list>
+    <score-part id="P1"><part-name>Music</part-name></score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>1</divisions>
+        <key><fifths>0</fifths></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <clef><sign>G</sign><line>2</line></clef>
+      </attributes>
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>4</duration>
+        <type>whole</type>
+      </note>
+    </measure>
+  </part>
+</score-partwise>`;
+
+const SCOREOPS_WASM_METHOD_KEYS = [
+  'saveXml',
+  'relayout',
+  'selectPartMeasureByIndex',
+  'setTitleText',
+  'setSubtitleText',
+  'setComposerText',
+  'setLyricistText',
+  'setKeySignature',
+  'setTimeSignature',
+  'setClef',
+  'insertMeasures',
+  'removeSelectedMeasures',
+] as const;
+
 const OPEN_REQUEST_SCHEMA = z.object({
   action: z.literal('open'),
   initialArtifactId: z.string().trim().min(1).optional(),
@@ -1330,25 +1401,126 @@ async function executeOpsWithWasm(
   }
 }
 
-function buildCapabilities() {
+type ScoreOpsWasmProbe = {
+  available: boolean;
+  wasmMethods: string[];
+  error?: string;
+};
+
+type ScoreOpsCapabilitySnapshot = {
+  ops: string[];
+  mutationOps: ScoreOpsMutationOpSupport;
+  runtime: {
+    executor: 'musicxml-string';
+    supportsAtomicRollback: true;
+    wasmAvailable: boolean;
+    wasmMethods: string[];
+    wasmProbeError: string | null;
+  };
+};
+
+let wasmProbePromise: Promise<ScoreOpsWasmProbe> | null = null;
+let wasmProbeCache: ScoreOpsWasmProbe | null = null;
+
+function buildDefaultMutationSupport(): ScoreOpsMutationOpSupport {
+  return {
+    set_metadata_text: { xml: true, wasm: false },
+    set_key_signature: { xml: true, wasm: false },
+    set_time_signature: { xml: true, wasm: false },
+    set_clef: { xml: true, wasm: false },
+    delete_selection: { xml: true, wasm: false },
+    insert_measures: { xml: true, wasm: false },
+    remove_measures: { xml: true, wasm: false },
+    delete_text_by_content: { xml: true, wasm: false },
+  };
+}
+
+function evaluateWasmMutationSupport(wasmMethods: Set<string>) {
+  const has = (name: string) => wasmMethods.has(name);
+  const requiresSelectionOps = has('saveXml') && has('selectPartMeasureByIndex');
+  const hasAnyMetadataSetter = has('setTitleText')
+    || has('setSubtitleText')
+    || has('setComposerText')
+    || has('setLyricistText');
+  return {
+    set_metadata_text: has('saveXml') && hasAnyMetadataSetter,
+    set_key_signature: requiresSelectionOps && has('setKeySignature'),
+    set_time_signature: requiresSelectionOps && has('setTimeSignature'),
+    set_clef: requiresSelectionOps && has('setClef'),
+    delete_selection: requiresSelectionOps && has('removeSelectedMeasures'),
+    insert_measures: has('saveXml') && has('insertMeasures'),
+    remove_measures: requiresSelectionOps && has('removeSelectedMeasures'),
+    delete_text_by_content: false,
+  } satisfies Record<ScoreOpName, boolean>;
+}
+
+async function probeWasmCapabilities(): Promise<ScoreOpsWasmProbe> {
+  if (wasmProbeCache) {
+    return wasmProbeCache;
+  }
+  if (wasmProbePromise) {
+    return wasmProbePromise;
+  }
+
+  wasmProbePromise = (async () => {
+    let score: Score | null = null;
+    try {
+      const webMscore = await loadWebMscoreInProcess();
+      score = await webMscore.load('musicxml', textEncoder.encode(SCOREOPS_CAPABILITY_PROBE_XML));
+      const detected = SCOREOPS_WASM_METHOD_KEYS.filter((name) => typeof score?.[name] === 'function');
+      wasmProbeCache = {
+        available: true,
+        wasmMethods: detected,
+      };
+      return wasmProbeCache;
+    } catch (error) {
+      wasmProbeCache = {
+        available: false,
+        wasmMethods: [],
+        error: error instanceof Error ? error.message : 'WASM capability probe failed.',
+      };
+      return wasmProbeCache;
+    } finally {
+      if (score) {
+        try {
+          score.destroy(true);
+        } catch {
+          // best-effort cleanup
+        }
+      }
+    }
+  })();
+
+  try {
+    return await wasmProbePromise;
+  } finally {
+    wasmProbePromise = null;
+  }
+}
+
+async function buildCapabilities(): Promise<ScoreOpsCapabilitySnapshot> {
+  const mutationOps = buildDefaultMutationSupport();
+  const wasmProbe = await probeWasmCapabilities();
+
+  if (wasmProbe.available) {
+    const supportByOp = evaluateWasmMutationSupport(new Set(wasmProbe.wasmMethods));
+    for (const op of SCOREOPS_MUTATION_OPS) {
+      mutationOps[op].wasm = supportByOp[op];
+    }
+  }
+
   return {
     ops: [
-      'inspect_score',
-      'inspect_scope',
-      'inspect_selection',
-      'set_metadata_text',
-      'set_key_signature',
-      'set_time_signature',
-      'set_clef',
-      'delete_selection',
-      'insert_measures',
-      'remove_measures',
-      'delete_text_by_content',
+      ...SCOREOPS_INSPECT_OPS,
+      ...SCOREOPS_MUTATION_OPS,
     ],
+    mutationOps,
     runtime: {
       executor: 'musicxml-string',
-      wasmMethods: [],
       supportsAtomicRollback: true,
+      wasmAvailable: wasmProbe.available,
+      wasmMethods: wasmProbe.wasmMethods,
+      wasmProbeError: wasmProbe.error || null,
     },
   };
 }
@@ -1502,7 +1674,7 @@ async function inspectSession(payload: z.infer<typeof INSPECT_REQUEST_SCHEMA>): 
   };
 
   if (include.capabilities) {
-    body.capabilities = buildCapabilities();
+    body.capabilities = await buildCapabilities();
   }
   if (include.scoreSummary) {
     body.scoreSummary = extractScoreSummary(session.content);
@@ -1602,14 +1774,19 @@ async function applyOps(payload: z.infer<typeof APPLY_REQUEST_SCHEMA>): Promise<
   let summaries: string[] = [];
 
   if (tryWasm) {
-    const wasmResult = await executeOpsWithWasm(beforeXml, payload.ops);
-    if (wasmResult.ok) {
-      selectedExecutor = 'wasm';
-      workingXml = wasmResult.xml;
-      applied = wasmResult.applied;
-      summaries = wasmResult.summaries;
+    const unsupportedForWasm = payload.ops.filter((op) => !SCOREOPS_WASM_ELIGIBLE_OPS.has(op.op));
+    if (unsupportedForWasm.length) {
+      fallbackReason = `WASM executor skipped: unsupported op(s): ${unsupportedForWasm.map((op) => op.op).join(', ')}`;
     } else {
-      fallbackReason = wasmResult.fallbackReason;
+      const wasmResult = await executeOpsWithWasm(beforeXml, payload.ops);
+      if (wasmResult.ok) {
+        selectedExecutor = 'wasm';
+        workingXml = wasmResult.xml;
+        applied = wasmResult.applied;
+        summaries = wasmResult.summaries;
+      } else {
+        fallbackReason = wasmResult.fallbackReason;
+      }
     }
   }
 
@@ -1979,6 +2156,7 @@ function parseMeasureScopeFromText(text: string): ScoreScope | undefined {
 function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons: string[] } {
   const ops: ScoreOp[] = [];
   const unsupportedReasons: string[] = [];
+  const stepScope = parseMeasureScopeFromText(stepText);
 
   const keyRegex = /key signature\s+(?:to|as)\s+([A-Ga-g][#b♯♭]?)(?:\s+(major|minor))?/gi;
   for (const keyMatch of stepText.matchAll(keyRegex)) {
@@ -1987,7 +2165,11 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
     const table = mode === 'minor' ? MINOR_KEY_TO_FIFTHS : MAJOR_KEY_TO_FIFTHS;
     const fifths = table[`${tonic[0]?.toUpperCase() || ''}${tonic.slice(1)}`];
     if (typeof fifths === 'number') {
-      ops.push({ op: 'set_key_signature', fifths });
+      ops.push({
+        op: 'set_key_signature',
+        fifths,
+        ...(stepScope ? { scope: stepScope } : {}),
+      });
     } else {
       unsupportedReasons.push(`Unable to map key signature target: ${keyMatch[0]}`);
     }
@@ -2002,6 +2184,7 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
         op: 'set_time_signature',
         numerator,
         denominator: denominator as 1 | 2 | 4 | 8 | 16 | 32,
+        ...(stepScope ? { scope: stepScope } : {}),
       });
     } else {
       unsupportedReasons.push(`Unsupported denominator for time signature: ${denominator}`);
@@ -2024,15 +2207,14 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
   const clefRegex = /(?:set|change|move)[^.!?\n]*?(treble|bass|alto|tenor)\s+clef/gi;
   for (const clefMatch of stepText.matchAll(clefRegex)) {
     const clef = clefMatch[1].toLowerCase() as z.infer<typeof CLEF_SCHEMA>;
-    const scope = parseMeasureScopeFromText(stepText);
-    if (/last\s+\d+\s+(?:measure|bar)s?/i.test(stepText) && !scope) {
+    if (/last\s+\d+\s+(?:measure|bar)s?/i.test(stepText) && !stepScope) {
       unsupportedReasons.push('Clef change references "last N bars/measures", which needs explicit measure numbers.');
       continue;
     }
     ops.push({
       op: 'set_clef',
       clef,
-      ...(scope ? { scope } : {}),
+      ...(stepScope ? { scope: stepScope } : {}),
     });
   }
 
@@ -2137,6 +2319,50 @@ function parsePromptToOps(prompt: string): ParsedPromptPlan {
   };
 }
 
+function applyCapabilityGatingToPromptPlan(
+  plan: ParsedPromptPlan,
+  capabilities: ScoreOpsCapabilitySnapshot,
+): ParsedPromptPlan {
+  const nextOps: ScoreOp[] = [];
+  const nextUnsupportedHints = [...plan.unsupportedHints];
+  const nextUnsupportedSteps = [...plan.unsupportedSteps];
+  const nextSupportedSteps: Array<{ index: number; text: string; opCount: number }> = [];
+
+  plan.steps.forEach((step) => {
+    const executableOps = step.parsedOps.filter((op) => {
+      const support = capabilities.mutationOps[op.op];
+      return Boolean(support?.xml || support?.wasm);
+    });
+    const blockedOps = step.parsedOps.filter((op) => !executableOps.includes(op));
+    if (blockedOps.length) {
+      const blockedNames = blockedOps.map((op) => op.op).join(', ');
+      const reason = `Runtime does not support requested operation(s): ${blockedNames}.`;
+      nextUnsupportedHints.push(`${step.text}: ${reason}`);
+      nextUnsupportedSteps.push({
+        index: step.index,
+        text: step.text,
+        reason,
+      });
+    }
+    if (executableOps.length) {
+      nextSupportedSteps.push({
+        index: step.index,
+        text: step.text,
+        opCount: executableOps.length,
+      });
+      nextOps.push(...executableOps);
+    }
+  });
+
+  return {
+    ops: nextOps,
+    unsupportedHints: nextUnsupportedHints,
+    steps: plan.steps,
+    supportedSteps: nextSupportedSteps,
+    unsupportedSteps: nextUnsupportedSteps,
+  };
+}
+
 export async function runMusicScoreOpsPromptService(body: unknown): Promise<ScoreOpsServiceResult> {
   const data = (body && typeof body === 'object') ? (body as Record<string, unknown>) : {};
   const prompt = typeof data.prompt === 'string' ? data.prompt.trim() : '';
@@ -2145,17 +2371,23 @@ export async function runMusicScoreOpsPromptService(body: unknown): Promise<Scor
   }
 
   const parsed = parsePromptToOps(prompt);
+  const capabilities = await buildCapabilities();
+  const capabilityGated = applyCapabilityGatingToPromptPlan(parsed, capabilities);
   const plannerSummary = {
     mode: 'heuristic-v2',
     prompt,
-    parsedOps: parsed.ops,
-    steps: parsed.steps,
-    supportedSteps: parsed.supportedSteps,
-    unsupportedSteps: parsed.unsupportedSteps,
-    unsupportedHints: parsed.unsupportedHints,
+    parsedOps: capabilityGated.ops,
+    steps: capabilityGated.steps,
+    supportedSteps: capabilityGated.supportedSteps,
+    unsupportedSteps: capabilityGated.unsupportedSteps,
+    unsupportedHints: capabilityGated.unsupportedHints,
+    capabilities: {
+      runtime: capabilities.runtime,
+      mutationOps: capabilities.mutationOps,
+    },
   };
 
-  if (!parsed.ops.length) {
+  if (!capabilityGated.ops.length) {
     return errorResult(422, 'unsupported_op', 'Prompt could not be mapped to supported ScoreOps MVP operations.', {
       planner: plannerSummary,
     });
@@ -2167,7 +2399,7 @@ export async function runMusicScoreOpsPromptService(body: unknown): Promise<Scor
     baseRevision: typeof data.baseRevision === 'number' ? data.baseRevision : undefined,
     inputArtifactId: typeof data.inputArtifactId === 'string' ? data.inputArtifactId : (typeof data.input_artifact_id === 'string' ? data.input_artifact_id : undefined),
     content: typeof data.content === 'string' ? data.content : (typeof data.text === 'string' ? data.text : undefined),
-    ops: parsed.ops,
+    ops: capabilityGated.ops,
     options: {
       atomic: true,
       includeXml: true,
@@ -2200,6 +2432,10 @@ export async function runMusicScoreOpsPromptService(body: unknown): Promise<Scor
 }
 
 export const __scoreOpsTestOnly = {
-  clearSessions: clearScoreOpsSessions,
+  clearSessions: () => {
+    clearScoreOpsSessions();
+    wasmProbeCache = null;
+    wasmProbePromise = null;
+  },
   parsePromptToOps,
 };

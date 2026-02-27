@@ -23,6 +23,8 @@ export async function POST(request: Request) {
     console.info(JSON.stringify({
       event: 'music_agent.request.summary',
       traceId,
+      requestId: traceContext.requestId,
+      sessionId: traceContext.sessionId || null,
       route: '/api/music/agent',
       status: 400,
       durationMs,
@@ -39,6 +41,8 @@ export async function POST(request: Request) {
     const serialized = JSON.stringify({
       event,
       route: '/api/music/agent',
+      requestId: traceContext.requestId,
+      sessionId: traceContext.sessionId || null,
       ...payload,
     });
     if (level === 'error') {
@@ -66,6 +70,8 @@ export async function POST(request: Request) {
   console.info(JSON.stringify({
     event: 'music_agent.request.summary',
     traceId,
+    requestId: traceContext.requestId,
+    sessionId: traceContext.sessionId || null,
     route: '/api/music/agent',
     status: result.status,
     durationMs,

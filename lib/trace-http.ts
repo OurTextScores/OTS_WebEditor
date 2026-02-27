@@ -4,9 +4,12 @@ export type TraceContext = {
     traceId: string;
     tracestate: string;
     baggage: string;
+    clientSessionId: string;
+    sessionId: string;
 };
 
 const TRACEPARENT_PATTERN = /^00-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$/i;
+const SESSION_ID_PATTERN = /^[A-Za-z0-9._:-]{8,128}$/;
 
 const toHeaders = (input?: Request | Headers | HeadersInit | null): Headers => {
     if (!input) {
@@ -39,6 +42,14 @@ const ensureTraceparent = (value: string) => {
     return `00-${randomHex(16)}-${randomHex(8)}-01`;
 };
 
+const normalizeSessionId = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed || !SESSION_ID_PATTERN.test(trimmed)) {
+        return '';
+    }
+    return trimmed;
+};
+
 export const resolveTraceContext = (input?: Request | Headers | HeadersInit | null): TraceContext => {
     const headers = toHeaders(input);
     const requestId = headers.get('x-request-id')?.trim() || crypto.randomUUID();
@@ -46,6 +57,16 @@ export const resolveTraceContext = (input?: Request | Headers | HeadersInit | nu
     const traceId = parseTraceId(traceparent) || randomHex(16);
     const tracestate = headers.get('tracestate')?.trim() || '';
     const baggage = headers.get('baggage')?.trim() || '';
+    const clientSessionId = normalizeSessionId(
+        headers.get('x-client-session-id')
+        || headers.get('x-session-id')
+        || '',
+    );
+    const sessionId = normalizeSessionId(
+        headers.get('x-session-id')
+        || headers.get('x-client-session-id')
+        || '',
+    );
 
     return {
         requestId,
@@ -53,6 +74,8 @@ export const resolveTraceContext = (input?: Request | Headers | HeadersInit | nu
         traceId,
         tracestate,
         baggage,
+        clientSessionId,
+        sessionId,
     };
 };
 
@@ -67,6 +90,12 @@ export const withTraceHeaders = (trace: TraceContext, headers?: HeadersInit): He
     if (trace.baggage) {
         next.set('baggage', trace.baggage);
     }
+    if (trace.clientSessionId) {
+        next.set('x-client-session-id', trace.clientSessionId);
+    }
+    if (trace.sessionId) {
+        next.set('x-session-id', trace.sessionId);
+    }
     return next;
 };
 
@@ -76,5 +105,11 @@ export const applyTraceHeaders = (headers: Headers, trace: TraceContext) => {
     headers.set('x-trace-id', trace.traceId);
     if (trace.tracestate) {
         headers.set('tracestate', trace.tracestate);
+    }
+    if (trace.clientSessionId) {
+        headers.set('x-client-session-id', trace.clientSessionId);
+    }
+    if (trace.sessionId) {
+        headers.set('x-session-id', trace.sessionId);
     }
 };

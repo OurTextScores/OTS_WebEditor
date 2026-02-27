@@ -40,7 +40,10 @@ export interface Score {
     ) => Promise<unknown> | unknown;
     selectNextChord?: () => Promise<unknown> | unknown;
     selectPrevChord?: () => Promise<unknown> | unknown;
+    extendSelectionNextChord?: () => Promise<unknown> | unknown;
+    extendSelectionPrevChord?: () => Promise<unknown> | unknown;
     getSelectionBoundingBox?: () => Promise<{page: number, x: number, y: number, width: number, height: number} | null> | {page: number, x: number, y: number, width: number, height: number} | null;
+    getSelectionBoundingBoxes?: () => Promise<Array<{page: number, x: number, y: number, width: number, height: number}>> | Array<{page: number, x: number, y: number, width: number, height: number}>;
     clearSelection?: () => Promise<unknown> | unknown;
     selectionMimeType?: () => Promise<string> | string;
     selectionMimeData?: () => Promise<Uint8Array> | Uint8Array;

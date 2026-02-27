@@ -122,3 +122,9 @@ Reason: they are UI/runtime-fragile, not semantically stable for agent planning.
 3. Decide which `Native` primitives are added to webmscore vs wrapper composites in OTS.
 4. Finalize JSON schemas for P0 ops based on this matrix.
 
+Status update (2026-02-27):
+
+- (1) implemented in `lib/webmscore-loader.ts`.
+- (2) implemented in `lib/music-services/scoreops-service.ts` and surfaced by `inspect` response (`capabilities.runtime`, `capabilities.mutationOps`).
+- (3) still open.
+- (4) P0 schemas implemented for current MVP op set; further expansion remains open.

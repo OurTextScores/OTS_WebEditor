@@ -152,6 +152,15 @@ describe('runMusicScoreOpsService', () => {
       scoreSessionId,
       capabilities: {
         ops: expect.arrayContaining(['set_key_signature', 'set_time_signature', 'set_clef']),
+        mutationOps: expect.objectContaining({
+          set_key_signature: expect.objectContaining({ xml: true }),
+          delete_text_by_content: expect.objectContaining({ xml: true }),
+        }),
+        runtime: expect.objectContaining({
+          executor: 'musicxml-string',
+          wasmAvailable: true,
+          supportsAtomicRollback: true,
+        }),
       },
       scoreSummary: {
         measureCountEstimate: 2,
@@ -297,6 +306,30 @@ describe('runMusicScoreOpsService', () => {
     expect((planner.unsupportedSteps || []).some((step) => (
       `${step.text || ''} ${step.reason || ''}`.toLowerCase().includes('beaming')
     ))).toBe(true);
+  });
+
+  it('maps scoped key/time prompts to measure-scoped operations', async () => {
+    const result = await runMusicScoreOpsPromptService({
+      prompt: 'Set key signature to G major in measures 1-2 and set time signature to 3/4 in measures 1-2',
+      content: SAMPLE_XML,
+    });
+
+    expect(result.status).toBe(200);
+    const planner = result.body.planner as { parsedOps?: Array<Record<string, unknown>> };
+    const parsedOps = planner.parsedOps || [];
+    expect(parsedOps).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        op: 'set_key_signature',
+        fifths: 1,
+        scope: { measureStart: 1, measureEnd: 2 },
+      }),
+      expect.objectContaining({
+        op: 'set_time_signature',
+        numerator: 3,
+        denominator: 4,
+        scope: { measureStart: 1, measureEnd: 2 },
+      }),
+    ]));
   });
 
   it('returns structured unsupported-step details when no operations can be mapped', async () => {
