@@ -4,7 +4,7 @@
 
 - Let the assistant delegate music tasks to specialized components instead of one general model.
 - Support workflows that begin from uploaded scores (`.musicxml` / `.xml`) and return edited/generated scores.
-- Keep model-facing representation consistent (ABC) while preserving a higher-fidelity user artifact (MusicXML).
+- Use `MusicXML` as the default model context for reasoning/edit planning, and use `ABC` only when required (for example, NotaGen generation/compression fallback).
 - Make model swaps (e.g., newer `NotaGen-X`) safe and traceable.
 
 ## Proposed Specialist Architecture
@@ -22,7 +22,7 @@
 
 - `ScoreConversionSpecialist` (deterministic tools)
   - Canonicalizes and validates score artifacts.
-  - Handles `MusicXML -> ABC`, `ABC -> MusicXML`, render/export steps.
+  - Handles `MusicXML -> ABC`, `ABC -> MusicXML`, and render/export steps for generation/conversion workflows.
   - No LLM/model generation.
 
 - `ScoreOpsSpecialist` (deterministic `webmscore` WASM wrapper)
@@ -35,9 +35,9 @@
   - Produces ABC first, then requests conversion/rendering.
 
 - `MusicReasoningSpecialist` (frontier model, user-selected, BYO key)
-  - Conversational music understanding/composition assistance in ABC-friendly prompts.
+  - Conversational music understanding/composition assistance using MusicXML-first context.
   - Backed by the same first-class provider stack used for assistant chat/patch generation, with per-user model selection and key ownership.
-  - Useful for analysis, variation suggestions, theory QA, ABC edits, and prompt-to-structure tasks.
+  - Useful for analysis, variation suggestions, theory QA, edit planning, and prompt-to-structure tasks.
 
 - `ScoreCritic` (optional later)
   - Constraint checking and quality scoring (syntax, playability, voice-leading heuristics, form constraints).
@@ -141,8 +141,8 @@ Create a shared `ScoreArtifact` record used by all specialists and tools:
 
 - `artifact_id`
 - `source_format` (`musicxml`, `abc`, `midi`, etc.)
-- `canonical_musicxml_path` (preferred user-facing truth)
-- `canonical_abc_path` (preferred model-facing truth)
+- `canonical_musicxml_path` (primary for users and reasoning models)
+- `canonical_abc_path` (required for NotaGen/generation workflows; optional otherwise)
 - `derived_files` (`midi`, `mp3`, `pdf`, `png`, `svg`)
 - `metadata` (title, composer/style prompt, meter, key, instrumentation)
 - `provenance` (which model/tool created each derivative, parameters, prompt)
@@ -158,7 +158,7 @@ Why:
 
 ## Recommendation
 
-Treat conversion as a first-class pipeline stage, not a side effect hidden inside model tools.
+Treat conversion as a first-class pipeline stage, not a side effect hidden inside model tools. Do not force conversion for every reasoning request.
 
 ## Directional behavior
 
@@ -198,9 +198,9 @@ Use layered validation:
 
 ## 2. User asks theory/explanation over an existing score
 
-1. Ensure `ScoreArtifact` has canonical ABC (convert if needed).
+1. Use canonical `MusicXML` context by default.
 2. Route to `MusicReasoningSpecialist` using the active user-selected model/provider.
-3. Return explanation plus optionally annotated ABC snippets and rendered previews.
+3. Return explanation plus optionally annotated MusicXML snippets and rendered previews.
 
 ## 3. User asks for direct edits on the currently open score
 
@@ -247,6 +247,7 @@ Use this manifest for:
 - `OTS_Web` already has a first-class provider pattern for assistant chat/patch generation (provider selector + per-provider `/api/llm/{provider}` routes for `openai`, `anthropic`, `gemini`), which should be extended rather than replaced.
 - Keep model execution and conversion as backend services/jobs; keep the web app focused on artifact display, review, and human-in-the-loop edits.
 - Store generated artifacts and validation reports so users can compare model candidates.
+- Add a focused context-extraction service so agents can request targeted MusicXML snippets (selection/range/search) rather than sending full documents every turn.
 
 ## Agent Runtime Strategy: Build vs Framework
 
@@ -332,7 +333,7 @@ Why:
 
 - `POST /api/music/convert` (`input_format`, `output_format`, file/artifact ref)
 - `POST /api/music/generate` (prompt/style/constraints, optional seed score)
-- `POST /api/music/analyze` (artifact ref + question)
+- `POST /api/music/context` (artifact/content + selection/range/search filters, bounded MusicXML snippets)
 - `POST /api/music/score-ops` (`artifact_ref`, `ops[]`, selection, validate/export options)
 - `GET /api/music/artifacts/:id`
 - `POST /api/llm/:provider` (first-class assistant chat/patch generation proxy)

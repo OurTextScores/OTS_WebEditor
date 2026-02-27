@@ -13,6 +13,7 @@ Use a **companion OTS Editor API service** for embed deployments.
 ## Why this is the recommended structure
 
 - `MusicXML <-> ABC` conversion, artifact persistence, roundtrip validation, and render smoke tests require server-side tooling.
+- MusicXML context extraction (`/api/music/context`) for agent prompts requires server-side artifact access and bounded extraction logic.
 - `MusicReasoningSpecialist` (frontier BYO model routes) and `NotaGen` specialist routes also require a server (key handling, artifact orchestration, conversion pipeline).
 - Static embed builds cannot run Next `app/api/*` routes.
 - `OurTextScores` already uses Docker + Nginx reverse proxy with localhost-bound services, which matches this pattern well.

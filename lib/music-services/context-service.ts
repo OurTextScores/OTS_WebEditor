@@ -1,0 +1,331 @@
+import {
+    createScoreArtifact,
+    getScoreArtifact,
+    summarizeScoreArtifact,
+    type ScoreArtifact,
+} from '../score-artifacts';
+import { MusicServiceError } from './errors';
+
+type ContextServiceResult = {
+    status: number;
+    body: Record<string, unknown>;
+};
+
+type MeasureSnippet = {
+    partId: string;
+    measureNumber: string;
+    xml: string;
+    truncated: boolean;
+};
+
+type SearchHit = {
+    query: string;
+    start: number;
+    end: number;
+    snippet: string;
+};
+
+const DEFAULT_MAX_CHARS = 20_000;
+const MAX_MAX_CHARS = 200_000;
+const DEFAULT_MEASURE_LIMIT = 32;
+const MAX_MEASURE_LIMIT = 256;
+const DEFAULT_SEARCH_LIMIT = 12;
+const MAX_SEARCH_LIMIT = 200;
+const DEFAULT_SNIPPET_CHARS = 500;
+const MAX_SNIPPET_CHARS = 4_000;
+const DEFAULT_MEASURE_SNIPPET_CHARS = 2_000;
+const MAX_MEASURE_SNIPPET_CHARS = 20_000;
+
+const asRecord = (value: unknown): Record<string, unknown> | null => (
+    value && typeof value === 'object' ? value as Record<string, unknown> : null
+);
+
+function readBoolean(camel: unknown, snake: unknown, fallback: boolean) {
+    if (typeof camel === 'boolean') {
+        return camel;
+    }
+    if (typeof snake === 'boolean') {
+        return snake;
+    }
+    return fallback;
+}
+
+function readBoundedNumber(
+    value: unknown,
+    fallback: number,
+    min: number,
+    max: number,
+    integer = true,
+) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) {
+        return fallback;
+    }
+    const maybeInt = integer ? Math.trunc(parsed) : parsed;
+    if (maybeInt < min) {
+        return min;
+    }
+    if (maybeInt > max) {
+        return max;
+    }
+    return maybeInt;
+}
+
+function maybeReadMeasure(value: unknown): number | null {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) {
+        return null;
+    }
+    return Math.max(0, Math.trunc(parsed));
+}
+
+function truncateText(text: string, maxChars: number) {
+    if (text.length <= maxChars) {
+        return { text, truncated: false };
+    }
+    return {
+        text: `${text.slice(0, maxChars)}\n<!-- ...truncated... -->`,
+        truncated: true,
+    };
+}
+
+function looksLikeMusicXml(xml: string) {
+    const normalized = xml.trim().toLowerCase();
+    return normalized.startsWith('<?xml')
+        || normalized.includes('<score-partwise')
+        || normalized.includes('<score-timewise');
+}
+
+function extractPartList(xml: string) {
+    const match = xml.match(/<part-list\b[\s\S]*?<\/part-list>/i);
+    return match ? match[0].trim() : '';
+}
+
+function extractMeasuresInRange(
+    xml: string,
+    rangeStart: number | null,
+    rangeEnd: number | null,
+    maxMeasures: number,
+    maxCharsPerMeasure: number,
+): MeasureSnippet[] {
+    const parts: MeasureSnippet[] = [];
+    const partRegex = /<part\b[^>]*\bid="([^"]+)"[^>]*>([\s\S]*?)<\/part>/gi;
+    let partMatch: RegExpExecArray | null;
+    let collected = 0;
+
+    while ((partMatch = partRegex.exec(xml)) !== null && collected < maxMeasures) {
+        const partId = partMatch[1] || '';
+        const partXml = partMatch[2] || '';
+        const measureRegex = /<measure\b([^>]*)>([\s\S]*?)<\/measure>/gi;
+        let measureMatch: RegExpExecArray | null;
+        while ((measureMatch = measureRegex.exec(partXml)) !== null && collected < maxMeasures) {
+            const attrs = measureMatch[1] || '';
+            const fullXml = measureMatch[0] || '';
+            const numMatch = attrs.match(/\bnumber="([^"]+)"/i);
+            const measureNumber = numMatch?.[1] ?? '';
+            const numericMeasure = Number.parseInt(measureNumber, 10);
+            if (rangeStart !== null && (!Number.isFinite(numericMeasure) || numericMeasure < rangeStart)) {
+                continue;
+            }
+            if (rangeEnd !== null && (!Number.isFinite(numericMeasure) || numericMeasure > rangeEnd)) {
+                continue;
+            }
+            const truncated = truncateText(fullXml.trim(), maxCharsPerMeasure);
+            parts.push({
+                partId,
+                measureNumber,
+                xml: truncated.text,
+                truncated: truncated.truncated,
+            });
+            collected += 1;
+        }
+    }
+
+    return parts;
+}
+
+function ensureStringArray(value: unknown): string[] {
+    if (typeof value === 'string' && value.trim()) {
+        return [value.trim()];
+    }
+    if (!Array.isArray(value)) {
+        return [];
+    }
+    return value
+        .map((item) => (typeof item === 'string' ? item.trim() : ''))
+        .filter(Boolean);
+}
+
+function extractSearchHits(
+    xml: string,
+    queries: string[],
+    maxResults: number,
+    snippetChars: number,
+): SearchHit[] {
+    if (!queries.length || maxResults <= 0) {
+        return [];
+    }
+    const hits: SearchHit[] = [];
+    const lowerXml = xml.toLowerCase();
+    for (const query of queries) {
+        if (hits.length >= maxResults) {
+            break;
+        }
+        const needle = query.toLowerCase();
+        if (!needle) {
+            continue;
+        }
+        let index = 0;
+        while (hits.length < maxResults) {
+            const found = lowerXml.indexOf(needle, index);
+            if (found < 0) {
+                break;
+            }
+            const start = Math.max(0, found - snippetChars);
+            const end = Math.min(xml.length, found + needle.length + snippetChars);
+            hits.push({
+                query,
+                start: found,
+                end: found + needle.length,
+                snippet: xml.slice(start, end),
+            });
+            index = found + Math.max(1, needle.length);
+        }
+    }
+    return hits;
+}
+
+export async function runMusicContextService(body: unknown): Promise<ContextServiceResult> {
+    const data = asRecord(body);
+    const inputArtifactId = typeof data?.input_artifact_id === 'string'
+        ? data.input_artifact_id.trim()
+        : (typeof data?.inputArtifactId === 'string' ? data.inputArtifactId.trim() : '');
+    const contentInput = typeof data?.content === 'string'
+        ? data.content
+        : (typeof data?.text === 'string' ? data.text : '');
+    const filename = typeof data?.filename === 'string' ? data.filename : undefined;
+    const persistArtifact = readBoolean(data?.persistArtifact, data?.persist_artifact, true);
+
+    const includeFullXml = readBoolean(data?.includeFullXml, data?.include_full_xml, false);
+    const includePartList = readBoolean(data?.includePartList, data?.include_part_list, true);
+    const includeMeasureRange = readBoolean(data?.includeMeasureRange, data?.include_measure_range, true);
+    const includeSearchHits = readBoolean(data?.includeSearchHits, data?.include_search_hits, true);
+
+    const maxChars = readBoundedNumber(
+        data?.maxChars ?? data?.max_chars,
+        DEFAULT_MAX_CHARS,
+        1,
+        MAX_MAX_CHARS,
+    );
+    const maxMeasures = readBoundedNumber(
+        data?.maxMeasures ?? data?.max_measures,
+        DEFAULT_MEASURE_LIMIT,
+        1,
+        MAX_MEASURE_LIMIT,
+    );
+    const maxSearchResults = readBoundedNumber(
+        data?.maxSearchResults ?? data?.max_search_results,
+        DEFAULT_SEARCH_LIMIT,
+        1,
+        MAX_SEARCH_LIMIT,
+    );
+    const snippetChars = readBoundedNumber(
+        data?.snippetChars ?? data?.snippet_chars,
+        DEFAULT_SNIPPET_CHARS,
+        50,
+        MAX_SNIPPET_CHARS,
+    );
+    const measureSnippetChars = readBoundedNumber(
+        data?.maxMeasureXmlChars ?? data?.max_measure_xml_chars,
+        DEFAULT_MEASURE_SNIPPET_CHARS,
+        200,
+        MAX_MEASURE_SNIPPET_CHARS,
+    );
+
+    const measureStart = maybeReadMeasure(data?.measureStart ?? data?.measure_start);
+    const measureEnd = maybeReadMeasure(data?.measureEnd ?? data?.measure_end);
+
+    if (measureStart !== null && measureEnd !== null && measureStart > measureEnd) {
+        throw new MusicServiceError('Invalid measure range: measureStart must be <= measureEnd.', 400);
+    }
+
+    let sourceArtifact: ScoreArtifact | null = null;
+    let xml = contentInput;
+
+    if (inputArtifactId) {
+        sourceArtifact = await getScoreArtifact(inputArtifactId);
+        if (!sourceArtifact) {
+            throw new MusicServiceError('Input artifact not found.', 404);
+        }
+        if (sourceArtifact.format !== 'musicxml') {
+            throw new MusicServiceError('Context extraction currently supports musicxml artifacts only.', 400);
+        }
+        xml = sourceArtifact.content;
+    }
+
+    if (!xml.trim()) {
+        throw new MusicServiceError('Missing content (or text), or referenced artifact has empty content.', 400);
+    }
+
+    if (!looksLikeMusicXml(xml)) {
+        throw new MusicServiceError('Input does not look like MusicXML.', 400);
+    }
+
+    const inputArtifact = sourceArtifact ?? (persistArtifact
+        ? await createScoreArtifact({
+            format: 'musicxml',
+            content: xml,
+            filename,
+            label: 'context-input',
+            metadata: {
+                origin: 'api/music/context',
+            },
+        })
+        : null);
+
+    const partList = includePartList ? extractPartList(xml) : '';
+    const queries = ensureStringArray(data?.queries ?? data?.query);
+    const measureSnippets = includeMeasureRange
+        ? extractMeasuresInRange(xml, measureStart, measureEnd, maxMeasures, measureSnippetChars)
+        : [];
+    const searchHits = includeSearchHits
+        ? extractSearchHits(xml, queries, maxSearchResults, snippetChars)
+        : [];
+    const fullXml = includeFullXml ? truncateText(xml, maxChars) : null;
+    const partListOutput = partList ? truncateText(partList, maxChars) : null;
+
+    return {
+        status: 200,
+        body: {
+            strategy: 'musicxml-primary',
+            inputArtifactId: inputArtifact?.id ?? null,
+            inputArtifact: inputArtifact ? summarizeScoreArtifact(inputArtifact) : null,
+            context: {
+                format: 'musicxml',
+                charLength: xml.length,
+                lineCount: xml.split(/\r?\n/).length,
+                measureCountEstimate: (xml.match(/<measure\b/gi) || []).length,
+                queryCount: queries.length,
+                measureRange: {
+                    start: measureStart,
+                    end: measureEnd,
+                    results: measureSnippets,
+                    limitedTo: maxMeasures,
+                },
+                searchHits: {
+                    results: searchHits,
+                    limitedTo: maxSearchResults,
+                },
+                partList: partListOutput ? {
+                    xml: partListOutput.text,
+                    truncated: partListOutput.truncated,
+                } : null,
+                fullXml: fullXml ? {
+                    xml: fullXml.text,
+                    truncated: fullXml.truncated,
+                } : null,
+            },
+        },
+    };
+}
+

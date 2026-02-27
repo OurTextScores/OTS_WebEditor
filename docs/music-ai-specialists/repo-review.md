@@ -55,6 +55,7 @@
 ## Immediate implication
 
 - `MusicReasoningSpecialist` should use a user-selected frontier model (BYO key) through first-class provider routes.
+- Reasoning/planning should stay MusicXML-first; use ABC primarily for NotaGen generation or optional compression fallback.
 - `ChatMusician` remains useful as an offline benchmark/regression target for ABC-native music instruction behavior.
 - `NotaGen/NotaGen-X` remains a strong fit for a "style-constrained symbolic score generation" specialist.
 

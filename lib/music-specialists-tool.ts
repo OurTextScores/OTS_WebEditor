@@ -15,6 +15,16 @@ export type MusicGenerateRequest = BaseMusicSpecialistRequest & {
     inputArtifactId?: string;
 };
 
+export type MusicContextRequest = {
+    inputArtifactId?: string;
+    content?: string;
+    query?: string | string[];
+    measureStart?: number;
+    measureEnd?: number;
+    includeFullXml?: boolean;
+    maxChars?: number;
+};
+
 const asRecord = (value: unknown): Record<string, unknown> | null => (
     value && typeof value === 'object' ? value as Record<string, unknown> : null
 );
@@ -49,6 +59,19 @@ export async function callMusicGenerate(request: MusicGenerateRequest) {
     });
 }
 
+export async function callMusicContext(request: MusicContextRequest) {
+    return await postJson(resolveScoreEditorApiPath('/api/music/context'), {
+        inputArtifactId: request.inputArtifactId,
+        content: request.content,
+        query: request.query,
+        measureStart: request.measureStart,
+        measureEnd: request.measureEnd,
+        includeFullXml: request.includeFullXml,
+        maxChars: request.maxChars,
+    });
+}
+
 export const MusicSpecialistsTool = {
+    context: callMusicContext,
     generate: callMusicGenerate,
 };

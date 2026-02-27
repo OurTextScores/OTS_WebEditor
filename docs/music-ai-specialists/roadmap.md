@@ -129,9 +129,10 @@ Use this matrix to plan rollout, QA, and UI behavior:
 
 ## Outcomes
 
-- Reliable `MusicXML <-> ABC` service used by all music specialists
+- Reliable `MusicXML <-> ABC` service used where conversion is required (primarily generation/export workflows)
 - Fewer silent failures and easier debugging
 - Initial deterministic WASM score-ops wrapper for direct score edits in OTS
+- MusicXML-first context extraction service for reasoning agents
 
 ## Tasks
 
@@ -144,11 +145,12 @@ Use this matrix to plan rollout, QA, and UI behavior:
    - basic musical invariants
 5. Add a regression corpus of representative scores (simple, polyphonic, ornamented, atypical meters).
 6. Implement `ScoreOpsTool` MVP over curated `webmscore` methods (metadata edits, transpose, basic structure edits, exports).
-7. Define and deploy the embed companion API topology:
+7. Implement `/api/music/context` (MusicXML-first, selection/range/search snippets, bounded output size).
+8. Define and deploy the embed companion API topology:
    - OTS static embed UI in `OurTextScores` (`/score-editor/*`)
    - OTS Editor API service for `/api/llm/*` and `/api/music/*`
    - OurTextScores reverse proxy paths (`/api/score-editor/llm/*`, `/api/score-editor/music/*`)
-8. Add a shared embed API base config in OTS (`NEXT_PUBLIC_SCORE_EDITOR_API_BASE`) so LLM and music tools use one proxy base.
+9. Add a shared embed API base config in OTS (`NEXT_PUBLIC_SCORE_EDITOR_API_BASE`) so LLM and music tools use one proxy base.
 
 ## Phase 2 (3-6 weeks): Introduce Dedicated Specialists in Product
 
@@ -196,6 +198,9 @@ Use this matrix to plan rollout, QA, and UI behavior:
   - `% MusicXML -> ABC parse success`
   - `% ABC -> MusicXML render success`
   - `% end-to-end playback success`
+- MusicXML context extraction reliability:
+  - `% context requests returning bounded snippets under max size`
+  - `% selection/range requests resolved without fallback to full-document context`
 - Symbolic generation quality (NotaGen-X):
   - syntax validity
   - style adherence (human or embedding-based proxy)
@@ -271,7 +276,7 @@ Recommended approach:
 ## Open Questions to Resolve Early
 
 1. What is the canonical user-editable format in OTS (`MusicXML`, MSCZ, or both)?
-2. Do you want a single shared ABC dialect across all tools, or per-model adapters?
+2. Which workflows require ABC at all vs staying MusicXML-native end-to-end?
 3. Which task family matters first: generation, analysis, editing, or educational explanations?
 4. What latency budget is acceptable for generation + rendering in the product?
 5. Do you want on-device/local inference, server inference, or hybrid?
@@ -283,12 +288,13 @@ Recommended approach:
 If you want the fastest path to value:
 
 1. Ship `MusicXML <-> ABC` conversion service + validation reports.
-2. Pin `NotaGen-X` revision in a local model manifest.
-3. Add a curated `ScoreOpsTool` over `webmscore` for deterministic score edits.
-4. Add `DeepSeek` and `Qwen` as the first new first-class assistant providers (chat + patch generation) using shared provider adapters.
-5. Add a `WeaveMuse` specialist as planner/orchestrator plus a frontier-model-backed `MusicReasoningSpecialist` for analysis/explanation.
-6. Add end-to-end artifact provenance in the UI/backend.
-7. Deploy a companion OTS Editor API container in the existing OurTextScores Docker/Nginx stack for embed mode reliability.
+2. Ship a MusicXML-first `/api/music/context` service (selection/range/search extraction).
+3. Pin `NotaGen-X` revision in a local model manifest.
+4. Add a curated `ScoreOpsTool` over `webmscore` for deterministic score edits.
+5. Add `DeepSeek` and `Qwen` as the first new first-class assistant providers (chat + patch generation) using shared provider adapters.
+6. Add a `WeaveMuse` specialist as planner/orchestrator plus a frontier-model-backed `MusicReasoningSpecialist` for analysis/explanation.
+7. Add end-to-end artifact provenance in the UI/backend.
+8. Deploy a companion OTS Editor API container in the existing OurTextScores Docker/Nginx stack for embed mode reliability.
 
 ## Agent Runtime Recommendation
 
@@ -304,3 +310,24 @@ Use OpenAI Agents SDK as the default orchestration layer; keep custom domain too
   - MCP for deterministic execution boundaries (`ScoreOps`, conversion, artifacts)
   - skills for reusable high-level music workflows with stable output contracts
 - Defer other orchestration frameworks unless required by a specific missing capability.
+
+## Testing Practice (Music Services)
+
+- Unit tests (required for each new service module):
+  - validate request parsing/bounds/defaults
+  - validate error mapping/status codes
+  - validate deterministic outputs and truncation behavior
+- API contract tests (required for each route wrapper):
+  - success envelope
+  - error envelope (`{ error }`, correct HTTP status)
+- E2E tests (small critical set only):
+  - one MusicXML-first reasoning context flow
+  - one NotaGen generation + conversion flow
+  - one embed proxy smoke test
+
+Repository commands:
+
+- `npm run test:music-services` for service-level unit coverage
+- `npm run test` for full Vitest suite
+- `npm run test:e2e:music` for music API smoke E2E
+- `npx playwright test` for full browser E2E
