@@ -5417,6 +5417,14 @@ ${partsBodyXml}
                     model: musicAgentModel.trim() || undefined,
                     apiKey: aiApiKey.trim() || undefined,
                 };
+                toolInput.scoreops = {
+                    content: xmlContext,
+                    prompt,
+                    options: {
+                        includeXml: true,
+                        includeMeasureDiff: true,
+                    },
+                };
             }
 
             const payload: Record<string, unknown> = {
@@ -5472,6 +5480,22 @@ ${partsBodyXml}
                     }
                 } else if (resultPayload && typeof resultPayload.error === 'string') {
                     setMusicAgentPatchError(resultPayload.error);
+                }
+            } else if (selectedTool === 'music.scoreops') {
+                const resultPayload = asRecord(parsed?.result);
+                const executionPayload = asRecord(resultPayload?.execution);
+                const outputPayload = asRecord(executionPayload?.output) || asRecord(resultPayload?.output);
+                const nextXml = typeof outputPayload?.content === 'string' ? outputPayload.content : '';
+                if (nextXml.trim()) {
+                    try {
+                        await applyXmlToScore(nextXml);
+                        setXmlSidebarTab('xml');
+                    } catch (applyErr) {
+                        console.error('Failed to apply Music Agent scoreops output', applyErr);
+                        setMusicAgentPatchError('ScoreOps output was generated but could not be applied to the score.');
+                    }
+                } else if (typeof asRecord(resultPayload?.error)?.message === 'string') {
+                    setMusicAgentPatchError(String(asRecord(resultPayload?.error)?.message));
                 }
             }
 

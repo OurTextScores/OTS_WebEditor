@@ -5,6 +5,7 @@ const mocked = vi.hoisted(() => ({
   runMusicContextService: vi.fn(),
   runMusicConvertService: vi.fn(),
   runMusicGenerateService: vi.fn(),
+  runMusicScoreOpsPromptService: vi.fn(),
   runMusicPatchService: vi.fn(),
 }));
 
@@ -32,6 +33,10 @@ vi.mock('../lib/music-services/convert-service', () => ({
 
 vi.mock('../lib/music-services/generate-service', () => ({
   runMusicGenerateService: mocked.runMusicGenerateService,
+}));
+
+vi.mock('../lib/music-services/scoreops-service', () => ({
+  runMusicScoreOpsPromptService: mocked.runMusicScoreOpsPromptService,
 }));
 
 vi.mock('../lib/music-services/patch-service', () => ({
@@ -121,16 +126,17 @@ describe('runMusicAgentRouter', () => {
     );
   });
 
-  it('uses fallback router and patch service for edit prompts', async () => {
+  it('uses fallback router and scoreops service for edit prompts', async () => {
     delete process.env.OPENAI_API_KEY;
-    mocked.runMusicPatchService.mockResolvedValue({
+    mocked.runMusicScoreOpsPromptService.mockResolvedValue({
       status: 200,
       body: {
-        mode: 'openai-responses',
-        patch: {
-          format: 'musicxml-patch@1',
-          ops: [{ op: 'delete', path: '/score-partwise/part[@id=\'P1\']/measure[@number=\'1\']/direction[1]' }],
+        ok: true,
+        mode: 'scoreops-heuristic',
+        planner: {
+          parsedOps: [{ op: 'set_key_signature', fifths: 1 }],
         },
+        execution: { ok: true },
       },
     });
 
@@ -146,15 +152,56 @@ describe('runMusicAgentRouter', () => {
     expect(result.status).toBe(200);
     expect(result.body).toMatchObject({
       mode: 'fallback',
-      selectedTool: 'music.patch',
+      selectedTool: 'music.scoreops',
       toolOk: true,
     });
-    expect(mocked.runMusicPatchService).toHaveBeenCalledWith(
+    expect(mocked.runMusicScoreOpsPromptService).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: 'Change key signature to G major and remove CLEAN VERSION text',
         content: '<score-partwise version="3.1"></score-partwise>',
       }),
     );
+  });
+
+  it('falls back to patch service when scoreops cannot map prompt', async () => {
+    delete process.env.OPENAI_API_KEY;
+    mocked.runMusicScoreOpsPromptService.mockResolvedValue({
+      status: 422,
+      body: {
+        ok: false,
+        error: {
+          code: 'unsupported_op',
+          message: 'not supported',
+        },
+      },
+    });
+    mocked.runMusicPatchService.mockResolvedValue({
+      status: 200,
+      body: {
+        mode: 'openai-responses',
+        patch: {
+          format: 'musicxml-patch@1',
+          ops: [],
+        },
+      },
+    });
+
+    const result = await runMusicAgentRouter({
+      prompt: 'Fix weird beaming in bars 10-12',
+      toolInput: {
+        context: {
+          content: '<score-partwise version="3.1"></score-partwise>',
+        },
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({
+      mode: 'fallback',
+      selectedTool: 'music.patch',
+      toolOk: true,
+    });
+    expect(mocked.runMusicPatchService).toHaveBeenCalledTimes(1);
   });
 
   it('uses Agents SDK path when OPENAI_API_KEY is set', async () => {

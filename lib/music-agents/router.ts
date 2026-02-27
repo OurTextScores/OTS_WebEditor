@@ -4,19 +4,22 @@ import { runMusicContextService } from '../music-services/context-service';
 import { runMusicConvertService } from '../music-services/convert-service';
 import { runMusicGenerateService } from '../music-services/generate-service';
 import { runMusicPatchService } from '../music-services/patch-service';
+import { runMusicScoreOpsPromptService } from '../music-services/scoreops-service';
 import {
   MUSIC_CONTEXT_TOOL_CONTRACT,
   MUSIC_CONVERT_TOOL_CONTRACT,
   MUSIC_GENERATE_TOOL_CONTRACT,
   MUSIC_PATCH_TOOL_CONTRACT,
+  MUSIC_SCOREOPS_TOOL_CONTRACT,
 } from '../music-services/contracts';
 
-type MusicAgentToolName = 'music.context' | 'music.convert' | 'music.generate' | 'music.patch';
+type MusicAgentToolName = 'music.context' | 'music.convert' | 'music.generate' | 'music.scoreops' | 'music.patch';
 
 type ToolDefaults = {
   context?: Record<string, unknown>;
   convert?: Record<string, unknown>;
   generate?: Record<string, unknown>;
+  scoreops?: Record<string, unknown>;
   patch?: Record<string, unknown>;
 };
 
@@ -36,7 +39,7 @@ const asRecord = (value: unknown): Record<string, unknown> | null => (
 const DEFAULT_MODEL = (process.env.MUSIC_AGENT_MODEL || 'gpt-5.2').trim();
 
 const AGENT_OUTPUT_SCHEMA = z.object({
-  selectedTool: z.enum(['music.context', 'music.convert', 'music.generate', 'music.patch']),
+  selectedTool: z.enum(['music.context', 'music.convert', 'music.generate', 'music.scoreops', 'music.patch']),
   toolStatus: z.number().int(),
   toolOk: z.boolean(),
   response: z.string(),
@@ -67,7 +70,7 @@ function classifyPrompt(prompt: string): MusicAgentToolName {
   }
   const isPatch = /\b(change|edit|fix|remove|delete|move|transpose|revoice|beam|re-beam|rest|clef|key signature|time signature|patch|apply)\b/.test(normalized);
   if (isPatch) {
-    return 'music.patch';
+    return 'music.scoreops';
   }
   return 'music.context';
 }
@@ -137,6 +140,61 @@ async function runFallbackRouter(prompt: string, toolInput?: ToolDefaults): Prom
           ? 'Patch generated via fallback router.'
           : 'Patch generation failed in fallback router.',
         result: result.body,
+      },
+    };
+  }
+  if (selectedTool === 'music.scoreops') {
+    const scoreOpsDefaults = {
+      ...(toolInput?.scoreops || {}),
+    };
+    const contextDefaults = asRecord(toolInput?.context);
+    if (!scoreOpsDefaults.content && typeof contextDefaults?.content === 'string') {
+      scoreOpsDefaults.content = contextDefaults.content;
+    }
+    const scoreOpsResult = await runMusicScoreOpsPromptService({
+      ...scoreOpsDefaults,
+      prompt: typeof scoreOpsDefaults.prompt === 'string' && scoreOpsDefaults.prompt.trim()
+        ? scoreOpsDefaults.prompt
+        : prompt,
+    });
+    if (scoreOpsResult.status < 400) {
+      return {
+        status: scoreOpsResult.status,
+        body: {
+          mode: 'fallback',
+          selectedTool,
+          toolStatus: scoreOpsResult.status,
+          toolOk: true,
+          response: 'Score operations applied via fallback router.',
+          result: scoreOpsResult.body,
+        },
+      };
+    }
+
+    const patchDefaults = {
+      ...(toolInput?.patch || {}),
+    };
+    if (!patchDefaults.content && typeof contextDefaults?.content === 'string') {
+      patchDefaults.content = contextDefaults.content;
+    }
+    const patchResult = await runMusicPatchService({
+      ...patchDefaults,
+      prompt: typeof patchDefaults.prompt === 'string' && patchDefaults.prompt.trim()
+        ? patchDefaults.prompt
+        : prompt,
+    });
+    return {
+      status: patchResult.status,
+      body: {
+        mode: 'fallback',
+        selectedTool: 'music.patch',
+        toolStatus: patchResult.status,
+        toolOk: patchResult.status < 400,
+        response: patchResult.status < 400
+          ? 'ScoreOps unsupported; generated patch via fallback router.'
+          : 'ScoreOps and patch fallback both failed.',
+        result: patchResult.body,
+        scoreOpsAttempt: scoreOpsResult.body,
       },
     };
   }
@@ -231,6 +289,28 @@ function createMusicRouterAgent() {
     },
   });
 
+  const musicScoreOpsTool = tool({
+    name: MUSIC_SCOREOPS_TOOL_CONTRACT.name,
+    description: MUSIC_SCOREOPS_TOOL_CONTRACT.description,
+    parameters: MUSIC_SCOREOPS_TOOL_CONTRACT.inputSchema,
+    strict: false,
+    execute: async (input, runContext) => {
+      const defaults = (runContext?.context as MusicAgentRunnerContext | undefined)?.toolInput?.scoreops;
+      const payload = mergeToolInput(defaults, input);
+      const contextDefaults = (runContext?.context as MusicAgentRunnerContext | undefined)?.toolInput?.context;
+      if (!payload.content && typeof contextDefaults?.content === 'string') {
+        payload.content = contextDefaults.content;
+      }
+      const result = await runMusicScoreOpsPromptService(payload);
+      return {
+        tool: 'music.scoreops',
+        status: result.status,
+        ok: result.status < 400,
+        body: result.body,
+      };
+    },
+  });
+
   return new Agent({
     name: 'MusicRouter',
     model: DEFAULT_MODEL,
@@ -240,12 +320,14 @@ function createMusicRouterAgent() {
       '- music.context: score context extraction and analysis prep.',
       '- music.convert: format conversion between MusicXML and ABC.',
       '- music.generate: generation/composition requests.',
+      '- music.scoreops: deterministic score editing with typed operations.',
       '- music.patch: score edit requests that should produce a musicxml-patch@1 payload.',
       'Call one tool first, inspect its result, then produce final output using the required schema.',
+      'Prefer music.scoreops for editing requests. Use music.patch only when scoreops is unsupported.',
       'When available, include the chosen tool output body in `result`.',
       'Keep response concise and mention why the selected tool was chosen.',
     ].join('\n'),
-    tools: [musicContextTool, musicConvertTool, musicGenerateTool, musicPatchTool],
+    tools: [musicContextTool, musicConvertTool, musicGenerateTool, musicScoreOpsTool, musicPatchTool],
     outputType: AGENT_OUTPUT_SCHEMA,
   });
 }
