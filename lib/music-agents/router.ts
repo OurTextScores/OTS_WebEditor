@@ -5,6 +5,7 @@ import { runMusicConvertService } from '../music-services/convert-service';
 import { runMusicGenerateService } from '../music-services/generate-service';
 import { runMusicPatchService } from '../music-services/patch-service';
 import { runMusicScoreOpsPromptService, runMusicScoreOpsService } from '../music-services/scoreops-service';
+import { type TraceContext } from '../trace-http';
 import {
   MUSIC_CONTEXT_TOOL_CONTRACT,
   MUSIC_CONVERT_TOOL_CONTRACT,
@@ -36,6 +37,7 @@ type MusicAgentTraceLogLevel = 'info' | 'warn' | 'error';
 
 type MusicAgentTraceContext = {
   traceId?: string;
+  traceContext?: TraceContext;
   detailed?: boolean;
   log?: (level: MusicAgentTraceLogLevel, event: string, payload: Record<string, unknown>) => void;
 };
@@ -126,12 +128,15 @@ async function runPatchFallback(
   traceLog(trace, 'music_agent.patch_fallback.start', {
     reason,
   });
-  const patchResult = await runMusicPatchService({
+  const patchPayload = {
     ...patchDefaults,
     prompt: typeof patchDefaults.prompt === 'string' && patchDefaults.prompt.trim()
       ? patchDefaults.prompt
       : prompt,
-  });
+  };
+  const patchResult = trace?.traceContext
+    ? await runMusicPatchService(patchPayload, { traceContext: trace.traceContext })
+    : await runMusicPatchService(patchPayload);
   return {
     status: patchResult.status,
     body: {
@@ -162,11 +167,14 @@ async function runFallbackRouter(
     selectedTool,
   });
   if (selectedTool === 'music.generate') {
-    const result = await runMusicGenerateService({
+    const generatePayload = {
       ...(toolInput?.generate || {}),
       dryRun: true,
       prompt: (toolInput?.generate?.prompt as string | undefined) || prompt,
-    });
+    };
+    const result = trace?.traceContext
+      ? await runMusicGenerateService(generatePayload, { traceContext: trace.traceContext })
+      : await runMusicGenerateService(generatePayload);
     return {
       status: result.status,
       body: {
@@ -207,12 +215,15 @@ async function runFallbackRouter(
     if (!patchDefaults.content && typeof contextDefaults?.content === 'string') {
       patchDefaults.content = contextDefaults.content;
     }
-    const result = await runMusicPatchService({
+    const patchPayload = {
       ...patchDefaults,
       prompt: typeof patchDefaults.prompt === 'string' && patchDefaults.prompt.trim()
         ? patchDefaults.prompt
         : prompt,
-    });
+    };
+    const result = trace?.traceContext
+      ? await runMusicPatchService(patchPayload, { traceContext: trace.traceContext })
+      : await runMusicPatchService(patchPayload);
     return {
       status: result.status,
       body: {
@@ -410,7 +421,9 @@ function createMusicRouterAgent() {
     execute: async (input, runContext) => {
       const defaults = (runContext?.context as MusicAgentRunnerContext | undefined)?.toolInput?.generate;
       const payload = mergeToolInput(defaults, input);
-      const result = await runMusicGenerateService(payload);
+      const result = trace?.traceContext
+        ? await runMusicGenerateService(payload, { traceContext: trace.traceContext })
+        : await runMusicGenerateService(payload);
       return {
         tool: 'music.generate',
         status: result.status,
@@ -428,7 +441,9 @@ function createMusicRouterAgent() {
     execute: async (input, runContext) => {
       const defaults = (runContext?.context as MusicAgentRunnerContext | undefined)?.toolInput?.patch;
       const payload = mergeToolInput(defaults, input);
-      const result = await runMusicPatchService(payload);
+      const result = trace?.traceContext
+        ? await runMusicPatchService(payload, { traceContext: trace.traceContext })
+        : await runMusicPatchService(payload);
       return {
         tool: 'music.patch',
         status: result.status,

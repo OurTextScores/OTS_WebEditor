@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { applyTraceHeaders, resolveTraceContext, withTraceHeaders } from '../../../../../lib/trace-http';
 
 export const runtime = 'nodejs';
 
@@ -57,6 +58,12 @@ function parsePromptsFile(content: string) {
 }
 
 export async function POST(request: Request) {
+    const trace = resolveTraceContext(request);
+    const tracedJson = (body: unknown, init?: ResponseInit) => {
+        const response = NextResponse.json(body, init);
+        applyTraceHeaders(response.headers, trace);
+        return response;
+    };
     try {
         const body = await request.json().catch(() => ({}));
         const data = (body && typeof body === 'object') ? body as Record<string, unknown> : {};
@@ -67,13 +74,13 @@ export async function POST(request: Request) {
         const token = tokenFromHeader || DEFAULT_NOTAGEN_SPACE_TOKEN;
 
         const response = await fetch(getPromptsRawUrl(spaceId, revision), {
-            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            headers: withTraceHeaders(trace, token ? { Authorization: `Bearer ${token}` } : undefined),
             cache: 'no-store',
         });
 
         if (!response.ok) {
             const body = await response.text().catch(() => '');
-            return NextResponse.json({
+            return tracedJson({
                 error: `Failed to fetch prompts.txt from Space (${response.status}).`,
                 spaceId,
                 revision,
@@ -83,7 +90,7 @@ export async function POST(request: Request) {
 
         const text = await response.text();
         const parsed = parsePromptsFile(text);
-        return NextResponse.json({
+        return tracedJson({
             ok: true,
             specialist: 'notagen',
             backend: 'huggingface-space',
@@ -93,7 +100,7 @@ export async function POST(request: Request) {
             combinations: parsed.combinations,
         });
     } catch (error) {
-        return NextResponse.json({
+        return tracedJson({
             error: error instanceof Error ? error.message : 'Failed to load NotaGen Space options.',
         }, { status: 500 });
     }

@@ -6,6 +6,7 @@ import {
     createScoreArtifact,
     summarizeScoreArtifact,
 } from '../../../../../lib/score-artifacts';
+import { resolveTraceContext, withTraceHeaders } from '../../../../../lib/trace-http';
 
 export const runtime = 'nodejs';
 
@@ -106,6 +107,7 @@ function sseFrame(event: string, payload: unknown) {
 
 export async function POST(request: Request) {
     const encoder = new TextEncoder();
+    const trace = resolveTraceContext(request);
 
     let body: Record<string, unknown> | null = null;
     try {
@@ -130,7 +132,7 @@ export async function POST(request: Request) {
     if (!period || !composer || !instrumentation) {
         return new Response(JSON.stringify({ error: 'Missing period/composer/instrumentation.' }), {
             status: 400,
-            headers: { 'Content-Type': 'application/json' },
+            headers: withTraceHeaders(trace, { 'Content-Type': 'application/json' }),
         });
     }
 
@@ -179,6 +181,7 @@ export async function POST(request: Request) {
                 app = await Client.connect(spaceId, {
                     events: ['data', 'status', 'log'],
                     ...(hfToken ? { token: hfToken as `hf_${string}` } : {}),
+                    headers: withTraceHeaders(trace),
                 });
 
                 const updatePeriod = await app.predict('/update_components', [period, null]);
@@ -446,10 +449,10 @@ export async function POST(request: Request) {
     });
 
     return new Response(stream, {
-        headers: {
+        headers: withTraceHeaders(trace, {
             'Content-Type': 'text/event-stream; charset=utf-8',
             'Cache-Control': 'no-cache, no-transform',
             Connection: 'keep-alive',
-        },
+        }),
     });
 }

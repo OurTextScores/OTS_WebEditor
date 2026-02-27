@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { applyTraceHeaders, resolveTraceContext, withTraceHeaders } from '../../../../lib/trace-http';
 
 export const dynamic = 'force-static';
 
@@ -32,6 +33,12 @@ const parseAnthropicText = (data: any) => {
 };
 
 export async function POST(request: Request) {
+    const trace = resolveTraceContext(request);
+    const tracedJson = (body: unknown, init?: ResponseInit) => {
+        const response = NextResponse.json(body, init);
+        applyTraceHeaders(response.headers, trace);
+        return response;
+    };
     try {
         const body = await request.json();
         const apiKey = String(body?.apiKey || '').trim();
@@ -49,7 +56,7 @@ export async function POST(request: Request) {
         const maxTokens = Number.isFinite(maxTokensValue) && maxTokensValue > 0 ? maxTokensValue : DEFAULT_MAX_TOKENS;
 
         if (!apiKey || !model || (!promptText && !prompt)) {
-            return NextResponse.json({ error: 'Missing apiKey, model, or prompt/promptText.' }, { status: 400 });
+            return tracedJson({ error: 'Missing apiKey, model, or prompt/promptText.' }, { status: 400 });
         }
 
         const systemPrompt = systemPromptInput || 'You are a MusicXML editor. Return only a JSON patch payload (musicxml-patch@1), no markdown or commentary.';
@@ -80,11 +87,11 @@ export async function POST(request: Request) {
 
         const response = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
-            headers: {
+            headers: withTraceHeaders(trace, {
                 'Content-Type': 'application/json',
                 'x-api-key': apiKey,
                 'anthropic-version': ANTHROPIC_VERSION,
-            },
+            }),
             body: JSON.stringify({
                 model,
                 max_tokens: maxTokens,
@@ -98,14 +105,14 @@ export async function POST(request: Request) {
 
         if (!response.ok) {
             const errorText = await response.text();
-            return NextResponse.json({ error: errorText || 'Anthropic request failed.' }, { status: response.status });
+            return tracedJson({ error: errorText || 'Anthropic request failed.' }, { status: response.status });
         }
 
         const data = await response.json();
         const text = parseAnthropicText(data);
-        return NextResponse.json({ text });
+        return tracedJson({ text });
     } catch (err) {
         console.error('Anthropic proxy error', err);
-        return NextResponse.json({ error: 'Anthropic proxy error.' }, { status: 500 });
+        return tracedJson({ error: 'Anthropic proxy error.' }, { status: 500 });
     }
 }

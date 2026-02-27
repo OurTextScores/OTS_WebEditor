@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { applyTraceHeaders, resolveTraceContext, withTraceHeaders } from '../../../../lib/trace-http';
 
 export const dynamic = 'force-static';
 
@@ -40,6 +41,12 @@ const parseResponsesText = (data: any) => {
 };
 
 export async function POST(request: Request) {
+    const trace = resolveTraceContext(request);
+    const tracedJson = (body: unknown, init?: ResponseInit) => {
+        const response = NextResponse.json(body, init);
+        applyTraceHeaders(response.headers, trace);
+        return response;
+    };
     try {
         const body = await request.json();
         const apiKey = String(body?.apiKey || '').trim();
@@ -58,7 +65,7 @@ export async function POST(request: Request) {
         const maxTokens = Number.isFinite(maxTokensValue) && maxTokensValue > 0 ? maxTokensValue : null;
 
         if (!apiKey || !model || (!promptText && !prompt)) {
-            return NextResponse.json({ error: 'Missing apiKey, model, or prompt/promptText.' }, { status: 400 });
+            return tracedJson({ error: 'Missing apiKey, model, or prompt/promptText.' }, { status: 400 });
         }
 
         const systemPrompt = systemPromptInput || 'You are a MusicXML editor. Return only a JSON patch payload (musicxml-patch@1), no markdown or commentary.';
@@ -101,17 +108,17 @@ export async function POST(request: Request) {
 
         const response = await fetch('https://api.openai.com/v1/responses', {
             method: 'POST',
-            headers: {
+            headers: withTraceHeaders(trace, {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${apiKey}`,
-            },
+            }),
             body: JSON.stringify(responsePayload),
         });
 
         if (!response.ok) {
             const errorText = await response.text();
             if (hasPdf) {
-                return NextResponse.json({ error: errorText || 'OpenAI request failed.' }, { status: response.status });
+                return tracedJson({ error: errorText || 'OpenAI request failed.' }, { status: response.status });
             }
             const userMessageContent: unknown = hasImage
                 ? [
@@ -138,28 +145,28 @@ export async function POST(request: Request) {
             }
             const fallbackResponse = await fetch('https://api.openai.com/v1/chat/completions', {
                 method: 'POST',
-                headers: {
+                headers: withTraceHeaders(trace, {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${apiKey}`,
-                },
+                }),
                 body: JSON.stringify(fallbackPayload),
             });
 
             if (!fallbackResponse.ok) {
                 const fallbackError = await fallbackResponse.text();
-                return NextResponse.json({ error: fallbackError || errorText || 'OpenAI request failed.' }, { status: fallbackResponse.status });
+                return tracedJson({ error: fallbackError || errorText || 'OpenAI request failed.' }, { status: fallbackResponse.status });
             }
 
             const fallbackData = await fallbackResponse.json();
             const text = parseChatCompletions(fallbackData);
-            return NextResponse.json({ text });
+            return tracedJson({ text });
         }
 
         const data = await response.json();
         const text = parseResponsesText(data);
-        return NextResponse.json({ text });
+        return tracedJson({ text });
     } catch (err) {
         console.error('OpenAI proxy error', err);
-        return NextResponse.json({ error: 'OpenAI proxy error.' }, { status: 500 });
+        return tracedJson({ error: 'OpenAI proxy error.' }, { status: 500 });
     }
 }

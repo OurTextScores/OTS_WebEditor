@@ -1,12 +1,19 @@
 import { NextResponse } from 'next/server';
 import { runMusicAgentRouter } from '../../../../lib/music-agents/router';
+import { applyTraceHeaders, resolveTraceContext } from '../../../../lib/trace-http';
 
 export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
-  const traceId = request.headers.get('x-request-id') || crypto.randomUUID();
+  const traceContext = resolveTraceContext(request);
+  const traceId = traceContext.traceId;
   const detailedTracing = process.env.MUSIC_AGENT_TRACE === '1';
   const startedAt = Date.now();
+  const tracedJson = (body: unknown, init?: ResponseInit) => {
+    const response = NextResponse.json(body, init);
+    applyTraceHeaders(response.headers, traceContext);
+    return response;
+  };
 
   let body: unknown;
   try {
@@ -22,9 +29,9 @@ export async function POST(request: Request) {
       mode: 'invalid-json',
       selectedTool: null,
     }));
-    return NextResponse.json(
+    return tracedJson(
       { error: 'Invalid JSON body.', traceId },
-      { status: 400, headers: { 'x-trace-id': traceId } },
+      { status: 400 },
     );
   }
 
@@ -48,6 +55,7 @@ export async function POST(request: Request) {
   const result = await runMusicAgentRouter(body, {
     trace: {
       traceId,
+      traceContext,
       detailed: detailedTracing,
       log: traceLog,
     },
@@ -65,16 +73,11 @@ export async function POST(request: Request) {
     selectedTool: typeof resultBody.selectedTool === 'string' ? resultBody.selectedTool : null,
   }));
 
-  return NextResponse.json(
+  return tracedJson(
     {
       ...result.body,
       ...(resultBody.traceId ? {} : { traceId }),
     },
-    {
-      status: result.status,
-      headers: {
-        'x-trace-id': traceId,
-      },
-    },
+    { status: result.status },
   );
 }

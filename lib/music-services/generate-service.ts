@@ -9,6 +9,7 @@ import {
     summarizeScoreArtifact,
     type ScoreArtifact,
 } from '../score-artifacts';
+import { type TraceContext, withTraceHeaders } from '../trace-http';
 
 const DEFAULT_NOTAGEN_MODEL_ID = (process.env.MUSIC_NOTAGEN_DEFAULT_MODEL_ID || '').trim();
 const DEFAULT_NOTAGEN_REVISION = (process.env.MUSIC_NOTAGEN_DEFAULT_REVISION || '').trim();
@@ -202,6 +203,7 @@ async function callHuggingFaceTextGeneration(args: {
     maxNewTokens: number;
     temperature: number;
     topP: number;
+    traceContext?: TraceContext;
 }) {
     const endpoint = getHfInferenceUrl(args.modelId, args.revision);
     const controller = new AbortController();
@@ -209,10 +211,15 @@ async function callHuggingFaceTextGeneration(args: {
     try {
         const response = await fetch(endpoint, {
             method: 'POST',
-            headers: {
-                Authorization: `Bearer ${args.hfToken}`,
-                'Content-Type': 'application/json',
-            },
+            headers: args.traceContext
+                ? withTraceHeaders(args.traceContext, {
+                    Authorization: `Bearer ${args.hfToken}`,
+                    'Content-Type': 'application/json',
+                })
+                : {
+                    Authorization: `Bearer ${args.hfToken}`,
+                    'Content-Type': 'application/json',
+                },
             body: JSON.stringify({
                 inputs: args.prompt,
                 parameters: {
@@ -317,11 +324,13 @@ async function callNotaGenSpaceGeneration(args: {
     composer: string;
     instrumentation: string;
     timeoutMs: number;
+    traceContext?: TraceContext;
 }) {
     const { Client } = await import('@gradio/client');
     const app = await Client.connect(args.spaceId, {
         events: ['data', 'status', 'log'],
         ...(args.hfToken ? { token: args.hfToken as `hf_${string}` } : {}),
+        ...(args.traceContext ? { headers: withTraceHeaders(args.traceContext) } : {}),
     });
 
     const updatePeriod = await app.predict('/update_components', [args.period, null]);
@@ -499,7 +508,10 @@ async function prepareSeedArtifact(args: {
     };
 }
 
-export async function runMusicGenerateService(body: unknown): Promise<{ status: number; body: Record<string, unknown> }> {
+export async function runMusicGenerateService(
+    body: unknown,
+    options?: { traceContext?: TraceContext },
+): Promise<{ status: number; body: Record<string, unknown> }> {
     try {
         const data = asRecord(body);
 
@@ -705,6 +717,7 @@ export async function runMusicGenerateService(body: unknown): Promise<{ status: 
                 maxNewTokens,
                 temperature,
                 topP,
+                traceContext: options?.traceContext,
             })
             : await callNotaGenSpaceGeneration({
                 spaceId,
@@ -713,6 +726,7 @@ export async function runMusicGenerateService(body: unknown): Promise<{ status: 
                 composer: spaceComposer,
                 instrumentation: spaceInstrumentation,
                 timeoutMs,
+                traceContext: options?.traceContext,
             });
 
         const extracted = backend === 'huggingface'

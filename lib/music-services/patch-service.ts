@@ -1,4 +1,5 @@
 import { getScoreArtifact, summarizeScoreArtifact, type ScoreArtifact } from '../score-artifacts';
+import { type TraceContext, withTraceHeaders } from '../trace-http';
 
 type PatchServiceResult = {
   status: number;
@@ -201,7 +202,10 @@ function selectXmlFromBody(data: Record<string, unknown>, sourceArtifact: ScoreA
   return '';
 }
 
-export async function runMusicPatchService(body: unknown): Promise<PatchServiceResult> {
+export async function runMusicPatchService(
+  body: unknown,
+  options?: { traceContext?: TraceContext },
+): Promise<PatchServiceResult> {
   const data = asRecord(body) || {};
   const prompt = typeof data.prompt === 'string' ? data.prompt.trim() : '';
   const model = (typeof data.model === 'string' ? data.model.trim() : '') || DEFAULT_MODEL;
@@ -277,10 +281,15 @@ export async function runMusicPatchService(body: unknown): Promise<PatchServiceR
     };
     const response = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
+      headers: options?.traceContext
+        ? withTraceHeaders(options.traceContext, {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+          })
+        : {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+          },
       body: JSON.stringify(responsePayload),
     });
     if (!response.ok) {

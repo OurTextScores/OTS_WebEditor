@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { applyTraceHeaders, resolveTraceContext, withTraceHeaders } from '../../../lib/trace-http';
 
 export type OpenAiCompatibleProvider = 'openai' | 'grok' | 'deepseek' | 'kimi';
 
@@ -201,6 +202,12 @@ const buildChatCompletionsPayload = (args: {
 
 export async function handleOpenAiCompatibleRequest(provider: OpenAiCompatibleProvider, request: Request) {
     const config = getConfig(provider);
+    const trace = resolveTraceContext(request);
+    const tracedJson = (body: unknown, init?: ResponseInit) => {
+        const response = NextResponse.json(body, init);
+        applyTraceHeaders(response.headers, trace);
+        return response;
+    };
     try {
         const body = await request.json();
         const normalized = parseRequestBody(body);
@@ -220,14 +227,14 @@ export async function handleOpenAiCompatibleRequest(provider: OpenAiCompatiblePr
         } = normalized;
 
         if (!apiKey || !model || (!promptText && !prompt)) {
-            return NextResponse.json({ error: 'Missing apiKey, model, or prompt/promptText.' }, { status: 400 });
+            return tracedJson({ error: 'Missing apiKey, model, or prompt/promptText.' }, { status: 400 });
         }
 
         const userPrompt = promptText || buildPrompt(prompt, xml);
         const hasImage = Boolean(imageBase64);
         const hasPdf = Boolean(pdfBase64);
         if (hasPdf && !config.supportsPdfAttachments) {
-            return NextResponse.json({ error: `${config.label} proxy does not support PDF attachments yet.` }, { status: 400 });
+            return tracedJson({ error: `${config.label} proxy does not support PDF attachments yet.` }, { status: 400 });
         }
 
         if (config.supportsResponsesApi) {
@@ -257,21 +264,21 @@ export async function handleOpenAiCompatibleRequest(provider: OpenAiCompatiblePr
 
             const response = await fetch(`${config.baseUrl}/responses`, {
                 method: 'POST',
-                headers: {
+                headers: withTraceHeaders(trace, {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${apiKey}`,
-                },
+                }),
                 body: JSON.stringify(responsePayload),
             });
 
             if (response.ok) {
                 const data = await response.json();
-                return NextResponse.json({ text: parseResponsesText(data) });
+                return tracedJson({ text: parseResponsesText(data) });
             }
 
             const errorText = await response.text();
             if (hasPdf) {
-                return NextResponse.json({ error: errorText || `${config.label} request failed.` }, { status: response.status });
+                return tracedJson({ error: errorText || `${config.label} request failed.` }, { status: response.status });
             }
         }
 
@@ -285,45 +292,51 @@ export async function handleOpenAiCompatibleRequest(provider: OpenAiCompatiblePr
         });
         const chatResponse = await fetch(`${config.baseUrl}/chat/completions`, {
             method: 'POST',
-            headers: {
+            headers: withTraceHeaders(trace, {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${apiKey}`,
-            },
+            }),
             body: JSON.stringify(chatPayload),
         });
 
         if (!chatResponse.ok) {
             const errorText = await chatResponse.text();
-            return NextResponse.json({ error: errorText || `${config.label} request failed.` }, { status: chatResponse.status });
+            return tracedJson({ error: errorText || `${config.label} request failed.` }, { status: chatResponse.status });
         }
 
         const chatData = await chatResponse.json();
-        return NextResponse.json({ text: parseChatCompletionsText(chatData) });
+        return tracedJson({ text: parseChatCompletionsText(chatData) });
     } catch (err) {
         console.error(`${config.label} proxy error`, err);
-        return NextResponse.json({ error: `${config.label} proxy error.` }, { status: 500 });
+        return tracedJson({ error: `${config.label} proxy error.` }, { status: 500 });
     }
 }
 
 export async function handleOpenAiCompatibleModelsRequest(provider: OpenAiCompatibleProvider, request: Request) {
     const config = getConfig(provider);
+    const trace = resolveTraceContext(request);
+    const tracedJson = (body: unknown, init?: ResponseInit) => {
+        const response = NextResponse.json(body, init);
+        applyTraceHeaders(response.headers, trace);
+        return response;
+    };
     try {
         const body = await request.json();
         const apiKey = String(body?.apiKey || '').trim();
         if (!apiKey) {
-            return NextResponse.json({ error: 'Missing apiKey.' }, { status: 400 });
+            return tracedJson({ error: 'Missing apiKey.' }, { status: 400 });
         }
 
         const response = await fetch(`${config.baseUrl}/models`, {
-            headers: {
+            headers: withTraceHeaders(trace, {
                 Authorization: `Bearer ${apiKey}`,
                 'Content-Type': 'application/json',
-            },
+            }),
         });
 
         if (!response.ok) {
             const errorText = await response.text();
-            return NextResponse.json({ error: errorText || `${config.label} request failed.` }, { status: response.status });
+            return tracedJson({ error: errorText || `${config.label} request failed.` }, { status: response.status });
         }
 
         const data = await response.json();
@@ -338,9 +351,9 @@ export async function handleOpenAiCompatibleModelsRequest(provider: OpenAiCompat
                     return record?.id ?? item;
                 }).filter((id: unknown): id is string => typeof id === 'string')
                 : [];
-        return NextResponse.json({ models });
+        return tracedJson({ models });
     } catch (err) {
         console.error(`${config.label} models proxy error`, err);
-        return NextResponse.json({ error: `${config.label} models proxy error.` }, { status: 500 });
+        return tracedJson({ error: `${config.label} models proxy error.` }, { status: 500 });
     }
 }

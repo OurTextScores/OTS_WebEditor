@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getScoreArtifact, summarizeScoreArtifact } from '../../../../../lib/score-artifacts';
+import { applyTraceHeaders, resolveTraceContext } from '../../../../../lib/trace-http';
 
 export const runtime = 'nodejs';
 
@@ -8,24 +9,29 @@ const asRecord = (value: unknown): Record<string, unknown> | null => (
 );
 
 export async function POST(request: Request) {
+    const trace = resolveTraceContext(request);
+    const tracedJson = (body: unknown, init?: ResponseInit) => {
+        const response = NextResponse.json(body, init);
+        applyTraceHeaders(response.headers, trace);
+        return response;
+    };
     const body = await request.json().catch(() => ({}));
     const data = asRecord(body);
     const id = typeof data?.id === 'string' ? data.id.trim() : '';
     if (!id) {
-        return NextResponse.json({ error: 'Missing artifact id.' }, { status: 400 });
+        return tracedJson({ error: 'Missing artifact id.' }, { status: 400 });
     }
 
     const artifact = await getScoreArtifact(id);
     if (!artifact) {
-        return NextResponse.json({ error: 'Artifact not found.' }, { status: 404 });
+        return tracedJson({ error: 'Artifact not found.' }, { status: 404 });
     }
 
     const includeContent = typeof data?.includeContent === 'boolean'
         ? data.includeContent
         : (typeof data?.include_content === 'boolean' ? data.include_content : false);
     if (includeContent) {
-        return NextResponse.json({ artifact });
+        return tracedJson({ artifact });
     }
-    return NextResponse.json({ artifact: summarizeScoreArtifact(artifact) });
+    return tracedJson({ artifact: summarizeScoreArtifact(artifact) });
 }
-

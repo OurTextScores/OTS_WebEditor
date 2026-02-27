@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { applyTraceHeaders, resolveTraceContext, withTraceHeaders } from '../../../../lib/trace-http';
 
 export const dynamic = 'force-static';
 
@@ -40,6 +41,12 @@ const normalizeGeminiModel = (model: string) => {
 };
 
 export async function POST(request: Request) {
+    const trace = resolveTraceContext(request);
+    const tracedJson = (body: unknown, init?: ResponseInit) => {
+        const response = NextResponse.json(body, init);
+        applyTraceHeaders(response.headers, trace);
+        return response;
+    };
     try {
         const body = await request.json();
         const apiKey = String(body?.apiKey || '').trim();
@@ -57,14 +64,14 @@ export async function POST(request: Request) {
         const maxTokens = Number.isFinite(maxTokensValue) && maxTokensValue > 0 ? maxTokensValue : null;
 
         if (!apiKey || !model || (!promptText && !prompt)) {
-            return NextResponse.json({ error: 'Missing apiKey, model, or prompt/promptText.' }, { status: 400 });
+            return tracedJson({ error: 'Missing apiKey, model, or prompt/promptText.' }, { status: 400 });
         }
 
         const systemPrompt = systemPromptInput || 'You are a MusicXML editor. Return only a JSON patch payload (musicxml-patch@1), no markdown or commentary.';
         const userPrompt = promptText || buildPrompt(prompt, xml);
         const normalizedModel = normalizeGeminiModel(model);
         if (!normalizedModel) {
-            return NextResponse.json({ error: 'Missing model.' }, { status: 400 });
+            return tracedJson({ error: 'Missing model.' }, { status: 400 });
         }
         const parts: Array<Record<string, unknown>> = [{ text: userPrompt }];
         if (imageBase64) {
@@ -93,10 +100,10 @@ export async function POST(request: Request) {
 
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${normalizedModel}:generateContent`, {
             method: 'POST',
-            headers: {
+            headers: withTraceHeaders(trace, {
                 'Content-Type': 'application/json',
                 'x-goog-api-key': apiKey,
-            },
+            }),
             body: JSON.stringify({
                 systemInstruction: {
                     parts: [{ text: systemPrompt }],
@@ -113,14 +120,14 @@ export async function POST(request: Request) {
 
         if (!response.ok) {
             const errorText = await response.text();
-            return NextResponse.json({ error: errorText || 'Gemini request failed.' }, { status: response.status });
+            return tracedJson({ error: errorText || 'Gemini request failed.' }, { status: response.status });
         }
 
         const data = await response.json();
         const text = parseGeminiText(data);
-        return NextResponse.json({ text });
+        return tracedJson({ text });
     } catch (err) {
         console.error('Gemini proxy error', err);
-        return NextResponse.json({ error: 'Gemini proxy error.' }, { status: 500 });
+        return tracedJson({ error: 'Gemini proxy error.' }, { status: 500 });
     }
 }
