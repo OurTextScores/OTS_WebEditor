@@ -23,6 +23,7 @@ export const MUSIC_SCOREOPS_TOOL_CONTRACT: MusicToolContract = {
           includeXml: { type: 'boolean' },
           includePatch: { type: 'boolean' },
           includeMeasureDiff: { type: 'boolean' },
+          preferredExecutor: { type: 'string', enum: ['auto', 'wasm', 'xml'] },
         },
       },
     },

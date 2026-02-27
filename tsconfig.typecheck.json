@@ -1,5 +1,9 @@
 {
   "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowJs": false,
+    "checkJs": false
+  },
   "include": [
     "next-env.d.ts",
     "app/api/music/scoreops/**/*.ts",
@@ -7,11 +11,13 @@
     "lib/music-services/scoreops-session-store.ts",
     "lib/music-services/contracts/**/*.ts",
     "lib/score-artifacts.ts",
+    "types/typecheck-webmscore.d.ts",
     "unit/scoreops-*.test.ts",
     "unit/music-service-contracts.test.ts"
   ],
   "exclude": [
     "node_modules",
+    "webmscore-fork",
     ".next",
     ".next-dev-*",
     "out",

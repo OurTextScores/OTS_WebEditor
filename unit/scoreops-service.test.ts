@@ -3,8 +3,59 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocked = vi.hoisted(() => {
   let nextId = 1;
   const artifacts = new Map<string, Record<string, unknown>>();
+  const createFakeWasmScore = (initialXml: string) => {
+    let xml = initialXml;
+    let selectedMeasure = 1;
+    const updateSelectedMeasure = (updater: (measureXml: string) => string) => {
+      const measureRegex = new RegExp(`(<measure\\\\b[^>]*number=\"${selectedMeasure}\"[^>]*>[\\\\s\\\\S]*?<\\\\/measure>)`, 'i');
+      const match = xml.match(measureRegex);
+      if (!match) {
+        return;
+      }
+      const next = updater(match[1]);
+      xml = xml.replace(measureRegex, next);
+    };
+    return {
+      destroy: vi.fn(),
+      relayout: vi.fn(async () => undefined),
+      saveXml: vi.fn(async () => new TextEncoder().encode(xml)),
+      selectPartMeasureByIndex: vi.fn(async (_partIndex: number, measureIndex: number) => {
+        selectedMeasure = measureIndex + 1;
+      }),
+      setKeySignature: vi.fn(async (fifths: number) => {
+        updateSelectedMeasure((measureXml) => measureXml.replace(/(<fifths>)-?\d+(<\/fifths>)/i, `$1${fifths}$2`));
+      }),
+      setTitleText: vi.fn(async (title: string) => {
+        xml = xml.replace(/<movement-title>[\s\S]*?<\/movement-title>/i, `<movement-title>${title}</movement-title>`);
+      }),
+      setTimeSignature: vi.fn(async (numerator: number, denominator: number) => {
+        updateSelectedMeasure((measureXml) => (
+          measureXml
+            .replace(/(<beats>)\d+(<\/beats>)/i, `$1${numerator}$2`)
+            .replace(/(<beat-type>)\d+(<\/beat-type>)/i, `$1${denominator}$2`)
+        ));
+      }),
+      setClef: vi.fn(async (clefType: number) => {
+        const map: Record<number, { sign: string; line: string }> = {
+          0: { sign: 'G', line: '2' },
+          20: { sign: 'F', line: '4' },
+          10: { sign: 'C', line: '3' },
+          11: { sign: 'C', line: '4' },
+        };
+        const target = map[clefType] || map[0];
+        updateSelectedMeasure((measureXml) => (
+          measureXml
+            .replace(/(<clef>[\s\S]*?<sign>)[A-Z](<\/sign>)/i, `$1${target.sign}$2`)
+            .replace(/(<clef>[\s\S]*?<line>)\d+(<\/line>)/i, `$1${target.line}$2`)
+        ));
+      }),
+    };
+  };
   return {
     artifacts,
+    loadWebMscoreInProcess: vi.fn(async () => ({
+      load: vi.fn(async (_format: string, data: Uint8Array) => createFakeWasmScore(new TextDecoder().decode(data))),
+    })),
     createScoreArtifact: vi.fn(async (input: Record<string, unknown>) => {
       const id = `art-${nextId++}`;
       const artifact = {
@@ -34,6 +85,10 @@ vi.mock('../lib/score-artifacts', () => ({
   createScoreArtifact: mocked.createScoreArtifact,
   getScoreArtifact: mocked.getScoreArtifact,
   summarizeScoreArtifact: mocked.summarizeScoreArtifact,
+}));
+
+vi.mock('../lib/webmscore-loader', () => ({
+  loadWebMscoreInProcess: mocked.loadWebMscoreInProcess,
 }));
 
 import { runMusicScoreOpsPromptService, runMusicScoreOpsService, __scoreOpsTestOnly } from '../lib/music-services/scoreops-service';
@@ -219,6 +274,52 @@ describe('runMusicScoreOpsService', () => {
     expect(execution.output?.content || '').toContain('<fifths>1</fifths>');
   });
 
+  it('decomposes multi-step prompts and reports unsupported steps explicitly', async () => {
+    const result = await runMusicScoreOpsPromptService({
+      prompt: '1. Change key signature to G major, 2. Remove the text "Original Title", 3. Fix weird beaming in measures 29-30',
+      content: SAMPLE_XML,
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({
+      ok: true,
+      planner: {
+        mode: 'heuristic-v2',
+        supportedSteps: expect.any(Array),
+        unsupportedSteps: expect.any(Array),
+      },
+    });
+    const planner = result.body.planner as {
+      supportedSteps?: Array<Record<string, unknown>>;
+      unsupportedSteps?: Array<{ text?: string; reason?: string }>;
+    };
+    expect((planner.supportedSteps || []).length).toBeGreaterThan(0);
+    expect((planner.unsupportedSteps || []).some((step) => (
+      `${step.text || ''} ${step.reason || ''}`.toLowerCase().includes('beaming')
+    ))).toBe(true);
+  });
+
+  it('returns structured unsupported-step details when no operations can be mapped', async () => {
+    const result = await runMusicScoreOpsPromptService({
+      prompt: 'Please fix weird voicing and normalize beaming in bars 10-12.',
+      content: SAMPLE_XML,
+    });
+
+    expect(result.status).toBe(422);
+    expect(result.body).toMatchObject({
+      ok: false,
+      error: {
+        code: 'unsupported_op',
+        details: {
+          planner: {
+            mode: 'heuristic-v2',
+            unsupportedSteps: expect.any(Array),
+          },
+        },
+      },
+    });
+  });
+
   it('falls back to measure-diff patch when op emitter is unavailable', async () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
@@ -241,5 +342,59 @@ describe('runMusicScoreOpsService', () => {
     const patch = apply.body.patch as { format?: string; ops?: Array<{ op: string; path: string }> };
     expect(patch.format).toBe('musicxml-patch@1');
     expect((patch.ops || []).length).toBeGreaterThan(0);
+  });
+
+  it('uses wasm executor when requested and available', async () => {
+    const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
+    const scoreSessionId = String(open.body.scoreSessionId);
+
+    const apply = await runMusicScoreOpsService({
+      action: 'apply',
+      scoreSessionId,
+      baseRevision: 0,
+      ops: [
+        { op: 'set_metadata_text', field: 'title', value: 'Updated via WASM' },
+      ],
+      options: { includeXml: true, preferredExecutor: 'wasm' },
+    }, 'apply');
+
+    expect(apply.status).toBe(200);
+    expect(apply.body).toMatchObject({
+      ok: true,
+      executor: {
+        preferred: 'wasm',
+        selected: 'wasm',
+      },
+    });
+    const output = (apply.body.output as { content?: string })?.content || '';
+    expect(output).toContain('<movement-title>Updated via WASM</movement-title>');
+    expect(mocked.loadWebMscoreInProcess).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to xml executor when wasm cannot handle operation', async () => {
+    const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
+    const scoreSessionId = String(open.body.scoreSessionId);
+
+    const apply = await runMusicScoreOpsService({
+      action: 'apply',
+      scoreSessionId,
+      baseRevision: 0,
+      ops: [
+        { op: 'delete_text_by_content', text: 'Original', maxDeletes: 10 },
+      ],
+      options: { includeXml: true, preferredExecutor: 'wasm' },
+    }, 'apply');
+
+    expect(apply.status).toBe(200);
+    expect(apply.body).toMatchObject({
+      ok: true,
+      executor: {
+        preferred: 'wasm',
+        selected: 'xml',
+        usedFallback: true,
+      },
+    });
+    const output = (apply.body.output as { content?: string })?.content || '';
+    expect(output.includes('Original')).toBe(false);
   });
 });

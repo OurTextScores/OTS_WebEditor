@@ -5,6 +5,7 @@ import {
   summarizeScoreArtifact,
   type ScoreArtifact,
 } from '../score-artifacts';
+import { loadWebMscoreInProcess, type Score } from '../webmscore-loader';
 import {
   clearScoreOpsSessions,
   createScoreOpsSession,
@@ -32,6 +33,8 @@ type ScoreScope = {
   measureStart?: number;
   measureEnd?: number;
 };
+
+type ScoreOpsExecutorMode = 'auto' | 'wasm' | 'xml';
 
 type MusicXmlPatchOp = {
   op: 'replace' | 'setText' | 'setAttr' | 'insertBefore' | 'insertAfter' | 'delete';
@@ -156,6 +159,7 @@ const APPLY_REQUEST_SCHEMA = z.object({
     includePatch: z.boolean().optional(),
     includeXml: z.boolean().optional(),
     includeMeasureDiff: z.boolean().optional(),
+    preferredExecutor: z.enum(['auto', 'wasm', 'xml']).optional(),
   }).optional(),
 });
 
@@ -1044,6 +1048,288 @@ function buildScoreOpsPatch(
   };
 }
 
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
+
+function normalizeExecutorPreference(
+  optionPreference: unknown,
+): ScoreOpsExecutorMode {
+  if (optionPreference === 'wasm' || optionPreference === 'xml' || optionPreference === 'auto') {
+    return optionPreference;
+  }
+  const fromEnv = (process.env.SCOREOPS_EXECUTOR_PREFERRED || '').trim().toLowerCase();
+  if (fromEnv === 'wasm' || fromEnv === 'xml' || fromEnv === 'auto') {
+    return fromEnv;
+  }
+  return 'auto';
+}
+
+function shouldAttemptWasmExecutor(preferred: ScoreOpsExecutorMode) {
+  if (preferred === 'xml') {
+    return false;
+  }
+  if (process.env.SCOREOPS_ENABLE_WASM === '0') {
+    return false;
+  }
+  if (process.env.NODE_ENV === 'test' && preferred === 'auto') {
+    return false;
+  }
+  return true;
+}
+
+function getPartIdToIndex(xml: string) {
+  const map = new Map<string, number>();
+  const parts = parsePartBlocks(xml);
+  parts.forEach((part, index) => {
+    if (part.partId && !map.has(part.partId)) {
+      map.set(part.partId, index);
+    }
+  });
+  return map;
+}
+
+function getScopePartsAndRange(xml: string, scope?: ScoreScope) {
+  const partIds = resolveTargetPartIds(xml, scope?.partId);
+  const start = scope?.measureStart ?? 1;
+  const end = scope?.measureEnd ?? start;
+  return {
+    partIds,
+    start,
+    end,
+  };
+}
+
+type WasmMutationTarget = {
+  partId: string;
+  measureNumber: number;
+};
+
+function enumerateTargetsForScope(xml: string, scope?: ScoreScope): WasmMutationTarget[] {
+  const { partIds, start, end } = getScopePartsAndRange(xml, scope);
+  const targets: WasmMutationTarget[] = [];
+  for (const partId of partIds) {
+    for (let measureNumber = start; measureNumber <= end; measureNumber += 1) {
+      targets.push({ partId, measureNumber });
+    }
+  }
+  return targets;
+}
+
+async function saveXmlFromScore(score: Score): Promise<string | null> {
+  if (!score.saveXml) {
+    return null;
+  }
+  const bytes = await score.saveXml();
+  return textDecoder.decode(bytes);
+}
+
+async function relayoutIfSupported(score: Score) {
+  if (typeof score.relayout === 'function') {
+    await Promise.resolve(score.relayout());
+  }
+}
+
+function mapClefToWasmValue(clef: z.infer<typeof CLEF_SCHEMA>) {
+  const mapping: Record<z.infer<typeof CLEF_SCHEMA>, number> = {
+    treble: 0,
+    bass: 20,
+    alto: 10,
+    tenor: 11,
+  };
+  return mapping[clef];
+}
+
+function mapInsertTarget(target: z.infer<typeof INSERT_TARGET_SCHEMA>) {
+  if (target === 'after_measure') {
+    return 0;
+  }
+  return 3;
+}
+
+async function selectMeasureOnScore(
+  score: Score,
+  partIndexById: Map<string, number>,
+  partId: string,
+  measureNumber: number,
+): Promise<{ ok: boolean; reason?: string }> {
+  if (!score.selectPartMeasureByIndex) {
+    return { ok: false, reason: 'selectPartMeasureByIndex is unavailable in this webmscore runtime.' };
+  }
+  const partIndex = partIndexById.get(partId);
+  if (partIndex === undefined) {
+    return { ok: false, reason: `Part not found: ${partId}` };
+  }
+  if (measureNumber < 1) {
+    return { ok: false, reason: `Invalid measure number: ${measureNumber}` };
+  }
+  await Promise.resolve(score.selectPartMeasureByIndex(partIndex, measureNumber - 1));
+  return { ok: true };
+}
+
+type WasmExecutionResult =
+  | {
+    ok: true;
+    xml: string;
+    applied: OpApplyResult[];
+    summaries: string[];
+  }
+  | {
+    ok: false;
+    fallbackReason: string;
+  };
+
+async function executeOpsWithWasm(
+  beforeXml: string,
+  ops: ScoreOp[],
+): Promise<WasmExecutionResult> {
+  let score: Score | null = null;
+  try {
+    const webMscore = await loadWebMscoreInProcess();
+    score = await webMscore.load('musicxml', textEncoder.encode(beforeXml));
+    if (!score.saveXml) {
+      return { ok: false, fallbackReason: 'saveXml is unavailable in current webmscore runtime.' };
+    }
+
+    let currentXml = beforeXml;
+    const applied: OpApplyResult[] = [];
+    const summaries: string[] = [];
+
+    for (let index = 0; index < ops.length; index += 1) {
+      const op = ops[index];
+      const partIndexById = getPartIdToIndex(currentXml);
+      const targets = enumerateTargetsForScope(currentXml, (op as { scope?: ScoreScope }).scope);
+
+      if (!partIndexById.size) {
+        return { ok: false, fallbackReason: 'No parts found in score for wasm execution.' };
+      }
+
+      if (op.op === 'delete_text_by_content') {
+        return { ok: false, fallbackReason: 'delete_text_by_content is not supported by wasm executor.' };
+      }
+
+      if (op.op === 'set_metadata_text') {
+        const methodMap = {
+          title: score.setTitleText,
+          subtitle: score.setSubtitleText,
+          composer: score.setComposerText,
+          lyricist: score.setLyricistText,
+        } as const;
+        const setter = methodMap[op.field];
+        if (typeof setter !== 'function') {
+          return { ok: false, fallbackReason: `Missing wasm setter for metadata field: ${op.field}` };
+        }
+        await Promise.resolve(setter(op.value));
+      } else if (op.op === 'set_key_signature') {
+        if (typeof score.setKeySignature !== 'function') {
+          return { ok: false, fallbackReason: 'setKeySignature is unavailable in current webmscore runtime.' };
+        }
+        for (const target of targets) {
+          const selected = await selectMeasureOnScore(score, partIndexById, target.partId, target.measureNumber);
+          if (!selected.ok) {
+            return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+          }
+          await Promise.resolve(score.setKeySignature(op.fifths));
+        }
+      } else if (op.op === 'set_time_signature') {
+        if (typeof score.setTimeSignature !== 'function') {
+          return { ok: false, fallbackReason: 'setTimeSignature is unavailable in current webmscore runtime.' };
+        }
+        for (const target of targets) {
+          const selected = await selectMeasureOnScore(score, partIndexById, target.partId, target.measureNumber);
+          if (!selected.ok) {
+            return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+          }
+          await Promise.resolve(score.setTimeSignature(op.numerator, op.denominator));
+        }
+      } else if (op.op === 'set_clef') {
+        if (typeof score.setClef !== 'function') {
+          return { ok: false, fallbackReason: 'setClef is unavailable in current webmscore runtime.' };
+        }
+        const clefValue = mapClefToWasmValue(op.clef);
+        for (const target of targets) {
+          const selected = await selectMeasureOnScore(score, partIndexById, target.partId, target.measureNumber);
+          if (!selected.ok) {
+            return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+          }
+          await Promise.resolve(score.setClef(clefValue));
+        }
+      } else if (op.op === 'insert_measures') {
+        if (typeof score.insertMeasures !== 'function') {
+          return { ok: false, fallbackReason: 'insertMeasures is unavailable in current webmscore runtime.' };
+        }
+        if (op.target === 'after_measure') {
+          const partId = op.partId || Array.from(partIndexById.keys())[0];
+          const afterMeasure = op.afterMeasure || 1;
+          const selected = await selectMeasureOnScore(score, partIndexById, partId, afterMeasure);
+          if (!selected.ok) {
+            return { ok: false, fallbackReason: selected.reason || 'Failed to select insert anchor.' };
+          }
+        }
+        await Promise.resolve(score.insertMeasures(op.count, mapInsertTarget(op.target)));
+      } else if (op.op === 'remove_measures' || op.op === 'delete_selection') {
+        if (typeof score.removeSelectedMeasures !== 'function') {
+          return { ok: false, fallbackReason: 'removeSelectedMeasures is unavailable in current webmscore runtime.' };
+        }
+        const scope = op.scope;
+        if (!scope.measureStart) {
+          return { ok: false, fallbackReason: `${op.op} requires scope.measureStart.` };
+        }
+        const end = scope.measureEnd ?? scope.measureStart;
+        const partIds = resolveTargetPartIds(currentXml, scope.partId);
+        for (const partId of partIds) {
+          const deleteCount = Math.max(0, end - scope.measureStart + 1);
+          for (let i = 0; i < deleteCount; i += 1) {
+            const selected = await selectMeasureOnScore(score, partIndexById, partId, scope.measureStart);
+            if (!selected.ok) {
+              return { ok: false, fallbackReason: selected.reason || 'Failed to select measure for deletion.' };
+            }
+            await Promise.resolve(score.removeSelectedMeasures());
+          }
+        }
+      } else {
+        return { ok: false, fallbackReason: `Unsupported wasm operation: ${(op as { op: string }).op}` };
+      }
+
+      await relayoutIfSupported(score);
+      const saved = await saveXmlFromScore(score);
+      if (!saved) {
+        return { ok: false, fallbackReason: 'Unable to serialize MusicXML after wasm operation.' };
+      }
+      currentXml = saved;
+      const summary = `Applied ${op.op} via wasm.`;
+      summaries.push(summary);
+      applied.push({
+        index,
+        op: op.op,
+        ok: true,
+        message: summary,
+      });
+    }
+
+    return {
+      ok: true,
+      xml: currentXml,
+      applied,
+      summaries,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      fallbackReason: error instanceof Error
+        ? `WASM execution failed: ${error.message}`
+        : 'WASM execution failed.',
+    };
+  } finally {
+    if (score) {
+      try {
+        score.destroy(true);
+      } catch {
+        // best-effort cleanup
+      }
+    }
+  }
+}
+
 function buildCapabilities() {
   return {
     ops: [
@@ -1305,90 +1591,113 @@ async function applyOps(payload: z.infer<typeof APPLY_REQUEST_SCHEMA>): Promise<
   const includeXml = payload.options?.includeXml ?? false;
   const includePatch = payload.options?.includePatch ?? false;
   const includeMeasureDiff = payload.options?.includeMeasureDiff ?? false;
+  const preferredExecutor = normalizeExecutorPreference(payload.options?.preferredExecutor);
+  const tryWasm = shouldAttemptWasmExecutor(preferredExecutor);
 
   const beforeXml = session.content;
   let workingXml = beforeXml;
-  const applied: OpApplyResult[] = [];
-  const summaries: string[] = [];
+  let selectedExecutor: 'wasm' | 'xml' = 'xml';
+  let fallbackReason: string | null = null;
+  let applied: OpApplyResult[] = [];
+  let summaries: string[] = [];
 
-  for (let index = 0; index < payload.ops.length; index += 1) {
-    const op = payload.ops[index];
-    const output = applyOneOp(workingXml, op);
-    if (isApplyOneOpError(output)) {
-      const failedEntry: OpApplyResult = {
-        index,
-        op: op.op,
-        ok: false,
-        message: output.error,
-      };
-      applied.push(failedEntry);
-      if (atomic) {
-        return {
-          status: 422,
-          body: {
-            ok: false,
-            scoreSessionId: session.scoreSessionId,
-            baseRevision: session.revision,
-            error: {
-              code: 'execution_failure',
-              message: output.error,
-              details: {
-                failedOpIndex: index,
-                failedOp: op.op,
-                rollback: 'completed',
-                applied,
+  if (tryWasm) {
+    const wasmResult = await executeOpsWithWasm(beforeXml, payload.ops);
+    if (wasmResult.ok) {
+      selectedExecutor = 'wasm';
+      workingXml = wasmResult.xml;
+      applied = wasmResult.applied;
+      summaries = wasmResult.summaries;
+    } else {
+      fallbackReason = wasmResult.fallbackReason;
+    }
+  }
+
+  if (selectedExecutor === 'xml') {
+    for (let index = 0; index < payload.ops.length; index += 1) {
+      const op = payload.ops[index];
+      const output = applyOneOp(workingXml, op);
+      if (isApplyOneOpError(output)) {
+        const failedEntry: OpApplyResult = {
+          index,
+          op: op.op,
+          ok: false,
+          message: output.error,
+        };
+        applied.push(failedEntry);
+        if (atomic) {
+          return {
+            status: 422,
+            body: {
+              ok: false,
+              scoreSessionId: session.scoreSessionId,
+              baseRevision: session.revision,
+              error: {
+                code: 'execution_failure',
+                message: output.error,
+                details: {
+                  failedOpIndex: index,
+                  failedOp: op.op,
+                  rollback: 'completed',
+                  applied,
+                  ...(fallbackReason ? { fallbackReason } : {}),
+                },
               },
             },
-          },
-        };
+          };
+        }
+        continue;
       }
-      continue;
-    }
-    if (!output.changed) {
-      const failedEntry: OpApplyResult = {
-        index,
-        op: op.op,
-        ok: false,
-        message: 'No effective change produced.',
-      };
-      applied.push(failedEntry);
-      if (atomic) {
-        return {
-          status: 422,
-          body: {
-            ok: false,
-            scoreSessionId: session.scoreSessionId,
-            baseRevision: session.revision,
-            error: {
-              code: 'execution_failure',
-              message: failedEntry.message,
-              details: {
-                failedOpIndex: index,
-                failedOp: op.op,
-                rollback: 'completed',
-                applied,
+      if (!output.changed) {
+        const failedEntry: OpApplyResult = {
+          index,
+          op: op.op,
+          ok: false,
+          message: 'No effective change produced.',
+        };
+        applied.push(failedEntry);
+        if (atomic) {
+          return {
+            status: 422,
+            body: {
+              ok: false,
+              scoreSessionId: session.scoreSessionId,
+              baseRevision: session.revision,
+              error: {
+                code: 'execution_failure',
+                message: failedEntry.message,
+                details: {
+                  failedOpIndex: index,
+                  failedOp: op.op,
+                  rollback: 'completed',
+                  applied,
+                  ...(fallbackReason ? { fallbackReason } : {}),
+                },
               },
             },
-          },
-        };
+          };
+        }
+        continue;
       }
-      continue;
-    }
 
-    workingXml = output.xml;
-    summaries.push(output.summary);
-    applied.push({
-      index,
-      op: op.op,
-      ok: true,
-      message: output.summary,
-    });
+      workingXml = output.xml;
+      summaries.push(output.summary);
+      applied.push({
+        index,
+        op: op.op,
+        ok: true,
+        message: output.summary,
+      });
+    }
   }
 
   if (workingXml === beforeXml) {
     return errorResult(422, 'execution_failure', 'No operations were applied.', {
       applied,
       atomic,
+      selectedExecutor,
+      preferredExecutor,
+      ...(fallbackReason ? { fallbackReason } : {}),
     });
   }
 
@@ -1434,6 +1743,12 @@ async function applyOps(payload: z.infer<typeof APPLY_REQUEST_SCHEMA>): Promise<
       } : {}),
     },
     outputArtifact: summarizeScoreArtifact(artifact),
+    executor: {
+      preferred: preferredExecutor,
+      selected: selectedExecutor,
+      usedFallback: selectedExecutor === 'xml' && Boolean(fallbackReason),
+      ...(fallbackReason ? { fallbackReason } : {}),
+    },
   };
 
   if (includeXml) {
@@ -1593,13 +1908,80 @@ function normalizeKeyName(value: string) {
     .trim();
 }
 
-function parsePromptToOps(prompt: string): { ops: ScoreOp[]; unsupportedHints: string[] } {
-  const ops: ScoreOp[] = [];
-  const unsupportedHints: string[] = [];
-  const lower = prompt.toLowerCase();
+type ParsedPromptStep = {
+  index: number;
+  text: string;
+  parsedOps: ScoreOp[];
+  unsupportedReasons: string[];
+};
 
-  const keyMatch = prompt.match(/key signature\s+to\s+([A-Ga-g][#b♯♭]?)(?:\s+(major|minor))?/i);
-  if (keyMatch) {
+type ParsedPromptPlan = {
+  ops: ScoreOp[];
+  unsupportedHints: string[];
+  steps: ParsedPromptStep[];
+  supportedSteps: Array<{ index: number; text: string; opCount: number }>;
+  unsupportedSteps: Array<{ index: number; text: string; reason: string }>;
+};
+
+function splitPromptIntoSteps(prompt: string): string[] {
+  const normalized = prompt
+    .replace(/\r/g, '\n')
+    .replace(/,\s*(\d+[\).])/g, '\n$1')
+    .replace(/;\s*/g, '\n')
+    .replace(/\n\s*(\d+[\).])/g, '\n$1')
+    .replace(/\s+\band then\b\s+/gi, '\n')
+    .replace(/\s+\bthen\b\s+/gi, '\n');
+
+  const rough = normalized
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (rough.length > 1) {
+    return rough.map((line, index) => {
+      let cleaned = line.replace(/^\d+[\).]\s*/, '').trim();
+      if (index === 0) {
+        cleaned = cleaned.replace(/^please[:,]?\s*/i, '').trim();
+      }
+      return cleaned;
+    }).filter(Boolean);
+  }
+
+  const single = (rough[0] || prompt).trim();
+  const splitOnConjunction = single.split(/\s+(?:and|also)\s+/i)
+    .map((part, index) => (index === 0 ? part.replace(/^please[:,]?\s*/i, '') : part).trim())
+    .filter(Boolean);
+  if (splitOnConjunction.length > 1) {
+    return splitOnConjunction;
+  }
+  return [single.replace(/^please[:,]?\s*/i, '').trim()];
+}
+
+function parseMeasureScopeFromText(text: string): ScoreScope | undefined {
+  const rangeMatch = text.match(/(?:measure|bar)s?\s+(\d+)\s*(?:-|to|through)\s*(\d+)/i);
+  if (rangeMatch) {
+    return {
+      measureStart: Number(rangeMatch[1]),
+      measureEnd: Number(rangeMatch[2]),
+    };
+  }
+  const singleMeasureMatch = text.match(/(?:measure|bar)\s+(\d+)/i);
+  if (singleMeasureMatch) {
+    const measure = Number(singleMeasureMatch[1]);
+    return {
+      measureStart: measure,
+      measureEnd: measure,
+    };
+  }
+  return undefined;
+}
+
+function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons: string[] } {
+  const ops: ScoreOp[] = [];
+  const unsupportedReasons: string[] = [];
+
+  const keyRegex = /key signature\s+(?:to|as)\s+([A-Ga-g][#b♯♭]?)(?:\s+(major|minor))?/gi;
+  for (const keyMatch of stepText.matchAll(keyRegex)) {
     const tonic = normalizeKeyName(keyMatch[1]);
     const mode = (keyMatch[2] || 'major').toLowerCase();
     const table = mode === 'minor' ? MINOR_KEY_TO_FIFTHS : MAJOR_KEY_TO_FIFTHS;
@@ -1607,12 +1989,12 @@ function parsePromptToOps(prompt: string): { ops: ScoreOp[]; unsupportedHints: s
     if (typeof fifths === 'number') {
       ops.push({ op: 'set_key_signature', fifths });
     } else {
-      unsupportedHints.push(`Unable to map key signature: ${keyMatch[0]}`);
+      unsupportedReasons.push(`Unable to map key signature target: ${keyMatch[0]}`);
     }
   }
 
-  const timeMatch = prompt.match(/time signature\s+to\s+(\d+)\s*\/\s*(\d+)/i);
-  if (timeMatch) {
+  const timeRegex = /time signature\s+(?:to|as)\s+(\d+)\s*\/\s*(\d+)/gi;
+  for (const timeMatch of stepText.matchAll(timeRegex)) {
     const numerator = Number(timeMatch[1]);
     const denominator = Number(timeMatch[2]);
     if ([1, 2, 4, 8, 16, 32].includes(denominator)) {
@@ -1622,39 +2004,63 @@ function parsePromptToOps(prompt: string): { ops: ScoreOp[]; unsupportedHints: s
         denominator: denominator as 1 | 2 | 4 | 8 | 16 | 32,
       });
     } else {
-      unsupportedHints.push(`Unsupported denominator for time signature: ${denominator}`);
+      unsupportedReasons.push(`Unsupported denominator for time signature: ${denominator}`);
     }
   }
 
-  const clefMatch = prompt.match(/(?:set|change|move)[^\n.]*?(treble|bass|alto|tenor)\s+clef/i);
-  if (clefMatch) {
-    const clef = clefMatch[1].toLowerCase() as z.infer<typeof CLEF_SCHEMA>;
-    const measureRangeMatch = prompt.match(/(measure|bar)s?\s+(\d+)\s*(?:-|to)\s*(\d+)/i);
-    if (measureRangeMatch) {
+  const metadataRegex = /(?:set|change|update)\s+(title|subtitle|composer|lyricist)\s+(?:to|as)\s+["“]?([^"”,\n]+)["”]?/gi;
+  for (const metadataMatch of stepText.matchAll(metadataRegex)) {
+    const field = metadataMatch[1].toLowerCase() as z.infer<typeof METADATA_FIELD_SCHEMA>;
+    const value = metadataMatch[2].trim();
+    if (value) {
       ops.push({
-        op: 'set_clef',
-        clef,
-        scope: {
-          measureStart: Number(measureRangeMatch[2]),
-          measureEnd: Number(measureRangeMatch[3]),
-        },
+        op: 'set_metadata_text',
+        field,
+        value,
       });
-    } else {
-      ops.push({ op: 'set_clef', clef });
     }
   }
 
-  const removeTextMatch = prompt.match(/remove\s+(?:the\s+)?text\s+["“]([^"”]+)["”]/i);
-  if (removeTextMatch) {
+  const clefRegex = /(?:set|change|move)[^.!?\n]*?(treble|bass|alto|tenor)\s+clef/gi;
+  for (const clefMatch of stepText.matchAll(clefRegex)) {
+    const clef = clefMatch[1].toLowerCase() as z.infer<typeof CLEF_SCHEMA>;
+    const scope = parseMeasureScopeFromText(stepText);
+    if (/last\s+\d+\s+(?:measure|bar)s?/i.test(stepText) && !scope) {
+      unsupportedReasons.push('Clef change references "last N bars/measures", which needs explicit measure numbers.');
+      continue;
+    }
     ops.push({
-      op: 'delete_text_by_content',
-      text: removeTextMatch[1],
-      maxDeletes: 20,
+      op: 'set_clef',
+      clef,
+      ...(scope ? { scope } : {}),
     });
   }
 
-  const removeMeasuresMatch = prompt.match(/remove\s+(?:measure|bar)s?\s+(\d+)\s*(?:-|to)\s*(\d+)/i);
-  if (removeMeasuresMatch) {
+  const removeQuotedTextRegex = /remove\s+(?:the\s+)?text\s+["“]([^"”]+)["”]/gi;
+  for (const removeTextMatch of stepText.matchAll(removeQuotedTextRegex)) {
+    const text = removeTextMatch[1].trim();
+    if (text) {
+      ops.push({
+        op: 'delete_text_by_content',
+        text,
+        maxDeletes: 20,
+      });
+    }
+  }
+
+  if (!ops.some((op) => op.op === 'delete_text_by_content')) {
+    const removeUnquotedTextMatch = stepText.match(/remove\s+(?:the\s+)?text\s+([A-Z][A-Z0-9 _-]{2,80})/i);
+    if (removeUnquotedTextMatch) {
+      ops.push({
+        op: 'delete_text_by_content',
+        text: removeUnquotedTextMatch[1].trim(),
+        maxDeletes: 20,
+      });
+    }
+  }
+
+  const removeMeasuresRegex = /remove\s+(?:measure|bar)s?\s+(\d+)\s*(?:-|to|through)\s*(\d+)/gi;
+  for (const removeMeasuresMatch of stepText.matchAll(removeMeasuresRegex)) {
     ops.push({
       op: 'remove_measures',
       scope: {
@@ -1664,8 +2070,8 @@ function parsePromptToOps(prompt: string): { ops: ScoreOp[]; unsupportedHints: s
     });
   }
 
-  const insertMeasuresMatch = prompt.match(/insert\s+(\d+)\s+(?:measure|bar)s?(?:\s+after\s+(?:measure|bar)\s+(\d+))?/i);
-  if (insertMeasuresMatch) {
+  const insertMeasuresRegex = /insert\s+(\d+)\s+(?:measure|bar)s?(?:\s+after\s+(?:measure|bar)\s+(\d+))?/gi;
+  for (const insertMeasuresMatch of stepText.matchAll(insertMeasuresRegex)) {
     const count = Number(insertMeasuresMatch[1]);
     const afterMeasure = insertMeasuresMatch[2] ? Number(insertMeasuresMatch[2]) : undefined;
     ops.push({
@@ -1676,11 +2082,59 @@ function parsePromptToOps(prompt: string): { ops: ScoreOp[]; unsupportedHints: s
     });
   }
 
-  if (/beam|beaming|re-beam|voicing|rests?\s+\/|remove\s+rests?/i.test(lower)) {
-    unsupportedHints.push('Prompt requests beaming/rest cleanup, which is not implemented in ScoreOps MVP yet.');
+  if (/beam|beaming|re-beam|rebeam|voicing|remove\s+rests?|rest\s+cleanup/i.test(stepText)) {
+    unsupportedReasons.push('Beaming/voicing/rest cleanup is not implemented in ScoreOps MVP.');
   }
 
-  return { ops, unsupportedHints };
+  if (!ops.length && /(?:change|set|move|remove|delete|insert|fix|cleanup|transpose|rewrite|edit)\b/i.test(stepText)) {
+    unsupportedReasons.push('No supported ScoreOps mapping found for this step.');
+  }
+
+  return { ops, unsupportedReasons };
+}
+
+function parsePromptToOps(prompt: string): ParsedPromptPlan {
+  const steps = splitPromptIntoSteps(prompt);
+  const parsedSteps: ParsedPromptStep[] = [];
+  const ops: ScoreOp[] = [];
+  const unsupportedHints: string[] = [];
+  const unsupportedSteps: Array<{ index: number; text: string; reason: string }> = [];
+  const supportedSteps: Array<{ index: number; text: string; opCount: number }> = [];
+
+  steps.forEach((stepText, index) => {
+    const parsed = parsePromptStep(stepText);
+    const step: ParsedPromptStep = {
+      index,
+      text: stepText,
+      parsedOps: parsed.ops,
+      unsupportedReasons: parsed.unsupportedReasons,
+    };
+    parsedSteps.push(step);
+    if (parsed.ops.length) {
+      supportedSteps.push({
+        index,
+        text: stepText,
+        opCount: parsed.ops.length,
+      });
+      ops.push(...parsed.ops);
+    }
+    parsed.unsupportedReasons.forEach((reason) => {
+      unsupportedHints.push(`${stepText}: ${reason}`);
+      unsupportedSteps.push({
+        index,
+        text: stepText,
+        reason,
+      });
+    });
+  });
+
+  return {
+    ops,
+    unsupportedHints,
+    steps: parsedSteps,
+    supportedSteps,
+    unsupportedSteps,
+  };
 }
 
 export async function runMusicScoreOpsPromptService(body: unknown): Promise<ScoreOpsServiceResult> {
@@ -1691,9 +2145,19 @@ export async function runMusicScoreOpsPromptService(body: unknown): Promise<Scor
   }
 
   const parsed = parsePromptToOps(prompt);
+  const plannerSummary = {
+    mode: 'heuristic-v2',
+    prompt,
+    parsedOps: parsed.ops,
+    steps: parsed.steps,
+    supportedSteps: parsed.supportedSteps,
+    unsupportedSteps: parsed.unsupportedSteps,
+    unsupportedHints: parsed.unsupportedHints,
+  };
+
   if (!parsed.ops.length) {
     return errorResult(422, 'unsupported_op', 'Prompt could not be mapped to supported ScoreOps MVP operations.', {
-      unsupportedHints: parsed.unsupportedHints,
+      planner: plannerSummary,
     });
   }
 
@@ -1719,12 +2183,7 @@ export async function runMusicScoreOpsPromptService(body: unknown): Promise<Scor
       status: applied.status,
       body: {
         ...applied.body,
-        planner: {
-          mode: 'heuristic',
-          prompt,
-          parsedOps: parsed.ops,
-          unsupportedHints: parsed.unsupportedHints,
-        },
+        planner: plannerSummary,
       },
     };
   }
@@ -1734,12 +2193,7 @@ export async function runMusicScoreOpsPromptService(body: unknown): Promise<Scor
     body: {
       ok: true,
       mode: 'scoreops-heuristic',
-      planner: {
-        mode: 'heuristic',
-        prompt,
-        parsedOps: parsed.ops,
-        unsupportedHints: parsed.unsupportedHints,
-      },
+      planner: plannerSummary,
       execution: applied.body,
     },
   };

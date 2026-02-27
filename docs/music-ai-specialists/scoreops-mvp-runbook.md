@@ -12,6 +12,9 @@
 - Agent router preference for edit prompts:
   - first: `music.scoreops`
   - fallback: `music.patch`
+- Executor routing:
+  - preferred executor can be requested per call via `options.preferredExecutor` (`auto|wasm|xml`)
+  - `auto` attempts wasm execution first (unless disabled), then falls back to xml executor
 
 ## Implemented MVP operations
 
@@ -90,15 +93,19 @@ curl -sS -X POST http://localhost:3000/api/music/scoreops/apply \
 
 ## Current limitations
 
-- Executor is currently a deterministic **MusicXML string transformer** (not direct in-memory webmscore mutation calls).
+- Executor is hybrid:
+  - wasm mutation path for supported P0 operations
+  - deterministic MusicXML transform fallback for unsupported/absent wasm methods
 - Scope semantics are measure-oriented in MVP.
 - Beaming/voicing/rest-normalization operations are not implemented yet.
+- Prompt planner is heuristic (`heuristic-v2`): it decomposes multi-step prompts and reports unsupported steps, but does not perform deep semantic planning.
 - `includePatch` currently uses:
   - op-derived patch emitters for supported ops (metadata/key/time/clef)
   - automatic measure-diff fallback when no deterministic emitter exists
+- `executor` metadata in apply response reports selected path and fallback reason (if any).
 
 ## Recommended next steps
 
 1. Add native selection/range primitives in webmscore for agent-safe measure/voice targeting.
-2. Move executor from string transforms to direct wasm mutation wrappers where available.
-3. Implement true normalized diff/patch generation for audit/export.
+2. Expand wasm-backed op coverage beyond P0 and reduce xml fallback frequency.
+3. Harden planner with capability-aware op decomposition and explicit unsupported-step remediation hints.
