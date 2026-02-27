@@ -12,3 +12,7 @@ Files:
 - `docs/music-ai-specialists/integration-design.md`: proposed specialist-agent architecture, `weavemuse` orchestration, WASM `ScoreOps` tool, user-selected BYO-key frontier reasoning model support, first-class LLM provider expansion, and score conversion pipeline
 - `docs/music-ai-specialists/roadmap.md`: phased plan for conversion reliability, specialist rollout, first-class provider expansion (chat + patch generation), WASM score-edit guardrails, versioning, evals, and fine-tuning
 - `docs/music-ai-specialists/embed-proxy-deployment-plan.md`: recommended deployment topology for embed mode (static editor in OurTextScores + companion OTS Editor API proxy for `/api/llm/*` and `/api/music/*`)
+- `docs/music-ai-specialists/scoreops-tool-design.md`: detailed ScoreOpsTool architecture (session/revision model, op contracts, apply/sync flows, response payload strategy, and rollout plan)
+- `docs/music-ai-specialists/scoreops-capability-inventory.md`: capability inventory + prioritization and agent-optimized signature recommendations for ScoreOps MVP scoping
+- `docs/music-ai-specialists/scoreops-method-op-matrix.md`: method-to-op matrix used to lock P0/P1 implementation priorities
+- `docs/music-ai-specialists/scoreops-mvp-runbook.md`: implemented ScoreOps MVP behavior, local validation commands, and known gaps
