@@ -1,10 +1,10 @@
-# Repo Review: WeaveMuse, NotaGen, ChatMusician
+# Repo Review: WeaveMuse, NotaGen, ChatMusician (Benchmark Only)
 
 ## Executive Summary
 
 - `weavemuse` already has a practical symbolic generation toolchain around NotaGen, including ABC output and conversions to MusicXML/PDF/MIDI/MP3.
 - `NotaGen` is ABC-native and includes data scripts for both `MusicXML -> ABC` and `ABC -> MusicXML`.
-- `ChatMusician` is also ABC-native, conversation/instruction oriented, and already has a documented LoRA + DeepSpeed fine-tuning path.
+- `ChatMusician` is ABC-native and conversation/instruction oriented, but should be treated as a benchmark/reference rather than the default production reasoning model.
 - The major missing piece for your assistant is not raw capability but a stable orchestration layer: format normalization, model version pinning, and evaluation.
 
 ## WeaveMuse Findings (`~/workspace/weavemuse`)
@@ -44,7 +44,7 @@
 - `NotaGen` provides the missing reverse conversion direction you called out (XML to ABC), but today it appears as dataset scripts rather than a clean service/API boundary.
 - For production assistant integration, wrap these conversions behind a dedicated converter service/tool with deterministic behavior and validation.
 
-## ChatMusician Findings (`~/workspace/ChatMusician`)
+## ChatMusician Findings (`~/workspace/ChatMusician`, benchmark/reference)
 
 ## What it already has
 
@@ -54,9 +54,9 @@
 
 ## Immediate implication
 
-- `ChatMusician` is a strong fit for a "music reasoning / instruction / explanation" specialist.
-- `NotaGen/NotaGen-X` is a strong fit for "style-constrained symbolic score generation" specialist.
-- Both being ABC-native supports a shared internal "model-facing notation" standard.
+- `MusicReasoningSpecialist` should use a user-selected frontier model (BYO key) through first-class provider routes.
+- `ChatMusician` remains useful as an offline benchmark/regression target for ABC-native music instruction behavior.
+- `NotaGen/NotaGen-X` remains a strong fit for a "style-constrained symbolic score generation" specialist.
 
 ## Cross-Repo Gaps / Risks
 
@@ -82,6 +82,6 @@
 2. Add model version pinning + runtime manifest checks for `NotaGenX` in the assistant stack.
 3. Split specialists by role:
    - `ScoreGenerationSpecialist` (NotaGen-X)
-   - `MusicReasoningSpecialist` (ChatMusician)
+   - `MusicReasoningSpecialist` (frontier model, user-selected, BYO key)
    - `ScoreConversionSpecialist` (deterministic tools only)
    - `ScoreOpsSpecialist` (deterministic WASM-backed editing over curated operations)

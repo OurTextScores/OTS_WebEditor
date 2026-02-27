@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  distDir: process.env.NEXT_DIST_DIR || undefined,
   output: process.env.BUILD_MODE === 'embed' ? 'export' : undefined,
   basePath: process.env.BUILD_MODE === 'embed' ? '/score-editor' : undefined,
   // Disable image optimization for static export

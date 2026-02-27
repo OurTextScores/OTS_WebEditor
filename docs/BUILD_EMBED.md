@@ -217,7 +217,6 @@ The music specialist and conversion stack now depends on server-side routes such
 
 - `/api/music/convert`
 - `/api/music/generate`
-- `/api/music/analyze`
 - `/api/music/artifacts/:id`
 
 These routes require server-side execution/tooling (e.g. Python converters, artifact persistence, optional MuseScore/`abc2midi` validation) and **do not have a practical browser-direct fallback**.

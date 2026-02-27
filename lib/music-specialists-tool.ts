@@ -15,11 +15,6 @@ export type MusicGenerateRequest = BaseMusicSpecialistRequest & {
     inputArtifactId?: string;
 };
 
-export type MusicAnalyzeRequest = BaseMusicSpecialistRequest & {
-    question: string;
-    inputArtifactId: string;
-};
-
 const asRecord = (value: unknown): Record<string, unknown> | null => (
     value && typeof value === 'object' ? value as Record<string, unknown> : null
 );
@@ -54,19 +49,6 @@ export async function callMusicGenerate(request: MusicGenerateRequest) {
     });
 }
 
-export async function callMusicAnalyze(request: MusicAnalyzeRequest) {
-    return await postJson(resolveScoreEditorApiPath('/api/music/analyze'), {
-        backend: request.backend || 'huggingface',
-        hfToken: request.hfToken,
-        modelId: request.modelId,
-        revision: request.revision,
-        question: request.question,
-        inputArtifactId: request.inputArtifactId,
-        dryRun: request.dryRun,
-    });
-}
-
 export const MusicSpecialistsTool = {
     generate: callMusicGenerate,
-    analyze: callMusicAnalyze,
 };

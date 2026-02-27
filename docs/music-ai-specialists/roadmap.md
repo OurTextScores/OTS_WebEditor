@@ -2,7 +2,7 @@
 
 ## Planning Assumptions
 
-- Short term: leverage existing `weavemuse`, `NotaGen`, and `ChatMusician` capabilities with minimal retraining.
+- Short term: leverage existing `weavemuse` + `NotaGen` plus user-selected frontier reasoning models (BYO keys) with minimal retraining.
 - Mid term: unify score conversion and evaluation so model outputs are reliable in product workflows.
 - Long term: fine-tune/align specialists on your own task mix and score corpus.
 - Parallel track: expand first-class assistant providers (chat + patch generation) beyond `OpenAI`, `Anthropic`, and `Google/Gemini`.
@@ -72,6 +72,7 @@ Use this matrix to plan rollout, QA, and UI behavior:
 2. Add `ProviderCapabilityRegistry` for chat/patch features (`json_mode`, attachments, streaming, CORS/proxy requirements).
 3. Normalize error envelope shape across `/api/llm/{provider}` routes.
 4. Add common tests for patch-generation response parsing (including malformed JSON wrappers).
+5. Create a provider-agnostic skill catalog for music tasks (prompt template + allowed tools + output contract).
 
 ## Phase P1 (2-4 weeks): Add first four providers as first-class assistants
 
@@ -162,7 +163,7 @@ Use this matrix to plan rollout, QA, and UI behavior:
 1. Implement `MusicRouter` intent classification.
 2. Add `WeaveMuseSpecialist` as a planner/orchestrator agent for music workflows.
 2. Add `ScoreGenerationSpecialist` backed by `NotaGen-X`.
-3. Add `MusicReasoningSpecialist` backed by `ChatMusician`.
+3. Add `MusicReasoningSpecialist` backed by user-selected frontier models (BYO keys via first-class provider routes).
 4. Add `ScoreConversionSpecialist` (deterministic only).
 5. Add `ScoreOpsSpecialist` backed by curated `webmscore` WASM bindings.
 6. Build candidate comparison UX (preview, playback, provenance, validation badges).
@@ -199,7 +200,7 @@ Use this matrix to plan rollout, QA, and UI behavior:
   - syntax validity
   - style adherence (human or embedding-based proxy)
   - repetition/form metrics
-- Music reasoning quality (ChatMusician):
+- Music reasoning quality (frontier BYO model):
   - task accuracy on internal prompt set
   - rubric-based human review
 - Product usability:
@@ -217,12 +218,13 @@ Use this matrix to plan rollout, QA, and UI behavior:
 
 ## Phase 4 (Long Term): Fine-Tuning / Alignment Program
 
-## ChatMusician (likely easiest first target)
+## MusicReasoningSpecialist model strategy (near term)
 
-Why first:
+Near-term strategy:
 
-- Clear LoRA/SFT training path already documented in `~/workspace/ChatMusician`.
-- Strong fit for assistant-style instruction data.
+- Use first-class provider routes and let users/org policy select the frontier model.
+- Keep per-provider eval scorecards (quality, cost, latency) and default model recommendations.
+- Treat reasoning model choice as a routing/policy decision, not a hardcoded specialist dependency.
 
 Potential training data (high leverage):
 
@@ -233,10 +235,10 @@ Potential training data (high leverage):
 
 Recommended approach:
 
-1. Start with LoRA SFT for your assistant interaction style and task mix.
-2. Add evaluation set before training anything.
-3. Keep a frozen baseline checkpoint for A/B comparisons.
-4. Only consider larger pretraining extensions after SFT plateaus.
+1. Build and maintain an evaluation set for analysis/education/patch-planning tasks.
+2. Compare candidate frontier models under identical prompts and output contracts.
+3. Select defaults by tier (best quality, best latency, best cost) and expose user override.
+4. Revisit fine-tuning only when provider models fail target quality on stable evals.
 
 ## NotaGen / NotaGen-X (higher leverage, higher cost)
 
@@ -284,6 +286,21 @@ If you want the fastest path to value:
 2. Pin `NotaGen-X` revision in a local model manifest.
 3. Add a curated `ScoreOpsTool` over `webmscore` for deterministic score edits.
 4. Add `DeepSeek` and `Qwen` as the first new first-class assistant providers (chat + patch generation) using shared provider adapters.
-5. Add a `WeaveMuse` specialist as planner/orchestrator plus a `ChatMusician` specialist for analysis/explanation.
+5. Add a `WeaveMuse` specialist as planner/orchestrator plus a frontier-model-backed `MusicReasoningSpecialist` for analysis/explanation.
 6. Add end-to-end artifact provenance in the UI/backend.
 7. Deploy a companion OTS Editor API container in the existing OurTextScores Docker/Nginx stack for embed mode reliability.
+
+## Agent Runtime Recommendation
+
+Use OpenAI Agents SDK as the default orchestration layer; keep custom domain tooling behind MCP/services.
+
+- Build custom only for:
+  - score conversion/validation pipelines
+  - deterministic score ops and artifact lifecycle
+  - product policy/routing and security controls
+- Use SDK/framework for:
+  - agent loop, tool orchestration, session state, streaming, tracing, handoffs
+- Build MCP + skill surfaces once and reuse them across providers/models:
+  - MCP for deterministic execution boundaries (`ScoreOps`, conversion, artifacts)
+  - skills for reusable high-level music workflows with stable output contracts
+- Defer other orchestration frameworks unless required by a specific missing capability.

@@ -34,8 +34,9 @@
   - Style-conditioned symbolic generation.
   - Produces ABC first, then requests conversion/rendering.
 
-- `MusicReasoningSpecialist` (ChatMusician)
+- `MusicReasoningSpecialist` (frontier model, user-selected, BYO key)
   - Conversational music understanding/composition assistance in ABC-friendly prompts.
+  - Backed by the same first-class provider stack used for assistant chat/patch generation, with per-user model selection and key ownership.
   - Useful for analysis, variation suggestions, theory QA, ABC edits, and prompt-to-structure tasks.
 
 - `ScoreCritic` (optional later)
@@ -190,7 +191,7 @@ Use layered validation:
 
 1. `MusicRouter` routes to `ScoreConversionSpecialist`.
 2. Convert `MusicXML -> ABC`, normalize, validate, store `ScoreArtifact`.
-3. `MusicReasoningSpecialist` (ChatMusician) summarizes structure / extracts motif plan (optional).
+3. `MusicReasoningSpecialist` (frontier reasoning model) summarizes structure / extracts motif plan (optional).
 4. `ScoreGenerationSpecialist` (NotaGen-X) generates candidate ABC conditioned on style + optional motif constraints.
 5. `ScoreConversionSpecialist` converts candidate ABC -> MusicXML/MIDI/PDF/MP3 and validates.
 6. Assistant returns best candidate + alternatives + provenance.
@@ -198,7 +199,7 @@ Use layered validation:
 ## 2. User asks theory/explanation over an existing score
 
 1. Ensure `ScoreArtifact` has canonical ABC (convert if needed).
-2. Route to `MusicReasoningSpecialist`.
+2. Route to `MusicReasoningSpecialist` using the active user-selected model/provider.
 3. Return explanation plus optionally annotated ABC snippets and rendered previews.
 
 ## 3. User asks for direct edits on the currently open score
@@ -246,6 +247,32 @@ Use this manifest for:
 - `OTS_Web` already has a first-class provider pattern for assistant chat/patch generation (provider selector + per-provider `/api/llm/{provider}` routes for `openai`, `anthropic`, `gemini`), which should be extended rather than replaced.
 - Keep model execution and conversion as backend services/jobs; keep the web app focused on artifact display, review, and human-in-the-loop edits.
 - Store generated artifacts and validation reports so users can compare model candidates.
+
+## Agent Runtime Strategy: Build vs Framework
+
+Recommendation: use the OpenAI Agents SDK as the orchestration runtime, and keep music-domain tools behind MCP servers plus deterministic service APIs.
+
+- Why:
+  - You already need multi-provider model routing, tool calls, streaming, and tracing; the Agents SDK ships those directly (`agents`, handoffs, sessions, tracing, MCP support).
+  - It remains model/provider agnostic, so your BYO-key frontier model strategy stays intact.
+  - It reduces custom orchestration code while preserving your existing domain boundaries (`ScoreConversionSpecialist`, `ScoreOpsSpecialist`, artifact store).
+- What to keep custom:
+  - Deterministic score tools, conversion pipelines, artifact validation, and policy routing should stay in your own services.
+  - Product-specific UI/UX logic (assistant panel, score diffs, approval flow) should stay in OTS/OurTextScores.
+- What not to do first:
+  - Do not build a bespoke orchestration runtime before proving specialist workflows.
+  - Do not introduce a second large orchestration framework unless you have a concrete gap the Agents SDK cannot cover.
+
+Practical split:
+
+- OpenAI Agents SDK:
+  - agent loop, tool invocation contracts, handoffs, session memory, traces.
+- MCP servers:
+  - expose `ScoreOpsTool`, conversion, and artifact services with tight capability boundaries.
+- Skill catalog (your own):
+  - define reusable high-level tasks (e.g., "harmonic analysis", "style transfer draft", "selection rewrite") that map to prompts + tool policies, independent of underlying model/provider.
+- OTS backend services:
+  - enforce auth, quotas, provenance, validation gates, and long-running job handling.
 
 ## First-Class LLM Provider Expansion (Chat + Patch Generation)
 

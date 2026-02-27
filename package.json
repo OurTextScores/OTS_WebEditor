@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "predev": "npm run check:wasm",
-    "dev": "next dev --webpack",
+    "dev": "NEXT_DIST_DIR=.next-dev-${USER:-local} next dev --webpack",
     "prebuild": "npm run check:wasm",
     "build": "next build --webpack",
     "build:embed": "NEXT_PUBLIC_BUILD_MODE=embed BUILD_MODE=embed npm run build",
