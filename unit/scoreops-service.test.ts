@@ -112,7 +112,7 @@ describe('runMusicScoreOpsService', () => {
         { op: 'set_time_signature', numerator: 3, denominator: 4 },
         { op: 'set_clef', clef: 'treble' },
       ],
-      options: { includeXml: true },
+      options: { includeXml: true, includePatch: true },
     }, 'apply');
 
     expect(apply.status).toBe(200);
@@ -120,6 +120,7 @@ describe('runMusicScoreOpsService', () => {
       ok: true,
       baseRevision: 0,
       newRevision: 1,
+      patchMode: 'op-derived',
     });
 
     const output = (apply.body.output as { content?: string })?.content || '';
@@ -127,6 +128,12 @@ describe('runMusicScoreOpsService', () => {
     expect(output).toContain('<beats>3</beats>');
     expect(output).toContain('<beat-type>4</beat-type>');
     expect(output).toContain('<clef><sign>G</sign><line>2</line></clef>');
+
+    const patch = apply.body.patch as { format?: string; ops?: Array<{ op: string; path: string; value?: string }> };
+    expect(patch.format).toBe('musicxml-patch@1');
+    expect(Array.isArray(patch.ops)).toBe(true);
+    expect(patch.ops?.some((op) => op.path.includes('/attributes/key/fifths') && op.value === '1')).toBe(true);
+    expect(patch.ops?.some((op) => op.path.includes('/attributes/time/beats') && op.value === '3')).toBe(true);
   });
 
   it('returns stale_revision when baseRevision does not match latest', async () => {
@@ -210,5 +217,29 @@ describe('runMusicScoreOpsService', () => {
 
     const execution = result.body.execution as { output?: { content?: string } };
     expect(execution.output?.content || '').toContain('<fifths>1</fifths>');
+  });
+
+  it('falls back to measure-diff patch when op emitter is unavailable', async () => {
+    const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
+    const scoreSessionId = String(open.body.scoreSessionId);
+
+    const apply = await runMusicScoreOpsService({
+      action: 'apply',
+      scoreSessionId,
+      baseRevision: 0,
+      ops: [
+        { op: 'insert_measures', count: 1, target: 'after_measure', afterMeasure: 1 },
+      ],
+      options: { includePatch: true, includeXml: true },
+    }, 'apply');
+
+    expect(apply.status).toBe(200);
+    expect(apply.body).toMatchObject({
+      ok: true,
+      patchMode: 'measure-diff-fallback',
+    });
+    const patch = apply.body.patch as { format?: string; ops?: Array<{ op: string; path: string }> };
+    expect(patch.format).toBe('musicxml-patch@1');
+    expect((patch.ops || []).length).toBeGreaterThan(0);
   });
 });

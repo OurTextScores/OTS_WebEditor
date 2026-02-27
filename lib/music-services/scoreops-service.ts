@@ -33,8 +33,16 @@ type ScoreScope = {
   measureEnd?: number;
 };
 
-type ApplyContext = {
-  session: ScoreOpsSessionState;
+type MusicXmlPatchOp = {
+  op: 'replace' | 'setText' | 'setAttr' | 'insertBefore' | 'insertAfter' | 'delete';
+  path: string;
+  value?: string;
+  name?: string;
+};
+
+type MusicXmlPatch = {
+  format: 'musicxml-patch@1';
+  ops: MusicXmlPatchOp[];
 };
 
 const DEFAULT_INSPECT_MEASURE_LIMIT = 16;
@@ -116,8 +124,8 @@ const OPEN_REQUEST_SCHEMA = z.object({
   initial_artifact_id: z.string().trim().min(1).optional(),
   content: z.string().optional(),
   text: z.string().optional(),
-  scoreMeta: z.record(z.unknown()).optional(),
-  score_meta: z.record(z.unknown()).optional(),
+  scoreMeta: z.record(z.string(), z.unknown()).optional(),
+  score_meta: z.record(z.string(), z.unknown()).optional(),
 });
 
 const INSPECT_REQUEST_SCHEMA = z.object({
@@ -620,9 +628,6 @@ function applyDeleteTextByContent(xml: string, op: Extract<ScoreOp, { op: 'delet
   }
   if (op.maxDeletes && replacements > op.maxDeletes) {
     return {
-      xml: xml.replace(new RegExp(escaped, 'g'), (match) => match),
-      changed: false,
-      summary: '',
       error: `Matched ${replacements} items, exceeding maxDeletes=${op.maxDeletes}.`,
     } as const;
   }
@@ -757,27 +762,286 @@ type OpApplyResult = {
   message: string;
 };
 
-function applyOneOp(xml: string, op: ScoreOp, _context: ApplyContext) {
+type ApplyOneOpResult =
+  | { error: string }
+  | { xml: string; changed: boolean; summary: string };
+
+function isApplyOneOpError(result: ApplyOneOpResult): result is { error: string } {
+  return 'error' in result;
+}
+
+function toApplyOneOpResult(
+  result:
+    | { error: string }
+    | { xml: string; changed: boolean; summary: string },
+): ApplyOneOpResult {
+  if ('error' in result) {
+    return { error: result.error };
+  }
+  return {
+    xml: result.xml,
+    changed: result.changed,
+    summary: result.summary,
+  };
+}
+
+function applyOneOp(xml: string, op: ScoreOp): ApplyOneOpResult {
   switch (op.op) {
     case 'set_metadata_text':
-      return applySetMetadataText(xml, op);
+      return toApplyOneOpResult(applySetMetadataText(xml, op));
     case 'set_key_signature':
-      return applySetKeySignature(xml, op);
+      return toApplyOneOpResult(applySetKeySignature(xml, op));
     case 'set_time_signature':
-      return applySetTimeSignature(xml, op);
+      return toApplyOneOpResult(applySetTimeSignature(xml, op));
     case 'set_clef':
-      return applySetClef(xml, op);
+      return toApplyOneOpResult(applySetClef(xml, op));
     case 'delete_selection':
-      return applyMeasureRemoval(xml, op.scope, 'delete_selection');
+      return toApplyOneOpResult(applyMeasureRemoval(xml, op.scope, 'delete_selection'));
     case 'insert_measures':
-      return applyInsertMeasures(xml, op);
+      return toApplyOneOpResult(applyInsertMeasures(xml, op));
     case 'remove_measures':
-      return applyMeasureRemoval(xml, op.scope, 'remove_measures');
+      return toApplyOneOpResult(applyMeasureRemoval(xml, op.scope, 'remove_measures'));
     case 'delete_text_by_content':
-      return applyDeleteTextByContent(xml, op);
+      return toApplyOneOpResult(applyDeleteTextByContent(xml, op));
     default:
       return { error: `Unsupported op: ${(op as { op: string }).op}` };
   }
+}
+
+type ScorePartMeasureIndex = Map<string, {
+  partXml: string;
+  measures: Map<number, string>;
+  numbers: number[];
+}>;
+
+function buildPartMeasureIndex(xml: string): ScorePartMeasureIndex {
+  const index: ScorePartMeasureIndex = new Map();
+  const parts = parsePartBlocks(xml);
+  for (const part of parts) {
+    const measures = new Map<number, string>();
+    const numbers: number[] = [];
+    for (const measure of parseMeasureBlocks(part.content)) {
+      if (measure.number === null) {
+        continue;
+      }
+      measures.set(measure.number, measure.full);
+      numbers.push(measure.number);
+    }
+    index.set(part.partId, {
+      partXml: part.full,
+      measures,
+      numbers,
+    });
+  }
+  return index;
+}
+
+function buildMeasureRange(scope?: ScoreScope) {
+  const start = scope?.measureStart ?? 1;
+  const end = scope?.measureEnd ?? start;
+  return { start, end };
+}
+
+function buildOpDerivedPatchOps(
+  op: ScoreOp,
+  afterXml: string,
+  afterIndex: ScorePartMeasureIndex,
+): MusicXmlPatchOp[] | null {
+  switch (op.op) {
+    case 'set_metadata_text': {
+      if (op.field === 'title') {
+        return [{ op: 'setText', path: '/score-partwise/movement-title', value: op.value }];
+      }
+      if (op.field === 'subtitle') {
+        return [{ op: 'setText', path: '/score-partwise/movement-number', value: op.value }];
+      }
+      if (op.field === 'composer') {
+        return [{ op: 'setText', path: '/score-partwise/identification/creator[@type=\'composer\']', value: op.value }];
+      }
+      return [{ op: 'setText', path: '/score-partwise/identification/creator[@type=\'lyricist\']', value: op.value }];
+    }
+    case 'set_key_signature': {
+      const partIds = resolveTargetPartIds(afterXml, op.scope?.partId);
+      const range = buildMeasureRange(op.scope);
+      const ops: MusicXmlPatchOp[] = [];
+      for (const partId of partIds) {
+        const measures = afterIndex.get(partId)?.measures;
+        if (!measures) {
+          continue;
+        }
+        for (let measureNo = range.start; measureNo <= range.end; measureNo += 1) {
+          if (!measures.has(measureNo)) {
+            continue;
+          }
+          ops.push({
+            op: 'setText',
+            path: `/score-partwise/part[@id='${partId}']/measure[@number='${measureNo}']/attributes/key/fifths`,
+            value: String(op.fifths),
+          });
+        }
+      }
+      return ops.length ? ops : null;
+    }
+    case 'set_time_signature': {
+      const partIds = resolveTargetPartIds(afterXml, op.scope?.partId);
+      const range = buildMeasureRange(op.scope);
+      const ops: MusicXmlPatchOp[] = [];
+      for (const partId of partIds) {
+        const measures = afterIndex.get(partId)?.measures;
+        if (!measures) {
+          continue;
+        }
+        for (let measureNo = range.start; measureNo <= range.end; measureNo += 1) {
+          if (!measures.has(measureNo)) {
+            continue;
+          }
+          ops.push({
+            op: 'setText',
+            path: `/score-partwise/part[@id='${partId}']/measure[@number='${measureNo}']/attributes/time/beats`,
+            value: String(op.numerator),
+          });
+          ops.push({
+            op: 'setText',
+            path: `/score-partwise/part[@id='${partId}']/measure[@number='${measureNo}']/attributes/time/beat-type`,
+            value: String(op.denominator),
+          });
+        }
+      }
+      return ops.length ? ops : null;
+    }
+    case 'set_clef': {
+      const partIds = resolveTargetPartIds(afterXml, op.scope?.partId);
+      const range = buildMeasureRange(op.scope);
+      const clefMap: Record<z.infer<typeof CLEF_SCHEMA>, { sign: string; line: string }> = {
+        treble: { sign: 'G', line: '2' },
+        bass: { sign: 'F', line: '4' },
+        alto: { sign: 'C', line: '3' },
+        tenor: { sign: 'C', line: '4' },
+      };
+      const mapping = clefMap[op.clef];
+      const ops: MusicXmlPatchOp[] = [];
+      for (const partId of partIds) {
+        const measures = afterIndex.get(partId)?.measures;
+        if (!measures) {
+          continue;
+        }
+        for (let measureNo = range.start; measureNo <= range.end; measureNo += 1) {
+          if (!measures.has(measureNo)) {
+            continue;
+          }
+          ops.push({
+            op: 'setText',
+            path: `/score-partwise/part[@id='${partId}']/measure[@number='${measureNo}']/attributes/clef/sign`,
+            value: mapping.sign,
+          });
+          ops.push({
+            op: 'setText',
+            path: `/score-partwise/part[@id='${partId}']/measure[@number='${measureNo}']/attributes/clef/line`,
+            value: mapping.line,
+          });
+        }
+      }
+      return ops.length ? ops : null;
+    }
+    default:
+      return null;
+  }
+}
+
+function buildMeasureDiffFallbackPatch(beforeXml: string, afterXml: string): MusicXmlPatch {
+  if (beforeXml === afterXml) {
+    return { format: 'musicxml-patch@1', ops: [] };
+  }
+
+  const beforeIndex = buildPartMeasureIndex(beforeXml);
+  const afterIndex = buildPartMeasureIndex(afterXml);
+  const beforePartIds = Array.from(beforeIndex.keys()).sort();
+  const afterPartIds = Array.from(afterIndex.keys()).sort();
+
+  if (beforePartIds.join('|') !== afterPartIds.join('|')) {
+    return {
+      format: 'musicxml-patch@1',
+      ops: [{
+        op: 'replace',
+        path: '/score-partwise',
+        value: afterXml,
+      }],
+    };
+  }
+
+  const ops: MusicXmlPatchOp[] = [];
+  for (const partId of afterPartIds) {
+    const beforePart = beforeIndex.get(partId);
+    const afterPart = afterIndex.get(partId);
+    if (!beforePart || !afterPart) {
+      continue;
+    }
+    if (beforePart.numbers.join(',') !== afterPart.numbers.join(',')) {
+      ops.push({
+        op: 'replace',
+        path: `/score-partwise/part[@id='${partId}']`,
+        value: afterPart.partXml,
+      });
+      continue;
+    }
+    for (const measureNo of afterPart.numbers) {
+      const beforeMeasure = beforePart.measures.get(measureNo) || '';
+      const afterMeasure = afterPart.measures.get(measureNo) || '';
+      if (beforeMeasure !== afterMeasure) {
+        ops.push({
+          op: 'replace',
+          path: `/score-partwise/part[@id='${partId}']/measure[@number='${measureNo}']`,
+          value: afterMeasure,
+        });
+      }
+    }
+  }
+
+  if (!ops.length) {
+    return {
+      format: 'musicxml-patch@1',
+      ops: [{
+        op: 'replace',
+        path: '/score-partwise',
+        value: afterXml,
+      }],
+    };
+  }
+  return { format: 'musicxml-patch@1', ops };
+}
+
+function buildScoreOpsPatch(
+  ops: ScoreOp[],
+  beforeXml: string,
+  afterXml: string,
+): { patch: MusicXmlPatch; mode: 'op-derived' | 'measure-diff-fallback'; note?: string } {
+  const afterIndex = buildPartMeasureIndex(afterXml);
+  const derivedOps: MusicXmlPatchOp[] = [];
+  for (const op of ops) {
+    const nextOps = buildOpDerivedPatchOps(op, afterXml, afterIndex);
+    if (!nextOps || !nextOps.length) {
+      return {
+        patch: buildMeasureDiffFallbackPatch(beforeXml, afterXml),
+        mode: 'measure-diff-fallback',
+        note: `Op "${op.op}" does not have a deterministic patch emitter yet.`,
+      };
+    }
+    derivedOps.push(...nextOps);
+  }
+  if (!derivedOps.length) {
+    return {
+      patch: buildMeasureDiffFallbackPatch(beforeXml, afterXml),
+      mode: 'measure-diff-fallback',
+      note: 'No op-derived patch operations were emitted.',
+    };
+  }
+  return {
+    patch: {
+      format: 'musicxml-patch@1',
+      ops: derivedOps,
+    },
+    mode: 'op-derived',
+  };
 }
 
 function buildCapabilities() {
@@ -1049,8 +1313,8 @@ async function applyOps(payload: z.infer<typeof APPLY_REQUEST_SCHEMA>): Promise<
 
   for (let index = 0; index < payload.ops.length; index += 1) {
     const op = payload.ops[index];
-    const output = applyOneOp(workingXml, op, { session });
-    if ('error' in output && output.error) {
+    const output = applyOneOp(workingXml, op);
+    if (isApplyOneOpError(output)) {
       const failedEntry: OpApplyResult = {
         index,
         op: op.op,
@@ -1180,15 +1444,12 @@ async function applyOps(payload: z.infer<typeof APPLY_REQUEST_SCHEMA>): Promise<
   }
 
   if (includePatch) {
-    responseBody.patch = {
-      format: 'musicxml-patch@1',
-      ops: payload.ops.map((op, index) => ({
-        op: 'replace',
-        path: `/scoreops/op[${index + 1}]`,
-        value: JSON.stringify(op),
-      })),
-      note: 'Placeholder normalization. Real XML diff patch generation is not yet implemented.',
-    };
+    const patchBundle = buildScoreOpsPatch(payload.ops, beforeXml, workingXml);
+    responseBody.patch = patchBundle.patch;
+    responseBody.patchMode = patchBundle.mode;
+    if (patchBundle.note) {
+      responseBody.patchNote = patchBundle.note;
+    }
   }
 
   return {

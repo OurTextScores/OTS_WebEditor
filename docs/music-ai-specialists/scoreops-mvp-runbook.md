@@ -55,6 +55,13 @@ cd ~/workspace/OTS_Web
 npx vitest run unit/scoreops-service.test.ts unit/scoreops-route.test.ts unit/music-agent-router.test.ts
 ```
 
+Typecheck with higher memory (avoids common OOM on large Next worktrees):
+
+```bash
+cd ~/workspace/OTS_Web
+npm run typecheck
+```
+
 ## Manual API checks
 
 Open session:
@@ -86,7 +93,9 @@ curl -sS -X POST http://localhost:3000/api/music/scoreops/apply \
 - Executor is currently a deterministic **MusicXML string transformer** (not direct in-memory webmscore mutation calls).
 - Scope semantics are measure-oriented in MVP.
 - Beaming/voicing/rest-normalization operations are not implemented yet.
-- `includePatch` currently returns placeholder normalization, not a full structural XML diff.
+- `includePatch` currently uses:
+  - op-derived patch emitters for supported ops (metadata/key/time/clef)
+  - automatic measure-diff fallback when no deterministic emitter exists
 
 ## Recommended next steps
 
