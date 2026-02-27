@@ -33,6 +33,7 @@ import {
     getLegacyLlmProxyBase,
     getScoreEditorApiBase,
     resolveLlmApiPath,
+    resolveScoreEditorApiPath,
 } from '../lib/score-editor-api-client';
 
 type SelectionBox = {
@@ -66,6 +67,12 @@ type SynthBatchChunk = {
 };
 
 type SynthBatchIterator = (cancel?: boolean) => Promise<SynthBatchChunk[]>;
+
+const asRecord = (value: unknown): Record<string, any> | null => (
+    value && typeof value === 'object' ? value as Record<string, any> : null
+);
+
+type NotaGenSpaceCombinations = Record<string, Record<string, string[]>>;
 
 const TRANSPORT_SYNTH_BATCH_SIZE = 2;
 const SELECTION_SYNTH_BATCH_SIZE = 1;
@@ -270,12 +277,22 @@ const AI_PATCH_REQUEST_RETRY_DELAY_MS = 600;
 const AI_CHAT_SYSTEM_PROMPT = 'You are a helpful music notation assistant. Answer clearly and practically for score editing and engraving workflows.';
 const CODE_EDITOR_THEME_STORAGE_KEY = 'ots_code_editor_theme';
 const MUSIC_SPECIALISTS_HF_TOKEN_STORAGE_KEY = 'ots_music_specialists_hf_token';
+const MUSIC_SPECIALISTS_NOTAGEN_BACKEND_STORAGE_KEY = 'ots_music_specialists_notagen_backend';
 const MUSIC_SPECIALISTS_NOTAGEN_MODEL_STORAGE_KEY = 'ots_music_specialists_notagen_model';
 const MUSIC_SPECIALISTS_NOTAGEN_REVISION_STORAGE_KEY = 'ots_music_specialists_notagen_revision';
+const MUSIC_SPECIALISTS_NOTAGEN_SPACE_ID_STORAGE_KEY = 'ots_music_specialists_notagen_space_id';
+const MUSIC_SPECIALISTS_NOTAGEN_SPACE_PERIOD_STORAGE_KEY = 'ots_music_specialists_notagen_space_period';
+const MUSIC_SPECIALISTS_NOTAGEN_SPACE_COMPOSER_STORAGE_KEY = 'ots_music_specialists_notagen_space_composer';
+const MUSIC_SPECIALISTS_NOTAGEN_SPACE_INSTRUMENTATION_STORAGE_KEY = 'ots_music_specialists_notagen_space_instrumentation';
 const MUSIC_SPECIALISTS_CHATMUSICIAN_MODEL_STORAGE_KEY = 'ots_music_specialists_chatmusician_model';
 const MUSIC_SPECIALISTS_CHATMUSICIAN_REVISION_STORAGE_KEY = 'ots_music_specialists_chatmusician_revision';
+const MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_BACKEND = 'huggingface';
 const MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_MODEL = (process.env.NEXT_PUBLIC_MUSIC_NOTAGEN_DEFAULT_MODEL_ID || '').trim();
 const MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_REVISION = (process.env.NEXT_PUBLIC_MUSIC_NOTAGEN_DEFAULT_REVISION || '').trim();
+const MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_ID = (process.env.NEXT_PUBLIC_MUSIC_NOTAGEN_DEFAULT_SPACE_ID || 'ElectricAlexis/NotaGen').trim();
+const MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_PERIOD = (process.env.NEXT_PUBLIC_MUSIC_NOTAGEN_SPACE_DEFAULT_PERIOD || 'Classical').trim();
+const MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_COMPOSER = (process.env.NEXT_PUBLIC_MUSIC_NOTAGEN_SPACE_DEFAULT_COMPOSER || 'Mozart, Wolfgang Amadeus').trim();
+const MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_INSTRUMENTATION = (process.env.NEXT_PUBLIC_MUSIC_NOTAGEN_SPACE_DEFAULT_INSTRUMENTATION || 'Keyboard').trim();
 const MUSIC_SPECIALISTS_DEFAULT_CHATMUSICIAN_MODEL = (process.env.NEXT_PUBLIC_MUSIC_CHATMUSICIAN_DEFAULT_MODEL_ID || '').trim();
 const MUSIC_SPECIALISTS_DEFAULT_CHATMUSICIAN_REVISION = (process.env.NEXT_PUBLIC_MUSIC_CHATMUSICIAN_DEFAULT_REVISION || '').trim();
 const HUGGING_FACE_TOKENS_URL = 'https://huggingface.co/settings/tokens';
@@ -602,6 +619,7 @@ export default function ScoreEditor() {
     const compareGutterScrollRef = useRef<HTMLDivElement>(null);
     const compareScrollSyncRef = useRef(false);
     const compareRightRenderInFlightRef = useRef(false);
+    const musicNotaGenProgressPreRef = useRef<HTMLPreElement | null>(null);
     const [checkpointsCollapsed, setCheckpointsCollapsed] = useState(false);
     const [leftSidebarTab, setLeftSidebarTab] = useState<'checkpoints' | 'scores'>('checkpoints');
     const [scoreSummaries, setScoreSummaries] = useState<ScoreSummary[]>([]);
@@ -614,7 +632,7 @@ export default function ScoreEditor() {
     const [isResizingSidebar, setIsResizingSidebar] = useState(false);
     const sidebarResizeStartXRef = useRef<number>(0);
     const sidebarResizeStartWidthRef = useRef<number>(0);
-    const [xmlSidebarTab, setXmlSidebarTab] = useState<'xml' | 'assistant'>('xml');
+    const [xmlSidebarTab, setXmlSidebarTab] = useState<'xml' | 'assistant' | 'notagen' | 'chatmusician'>('xml');
     const [codeEditorTheme, setCodeEditorTheme] = useState<CodeEditorThemeMode>('light');
     const [xmlText, setXmlText] = useState('');
     const [xmlDirty, setXmlDirty] = useState(false);
@@ -624,10 +642,35 @@ export default function ScoreEditor() {
     const [aiModel, setAiModel] = useState('');
     const [aiApiKey, setAiApiKey] = useState('');
     const [musicHfToken, setMusicHfToken] = useState('');
+    const [musicNotaGenBackend, setMusicNotaGenBackend] = useState<'huggingface' | 'huggingface-space'>(
+        MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_BACKEND === 'huggingface-space' ? 'huggingface-space' : 'huggingface',
+    );
     const [musicNotaGenModelId, setMusicNotaGenModelId] = useState(MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_MODEL);
     const [musicNotaGenRevision, setMusicNotaGenRevision] = useState(MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_REVISION);
+    const [musicNotaGenSpaceId, setMusicNotaGenSpaceId] = useState(MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_ID);
+    const [musicNotaGenSpacePeriod, setMusicNotaGenSpacePeriod] = useState(MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_PERIOD);
+    const [musicNotaGenSpaceComposer, setMusicNotaGenSpaceComposer] = useState(MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_COMPOSER);
+    const [musicNotaGenSpaceInstrumentation, setMusicNotaGenSpaceInstrumentation] = useState(MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_INSTRUMENTATION);
     const [musicChatMusicianModelId, setMusicChatMusicianModelId] = useState(MUSIC_SPECIALISTS_DEFAULT_CHATMUSICIAN_MODEL);
     const [musicChatMusicianRevision, setMusicChatMusicianRevision] = useState(MUSIC_SPECIALISTS_DEFAULT_CHATMUSICIAN_REVISION);
+    const [musicNotaGenPrompt, setMusicNotaGenPrompt] = useState('');
+    const [musicNotaGenUseCurrentScoreSeed, setMusicNotaGenUseCurrentScoreSeed] = useState(false);
+    const [musicNotaGenDryRun] = useState(false);
+    const [musicNotaGenBusy, setMusicNotaGenBusy] = useState(false);
+    const [musicNotaGenError, setMusicNotaGenError] = useState<string | null>(null);
+    const [musicNotaGenResult, setMusicNotaGenResult] = useState<Record<string, unknown> | null>(null);
+    const [musicNotaGenGeneratedXml, setMusicNotaGenGeneratedXml] = useState('');
+    const [musicNotaGenGeneratedAbc, setMusicNotaGenGeneratedAbc] = useState('');
+    const [musicNotaGenProgressLog, setMusicNotaGenProgressLog] = useState('');
+    const [musicNotaGenStatusText, setMusicNotaGenStatusText] = useState('');
+    const [musicNotaGenSpaceCombinations, setMusicNotaGenSpaceCombinations] = useState<NotaGenSpaceCombinations | null>(null);
+    const [musicNotaGenSpaceOptionsLoading, setMusicNotaGenSpaceOptionsLoading] = useState(false);
+    const [musicNotaGenSpaceOptionsError, setMusicNotaGenSpaceOptionsError] = useState<string | null>(null);
+    const [musicChatMusicianQuestion, setMusicChatMusicianQuestion] = useState('');
+    const [musicChatMusicianDryRun, setMusicChatMusicianDryRun] = useState(true);
+    const [musicChatMusicianBusy, setMusicChatMusicianBusy] = useState(false);
+    const [musicChatMusicianError, setMusicChatMusicianError] = useState<string | null>(null);
+    const [musicChatMusicianResult, setMusicChatMusicianResult] = useState<Record<string, unknown> | null>(null);
     const [aiMode, setAiMode] = useState<'patch' | 'chat'>('patch');
     const [aiPrompt, setAiPrompt] = useState('');
     const [aiIncludeXml, setAiIncludeXml] = useState(true);
@@ -1178,6 +1221,11 @@ export default function ScoreEditor() {
             return;
         }
         setMusicHfToken(window.localStorage.getItem(MUSIC_SPECIALISTS_HF_TOKEN_STORAGE_KEY) ?? '');
+        setMusicNotaGenBackend(
+            window.localStorage.getItem(MUSIC_SPECIALISTS_NOTAGEN_BACKEND_STORAGE_KEY) === 'huggingface-space'
+                ? 'huggingface-space'
+                : 'huggingface',
+        );
         setMusicNotaGenModelId(
             window.localStorage.getItem(MUSIC_SPECIALISTS_NOTAGEN_MODEL_STORAGE_KEY)
             ?? MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_MODEL,
@@ -1185,6 +1233,22 @@ export default function ScoreEditor() {
         setMusicNotaGenRevision(
             window.localStorage.getItem(MUSIC_SPECIALISTS_NOTAGEN_REVISION_STORAGE_KEY)
             ?? MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_REVISION,
+        );
+        setMusicNotaGenSpaceId(
+            window.localStorage.getItem(MUSIC_SPECIALISTS_NOTAGEN_SPACE_ID_STORAGE_KEY)
+            ?? MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_ID,
+        );
+        setMusicNotaGenSpacePeriod(
+            window.localStorage.getItem(MUSIC_SPECIALISTS_NOTAGEN_SPACE_PERIOD_STORAGE_KEY)
+            ?? MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_PERIOD,
+        );
+        setMusicNotaGenSpaceComposer(
+            window.localStorage.getItem(MUSIC_SPECIALISTS_NOTAGEN_SPACE_COMPOSER_STORAGE_KEY)
+            ?? MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_COMPOSER,
+        );
+        setMusicNotaGenSpaceInstrumentation(
+            window.localStorage.getItem(MUSIC_SPECIALISTS_NOTAGEN_SPACE_INSTRUMENTATION_STORAGE_KEY)
+            ?? MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_INSTRUMENTATION,
         );
         setMusicChatMusicianModelId(
             window.localStorage.getItem(MUSIC_SPECIALISTS_CHATMUSICIAN_MODEL_STORAGE_KEY)
@@ -1211,15 +1275,25 @@ export default function ScoreEditor() {
             }
         };
         persistValue(MUSIC_SPECIALISTS_HF_TOKEN_STORAGE_KEY, musicHfToken);
+        persistValue(MUSIC_SPECIALISTS_NOTAGEN_BACKEND_STORAGE_KEY, musicNotaGenBackend);
         persistValue(MUSIC_SPECIALISTS_NOTAGEN_MODEL_STORAGE_KEY, musicNotaGenModelId);
         persistValue(MUSIC_SPECIALISTS_NOTAGEN_REVISION_STORAGE_KEY, musicNotaGenRevision);
+        persistValue(MUSIC_SPECIALISTS_NOTAGEN_SPACE_ID_STORAGE_KEY, musicNotaGenSpaceId);
+        persistValue(MUSIC_SPECIALISTS_NOTAGEN_SPACE_PERIOD_STORAGE_KEY, musicNotaGenSpacePeriod);
+        persistValue(MUSIC_SPECIALISTS_NOTAGEN_SPACE_COMPOSER_STORAGE_KEY, musicNotaGenSpaceComposer);
+        persistValue(MUSIC_SPECIALISTS_NOTAGEN_SPACE_INSTRUMENTATION_STORAGE_KEY, musicNotaGenSpaceInstrumentation);
         persistValue(MUSIC_SPECIALISTS_CHATMUSICIAN_MODEL_STORAGE_KEY, musicChatMusicianModelId);
         persistValue(MUSIC_SPECIALISTS_CHATMUSICIAN_REVISION_STORAGE_KEY, musicChatMusicianRevision);
     }, [
         aiEnabled,
         musicHfToken,
+        musicNotaGenBackend,
         musicNotaGenModelId,
         musicNotaGenRevision,
+        musicNotaGenSpaceId,
+        musicNotaGenSpacePeriod,
+        musicNotaGenSpaceComposer,
+        musicNotaGenSpaceInstrumentation,
         musicChatMusicianModelId,
         musicChatMusicianRevision,
     ]);
@@ -1244,11 +1318,74 @@ export default function ScoreEditor() {
         window.localStorage.setItem(CODE_EDITOR_THEME_STORAGE_KEY, codeEditorTheme);
     }, [codeEditorTheme]);
 
+    const musicNotaGenSpacePeriods = useMemo(
+        () => (musicNotaGenSpaceCombinations ? Object.keys(musicNotaGenSpaceCombinations).sort() : []),
+        [musicNotaGenSpaceCombinations],
+    );
+    const musicNotaGenSpaceComposers = useMemo(
+        () => Object.keys((musicNotaGenSpaceCombinations && musicNotaGenSpaceCombinations[musicNotaGenSpacePeriod]) || {}).sort(),
+        [musicNotaGenSpaceCombinations, musicNotaGenSpacePeriod],
+    );
+    const musicNotaGenSpaceInstrumentations = useMemo(
+        () => (
+            (musicNotaGenSpaceCombinations
+                && musicNotaGenSpaceCombinations[musicNotaGenSpacePeriod]
+                && musicNotaGenSpaceCombinations[musicNotaGenSpacePeriod][musicNotaGenSpaceComposer])
+            ? [...musicNotaGenSpaceCombinations[musicNotaGenSpacePeriod][musicNotaGenSpaceComposer]].sort()
+            : []
+        ),
+        [musicNotaGenSpaceCombinations, musicNotaGenSpacePeriod, musicNotaGenSpaceComposer],
+    );
+
+    useEffect(() => {
+        if (!aiEnabled) {
+            return;
+        }
+        if (xmlSidebarTab !== 'notagen') {
+            return;
+        }
+        if (musicNotaGenSpaceCombinations || musicNotaGenSpaceOptionsLoading) {
+            return;
+        }
+        void loadNotaGenSpaceOptions();
+    }, [
+        aiEnabled,
+        xmlSidebarTab,
+        musicNotaGenSpaceCombinations,
+        musicNotaGenSpaceOptionsLoading,
+    ]);
+
+    useEffect(() => {
+        if (musicNotaGenSpaceComposers.length === 0) {
+            return;
+        }
+        if (!musicNotaGenSpaceComposers.includes(musicNotaGenSpaceComposer)) {
+            setMusicNotaGenSpaceComposer(musicNotaGenSpaceComposers[0] || '');
+        }
+    }, [musicNotaGenSpaceComposers, musicNotaGenSpaceComposer]);
+
+    useEffect(() => {
+        if (musicNotaGenSpaceInstrumentations.length === 0) {
+            return;
+        }
+        if (!musicNotaGenSpaceInstrumentations.includes(musicNotaGenSpaceInstrumentation)) {
+            setMusicNotaGenSpaceInstrumentation(musicNotaGenSpaceInstrumentations[0] || '');
+        }
+    }, [musicNotaGenSpaceInstrumentations, musicNotaGenSpaceInstrumentation]);
+
+    useEffect(() => {
+        const el = musicNotaGenProgressPreRef.current;
+        if (!el) {
+            return;
+        }
+        el.scrollTop = el.scrollHeight;
+    }, [musicNotaGenProgressLog, musicNotaGenStatusText]);
+
     useEffect(() => {
         if (aiEnabled) {
             return;
         }
-        if (xmlSidebarTab === 'assistant') {
+        if (xmlSidebarTab !== 'xml') {
             setXmlSidebarTab('xml');
         }
     }, [aiEnabled, xmlSidebarTab]);
@@ -2362,7 +2499,9 @@ ${partsBodyXml}
     }, [score, xmlDirty, xmlSidebarMode, loadXmlFromScore]);
 
     useEffect(() => {
-        if (xmlSidebarTab === 'assistant' && aiIncludeXml && !xmlText.trim()) {
+        if ((xmlSidebarTab === 'assistant' || xmlSidebarTab === 'notagen' || xmlSidebarTab === 'chatmusician')
+            && aiIncludeXml
+            && !xmlText.trim()) {
             void loadXmlFromScore();
         }
     }, [xmlSidebarTab, aiIncludeXml, xmlText, loadXmlFromScore]);
@@ -5200,6 +5339,363 @@ ${partsBodyXml}
             setAiError(message || 'AI chat request failed. See console for details.');
         } finally {
             setAiBusy(false);
+        }
+    };
+
+    const postScoreEditorJson = useCallback(async (path: string, body: Record<string, unknown>) => {
+        const response = await fetch(resolveScoreEditorApiPath(path), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            const message = typeof asRecord(payload)?.error === 'string'
+                ? String(asRecord(payload)?.error)
+                : `Request failed: ${response.status}`;
+            throw new Error(message);
+        }
+        return asRecord(payload) || {};
+    }, []);
+
+    const loadNotaGenSpaceOptions = useCallback(async (spaceIdOverride?: string) => {
+        const targetSpaceId = (spaceIdOverride ?? musicNotaGenSpaceId).trim() || 'ElectricAlexis/NotaGen';
+        setMusicNotaGenSpaceOptionsLoading(true);
+        setMusicNotaGenSpaceOptionsError(null);
+        try {
+            const parsed = await postScoreEditorJson('/api/music/notagen-space/options', {
+                spaceId: targetSpaceId,
+            });
+            const combinations = asRecord(parsed?.combinations) as NotaGenSpaceCombinations | null;
+            setMusicNotaGenSpaceCombinations(combinations);
+
+            const periods = Array.isArray(parsed?.periods)
+                ? parsed?.periods.filter((value): value is string => typeof value === 'string')
+                : [];
+            const nextPeriod = periods.includes(musicNotaGenSpacePeriod) ? musicNotaGenSpacePeriod : (periods[0] || musicNotaGenSpacePeriod);
+            if (nextPeriod !== musicNotaGenSpacePeriod) {
+                setMusicNotaGenSpacePeriod(nextPeriod);
+            }
+
+            const composersForPeriod = Object.keys((combinations && combinations[nextPeriod]) || {}).sort();
+            const nextComposer = composersForPeriod.includes(musicNotaGenSpaceComposer)
+                ? musicNotaGenSpaceComposer
+                : (composersForPeriod[0] || musicNotaGenSpaceComposer);
+            if (nextComposer !== musicNotaGenSpaceComposer) {
+                setMusicNotaGenSpaceComposer(nextComposer);
+            }
+
+            const instrumentsForComposer = ((combinations && combinations[nextPeriod] && combinations[nextPeriod][nextComposer]) || []).slice().sort();
+            const nextInstrumentation = instrumentsForComposer.includes(musicNotaGenSpaceInstrumentation)
+                ? musicNotaGenSpaceInstrumentation
+                : (instrumentsForComposer[0] || musicNotaGenSpaceInstrumentation);
+            if (nextInstrumentation !== musicNotaGenSpaceInstrumentation) {
+                setMusicNotaGenSpaceInstrumentation(nextInstrumentation);
+            }
+        } catch (err) {
+            console.error('Failed to load NotaGen Space options', err);
+            setMusicNotaGenSpaceOptionsError(errorMessage(err) || 'Failed to load NotaGen Space options.');
+        } finally {
+            setMusicNotaGenSpaceOptionsLoading(false);
+        }
+    }, [
+        musicNotaGenSpaceComposer,
+        musicNotaGenSpaceId,
+        musicNotaGenSpaceInstrumentation,
+        musicNotaGenSpacePeriod,
+        postScoreEditorJson,
+    ]);
+
+    const createCurrentScoreMusicXmlArtifact = useCallback(async () => {
+        const data = await getScoreXmlData();
+        if (!data) {
+            throw new Error('Unable to export MusicXML from the current score.');
+        }
+        const content = new TextDecoder().decode(data);
+        const payload = await postScoreEditorJson('/api/music/convert', {
+            inputFormat: 'musicxml',
+            outputFormat: 'musicxml',
+            content,
+            validate: true,
+            deepValidate: false,
+            includeContent: false,
+        });
+        const outputArtifactId = typeof payload.outputArtifactId === 'string' ? payload.outputArtifactId : '';
+        if (!outputArtifactId) {
+            throw new Error('Convert API did not return an outputArtifactId.');
+        }
+        return { outputArtifactId, payload };
+    }, [getScoreXmlData, postScoreEditorJson]);
+
+    const handleMusicNotaGenRun = async () => {
+        if (!musicNotaGenSpacePeriod.trim() || !musicNotaGenSpaceComposer.trim() || !musicNotaGenSpaceInstrumentation.trim()) {
+            alert('Enter a period, composer, and instrumentation for the NotaGen Space.');
+            return;
+        }
+        setMusicNotaGenBusy(true);
+        setMusicNotaGenError(null);
+        setMusicNotaGenResult(null);
+        setMusicNotaGenGeneratedXml('');
+        setMusicNotaGenGeneratedAbc('');
+        setMusicNotaGenProgressLog('');
+        setMusicNotaGenStatusText('');
+        try {
+            if (!musicNotaGenDryRun) {
+                const response = await fetch(resolveScoreEditorApiPath('/api/music/generate/stream'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        backend: 'huggingface-space',
+                        spaceId: musicNotaGenSpaceId || undefined,
+                        period: musicNotaGenSpacePeriod,
+                        composer: musicNotaGenSpaceComposer,
+                        instrumentation: musicNotaGenSpaceInstrumentation,
+                        timeoutMs: 300000,
+                        includeAbc: true,
+                        includeContent: true,
+                    }),
+                });
+                if (!response.ok || !response.body) {
+                    const payload = await response.json().catch(() => ({}));
+                    const message = typeof asRecord(payload)?.error === 'string'
+                        ? String(asRecord(payload)?.error)
+                        : `Request failed: ${response.status}`;
+                    throw new Error(message);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let finalResult: Record<string, unknown> | null = null;
+                let streamError: string | null = null;
+
+                const handleSseEvent = (eventName: string, payloadText: string) => {
+                    let payload: any = null;
+                    try {
+                        payload = payloadText ? JSON.parse(payloadText) : null;
+                    } catch {
+                        payload = { raw: payloadText };
+                    }
+                    if (eventName === 'status') {
+                        const stage = typeof payload?.stage === 'string' ? payload.stage : '';
+                        const message = typeof payload?.message === 'string' ? payload.message : '';
+                        setMusicNotaGenStatusText([stage, message].filter(Boolean).join(': ') || stage || message);
+                        return;
+                    }
+                    if (eventName === 'log') {
+                        const message = typeof payload?.message === 'string' ? payload.message : '';
+                        if (message) {
+                            setMusicNotaGenProgressLog((prev) => {
+                                const next = prev ? `${prev}\n${message}` : message;
+                                return next.slice(-20000);
+                            });
+                        }
+                        return;
+                    }
+                    if (eventName === 'progress') {
+                        if (typeof payload?.processOutput === 'string') {
+                            setMusicNotaGenProgressLog(payload.processOutput.slice(-20000));
+                        }
+                        if (typeof payload?.abc === 'string') {
+                            setMusicNotaGenGeneratedAbc(payload.abc);
+                        }
+                        return;
+                    }
+                    if (eventName === 'result') {
+                        finalResult = asRecord(payload);
+                        streamError = null;
+                        return;
+                    }
+                    if (eventName === 'error') {
+                        if (!finalResult) {
+                            streamError = typeof payload?.error === 'string'
+                                ? payload.error
+                                : 'NotaGen Space streaming request failed.';
+                        }
+                    }
+                };
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+
+                    let sepIndex = buffer.indexOf('\n\n');
+                    while (sepIndex >= 0) {
+                        const block = buffer.slice(0, sepIndex);
+                        buffer = buffer.slice(sepIndex + 2);
+
+                        let eventName = 'message';
+                        const dataLines: string[] = [];
+                        for (const line of block.split('\n')) {
+                            if (line.startsWith('event:')) {
+                                eventName = line.slice(6).trim();
+                            } else if (line.startsWith('data:')) {
+                                dataLines.push(line.slice(5).trimStart());
+                            }
+                        }
+                        if (dataLines.length > 0) {
+                            handleSseEvent(eventName, dataLines.join('\n'));
+                        }
+                        if (streamError && !finalResult) {
+                            throw new Error(streamError);
+                        }
+                        sepIndex = buffer.indexOf('\n\n');
+                    }
+
+                    if (done) {
+                        break;
+                    }
+                }
+
+                if (!finalResult) {
+                    throw new Error(streamError || 'NotaGen Space stream ended without a final result.');
+                }
+
+                setMusicNotaGenResult(finalResult);
+                const content = asRecord(finalResult.content);
+                const abc = typeof finalResult.abc === 'string'
+                    ? finalResult.abc
+                    : (typeof content?.abc === 'string' ? content.abc : '');
+                const musicxml = typeof content?.musicxml === 'string' ? content.musicxml : '';
+                setMusicNotaGenGeneratedAbc(abc);
+                setMusicNotaGenGeneratedXml(musicxml);
+                return;
+            }
+
+            const payload = await postScoreEditorJson('/api/music/generate', {
+                backend: 'huggingface-space',
+                spaceId: musicNotaGenSpaceId || undefined,
+                period: musicNotaGenSpacePeriod,
+                composer: musicNotaGenSpaceComposer,
+                instrumentation: musicNotaGenSpaceInstrumentation,
+                dryRun: musicNotaGenDryRun,
+                timeoutMs: 300000,
+                includePrompt: true,
+                includeAbc: true,
+                includeContent: true,
+            });
+            setMusicNotaGenResult(payload);
+            const content = asRecord(payload.content);
+            const abc = typeof payload.abc === 'string'
+                ? payload.abc
+                : (typeof content?.abc === 'string' ? content.abc : '');
+            const musicxml = typeof content?.musicxml === 'string' ? content.musicxml : '';
+            setMusicNotaGenGeneratedAbc(abc);
+            setMusicNotaGenGeneratedXml(musicxml);
+        } catch (err) {
+            console.error('NotaGen request failed', err);
+            setMusicNotaGenError(errorMessage(err) || 'NotaGen request failed.');
+        } finally {
+            setMusicNotaGenBusy(false);
+        }
+    };
+
+    const handleNotaGenPeriodChange = useCallback((nextPeriod: string) => {
+        setMusicNotaGenSpacePeriod(nextPeriod);
+        const composerMap = (musicNotaGenSpaceCombinations && musicNotaGenSpaceCombinations[nextPeriod]) || {};
+        const composers = Object.keys(composerMap).sort();
+        const nextComposer = composers.includes(musicNotaGenSpaceComposer)
+            ? musicNotaGenSpaceComposer
+            : (composers[0] || '');
+        setMusicNotaGenSpaceComposer(nextComposer);
+
+        const instruments = nextComposer
+            ? [ ...(composerMap[nextComposer] || []) ].sort()
+            : [];
+        const nextInstrumentation = instruments.includes(musicNotaGenSpaceInstrumentation)
+            ? musicNotaGenSpaceInstrumentation
+            : (instruments[0] || '');
+        setMusicNotaGenSpaceInstrumentation(nextInstrumentation);
+    }, [
+        musicNotaGenSpaceCombinations,
+        musicNotaGenSpaceComposer,
+        musicNotaGenSpaceInstrumentation,
+    ]);
+
+    const handleNotaGenComposerChange = useCallback((nextComposer: string) => {
+        setMusicNotaGenSpaceComposer(nextComposer);
+        const instruments = (
+            musicNotaGenSpaceCombinations
+            && musicNotaGenSpaceCombinations[musicNotaGenSpacePeriod]
+            && musicNotaGenSpaceCombinations[musicNotaGenSpacePeriod][nextComposer]
+        )
+            ? [ ...musicNotaGenSpaceCombinations[musicNotaGenSpacePeriod][nextComposer] ].sort()
+            : [];
+        const nextInstrumentation = instruments.includes(musicNotaGenSpaceInstrumentation)
+            ? musicNotaGenSpaceInstrumentation
+            : (instruments[0] || '');
+        setMusicNotaGenSpaceInstrumentation(nextInstrumentation);
+    }, [
+        musicNotaGenSpaceCombinations,
+        musicNotaGenSpacePeriod,
+        musicNotaGenSpaceInstrumentation,
+    ]);
+
+    const handleMusicChatMusicianRun = async () => {
+        if (!musicHfToken.trim()) {
+            alert('Enter your Hugging Face token for music specialists.');
+            return;
+        }
+        if (!musicChatMusicianModelId.trim()) {
+            alert('Enter a ChatMusician model id.');
+            return;
+        }
+        if (!musicChatMusicianQuestion.trim()) {
+            alert('Enter a question for ChatMusician.');
+            return;
+        }
+        setMusicChatMusicianBusy(true);
+        setMusicChatMusicianError(null);
+        setMusicChatMusicianResult(null);
+        try {
+            const prepared = await createCurrentScoreMusicXmlArtifact();
+            const payload = await postScoreEditorJson('/api/music/analyze', {
+                hfToken: musicHfToken,
+                modelId: musicChatMusicianModelId,
+                revision: musicChatMusicianRevision || undefined,
+                question: musicChatMusicianQuestion,
+                inputArtifactId: prepared.outputArtifactId,
+                dryRun: musicChatMusicianDryRun,
+                includePrompt: true,
+            });
+            setMusicChatMusicianResult(payload);
+        } catch (err) {
+            console.error('ChatMusician request failed', err);
+            setMusicChatMusicianError(errorMessage(err) || 'ChatMusician request failed.');
+        } finally {
+            setMusicChatMusicianBusy(false);
+        }
+    };
+
+    const handleApplyMusicNotaGenOutput = async () => {
+        if (!musicNotaGenGeneratedXml.trim()) {
+            alert('No generated MusicXML is available yet.');
+            return;
+        }
+        setXmlLoading(true);
+        setXmlError(null);
+        try {
+            if (!score) {
+                const encoder = new TextEncoder();
+                const encoded = encoder.encode(musicNotaGenGeneratedXml);
+                const filenameBase = musicNotaGenSpaceComposer
+                    ? `notagen-${toSafeFilename(musicNotaGenSpaceComposer)}`
+                    : 'notagen-output';
+                const file = new File([encoded], `${filenameBase}.musicxml`, { type: 'application/xml' });
+                await handleFileUpload(file, { preserveScoreId: false, updateUrl: false });
+            } else {
+                await applyXmlToScore(musicNotaGenGeneratedXml);
+            }
+            setXmlSidebarTab('xml');
+        } catch (err) {
+            console.error('Failed to apply NotaGen output XML', err);
+            alert('Failed to apply generated MusicXML. See console for details.');
+        } finally {
+            setXmlLoading(false);
         }
     };
 
@@ -8755,6 +9251,34 @@ ${partsBodyXml}
                                             Assistant
                                         </button>
                                     )}
+                                    {aiEnabled && (
+                                        <button
+                                            type="button"
+                                            data-testid="tab-notagen"
+                                            onClick={() => setXmlSidebarTab('notagen')}
+                                            className={`rounded border px-2 py-1 ${
+                                                xmlSidebarTab === 'notagen'
+                                                    ? 'border-gray-400 bg-gray-100 text-gray-900'
+                                                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                                            }`}
+                                        >
+                                            NotaGen
+                                        </button>
+                                    )}
+                                    {aiEnabled && (
+                                        <button
+                                            type="button"
+                                            data-testid="tab-chatmusician"
+                                            onClick={() => setXmlSidebarTab('chatmusician')}
+                                            className={`rounded border px-2 py-1 ${
+                                                xmlSidebarTab === 'chatmusician'
+                                                    ? 'border-gray-400 bg-gray-100 text-gray-900'
+                                                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                                            }`}
+                                        >
+                                            ChatMusician
+                                        </button>
+                                    )}
                                 </div>
                                 <label className="flex items-center gap-2">
                                     <span className="text-[11px] uppercase tracking-wide text-gray-500">Theme</span>
@@ -8912,86 +9436,6 @@ ${partsBodyXml}
                                             </a>
                                         </div>
                                     )}
-                                </div>
-                                <div className="space-y-2 rounded border border-gray-200 bg-gray-50/70 p-3">
-                                    <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                                        Music Specialists (BYO Hugging Face)
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                            Hugging Face Token
-                                        </label>
-                                        <input
-                                            type="password"
-                                            value={musicHfToken}
-                                            onChange={(event) => setMusicHfToken(event.target.value)}
-                                            className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                                            placeholder="hf_..."
-                                        />
-                                        <div className="mt-1 text-[11px] text-gray-500">
-                                            Stored locally in this browser. Used for `NotaGen` and `ChatMusician` via `/api/music/*`.
-                                        </div>
-                                        <div className="mt-1 text-[11px]">
-                                            <a
-                                                href={HUGGING_FACE_TOKENS_URL}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="text-blue-600 hover:text-blue-700 hover:underline"
-                                            >
-                                                Create Hugging Face token
-                                            </a>
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-1 gap-2">
-                                        <div>
-                                            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                                NotaGen Model
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={musicNotaGenModelId}
-                                                onChange={(event) => setMusicNotaGenModelId(event.target.value)}
-                                                className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                                                placeholder="e.g. manoskary/NotaGenX-Quantized"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                                NotaGen Revision (optional)
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={musicNotaGenRevision}
-                                                onChange={(event) => setMusicNotaGenRevision(event.target.value)}
-                                                className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                                                placeholder="main or commit sha"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                                ChatMusician Model
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={musicChatMusicianModelId}
-                                                onChange={(event) => setMusicChatMusicianModelId(event.target.value)}
-                                                className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                                                placeholder="HF model id"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                                ChatMusician Revision (optional)
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={musicChatMusicianRevision}
-                                                onChange={(event) => setMusicChatMusicianRevision(event.target.value)}
-                                                className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                                                placeholder="main or commit sha"
-                                            />
-                                        </div>
-                                    </div>
                                 </div>
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-2 text-xs">
@@ -9250,6 +9694,261 @@ ${partsBodyXml}
                                         {aiError}
                                     </div>
                                 )}
+                            </div>
+                        )}
+                        {xmlSidebarTab === 'notagen' && aiEnabled && (
+                            <div className="mt-3 space-y-3 text-sm text-gray-700">
+                                <div className="rounded border border-gray-200 bg-gray-50/70 p-3 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                                            NotaGen (Generate)
+                                        </div>
+                                        <a
+                                            href="https://github.com/ElectricAlexis/NotaGen/"
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            title="NotaGen project on GitHub"
+                                            aria-label="Open NotaGen project on GitHub"
+                                            className="text-sm leading-none text-gray-500 hover:text-gray-700"
+                                        >
+                                            ⓘ
+                                        </a>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                            Period
+                                        </label>
+                                        <select
+                                            value={musicNotaGenSpacePeriod}
+                                            onChange={(event) => handleNotaGenPeriodChange(event.target.value)}
+                                            className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                        >
+                                            {(musicNotaGenSpacePeriods.length > 0 ? musicNotaGenSpacePeriods : [musicNotaGenSpacePeriod || '']).map((option) => (
+                                                <option key={option} value={option}>{option || 'Select period'}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                            Composer
+                                        </label>
+                                        <select
+                                            value={musicNotaGenSpaceComposer}
+                                            onChange={(event) => handleNotaGenComposerChange(event.target.value)}
+                                            className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                        >
+                                            {(musicNotaGenSpaceComposers.length > 0 ? musicNotaGenSpaceComposers : [musicNotaGenSpaceComposer || '']).map((option) => (
+                                                <option key={option} value={option}>{option || 'Select composer'}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                            Instrumentation
+                                        </label>
+                                        <select
+                                            value={musicNotaGenSpaceInstrumentation}
+                                            onChange={(event) => setMusicNotaGenSpaceInstrumentation(event.target.value)}
+                                            className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                        >
+                                            {(musicNotaGenSpaceInstrumentations.length > 0 ? musicNotaGenSpaceInstrumentations : [musicNotaGenSpaceInstrumentation || '']).map((option) => (
+                                                <option key={option} value={option}>{option || 'Select instrumentation'}</option>
+                                            ))}
+                                        </select>
+                                        {musicNotaGenSpaceOptionsError && (
+                                            <div className="mt-1 text-[11px] text-red-600">
+                                                {musicNotaGenSpaceOptionsError}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={handleMusicNotaGenRun}
+                                            disabled={musicNotaGenBusy}
+                                            className="flex-1 rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {musicNotaGenBusy ? 'Working...' : 'Run NotaGen Space'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleApplyMusicNotaGenOutput}
+                                            disabled={musicNotaGenBusy || !musicNotaGenGeneratedXml.trim()}
+                                            className="rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Apply Output
+                                        </button>
+                                    </div>
+                                </div>
+                                {musicNotaGenError && (
+                                    <div className="text-xs text-red-600">
+                                        {musicNotaGenError}
+                                    </div>
+                                )}
+                                {(musicNotaGenStatusText || musicNotaGenProgressLog) && (
+                                    <div className="space-y-1">
+                                        {musicNotaGenStatusText && (
+                                            <div className="text-xs text-gray-500">{musicNotaGenStatusText}</div>
+                                        )}
+                                        <pre
+                                            ref={musicNotaGenProgressPreRef}
+                                            className="max-h-40 overflow-auto rounded border border-gray-200 bg-gray-50 p-2 text-[11px] leading-relaxed text-gray-700 whitespace-pre-wrap"
+                                        >
+                                            {musicNotaGenProgressLog || 'Waiting for generation output...'}
+                                        </pre>
+                                    </div>
+                                )}
+                                {musicNotaGenGeneratedXml && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between text-xs text-gray-500">
+                                            <span>Generated MusicXML</span>
+                                            <span>Review before applying</span>
+                                        </div>
+                                        <CodeMirrorEditor
+                                            value={musicNotaGenGeneratedXml}
+                                            onChange={(nextValue) => setMusicNotaGenGeneratedXml(nextValue)}
+                                            readOnly={false}
+                                            language="xml"
+                                            placeholderText="Generated MusicXML will appear here."
+                                            height={220}
+                                            maxHeight={320}
+                                            themeMode={codeEditorTheme}
+                                        />
+                                    </div>
+                                )}
+                                {musicNotaGenGeneratedAbc && (
+                                    <div className="space-y-1">
+                                        <div className="text-xs text-gray-500">Generated ABC</div>
+                                        <pre className="max-h-48 overflow-auto rounded border border-gray-200 bg-gray-50 p-2 text-[11px] leading-relaxed text-gray-700 whitespace-pre-wrap">
+                                            {musicNotaGenGeneratedAbc}
+                                        </pre>
+                                    </div>
+                                )}
+                                {musicNotaGenResult && (
+                                    <div className="space-y-1">
+                                        <div className="text-xs text-gray-500">NotaGen Response</div>
+                                        <pre className="max-h-64 overflow-auto rounded border border-gray-200 bg-gray-50 p-2 text-[11px] leading-relaxed text-gray-700 whitespace-pre-wrap">
+                                            {JSON.stringify(musicNotaGenResult, null, 2)}
+                                        </pre>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        {xmlSidebarTab === 'chatmusician' && aiEnabled && (
+                            <div className="mt-3 space-y-3 text-sm text-gray-700">
+                                <div className="rounded border border-gray-200 bg-gray-50/70 p-3 space-y-3">
+                                    <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                                        ChatMusician (Analyze)
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                            Hugging Face Token
+                                        </label>
+                                        <input
+                                            type="password"
+                                            value={musicHfToken}
+                                            onChange={(event) => setMusicHfToken(event.target.value)}
+                                            className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                            placeholder="hf_..."
+                                        />
+                                        <div className="mt-1 text-[11px] text-gray-500">
+                                            Stored locally in this browser. Used for `/api/music/*`.
+                                        </div>
+                                        <div className="mt-1 text-[11px]">
+                                            <a
+                                                href={HUGGING_FACE_TOKENS_URL}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-blue-600 hover:text-blue-700 hover:underline"
+                                            >
+                                                Create Hugging Face token
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                            ChatMusician Model
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={musicChatMusicianModelId}
+                                            onChange={(event) => setMusicChatMusicianModelId(event.target.value)}
+                                            className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                            placeholder="HF model id"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                            ChatMusician Revision (optional)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={musicChatMusicianRevision}
+                                            onChange={(event) => setMusicChatMusicianRevision(event.target.value)}
+                                            className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                            placeholder="main or commit sha"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                            Analysis Question
+                                        </label>
+                                        <textarea
+                                            value={musicChatMusicianQuestion}
+                                            onChange={(event) => setMusicChatMusicianQuestion(event.target.value)}
+                                            rows={4}
+                                            className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                            placeholder="Analyze the harmony, meter, and phrase structure."
+                                        />
+                                    </div>
+                                    <div className="space-y-2 text-xs text-gray-600">
+                                        <label className="flex items-center gap-2">
+                                            <input
+                                                type="checkbox"
+                                                checked={musicChatMusicianDryRun}
+                                                onChange={(event) => setMusicChatMusicianDryRun(event.target.checked)}
+                                            />
+                                            Dry run (prepare request only)
+                                        </label>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleMusicChatMusicianRun}
+                                        disabled={musicChatMusicianBusy}
+                                        className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {musicChatMusicianBusy ? 'Working...' : (musicChatMusicianDryRun ? 'Prepare Analysis Request' : 'Run ChatMusician')}
+                                    </button>
+                                </div>
+                                {musicChatMusicianError && (
+                                    <div className="text-xs text-red-600">
+                                        {musicChatMusicianError}
+                                    </div>
+                                )}
+                                {musicChatMusicianResult && (() => {
+                                    const analysis = asRecord(musicChatMusicianResult.analysis);
+                                    const analysisText = typeof analysis?.text === 'string' ? analysis.text : '';
+                                    return (
+                                        <>
+                                            {analysisText && (
+                                                <div className="space-y-1">
+                                                    <div className="text-xs text-gray-500">Analysis</div>
+                                                    <div className="rounded border border-gray-200 bg-gray-50 p-2 text-xs text-gray-800">
+                                                        <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+                                                            {analysisText}
+                                                        </ReactMarkdown>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            <div className="space-y-1">
+                                                <div className="text-xs text-gray-500">ChatMusician Response</div>
+                                                <pre className="max-h-64 overflow-auto rounded border border-gray-200 bg-gray-50 p-2 text-[11px] leading-relaxed text-gray-700 whitespace-pre-wrap">
+                                                    {JSON.stringify(musicChatMusicianResult, null, 2)}
+                                                </pre>
+                                            </div>
+                                        </>
+                                    );
+                                })()}
                             </div>
                         )}
                         {xmlError && (

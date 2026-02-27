@@ -121,6 +121,7 @@ export async function POST(request: Request) {
                 origin: 'api/music/convert',
                 inputFormat: result.inputFormat,
                 outputFormat: result.outputFormat,
+                normalization: result.normalization,
             },
         });
 
@@ -132,6 +133,7 @@ export async function POST(request: Request) {
             conversion: {
                 inputFormat: result.inputFormat,
                 outputFormat: result.outputFormat,
+                normalization: result.normalization,
                 validation: result.validation,
                 provenance: result.provenance,
             },

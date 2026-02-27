@@ -583,14 +583,35 @@ const proxyToEditorApiOrigin = async (req, res, targetUrl) => {
       body: rawBody && rawBody.length ? rawBody : undefined,
     });
 
-    const responseBuffer = Buffer.from(await response.arrayBuffer());
     const contentType = response.headers.get('content-type') || 'application/octet-stream';
     const responseHeaders = {
       'Content-Type': contentType,
       'Access-Control-Allow-Origin': '*',
     };
+    if (contentType.includes('text/event-stream')) {
+      responseHeaders['Cache-Control'] = 'no-cache, no-transform';
+      responseHeaders.Connection = 'keep-alive';
+      responseHeaders['X-Accel-Buffering'] = 'no';
+    }
     res.writeHead(response.status, responseHeaders);
-    res.end(responseBuffer);
+
+    if (!response.body || typeof response.body.getReader !== 'function') {
+      const responseBuffer = Buffer.from(await response.arrayBuffer());
+      res.end(responseBuffer);
+      return;
+    }
+
+    const reader = response.body.getReader();
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) {
+        break;
+      }
+      if (value && value.length) {
+        res.write(Buffer.from(value));
+      }
+    }
+    res.end();
   } catch (err) {
     console.error('Score editor API proxy error', err);
     sendJson(res, 502, { error: 'Score editor API proxy error.' });
