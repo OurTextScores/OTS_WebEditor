@@ -6,9 +6,10 @@ const nextConfig: NextConfig = {
   basePath: process.env.BUILD_MODE === 'embed' ? '/score-editor' : undefined,
   // Disable image optimization for static export
   images: process.env.BUILD_MODE === 'embed' ? { unoptimized: true } : undefined,
-  // Skip type checking during build (run separately with tsc if needed)
+  // Skip Next build type-check when explicitly requested (or for embed export).
+  // Run `npm run typecheck` separately in these flows.
   typescript: {
-    ignoreBuildErrors: process.env.BUILD_MODE === 'embed',
+    ignoreBuildErrors: process.env.BUILD_MODE === 'embed' || process.env.SKIP_NEXT_TYPECHECK === '1',
   },
   async headers() {
     if (process.env.BUILD_MODE === 'embed') {
