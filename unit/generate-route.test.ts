@@ -1,130 +1,48 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 const mocked = vi.hoisted(() => ({
-  convertMusicNotation: vi.fn(),
-  createScoreArtifact: vi.fn(),
-  getScoreArtifact: vi.fn(),
-  summarizeScoreArtifact: vi.fn((artifact: { id: string; format: string }) => ({
-    id: artifact.id,
-    format: artifact.format,
-  })),
+  runMusicGenerateService: vi.fn(),
 }));
 
-vi.mock('../lib/music-conversion', () => ({
-  convertMusicNotation: mocked.convertMusicNotation,
-}));
-
-vi.mock('../lib/score-artifacts', () => ({
-  createScoreArtifact: mocked.createScoreArtifact,
-  getScoreArtifact: mocked.getScoreArtifact,
-  summarizeScoreArtifact: mocked.summarizeScoreArtifact,
+vi.mock('../lib/music-services/generate-service', () => ({
+  runMusicGenerateService: mocked.runMusicGenerateService,
 }));
 
 import { POST } from '../app/api/music/generate/route';
 
-const postJson = (payload: Record<string, unknown>) => POST(new Request('http://localhost/api/music/generate', {
-  method: 'POST',
-  body: JSON.stringify(payload),
-}));
-
-describe('POST /api/music/generate route (dry-run and validation guards)', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('returns 400 when huggingface backend is missing hfToken', async () => {
-    const response = await postJson({
-      backend: 'huggingface',
-      modelId: 'ElectricAlexis/NotaGen',
-      dryRun: true,
+describe('POST /api/music/generate route', () => {
+  it('returns service payload and status on success', async () => {
+    mocked.runMusicGenerateService.mockResolvedValue({
+      status: 200,
+      body: { specialist: 'notagen', generation: null },
     });
 
-    expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toMatchObject({
-      error: 'Missing hfToken (BYO Hugging Face token).',
-    });
-  });
-
-  it('returns 400 for unsupported backends', async () => {
-    const response = await postJson({
-      backend: 'unknown-provider',
-      dryRun: true,
-    });
-
-    expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toMatchObject({
-      error: 'Unsupported NotaGen backend: unknown-provider.',
-    });
-  });
-
-  it('returns dry-run payload for huggingface backend without external inference call', async () => {
-    const response = await postJson({
-      backend: 'huggingface',
-      hfToken: 'hf_exampletoken',
-      modelId: 'ElectricAlexis/NotaGen',
-      prompt: 'Compose a short piece in C major.',
-      includePrompt: true,
-      dryRun: true,
-    });
+    const response = await POST(new Request('http://localhost/api/music/generate', {
+      method: 'POST',
+      body: JSON.stringify({ dryRun: true }),
+    }));
 
     expect(response.status).toBe(200);
-    const json = await response.json();
-    expect(json.specialist).toBe('notagen');
-    expect(json.backend).toBe('huggingface');
-    expect(json.message).toContain('Set dryRun=false');
-    expect(json.generation).toBeNull();
-    expect(json.generationPrompt.preview).toContain('Generate a single musical score in valid ABC notation.');
-  });
-
-  it('returns dry-run payload for huggingface-space backend', async () => {
-    const response = await postJson({
-      backend: 'huggingface-space',
-      spaceId: 'jhlusko/NotaGen-Space',
-      period: 'Classical',
-      composer: 'Mozart, Wolfgang Amadeus',
-      instrumentation: 'Keyboard',
-      dryRun: true,
-    });
-
-    expect(response.status).toBe(200);
-    const json = await response.json();
-    expect(json.specialist).toBe('notagen');
-    expect(json.backend).toBe('huggingface-space');
-    expect(json.request.spaceId).toBe('jhlusko/NotaGen-Space');
-    expect(json.generation).toBeNull();
-  });
-
-  it('returns 400 when space backend is used with seed artifact', async () => {
-    const response = await postJson({
-      backend: 'huggingface-space',
-      spaceId: 'jhlusko/NotaGen-Space',
-      period: 'Classical',
-      composer: 'Mozart, Wolfgang Amadeus',
-      instrumentation: 'Keyboard',
-      inputArtifactId: 'seed-1',
-      dryRun: true,
-    });
-
-    expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
-      error: 'NotaGen Space backend does not support seed artifacts (inputArtifactId) yet.',
+      specialist: 'notagen',
+      generation: null,
     });
   });
 
-  it('returns 404 when seed artifact id does not exist', async () => {
-    mocked.getScoreArtifact.mockResolvedValue(null);
-
-    const response = await postJson({
-      backend: 'huggingface',
-      hfToken: 'hf_exampletoken',
-      modelId: 'ElectricAlexis/NotaGen',
-      inputArtifactId: 'missing-seed',
-      dryRun: true,
+  it('returns service-provided error status and payload', async () => {
+    mocked.runMusicGenerateService.mockResolvedValue({
+      status: 422,
+      body: { error: 'Generated ABC failed validation.' },
     });
 
-    expect(response.status).toBe(404);
+    const response = await POST(new Request('http://localhost/api/music/generate', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }));
+
+    expect(response.status).toBe(422);
     await expect(response.json()).resolves.toMatchObject({
-      error: 'Seed/input artifact not found.',
+      error: 'Generated ABC failed validation.',
     });
   });
 });
