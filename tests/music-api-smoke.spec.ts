@@ -51,5 +51,28 @@ test.describe('Music API smoke', () => {
     expect(json.generation).toBeNull();
     expect(String(json.message || '')).toContain('dryRun=false');
   });
-});
 
+  test('agent endpoint runs fallback router with music context tool', async ({ request }) => {
+    const response = await request.post('/api/music/agent', {
+      data: {
+        prompt: 'Analyze this score',
+        useFallbackOnly: true,
+        toolInput: {
+          context: {
+            content: `<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="3.1">
+  <part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>
+  <part id="P1"><measure number="1"><note><pitch><step>C</step></pitch></note></measure></part>
+</score-partwise>`,
+          },
+        },
+      },
+    });
+
+    expect(response.ok()).toBeTruthy();
+    const json = await response.json();
+    expect(json.mode).toBe('fallback');
+    expect(json.selectedTool).toBe('music.context');
+    expect(json.toolOk).toBe(true);
+  });
+});

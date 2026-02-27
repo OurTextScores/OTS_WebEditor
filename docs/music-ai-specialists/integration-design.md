@@ -334,6 +334,7 @@ Why:
 - `POST /api/music/convert` (`input_format`, `output_format`, file/artifact ref)
 - `POST /api/music/generate` (prompt/style/constraints, optional seed score)
 - `POST /api/music/context` (artifact/content + selection/range/search filters, bounded MusicXML snippets)
+- `POST /api/music/agent` (MusicRouter orchestration entrypoint over `music.context` / `music.convert` / `music.generate`)
 - `POST /api/music/score-ops` (`artifact_ref`, `ops[]`, selection, validate/export options)
 - `GET /api/music/artifacts/:id`
 - `POST /api/llm/:provider` (first-class assistant chat/patch generation proxy)

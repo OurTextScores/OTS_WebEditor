@@ -312,6 +312,14 @@ Use OpenAI Agents SDK as the default orchestration layer; keep custom domain too
   - skills for reusable high-level music workflows with stable output contracts
 - Defer other orchestration frameworks unless required by a specific missing capability.
 
+Current MVP implementation status:
+
+- `MusicRouter` server route: `POST /api/music/agent`
+- Contract-bound tools:
+  - `music.context`
+  - `music.convert`
+  - `music.generate`
+
 ## Testing Practice (Music Services)
 
 - Unit tests (required for each new service module):

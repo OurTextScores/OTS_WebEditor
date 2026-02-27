@@ -12,7 +12,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:music-services": "vitest run unit/music-conversion.test.ts unit/convert-service.test.ts unit/context-service.test.ts unit/generate-service.test.ts unit/convert-route.test.ts unit/context-route.test.ts unit/generate-route.test.ts unit/music-specialists-tool.test.ts unit/music-service-contracts.test.ts",
+    "test:music-services": "vitest run unit/music-conversion.test.ts unit/convert-service.test.ts unit/context-service.test.ts unit/generate-service.test.ts unit/convert-route.test.ts unit/context-route.test.ts unit/generate-route.test.ts unit/music-agent-router.test.ts unit/music-agent-route.test.ts unit/music-specialists-tool.test.ts unit/music-service-contracts.test.ts",
     "test:watch": "vitest",
     "test:e2e:music": "playwright test tests/music-api-smoke.spec.ts --workers=1",
     "coverage": "vitest run --coverage",
@@ -31,6 +31,7 @@
     "@codemirror/state": "^6.5.0",
     "@codemirror/view": "^6.38.0",
     "@gradio/client": "^2.1.0",
+    "@openai/agents": "^0.5.2",
     "@radix-ui/react-checkbox": "^1.3.3",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -42,12 +43,14 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "codemirror": "^6.0.1",
     "next": "^16.1.3",
+    "openai": "^6.25.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-markdown": "^10.1.0",
     "remark-breaks": "^4.0.0",
     "remark-gfm": "^4.0.1",
-    "webmscore": "file:./webmscore-fork/web-public"
+    "webmscore": "file:./webmscore-fork/web-public",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",
