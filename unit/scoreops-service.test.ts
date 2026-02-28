@@ -71,6 +71,48 @@ const mocked = vi.hoisted(() => {
       addDynamic: vi.fn(async (typeCode: number) => {
         updateSelectedMeasure((measureXml) => measureXml.replace(/<\/measure>/, `<direction><dynamics type="${typeCode}"/></direction></measure>`));
       }),
+      setAccidental: vi.fn(async (_accidentalType: number) => {
+        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/note>/, `<!-- accidental:${_accidentalType} --></note>`));
+      }),
+      addStaffText: vi.fn(async (text: string) => {
+        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/measure>/, `<direction><words>${text}</words></direction></measure>`));
+      }),
+      addSystemText: vi.fn(async (text: string) => {
+        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/measure>/, `<direction><words>${text}</words></direction></measure>`));
+      }),
+      addExpressionText: vi.fn(async (text: string) => {
+        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/measure>/, `<direction><words>${text}</words></direction></measure>`));
+      }),
+      addLyricText: vi.fn(async (text: string) => {
+        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/measure>/, `<lyric>${text}</lyric></measure>`));
+      }),
+      addHarmonyText: vi.fn(async (_variant: number, text: string) => {
+        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/measure>/, `<harmony>${text}</harmony></measure>`));
+      }),
+      toggleLineBreak: vi.fn(async () => {
+        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/measure>/, `<!-- lineBreak --></measure>`));
+      }),
+      togglePageBreak: vi.fn(async () => {
+        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/measure>/, `<!-- pageBreak --></measure>`));
+      }),
+      toggleRepeatStart: vi.fn(async () => {
+        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/measure>/, `<!-- repeatStart --></measure>`));
+      }),
+      toggleRepeatEnd: vi.fn(async () => {
+        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/measure>/, `<!-- repeatEnd --></measure>`));
+      }),
+      setRepeatCount: vi.fn(async (_count: number) => {
+        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/measure>/, `<!-- repeatCount:${_count} --></measure>`));
+      }),
+      setBarLineType: vi.fn(async (_barlineType: number) => {
+        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/measure>/, `<!-- barline:${_barlineType} --></measure>`));
+      }),
+      undo: vi.fn(async () => {
+        xml = xml.replace(/<\/score-partwise>/, `<!-- undo --></score-partwise>`);
+      }),
+      redo: vi.fn(async () => {
+        xml = xml.replace(/<\/score-partwise>/, `<!-- redo --></score-partwise>`);
+      }),
     };
   };
   return {
@@ -1029,5 +1071,199 @@ describe('runMusicScoreOpsService', () => {
     );
     expect(parsed.ops).toHaveLength(1);
     expect(parsed.ops[0]).toMatchObject({ op: 'set_metadata_text', field: 'title', value: 'Rock and Roll' });
+  });
+
+  // --- P1 ops: set_accidental ---
+
+  it('rejects set_accidental with invalid accidental', async () => {
+    const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
+    const scoreSessionId = String(open.body.scoreSessionId);
+    const result = await runMusicScoreOpsService({
+      action: 'apply',
+      scoreSessionId,
+      baseRevision: 0,
+      ops: [{ op: 'set_accidental', accidental: 'triple-sharp' }],
+    }, 'apply');
+    expect(result.status).toBe(400);
+  });
+
+  it('executes set_accidental via wasm', async () => {
+    const open = await runMusicScoreOpsService({
+      action: 'open',
+      content: SAMPLE_XML,
+    }, 'open');
+    const scoreSessionId = String(open.body.scoreSessionId);
+    const result = await runMusicScoreOpsService({
+      action: 'apply',
+      scoreSessionId,
+      baseRevision: 0,
+      options: { preferredExecutor: 'wasm' },
+      ops: [{ op: 'set_accidental', accidental: 'sharp', scope: { measureStart: 1, measureEnd: 1 } }],
+    }, 'apply');
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({ ok: true, executor: { selected: 'wasm' } });
+  });
+
+  it('parses "set sharp accidental" prompt', () => {
+    const parsed = __scoreOpsTestOnly.parsePromptToOps('set sharp accidental');
+    expect(parsed.ops).toEqual(expect.arrayContaining([
+      expect.objectContaining({ op: 'set_accidental', accidental: 'sharp' }),
+    ]));
+  });
+
+  // --- P1 ops: insert_text ---
+
+  it('applies insert_text via xml executor', async () => {
+    const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
+    const scoreSessionId = String(open.body.scoreSessionId);
+    const result = await runMusicScoreOpsService({
+      action: 'apply',
+      scoreSessionId,
+      baseRevision: 0,
+      ops: [{ op: 'insert_text', kind: 'staff', text: 'Hello World', scope: { measureStart: 1, measureEnd: 1 } }],
+      options: { includeXml: true },
+    }, 'apply');
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({ ok: true });
+    const content = (result.body.output as { content?: string })?.content || '';
+    expect(content).toContain('Hello World');
+  });
+
+  it('executes insert_text via wasm', async () => {
+    const open = await runMusicScoreOpsService({
+      action: 'open',
+      content: SAMPLE_XML,
+    }, 'open');
+    const scoreSessionId = String(open.body.scoreSessionId);
+    const result = await runMusicScoreOpsService({
+      action: 'apply',
+      scoreSessionId,
+      baseRevision: 0,
+      options: { preferredExecutor: 'wasm' },
+      ops: [{ op: 'insert_text', kind: 'staff', text: 'Allegro', scope: { measureStart: 1, measureEnd: 1 } }],
+    }, 'apply');
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({ ok: true, executor: { selected: 'wasm' } });
+  });
+
+  it('parses "add staff text Hello" prompt', () => {
+    const parsed = __scoreOpsTestOnly.parsePromptToOps('add staff text "Allegro"');
+    expect(parsed.ops).toEqual(expect.arrayContaining([
+      expect.objectContaining({ op: 'insert_text', kind: 'staff', text: 'Allegro' }),
+    ]));
+  });
+
+  // --- P1 ops: set_layout_break ---
+
+  it('executes set_layout_break via wasm', async () => {
+    const open = await runMusicScoreOpsService({
+      action: 'open',
+      content: SAMPLE_XML,
+    }, 'open');
+    const scoreSessionId = String(open.body.scoreSessionId);
+    const result = await runMusicScoreOpsService({
+      action: 'apply',
+      scoreSessionId,
+      baseRevision: 0,
+      options: { preferredExecutor: 'wasm' },
+      ops: [{ op: 'set_layout_break', breakType: 'line', scope: { measureStart: 1, measureEnd: 1 } }],
+    }, 'apply');
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({ ok: true, executor: { selected: 'wasm' } });
+  });
+
+  it('parses "add line break" prompt', () => {
+    const parsed = __scoreOpsTestOnly.parsePromptToOps('add line break in measure 4');
+    expect(parsed.ops).toEqual(expect.arrayContaining([
+      expect.objectContaining({ op: 'set_layout_break', breakType: 'line' }),
+    ]));
+  });
+
+  it('parses "set page break" prompt', () => {
+    const parsed = __scoreOpsTestOnly.parsePromptToOps('set page break');
+    expect(parsed.ops).toEqual(expect.arrayContaining([
+      expect.objectContaining({ op: 'set_layout_break', breakType: 'page' }),
+    ]));
+  });
+
+  // --- P1 ops: set_repeat_markers ---
+
+  it('executes set_repeat_markers via wasm', async () => {
+    const open = await runMusicScoreOpsService({
+      action: 'open',
+      content: SAMPLE_XML,
+    }, 'open');
+    const scoreSessionId = String(open.body.scoreSessionId);
+    const result = await runMusicScoreOpsService({
+      action: 'apply',
+      scoreSessionId,
+      baseRevision: 0,
+      options: { preferredExecutor: 'wasm' },
+      ops: [{ op: 'set_repeat_markers', start: true, scope: { measureStart: 1, measureEnd: 1 } }],
+    }, 'apply');
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({ ok: true, executor: { selected: 'wasm' } });
+  });
+
+  it('parses "add repeat start" prompt', () => {
+    const parsed = __scoreOpsTestOnly.parsePromptToOps('add repeat start');
+    expect(parsed.ops).toEqual(expect.arrayContaining([
+      expect.objectContaining({ op: 'set_repeat_markers', start: true }),
+    ]));
+  });
+
+  // --- P1 ops: history_step ---
+
+  it('executes history_step undo via wasm', async () => {
+    const open = await runMusicScoreOpsService({
+      action: 'open',
+      content: SAMPLE_XML,
+    }, 'open');
+    const scoreSessionId = String(open.body.scoreSessionId);
+    const result = await runMusicScoreOpsService({
+      action: 'apply',
+      scoreSessionId,
+      baseRevision: 0,
+      options: { preferredExecutor: 'wasm' },
+      ops: [{ op: 'history_step', direction: 'undo', steps: 1 }],
+    }, 'apply');
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({ ok: true, executor: { selected: 'wasm' } });
+  });
+
+  it('parses "undo 3 steps" prompt', () => {
+    const parsed = __scoreOpsTestOnly.parsePromptToOps('undo 3 steps');
+    expect(parsed.ops).toEqual(expect.arrayContaining([
+      expect.objectContaining({ op: 'history_step', direction: 'undo', steps: 3 }),
+    ]));
+  });
+
+  it('parses "redo" prompt', () => {
+    const parsed = __scoreOpsTestOnly.parsePromptToOps('redo');
+    expect(parsed.ops).toEqual(expect.arrayContaining([
+      expect.objectContaining({ op: 'history_step', direction: 'redo', steps: 1 }),
+    ]));
+  });
+
+  // --- P1 ops: capability reporting ---
+
+  it('includes all P1 ops in capability reporting', async () => {
+    const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
+    const scoreSessionId = String(open.body.scoreSessionId);
+    const inspect = await runMusicScoreOpsService({
+      action: 'inspect',
+      scoreSessionId,
+      include: { capabilities: true },
+    }, 'inspect');
+    expect(inspect.status).toBe(200);
+    const capabilities = inspect.body.capabilities as { ops: string[]; mutationOps: Record<string, unknown> };
+    expect(capabilities.ops).toEqual(expect.arrayContaining([
+      'set_accidental', 'insert_text', 'set_layout_break', 'set_repeat_markers', 'history_step',
+    ]));
+    expect(capabilities.mutationOps).toHaveProperty('set_accidental');
+    expect(capabilities.mutationOps).toHaveProperty('insert_text');
+    expect(capabilities.mutationOps).toHaveProperty('set_layout_break');
+    expect(capabilities.mutationOps).toHaveProperty('set_repeat_markers');
+    expect(capabilities.mutationOps).toHaveProperty('history_step');
   });
 });

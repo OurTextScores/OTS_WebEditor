@@ -160,3 +160,40 @@ Notes:
 - `select_measure_range` / `select_all` are WASM-only selection state ops; skipped as no-ops in XML mode.
 - `selectAll` doesn't exist in webmscore; synthesized via `selectPartMeasureByIndex` across all measures.
 - Dynamic type codes map to `engraving::DynamicType` enum (e.g., ppp=4, pp=5, p=6, mp=7, mf=8, f=9, ff=10, fff=11, fp=15, sfz=18).
+
+---
+
+## P1 Implementation Status
+
+| Op | Schema | XML Executor | WASM Executor | Prompt Parser | Capability Report | Tests |
+|---|---|---|---|---|---|---|
+| `replace_selected_text` | done | — (wasm-only) | done | done | yes | yes |
+| `set_duration` | done | — (wasm-only) | done | done | yes | yes |
+| `set_voice` | done | — (wasm-only) | done | done | yes | yes |
+| `set_accidental` | done | — (wasm-only) | done | done | yes | yes |
+| `insert_text` | done | done | done | done | yes | yes |
+| `set_layout_break` | done | — (wasm-only) | done | done | yes | yes |
+| `set_repeat_markers` | done | — (wasm-only) | done | done | yes | yes |
+| `history_step` | done | — (wasm-only) | done | done | yes | yes |
+| `preview_audio` | deferred | — | — | — | — | — |
+
+Notes:
+- All P1 ops except `insert_text` are WASM-only; XML executor returns unsupported error.
+- `insert_text` XML executor inserts `<direction><words>text</words></direction>` into target measures.
+- `set_accidental` maps to `AccidentalType` enum: natural=0, sharp=1, flat=2, double-sharp=3, double-flat=4.
+- `set_duration` maps to `DurationType` enum: long=0, breve=1, whole=2, half=3, quarter=4, eighth=5, 16th=6, etc.
+- `set_voice` uses 1-based schema (voice 1-4), 0-based WASM API. Prefers `changeSelectedElementsVoice` over `setVoice`.
+- `insert_text` supports kinds: staff, system, expression, lyric, harmony, fingering, instrument_change, sticking.
+- `set_repeat_markers` combines toggleRepeatStart, toggleRepeatEnd, setRepeatCount, setBarLineType.
+- `history_step` executes undo/redo N times; no rollback (it IS rollback).
+
+---
+
+## Planner Improvements (splitPromptIntoSteps)
+
+- Handles "plus", "as well as", "while also", "but also" as step separators.
+- Propagates trailing scope ("in measures 5-8") to earlier conjunction-split sub-steps.
+- Safe conjunction splitting: doesn't break "and" inside quoted strings.
+- "first N measures" parsed as scope { measureStart: 1, measureEnd: N }.
+- "insert N measures at the beginning/start" → target: 'start'.
+- Gerund verb forms accepted (adding, setting, transposing, etc.).

@@ -77,6 +77,15 @@ const DURATION_TYPE_SCHEMA = z.enum([
   '16th', '32nd', '64th', '128th', '256th', '512th', '1024th',
 ]);
 const VOICE_SCHEMA = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]);
+const ACCIDENTAL_SCHEMA = z.enum(['sharp', 'flat', 'natural', 'double-sharp', 'double-flat']);
+const TEXT_KIND_SCHEMA = z.enum([
+  'staff', 'system', 'expression', 'lyric', 'harmony',
+  'fingering', 'instrument_change', 'sticking',
+]);
+const BREAK_TYPE_SCHEMA = z.enum(['line', 'page']);
+const BARLINE_TYPE_SCHEMA = z.enum([
+  'normal', 'double', 'end', 'start-repeat', 'end-repeat', 'end-start-repeat',
+]);
 
 const SCORE_OP_SCHEMA = z.discriminatedUnion('op', [
   z.object({
@@ -164,6 +173,36 @@ const SCORE_OP_SCHEMA = z.discriminatedUnion('op', [
     voice: VOICE_SCHEMA,
     scope: SCOPE_SCHEMA.optional(),
   }),
+  z.object({
+    op: z.literal('set_accidental'),
+    accidental: ACCIDENTAL_SCHEMA,
+    scope: SCOPE_SCHEMA.optional(),
+  }),
+  z.object({
+    op: z.literal('insert_text'),
+    kind: TEXT_KIND_SCHEMA,
+    text: z.string().trim().min(1),
+    scope: SCOPE_SCHEMA.optional(),
+  }),
+  z.object({
+    op: z.literal('set_layout_break'),
+    breakType: BREAK_TYPE_SCHEMA,
+    enabled: z.boolean().default(true),
+    scope: SCOPE_SCHEMA.optional(),
+  }),
+  z.object({
+    op: z.literal('set_repeat_markers'),
+    start: z.boolean().optional(),
+    end: z.boolean().optional(),
+    count: z.number().int().min(1).max(32).optional(),
+    barline: BARLINE_TYPE_SCHEMA.optional(),
+    scope: SCOPE_SCHEMA.optional(),
+  }),
+  z.object({
+    op: z.literal('history_step'),
+    direction: z.enum(['undo', 'redo']),
+    steps: z.number().int().min(1).max(50).default(1),
+  }),
 ]);
 
 type ScoreOp = z.infer<typeof SCORE_OP_SCHEMA>;
@@ -190,6 +229,11 @@ const SCOREOPS_MUTATION_OPS: ScoreOpName[] = [
   'replace_selected_text',
   'set_duration',
   'set_voice',
+  'set_accidental',
+  'insert_text',
+  'set_layout_break',
+  'set_repeat_markers',
+  'history_step',
 ];
 
 const SCOREOPS_WASM_ELIGIBLE_OPS = new Set<ScoreOpName>([
@@ -208,6 +252,11 @@ const SCOREOPS_WASM_ELIGIBLE_OPS = new Set<ScoreOpName>([
   'replace_selected_text',
   'set_duration',
   'set_voice',
+  'set_accidental',
+  'insert_text',
+  'set_layout_break',
+  'set_repeat_markers',
+  'history_step',
 ]);
 
 const SCOREOPS_SELECTION_OPS = [
@@ -267,6 +316,20 @@ const SCOREOPS_WASM_METHOD_KEYS = [
   'toggleDoubleDot',
   'setVoice',
   'changeSelectedElementsVoice',
+  'setAccidental',
+  'addStaffText',
+  'addSystemText',
+  'addExpressionText',
+  'addLyricText',
+  'addHarmonyText',
+  'toggleLineBreak',
+  'togglePageBreak',
+  'toggleRepeatStart',
+  'toggleRepeatEnd',
+  'setRepeatCount',
+  'setBarLineType',
+  'undo',
+  'redo',
 ] as const;
 
 const OPEN_REQUEST_SCHEMA = z.object({
@@ -1031,6 +1094,44 @@ function applyAddDynamic(xml: string, op: Extract<ScoreOp, { op: 'add_dynamic' }
   } as const;
 }
 
+function applyInsertText(xml: string, op: Extract<ScoreOp, { op: 'insert_text' }>) {
+  const targetParts = resolveTargetPartIds(xml, op.scope?.partId);
+  if (!targetParts.length) {
+    return { error: 'Target part not found.' } as const;
+  }
+  // MusicXML text elements go in <direction> for staff/system/expression text
+  const escapedText = op.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const textDirection = `<direction placement="above"><direction-type><words>${escapedText}</words></direction-type></direction>`;
+  let changed = 0;
+  const nextXml = replacePartContents(xml, (part) => {
+    if (!targetParts.includes(part.partId)) {
+      return part.content;
+    }
+    const updated = updatePartMeasures(part.content, (measure) => {
+      if (!measureInScope(measure, op.scope)) {
+        return measure;
+      }
+      const openTagMatch = measure.full.match(/^<measure\b[^>]*>/i);
+      if (!openTagMatch) {
+        return measure;
+      }
+      const insertPos = openTagMatch[0].length;
+      const nextFull = measure.full.slice(0, insertPos) + textDirection + measure.full.slice(insertPos);
+      return { ...measure, full: nextFull };
+    });
+    changed += updated.changedCount;
+    return updated.content;
+  });
+  if (!changed) {
+    return { error: 'No matching measures found for insert_text.' } as const;
+  }
+  return {
+    xml: nextXml,
+    changed: true,
+    summary: `Inserted ${op.kind} text "${op.text}" in ${changed} measure(s).`,
+  } as const;
+}
+
 type OpApplyResult = {
   index: number;
   op: ScoreOp['op'];
@@ -1095,6 +1196,16 @@ function applyOneOp(xml: string, op: ScoreOp): ApplyOneOpResult {
       return { error: 'set_duration requires WASM executor.' };
     case 'set_voice':
       return { error: 'set_voice requires WASM executor.' };
+    case 'set_accidental':
+      return { error: 'set_accidental requires WASM executor (needs active note selection).' };
+    case 'insert_text':
+      return toApplyOneOpResult(applyInsertText(xml, op));
+    case 'set_layout_break':
+      return { error: 'set_layout_break requires WASM executor.' };
+    case 'set_repeat_markers':
+      return { error: 'set_repeat_markers requires WASM executor.' };
+    case 'history_step':
+      return { error: 'history_step requires WASM executor (undo/redo stack is runtime-only).' };
     default:
       return { error: `Unsupported op: ${(op as { op: string }).op}` };
   }
@@ -1725,6 +1836,113 @@ async function executeOpsWithWasm(
             }
           }
         }
+      } else if (op.op === 'set_accidental') {
+        if (typeof score.setAccidental !== 'function') {
+          return { ok: false, fallbackReason: 'setAccidental is unavailable in current webmscore runtime.' };
+        }
+        // Maps to engraving::AccidentalType enum
+        const accidentalTypeMap: Record<string, number> = {
+          'natural': 0, 'sharp': 1, 'flat': 2, 'double-sharp': 3, 'double-flat': 4,
+        };
+        const accidentalCode = accidentalTypeMap[op.accidental] ?? 0;
+        for (const target of targets) {
+          const selected = await selectMeasureOnScore(score, partIndexById, target.partId, target.measureNumber);
+          if (!selected.ok) {
+            return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+          }
+          await Promise.resolve(score.setAccidental(accidentalCode));
+        }
+      } else if (op.op === 'insert_text') {
+        const textMethodMap: Record<string, ((text: string) => Promise<unknown> | unknown) | undefined> = {
+          staff: score.addStaffText,
+          system: score.addSystemText,
+          expression: score.addExpressionText,
+          lyric: score.addLyricText,
+        };
+        const textMethod = textMethodMap[op.kind];
+        if (op.kind === 'harmony') {
+          if (typeof score.addHarmonyText !== 'function') {
+            return { ok: false, fallbackReason: 'addHarmonyText is unavailable in current webmscore runtime.' };
+          }
+          if (targets.length) {
+            const selected = await selectMeasureOnScore(score, partIndexById, targets[0].partId, targets[0].measureNumber);
+            if (!selected.ok) {
+              return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+            }
+          }
+          await Promise.resolve(score.addHarmonyText(0, op.text));
+        } else if (typeof textMethod === 'function') {
+          if (targets.length) {
+            const selected = await selectMeasureOnScore(score, partIndexById, targets[0].partId, targets[0].measureNumber);
+            if (!selected.ok) {
+              return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+            }
+          }
+          await Promise.resolve(textMethod(op.text));
+        } else {
+          return { ok: false, fallbackReason: `Text method for kind "${op.kind}" is unavailable in current webmscore runtime.` };
+        }
+      } else if (op.op === 'set_layout_break') {
+        const breakMethod = op.breakType === 'line' ? score.toggleLineBreak : score.togglePageBreak;
+        if (typeof breakMethod !== 'function') {
+          return { ok: false, fallbackReason: `toggle${op.breakType === 'line' ? 'Line' : 'Page'}Break is unavailable in current webmscore runtime.` };
+        }
+        for (const target of targets) {
+          const selected = await selectMeasureOnScore(score, partIndexById, target.partId, target.measureNumber);
+          if (!selected.ok) {
+            return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+          }
+          await Promise.resolve(breakMethod());
+        }
+      } else if (op.op === 'set_repeat_markers') {
+        if (op.start !== undefined) {
+          if (typeof score.toggleRepeatStart !== 'function') {
+            return { ok: false, fallbackReason: 'toggleRepeatStart is unavailable in current webmscore runtime.' };
+          }
+          for (const target of targets) {
+            const selected = await selectMeasureOnScore(score, partIndexById, target.partId, target.measureNumber);
+            if (!selected.ok) {
+              return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+            }
+            await Promise.resolve(score.toggleRepeatStart());
+          }
+        }
+        if (op.end !== undefined) {
+          if (typeof score.toggleRepeatEnd !== 'function') {
+            return { ok: false, fallbackReason: 'toggleRepeatEnd is unavailable in current webmscore runtime.' };
+          }
+          for (const target of targets) {
+            const selected = await selectMeasureOnScore(score, partIndexById, target.partId, target.measureNumber);
+            if (!selected.ok) {
+              return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+            }
+            await Promise.resolve(score.toggleRepeatEnd());
+          }
+        }
+        if (op.count !== undefined && typeof score.setRepeatCount === 'function') {
+          await Promise.resolve(score.setRepeatCount(op.count));
+        }
+        if (op.barline !== undefined && typeof score.setBarLineType === 'function') {
+          const barlineTypeMap: Record<string, number> = {
+            normal: 1, double: 2, end: 3, 'start-repeat': 4, 'end-repeat': 5, 'end-start-repeat': 6,
+          };
+          const barlineCode = barlineTypeMap[op.barline] ?? 1;
+          for (const target of targets) {
+            const selected = await selectMeasureOnScore(score, partIndexById, target.partId, target.measureNumber);
+            if (!selected.ok) {
+              return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+            }
+            await Promise.resolve(score.setBarLineType(barlineCode));
+          }
+        }
+      } else if (op.op === 'history_step') {
+        const historyMethod = op.direction === 'undo' ? score.undo : score.redo;
+        if (typeof historyMethod !== 'function') {
+          return { ok: false, fallbackReason: `${op.direction} is unavailable in current webmscore runtime.` };
+        }
+        for (let i = 0; i < op.steps; i += 1) {
+          await Promise.resolve(historyMethod());
+        }
       } else {
         return { ok: false, fallbackReason: `Unsupported wasm operation: ${(op as { op: string }).op}` };
       }
@@ -1808,6 +2026,11 @@ function buildDefaultMutationSupport(): ScoreOpsMutationOpSupport {
     replace_selected_text: { xml: false, wasm: false },
     set_duration: { xml: false, wasm: false },
     set_voice: { xml: false, wasm: false },
+    set_accidental: { xml: false, wasm: false },
+    insert_text: { xml: true, wasm: false },
+    set_layout_break: { xml: false, wasm: false },
+    set_repeat_markers: { xml: false, wasm: false },
+    history_step: { xml: false, wasm: false },
   };
 }
 
@@ -1835,6 +2058,11 @@ function evaluateWasmMutationSupport(wasmMethods: Set<string>) {
     replace_selected_text: requiresSelectionOps && has('setSelectedText'),
     set_duration: requiresSelectionOps && has('setDurationType'),
     set_voice: requiresSelectionOps && (has('changeSelectedElementsVoice') || has('setVoice')),
+    set_accidental: requiresSelectionOps && has('setAccidental'),
+    insert_text: requiresSelectionOps && (has('addStaffText') || has('addSystemText') || has('addExpressionText') || has('addLyricText') || has('addHarmonyText')),
+    set_layout_break: requiresSelectionOps && (has('toggleLineBreak') || has('togglePageBreak')),
+    set_repeat_markers: requiresSelectionOps && (has('toggleRepeatStart') || has('toggleRepeatEnd') || has('setBarLineType')),
+    history_step: has('saveXml') && (has('undo') || has('redo')),
   } satisfies Record<ScoreOpName, boolean>;
 }
 
@@ -2865,11 +3093,75 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
     }
   }
 
+  const accidentalRegex = /(?:set|add|change)\s+(?:accidental\s+(?:to\s+)?)?(sharp|flat|natural|double[- ]sharp|double[- ]flat)(?:\s+accidental)?/gi;
+  for (const accMatch of stepText.matchAll(accidentalRegex)) {
+    const accidental = accMatch[1].toLowerCase().replace(' ', '-') as z.infer<typeof ACCIDENTAL_SCHEMA>;
+    ops.push({
+      op: 'set_accidental',
+      accidental,
+      ...(stepScope ? { scope: stepScope } : {}),
+    });
+  }
+
+  const insertTextRegex = /(?:add|insert)\s+(?:(staff|system|expression|lyric|harmony|fingering|instrument[_ ]change|sticking)\s+)?text\s+[""\u201C]([^""\u201D]+)[""\u201D]/gi;
+  for (const textMatch of stepText.matchAll(insertTextRegex)) {
+    const rawKind = (textMatch[1] || 'staff').toLowerCase().replace(' ', '_');
+    const kind = TEXT_KIND_SCHEMA.safeParse(rawKind);
+    if (kind.success) {
+      ops.push({
+        op: 'insert_text',
+        kind: kind.data,
+        text: textMatch[2].trim(),
+        ...(stepScope ? { scope: stepScope } : {}),
+      });
+    }
+  }
+
+  const layoutBreakRegex = /(?:add|set|toggle|insert)\s+(?:a\s+)?(line|page)\s+break/gi;
+  for (const breakMatch of stepText.matchAll(layoutBreakRegex)) {
+    const breakType = breakMatch[1].toLowerCase() as z.infer<typeof BREAK_TYPE_SCHEMA>;
+    ops.push({
+      op: 'set_layout_break',
+      breakType,
+      enabled: true,
+      ...(stepScope ? { scope: stepScope } : {}),
+    });
+  }
+
+  const repeatStartMatch = stepText.match(/(?:add|set|toggle)\s+repeat\s+(?:start|begin)/i);
+  const repeatEndMatch = stepText.match(/(?:add|set|toggle)\s+repeat\s+end/i);
+  if (repeatStartMatch || repeatEndMatch) {
+    ops.push({
+      op: 'set_repeat_markers',
+      ...(repeatStartMatch ? { start: true } : {}),
+      ...(repeatEndMatch ? { end: true } : {}),
+      ...(stepScope ? { scope: stepScope } : {}),
+    });
+  }
+
+  const undoMatch = stepText.match(/\bundo\s*(\d+)?\s*(?:step|time|change)?s?/i);
+  if (undoMatch) {
+    ops.push({
+      op: 'history_step',
+      direction: 'undo',
+      steps: undoMatch[1] ? Number(undoMatch[1]) : 1,
+    });
+  }
+
+  const redoMatch = stepText.match(/\bredo\s*(\d+)?\s*(?:step|time|change)?s?/i);
+  if (redoMatch && !undoMatch) {
+    ops.push({
+      op: 'history_step',
+      direction: 'redo',
+      steps: redoMatch[1] ? Number(redoMatch[1]) : 1,
+    });
+  }
+
   if (/beam|beaming|re-beam|rebeam|remove\s+rests?|rest\s+cleanup/i.test(stepText)) {
     unsupportedReasons.push('Beaming/rest cleanup is not implemented in ScoreOps yet.');
   }
 
-  if (!ops.length && /(?:change|set|move|remove|delete|insert|fix|cleanup|transpose|rewrite|edit|select|replace)\b/i.test(stepText)) {
+  if (!ops.length && /(?:change|set|move|remove|delete|insert|fix|cleanup|transpose|rewrite|edit|select|replace|undo|redo|toggle|add)\b/i.test(stepText)) {
     unsupportedReasons.push('No supported ScoreOps mapping found for this step.');
   }
 

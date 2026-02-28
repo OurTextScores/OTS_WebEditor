@@ -127,21 +127,54 @@ Handoff Summary
   - OTS_Web/unit/scoreops-service.test.ts (35 tests, all passing)
   - OTS_Web/docs/music-ai-specialists/scoreops-method-op-matrix.md (implementation status table)
 
+  7. P1 Expansion (completed 2026-02-28)
+
+  All P1 ops from the scoreops-method-op-matrix are now implemented:
+
+  Batch 1 (earlier session):
+  - replace_selected_text: WASM-only (score.setSelectedText).
+  - set_duration: WASM-only (score.setDurationType). DurationType enum: long=0..1024th=12.
+  - set_voice: WASM-only (score.changeSelectedElementsVoice || score.setVoice). 1-based schema, 0-based API.
+
+  Batch 2 (this session):
+  - set_accidental: WASM-only (score.setAccidental). AccidentalType: natural=0, sharp=1, flat=2, double-sharp=3, double-flat=4.
+  - insert_text: XML executor (inserts <direction><words>) + WASM (addStaffText/addSystemText/addExpressionText/addLyricText/addHarmonyText). 8 text kinds supported.
+  - set_layout_break: WASM-only (score.toggleLineBreak/togglePageBreak). Supports line and page breaks.
+  - set_repeat_markers: WASM-only (toggleRepeatStart/toggleRepeatEnd/setRepeatCount/setBarLineType). Supports start, end, count, barline type.
+  - history_step: WASM-only (score.undo/score.redo). Executes N times. No rollback (it IS rollback).
+
+  Prompt parser additions:
+  - "set sharp accidental" -> set_accidental
+  - 'add staff text "Allegro"' -> insert_text
+  - "add line/page break" -> set_layout_break
+  - "add repeat start/end" -> set_repeat_markers
+  - "undo 3 steps" / "redo" -> history_step
+
+  8. Planner multi-step decomposition improvements (2026-02-28)
+
+  splitPromptIntoSteps enhancements:
+  - "plus", "as well as", "while also", "but also" now split compound prompts.
+  - Trailing scope propagation: "change key to G and time to 3/4 in measures 5-8" propagates scope to both sub-steps.
+  - Safe conjunction splitting: "and" inside quoted strings not split ("Rock and Roll").
+  - Gerund verb forms: adding/setting/transposing/inserting accepted in prompt parsers.
+
+  parseMeasureScopeFromText enhancements:
+  - "first N measures" parsed as { measureStart: 1, measureEnd: N }.
+
+  insert_measures parsing:
+  - "insert N measures at the beginning/start" -> target: 'start'.
+  - INSERT_TARGET_SCHEMA expanded to include 'start'.
+
+  70 unit tests, typecheck clean, route tests green.
+
   Known Gaps / Remaining Work (Priority)
 
   1. Run and verify live H13 smoke in compose with real logs.
-  2. P1 op expansion from matrix:
-
-  - replace_selected_text, insert_text, set_duration, set_accidental, set_voice
-  - set_layout_break, set_repeat_markers, history_step
-
-  3. Strengthen planner decomposition:
-
-  - Better extraction for multi-step prompts with scoped targets.
-  - Explicit unsupported-step reporting is present but can be improved further.
-
-  4. H14 contract E2E coverage still pending.
-  5. Full backend-including trace continuity assertion is partial in current smoke (currently asserts frontend + score_editor_api).
+  2. P2 op expansion: advanced cleanup/notation transforms, part management, layout mode.
+  3. preview_audio: requires audio pipeline integration (deferred).
+  4. "last N measures" scope resolution (requires knowing total measure count at parse time).
+  5. H14 contract E2E coverage still pending.
+  6. Full backend-including trace continuity assertion is partial in current smoke.
 
   Operational Notes for Next Agent
 
