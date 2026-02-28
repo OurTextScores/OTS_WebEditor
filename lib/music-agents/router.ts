@@ -57,8 +57,8 @@ const AGENT_OUTPUT_SCHEMA = z.object({
   toolStatus: z.number().int(),
   toolOk: z.boolean(),
   response: z.string(),
-  error: z.string().optional(),
-  result: z.record(z.string(), z.unknown()).optional(),
+  error: z.string().nullable().optional(),
+  result: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
 function mergeToolInput(
