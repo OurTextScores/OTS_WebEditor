@@ -51,15 +51,6 @@ export const MUSIC_SCOREOPS_TOOL_CONTRACT: MusicToolContract = {
         },
       },
     },
-    anyOf: [
-      { required: ['prompt', 'scoreSessionId'] },
-      { required: ['prompt', 'content'] },
-      { required: ['prompt', 'text'] },
-      { required: ['prompt', 'inputArtifactId'] },
-      { required: ['prompt', 'input_artifact_id'] },
-      { required: ['ops', 'content'] },
-      { required: ['ops', 'scoreSessionId'] },
-    ],
   },
   outputSchema: {
     $schema: 'https://json-schema.org/draft/2020-12/schema',

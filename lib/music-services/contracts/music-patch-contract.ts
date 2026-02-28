@@ -21,12 +21,6 @@ export const MUSIC_PATCH_TOOL_CONTRACT: MusicToolContract = {
       dryRun: { type: 'boolean' },
       dry_run: { type: 'boolean' },
     },
-    anyOf: [
-      { required: ['prompt', 'content'] },
-      { required: ['prompt', 'text'] },
-      { required: ['prompt', 'inputArtifactId'] },
-      { required: ['prompt', 'input_artifact_id'] },
-    ],
   },
   outputSchema: {
     $schema: 'https://json-schema.org/draft/2020-12/schema',

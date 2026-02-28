@@ -27,15 +27,6 @@ export const MUSIC_CONVERT_TOOL_CONTRACT: MusicToolContract = {
       timeoutMs: { type: 'number', minimum: 1 },
       timeout_ms: { type: 'number', minimum: 1 },
     },
-    anyOf: [
-      { required: ['healthCheck'] },
-      { required: ['health_check'] },
-      { required: ['inputArtifactId', 'outputFormat'] },
-      { required: ['input_artifact_id', 'output_format'] },
-      { required: ['inputFormat', 'outputFormat', 'content'] },
-      { required: ['input_format', 'output_format', 'content'] },
-      { required: ['input_format', 'output_format', 'text'] },
-    ],
   },
   outputSchema: {
     $schema: 'https://json-schema.org/draft/2020-12/schema',

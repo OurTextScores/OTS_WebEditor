@@ -37,23 +37,12 @@ export const MUSIC_CONTEXT_TOOL_CONTRACT: MusicToolContract = {
       measure_start: { type: 'number', minimum: 0 },
       measureEnd: { type: 'number', minimum: 0 },
       measure_end: { type: 'number', minimum: 0 },
-      query: {
-        anyOf: [
-          { type: 'string' },
-          { type: 'array', items: { type: 'string' } },
-        ],
-      },
+      query: { type: 'string' },
       queries: {
         type: 'array',
         items: { type: 'string' },
       },
     },
-    anyOf: [
-      { required: ['inputArtifactId'] },
-      { required: ['input_artifact_id'] },
-      { required: ['content'] },
-      { required: ['text'] },
-    ],
   },
   outputSchema: {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
