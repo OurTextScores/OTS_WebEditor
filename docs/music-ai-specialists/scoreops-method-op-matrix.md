@@ -127,4 +127,36 @@ Status update (2026-02-27):
 - (1) implemented in `lib/webmscore-loader.ts`.
 - (2) implemented in `lib/music-services/scoreops-service.ts` and surfaced by `inspect` response (`capabilities.runtime`, `capabilities.mutationOps`).
 - (3) still open.
-- (4) P0 schemas implemented for current MVP op set; further expansion remains open.
+- (4) All P0 schemas implemented. See implementation status below.
+
+---
+
+## P0 Implementation Status
+
+| Op | Schema | XML Executor | WASM Executor | Prompt Parser | Capability Report | Tests |
+|---|---|---|---|---|---|---|
+| `inspect_score` | n/a (inspect include) | n/a | n/a | n/a | yes | yes |
+| `inspect_scope` | n/a (inspect include) | n/a | n/a | n/a | yes | yes |
+| `inspect_selection` | n/a (inspect include) | n/a | n/a | n/a | yes | yes |
+| `set_metadata_text` | done | done | done | done | yes | yes |
+| `set_key_signature` | done | done | done | done | yes | yes |
+| `set_time_signature` | done | done | done | done | yes | yes |
+| `set_clef` | done | done | done | done | yes | yes |
+| `delete_selection` | done | done | done | — | yes | yes |
+| `insert_measures` | done | done | done | done | yes | yes |
+| `remove_measures` | done | done | done | done | yes | yes |
+| `delete_text_by_content` | done | done | — (xml-only) | done | yes | yes |
+| `transpose_selection` | done | — (wasm-only) | done | done | yes | yes |
+| `add_tempo_marking` | done | done | done | done | yes | yes |
+| `add_dynamic` | done | done | done | done | yes | yes |
+| `select_measure_range` | done | no-op (wasm-only) | done | done | yes | yes |
+| `select_all` | done | no-op (wasm-only) | done | done | yes | yes |
+| `export_score` | deferred | — | — | — | — | — |
+| `relayout_score` | implicit (post-mutation) | n/a | n/a | n/a | n/a | n/a |
+
+Notes:
+- `transpose_selection` requires WASM; XML executor returns unsupported error.
+- `add_tempo_marking` XML executor inserts `<direction><sound tempo="BPM"/></direction>`.
+- `select_measure_range` / `select_all` are WASM-only selection state ops; skipped as no-ops in XML mode.
+- `selectAll` doesn't exist in webmscore; synthesized via `selectPartMeasureByIndex` across all measures.
+- Dynamic type codes map to `engraving::DynamicType` enum (e.g., ppp=4, pp=5, p=6, mp=7, mf=8, f=9, ff=10, fff=11, fp=15, sfz=18).

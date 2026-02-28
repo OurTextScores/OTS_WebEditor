@@ -66,7 +66,17 @@ const SCOPE_SCHEMA = z.object({
 
 const METADATA_FIELD_SCHEMA = z.enum(['title', 'subtitle', 'composer', 'lyricist']);
 const CLEF_SCHEMA = z.enum(['treble', 'bass', 'alto', 'tenor']);
-const INSERT_TARGET_SCHEMA = z.enum(['end', 'after_measure']);
+const DYNAMIC_SCHEMA = z.enum([
+  'ppp', 'pp', 'p', 'mp', 'mf', 'f', 'ff', 'fff', 'fp', 'sfz',
+  'pppppp', 'ppppp', 'pppp', 'ffff', 'fffff', 'ffffff',
+  'pf', 'sf', 'sff', 'sffz', 'sfp', 'sfpp', 'rfz', 'rf', 'fz',
+]);
+const INSERT_TARGET_SCHEMA = z.enum(['start', 'end', 'after_measure']);
+const DURATION_TYPE_SCHEMA = z.enum([
+  'long', 'breve', 'whole', 'half', 'quarter', 'eighth',
+  '16th', '32nd', '64th', '128th', '256th', '512th', '1024th',
+]);
+const VOICE_SCHEMA = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]);
 
 const SCORE_OP_SCHEMA = z.discriminatedUnion('op', [
   z.object({
@@ -117,6 +127,43 @@ const SCORE_OP_SCHEMA = z.discriminatedUnion('op', [
     text: z.string().trim().min(1),
     maxDeletes: z.number().int().min(1).max(200).optional(),
   }),
+  z.object({
+    op: z.literal('transpose_selection'),
+    semitones: z.number().int().min(-24).max(24),
+    scope: SCOPE_SCHEMA.optional(),
+  }),
+  z.object({
+    op: z.literal('add_tempo_marking'),
+    bpm: z.number().int().min(20).max(400),
+    scope: SCOPE_SCHEMA.optional(),
+  }),
+  z.object({
+    op: z.literal('add_dynamic'),
+    dynamic: DYNAMIC_SCHEMA,
+    scope: SCOPE_SCHEMA.optional(),
+  }),
+  z.object({
+    op: z.literal('select_measure_range'),
+    scope: SCOPE_SCHEMA,
+  }),
+  z.object({
+    op: z.literal('select_all'),
+  }),
+  z.object({
+    op: z.literal('replace_selected_text'),
+    value: z.string(),
+    scope: SCOPE_SCHEMA.optional(),
+  }),
+  z.object({
+    op: z.literal('set_duration'),
+    durationType: DURATION_TYPE_SCHEMA,
+    scope: SCOPE_SCHEMA.optional(),
+  }),
+  z.object({
+    op: z.literal('set_voice'),
+    voice: VOICE_SCHEMA,
+    scope: SCOPE_SCHEMA.optional(),
+  }),
 ]);
 
 type ScoreOp = z.infer<typeof SCORE_OP_SCHEMA>;
@@ -137,6 +184,12 @@ const SCOREOPS_MUTATION_OPS: ScoreOpName[] = [
   'insert_measures',
   'remove_measures',
   'delete_text_by_content',
+  'transpose_selection',
+  'add_tempo_marking',
+  'add_dynamic',
+  'replace_selected_text',
+  'set_duration',
+  'set_voice',
 ];
 
 const SCOREOPS_WASM_ELIGIBLE_OPS = new Set<ScoreOpName>([
@@ -147,7 +200,20 @@ const SCOREOPS_WASM_ELIGIBLE_OPS = new Set<ScoreOpName>([
   'delete_selection',
   'insert_measures',
   'remove_measures',
+  'transpose_selection',
+  'add_tempo_marking',
+  'add_dynamic',
+  'select_measure_range',
+  'select_all',
+  'replace_selected_text',
+  'set_duration',
+  'set_voice',
 ]);
+
+const SCOREOPS_SELECTION_OPS = [
+  'select_measure_range',
+  'select_all',
+] as const;
 
 const SCOREOPS_INSPECT_OPS = [
   'inspect_score',
@@ -190,6 +256,17 @@ const SCOREOPS_WASM_METHOD_KEYS = [
   'setClef',
   'insertMeasures',
   'removeSelectedMeasures',
+  'transpose',
+  'addTempoText',
+  'addDynamic',
+  'setSelectedText',
+  'setDurationType',
+  'doubleDuration',
+  'halfDuration',
+  'toggleDot',
+  'toggleDoubleDot',
+  'setVoice',
+  'changeSelectedElementsVoice',
 ] as const;
 
 const OPEN_REQUEST_SCHEMA = z.object({
@@ -559,11 +636,35 @@ function extractScoreSummary(xml: string) {
     return `${beats}/${beatType}`;
   })();
 
+  const partDetails: Array<{
+    partId: string;
+    keyFifths: number | null;
+    timeSignature: string | null;
+    clef: { sign: string; line: string } | null;
+  }> = [];
+  if (partNames.length > 1) {
+    const parts = parsePartBlocks(xml);
+    for (const part of parts) {
+      const fifthsMatch = part.content.match(/<key\b[^>]*>[\s\S]*?<fifths>(-?\d+)<\/fifths>[\s\S]*?<\/key>/i);
+      const beatsMatch = part.content.match(/<time\b[^>]*>[\s\S]*?<beats>(\d+)<\/beats>/i);
+      const beatTypeMatch = part.content.match(/<time\b[^>]*>[\s\S]*?<beat-type>(\d+)<\/beat-type>/i);
+      const clefSignMatch = part.content.match(/<clef\b[^>]*>[\s\S]*?<sign>([A-Z])<\/sign>/i);
+      const clefLineMatch = part.content.match(/<clef\b[^>]*>[\s\S]*?<line>(\d+)<\/line>/i);
+      partDetails.push({
+        partId: part.partId,
+        keyFifths: fifthsMatch ? Number(fifthsMatch[1]) : null,
+        timeSignature: beatsMatch && beatTypeMatch ? `${beatsMatch[1]}/${beatTypeMatch[1]}` : null,
+        clef: clefSignMatch && clefLineMatch ? { sign: clefSignMatch[1], line: clefLineMatch[1] } : null,
+      });
+    }
+  }
+
   return {
     parts: partNames,
     measureCountEstimate: (xml.match(/<measure\b/gi) || []).length,
     keyFifths: firstFifths === null ? null : Number(firstFifths),
     timeSignature: firstTime,
+    ...(partDetails.length ? { partDetails } : {}),
   };
 }
 
@@ -786,6 +887,34 @@ function applyInsertMeasures(xml: string, op: Extract<ScoreOp, { op: 'insert_mea
     }
 
     const lastMeasure = numericMeasures[numericMeasures.length - 1]?.number || 1;
+
+    if (op.target === 'start') {
+      // Insert before measure 1: shift all existing measures up, insert at index 0
+      const shiftedMeasures = measures.map((measure) => {
+        if (measure.number !== null) {
+          return {
+            ...measure,
+            full: replaceMeasureNumber(measure.full, measure.number + op.count),
+            number: measure.number + op.count,
+          };
+        }
+        return measure;
+      });
+
+      const inserted: MeasureBlock[] = Array.from({ length: op.count }).map((_, idx) => {
+        const number = idx + 1;
+        return {
+          full: buildInsertedMeasureXml(number),
+          attrs: ` number="${number}"`,
+          numberText: String(number),
+          number,
+        };
+      });
+
+      changed = true;
+      return [...inserted, ...shiftedMeasures].map((m) => m.full).join('\n');
+    }
+
     const targetAfter = op.target === 'after_measure'
       ? (op.afterMeasure ?? lastMeasure)
       : lastMeasure;
@@ -827,6 +956,78 @@ function applyInsertMeasures(xml: string, op: Extract<ScoreOp, { op: 'insert_mea
     xml: nextXml,
     changed: true,
     summary: `Inserted ${op.count} measure(s).`,
+  } as const;
+}
+
+function applyAddTempoMarking(xml: string, op: Extract<ScoreOp, { op: 'add_tempo_marking' }>) {
+  const targetParts = resolveTargetPartIds(xml, op.scope?.partId);
+  if (!targetParts.length) {
+    return { error: 'Target part not found.' } as const;
+  }
+  const tempoDirection = `<direction placement="above"><direction-type><words font-weight="bold">${op.bpm}</words></direction-type><sound tempo="${op.bpm}"/></direction>`;
+  let changed = 0;
+  const nextXml = replacePartContents(xml, (part) => {
+    if (!targetParts.includes(part.partId)) {
+      return part.content;
+    }
+    const updated = updatePartMeasures(part.content, (measure) => {
+      if (!measureInScope(measure, op.scope)) {
+        return measure;
+      }
+      const openTagMatch = measure.full.match(/^<measure\b[^>]*>/i);
+      if (!openTagMatch) {
+        return measure;
+      }
+      const insertPos = openTagMatch[0].length;
+      const nextFull = measure.full.slice(0, insertPos) + tempoDirection + measure.full.slice(insertPos);
+      return { ...measure, full: nextFull };
+    });
+    changed += updated.changedCount;
+    return updated.content;
+  });
+  if (!changed) {
+    return { error: 'No matching measures found for add_tempo_marking.' } as const;
+  }
+  return {
+    xml: nextXml,
+    changed: true,
+    summary: `Added tempo marking (${op.bpm} BPM) to ${changed} measure(s).`,
+  } as const;
+}
+
+function applyAddDynamic(xml: string, op: Extract<ScoreOp, { op: 'add_dynamic' }>) {
+  const targetParts = resolveTargetPartIds(xml, op.scope?.partId);
+  if (!targetParts.length) {
+    return { error: 'Target part not found.' } as const;
+  }
+  const dynamicDirection = `<direction placement="below"><direction-type><dynamics><${op.dynamic}/></dynamics></direction-type></direction>`;
+  let changed = 0;
+  const nextXml = replacePartContents(xml, (part) => {
+    if (!targetParts.includes(part.partId)) {
+      return part.content;
+    }
+    const updated = updatePartMeasures(part.content, (measure) => {
+      if (!measureInScope(measure, op.scope)) {
+        return measure;
+      }
+      const openTagMatch = measure.full.match(/^<measure\b[^>]*>/i);
+      if (!openTagMatch) {
+        return measure;
+      }
+      const insertPos = openTagMatch[0].length;
+      const nextFull = measure.full.slice(0, insertPos) + dynamicDirection + measure.full.slice(insertPos);
+      return { ...measure, full: nextFull };
+    });
+    changed += updated.changedCount;
+    return updated.content;
+  });
+  if (!changed) {
+    return { error: 'No matching measures found for add_dynamic.' } as const;
+  }
+  return {
+    xml: nextXml,
+    changed: true,
+    summary: `Added ${op.dynamic} dynamic to ${changed} measure(s).`,
   } as const;
 }
 
@@ -878,6 +1079,22 @@ function applyOneOp(xml: string, op: ScoreOp): ApplyOneOpResult {
       return toApplyOneOpResult(applyMeasureRemoval(xml, op.scope, 'remove_measures'));
     case 'delete_text_by_content':
       return toApplyOneOpResult(applyDeleteTextByContent(xml, op));
+    case 'transpose_selection':
+      return { error: 'transpose_selection requires WASM executor (pitch arithmetic not supported in XML mode).' };
+    case 'add_tempo_marking':
+      return toApplyOneOpResult(applyAddTempoMarking(xml, op));
+    case 'add_dynamic':
+      return toApplyOneOpResult(applyAddDynamic(xml, op));
+    case 'select_measure_range':
+      return { xml, changed: false, summary: 'Selection ops are WASM-only; skipped in XML mode.' };
+    case 'select_all':
+      return { xml, changed: false, summary: 'Selection ops are WASM-only; skipped in XML mode.' };
+    case 'replace_selected_text':
+      return { error: 'replace_selected_text requires WASM executor (needs active text selection).' };
+    case 'set_duration':
+      return { error: 'set_duration requires WASM executor.' };
+    case 'set_voice':
+      return { error: 'set_voice requires WASM executor.' };
     default:
       return { error: `Unsupported op: ${(op as { op: string }).op}` };
   }
@@ -1013,6 +1230,50 @@ function buildOpDerivedPatchOps(
             op: 'setText',
             path: `/score-partwise/part[@id='${partId}']/measure[@number='${measureNo}']/attributes/clef/line`,
             value: mapping.line,
+          });
+        }
+      }
+      return ops.length ? ops : null;
+    }
+    case 'add_tempo_marking': {
+      const partIds = resolveTargetPartIds(afterXml, op.scope?.partId);
+      const range = buildMeasureRange(op.scope);
+      const ops: MusicXmlPatchOp[] = [];
+      for (const partId of partIds) {
+        const measures = afterIndex.get(partId)?.measures;
+        if (!measures) {
+          continue;
+        }
+        for (let measureNo = range.start; measureNo <= range.end; measureNo += 1) {
+          if (!measures.has(measureNo)) {
+            continue;
+          }
+          ops.push({
+            op: 'insertAfter',
+            path: `/score-partwise/part[@id='${partId}']/measure[@number='${measureNo}']/*[1]`,
+            value: `<direction placement="above"><direction-type><words font-weight="bold">${op.bpm}</words></direction-type><sound tempo="${op.bpm}"/></direction>`,
+          });
+        }
+      }
+      return ops.length ? ops : null;
+    }
+    case 'add_dynamic': {
+      const partIds = resolveTargetPartIds(afterXml, op.scope?.partId);
+      const range = buildMeasureRange(op.scope);
+      const ops: MusicXmlPatchOp[] = [];
+      for (const partId of partIds) {
+        const measures = afterIndex.get(partId)?.measures;
+        if (!measures) {
+          continue;
+        }
+        for (let measureNo = range.start; measureNo <= range.end; measureNo += 1) {
+          if (!measures.has(measureNo)) {
+            continue;
+          }
+          ops.push({
+            op: 'insertAfter',
+            path: `/score-partwise/part[@id='${partId}']/measure[@number='${measureNo}']/*[1]`,
+            value: `<direction placement="below"><direction-type><dynamics><${op.dynamic}/></dynamics></direction-type></direction>`,
           });
         }
       }
@@ -1211,10 +1472,10 @@ function mapClefToWasmValue(clef: z.infer<typeof CLEF_SCHEMA>) {
 }
 
 function mapInsertTarget(target: z.infer<typeof INSERT_TARGET_SCHEMA>) {
-  if (target === 'after_measure') {
-    return 0;
+  if (target === 'after_measure' || target === 'start') {
+    return 0; // InsertMode::BEFORE in MuseScore
   }
-  return 3;
+  return 3; // InsertMode::APPEND
 }
 
 async function selectMeasureOnScore(
@@ -1357,6 +1618,113 @@ async function executeOpsWithWasm(
             await Promise.resolve(score.removeSelectedMeasures());
           }
         }
+      } else if (op.op === 'transpose_selection') {
+        if (typeof score.transpose !== 'function') {
+          return { ok: false, fallbackReason: 'transpose is unavailable in current webmscore runtime.' };
+        }
+        for (const target of targets) {
+          const selected = await selectMeasureOnScore(score, partIndexById, target.partId, target.measureNumber);
+          if (!selected.ok) {
+            return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+          }
+          await Promise.resolve(score.transpose(op.semitones));
+        }
+      } else if (op.op === 'add_tempo_marking') {
+        if (typeof score.addTempoText !== 'function') {
+          return { ok: false, fallbackReason: 'addTempoText is unavailable in current webmscore runtime.' };
+        }
+        if (targets.length) {
+          const selected = await selectMeasureOnScore(score, partIndexById, targets[0].partId, targets[0].measureNumber);
+          if (!selected.ok) {
+            return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+          }
+        }
+        await Promise.resolve(score.addTempoText(op.bpm));
+      } else if (op.op === 'add_dynamic') {
+        if (typeof score.addDynamic !== 'function') {
+          return { ok: false, fallbackReason: 'addDynamic is unavailable in current webmscore runtime.' };
+        }
+        // Maps to engraving::DynamicType enum in libmscore (types.h)
+        const dynamicTypeMap: Record<string, number> = {
+          pppppp: 1, ppppp: 2, pppp: 3, ppp: 4, pp: 5, p: 6, mp: 7, mf: 8,
+          f: 9, ff: 10, fff: 11, ffff: 12, fffff: 13, ffffff: 14,
+          fp: 15, pf: 16, sf: 17, sfz: 18, sff: 19, sffz: 20,
+          sfp: 21, sfpp: 22, rfz: 23, rf: 24, fz: 25,
+        };
+        const dynamicTypeCode = dynamicTypeMap[op.dynamic] ?? 8;
+        if (targets.length) {
+          const selected = await selectMeasureOnScore(score, partIndexById, targets[0].partId, targets[0].measureNumber);
+          if (!selected.ok) {
+            return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+          }
+        }
+        await Promise.resolve(score.addDynamic(dynamicTypeCode));
+      } else if (op.op === 'select_measure_range') {
+        const scope = op.scope;
+        if (!scope.measureStart) {
+          return { ok: false, fallbackReason: 'select_measure_range requires scope.measureStart.' };
+        }
+        const rangeTargets = enumerateTargetsForScope(currentXml, scope);
+        for (const target of rangeTargets) {
+          const selected = await selectMeasureOnScore(score, partIndexById, target.partId, target.measureNumber);
+          if (!selected.ok) {
+            return { ok: false, fallbackReason: selected.reason || 'Failed to select measure range.' };
+          }
+        }
+      } else if (op.op === 'replace_selected_text') {
+        if (typeof score.setSelectedText !== 'function') {
+          return { ok: false, fallbackReason: 'setSelectedText is unavailable in current webmscore runtime.' };
+        }
+        if (targets.length) {
+          const selected = await selectMeasureOnScore(score, partIndexById, targets[0].partId, targets[0].measureNumber);
+          if (!selected.ok) {
+            return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+          }
+        }
+        await Promise.resolve(score.setSelectedText(op.value));
+      } else if (op.op === 'set_duration') {
+        if (typeof score.setDurationType !== 'function') {
+          return { ok: false, fallbackReason: 'setDurationType is unavailable in current webmscore runtime.' };
+        }
+        // Maps to engraving::DurationType enum in libmscore (types.h)
+        const durationTypeMap: Record<string, number> = {
+          long: 0, breve: 1, whole: 2, half: 3, quarter: 4, eighth: 5,
+          '16th': 6, '32nd': 7, '64th': 8, '128th': 9, '256th': 10, '512th': 11, '1024th': 12,
+        };
+        const durationCode = durationTypeMap[op.durationType] ?? 4;
+        for (const target of targets) {
+          const selected = await selectMeasureOnScore(score, partIndexById, target.partId, target.measureNumber);
+          if (!selected.ok) {
+            return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+          }
+          await Promise.resolve(score.setDurationType(durationCode));
+        }
+      } else if (op.op === 'set_voice') {
+        const voiceMethod = score.changeSelectedElementsVoice || score.setVoice;
+        if (typeof voiceMethod !== 'function') {
+          return { ok: false, fallbackReason: 'setVoice/changeSelectedElementsVoice is unavailable in current webmscore runtime.' };
+        }
+        const voiceIndex = op.voice - 1; // API uses 0-based, schema uses 1-based
+        for (const target of targets) {
+          const selected = await selectMeasureOnScore(score, partIndexById, target.partId, target.measureNumber);
+          if (!selected.ok) {
+            return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+          }
+          await Promise.resolve(voiceMethod(voiceIndex));
+        }
+      } else if (op.op === 'select_all') {
+        const allParts = Array.from(partIndexById.keys());
+        if (allParts.length) {
+          const partId = allParts[0];
+          const partData = buildPartMeasureIndex(currentXml).get(partId);
+          const lastMeasure = partData?.numbers.length ? Math.max(...partData.numbers) : 1;
+          for (let m = 1; m <= lastMeasure; m += 1) {
+            const selected = await selectMeasureOnScore(score, partIndexById, partId, m);
+            if (!selected.ok) {
+              return { ok: false, fallbackReason: selected.reason || 'Failed to select all measures.' };
+            }
+          }
+        }
       } else {
         return { ok: false, fallbackReason: `Unsupported wasm operation: ${(op as { op: string }).op}` };
       }
@@ -1432,6 +1800,14 @@ function buildDefaultMutationSupport(): ScoreOpsMutationOpSupport {
     insert_measures: { xml: true, wasm: false },
     remove_measures: { xml: true, wasm: false },
     delete_text_by_content: { xml: true, wasm: false },
+    transpose_selection: { xml: false, wasm: false },
+    add_tempo_marking: { xml: true, wasm: false },
+    add_dynamic: { xml: true, wasm: false },
+    select_measure_range: { xml: false, wasm: false },
+    select_all: { xml: false, wasm: false },
+    replace_selected_text: { xml: false, wasm: false },
+    set_duration: { xml: false, wasm: false },
+    set_voice: { xml: false, wasm: false },
   };
 }
 
@@ -1451,6 +1827,14 @@ function evaluateWasmMutationSupport(wasmMethods: Set<string>) {
     insert_measures: has('saveXml') && has('insertMeasures'),
     remove_measures: requiresSelectionOps && has('removeSelectedMeasures'),
     delete_text_by_content: false,
+    transpose_selection: requiresSelectionOps && has('transpose'),
+    add_tempo_marking: requiresSelectionOps && has('addTempoText'),
+    add_dynamic: requiresSelectionOps && has('addDynamic'),
+    select_measure_range: requiresSelectionOps,
+    select_all: requiresSelectionOps,
+    replace_selected_text: requiresSelectionOps && has('setSelectedText'),
+    set_duration: requiresSelectionOps && has('setDurationType'),
+    set_voice: requiresSelectionOps && (has('changeSelectedElementsVoice') || has('setVoice')),
   } satisfies Record<ScoreOpName, boolean>;
 }
 
@@ -1513,6 +1897,7 @@ async function buildCapabilities(): Promise<ScoreOpsCapabilitySnapshot> {
     ops: [
       ...SCOREOPS_INSPECT_OPS,
       ...SCOREOPS_MUTATION_OPS,
+      ...SCOREOPS_SELECTION_OPS,
     ],
     mutationOps,
     runtime: {
@@ -1693,6 +2078,32 @@ async function inspectSession(payload: z.infer<typeof INSPECT_REQUEST_SCHEMA>): 
       .slice(0, 24)
       .map((match) => `${match[1]}/${match[2]}`);
     body.measureSignatures = signatures;
+
+    if (payload.scope?.partId) {
+      const parts = parsePartBlocks(session.content);
+      const targetPart = parts.find((p) => p.partId === payload.scope?.partId);
+      if (targetPart) {
+        const measures = parseMeasureBlocks(targetPart.content);
+        const scopeStart = payload.scope.measureStart ?? 1;
+        const scopeEnd = payload.scope.measureEnd ?? scopeStart;
+        const partSigs: Array<{ measure: number; key: string | null; time: string | null; clef: string | null }> = [];
+        for (const measure of measures) {
+          if (measure.number === null) continue;
+          if (measure.number < scopeStart || measure.number > scopeEnd) continue;
+          const fifths = measure.full.match(/<key\b[^>]*>[\s\S]*?<fifths>(-?\d+)<\/fifths>/i)?.[1] ?? null;
+          const beats = measure.full.match(/<time\b[^>]*>[\s\S]*?<beats>(\d+)<\/beats>/i)?.[1];
+          const beatType = measure.full.match(/<time\b[^>]*>[\s\S]*?<beat-type>(\d+)<\/beat-type>/i)?.[1];
+          const clefSign = measure.full.match(/<clef\b[^>]*>[\s\S]*?<sign>([A-Z])<\/sign>/i)?.[1];
+          partSigs.push({
+            measure: measure.number,
+            key: fifths !== null ? `fifths:${fifths}` : null,
+            time: beats && beatType ? `${beats}/${beatType}` : null,
+            clef: clefSign || null,
+          });
+        }
+        body.partSignatures = partSigs;
+      }
+    }
   }
 
   return {
@@ -1793,6 +2204,15 @@ async function applyOps(payload: z.infer<typeof APPLY_REQUEST_SCHEMA>): Promise<
   if (selectedExecutor === 'xml') {
     for (let index = 0; index < payload.ops.length; index += 1) {
       const op = payload.ops[index];
+      if (op.op === 'select_measure_range' || op.op === 'select_all') {
+        applied.push({
+          index,
+          op: op.op,
+          ok: true,
+          message: 'Selection ops are WASM-only; skipped in XML mode.',
+        });
+        continue;
+      }
       const output = applyOneOp(workingXml, op);
       if (isApplyOneOpError(output)) {
         const failedEntry: OpApplyResult = {
@@ -2107,7 +2527,11 @@ function splitPromptIntoSteps(prompt: string): string[] {
     .replace(/;\s*/g, '\n')
     .replace(/\n\s*(\d+[\).])/g, '\n$1')
     .replace(/\s+\band then\b\s+/gi, '\n')
-    .replace(/\s+\bthen\b\s+/gi, '\n');
+    .replace(/\s+\bthen\b\s+/gi, '\n')
+    .replace(/\s+\bwhile also\b\s+/gi, '\n')
+    .replace(/\s+\bbut also\b\s+/gi, '\n')
+    .replace(/,?\s+\bplus\b\s+/gi, '\n')
+    .replace(/,?\s+\bas well as\b\s+/gi, '\n');
 
   const rough = normalized
     .split(/\n+/)
@@ -2115,6 +2539,7 @@ function splitPromptIntoSteps(prompt: string): string[] {
     .filter(Boolean);
 
   if (rough.length > 1) {
+    // Don't propagate scope for numbered/multi-line lists — each step is independent
     return rough.map((line, index) => {
       let cleaned = line.replace(/^\d+[\).]\s*/, '').trim();
       if (index === 0) {
@@ -2125,13 +2550,62 @@ function splitPromptIntoSteps(prompt: string): string[] {
   }
 
   const single = (rough[0] || prompt).trim();
-  const splitOnConjunction = single.split(/\s+(?:and|also)\s+/i)
+  // Don't split on "and" inside quoted phrases or known compound names
+  const splitOnConjunction = splitOnSafeConjunction(single)
     .map((part, index) => (index === 0 ? part.replace(/^please[:,]?\s*/i, '') : part).trim())
     .filter(Boolean);
   if (splitOnConjunction.length > 1) {
-    return splitOnConjunction;
+    return propagateScopeToSubSteps(splitOnConjunction);
   }
   return [single.replace(/^please[:,]?\s*/i, '').trim()];
+}
+
+/**
+ * Split on "and" / "also" only when they appear as step separators,
+ * not inside compound names like "Rock and Roll" or "salt and pepper".
+ * A safe split point is "and" preceded by a completed action phrase.
+ */
+function splitOnSafeConjunction(text: string): string[] {
+  // Protect quoted strings by replacing them temporarily
+  const quotes: string[] = [];
+  const withPlaceholders = text.replace(/[""\u201C]([^""\u201D]*?)[""\u201D]/g, (_m, content) => {
+    quotes.push(content);
+    return `__QUOTE${quotes.length - 1}__`;
+  });
+
+  // Split on "and" / "also" only when they follow what looks like a complete action
+  const parts = withPlaceholders.split(/\s+(?:and|also)\s+/i);
+
+  // Restore quotes
+  return parts.map((part) =>
+    part.replace(/__QUOTE(\d+)__/g, (_m, idx) => `"${quotes[Number(idx)]}"`)
+  );
+}
+
+/**
+ * When a trailing scope phrase (e.g., "in measures 5-8") appears on the last step,
+ * propagate it to earlier steps that don't have their own scope.
+ */
+function propagateScopeToSubSteps(steps: string[]): string[] {
+  if (steps.length <= 1) return steps;
+
+  // Check if the last step has a trailing scope phrase
+  const scopePattern = /\b(?:in|for|at)\s+(?:measure|bar)s?\s+\d+(?:\s*(?:-|to|through)\s*\d+)?$/i;
+  const lastStep = steps[steps.length - 1];
+  const scopeMatch = lastStep.match(scopePattern);
+  if (!scopeMatch) return steps;
+
+  const scopePhrase = scopeMatch[0];
+  const hasMeasureScope = /(?:measure|bar)s?\s+\d+/i;
+
+  return steps.map((step, index) => {
+    if (index === steps.length - 1) return step;
+    // Only append scope if this step doesn't already have a measure reference
+    if (!hasMeasureScope.test(step)) {
+      return `${step} ${scopePhrase}`;
+    }
+    return step;
+  });
 }
 
 function parseMeasureScopeFromText(text: string): ScoreScope | undefined {
@@ -2142,6 +2616,15 @@ function parseMeasureScopeFromText(text: string): ScoreScope | undefined {
       measureEnd: Number(rangeMatch[2]),
     };
   }
+  // "first N measures/bars"
+  const firstNMatch = text.match(/first\s+(\d+)\s+(?:measure|bar)s?/i);
+  if (firstNMatch) {
+    return {
+      measureStart: 1,
+      measureEnd: Number(firstNMatch[1]),
+    };
+  }
+  // "last N measures/bars" — can't resolve without knowing total measures, flag handled elsewhere
   const singleMeasureMatch = text.match(/(?:measure|bar)\s+(\d+)/i);
   if (singleMeasureMatch) {
     const measure = Number(singleMeasureMatch[1]);
@@ -2252,23 +2735,141 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
     });
   }
 
-  const insertMeasuresRegex = /insert\s+(\d+)\s+(?:measure|bar)s?(?:\s+after\s+(?:measure|bar)\s+(\d+))?/gi;
+  const deleteSelectionRegex = /(?:delete|clear|erase)\s+(?:measure|bar)s?\s+(\d+)\s*(?:-|to|through)\s*(\d+)/gi;
+  for (const deleteMatch of stepText.matchAll(deleteSelectionRegex)) {
+    if (!ops.some((op) => op.op === 'remove_measures'
+      && (op as Extract<ScoreOp, { op: 'remove_measures' }>).scope.measureStart === Number(deleteMatch[1]))) {
+      ops.push({
+        op: 'delete_selection',
+        scope: {
+          measureStart: Number(deleteMatch[1]),
+          measureEnd: Number(deleteMatch[2]),
+        },
+      });
+    }
+  }
+
+  const deleteSingleMeasureRegex = /(?:delete|clear|erase)\s+(?:measure|bar)\s+(\d+)(?!\s*(?:-|to|through))/gi;
+  for (const deleteMatch of stepText.matchAll(deleteSingleMeasureRegex)) {
+    const measure = Number(deleteMatch[1]);
+    ops.push({
+      op: 'delete_selection',
+      scope: {
+        measureStart: measure,
+        measureEnd: measure,
+      },
+    });
+  }
+
+  const insertMeasuresRegex = /insert\s+(\d+)\s+(?:measure|bar)s?(?:\s+(?:after\s+(?:measure|bar)\s+(\d+)|at\s+the\s+(beginning|start|end)))?/gi;
   for (const insertMeasuresMatch of stepText.matchAll(insertMeasuresRegex)) {
     const count = Number(insertMeasuresMatch[1]);
     const afterMeasure = insertMeasuresMatch[2] ? Number(insertMeasuresMatch[2]) : undefined;
+    const position = insertMeasuresMatch[3]?.toLowerCase();
+    let target: 'start' | 'end' | 'after_measure' = 'end';
+    if (afterMeasure) {
+      target = 'after_measure';
+    } else if (position === 'beginning' || position === 'start') {
+      target = 'start';
+    }
     ops.push({
       op: 'insert_measures',
       count,
-      target: afterMeasure ? 'after_measure' : 'end',
+      target,
       ...(afterMeasure ? { afterMeasure } : {}),
     });
   }
 
-  if (/beam|beaming|re-beam|rebeam|voicing|remove\s+rests?|rest\s+cleanup/i.test(stepText)) {
-    unsupportedReasons.push('Beaming/voicing/rest cleanup is not implemented in ScoreOps MVP.');
+  const transposeRegex = /transpos(?:e|ing)\s+(up|down)?\s*(\d+)\s*(?:semi-?tone|half[\s-]?step|step)s?/gi;
+  for (const transposeMatch of stepText.matchAll(transposeRegex)) {
+    const direction = (transposeMatch[1] || '').toLowerCase();
+    let semitones = Number(transposeMatch[2]);
+    if (direction === 'down') {
+      semitones = -semitones;
+    }
+    if (semitones >= -24 && semitones <= 24) {
+      ops.push({
+        op: 'transpose_selection',
+        semitones,
+        ...(stepScope ? { scope: stepScope } : {}),
+      });
+    }
   }
 
-  if (!ops.length && /(?:change|set|move|remove|delete|insert|fix|cleanup|transpose|rewrite|edit)\b/i.test(stepText)) {
+  const tempoRegex = /(?:set(?:ting)?|add(?:ing)?|chang(?:e|ing))\s+tempo\s+(?:to|as|marking)?\s*(\d+)\s*(?:bpm)?/gi;
+  for (const tempoMatch of stepText.matchAll(tempoRegex)) {
+    const bpm = Number(tempoMatch[1]);
+    if (bpm >= 20 && bpm <= 400) {
+      ops.push({
+        op: 'add_tempo_marking',
+        bpm,
+        ...(stepScope ? { scope: stepScope } : {}),
+      });
+    }
+  }
+
+  const dynamicRegex = /(?:add(?:ing)?|set(?:ting)?|insert(?:ing)?)\s+(?:a\s+)?(pppppp|ppppp|pppp|ppp|pp|p|mp|mf|ffffff|fffff|ffff|fff|ff|f|fp|pf|sfz|sffz|sff|sfpp|sfp|sf|rfz|rf|fz)\s+(?:dynamic|marking)?/gi;
+  for (const dynamicMatch of stepText.matchAll(dynamicRegex)) {
+    const dynamic = dynamicMatch[1].toLowerCase() as z.infer<typeof DYNAMIC_SCHEMA>;
+    ops.push({
+      op: 'add_dynamic',
+      dynamic,
+      ...(stepScope ? { scope: stepScope } : {}),
+    });
+  }
+
+  const selectRangeMatch = stepText.match(/select\s+(?:measure|bar)s?\s+(\d+)\s*(?:-|to|through)\s*(\d+)/i);
+  if (selectRangeMatch) {
+    ops.push({
+      op: 'select_measure_range',
+      scope: {
+        measureStart: Number(selectRangeMatch[1]),
+        measureEnd: Number(selectRangeMatch[2]),
+      },
+    });
+  }
+
+  if (/select\s+all/i.test(stepText) && !selectRangeMatch) {
+    ops.push({ op: 'select_all' });
+  }
+
+  const durationRegex = /(?:set|change)\s+(?:note\s+)?duration\s+(?:to\s+)?(long|breve|whole|half|quarter|eighth|16th|32nd|64th|128th|256th|512th|1024th)(?:\s+note)?/gi;
+  for (const durationMatch of stepText.matchAll(durationRegex)) {
+    const durationType = durationMatch[1].toLowerCase() as z.infer<typeof DURATION_TYPE_SCHEMA>;
+    ops.push({
+      op: 'set_duration',
+      durationType,
+      ...(stepScope ? { scope: stepScope } : {}),
+    });
+  }
+
+  const voiceRegex = /(?:set|change|move\s+to)\s+voice\s+([1-4])/gi;
+  for (const voiceMatch of stepText.matchAll(voiceRegex)) {
+    const voice = Number(voiceMatch[1]) as 1 | 2 | 3 | 4;
+    ops.push({
+      op: 'set_voice',
+      voice,
+      ...(stepScope ? { scope: stepScope } : {}),
+    });
+  }
+
+  const replaceTextRegex = /(?:replace|change)\s+(?:selected\s+)?text\s+(?:to|with)\s+[""\u201C]?([^""\u201D\n]+)[""\u201D]?/gi;
+  for (const replaceMatch of stepText.matchAll(replaceTextRegex)) {
+    const value = replaceMatch[1].trim();
+    if (value) {
+      ops.push({
+        op: 'replace_selected_text',
+        value,
+        ...(stepScope ? { scope: stepScope } : {}),
+      });
+    }
+  }
+
+  if (/beam|beaming|re-beam|rebeam|remove\s+rests?|rest\s+cleanup/i.test(stepText)) {
+    unsupportedReasons.push('Beaming/rest cleanup is not implemented in ScoreOps yet.');
+  }
+
+  if (!ops.length && /(?:change|set|move|remove|delete|insert|fix|cleanup|transpose|rewrite|edit|select|replace)\b/i.test(stepText)) {
     unsupportedReasons.push('No supported ScoreOps mapping found for this step.');
   }
 
