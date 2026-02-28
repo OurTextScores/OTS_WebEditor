@@ -5702,8 +5702,20 @@ ${partsBodyXml}
             setMusicAgentResult(parsed);
 
             selectedTool = typeof parsed?.selectedTool === 'string' ? parsed.selectedTool : '';
+            // Parse result from JSON string if needed (structured output compatibility)
+            const parsedResult = (() => {
+                const raw = parsed?.result;
+                if (typeof raw === 'string' && raw.trim()) {
+                    try {
+                        return JSON.parse(raw);
+                    } catch {
+                        return {};
+                    }
+                }
+                return raw;
+            })();
             if (selectedTool === 'music.patch') {
-                const resultPayload = asRecord(parsed?.result);
+                const resultPayload = asRecord(parsedResult);
                 const maybePatch = asRecord(resultPayload?.patch);
                 if (maybePatch) {
                     const parsedPatch = parseMusicXmlPatch(JSON.stringify(maybePatch));
@@ -5727,7 +5739,7 @@ ${partsBodyXml}
                     setMusicAgentPatchError(resultPayload.error);
                 }
             } else if (selectedTool === 'music.scoreops') {
-                const resultPayload = asRecord(parsed?.result);
+                const resultPayload = asRecord(parsedResult);
                 const executionPayload = asRecord(resultPayload?.execution);
                 const outputPayload = asRecord(executionPayload?.output) || asRecord(resultPayload?.output);
                 const nextXml = typeof outputPayload?.content === 'string' ? outputPayload.content : '';
@@ -5753,7 +5765,7 @@ ${partsBodyXml}
             }
 
             const resultError = (() => {
-                const resultPayload = asRecord(parsed?.result);
+                const resultPayload = asRecord(parsedResult);
                 if (typeof resultPayload?.error === 'string' && resultPayload.error.trim()) {
                     return resultPayload.error.trim();
                 }
