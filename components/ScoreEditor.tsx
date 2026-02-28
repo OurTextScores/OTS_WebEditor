@@ -5675,6 +5675,11 @@ ${partsBodyXml}
             if (musicAgentUseFallbackOnly) {
                 payload.useFallbackOnly = true;
             }
+            // Pass API key at top level for router to use Agents SDK path
+            const apiKey = aiApiKey.trim();
+            if (apiKey) {
+                payload.apiKey = apiKey;
+            }
             if (Object.keys(toolInput).length > 0) {
                 payload.toolInput = toolInput;
             }
