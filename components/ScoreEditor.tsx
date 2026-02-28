@@ -5740,9 +5740,16 @@ ${partsBodyXml}
                 }
             } else if (selectedTool === 'music.scoreops') {
                 const resultPayload = asRecord(parsedResult);
+                // Handle both direct service response (body.output.content) and nested execution format
+                const bodyPayload = asRecord(resultPayload?.body);
+                const outputPayload = asRecord(bodyPayload?.output);
                 const executionPayload = asRecord(resultPayload?.execution);
-                const outputPayload = asRecord(executionPayload?.output) || asRecord(resultPayload?.output);
-                const nextXml = typeof outputPayload?.content === 'string' ? outputPayload.content : '';
+                const executionOutput = asRecord(executionPayload?.output);
+                const nextXml = typeof outputPayload?.content === 'string'
+                    ? outputPayload.content
+                    : (typeof executionOutput?.content === 'string'
+                        ? executionOutput.content
+                        : '');
                 if (nextXml.trim()) {
                     try {
                         await applyXmlToScore(nextXml, { telemetrySource: 'music_agent_scoreops' });
@@ -5751,6 +5758,8 @@ ${partsBodyXml}
                         console.error('Failed to apply Music Agent scoreops output', applyErr);
                         setMusicAgentPatchError('ScoreOps output was generated but could not be applied to the score.');
                     }
+                } else if (typeof asRecord(bodyPayload?.error)?.message === 'string') {
+                    setMusicAgentPatchError(String(asRecord(bodyPayload?.error)?.message));
                 } else if (typeof asRecord(resultPayload?.error)?.message === 'string') {
                     setMusicAgentPatchError(String(asRecord(resultPayload?.error)?.message));
                 }
