@@ -372,4 +372,35 @@ describe('runMusicAgentRouter', () => {
     );
     expect(mocked.runMusicScoreOpsPromptService).not.toHaveBeenCalled();
   });
+
+  it('uses Agents SDK path when apiKey is provided in request body', async () => {
+    delete process.env.OPENAI_API_KEY;
+    mocked.run.mockResolvedValue({
+      finalOutput: {
+        selectedTool: 'music.scoreops',
+        toolStatus: 200,
+        toolOk: true,
+        response: 'Score operations applied.',
+        result: { ok: true },
+      },
+    });
+
+    const result = await runMusicAgentRouter({
+      prompt: 'Change key signature to G major',
+      apiKey: 'sk-test-from-request',
+      toolInput: {
+        context: {
+          content: '<score-partwise version="3.1"></score-partwise>',
+        },
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({
+      mode: 'agents-sdk',
+      selectedTool: 'music.scoreops',
+      toolOk: true,
+    });
+    expect(mocked.run).toHaveBeenCalledTimes(1);
+  });
 });

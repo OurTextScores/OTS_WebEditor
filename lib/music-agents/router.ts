@@ -590,7 +590,13 @@ export async function runMusicAgentRouter(
 
   const toolInput = asRecord(data?.toolInput) as ToolDefaults | null;
   const useFallbackOnly = Boolean(data?.useFallbackOnly);
-  const openaiApiKey = (process.env.OPENAI_API_KEY || '').trim();
+  // Accept API key from request body (similar to patch-service.ts) or environment
+  const requestApiKey = (typeof data?.apiKey === 'string'
+    ? data.apiKey
+    : (typeof data?.api_key === 'string' ? data.api_key : '')).trim();
+  const envApiKey = (process.env.OPENAI_API_KEY || '').trim();
+  const openaiApiKey = requestApiKey || envApiKey;
+
   if (useFallbackOnly || !openaiApiKey) {
     try {
       const fallbackResult = await runFallbackRouter(prompt, toolInput || undefined, trace);
@@ -611,6 +617,12 @@ export async function runMusicAgentRouter(
         },
       };
     }
+  }
+
+  // If using request-provided API key, temporarily set it for the Agents SDK
+  const priorApiKey = process.env.OPENAI_API_KEY;
+  if (requestApiKey) {
+    process.env.OPENAI_API_KEY = requestApiKey;
   }
 
   const requestedModel = typeof data?.model === 'string' ? data.model.trim() : '';
@@ -670,5 +682,14 @@ export async function runMusicAgentRouter(
         mode: 'agents-sdk',
       },
     };
+  } finally {
+    // Restore original API key
+    if (requestApiKey) {
+      if (priorApiKey !== undefined) {
+        process.env.OPENAI_API_KEY = priorApiKey;
+      } else {
+        delete process.env.OPENAI_API_KEY;
+      }
+    }
   }
 }
