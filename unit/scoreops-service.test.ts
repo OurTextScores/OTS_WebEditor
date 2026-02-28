@@ -1266,4 +1266,43 @@ describe('runMusicScoreOpsService', () => {
     expect(capabilities.mutationOps).toHaveProperty('set_repeat_markers');
     expect(capabilities.mutationOps).toHaveProperty('history_step');
   });
+
+  // --- Regex parser fixes ---
+
+  it('parses key signature with correct/fix/change verbs and without "signature" word', () => {
+    const testCases = [
+      { prompt: 'correct the key signature to G major', expectedFifths: 1 },
+      { prompt: 'fix key to F major', expectedFifths: -1 },
+      { prompt: 'change key to D major', expectedFifths: 2 },
+      { prompt: 'set the key to Bb major', expectedFifths: -2 },
+    ];
+
+    for (const { prompt, expectedFifths } of testCases) {
+      const parsed = __scoreOpsTestOnly.parsePromptToOps(prompt);
+      expect(parsed.ops).toEqual(expect.arrayContaining([
+        expect.objectContaining({ op: 'set_key_signature', fifths: expectedFifths }),
+      ]));
+    }
+  });
+
+  it('parses text deletion with ASCII quotes and reversed word order', () => {
+    const parsed = __scoreOpsTestOnly.parsePromptToOps('remove the "CLEAN VERSION" text');
+    expect(parsed.ops).toEqual(expect.arrayContaining([
+      expect.objectContaining({ op: 'delete_text_by_content', text: 'CLEAN VERSION' }),
+    ]));
+  });
+
+  it('parses text deletion with delete verb', () => {
+    const parsed = __scoreOpsTestOnly.parsePromptToOps('delete the text "Original Title"');
+    expect(parsed.ops).toEqual(expect.arrayContaining([
+      expect.objectContaining({ op: 'delete_text_by_content', text: 'Original Title' }),
+    ]));
+  });
+
+  it('parses unquoted text deletion with reversed word order', () => {
+    const parsed = __scoreOpsTestOnly.parsePromptToOps('remove CLEAN VERSION text');
+    expect(parsed.ops).toEqual(expect.arrayContaining([
+      expect.objectContaining({ op: 'delete_text_by_content', text: 'CLEAN VERSION' }),
+    ]));
+  });
 });

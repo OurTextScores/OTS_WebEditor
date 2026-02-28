@@ -246,6 +246,38 @@ async function runFallbackRouter(
     if (!scoreOpsDefaults.content && typeof contextDefaults?.content === 'string') {
       scoreOpsDefaults.content = contextDefaults.content;
     }
+
+    // If ops array is provided (e.g., from a future UI), execute directly
+    if (Array.isArray(scoreOpsDefaults.ops) && scoreOpsDefaults.ops.length > 0) {
+      const directResult = await runMusicScoreOpsService({
+        action: 'apply',
+        scoreSessionId: scoreOpsDefaults.scoreSessionId,
+        baseRevision: scoreOpsDefaults.baseRevision,
+        inputArtifactId: scoreOpsDefaults.inputArtifactId || scoreOpsDefaults.input_artifact_id,
+        content: scoreOpsDefaults.content || scoreOpsDefaults.text,
+        ops: scoreOpsDefaults.ops,
+        options: {
+          atomic: true,
+          includeXml: true,
+          includeMeasureDiff: true,
+          ...(scoreOpsDefaults.options || {}),
+        },
+      }, 'apply');
+      return {
+        status: directResult.status,
+        body: {
+          mode: 'fallback',
+          selectedTool: 'music.scoreops',
+          toolStatus: directResult.status,
+          toolOk: directResult.status < 400,
+          response: directResult.status < 400
+            ? 'Score operations applied via direct ops execution.'
+            : 'Direct ops execution failed.',
+          result: directResult.body,
+        },
+      };
+    }
+
     const scoreOpsPayload = {
       ...scoreOpsDefaults,
       prompt: typeof scoreOpsDefaults.prompt === 'string' && scoreOpsDefaults.prompt.trim()
@@ -465,13 +497,29 @@ function createMusicRouterAgent() {
       if (!payload.content && typeof contextDefaults?.content === 'string') {
         payload.content = contextDefaults.content;
       }
+
+      // If agent provided structured ops, execute directly (skip regex parsing)
+      if (Array.isArray(payload.ops) && payload.ops.length > 0) {
+        const result = await runMusicScoreOpsService({
+          action: 'apply',
+          scoreSessionId: payload.scoreSessionId,
+          baseRevision: payload.baseRevision,
+          inputArtifactId: payload.inputArtifactId || payload.input_artifact_id,
+          content: payload.content || payload.text,
+          ops: payload.ops,
+          options: {
+            atomic: true,
+            includeXml: true,
+            includeMeasureDiff: true,
+            ...(payload.options || {}),
+          },
+        }, 'apply');
+        return { tool: 'music.scoreops', status: result.status, ok: result.status < 400, body: result.body };
+      }
+
+      // Fallback to prompt-based parsing
       const result = await runMusicScoreOpsPromptService(payload);
-      return {
-        tool: 'music.scoreops',
-        status: result.status,
-        ok: result.status < 400,
-        body: result.body,
-      };
+      return { tool: 'music.scoreops', status: result.status, ok: result.status < 400, body: result.body };
     },
   });
 
@@ -486,8 +534,29 @@ function createMusicRouterAgent() {
       '- music.generate: generation/composition requests.',
       '- music.scoreops: deterministic score editing with typed operations.',
       '- music.patch: score edit requests that should produce a musicxml-patch@1 payload.',
+      '',
+      'Prefer music.scoreops for editing requests. When using music.scoreops, produce structured ops when possible:',
+      '  Key signature: { op: "set_key_signature", fifths: <-7..7> }  (C=0, G=1, D=2, F=-1, Bb=-2, etc.)',
+      '  Time signature: { op: "set_time_signature", numerator: N, denominator: N }',
+      '  Clef: { op: "set_clef", clef: "treble|bass|alto|tenor" }',
+      '  Metadata: { op: "set_metadata_text", field: "title|subtitle|composer|lyricist", value: "..." }',
+      '  Delete text: { op: "delete_text_by_content", text: "...", maxDeletes: 20 }',
+      '  Transpose: { op: "transpose_selection", semitones: N, scope?: { measureStart, measureEnd } }',
+      '  Insert measures: { op: "insert_measures", count: N, target: "start|end|after_measure" }',
+      '  Remove measures: { op: "remove_measures", scope: { measureStart, measureEnd } }',
+      '  Tempo: { op: "add_tempo_marking", bpm: N }',
+      '  Dynamic: { op: "add_dynamic", dynamic: "pp|p|mp|mf|f|ff|..." }',
+      '  Insert text: { op: "insert_text", kind: "staff|system|expression|lyric|harmony", text: "..." }',
+      '  Accidental: { op: "set_accidental", accidental: "sharp|flat|natural|double-sharp|double-flat" }',
+      '  Duration: { op: "set_duration", durationType: "whole|half|quarter|eighth|16th|..." }',
+      '  Voice: { op: "set_voice", voice: 1-4 }',
+      '  Layout break: { op: "set_layout_break", breakType: "line|page", enabled: true }',
+      '  Repeat markers: { op: "set_repeat_markers", start?: true, end?: true }',
+      '  Undo/redo: { op: "history_step", steps: N }  (positive for redo, negative for undo)',
+      '',
+      'If the edit cannot be expressed as structured ops, pass the prompt text and ScoreOps will attempt parsing.',
+      'Use music.patch only when the edit is too complex for ScoreOps ops.',
       'Call one tool first, inspect its result, then produce final output using the required schema.',
-      'Prefer music.scoreops for editing requests. Use music.patch only when scoreops is unsupported.',
       'When available, include the chosen tool output body in `result`.',
       'Keep response concise and mention why the selected tool was chosen.',
     ].join('\n'),

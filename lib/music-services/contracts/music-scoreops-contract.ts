@@ -15,6 +15,30 @@ export const MUSIC_SCOREOPS_TOOL_CONTRACT: MusicToolContract = {
       text: { type: 'string' },
       inputArtifactId: { type: 'string' },
       input_artifact_id: { type: 'string' },
+      ops: {
+        type: 'array',
+        description: 'Structured ScoreOps operations. When provided, bypasses prompt parsing.',
+        items: {
+          type: 'object',
+          properties: {
+            op: {
+              type: 'string',
+              enum: [
+                'set_key_signature', 'set_time_signature', 'set_clef',
+                'set_metadata_text', 'transpose_selection',
+                'insert_measures', 'remove_measures',
+                'delete_selection', 'delete_text_by_content',
+                'add_tempo_marking', 'add_dynamic',
+                'select_measure_range', 'select_all',
+                'replace_selected_text', 'set_duration', 'set_voice',
+                'set_accidental', 'insert_text',
+                'set_layout_break', 'set_repeat_markers', 'history_step',
+              ],
+            },
+          },
+          required: ['op'],
+        },
+      },
       options: {
         type: 'object',
         additionalProperties: false,
@@ -27,13 +51,14 @@ export const MUSIC_SCOREOPS_TOOL_CONTRACT: MusicToolContract = {
         },
       },
     },
-    required: ['prompt'],
     anyOf: [
       { required: ['prompt', 'scoreSessionId'] },
       { required: ['prompt', 'content'] },
       { required: ['prompt', 'text'] },
       { required: ['prompt', 'inputArtifactId'] },
       { required: ['prompt', 'input_artifact_id'] },
+      { required: ['ops', 'content'] },
+      { required: ['ops', 'scoreSessionId'] },
     ],
   },
   outputSchema: {

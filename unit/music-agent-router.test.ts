@@ -335,4 +335,41 @@ describe('runMusicAgentRouter', () => {
       error: 'agents run failed',
     });
   });
+
+  it('uses direct ops execution when ops array is provided in fallback mode', async () => {
+    delete process.env.OPENAI_API_KEY;
+    mocked.runMusicScoreOpsService.mockResolvedValue({
+      status: 200,
+      body: {
+        ok: true,
+        newRevision: 1,
+      },
+    });
+
+    const result = await runMusicAgentRouter({
+      prompt: 'Change key signature to G major',
+      toolInput: {
+        scoreops: {
+          ops: [{ op: 'set_key_signature', fifths: 1 }],
+          content: '<score-partwise version="3.1"></score-partwise>',
+        },
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({
+      mode: 'fallback',
+      selectedTool: 'music.scoreops',
+      toolOk: true,
+    });
+    expect(mocked.runMusicScoreOpsService).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'apply',
+        ops: [{ op: 'set_key_signature', fifths: 1 }],
+        content: '<score-partwise version="3.1"></score-partwise>',
+      }),
+      'apply',
+    );
+    expect(mocked.runMusicScoreOpsPromptService).not.toHaveBeenCalled();
+  });
 });

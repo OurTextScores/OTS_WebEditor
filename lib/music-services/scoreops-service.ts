@@ -2869,7 +2869,7 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
   const unsupportedReasons: string[] = [];
   const stepScope = parseMeasureScopeFromText(stepText);
 
-  const keyRegex = /key signature\s+(?:to|as)\s+([A-Ga-g][#b♯♭]?)(?:\s+(major|minor))?/gi;
+  const keyRegex = /(?:(?:set|change|correct|fix)\s+(?:the\s+)?)?key(?:\s+signature)?\s+(?:to|as)\s+([A-Ga-g][#b♯♭]?)(?:\s+(major|minor))?/gi;
   for (const keyMatch of stepText.matchAll(keyRegex)) {
     const tonic = normalizeKeyName(keyMatch[1]);
     const mode = (keyMatch[2] || 'major').toLowerCase();
@@ -2929,7 +2929,8 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
     });
   }
 
-  const removeQuotedTextRegex = /remove\s+(?:the\s+)?text\s+["“]([^"”]+)["”]/gi;
+  const removeQuotedTextRegex = /(?:remove|delete)\s+(?:the\s+)?text\s+[""\u201C\u201D]([^""\u201C\u201D]+)[""\u201C\u201D]/gi;
+  const removeQuotedReverseRegex = /(?:remove|delete)\s+(?:the\s+)?[""\u201C\u201D]([^""\u201C\u201D]+)[""\u201C\u201D]\s+text/gi;
   for (const removeTextMatch of stepText.matchAll(removeQuotedTextRegex)) {
     const text = removeTextMatch[1].trim();
     if (text) {
@@ -2940,13 +2941,30 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
       });
     }
   }
+  for (const removeTextMatch of stepText.matchAll(removeQuotedReverseRegex)) {
+    const text = removeTextMatch[1].trim();
+    if (text && !ops.some((op) => op.op === 'delete_text_by_content' && (op as { text: string }).text === text)) {
+      ops.push({
+        op: 'delete_text_by_content',
+        text,
+        maxDeletes: 20,
+      });
+    }
+  }
 
   if (!ops.some((op) => op.op === 'delete_text_by_content')) {
-    const removeUnquotedTextMatch = stepText.match(/remove\s+(?:the\s+)?text\s+([A-Z][A-Z0-9 _-]{2,80})/i);
+    const removeUnquotedTextMatch = stepText.match(/(?:remove|delete)\s+(?:the\s+)?text\s+([A-Z][A-Z0-9 _-]{2,80})/i);
+    const removeUnquotedReverseMatch = stepText.match(/(?:remove|delete)\s+(?:the\s+)?([A-Z][A-Z0-9 _-]{2,80})\s+text/i);
     if (removeUnquotedTextMatch) {
       ops.push({
         op: 'delete_text_by_content',
         text: removeUnquotedTextMatch[1].trim(),
+        maxDeletes: 20,
+      });
+    } else if (removeUnquotedReverseMatch) {
+      ops.push({
+        op: 'delete_text_by_content',
+        text: removeUnquotedReverseMatch[1].trim(),
         maxDeletes: 20,
       });
     }
