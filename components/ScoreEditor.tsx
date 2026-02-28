@@ -10295,8 +10295,9 @@ ${partsBodyXml}
                                                 type="number"
                                                 min={1}
                                                 max={20}
-                                                value={musicAgentMaxTurns}
+                                                value={Number(musicAgentMaxTurns)}
                                                 onChange={(event) => setMusicAgentMaxTurns(Math.max(1, Math.min(20, Number(event.target.value) || 1)))}
+                                                autoComplete="off"
                                                 className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
                                             />
                                         </div>
