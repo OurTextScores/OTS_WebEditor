@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { access, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { constants as fsConstants } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -974,13 +974,13 @@ export async function renderMusicSnapshot(request: MusicRenderRequest): Promise<
             ? (await fileExists('/usr/bin/xvfb-run') ? '/usr/bin/xvfb-run' : (await fileExists('/bin/xvfb-run') ? '/bin/xvfb-run' : null))
             : null;
 
-        const argv = ['-f', '-o', outputPath];
+        const argv = ['-platform', 'offscreen', '-o', outputPath];
         if (request.dpi && format === 'png') {
             argv.push('-r', String(request.dpi));
         }
         argv.push(xmlPath);
 
-        const { result } = await runCommandWithCandidates({
+        const { result, command } = await runCommandWithCandidates({
             candidates: config.musescoreBins,
             argv,
             cwd: tempDir,
@@ -993,11 +993,20 @@ export async function renderMusicSnapshot(request: MusicRenderRequest): Promise<
             throw new Error(`MuseScore render failed with code ${result.exitCode}: ${result.stderr}`);
         }
 
-        if (!(await fileExists(outputPath))) {
-            throw new Error(`MuseScore exited successfully but ${outputPath} was not found.`);
+        let actualPath = outputPath;
+        if (!(await fileExists(actualPath))) {
+            // MuseScore sometimes appends page numbers, e.g. output-1.png
+            const files = await readdir(tempDir);
+            const pattern = new RegExp(`^output([-.]\\d+)?\\.${format}$`, 'i');
+            const found = files.find(f => pattern.test(f));
+            if (found) {
+                actualPath = join(tempDir, found);
+            } else {
+                throw new Error(`MuseScore (${command}) exited successfully but no output file matching ${outputPath} was found.\nSTDOUT: ${result.stdout}\nSTDERR: ${result.stderr}\nFILES: ${files.join(', ')}`);
+            }
         }
 
-        const buffer = await readFile(outputPath);
+        const buffer = await readFile(actualPath);
         return { buffer, mimeType };
     } finally {
         await rm(tempDir, { recursive: true, force: true });
