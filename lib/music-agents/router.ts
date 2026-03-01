@@ -603,6 +603,7 @@ export async function runMusicAgentRouter(
   options?: RunMusicAgentRouterOptions,
 ): Promise<MusicAgentResult> {
   const trace = options?.trace;
+  try {
   const data = asRecord(body);
   const prompt = typeof data?.prompt === 'string' ? data.prompt.trim() : '';
   traceLog(trace, 'music_agent.router.start', {
@@ -725,5 +726,15 @@ export async function runMusicAgentRouter(
         delete process.env.OPENAI_API_KEY;
       }
     }
+  }
+  } catch (error) {
+    console.error('runMusicAgentRouter unhandled error:', error);
+    return {
+      status: 500,
+      body: {
+        error: error instanceof Error ? error.message : 'Unhandled error in music agent router',
+        mode: 'error',
+      },
+    };
   }
 }
