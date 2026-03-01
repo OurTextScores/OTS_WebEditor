@@ -292,10 +292,10 @@ describe('runMusicAgentRouter', () => {
     process.env.OPENAI_API_KEY = 'sk-test';
     mocked.run.mockResolvedValue({
       finalOutput: {
-        selectedTool: 'music.context',
+        selectedTool: 'music_context',
         toolStatus: 200,
         toolOk: true,
-        response: 'Used music.context for targeted extraction.',
+        response: 'Used music_context for targeted extraction.',
       },
     });
 
@@ -321,19 +321,25 @@ describe('runMusicAgentRouter', () => {
     expect(mocked.run).toHaveBeenCalledTimes(1);
   });
 
-  it('returns 500 if agents-sdk execution throws', async () => {
+  it('falls back to heuristic router if agents-sdk execution throws', async () => {
     process.env.OPENAI_API_KEY = 'sk-test';
     mocked.run.mockRejectedValue(new Error('agents run failed'));
+    mocked.runMusicConvertService.mockResolvedValue({
+      status: 200,
+      body: { format: 'abc', content: 'X:1' },
+    });
 
     const result = await runMusicAgentRouter({
       prompt: 'Convert this to abc',
     });
 
-    expect(result.status).toBe(500);
+    // Now falls back to heuristic router instead of returning 500
+    expect(result.status).toBe(200);
     expect(result.body).toMatchObject({
-      mode: 'agents-sdk',
-      error: 'agents run failed',
+      mode: 'fallback',
+      agentError: 'agents run failed',
     });
+    expect(mocked.runMusicConvertService).toHaveBeenCalled();
   });
 
   it('uses direct ops execution when ops array is provided in fallback mode', async () => {

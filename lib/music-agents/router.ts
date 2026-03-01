@@ -27,6 +27,8 @@ type ToolDefaults = {
 type MusicAgentRunnerContext = {
   toolInput?: ToolDefaults;
   trace?: MusicAgentTraceContext;
+  /** Stores the full (unsummarized) result of the last tool call for injection into final output */
+  lastToolResult?: Record<string, unknown>;
 };
 
 type MusicAgentResult = {
@@ -51,10 +53,69 @@ const asRecord = (value: unknown): Record<string, unknown> | null => (
   value && typeof value === 'object' ? value as Record<string, unknown> : null
 );
 
+/** Maximum size (in characters) of the serialized tool result returned to the model. */
+const MAX_TOOL_RESULT_CHARS = 4000;
+
+/**
+ * Summarize a tool result for the model.  We strip large fields (like full
+ * MusicXML content) so the model's next API call stays small and fast.
+ * The full result is stored in runContext.lastToolResult for later injection.
+ */
+function summarizeForModel(
+  fullResult: Record<string, unknown>,
+  runContext: { context: MusicAgentRunnerContext } | undefined,
+): Record<string, unknown> {
+  // Store the full result for later injection into the structured output
+  if (runContext?.context) {
+    runContext.context.lastToolResult = fullResult;
+  }
+
+  const serialized = JSON.stringify(fullResult);
+  if (serialized.length <= MAX_TOOL_RESULT_CHARS) {
+    return fullResult;
+  }
+
+  // Build a summary that fits within the limit
+  const summary: Record<string, unknown> = {
+    tool: fullResult.tool,
+    status: fullResult.status,
+    ok: fullResult.ok,
+  };
+
+  const body = asRecord(fullResult.body);
+  if (body) {
+    const bodyKeys = Object.keys(body);
+    // Keep scalar fields, drop large ones (content, xml, output with content)
+    const bodySnippet: Record<string, unknown> = {};
+    for (const key of bodyKeys) {
+      const val = body[key];
+      if (typeof val === 'string' && val.length > 500) {
+        bodySnippet[key] = `[${val.length} chars omitted]`;
+      } else if (val && typeof val === 'object') {
+        const inner = JSON.stringify(val);
+        if (inner.length > 500) {
+          bodySnippet[key] = `[object, ${inner.length} chars omitted]`;
+        } else {
+          bodySnippet[key] = val;
+        }
+      } else {
+        bodySnippet[key] = val;
+      }
+    }
+    summary.body = bodySnippet;
+  }
+
+  summary._note = 'Full result stored internally; only summary shown here.';
+  return summary;
+}
+
 const DEFAULT_MODEL = (process.env.MUSIC_AGENT_MODEL || 'gpt-5.2').trim();
 
+// The @openai/agents SDK replaces dots with underscores in tool names via
+// toFunctionToolName(), so the model sees music_context, music_scoreops, etc.
+// The enum here must match the names the model actually outputs.
 const AGENT_OUTPUT_SCHEMA = z.object({
-  selectedTool: z.enum(['music.context', 'music.convert', 'music.generate', 'music.scoreops', 'music.patch']),
+  selectedTool: z.enum(['music_context', 'music_convert', 'music_generate', 'music_scoreops', 'music_patch']),
   toolStatus: z.number().int(),
   toolOk: z.boolean(),
   response: z.string(),
@@ -430,15 +491,18 @@ function createMusicRouterAgent() {
     parameters: MUSIC_CONTEXT_TOOL_CONTRACT.inputSchema,
     strict: false,
     execute: async (input, runContext) => {
+      console.info('[music-agent] Tool called: music.context');
       const defaults = (runContext?.context as MusicAgentRunnerContext | undefined)?.toolInput?.context;
       const payload = mergeToolInput(defaults, input);
       const result = await runMusicContextService(payload);
-      return {
+      console.info(`[music-agent] Tool music.context completed: status=${result.status}`);
+      const fullResult = {
         tool: 'music.context',
         status: result.status,
         ok: result.status < 400,
         body: result.body,
       };
+      return summarizeForModel(fullResult, runContext);
     },
   });
 
@@ -448,15 +512,18 @@ function createMusicRouterAgent() {
     parameters: MUSIC_CONVERT_TOOL_CONTRACT.inputSchema,
     strict: false,
     execute: async (input, runContext) => {
+      console.info('[music-agent] Tool called: music.convert');
       const defaults = (runContext?.context as MusicAgentRunnerContext | undefined)?.toolInput?.convert;
       const payload = mergeToolInput(defaults, input);
       const result = await runMusicConvertService(payload);
-      return {
+      console.info(`[music-agent] Tool music.convert completed: status=${result.status}`);
+      const fullResult = {
         tool: 'music.convert',
         status: result.status,
         ok: result.status < 400,
         body: result.body,
       };
+      return summarizeForModel(fullResult, runContext);
     },
   });
 
@@ -466,17 +533,21 @@ function createMusicRouterAgent() {
     parameters: MUSIC_GENERATE_TOOL_CONTRACT.inputSchema,
     strict: false,
     execute: async (input, runContext) => {
+      console.info('[music-agent] Tool called: music.generate');
       const defaults = (runContext?.context as MusicAgentRunnerContext | undefined)?.toolInput?.generate;
       const payload = mergeToolInput(defaults, input);
-      const result = trace?.traceContext
-        ? await runMusicGenerateService(payload, { traceContext: trace.traceContext })
+      const toolTrace = (runContext?.context as MusicAgentRunnerContext | undefined)?.trace;
+      const result = toolTrace?.traceContext
+        ? await runMusicGenerateService(payload, { traceContext: toolTrace.traceContext })
         : await runMusicGenerateService(payload);
-      return {
+      console.info(`[music-agent] Tool music.generate completed: status=${result.status}`);
+      const fullResult = {
         tool: 'music.generate',
         status: result.status,
         ok: result.status < 400,
         body: result.body,
       };
+      return summarizeForModel(fullResult, runContext);
     },
   });
 
@@ -486,17 +557,21 @@ function createMusicRouterAgent() {
     parameters: MUSIC_PATCH_TOOL_CONTRACT.inputSchema,
     strict: false,
     execute: async (input, runContext) => {
+      console.info('[music-agent] Tool called: music.patch');
       const defaults = (runContext?.context as MusicAgentRunnerContext | undefined)?.toolInput?.patch;
       const payload = mergeToolInput(defaults, input);
-      const result = trace?.traceContext
-        ? await runMusicPatchService(payload, { traceContext: trace.traceContext })
+      const toolTrace = (runContext?.context as MusicAgentRunnerContext | undefined)?.trace;
+      const result = toolTrace?.traceContext
+        ? await runMusicPatchService(payload, { traceContext: toolTrace.traceContext })
         : await runMusicPatchService(payload);
-      return {
+      console.info(`[music-agent] Tool music.patch completed: status=${result.status}`);
+      const fullResult = {
         tool: 'music.patch',
         status: result.status,
         ok: result.status < 400,
         body: result.body,
       };
+      return summarizeForModel(fullResult, runContext);
     },
   });
 
@@ -506,6 +581,7 @@ function createMusicRouterAgent() {
     parameters: MUSIC_SCOREOPS_TOOL_CONTRACT.inputSchema,
     strict: false,
     execute: async (input, runContext) => {
+      console.info('[music-agent] Tool called: music.scoreops');
       const defaults = (runContext?.context as MusicAgentRunnerContext | undefined)?.toolInput?.scoreops;
       const payload = mergeToolInput(defaults, input);
       const contextDefaults = (runContext?.context as MusicAgentRunnerContext | undefined)?.toolInput?.context;
@@ -543,12 +619,16 @@ function createMusicRouterAgent() {
             bodyKeys: Object.keys(result.body || {}),
           });
         }
-        return { tool: 'music.scoreops', status: result.status, ok: result.status < 400, body: result.body };
+        console.info(`[music-agent] Tool music.scoreops (direct ops) completed: status=${result.status}`);
+        const fullResult = { tool: 'music.scoreops', status: result.status, ok: result.status < 400, body: result.body };
+        return summarizeForModel(fullResult, runContext);
       }
 
       // Fallback to prompt-based parsing
       const result = await runMusicScoreOpsPromptService(payload);
-      return { tool: 'music.scoreops', status: result.status, ok: result.status < 400, body: result.body };
+      console.info(`[music-agent] Tool music.scoreops (prompt) completed: status=${result.status}`);
+      const fullResult = { tool: 'music.scoreops', status: result.status, ok: result.status < 400, body: result.body };
+      return summarizeForModel(fullResult, runContext);
     },
   });
 
@@ -558,16 +638,16 @@ function createMusicRouterAgent() {
     instructions: [
       'You are a music workflow router.',
       'Choose exactly one tool based on the user request:',
-      '- music.context: score context extraction and analysis prep. Call this first when you need to see the score content to answer questions or determine properties like key signature.',
-      '- music.convert: format conversion between MusicXML and ABC.',
-      '- music.generate: generation/composition requests.',
-      '- music.scoreops: deterministic score editing with typed operations.',
-      '- music.patch: score edit requests that should produce a musicxml-patch@1 payload.',
+      '- music_context: score context extraction and analysis prep. Call this first when you need to see the score content to answer questions or determine properties like key signature.',
+      '- music_convert: format conversion between MusicXML and ABC.',
+      '- music_generate: generation/composition requests.',
+      '- music_scoreops: deterministic score editing with typed operations.',
+      '- music_patch: score edit requests that should produce a musicxml-patch@1 payload.',
       '',
-      'When you need to analyze the score (e.g., determine current key signature from notes), call music.context first.',
-      'After receiving context, if you need to make changes, call music.scoreops in a second step.',
+      'When you need to analyze the score (e.g., determine current key signature from notes), call music_context first.',
+      'After receiving context, if you need to make changes, call music_scoreops in a second step.',
       '',
-      'Prefer music.scoreops for editing requests. When using music.scoreops, produce structured ops when possible:',
+      'Prefer music_scoreops for editing requests. When using music_scoreops, produce structured ops when possible:',
       '  Key signature: { op: "set_key_signature", fifths: <-7..7> }  (C=0, G=1, D=2, F=-1, Bb=-2, etc.)',
       '  Time signature: { op: "set_time_signature", numerator: N, denominator: N }',
       '  Clef: { op: "set_clef", clef: "treble|bass|alto|tenor" }',
@@ -587,10 +667,9 @@ function createMusicRouterAgent() {
       '  Undo/redo: { op: "history_step", steps: N }  (positive for redo, negative for undo)',
       '',
       'If the edit cannot be expressed as structured ops, pass the prompt text and ScoreOps will attempt parsing.',
-      'Use music.patch only when the edit is too complex for ScoreOps ops.',
-      'Call one tool first, inspect its result, then produce final output using the required schema.',
-      'CRITICAL: Always include the full tool result in the `result` field as a JSON string.',
-      'The `result` field must contain JSON.stringify() of the exact tool output: { tool: "music.scoreops", status: number, ok: boolean, body: {...} }.',
+      'Use music_patch only when the edit is too complex for ScoreOps ops.',
+      'Call one tool, inspect its result, then produce final output using the required schema.',
+      'The `result` field can be null — the system will inject the full tool output automatically.',
       'Keep response concise and mention why the selected tool was chosen.',
     ].join('\n'),
     tools: [musicContextTool, musicConvertTool, musicGenerateTool, musicScoreOpsTool, musicPatchTool],
@@ -671,17 +750,29 @@ export async function runMusicAgentRouter(
     agent.model = requestedModel;
   }
 
+  const AGENT_TIMEOUT_MS = 60_000;
+
   try {
-    const result = await run(agent, prompt, {
+    console.info(`[music-agent] Starting agent run: model=${requestedModel || DEFAULT_MODEL}, maxTurns=${maxTurns}`);
+    const runContext: MusicAgentRunnerContext = {
+      toolInput: toolInput || undefined,
+      trace,
+    };
+    const agentPromise = run(agent, prompt, {
       maxTurns,
-      context: {
-        toolInput: toolInput || undefined,
-        trace,
-      } satisfies MusicAgentRunnerContext,
+      context: runContext,
     });
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error(`Agent run timed out after ${AGENT_TIMEOUT_MS / 1000}s`)), AGENT_TIMEOUT_MS);
+    });
+
+    const result = await Promise.race([agentPromise, timeoutPromise]);
+    console.info(`[music-agent] Agent run completed successfully`);
 
     const finalOutput = asRecord(result.finalOutput);
     if (!finalOutput) {
+      console.warn(`[music-agent] No structured output from agent`);
       traceLog(trace, 'music_agent.router.agents_sdk.invalid_output', {
         reason: 'missing_structured_output',
       }, 'warn');
@@ -692,6 +783,16 @@ export async function runMusicAgentRouter(
           mode: 'agents-sdk',
         },
       };
+    }
+
+    // Normalize underscored selectedTool back to dotted names for frontend compatibility
+    if (typeof finalOutput.selectedTool === 'string') {
+      finalOutput.selectedTool = finalOutput.selectedTool.replace(/_/g, '.') as string;
+    }
+
+    // Inject the full (unsummarized) tool result — the model only saw the summary
+    if (runContext.lastToolResult) {
+      finalOutput.result = JSON.stringify(runContext.lastToolResult);
     }
 
     traceLog(trace, 'music_agent.router.agents_sdk.complete', {
@@ -707,16 +808,32 @@ export async function runMusicAgentRouter(
       },
     };
   } catch (error) {
+    console.error(`[music-agent] Agent run failed:`, error instanceof Error ? error.message : error);
     traceLog(trace, 'music_agent.router.agents_sdk.error', {
       message: error instanceof Error ? error.message : 'Music agent router failed.',
     }, 'error');
-    return {
-      status: 500,
-      body: {
-        error: error instanceof Error ? error.message : 'Music agent router failed.',
-        mode: 'agents-sdk',
-      },
-    };
+
+    // On timeout or agent failure, fall back to heuristic router
+    console.info(`[music-agent] Falling back to heuristic router`);
+    try {
+      const fallbackResult = await runFallbackRouter(prompt, toolInput || undefined, trace);
+      return {
+        ...fallbackResult,
+        body: {
+          ...fallbackResult.body,
+          agentError: error instanceof Error ? error.message : 'Agent run failed',
+        },
+      };
+    } catch (fallbackError) {
+      return {
+        status: 500,
+        body: {
+          error: error instanceof Error ? error.message : 'Music agent router failed.',
+          mode: 'agents-sdk',
+          fallbackError: fallbackError instanceof Error ? fallbackError.message : 'Fallback also failed',
+        },
+      };
+    }
   } finally {
     // Restore original API key
     if (requestApiKey) {

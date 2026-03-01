@@ -677,7 +677,7 @@ export default function ScoreEditor() {
     const [musicNotaGenSpaceCombinations, setMusicNotaGenSpaceCombinations] = useState<NotaGenSpaceCombinations | null>(null);
     const [musicNotaGenSpaceOptionsLoading, setMusicNotaGenSpaceOptionsLoading] = useState(false);
     const [musicNotaGenSpaceOptionsError, setMusicNotaGenSpaceOptionsError] = useState<string | null>(null);
-    const [musicAgentPrompt, setMusicAgentPrompt] = useState('');
+    const musicAgentPromptRef = useRef<HTMLTextAreaElement>(null);
     const [musicAgentModel, setMusicAgentModel] = useState(MUSIC_AGENT_DEFAULT_MODEL);
     const [musicAgentMaxTurns, setMusicAgentMaxTurns] = useState(6);
     const [musicAgentUseFallbackOnly, setMusicAgentUseFallbackOnly] = useState(false);
@@ -5610,7 +5610,7 @@ ${partsBodyXml}
     }, [captureApiTraceContext]);
 
     const handleMusicAgentSend = async () => {
-        const prompt = musicAgentPrompt.trim();
+        const prompt = (musicAgentPromptRef.current?.value ?? '').trim();
         if (!prompt) {
             alert('Enter a prompt for the Agent.');
             return;
@@ -5684,7 +5684,7 @@ ${partsBodyXml}
                 payload.toolInput = toolInput;
             }
 
-            setMusicAgentPrompt('');
+            if (musicAgentPromptRef.current) musicAgentPromptRef.current.value = '';
             setMusicAgentThread((prev) => [...prev, { role: 'user', text: prompt }]);
 
             requestIssued = true;
@@ -5701,37 +5701,19 @@ ${partsBodyXml}
             const parsed = asRecord(parsedPayload) || {};
             setMusicAgentResult(parsed);
 
-            // Debug logging
-            // eslint-disable-next-line no-console
-            console.log('Music Agent Response:', parsed);
-
             selectedTool = typeof parsed?.selectedTool === 'string' ? parsed.selectedTool : '';
             // Parse result from JSON string if needed (structured output compatibility)
             let parsedResult: unknown;
             const raw = parsed?.result;
-            // eslint-disable-next-line no-console
-            console.log('Raw result type:', typeof raw);
-            // eslint-disable-next-line no-console
-            console.log('Raw result length:', typeof raw === 'string' ? raw.length : 'N/A');
             if (typeof raw === 'string' && raw.trim()) {
                 try {
                     parsedResult = JSON.parse(raw);
-                    // eslint-disable-next-line no-console
-                    console.log('Parsed result successfully');
-                } catch (e) {
-                    // eslint-disable-next-line no-console
-                    console.error('Failed to parse result:', e);
+                } catch {
                     parsedResult = {};
                 }
             } else {
                 parsedResult = raw;
             }
-            // eslint-disable-next-line no-console
-            console.log('Parsed result type:', typeof parsedResult);
-            // eslint-disable-next-line no-console
-            console.log('Parsed result keys:', parsedResult && typeof parsedResult === 'object' ? Object.keys(parsedResult as object) : 'N/A');
-            // eslint-disable-next-line no-console
-            console.log('Parsed result body:', (parsedResult as Record<string, unknown>)?.body);
             if (selectedTool === 'music.patch') {
                 const resultPayload = asRecord(parsedResult);
                 const maybePatch = asRecord(resultPayload?.patch);
@@ -6219,9 +6201,7 @@ ${partsBodyXml}
         fallbackPoint?: { page: number, x: number, y: number } | null,
         generation?: number,
     ) => {
-        console.log('[refreshSelectionOverlay] Called with fallbackIndex:', fallbackIndex, 'fallbackPoint:', fallbackPoint);
         if (!containerRef.current) {
-            console.log('[refreshSelectionOverlay] No containerRef, returning');
             return;
         }
         if (generation !== undefined && generation !== selectionOverlayGenerationRef.current) {
@@ -6232,8 +6212,6 @@ ${partsBodyXml}
         }
         const useIndex = fallbackIndex !== undefined ? fallbackIndex : selectedIndex;
         const usePoint = fallbackPoint !== undefined ? fallbackPoint : selectedPoint;
-        console.log('[refreshSelectionOverlay] useIndex:', useIndex, 'usePoint:', usePoint);
-
         const containerRect = containerRef.current.getBoundingClientRect();
         const selectors = ['.selected', '.note-selected', '.ms-selection'];
         const candidates: Element[] = Array.from(
@@ -6241,7 +6219,6 @@ ${partsBodyXml}
         );
         const allElements = Array.from(containerRef.current.querySelectorAll(ELEMENT_SELECTION_SELECTOR));
 
-        console.log('[refreshSelectionOverlay] candidates.length:', candidates.length);
 
         let boxes: SelectionBox[] = [];
         if (candidates.length > 0) {
@@ -6291,11 +6268,8 @@ ${partsBodyXml}
                 ));
         } else if (useIndex !== null) {
             // Fallback: use index if selection markers are missing in SVG
-            console.log('[refreshSelectionOverlay] Using index fallback');
-            console.log('[refreshSelectionOverlay] Found', allElements.length, 'Note/Rest/Chord/LayoutBreak elements');
             const el = allElements[useIndex] ?? null;
             if (el) {
-                console.log('[refreshSelectionOverlay] Selected element at index', useIndex);
                 const rect = el.getBoundingClientRect();
                 const x = (rect.left - containerRect.left) / zoom;
                 const y = (rect.top - containerRect.top) / zoom;
@@ -6319,12 +6293,10 @@ ${partsBodyXml}
                 }];
             }
             } else {
-                console.log('[refreshSelectionOverlay] No element at index', useIndex);
             }
         }
 
         if (boxes.length === 0) {
-            console.log('[refreshSelectionOverlay] No element found, clearing selection state');
             setSelectionBoxes([]);
             setSelectedElement(null);
             setSelectedPoint(null);
@@ -6354,16 +6326,13 @@ ${partsBodyXml}
         }
 
         if (!primary) {
-            console.log('[refreshSelectionOverlay] No primary box found, returning');
             return;
         }
 
-        console.log('[refreshSelectionOverlay] Setting selectedElement');
         setSelectedElement({ x: primary.x, y: primary.y, w: primary.w, h: primary.h });
         setSelectedPoint({ page: primary.page, x: primary.centerX, y: primary.centerY });
         setSelectedIndex(primary.index);
         setSelectedElementClasses(primary.classes);
-        console.log('[refreshSelectionOverlay] Done updating selection');
     };
 
     const advanceSelectionOverlay = (
@@ -6670,16 +6639,12 @@ ${partsBodyXml}
             // Skip overlay refresh for multi-selections (measure selections with backend highlighting)
             // These don't add .selected classes to DOM, so refreshSelectionOverlay would clear them
             if (preservedMultiSelection) {
-                console.log('[performMutation] Skipping overlay refresh for multi-selection (backend highlighting)');
                 return;
             }
 
-            console.log('[performMutation] Scheduling refresh with preservedIndex:', fallbackIndex, 'preservedPoint:', fallbackPoint);
             if (typeof window !== 'undefined') {
                 window.requestAnimationFrame(() => {
-                    console.log('[performMutation] RAF 1');
                     window.requestAnimationFrame(() => {
-                        console.log('[performMutation] RAF 2, calling refreshSelectionOverlay');
                         if (advanceSelection) {
                             advanceSelectionOverlay(preservedIndex, preservedPoint, advanceStep);
                         } else {
@@ -9883,7 +9848,7 @@ ${partsBodyXml}
                                         </div>
                                     )}
                                 </div>
-                                <div>
+                                <form onSubmit={(e) => e.preventDefault()}>
                                     <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                                         API Key ({AI_PROVIDER_LABELS[aiProvider]})
                                     </label>
@@ -9893,6 +9858,7 @@ ${partsBodyXml}
                                         onChange={(event) => setAiApiKey(event.target.value)}
                                         className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
                                         placeholder="Paste your key"
+                                        autoComplete="off"
                                     />
                                     <div className="mt-1 text-[11px] text-gray-500">
                                         Stored locally in this browser. Requests are sent directly unless a proxy is configured.
@@ -9909,7 +9875,7 @@ ${partsBodyXml}
                                             </a>
                                         </div>
                                     )}
-                                </div>
+                                </form>
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-2 text-xs">
                                         <button
@@ -10341,7 +10307,7 @@ ${partsBodyXml}
                                             />
                                         </div>
                                     </div>
-                                    <div>
+                                    <form onSubmit={(e) => e.preventDefault()}>
                                         <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                                             OpenAI API Key (optional)
                                         </label>
@@ -10351,8 +10317,9 @@ ${partsBodyXml}
                                             onChange={(event) => setAiApiKey(event.target.value)}
                                             className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
                                             placeholder="Used for fallback patch generation"
+                                            autoComplete="off"
                                         />
-                                    </div>
+                                    </form>
                                     <label className="flex items-center gap-2 text-xs text-gray-600">
                                         <input
                                             type="checkbox"
@@ -10418,8 +10385,7 @@ ${partsBodyXml}
                                         )}
                                     </div>
                                     <textarea
-                                        value={musicAgentPrompt}
-                                        onChange={(event) => setMusicAgentPrompt(event.target.value)}
+                                        ref={musicAgentPromptRef}
                                         rows={3}
                                         className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
                                         placeholder="Describe what you want the agent to do."

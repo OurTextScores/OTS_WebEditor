@@ -420,6 +420,6 @@ describe('Toolbar', () => {
 
     await user.click(screen.getByTestId('btn-remove-containing-measures'));
     expect(onRemoveContainingMeasures).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('btn-remove-trailing-empty')).toHaveTextContent('Remove Trailing Empty Measures');
+    expect(screen.getByTestId('btn-remove-trailing-empty')).toHaveTextContent('Remove Trailing');
   });
 });

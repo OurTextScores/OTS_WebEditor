@@ -17,8 +17,11 @@ describe('RootLayout', () => {
     expect(tree.props.lang).toBe('en');
     expect(tree.props.suppressHydrationWarning).toBe(true);
 
-    const body: any = tree.props.children;
-    expect(body.type).toBe('body');
+    const children: any[] = Array.isArray(tree.props.children)
+      ? tree.props.children
+      : [tree.props.children];
+    const body = children.find((c: any) => c?.type === 'body');
+    expect(body).toBeDefined();
     expect(body.props.children).toBe(child);
   });
 });
