@@ -4,6 +4,7 @@ import {
     summarizeScoreArtifact,
     type ScoreArtifact,
 } from '../score-artifacts';
+import { convertMusicNotation } from '../music-conversion';
 import { MusicServiceError } from './errors';
 
 type ContextServiceResult = {
@@ -207,6 +208,7 @@ export async function runMusicContextService(body: unknown): Promise<ContextServ
     const persistArtifact = readBoolean(data?.persistArtifact, data?.persist_artifact, true);
 
     const includeFullXml = readBoolean(data?.includeFullXml, data?.include_full_xml, false);
+    const includeAbc = readBoolean(data?.includeAbc, data?.include_abc, false);
     const includePartList = readBoolean(data?.includePartList, data?.include_part_list, true);
     const includeMeasureRange = readBoolean(data?.includeMeasureRange, data?.include_measure_range, true);
     const includeSearchHits = readBoolean(data?.includeSearchHits, data?.include_search_hits, true);
@@ -294,6 +296,25 @@ export async function runMusicContextService(body: unknown): Promise<ContextServ
     const fullXml = includeFullXml ? truncateText(xml, maxChars) : null;
     const partListOutput = partList ? truncateText(partList, maxChars) : null;
 
+    let abcOutput: { text: string; truncated: boolean } | null = null;
+    if (includeAbc) {
+        try {
+            const conversion = await convertMusicNotation({
+                inputFormat: 'musicxml',
+                outputFormat: 'abc',
+                content: xml,
+            });
+            const truncated = truncateText(conversion.content, maxChars);
+            abcOutput = {
+                text: truncated.text,
+                truncated: truncated.truncated,
+            };
+        } catch (err) {
+            console.error('[context-service] ABC conversion failed:', err);
+            // Non-fatal, just omit ABC from output
+        }
+    }
+
     return {
         status: 200,
         body: {
@@ -304,6 +325,7 @@ export async function runMusicContextService(body: unknown): Promise<ContextServ
                 format: 'musicxml',
                 charLength: xml.length,
                 lineCount: xml.split(/\r?\n/).length,
+                abc: abcOutput,
                 measureCountEstimate: (xml.match(/<measure\b/gi) || []).length,
                 queryCount: queries.length,
                 measureRange: {

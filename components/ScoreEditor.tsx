@@ -5651,6 +5651,7 @@ ${partsBodyXml}
             if (xmlContext.trim()) {
                 toolInput.context = {
                     content: xmlContext,
+                    includeAbc: true,
                 };
                 toolInput.convert = {
                     inputFormat: 'musicxml',

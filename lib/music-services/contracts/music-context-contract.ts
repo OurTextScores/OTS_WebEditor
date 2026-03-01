@@ -17,6 +17,8 @@ export const MUSIC_CONTEXT_TOOL_CONTRACT: MusicToolContract = {
       persist_artifact: { type: 'boolean' },
       includeFullXml: { type: 'boolean' },
       include_full_xml: { type: 'boolean' },
+      includeAbc: { type: 'boolean' },
+      include_abc: { type: 'boolean' },
       includePartList: { type: 'boolean' },
       include_part_list: { type: 'boolean' },
       includeMeasureRange: { type: 'boolean' },

@@ -98,21 +98,64 @@ function summarizeForModel(
   const body = asRecord(fullResult.body);
   if (body) {
     const bodyKeys = Object.keys(body);
-    // Keep scalar fields, drop large ones (content, xml, output with content)
     const bodySnippet: Record<string, unknown> = {};
-    for (const key of bodyKeys) {
-      const val = body[key];
-      if (typeof val === 'string' && val.length > 500) {
-        bodySnippet[key] = `[${val.length} chars omitted]`;
-      } else if (val && typeof val === 'object') {
-        const inner = JSON.stringify(val);
-        if (inner.length > 500) {
-          bodySnippet[key] = `[object, ${inner.length} chars omitted]`;
+
+    // Special handling for music.context tool output to preserve analysis data
+    if (fullResult.tool === 'music_context' && body.context) {
+      const context = asRecord(body.context);
+      if (context) {
+        const summarizedContext: Record<string, unknown> = {
+          format: context.format,
+          charLength: context.charLength,
+          measureCountEstimate: context.measureCountEstimate,
+        };
+        // Preserve ABC if present (it's compact and high-signal)
+        if (context.abc) {
+          summarizedContext.abc = context.abc;
+        }
+        // Preserve part list if small enough
+        if (context.partList) {
+          summarizedContext.partList = context.partList;
+        }
+        // Add summary of measure range
+        const measureRange = asRecord(context.measureRange);
+        if (measureRange) {
+          summarizedContext.measureRange = {
+            start: measureRange.start,
+            end: measureRange.end,
+            count: Array.isArray(measureRange.results) ? measureRange.results.length : 0,
+            note: 'XML snippets omitted in summary; use ABC or full result for analysis.',
+          };
+        }
+        bodySnippet.context = summarizedContext;
+      }
+      // Fill in remaining non-context keys
+      for (const key of bodyKeys) {
+        if (key !== 'context') {
+          const val = body[key];
+          if (typeof val === 'string' && val.length > 500) {
+            bodySnippet[key] = `[${val.length} chars omitted]`;
+          } else {
+            bodySnippet[key] = val;
+          }
+        }
+      }
+    } else {
+      // Default heuristic summarization for other tools
+      for (const key of bodyKeys) {
+        const val = body[key];
+        if (typeof val === 'string' && val.length > 500) {
+          bodySnippet[key] = `[${val.length} chars omitted]`;
+        } else if (val && typeof val === 'object') {
+          const inner = JSON.stringify(val);
+          if (inner.length > 500) {
+            bodySnippet[key] = `[object, ${inner.length} chars omitted]`;
+          } else {
+            bodySnippet[key] = val;
+          }
         } else {
           bodySnippet[key] = val;
         }
-      } else {
-        bodySnippet[key] = val;
       }
     }
     summary.body = bodySnippet;
@@ -655,6 +698,8 @@ function createMusicRouterAgent() {
       'Users may provide PDF or image attachments representing score pages. Use these for analysis or comparison with the current MusicXML when provided.',
       'Choose exactly one tool based on the user request:',
       '- music_context: score context extraction and analysis prep. Call this first when you need to see the score content to answer questions or determine properties like key signature.',
+      '  * Tip: Use `include_abc: true` for a compact, token-efficient representation of the score for analysis.',
+      '  * Tip: If the user request is about specific measures, provide `measureStart` and `measureEnd` to get targeted XML snippets.',
       '- music_convert: format conversion between MusicXML and ABC.',
       '- music_generate: generation/composition requests.',
       '- music_scoreops: deterministic score editing with typed operations.',
