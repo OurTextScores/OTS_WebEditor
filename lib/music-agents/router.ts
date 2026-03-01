@@ -26,6 +26,7 @@ type ToolDefaults = {
 
 type MusicAgentRunnerContext = {
   toolInput?: ToolDefaults;
+  trace?: MusicAgentTraceContext;
 };
 
 type MusicAgentResult = {
@@ -500,10 +501,13 @@ function createMusicRouterAgent() {
 
       // If agent provided structured ops, execute directly (skip regex parsing)
       if (Array.isArray(payload.ops) && payload.ops.length > 0) {
-        traceLog(trace, 'music_agent.scoreops.direct_ops', {
-          opCount: payload.ops.length,
-          hasContent: Boolean(payload.content || payload.text),
-        });
+        const toolTrace = (runContext?.context as MusicAgentRunnerContext | undefined)?.trace;
+        if (toolTrace) {
+          traceLog(toolTrace, 'music_agent.scoreops.direct_ops', {
+            opCount: payload.ops.length,
+            hasContent: Boolean(payload.content || payload.text),
+          });
+        }
         const result = await runMusicScoreOpsService({
           action: 'apply',
           scoreSessionId: payload.scoreSessionId,
@@ -518,11 +522,13 @@ function createMusicRouterAgent() {
             includeMeasureDiff: true,
           },
         }, 'apply');
-        traceLog(trace, 'music_agent.scoreops.direct_ops.result', {
-          status: result.status,
-          hasOutput: Boolean(result.body?.output?.content),
-          bodyKeys: Object.keys(result.body || {}),
-        });
+        if (toolTrace) {
+          traceLog(toolTrace, 'music_agent.scoreops.direct_ops.result', {
+            status: result.status,
+            hasOutput: Boolean(result.body?.output?.content),
+            bodyKeys: Object.keys(result.body || {}),
+          });
+        }
         return { tool: 'music.scoreops', status: result.status, ok: result.status < 400, body: result.body };
       }
 
@@ -655,6 +661,7 @@ export async function runMusicAgentRouter(
       maxTurns,
       context: {
         toolInput: toolInput || undefined,
+        trace,
       } satisfies MusicAgentRunnerContext,
     });
 
