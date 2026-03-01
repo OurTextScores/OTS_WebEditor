@@ -51,7 +51,7 @@ Output ONLY a JSON object in the format: { "patch": { "format": "musicxml-patch@
 Do not include any other text or explanation.`;
 
   try {
-    const response = await fetch(`${baseUrl}/responses`, {
+    const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -60,44 +60,11 @@ Do not include any other text or explanation.`;
       },
       body: JSON.stringify({
         model,
-        input: [
-          { type: 'text', text: systemPrompt },
-          { type: 'text', text: `Score Content:\n${xml}` },
-          { type: 'text', text: `User Prompt: ${prompt}` },
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Score Content:\n${xml}\n\nUser Prompt: ${prompt}` },
         ],
-        output_format: { type: 'json_schema', json_schema: {
-          name: 'music_patch',
-          strict: true,
-          schema: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['patch'],
-            properties: {
-              patch: {
-                type: 'object',
-                additionalProperties: false,
-                required: ['format', 'ops'],
-                properties: {
-                  format: { type: 'string', enum: ['musicxml-patch@1'] },
-                  ops: {
-                    type: 'array',
-                    items: {
-                      type: 'object',
-                      additionalProperties: false,
-                      required: ['op', 'path'],
-                      properties: {
-                        op: { type: 'string', enum: ['replace', 'setText', 'setAttr', 'insertBefore', 'insertAfter', 'delete'] },
-                        path: { type: 'string' },
-                        value: { type: 'string' },
-                        name: { type: 'string' },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          }
-        }},
+        response_format: { type: 'json_object' },
       }),
     });
 
@@ -111,8 +78,7 @@ Do not include any other text or explanation.`;
     }
 
     const result = await response.json();
-    const outputItem = result.output?.[0];
-    const attemptText = outputItem?.content?.[0]?.text || '';
+    const attemptText = result.choices?.[0]?.message?.content || '';
 
     if (!attemptText) {
       return {

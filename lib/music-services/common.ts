@@ -81,6 +81,7 @@ export function errorResult(
   return {
     status,
     body: {
+      ok: false,
       error: {
         code,
         message,
@@ -165,12 +166,14 @@ export async function resolveScoreContent(body: unknown): Promise<ScoreContentRe
       error: errorResult(400, 'invalid_request', 'Missing score content, session, or input artifact.'),
     };
   }
-  if (!looksLikeMusicXml(xml)) {
+  // If it doesn't look like XML, we still return it but flag it
+  // Services like 'convert' might support ABC input.
+  if (!looksLikeMusicXml(xml) && !xml.includes('M:') && !xml.includes('K:')) {
     return {
       xml: '',
       artifact: null,
       session: null,
-      error: errorResult(400, 'invalid_request', 'Input does not look like MusicXML.'),
+      error: errorResult(400, 'invalid_request', 'Input does not look like MusicXML or ABC.'),
     };
   }
   
