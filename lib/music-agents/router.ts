@@ -500,6 +500,10 @@ function createMusicRouterAgent() {
 
       // If agent provided structured ops, execute directly (skip regex parsing)
       if (Array.isArray(payload.ops) && payload.ops.length > 0) {
+        traceLog(trace, 'music_agent.scoreops.direct_ops', {
+          opCount: payload.ops.length,
+          hasContent: Boolean(payload.content || payload.text),
+        });
         const result = await runMusicScoreOpsService({
           action: 'apply',
           scoreSessionId: payload.scoreSessionId,
@@ -508,12 +512,17 @@ function createMusicRouterAgent() {
           content: payload.content || payload.text,
           ops: payload.ops,
           options: {
+            ...(payload.options || {}),
             atomic: true,
             includeXml: true,
             includeMeasureDiff: true,
-            ...(payload.options || {}),
           },
         }, 'apply');
+        traceLog(trace, 'music_agent.scoreops.direct_ops.result', {
+          status: result.status,
+          hasOutput: Boolean(result.body?.output?.content),
+          bodyKeys: Object.keys(result.body || {}),
+        });
         return { tool: 'music.scoreops', status: result.status, ok: result.status < 400, body: result.body };
       }
 
