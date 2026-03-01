@@ -554,6 +554,9 @@ export default function ScoreEditor() {
     const [score, setScore] = useState<Score | null>(null);
     const [scoreSessionId, setScoreSessionId] = useState<string | null>(null);
     const [scoreRevision, setScoreRevision] = useState<number>(0);
+    const lastSyncedXmlRef = useRef<string>('');
+    const lastSyncedRevisionRef = useRef<number>(-1);
+    const isSyncingRef = useRef<boolean>(false);
     const scoreRef = useRef<Score | null>(null);
     const [zoom, setZoom] = useState(1.0);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -2254,10 +2257,18 @@ ${partsBodyXml}
     }, [xmlText, getScoreXmlData]);
 
     const openScoreSession = useCallback(async (xml?: string) => {
+        if (isSyncingRef.current) return;
+        
         try {
             const content = xml || await resolveXmlContext();
             if (!content.trim()) return;
 
+            // Skip if content and revision haven't changed since last successful sync
+            if (content === lastSyncedXmlRef.current && scoreRevision === lastSyncedRevisionRef.current) {
+                return;
+            }
+
+            isSyncingRef.current = true;
             const isSync = Boolean(scoreSessionId);
             const endpoint = isSync ? '/api/music/scoreops/sync' : '/api/music/scoreops/session/open';
             const body: any = { content };
@@ -2277,22 +2288,33 @@ ${partsBodyXml}
                     setScoreSessionId(result.scoreSessionId);
                     const nextRev = result.newRevision ?? result.revision ?? 0;
                     setScoreRevision(nextRev);
+                    lastSyncedXmlRef.current = content;
+                    lastSyncedRevisionRef.current = nextRev;
                     console.info(`[session] ${isSync ? 'Synced' : 'Opened'} score session: ${result.scoreSessionId}, revision: ${nextRev}`);
                 }
             }
         } catch (err) {
             console.warn('[session] Failed to open/sync score session:', err);
+        } finally {
+            isSyncingRef.current = false;
         }
     }, [resolveXmlContext, scoreSessionId, scoreRevision]);
 
-    // Automatically open/sync session when score changes
+    // Automatically open/sync session when score changes (debounced)
     useEffect(() => {
-        if (score) {
-            openScoreSession();
-        } else {
+        if (!score) {
             setScoreSessionId(null);
             setScoreRevision(0);
+            lastSyncedXmlRef.current = '';
+            lastSyncedRevisionRef.current = -1;
+            return;
         }
+
+        const timer = setTimeout(() => {
+            openScoreSession();
+        }, 1000);
+
+        return () => clearTimeout(timer);
     }, [score, openScoreSession]);
 
     const extractJsonFromResponse = (responseText: string) => {
