@@ -10,7 +10,8 @@ export type ScoreOpsSessionState = {
   updatedAt: string;
 };
 
-const sessions = new Map<string, ScoreOpsSessionState>();
+const sessions = (globalThis as any).scoreOpsSessions || new Map<string, ScoreOpsSessionState>();
+(globalThis as any).scoreOpsSessions = sessions;
 
 export function computeScoreHash(content: string) {
   return `sha256:${createHash('sha256').update(content, 'utf8').digest('hex')}`;

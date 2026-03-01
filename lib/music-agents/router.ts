@@ -86,7 +86,7 @@ function extractTextFromPrompt(prompt: string | AgentInputItem[]): string {
 }
 
 /** Maximum size (in characters) of the serialized tool result returned to the model. */
-const MAX_TOOL_RESULT_CHARS = 4000;
+const MAX_TOOL_RESULT_CHARS = 100000;
 
 /**
  * Summarize a tool result for the model.  We strip large fields (like full
@@ -133,6 +133,10 @@ function summarizeForModel(
         // Preserve ABC if present (it's compact and high-signal)
         if (context.abc) {
           summarizedContext.abc = context.abc;
+        }
+        // Preserve fingerprint (high-signal analytical data)
+        if (context.fingerprint) {
+          summarizedContext.fingerprint = context.fingerprint;
         }
         // Preserve part list if small enough
         if (context.partList) {
@@ -795,7 +799,8 @@ function createMusicRouterAgent() {
       'Users may provide PDF or image attachments representing score pages. Use these for analysis or comparison with the current MusicXML when provided.',
       'Choose exactly one tool based on the user request:',
       '- music_context: score context extraction and analysis prep. Call this first when you need to see the score content to answer questions or determine properties like key signature.',
-      '  * Tip: Use `include_abc: true` for a compact, token-efficient representation of the score for analysis.',
+      '  * Tip: Use `include_abc: true` for a compact representation.',
+      '  * Tip: Use the `fingerprint` object in the result for high-level musical facts (note distribution, key/time signatures) to justify your harmonic reasoning.',
       '  * Tip: If the user request is about specific measures, provide `measureStart` and `measureEnd` to get targeted XML snippets.',
       '- music_render: generate a visual snapshot (PNG/PDF) of the score.',
       '  * Tip: Use this when you need to see visual notation particulars, layout, or symbols not easily captured in XML/ABC.',
@@ -805,6 +810,9 @@ function createMusicRouterAgent() {
       '- music_patch: score edit requests that should produce a musicxml-patch@1 payload.',
       '',
       'When you need to analyze the score (e.g., determine current key signature from notes), call music_context first.',
+      'If you need to see the score visual layout or particulars, call music_render.',
+      'NEVER ask the user to provide the MusicXML, PDF, or image of the current score unless you have first tried the tools and they failed.',
+      'If a tool returns "session_not_found", it means the server-side cache was cleared; in this case, and ONLY in this case, should you ask the user to "Refresh the score session".',
       'If you are in a persistent session, you can call music_context periodically to refresh your knowledge of the score if you suspect it has changed.',
       'After receiving context, if you need to make changes, call music_scoreops in a second step.',
       '',

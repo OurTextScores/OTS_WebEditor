@@ -29,7 +29,7 @@ type SearchHit = {
 };
 
 const DEFAULT_MAX_CHARS = 20_000;
-const MAX_MAX_CHARS = 200_000;
+const MAX_MAX_CHARS = 500_000;
 const DEFAULT_MEASURE_LIMIT = 32;
 const MAX_MEASURE_LIMIT = 256;
 const DEFAULT_SEARCH_LIMIT = 12;
@@ -177,6 +177,54 @@ function extractSearchHits(
     return hits;
 }
 
+/**
+ * Computes a high-signal "analytical fingerprint" of the score content.
+ * This is designed to survive summarization and provide the model with 
+ * the essential musical facts needed for harmonic analysis.
+ */
+function computeAnalyticalFingerprint(xml: string) {
+    // 1. Key Signatures (Initial and Changes)
+    const keyMatches = [...xml.matchAll(/<fifths>([-]?\d+)<\/fifths>(?:\s*<mode>(.*?)<\/mode>)?/gi)];
+    const keys = keyMatches.map(m => ({ 
+        fifths: parseInt(m[1], 10), 
+        mode: m[2] || 'major' 
+    }));
+
+    // 2. Time Signatures
+    const timeMatches = [...xml.matchAll(/<beats>(\d+)<\/beats>\s*<beat-type>(\d+)<\/beat-type>/gi)];
+    const timeSignatures = timeMatches.map(m => `${m[1]}/${m[2]}`);
+
+    // 3. Note Distribution (Chromagram-ish)
+    // Simple regex to find step + alter combinations
+    const noteRegex = /<step>([A-G])<\/step>(?:\s*<alter>([-]?\d+)<\/alter>)?/gi;
+    const histogram: Record<string, number> = {};
+    let totalNotes = 0;
+    
+    let match;
+    while ((match = noteRegex.exec(xml)) !== null) {
+        const step = match[1];
+        const alter = match[2] ? parseInt(match[2], 10) : 0;
+        const noteName = alter === 0 ? step : (alter > 0 ? `${step}#` : `${step}b`);
+        histogram[noteName] = (histogram[noteName] || 0) + 1;
+        totalNotes++;
+    }
+
+    // 4. Structural hints
+    const measureCount = (xml.match(/<measure\b/gi) || []).length;
+    const parts = [...xml.matchAll(/<score-part id="([^"]+)">\s*<part-name>(.*?)<\/part-name>/gi)]
+        .map(m => ({ id: m[1], name: m[2] }));
+
+    return {
+        initialKey: keys[0] || null,
+        keyChanges: keys.slice(1),
+        initialTimeSignature: timeSignatures[0] || null,
+        noteHistogram: histogram,
+        totalNotes,
+        measureCount,
+        parts
+    };
+}
+
 export async function runMusicContextService(body: unknown): Promise<ContextServiceResult> {
     const data = asRecord(body);
     const resolution = await resolveScoreContent(body);
@@ -203,6 +251,7 @@ export async function runMusicContextService(body: unknown): Promise<ContextServ
 
     const includeFullXml = readBoolean(data?.includeFullXml, data?.include_full_xml, false);
     const includeAbc = readBoolean(data?.includeAbc, data?.include_abc, false);
+    const includeFingerprint = readBoolean(data?.includeFingerprint, data?.include_fingerprint, true);
     const includePartList = readBoolean(data?.includePartList, data?.include_part_list, true);
     const includeMeasureRange = readBoolean(data?.includeMeasureRange, data?.include_measure_range, true);
     const includeSearchHits = readBoolean(data?.includeSearchHits, data?.include_search_hits, true);
@@ -251,6 +300,7 @@ export async function runMusicContextService(body: unknown): Promise<ContextServ
         : [];
     const fullXml = includeFullXml ? truncateText(xml, maxChars) : null;
     const partListOutput = partList ? truncateText(partList, maxChars) : null;
+    const fingerprint = includeFingerprint ? computeAnalyticalFingerprint(xml) : null;
 
     let abcOutput: { text: string; truncated: boolean } | null = null;
     if (includeAbc) {
@@ -284,6 +334,7 @@ export async function runMusicContextService(body: unknown): Promise<ContextServ
                 charLength: xml.length,
                 lineCount: xml.split(/\r?\n/).length,
                 abc: abcOutput,
+                fingerprint,
                 measureCountEstimate: (xml.match(/<measure\b/gi) || []).length,
                 queryCount: queries.length,
                 measureRange: {

@@ -5794,6 +5794,13 @@ ${partsBodyXml}
             const parsed = asRecord(parsedPayload) || {};
             setMusicAgentResult(parsed);
 
+            // Handle session_not_found by clearing local session state to trigger re-open on next turn
+            if (parsed.error?.toString().includes('session_not_found')) {
+                setScoreSessionId(null);
+                setScoreRevision(0);
+                console.warn('[session] Server session not found; cleared local session ID.');
+            }
+
             selectedTool = typeof parsed?.selectedTool === 'string' ? parsed.selectedTool : '';
             // Parse result from JSON string if needed (structured output compatibility)
             let parsedResult: unknown;
