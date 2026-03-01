@@ -64,7 +64,11 @@ function extractTextFromPrompt(prompt: string | AgentInputItem[]): string {
     return prompt;
   }
   return prompt
-    .map((item) => ('text' in item ? item.text : ''))
+    .map((item) => {
+      if ('text' in item) return item.text;
+      if ('type' in item && item.type === 'input_text') return (item as any).text;
+      return '';
+    })
     .filter(Boolean)
     .join('\n');
 }
@@ -788,7 +792,7 @@ export async function runMusicAgentRouter(
     hasToolInput: Boolean(data?.toolInput),
     useFallbackOnly: Boolean(data?.useFallbackOnly),
   });
-  if (!promptText) {
+  if (!promptText.trim()) {
     traceLog(trace, 'music_agent.router.invalid_request', {
       reason: 'missing_prompt',
     }, 'warn');
@@ -856,7 +860,7 @@ export async function runMusicAgentRouter(
       toolInput: toolInput || undefined,
       trace,
     };
-    const agentPromise = run(agent, prompt, {
+    const agentPromise = run(agent, promptText, {
       maxTurns,
       context: runContext,
     });

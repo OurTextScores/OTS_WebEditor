@@ -974,7 +974,7 @@ export async function renderMusicSnapshot(request: MusicRenderRequest): Promise<
             ? (await fileExists('/usr/bin/xvfb-run') ? '/usr/bin/xvfb-run' : (await fileExists('/bin/xvfb-run') ? '/bin/xvfb-run' : null))
             : null;
 
-        const argv = ['-o', outputPath];
+        const argv = ['-f', '-o', outputPath];
         if (request.dpi && format === 'png') {
             argv.push('-r', String(request.dpi));
         }
