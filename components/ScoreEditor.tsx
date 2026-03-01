@@ -5707,21 +5707,29 @@ ${partsBodyXml}
 
             selectedTool = typeof parsed?.selectedTool === 'string' ? parsed.selectedTool : '';
             // Parse result from JSON string if needed (structured output compatibility)
-            const parsedResult = (() => {
-                const raw = parsed?.result;
-                // eslint-disable-next-line no-console
-                console.log('Raw result:', raw);
-                if (typeof raw === 'string' && raw.trim()) {
-                    try {
-                        return JSON.parse(raw);
-                    } catch {
-                        return {};
-                    }
-                }
-                return raw;
-            })();
+            let parsedResult: unknown;
+            const raw = parsed?.result;
             // eslint-disable-next-line no-console
-            console.log('Parsed result:', parsedResult);
+            console.log('Raw result type:', typeof raw);
+            // eslint-disable-next-line no-console
+            console.log('Raw result length:', typeof raw === 'string' ? raw.length : 'N/A');
+            if (typeof raw === 'string' && raw.trim()) {
+                try {
+                    parsedResult = JSON.parse(raw);
+                    // eslint-disable-next-line no-console
+                    console.log('Parsed result successfully');
+                } catch (e) {
+                    // eslint-disable-next-line no-console
+                    console.error('Failed to parse result:', e);
+                    parsedResult = {};
+                }
+            } else {
+                parsedResult = raw;
+            }
+            // eslint-disable-next-line no-console
+            console.log('Parsed result type:', typeof parsedResult);
+            // eslint-disable-next-line no-console
+            console.log('Parsed result keys:', parsedResult && typeof parsedResult === 'object' ? Object.keys(parsedResult as object) : 'N/A');
             if (selectedTool === 'music.patch') {
                 const resultPayload = asRecord(parsedResult);
                 const maybePatch = asRecord(resultPayload?.patch);
