@@ -682,6 +682,7 @@ export default function ScoreEditor() {
     const [musicAgentMaxTurns, setMusicAgentMaxTurns] = useState(6);
     const [musicAgentUseFallbackOnly, setMusicAgentUseFallbackOnly] = useState(false);
     const [musicAgentIncludeCurrentXml, setMusicAgentIncludeCurrentXml] = useState(true);
+    const [musicAgentFiles, setMusicAgentFiles] = useState<File[]>([]);
     const [musicAgentBusy, setMusicAgentBusy] = useState(false);
     const [musicAgentError, setMusicAgentError] = useState<string | null>(null);
     const [musicAgentResult, setMusicAgentResult] = useState<Record<string, unknown> | null>(null);
@@ -2225,6 +2226,15 @@ ${partsBodyXml}
         const data = await targetScore.saveMsc('mscx');
         return await decodeXmlData(data);
     }, [decodeXmlData]);
+
+    const fileToBase64 = useCallback((file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = (error) => reject(error);
+        });
+    }, []);
 
     const resolveXmlContext = useCallback(async () => {
         if (xmlText.trim()) {
@@ -5664,8 +5674,25 @@ ${partsBodyXml}
                 };
             }
 
+            let finalPrompt: string | Array<Record<string, any>> = prompt;
+            if (musicAgentFiles.length > 0) {
+                const promptParts: Array<Record<string, any>> = [
+                    { type: 'input_text', text: prompt }
+                ];
+                for (const file of musicAgentFiles) {
+                    const base64 = await fileToBase64(file);
+                    const isImage = file.type.startsWith('image/');
+                    promptParts.push({
+                        type: isImage ? 'input_image' : 'input_file',
+                        [isImage ? 'image' : 'file']: { url: base64 },
+                        filename: file.name
+                    });
+                }
+                finalPrompt = promptParts;
+            }
+
             const payload: Record<string, unknown> = {
-                prompt,
+                prompt: finalPrompt,
                 maxTurns: Math.max(1, Math.floor(musicAgentMaxTurns) || 1),
             };
             const model = musicAgentModel.trim();
@@ -5685,7 +5712,15 @@ ${partsBodyXml}
             }
 
             if (musicAgentPromptRef.current) musicAgentPromptRef.current.value = '';
-            setMusicAgentThread((prev) => [...prev, { role: 'user', text: prompt }]);
+            const attachedFiles = [...musicAgentFiles];
+            setMusicAgentFiles([]);
+            setMusicAgentThread((prev) => [
+                ...prev,
+                {
+                    role: 'user',
+                    text: prompt + (attachedFiles.length > 0 ? `\n\n[Attached: ${attachedFiles.map(f => f.name).join(', ')}]` : '')
+                }
+            ]);
 
             requestIssued = true;
             telemetryCountersRef.current.aiRequests += 1;
@@ -10338,6 +10373,51 @@ ${partsBodyXml}
                                         />
                                         Force fallback mode (no Agents SDK run)
                                     </label>
+                                    <div className="space-y-1">
+                                        <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                            <span>Attachments (PDF/Images)</span>
+                                            {musicAgentFiles.length > 0 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setMusicAgentFiles([])}
+                                                    className="text-blue-600 hover:underline"
+                                                >
+                                                    Clear All
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="flex flex-wrap gap-1 mb-1">
+                                            {musicAgentFiles.map((file, idx) => (
+                                                <div key={idx} className="flex items-center gap-1 bg-gray-100 rounded px-2 py-0.5 text-[10px] text-gray-700">
+                                                    <span className="truncate max-w-[100px]">{file.name}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setMusicAgentFiles(prev => prev.filter((_, i) => i !== idx))}
+                                                        className="text-gray-400 hover:text-red-500 font-bold"
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <input
+                                            type="file"
+                                            multiple
+                                            data-testid="input-agent-files"
+                                            accept="application/pdf,image/*"
+                                            onChange={(e) => {
+                                                const files = Array.from(e.target.files || []);
+                                                setMusicAgentFiles(prev => [...prev, ...files]);
+                                                e.target.value = '';
+                                            }}
+                                            className="block w-full text-xs text-gray-500
+                                                file:mr-2 file:py-1 file:px-2
+                                                file:rounded file:border-0
+                                                file:text-xs file:font-semibold
+                                                file:bg-blue-50 file:text-blue-700
+                                                hover:file:bg-blue-100"
+                                        />
+                                    </div>
                                 </div>
                                 <div className="space-y-2">
                                     <div className="flex items-center justify-between text-xs text-gray-500">

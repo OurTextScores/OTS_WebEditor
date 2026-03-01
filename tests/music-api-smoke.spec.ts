@@ -386,6 +386,26 @@ const HAS_API_KEY = Boolean(process.env.OPENAI_API_KEY);
 test.describe('Music Agent SDK E2E', () => {
   test.skip(!HAS_API_KEY, 'Requires OPENAI_API_KEY');
 
+  test('handles multimodal prompt with PDF attachment', async ({ request }) => {
+    const response = await request.post('/api/music/agent', {
+      data: {
+        prompt: [
+          { type: 'input_text', text: 'Analyze the key signature of this PDF score.' },
+          { type: 'input_file', file: { url: 'data:application/pdf;base64,JVBERi0xLjQKJ...' }, filename: 'score.pdf' }
+        ],
+        toolInput: {
+          context: { content: MINIMAL_XML }
+        }
+      },
+      timeout: 90_000,
+    });
+
+    expect(response.ok()).toBeTruthy();
+    const json = await response.json();
+    expect(['agents-sdk', 'fallback']).toContain(json.mode);
+    expect(json.selectedTool).toMatch(/^music\./);
+  });
+
   test('routes a scoreops prompt and returns structured output', async ({ request }) => {
     const response = await request.post('/api/music/agent', {
       data: {

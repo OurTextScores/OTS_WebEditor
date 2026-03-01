@@ -8,7 +8,7 @@ export default defineConfig({
     timeout: 10 * 1000,
   },
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: process.env.BASE_URL || 'http://localhost:3000',
     headless: true,
   },
   webServer: {

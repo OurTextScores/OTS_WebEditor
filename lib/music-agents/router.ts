@@ -1,4 +1,4 @@
-import { Agent, run, tool } from '@openai/agents';
+import { Agent, run, tool, type AgentInputItem } from '@openai/agents';
 import { z } from 'zod';
 import { runMusicContextService } from '../music-services/context-service';
 import { runMusicConvertService } from '../music-services/convert-service';
@@ -52,6 +52,19 @@ type RunMusicAgentRouterOptions = {
 const asRecord = (value: unknown): Record<string, unknown> | null => (
   value && typeof value === 'object' ? value as Record<string, unknown> : null
 );
+
+/**
+ * Extracts a flattened text representation from a prompt that might be a string or multimodal array.
+ */
+function extractTextFromPrompt(prompt: string | AgentInputItem[]): string {
+  if (typeof prompt === 'string') {
+    return prompt;
+  }
+  return prompt
+    .map((item) => ('text' in item ? item.text : ''))
+    .filter(Boolean)
+    .join('\n');
+}
 
 /** Maximum size (in characters) of the serialized tool result returned to the model. */
 const MAX_TOOL_RESULT_CHARS = 4000;
@@ -148,8 +161,8 @@ function traceLog(
   });
 }
 
-function classifyPrompt(prompt: string): MusicAgentToolName {
-  const normalized = prompt.toLowerCase();
+function classifyPrompt(prompt: string | AgentInputItem[]): MusicAgentToolName {
+  const normalized = extractTextFromPrompt(prompt).toLowerCase();
   const isGenerate = /\b(generate|compose|write|create|new score|melody|variation)\b/.test(normalized);
   if (isGenerate) {
     return 'music.generate';
@@ -181,7 +194,7 @@ function extractPlannerDetails(scoreOpsBody: Record<string, unknown> | null) {
 }
 
 async function runPatchFallback(
-  prompt: string,
+  prompt: string | AgentInputItem[],
   patchDefaults: Record<string, unknown>,
   scoreOpsAttempt: unknown,
   reason: string,
@@ -190,11 +203,12 @@ async function runPatchFallback(
   traceLog(trace, 'music_agent.patch_fallback.start', {
     reason,
   });
+  const promptText = extractTextFromPrompt(prompt);
   const patchPayload = {
     ...patchDefaults,
     prompt: typeof patchDefaults.prompt === 'string' && patchDefaults.prompt.trim()
       ? patchDefaults.prompt
-      : prompt,
+      : promptText,
   };
   const patchResult = trace?.traceContext
     ? await runMusicPatchService(patchPayload, { traceContext: trace.traceContext })
@@ -220,12 +234,13 @@ async function runPatchFallback(
 }
 
 async function runFallbackRouter(
-  prompt: string,
+  prompt: string | AgentInputItem[],
   toolInput?: ToolDefaults,
   trace?: MusicAgentTraceContext,
 ): Promise<MusicAgentResult> {
   try {
     const selectedTool = classifyPrompt(prompt);
+    const promptText = extractTextFromPrompt(prompt);
     traceLog(trace, 'music_agent.fallback.selected_tool', {
       selectedTool,
     });
@@ -233,7 +248,7 @@ async function runFallbackRouter(
     const generatePayload = {
       ...(toolInput?.generate || {}),
       dryRun: true,
-      prompt: (toolInput?.generate?.prompt as string | undefined) || prompt,
+      prompt: (toolInput?.generate?.prompt as string | undefined) || promptText,
     };
     const result = trace?.traceContext
       ? await runMusicGenerateService(generatePayload, { traceContext: trace.traceContext })
@@ -282,7 +297,7 @@ async function runFallbackRouter(
       ...patchDefaults,
       prompt: typeof patchDefaults.prompt === 'string' && patchDefaults.prompt.trim()
         ? patchDefaults.prompt
-        : prompt,
+        : promptText,
     };
     const result = trace?.traceContext
       ? await runMusicPatchService(patchPayload, { traceContext: trace.traceContext })
@@ -345,7 +360,7 @@ async function runFallbackRouter(
       ...scoreOpsDefaults,
       prompt: typeof scoreOpsDefaults.prompt === 'string' && scoreOpsDefaults.prompt.trim()
         ? scoreOpsDefaults.prompt
-        : prompt,
+        : promptText,
     };
     const scoreOpsResult = await runMusicScoreOpsPromptService(scoreOpsPayload);
     const scoreOpsBody = asRecord(scoreOpsResult.body);
@@ -637,6 +652,7 @@ function createMusicRouterAgent() {
     model: DEFAULT_MODEL,
     instructions: [
       'You are a music workflow router.',
+      'Users may provide PDF or image attachments representing score pages. Use these for analysis or comparison with the current MusicXML when provided.',
       'Choose exactly one tool based on the user request:',
       '- music_context: score context extraction and analysis prep. Call this first when you need to see the score content to answer questions or determine properties like key signature.',
       '- music_convert: format conversion between MusicXML and ABC.',
@@ -684,14 +700,20 @@ export async function runMusicAgentRouter(
   const trace = options?.trace;
   try {
   const data = asRecord(body);
-  const prompt = typeof data?.prompt === 'string' ? data.prompt.trim() : '';
+  const promptRaw = data?.prompt;
+  const prompt = (typeof promptRaw === 'string' || Array.isArray(promptRaw))
+    ? promptRaw as string | AgentInputItem[]
+    : '';
+  const promptText = extractTextFromPrompt(prompt);
+
   traceLog(trace, 'music_agent.router.start', {
-    hasPrompt: Boolean(prompt),
-    promptLength: prompt.length,
+    hasPrompt: Boolean(promptText),
+    promptLength: promptText.length,
+    isMultimodal: Array.isArray(prompt),
     hasToolInput: Boolean(data?.toolInput),
     useFallbackOnly: Boolean(data?.useFallbackOnly),
   });
-  if (!prompt) {
+  if (!promptText) {
     traceLog(trace, 'music_agent.router.invalid_request', {
       reason: 'missing_prompt',
     }, 'warn');
@@ -744,6 +766,7 @@ export async function runMusicAgentRouter(
   traceLog(trace, 'music_agent.router.agents_sdk.start', {
     model: requestedModel || DEFAULT_MODEL,
     maxTurns,
+    isMultimodal: Array.isArray(prompt),
   });
   const agent = createMusicRouterAgent();
   if (requestedModel) {
@@ -753,7 +776,7 @@ export async function runMusicAgentRouter(
   const AGENT_TIMEOUT_MS = 60_000;
 
   try {
-    console.info(`[music-agent] Starting agent run: model=${requestedModel || DEFAULT_MODEL}, maxTurns=${maxTurns}`);
+    console.info(`[music-agent] Starting agent run: model=${requestedModel || DEFAULT_MODEL}, maxTurns=${maxTurns}, multimodal=${Array.isArray(prompt)}`);
     const runContext: MusicAgentRunnerContext = {
       toolInput: toolInput || undefined,
       trace,
