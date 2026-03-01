@@ -5,13 +5,14 @@ import {
   MUSIC_GENERATE_TOOL_CONTRACT,
   MUSIC_PATCH_TOOL_CONTRACT,
   MUSIC_SCOREOPS_TOOL_CONTRACT,
+  MUSIC_RENDER_TOOL_CONTRACT,
   MUSIC_TOOL_CONTRACTS,
 } from '../lib/music-services/contracts';
 
 describe('music service tool contracts', () => {
   it('exports a stable set of uniquely named contracts', () => {
     const names = MUSIC_TOOL_CONTRACTS.map((contract) => contract.name);
-    expect(names).toEqual(['music.context', 'music.convert', 'music.generate', 'music.patch', 'music.scoreops']);
+    expect(names).toEqual(['music.context', 'music.convert', 'music.generate', 'music.patch', 'music.scoreops', 'music.render']);
     expect(new Set(names).size).toBe(names.length);
   });
 
@@ -61,6 +62,16 @@ describe('music service tool contracts', () => {
       type: 'object',
     });
     expect(MUSIC_SCOREOPS_TOOL_CONTRACT.outputSchema).toMatchObject({
+      oneOf: expect.any(Array),
+    });
+  });
+
+  it('declares required render contract fields', () => {
+    expect(MUSIC_RENDER_TOOL_CONTRACT.description.length).toBeGreaterThan(0);
+    expect(MUSIC_RENDER_TOOL_CONTRACT.inputSchema).toMatchObject({
+      type: 'object',
+    });
+    expect(MUSIC_RENDER_TOOL_CONTRACT.outputSchema).toMatchObject({
       oneOf: expect.any(Array),
     });
   });

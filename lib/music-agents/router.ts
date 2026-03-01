@@ -1,4 +1,6 @@
 import { Agent, run, tool, type AgentInputItem } from '@openai/agents';
+import { OpenAIResponsesModel } from '@openai/agents-openai';
+import { OpenAI } from 'openai';
 import { z } from 'zod';
 import { runMusicContextService } from '../music-services/context-service';
 import { runMusicConvertService } from '../music-services/convert-service';
@@ -55,6 +57,15 @@ type RunMusicAgentRouterOptions = {
 const asRecord = (value: unknown): Record<string, unknown> | null => (
   value && typeof value === 'object' ? value as Record<string, unknown> : null
 );
+
+/**
+ * Creates a scoped model instance tied to a specific API key.
+ * This avoids mutating process.env globally.
+ */
+function getModelForRequest(apiKey: string, modelName: string) {
+  const client = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
+  return new OpenAIResponsesModel(client, modelName);
+}
 
 /**
  * Extracts a flattened text representation from a prompt that might be a string or multimodal array.
@@ -833,12 +844,6 @@ export async function runMusicAgentRouter(
     }
   }
 
-  // If using request-provided API key, temporarily set it for the Agents SDK
-  const priorApiKey = process.env.OPENAI_API_KEY;
-  if (requestApiKey) {
-    process.env.OPENAI_API_KEY = requestApiKey;
-  }
-
   const requestedModel = typeof data?.model === 'string' ? data.model.trim() : '';
   const maxTurnsRaw = Number(data?.maxTurns);
   const maxTurns = Number.isFinite(maxTurnsRaw) && maxTurnsRaw > 0 ? Math.floor(maxTurnsRaw) : 6;
@@ -848,7 +853,12 @@ export async function runMusicAgentRouter(
     isMultimodal: Array.isArray(prompt),
   });
   const agent = createMusicRouterAgent();
-  if (requestedModel) {
+  
+  if (requestApiKey) {
+    // Override the agent's model with one tied to the user's specific key
+    // This ensures concurrency safety.
+    agent.model = getModelForRequest(requestApiKey, requestedModel || DEFAULT_MODEL);
+  } else if (requestedModel) {
     agent.model = requestedModel;
   }
 
@@ -935,15 +945,6 @@ export async function runMusicAgentRouter(
           fallbackError: fallbackError instanceof Error ? fallbackError.message : 'Fallback also failed',
         },
       };
-    }
-  } finally {
-    // Restore original API key
-    if (requestApiKey) {
-      if (priorApiKey !== undefined) {
-        process.env.OPENAI_API_KEY = priorApiKey;
-      } else {
-        delete process.env.OPENAI_API_KEY;
-      }
     }
   }
   } catch (error) {
