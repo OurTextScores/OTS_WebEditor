@@ -8,6 +8,7 @@ const mocked = vi.hoisted(() => ({
   runMusicScoreOpsPromptService: vi.fn(),
   runMusicScoreOpsService: vi.fn(),
   runMusicPatchService: vi.fn(),
+  runMusicRenderService: vi.fn(),
 }));
 
 vi.mock('@openai/agents', () => {
@@ -43,6 +44,10 @@ vi.mock('../lib/music-services/scoreops-service', () => ({
 
 vi.mock('../lib/music-services/patch-service', () => ({
   runMusicPatchService: mocked.runMusicPatchService,
+}));
+
+vi.mock('../lib/music-services/render-service', () => ({
+  runMusicRenderService: mocked.runMusicRenderService,
 }));
 
 import { runMusicAgentRouter } from '../lib/music-agents/router';
@@ -405,6 +410,36 @@ describe('runMusicAgentRouter', () => {
     expect(result.body).toMatchObject({
       mode: 'agents-sdk',
       selectedTool: 'music.scoreops',
+      toolOk: true,
+    });
+    expect(mocked.run).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls music_render tool via Agents SDK', async () => {
+    process.env.OPENAI_API_KEY = 'test-key';
+    mocked.run.mockResolvedValue({
+      finalOutput: {
+        selectedTool: 'music_render',
+        toolStatus: 200,
+        toolOk: true,
+        response: 'Visual snapshot generated.',
+        result: { format: 'png', dataUrl: 'data:image/png;base64,...' },
+      },
+    });
+
+    const result = await runMusicAgentRouter({
+      prompt: 'Show me what this score looks like',
+      toolInput: {
+        render: {
+          content: '<score-partwise version="3.1"></score-partwise>',
+        },
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({
+      mode: 'agents-sdk',
+      selectedTool: 'music.render',
       toolOk: true,
     });
     expect(mocked.run).toHaveBeenCalledTimes(1);

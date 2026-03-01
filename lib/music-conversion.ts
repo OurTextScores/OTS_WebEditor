@@ -951,6 +951,59 @@ function sanitizeFilename(filename: string, fallbackFormat: MusicFormat) {
     return `${stripExtension(safe)}.musicxml`;
 }
 
+export type MusicRenderRequest = {
+    content: string;
+    format: 'pdf' | 'png';
+    timeoutMs?: number;
+    dpi?: number;
+};
+
+export async function renderMusicSnapshot(request: MusicRenderRequest): Promise<{ buffer: Buffer; mimeType: string }> {
+    const config = getMusicConversionToolConfig();
+    const timeoutMs = request.timeoutMs || config.renderSmokeTimeoutMs;
+    const format = request.format;
+    const mimeType = format === 'pdf' ? 'application/pdf' : 'image/png';
+
+    const tempDir = await mkdtemp(join(tmpdir(), 'ots-music-render-'));
+    try {
+        const xmlPath = join(tempDir, 'input.musicxml');
+        const outputPath = join(tempDir, `output.${format}`);
+        await writeFile(xmlPath, normalizeMusicXmlTextWithReport(request.content).content, 'utf8');
+
+        const xvfbRunPath = !process.env.DISPLAY
+            ? (await fileExists('/usr/bin/xvfb-run') ? '/usr/bin/xvfb-run' : (await fileExists('/bin/xvfb-run') ? '/bin/xvfb-run' : null))
+            : null;
+
+        const argv = ['-o', outputPath];
+        if (request.dpi && format === 'png') {
+            argv.push('-r', String(request.dpi));
+        }
+        argv.push(xmlPath);
+
+        const { result } = await runCommandWithCandidates({
+            candidates: config.musescoreBins,
+            argv,
+            cwd: tempDir,
+            timeoutMs,
+            wrapperCommand: xvfbRunPath || undefined,
+            wrapperArgvPrefix: xvfbRunPath ? ['-a'] : undefined,
+        });
+
+        if ((result.exitCode ?? 1) !== 0) {
+            throw new Error(`MuseScore render failed with code ${result.exitCode}: ${result.stderr}`);
+        }
+
+        if (!(await fileExists(outputPath))) {
+            throw new Error(`MuseScore exited successfully but ${outputPath} was not found.`);
+        }
+
+        const buffer = await readFile(outputPath);
+        return { buffer, mimeType };
+    } finally {
+        await rm(tempDir, { recursive: true, force: true });
+    }
+}
+
 export async function convertMusicNotation(request: MusicConversionRequest): Promise<MusicConversionResult> {
     const startedAt = Date.now();
     const { inputFormat, outputFormat, content } = request;

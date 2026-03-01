@@ -568,4 +568,28 @@ test.describe('Music Agent SDK E2E', () => {
     // fix should keep responses fast with small fixtures
     expect(elapsed).toBeLessThan(30_000);
   });
+
+  test('routes a render snapshot prompt', async ({ request }) => {
+    const response = await request.post('/api/music/agent', {
+      data: {
+        prompt: 'Generate a PNG snapshot of this score',
+        toolInput: {
+          render: { content: SCALE_XML, format: 'png' },
+        },
+      },
+      timeout: 90_000,
+    });
+
+    expect(response.ok()).toBeTruthy();
+    const json = await response.json();
+    expect(['agents-sdk', 'fallback']).toContain(json.mode);
+    if (json.mode === 'agents-sdk') {
+      expect(json.selectedTool).toBe('music.render');
+      if (json.result) {
+        const parsed = typeof json.result === 'string' ? JSON.parse(json.result) : json.result;
+        expect(parsed.body).toHaveProperty('dataUrl');
+        expect(parsed.body.dataUrl).toMatch(/^data:image\/png;base64,/);
+      }
+    }
+  });
 });

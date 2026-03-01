@@ -5673,6 +5673,9 @@ ${partsBodyXml}
                         includeMeasureDiff: true,
                     },
                 };
+                toolInput.render = {
+                    content: xmlContext,
+                };
             }
 
             let finalPrompt: string | Array<Record<string, any>> = prompt;
