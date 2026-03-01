@@ -17,6 +17,7 @@ import {
   MUSIC_SCOREOPS_TOOL_CONTRACT,
   MUSIC_RENDER_TOOL_CONTRACT,
 } from '../music-services/contracts';
+import { normalizeScoreSessionId } from '../music-services/common';
 
 type MusicAgentToolName = 'music.context' | 'music.convert' | 'music.generate' | 'music.scoreops' | 'music.patch' | 'music.render';
 
@@ -111,6 +112,8 @@ function summarizeForModel(
     tool: fullResult.tool,
     status: fullResult.status,
     ok: fullResult.ok,
+    scoreSessionId: fullResult.scoreSessionId || (asRecord(fullResult.body)?.scoreSessionId),
+    revision: fullResult.revision || (asRecord(fullResult.body)?.revision) || (asRecord(fullResult.body)?.newRevision),
   };
 
   const body = asRecord(fullResult.body);
@@ -568,8 +571,15 @@ function createMusicRouterAgent() {
     strict: false,
     execute: async (input, runContext) => {
       console.info('[music-agent] Tool called: music.context');
-      const defaults = (runContext?.context as MusicAgentRunnerContext | undefined)?.toolInput?.context;
+      // The SDK passes a RunContext which has the 'context' property
+      // In some tests or direct calls it might be the context itself
+      const rawContext: any = (runContext as any)?.context || runContext;
+      const defaults = rawContext?.toolInput?.context;
       const payload = mergeToolInput(defaults, input);
+      if (!payload.scoreSessionId && rawContext?.toolInput?.context?.scoreSessionId) {
+        payload.scoreSessionId = rawContext.toolInput.context.scoreSessionId;
+        payload.baseRevision = rawContext.toolInput.context.baseRevision;
+      }
       const result = await runMusicContextService(payload);
       console.info(`[music-agent] Tool music.context completed: status=${result.status}`);
       const fullResult = {
@@ -577,6 +587,8 @@ function createMusicRouterAgent() {
         status: result.status,
         ok: result.status < 400,
         body: result.body,
+        scoreSessionId: (result.body as any).scoreSessionId,
+        revision: (result.body as any).revision,
       };
       return summarizeForModel(fullResult, runContext);
     },
@@ -589,8 +601,13 @@ function createMusicRouterAgent() {
     strict: false,
     execute: async (input, runContext) => {
       console.info('[music-agent] Tool called: music.convert');
-      const defaults = (runContext?.context as MusicAgentRunnerContext | undefined)?.toolInput?.convert;
+      const rawContext: any = (runContext as any)?.context || runContext;
+      const defaults = rawContext?.toolInput?.convert;
       const payload = mergeToolInput(defaults, input);
+      if (!payload.scoreSessionId && rawContext?.toolInput?.convert?.scoreSessionId) {
+        payload.scoreSessionId = rawContext.toolInput.convert.scoreSessionId;
+        payload.baseRevision = rawContext.toolInput.convert.baseRevision;
+      }
       const result = await runMusicConvertService(payload);
       console.info(`[music-agent] Tool music.convert completed: status=${result.status}`);
       const fullResult = {
@@ -598,6 +615,8 @@ function createMusicRouterAgent() {
         status: result.status,
         ok: result.status < 400,
         body: result.body,
+        scoreSessionId: (result.body as any).scoreSessionId,
+        revision: (result.body as any).revision,
       };
       return summarizeForModel(fullResult, runContext);
     },
@@ -610,9 +629,10 @@ function createMusicRouterAgent() {
     strict: false,
     execute: async (input, runContext) => {
       console.info('[music-agent] Tool called: music.generate');
-      const defaults = (runContext?.context as MusicAgentRunnerContext | undefined)?.toolInput?.generate;
+      const rawContext: any = (runContext as any)?.context || runContext;
+      const defaults = rawContext?.toolInput?.generate;
       const payload = mergeToolInput(defaults, input);
-      const toolTrace = (runContext?.context as MusicAgentRunnerContext | undefined)?.trace;
+      const toolTrace = rawContext?.trace;
       const result = toolTrace?.traceContext
         ? await runMusicGenerateService(payload, { traceContext: toolTrace.traceContext })
         : await runMusicGenerateService(payload);
@@ -634,9 +654,14 @@ function createMusicRouterAgent() {
     strict: false,
     execute: async (input, runContext) => {
       console.info('[music-agent] Tool called: music.patch');
-      const defaults = (runContext?.context as MusicAgentRunnerContext | undefined)?.toolInput?.patch;
+      const rawContext: any = (runContext as any)?.context || runContext;
+      const defaults = rawContext?.toolInput?.patch;
       const payload = mergeToolInput(defaults, input);
-      const toolTrace = (runContext?.context as MusicAgentRunnerContext | undefined)?.trace;
+      if (!payload.scoreSessionId && rawContext?.toolInput?.patch?.scoreSessionId) {
+        payload.scoreSessionId = rawContext.toolInput.patch.scoreSessionId;
+        payload.baseRevision = rawContext.toolInput.patch.baseRevision;
+      }
+      const toolTrace = rawContext?.trace;
       const result = toolTrace?.traceContext
         ? await runMusicPatchService(payload, { traceContext: toolTrace.traceContext })
         : await runMusicPatchService(payload);
@@ -646,6 +671,8 @@ function createMusicRouterAgent() {
         status: result.status,
         ok: result.status < 400,
         body: result.body,
+        scoreSessionId: (result.body as any).scoreSessionId,
+        revision: (result.body as any).revision,
       };
       return summarizeForModel(fullResult, runContext);
     },
@@ -658,20 +685,26 @@ function createMusicRouterAgent() {
     strict: false,
     execute: async (input, runContext) => {
       console.info('[music-agent] Tool called: music.scoreops');
-      const defaults = (runContext?.context as MusicAgentRunnerContext | undefined)?.toolInput?.scoreops;
+      const rawContext: any = (runContext as any)?.context || runContext;
+      const defaults = rawContext?.toolInput?.scoreops;
       const payload = mergeToolInput(defaults, input);
-      const contextDefaults = (runContext?.context as MusicAgentRunnerContext | undefined)?.toolInput?.context;
-      if (!payload.content && typeof contextDefaults?.content === 'string') {
+      if (!payload.scoreSessionId && rawContext?.toolInput?.scoreops?.scoreSessionId) {
+        payload.scoreSessionId = rawContext.toolInput.scoreops.scoreSessionId;
+        payload.baseRevision = rawContext.toolInput.scoreops.baseRevision;
+      }
+      const contextDefaults = rawContext?.toolInput?.context;
+      if (!payload.content && !payload.scoreSessionId && typeof contextDefaults?.content === 'string') {
         payload.content = contextDefaults.content;
       }
 
       // If agent provided structured ops, execute directly (skip regex parsing)
       if (Array.isArray(payload.ops) && payload.ops.length > 0) {
-        const toolTrace = (runContext?.context as MusicAgentRunnerContext | undefined)?.trace;
+        const toolTrace = rawContext?.trace;
         if (toolTrace) {
           traceLog(toolTrace, 'music_agent.scoreops.direct_ops', {
             opCount: payload.ops.length,
             hasContent: Boolean(payload.content || payload.text),
+            hasSession: Boolean(payload.scoreSessionId),
           });
         }
         const result = await runMusicScoreOpsService({
@@ -696,14 +729,28 @@ function createMusicRouterAgent() {
           });
         }
         console.info(`[music-agent] Tool music.scoreops (direct ops) completed: status=${result.status}`);
-        const fullResult = { tool: 'music.scoreops', status: result.status, ok: result.status < 400, body: result.body };
+        const fullResult = { 
+          tool: 'music.scoreops', 
+          status: result.status, 
+          ok: result.status < 400, 
+          body: result.body,
+          scoreSessionId: (result.body as any).scoreSessionId,
+          revision: (result.body as any).newRevision || (result.body as any).revision,
+        };
         return summarizeForModel(fullResult, runContext);
       }
 
       // Fallback to prompt-based parsing
       const result = await runMusicScoreOpsPromptService(payload);
       console.info(`[music-agent] Tool music.scoreops (prompt) completed: status=${result.status}`);
-      const fullResult = { tool: 'music.scoreops', status: result.status, ok: result.status < 400, body: result.body };
+      const fullResult = { 
+        tool: 'music.scoreops', 
+        status: result.status, 
+        ok: result.status < 400, 
+        body: result.body,
+        scoreSessionId: (result.body as any).scoreSessionId,
+        revision: (result.body as any).newRevision || (result.body as any).revision,
+      };
       return summarizeForModel(fullResult, runContext);
     },
   });
@@ -715,10 +762,15 @@ function createMusicRouterAgent() {
     strict: false,
     execute: async (input, runContext) => {
       console.info('[music-agent] Tool called: music.render');
-      const defaults = (runContext?.context as MusicAgentRunnerContext | undefined)?.toolInput?.render;
+      const rawContext: any = (runContext as any)?.context || runContext;
+      const defaults = rawContext?.toolInput?.render;
       const payload = mergeToolInput(defaults, input);
-      const contextDefaults = (runContext?.context as MusicAgentRunnerContext | undefined)?.toolInput?.context;
-      if (!payload.content && typeof contextDefaults?.content === 'string') {
+      if (!payload.scoreSessionId && rawContext?.toolInput?.render?.scoreSessionId) {
+        payload.scoreSessionId = rawContext.toolInput.render.scoreSessionId;
+        payload.baseRevision = rawContext.toolInput.render.baseRevision;
+      }
+      const contextDefaults = rawContext?.toolInput?.context;
+      if (!payload.content && !payload.scoreSessionId && typeof contextDefaults?.content === 'string') {
         payload.content = contextDefaults.content;
       }
       const result = await runMusicRenderService(payload);
@@ -728,6 +780,8 @@ function createMusicRouterAgent() {
         status: result.status,
         ok: result.status < 400,
         body: result.body,
+        scoreSessionId: (result.body as any).scoreSessionId,
+        revision: (result.body as any).revision,
       };
       return summarizeForModel(fullResult, runContext);
     },
@@ -751,6 +805,7 @@ function createMusicRouterAgent() {
       '- music_patch: score edit requests that should produce a musicxml-patch@1 payload.',
       '',
       'When you need to analyze the score (e.g., determine current key signature from notes), call music_context first.',
+      'If you are in a persistent session, you can call music_context periodically to refresh your knowledge of the score if you suspect it has changed.',
       'After receiving context, if you need to make changes, call music_scoreops in a second step.',
       '',
       'Prefer music_scoreops for editing requests. When using music_scoreops, produce structured ops when possible:',
@@ -813,8 +868,26 @@ export async function runMusicAgentRouter(
     };
   }
 
-  const toolInput = asRecord(data?.toolInput) as ToolDefaults | null;
+  let toolInput = asRecord(data?.toolInput) as ToolDefaults | null;
   const useFallbackOnly = Boolean(data?.useFallbackOnly);
+
+  // Auto-wire scoreSessionId and baseRevision from top-level to tool defaults if missing
+  const bodySessionId = normalizeScoreSessionId(data);
+  const bodyRevision = typeof data?.baseRevision === 'number' ? data.baseRevision : (typeof data?.revision === 'number' ? data.revision : undefined);
+  if (bodySessionId) {
+    toolInput = toolInput || {};
+    const tools: Array<keyof ToolDefaults> = ['context', 'convert', 'scoreops', 'patch', 'render'];
+    for (const t of tools) {
+      if (!toolInput[t] || !asRecord(toolInput[t])?.scoreSessionId) {
+        toolInput[t] = {
+          ...(asRecord(toolInput[t]) || {}),
+          scoreSessionId: bodySessionId,
+          baseRevision: bodyRevision,
+        };
+      }
+    }
+  }
+
   // Accept API key from request body (similar to patch-service.ts) or environment
   const requestApiKey = (typeof data?.apiKey === 'string'
     ? data.apiKey
@@ -854,6 +927,17 @@ export async function runMusicAgentRouter(
   });
   const agent = createMusicRouterAgent();
   
+  if (data?.scoreSessionId) {
+    const sessionId = String(data.scoreSessionId);
+    const revision = Number(data.revision ?? data.baseRevision ?? 0);
+    agent.instructions = [
+      ...agent.instructions.split('\n'),
+      '',
+      `IMPORTANT: You are operating on an active score session: ${sessionId} (revision ${revision}).`,
+      'Tools will automatically reference this session if you do not provide explicit content.',
+    ].join('\n');
+  }
+
   if (requestApiKey) {
     // Override the agent's model with one tied to the user's specific key
     // This ensures concurrency safety.

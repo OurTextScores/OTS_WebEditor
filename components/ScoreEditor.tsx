@@ -552,6 +552,8 @@ export default function ScoreEditor() {
     const isEmbedMode = Boolean(compareLeftUrl && compareRightUrl);
 
     const [score, setScore] = useState<Score | null>(null);
+    const [scoreSessionId, setScoreSessionId] = useState<string | null>(null);
+    const [scoreRevision, setScoreRevision] = useState<number>(0);
     const scoreRef = useRef<Score | null>(null);
     const [zoom, setZoom] = useState(1.0);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -2250,6 +2252,48 @@ ${partsBodyXml}
         setScoreDirtySinceXml(false);
         return text;
     }, [xmlText, getScoreXmlData]);
+
+    const openScoreSession = useCallback(async (xml?: string) => {
+        try {
+            const content = xml || await resolveXmlContext();
+            if (!content.trim()) return;
+
+            const isSync = Boolean(scoreSessionId);
+            const endpoint = isSync ? '/api/music/scoreops/sync' : '/api/music/scoreops/session/open';
+            const body: any = { content };
+            if (isSync) {
+                body.scoreSessionId = scoreSessionId;
+                body.baseRevision = scoreRevision;
+            }
+
+            const response = await fetch(resolveScoreEditorApiPath(endpoint), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            if (response.ok) {
+                const result = await response.json();
+                if (result.scoreSessionId) {
+                    setScoreSessionId(result.scoreSessionId);
+                    const nextRev = result.newRevision ?? result.revision ?? 0;
+                    setScoreRevision(nextRev);
+                    console.info(`[session] ${isSync ? 'Synced' : 'Opened'} score session: ${result.scoreSessionId}, revision: ${nextRev}`);
+                }
+            }
+        } catch (err) {
+            console.warn('[session] Failed to open/sync score session:', err);
+        }
+    }, [resolveXmlContext, scoreSessionId, scoreRevision]);
+
+    // Automatically open/sync session when score changes
+    useEffect(() => {
+        if (score) {
+            openScoreSession();
+        } else {
+            setScoreSessionId(null);
+            setScoreRevision(0);
+        }
+    }, [score, openScoreSession]);
 
     const extractJsonFromResponse = (responseText: string) => {
         const fenced = responseText.match(/```(?:json)?\s*([\s\S]*?)```/i);
@@ -5648,7 +5692,17 @@ ${partsBodyXml}
             }
 
             const toolInput: Record<string, unknown> = {};
-            if (xmlContext.trim()) {
+            if (scoreSessionId) {
+                const sessionDefaults = {
+                    scoreSessionId,
+                    baseRevision: scoreRevision,
+                };
+                toolInput.context = { ...sessionDefaults, includeAbc: true };
+                toolInput.convert = { ...sessionDefaults, inputFormat: 'musicxml', outputFormat: 'abc', includeContent: true };
+                toolInput.patch = { ...sessionDefaults, prompt, model: musicAgentModel.trim() || undefined, apiKey: aiApiKey.trim() || undefined };
+                toolInput.scoreops = { ...sessionDefaults, prompt, options: { includeXml: true, includeMeasureDiff: true } };
+                toolInput.render = { ...sessionDefaults };
+            } else if (xmlContext.trim()) {
                 toolInput.context = {
                     content: xmlContext,
                     includeAbc: true,
@@ -5753,6 +5807,15 @@ ${partsBodyXml}
             } else {
                 parsedResult = raw;
             }
+
+            // Sync score revision if returned in tool result
+            const resBody = asRecord(asRecord(parsedResult)?.body);
+            if (typeof resBody?.newRevision === 'number') {
+                setScoreRevision(resBody.newRevision);
+            } else if (typeof resBody?.revision === 'number') {
+                setScoreRevision(resBody.revision);
+            }
+
             if (selectedTool === 'music.patch') {
                 const resultPayload = asRecord(parsedResult);
                 const maybePatch = asRecord(resultPayload?.patch);

@@ -1,11 +1,13 @@
 import {
     createScoreArtifact,
-    getScoreArtifact,
     summarizeScoreArtifact,
-    type ScoreArtifact,
 } from '../score-artifacts';
 import { convertMusicNotation } from '../music-conversion';
-import { MusicServiceError } from './errors';
+import {
+    asRecord,
+    readBoolean,
+    resolveScoreContent,
+} from './common';
 
 type ContextServiceResult = {
     status: number;
@@ -36,20 +38,6 @@ const DEFAULT_SNIPPET_CHARS = 500;
 const MAX_SNIPPET_CHARS = 4_000;
 const DEFAULT_MEASURE_SNIPPET_CHARS = 2_000;
 const MAX_MEASURE_SNIPPET_CHARS = 20_000;
-
-const asRecord = (value: unknown): Record<string, unknown> | null => (
-    value && typeof value === 'object' ? value as Record<string, unknown> : null
-);
-
-function readBoolean(camel: unknown, snake: unknown, fallback: boolean) {
-    if (typeof camel === 'boolean') {
-        return camel;
-    }
-    if (typeof snake === 'boolean') {
-        return snake;
-    }
-    return fallback;
-}
 
 function readBoundedNumber(
     value: unknown,
@@ -88,13 +76,6 @@ function truncateText(text: string, maxChars: number) {
         text: `${text.slice(0, maxChars)}\n<!-- ...truncated... -->`,
         truncated: true,
     };
-}
-
-function looksLikeMusicXml(xml: string) {
-    const normalized = xml.trim().toLowerCase();
-    return normalized.startsWith('<?xml')
-        || normalized.includes('<score-partwise')
-        || normalized.includes('<score-timewise');
 }
 
 function extractPartList(xml: string) {
@@ -198,14 +179,27 @@ function extractSearchHits(
 
 export async function runMusicContextService(body: unknown): Promise<ContextServiceResult> {
     const data = asRecord(body);
-    const inputArtifactId = typeof data?.input_artifact_id === 'string'
-        ? data.input_artifact_id.trim()
-        : (typeof data?.inputArtifactId === 'string' ? data.inputArtifactId.trim() : '');
-    const contentInput = typeof data?.content === 'string'
-        ? data.content
-        : (typeof data?.text === 'string' ? data.text : '');
+    const resolution = await resolveScoreContent(body);
+    if (resolution.error) {
+        return resolution.error as ContextServiceResult;
+    }
+
+    const { xml, artifact: resolutionArtifact, session } = resolution;
     const filename = typeof data?.filename === 'string' ? data.filename : undefined;
-    const persistArtifact = readBoolean(data?.persistArtifact, data?.persist_artifact, true);
+    const persistArtifact = readBoolean(data?.persistArtifact, data?.persist_artifact, false);
+
+    let inputArtifact = resolutionArtifact;
+    if (persistArtifact && !inputArtifact) {
+        inputArtifact = await createScoreArtifact({
+            format: 'musicxml',
+            content: xml,
+            filename,
+            label: 'context-input',
+            metadata: {
+                origin: 'api/music/context',
+            },
+        });
+    }
 
     const includeFullXml = readBoolean(data?.includeFullXml, data?.include_full_xml, false);
     const includeAbc = readBoolean(data?.includeAbc, data?.include_abc, false);
@@ -247,44 +241,6 @@ export async function runMusicContextService(body: unknown): Promise<ContextServ
     const measureStart = maybeReadMeasure(data?.measureStart ?? data?.measure_start);
     const measureEnd = maybeReadMeasure(data?.measureEnd ?? data?.measure_end);
 
-    if (measureStart !== null && measureEnd !== null && measureStart > measureEnd) {
-        throw new MusicServiceError('Invalid measure range: measureStart must be <= measureEnd.', 400);
-    }
-
-    let sourceArtifact: ScoreArtifact | null = null;
-    let xml = contentInput;
-
-    if (inputArtifactId) {
-        sourceArtifact = await getScoreArtifact(inputArtifactId);
-        if (!sourceArtifact) {
-            throw new MusicServiceError('Input artifact not found.', 404);
-        }
-        if (sourceArtifact.format !== 'musicxml') {
-            throw new MusicServiceError('Context extraction currently supports musicxml artifacts only.', 400);
-        }
-        xml = sourceArtifact.content;
-    }
-
-    if (!xml.trim()) {
-        throw new MusicServiceError('Missing content (or text), or referenced artifact has empty content.', 400);
-    }
-
-    if (!looksLikeMusicXml(xml)) {
-        throw new MusicServiceError('Input does not look like MusicXML.', 400);
-    }
-
-    const inputArtifact = sourceArtifact ?? (persistArtifact
-        ? await createScoreArtifact({
-            format: 'musicxml',
-            content: xml,
-            filename,
-            label: 'context-input',
-            metadata: {
-                origin: 'api/music/context',
-            },
-        })
-        : null);
-
     const partList = includePartList ? extractPartList(xml) : '';
     const queries = ensureStringArray(data?.queries ?? data?.query);
     const measureSnippets = includeMeasureRange
@@ -319,6 +275,8 @@ export async function runMusicContextService(body: unknown): Promise<ContextServ
         status: 200,
         body: {
             strategy: 'musicxml-primary',
+            scoreSessionId: session?.scoreSessionId ?? null,
+            revision: session?.revision ?? null,
             inputArtifactId: inputArtifact?.id ?? null,
             inputArtifact: inputArtifact ? summarizeScoreArtifact(inputArtifact) : null,
             context: {
@@ -350,4 +308,3 @@ export async function runMusicContextService(body: unknown): Promise<ContextServ
         },
     };
 }
-

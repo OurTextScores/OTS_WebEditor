@@ -7,6 +7,17 @@ import {
 } from '../score-artifacts';
 import { loadWebMscoreInProcess, type Score } from '../webmscore-loader';
 import {
+  asRecord,
+  errorResult,
+  looksLikeMusicXml,
+  normalizeInputArtifactId,
+  normalizeScoreSessionId,
+  readBoolean,
+  readContent,
+  resolveScoreContent,
+  type ServiceResult,
+} from './common';
+import {
   clearScoreOpsSessions,
   createScoreOpsSession,
   getScoreOpsSession,
@@ -14,10 +25,7 @@ import {
   type ScoreOpsSessionState,
 } from './scoreops-session-store';
 
-type ScoreOpsServiceResult = {
-  status: number;
-  body: Record<string, unknown>;
-};
+type ScoreOpsServiceResult = ServiceResult;
 
 type ScoreOpsErrorCode =
   | 'invalid_request'
@@ -393,56 +401,13 @@ const REQUEST_SCHEMA = z.discriminatedUnion('action', [
 
 type RequestPayload = z.infer<typeof REQUEST_SCHEMA>;
 
-function errorResult(
+function errorResultWrapper(
   status: number,
   code: ScoreOpsErrorCode,
   message: string,
   details?: Record<string, unknown>,
 ): ScoreOpsServiceResult {
-  return {
-    status,
-    body: {
-      ok: false,
-      error: {
-        code,
-        message,
-        ...(details ? { details } : {}),
-      },
-    },
-  };
-}
-
-function normalizeInputArtifactId(data: {
-  inputArtifactId?: string;
-  input_artifact_id?: string;
-  initialArtifactId?: string;
-  initial_artifact_id?: string;
-}) {
-  return (data.inputArtifactId
-    || data.input_artifact_id
-    || data.initialArtifactId
-    || data.initial_artifact_id
-    || '').trim();
-}
-
-function readContent(data: {
-  content?: string;
-  text?: string;
-}) {
-  if (typeof data.content === 'string') {
-    return data.content;
-  }
-  if (typeof data.text === 'string') {
-    return data.text;
-  }
-  return '';
-}
-
-function looksLikeMusicXml(xml: string) {
-  const normalized = xml.trim().toLowerCase();
-  return normalized.startsWith('<?xml')
-    || normalized.includes('<score-partwise')
-    || normalized.includes('<score-timewise');
+  return errorResult(status, code, message, details);
 }
 
 function escapeXmlText(value: string) {
@@ -2143,48 +2108,18 @@ async function resolveSourceMusicXml(data: {
   initial_artifact_id?: string;
   inputArtifactId?: string;
   input_artifact_id?: string;
+  scoreSessionId?: string;
+  score_session_id?: string;
   content?: string;
   text?: string;
-}): Promise<{ xml: string; artifact: ScoreArtifact | null; error?: ScoreOpsServiceResult }> {
-  const artifactId = normalizeInputArtifactId(data);
-  if (artifactId) {
-    const artifact = await getScoreArtifact(artifactId);
-    if (!artifact) {
-      return {
-        xml: '',
-        artifact: null,
-        error: errorResult(404, 'target_not_found', 'Input artifact not found.', { artifactId }),
-      };
-    }
-    if (artifact.format !== 'musicxml') {
-      return {
-        xml: '',
-        artifact: null,
-        error: errorResult(400, 'invalid_request', 'Input artifact must be musicxml format.', {
-          artifactId,
-          format: artifact.format,
-        }),
-      };
-    }
-    return { xml: artifact.content, artifact };
-  }
-
-  const xml = readContent(data);
-  if (!xml.trim()) {
-    return {
-      xml: '',
-      artifact: null,
-      error: errorResult(400, 'invalid_request', 'Missing score content or input artifact.'),
-    };
-  }
-  if (!looksLikeMusicXml(xml)) {
-    return {
-      xml: '',
-      artifact: null,
-      error: errorResult(400, 'invalid_request', 'Input does not look like MusicXML.'),
-    };
-  }
-  return { xml, artifact: null };
+}): Promise<{ xml: string; artifact: ScoreArtifact | null; session: ScoreOpsSessionState | null; error?: ScoreOpsServiceResult }> {
+  const resolution = await resolveScoreContent(data);
+  return {
+    xml: resolution.xml,
+    artifact: resolution.artifact,
+    session: resolution.session,
+    error: resolution.error,
+  };
 }
 
 async function openSession(payload: z.infer<typeof OPEN_REQUEST_SCHEMA>): Promise<ScoreOpsServiceResult> {
