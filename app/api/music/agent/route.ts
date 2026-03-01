@@ -56,14 +56,26 @@ export async function POST(request: Request) {
     console.info(serialized);
   };
 
-  const result = await runMusicAgentRouter(body, {
-    trace: {
-      traceId,
-      traceContext,
-      detailed: detailedTracing,
-      log: traceLog,
-    },
-  });
+  let result;
+  try {
+    result = await runMusicAgentRouter(body, {
+      trace: {
+        traceId,
+        traceContext,
+        detailed: detailedTracing,
+        log: traceLog,
+      },
+    });
+  } catch (error) {
+    console.error('Music Agent Router Error:', error);
+    result = {
+      status: 500,
+      body: {
+        error: error instanceof Error ? error.message : 'Unknown error in music agent router',
+        traceId,
+      },
+    };
+  }
 
   const durationMs = Date.now() - startedAt;
   const resultBody = (result.body && typeof result.body === 'object') ? result.body as Record<string, unknown> : {};
