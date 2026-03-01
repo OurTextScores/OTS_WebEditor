@@ -5730,6 +5730,8 @@ ${partsBodyXml}
             console.log('Parsed result type:', typeof parsedResult);
             // eslint-disable-next-line no-console
             console.log('Parsed result keys:', parsedResult && typeof parsedResult === 'object' ? Object.keys(parsedResult as object) : 'N/A');
+            // eslint-disable-next-line no-console
+            console.log('Parsed result body:', (parsedResult as Record<string, unknown>)?.body);
             if (selectedTool === 'music.patch') {
                 const resultPayload = asRecord(parsedResult);
                 const maybePatch = asRecord(resultPayload?.patch);
