@@ -163,10 +163,11 @@ async function runFallbackRouter(
   toolInput?: ToolDefaults,
   trace?: MusicAgentTraceContext,
 ): Promise<MusicAgentResult> {
-  const selectedTool = classifyPrompt(prompt);
-  traceLog(trace, 'music_agent.fallback.selected_tool', {
-    selectedTool,
-  });
+  try {
+    const selectedTool = classifyPrompt(prompt);
+    traceLog(trace, 'music_agent.fallback.selected_tool', {
+      selectedTool,
+    });
   if (selectedTool === 'music.generate') {
     const generatePayload = {
       ...(toolInput?.generate || {}),
@@ -407,6 +408,19 @@ async function runFallbackRouter(
       result: result.body,
     },
   };
+  } catch (error) {
+    traceLog(trace, 'music_agent.fallback.exception', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    }, 'error');
+    return {
+      status: 500,
+      body: {
+        mode: 'fallback',
+        error: error instanceof Error ? error.message : 'Fallback router failed.',
+      },
+    };
+  }
 }
 
 function createMusicRouterAgent() {
