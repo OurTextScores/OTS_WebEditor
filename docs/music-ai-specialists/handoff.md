@@ -1,199 +1,169 @@
-Handoff Summary
-  Goal focus was ScoreOps MVP + minimum tracing needed for ScoreOps validation. Work completed in both repos and committed locally (not pushed - user prefers we never push).
+# Agent-Driven ScoreOps Implementation - Session Handoff
 
-  Current Repo State
+## Summary
 
-  - OTS_Web on main, clean, ahead 20
-  - OurTextScores on main, clean, ahead 20
+This session focused on enabling agent-driven ScoreOps (bypassing regex parsing by having the AI agent produce structured ops directly). While significant progress was made, the feature is not yet fully working.
 
-  Commits Created
+## What Was Implemented
 
-  1. OurTextScores commit 7fed256
-      - Message: Add trace continuity smoke script and frontend score-editor trace logging
-  2. OTS_Web commit f5ecbe0
-      - Message: Add scoreops capability introspection and trace/session route summaries
+### 1. Tool Contract Updates (music-scoreops-contract.ts)
+- Added `ops` array field to the input schema
+- Removed `anyOf` validation (required for OpenAI function calling compatibility)
+- Schema now supports all ScoreOps operations via structured arrays
 
-  What Was Implemented
+### 2. Router Updates (router.ts)
+- Tool executor now checks for `payload.ops` and bypasses regex parsing when present
+- Falls back to `runMusicScoreOpsPromptService` when ops are not provided
+- Fallback router also handles direct ops execution
+- Agent instructions updated to encourage structured ops production
+- Added `apiKey` support from request body (not just env var)
 
-  1. Trace continuity smoke path (H13) in OurTextScores
+### 3. Frontend Updates (ScoreEditor.tsx)
+- Passes `apiKey` at top level of request payload
+- Parses JSON string result from agent output
+- Handles both `body.output.content` (Agents SDK) and `execution.output.content` (fallback) formats
+- Added debug logging for troubleshooting
 
-  - Added smoke script: OurTextScores/scripts/smoke-trace-continuity.cjs
-  - Added npm script: OurTextScores/package.json -> smoke:trace
-  - Added smoke-only frontend trace log in middleware when header x-ots-trace-smoke: 1 is present:
-      - OurTextScores/frontend/middleware.ts
-      - Event emitted: frontend.score_editor_proxy.trace
-  - Docs updated:
-      - OurTextScores/docs/observability/analytics-instrumentation-runbook.md
-      - OurTextScores/docs/observability/hardening-tickets.md (H13 moved to done)
+### 4. Regex Parser Fixes (scoreops-service.ts)
+- Key signature: Added support for "correct/fix/change" verbs and "key" without "signature"
+- Text deletion: Added ASCII quotes, reversed word order, and "delete" verb
 
-  2. Minimal H06/H04 propagation hardening for score-editor API runtime
+### 5. Schema Compatibility Fixes
+- Removed all `anyOf`/`oneOf` from tool input schemas (OpenAI requirement)
+- Fixed agent output schema: optional fields must be `.nullable().optional()`
+- Changed `result` from object to JSON string (OpenAI doesn't support `z.record()`)
+- Added `.passthrough()` or simplified object types
 
-  - Extended trace context to include session headers:
-      - OTS_Web/lib/trace-http.ts
-      - Now normalizes/propagates x-client-session-id and x-session-id in both outbound and response headers.
+## Current Status: NOT WORKING
 
-  3. ScoreOps route-level structured summary logs
+### Symptoms
+1. Simple fetch test returns 500:
+   ```javascript
+   fetch('/api/music/agent', {
+     method: 'POST',
+     headers: {'Content-Type': 'application/json'},
+     body: JSON.stringify({prompt:'hi'})
+   })
+   // Returns: 500 Internal Server Error
+   ```
 
-  - Added shared logger helper:
-      - OTS_Web/lib/api-route-logging.ts
-  - Added per-route summary logs:
-      - OTS_Web/app/api/music/scoreops/session/open/route.ts -> scoreops.session.open.summary
-      - OTS_Web/app/api/music/scoreops/inspect/route.ts -> scoreops.inspect.summary
-      - OTS_Web/app/api/music/scoreops/apply/route.ts -> scoreops.apply.summary
-      - OTS_Web/app/api/music/scoreops/sync/route.ts -> scoreops.sync.summary
-  - Added request/session fields to agent summary logs:
-      - OTS_Web/app/api/music/agent/route.ts (requestId, sessionId)
+2. Server logs show `mode: 'fallback'` but no `selectedTool`, suggesting the router fails before tool selection
 
-  4. ScoreOps capability introspection + planner gating
+3. Previous errors encountered and (hopefully) fixed:
+   - `ReferenceError: trace is not defined` - Fixed by passing trace through context
+   - Schema validation errors with `anyOf`/`oneOf` - Fixed by removing them
+   - `propertyNames` not supported - Fixed by changing `z.record()` to `z.object().passthrough()`
+   - `additionalProperties` without type - Fixed by using JSON string for result
 
-  - In OTS_Web/lib/music-services/scoreops-service.ts:
-      - Added runtime WASM capability probe with cache.
-      - Added capability snapshot in inspect response:
-          - capabilities.ops
-          - capabilities.mutationOps
-          - capabilities.runtime including wasmAvailable, wasmMethods, wasmProbeError
-      - Added capability-aware gating in prompt planning path:
-          - runMusicScoreOpsPromptService now filters out ops unsupported by runtime support map.
-          - Planner summary includes capability snapshot.
-      - Kept existing strategy:
-          - Try WASM executor when requested/eligible.
-          - Fallback to XML executor when needed.
-  - Matrix status updated:
-      - OTS_Web/docs/music-ai-specialists/scoreops-method-op-matrix.md
+### Open Issues
 
-  5. Type/interface alignment from matrix follow-up
+1. **Unknown 500 error** - The router is failing silently. Added multiple try/catch blocks and logging, but the specific error is not yet identified.
 
-  - Added missing runtime methods to Score interface:
-      - extendSelectionNextChord
-      - extendSelectionPrevChord
-      - getSelectionBoundingBoxes
-  - File: OTS_Web/lib/webmscore-loader.ts
+2. **No error details in logs** - Despite adding error handling at multiple levels, the server logs only show:
+   ```json
+   {"event":"music_agent.request.summary","status":500,"mode":"fallback","selectedTool":null}
+   ```
 
-  Tests/Checks Run
+3. **Potential remaining issues**:
+   - TypeScript compilation may be hiding runtime issues
+   - The OpenAI Agents SDK may be throwing errors that aren't being caught
+   - The Zod schema conversion may still have incompatibilities
+   - Environment variable handling for API keys
 
-  - OTS_Web:
-      - npm run test -- unit/scoreops-service.test.ts unit/scoreops-route.test.ts unit/music-agent-route.test.ts unit/trace-http.test.ts (pass)
-      - npm run typecheck (pass)
-  - OurTextScores:
-      - npm --prefix frontend run typecheck (pass)
-      - node --check scripts/smoke-trace-continuity.cjs (pass syntax)
+## Debug Logging Added
 
-  Not Yet Executed in This Session
+### Frontend (ScoreEditor.tsx)
+```javascript
+console.log('Music Agent Response:', parsed);
+console.log('Raw result type:', typeof raw);
+console.log('Raw result length:', raw?.length);
+console.log('Parsed result keys:', Object.keys(parsedResult));
+console.log('Parsed result body:', parsedResult?.body);
+```
 
-  - Live docker smoke execution for trace continuity:
-      - cd /home/jhlusko/workspace/OurTextScores
-      - docker compose up -d --build
-      - npm run smoke:trace
+### Backend (router.ts)
+- `music_agent.router.start` - Router entry point
+- `music_agent.fallback.selected_tool` - Tool classification
+- `music_agent.fallback.exception` - Fallback router errors
+- `music_agent.scoreops.direct_ops` - Direct ops execution
+- `music_agent.scoreops.direct_ops.result` - Execution result
 
-  Why This Matters for ScoreOps MVP
+## Testing Commands
 
-  - We now have request/trace/session correlation from frontend middleware into score-editor API logs for scoreops routes.
-  - ScoreOps now exposes runtime capabilities via inspect and includes capability context in planner summaries.
-  - This enables safer next work on op expansion and capability-driven routing without blind assumptions.
+### Simple fetch test (browser console)
+```javascript
+fetch('/api/music/agent', {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({prompt:'hi'})
+}).then(r => r.text()).then(console.log)
+```
 
-  6. P0 Expansion (completed 2026-02-27)
+### Check server logs
+Look for these events in the terminal where `npm run dev` is running:
+- `music_agent.router.start`
+- `music_agent.fallback.selected_tool`
+- `music_agent.fallback.exception`
 
-  All P0 ops from the scoreops-method-op-matrix are now implemented:
+## Files Modified
 
-  New mutation ops:
-  - transpose_selection: WASM-only (score.transpose). XML returns unsupported error.
-  - add_tempo_marking: XML executor (inserts <direction><sound tempo>) + WASM (score.addTempoText).
-  - add_dynamic: XML executor (inserts <direction><dynamics>) + WASM (score.addDynamic).
-    Dynamic type codes verified against libmscore DynamicType enum (ppp=4..sfz=18).
-    Extended schema: 25 dynamics (pppppp through fz).
+1. `lib/music-services/contracts/music-scoreops-contract.ts` - Added ops field
+2. `lib/music-agents/router.ts` - Core routing logic
+3. `components/ScoreEditor.tsx` - Frontend integration
+4. `lib/music-services/scoreops-service.ts` - Regex fixes
+5. `lib/music-services/contracts/*-contract.ts` - Schema simplification
+6. `app/api/music/agent/route.ts` - Error handling
+7. `unit/music-agent-router.test.ts` - Tests for new functionality
+8. `unit/scoreops-service.test.ts` - Tests for regex fixes
 
-  Selection ops (WASM-only, no-op in XML mode):
-  - select_measure_range: Sets selection state via selectPartMeasureByIndex for subsequent ops.
-  - select_all: Synthesized via selectPartMeasureByIndex across all measures (no native selectAll in webmscore).
+## Next Steps
 
-  Inspect enhancements:
-  - extractScoreSummary now returns per-part key/clef/time details for multi-part scores.
-  - inspectSession returns partSignatures (per-measure key/time/clef) when scope.partId + measureSignatures is set.
+1. **Identify the 500 error** - Check server terminal for detailed error messages after the latest try/catch additions
+2. **Verify OpenAI API key** - Ensure the key is being passed correctly and is valid
+3. **Test with explicit error logging** - Add console.error statements at key points
+4. **Consider removing debug logging** once working
+5. **Verify end-to-end flow** - Once the 500 is resolved, test the full agent-driven ops flow
 
-  Prompt parser additions:
-  - "transpose up/down N semitones" -> transpose_selection
-  - "set tempo to N bpm" -> add_tempo_marking
-  - "add ff dynamic" -> add_dynamic (all 25 dynamics supported)
-  - "select measures 5-8" -> select_measure_range
-  - "select all" -> select_all
+## Architecture Notes
 
-  Op-derived patch emitters added for add_tempo_marking and add_dynamic.
-  transpose_selection falls back to measure-diff patch (pitch changes are non-deterministic).
+### Desired Flow (when working)
+```
+User: "Please correct the key signature"
+  ↓
+Agent selects music.scoreops with ops: [{op: "set_key_signature", fifths: 1}]
+  ↓
+Router detects ops array → bypasses regex parsing
+  ↓
+runMusicScoreOpsService called directly with ops
+  ↓
+Score updated and returned to frontend
+```
 
-  Test mock fix: corrected double-escaped regex in updateSelectedMeasure (pre-existing bug, never exercised).
+### Current Broken Flow
+```
+User: "Please correct the key signature"
+  ↓
+Router fails with 500 before reaching tool selection
+  ↓
+No meaningful error in logs
+```
 
-  Files modified:
-  - OTS_Web/lib/music-services/scoreops-service.ts (primary)
-  - OTS_Web/unit/scoreops-service.test.ts (35 tests, all passing)
-  - OTS_Web/docs/music-ai-specialists/scoreops-method-op-matrix.md (implementation status table)
+## Commits Made
 
-  7. P1 Expansion (completed 2026-02-28)
-
-  All P1 ops from the scoreops-method-op-matrix are now implemented:
-
-  Batch 1 (earlier session):
-  - replace_selected_text: WASM-only (score.setSelectedText).
-  - set_duration: WASM-only (score.setDurationType). DurationType enum: long=0..1024th=12.
-  - set_voice: WASM-only (score.changeSelectedElementsVoice || score.setVoice). 1-based schema, 0-based API.
-
-  Batch 2 (this session):
-  - set_accidental: WASM-only (score.setAccidental). AccidentalType: natural=0, sharp=1, flat=2, double-sharp=3, double-flat=4.
-  - insert_text: XML executor (inserts <direction><words>) + WASM (addStaffText/addSystemText/addExpressionText/addLyricText/addHarmonyText). 8 text kinds supported.
-  - set_layout_break: WASM-only (score.toggleLineBreak/togglePageBreak). Supports line and page breaks.
-  - set_repeat_markers: WASM-only (toggleRepeatStart/toggleRepeatEnd/setRepeatCount/setBarLineType). Supports start, end, count, barline type.
-  - history_step: WASM-only (score.undo/score.redo). Executes N times. No rollback (it IS rollback).
-
-  Prompt parser additions:
-  - "set sharp accidental" -> set_accidental
-  - 'add staff text "Allegro"' -> insert_text
-  - "add line/page break" -> set_layout_break
-  - "add repeat start/end" -> set_repeat_markers
-  - "undo 3 steps" / "redo" -> history_step
-
-  8. Planner multi-step decomposition improvements (2026-02-28)
-
-  splitPromptIntoSteps enhancements:
-  - "plus", "as well as", "while also", "but also" now split compound prompts.
-  - Trailing scope propagation: "change key to G and time to 3/4 in measures 5-8" propagates scope to both sub-steps.
-  - Safe conjunction splitting: "and" inside quoted strings not split ("Rock and Roll").
-  - Gerund verb forms: adding/setting/transposing/inserting accepted in prompt parsers.
-
-  parseMeasureScopeFromText enhancements:
-  - "first N measures" parsed as { measureStart: 1, measureEnd: N }.
-
-  insert_measures parsing:
-  - "insert N measures at the beginning/start" -> target: 'start'.
-  - INSERT_TARGET_SCHEMA expanded to include 'start'.
-
-  70 unit tests, typecheck clean, route tests green.
-
-  Known Gaps / Remaining Work (Priority)
-
-  1. Run and verify live H13 smoke in compose with real logs.
-  2. P2 op expansion: advanced cleanup/notation transforms, part management, layout mode.
-  3. preview_audio: requires audio pipeline integration (deferred).
-  4. "last N measures" scope resolution (requires knowing total measure count at parse time).
-  5. H14 contract E2E coverage still pending.
-  6. Full backend-including trace continuity assertion is partial in current smoke.
-
-  Operational Notes for Next Agent
-
-  - Don’t assume containers are running. Script requires compose services up.
-  - Smoke script expects JSON logs from:
-      - frontend event frontend.score_editor_proxy.trace
-      - score-editor API event scoreops.session.open.summary
-  - If smoke fails, first check:
-      - docker compose ps
-      - docker compose logs --since 5m frontend score_editor_api
-
-  Quick Resume Commands
-
-  1. cd /home/jhlusko/workspace/OurTextScores && docker compose up -d --build
-  2. cd /home/jhlusko/workspace/OurTextScores && npm run smoke:trace
-  3. cd /home/jhlusko/workspace/OTS_Web && npm run test -- unit/scoreops-service.test.ts unit/scoreops-route.test.ts unit/music-agent-route.test.ts
-     unit/trace-http.test.ts
-  4. Continue ScoreOps matrix-driven implementation in:
-
-  - OTS_Web/lib/music-services/scoreops-service.ts
-  - OTS_Web/docs/music-ai-specialists/scoreops-method-op-matrix.md
-  - OTS_Web/docs/music-ai-specialists/scoreops-tool-design.md
+- `eedeeeb` - Enable Agent-Driven ScoreOps: Structured Ops via Tool Schema
+- `fd857f9` - Enable Agents SDK path with request-provided API key
+- `72942a8` - Fix: Pass apiKey at top level of agent request payload
+- `833862a` - Fix: Ensure maxTurns input value is always numeric
+- `64acbb9` - Fix Zod schema for OpenAI structured outputs
+- `584d93b` - Fix tool contracts for OpenAI function calling compatibility
+- `d1c209c` - Fix agent output schema - make result a JSON string
+- `78a3f18` - Update agent instructions to call music.context first for analysis
+- `047e648` - Fix scoreops result handling in frontend
+- `3bce4a1` - Add debug logging and strengthen agent instructions for result field
+- `98e0b46` - Fix: Ensure includeXml is always true for agent-driven scoreops
+- `99351e9` - Improve debug logging for result parsing
+- `4055264` - Add more debug logging for result body
+- `3f65056` - Fix trace variable scope in tool executor
+- `c30d74a` - Add error handling to agent route to catch unhandled exceptions
+- `3a827fe` - Add error handling to fallback router with detailed logging
+- `4dcf7d4` - Add outer try/catch to catch all unhandled errors in router
