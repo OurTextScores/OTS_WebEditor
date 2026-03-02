@@ -932,6 +932,16 @@ class WebMscoreW {
     }
 
     /**
+     * Add a pickup (anacrusis) measure at the start of the score.
+     * @param {number} numerator  Pickup duration numerator
+     * @param {number} denominator  Pickup duration denominator
+     * @returns {Promise<boolean>}
+     */
+    addPickupMeasure(numerator, denominator) {
+        return this.rpc('addPickupMeasure', [numerator, denominator])
+    }
+
+    /**
      * Remove all trailing empty measures from the end of the score.
      * @returns {Promise<boolean>}
      */

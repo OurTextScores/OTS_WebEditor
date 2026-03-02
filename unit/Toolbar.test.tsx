@@ -422,4 +422,51 @@ describe('Toolbar', () => {
     expect(onRemoveContainingMeasures).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('btn-remove-trailing-empty')).toHaveTextContent(/Trailing Empty Bars/i);
   });
+
+  it('renders Add Pickup button in Measures section', () => {
+    render(
+      <Toolbar
+        onFileUpload={() => {}}
+        onZoomIn={() => {}}
+        onZoomOut={() => {}}
+        zoomLevel={1}
+        mutationsEnabled
+        onAddPickup={() => {}}
+      />,
+    );
+
+    expect(screen.getByTestId('btn-add-pickup')).toBeInTheDocument();
+    expect(screen.getByTestId('btn-add-pickup')).toHaveTextContent(/Add Pickup/i);
+  });
+
+  it('renders pickup numerator and denominator inputs', () => {
+    render(
+      <Toolbar
+        onFileUpload={() => {}}
+        onZoomIn={() => {}}
+        onZoomOut={() => {}}
+        zoomLevel={1}
+        mutationsEnabled
+        onAddPickup={() => {}}
+      />,
+    );
+
+    expect(screen.getByTestId('input-pickup-numerator')).toBeInTheDocument();
+    expect(screen.getByTestId('select-pickup-denominator')).toBeInTheDocument();
+  });
+
+  it('does not render Add Note button in PitchSection', () => {
+    render(
+      <Toolbar
+        onFileUpload={() => {}}
+        onZoomIn={() => {}}
+        onZoomOut={() => {}}
+        zoomLevel={1}
+        mutationsEnabled
+        selectionActive
+      />,
+    );
+
+    expect(screen.queryByTestId('btn-add-note-top')).not.toBeInTheDocument();
+  });
 });

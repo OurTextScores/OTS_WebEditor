@@ -96,6 +96,7 @@ export interface ToolbarSectionProps {
     onSetBarLineType?: (barLineType: number) => void;
     onAddVolta?: (endingNumber: number) => void;
     onInsertMeasures?: (count: number, target: MeasureInsertTarget) => void;
+    onAddPickup?: (numerator: number, denominator: number) => void;
     onRemoveContainingMeasures?: () => void;
     onRemoveTrailingEmptyMeasures?: () => void;
     insertMeasuresDisabled?: boolean;

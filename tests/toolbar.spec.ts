@@ -81,3 +81,19 @@ test('remove trailing empty measures button works', async ({ page }) => {
   await page.keyboard.press('Control+Y');
   await expect.poll(async () => countMeasures(await readMscx()), { timeout: 20_000 }).toBe(initialMeasures);
 });
+
+test('Add Pickup button is visible in Bars section', async ({ page }) => {
+  await page.goto('/?score=/test_scores/single_note_c4.musicxml', { waitUntil: 'networkidle' });
+  await page.waitForSelector('svg', { timeout: 20000 });
+
+  const addPickupButton = page.getByTestId('btn-add-pickup');
+  await expect(addPickupButton).toBeVisible();
+  await expect(addPickupButton).toHaveText(/Add Pickup/);
+});
+
+test('Add Note button is absent from toolbar', async ({ page }) => {
+  await page.goto('/?score=/test_scores/single_note_c4.musicxml', { waitUntil: 'networkidle' });
+  await page.waitForSelector('svg', { timeout: 20000 });
+
+  await expect(page.getByTestId('btn-add-note-top')).not.toBeVisible();
+});

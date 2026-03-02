@@ -8,7 +8,6 @@ import { ArrowLeftToLine, ArrowRightToLine, Timer } from 'lucide-react';
 export const DurationSection: React.FC<ToolbarSectionProps> = ({
     onDurationShorter,
     onDurationLonger,
-    onAddNoteFromRest,
     onSetDurationType,
     onToggleDot,
     onToggleDoubleDot,
@@ -53,8 +52,6 @@ export const DurationSection: React.FC<ToolbarSectionProps> = ({
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
-                    <DropdownMenuLabel>Notes</DropdownMenuLabel>
-                    <DropdownMenuItem data-testid="btn-add-note-dropdown" disabled={mutationDisabled || !selectionActive || !onAddNoteFromRest} onSelect={() => onAddNoteFromRest?.()}>Add Note</DropdownMenuItem>
                     <DropdownMenuLabel>Duration</DropdownMenuLabel>
                     {durationOptions.map(opt => (
                         <DropdownMenuItem key={opt.value} data-testid={opt.testId} disabled={mutationDisabled || !selectionActive || !onSetDurationType} title={`Shortcut: press ${opt.shortcut} for ${opt.label}`} onSelect={() => onSetDurationType?.(opt.value)}>

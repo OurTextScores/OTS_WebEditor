@@ -1415,6 +1415,55 @@ static bool _insertMeasures(uintptr_t score_ptr, int count, InsertMeasuresTarget
     return true;
 }
 
+static bool _addPickupMeasure(uintptr_t score_ptr, int numerator, int denominator, int excerptId)
+{
+    if (numerator < 1 || denominator < 1) {
+        LOGW() << "addPickupMeasure: invalid fraction " << numerator << "/" << denominator;
+        return false;
+    }
+
+    MainScore score(score_ptr, excerptId);
+
+    engraving::Measure* firstMeasure = score->firstMeasure();
+    if (!firstMeasure) {
+        LOGW() << "addPickupMeasure: score has no measures";
+        return false;
+    }
+
+    // If measure 0 already exists and is irregular, a pickup is already present
+    if (firstMeasure->no() == 0 && firstMeasure->irregular()) {
+        LOGW() << "addPickupMeasure: score already has a pickup measure";
+        return false;
+    }
+
+    mu::engraving::Score::InsertMeasureOptions options;
+    options.createEmptyMeasures = false;
+    options.moveSignaturesClef = true;
+    options.needDeselectAll = false;
+
+    score->startCmd();
+
+    // Insert one measure before the current first measure
+    score->insertMeasure(engraving::ElementType::MEASURE, firstMeasure, options);
+
+    // The newly inserted measure is now the first measure
+    engraving::Measure* newMeasure = score->firstMeasure();
+    if (!newMeasure) {
+        score->endCmd();
+        return false;
+    }
+
+    // Mark as irregular (pickup)
+    newMeasure->undoChangeProperty(engraving::Pid::IRREGULAR, true);
+
+    // Resize to the pickup duration
+    engraving::Fraction pickupFraction(numerator, denominator);
+    newMeasure->adjustToLen(pickupFraction);
+
+    score->endCmd();
+    return true;
+}
+
 static bool _removeTrailingEmptyMeasures(uintptr_t score_ptr, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
@@ -4886,6 +4935,11 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool insertMeasures(uintptr_t score_ptr, int count, int target, int excerptId = -1) {
         return _insertMeasures(score_ptr, count, parseInsertMeasuresTarget(target), excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool addPickupMeasure(uintptr_t score_ptr, int numerator, int denominator, int excerptId = -1) {
+        return _addPickupMeasure(score_ptr, numerator, denominator, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE

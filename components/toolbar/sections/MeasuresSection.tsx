@@ -4,10 +4,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { ToolbarSectionProps } from '../types';
 import { toolbarInputBaseClass } from '../constants';
 import { MeasureInsertTarget } from '../Toolbar';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, ListStart } from 'lucide-react';
 
 export const MeasuresSection: React.FC<ToolbarSectionProps> = ({
     onInsertMeasures,
+    onAddPickup,
     onRemoveContainingMeasures,
     onRemoveTrailingEmptyMeasures,
     insertMeasuresDisabled,
@@ -16,12 +17,21 @@ export const MeasuresSection: React.FC<ToolbarSectionProps> = ({
 }) => {
     const [measureCount, setMeasureCount] = useState(1);
     const [measureTarget, setMeasureTarget] = useState<MeasureInsertTarget>('after-selection');
+    const [pickupNumerator, setPickupNumerator] = useState(1);
+    const [pickupDenominator, setPickupDenominator] = useState(4);
 
     const handleApplyMeasures = () => {
         if (!onInsertMeasures) return;
         const sanitized = Math.max(1, Math.floor(measureCount));
         setMeasureCount(sanitized);
         onInsertMeasures(sanitized, measureTarget);
+    };
+
+    const handleAddPickup = () => {
+        if (!onAddPickup) return;
+        const sanitized = Math.max(1, Math.floor(pickupNumerator));
+        setPickupNumerator(sanitized);
+        onAddPickup(sanitized, pickupDenominator);
     };
 
     const mutationDisabled = !mutationsEnabled;
@@ -60,6 +70,42 @@ export const MeasuresSection: React.FC<ToolbarSectionProps> = ({
             >
                 <Plus size={14} className="mr-2" />
                 Add Bars
+            </Button>
+            <div className="h-3 w-px bg-slate-200"></div>
+            <input
+                data-testid="input-pickup-numerator"
+                type="number"
+                min={1}
+                value={pickupNumerator}
+                onChange={event => setPickupNumerator(Number(event.currentTarget.value) || 1)}
+                className={`${toolbarInputBaseClass} w-16`}
+            />
+            <Select
+                value={String(pickupDenominator)}
+                onValueChange={(value) => setPickupDenominator(Number(value))}
+            >
+                <SelectTrigger data-testid="select-pickup-denominator" className="w-20 shadow-sm">
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="1">1</SelectItem>
+                    <SelectItem value="2">2</SelectItem>
+                    <SelectItem value="4">4</SelectItem>
+                    <SelectItem value="8">8</SelectItem>
+                    <SelectItem value="16">16</SelectItem>
+                    <SelectItem value="32">32</SelectItem>
+                </SelectContent>
+            </Select>
+            <Button
+                data-testid="btn-add-pickup"
+                onClick={handleAddPickup}
+                disabled={mutationDisabled || !onAddPickup}
+                variant="outline"
+                size="sm"
+                className="shadow-sm"
+            >
+                <ListStart size={14} className="mr-2" />
+                Add Pickup
             </Button>
             <div className="h-3 w-px bg-slate-200"></div>
             <Button

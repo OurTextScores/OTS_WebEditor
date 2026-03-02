@@ -126,6 +126,7 @@ export interface Score {
     setBarLineType?: (barLineType: number) => Promise<unknown> | unknown;
     addVolta?: (endingNumber: number) => Promise<unknown> | unknown;
     insertMeasures?: (count: number, target: number) => Promise<unknown> | unknown;
+    addPickupMeasure?: (numerator: number, denominator: number) => Promise<unknown> | unknown;
     removeSelectedMeasures?: () => Promise<unknown> | unknown;
     removeTrailingEmptyMeasures?: () => Promise<unknown> | unknown;
 }

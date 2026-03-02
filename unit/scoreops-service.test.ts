@@ -1305,4 +1305,109 @@ describe('runMusicScoreOpsService', () => {
       expect.objectContaining({ op: 'delete_text_by_content', text: 'CLEAN VERSION' }),
     ]));
   });
+
+  it('add_pickup inserts measure 0 with correct duration rest', async () => {
+    const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
+    const scoreSessionId = String(open.body.scoreSessionId);
+
+    const apply = await runMusicScoreOpsService({
+      action: 'apply',
+      scoreSessionId,
+      baseRevision: 0,
+      ops: [{ op: 'add_pickup', numerator: 1, denominator: 4 }],
+      options: { includeXml: true },
+    }, 'apply');
+
+    expect(apply.status).toBe(200);
+    expect(apply.body).toMatchObject({ ok: true });
+    const output = (apply.body.output as { content?: string })?.content || '';
+    expect(output).toContain('number="0"');
+    expect(output).toContain('implicit="yes"');
+    // divisions=4, pickup 1/4 → duration = 4*4*1/4 = 4
+    expect(output).toMatch(/<measure[^>]*number="0"[^>]*>[\s\S]*?<duration>4<\/duration>/);
+  });
+
+  it('add_pickup preserves existing measure numbers', async () => {
+    const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
+    const scoreSessionId = String(open.body.scoreSessionId);
+
+    const apply = await runMusicScoreOpsService({
+      action: 'apply',
+      scoreSessionId,
+      baseRevision: 0,
+      ops: [{ op: 'add_pickup', numerator: 3, denominator: 8 }],
+      options: { includeXml: true },
+    }, 'apply');
+
+    expect(apply.status).toBe(200);
+    const output = (apply.body.output as { content?: string })?.content || '';
+    expect(output).toContain('number="1"');
+    expect(output).toContain('number="2"');
+  });
+
+  it('add_pickup no-ops when score already has measure 0', async () => {
+    const xmlWithPickup = SAMPLE_XML.replace(
+      '<measure number="1">',
+      '<measure number="0" implicit="yes"><note><rest/><duration>4</duration><voice>1</voice></note></measure>\n    <measure number="1">',
+    );
+    const open = await runMusicScoreOpsService({ action: 'open', content: xmlWithPickup }, 'open');
+    const scoreSessionId = String(open.body.scoreSessionId);
+
+    const apply = await runMusicScoreOpsService({
+      action: 'apply',
+      scoreSessionId,
+      baseRevision: 0,
+      ops: [{ op: 'add_pickup', numerator: 1, denominator: 4 }],
+      options: { includeXml: true },
+    }, 'apply');
+
+    // Should fail since pickup already exists — returns execution_failure (422)
+    expect(apply.status).toBe(422);
+    expect(apply.body).toMatchObject({ ok: false });
+  });
+
+  it('add_pickup works with 3/4 time signature', async () => {
+    const xml34 = SAMPLE_XML
+      .replace('<beats>4</beats>', '<beats>3</beats>')
+      .replace('<beat-type>4</beat-type>', '<beat-type>4</beat-type>');
+    const open = await runMusicScoreOpsService({ action: 'open', content: xml34 }, 'open');
+    const scoreSessionId = String(open.body.scoreSessionId);
+
+    const apply = await runMusicScoreOpsService({
+      action: 'apply',
+      scoreSessionId,
+      baseRevision: 0,
+      ops: [{ op: 'add_pickup', numerator: 1, denominator: 4 }],
+      options: { includeXml: true },
+    }, 'apply');
+
+    expect(apply.status).toBe(200);
+    expect(apply.body).toMatchObject({ ok: true });
+    const output = (apply.body.output as { content?: string })?.content || '';
+    expect(output).toContain('number="0"');
+    expect(output).toContain('implicit="yes"');
+  });
+
+  it('add_pickup works with 6/8 time signature', async () => {
+    const xml68 = SAMPLE_XML
+      .replace('<beats>4</beats>', '<beats>6</beats>')
+      .replace('<beat-type>4</beat-type>', '<beat-type>8</beat-type>');
+    const open = await runMusicScoreOpsService({ action: 'open', content: xml68 }, 'open');
+    const scoreSessionId = String(open.body.scoreSessionId);
+
+    const apply = await runMusicScoreOpsService({
+      action: 'apply',
+      scoreSessionId,
+      baseRevision: 0,
+      ops: [{ op: 'add_pickup', numerator: 3, denominator: 8 }],
+      options: { includeXml: true },
+    }, 'apply');
+
+    expect(apply.status).toBe(200);
+    expect(apply.body).toMatchObject({ ok: true });
+    const output = (apply.body.output as { content?: string })?.content || '';
+    expect(output).toContain('number="0"');
+    // divisions=4, pickup 3/8 → duration = 4*4*3/8 = 6
+    expect(output).toMatch(/<measure[^>]*number="0"[^>]*>[\s\S]*?<duration>6<\/duration>/);
+  });
 });

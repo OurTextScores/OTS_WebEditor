@@ -191,20 +191,45 @@ Progress
 
 ## Webmscore rebuild + artifact sync
 
-Incremental builds (preferred)  
-- Ensure build env: `export EMSDK_QUIET=1`, `source ~/workspace/emsdk/emsdk_env.sh`, `export Qt5_DIR=/home/jhlusko/workspace/emsdk/build.qt5/5.15.2/wasm_32`, and `export PATH="$Qt5_DIR/bin:$PATH"`.  
-- From `webmscore-fork/web-public`: `npm run compile` (runs `make release` and keeps artifacts).  
-- If JS wrappers changed: from `webmscore-fork/web-public` run `npm run bundle`.  
+Incremental builds (preferred)
+- **Use `npm run compile` from `webmscore-fork/web-public`** — this is the reliable method. The npm script's `package.json` has the emsdk PATH configured correctly via its own environment setup, so `emcmake`/`emmake` are found automatically.
+- If JS wrappers (`src/index.js`) changed: from `webmscore-fork/web-public` run `npm run bundle`.
 - From repo root: `npm run sync:wasm` to copy artifacts into `public/`.
 - Expected artifacts (same build): `webmscore.lib.js`, `webmscore.lib.wasm`, `webmscore.lib.data`, `webmscore.lib.mem.wasm` (plus optional `webmscore.lib.js.mem`).
 
-Optional direct make (advanced)  
-- From `webmscore-fork/web`: `make release`.  
-- From `webmscore-fork/web-public`: `mv webmscore.lib.js.mem webmscore.lib.mem.wasm` (if present) and `mv webmscore.lib.js.symbols webmscore.lib.symbols`.  
+**IMPORTANT — PATH pitfall:** Do NOT try to run `make release` directly from the shell, even after `source ~/workspace/emsdk/emsdk_env.sh`. The Makefile spawns `/bin/sh` subprocesses that do not inherit the emsdk PATH, causing `emcmake: not found` errors. Always use `npm run compile` instead — it handles environment setup internally.
+
+Optional direct make (advanced, manual env required)
+- Only use if `npm run compile` is broken. You must ensure `emcmake` and `emmake` are on the PATH *inside* the `/bin/sh` subprocesses that `make` spawns (e.g., by symlinking into `/usr/local/bin`).
+- From `webmscore-fork/web`: `make release`.
+- From `webmscore-fork/web-public`: `mv webmscore.lib.js.mem webmscore.lib.mem.wasm` (if present) and `mv webmscore.lib.js.symbols webmscore.lib.symbols`.
 - From repo root: `npm run sync:wasm`.
 
-Clean rebuild (avoid unless needed)  
+Clean rebuild (avoid unless needed)
 - From `webmscore-fork/web-public`: `npm run build` (runs `make clean` and removes artifacts).
+
+## Adding a new WASM-exposed method (checklist)
+
+When adding a new C++ function to the WASM bridge, **all six** of the following files must be updated. Missing any one will cause the method to silently not exist at runtime.
+
+| # | File | What to add |
+|---|------|-------------|
+| 1 | `webmscore-fork/web/main.cpp` | Static `_myMethod()` implementation + `EMSCRIPTEN_KEEPALIVE` export in the `extern "C"` block |
+| 2 | `webmscore-fork/web-public/src/index.js` | Instance method on the Score class that calls `Module.ccall(...)` |
+| 3 | **`webmscore-fork/web-public/src/worker-helper.js`** | Proxy method that calls `this.rpc('myMethod', [...args])`. **This is the one most likely to be forgotten** — the browser loads scores via a web worker and this file is the RPC proxy. Without it the method exists in the worker but is invisible to the main thread. |
+| 4 | `lib/webmscore-loader.ts` | Add to the `Score` TypeScript interface (optional `?:` signature) |
+| 5 | `components/ScoreEditor.tsx` | Add to the `MutationMethods` Pick type (~line 105) so `requireMutation()` can find it; add a `handle*` callback and pass it to `<Toolbar>` |
+| 6 | ScoreOps (if applicable): `lib/music-services/scoreops-service.ts` | Add to `SCORE_OP_SCHEMA`, `SCOREOPS_MUTATION_OPS`, `SCOREOPS_WASM_ELIGIBLE_OPS`, `buildDefaultMutationSupport()`, `evaluateWasmMutationSupport()`, the WASM executor switch in `executeOpsWithWasm`, the XML fallback in `applyOneOp`, and implement an `apply*` XML function |
+
+**Build steps after changes:**
+1. `cd webmscore-fork/web-public && npm run compile` (C++ → WASM)
+2. `npm run bundle` (re-bundles worker-helper.js + index.js)
+3. `cd ../.. && npm run sync:wasm` (copies artifacts to `public/`)
+
+**MusicXML pickup measure notes:**
+- Pickup measures use `<measure number="0" implicit="yes">`.
+- All `<attributes>` (divisions, key, time, clefs, staves) must go on the pickup measure. Measure 1 must NOT have its own `<attributes>` block or you get duplicate clefs/time signatures.
+- Rest notes in the pickup need an explicit `<type>` element (e.g., `<type>quarter</type>`) — without it MuseScore renders a whole rest regardless of the `<duration>` value.
 
 ### Example score
 You can use this for testing: http://localhost:3000/?score=%2Ftest_scores%2Fbach_orig.mscz

@@ -3,10 +3,9 @@ import { Button } from '../../ui/Button';
 import { DropdownMenuItem, DropdownMenuContent, DropdownMenuTrigger, DropdownMenu } from '../../ui/DropdownMenu';
 import { ToolbarSectionProps } from '../types';
 import { accidentalOptions } from '../constants';
-import { PlusCircle, ArrowDown, ArrowUp, ChevronsDown, ChevronsUp, Hash } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronsDown, ChevronsUp, Hash } from 'lucide-react';
 
 export const PitchSection: React.FC<ToolbarSectionProps> = ({
-    onAddNoteFromRest,
     onPitchDown,
     onPitchUp,
     onTranspose,
@@ -18,18 +17,6 @@ export const PitchSection: React.FC<ToolbarSectionProps> = ({
 
     return (
         <>
-            <Button
-                data-testid="btn-add-note-top"
-                onClick={onAddNoteFromRest}
-                disabled={mutationDisabled || !selectionActive || !onAddNoteFromRest}
-                variant="outline"
-                size="sm"
-                className="shadow-sm"
-            >
-                <PlusCircle size={14} className="mr-2" />
-                Add Note
-            </Button>
-            <div className="h-3 w-px bg-slate-200"></div>
             <Button
                 data-testid="btn-pitch-down"
                 title="Shortcut: Arrow Down (Pitch Down)"

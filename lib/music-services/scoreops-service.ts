@@ -211,6 +211,18 @@ const SCORE_OP_SCHEMA = z.discriminatedUnion('op', [
     direction: z.enum(['undo', 'redo']),
     steps: z.number().int().min(1).max(50).default(1),
   }),
+  z.object({
+    op: z.literal('add_pickup'),
+    numerator: z.number().int().min(1).max(32),
+    denominator: z.union([
+      z.literal(1),
+      z.literal(2),
+      z.literal(4),
+      z.literal(8),
+      z.literal(16),
+      z.literal(32),
+    ]),
+  }),
 ]);
 
 type ScoreOp = z.infer<typeof SCORE_OP_SCHEMA>;
@@ -242,6 +254,7 @@ const SCOREOPS_MUTATION_OPS: ScoreOpName[] = [
   'set_layout_break',
   'set_repeat_markers',
   'history_step',
+  'add_pickup',
 ];
 
 const SCOREOPS_WASM_ELIGIBLE_OPS = new Set<ScoreOpName>([
@@ -265,6 +278,7 @@ const SCOREOPS_WASM_ELIGIBLE_OPS = new Set<ScoreOpName>([
   'set_layout_break',
   'set_repeat_markers',
   'history_step',
+  'add_pickup',
 ]);
 
 const SCOREOPS_SELECTION_OPS = [
@@ -987,6 +1001,68 @@ function applyInsertMeasures(xml: string, op: Extract<ScoreOp, { op: 'insert_mea
   } as const;
 }
 
+function pickupRestType(numerator: number, denominator: number): string {
+  const denomTypes: Record<number, string> = {
+    1: 'whole', 2: 'half', 4: 'quarter', 8: 'eighth', 16: '16th', 32: '32nd',
+  };
+  if (numerator === 1) return denomTypes[denominator] || 'quarter';
+  if (numerator === 3) {
+    const dottedDenom = denominator / 2;
+    if (denomTypes[dottedDenom]) return denomTypes[dottedDenom];
+  }
+  return denomTypes[denominator] || 'quarter';
+}
+
+function applyAddPickup(xml: string, op: Extract<ScoreOp, { op: 'add_pickup' }>) {
+  let changed = false;
+  const nextXml = replacePartContents(xml, (part) => {
+    const measures = parseMeasureBlocks(part.content);
+    if (!measures.length) {
+      return part.content;
+    }
+
+    // Check if measure 0 already exists (pickup already present)
+    if (measures[0]?.number === 0) {
+      return part.content;
+    }
+
+    // Extract full <attributes> from measure 1 — move them to the pickup measure
+    const firstMeasure = measures[0];
+    const attrsMatch = firstMeasure.full.match(/<attributes>([\s\S]*?)<\/attributes>/);
+    const divisionsMatch = attrsMatch?.[1]?.match(/<divisions>(\d+)<\/divisions>/);
+    const divisions = divisionsMatch ? Number.parseInt(divisionsMatch[1], 10) : 16;
+
+    // Compute pickup rest duration
+    const pickupDuration = Math.round((divisions * 4 * op.numerator) / op.denominator);
+    const restType = pickupRestType(op.numerator, op.denominator);
+
+    // Move full attributes (key, time, clefs) to the pickup measure.
+    // Remove the attributes block from measure 1 to avoid duplicate clefs/time sigs.
+    const attributesXml = attrsMatch ? attrsMatch[0] : `<attributes><divisions>${divisions}</divisions></attributes>`;
+    const strippedFirstMeasure = attrsMatch
+      ? firstMeasure.full.replace(attrsMatch[0], '')
+      : firstMeasure.full;
+
+    // Build pickup measure XML
+    const pickupMeasureXml = `<measure number="0" implicit="yes">\n${attributesXml}\n<note><rest/><duration>${pickupDuration}</duration><voice>1</voice><type>${restType}</type></note>\n</measure>`;
+
+    // Replace first measure with stripped version, prepend pickup
+    const remainingMeasures = measures.slice(1).map((m) => m.full);
+    changed = true;
+    return [pickupMeasureXml, strippedFirstMeasure, ...remainingMeasures].join('\n');
+  });
+
+  if (!changed) {
+    return { error: 'Score already has a pickup measure or no measures found.' } as const;
+  }
+
+  return {
+    xml: nextXml,
+    changed: true,
+    summary: `Added pickup measure (${op.numerator}/${op.denominator}).`,
+  } as const;
+}
+
 function applyAddTempoMarking(xml: string, op: Extract<ScoreOp, { op: 'add_tempo_marking' }>) {
   const targetParts = resolveTargetPartIds(xml, op.scope?.partId);
   if (!targetParts.length) {
@@ -1171,6 +1247,8 @@ function applyOneOp(xml: string, op: ScoreOp): ApplyOneOpResult {
       return { error: 'set_repeat_markers requires WASM executor.' };
     case 'history_step':
       return { error: 'history_step requires WASM executor (undo/redo stack is runtime-only).' };
+    case 'add_pickup':
+      return toApplyOneOpResult(applyAddPickup(xml, op));
     default:
       return { error: `Unsupported op: ${(op as { op: string }).op}` };
   }
@@ -1674,6 +1752,11 @@ async function executeOpsWithWasm(
           }
         }
         await Promise.resolve(score.insertMeasures(op.count, mapInsertTarget(op.target)));
+      } else if (op.op === 'add_pickup') {
+        if (typeof score.addPickupMeasure !== 'function') {
+          return { ok: false, fallbackReason: 'addPickupMeasure is unavailable in current webmscore runtime.' };
+        }
+        await Promise.resolve(score.addPickupMeasure(op.numerator, op.denominator));
       } else if (op.op === 'remove_measures' || op.op === 'delete_selection') {
         if (typeof score.removeSelectedMeasures !== 'function') {
           return { ok: false, fallbackReason: 'removeSelectedMeasures is unavailable in current webmscore runtime.' };
@@ -1996,6 +2079,7 @@ function buildDefaultMutationSupport(): ScoreOpsMutationOpSupport {
     set_layout_break: { xml: false, wasm: false },
     set_repeat_markers: { xml: false, wasm: false },
     history_step: { xml: false, wasm: false },
+    add_pickup: { xml: true, wasm: false },
   };
 }
 
@@ -2028,6 +2112,7 @@ function evaluateWasmMutationSupport(wasmMethods: Set<string>) {
     set_layout_break: requiresSelectionOps && (has('toggleLineBreak') || has('togglePageBreak')),
     set_repeat_markers: requiresSelectionOps && (has('toggleRepeatStart') || has('toggleRepeatEnd') || has('setBarLineType')),
     history_step: has('saveXml') && (has('undo') || has('redo')),
+    add_pickup: has('addPickupMeasure') || has('saveXml'),
   } satisfies Record<ScoreOpName, boolean>;
 }
 

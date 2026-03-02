@@ -180,6 +180,7 @@ type MutationMethods = Pick<
     | 'setBarLineType'
     | 'addVolta'
     | 'insertMeasures'
+    | 'addPickupMeasure'
     | 'removeTrailingEmptyMeasures'
 >;
 
@@ -733,6 +734,9 @@ export default function ScoreEditor() {
     const [newScoreKeyFifths, setNewScoreKeyFifths] = useState(0);
     const [newScoreTimeNumerator, setNewScoreTimeNumerator] = useState(4);
     const [newScoreTimeDenominator, setNewScoreTimeDenominator] = useState(4);
+    const [newScoreWithPickup, setNewScoreWithPickup] = useState(false);
+    const [newScorePickupNumerator, setNewScorePickupNumerator] = useState(1);
+    const [newScorePickupDenominator, setNewScorePickupDenominator] = useState(4);
     const [instrumentClefMap, setInstrumentClefMap] = useState<Record<string, { staves: number; clefs: { staff: number; clef: string }[] }> | null>(null);
     const [instrumentClefMapError, setInstrumentClefMapError] = useState<string | null>(null);
     const [instrumentFallbackGroups, setInstrumentFallbackGroups] = useState<InstrumentTemplateGroup[]>([]);
@@ -2058,6 +2062,31 @@ export default function ScoreEditor() {
         return { staves: 1, clefs: [{ staff: 1, clef: 'G' }] };
     };
 
+    const pickupDurationToRestType = (numerator: number, denominator: number): string => {
+        // Map a simple pickup fraction to MusicXML <type> value.
+        // For compound fractions (e.g. 3/8), use the denominator's base note type
+        // with dots handled separately if needed. For the rest element, just using
+        // the denominator's type with the correct duration value is sufficient —
+        // MuseScore will display the correct rest(s) based on duration.
+        const denomTypes: Record<number, string> = {
+            1: 'whole', 2: 'half', 4: 'quarter', 8: 'eighth',
+            16: '16th', 32: '32nd',
+        };
+        // Simple case: numerator is 1 → exact match
+        if (numerator === 1) {
+            return denomTypes[denominator] || 'quarter';
+        }
+        // Dotted: 3/8 = dotted quarter, 3/4 = dotted half, etc.
+        if (numerator === 3) {
+            const dottedDenom = denominator / 2;
+            if (denomTypes[dottedDenom]) {
+                return denomTypes[dottedDenom];
+            }
+        }
+        // Fallback: use denominator type (MuseScore will use duration to fill correctly)
+        return denomTypes[denominator] || 'quarter';
+    };
+
     const buildNewScoreXml = (options: {
         title: string;
         composer: string;
@@ -2066,6 +2095,7 @@ export default function ScoreEditor() {
         keyFifths: number;
         timeNumerator: number;
         timeDenominator: number;
+        pickup?: { numerator: number; denominator: number };
     }) => {
         const title = escapeXml(options.title.trim());
         const composer = escapeXml(options.composer.trim());
@@ -2083,24 +2113,22 @@ export default function ScoreEditor() {
                 const octave = mapEntry.octave ? `\n        <clef-octave-change>${mapEntry.octave}</clef-octave-change>` : '';
                 return `        <clef${staffAttr}>\n          <sign>${mapEntry.sign}</sign>\n          <line>${mapEntry.line}</line>${octave}\n        </clef>`;
             }).join('\n');
-            const measuresXml = Array.from({ length: options.measures }, (_, measureIndex) => {
-                const attributes = measureIndex === 0
-                    ? `
+            const fullAttributesXml = `
       <attributes>
         <divisions>${divisions}</divisions>
         <key><fifths>${options.keyFifths}</fifths></key>
         <time><beats>${options.timeNumerator}</beats><beat-type>${options.timeDenominator}</beat-type></time>
         ${staves > 1 ? `<staves>${staves}</staves>` : ''}
 ${clefXml}
-      </attributes>`
-                    : '';
+      </attributes>`;
+            // When there's a pickup, all attributes go on the pickup measure (measure 0).
+            // Measure 1 gets no attributes block to avoid duplicate clefs/time sigs.
+            const hasPickup = !!options.pickup;
+            const measuresXml = Array.from({ length: options.measures }, (_, measureIndex) => {
+                const attributes = (measureIndex === 0 && !hasPickup) ? fullAttributesXml : '';
                 const notesXml = Array.from({ length: staves }, (_, staffIndex) => {
                     const staffNumber = staffIndex + 1;
-                    // MusicXML voices are per-part; use distinct numbers per staff
-                    // so the importer maps them to separate tracks.
                     const voice = staffIndex * 4 + 1;
-                    // After each staff's notes, <backup> rewinds the time cursor
-                    // so the next staff's notes start at the same beat.
                     const backup = staffIndex > 0
                         ? `      <backup>\n        <duration>${measureDuration}</duration>\n      </backup>\n`
                         : '';
@@ -2116,6 +2144,29 @@ ${attributes}
 ${notesXml}
     </measure>`;
             }).join('\n');
+            let pickupXml = '';
+            if (options.pickup) {
+                const pickupDuration = Math.round((divisions * 4 * options.pickup.numerator) / options.pickup.denominator);
+                const pickupRestType = pickupDurationToRestType(options.pickup.numerator, options.pickup.denominator);
+                const pickupNotesXml = Array.from({ length: staves }, (_, staffIndex) => {
+                    const staffNumber = staffIndex + 1;
+                    const voice = staffIndex * 4 + 1;
+                    const backup = staffIndex > 0
+                        ? `      <backup>\n        <duration>${pickupDuration}</duration>\n      </backup>\n`
+                        : '';
+                    return `${backup}      <note>
+        <rest/>
+        <duration>${pickupDuration}</duration>
+        <voice>${voice}</voice>
+        <type>${pickupRestType}</type>
+        ${staves > 1 ? `<staff>${staffNumber}</staff>` : ''}
+      </note>`;
+                }).join('\n');
+                pickupXml = `    <measure number="0" implicit="yes">
+${fullAttributesXml}
+${pickupNotesXml}
+    </measure>\n`;
+            }
             return {
                 partList: `    <score-part id="${partId}">
       <part-name>${instrumentName}</part-name>
@@ -2124,7 +2175,7 @@ ${notesXml}
       </score-instrument>
     </score-part>`,
                 part: `  <part id="${partId}">
-${measuresXml}
+${pickupXml}${measuresXml}
   </part>`,
             };
         });
@@ -4375,6 +4426,7 @@ ${partsBodyXml}
             keyFifths: newScoreKeyFifths,
             timeNumerator: newScoreTimeNumerator,
             timeDenominator: newScoreTimeDenominator,
+            pickup: newScoreWithPickup ? { numerator: newScorePickupNumerator, denominator: newScorePickupDenominator } : undefined,
         });
         const filenameBase = newScoreTitle.trim() ? toSafeFilename(newScoreTitle) : 'new_score';
         const file = new File([new TextEncoder().encode(xml)], `${filenameBase}.musicxml`, {
@@ -6881,6 +6933,11 @@ ${partsBodyXml}
         const targetValue = measureInsertTargetMap[target] ?? measureInsertTargetMap['after-selection'];
         return fn(sanitized, targetValue);
     });
+    const handleAddPickup = (numerator: number, denominator: number) => performMutation('add pickup measure', async () => {
+        const fn = requireMutation('addPickupMeasure');
+        if (!fn) return false;
+        return fn(numerator, denominator);
+    });
     const handleRemoveTrailingEmptyMeasures = () => performMutation('remove trailing empty measures', async () => {
         const fn = requireMutation('removeTrailingEmptyMeasures');
         if (!fn) return false;
@@ -9309,6 +9366,7 @@ ${partsBodyXml}
                 onSetBarLineType={handleSetBarLineType}
                 onAddVolta={handleAddVolta}
                 onInsertMeasures={handleInsertMeasures}
+                onAddPickup={handleAddPickup}
                 onRemoveTrailingEmptyMeasures={handleRemoveTrailingEmptyMeasures}
                 insertMeasuresDisabled={!score?.insertMeasures}
                 parts={scoreParts}
@@ -10849,6 +10907,51 @@ ${partsBodyXml}
                                     ))}
                                 </select>
                             </label>
+                            <label className="flex items-center gap-2 mt-2">
+                                <input
+                                    data-testid="new-score-pickup-checkbox"
+                                    type="checkbox"
+                                    checked={newScoreWithPickup}
+                                    onChange={(event) => setNewScoreWithPickup(event.target.checked)}
+                                    className="rounded border-gray-300"
+                                />
+                                <span className="text-sm text-gray-700">Include pickup measure</span>
+                            </label>
+                            {newScoreWithPickup && (
+                                <div className="grid gap-3 sm:grid-cols-2 mt-2">
+                                    <label className="flex flex-col gap-1">
+                                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                            Pickup Numerator
+                                        </span>
+                                        <input
+                                            data-testid="new-score-pickup-numerator"
+                                            type="number"
+                                            min={1}
+                                            value={newScorePickupNumerator}
+                                            onChange={(event) => setNewScorePickupNumerator(Number(event.target.value) || 1)}
+                                            className="rounded border border-gray-300 px-2 py-1 text-sm"
+                                        />
+                                    </label>
+                                    <label className="flex flex-col gap-1">
+                                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                            Pickup Denominator
+                                        </span>
+                                        <select
+                                            data-testid="new-score-pickup-denominator"
+                                            value={String(newScorePickupDenominator)}
+                                            onChange={(event) => setNewScorePickupDenominator(Number(event.target.value))}
+                                            className="rounded border border-gray-300 px-2 py-1 text-sm"
+                                        >
+                                            <option value="1">1</option>
+                                            <option value="2">2</option>
+                                            <option value="4">4</option>
+                                            <option value="8">8</option>
+                                            <option value="16">16</option>
+                                            <option value="32">32</option>
+                                        </select>
+                                    </label>
+                                </div>
+                            )}
                         </div>
                         <div className="mt-4 flex gap-2">
                             <button
