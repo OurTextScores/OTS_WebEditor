@@ -17,6 +17,11 @@
  * Also supports same-origin embed proxy aliases:
  * - /api/score-editor/llm/*  -> local /api/llm/* test proxies
  * - /api/score-editor/music/* -> proxied to TEST_EMBED_EDITOR_API_ORIGIN (if configured)
+ * Analytics stub:
+ * - POST /api/analytics/events     -> captures events in memory, returns 201
+ * - GET  /api/analytics/__test-log  -> returns captured events
+ * - DELETE /api/analytics/__test-log -> clears captured events
+ * Trace headers (x-request-id, traceparent, etc.) are forwarded through music API proxy.
  */
 /* eslint-disable @typescript-eslint/no-require-imports */
 
@@ -28,6 +33,10 @@ const PORT = Number(process.env.PORT || 8080);
 const ANTHROPIC_VERSION = '2023-06-01';
 const DEFAULT_MAX_TOKENS = 2048;
 const TEST_EMBED_EDITOR_API_ORIGIN = (process.env.TEST_EMBED_EDITOR_API_ORIGIN || '').replace(/\/+$/, '');
+// --- Analytics stub (in-memory event store) ---
+const analyticsEvents = [];
+const TRACE_HEADERS = ['x-request-id', 'traceparent', 'x-trace-id', 'x-session-id', 'x-client-session-id', 'tracestate', 'baggage'];
+
 const OPENAI_COMPATIBLE_LLMS = {
   grok: {
     label: 'Grok',
@@ -493,6 +502,61 @@ const handleOpenAiCompatibleRequest = async (req, res, provider) => {
   }
 };
 
+const analyticsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type, X-Request-ID, Traceparent, X-Trace-ID, X-Session-ID, X-Client-Session-ID, Tracestate, Baggage',
+  'Access-Control-Allow-Methods': 'POST, GET, DELETE, OPTIONS',
+};
+
+const tryHandleAnalytics = async (req, res, pathname) => {
+  if (!pathname.startsWith('/api/analytics/')) {
+    return false;
+  }
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, analyticsHeaders);
+    res.end();
+    return true;
+  }
+
+  if (pathname === '/api/analytics/events' && req.method === 'POST') {
+    const body = await readJsonBody(req);
+    const traceInfo = {};
+    for (const h of TRACE_HEADERS) {
+      if (req.headers[h]) {
+        traceInfo[h] = req.headers[h];
+      }
+    }
+    const entry = {
+      timestamp: new Date().toISOString(),
+      payload: body,
+      traceHeaders: traceInfo,
+    };
+    analyticsEvents.push(entry);
+    console.log(JSON.stringify({ analyticsEvent: entry }));
+    res.writeHead(201, analyticsHeaders);
+    res.end(JSON.stringify({ ok: true }));
+    return true;
+  }
+
+  if (pathname === '/api/analytics/__test-log' && req.method === 'GET') {
+    res.writeHead(200, analyticsHeaders);
+    res.end(JSON.stringify({ events: analyticsEvents }));
+    return true;
+  }
+
+  if (pathname === '/api/analytics/__test-log' && req.method === 'DELETE') {
+    analyticsEvents.length = 0;
+    res.writeHead(200, analyticsHeaders);
+    res.end(JSON.stringify({ ok: true, cleared: true }));
+    return true;
+  }
+
+  sendJson(res, 404, { error: `No analytics route for ${pathname}` });
+  return true;
+};
+
 const tryHandleLlmProxy = async (req, res, pathname) => {
   if (!pathname.startsWith('/api/llm/')) {
     return false;
@@ -575,6 +639,11 @@ const proxyToEditorApiOrigin = async (req, res, targetUrl) => {
     }
     if (req.headers.accept) {
       headers.accept = req.headers.accept;
+    }
+    for (const h of TRACE_HEADERS) {
+      if (req.headers[h]) {
+        headers[h] = req.headers[h];
+      }
     }
 
     const response = await fetch(targetUrl, {
@@ -714,6 +783,10 @@ const server = http.createServer(async (req, res) => {
   const requestUrl = new URL(req.url || '/', `http://${req.headers.host || `localhost:${PORT}`}`);
   const pathname = requestUrl.pathname;
 
+  if (await tryHandleAnalytics(req, res, pathname)) {
+    return;
+  }
+
   if (await tryHandleScoreEditorApiProxy(req, res, requestUrl, pathname)) {
     return;
   }
@@ -771,8 +844,11 @@ server.listen(PORT, () => {
   console.log(`  - http://localhost:${PORT}/api/llm/grok* -> local Grok proxy`);
   console.log(`  - http://localhost:${PORT}/api/llm/deepseek* -> local DeepSeek proxy`);
   console.log(`  - http://localhost:${PORT}/api/llm/kimi* -> local Kimi proxy`);
+  console.log(`  - http://localhost:${PORT}/api/analytics/events (POST) -> analytics stub (captures events)`);
+  console.log(`  - http://localhost:${PORT}/api/analytics/__test-log (GET/DELETE) -> view/clear captured events`);
   console.log(`  - http://localhost:${PORT}/api/score-editor/llm* -> alias to local LLM proxies`);
   console.log(`  - http://localhost:${PORT}/api/score-editor/music* -> proxy via TEST_EMBED_EDITOR_API_ORIGIN${TEST_EMBED_EDITOR_API_ORIGIN ? ` (${TEST_EMBED_EDITOR_API_ORIGIN})` : ' (not configured)'}`);
   console.log(`  - http://localhost:${PORT}/api/score-editor/music/__proxy-health -> test proxy health check`);
+  console.log(`\n  Trace headers forwarded: ${TRACE_HEADERS.join(', ')}`);
   console.log('\nPress Ctrl+C to stop\n');
 });

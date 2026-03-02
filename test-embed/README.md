@@ -93,6 +93,35 @@ To use a different port, set `PORT` when starting the server:
 PORT=8091 node test-embed/server.js
 ```
 
+## Analytics Stub
+
+The test server includes an in-memory analytics stub for testing editor telemetry:
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/analytics/events` | `POST` | Accepts event payloads, logs to stdout as structured JSON, stores in memory, returns 201 |
+| `/api/analytics/__test-log` | `GET` | Returns all captured events as `{ events: [...] }` |
+| `/api/analytics/__test-log` | `DELETE` | Clears captured events |
+
+Each captured event includes:
+- `timestamp` — ISO 8601 timestamp
+- `payload` — the JSON body sent by the client
+- `traceHeaders` — any trace headers present on the request (see below)
+
+## Trace Header Forwarding
+
+The test server forwards the following headers through the music API proxy (`/api/score-editor/music/*` → upstream):
+
+- `x-request-id`
+- `traceparent`
+- `x-trace-id`
+- `x-session-id`
+- `x-client-session-id`
+- `tracestate`
+- `baggage`
+
+The analytics stub also captures these headers on incoming requests, making them available via the `__test-log` endpoint for test assertions.
+
 ## How It Works
 
 The test server (`server.js`) routes requests:
@@ -101,6 +130,8 @@ The test server (`server.js`) routes requests:
 - `http://localhost:8080/score-editor/*` → `out/*` (embedded build)
 - `http://localhost:8080/api/llm/anthropic*` → Anthropic API proxy
 - `http://localhost:8080/api/llm/gemini*` → Gemini API proxy
+- `http://localhost:8080/api/analytics/events` → analytics stub (POST)
+- `http://localhost:8080/api/analytics/__test-log` → view/clear captured events (GET/DELETE)
 
 This exactly simulates the setup in OurTextScores where:
 - Next.js serves the main application

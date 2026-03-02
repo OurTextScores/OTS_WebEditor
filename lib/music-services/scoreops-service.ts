@@ -2237,7 +2237,7 @@ async function inspectSession(payload: z.infer<typeof INSPECT_REQUEST_SCHEMA>): 
     };
   }
   if (include.measureSignatures) {
-    const signatures = Array.from(session.content.matchAll(/<time\b[^>]*>[\s\S]*?<beats>(\d+)<\/beats>[\s\S]*?<beat-type>(\d+)<\/beat-type>[\s\S]*?<\/time>/gi))
+    const signatures = (Array.from(session.content.matchAll(/<time\b[^>]*>[\s\S]*?<beats>(\d+)<\/beats>[\s\S]*?<beat-type>(\d+)<\/beat-type>[\s\S]*?<\/time>/gi)) as RegExpMatchArray[])
       .slice(0, 24)
       .map((match) => `${match[1]}/${match[2]}`);
     body.measureSignatures = signatures;

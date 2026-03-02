@@ -236,6 +236,16 @@ Recommended client config direction:
 
 This avoids CORS issues and keeps embed deployments consistent with static export limitations.
 
+### Analytics Telemetry
+
+The editor emits client-side analytics events (e.g. `score_editor_runtime_loaded`, `score_editor_page_view`) via `POST /api/analytics/events`. The target path is controlled by `NEXT_PUBLIC_ANALYTICS_EVENTS_PATH` (default: `/api/analytics/events`).
+
+**Same-origin iframe deployment** (e.g. OurTextScores at `/score-editor/index.html`): Analytics works automatically — the editor's fetch hits the host app's existing `/api/analytics/events` route. No additional proxy rules needed.
+
+**Standalone / cross-origin embed**: Events are silently dropped unless the hosting page provides an endpoint at the configured path. This is by design — analytics is optional and should never block the editor UI.
+
+**Test-embed server**: Provides an in-memory analytics stub (`POST /api/analytics/events` → 201, `GET /api/analytics/__test-log` to inspect captured events) for integration testing. See `test-embed/README.md`.
+
 ### Soundfont Not Loading
 
 If soundfonts don't load in production:
@@ -268,6 +278,7 @@ All options are set via environment variables:
 | `NEXT_PUBLIC_BUILD_MODE` | Client-side build mode flag | `embed` |
 | `NEXT_PUBLIC_SOUNDFONT_CDN_URL` | CDN URL for soundfonts | `https://cdn.ourtextscores.com/soundfonts/default.sf2` |
 | `NEXT_PUBLIC_SCORE_EDITOR_API_BASE` | Same-origin proxy base for editor API routes in embed mode (LLM + music) | `/api/score-editor` |
+| `NEXT_PUBLIC_ANALYTICS_EVENTS_PATH` | Path for analytics event ingestion | `/api/analytics/events` |
 
 See `.env.example` for more details.
 

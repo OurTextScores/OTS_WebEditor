@@ -8,8 +8,8 @@
     "prebuild": "npm run check:wasm",
     "build": "next build --webpack",
     "build:local": "npm run typecheck && SKIP_NEXT_TYPECHECK=1 NODE_OPTIONS=--max-old-space-size=4096 npm run build",
-    "build:embed": "NEXT_PUBLIC_BUILD_MODE=embed BUILD_MODE=embed npm run build",
-    "build:embed:local": "npm run typecheck && SKIP_NEXT_TYPECHECK=1 NODE_OPTIONS=--max-old-space-size=4096 NEXT_PUBLIC_BUILD_MODE=embed BUILD_MODE=embed npm run build",
+    "build:embed": "NEXT_PUBLIC_BUILD_MODE=embed BUILD_MODE=embed NEXT_PUBLIC_SCORE_EDITOR_API_BASE=/api/score-editor npm run build",
+    "build:embed:local": "npm run typecheck && SKIP_NEXT_TYPECHECK=1 NODE_OPTIONS=--max-old-space-size=4096 NEXT_PUBLIC_BUILD_MODE=embed BUILD_MODE=embed NEXT_PUBLIC_SCORE_EDITOR_API_BASE=/api/score-editor npm run build",
     "build:embed:full": "bash scripts/build-embed-with-soundfont.sh",
     "start": "next start",
     "lint": "eslint app components lib unit tests",
@@ -24,7 +24,8 @@
     "generate:data": "node scripts/generate-static-data.js",
     "package:release": "node scripts/package-release.js",
     "release:prepare": "npm run build:embed && npm run package:release",
-    "test:embed": "node test-embed/server.js"
+    "test:embed": "node test-embed/server.js",
+    "test:embed:integration": "npx playwright test --config playwright.config.embed.ts"
   },
   "dependencies": {
     "@codemirror/lang-json": "^6.0.2",
