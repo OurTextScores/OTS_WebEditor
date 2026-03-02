@@ -110,7 +110,7 @@ describe('Toolbar', () => {
       />,
     );
 
-    fireEvent.pointerDown(screen.getByRole('button', { name: 'Time Signature' }));
+    fireEvent.pointerDown(screen.getByTestId('dropdown-signature'));
     fireEvent.click(screen.getByTestId('btn-timesig-4-4'));
     expect(onSetTimeSignature).toHaveBeenCalledWith(4, 4, 1);
 
@@ -174,15 +174,15 @@ describe('Toolbar', () => {
       />,
     );
 
-    await user.click(screen.getByRole('button', { name: 'Time Signature' }));
+    await user.click(screen.getByTestId('dropdown-signature'));
     await user.click(screen.getByTestId('btn-timesig-4-4'));
-    await user.click(screen.getByRole('button', { name: 'Time Signature' }));
+    await user.click(screen.getByTestId('dropdown-signature'));
     await user.click(screen.getByTestId('btn-timesig-2-2'));
 
     expect(onSetTimeSignature44).toHaveBeenCalledTimes(1);
     expect(onSetTimeSignature34).toHaveBeenCalledTimes(1);
 
-    await user.click(screen.getByRole('button', { name: 'Time Signature' }));
+    await user.click(screen.getByTestId('dropdown-signature'));
     expect(screen.getByTestId('btn-timesig-2-2')).toBeEnabled();
   });
 
@@ -420,6 +420,6 @@ describe('Toolbar', () => {
 
     await user.click(screen.getByTestId('btn-remove-containing-measures'));
     expect(onRemoveContainingMeasures).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('btn-remove-trailing-empty')).toHaveTextContent('Remove Trailing');
+    expect(screen.getByTestId('btn-remove-trailing-empty')).toHaveTextContent(/Trailing Empty Bars/i);
   });
 });
