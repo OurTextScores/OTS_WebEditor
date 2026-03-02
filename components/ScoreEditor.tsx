@@ -2096,10 +2096,18 @@ ${clefXml}
                     : '';
                 const notesXml = Array.from({ length: staves }, (_, staffIndex) => {
                     const staffNumber = staffIndex + 1;
-                    return `      <note>
+                    // MusicXML voices are per-part; use distinct numbers per staff
+                    // so the importer maps them to separate tracks.
+                    const voice = staffIndex * 4 + 1;
+                    // After each staff's notes, <backup> rewinds the time cursor
+                    // so the next staff's notes start at the same beat.
+                    const backup = staffIndex > 0
+                        ? `      <backup>\n        <duration>${measureDuration}</duration>\n      </backup>\n`
+                        : '';
+                    return `${backup}      <note>
         <rest measure="yes"/>
         <duration>${measureDuration}</duration>
-        <voice>1</voice>
+        <voice>${voice}</voice>
         ${staves > 1 ? `<staff>${staffNumber}</staff>` : ''}
       </note>`;
                 }).join('\n');
