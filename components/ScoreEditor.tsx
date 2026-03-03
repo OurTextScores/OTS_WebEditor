@@ -652,7 +652,7 @@ export default function ScoreEditor() {
     const [isResizingSidebar, setIsResizingSidebar] = useState(false);
     const sidebarResizeStartXRef = useRef<number>(0);
     const sidebarResizeStartWidthRef = useRef<number>(0);
-    const [xmlSidebarTab, setXmlSidebarTab] = useState<'xml' | 'assistant' | 'notagen' | 'agent'>('xml');
+    const [xmlSidebarTab, setXmlSidebarTab] = useState<'xml' | 'assistant' | 'notagen'>('xml');
     const [codeEditorTheme, setCodeEditorTheme] = useState<CodeEditorThemeMode>('light');
     const [xmlText, setXmlText] = useState('');
     const [xmlDirty, setXmlDirty] = useState(false);
@@ -684,7 +684,6 @@ export default function ScoreEditor() {
     const [musicNotaGenSpaceOptionsLoading, setMusicNotaGenSpaceOptionsLoading] = useState(false);
     const [musicNotaGenSpaceOptionsError, setMusicNotaGenSpaceOptionsError] = useState<string | null>(null);
     const musicAgentPromptRef = useRef<HTMLTextAreaElement>(null);
-    const [musicAgentModel, setMusicAgentModel] = useState(MUSIC_AGENT_DEFAULT_MODEL);
     const [musicAgentMaxTurns, setMusicAgentMaxTurns] = useState(6);
     const [musicAgentUseFallbackOnly, setMusicAgentUseFallbackOnly] = useState(false);
     const [musicAgentIncludeCurrentXml, setMusicAgentIncludeCurrentXml] = useState(true);
@@ -697,7 +696,7 @@ export default function ScoreEditor() {
     const [musicAgentPatchedXml, setMusicAgentPatchedXml] = useState('');
     const [musicAgentThread, setMusicAgentThread] = useState<AiChatMessage[]>([]);
     const musicAgentThreadRef = useRef<HTMLDivElement | null>(null);
-    const [aiMode, setAiMode] = useState<'patch' | 'chat'>('patch');
+    const [aiMode, setAiMode] = useState<'patch' | 'chat' | 'agent'>('patch');
     const [aiPrompt, setAiPrompt] = useState('');
     const [aiIncludeXml, setAiIncludeXml] = useState(true);
     const [aiIncludePdf, setAiIncludePdf] = useState(false);
@@ -2772,14 +2771,13 @@ ${partsBodyXml}
 
     useEffect(() => {
         const needsXmlForSidebarTab = (
-            (xmlSidebarTab === 'assistant' && aiIncludeXml)
+            (xmlSidebarTab === 'assistant' && (aiIncludeXml || (aiMode === 'agent' && musicAgentIncludeCurrentXml)))
             || xmlSidebarTab === 'notagen'
-            || (xmlSidebarTab === 'agent' && musicAgentIncludeCurrentXml)
         );
         if (needsXmlForSidebarTab && !xmlText.trim()) {
             void loadXmlFromScore();
         }
-    }, [xmlSidebarTab, aiIncludeXml, musicAgentIncludeCurrentXml, xmlText, loadXmlFromScore]);
+    }, [xmlSidebarTab, aiIncludeXml, musicAgentIncludeCurrentXml, aiMode, xmlText, loadXmlFromScore]);
 
     const aiProviderCapabilities = AI_PROVIDER_CAPABILITIES[aiProvider];
 
@@ -5781,7 +5779,7 @@ ${partsBodyXml}
                 };
                 toolInput.context = { ...sessionDefaults, includeAbc: true };
                 toolInput.convert = { ...sessionDefaults, inputFormat: 'musicxml', outputFormat: 'abc', includeContent: true };
-                toolInput.patch = { ...sessionDefaults, prompt, model: musicAgentModel.trim() || undefined, apiKey: aiApiKey.trim() || undefined };
+                toolInput.patch = { ...sessionDefaults, prompt, model: aiModel.trim() || undefined, apiKey: aiApiKey.trim() || undefined };
                 toolInput.scoreops = { ...sessionDefaults, prompt, options: { includeXml: true, includeMeasureDiff: true } };
                 toolInput.render = { ...sessionDefaults };
             } else if (xmlContext.trim()) {
@@ -5798,7 +5796,7 @@ ${partsBodyXml}
                 toolInput.patch = {
                     content: xmlContext,
                     prompt,
-                    model: musicAgentModel.trim() || undefined,
+                    model: aiModel.trim() || undefined,
                     apiKey: aiApiKey.trim() || undefined,
                 };
                 toolInput.scoreops = {
@@ -5833,9 +5831,10 @@ ${partsBodyXml}
 
             const payload: Record<string, unknown> = {
                 prompt: finalPrompt,
+                provider: aiProvider,
                 maxTurns: Math.max(1, Math.floor(musicAgentMaxTurns) || 1),
             };
-            const model = musicAgentModel.trim();
+            const model = aiModel.trim();
             if (model) {
                 payload.model = model;
             }
@@ -5974,13 +5973,20 @@ ${partsBodyXml}
             if (resultError && !failureReason) {
                 failureReason = resultError;
             }
-            const responseText = typeof parsed?.response === 'string' && parsed.response.trim()
+            let responseText = typeof parsed?.response === 'string' && parsed.response.trim()
                 ? parsed.response.trim()
                 : (resultError
                     ? resultError
                     : (typeof parsed?.error === 'string' && parsed.error.trim()
                         ? parsed.error.trim()
                         : (response.ok ? 'No response returned by the Agent.' : `Request failed: ${response.status}`)));
+            
+            // Append background agent error if fallback mode was triggered by a failure
+            if (typeof parsed?.agentError === 'string' && parsed.agentError.trim()) {
+                const agentErrMsg = parsed.agentError.trim();
+                responseText = `${responseText}\n\n[Agent SDK Error: ${agentErrMsg}]`;
+            }
+
             setMusicAgentThread((prev) => [...prev, { role: 'assistant', text: responseText }]);
             if (response.ok && !failureReason) {
                 outcome = 'success';
@@ -5997,7 +6003,8 @@ ${partsBodyXml}
                 }
                 emitEditorTelemetry('score_editor_ai_request', {
                     channel: 'music_agent',
-                    model: musicAgentModel.trim() || undefined,
+                    provider: aiProvider,
+                    model: aiModel.trim() || undefined,
                     selected_tool: selectedTool || undefined,
                     fallback_only: musicAgentUseFallbackOnly,
                     include_xml: musicAgentIncludeCurrentXml,
@@ -9900,20 +9907,6 @@ ${partsBodyXml}
                                             NotaGen
                                         </button>
                                     )}
-                                    {aiEnabled && (
-                                        <button
-                                            type="button"
-                                            data-testid="tab-agent"
-                                            onClick={() => setXmlSidebarTab('agent')}
-                                            className={`rounded border px-2 py-1 ${
-                                                xmlSidebarTab === 'agent'
-                                                    ? 'border-gray-400 bg-gray-100 text-gray-900'
-                                                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                                            }`}
-                                        >
-                                            Agent
-                                        </button>
-                                    )}
                                 </div>
                                 <label className="flex items-center gap-2">
                                     <span className="text-[11px] uppercase tracking-wide text-gray-500">Theme</span>
@@ -10089,6 +10082,13 @@ ${partsBodyXml}
                                         >
                                             Chat
                                         </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setAiMode('agent')}
+                                            className={`rounded border px-2 py-1 ${aiMode === 'agent' ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+                                        >
+                                            Agent
+                                        </button>
                                         <div className="ml-auto flex items-center gap-2 text-xs text-gray-600">
                                             <span>Max output</span>
                                             <select
@@ -10187,7 +10187,7 @@ ${partsBodyXml}
                                             </div>
                                         )}
                                     </div>
-                                    {aiMode === 'patch' ? (
+                                    {aiMode === 'patch' && (
                                         <div className="space-y-2">
                                             <div>
                                                 <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -10243,7 +10243,8 @@ ${partsBodyXml}
                                                 </div>
                                             )}
                                         </div>
-                                    ) : (
+                                    )}
+                                    {aiMode === 'chat' && (
                                         <div className="space-y-2">
                                             <div className="flex items-center justify-between text-xs text-gray-500">
                                                 <span>Open Chat</span>
@@ -10322,6 +10323,220 @@ ${partsBodyXml}
                                             >
                                                 {aiBusy ? 'Working...' : 'Send Message'}
                                             </button>
+                                        </div>
+                                    )}
+                                    {aiMode === 'agent' && (
+                                        <div className="space-y-3">
+                                            <div className="rounded border border-gray-200 bg-gray-50/70 p-3 space-y-3">
+                                                <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                                                    Music Agent Router
+                                                </div>
+                                                <div>
+                                                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                        Max Turns
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        min={1}
+                                                        max={20}
+                                                        value={Number(musicAgentMaxTurns)}
+                                                        onChange={(event) => setMusicAgentMaxTurns(Math.max(1, Math.min(20, Number(event.target.value) || 1)))}
+                                                        autoComplete="off"
+                                                        className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                                    />
+                                                </div>
+                                                <label className="flex items-center gap-2 text-xs text-gray-600">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={musicAgentIncludeCurrentXml}
+                                                        onChange={(event) => setMusicAgentIncludeCurrentXml(event.target.checked)}
+                                                        className="h-4 w-4 rounded border-gray-300"
+                                                    />
+                                                    Include current score MusicXML as tool context
+                                                </label>
+                                                <label className="flex items-center gap-2 text-xs text-gray-600">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={musicAgentUseFallbackOnly}
+                                                        onChange={(event) => setMusicAgentUseFallbackOnly(event.target.checked)}
+                                                        className="h-4 w-4 rounded border-gray-300"
+                                                    />
+                                                    Force fallback mode (no Agents SDK run)
+                                                </label>
+                                                <div className="space-y-1">
+                                                    <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                        <span>Attachments (PDF/Images)</span>
+                                                        {musicAgentFiles.length > 0 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setMusicAgentFiles([])}
+                                                                className="text-blue-600 hover:underline"
+                                                            >
+                                                                Clear All
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-1 mb-1">
+                                                        {musicAgentFiles.map((file, idx) => (
+                                                            <div key={idx} className="flex items-center gap-1 bg-gray-100 rounded px-2 py-0.5 text-[10px] text-gray-700">
+                                                                <span className="truncate max-w-[100px]">{file.name}</span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setMusicAgentFiles(prev => prev.filter((_, i) => i !== idx))}
+                                                                    className="text-gray-400 hover:text-red-500 font-bold"
+                                                                >
+                                                                    ×
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <input
+                                                        type="file"
+                                                        multiple
+                                                        data-testid="input-agent-files"
+                                                        accept="application/pdf,image/*"
+                                                        onChange={(e) => {
+                                                            const files = Array.from(e.target.files || []);
+                                                            setMusicAgentFiles(prev => [...prev, ...files]);
+                                                            e.target.value = '';
+                                                        }}
+                                                        className="block w-full text-xs text-gray-500
+                                                            file:mr-2 file:py-1 file:px-2
+                                                            file:rounded file:border-0
+                                                            file:text-xs file:font-semibold
+                                                            file:bg-blue-50 file:text-blue-700
+                                                            hover:file:bg-blue-100"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between text-xs text-gray-500">
+                                                    <span>Conversation</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setMusicAgentThread([]);
+                                                            setMusicAgentError(null);
+                                                            setMusicAgentResult(null);
+                                                            setMusicAgentPatch(null);
+                                                            setMusicAgentPatchError(null);
+                                                            setMusicAgentPatchedXml('');
+                                                        }}
+                                                        disabled={musicAgentBusy || (!musicAgentThread.length && !musicAgentResult && !musicAgentPatch)}
+                                                        className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        Clear
+                                                    </button>
+                                                </div>
+                                                <div
+                                                    ref={musicAgentThreadRef}
+                                                    className="max-h-64 min-h-[140px] overflow-y-auto rounded border border-gray-200 bg-gray-50 p-2"
+                                                >
+                                                    {musicAgentThread.length ? (
+                                                        <div className="space-y-2">
+                                                            {musicAgentThread.map((message, index) => (
+                                                                <div
+                                                                    key={`${message.role}-${index}-${message.text.slice(0, 12)}`}
+                                                                    className={`rounded px-2 py-1 text-xs ${message.role === 'assistant' ? 'bg-blue-50 text-blue-900' : 'bg-white text-gray-800'}`}
+                                                                >
+                                                                    <span className="mb-1 block text-[10px] uppercase tracking-wide text-gray-500">
+                                                                        {message.role === 'assistant' ? 'Agent' : 'You'}
+                                                                    </span>
+                                                                    <div className="leading-relaxed whitespace-pre-wrap">
+                                                                        {message.text}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-xs text-gray-500">
+                                                            Ask the router to analyze context, convert notation, or prepare generation requests.
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <textarea
+                                                    ref={musicAgentPromptRef}
+                                                    rows={3}
+                                                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                                    placeholder="Describe what you want the agent to do."
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={handleMusicAgentSend}
+                                                    disabled={musicAgentBusy}
+                                                    className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    {musicAgentBusy ? 'Working...' : 'Send to Agent'}
+                                                </button>
+                                            </div>
+                                            {musicAgentError && (
+                                                <div className="text-xs text-red-600">
+                                                    {musicAgentError}
+                                                </div>
+                                            )}
+                                            {musicAgentPatchError && (
+                                                <div className="text-xs text-red-600">
+                                                    {musicAgentPatchError}
+                                                </div>
+                                            )}
+                                            {musicAgentPatch && (
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center justify-between text-xs text-gray-500">
+                                                        <span>Generated Patch</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleApplyMusicAgentPatch}
+                                                            disabled={musicAgentBusy || !musicAgentPatchedXml.trim()}
+                                                            className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        >
+                                                            Apply Patch
+                                                        </button>
+                                                    </div>
+                                                    <CodeMirrorEditor
+                                                        value={JSON.stringify(musicAgentPatch, null, 2)}
+                                                        onChange={() => {}}
+                                                        readOnly={true}
+                                                        language="json"
+                                                        placeholderText="Patch output will appear here."
+                                                        height={180}
+                                                        maxHeight={240}
+                                                        themeMode={codeEditorTheme}
+                                                    />
+                                                </div>
+                                            )}
+                                            {musicAgentResult && (
+                                                <div className="space-y-2">
+                                                    {(() => {
+                                                        const res = asRecord(musicAgentResult);
+                                                        // The router.ts injects the full result object into the 'result' field as a string
+                                                        const resultObj = typeof res?.result === 'string' ? JSON.parse(res.result) : res?.result;
+                                                        const body = asRecord(asRecord(resultObj)?.body);
+                                                        if (body?.dataUrl && typeof body.dataUrl === 'string' && String(body.mimeType).startsWith('image/')) {
+                                                            return (
+                                                                <div className="rounded border border-gray-200 bg-white p-1 shadow-sm">
+                                                                    <img 
+                                                                        src={body.dataUrl} 
+                                                                        alt="Score Render" 
+                                                                        className="w-full rounded" 
+                                                                    />
+                                                                    <div className="mt-1 text-center text-[10px] text-gray-400 italic">
+                                                                        Score snapshot generated by agent
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        }
+                                                        return null;
+                                                    })()}
+                                                    <details className="rounded border border-gray-200 bg-gray-50 p-2">
+                                                        <summary className="cursor-pointer text-xs font-medium text-gray-700">
+                                                            Last raw response
+                                                        </summary>
+                                                        <pre className="mt-2 max-h-64 overflow-auto text-[11px] leading-relaxed text-gray-700 whitespace-pre-wrap">
+                                                            {JSON.stringify(musicAgentResult, null, 2)}
+                                                        </pre>
+                                                    </details>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -10466,247 +10681,6 @@ ${partsBodyXml}
                                         <pre className="max-h-64 overflow-auto rounded border border-gray-200 bg-gray-50 p-2 text-[11px] leading-relaxed text-gray-700 whitespace-pre-wrap">
                                             {JSON.stringify(musicNotaGenResult, null, 2)}
                                         </pre>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                        {xmlSidebarTab === 'agent' && aiEnabled && (
-                            <div className="mt-3 space-y-3 text-sm text-gray-700">
-                                <div className="rounded border border-gray-200 bg-gray-50/70 p-3 space-y-3">
-                                    <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                                        Music Agent Router
-                                    </div>
-                                    <div className="grid gap-2 sm:grid-cols-2">
-                                        <div>
-                                            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                                Model
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={musicAgentModel}
-                                                onChange={(event) => setMusicAgentModel(event.target.value)}
-                                                className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                                                placeholder="gpt-5.2"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                                Max Turns
-                                            </label>
-                                            <input
-                                                type="number"
-                                                min={1}
-                                                max={20}
-                                                value={Number(musicAgentMaxTurns)}
-                                                onChange={(event) => setMusicAgentMaxTurns(Math.max(1, Math.min(20, Number(event.target.value) || 1)))}
-                                                autoComplete="off"
-                                                className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                                            />
-                                        </div>
-                                    </div>
-                                    <form onSubmit={(e) => e.preventDefault()}>
-                                        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                            OpenAI API Key (optional)
-                                        </label>
-                                        <input
-                                            type="password"
-                                            value={aiApiKey}
-                                            onChange={(event) => setAiApiKey(event.target.value)}
-                                            className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                                            placeholder="Used for fallback patch generation"
-                                            autoComplete="off"
-                                        />
-                                    </form>
-                                    <label className="flex items-center gap-2 text-xs text-gray-600">
-                                        <input
-                                            type="checkbox"
-                                            checked={musicAgentIncludeCurrentXml}
-                                            onChange={(event) => setMusicAgentIncludeCurrentXml(event.target.checked)}
-                                            className="h-4 w-4 rounded border-gray-300"
-                                        />
-                                        Include current score MusicXML as tool context
-                                    </label>
-                                    <label className="flex items-center gap-2 text-xs text-gray-600">
-                                        <input
-                                            type="checkbox"
-                                            checked={musicAgentUseFallbackOnly}
-                                            onChange={(event) => setMusicAgentUseFallbackOnly(event.target.checked)}
-                                            className="h-4 w-4 rounded border-gray-300"
-                                        />
-                                        Force fallback mode (no Agents SDK run)
-                                    </label>
-                                    <div className="space-y-1">
-                                        <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                            <span>Attachments (PDF/Images)</span>
-                                            {musicAgentFiles.length > 0 && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setMusicAgentFiles([])}
-                                                    className="text-blue-600 hover:underline"
-                                                >
-                                                    Clear All
-                                                </button>
-                                            )}
-                                        </div>
-                                        <div className="flex flex-wrap gap-1 mb-1">
-                                            {musicAgentFiles.map((file, idx) => (
-                                                <div key={idx} className="flex items-center gap-1 bg-gray-100 rounded px-2 py-0.5 text-[10px] text-gray-700">
-                                                    <span className="truncate max-w-[100px]">{file.name}</span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setMusicAgentFiles(prev => prev.filter((_, i) => i !== idx))}
-                                                        className="text-gray-400 hover:text-red-500 font-bold"
-                                                    >
-                                                        ×
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                        <input
-                                            type="file"
-                                            multiple
-                                            data-testid="input-agent-files"
-                                            accept="application/pdf,image/*"
-                                            onChange={(e) => {
-                                                const files = Array.from(e.target.files || []);
-                                                setMusicAgentFiles(prev => [...prev, ...files]);
-                                                e.target.value = '';
-                                            }}
-                                            className="block w-full text-xs text-gray-500
-                                                file:mr-2 file:py-1 file:px-2
-                                                file:rounded file:border-0
-                                                file:text-xs file:font-semibold
-                                                file:bg-blue-50 file:text-blue-700
-                                                hover:file:bg-blue-100"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between text-xs text-gray-500">
-                                        <span>Conversation</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setMusicAgentThread([]);
-                                                setMusicAgentError(null);
-                                                setMusicAgentResult(null);
-                                                setMusicAgentPatch(null);
-                                                setMusicAgentPatchError(null);
-                                                setMusicAgentPatchedXml('');
-                                            }}
-                                            disabled={musicAgentBusy || (!musicAgentThread.length && !musicAgentResult && !musicAgentPatch)}
-                                            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Clear
-                                        </button>
-                                    </div>
-                                    <div
-                                        ref={musicAgentThreadRef}
-                                        className="max-h-64 min-h-[140px] overflow-y-auto rounded border border-gray-200 bg-gray-50 p-2"
-                                    >
-                                        {musicAgentThread.length ? (
-                                            <div className="space-y-2">
-                                                {musicAgentThread.map((message, index) => (
-                                                    <div
-                                                        key={`${message.role}-${index}-${message.text.slice(0, 12)}`}
-                                                        className={`rounded px-2 py-1 text-xs ${message.role === 'assistant' ? 'bg-blue-50 text-blue-900' : 'bg-white text-gray-800'}`}
-                                                    >
-                                                        <span className="mb-1 block text-[10px] uppercase tracking-wide text-gray-500">
-                                                            {message.role === 'assistant' ? 'Agent' : 'You'}
-                                                        </span>
-                                                        <div className="leading-relaxed whitespace-pre-wrap">
-                                                            {message.text}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <div className="text-xs text-gray-500">
-                                                Ask the router to analyze context, convert notation, or prepare generation requests.
-                                            </div>
-                                        )}
-                                    </div>
-                                    <textarea
-                                        ref={musicAgentPromptRef}
-                                        rows={3}
-                                        className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                                        placeholder="Describe what you want the agent to do."
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={handleMusicAgentSend}
-                                        disabled={musicAgentBusy}
-                                        className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        {musicAgentBusy ? 'Working...' : 'Send to Agent'}
-                                    </button>
-                                </div>
-                                {musicAgentError && (
-                                    <div className="text-xs text-red-600">
-                                        {musicAgentError}
-                                    </div>
-                                )}
-                                {musicAgentPatchError && (
-                                    <div className="text-xs text-red-600">
-                                        {musicAgentPatchError}
-                                    </div>
-                                )}
-                                {musicAgentPatch && (
-                                    <div className="space-y-2">
-                                        <div className="flex items-center justify-between text-xs text-gray-500">
-                                            <span>Generated Patch</span>
-                                            <button
-                                                type="button"
-                                                onClick={handleApplyMusicAgentPatch}
-                                                disabled={musicAgentBusy || !musicAgentPatchedXml.trim()}
-                                                className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                Apply Patch
-                                            </button>
-                                        </div>
-                                        <CodeMirrorEditor
-                                            value={JSON.stringify(musicAgentPatch, null, 2)}
-                                            onChange={() => {}}
-                                            readOnly={true}
-                                            language="json"
-                                            placeholderText="Patch output will appear here."
-                                            height={180}
-                                            maxHeight={240}
-                                            themeMode={codeEditorTheme}
-                                        />
-                                    </div>
-                                )}
-                                {musicAgentResult && (
-                                    <div className="space-y-2">
-                                        {(() => {
-                                            const res = asRecord(musicAgentResult);
-                                            // The router.ts injects the full result object into the 'result' field as a string
-                                            const resultObj = typeof res?.result === 'string' ? JSON.parse(res.result) : res?.result;
-                                            const body = asRecord(asRecord(resultObj)?.body);
-                                            if (body?.dataUrl && typeof body.dataUrl === 'string' && String(body.mimeType).startsWith('image/')) {
-                                                return (
-                                                    <div className="rounded border border-gray-200 bg-white p-1 shadow-sm">
-                                                        <img 
-                                                            src={body.dataUrl} 
-                                                            alt="Score Render" 
-                                                            className="w-full rounded" 
-                                                        />
-                                                        <div className="mt-1 text-center text-[10px] text-gray-400 italic">
-                                                            Score snapshot generated by agent
-                                                        </div>
-                                                    </div>
-                                                );
-                                            }
-                                            return null;
-                                        })()}
-                                        <details className="rounded border border-gray-200 bg-gray-50 p-2">
-                                            <summary className="cursor-pointer text-xs font-medium text-gray-700">
-                                                Last raw response
-                                            </summary>
-                                            <pre className="mt-2 max-h-64 overflow-auto text-[11px] leading-relaxed text-gray-700 whitespace-pre-wrap">
-                                                {JSON.stringify(musicAgentResult, null, 2)}
-                                            </pre>
-                                        </details>
                                     </div>
                                 )}
                             </div>

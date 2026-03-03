@@ -49,10 +49,12 @@ test.describe('Music Agent: Score Sessions & Persistence', () => {
     await page.waitForSelector('svg');
 
     // 4. Turn 1: Ask about current title
-    await page.getByTestId('tab-agent').click();
+    // 3. Switch to Assistant tab -> Agent mode
+    await page.getByTestId('tab-assistant').click();
+    await page.getByRole('button', { name: 'Agent' }).click();
+
     await page.getByPlaceholder('Describe what you want the agent to do.').fill('What is the title?');
     await page.getByRole('button', { name: 'Send to Agent' }).click();
-    
     // Verify first response
     const thread = page.locator('.overflow-y-auto.rounded.border.bg-gray-50');
     await expect(thread).toContainText('The title is Original Title.', { timeout: 15000 });

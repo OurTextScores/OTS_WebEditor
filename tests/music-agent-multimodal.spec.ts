@@ -5,10 +5,14 @@ test('Music Agent: can attach files and send multimodal prompt', async ({ page }
   await page.goto('/?score=/test_scores/single_note_c4.musicxml', { waitUntil: 'networkidle' });
   await page.waitForSelector('svg', { timeout: 20000 });
 
-  // 2. Switch to the Agent tab
-  const agentTab = page.getByTestId('tab-agent');
-  await expect(agentTab).toBeVisible();
-  await agentTab.click();
+  // 2. Switch to the Assistant tab and Agent mode
+  const assistantTab = page.getByTestId('tab-assistant');
+  await expect(assistantTab).toBeVisible();
+  await assistantTab.click();
+
+  const agentModeButton = page.getByRole('button', { name: 'Agent' });
+  await expect(agentModeButton).toBeVisible();
+  await agentModeButton.click();
 
   // 3. Verify attachments UI is visible
   const attachmentsHeader = page.getByText('Attachments (PDF/Images)');

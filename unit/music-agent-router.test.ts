@@ -415,6 +415,66 @@ describe('runMusicAgentRouter', () => {
     expect(mocked.run).toHaveBeenCalledTimes(1);
   });
 
+  it('uses Anthropic provider and API key when requested', async () => {
+    delete process.env.OPENAI_API_KEY;
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+    mocked.run.mockResolvedValue({
+      finalOutput: {
+        selectedTool: 'music_context',
+        toolStatus: 200,
+        toolOk: true,
+        response: 'Claude analyzed the score.',
+      },
+    });
+
+    const result = await runMusicAgentRouter({
+      prompt: 'What key is this?',
+      provider: 'anthropic',
+      model: 'claude-3-5-sonnet-20240620',
+      toolInput: {
+        context: { content: '<score-partwise/>' },
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({
+      mode: 'agents-sdk',
+      provider: 'anthropic',
+      model: 'claude-3-5-sonnet-20240620',
+      selectedTool: 'music.context',
+    });
+    expect(mocked.run).toHaveBeenCalledTimes(1);
+    delete process.env.ANTHROPIC_API_KEY;
+  });
+
+  it('resolves Anthropic API key from request body', async () => {
+    delete process.env.ANTHROPIC_API_KEY;
+    mocked.run.mockResolvedValue({
+      finalOutput: {
+        selectedTool: 'music_context',
+        toolStatus: 200,
+        toolOk: true,
+        response: 'Claude analyzed the score with user key.',
+      },
+    });
+
+    const result = await runMusicAgentRouter({
+      prompt: 'What key is this?',
+      provider: 'anthropic',
+      apiKey: 'sk-ant-user-key',
+      toolInput: {
+        context: { content: '<score-partwise/>' },
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({
+      mode: 'agents-sdk',
+      provider: 'anthropic',
+    });
+    expect(mocked.run).toHaveBeenCalledTimes(1);
+  });
+
   it('calls music_render tool via Agents SDK', async () => {
     process.env.OPENAI_API_KEY = 'test-key';
     mocked.run.mockResolvedValue({

@@ -491,10 +491,11 @@ test.describe('Agent fallback router', () => {
 /*  Agent SDK E2E tests — require OPENAI_API_KEY                      */
 /*  Run: OPENAI_API_KEY=sk-... npm run test:e2e:music                 */
 /* ------------------------------------------------------------------ */
-const HAS_API_KEY = Boolean(process.env.OPENAI_API_KEY);
+const HAS_API_KEY = Boolean(process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY);
+console.log('HAS_API_KEY:', HAS_API_KEY, 'OPENAI:', !!process.env.OPENAI_API_KEY, 'ANTHROPIC:', !!process.env.ANTHROPIC_API_KEY);
 
 test.describe('Music Agent SDK E2E', () => {
-  test.skip(!HAS_API_KEY, 'Requires OPENAI_API_KEY');
+  test.skip(!HAS_API_KEY, 'Requires OPENAI_API_KEY or ANTHROPIC_API_KEY');
 
   test('handles multimodal prompt with PDF attachment', async ({ request }) => {
     const response = await request.post('/api/music/agent', {
@@ -723,5 +724,21 @@ test.describe('Music Agent SDK E2E', () => {
         expect(parsed.body.dataUrl).toMatch(/^data:image\/png;base64,/);
       }
     }
+  });
+
+  test('agent SDK works with Anthropic provider', async ({ request }) => {
+    test.skip(!process.env.ANTHROPIC_API_KEY, 'Skipping Anthropic E2E: ANTHROPIC_API_KEY not set');
+    const response = await request.post('/api/music/agent', {
+      data: {
+        prompt: 'What key is this score in?',
+        provider: 'anthropic',
+        toolInput: { context: { content: SCALE_XML } },
+      },
+      timeout: 90_000,
+    });
+    expect(response.ok()).toBeTruthy();
+    const json = await response.json();
+    expect(json.mode).toBe('agents-sdk');
+    expect(json.provider).toBe('anthropic');
   });
 });

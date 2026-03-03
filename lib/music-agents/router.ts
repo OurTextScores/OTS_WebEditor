@@ -1,5 +1,7 @@
-import { Agent, run, tool, type AgentInputItem } from '@openai/agents';
+import { Agent, run, tool, type AgentInputItem, type Model } from '@openai/agents';
+import { aisdk } from '@openai/agents-extensions';
 import { OpenAIResponsesModel } from '@openai/agents-openai';
+import { createAnthropic } from '@ai-sdk/anthropic';
 import { OpenAI } from 'openai';
 import { z } from 'zod';
 import { runMusicContextService } from '../music-services/context-service';
@@ -63,9 +65,16 @@ const asRecord = (value: unknown): Record<string, unknown> | null => (
  * Creates a scoped model instance tied to a specific API key.
  * This avoids mutating process.env globally.
  */
-function getModelForRequest(apiKey: string, modelName: string) {
-  const client = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
-  return new OpenAIResponsesModel(client, modelName);
+function getModelForRequest(provider: string, apiKey: string, modelName: string): Model {
+  if (provider === 'anthropic') {
+    const client = createAnthropic({ apiKey });
+    return aisdk(client(modelName));
+  }
+  if (provider === 'openai') {
+    const client = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
+    return new OpenAIResponsesModel(client, modelName);
+  }
+  throw new Error(`Provider "${provider}" is not yet supported in Agent mode (OpenAI and Anthropic only).`);
 }
 
 /**
@@ -190,14 +199,18 @@ function summarizeForModel(
   return summary;
 }
 
-const DEFAULT_MODEL = (process.env.MUSIC_AGENT_MODEL || 'gpt-5.2').trim();
+const DEFAULT_MODELS: Record<string, string> = {
+  openai: (process.env.MUSIC_AGENT_MODEL || 'gpt-5.2').trim(),
+  anthropic: 'claude-sonnet-4-5',
+};
+const getDefaultModel = (provider: string) => DEFAULT_MODELS[provider] || DEFAULT_MODELS.openai;
 
 // The @openai/agents SDK replaces dots with underscores in tool names via
 // toFunctionToolName(), so the model sees music_context, music_scoreops, etc.
 // The enum here must match the names the model actually outputs.
 const AGENT_OUTPUT_SCHEMA = z.object({
   selectedTool: z.enum(['music_context', 'music_convert', 'music_generate', 'music_scoreops', 'music_patch', 'music_render']),
-  toolStatus: z.number().int(),
+  toolStatus: z.number(),
   toolOk: z.boolean(),
   response: z.string(),
   error: z.string().nullable().optional(),
@@ -793,7 +806,7 @@ function createMusicRouterAgent() {
 
   return new Agent({
     name: 'MusicRouter',
-    model: DEFAULT_MODEL,
+    model: DEFAULT_MODELS.openai,
     instructions: [
       'You are a music workflow router.',
       'Users may provide PDF or image attachments representing score pages. Use these for analysis or comparison with the current MusicXML when provided.',
@@ -853,6 +866,7 @@ export async function runMusicAgentRouter(
   const trace = options?.trace;
   try {
   const data = asRecord(body);
+  const provider = typeof data?.provider === 'string' ? data.provider.trim() : 'openai';
   const promptRaw = data?.prompt;
   const prompt = (typeof promptRaw === 'string' || Array.isArray(promptRaw))
     ? promptRaw as string | AgentInputItem[]
@@ -900,7 +914,9 @@ export async function runMusicAgentRouter(
   const requestApiKey = (typeof data?.apiKey === 'string'
     ? data.apiKey
     : (typeof data?.api_key === 'string' ? data.api_key : '')).trim();
-  const envApiKey = (process.env.OPENAI_API_KEY || '').trim();
+  const envApiKey = provider === 'anthropic'
+    ? (process.env.ANTHROPIC_API_KEY || '').trim()
+    : (process.env.OPENAI_API_KEY || '').trim();
   const openaiApiKey = requestApiKey || envApiKey;
 
   if (useFallbackOnly || !openaiApiKey) {
@@ -928,8 +944,12 @@ export async function runMusicAgentRouter(
   const requestedModel = typeof data?.model === 'string' ? data.model.trim() : '';
   const maxTurnsRaw = Number(data?.maxTurns);
   const maxTurns = Number.isFinite(maxTurnsRaw) && maxTurnsRaw > 0 ? Math.floor(maxTurnsRaw) : 6;
+  const defaultModel = getDefaultModel(provider);
+  const currentModelName = requestedModel || defaultModel;
+
   traceLog(trace, 'music_agent.router.agents_sdk.start', {
-    model: requestedModel || DEFAULT_MODEL,
+    provider,
+    model: currentModelName,
     maxTurns,
     isMultimodal: Array.isArray(prompt),
   });
@@ -946,10 +966,10 @@ export async function runMusicAgentRouter(
     ].join('\n');
   }
 
-  if (requestApiKey) {
+  if (requestApiKey || provider !== 'openai') {
     // Override the agent's model with one tied to the user's specific key
     // This ensures concurrency safety.
-    agent.model = getModelForRequest(requestApiKey, requestedModel || DEFAULT_MODEL);
+    agent.model = getModelForRequest(provider, openaiApiKey, currentModelName);
   } else if (requestedModel) {
     agent.model = requestedModel;
   }
@@ -957,7 +977,7 @@ export async function runMusicAgentRouter(
   const AGENT_TIMEOUT_MS = 60_000;
 
   try {
-    console.info(`[music-agent] Starting agent run: model=${requestedModel || DEFAULT_MODEL}, maxTurns=${maxTurns}, multimodal=${Array.isArray(prompt)}`);
+    console.info(`[music-agent] Starting agent run: provider=${provider}, model=${currentModelName}, maxTurns=${maxTurns}, multimodal=${Array.isArray(prompt)}`);
     const runContext: MusicAgentRunnerContext = {
       toolInput: toolInput || undefined,
       trace,
@@ -1007,7 +1027,8 @@ export async function runMusicAgentRouter(
       status: 200,
       body: {
         mode: 'agents-sdk',
-        model: requestedModel || DEFAULT_MODEL,
+        provider,
+        model: currentModelName,
         ...finalOutput,
       },
     };
