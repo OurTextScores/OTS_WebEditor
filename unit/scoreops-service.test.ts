@@ -407,11 +407,9 @@ describe('runMusicScoreOpsService', () => {
       ok: false,
       error: {
         code: 'unsupported_op',
-        details: {
-          planner: {
-            mode: 'heuristic-v2',
-            unsupportedSteps: expect.any(Array),
-          },
+        planner: {
+          mode: 'heuristic-v2',
+          unsupportedSteps: expect.any(Array),
         },
       },
     });
