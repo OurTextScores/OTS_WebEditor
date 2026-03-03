@@ -33,6 +33,7 @@ export const MUSIC_SCOREOPS_TOOL_CONTRACT: MusicToolContract = {
                 'replace_selected_text', 'set_duration', 'set_voice',
                 'set_accidental', 'insert_text',
                 'set_layout_break', 'set_repeat_markers', 'history_step',
+                'export_score',
               ],
             },
           },

@@ -1410,4 +1410,106 @@ describe('runMusicScoreOpsService', () => {
     // divisions=4, pickup 3/8 → duration = 4*4*3/8 = 6
     expect(output).toMatch(/<measure[^>]*number="0"[^>]*>[\s\S]*?<duration>6<\/duration>/);
   });
+
+  describe('export_score', () => {
+    it('XML executor exports musicxml as base64', async () => {
+      const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
+      const scoreSessionId = String(open.body.scoreSessionId);
+
+      const apply = await runMusicScoreOpsService({
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'export_score', formats: ['musicxml'] }],
+        options: { preferredExecutor: 'xml' },
+      }, 'apply');
+
+      expect(apply.status).toBe(200);
+      expect(apply.body).toMatchObject({ ok: true });
+      const exports = apply.body.exports as Record<string, string>;
+      expect(exports).toBeDefined();
+      expect(typeof exports.musicxml).toBe('string');
+      // Revision should not change for export-only request
+      expect(apply.body.newRevision).toBe(0);
+    });
+
+    it('XML executor: musicxml base64 decodes to valid XML matching session content', async () => {
+      const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
+      const scoreSessionId = String(open.body.scoreSessionId);
+
+      const apply = await runMusicScoreOpsService({
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'export_score', formats: ['musicxml'] }],
+        options: { preferredExecutor: 'xml' },
+      }, 'apply');
+
+      expect(apply.status).toBe(200);
+      const exports = apply.body.exports as Record<string, string>;
+      const decoded = Buffer.from(exports.musicxml, 'base64').toString('utf-8');
+      expect(decoded).toContain('<score-partwise');
+      expect(decoded).toContain('<movement-title>Original Title</movement-title>');
+    });
+
+    it('XML executor: midi-only export marks as failed (WASM-only) but does not crash', async () => {
+      const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
+      const scoreSessionId = String(open.body.scoreSessionId);
+
+      const apply = await runMusicScoreOpsService({
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'export_score', formats: ['midi'] }],
+        options: { preferredExecutor: 'xml' },
+      }, 'apply');
+
+      // No exports available and no XML change → 422
+      expect(apply.status).toBe(422);
+      const error = apply.body.error as { applied?: Array<{ op: string; ok: boolean; message: string }> };
+      expect(error?.applied).toBeDefined();
+      const exportEntry = error.applied?.find((e) => e.op === 'export_score');
+      expect(exportEntry).toBeDefined();
+      expect(exportEntry?.ok).toBe(false);
+      expect(exportEntry?.message).toContain('WASM');
+    });
+
+    it('XML executor: mixed formats returns musicxml, notes midi unavailable', async () => {
+      const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
+      const scoreSessionId = String(open.body.scoreSessionId);
+
+      const apply = await runMusicScoreOpsService({
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'export_score', formats: ['musicxml', 'midi'] }],
+        options: { preferredExecutor: 'xml' },
+      }, 'apply');
+
+      expect(apply.status).toBe(200);
+      expect(apply.body).toMatchObject({ ok: true });
+      const exports = apply.body.exports as Record<string, string>;
+      expect(exports.musicxml).toBeDefined();
+      expect(exports.midi).toBeUndefined();
+      const applied = apply.body.applied as Array<{ op: string; ok: boolean; message: string }>;
+      const exportEntry = applied.find((e) => e.op === 'export_score');
+      expect(exportEntry?.ok).toBe(true);
+      expect(exportEntry?.message).toContain('midi require WASM');
+    });
+
+    it('schema validation rejects empty formats array', async () => {
+      const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
+      const scoreSessionId = String(open.body.scoreSessionId);
+
+      const apply = await runMusicScoreOpsService({
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'export_score', formats: [] }],
+      }, 'apply');
+
+      expect(apply.status).toBe(400);
+      expect(apply.body).toMatchObject({ ok: false });
+    });
+  });
 });

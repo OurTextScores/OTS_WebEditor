@@ -240,7 +240,7 @@ function classifyPrompt(prompt: string | AgentInputItem[]): MusicAgentToolName {
   if (isConvert) {
     return 'music.convert';
   }
-  const isPatch = /\b(change|edit|fix|remove|delete|move|transpose|revoice|beam|re-beam|rest|clef|key signature|time signature|patch|apply)\b/.test(normalized);
+  const isPatch = /\b(change|edit|fix|remove|delete|move|transpose|revoice|beam|re-beam|rest|clef|key signature|time signature|patch|apply|export)\b/.test(normalized);
   if (isPatch) {
     return 'music.scoreops';
   }

@@ -212,6 +212,10 @@ const SCORE_OP_SCHEMA = z.discriminatedUnion('op', [
     steps: z.number().int().min(1).max(50).default(1),
   }),
   z.object({
+    op: z.literal('export_score'),
+    formats: z.array(z.enum(['musicxml', 'midi', 'pdf'])).min(1),
+  }),
+  z.object({
     op: z.literal('add_pickup'),
     numerator: z.number().int().min(1).max(32),
     denominator: z.union([
@@ -255,6 +259,7 @@ const SCOREOPS_MUTATION_OPS: ScoreOpName[] = [
   'set_repeat_markers',
   'history_step',
   'add_pickup',
+  'export_score',
 ];
 
 const SCOREOPS_WASM_ELIGIBLE_OPS = new Set<ScoreOpName>([
@@ -279,6 +284,7 @@ const SCOREOPS_WASM_ELIGIBLE_OPS = new Set<ScoreOpName>([
   'set_repeat_markers',
   'history_step',
   'add_pickup',
+  'export_score',
 ]);
 
 const SCOREOPS_SELECTION_OPS = [
@@ -1658,6 +1664,7 @@ type WasmExecutionResult =
     xml: string;
     applied: OpApplyResult[];
     summaries: string[];
+    exports?: Record<string, string>;
   }
   | {
     ok: false;
@@ -1679,6 +1686,7 @@ async function executeOpsWithWasm(
     let currentXml = beforeXml;
     const applied: OpApplyResult[] = [];
     const summaries: string[] = [];
+    const exports: Record<string, string> = {};
 
     for (let index = 0; index < ops.length; index += 1) {
       const op = ops[index];
@@ -1693,7 +1701,38 @@ async function executeOpsWithWasm(
         return { ok: false, fallbackReason: 'delete_text_by_content is not supported by wasm executor.' };
       }
 
-      if (op.op === 'set_metadata_text') {
+      if (op.op === 'export_score') {
+        for (const format of op.formats) {
+          if (format === 'musicxml') {
+            if (score.saveMxl) {
+              const bytes = await score.saveMxl();
+              exports[format] = Buffer.from(bytes).toString('base64');
+            } else if (score.saveXml) {
+              const xml = await score.saveXml();
+              exports[format] = Buffer.from(xml).toString('base64');
+            }
+          } else if (format === 'midi' && score.saveMidi) {
+            const bytes = await score.saveMidi(true, true);
+            exports[format] = Buffer.from(bytes).toString('base64');
+          } else if (format === 'pdf' && score.savePdf) {
+            const bytes = await score.savePdf();
+            exports[format] = Buffer.from(bytes).toString('base64');
+          }
+        }
+        const exportedFormats = Object.keys(exports);
+        applied.push({
+          index,
+          op: 'export_score',
+          ok: exportedFormats.length > 0,
+          message: exportedFormats.length > 0
+            ? `Exported: ${exportedFormats.join(', ')}`
+            : 'No formats could be exported.',
+        });
+        if (exportedFormats.length > 0) {
+          summaries.push(`Exported score in ${exportedFormats.join(', ')} format(s).`);
+        }
+        continue;
+      } else if (op.op === 'set_metadata_text') {
         const methodMap = {
           title: score.setTitleText,
           subtitle: score.setSubtitleText,
@@ -2016,6 +2055,7 @@ async function executeOpsWithWasm(
       xml: currentXml,
       applied,
       summaries,
+      exports,
     };
   } catch (error) {
     return {
@@ -2080,6 +2120,7 @@ function buildDefaultMutationSupport(): ScoreOpsMutationOpSupport {
     set_repeat_markers: { xml: false, wasm: false },
     history_step: { xml: false, wasm: false },
     add_pickup: { xml: true, wasm: false },
+    export_score: { xml: true, wasm: false },
   };
 }
 
@@ -2113,6 +2154,7 @@ function evaluateWasmMutationSupport(wasmMethods: Set<string>) {
     set_repeat_markers: requiresSelectionOps && (has('toggleRepeatStart') || has('toggleRepeatEnd') || has('setBarLineType')),
     history_step: has('saveXml') && (has('undo') || has('redo')),
     add_pickup: has('addPickupMeasure') || has('saveXml'),
+    export_score: has('saveMxl') || has('saveMidi') || has('savePdf'),
   } satisfies Record<ScoreOpName, boolean>;
 }
 
@@ -2431,6 +2473,8 @@ async function applyOps(payload: z.infer<typeof APPLY_REQUEST_SCHEMA>): Promise<
   let fallbackReason: string | null = null;
   let applied: OpApplyResult[] = [];
   let summaries: string[] = [];
+  let wasmExports: Record<string, string> | undefined;
+  let xmlModeExports: Record<string, string> | undefined;
 
   if (tryWasm) {
     const unsupportedForWasm = payload.ops.filter((op) => !SCOREOPS_WASM_ELIGIBLE_OPS.has(op.op));
@@ -2443,6 +2487,7 @@ async function applyOps(payload: z.infer<typeof APPLY_REQUEST_SCHEMA>): Promise<
         workingXml = wasmResult.xml;
         applied = wasmResult.applied;
         summaries = wasmResult.summaries;
+        wasmExports = wasmResult.exports;
       } else {
         fallbackReason = wasmResult.fallbackReason;
       }
@@ -2459,6 +2504,31 @@ async function applyOps(payload: z.infer<typeof APPLY_REQUEST_SCHEMA>): Promise<
           ok: true,
           message: 'Selection ops are WASM-only; skipped in XML mode.',
         });
+        continue;
+      }
+      if (op.op === 'export_score') {
+        const exportResult: Record<string, string> = {};
+        const unsupported: string[] = [];
+        for (const format of op.formats) {
+          if (format === 'musicxml') {
+            exportResult[format] = Buffer.from(workingXml, 'utf-8').toString('base64');
+          } else {
+            unsupported.push(format);
+          }
+        }
+        const exportedFormats = Object.keys(exportResult);
+        applied.push({
+          index,
+          op: 'export_score',
+          ok: exportedFormats.length > 0,
+          message: exportedFormats.length > 0
+            ? `Exported: ${exportedFormats.join(', ')}${unsupported.length ? ` (${unsupported.join(', ')} require WASM)` : ''}`
+            : `${unsupported.join(', ')} export requires WASM executor.`,
+        });
+        if (exportedFormats.length > 0) {
+          summaries.push(`Exported score as ${exportedFormats.join(', ')}.`);
+          xmlModeExports = { ...xmlModeExports, ...exportResult };
+        }
         continue;
       }
       const output = applyOneOp(workingXml, op);
@@ -2536,7 +2606,34 @@ async function applyOps(payload: z.infer<typeof APPLY_REQUEST_SCHEMA>): Promise<
     }
   }
 
+  const pendingExports = wasmExports ?? xmlModeExports;
+  const hasExports = pendingExports && Object.keys(pendingExports).length > 0;
+
   if (workingXml === beforeXml) {
+    if (hasExports) {
+      // Export-only request — no score mutation, skip artifact/revision bump
+      return {
+        status: 200,
+        body: {
+          ok: true,
+          scoreSessionId: session.scoreSessionId,
+          baseRevision: session.revision,
+          newRevision: session.revision,
+          applied,
+          changes: {
+            summary: summaries.join(' '),
+            count: applied.filter((entry) => entry.ok).length,
+          },
+          executor: {
+            preferred: preferredExecutor,
+            selected: selectedExecutor,
+            usedFallback: selectedExecutor === 'xml' && Boolean(fallbackReason),
+            ...(fallbackReason ? { fallbackReason } : {}),
+          },
+          exports: pendingExports,
+        },
+      };
+    }
     return errorResult(422, 'execution_failure', 'No operations were applied.', {
       applied,
       atomic,
@@ -2610,6 +2707,11 @@ async function applyOps(payload: z.infer<typeof APPLY_REQUEST_SCHEMA>): Promise<
     if (patchBundle.note) {
       responseBody.patchNote = patchBundle.note;
     }
+  }
+
+  const finalExports = wasmExports ?? xmlModeExports;
+  if (finalExports && Object.keys(finalExports).length > 0) {
+    responseBody.exports = finalExports;
   }
 
   return {

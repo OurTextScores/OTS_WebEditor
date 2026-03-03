@@ -151,7 +151,7 @@ Status update (2026-02-27):
 | `add_dynamic` | done | done | done | done | yes | yes |
 | `select_measure_range` | done | no-op (wasm-only) | done | done | yes | yes |
 | `select_all` | done | no-op (wasm-only) | done | done | yes | yes |
-| `export_score` | deferred | — | — | — | — | — |
+| `export_score` | done | partial (musicxml only; midi/pdf require WASM) | done | done | yes | yes |
 | `relayout_score` | implicit (post-mutation) | n/a | n/a | n/a | n/a | n/a |
 
 Notes:

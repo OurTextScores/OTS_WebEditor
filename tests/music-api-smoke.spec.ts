@@ -160,6 +160,86 @@ test.describe('Music service endpoints', () => {
     }
   });
 
+  test('scoreops apply: export_score musicxml returns base64 export', async ({ request }) => {
+    const response = await request.post('/api/music/scoreops/apply', {
+      data: {
+        action: 'apply',
+        content: SCALE_XML,
+        ops: [{ op: 'export_score', formats: ['musicxml'] }],
+      },
+    });
+
+    expect(response.ok()).toBeTruthy();
+    const json = await response.json();
+    expect(json.ok).toBe(true);
+    expect(json.exports).toBeTruthy();
+    expect(typeof json.exports.musicxml).toBe('string');
+    // Revision should not bump for export-only request
+    expect(json.newRevision).toBe(json.baseRevision);
+    // Decode and verify content
+    const decoded = Buffer.from(json.exports.musicxml, 'base64').toString('utf-8');
+    expect(decoded).toContain('<score-partwise');
+  });
+
+  test('scoreops apply: export_score with midi-only in XML mode returns error', async ({ request }) => {
+    const response = await request.post('/api/music/scoreops/apply', {
+      data: {
+        action: 'apply',
+        content: SCALE_XML,
+        ops: [{ op: 'export_score', formats: ['midi'] }],
+        options: { preferredExecutor: 'xml' },
+      },
+    });
+
+    const json = await response.json();
+    expect(json.ok).toBe(false);
+    expect(response.status()).toBe(422);
+  });
+
+  test('scoreops apply: export_score mixed formats returns musicxml, notes midi unavailable', async ({ request }) => {
+    const response = await request.post('/api/music/scoreops/apply', {
+      data: {
+        action: 'apply',
+        content: SCALE_XML,
+        ops: [{ op: 'export_score', formats: ['musicxml', 'midi'] }],
+        options: { preferredExecutor: 'xml' },
+      },
+    });
+
+    expect(response.ok()).toBeTruthy();
+    const json = await response.json();
+    expect(json.ok).toBe(true);
+    expect(json.exports?.musicxml).toBeTruthy();
+    expect(json.exports?.midi).toBeUndefined();
+    const exportEntry = json.applied?.find((e: { op: string }) => e.op === 'export_score');
+    expect(exportEntry?.message).toContain('midi require WASM');
+  });
+
+  test('scoreops apply: export_score with mutation op in same batch', async ({ request }) => {
+    const response = await request.post('/api/music/scoreops/apply', {
+      data: {
+        action: 'apply',
+        content: SCALE_XML,
+        ops: [
+          { op: 'set_metadata_text', field: 'title', value: 'Exported Scale' },
+          { op: 'export_score', formats: ['musicxml'] },
+        ],
+        options: { includeXml: true },
+      },
+    });
+
+    expect(response.ok()).toBeTruthy();
+    const json = await response.json();
+    expect(json.ok).toBe(true);
+    // Mutation happened, so revision should bump
+    expect(json.newRevision).toBeGreaterThan(json.baseRevision);
+    // Exports should be present
+    expect(json.exports?.musicxml).toBeTruthy();
+    // The exported musicxml should reflect the mutation
+    const decoded = Buffer.from(json.exports.musicxml, 'base64').toString('utf-8');
+    expect(decoded).toContain('Exported Scale');
+  });
+
   test('scoreops apply: rejects invalid op gracefully', async ({ request }) => {
     const response = await request.post('/api/music/scoreops/apply', {
       data: {
@@ -342,6 +422,36 @@ test.describe('Agent fallback router', () => {
     expect(json.mode).toBe('fallback');
     expect(json.selectedTool).toBe('music.scoreops');
     expect(json.toolOk).toBe(true);
+  });
+
+  test('scoreops: export_score via agent fallback returns exports', async ({ request }) => {
+    // Note: prompt must match scoreops keyword pattern (e.g. "apply") since
+    // the fallback router's keyword matcher gates access to the direct-ops path.
+    const response = await request.post('/api/music/agent', {
+      data: {
+        prompt: 'Apply export operation to this score',
+        useFallbackOnly: true,
+        toolInput: {
+          scoreops: {
+            ops: [{ op: 'export_score', formats: ['musicxml'] }],
+            content: SCALE_XML,
+          },
+          context: { content: SCALE_XML },
+        },
+      },
+    });
+
+    expect(response.ok()).toBeTruthy();
+    const json = await response.json();
+    expect(json.mode).toBe('fallback');
+    expect(json.selectedTool).toBe('music.scoreops');
+    expect(json.toolOk).toBe(true);
+    const result = json.result;
+    expect(result).toBeTruthy();
+    expect(result?.exports?.musicxml).toBeTruthy();
+    // Verify the base64 decodes to valid MusicXML
+    const decoded = Buffer.from(result.exports.musicxml, 'base64').toString('utf-8');
+    expect(decoded).toContain('<score-partwise');
   });
 
   test('useFallbackOnly forces fallback mode', async ({ request }) => {
@@ -567,6 +677,28 @@ test.describe('Music Agent SDK E2E', () => {
     // Should complete well under the 60s timeout — the summarizeForModel
     // fix should keep responses fast with small fixtures
     expect(elapsed).toBeLessThan(30_000);
+  });
+
+  test('agent SDK routes export prompt to scoreops with export_score', async ({ request }) => {
+    const response = await request.post('/api/music/agent', {
+      data: {
+        prompt: 'Export this score as MusicXML',
+        toolInput: {
+          context: { content: SCALE_XML },
+          scoreops: { content: SCALE_XML },
+        },
+      },
+      timeout: 90_000,
+    });
+
+    expect(response.ok()).toBeTruthy();
+    const json = await response.json();
+    expect(['agents-sdk', 'fallback']).toContain(json.mode);
+    expect(json.selectedTool).toMatch(/^music\./);
+    if (json.result?.exports?.musicxml) {
+      const decoded = Buffer.from(json.result.exports.musicxml, 'base64').toString('utf-8');
+      expect(decoded).toContain('<score-partwise');
+    }
   });
 
   test('routes a render snapshot prompt', async ({ request }) => {
