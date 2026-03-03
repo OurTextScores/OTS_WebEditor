@@ -40,7 +40,11 @@
     ".next-dev-jhlusko/types/**/*.ts",
     ".next-dev-jhlusko/dev/types/**/*.ts",
     ".next-dev-local/types/**/*.ts",
-    ".next-dev-local/dev/types/**/*.ts"
+    ".next-dev-local/dev/types/**/*.ts",
+    ".next-dev-playwright-3201/types/**/*.ts",
+    ".next-dev-playwright-3201/dev/types/**/*.ts",
+    ".next-dev-playwright-3301/types/**/*.ts",
+    ".next-dev-playwright-3301/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

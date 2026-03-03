@@ -234,6 +234,18 @@ When adding a new C++ function to the WASM bridge, **all six** of the following 
 ### Example score
 You can use this for testing: http://localhost:3000/?score=%2Ftest_scores%2Fbach_orig.mscz
 
+## AI Patch UX Direction: Diff Editor
+
+The assistant patch-generation flow keeps `musicxml-patch@1` JSON ops as the model contract, applies those ops to derive `proposedXml`, and then opens the existing diff-editor/compare UI so users can apply selected hunks.
+
+Design reference:
+- `docs/diff-editor-replacement-design.md`
+
+Implementation intent:
+- Keep patch ops as an inspectable intermediate.
+- Apply patch ops to generate `proposedXml`.
+- Use existing compare/diff controls for selective apply.
+
 ## Soundfont CDN Configuration
 
 For production deployments and embed builds, soundfonts should be hosted on a CDN to avoid bundling large files (default.sf2 is 142MB).

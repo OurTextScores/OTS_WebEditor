@@ -4143,10 +4143,8 @@ ${partsBodyXml}
         try {
             const fallbackSourceXml = sourceScore === score ? compareView?.currentXml ?? null : compareView?.checkpointXml ?? null;
             const fallbackTargetXml = targetScore === score ? compareView?.currentXml ?? null : compareView?.checkpointXml ?? null;
-            const [sourceXml, targetXml] = await Promise.all([
-                getScoreMusicXmlText(sourceScore, fallbackSourceXml),
-                getScoreMusicXmlText(targetScore, fallbackTargetXml),
-            ]);
+            const sourceXml = fallbackSourceXml ?? await getScoreMusicXmlText(sourceScore, null);
+            const targetXml = fallbackTargetXml ?? await getScoreMusicXmlText(targetScore, null);
             if (!sourceXml || !targetXml) {
                 console.warn('Compare overwrite: unable to load MusicXML for swap.');
                 return;
@@ -4201,6 +4199,43 @@ ${partsBodyXml}
             [{ leftIndex: sourceMeasureIndex, rightIndex: targetMeasureIndex }],
         );
     }, [handleCompareOverwriteBlock]);
+
+    const handleAcceptAllAiChanges = useCallback(async () => {
+        if (!compareView || compareView.title !== 'Assistant Proposal') {
+            return;
+        }
+        const rightScore = compareRightScoreRef.current;
+        if (!score || !rightScore) {
+            return;
+        }
+        if (compareSwapBusy) {
+            return;
+        }
+        for (const alignment of compareAlignments) {
+            const blocks = buildMismatchBlocks(alignment.rows);
+            for (const block of blocks) {
+                const pairs = alignment.rows
+                    .slice(block.start, block.end + 1)
+                    .map((row) => (
+                        row.leftIndex !== null && row.rightIndex !== null
+                            ? { leftIndex: row.rightIndex, rightIndex: row.leftIndex }
+                            : null
+                    ))
+                    .filter((pair): pair is { leftIndex: number; rightIndex: number } => Boolean(pair));
+                if (pairs.length === 0) {
+                    continue;
+                }
+                await handleCompareOverwriteBlock(rightScore, score, alignment.partIndex, pairs);
+            }
+        }
+    }, [
+        compareView,
+        compareSwapBusy,
+        score,
+        compareAlignments,
+        buildMismatchBlocks,
+        handleCompareOverwriteBlock,
+    ]);
 
     const parsePartsFromMetadata = useCallback((metadata: any): PartSummary[] => {
         const parts = Array.isArray(metadata?.parts) ? metadata.parts : [];
@@ -5406,33 +5441,56 @@ ${partsBodyXml}
         };
     };
 
-    const updateAiOutput = useCallback(async (nextText: string, baseXmlOverride?: string) => {
+    const openAiProposalCompare = useCallback((baseXml: string, proposedXml: string) => {
+        const trimmedBase = baseXml.trim();
+        const trimmedProposed = proposedXml.trim();
+        if (!trimmedBase || !trimmedProposed) {
+            return false;
+        }
+        setCompareSwapped(false);
+        setCompareView({
+            title: 'Assistant Proposal',
+            currentXml: trimmedBase,
+            checkpointXml: trimmedProposed,
+        });
+        return true;
+    }, []);
+
+    const updateAiOutput = useCallback(async (
+        nextText: string,
+        baseXmlOverride?: string,
+    ): Promise<{ ok: boolean; baseXml: string; proposedXml: string; error: string }> => {
         setAiOutput(nextText);
         setAiPatch(null);
         setAiPatchError(null);
         setAiPatchedXml('');
         if (!nextText.trim()) {
-            setAiPatchError('AI output is empty.');
-            return;
+            const error = 'AI output is empty.';
+            setAiPatchError(error);
+            return { ok: false, baseXml: '', proposedXml: '', error };
         }
         const parsed = parseMusicXmlPatch(nextText);
         if (parsed.error || !parsed.patch) {
-            setAiPatchError(parsed.error || 'Invalid patch payload.');
-            return;
+            const error = parsed.error || 'Invalid patch payload.';
+            setAiPatchError(error);
+            return { ok: false, baseXml: '', proposedXml: '', error };
         }
         setAiPatch(parsed.patch);
         const baseXml = baseXmlOverride ?? aiBaseXml ?? await resolveXmlContext();
         if (!baseXml.trim()) {
-            setAiPatchError('Unable to apply patch without MusicXML.');
-            return;
+            const error = 'Unable to apply patch without MusicXML.';
+            setAiPatchError(error);
+            return { ok: false, baseXml: '', proposedXml: '', error };
         }
         const applied = applyMusicXmlPatch(baseXml, parsed.patch);
         if (applied.error || !applied.xml.trim()) {
-            setAiPatchError(applied.error || 'Failed to apply patch to MusicXML.');
-            return;
+            const error = applied.error || 'Failed to apply patch to MusicXML.';
+            setAiPatchError(error);
+            return { ok: false, baseXml: baseXml.trim(), proposedXml: '', error };
         }
         setAiPatchError(null);
         setAiPatchedXml(applied.xml);
+        return { ok: true, baseXml: baseXml.trim(), proposedXml: applied.xml.trim(), error: '' };
     }, [aiBaseXml, resolveXmlContext]);
 
     const handleAiRequest = async () => {
@@ -5554,7 +5612,17 @@ ${partsBodyXml}
                 setAiError(missingPatchMessage);
                 return;
             }
-            await updateAiOutput(patchResponse.extracted, baseXml);
+            const updated = await updateAiOutput(patchResponse.extracted, baseXml);
+            if (!updated.ok) {
+                failureReason = updated.error || 'Failed to build proposed MusicXML from patch.';
+                setAiError(failureReason);
+                return;
+            }
+            if (!openAiProposalCompare(updated.baseXml, updated.proposedXml)) {
+                failureReason = 'Unable to open compare view for AI proposal.';
+                setAiError(failureReason);
+                return;
+            }
             outcome = 'success';
         } catch (err) {
             console.error('AI request failed', err);
@@ -6357,15 +6425,14 @@ ${partsBodyXml}
             alert(aiPatchError || 'AI patch has not produced valid MusicXML.');
             return;
         }
-        setXmlLoading(true);
-        setXmlError(null);
-        try {
-            await applyXmlToScore(aiPatchedXml, { telemetrySource: 'assistant_patch' });
-        } catch (err) {
-            console.error('Failed to apply AI XML', err);
-            alert('Failed to apply AI XML. See console for details.');
-        } finally {
-            setXmlLoading(false);
+        const baseXml = aiBaseXml.trim() || (await resolveXmlContext()).trim();
+        if (!baseXml) {
+            alert('Unable to load MusicXML for diff review.');
+            return;
+        }
+        const opened = openAiProposalCompare(baseXml, aiPatchedXml);
+        if (!opened) {
+            alert('Unable to open compare view for AI proposal.');
         }
     };
 
@@ -9263,7 +9330,7 @@ ${partsBodyXml}
         ? aiPatchError
             ? { valid: false, message: aiPatchError }
             : aiPatch
-                ? { valid: true, message: `${aiPatch.ops.length} ops ready` }
+                ? { valid: true, message: `${aiPatch.ops.length} ops ready for diff review` }
                 : { valid: false, message: 'AI output is not a valid patch.' }
         : { valid: true, message: '' };
     const aiModelHint = useMemo(() => {
@@ -10223,10 +10290,11 @@ ${partsBodyXml}
                                                         type="button"
                                                         onClick={handleApplyAiOutput}
                                                         disabled={aiApplyDisabled}
-                                                        title="Applying edits will auto-checkpoint if the score has unsaved changes."
+                                                        title="Review AI changes in the diff editor before applying."
+                                                        data-testid="btn-ai-review-diff"
                                                         className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
-                                                        Apply Patch
+                                                        Review in Diff Editor
                                                     </button>
                                                     <CodeMirrorEditor
                                                         value={aiOutput}
@@ -10972,6 +11040,16 @@ ${partsBodyXml}
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
+                                {compareView.title === 'Assistant Proposal' && (
+                                    <button
+                                        type="button"
+                                        onClick={() => void handleAcceptAllAiChanges()}
+                                        disabled={compareSwapBusy}
+                                        className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                                    >
+                                        Accept All AI Changes
+                                    </button>
+                                )}
                                 <button
                                     type="button"
                                     onClick={() => setCompareView(null)}
