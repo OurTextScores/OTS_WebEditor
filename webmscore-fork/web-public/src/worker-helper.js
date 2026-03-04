@@ -38,6 +38,7 @@ class WorkerError extends Error {
  * @see WebMscore.setLogLevel
  */
 let _logLevel = 0
+const DEBUG_RENDER_RPC = false
 
 /**
  * Use webmscore as a web worker
@@ -121,7 +122,7 @@ class WebMscoreW {
      */
     async rpc(method, params = [], transfer = []) {
         const id = Math.random()
-        const debugRenderRpc = method === 'saveSvg' || method === 'savePng'
+        const debugRenderRpc = DEBUG_RENDER_RPC && (method === 'saveSvg' || method === 'savePng')
         const debugStart = debugRenderRpc ? Date.now() : 0
         if (debugRenderRpc) {
             console.info(`[webmscore-rpc] ${method}:start`, { id, params })

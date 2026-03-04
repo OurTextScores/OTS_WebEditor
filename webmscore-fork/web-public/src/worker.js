@@ -4,6 +4,7 @@
 import WebMscore from './index.js'
 
 const SVG_UTF8_RESULT_KEY = '__webmscoreSvgUtf8'
+const DEBUG_RENDER_RPC = false
 
 /** @type {WebMscore} */
 let score
@@ -82,12 +83,12 @@ self.onmessage = async (e) => {
 
             default:
                 if (!score) { rpcErr(id, new Error('Score not loaded')) }
-                if (method === 'saveSvg' || method === 'savePng') {
+                if (DEBUG_RENDER_RPC && (method === 'saveSvg' || method === 'savePng')) {
                     console.info(`[webmscore-worker] ${method}:start`, { id, params })
                 }
                 if (method === 'saveSvg' && typeof score.saveSvgRaw === 'function') {
                     const svgBytes = await score.saveSvgRaw.apply(score, params)
-                    if (method === 'saveSvg' || method === 'savePng') {
+                    if (DEBUG_RENDER_RPC && (method === 'saveSvg' || method === 'savePng')) {
                         console.info(`[webmscore-worker] ${method}:done`, {
                             id,
                             resultType: typeof svgBytes,
@@ -98,7 +99,7 @@ self.onmessage = async (e) => {
                     break
                 }
                 const result = await score[method].apply(score, params)
-                if (method === 'saveSvg' || method === 'savePng') {
+                if (DEBUG_RENDER_RPC && (method === 'saveSvg' || method === 'savePng')) {
                     console.info(`[webmscore-worker] ${method}:done`, {
                         id,
                         resultType: typeof result,
