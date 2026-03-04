@@ -5,6 +5,7 @@ const mocked = vi.hoisted(() => ({
   run: vi.fn(),
   runMusicContextService: vi.fn(),
   runMusicConvertService: vi.fn(),
+  runDiffFeedbackService: vi.fn(),
   runMusicGenerateService: vi.fn(),
   runMusicScoreOpsPromptService: vi.fn(),
   runMusicScoreOpsService: vi.fn(),
@@ -33,6 +34,10 @@ vi.mock('../lib/music-services/context-service', () => ({
 
 vi.mock('../lib/music-services/convert-service', () => ({
   runMusicConvertService: (payload: any) => mocked.runMusicConvertService(payload),
+}));
+
+vi.mock('../lib/music-services/diff-feedback-service', () => ({
+  runDiffFeedbackService: (payload: any) => mocked.runDiffFeedbackService(payload),
 }));
 
 vi.mock('../lib/music-services/generate-service', () => ({

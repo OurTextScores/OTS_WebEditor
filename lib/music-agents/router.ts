@@ -6,6 +6,7 @@ import { OpenAI } from 'openai';
 import { z } from 'zod';
 import { runMusicContextService } from '../music-services/context-service';
 import { runMusicConvertService } from '../music-services/convert-service';
+import { runDiffFeedbackService } from '../music-services/diff-feedback-service';
 import { runMusicGenerateService } from '../music-services/generate-service';
 import { runMusicPatchService } from '../music-services/patch-service';
 import { runMusicRenderService } from '../music-services/render-service';
@@ -14,6 +15,7 @@ import { type TraceContext } from '../trace-http';
 import {
   MUSIC_CONTEXT_TOOL_CONTRACT,
   MUSIC_CONVERT_TOOL_CONTRACT,
+  MUSIC_DIFF_FEEDBACK_TOOL_CONTRACT,
   MUSIC_GENERATE_TOOL_CONTRACT,
   MUSIC_PATCH_TOOL_CONTRACT,
   MUSIC_SCOREOPS_TOOL_CONTRACT,
@@ -21,11 +23,12 @@ import {
 } from '../music-services/contracts';
 import { normalizeScoreSessionId } from '../music-services/common';
 
-type MusicAgentToolName = 'music.context' | 'music.convert' | 'music.generate' | 'music.scoreops' | 'music.patch' | 'music.render';
+type MusicAgentToolName = 'music.context' | 'music.convert' | 'music.diff_feedback' | 'music.generate' | 'music.scoreops' | 'music.patch' | 'music.render';
 
 type ToolDefaults = {
   context?: Record<string, unknown>;
   convert?: Record<string, unknown>;
+  diff_feedback?: Record<string, unknown>;
   generate?: Record<string, unknown>;
   scoreops?: Record<string, unknown>;
   patch?: Record<string, unknown>;
@@ -209,7 +212,7 @@ const getDefaultModel = (provider: string) => DEFAULT_MODELS[provider] || DEFAUL
 // toFunctionToolName(), so the model sees music_context, music_scoreops, etc.
 // The enum here must match the names the model actually outputs.
 const AGENT_OUTPUT_SCHEMA = z.object({
-  selectedTool: z.enum(['music_context', 'music_convert', 'music_generate', 'music_scoreops', 'music_patch', 'music_render']),
+  selectedTool: z.enum(['music_context', 'music_convert', 'music_diff_feedback', 'music_generate', 'music_scoreops', 'music_patch', 'music_render']),
   toolStatus: z.number(),
   toolOk: z.boolean(),
   response: z.string(),
@@ -639,6 +642,37 @@ function createMusicRouterAgent() {
     },
   });
 
+  const musicDiffFeedbackTool = tool({
+    name: MUSIC_DIFF_FEEDBACK_TOOL_CONTRACT.name,
+    description: MUSIC_DIFF_FEEDBACK_TOOL_CONTRACT.description,
+    parameters: MUSIC_DIFF_FEEDBACK_TOOL_CONTRACT.inputSchema,
+    strict: false,
+    execute: async (input, runContext) => {
+      console.info('[music-agent] Tool called: music.diff_feedback');
+      const rawContext: any = (runContext as any)?.context || runContext;
+      const defaults = rawContext?.toolInput?.diff_feedback;
+      const payload = mergeToolInput(defaults, input);
+      if (!payload.scoreSessionId && rawContext?.toolInput?.diff_feedback?.scoreSessionId) {
+        payload.scoreSessionId = rawContext.toolInput.diff_feedback.scoreSessionId;
+        payload.baseRevision = rawContext.toolInput.diff_feedback.baseRevision;
+      }
+      const toolTrace = rawContext?.trace;
+      const result = toolTrace?.traceContext
+        ? await runDiffFeedbackService(payload, { traceContext: toolTrace.traceContext })
+        : await runDiffFeedbackService(payload);
+      console.info(`[music-agent] Tool music.diff_feedback completed: status=${result.status}`);
+      const fullResult = {
+        tool: 'music.diff_feedback',
+        status: result.status,
+        ok: result.status < 400,
+        body: result.body,
+        scoreSessionId: (result.body as any).scoreSessionId,
+        revision: (result.body as any).revision ?? (result.body as any).baseRevision,
+      };
+      return summarizeForModel(fullResult, runContext);
+    },
+  });
+
   const musicGenerateTool = tool({
     name: MUSIC_GENERATE_TOOL_CONTRACT.name,
     description: MUSIC_GENERATE_TOOL_CONTRACT.description,
@@ -818,6 +852,7 @@ function createMusicRouterAgent() {
       '- music_render: generate a visual snapshot (PNG/PDF) of the score.',
       '  * Tip: Use this when you need to see visual notation particulars, layout, or symbols not easily captured in XML/ABC.',
       '- music_convert: format conversion between MusicXML and ABC.',
+      '- music_diff_feedback: iterate on assistant proposals using structured per-block review feedback.',
       '- music_generate: generation/composition requests.',
       '- music_scoreops: deterministic score editing with typed operations.',
       '- music_patch: score edit requests that should produce a musicxml-patch@1 payload.',
@@ -854,7 +889,7 @@ function createMusicRouterAgent() {
       'The `result` field can be null — the system will inject the full tool output automatically.',
       'Keep response concise and mention why the selected tool was chosen.',
     ].join('\n'),
-    tools: [musicContextTool, musicConvertTool, musicGenerateTool, musicScoreOpsTool, musicPatchTool, musicRenderTool],
+    tools: [musicContextTool, musicConvertTool, musicDiffFeedbackTool, musicGenerateTool, musicScoreOpsTool, musicPatchTool, musicRenderTool],
     outputType: AGENT_OUTPUT_SCHEMA,
   });
 }
@@ -898,7 +933,7 @@ export async function runMusicAgentRouter(
   const bodyRevision = typeof data?.baseRevision === 'number' ? data.baseRevision : (typeof data?.revision === 'number' ? data.revision : undefined);
   if (bodySessionId) {
     toolInput = toolInput || {};
-    const tools: Array<keyof ToolDefaults> = ['context', 'convert', 'scoreops', 'patch', 'render'];
+    const tools: Array<keyof ToolDefaults> = ['context', 'convert', 'diff_feedback', 'scoreops', 'patch', 'render'];
     for (const t of tools) {
       if (!toolInput[t] || !asRecord(toolInput[t])?.scoreSessionId) {
         toolInput[t] = {
@@ -1011,7 +1046,16 @@ export async function runMusicAgentRouter(
 
     // Normalize underscored selectedTool back to dotted names for frontend compatibility
     if (typeof finalOutput.selectedTool === 'string') {
-      finalOutput.selectedTool = finalOutput.selectedTool.replace(/_/g, '.') as string;
+      const selectedToolMap: Record<string, string> = {
+        music_context: 'music.context',
+        music_convert: 'music.convert',
+        music_diff_feedback: 'music.diff_feedback',
+        music_generate: 'music.generate',
+        music_scoreops: 'music.scoreops',
+        music_patch: 'music.patch',
+        music_render: 'music.render',
+      };
+      finalOutput.selectedTool = selectedToolMap[finalOutput.selectedTool] || finalOutput.selectedTool.replace(/_/g, '.');
     }
 
     // Inject the full (unsummarized) tool result — the model only saw the summary

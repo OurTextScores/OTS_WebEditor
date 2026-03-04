@@ -13,7 +13,7 @@ vi.mock('../lib/score-artifacts', () => ({
   summarizeScoreArtifact: mocked.summarizeScoreArtifact,
 }));
 
-import { runMusicPatchService } from '../lib/music-services/patch-service';
+import { applyMusicXmlPatch, parseMusicXmlPatch, runMusicPatchService } from '../lib/music-services/patch-service';
 
 describe('runMusicPatchService', () => {
   beforeEach(() => {
@@ -121,5 +121,105 @@ describe('runMusicPatchService', () => {
         ],
       },
     });
+  });
+});
+
+describe('applyMusicXmlPatch', () => {
+  it('creates missing measure attributes chain for clef setText targets', async () => {
+    const baseXml = `<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="3.1">
+  <part-list>
+    <score-part id="P1"><part-name>Music</part-name></score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>1</divisions>
+        <key><fifths>1</fifths></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <clef><sign>F</sign><line>4</line></clef>
+      </attributes>
+      <note><pitch><step>C</step><octave>3</octave></pitch><duration>1</duration><type>quarter</type></note>
+    </measure>
+    <measure number="2">
+      <note><pitch><step>D</step><octave>3</octave></pitch><duration>1</duration><type>quarter</type></note>
+    </measure>
+  </part>
+</score-partwise>`;
+
+    const patch = {
+      format: 'musicxml-patch@1' as const,
+      ops: [
+        {
+          op: 'setText' as const,
+          path: '/score-partwise/part[@id="P1"]/measure[@number="2"]/attributes/clef/sign',
+          value: 'G',
+        },
+        {
+          op: 'setText' as const,
+          path: '/score-partwise/part[@id="P1"]/measure[@number="2"]/attributes/clef/line',
+          value: '2',
+        },
+      ],
+    };
+
+    const result = await applyMusicXmlPatch(baseXml, patch);
+
+    expect(result.error).toBe('');
+    expect(result.xml).toContain('<measure number="1">');
+    expect(result.xml).toContain('<fifths>1</fifths>');
+    expect(result.xml).toMatch(
+      /<measure number="2">[\s\S]*?<attributes><clef><sign>G<\/sign><line>2<\/line><\/clef><\/attributes>/,
+    );
+  });
+});
+
+describe('parseMusicXmlPatch', () => {
+  it('rejects replace values with multiple top-level elements', () => {
+    const payload = JSON.stringify({
+      format: 'musicxml-patch@1',
+      ops: [
+        {
+          op: 'replace',
+          path: '/score-partwise/part[@id="P1"]/measure[@number="1"]/note[1]',
+          value: '<note><pitch><step>C</step><octave>4</octave></pitch></note><backup><duration>1</duration></backup>',
+        },
+      ],
+    });
+    const parsed = parseMusicXmlPatch(payload);
+    expect(parsed.patch).toBeNull();
+    expect(parsed.error).toContain('expected exactly one');
+  });
+
+  it('rejects replace values with top-level text', () => {
+    const payload = JSON.stringify({
+      format: 'musicxml-patch@1',
+      ops: [
+        {
+          op: 'replace',
+          path: '/score-partwise/part[@id="P1"]/measure[@number="1"]/note[1]',
+          value: 'text<note><pitch><step>C</step><octave>4</octave></pitch></note>',
+        },
+      ],
+    });
+    const parsed = parseMusicXmlPatch(payload);
+    expect(parsed.patch).toBeNull();
+    expect(parsed.error).toContain('top-level text');
+  });
+
+  it('rejects setText values that contain XML markup', () => {
+    const payload = JSON.stringify({
+      format: 'musicxml-patch@1',
+      ops: [
+        {
+          op: 'setText',
+          path: '/score-partwise/part[@id="P1"]/measure[@number="39"]/attributes',
+          value: '<clef><sign>G</sign><line>2</line></clef>',
+        },
+      ],
+    });
+    const parsed = parseMusicXmlPatch(payload);
+    expect(parsed.patch).toBeNull();
+    expect(parsed.error).toContain('setText value appears to contain XML');
   });
 });

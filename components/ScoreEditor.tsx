@@ -225,6 +225,20 @@ type AiChatMessage = {
     text: string;
 };
 
+type BlockReviewStatus = 'pending' | 'accepted' | 'rejected' | 'comment';
+
+type BlockReview = {
+    partIndex: number;
+    blockIndex: number;
+    blockKey: string;
+    measureRange: string;
+    status: BlockReviewStatus;
+    comment: string;
+    commentCommitted: boolean;
+};
+
+type AiDiffBlockRef = Pick<BlockReview, 'partIndex' | 'blockIndex' | 'blockKey' | 'measureRange'>;
+
 type EditorTraceContext = {
     requestId?: string;
     traceId?: string;
@@ -294,6 +308,10 @@ const AI_PATCH_STRICT_RETRY_SUFFIX = [
     'Do not include commentary before or after the JSON.',
 ].join('\n');
 const AI_PATCH_REQUEST_RETRY_DELAY_MS = 600;
+const AI_DIFF_GUTTER_DEFAULT_WIDTH = 360;
+const AI_DIFF_GUTTER_MIN_WIDTH = 360;
+const AI_DIFF_GUTTER_MAX_WIDTH = 1280;
+const AI_DIFF_COMMENT_GUTTER_PADDING = 72;
 const AI_CHAT_SYSTEM_PROMPT = 'You are a helpful music notation assistant. Answer clearly and practically for score editing and engraving workflows.';
 const CODE_EDITOR_THEME_STORAGE_KEY = 'ots_code_editor_theme';
 const MUSIC_SPECIALISTS_NOTAGEN_BACKEND_STORAGE_KEY = 'ots_music_specialists_notagen_backend';
@@ -450,7 +468,9 @@ const buildAiPrompt = (prompt: string, sections: AiPromptSection[] = []) => {
   ]
 }
 Use ONLY these ops: replace, setText, setAttr, insertBefore, insertAfter, delete.
-Each XPath must match exactly one node.`;
+Each XPath must match exactly one node.
+Each replace/insertBefore/insertAfter value must contain exactly one XML element.
+If you need to add multiple sibling elements, use multiple ops (for example: replace one node, then insertAfter additional nodes).`;
     const promptWithContext = buildPromptWithSections(prompt, sections);
     if (!promptWithContext) {
         return patchSpec;
@@ -512,6 +532,18 @@ const buildAiChatTranscript = (messages: AiChatMessage[]) => {
 const isMissingProxyStatus = (status: number) => PROXY_MISSING_STATUSES.has(status);
 
 const errorMessage = (err: unknown) => (err instanceof Error ? err.message.trim() : '');
+
+const formatAiDiffFeedbackError = (message: string) => {
+    const trimmed = message.trim();
+    if (!trimmed) {
+        return 'Failed to generate a revised proposal from feedback.';
+    }
+    const xpathMatch = trimmed.match(/XPath\s+["']([^"']+)["']\s+matched\s+0\s+nodes/i);
+    if (xpathMatch) {
+        return `The AI returned a patch path that does not exist in the current score: ${xpathMatch[1]}. Update the comment with a more specific target and try again.`;
+    }
+    return trimmed;
+};
 
 const shouldRetryAiPatchRequestError = (err: unknown) => {
     const message = errorMessage(err).toLowerCase();
@@ -625,6 +657,15 @@ export default function ScoreEditor() {
     const [compareAlignmentLoading, setCompareAlignmentLoading] = useState(false);
     const [compareAlignmentRevision, setCompareAlignmentRevision] = useState(0);
     const [compareSwapBusy, setCompareSwapBusy] = useState(false);
+    const [aiDiffReviews, setAiDiffReviews] = useState<BlockReview[]>([]);
+    const [aiDiffIteration, setAiDiffIteration] = useState(0);
+    const [aiDiffGlobalComment, setAiDiffGlobalComment] = useState('');
+    const [aiDiffFeedbackBusy, setAiDiffFeedbackBusy] = useState(false);
+    const [aiDiffFeedbackError, setAiDiffFeedbackError] = useState<string | null>(null);
+    const [aiDiffBlockErrors, setAiDiffBlockErrors] = useState<Record<string, string>>({});
+    const [aiDiffGutterWidth, setAiDiffGutterWidth] = useState(AI_DIFF_GUTTER_DEFAULT_WIDTH);
+    const aiDiffCommentTextareaRefs = useRef<Map<string, HTMLTextAreaElement>>(new Map());
+    const aiDiffCommentResizeObserverRef = useRef<ResizeObserver | null>(null);
     const [compareSignatures, setCompareSignatures] = useState<{ left: string[][]; right: string[][] } | null>(null);
     const [compareContinuousMode, setCompareContinuousMode] = useState(false);
     const [compareReflowMode, setCompareReflowMode] = useState(false);
@@ -924,13 +965,15 @@ export default function ScoreEditor() {
 
     const refreshMeasurePositions = useCallback(async (targetScore: Score, setter: (positions: Positions | null) => void) => {
         if (!targetScore.measurePositions) {
-            return;
+            return false;
         }
         try {
             const positions = await targetScore.measurePositions();
             setter(positions ?? null);
+            return true;
         } catch (err) {
             console.warn('Failed to load measure positions for compare highlight:', err);
+            return false;
         }
     }, []);
 
@@ -945,9 +988,15 @@ export default function ScoreEditor() {
             throw new Error('Invalid MusicXML');
         }
 
-        const serializer = new XMLSerializer();
-        const normalize = (value: string) => value.replace(/>\s+</g, '><').trim();
         const isMscx = doc.documentElement?.tagName === 'museScore';
+        const stripElementNames = new Set([
+            'print',
+            'layoutbreak',
+            'system-layout',
+            'staff-layout',
+            'page-layout',
+            'appearance',
+        ]);
         const shouldStripAttribute = (name: string) => {
             const lower = name.toLowerCase();
             if (lower === 'width') {
@@ -962,6 +1011,18 @@ export default function ScoreEditor() {
             if (lower === 'default-x' || lower === 'default-y' || lower === 'relative-x' || lower === 'relative-y') {
                 return true;
             }
+            if (lower === 'placement' || lower === 'justify' || lower === 'halign' || lower === 'valign') {
+                return true;
+            }
+            if (lower === 'print-object' || lower === 'print-dot' || lower === 'print-spacing') {
+                return true;
+            }
+            if (lower === 'new-page' || lower === 'new-system') {
+                return true;
+            }
+            if (lower === 'color') {
+                return true;
+            }
             if (lower.startsWith('font-')) {
                 return true;
             }
@@ -974,19 +1035,44 @@ export default function ScoreEditor() {
                     element.removeAttribute(attr.name);
                 }
             });
-            Array.from(element.children).forEach((child) => scrubElement(child));
+            Array.from(element.children).forEach((child) => {
+                if (stripElementNames.has(child.tagName.toLowerCase())) {
+                    child.remove();
+                    return;
+                }
+                scrubElement(child);
+            });
+        };
+
+        const normalizeText = (value: string) => value.replace(/\s+/g, ' ').trim();
+
+        const canonicalizeNode = (node: Node): string => {
+            if (node.nodeType === Node.TEXT_NODE || node.nodeType === Node.CDATA_SECTION_NODE) {
+                const text = normalizeText(node.textContent ?? '');
+                return text ? `#${text}` : '';
+            }
+            if (node.nodeType !== Node.ELEMENT_NODE) {
+                return '';
+            }
+            const element = node as Element;
+            const attributes = Array.from(element.attributes)
+                .filter((attr) => !shouldStripAttribute(attr.name))
+                .map((attr) => `${attr.name}=${normalizeText(attr.value)}`)
+                .sort();
+            const children = Array.from(element.childNodes)
+                .map((child) => canonicalizeNode(child))
+                .filter(Boolean);
+            const attrs = attributes.length ? ` ${attributes.join('|')}` : '';
+            return `<${element.tagName}${attrs}>${children.join('')}</${element.tagName}>`;
         };
 
         const measureSignature = (measure: Element) => {
             const clone = measure.cloneNode(true) as Element;
             clone.removeAttribute('number');
             clone.removeAttribute('width');
-            if (!isMscx) {
-                Array.from(clone.getElementsByTagName('print')).forEach((node) => node.remove());
-            }
             Array.from(clone.getElementsByTagName('LayoutBreak')).forEach((node) => node.remove());
             scrubElement(clone);
-            return normalize(serializer.serializeToString(clone));
+            return canonicalizeNode(clone);
         };
 
         if (isMscx) {
@@ -1824,6 +1910,113 @@ export default function ScoreEditor() {
         }
         return map;
     }, [compareAlignments]);
+    const isAiCompareMode = compareView?.title === 'Assistant Proposal';
+    const aiDiffCurrentBlocks = useMemo(() => {
+        if (!isAiCompareMode) {
+            return [] as Array<{ partIndex: number; blockIndex: number; blockKey: string; measureRange: string }>;
+        }
+        const blocks: Array<{ partIndex: number; blockIndex: number; blockKey: string; measureRange: string }> = [];
+        Array.from({ length: comparePartCount }).forEach((_, partIndex) => {
+            const alignment = compareAlignmentByPart.get(partIndex);
+            const rows = alignment?.rows ?? [];
+            const mismatchBlocks = buildMismatchBlocks(rows);
+            mismatchBlocks.forEach((block, blockIndex) => {
+                const blockRows = rows.slice(block.start, block.end + 1);
+                const leftIndices = blockRows
+                    .map((row) => row.leftIndex)
+                    .filter((value): value is number => value !== null);
+                const rightIndices = blockRows
+                    .map((row) => row.rightIndex)
+                    .filter((value): value is number => value !== null);
+                const leftStart = leftIndices[0];
+                const leftEnd = leftIndices[leftIndices.length - 1];
+                const rightStart = rightIndices[0];
+                const rightEnd = rightIndices[rightIndices.length - 1];
+                const primaryStart = rightIndices.length ? rightStart : leftStart;
+                const primaryEnd = rightIndices.length ? rightEnd : leftEnd;
+                const measureRange = primaryStart !== undefined
+                    ? `${primaryStart + 1}${primaryEnd !== primaryStart ? `-${primaryEnd + 1}` : ''}`
+                    : 'unknown';
+                const stableMeasureKey = measureRange !== 'unknown'
+                    ? measureRange
+                    : `${blockIndex}:${leftStart ?? 'x'}:${leftEnd ?? 'x'}:${rightStart ?? 'x'}:${rightEnd ?? 'x'}`;
+                const blockKey = `${partIndex}:${stableMeasureKey}`;
+                blocks.push({
+                    partIndex,
+                    blockIndex,
+                    blockKey,
+                    measureRange,
+                });
+            });
+        });
+        return blocks;
+    }, [isAiCompareMode, comparePartCount, compareAlignmentByPart, buildMismatchBlocks]);
+    const aiDiffReviewByKey = useMemo(() => {
+        const map = new Map<string, BlockReview>();
+        aiDiffReviews.forEach((review) => {
+            map.set(review.blockKey, review);
+        });
+        return map;
+    }, [aiDiffReviews]);
+    const aiDiffReviewByRange = useMemo(() => {
+        const map = new Map<string, BlockReview>();
+        aiDiffReviews.forEach((review) => {
+            map.set(`${review.partIndex}:${review.measureRange}`, review);
+        });
+        return map;
+    }, [aiDiffReviews]);
+    const getReviewStatusForFeedback = useCallback((review: BlockReview | undefined): BlockReviewStatus => {
+        if (!review) {
+            return 'pending';
+        }
+        if (review.status !== 'comment') {
+            return review.status;
+        }
+        return review.comment.trim() ? 'comment' : 'pending';
+    }, []);
+    const aiDiffRejectedCount = useMemo(() => aiDiffCurrentBlocks.filter((block) => {
+        const review = aiDiffReviewByKey.get(block.blockKey)
+            ?? aiDiffReviewByRange.get(`${block.partIndex}:${block.measureRange}`);
+        return getReviewStatusForFeedback(review) === 'rejected';
+    }).length, [aiDiffCurrentBlocks, aiDiffReviewByKey, aiDiffReviewByRange, getReviewStatusForFeedback]);
+    const aiDiffCommentCount = useMemo(() => aiDiffCurrentBlocks.filter((block) => {
+        const review = aiDiffReviewByKey.get(block.blockKey)
+            ?? aiDiffReviewByRange.get(`${block.partIndex}:${block.measureRange}`);
+        return getReviewStatusForFeedback(review) === 'comment';
+    }).length, [aiDiffCurrentBlocks, aiDiffReviewByKey, aiDiffReviewByRange, getReviewStatusForFeedback]);
+    const aiDiffPendingCount = useMemo(() => aiDiffCurrentBlocks.filter((block) => {
+        const review = aiDiffReviewByKey.get(block.blockKey)
+            ?? aiDiffReviewByRange.get(`${block.partIndex}:${block.measureRange}`);
+        return getReviewStatusForFeedback(review) === 'pending';
+    }).length, [aiDiffCurrentBlocks, aiDiffReviewByKey, aiDiffReviewByRange, getReviewStatusForFeedback]);
+    const aiDiffAcceptedCount = useMemo(
+        () => aiDiffReviews.filter((review) => getReviewStatusForFeedback(review) === 'accepted').length,
+        [aiDiffReviews, getReviewStatusForFeedback],
+    );
+    const canSendDiffFeedback = useMemo(
+        () => !aiDiffFeedbackBusy
+            && !compareSwapBusy
+            && (
+                (aiDiffRejectedCount + aiDiffCommentCount > 0)
+                || (aiDiffPendingCount > 0 && aiDiffAcceptedCount > 0)
+            ),
+        [aiDiffFeedbackBusy, compareSwapBusy, aiDiffRejectedCount, aiDiffCommentCount, aiDiffPendingCount, aiDiffAcceptedCount],
+    );
+    const diffFeedbackButtonLabel = useMemo(() => {
+        const parts: string[] = [];
+        if (aiDiffCommentCount > 0) {
+            parts.push(`${aiDiffCommentCount} comment${aiDiffCommentCount === 1 ? '' : 's'}`);
+        }
+        if (aiDiffRejectedCount > 0) {
+            parts.push(`${aiDiffRejectedCount} rejection${aiDiffRejectedCount === 1 ? '' : 's'}`);
+        }
+        if (aiDiffPendingCount > 0 && aiDiffAcceptedCount > 0 && aiDiffRejectedCount + aiDiffCommentCount === 0) {
+            parts.push(`${aiDiffPendingCount} pending`);
+        }
+        return parts.length
+            ? `Send Feedback (${parts.join(', ')})`
+            : 'Send Feedback';
+    }, [aiDiffCommentCount, aiDiffRejectedCount, aiDiffPendingCount, aiDiffAcceptedCount]);
     const compareDefaultZoom = 0.5;
     const compareEffectiveZoom = compareZoom ?? compareDefaultZoom;
     const compareGutterRowHeight = 56;
@@ -2315,15 +2508,21 @@ ${partsBodyXml}
     }, [xmlText, getScoreXmlData]);
 
     const openScoreSession = useCallback(async (xml?: string) => {
-        if (isSyncingRef.current) return;
-        
+        if (isSyncingRef.current) {
+            return { scoreSessionId, revision: scoreRevision };
+        }
+
+        let nextSessionId = scoreSessionId;
+        let nextRevision = scoreRevision;
         try {
             const content = xml || await resolveXmlContext();
-            if (!content.trim()) return;
+            if (!content.trim()) {
+                return { scoreSessionId: nextSessionId, revision: nextRevision };
+            }
 
             // Skip if content and revision haven't changed since last successful sync
             if (content === lastSyncedXmlRef.current && scoreRevision === lastSyncedRevisionRef.current) {
-                return;
+                return { scoreSessionId: nextSessionId, revision: nextRevision };
             }
 
             isSyncingRef.current = true;
@@ -2348,6 +2547,8 @@ ${partsBodyXml}
                     setScoreRevision(nextRev);
                     lastSyncedXmlRef.current = content;
                     lastSyncedRevisionRef.current = nextRev;
+                    nextSessionId = result.scoreSessionId;
+                    nextRevision = nextRev;
                     console.info(`[session] ${isSync ? 'Synced' : 'Opened'} score session: ${result.scoreSessionId}, revision: ${nextRev}`);
                 }
             }
@@ -2356,6 +2557,7 @@ ${partsBodyXml}
         } finally {
             isSyncingRef.current = false;
         }
+        return { scoreSessionId: nextSessionId, revision: nextRevision };
     }, [resolveXmlContext, scoreSessionId, scoreRevision]);
 
     // Automatically open/sync session when score changes (debounced)
@@ -2398,6 +2600,53 @@ ${partsBodyXml}
         }
         const ops: MusicXmlPatchOp[] = [];
         const allowedOps = new Set(['replace', 'setText', 'setAttr', 'insertBefore', 'insertAfter', 'delete']);
+        const analyzeXmlFragmentShape = (value: string) => {
+            const tokenPattern = /<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?[\s\S]*?\?>|<![^>]*>|<\/?[^>]+?>|[^<]+/g;
+            const tokens = value.match(tokenPattern) || [];
+            let depth = 0;
+            let topLevelElementCount = 0;
+            let hasTopLevelText = false;
+            let unbalancedTags = false;
+            for (const token of tokens) {
+                if (!token) {
+                    continue;
+                }
+                if (token.startsWith('<!--') || token.startsWith('<?') || (token.startsWith('<!') && !token.startsWith('<![CDATA['))) {
+                    continue;
+                }
+                if (token.startsWith('<![CDATA[')) {
+                    if (depth === 0 && token.replace(/^<!\[CDATA\[|\]\]>$/g, '').trim()) {
+                        hasTopLevelText = true;
+                    }
+                    continue;
+                }
+                if (token.startsWith('</')) {
+                    if (depth === 0) {
+                        unbalancedTags = true;
+                        continue;
+                    }
+                    depth -= 1;
+                    continue;
+                }
+                if (token.startsWith('<')) {
+                    const isSelfClosing = /\/>\s*$/.test(token);
+                    if (depth === 0) {
+                        topLevelElementCount += 1;
+                    }
+                    if (!isSelfClosing) {
+                        depth += 1;
+                    }
+                    continue;
+                }
+                if (depth === 0 && token.trim()) {
+                    hasTopLevelText = true;
+                }
+            }
+            if (depth !== 0) {
+                unbalancedTags = true;
+            }
+            return { topLevelElementCount, hasTopLevelText, unbalancedTags };
+        };
         for (let i = 0; i < parsed.ops.length; i += 1) {
             const op = parsed.ops[i];
             if (!op || typeof op !== 'object') {
@@ -2415,6 +2664,27 @@ ${partsBodyXml}
             if (opName === 'setText' || opName === 'replace' || opName === 'insertBefore' || opName === 'insertAfter') {
                 if (typeof op.value !== 'string') {
                     return { patch: null, error: `Patch op ${i + 1} requires a string value.` };
+                }
+                if (opName === 'setText' && /[<>]/.test(op.value)) {
+                    return {
+                        patch: null,
+                        error: `Patch op ${i + 1} setText value appears to contain XML. Use replace/insert ops for element changes.`,
+                    };
+                }
+                if (opName === 'replace' || opName === 'insertBefore' || opName === 'insertAfter') {
+                    const shape = analyzeXmlFragmentShape(op.value);
+                    if (shape.unbalancedTags) {
+                        return { patch: null, error: `Patch op ${i + 1} ${opName} value has unbalanced XML tags.` };
+                    }
+                    if (shape.hasTopLevelText) {
+                        return { patch: null, error: `Patch op ${i + 1} ${opName} value has top-level text; it must contain exactly one XML element.` };
+                    }
+                    if (shape.topLevelElementCount !== 1) {
+                        return {
+                            patch: null,
+                            error: `Patch op ${i + 1} ${opName} value has ${shape.topLevelElementCount} top-level elements; expected exactly one. Use multiple ops for sibling elements.`,
+                        };
+                    }
                 }
                 nextOp.value = op.value;
             }
@@ -2482,9 +2752,66 @@ ${partsBodyXml}
                 return { nodes: [] as Node[], error: `XPath "${path}" could not be evaluated.` };
             }
         };
+        const tryEnsureSetTextTarget = (path: string) => {
+            if (!path.includes('/attributes/')) {
+                return { nodes: [] as Node[], created: false };
+            }
+            const segments = path.split('/').filter(Boolean);
+            if (segments.length < 2) {
+                return { nodes: [] as Node[], created: false };
+            }
+            for (let prefixLength = segments.length - 1; prefixLength >= 1; prefixLength -= 1) {
+                const prefixPath = `/${segments.slice(0, prefixLength).join('/')}`;
+                const prefixResult = resolveNodes(prefixPath);
+                if (prefixResult.error || prefixResult.nodes.length !== 1) {
+                    continue;
+                }
+                const rootNode = prefixResult.nodes[0];
+                if (rootNode.nodeType !== Node.ELEMENT_NODE && rootNode.nodeType !== Node.DOCUMENT_NODE) {
+                    continue;
+                }
+                const missingSegments = segments.slice(prefixLength);
+                if (missingSegments.length === 0) {
+                    continue;
+                }
+                if (!missingSegments.every((segment) => /^[A-Za-z_][\w.-]*$/.test(segment))) {
+                    continue;
+                }
+                let current: Node = rootNode;
+                for (const segment of missingSegments) {
+                    const nextNode = doc.createElement(segment);
+                    if (
+                        current.nodeType === Node.ELEMENT_NODE
+                        && (current as Element).tagName === 'measure'
+                        && segment === 'attributes'
+                    ) {
+                        const firstElementChild = Array.from(current.childNodes).find(
+                            (child) => child.nodeType === Node.ELEMENT_NODE,
+                        );
+                        if (firstElementChild) {
+                            current.insertBefore(nextNode, firstElementChild);
+                        } else {
+                            current.appendChild(nextNode);
+                        }
+                    } else {
+                        current.appendChild(nextNode);
+                    }
+                    current = nextNode;
+                }
+                return { nodes: [current], created: true };
+            }
+            return { nodes: [] as Node[], created: false };
+        };
         for (let i = 0; i < patch.ops.length; i += 1) {
             const op = patch.ops[i];
-            const { nodes, error } = resolveNodes(op.path);
+            let { nodes, error } = resolveNodes(op.path);
+            if ((error || nodes.length === 0) && op.op === 'setText') {
+                const ensured = tryEnsureSetTextTarget(op.path);
+                if (ensured.created) {
+                    nodes = ensured.nodes;
+                    error = '';
+                }
+            }
             if (op.op === 'delete' && nodes.length === 0 && !error) {
                 continue;
             }
@@ -4047,7 +4374,12 @@ ${partsBodyXml}
             }
             return true;
         } catch (err) {
-            console.error('Error rendering compare score:', err);
+            const message = errorMessage(err).toLowerCase();
+            if (message.includes('table index is out of bounds')) {
+                console.warn('Compare score render failed (WASM table bounds). The proposal may contain invalid MusicXML.', err);
+            } else {
+                console.error('Error rendering compare score:', err);
+            }
             return false;
         }
     }, []);
@@ -4128,15 +4460,15 @@ ${partsBodyXml}
         targetScore: Score | null,
         partIndex: number,
         pairs: Array<{ leftIndex: number; rightIndex: number }>,
-    ) => {
+    ): Promise<boolean> => {
         if (compareSwapBusy) {
-            return;
+            return false;
         }
         if (!sourceScore || !targetScore) {
-            return;
+            return false;
         }
         if (pairs.length === 0) {
-            return;
+            return false;
         }
 
         setCompareSwapBusy(true);
@@ -4147,7 +4479,7 @@ ${partsBodyXml}
             const targetXml = fallbackTargetXml ?? await getScoreMusicXmlText(targetScore, null);
             if (!sourceXml || !targetXml) {
                 console.warn('Compare overwrite: unable to load MusicXML for swap.');
-                return;
+                return false;
             }
 
             const patched = replaceMeasuresInMusicXml(
@@ -4158,7 +4490,7 @@ ${partsBodyXml}
             );
             if (patched.error || !patched.xml) {
                 console.warn('Compare overwrite failed:', patched.error || 'Unknown error');
-                return;
+                return false;
             }
 
             if (targetScore === score) {
@@ -4168,8 +4500,10 @@ ${partsBodyXml}
                 setCompareView((prev) => (prev ? { ...prev, checkpointXml: patched.xml } : prev));
             }
             setCompareAlignmentRevision((value) => value + 1);
+            return true;
         } catch (err) {
             console.warn('Compare overwrite failed:', err);
+            return false;
         } finally {
             setCompareSwapBusy(false);
         }
@@ -4235,6 +4569,380 @@ ${partsBodyXml}
         compareAlignments,
         buildMismatchBlocks,
         handleCompareOverwriteBlock,
+    ]);
+
+    const setAiDiffBlockStatus = useCallback((block: AiDiffBlockRef, status: BlockReviewStatus) => {
+        setAiDiffReviews((prev) => {
+            const existing = prev.find((review) => review.blockKey === block.blockKey);
+            if (existing) {
+                return prev.map((review) => (
+                    review.blockKey === block.blockKey
+                        ? {
+                            ...review,
+                            status,
+                            comment: status === 'comment' ? review.comment : '',
+                            commentCommitted: false,
+                        }
+                        : review
+                ));
+            }
+            return [
+                ...prev,
+                {
+                    partIndex: block.partIndex,
+                    blockIndex: block.blockIndex,
+                    blockKey: block.blockKey,
+                    measureRange: block.measureRange,
+                    status,
+                    comment: '',
+                    commentCommitted: false,
+                },
+            ];
+        });
+    }, []);
+
+    const handleAiDiffBlockCommentInput = useCallback((block: AiDiffBlockRef) => {
+        setAiDiffBlockErrors((prev) => {
+            if (!prev[block.blockKey]) {
+                return prev;
+            }
+            const next = { ...prev };
+            delete next[block.blockKey];
+            return next;
+        });
+    }, []);
+
+    const getAiDiffBlockCommentValue = useCallback((block: AiDiffBlockRef, fallback = '') => {
+        const textarea = aiDiffCommentTextareaRefs.current.get(block.blockKey);
+        if (textarea) {
+            return textarea.value;
+        }
+        return fallback;
+    }, []);
+
+    const commitAiDiffBlockComment = useCallback((block: AiDiffBlockRef) => {
+        const existing = aiDiffReviewByKey.get(block.blockKey)
+            ?? aiDiffReviewByRange.get(`${block.partIndex}:${block.measureRange}`);
+        const nextComment = getAiDiffBlockCommentValue(block, existing?.comment ?? '');
+        const trimmed = nextComment.trim();
+        if (!trimmed) {
+            setAiDiffBlockErrors((prev) => ({
+                ...prev,
+                [block.blockKey]: 'Enter a comment before clicking Enter.',
+            }));
+            return;
+        }
+        setAiDiffReviews((prev) => prev.map((review) => (
+            review.blockKey === block.blockKey
+                ? { ...review, status: 'comment', comment: trimmed, commentCommitted: true }
+                : review
+        )));
+        setAiDiffBlockErrors((prev) => {
+            if (!prev[block.blockKey]) {
+                return prev;
+            }
+            const next = { ...prev };
+            delete next[block.blockKey];
+            return next;
+        });
+    }, [aiDiffReviewByKey, aiDiffReviewByRange, getAiDiffBlockCommentValue]);
+
+    const editAiDiffBlockComment = useCallback((block: AiDiffBlockRef) => {
+        setAiDiffReviews((prev) => prev.map((review) => (
+            review.blockKey === block.blockKey
+                ? { ...review, status: 'comment', commentCommitted: false }
+                : review
+        )));
+    }, []);
+
+    const handleAiDiffCommentResize = useCallback((element: HTMLTextAreaElement) => {
+        if (!isAiCompareMode) {
+            return;
+        }
+        const explicitWidth = Number.parseFloat(element.style.width || '');
+        if (!Number.isFinite(explicitWidth) || explicitWidth <= 0) {
+            return;
+        }
+        const nextWidth = Math.round(explicitWidth + AI_DIFF_COMMENT_GUTTER_PADDING);
+        if (!Number.isFinite(nextWidth)) {
+            return;
+        }
+        const clampedWidth = Math.min(AI_DIFF_GUTTER_MAX_WIDTH, Math.max(AI_DIFF_GUTTER_MIN_WIDTH, nextWidth));
+        setAiDiffGutterWidth((prev) => (Math.abs(prev - clampedWidth) >= 2 ? clampedWidth : prev));
+    }, [isAiCompareMode]);
+
+    const bindAiDiffCommentTextarea = useCallback((blockKey: string, element: HTMLTextAreaElement | null) => {
+        const refs = aiDiffCommentTextareaRefs.current;
+        const observer = aiDiffCommentResizeObserverRef.current;
+        const previous = refs.get(blockKey);
+        if (previous && previous !== element) {
+            observer?.unobserve(previous);
+            refs.delete(blockKey);
+        }
+        if (!element) {
+            if (previous) {
+                observer?.unobserve(previous);
+            }
+            refs.delete(blockKey);
+            return;
+        }
+        refs.set(blockKey, element);
+        observer?.observe(element);
+        handleAiDiffCommentResize(element);
+    }, [handleAiDiffCommentResize]);
+
+    useEffect(() => {
+        if (typeof ResizeObserver === 'undefined') {
+            return;
+        }
+        const observer = new ResizeObserver((entries) => {
+            if (!isAiCompareMode) {
+                return;
+            }
+            let nextWidth = aiDiffGutterWidth;
+            entries.forEach((entry) => {
+                const target = entry.target as HTMLTextAreaElement;
+                const explicitWidth = Number.parseFloat(target.style.width || '');
+                if (!Number.isFinite(explicitWidth) || explicitWidth <= 0) {
+                    return;
+                }
+                nextWidth = Math.max(nextWidth, Math.round(explicitWidth + AI_DIFF_COMMENT_GUTTER_PADDING));
+            });
+            const clampedWidth = Math.min(AI_DIFF_GUTTER_MAX_WIDTH, Math.max(AI_DIFF_GUTTER_MIN_WIDTH, nextWidth));
+            setAiDiffGutterWidth((prev) => (Math.abs(prev - clampedWidth) >= 2 ? clampedWidth : prev));
+        });
+        aiDiffCommentResizeObserverRef.current = observer;
+        aiDiffCommentTextareaRefs.current.forEach((element) => observer.observe(element));
+        return () => {
+            observer.disconnect();
+            if (aiDiffCommentResizeObserverRef.current === observer) {
+                aiDiffCommentResizeObserverRef.current = null;
+            }
+        };
+    }, [isAiCompareMode, aiDiffGutterWidth]);
+
+    const handleAcceptAiDiffBlock = useCallback(async (
+        block: AiDiffBlockRef,
+        pairs: Array<{ leftIndex: number; rightIndex: number }>,
+    ) => {
+        if (!compareLeftScore || !compareRightScoreDisplay) {
+            return;
+        }
+        setAiDiffBlockStatus(block, 'accepted');
+        setAiDiffBlockErrors((prev) => {
+            if (!prev[block.blockKey]) {
+                return prev;
+            }
+            const next = { ...prev };
+            delete next[block.blockKey];
+            return next;
+        });
+        const applied = await handleCompareOverwriteBlock(
+            compareRightScoreDisplay,
+            compareLeftScore,
+            block.partIndex,
+            pairs.map((pair) => ({
+                leftIndex: pair.rightIndex,
+                rightIndex: pair.leftIndex,
+            })),
+        );
+        if (!applied) {
+            setAiDiffBlockStatus(block, 'pending');
+            setAiDiffBlockErrors((prev) => ({
+                ...prev,
+                [block.blockKey]: 'Could not apply this block. Please retry.',
+            }));
+            return;
+        }
+        setAiDiffBlockErrors((prev) => {
+            if (!prev[block.blockKey]) {
+                return prev;
+            }
+            const next = { ...prev };
+            delete next[block.blockKey];
+            return next;
+        });
+    }, [
+        compareLeftScore,
+        compareRightScoreDisplay,
+        handleCompareOverwriteBlock,
+        setAiDiffBlockStatus,
+    ]);
+
+    const handleSendDiffFeedback = useCallback(async () => {
+        if (!compareView || !isAiCompareMode || aiDiffFeedbackBusy) {
+            return;
+        }
+        if (!aiApiKey.trim()) {
+            alert(`Enter your ${AI_PROVIDER_LABELS[aiProvider]} API key.`);
+            return;
+        }
+        if (!aiModel.trim()) {
+            alert('Select a model.');
+            return;
+        }
+
+        const acceptedReviews = aiDiffReviews.filter((review) => getReviewStatusForFeedback(review) === 'accepted');
+        const blockMap = new Map<string, {
+            partIndex: number;
+            measureRange: string;
+            status: BlockReviewStatus;
+            comment?: string;
+        }>();
+        acceptedReviews.forEach((review) => {
+            blockMap.set(review.blockKey, {
+                partIndex: review.partIndex,
+                measureRange: review.measureRange,
+                status: review.status,
+                comment: review.comment,
+            });
+        });
+        aiDiffCurrentBlocks.forEach((block) => {
+            const review = aiDiffReviewByKey.get(block.blockKey)
+                ?? aiDiffReviewByRange.get(`${block.partIndex}:${block.measureRange}`);
+            const status = getReviewStatusForFeedback(review);
+            blockMap.set(block.blockKey, {
+                partIndex: block.partIndex,
+                measureRange: block.measureRange,
+                status,
+                comment: review?.comment ?? '',
+            });
+        });
+        const feedbackEntries = Array.from(blockMap.entries()).map(([blockKey, block]) => ({
+            blockKey,
+            ...block,
+        }));
+        const feedbackBlocks = feedbackEntries.map((block) => ({
+            partIndex: block.partIndex,
+            measureRange: block.measureRange,
+            status: block.status,
+            ...(block.status === 'comment' ? { comment: (block.comment || '').trim() } : {}),
+        }));
+        const commentBlockKeys = feedbackEntries
+            .filter((block) => block.status === 'comment')
+            .map((block) => block.blockKey);
+        if (!feedbackBlocks.length) {
+            return;
+        }
+
+        const currentXml = await getScoreMusicXmlText(scoreRef.current ?? score, compareView.currentXml);
+        if (!currentXml?.trim()) {
+            const message = 'Unable to export the current score for feedback.';
+            setAiError(message);
+            setAiDiffFeedbackError(message);
+            setCompareRightError(message);
+            return;
+        }
+        const previousCheckpointXml = compareView.checkpointXml;
+        setAiDiffFeedbackBusy(true);
+        setAiError(null);
+        setAiPatchError(null);
+        setAiDiffFeedbackError(null);
+        setXmlSidebarTab('assistant');
+        setXmlSidebarMode((prev) => (prev === 'closed' ? 'open' : prev));
+        setCompareView(null);
+        setCompareRightLoading(false);
+        setCompareRightError(null);
+        try {
+            const response = await fetch(resolveScoreEditorApiPath('/api/music/diff/feedback'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    content: currentXml,
+                    blocks: feedbackBlocks,
+                    globalComment: aiDiffGlobalComment,
+                    iteration: aiDiffIteration,
+                    provider: aiProvider,
+                    model: aiModel.trim(),
+                    apiKey: aiApiKey.trim(),
+                    chatHistory: aiChatMessages,
+                }),
+            });
+            captureApiTraceContext(response.headers);
+            const payload = await response.json().catch(() => ({}));
+            const result = asRecord(payload) || {};
+            if (!response.ok) {
+                if (result.patch && typeof result.patch === 'object') {
+                    setAiOutput(JSON.stringify(result.patch, null, 2));
+                }
+                const message = typeof result.error === 'string'
+                    ? result.error
+                    : `Request failed: ${response.status}`;
+                throw new Error(message);
+            }
+
+            const patchPayload = asRecord(result.patch);
+            const parsedPatch = parseMusicXmlPatch(JSON.stringify(patchPayload || {}));
+            if (parsedPatch.error || !parsedPatch.patch) {
+                throw new Error(parsedPatch.error || 'Service returned an invalid patch payload.');
+            }
+            const proposedXml = typeof result.proposedXml === 'string' ? result.proposedXml.trim() : '';
+            if (!proposedXml) {
+                throw new Error('Service returned empty proposed MusicXML.');
+            }
+
+            setAiOutput(JSON.stringify(parsedPatch.patch, null, 2));
+            setAiPatch(parsedPatch.patch);
+            setAiPatchError(null);
+            setAiPatchedXml(proposedXml);
+            setAiBaseXml(currentXml);
+            setCompareSwapped(false);
+            setCompareView({
+                title: 'Assistant Proposal',
+                currentXml,
+                checkpointXml: proposedXml,
+            });
+            setAiDiffIteration(typeof result.iteration === 'number' ? result.iteration : aiDiffIteration + 1);
+            setAiDiffReviews((prev) => prev.filter((review) => review.status === 'accepted'));
+            setAiDiffGlobalComment('');
+            setAiDiffFeedbackError(null);
+            setAiDiffBlockErrors({});
+            setCompareAlignmentRevision((value) => value + 1);
+        } catch (err) {
+            const rawMessage = errorMessage(err) || 'Failed to request revised proposal.';
+            const surfacedMessage = formatAiDiffFeedbackError(rawMessage);
+            setAiError(surfacedMessage);
+            setAiDiffFeedbackError(surfacedMessage);
+            setCompareRightError(surfacedMessage);
+            if (commentBlockKeys.length > 0) {
+                setAiDiffBlockErrors((prev) => {
+                    const next = { ...prev };
+                    commentBlockKeys.forEach((blockKey) => {
+                        next[blockKey] = surfacedMessage;
+                    });
+                    return next;
+                });
+            }
+            setCompareView({
+                title: 'Assistant Proposal',
+                currentXml,
+                checkpointXml: previousCheckpointXml,
+            });
+        } finally {
+            setAiDiffFeedbackBusy(false);
+            setCompareRightLoading(false);
+        }
+    }, [
+        compareView,
+        isAiCompareMode,
+        aiDiffFeedbackBusy,
+        aiApiKey,
+        aiModel,
+        aiProvider,
+        aiDiffReviews,
+        aiDiffCurrentBlocks,
+        aiDiffReviewByKey,
+        aiDiffReviewByRange,
+        getReviewStatusForFeedback,
+        aiDiffGlobalComment,
+        aiDiffIteration,
+        aiChatMessages,
+        captureApiTraceContext,
+        parseMusicXmlPatch,
+        getScoreMusicXmlText,
+        score,
     ]);
 
     const parsePartsFromMetadata = useCallback((metadata: any): PartSummary[] => {
@@ -4718,6 +5426,14 @@ ${partsBodyXml}
             setCompareSwapped(false);
             setCompareLeftCheckpointLabel('');
             setCompareRightCheckpointLabel('');
+            if (!aiDiffFeedbackBusy) {
+                setAiDiffReviews([]);
+                setAiDiffIteration(0);
+                setAiDiffGlobalComment('');
+                setAiDiffFeedbackError(null);
+                setAiDiffBlockErrors({});
+                setAiDiffGutterWidth(AI_DIFF_GUTTER_DEFAULT_WIDTH);
+            }
             return;
         }
 
@@ -4777,7 +5493,7 @@ ${partsBodyXml}
         return () => {
             canceled = true;
         };
-    }, [compareView, parsePartsFromMetadata]);
+    }, [compareView, parsePartsFromMetadata, aiDiffFeedbackBusy]);
 
     useEffect(() => {
         return () => {
@@ -4841,11 +5557,16 @@ ${partsBodyXml}
         void renderScoreToContainer(compareRightScoreDisplay, compareRightContainerRef.current, targetPage, false)
             .then((rendered) => {
                 if (!rendered && !compareRightError && isCheckpoint) {
-                    setCompareRightError('No SVG output from checkpoint score.');
+                    setCompareRightError('Unable to render compare score. The proposal may contain invalid MusicXML.');
                     return;
                 }
                 syncCompareSvgSize(compareRightContainerRef.current, setCompareRightSvgSize);
-                void refreshMeasurePositions(compareRightScoreDisplay, setCompareRightMeasurePositions);
+                void refreshMeasurePositions(compareRightScoreDisplay, setCompareRightMeasurePositions)
+                    .then((ok) => {
+                        if (!ok && isCheckpoint) {
+                            setCompareRightError((prev) => prev ?? 'Unable to compute compare highlights for checkpoint score.');
+                        }
+                    });
             })
             .finally(() => {
                 compareRightRenderInFlightRef.current = false;
@@ -4972,7 +5693,12 @@ ${partsBodyXml}
                 void renderScoreToContainer(compareRightScore, compareRightContainerRef.current, targetPage, false)
                     .then(() => {
                         syncCompareSvgSize(compareRightContainerRef.current, setCompareRightSvgSize);
-                        void refreshMeasurePositions(compareRightScore, setCompareRightMeasurePositions);
+                        void refreshMeasurePositions(compareRightScore, setCompareRightMeasurePositions)
+                            .then((ok) => {
+                                if (!ok) {
+                                    setCompareRightError((prev) => prev ?? 'Unable to compute compare highlights for checkpoint score.');
+                                }
+                            });
                     });
             });
             return;
@@ -5037,7 +5763,10 @@ ${partsBodyXml}
             await refreshMeasurePositions(score, setCompareLeftMeasurePositions);
             await renderScoreToContainer(compareRightScore, compareRightContainerRef.current, targetPage, false);
             syncCompareSvgSize(compareRightContainerRef.current, setCompareRightSvgSize);
-            await refreshMeasurePositions(compareRightScore, setCompareRightMeasurePositions);
+            const rightPositionsOk = await refreshMeasurePositions(compareRightScore, setCompareRightMeasurePositions);
+            if (!rightPositionsOk) {
+                setCompareRightError((prev) => prev ?? 'Unable to compute compare highlights for checkpoint score.');
+            }
         };
 
         applyReflow();
@@ -5175,6 +5904,54 @@ ${partsBodyXml}
         extractMeasureSignaturesFromXml,
         getScoreMscxText,
     ]);
+
+    useEffect(() => {
+        if (!isAiCompareMode) {
+            return;
+        }
+        const currentKeys = new Set(aiDiffCurrentBlocks.map((block) => block.blockKey));
+        const currentRangeKeys = new Set(aiDiffCurrentBlocks.map((block) => `${block.partIndex}:${block.measureRange}`));
+        setAiDiffReviews((prev) => {
+            const next = prev
+                .filter((review) => (
+                    review.status === 'accepted'
+                    || currentKeys.has(review.blockKey)
+                    || currentRangeKeys.has(`${review.partIndex}:${review.measureRange}`)
+                ))
+                .map((review) => {
+                    const current = aiDiffCurrentBlocks.find((block) => (
+                        block.blockKey === review.blockKey
+                        || `${block.partIndex}:${block.measureRange}` === `${review.partIndex}:${review.measureRange}`
+                    ));
+                    if (!current) {
+                        return review;
+                    }
+                    return {
+                        ...review,
+                        partIndex: current.partIndex,
+                        blockIndex: current.blockIndex,
+                        measureRange: current.measureRange,
+                    };
+                });
+            aiDiffCurrentBlocks.forEach((block) => {
+                if (!next.some((review) => (
+                    review.blockKey === block.blockKey
+                    || `${review.partIndex}:${review.measureRange}` === `${block.partIndex}:${block.measureRange}`
+                ))) {
+                    next.push({
+                        partIndex: block.partIndex,
+                        blockIndex: block.blockIndex,
+                        blockKey: block.blockKey,
+                        measureRange: block.measureRange,
+                        status: 'pending',
+                        comment: '',
+                        commentCommitted: false,
+                    });
+                }
+            });
+            return next;
+        });
+    }, [isAiCompareMode, aiDiffCurrentBlocks]);
 
     useEffect(() => {
         if (!compareView) {
@@ -5396,7 +6173,8 @@ ${partsBodyXml}
 
         const firstRawText = await requestPatchAttempt('initial');
         const firstExtracted = extractJsonFromResponse(firstRawText);
-        if (firstExtracted) {
+        const firstParsed = firstExtracted ? parseMusicXmlPatch(firstExtracted) : { patch: null, error: 'missing' };
+        if (firstExtracted && !firstParsed.error && firstParsed.patch) {
             return {
                 rawText: firstRawText,
                 extracted: firstExtracted,
@@ -5409,7 +6187,14 @@ ${partsBodyXml}
             model: payload.model,
         });
 
-        const retryPromptText = [payload.promptText.trim(), AI_PATCH_STRICT_RETRY_SUFFIX]
+        const retryHint = firstParsed.error && firstParsed.error !== 'missing'
+            ? [
+                'PREVIOUS PATCH ERROR:',
+                firstParsed.error,
+                'Fix the patch structure and return valid JSON only.',
+            ].join('\n')
+            : '';
+        const retryPromptText = [payload.promptText.trim(), retryHint, AI_PATCH_STRICT_RETRY_SUFFIX]
             .filter(Boolean)
             .join('\n\n');
         const retryPayload = {
@@ -5448,6 +6233,13 @@ ${partsBodyXml}
             return false;
         }
         setCompareSwapped(false);
+        setAiDiffIteration(0);
+        setAiDiffReviews([]);
+        setAiDiffGlobalComment('');
+        setAiDiffFeedbackBusy(false);
+        setAiDiffFeedbackError(null);
+        setAiDiffBlockErrors({});
+        setAiDiffGutterWidth(AI_DIFF_GUTTER_DEFAULT_WIDTH);
         setCompareView({
             title: 'Assistant Proposal',
             currentXml: trimmedBase,
@@ -5995,6 +6787,29 @@ ${partsBodyXml}
                     }
                 } else if (resultPayload && typeof resultPayload.error === 'string') {
                     setMusicAgentPatchError(resultPayload.error);
+                }
+            } else if (selectedTool === 'music.diff_feedback') {
+                const resultPayload = asRecord(parsedResult);
+                const bodyPayload = asRecord(resultPayload?.body);
+                const patchPayload = asRecord(bodyPayload?.patch);
+                const proposedXml = typeof bodyPayload?.proposedXml === 'string' ? bodyPayload.proposedXml : '';
+                if (patchPayload) {
+                    const parsedPatch = parseMusicXmlPatch(JSON.stringify(patchPayload));
+                    if (parsedPatch.patch) {
+                        setMusicAgentPatch(parsedPatch.patch);
+                    } else {
+                        setMusicAgentPatchError(parsedPatch.error || 'Diff feedback returned an invalid patch payload.');
+                    }
+                }
+                if (proposedXml.trim()) {
+                    const baseXml = await resolveXmlContext();
+                    setMusicAgentPatchedXml(proposedXml);
+                    void openAiProposalCompare(baseXml, proposedXml);
+                    if (typeof bodyPayload?.iteration === 'number') {
+                        setAiDiffIteration(bodyPayload.iteration);
+                    }
+                } else if (typeof bodyPayload?.error === 'string' && bodyPayload.error.trim()) {
+                    setMusicAgentPatchError(bodyPayload.error.trim());
                 }
             } else if (selectedTool === 'music.scoreops') {
                 const resultPayload = asRecord(parsedResult);
@@ -10052,6 +10867,19 @@ ${partsBodyXml}
                         )}
                         {xmlSidebarTab === 'assistant' && aiEnabled && (
                             <div className="mt-3 space-y-3 text-sm text-gray-700">
+                                {aiDiffFeedbackBusy && (
+                                    <div
+                                        data-testid="ai-diff-feedback-working"
+                                        className="rounded border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-900"
+                                    >
+                                        Working... Generating the next AI proposal from your feedback.
+                                    </div>
+                                )}
+                                {aiDiffFeedbackError && (
+                                    <div className="rounded border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                                        Diff feedback failed: {aiDiffFeedbackError}
+                                    </div>
+                                )}
                                 <div>
                                     <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                                         Provider
@@ -11041,28 +11869,63 @@ ${partsBodyXml}
                             </div>
                             <div className="flex items-center gap-2">
                                 {compareView.title === 'Assistant Proposal' && (
-                                    <button
-                                        type="button"
-                                        onClick={() => void handleAcceptAllAiChanges()}
-                                        disabled={compareSwapBusy}
-                                        className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                                    >
-                                        Accept All AI Changes
-                                    </button>
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => void handleAcceptAllAiChanges()}
+                                            disabled={compareSwapBusy || aiDiffFeedbackBusy}
+                                            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                                        >
+                                            Accept All AI Changes
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => void handleSendDiffFeedback()}
+                                            disabled={!canSendDiffFeedback}
+                                            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                                        >
+                                            {aiDiffFeedbackBusy ? 'Sending...' : diffFeedbackButtonLabel}
+                                        </button>
+                                    </>
                                 )}
                                 <button
                                     type="button"
                                     onClick={() => setCompareView(null)}
                                     className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
                                 >
-                                    Close
+                                    {isAiCompareMode ? 'Done - Close' : 'Close'}
                                 </button>
                             </div>
                         </div>
                         )}
                         <div className={isEmbedMode ? "flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4" : "flex min-h-0 flex-1 flex-col gap-4 overflow-auto"}>
-                            <div className="flex min-h-0 min-w-0 flex-1 overflow-x-auto">
-                                <div className="flex min-h-0 min-w-[960px] flex-1 gap-4">
+                            {!isEmbedMode && isAiCompareMode && (
+                                <div className="rounded border border-gray-300 bg-gray-100 p-3">
+                                    <div className="text-xs font-semibold uppercase tracking-wide text-gray-900">
+                                        Global Feedback for Next AI Iteration
+                                    </div>
+                                    <div className="mt-1 text-[11px] text-gray-700">
+                                        Optional. Use this for overall guidance that applies across multiple diff blocks.
+                                    </div>
+                                    <textarea
+                                        value={aiDiffGlobalComment}
+                                        onChange={(event) => setAiDiffGlobalComment(event.target.value)}
+                                        placeholder="Overall feedback for the next revision..."
+                                        className="mt-2 min-h-[56px] w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 placeholder-gray-500"
+                                        disabled={aiDiffFeedbackBusy}
+                                    />
+                                    <div className="mt-2 text-[11px] text-gray-700">
+                                        Iteration {aiDiffIteration + 1} review
+                                    </div>
+                                    {aiDiffFeedbackError && (
+                                        <div className="mt-2 rounded border border-rose-300 bg-rose-50 px-2 py-1 text-[11px] text-rose-700">
+                                            Last feedback request failed: {aiDiffFeedbackError}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            <div className="flex min-h-0 min-w-0 flex-1 overflow-x-hidden">
+                                <div className="flex min-h-0 min-w-0 flex-1 gap-4">
                                     <div className="flex min-h-0 min-w-0 flex-1 basis-0 flex-col gap-3">
                                         <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500">
                                             <div className="flex items-center gap-2">
@@ -11163,18 +12026,22 @@ ${partsBodyXml}
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="flex min-h-0 w-44 flex-none flex-col items-center gap-2">
+                                    <div
+                                        className={`flex min-h-0 flex-none flex-col items-stretch gap-2 ${isAiCompareMode ? '' : 'w-44'}`}
+                                        style={isAiCompareMode ? { width: `${aiDiffGutterWidth}px` } : undefined}
+                                    >
                                         <button
                                             type="button"
                                             onClick={handleCompareSwapSides}
-                                            className="rounded border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 hover:bg-gray-50"
-                                            title="Swap left and right panes"
+                                            disabled={isAiCompareMode}
+                                            className="self-center rounded border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                                            title={isAiCompareMode ? 'Swap is disabled for assistant diff review.' : 'Swap left and right panes'}
                                         >
                                             ⇄ Swap
                                         </button>
                                         <div
                                             ref={compareGutterScrollRef}
-                                            className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto rounded border border-gray-200 bg-gray-50 p-2 text-[10px] text-gray-500"
+                                            className="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-x-visible overflow-y-auto rounded border border-gray-200 bg-gray-50 p-2 text-[10px] text-gray-500"
                                         >
                                             {compareAlignmentLoading && (
                                                 <div className="rounded border border-dashed border-gray-200 bg-white px-2 py-2 text-center text-[10px] text-gray-400">
@@ -11232,6 +12099,27 @@ ${partsBodyXml}
                                                                 const rightLabel = rightIndices.length
                                                                     ? `R${rightStart + 1}${rightEnd !== rightStart ? `–${rightEnd + 1}` : ''}`
                                                                     : 'R–';
+                                                                const measureStart = rightIndices.length ? rightStart : leftStart;
+                                                                const measureEnd = rightIndices.length ? rightEnd : leftEnd;
+                                                                const measureRange = measureStart !== undefined
+                                                                    ? `${measureStart + 1}${measureEnd !== measureStart ? `-${measureEnd + 1}` : ''}`
+                                                                    : 'unknown';
+                                                                const stableMeasureKey = measureRange !== 'unknown'
+                                                                    ? measureRange
+                                                                    : `${blockIndex}:${leftStart ?? 'x'}:${leftEnd ?? 'x'}:${rightStart ?? 'x'}:${rightEnd ?? 'x'}`;
+                                                                const blockKey = `${index}:${stableMeasureKey}`;
+                                                                const aiBlock = {
+                                                                    partIndex: index,
+                                                                    blockIndex,
+                                                                    blockKey,
+                                                                    measureRange,
+                                                                };
+                                                                const review = aiDiffReviewByKey.get(blockKey)
+                                                                    ?? aiDiffReviewByRange.get(`${index}:${measureRange}`);
+                                                                const reviewStatus = review?.status ?? 'pending';
+                                                                const reviewComment = review?.comment ?? '';
+                                                                const commentCommitted = Boolean(review?.commentCommitted);
+                                                                const blockError = aiDiffBlockErrors[blockKey] ?? '';
                                                                 const leftDiff = leftIndices.length > 0;
                                                                 const rightDiff = rightIndices.length > 0;
                                                                 const pairs = blockRows
@@ -11265,18 +12153,158 @@ ${partsBodyXml}
                                                                 return (
                                                                     <div
                                                                         key={`compare-gutter-block-${index}-${blockIndex}`}
-                                                                        className="absolute left-0 right-0 rounded border border-gray-200 bg-white px-2 py-2"
-                                                                        style={{ top: `${blockTop}px`, height: `${blockHeight}px` }}
+                                                                        className={`absolute left-0 right-0 rounded border bg-white px-2 py-2 ${
+                                                                            isAiCompareMode
+                                                                                ? (reviewStatus === 'accepted'
+                                                                                    ? 'border-emerald-300'
+                                                                                    : reviewStatus === 'rejected'
+                                                                                        ? 'border-rose-300'
+                                                                                        : reviewStatus === 'comment'
+                                                                                            ? 'border-sky-300'
+                                                                                            : 'border-gray-200')
+                                                                                : 'border-gray-200'
+                                                                        }`}
+                                                                        style={{
+                                                                            top: `${blockTop}px`,
+                                                                            height: `${blockHeight}px`,
+                                                                        }}
                                                                     >
                                                                         <div className="flex items-center justify-between text-[9px] text-gray-400">
                                                                             <span className={`rounded px-1 py-0.5 ${leftDiff ? 'bg-rose-100 text-rose-600' : ''}`}>
                                                                                 {leftLabel}
                                                                             </span>
-                                                                            <span className={`rounded px-1 py-0.5 ${rightDiff ? 'bg-emerald-100 text-emerald-600' : ''}`}>
+                                                                            <span className={`rounded px-1 py-0.5 ${rightDiff ? 'bg-emerald-100 text-emerald-600' : ''} ${
+                                                                                isAiCompareMode && reviewStatus === 'accepted' ? 'line-through opacity-70' : ''
+                                                                            }`}>
                                                                                 {rightLabel}
                                                                             </span>
                                                                         </div>
-                                                                        {!isEmbedMode && canOverwrite && (
+                                                                        {!isEmbedMode && isAiCompareMode && (
+                                                                            <div className="mt-1 grid gap-1">
+                                                                                <div className="grid grid-cols-3 gap-1">
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        disabled={compareSwapBusy || compareAlignmentLoading || !compareLeftScore || !compareRightScoreDisplay || !canOverwrite || aiDiffFeedbackBusy || Boolean(compareRightError)}
+                                                                                        className={`h-6 rounded border text-[10px] ${
+                                                                                            reviewStatus === 'accepted'
+                                                                                                ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+                                                                                                : 'border-gray-200 bg-gray-100 text-gray-600'
+                                                                                        } disabled:opacity-50`}
+                                                                                        onClick={() => void handleAcceptAiDiffBlock(aiBlock, pairs)}
+                                                                                    >
+                                                                                        Accept
+                                                                                    </button>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        disabled={aiDiffFeedbackBusy || compareAlignmentLoading}
+                                                                                        className={`h-6 rounded border text-[10px] ${
+                                                                                            reviewStatus === 'rejected'
+                                                                                                ? 'border-rose-400 bg-rose-50 text-rose-700'
+                                                                                                : 'border-gray-200 bg-gray-100 text-gray-600'
+                                                                                        } disabled:opacity-50`}
+                                                                                        onClick={() => {
+                                                                                            setAiDiffBlockStatus(aiBlock, 'rejected');
+                                                                                            setAiDiffBlockErrors((prev) => {
+                                                                                                if (!prev[blockKey]) {
+                                                                                                    return prev;
+                                                                                                }
+                                                                                                const next = { ...prev };
+                                                                                                delete next[blockKey];
+                                                                                                return next;
+                                                                                            });
+                                                                                        }}
+                                                                                    >
+                                                                                        Reject
+                                                                                    </button>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        disabled={aiDiffFeedbackBusy || compareAlignmentLoading}
+                                                                                        className={`h-6 rounded border text-[10px] ${
+                                                                                            reviewStatus === 'comment'
+                                                                                                ? 'border-sky-400 bg-sky-50 text-sky-700'
+                                                                                                : 'border-gray-200 bg-gray-100 text-gray-600'
+                                                                                        } disabled:opacity-50`}
+                                                                                        onClick={() => {
+                                                                                            setAiDiffBlockStatus(aiBlock, 'comment');
+                                                                                            setAiDiffBlockErrors((prev) => {
+                                                                                                if (!prev[blockKey]) {
+                                                                                                    return prev;
+                                                                                                }
+                                                                                                const next = { ...prev };
+                                                                                                delete next[blockKey];
+                                                                                                return next;
+                                                                                            });
+                                                                                        }}
+                                                                                    >
+                                                                                        Comment
+                                                                                    </button>
+                                                                                </div>
+                                                                                {reviewStatus === 'comment' && (
+                                                                                    <>
+                                                                                        {!commentCommitted && (
+                                                                                            <>
+                                                                                                <textarea
+                                                                                                    ref={(element) => bindAiDiffCommentTextarea(blockKey, element)}
+                                                                                                    defaultValue={reviewComment}
+                                                                                                    onChange={() => handleAiDiffBlockCommentInput(aiBlock)}
+                                                                                                    onPointerUp={(event) => handleAiDiffCommentResize(event.currentTarget)}
+                                                                                                    onPointerMove={(event) => {
+                                                                                                        if (event.buttons === 1) {
+                                                                                                            handleAiDiffCommentResize(event.currentTarget);
+                                                                                                        }
+                                                                                                    }}
+                                                                                                    onMouseUp={(event) => handleAiDiffCommentResize(event.currentTarget)}
+                                                                                                    onMouseMove={(event) => {
+                                                                                                        if (event.buttons === 1) {
+                                                                                                            handleAiDiffCommentResize(event.currentTarget);
+                                                                                                        }
+                                                                                                    }}
+                                                                                                    placeholder="Describe the revision needed..."
+                                                                                                    className="min-h-[84px] min-w-[220px] w-full max-w-none resize rounded border border-sky-300 bg-white px-2 py-1 text-[10px] text-gray-900 placeholder-gray-400"
+                                                                                                    disabled={aiDiffFeedbackBusy}
+                                                                                                />
+                                                                                                <div className="flex justify-end">
+                                                                                                    <button
+                                                                                                        type="button"
+                                                                                                        disabled={aiDiffFeedbackBusy || compareAlignmentLoading}
+                                                                                                        className="h-6 rounded border border-sky-300 bg-sky-50 px-2 text-[10px] text-sky-700 disabled:opacity-50"
+                                                                                                        onClick={() => commitAiDiffBlockComment(aiBlock)}
+                                                                                                    >
+                                                                                                        Enter
+                                                                                                    </button>
+                                                                                                </div>
+                                                                                            </>
+                                                                                        )}
+                                                                                        {commentCommitted && (
+                                                                                            <div className="grid gap-1 rounded border border-sky-200 bg-sky-50 px-2 py-1">
+                                                                                                <div className="text-[9px] font-semibold uppercase tracking-wide text-sky-700">
+                                                                                                    Comment attached
+                                                                                                </div>
+                                                                                                <div className="whitespace-pre-wrap text-[10px] text-sky-900">
+                                                                                                    {reviewComment}
+                                                                                                </div>
+                                                                                                <div className="flex justify-end">
+                                                                                                    <button
+                                                                                                        type="button"
+                                                                                                        disabled={aiDiffFeedbackBusy || compareAlignmentLoading}
+                                                                                                        className="h-6 rounded border border-sky-300 bg-white px-2 text-[10px] text-sky-700 disabled:opacity-50"
+                                                                                                        onClick={() => editAiDiffBlockComment(aiBlock)}
+                                                                                                    >
+                                                                                                        Edit
+                                                                                                    </button>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </>
+                                                                                )}
+                                                                                {blockError && (
+                                                                                    <div className="text-[9px] text-rose-600">
+                                                                                        {blockError}
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        )}
+                                                                        {!isEmbedMode && canOverwrite && !isAiCompareMode && (
                                                                             <div className="mt-1 flex items-center justify-between gap-2">
                                                                                 <button
                                                                                     type="button"
@@ -11455,7 +12483,6 @@ ${partsBodyXml}
                     </div>
                 </div>
             )}
-
             {isEmbedMode && checkpointBusy && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-white">
                     <div className="text-center">
