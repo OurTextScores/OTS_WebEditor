@@ -28,6 +28,7 @@
 /.next/
 /.next-dev*/
 /out/
+/.worktrees/
 
 # production
 /build
