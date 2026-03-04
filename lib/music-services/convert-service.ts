@@ -35,6 +35,7 @@ export async function runMusicConvertService(body: unknown): Promise<ConvertServ
         };
     }
 
+    const inputFormatHint = normalizeMusicFormat(data?.input_format ?? data?.inputFormat);
     const outputFormat = normalizeMusicFormat(data?.output_format ?? data?.outputFormat);
     if (!outputFormat) {
         return {
@@ -58,13 +59,13 @@ export async function runMusicConvertService(body: unknown): Promise<ConvertServ
 
     // Direct resolution artifact or session context
     let inputArtifact = resolutionArtifact;
-    // For now we only support musicxml input via session or direct resolve
-    const inputFormat = inputArtifact?.format ?? 'musicxml';
+    const inputFormat = inputFormatHint ?? inputArtifact?.format ?? 'musicxml';
+    const inputContent = xml;
 
     if (!inputArtifact) {
         inputArtifact = await createScoreArtifact({
             format: inputFormat,
-            content: xml,
+            content: inputContent,
             filename,
             label: 'conversion-input',
             metadata: {
@@ -76,7 +77,7 @@ export async function runMusicConvertService(body: unknown): Promise<ConvertServ
     const result = await convertMusicNotation({
         inputFormat,
         outputFormat,
-        content: xml,
+        content: inputContent,
         filename,
         validate,
         deepValidate,

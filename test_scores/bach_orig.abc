@@ -1,0 +1,65 @@
+X:1
+T:Schön Rosmarin
+T:Bach: Cello Suite Nº 1 BWV 1007: PRELUDIO
+T:by cellofun.eu
+T: CLEAN VERSION
+T:copyright: cellofun.eu
+T:©cellofun.eu
+T:©cellofun.eu
+T:©cellofun.eu
+C:Fritz Kreisler
+Z:©cellofun.eu
+%%score ( 1 2 )
+L:1/8
+Q:1/4=70
+M:4/4
+K:G
+V:1 bass nm="MusicXML Part"
+V:2 bass
+V:1
+ G,,/D,/B,/A,/ B,/D,/B,/D,/ G,,/D,/B,/A,/ B,/D,/B,/D,/ | %1
+ G,,/E,/C/B,/ C/E,/C/E,/ G,,/E,/C/B,/ C/E,/C/E,/ | %2
+ G,,/F,/C/B,/ C/F,/C/F,/ G,,/F,/C/B,/ C/F,/C/F,/ | %3
+ G,,/G,/B,/A,/ B,/G,/B,/G,/ G,,/G,/B,/A,/ B,/G,/B,/F,/ | %4
+ G,,/E,/B,/A,/ B,/G,/F,/G,/ E,/G,/F,/G,/ B,,/D,/^C,/B,,/ | %5
+ ^C,/G,/A,/G,/ A,/G,/A,/G,/ C,/G,/A,/G,/ A,/G,/A,/G,/ | %6
+ F,/A,/D/^C/ D/A,/G,/A,/ F,/A,/G,/A,/ D,/F,/E,/D,/ | %7
+ E,,/B,,/G,/F,/ G,/B,,/G,/B,,/ E,,/B,,/G,/F,/ G,/B,,/G,/B,,/ | %8
+ E,,/^C,/D,/E,/ D,/C,/B,,/A,,/ G,/F,/E,/D/ ^C/B,/A,/G,/ | %9
+ F,/E,/D,/D/ A,/D/F,/A,/ D,/E,/F,/A,/ G,/F,/E,/D,/ | %10
+ ^G,/D,/=F,/E,/ F,/D,/G,/D,/ B,/D,/F,/E,/ F,/D,/G,/D,/ | %11
+ C,/E,/A,/B,/ C/A,/E,/D,/ C,/E,/A,/B,/ C/A,/F,/E,/ | %12
+ ^D,/F,/D,/F,/ A,/F,/A,/F,/ D,/F,/D,/F,/ A,/F,/A,/F,/ | %13
+ G,/F,/E,/G,/ F,/G,/A,/F,/ G,/F,/E,/D,/ C,/B,,/A,,/G,,/ | %14
+ F,,/C,/D,/C,/ D,/C,/D,/C,/ F,,/C,/D,/C,/ D,/C,/D,/C,/ | %15
+ G,,/B,,/=F,/E,/ F,/B,,/F,/B,,/ G,,/B,,/F,/E,/ F,/B,,/F,/B,,/ | %16
+ G,,/C,/E,/D,/ E,/C,/E,/C,/ G,,/C,/E,/D,/ E,/C,/E,/C,/ | %17
+ G,,/F,/C/B,/ C/F,/C/F,/ G,,/F,/C/B,/ C/F,/C/F,/ | %18
+ G,,/D,/B,/A,/ B,/G,/F,/E,/ D,/C,/B,,/A,,/ G,,/F,,/E,,/D,,/ | %19
+ ^C,,/A,,/E,/F,/ G,/E,/F,/G,/ C,,/A,,/E,/F,/ G,/E,/F,/G,/ | %20
+ =C,,/A,,/D,/E,/ F,/D,/E,/F,/ C,,/A,,/D,/E,/ F,/D,/E,/F,/ | %21
+ C,,/A,,/D,/F,/ A,/^C/D- D/A,,/B,,/C,/ D,/E,/F,/G,/ | %22
+ A,/F,/D,/E,/ F,/G,/A,/B,/ C/A,/F,/G,/ A,/B,/C/D/ | %23
+ _E/D/^C/D/ D/=C/B,/C/ C/A,/F,/E,/ D,/A,,/B,,/C,/ | %24
+ D,,/A,,/D,/F,/ A,/B,/C/A,/ B,/G,/D,/C,/ B,,/G,,/A,,/B,,/ | %25
+ D,,/G,,/B,,/D,/ G,/A,/B,/G,/ ^C/_B,/A,/B,/ B,/A,/^G,/A,/ | %26
+ A,/=G,/F,/G,/ G,/E,/^C,/B,,/ A,,/C,/E,/G,/ A,/^C/D/C/ | %27
+ D/A,/F,/E,/ F,/A,/D,/F,/ A,,/D,/^C,/B,,/ A,,/G,,/F,,/E,,/ | %28
+ D,,C/B,/ A,/G,/F,/E,/ D,/ C/B,/A,/ G,/F,/E,/D,/ | %29
+ C,/ B,/A,/G,/ F,/E,/D,/C,/ B,,/ A,/G,/F,/ E,/D,/C,/B,,/ | x2 z/ A,/z/A,/ z/ A,/z/A,/ z/ A,/z/A,/ | %31
+ z/ A,/z/A,/ z/ A,/z/A,/ z/ A,/z/A,/ z/ A,/z/A,/ | z/ A,/z/A,/ z/ A,/z/A,/ | %33
+ z/ A,/z/A,/ z/ A,/z/A,/ | z/ A,/z/A,/ z/ A,/z/A,/ z/ A,/z/A,/ z/ A,/z/A,/ | %35
+ z/ A,/z/A,/ z/ A,/z/A,/ z/ A,/z/A,/ z/ A,/z/A,/ | %36
+ z/ A,/z/A,/ z/ A,/z/A,/ z/ A,/z/A,/ z/ A,/z/A,/ | %37
+ F,/A,/D,/E,/ =F,/z/^F,/ z/ G,/z/^G,/ z/ A,/z/^A,/ z/ | %38
+ B,/D,/C/D,/ ^C/D,/D/D,/ _E/D,/=E/D,/ =F/D,/^F/D,/ | %39
+ G/B,/D,/B,/ G/B,/G/B,/ G/B,/D,/B,/ G/B,/G/B,/ | G/A,/D,/A,/ G/A,/G/A,/ G/A,/D,/A,/ G/A,/G/A,/ | %41
+ F/C/D,/C/ F/C/F/C/ F/C/D,/C/ F/C/F/C/ | [G,,B,][B,G]- [B,G]6 |] %43
+V:2
+ x8 | x8 | x8 | x8 | x8 | x8 | x8 | x8 | x8 | x8 | x8 | x8 | x8 | x8 | x8 | x8 | x8 | x8 | x8 | %19
+ x8 | x8 | x8 | x8 | x8 | x8 | x8 | x8 | x8 | x8 | x8 | %30
+ A,,/ G,/F,/E,/ F,/z/D,/ z/ E,/z/F,/ z/ G,/z/E,/ z/ | %31
+ F,/z/D,/ z/ G,/z/E,/ z/ F,/z/D,/ z/ G,/z/E,/ z/ | F,/z/D,/ z/ E,/z/F,/ z/ | %33
+ G,/z/A,/ z/ B,/z/D,/ z/ | A,/z/B,/ z/ C/z/D,/ z/ B,/z/C/ z/ D/z/B,/ z/ | %35
+ C/z/B,/ z/ C/z/A,/ z/ B,/z/A,/ z/ B,/z/G,/ z/ | A,/z/G,/ z/ A,/z/F,/ z/ G,/z/F,/ z/ G,/z/E,/ z/ | %37
+ x2 z/ D,/z/D,/ z/ D,/z/D,/ z/ D,/z/D,/ | x8 | x8 | x8 | x8 | x8 |] %43
