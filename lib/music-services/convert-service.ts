@@ -2,6 +2,7 @@ import {
     convertMusicNotation,
     ensureMusicConversionToolsAvailable,
     normalizeMusicFormat,
+    type MusicConversionHealthProbeResult,
     runMusicConversionHealthProbe,
 } from '../music-conversion';
 import {
@@ -27,6 +28,49 @@ type ConvertServiceResult = {
 type ConvertServiceOptions = {
     traceContext?: TraceContext;
 };
+
+type HealthProbeCacheEntry = {
+    expiresAtMs: number;
+    probe: MusicConversionHealthProbeResult;
+};
+
+let healthProbeCache: HealthProbeCacheEntry | null = null;
+
+const DEFAULT_HEALTH_PROBE_CACHE_TTL_MS = 30_000;
+
+const parsePositiveIntegerEnv = (value: string | undefined, fallback: number) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+        return fallback;
+    }
+    return Math.floor(parsed);
+};
+
+function getHealthProbeCacheTtlMs() {
+    return parsePositiveIntegerEnv(process.env.MUSIC_CONVERT_HEALTH_PROBE_TTL_MS, DEFAULT_HEALTH_PROBE_CACHE_TTL_MS);
+}
+
+function readHealthProbeCache(nowMs: number): MusicConversionHealthProbeResult | null {
+    if (!healthProbeCache) {
+        return null;
+    }
+    if (healthProbeCache.expiresAtMs <= nowMs) {
+        healthProbeCache = null;
+        return null;
+    }
+    return healthProbeCache.probe;
+}
+
+function writeHealthProbeCache(probe: MusicConversionHealthProbeResult, nowMs: number, ttlMs: number) {
+    healthProbeCache = {
+        expiresAtMs: nowMs + ttlMs,
+        probe,
+    };
+}
+
+export function __resetMusicConvertServiceHealthProbeCacheForTests() {
+    healthProbeCache = null;
+}
 
 const logConvertEvent = (
     level: 'info' | 'warn' | 'error',
@@ -128,8 +172,21 @@ export async function runMusicConvertService(body: unknown, options?: ConvertSer
     const healthCheck = readBoolean(data?.healthCheck, data?.health_check, false);
     if (healthCheck) {
         const tools = await ensureMusicConversionToolsAvailable();
+        const probeCacheTtlMs = getHealthProbeCacheTtlMs();
+        const probeCacheEnabled = probeCacheTtlMs > 0;
+        const nowMs = Date.now();
+        let probeFromCache = false;
         const probe = tools.ok
-            ? await runMusicConversionHealthProbe({ traceContext })
+            ? (() => {
+                if (probeCacheEnabled) {
+                    const cached = readHealthProbeCache(nowMs);
+                    if (cached) {
+                        probeFromCache = true;
+                        return cached;
+                    }
+                }
+                return null;
+            })() ?? await runMusicConversionHealthProbe({ traceContext })
             : {
                 ok: false,
                 inputFormat: 'musicxml' as const,
@@ -138,6 +195,9 @@ export async function runMusicConvertService(body: unknown, options?: ConvertSer
                 durationMs: 0,
                 error: 'Skipped because conversion tools are unavailable.',
             };
+        if (tools.ok && probeCacheEnabled && !probeFromCache) {
+            writeHealthProbeCache(probe, nowMs, probeCacheTtlMs);
+        }
         logConvertEvent('info', 'music.convert.health_probe', traceContext, {
             ok: tools.ok,
             missingCount: tools.missing.length,
@@ -146,6 +206,8 @@ export async function runMusicConvertService(body: unknown, options?: ConvertSer
             probeOk: probe.ok,
             probeDurationMs: probe.durationMs,
             probeError: probe.error || null,
+            probeFromCache,
+            probeCacheTtlMs,
         });
         return {
             status: tools.ok && probe.ok ? 200 : 503,
@@ -163,6 +225,11 @@ export async function runMusicConvertService(body: unknown, options?: ConvertSer
                 pythonCommand: tools.config.pythonCommand,
                 missing: tools.missing,
                 probe,
+                probeCache: {
+                    enabled: probeCacheEnabled,
+                    ttlMs: probeCacheTtlMs,
+                    fromCache: probeFromCache,
+                },
                 maxInputBytes: MAX_CONVERT_INPUT_BYTES,
                 timeouts: {
                     defaultMs: tools.config.defaultTimeoutMs,
@@ -228,6 +295,12 @@ export async function runMusicConvertService(body: unknown, options?: ConvertSer
                 };
             }
             const inferredBase64Format = inferBase64Format(base64Content);
+            if (inputFormatHint === 'midi' && inferredBase64Format !== 'midi') {
+                return {
+                    status: 400,
+                    body: { error: 'Base64 payload does not appear to be MIDI (MThd header missing).' },
+                };
+            }
             if (!inputFormatHint && !inferredBase64Format) {
                 return {
                     status: 400,

@@ -26,11 +26,15 @@ vi.mock('../lib/score-artifacts', () => ({
   summarizeScoreArtifact: mocked.summarizeScoreArtifact,
 }));
 
-import { runMusicConvertService } from '../lib/music-services/convert-service';
+import {
+  __resetMusicConvertServiceHealthProbeCacheForTests,
+  runMusicConvertService,
+} from '../lib/music-services/convert-service';
 
 describe('runMusicConvertService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    __resetMusicConvertServiceHealthProbeCacheForTests();
     mocked.normalizeMusicFormat.mockImplementation((value: unknown) => {
       if (typeof value !== 'string') return null;
       const normalized = value.trim().toLowerCase();
@@ -112,6 +116,58 @@ describe('runMusicConvertService', () => {
         error: 'probe failed',
       },
     });
+  });
+
+  it('reuses cached health probe result within TTL', async () => {
+    const previousTtl = process.env.MUSIC_CONVERT_HEALTH_PROBE_TTL_MS;
+    try {
+      process.env.MUSIC_CONVERT_HEALTH_PROBE_TTL_MS = '30000';
+      mocked.ensureMusicConversionToolsAvailable.mockResolvedValue({
+        ok: true,
+        config: {
+          xml2abcScript: '/opt/notagen/xml2abc.py',
+          abc2xmlScript: '/opt/notagen/abc2xml.py',
+          pythonCommand: 'python3',
+          musescoreTimeoutMs: 60000,
+          musescoreBins: ['musescore3'],
+        },
+        missing: [],
+      });
+      mocked.runMusicConversionHealthProbe.mockResolvedValue({
+        ok: true,
+        inputFormat: 'musicxml',
+        outputFormat: 'midi',
+        timeoutMs: 60000,
+        durationMs: 77,
+      });
+
+      const first = await runMusicConvertService({ healthCheck: true });
+      const second = await runMusicConvertService({ healthCheck: true });
+
+      expect(first.status).toBe(200);
+      expect(second.status).toBe(200);
+      expect(first.body).toMatchObject({
+        probeCache: {
+          enabled: true,
+          ttlMs: 30000,
+          fromCache: false,
+        },
+      });
+      expect(second.body).toMatchObject({
+        probeCache: {
+          enabled: true,
+          ttlMs: 30000,
+          fromCache: true,
+        },
+      });
+      expect(mocked.runMusicConversionHealthProbe).toHaveBeenCalledTimes(1);
+    } finally {
+      if (previousTtl === undefined) {
+        delete process.env.MUSIC_CONVERT_HEALTH_PROBE_TTL_MS;
+      } else {
+        process.env.MUSIC_CONVERT_HEALTH_PROBE_TTL_MS = previousTtl;
+      }
+    }
   });
 
   it('returns 400 when output format is missing or invalid', async () => {
@@ -303,6 +359,21 @@ describe('runMusicConvertService', () => {
     expect(result.status).toBe(400);
     expect(result.body).toMatchObject({
       error: 'Base64 input is currently supported for MIDI only. Set inputFormat to midi.',
+    });
+  });
+
+  it('returns 400 when inputFormat is midi but base64 payload is not MIDI', async () => {
+    const notMidiBase64 = Buffer.from('not-a-midi-header').toString('base64');
+
+    const result = await runMusicConvertService({
+      inputFormat: 'midi',
+      outputFormat: 'musicxml',
+      content_base64: notMidiBase64,
+    });
+
+    expect(result.status).toBe(400);
+    expect(result.body).toMatchObject({
+      error: 'Base64 payload does not appear to be MIDI (MThd header missing).',
     });
   });
 });
