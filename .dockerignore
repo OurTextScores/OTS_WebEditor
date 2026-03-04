@@ -1,0 +1,18 @@
+.git
+.github
+.next
+.next-*
+node_modules
+out
+release
+test-results
+coverage
+tmp
+*.log
+
+# Keep docker context lean; include only web-public and instrument metadata needed at build/runtime.
+webmscore-fork/*
+!webmscore-fork/web-public/
+!webmscore-fork/web-public/**
+!webmscore-fork/share/instruments/
+!webmscore-fork/share/instruments/**
