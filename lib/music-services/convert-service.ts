@@ -14,12 +14,42 @@ import {
     readBoolean,
     resolveScoreContent,
 } from './common';
+import { type TraceContext } from '../trace-http';
 
 const MAX_CONVERT_INPUT_BYTES = Number(process.env.MUSIC_CONVERT_MAX_INPUT_BYTES || (10 * 1024 * 1024));
 
 type ConvertServiceResult = {
     status: number;
     body: Record<string, unknown>;
+};
+
+type ConvertServiceOptions = {
+    traceContext?: TraceContext;
+};
+
+const logConvertEvent = (
+    level: 'info' | 'warn' | 'error',
+    event: string,
+    traceContext: TraceContext | undefined,
+    extra?: Record<string, unknown>,
+) => {
+    const line = JSON.stringify({
+        event,
+        requestId: traceContext?.requestId || null,
+        traceId: traceContext?.traceId || null,
+        sessionId: traceContext?.sessionId || null,
+        clientSessionId: traceContext?.clientSessionId || null,
+        ...(extra || {}),
+    });
+    if (level === 'error') {
+        console.error(line);
+        return;
+    }
+    if (level === 'warn') {
+        console.warn(line);
+        return;
+    }
+    console.info(line);
 };
 
 const readBase64Content = (data: Record<string, unknown> | null) => {
@@ -90,12 +120,19 @@ const checkInputSize = (args: {
     return null;
 };
 
-export async function runMusicConvertService(body: unknown): Promise<ConvertServiceResult> {
+export async function runMusicConvertService(body: unknown, options?: ConvertServiceOptions): Promise<ConvertServiceResult> {
+    const traceContext = options?.traceContext;
     const data = asRecord(body);
 
     const healthCheck = readBoolean(data?.healthCheck, data?.health_check, false);
     if (healthCheck) {
         const tools = await ensureMusicConversionToolsAvailable();
+        logConvertEvent('info', 'music.convert.health_probe', traceContext, {
+            ok: tools.ok,
+            missingCount: tools.missing.length,
+            musescoreCandidates: tools.config.musescoreBins,
+            pythonCommand: tools.config.pythonCommand,
+        });
         return {
             status: tools.ok ? 200 : 503,
             body: {
@@ -132,6 +169,7 @@ export async function runMusicConvertService(body: unknown): Promise<ConvertServ
     const includeContent = readBoolean(data?.includeContent, data?.include_content, false);
     const timeoutMsRaw = Number(data?.timeoutMs ?? data?.timeout_ms);
     const timeoutMs = Number.isFinite(timeoutMsRaw) && timeoutMsRaw > 0 ? timeoutMsRaw : undefined;
+    const startedAt = Date.now();
     let session: { scoreSessionId?: string; revision?: number } | null = null;
 
     // Resolve input source in priority order:
@@ -217,6 +255,16 @@ export async function runMusicConvertService(body: unknown): Promise<ConvertServ
         });
     }
 
+    logConvertEvent('info', 'music.convert.request', traceContext, {
+        inputFormat,
+        outputFormat,
+        inputEncoding,
+        validate,
+        deepValidate,
+        timeoutMs: timeoutMs ?? null,
+        inputArtifactId: inputArtifact.id,
+    });
+
     const result = await convertMusicNotation({
         inputFormat,
         outputFormat,
@@ -226,6 +274,17 @@ export async function runMusicConvertService(body: unknown): Promise<ConvertServ
         validate,
         deepValidate,
         timeoutMs,
+        traceContext,
+    });
+
+    logConvertEvent('info', 'music.convert.result', traceContext, {
+        inputFormat: result.inputFormat,
+        outputFormat: result.outputFormat,
+        contentEncoding: result.contentEncoding,
+        validationWarningCount: result.validation.summary.warning,
+        validationErrorCount: result.validation.summary.error,
+        durationMs: Date.now() - startedAt,
+        engineDurationMs: result.provenance.durationMs,
     });
 
     const outputArtifact = await createScoreArtifact({

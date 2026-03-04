@@ -3,6 +3,7 @@ import { access, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promi
 import { constants as fsConstants } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { type TraceContext } from './trace-http';
 
 export type MusicFormat = 'abc' | 'musicxml' | 'midi';
 export type MusicContentEncoding = 'utf8' | 'base64';
@@ -16,6 +17,7 @@ export type MusicConversionRequest = {
     validate?: boolean;
     deepValidate?: boolean;
     timeoutMs?: number;
+    traceContext?: TraceContext;
 };
 
 export type ValidationSeverity = 'info' | 'warning' | 'error';
@@ -187,6 +189,31 @@ function parseBooleanEnv(name: string): boolean | undefined {
     }
     return undefined;
 }
+
+const logMusicConvertEvent = (args: {
+    level?: 'info' | 'warn' | 'error';
+    event: string;
+    traceContext?: TraceContext;
+    extra?: Record<string, unknown>;
+}) => {
+    const line = JSON.stringify({
+        event: args.event,
+        requestId: args.traceContext?.requestId || null,
+        traceId: args.traceContext?.traceId || null,
+        sessionId: args.traceContext?.sessionId || null,
+        clientSessionId: args.traceContext?.clientSessionId || null,
+        ...(args.extra || {}),
+    });
+    if (args.level === 'error') {
+        console.error(line);
+        return;
+    }
+    if (args.level === 'warn') {
+        console.warn(line);
+        return;
+    }
+    console.info(line);
+};
 
 export async function ensureMusicConversionToolsAvailable(): Promise<{
     ok: boolean;
@@ -916,6 +943,7 @@ async function buildValidationChecks(args: {
     timeoutMs: number;
     filename?: string;
     config?: ConversionToolConfig;
+    traceContext?: TraceContext;
 }) {
     const {
         inputFormat,
@@ -927,6 +955,7 @@ async function buildValidationChecks(args: {
         timeoutMs,
         filename,
         config,
+        traceContext,
     } = args;
     if (!validate) {
         return [];
@@ -967,6 +996,7 @@ async function buildValidationChecks(args: {
             content: outputContent,
             timeoutMs: roundtripStepTimeoutMs,
             filename: filename ? `${stripExtension(filename)}.${outputFormat}` : `roundtrip.${outputFormat}`,
+            traceContext,
         });
 
         checks.push({
@@ -991,6 +1021,7 @@ async function buildValidationChecks(args: {
             content: firstStep.output,
             timeoutMs: roundtripStepTimeoutMs,
             filename: filename ? `${stripExtension(filename)}.${oppositeFormat}` : `roundtrip-return.${oppositeFormat}`,
+            traceContext,
         });
 
         checks.push({
@@ -1039,6 +1070,7 @@ async function buildValidationChecks(args: {
         outputContent,
         timeoutMs: Math.min(timeoutMs, config.renderSmokeTimeoutMs),
         config,
+        traceContext,
     });
     checks.push(...renderChecks);
 
@@ -1104,8 +1136,9 @@ async function runRenderSmokeChecks(args: {
     outputContent: string;
     timeoutMs: number;
     config: ConversionToolConfig;
+    traceContext?: TraceContext;
 }): Promise<ValidationCheck[]> {
-    const { outputFormat, outputContent, timeoutMs, config } = args;
+    const { outputFormat, outputContent, timeoutMs, config, traceContext } = args;
     const checks: ValidationCheck[] = [];
     if (!outputContent.trim()) {
         return checks;
@@ -1169,6 +1202,10 @@ async function runRenderSmokeChecks(args: {
                     inputPath: midiPath,
                     outputPath: xmlPath,
                     timeoutMs,
+                    traceContext,
+                    stage: 'render-smoke-midi-import',
+                    inputFormat: 'midi',
+                    outputFormat: 'musicxml',
                 });
                 const hasXml = await fileExists(xmlPath);
                 checks.push({
@@ -1199,14 +1236,14 @@ async function runRenderSmokeChecks(args: {
         const pdfPath = join(tempDir, 'smoke.pdf');
         await writeFile(xmlPath, normalizeTextForFormat('musicxml', outputContent).content, 'utf8');
         try {
-            const xvfbRunPath = await resolveXvfbRunPath();
-            const { command, result } = await runCommandWithCandidates({
-                candidates: config.musescoreBins,
-                argv: ['-o', pdfPath, xmlPath],
-                cwd: tempDir,
+            const { command, result } = await runMuseScoreConvert({
+                config,
+                inputPath: xmlPath,
+                outputPath: pdfPath,
                 timeoutMs,
-                wrapperCommand: xvfbRunPath || undefined,
-                wrapperArgvPrefix: xvfbRunPath ? ['-a'] : undefined,
+                traceContext,
+                stage: 'render-smoke-musicxml-pdf',
+                inputFormat: 'musicxml',
             });
             const hasPdf = await fileExists(pdfPath);
             checks.push({
@@ -1257,20 +1294,81 @@ async function runMuseScoreConvert(args: {
     inputPath: string;
     outputPath: string;
     timeoutMs: number;
+    traceContext?: TraceContext;
+    stage?: string;
+    inputFormat?: MusicFormat;
+    outputFormat?: MusicFormat;
 }) {
-    const { config, inputPath, outputPath, timeoutMs } = args;
-    const xvfbRunPath = await resolveXvfbRunPath();
-    const { result } = await runCommandWithCandidates({
-        candidates: config.musescoreBins,
-        argv: ['-o', outputPath, inputPath],
-        cwd: undefined,
+    const {
+        config,
+        inputPath,
+        outputPath,
         timeoutMs,
-        wrapperCommand: xvfbRunPath || undefined,
-        wrapperArgvPrefix: xvfbRunPath ? ['-a'] : undefined,
+        traceContext,
+        stage = 'convert',
+        inputFormat,
+        outputFormat,
+    } = args;
+    const startedAt = Date.now();
+    const xvfbRunPath = await resolveXvfbRunPath();
+    logMusicConvertEvent({
+        event: 'music.convert.musescore.exec.start',
+        traceContext,
+        extra: {
+            stage,
+            inputFormat: inputFormat || null,
+            outputFormat: outputFormat || null,
+            timeoutMs,
+            useXvfb: Boolean(xvfbRunPath),
+            candidates: config.musescoreBins,
+        },
+    });
+    let command = '';
+    let result: RunCommandResult;
+    try {
+        const run = await runCommandWithCandidates({
+            candidates: config.musescoreBins,
+            argv: ['-o', outputPath, inputPath],
+            cwd: undefined,
+            timeoutMs,
+            wrapperCommand: xvfbRunPath || undefined,
+            wrapperArgvPrefix: xvfbRunPath ? ['-a'] : undefined,
+        });
+        command = run.command;
+        result = run.result;
+    } catch (error) {
+        const message = error instanceof Error ? error.message : 'unknown error';
+        logMusicConvertEvent({
+            level: /timed out/i.test(message) ? 'warn' : 'error',
+            event: /timed out/i.test(message) ? 'music.convert.timeout' : 'music.convert.musescore.exec.failed',
+            traceContext,
+            extra: {
+                stage,
+                inputFormat: inputFormat || null,
+                outputFormat: outputFormat || null,
+                timeoutMs,
+                durationMs: Date.now() - startedAt,
+                error: message,
+            },
+        });
+        throw error;
+    }
+    logMusicConvertEvent({
+        event: 'music.convert.musescore.exec.done',
+        traceContext,
+        extra: {
+            stage,
+            inputFormat: inputFormat || null,
+            outputFormat: outputFormat || null,
+            command,
+            exitCode: result.exitCode,
+            durationMs: Date.now() - startedAt,
+        },
     });
     if ((result.exitCode ?? 1) !== 0) {
         throw new Error(result.stderr.trim() || `MuseScore conversion exited with code ${result.exitCode ?? 'unknown'}.`);
     }
+    return { command, result };
 }
 
 async function convertXmlToAbc(args: {
@@ -1305,8 +1403,9 @@ async function convertXmlToMidi(args: {
     content: string;
     timeoutMs: number;
     filename?: string;
+    traceContext?: TraceContext;
 }) {
-    const { config, content, timeoutMs, filename } = args;
+    const { config, content, timeoutMs, filename, traceContext } = args;
     const tempDir = await mkdtemp(join(tmpdir(), 'ots-music-convert-'));
     try {
         const inputPath = join(tempDir, sanitizeFilename(filename || 'input.musicxml', 'musicxml'));
@@ -1317,6 +1416,10 @@ async function convertXmlToMidi(args: {
             inputPath,
             outputPath,
             timeoutMs,
+            traceContext,
+            stage: 'musicxml-to-midi',
+            inputFormat: 'musicxml',
+            outputFormat: 'midi',
         });
         let actualOutputPath = outputPath;
         if (!(await fileExists(actualOutputPath))) {
@@ -1374,8 +1477,9 @@ async function convertMidiToXml(args: {
     content: string;
     timeoutMs: number;
     filename?: string;
+    traceContext?: TraceContext;
 }) {
-    const { config, content, timeoutMs, filename } = args;
+    const { config, content, timeoutMs, filename, traceContext } = args;
     const tempDir = await mkdtemp(join(tmpdir(), 'ots-music-convert-'));
     try {
         const midiBytes = decodeMidiBase64(content);
@@ -1391,6 +1495,10 @@ async function convertMidiToXml(args: {
             inputPath,
             outputPath,
             timeoutMs,
+            traceContext,
+            stage: 'midi-to-musicxml',
+            inputFormat: 'midi',
+            outputFormat: 'musicxml',
         });
         let actualOutputPath = outputPath;
         if (!(await fileExists(actualOutputPath))) {
@@ -1416,8 +1524,9 @@ async function convertBetweenFormats(args: {
     content: string;
     timeoutMs: number;
     filename?: string;
+    traceContext?: TraceContext;
 }): Promise<{ output: string; stderr: string }> {
-    const { config, inputFormat, outputFormat, content, timeoutMs, filename } = args;
+    const { config, inputFormat, outputFormat, content, timeoutMs, filename, traceContext } = args;
 
     if (inputFormat === 'musicxml' && outputFormat === 'abc') {
         return convertXmlToAbc({ config, content, timeoutMs, filename });
@@ -1426,10 +1535,10 @@ async function convertBetweenFormats(args: {
         return convertAbcToXml({ config, content, timeoutMs, filename });
     }
     if (inputFormat === 'musicxml' && outputFormat === 'midi') {
-        return convertXmlToMidi({ config, content, timeoutMs, filename });
+        return convertXmlToMidi({ config, content, timeoutMs, filename, traceContext });
     }
     if (inputFormat === 'midi' && outputFormat === 'musicxml') {
-        return convertMidiToXml({ config, content, timeoutMs, filename });
+        return convertMidiToXml({ config, content, timeoutMs, filename, traceContext });
     }
     throw new Error(`Unsupported conversion: ${inputFormat} -> ${outputFormat}`);
 }
@@ -1515,12 +1624,24 @@ export async function renderMusicSnapshot(request: MusicRenderRequest): Promise<
 
 export async function convertMusicNotation(request: MusicConversionRequest): Promise<MusicConversionResult> {
     const startedAt = Date.now();
-    const { inputFormat, outputFormat, content } = request;
+    const { inputFormat, outputFormat, content, traceContext } = request;
     const toolConfig = getMusicConversionToolConfig();
     const inputContent = request.contentEncoding === 'base64' || inputFormat === 'midi'
         ? normalizeTextForFormat('midi', content).content
         : content;
     const outputEncoding: MusicContentEncoding = outputFormat === 'midi' ? 'base64' : 'utf8';
+    logMusicConvertEvent({
+        event: 'music.convert.engine.start',
+        traceContext,
+        extra: {
+            inputFormat,
+            outputFormat,
+            inputEncoding: request.contentEncoding || (inputFormat === 'midi' ? 'base64' : 'utf8'),
+            validate: request.validate !== false,
+            deepValidate: request.deepValidate !== false,
+            timeoutMs: request.timeoutMs ?? null,
+        },
+    });
 
     if (inputFormat === outputFormat) {
         const normalized = normalizeTextForFormat(outputFormat, inputContent);
@@ -1534,6 +1655,30 @@ export async function convertMusicNotation(request: MusicConversionRequest): Pro
             timeoutMs: DEFAULT_TIMEOUT_MS,
             filename: request.filename,
             config: toolConfig,
+            traceContext,
+        });
+        const validation = buildValidationReport(checks);
+        const durationMs = Date.now() - startedAt;
+        logMusicConvertEvent({
+            event: 'music.convert.validation',
+            traceContext,
+            extra: {
+                inputFormat,
+                outputFormat,
+                warningCount: validation.summary.warning,
+                errorCount: validation.summary.error,
+                ok: validation.ok,
+            },
+        });
+        logMusicConvertEvent({
+            event: 'music.convert.engine.done',
+            traceContext,
+            extra: {
+                inputFormat,
+                outputFormat,
+                durationMs,
+                passthrough: true,
+            },
         });
         return {
             inputFormat,
@@ -1541,7 +1686,7 @@ export async function convertMusicNotation(request: MusicConversionRequest): Pro
             content: normalized.content,
             contentEncoding: outputEncoding,
             normalization: normalized.report,
-            validation: buildValidationReport(checks),
+            validation,
             provenance: {
                 engine: 'notagen',
                 pythonCommand: toolConfig.pythonCommand,
@@ -1558,6 +1703,14 @@ export async function convertMusicNotation(request: MusicConversionRequest): Pro
     if (inputFormat === 'abc' || outputFormat === 'abc') {
         const tools = await ensureMusicConversionToolsAvailable();
         if (!tools.ok) {
+            logMusicConvertEvent({
+                level: 'error',
+                event: 'music.convert.tools.unavailable',
+                traceContext,
+                extra: {
+                    missing: tools.missing,
+                },
+            });
             throw new Error(`Music conversion tools unavailable: ${tools.missing.join(' | ')}`);
         }
         config = tools.config;
@@ -1568,14 +1721,32 @@ export async function convertMusicNotation(request: MusicConversionRequest): Pro
         : config.defaultTimeoutMs;
 
     let converted: { output: string; stderr: string };
-    converted = await convertBetweenFormats({
-        config,
-        inputFormat,
-        outputFormat,
-        content: inputContent,
-        timeoutMs,
-        filename: request.filename,
-    });
+    try {
+        converted = await convertBetweenFormats({
+            config,
+            inputFormat,
+            outputFormat,
+            content: inputContent,
+            timeoutMs,
+            filename: request.filename,
+            traceContext,
+        });
+    } catch (error) {
+        const message = error instanceof Error ? error.message : 'unknown error';
+        logMusicConvertEvent({
+            level: /timed out/i.test(message) ? 'warn' : 'error',
+            event: /timed out/i.test(message) ? 'music.convert.timeout' : 'music.convert.engine.failed',
+            traceContext,
+            extra: {
+                inputFormat,
+                outputFormat,
+                timeoutMs,
+                durationMs: Date.now() - startedAt,
+                error: message,
+            },
+        });
+        throw error;
+    }
 
     const validationChecks = await buildValidationChecks({
         inputFormat,
@@ -1587,8 +1758,33 @@ export async function convertMusicNotation(request: MusicConversionRequest): Pro
         timeoutMs,
         filename: request.filename,
         config,
+        traceContext,
     });
+    const validation = buildValidationReport(validationChecks);
     const normalizedOutput = normalizeTextForFormat(outputFormat, converted.output);
+    const durationMs = Date.now() - startedAt;
+    logMusicConvertEvent({
+        event: 'music.convert.validation',
+        traceContext,
+        extra: {
+            inputFormat,
+            outputFormat,
+            warningCount: validation.summary.warning,
+            errorCount: validation.summary.error,
+            ok: validation.ok,
+        },
+    });
+    logMusicConvertEvent({
+        event: 'music.convert.engine.done',
+        traceContext,
+        extra: {
+            inputFormat,
+            outputFormat,
+            timeoutMs,
+            durationMs,
+            stderrPresent: Boolean(converted.stderr),
+        },
+    });
 
     return {
         inputFormat,
@@ -1596,7 +1792,7 @@ export async function convertMusicNotation(request: MusicConversionRequest): Pro
         content: normalizedOutput.content,
         contentEncoding: outputEncoding,
         normalization: normalizedOutput.report,
-        validation: buildValidationReport(validationChecks),
+        validation,
         provenance: {
             engine: 'notagen',
             pythonCommand: config.pythonCommand,
@@ -1604,7 +1800,7 @@ export async function convertMusicNotation(request: MusicConversionRequest): Pro
                 xml2abc: config.xml2abcScript,
                 abc2xml: config.abc2xmlScript,
             },
-            durationMs: Date.now() - startedAt,
+            durationMs,
             stderr: converted.stderr || undefined,
         },
     };
