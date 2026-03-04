@@ -40,6 +40,9 @@ export interface ToolbarSectionProps {
     onExportPng?: () => void;
     onExportMxl?: () => void;
     onExportMscz?: () => void;
+    onExportMscx?: () => void;
+    onExportMusicXml?: () => void;
+    onExportAbc?: () => void;
     onExportMidi?: () => void;
     onExportAudio?: () => void;
     onSoundFontUpload?: (file: File) => void;

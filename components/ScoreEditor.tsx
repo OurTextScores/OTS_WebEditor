@@ -8830,6 +8830,71 @@ ${partsBodyXml}
         }
     };
 
+    const handleExportMscx = async () => {
+        if (!score || !score.saveMsc) {
+            alert('MSCX export is not available in this build.');
+            return;
+        }
+        try {
+            const mscx = await score.saveMsc('mscx');
+            downloadBlob(mscx, 'score.mscx', 'application/xml');
+        } catch (err) {
+            console.error('Failed to export MSCX', err);
+            alert('Unable to export MSCX. See console for details.');
+        }
+    };
+
+    const handleExportMusicXml = async () => {
+        if (!score || !score.saveXml) {
+            alert('MusicXML export is not available in this build.');
+            return;
+        }
+        try {
+            const xml = await runSerializedScoreOperation(
+                () => score.saveXml!(),
+                'saveXml(export)',
+            );
+            downloadBlob(xml, 'score.musicxml', 'application/vnd.recordare.musicxml+xml');
+        } catch (err) {
+            console.error('Failed to export MusicXML', err);
+            alert('Unable to export MusicXML. See console for details.');
+        }
+    };
+
+    const handleExportAbc = async () => {
+        if (!score || !score.saveXml) {
+            alert('ABC export is not available in this build.');
+            return;
+        }
+        try {
+            const xmlData = await runSerializedScoreOperation(
+                () => score.saveXml!(),
+                'saveXml(export-abc)',
+            );
+            const xml = await decodeXmlData(xmlData);
+            if (!xml?.trim()) {
+                throw new Error('MusicXML export was empty.');
+            }
+            const converted = await postScoreEditorJson('/api/music/convert', {
+                input_format: 'musicxml',
+                output_format: 'abc',
+                content: xml,
+                include_content: true,
+                validate: true,
+                deep_validate: true,
+            });
+            const abcRaw = typeof converted.content === 'string' ? converted.content : '';
+            const abc = abcRaw.trim();
+            if (!abc) {
+                throw new Error('ABC conversion returned empty output.');
+            }
+            downloadBlob(`${abc}\n`, 'score.abc', 'text/plain;charset=utf-8');
+        } catch (err) {
+            console.error('Failed to export ABC', err);
+            alert('Unable to export ABC. See console for details.');
+        }
+    };
+
     const handleExportMidi = async () => {
         if (!score || !score.saveMidi) {
             alert('MIDI export is not available in this build.');
@@ -10205,6 +10270,9 @@ ${partsBodyXml}
                 onExportPng={handleExportPng}
                 onExportMxl={handleExportMxl}
                 onExportMscz={handleExportMscz}
+                onExportMscx={handleExportMscx}
+                onExportMusicXml={handleExportMusicXml}
+                onExportAbc={handleExportAbc}
                 onExportMidi={handleExportMidi}
                 onExportAudio={handleExportAudio}
                 onPlayAudio={handlePlayAudio}

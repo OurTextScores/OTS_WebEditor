@@ -12,6 +12,9 @@ export const FileSection: React.FC<ToolbarSectionProps> = ({
     onExportPng,
     onExportMxl,
     onExportMscz,
+    onExportMscx,
+    onExportMusicXml,
+    onExportAbc,
     onExportMidi,
     onExportAudio,
     onSoundFontUpload,
@@ -71,11 +74,14 @@ export const FileSection: React.FC<ToolbarSectionProps> = ({
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
-                    <DropdownMenuItem data-testid="btn-export-svg" disabled={!exportsEnabled || !onExportSvg} onSelect={() => onExportSvg?.()}>SVG</DropdownMenuItem>
+                    <DropdownMenuItem data-testid="btn-export-mscz" disabled={!exportsEnabled || !onExportMscz} onSelect={() => onExportMscz?.()}>MSCZ (MuseScore default)</DropdownMenuItem>
                     <DropdownMenuItem data-testid="btn-export-pdf" disabled={!exportsEnabled || !onExportPdf} onSelect={() => onExportPdf?.()}>PDF</DropdownMenuItem>
+                    <DropdownMenuItem data-testid="btn-export-svg" disabled={!exportsEnabled || !onExportSvg} onSelect={() => onExportSvg?.()}>SVG</DropdownMenuItem>
                     <DropdownMenuItem data-testid="btn-export-png" disabled={!exportsEnabled || !onExportPng || !pngAvailable} onSelect={() => onExportPng?.()}>PNG</DropdownMenuItem>
+                    <DropdownMenuItem data-testid="btn-export-mscx" disabled={!exportsEnabled || !onExportMscx} onSelect={() => onExportMscx?.()}>MSCX</DropdownMenuItem>
+                    <DropdownMenuItem data-testid="btn-export-musicxml" disabled={!exportsEnabled || !onExportMusicXml} onSelect={() => onExportMusicXml?.()}>MUSICXML</DropdownMenuItem>
                     <DropdownMenuItem data-testid="btn-export-mxl" disabled={!exportsEnabled || !onExportMxl} onSelect={() => onExportMxl?.()}>MXL</DropdownMenuItem>
-                    <DropdownMenuItem data-testid="btn-export-mscz" disabled={!exportsEnabled || !onExportMscz} onSelect={() => onExportMscz?.()}>MSCZ</DropdownMenuItem>
+                    <DropdownMenuItem data-testid="btn-export-abc" disabled={!exportsEnabled || !onExportAbc} onSelect={() => onExportAbc?.()}>ABC</DropdownMenuItem>
                     <DropdownMenuItem data-testid="btn-export-midi" disabled={!exportsEnabled || !onExportMidi} onSelect={() => onExportMidi?.()}>MIDI</DropdownMenuItem>
                     <DropdownMenuItem data-testid="btn-export-audio" disabled={!exportsEnabled || !onExportAudio || !audioAvailable || audioBusy} onSelect={() => onExportAudio?.()}>
                         {audioBusy ? 'Exporting…' : 'WAV'}

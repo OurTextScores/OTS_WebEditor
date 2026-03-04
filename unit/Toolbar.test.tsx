@@ -400,6 +400,31 @@ describe('Toolbar', () => {
     expect(screen.getByTestId('btn-export-audio')).toHaveTextContent('Exporting…');
   });
 
+  it('renders export order with MSCZ default first and includes MSCX/MUSICXML/ABC', () => {
+    render(
+      <Toolbar
+        onFileUpload={() => {}}
+        onZoomIn={() => {}}
+        onZoomOut={() => {}}
+        zoomLevel={1}
+        exportsEnabled
+        onExportMscz={() => {}}
+        onExportPdf={() => {}}
+        onExportMscx={() => {}}
+        onExportMusicXml={() => {}}
+        onExportAbc={() => {}}
+      />,
+    );
+
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Export' }));
+    const menuItems = screen.getAllByRole('menuitem');
+    expect(menuItems[0]).toHaveTextContent('MSCZ (MuseScore default)');
+    expect(menuItems[1]).toHaveTextContent('PDF');
+    expect(screen.getByTestId('btn-export-mscx')).toBeInTheDocument();
+    expect(screen.getByTestId('btn-export-musicxml')).toBeInTheDocument();
+    expect(screen.getByTestId('btn-export-abc')).toBeInTheDocument();
+  });
+
   it('wires remove-containing-measures and labels trailing measure removal', async () => {
     const user = userEvent.setup();
     const onRemoveContainingMeasures = vi.fn();

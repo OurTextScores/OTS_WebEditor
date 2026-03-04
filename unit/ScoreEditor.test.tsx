@@ -476,7 +476,7 @@ describe('ScoreEditor', () => {
     expect(wrapper).toHaveStyle({ transform: 'scale(1)' });
   }, 10000);
 
-  it('exports PDF/PNG/MXL/MSCZ/MIDI via Score methods', async () => {
+  it('exports PDF/PNG/MXL/MSCZ/MSCX/MusicXML/ABC/MIDI via Score methods', async () => {
     const user = userEvent.setup();
 
     const score: any = {
@@ -486,6 +486,7 @@ describe('ScoreEditor', () => {
       savePng: vi.fn(async () => new Uint8Array([2])),
       saveMxl: vi.fn(async () => new Uint8Array([3])),
       saveMsc: vi.fn(async () => new Uint8Array([4])),
+      saveXml: vi.fn(async () => new TextEncoder().encode('<score-partwise version="3.1"><part-list/><part id="P1"><measure number="1"/></part></score-partwise>')),
       saveMidi: vi.fn(async () => new Uint8Array([5])),
       metadata: vi.fn(async () => ({})),
       measurePositions: vi.fn(async () => ({})),
@@ -498,10 +499,23 @@ describe('ScoreEditor', () => {
     };
 
     mocked.loadWebMscore.mockResolvedValue(webmscore);
-    (globalThis as any).fetch = vi.fn(async () => ({
-      ok: false,
-      arrayBuffer: async () => new ArrayBuffer(0),
-    }));
+    (globalThis as any).fetch = vi.fn(async (input: any) => {
+      const url = typeof input === 'string' ? input : String(input?.url ?? '');
+      if (url.includes('/api/music/convert')) {
+        return {
+          ok: true,
+          headers: new Headers(),
+          json: async () => ({ content: 'X:1\nM:4/4\nK:C\nC D E F|' }),
+          arrayBuffer: async () => new ArrayBuffer(0),
+        };
+      }
+      return {
+        ok: false,
+        headers: new Headers(),
+        json: async () => ({}),
+        arrayBuffer: async () => new ArrayBuffer(0),
+      };
+    });
 
     (globalThis as any).URL.createObjectURL = vi.fn(() => 'blob:mock');
     (globalThis as any).URL.revokeObjectURL = vi.fn();
@@ -523,14 +537,26 @@ describe('ScoreEditor', () => {
     await user.click(screen.getByTestId('dropdown-export'));
     await user.click(await screen.findByTestId('btn-export-mscz'));
     await user.click(screen.getByTestId('dropdown-export'));
+    await user.click(await screen.findByTestId('btn-export-mscx'));
+    await user.click(screen.getByTestId('dropdown-export'));
+    await user.click(await screen.findByTestId('btn-export-musicxml'));
+    await user.click(screen.getByTestId('dropdown-export'));
+    await user.click(await screen.findByTestId('btn-export-abc'));
+    await user.click(screen.getByTestId('dropdown-export'));
     await user.click(await screen.findByTestId('btn-export-midi'));
 
     await waitFor(() => expect(score.savePdf).toHaveBeenCalled());
     await waitFor(() => expect(score.savePng).toHaveBeenCalledWith(0, true, true));
     await waitFor(() => expect(score.saveMxl).toHaveBeenCalled());
     await waitFor(() => expect(score.saveMsc).toHaveBeenCalledWith('mscz'));
+    await waitFor(() => expect(score.saveMsc).toHaveBeenCalledWith('mscx'));
+    await waitFor(() => expect(score.saveXml).toHaveBeenCalled());
     await waitFor(() => expect(score.saveMidi).toHaveBeenCalledWith(true, true));
     await waitFor(() => expect((globalThis as any).URL.createObjectURL).toHaveBeenCalled());
+    await waitFor(() => expect((globalThis as any).fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/music/convert'),
+      expect.any(Object),
+    ));
   }, 10000);
 
   it('supports note respelling keyboard shortcuts', async () => {
@@ -717,6 +743,18 @@ describe('ScoreEditor', () => {
     await user.click(screen.getByTestId('dropdown-export'));
     await user.click(await screen.findByTestId('btn-export-mscz'));
     expect((globalThis as any).alert).toHaveBeenCalledWith('MSCZ export is not available in this build.');
+
+    await user.click(screen.getByTestId('dropdown-export'));
+    await user.click(await screen.findByTestId('btn-export-mscx'));
+    expect((globalThis as any).alert).toHaveBeenCalledWith('MSCX export is not available in this build.');
+
+    await user.click(screen.getByTestId('dropdown-export'));
+    await user.click(await screen.findByTestId('btn-export-musicxml'));
+    expect((globalThis as any).alert).toHaveBeenCalledWith('MusicXML export is not available in this build.');
+
+    await user.click(screen.getByTestId('dropdown-export'));
+    await user.click(await screen.findByTestId('btn-export-abc'));
+    expect((globalThis as any).alert).toHaveBeenCalledWith('ABC export is not available in this build.');
 
     await user.click(screen.getByTestId('dropdown-export'));
     await user.click(await screen.findByTestId('btn-export-midi'));
