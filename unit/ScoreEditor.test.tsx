@@ -465,18 +465,15 @@ describe('ScoreEditor', () => {
     const wrapper = screen.getByTestId('score-wrapper');
     expect(wrapper).toHaveStyle({ transform: 'scale(1)' });
 
-    await user.click(screen.getByTestId('btn-zoom-in'));
-    expect(wrapper).toHaveStyle({ transform: 'scale(1.1)' });
-
     for (let i = 0; i < 20; i++) {
       await user.click(screen.getByTestId('btn-zoom-out'));
     }
-    expect(wrapper).toHaveStyle({ transform: 'scale(0.5)' });
+    expect(wrapper).toHaveStyle({ transform: 'scale(0.01)' });
 
     for (let i = 0; i < 50; i++) {
       await user.click(screen.getByTestId('btn-zoom-in'));
     }
-    expect(wrapper).toHaveStyle({ transform: 'scale(3)' });
+    expect(wrapper).toHaveStyle({ transform: 'scale(1)' });
   }, 10000);
 
   it('exports PDF/PNG/MXL/MSCZ/MIDI via Score methods', async () => {

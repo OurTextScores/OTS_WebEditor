@@ -595,8 +595,8 @@ export default function ScoreEditor() {
     const containerRef = useRef<HTMLDivElement>(null);
     const scoreWrapperRef = useRef<HTMLDivElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
-    const MIN_ZOOM = 0.5;
-    const MAX_ZOOM = 3.0;
+    const MIN_ZOOM = 0.01;
+    const MAX_ZOOM = 1.0;
     const clampZoom = (value: number) => Math.min(Math.max(value, MIN_ZOOM), MAX_ZOOM);
     const [loading, setLoading] = useState(false);
     const [selectedElement, setSelectedElement] = useState<{ x: number, y: number, w: number, h: number } | null>(null);
