@@ -10,6 +10,8 @@ export type ScoreArtifact = {
     createdAt: string;
     format: MusicFormat;
     content: string;
+    encoding?: 'utf8' | 'base64';
+    mimeType?: string;
     filename?: string;
     label?: string;
     parentArtifactId?: string;

@@ -4,12 +4,14 @@ import { constants as fsConstants } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-export type MusicFormat = 'abc' | 'musicxml';
+export type MusicFormat = 'abc' | 'musicxml' | 'midi';
+export type MusicContentEncoding = 'utf8' | 'base64';
 
 export type MusicConversionRequest = {
     inputFormat: MusicFormat;
     outputFormat: MusicFormat;
     content: string;
+    contentEncoding?: MusicContentEncoding;
     filename?: string;
     validate?: boolean;
     deepValidate?: boolean;
@@ -71,6 +73,7 @@ export type MusicConversionResult = {
     inputFormat: MusicFormat;
     outputFormat: MusicFormat;
     content: string;
+    contentEncoding: MusicContentEncoding;
     normalization: NormalizationReport;
     validation: ValidationReport;
     provenance: {
@@ -120,6 +123,9 @@ export function normalizeMusicFormat(value: unknown): MusicFormat | null {
     if (raw === 'xml' || raw === 'musicxml' || raw === 'mxl') {
         return 'musicxml';
     }
+    if (raw === 'midi' || raw === 'mid') {
+        return 'midi';
+    }
     return null;
 }
 
@@ -135,10 +141,12 @@ export function getMusicConversionToolConfig(): ConversionToolConfig {
         : DEFAULT_RENDER_SMOKE_TIMEOUT_MS;
     const musescoreBins = parseCommandCandidates(process.env.MUSIC_MUSESCORE_BIN_CANDIDATES, [
         process.env.MUSIC_MUSESCORE_BIN,
-        'musescore',
+        'musescore4',
+        'mscore4portable',
+        'MuseScore4',
         'musescore3',
         'mscore',
-        'MuseScore4',
+        'musescore',
         'MuseScore3',
     ]);
     const abc2midiBins = parseCommandCandidates(process.env.MUSIC_ABC2MIDI_BIN_CANDIDATES, [
@@ -164,6 +172,20 @@ function parseCommandCandidates(csv: string | undefined, defaults: Array<string 
         .map((value) => String(value || '').trim())
         .filter(Boolean);
     return [...new Set(values)];
+}
+
+function parseBooleanEnv(name: string): boolean | undefined {
+    const raw = (process.env[name] || '').trim().toLowerCase();
+    if (!raw) {
+        return undefined;
+    }
+    if (raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on') {
+        return true;
+    }
+    if (raw === '0' || raw === 'false' || raw === 'no' || raw === 'off') {
+        return false;
+    }
+    return undefined;
 }
 
 export async function ensureMusicConversionToolsAvailable(): Promise<{
@@ -360,8 +382,62 @@ function normalizeMusicXmlTextWithReport(text: string): { content: string; repor
     };
 }
 
+function decodeMidiBase64(value: string): Buffer | null {
+    const compact = value.replace(/\s+/g, '');
+    if (!compact) {
+        return null;
+    }
+    try {
+        const bytes = Buffer.from(compact, 'base64');
+        if (bytes.length === 0) {
+            return null;
+        }
+        const reencoded = bytes.toString('base64').replace(/=+$/, '');
+        const normalizedInput = compact.replace(/=+$/, '');
+        if (reencoded !== normalizedInput) {
+            return null;
+        }
+        return bytes;
+    } catch {
+        return null;
+    }
+}
+
+function normalizeMidiTextWithReport(text: string): { content: string; report: NormalizationReport } {
+    const actions: NormalizationAction[] = [];
+    const inputBytes = Buffer.byteLength(text, 'utf8');
+    const compact = text.replace(/\s+/g, '');
+
+    actions.push({
+        id: 'strip-base64-whitespace',
+        applied: compact !== text,
+        message: compact !== text
+            ? 'Removed whitespace from base64 MIDI payload.'
+            : 'No base64 whitespace normalization was needed.',
+    });
+
+    const outputBytes = Buffer.byteLength(compact, 'utf8');
+    return {
+        content: compact,
+        report: {
+            schemaVersion: 'music-normalization@1',
+            format: 'midi',
+            changed: compact !== text,
+            inputBytes,
+            outputBytes,
+            actions,
+        },
+    };
+}
+
 function normalizeTextForFormat(format: MusicFormat, text: string) {
-    return format === 'abc' ? normalizeAbcTextWithReport(text) : normalizeMusicXmlTextWithReport(text);
+    if (format === 'abc') {
+        return normalizeAbcTextWithReport(text);
+    }
+    if (format === 'midi') {
+        return normalizeMidiTextWithReport(text);
+    }
+    return normalizeMusicXmlTextWithReport(text);
 }
 
 type InvariantSnapshot = {
@@ -369,7 +445,178 @@ type InvariantSnapshot = {
     meter?: string;
     key?: string;
     partCount?: number;
+    noteCount?: number;
+    trackCount?: number;
 };
+
+function countMusicXmlNotes(text: string): number | undefined {
+    const noteBlocks = text.match(/<note\b[\s\S]*?<\/note>/g) || [];
+    if (!noteBlocks.length) {
+        return undefined;
+    }
+    const pitched = noteBlocks.filter((block) => !/<rest\b/.test(block));
+    return pitched.length || undefined;
+}
+
+function countAbcNotes(text: string): number | undefined {
+    const body = text
+        .split('\n')
+        .filter((line) => {
+            const trimmed = line.trim();
+            if (!trimmed) {
+                return true;
+            }
+            if (trimmed.startsWith('%')) {
+                return false;
+            }
+            return !/^[A-Za-z]:/.test(trimmed);
+        })
+        .join('\n')
+        // Strip quoted annotations / lyrics in body lines.
+        .replace(/"[^"\n]*"/g, ' ')
+        // Strip inline field blocks like [K:C], [M:3/4], etc.
+        .replace(/\[[A-Za-z]:[^\]]*]/g, ' ');
+
+    const matches = body.match(/(?:\^{1,2}|_{1,2}|=)?[A-Ga-g][,']*(?=\d|\/|\s|[|()[\]{}<>.-]|$)/g) || [];
+    return matches.length || undefined;
+}
+
+function readVarLen(bytes: Buffer, offset: number): { value: number; nextOffset: number } {
+    let value = 0;
+    let cursor = offset;
+    for (let i = 0; i < 4; i += 1) {
+        if (cursor >= bytes.length) {
+            return { value, nextOffset: bytes.length };
+        }
+        const byte = bytes[cursor]!;
+        cursor += 1;
+        value = (value << 7) | (byte & 0x7f);
+        if ((byte & 0x80) === 0) {
+            return { value, nextOffset: cursor };
+        }
+    }
+    return { value, nextOffset: cursor };
+}
+
+function extractMidiInvariantSnapshot(base64Content: string): InvariantSnapshot {
+    const bytes = decodeMidiBase64(base64Content);
+    if (!bytes || bytes.length < 14) {
+        return {};
+    }
+    if (bytes.subarray(0, 4).toString('ascii') !== 'MThd') {
+        return {};
+    }
+
+    const headerLength = bytes.readUInt32BE(4);
+    if (headerLength < 6 || bytes.length < 8 + headerLength) {
+        return {};
+    }
+    const trackCount = bytes.readUInt16BE(10);
+    const division = bytes.readUInt16BE(12);
+
+    let offset = 8 + headerLength;
+    let noteCount = 0;
+    let maxTick = 0;
+    let meter: string | undefined;
+    let key: string | undefined;
+
+    for (let t = 0; t < trackCount && offset + 8 <= bytes.length; t += 1) {
+        if (bytes.subarray(offset, offset + 4).toString('ascii') !== 'MTrk') {
+            break;
+        }
+        const trackLength = bytes.readUInt32BE(offset + 4);
+        let cursor = offset + 8;
+        const trackEnd = Math.min(bytes.length, cursor + trackLength);
+        let runningStatus = 0;
+        let absoluteTick = 0;
+
+        while (cursor < trackEnd) {
+            const delta = readVarLen(bytes, cursor);
+            absoluteTick += delta.value;
+            cursor = delta.nextOffset;
+            if (cursor >= trackEnd) {
+                break;
+            }
+
+            let status = bytes[cursor]!;
+            if (status < 0x80) {
+                if (!runningStatus) {
+                    break;
+                }
+                status = runningStatus;
+            } else {
+                cursor += 1;
+                runningStatus = status;
+            }
+
+            if (status === 0xff) {
+                if (cursor >= trackEnd) {
+                    break;
+                }
+                const metaType = bytes[cursor]!;
+                cursor += 1;
+                const len = readVarLen(bytes, cursor);
+                cursor = len.nextOffset;
+                const dataEnd = Math.min(trackEnd, cursor + len.value);
+                const data = bytes.subarray(cursor, dataEnd);
+                cursor = dataEnd;
+
+                if (metaType === 0x58 && data.length >= 2) {
+                    const numerator = data[0]!;
+                    const denominator = 2 ** data[1]!;
+                    meter = `${numerator}/${denominator}`;
+                } else if (metaType === 0x59 && data.length >= 1) {
+                    const sfRaw = data[0]!;
+                    const fifths = sfRaw > 127 ? sfRaw - 256 : sfRaw;
+                    key = `fifths:${fifths}`;
+                }
+                continue;
+            }
+
+            if (status === 0xf0 || status === 0xf7) {
+                const len = readVarLen(bytes, cursor);
+                cursor = Math.min(trackEnd, len.nextOffset + len.value);
+                continue;
+            }
+
+            const eventType = status & 0xf0;
+            const dataLength = (eventType === 0xc0 || eventType === 0xd0) ? 1 : 2;
+            const dataStart = cursor;
+            cursor = Math.min(trackEnd, cursor + dataLength);
+
+            if (eventType === 0x90 && (dataStart + 1) < trackEnd) {
+                const velocity = bytes[dataStart + 1]!;
+                if (velocity > 0) {
+                    noteCount += 1;
+                }
+            }
+        }
+
+        maxTick = Math.max(maxTick, absoluteTick);
+        offset = trackEnd;
+    }
+
+    let estimatedMeasures: number | undefined;
+    if (division > 0 && meter && maxTick > 0) {
+        const [beatsRaw, beatTypeRaw] = meter.split('/');
+        const beats = Number(beatsRaw);
+        const beatType = Number(beatTypeRaw);
+        if (Number.isFinite(beats) && Number.isFinite(beatType) && beats > 0 && beatType > 0) {
+            const ticksPerMeasure = beats * ((4 / beatType) * division);
+            if (ticksPerMeasure > 0) {
+                estimatedMeasures = Math.max(1, Math.round(maxTick / ticksPerMeasure));
+            }
+        }
+    }
+
+    return {
+        estimatedMeasures,
+        meter,
+        key,
+        noteCount: noteCount || undefined,
+        trackCount: trackCount || undefined,
+    };
+}
 
 function extractInvariantSnapshot(format: MusicFormat, content: string): InvariantSnapshot {
     const text = content.trim();
@@ -386,7 +633,12 @@ function extractInvariantSnapshot(format: MusicFormat, content: string): Invaria
             estimatedMeasures: barMatches.length > 0 ? Math.max(1, Math.floor(barMatches.length / 2)) : undefined,
             meter,
             key,
+            noteCount: countAbcNotes(text),
         };
+    }
+
+    if (format === 'midi') {
+        return extractMidiInvariantSnapshot(text);
     }
 
     const measureCount = (text.match(/<measure\b/g) || []).length || undefined;
@@ -400,6 +652,7 @@ function extractInvariantSnapshot(format: MusicFormat, content: string): Invaria
         meter,
         key: fifths !== undefined ? `fifths:${fifths}` : undefined,
         partCount,
+        noteCount: countMusicXmlNotes(text),
     };
 }
 
@@ -440,6 +693,15 @@ function buildInvariantChecks(args: {
             : 'Could not detect a key signature.',
     });
 
+    checks.push({
+        id: `${idPrefix}invariant-note-count`,
+        ok: typeof snapshot.noteCount !== 'number' || snapshot.noteCount > 0,
+        severity: 'warning',
+        message: typeof snapshot.noteCount === 'number'
+            ? `Detected note count: ${snapshot.noteCount}.`
+            : 'Could not detect note count.',
+    });
+
     if (format === 'musicxml') {
         checks.push({
             id: `${idPrefix}invariant-part-count`,
@@ -448,6 +710,16 @@ function buildInvariantChecks(args: {
             message: typeof snapshot.partCount === 'number'
                 ? `Detected MusicXML part count: ${snapshot.partCount}.`
                 : 'Could not detect MusicXML part count.',
+        });
+    }
+    if (format === 'midi') {
+        checks.push({
+            id: `${idPrefix}invariant-track-count`,
+            ok: typeof snapshot.trackCount !== 'number' || snapshot.trackCount > 0,
+            severity: 'warning',
+            message: typeof snapshot.trackCount === 'number'
+                ? `Detected MIDI track count: ${snapshot.trackCount}.`
+                : 'Could not detect MIDI track count.',
         });
     }
 
@@ -483,8 +755,42 @@ function buildRoundtripInvariantChecks(args: {
         });
     };
 
+    const compareNoteCount = (expected: number | undefined, actual: number | undefined) => {
+        if (expected === undefined || actual === undefined) {
+            checks.push({
+                id: 'roundtrip-invariant-note-count',
+                ok: false,
+                severity: 'warning',
+                message: `Note count roundtrip comparison skipped (missing ${expected === undefined ? 'original' : 'roundtrip'} value).`,
+            });
+            return;
+        }
+
+        const diff = Math.abs(expected - actual);
+        const warnThreshold = Math.max(6, Math.ceil(expected * 0.05));
+        const strongThreshold = Math.max(20, Math.ceil(expected * 0.15));
+        const ok = diff < warnThreshold;
+        checks.push({
+            id: 'roundtrip-invariant-note-count',
+            ok,
+            severity: 'warning',
+            message: ok
+                ? `Note count preserved within tolerance (${expected} vs ${actual}, diff ${diff}).`
+                : `Note count drift (${expected} vs ${actual}, diff ${diff}) exceeds warning threshold ${warnThreshold}.`,
+        });
+        if (diff >= strongThreshold) {
+            checks.push({
+                id: 'roundtrip-invariant-note-count-strong-drift',
+                ok: false,
+                severity: 'warning',
+                message: `Significant note-count drift detected (diff ${diff} >= ${strongThreshold}).`,
+            });
+        }
+    };
+
     compare('roundtrip-invariant-meter', 'Meter', original.meter, roundtripped.meter);
     compare('roundtrip-invariant-key', 'Key', original.key, roundtripped.key);
+    compareNoteCount(original.noteCount, roundtripped.noteCount);
     compare(
         'roundtrip-invariant-estimated-measures',
         'Estimated measure count',
@@ -520,12 +826,12 @@ function buildValidationStages(checks: ValidationCheck[]): ValidationReport['sta
     const byExact = (ids: string[]) => checks.filter((check) => ids.includes(check.id));
     return {
         outputShape: buildValidationStageStatus([
-            ...byExact(['non-empty-output']),
+            ...byExact(['non-empty-output', 'midi-header']),
             ...byPrefix(['abc-header-', 'musicxml-root', 'xml-declaration']),
         ]),
         roundtrip: buildValidationStageStatus(byPrefix(['roundtrip-'])),
         render: buildValidationStageStatus(byPrefix(['render-smoke-musescore'])),
-        playback: buildValidationStageStatus(byPrefix(['render-smoke-abc2midi'])),
+        playback: buildValidationStageStatus(byPrefix(['render-smoke-abc2midi', 'render-smoke-midi-'])),
         invariants: buildValidationStageStatus(byPrefix(['invariant-', 'roundtrip-invariant-'])),
     };
 }
@@ -567,7 +873,7 @@ const basicValidationChecks = (format: MusicFormat, content: string): Validation
                 ? 'ABC includes K: key header.'
                 : 'ABC is missing K: key header.',
         });
-    } else {
+    } else if (format === 'musicxml') {
         checks.push({
             id: 'musicxml-root',
             ok: /<score-partwise\b|<score-timewise\b/.test(trimmed),
@@ -583,6 +889,17 @@ const basicValidationChecks = (format: MusicFormat, content: string): Validation
             message: /^<\?xml\b/.test(trimmed)
                 ? 'XML declaration detected.'
                 : 'XML declaration is missing (usually acceptable, but atypical).',
+        });
+    } else {
+        const midiBytes = decodeMidiBase64(trimmed);
+        const hasHeader = Boolean(midiBytes && midiBytes.length >= 4 && midiBytes.subarray(0, 4).toString('ascii') === 'MThd');
+        checks.push({
+            id: 'midi-header',
+            ok: hasHeader,
+            severity: 'error',
+            message: hasHeader
+                ? 'MIDI header detected.'
+                : 'MIDI header (MThd) not detected; payload is not valid base64 MIDI.',
         });
     }
 
@@ -633,23 +950,24 @@ async function buildValidationChecks(args: {
         return checks;
     }
 
-    const oppositeFormat: MusicFormat = outputFormat === 'abc' ? 'musicxml' : 'abc';
+    const oppositeFormat: MusicFormat = outputFormat === 'abc'
+        ? 'musicxml'
+        : outputFormat === 'midi'
+            ? 'musicxml'
+            : inputFormat === 'midi'
+                ? 'midi'
+                : 'abc';
     const roundtripStepTimeoutMs = Math.max(5_000, Math.floor(timeoutMs / 2));
 
     try {
-        const firstStep = outputFormat === 'abc'
-            ? await convertAbcToXml({
-                config,
-                content: outputContent,
-                timeoutMs: roundtripStepTimeoutMs,
-                filename: filename ? `${stripExtension(filename)}.abc` : 'roundtrip.abc',
-            })
-            : await convertXmlToAbc({
-                config,
-                content: outputContent,
-                timeoutMs: roundtripStepTimeoutMs,
-                filename: filename ? `${stripExtension(filename)}.musicxml` : 'roundtrip.musicxml',
-            });
+        const firstStep = await convertBetweenFormats({
+            config,
+            inputFormat: outputFormat,
+            outputFormat: oppositeFormat,
+            content: outputContent,
+            timeoutMs: roundtripStepTimeoutMs,
+            filename: filename ? `${stripExtension(filename)}.${outputFormat}` : `roundtrip.${outputFormat}`,
+        });
 
         checks.push({
             id: 'roundtrip-step-1-convert',
@@ -666,19 +984,14 @@ async function buildValidationChecks(args: {
         }));
         checks.push(...firstStepBasicChecks);
 
-        const secondStep = oppositeFormat === 'abc'
-            ? await convertAbcToXml({
-                config,
-                content: firstStep.output,
-                timeoutMs: roundtripStepTimeoutMs,
-                filename: filename ? `${stripExtension(filename)}.abc` : 'roundtrip-return.abc',
-            })
-            : await convertXmlToAbc({
-                config,
-                content: firstStep.output,
-                timeoutMs: roundtripStepTimeoutMs,
-                filename: filename ? `${stripExtension(filename)}.musicxml` : 'roundtrip-return.musicxml',
-            });
+        const secondStep = await convertBetweenFormats({
+            config,
+            inputFormat: oppositeFormat,
+            outputFormat,
+            content: firstStep.output,
+            timeoutMs: roundtripStepTimeoutMs,
+            filename: filename ? `${stripExtension(filename)}.${oppositeFormat}` : `roundtrip-return.${oppositeFormat}`,
+        });
 
         checks.push({
             id: 'roundtrip-step-2-convert',
@@ -742,7 +1055,7 @@ function isCommandNotFoundError(error: unknown) {
 async function runCommandWithCandidates(args: {
     candidates: string[];
     argv: string[];
-    cwd: string;
+    cwd?: string;
     timeoutMs: number;
     wrapperCommand?: string;
     wrapperArgvPrefix?: string[];
@@ -834,6 +1147,52 @@ async function runRenderSmokeChecks(args: {
         return checks;
     }
 
+    if (outputFormat === 'midi') {
+        const tempDir = await mkdtemp(join(tmpdir(), 'ots-music-render-smoke-'));
+        try {
+            const midiPath = join(tempDir, 'smoke.mid');
+            const xmlPath = join(tempDir, 'smoke.musicxml');
+            const midiBytes = decodeMidiBase64(outputContent);
+            if (!midiBytes) {
+                checks.push({
+                    id: 'render-smoke-midi-decode',
+                    ok: false,
+                    severity: 'warning',
+                    message: 'MIDI render smoke skipped: output could not be decoded from base64.',
+                });
+                return checks;
+            }
+            await writeFile(midiPath, midiBytes);
+            try {
+                await runMuseScoreConvert({
+                    config,
+                    inputPath: midiPath,
+                    outputPath: xmlPath,
+                    timeoutMs,
+                });
+                const hasXml = await fileExists(xmlPath);
+                checks.push({
+                    id: 'render-smoke-midi-musescore-import',
+                    ok: hasXml,
+                    severity: 'warning',
+                    message: hasXml
+                        ? 'MIDI import smoke succeeded via MuseScore.'
+                        : 'MIDI import smoke completed but no MusicXML output was produced.',
+                });
+            } catch (error) {
+                checks.push({
+                    id: 'render-smoke-midi-musescore-import',
+                    ok: false,
+                    severity: 'warning',
+                    message: `MIDI import smoke unavailable/failed: ${error instanceof Error ? error.message : 'unknown error'}`,
+                });
+            }
+        } finally {
+            await rm(tempDir, { recursive: true, force: true });
+        }
+        return checks;
+    }
+
     const tempDir = await mkdtemp(join(tmpdir(), 'ots-music-render-smoke-'));
     try {
         const xmlPath = join(tempDir, 'smoke.musicxml');
@@ -874,6 +1233,48 @@ async function runRenderSmokeChecks(args: {
     return checks;
 }
 
+function shouldUseXvfbWrapper() {
+    const configured = parseBooleanEnv('MUSIC_MUSESCORE_USE_XVFB');
+    if (configured !== undefined) {
+        return configured;
+    }
+    return !process.env.DISPLAY;
+}
+
+async function resolveXvfbRunPath() {
+    if (!shouldUseXvfbWrapper()) {
+        return null;
+    }
+    if (await fileExists('/usr/bin/xvfb-run')) {
+        return '/usr/bin/xvfb-run';
+    }
+    if (await fileExists('/bin/xvfb-run')) {
+        return '/bin/xvfb-run';
+    }
+    return null;
+}
+
+async function runMuseScoreConvert(args: {
+    config: ConversionToolConfig;
+    inputPath: string;
+    outputPath: string;
+    timeoutMs: number;
+}) {
+    const { config, inputPath, outputPath, timeoutMs } = args;
+    const xvfbRunPath = await resolveXvfbRunPath();
+    const { result } = await runCommandWithCandidates({
+        candidates: config.musescoreBins,
+        argv: ['-o', outputPath, inputPath],
+        cwd: undefined,
+        timeoutMs,
+        wrapperCommand: xvfbRunPath || undefined,
+        wrapperArgvPrefix: xvfbRunPath ? ['-a'] : undefined,
+    });
+    if ((result.exitCode ?? 1) !== 0) {
+        throw new Error(result.stderr.trim() || `MuseScore conversion exited with code ${result.exitCode ?? 'unknown'}.`);
+    }
+}
+
 async function convertXmlToAbc(args: {
     config: ConversionToolConfig;
     content: string;
@@ -896,6 +1297,41 @@ async function convertXmlToAbc(args: {
         }
         const output = normalizeTextForFormat('abc', result.stdout).content;
         return { output, stderr: result.stderr.trim() };
+    } finally {
+        await rm(tempDir, { recursive: true, force: true });
+    }
+}
+
+async function convertXmlToMidi(args: {
+    config: ConversionToolConfig;
+    content: string;
+    timeoutMs: number;
+    filename?: string;
+}) {
+    const { config, content, timeoutMs, filename } = args;
+    const tempDir = await mkdtemp(join(tmpdir(), 'ots-music-convert-'));
+    try {
+        const inputPath = join(tempDir, sanitizeFilename(filename || 'input.musicxml', 'musicxml'));
+        const outputPath = join(tempDir, `${stripExtension(inputPath.split('/').pop() || 'output')}.mid`);
+        await writeFile(inputPath, normalizeTextForFormat('musicxml', content).content, 'utf8');
+        await runMuseScoreConvert({
+            config,
+            inputPath,
+            outputPath,
+            timeoutMs,
+        });
+        let actualOutputPath = outputPath;
+        if (!(await fileExists(actualOutputPath))) {
+            const files = await readdir(tempDir);
+            const fallback = files.find((file) => file.toLowerCase().endsWith('.mid') || file.toLowerCase().endsWith('.midi'));
+            if (fallback) {
+                actualOutputPath = join(tempDir, fallback);
+            } else {
+                throw new Error('MuseScore did not produce a MIDI output file.');
+            }
+        }
+        const midiBytes = await readFile(actualOutputPath);
+        return { output: midiBytes.toString('base64'), stderr: '' };
     } finally {
         await rm(tempDir, { recursive: true, force: true });
     }
@@ -935,6 +1371,71 @@ async function convertAbcToXml(args: {
     }
 }
 
+async function convertMidiToXml(args: {
+    config: ConversionToolConfig;
+    content: string;
+    timeoutMs: number;
+    filename?: string;
+}) {
+    const { config, content, timeoutMs, filename } = args;
+    const tempDir = await mkdtemp(join(tmpdir(), 'ots-music-convert-'));
+    try {
+        const midiBytes = decodeMidiBase64(content);
+        if (!midiBytes) {
+            throw new Error('MIDI input could not be decoded from base64.');
+        }
+
+        const inputPath = join(tempDir, sanitizeFilename(filename || 'input.mid', 'midi'));
+        const outputPath = join(tempDir, `${stripExtension(inputPath.split('/').pop() || 'output')}.musicxml`);
+        await writeFile(inputPath, midiBytes);
+        await runMuseScoreConvert({
+            config,
+            inputPath,
+            outputPath,
+            timeoutMs,
+        });
+        let actualOutputPath = outputPath;
+        if (!(await fileExists(actualOutputPath))) {
+            const files = await readdir(tempDir);
+            const fallback = files.find((file) => file.toLowerCase().endsWith('.musicxml') || file.toLowerCase().endsWith('.xml'));
+            if (fallback) {
+                actualOutputPath = join(tempDir, fallback);
+            } else {
+                throw new Error('MuseScore did not produce a MusicXML output file.');
+            }
+        }
+        const xml = await readFile(actualOutputPath, 'utf8');
+        return { output: normalizeTextForFormat('musicxml', xml).content, stderr: '' };
+    } finally {
+        await rm(tempDir, { recursive: true, force: true });
+    }
+}
+
+async function convertBetweenFormats(args: {
+    config: ConversionToolConfig;
+    inputFormat: MusicFormat;
+    outputFormat: MusicFormat;
+    content: string;
+    timeoutMs: number;
+    filename?: string;
+}): Promise<{ output: string; stderr: string }> {
+    const { config, inputFormat, outputFormat, content, timeoutMs, filename } = args;
+
+    if (inputFormat === 'musicxml' && outputFormat === 'abc') {
+        return convertXmlToAbc({ config, content, timeoutMs, filename });
+    }
+    if (inputFormat === 'abc' && outputFormat === 'musicxml') {
+        return convertAbcToXml({ config, content, timeoutMs, filename });
+    }
+    if (inputFormat === 'musicxml' && outputFormat === 'midi') {
+        return convertXmlToMidi({ config, content, timeoutMs, filename });
+    }
+    if (inputFormat === 'midi' && outputFormat === 'musicxml') {
+        return convertMidiToXml({ config, content, timeoutMs, filename });
+    }
+    throw new Error(`Unsupported conversion: ${inputFormat} -> ${outputFormat}`);
+}
+
 function stripExtension(filename: string) {
     const lastDot = filename.lastIndexOf('.');
     return lastDot > 0 ? filename.slice(0, lastDot) : filename;
@@ -944,6 +1445,9 @@ function sanitizeFilename(filename: string, fallbackFormat: MusicFormat) {
     const safe = filename.replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/^_+|_+$/g, '') || 'input';
     if (fallbackFormat === 'abc') {
         return safe.endsWith('.abc') ? safe : `${stripExtension(safe)}.abc`;
+    }
+    if (fallbackFormat === 'midi') {
+        return safe.endsWith('.midi') || safe.endsWith('.mid') ? safe : `${stripExtension(safe)}.mid`;
     }
     if (safe.endsWith('.xml') || safe.endsWith('.musicxml') || safe.endsWith('.mxl')) {
         return safe;
@@ -970,9 +1474,7 @@ export async function renderMusicSnapshot(request: MusicRenderRequest): Promise<
         const outputPath = join(tempDir, `output.${format}`);
         await writeFile(xmlPath, normalizeMusicXmlTextWithReport(request.content).content, 'utf8');
 
-        const xvfbRunPath = !process.env.DISPLAY
-            ? (await fileExists('/usr/bin/xvfb-run') ? '/usr/bin/xvfb-run' : (await fileExists('/bin/xvfb-run') ? '/bin/xvfb-run' : null))
-            : null;
+        const xvfbRunPath = await resolveXvfbRunPath();
 
         const argv = ['-platform', 'offscreen', '-o', outputPath];
         if (request.dpi && format === 'png') {
@@ -1016,74 +1518,77 @@ export async function renderMusicSnapshot(request: MusicRenderRequest): Promise<
 export async function convertMusicNotation(request: MusicConversionRequest): Promise<MusicConversionResult> {
     const startedAt = Date.now();
     const { inputFormat, outputFormat, content } = request;
+    const toolConfig = getMusicConversionToolConfig();
+    const inputContent = request.contentEncoding === 'base64' || inputFormat === 'midi'
+        ? normalizeTextForFormat('midi', content).content
+        : content;
+    const outputEncoding: MusicContentEncoding = outputFormat === 'midi' ? 'base64' : 'utf8';
+
     if (inputFormat === outputFormat) {
-        const normalized = normalizeTextForFormat(outputFormat, content);
+        const normalized = normalizeTextForFormat(outputFormat, inputContent);
         const checks = await buildValidationChecks({
             inputFormat,
-            inputContent: content,
+            inputContent,
             outputFormat,
             outputContent: normalized.content,
             validate: request.validate !== false,
             deepValidate: request.deepValidate !== false,
             timeoutMs: DEFAULT_TIMEOUT_MS,
             filename: request.filename,
+            config: toolConfig,
         });
         return {
             inputFormat,
             outputFormat,
             content: normalized.content,
+            contentEncoding: outputEncoding,
             normalization: normalized.report,
             validation: buildValidationReport(checks),
             provenance: {
                 engine: 'notagen',
-                pythonCommand: getMusicConversionToolConfig().pythonCommand,
+                pythonCommand: toolConfig.pythonCommand,
                 scripts: {
-                    xml2abc: getMusicConversionToolConfig().xml2abcScript,
-                    abc2xml: getMusicConversionToolConfig().abc2xmlScript,
+                    xml2abc: toolConfig.xml2abcScript,
+                    abc2xml: toolConfig.abc2xmlScript,
                 },
                 durationMs: Date.now() - startedAt,
             },
         };
     }
 
-    const tools = await ensureMusicConversionToolsAvailable();
-    if (!tools.ok) {
-        throw new Error(`Music conversion tools unavailable: ${tools.missing.join(' | ')}`);
+    let config = toolConfig;
+    if (inputFormat === 'abc' || outputFormat === 'abc') {
+        const tools = await ensureMusicConversionToolsAvailable();
+        if (!tools.ok) {
+            throw new Error(`Music conversion tools unavailable: ${tools.missing.join(' | ')}`);
+        }
+        config = tools.config;
     }
 
     const timeoutMs = Number.isFinite(request.timeoutMs) && (request.timeoutMs || 0) > 0
         ? Number(request.timeoutMs)
-        : tools.config.defaultTimeoutMs;
+        : config.defaultTimeoutMs;
 
     let converted: { output: string; stderr: string };
-    if (inputFormat === 'musicxml' && outputFormat === 'abc') {
-        converted = await convertXmlToAbc({
-            config: tools.config,
-            content,
-            timeoutMs,
-            filename: request.filename,
-        });
-    } else if (inputFormat === 'abc' && outputFormat === 'musicxml') {
-        converted = await convertAbcToXml({
-            config: tools.config,
-            content,
-            timeoutMs,
-            filename: request.filename,
-        });
-    } else {
-        throw new Error(`Unsupported conversion: ${inputFormat} -> ${outputFormat}`);
-    }
+    converted = await convertBetweenFormats({
+        config,
+        inputFormat,
+        outputFormat,
+        content: inputContent,
+        timeoutMs,
+        filename: request.filename,
+    });
 
     const validationChecks = await buildValidationChecks({
         inputFormat,
-        inputContent: content,
+        inputContent,
         outputFormat,
         outputContent: converted.output,
         validate: request.validate !== false,
         deepValidate: request.deepValidate !== false,
         timeoutMs,
         filename: request.filename,
-        config: tools.config,
+        config,
     });
     const normalizedOutput = normalizeTextForFormat(outputFormat, converted.output);
 
@@ -1091,14 +1596,15 @@ export async function convertMusicNotation(request: MusicConversionRequest): Pro
         inputFormat,
         outputFormat,
         content: normalizedOutput.content,
+        contentEncoding: outputEncoding,
         normalization: normalizedOutput.report,
         validation: buildValidationReport(validationChecks),
         provenance: {
             engine: 'notagen',
-            pythonCommand: tools.config.pythonCommand,
+            pythonCommand: config.pythonCommand,
             scripts: {
-                xml2abc: tools.config.xml2abcScript,
-                abc2xml: tools.config.abc2xmlScript,
+                xml2abc: config.xml2abcScript,
+                abc2xml: config.abc2xmlScript,
             },
             durationMs: Date.now() - startedAt,
             stderr: converted.stderr || undefined,

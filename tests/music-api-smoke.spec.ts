@@ -1,18 +1,116 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { expect, test } from '@playwright/test';
+import { type APIRequestContext, expect, test } from '@playwright/test';
 
 const SCALE_XML = readFileSync(
   resolve(__dirname, '../unit/fixtures/c-major-scale.musicxml'),
   'utf-8',
 );
+const MIDI_FIXTURES = [
+  {
+    filename: 'midi3.mid',
+    contentBase64: readFileSync(resolve(__dirname, '../webmscore-fork/test/midi/midi3.mid')).toString('base64'),
+  },
+  {
+    filename: 'midi5.mid',
+    contentBase64: readFileSync(resolve(__dirname, '../webmscore-fork/test/midi/midi5.mid')).toString('base64'),
+  },
+  {
+    filename: 'midi1.mid',
+    contentBase64: readFileSync(resolve(__dirname, '../webmscore-fork/test/midi/midi1.mid')).toString('base64'),
+  },
+];
 
 const MINIMAL_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <score-partwise version="3.1">
   <part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>
   <part id="P1"><measure number="1"><note><pitch><step>C</step></pitch></note></measure></part>
 </score-partwise>`;
+
+function extractServiceErrorMessage(payload: unknown): string {
+  if (!payload || typeof payload !== 'object') {
+    return '';
+  }
+  const data = payload as Record<string, unknown>;
+  if (typeof data.error === 'string') {
+    return data.error;
+  }
+  if (typeof data.message === 'string') {
+    return data.message;
+  }
+  return '';
+}
+
+function isLikelyMidiToolingError(message: string) {
+  return /not found|enoent|no command candidates|cannot open display|could not connect to display|xvfb-run|qt\.qpa|platform plugin|timed out/i
+    .test(message);
+}
+
+function maybeSkipIfMidiToolsUnavailable(status: number, payload: unknown) {
+  const message = extractServiceErrorMessage(payload);
+  if (status < 500 || !message) {
+    return;
+  }
+  test.skip(isLikelyMidiToolingError(message), `MIDI conversion tooling unavailable in runtime: ${message}`);
+}
+
+function assertBase64MidiHeader(contentBase64: string) {
+  const bytes = Buffer.from(contentBase64, 'base64');
+  expect(bytes.length).toBeGreaterThan(14);
+  expect(bytes.subarray(0, 4).toString('ascii')).toBe('MThd');
+}
+
+type ConvertResponsePayload = {
+  inputArtifactId?: string;
+  outputArtifactId?: string;
+  content?: string;
+  contentEncoding?: string;
+  conversion?: {
+    inputFormat?: string;
+    outputFormat?: string;
+    contentEncoding?: string;
+  };
+  [key: string]: unknown;
+};
+
+type ArtifactResponsePayload = {
+  artifact?: {
+    format?: string;
+    encoding?: string;
+    content?: string;
+    parentArtifactId?: string;
+    sourceArtifactId?: string;
+  };
+  [key: string]: unknown;
+};
+
+async function convertMidiFixtureToXml(request: APIRequestContext, options?: { includeContent?: boolean }) {
+  const attempts: Array<{ filename: string; status: number; message: string }> = [];
+  for (const fixture of MIDI_FIXTURES) {
+    const response = await request.post('/api/music/convert', {
+      data: {
+        inputFormat: 'midi',
+        outputFormat: 'musicxml',
+        contentBase64: fixture.contentBase64,
+        filename: fixture.filename,
+        includeContent: options?.includeContent ?? false,
+      },
+      timeout: 90_000,
+    });
+    const json = await response.json();
+    if (response.ok()) {
+      return { response, json, fixtureFilename: fixture.filename };
+    }
+    const message = extractServiceErrorMessage(json);
+    attempts.push({ filename: fixture.filename, status: response.status(), message });
+    if (response.status() >= 500 && isLikelyMidiToolingError(message)) {
+      return { response, json, fixtureFilename: fixture.filename, attempts };
+    }
+  }
+
+  throw new Error(`No MIDI fixture converted successfully: ${JSON.stringify(attempts)}`);
+}
 
 /* ------------------------------------------------------------------ */
 /*  Service endpoint smoke tests — always run (no API key needed)     */
@@ -62,6 +160,82 @@ test.describe('Music service endpoints', () => {
     const json = await response.json();
     expect(json.outputArtifactId).toBeTruthy();
     expect(json.conversion?.outputFormat).toBe('abc');
+  });
+
+  test('convert: MIDI upload (base64) to MusicXML stores artifacts', async ({ request }) => {
+    const conversion = await convertMidiFixtureToXml(request, { includeContent: true });
+    const response = conversion.response;
+    const json = conversion.json as ConvertResponsePayload;
+    maybeSkipIfMidiToolsUnavailable(response.status(), json);
+
+    expect(response.ok()).toBeTruthy();
+    expect(json.inputArtifactId).toBeTruthy();
+    expect(json.outputArtifactId).toBeTruthy();
+    expect(json.conversion?.inputFormat).toBe('midi');
+    expect(json.conversion?.outputFormat).toBe('musicxml');
+    expect(json.conversion?.contentEncoding).toBe('utf8');
+    expect(json.contentEncoding).toBe('utf8');
+    expect(json.content).toContain('<score-partwise');
+
+    const inputArtifactResponse = await request.post('/api/music/artifacts/get', {
+      data: { id: json.inputArtifactId, includeContent: true },
+    });
+    expect(inputArtifactResponse.ok()).toBeTruthy();
+    const inputArtifactJson = await inputArtifactResponse.json() as ArtifactResponsePayload;
+    expect(inputArtifactJson.artifact?.format).toBe('midi');
+    expect(inputArtifactJson.artifact?.encoding).toBe('base64');
+    expect(typeof inputArtifactJson.artifact?.content).toBe('string');
+    assertBase64MidiHeader(inputArtifactJson.artifact?.content || '');
+
+    const outputArtifactResponse = await request.post('/api/music/artifacts/get', {
+      data: { id: json.outputArtifactId, includeContent: true },
+    });
+    expect(outputArtifactResponse.ok()).toBeTruthy();
+    const outputArtifactJson = await outputArtifactResponse.json() as ArtifactResponsePayload;
+    expect(outputArtifactJson.artifact?.format).toBe('musicxml');
+    expect(outputArtifactJson.artifact?.encoding).toBe('utf8');
+    expect(outputArtifactJson.artifact?.parentArtifactId).toBe(json.inputArtifactId);
+    expect(outputArtifactJson.artifact?.sourceArtifactId).toBe(json.inputArtifactId);
+    expect(outputArtifactJson.artifact?.content).toContain('<score-partwise');
+  });
+
+  test('convert: roundtrip MIDI -> MusicXML -> MIDI keeps artifact chain', async ({ request }) => {
+    const conversion = await convertMidiFixtureToXml(request);
+    const midiToXmlResponse = conversion.response;
+    const midiToXmlJson = conversion.json as ConvertResponsePayload;
+    maybeSkipIfMidiToolsUnavailable(midiToXmlResponse.status(), midiToXmlJson);
+    expect(midiToXmlResponse.ok()).toBeTruthy();
+
+    const xmlToMidiResponse = await request.post('/api/music/convert', {
+      data: {
+        inputArtifactId: midiToXmlJson.outputArtifactId,
+        outputFormat: 'midi',
+        includeContent: true,
+      },
+      timeout: 90_000,
+    });
+    const xmlToMidiJson = await xmlToMidiResponse.json() as ConvertResponsePayload;
+    expect(xmlToMidiResponse.ok()).toBeTruthy();
+    expect(xmlToMidiJson.inputArtifactId).toBe(midiToXmlJson.outputArtifactId);
+    expect(xmlToMidiJson.outputArtifactId).toBeTruthy();
+    expect(xmlToMidiJson.conversion?.inputFormat).toBe('musicxml');
+    expect(xmlToMidiJson.conversion?.outputFormat).toBe('midi');
+    expect(xmlToMidiJson.conversion?.contentEncoding).toBe('base64');
+    expect(xmlToMidiJson.contentEncoding).toBe('base64');
+    expect(typeof xmlToMidiJson.content).toBe('string');
+    assertBase64MidiHeader(xmlToMidiJson.content || '');
+
+    const roundtripArtifactResponse = await request.post('/api/music/artifacts/get', {
+      data: { id: xmlToMidiJson.outputArtifactId, includeContent: true },
+    });
+    expect(roundtripArtifactResponse.ok()).toBeTruthy();
+    const roundtripArtifactJson = await roundtripArtifactResponse.json() as ArtifactResponsePayload;
+    expect(roundtripArtifactJson.artifact?.format).toBe('midi');
+    expect(roundtripArtifactJson.artifact?.encoding).toBe('base64');
+    expect(roundtripArtifactJson.artifact?.parentArtifactId).toBe(xmlToMidiJson.inputArtifactId);
+    expect(roundtripArtifactJson.artifact?.sourceArtifactId).toBe(xmlToMidiJson.inputArtifactId);
+    expect(typeof roundtripArtifactJson.artifact?.content).toBe('string');
+    assertBase64MidiHeader(roundtripArtifactJson.artifact?.content || '');
   });
 
   test('generate: supports dry-run without inference call', async ({ request }) => {

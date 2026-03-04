@@ -24,7 +24,6 @@ vi.mock('../lib/score-artifacts', () => ({
   summarizeScoreArtifact: mocked.summarizeScoreArtifact,
 }));
 
-import { MusicServiceError } from '../lib/music-services/errors';
 import { runMusicConvertService } from '../lib/music-services/convert-service';
 
 describe('runMusicConvertService', () => {
@@ -35,6 +34,7 @@ describe('runMusicConvertService', () => {
       const normalized = value.trim().toLowerCase();
       if (normalized === 'abc') return 'abc';
       if (normalized === 'musicxml' || normalized === 'xml') return 'musicxml';
+      if (normalized === 'midi' || normalized === 'mid') return 'midi';
       return null;
     });
   });
@@ -46,6 +46,7 @@ describe('runMusicConvertService', () => {
         xml2abcScript: '/opt/notagen/xml2abc.py',
         abc2xmlScript: '/opt/notagen/abc2xml.py',
         pythonCommand: 'python3',
+        musescoreBins: ['musescore3'],
       },
       missing: [],
     });
@@ -60,32 +61,41 @@ describe('runMusicConvertService', () => {
         xml2abc: '/opt/notagen/xml2abc.py',
         abc2xml: '/opt/notagen/abc2xml.py',
       },
+      midi: {
+        engine: 'musescore',
+        candidates: ['musescore3'],
+      },
       pythonCommand: 'python3',
     });
     expect(mocked.convertMusicNotation).not.toHaveBeenCalled();
   });
 
-  it('throws a 400 error when output format is missing or invalid', async () => {
-    await expect(
-      runMusicConvertService({
-        inputFormat: 'musicxml',
-        content: '<score-partwise />',
-      }),
-    ).rejects.toMatchObject<Partial<MusicServiceError>>({
-      status: 400,
+  it('returns 400 when output format is missing or invalid', async () => {
+    const result = await runMusicConvertService({
+      inputFormat: 'musicxml',
+      content: '<score-partwise />',
+    });
+
+    expect(result.status).toBe(400);
+    expect(result.body).toMatchObject({
+      error: 'Missing or invalid output format. Use abc, musicxml, or midi.',
     });
   });
 
-  it('throws a 404 error when input artifact id cannot be resolved', async () => {
+  it('returns 404 when input artifact id cannot be resolved', async () => {
     mocked.getScoreArtifact.mockResolvedValue(null);
 
-    await expect(
-      runMusicConvertService({
-        inputArtifactId: 'missing-artifact',
-        outputFormat: 'abc',
-      }),
-    ).rejects.toMatchObject<Partial<MusicServiceError>>({
-      status: 404,
+    const result = await runMusicConvertService({
+      inputArtifactId: 'missing-artifact',
+      outputFormat: 'abc',
+    });
+
+    expect(result.status).toBe(404);
+    expect(result.body).toMatchObject({
+      ok: false,
+      error: {
+        code: 'target_not_found',
+      },
     });
   });
 
@@ -106,6 +116,7 @@ describe('runMusicConvertService', () => {
       inputFormat: 'musicxml',
       outputFormat: 'abc',
       content: 'X:1\nT:Converted\nM:4/4\nK:C\nC D E F|',
+      contentEncoding: 'utf8',
       normalization: { schemaVersion: 'music-normalization@1', format: 'abc', actions: [] },
       validation: { schemaVersion: 'music-validation@1', summary: { error: 0 } },
       provenance: { tool: 'convertMusicNotation' },
@@ -122,6 +133,7 @@ describe('runMusicConvertService', () => {
       expect.objectContaining({
         inputFormat: 'musicxml',
         outputFormat: 'abc',
+        contentEncoding: 'utf8',
       }),
     );
     expect(mocked.createScoreArtifact).toHaveBeenCalledTimes(2);
@@ -132,6 +144,7 @@ describe('runMusicConvertService', () => {
       inputArtifact: { id: 'input-1', format: 'musicxml' },
       outputArtifact: { id: 'output-1', format: 'abc' },
       content: 'X:1\nT:Converted\nM:4/4\nK:C\nC D E F|',
+      contentEncoding: 'utf8',
     });
   });
 
@@ -140,6 +153,7 @@ describe('runMusicConvertService', () => {
       id: 'source-1',
       format: 'abc',
       content: 'X:1\nM:4/4\nK:C\nCDEF|',
+      encoding: 'utf8',
     });
     mocked.createScoreArtifact.mockResolvedValue({
       id: 'output-2',
@@ -150,6 +164,7 @@ describe('runMusicConvertService', () => {
       inputFormat: 'abc',
       outputFormat: 'musicxml',
       content: '<score-partwise version="3.1"></score-partwise>',
+      contentEncoding: 'utf8',
       normalization: { schemaVersion: 'music-normalization@1', format: 'musicxml', actions: [] },
       validation: { schemaVersion: 'music-validation@1', summary: { error: 0 } },
       provenance: { tool: 'convertMusicNotation' },
@@ -170,6 +185,80 @@ describe('runMusicConvertService', () => {
     expect(result.body).toMatchObject({
       inputArtifactId: 'source-1',
       outputArtifactId: 'output-2',
+    });
+  });
+
+  it('accepts base64 MIDI payloads and preserves encoding metadata', async () => {
+    const midiBase64 = Buffer.from('MThd-mock-midi').toString('base64');
+    mocked.createScoreArtifact
+      .mockResolvedValueOnce({
+        id: 'input-midi',
+        format: 'midi',
+        content: midiBase64,
+        encoding: 'base64',
+      })
+      .mockResolvedValueOnce({
+        id: 'output-xml',
+        format: 'musicxml',
+        content: '<score-partwise version="3.1"></score-partwise>',
+        encoding: 'utf8',
+      });
+    mocked.convertMusicNotation.mockResolvedValue({
+      inputFormat: 'midi',
+      outputFormat: 'musicxml',
+      content: '<score-partwise version="3.1"></score-partwise>',
+      contentEncoding: 'utf8',
+      normalization: { schemaVersion: 'music-normalization@1', format: 'musicxml', actions: [] },
+      validation: { schemaVersion: 'music-validation@1', summary: { error: 0 } },
+      provenance: { tool: 'convertMusicNotation' },
+    });
+
+    const result = await runMusicConvertService({
+      inputFormat: 'midi',
+      outputFormat: 'musicxml',
+      content_base64: midiBase64,
+      includeContent: true,
+    });
+
+    expect(result.status).toBe(200);
+    expect(mocked.convertMusicNotation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inputFormat: 'midi',
+        contentEncoding: 'base64',
+        content: midiBase64,
+      }),
+    );
+    expect(result.body).toMatchObject({
+      contentEncoding: 'utf8',
+    });
+  });
+
+  it('returns 400 for base64 payload when input format cannot be inferred', async () => {
+    const notMidiBase64 = Buffer.from('not-a-midi-header').toString('base64');
+
+    const result = await runMusicConvertService({
+      outputFormat: 'musicxml',
+      content_base64: notMidiBase64,
+    });
+
+    expect(result.status).toBe(400);
+    expect(result.body).toMatchObject({
+      error: 'Could not infer format from base64 payload. Provide inputFormat (midi).',
+    });
+  });
+
+  it('returns 400 when non-midi input format is paired with base64 payload', async () => {
+    const midiBase64 = Buffer.from('MThd-mock-midi').toString('base64');
+
+    const result = await runMusicConvertService({
+      inputFormat: 'musicxml',
+      outputFormat: 'abc',
+      content_base64: midiBase64,
+    });
+
+    expect(result.status).toBe(400);
+    expect(result.body).toMatchObject({
+      error: 'Base64 input is currently supported for MIDI only. Set inputFormat to midi.',
     });
   });
 });

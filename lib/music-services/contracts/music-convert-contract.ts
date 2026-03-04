@@ -2,7 +2,7 @@ import type { MusicToolContract } from './types';
 
 export const MUSIC_CONVERT_TOOL_CONTRACT: MusicToolContract = {
   name: 'music.convert',
-  description: 'Convert between MusicXML and ABC, with artifact creation and validation metadata.',
+  description: 'Convert between MusicXML, ABC, and MIDI, with artifact creation and validation metadata.',
   inputSchema: {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
     type: 'object',
@@ -10,11 +10,15 @@ export const MUSIC_CONVERT_TOOL_CONTRACT: MusicToolContract = {
     properties: {
       healthCheck: { type: 'boolean' },
       health_check: { type: 'boolean' },
-      inputFormat: { type: 'string', enum: ['abc', 'musicxml', 'xml'] },
-      input_format: { type: 'string', enum: ['abc', 'musicxml', 'xml'] },
-      outputFormat: { type: 'string', enum: ['abc', 'musicxml', 'xml'] },
-      output_format: { type: 'string', enum: ['abc', 'musicxml', 'xml'] },
+      inputFormat: { type: 'string', enum: ['abc', 'musicxml', 'xml', 'midi', 'mid'] },
+      input_format: { type: 'string', enum: ['abc', 'musicxml', 'xml', 'midi', 'mid'] },
+      outputFormat: { type: 'string', enum: ['abc', 'musicxml', 'xml', 'midi', 'mid'] },
+      output_format: { type: 'string', enum: ['abc', 'musicxml', 'xml', 'midi', 'mid'] },
       content: { type: 'string' },
+      contentBase64: { type: 'string' },
+      content_base64: { type: 'string' },
+      contentEncoding: { type: 'string', enum: ['utf8', 'base64'] },
+      content_encoding: { type: 'string', enum: ['utf8', 'base64'] },
       text: { type: 'string' },
       inputArtifactId: { type: 'string' },
       input_artifact_id: { type: 'string' },
@@ -45,6 +49,7 @@ export const MUSIC_CONVERT_TOOL_CONTRACT: MusicToolContract = {
               abc2xml: { type: 'string' },
             },
           },
+          midi: { type: 'object' },
           pythonCommand: { type: 'string' },
           missing: {
             type: 'array',
@@ -62,6 +67,7 @@ export const MUSIC_CONVERT_TOOL_CONTRACT: MusicToolContract = {
           outputArtifact: { type: 'object' },
           conversion: { type: 'object' },
           content: { type: 'string' },
+          contentEncoding: { type: 'string', enum: ['utf8', 'base64'] },
         },
       },
       {
@@ -74,4 +80,3 @@ export const MUSIC_CONVERT_TOOL_CONTRACT: MusicToolContract = {
     ],
   },
 };
-

@@ -3,9 +3,11 @@ import type { ScoreArtifact, ScoreArtifactSummary } from './score-artifacts';
 import { resolveScoreEditorApiPath } from './score-editor-api-client';
 
 export type ScoreConversionToolRequest = {
-    inputFormat?: MusicFormat | 'xml' | 'mxl';
-    outputFormat: MusicFormat | 'xml' | 'mxl';
+    inputFormat?: MusicFormat | 'xml' | 'mxl' | 'mid';
+    outputFormat: MusicFormat | 'xml' | 'mxl' | 'mid';
     content?: string;
+    contentBase64?: string;
+    contentEncoding?: 'utf8' | 'base64';
     filename?: string;
     validate?: boolean;
     deepValidate?: boolean;
@@ -21,6 +23,7 @@ export type ScoreConversionToolResponse = {
     outputArtifact: ScoreArtifactSummary;
     conversion: Omit<MusicConversionResult, 'content'>;
     content?: string;
+    contentEncoding?: 'utf8' | 'base64';
 };
 
 const asRecord = (value: unknown): Record<string, unknown> | null => (
@@ -37,6 +40,8 @@ export async function convertScoreNotation(request: ScoreConversionToolRequest):
             input_format: request.inputFormat,
             output_format: request.outputFormat,
             content: request.content,
+            content_base64: request.contentBase64,
+            content_encoding: request.contentEncoding,
             filename: request.filename,
             validate: request.validate,
             deep_validate: request.deepValidate,

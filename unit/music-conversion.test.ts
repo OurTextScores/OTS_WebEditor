@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { convertMusicNotation } from '../lib/music-conversion';
+import { convertMusicNotation, normalizeMusicFormat } from '../lib/music-conversion';
 
 describe('music-conversion MVP', () => {
   it('normalizes ABC output and returns machine-readable validation report', async () => {
@@ -38,5 +38,25 @@ describe('music-conversion MVP', () => {
     expect(result.validation.stages.outputShape.checks.length).toBeGreaterThan(0);
     expect(result.validation.stages.invariants.checks.length).toBeGreaterThan(0);
   });
-});
 
+  it('normalizes same-format MIDI base64 and validates header', async () => {
+    const midiBase64WithWhitespace = `${Buffer.from('MThd').toString('base64')}\n`;
+    const result = await convertMusicNotation({
+      inputFormat: 'midi',
+      outputFormat: 'midi',
+      content: midiBase64WithWhitespace,
+      contentEncoding: 'base64',
+      deepValidate: false,
+    });
+
+    expect(result.contentEncoding).toBe('base64');
+    expect(result.content).toBe(Buffer.from('MThd').toString('base64'));
+    expect(result.normalization.format).toBe('midi');
+    expect(result.validation.checks.some((c) => c.id === 'midi-header')).toBe(true);
+  });
+
+  it('normalizes midi aliases through normalizeMusicFormat', () => {
+    expect(normalizeMusicFormat('midi')).toBe('midi');
+    expect(normalizeMusicFormat('mid')).toBe('midi');
+  });
+});
