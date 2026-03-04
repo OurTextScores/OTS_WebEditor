@@ -8,12 +8,11 @@ const fs = require('fs');
 const path = require('path');
 
 const defaultFiles = [
-  'public/webmscore.lib.js',
   'public/webmscore.lib.wasm',
   'public/webmscore.lib.data',
   'public/webmscore.lib.mem.wasm',
 ];
-const optionalFiles = ['public/webmscore.lib.js.mem'];
+const optionalFiles = ['public/webmscore.lib.js', 'public/webmscore.lib.js.mem'];
 
 const GIT_LFS_POINTER_PREFIX = 'version https://git-lfs.github.com/spec/v1';
 const WASM_MAGIC = Buffer.from([0x00, 0x61, 0x73, 0x6d]); // "\0asm"

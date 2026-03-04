@@ -15,7 +15,6 @@ ENV SKIP_NEXT_TYPECHECK=1
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN if [ ! -s public/webmscore.lib.js ]; then cp webmscore-fork/web-public/webmscore.lib.js public/webmscore.lib.js; fi
 RUN npm run build
 
 FROM node:20-bookworm AS runner
