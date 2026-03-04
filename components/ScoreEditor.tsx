@@ -225,6 +225,8 @@ type AiChatMessage = {
     text: string;
 };
 
+type MmaStarterPreset = 'blank' | 'lead-sheet' | 'blues';
+
 type BlockReviewStatus = 'pending' | 'accepted' | 'rejected' | 'comment';
 
 type BlockReview = {
@@ -529,6 +531,28 @@ const buildAiChatTranscript = (messages: AiChatMessage[]) => {
         : ''}`;
 };
 
+const MMA_BLUES_DEMO_TEMPLATE = `; 12-bar blues starter\nTempo 110\nTimeSig 4 4\nKeySig C\nGroove Swing\n\n1  C7 | F7 | C7 | C7 |\n5  F7 | F7 | C7 | C7 |\n9  G7 | F7 | C7 | G7 |\n`;
+
+const decodeBase64ToBytes = (input: string) => {
+    const compact = input.replace(/\s+/g, '');
+    if (!compact) {
+        return new Uint8Array();
+    }
+    const globalBuffer = (globalThis as { Buffer?: { from: (value: string, encoding: string) => Uint8Array } }).Buffer;
+    if (globalBuffer) {
+        return new Uint8Array(globalBuffer.from(compact, 'base64'));
+    }
+    if (typeof atob === 'function') {
+        const binary = atob(compact);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes;
+    }
+    throw new Error('No base64 decoder available in this environment.');
+};
+
 const isMissingProxyStatus = (status: number) => PROXY_MISSING_STATUSES.has(status);
 
 const errorMessage = (err: unknown) => (err instanceof Error ? err.message.trim() : '');
@@ -693,12 +717,21 @@ export default function ScoreEditor() {
     const [isResizingSidebar, setIsResizingSidebar] = useState(false);
     const sidebarResizeStartXRef = useRef<number>(0);
     const sidebarResizeStartWidthRef = useRef<number>(0);
-    const [xmlSidebarTab, setXmlSidebarTab] = useState<'xml' | 'assistant' | 'notagen'>('xml');
+    const [xmlSidebarTab, setXmlSidebarTab] = useState<'xml' | 'assistant' | 'notagen' | 'mma'>('xml');
     const [codeEditorTheme, setCodeEditorTheme] = useState<CodeEditorThemeMode>('light');
     const [xmlText, setXmlText] = useState('');
     const [xmlDirty, setXmlDirty] = useState(false);
     const [xmlLoading, setXmlLoading] = useState(false);
     const [xmlError, setXmlError] = useState<string | null>(null);
+    const [mmaStarterPreset, setMmaStarterPreset] = useState<MmaStarterPreset>('lead-sheet');
+    const [mmaScript, setMmaScript] = useState('');
+    const [mmaBusy, setMmaBusy] = useState(false);
+    const [mmaError, setMmaError] = useState<string | null>(null);
+    const [mmaWarnings, setMmaWarnings] = useState<string[]>([]);
+    const [mmaSanitizedStderr, setMmaSanitizedStderr] = useState('');
+    const [mmaMidiBase64, setMmaMidiBase64] = useState('');
+    const [mmaGeneratedXml, setMmaGeneratedXml] = useState('');
+    const [mmaResultPayload, setMmaResultPayload] = useState<Record<string, unknown> | null>(null);
     const [aiProvider, setAiProvider] = useState<AiProvider>('openai');
     const [aiModel, setAiModel] = useState('');
     const [aiApiKey, setAiApiKey] = useState('');
@@ -1560,7 +1593,7 @@ export default function ScoreEditor() {
         if (aiEnabled) {
             return;
         }
-        if (xmlSidebarTab !== 'xml') {
+        if (xmlSidebarTab !== 'xml' && xmlSidebarTab !== 'mma') {
             setXmlSidebarTab('xml');
         }
     }, [aiEnabled, xmlSidebarTab]);
@@ -3100,6 +3133,7 @@ ${partsBodyXml}
         const needsXmlForSidebarTab = (
             (xmlSidebarTab === 'assistant' && (aiIncludeXml || (aiMode === 'agent' && musicAgentIncludeCurrentXml)))
             || xmlSidebarTab === 'notagen'
+            || xmlSidebarTab === 'mma'
         );
         if (needsXmlForSidebarTab && !xmlText.trim()) {
             void loadXmlFromScore();
@@ -7235,6 +7269,162 @@ ${partsBodyXml}
         }
     };
 
+    const handleMmaStarterPresetChange = useCallback((preset: MmaStarterPreset) => {
+        setMmaStarterPreset(preset);
+        setMmaError(null);
+        if (preset === 'blank') {
+            setMmaScript('');
+            setMmaWarnings([]);
+            setMmaSanitizedStderr('');
+            setMmaResultPayload(null);
+            return;
+        }
+        if (preset === 'blues') {
+            setMmaScript(MMA_BLUES_DEMO_TEMPLATE);
+            setMmaWarnings([]);
+            setMmaSanitizedStderr('');
+            setMmaResultPayload(null);
+        }
+    }, []);
+
+    const handleMmaGenerateTemplate = async () => {
+        setMmaBusy(true);
+        setMmaError(null);
+        try {
+            const xml = await resolveXmlContext();
+            if (!xml.trim()) {
+                alert('Load a score before generating an MMA starter from MusicXML.');
+                return;
+            }
+            const payload = await postScoreEditorJson('/api/music/mma/template', {
+                content: xml,
+            });
+            const template = typeof payload.template === 'string' ? payload.template : '';
+            if (!template.trim()) {
+                throw new Error('MMA template response did not include a script.');
+            }
+            setMmaScript(template);
+            setMmaStarterPreset('lead-sheet');
+            const warnings = Array.isArray(payload.warnings)
+                ? payload.warnings.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+                : [];
+            setMmaWarnings(warnings);
+            setMmaSanitizedStderr('');
+            setMmaResultPayload(payload);
+        } catch (err) {
+            console.error('Failed to generate MMA template', err);
+            setMmaError(errorMessage(err) || 'Failed to generate MMA starter template.');
+        } finally {
+            setMmaBusy(false);
+        }
+    };
+
+    const handleMmaRender = async (includeMusicXml: boolean) => {
+        const script = mmaScript.trim();
+        if (!script) {
+            alert('Enter an MMA script before rendering.');
+            return;
+        }
+        setMmaBusy(true);
+        setMmaError(null);
+        try {
+            const payload = await postScoreEditorJson('/api/music/mma/render', {
+                script: mmaScript,
+                includeMidi: true,
+                includeMusicXml,
+                persistArtifacts: true,
+            });
+            const midiBase64 = typeof payload.midiBase64 === 'string' ? payload.midiBase64 : '';
+            const musicxml = typeof payload.musicxml === 'string' ? payload.musicxml : '';
+            const warnings = Array.isArray(payload.warnings)
+                ? payload.warnings.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+                : [];
+            const provenance = asRecord(payload.provenance);
+            const stderr = typeof provenance?.stderr === 'string' ? provenance.stderr : '';
+
+            setMmaWarnings(warnings);
+            setMmaSanitizedStderr(stderr);
+            setMmaMidiBase64(midiBase64);
+            if (includeMusicXml) {
+                setMmaGeneratedXml(musicxml);
+            }
+            setMmaResultPayload(payload);
+        } catch (err) {
+            console.error('Failed to render MMA script', err);
+            setMmaError(errorMessage(err) || 'Failed to render MMA script.');
+        } finally {
+            setMmaBusy(false);
+        }
+    };
+
+    const handleMmaDownload = (format: 'mma' | 'midi' | 'musicxml') => {
+        if (format === 'mma') {
+            if (!mmaScript.trim()) {
+                alert('No MMA script is available to download.');
+                return;
+            }
+            downloadBlob(`${mmaScript.trimEnd()}\n`, 'accompaniment.mma', 'text/plain;charset=utf-8');
+            return;
+        }
+
+        if (format === 'midi') {
+            if (!mmaMidiBase64.trim()) {
+                alert('No rendered MIDI output is available yet.');
+                return;
+            }
+            try {
+                const midiBytes = decodeBase64ToBytes(mmaMidiBase64);
+                if (!midiBytes.length) {
+                    throw new Error('Rendered MIDI payload was empty.');
+                }
+                downloadBlob(midiBytes, 'accompaniment.mid', 'audio/midi');
+            } catch (err) {
+                console.error('Failed to decode/render MIDI download payload', err);
+                alert('Unable to decode rendered MIDI for download.');
+            }
+            return;
+        }
+
+        if (!mmaGeneratedXml.trim()) {
+            alert('No generated MusicXML is available to download.');
+            return;
+        }
+        downloadBlob(mmaGeneratedXml, 'accompaniment.musicxml', 'application/vnd.recordare.musicxml+xml');
+    };
+
+    const handleApplyMmaOutput = async () => {
+        if (!mmaGeneratedXml.trim()) {
+            alert('No generated MusicXML is available yet.');
+            return;
+        }
+        setXmlLoading(true);
+        setXmlError(null);
+        try {
+            if (!score) {
+                const encoder = new TextEncoder();
+                const encoded = encoder.encode(mmaGeneratedXml);
+                const filenameBase = scoreTitle ? `mma-${toSafeFilename(scoreTitle)}` : 'mma-output';
+                const file = new File([encoded], `${filenameBase}.musicxml`, { type: 'application/xml' });
+                await handleFileUpload(file, {
+                    preserveScoreId: false,
+                    updateUrl: false,
+                    telemetrySource: 'mma_output',
+                });
+            } else {
+                await applyXmlToScore(mmaGeneratedXml, {
+                    telemetrySource: 'mma_output',
+                    inputFormat: 'musicxml',
+                });
+            }
+            setXmlSidebarTab('xml');
+        } catch (err) {
+            console.error('Failed to apply MMA output MusicXML', err);
+            alert('Failed to apply generated MMA MusicXML. See console for details.');
+        } finally {
+            setXmlLoading(false);
+        }
+    };
+
     const handleApplyAiOutput = async () => {
         if (!aiPatchedXml.trim()) {
             alert(aiPatchError || 'AI patch has not produced valid MusicXML.');
@@ -10857,6 +11047,18 @@ ${partsBodyXml}
                                             NotaGen
                                         </button>
                                     )}
+                                    <button
+                                        type="button"
+                                        data-testid="tab-mma"
+                                        onClick={() => setXmlSidebarTab('mma')}
+                                        className={`rounded border px-2 py-1 ${
+                                            xmlSidebarTab === 'mma'
+                                                ? 'border-gray-400 bg-gray-100 text-gray-900'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                                        }`}
+                                    >
+                                        MMA
+                                    </button>
                                 </div>
                                 <label className="flex items-center gap-2">
                                     <span className="text-[11px] uppercase tracking-wide text-gray-500">Theme</span>
@@ -11646,6 +11848,186 @@ ${partsBodyXml}
                                             {JSON.stringify(musicNotaGenResult, null, 2)}
                                         </pre>
                                     </div>
+                                )}
+                            </div>
+                        )}
+                        {xmlSidebarTab === 'mma' && (
+                            <div className="mt-3 space-y-3 text-sm text-gray-700">
+                                <div className="rounded border border-gray-200 bg-gray-50/70 p-3 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                                            MMA (Accompaniment)
+                                        </div>
+                                        <a
+                                            href="https://www.mellowood.ca/mma/"
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            title="MMA project documentation"
+                                            aria-label="Open MMA project documentation"
+                                            className="text-sm leading-none text-gray-500 hover:text-gray-700"
+                                        >
+                                            ⓘ
+                                        </a>
+                                    </div>
+                                    <div className="grid gap-2 sm:grid-cols-2">
+                                        <label className="flex flex-col gap-1">
+                                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                Starter
+                                            </span>
+                                            <select
+                                                value={mmaStarterPreset}
+                                                onChange={(event) => handleMmaStarterPresetChange(event.target.value as MmaStarterPreset)}
+                                                className="rounded border border-gray-300 px-2 py-1 text-sm"
+                                                data-testid="select-mma-starter"
+                                            >
+                                                <option value="blank">Blank</option>
+                                                <option value="lead-sheet">Lead Sheet (auto)</option>
+                                                <option value="blues">12-bar Blues (demo)</option>
+                                            </select>
+                                        </label>
+                                        <div className="flex items-end">
+                                            <button
+                                                type="button"
+                                                onClick={handleMmaGenerateTemplate}
+                                                disabled={mmaBusy}
+                                                className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                data-testid="btn-mma-generate-template"
+                                            >
+                                                {mmaBusy ? 'Working...' : 'Generate from Score'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between text-xs text-gray-500">
+                                            <span>MMA Script</span>
+                                            <span>{mmaScript.trim() ? `${mmaScript.length} chars` : 'No script'}</span>
+                                        </div>
+                                        <CodeMirrorEditor
+                                            testId="mma-editor"
+                                            value={mmaScript}
+                                            onChange={(nextValue) => setMmaScript(nextValue)}
+                                            readOnly={mmaBusy}
+                                            placeholderText="Paste or author an MMA script."
+                                            language="none"
+                                            height={200}
+                                            maxHeight={320}
+                                            themeMode={codeEditorTheme}
+                                        />
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => void handleMmaRender(false)}
+                                            disabled={mmaBusy || !mmaScript.trim()}
+                                            className="flex-1 rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            data-testid="btn-mma-render-midi"
+                                        >
+                                            {mmaBusy ? 'Rendering...' : 'Render MIDI'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => void handleMmaRender(true)}
+                                            disabled={mmaBusy || !mmaScript.trim()}
+                                            className="flex-1 rounded border border-blue-600 bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            data-testid="btn-mma-render-xml"
+                                        >
+                                            {mmaBusy ? 'Rendering...' : 'Render + Convert to XML'}
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                                    MMA generates accompaniment from chord directives; output will not preserve source melody unless encoded in the MMA script.
+                                </div>
+                                {mmaError && (
+                                    <div className="text-xs text-red-600">
+                                        {mmaError}
+                                    </div>
+                                )}
+                                {mmaWarnings.length > 0 && (
+                                    <div className="space-y-1">
+                                        {mmaWarnings.map((warning, index) => (
+                                            <div key={`mma-warning-${index}`} className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                                                {warning}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                {mmaSanitizedStderr && (
+                                    <div className="space-y-1">
+                                        <div className="text-xs text-gray-500">MMA diagnostics (sanitized)</div>
+                                        <pre className="max-h-40 overflow-auto rounded border border-gray-200 bg-gray-50 p-2 text-[11px] leading-relaxed text-gray-700 whitespace-pre-wrap">
+                                            {mmaSanitizedStderr}
+                                        </pre>
+                                    </div>
+                                )}
+                                {(mmaMidiBase64 || mmaGeneratedXml) && (
+                                    <div className="flex flex-wrap gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleMmaDownload('mma')}
+                                            disabled={!mmaScript.trim()}
+                                            className="rounded border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            data-testid="btn-mma-download-script"
+                                        >
+                                            Download .mma
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleMmaDownload('midi')}
+                                            disabled={!mmaMidiBase64.trim()}
+                                            className="rounded border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            data-testid="btn-mma-download-midi"
+                                        >
+                                            Download .mid
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleMmaDownload('musicxml')}
+                                            disabled={!mmaGeneratedXml.trim()}
+                                            className="rounded border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            data-testid="btn-mma-download-xml"
+                                        >
+                                            Download .musicxml
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleApplyMmaOutput}
+                                            disabled={mmaBusy || !mmaGeneratedXml.trim()}
+                                            className="rounded border border-blue-600 bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            data-testid="btn-mma-apply-xml"
+                                        >
+                                            Apply MusicXML to Score
+                                        </button>
+                                    </div>
+                                )}
+                                {mmaGeneratedXml && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between text-xs text-gray-500">
+                                            <span>Generated MusicXML</span>
+                                            <span>Review before applying</span>
+                                        </div>
+                                        <CodeMirrorEditor
+                                            testId="mma-generated-xml"
+                                            value={mmaGeneratedXml}
+                                            onChange={(nextValue) => setMmaGeneratedXml(nextValue)}
+                                            readOnly={false}
+                                            language="xml"
+                                            placeholderText="Rendered MusicXML will appear here."
+                                            height={220}
+                                            maxHeight={360}
+                                            themeMode={codeEditorTheme}
+                                        />
+                                    </div>
+                                )}
+                                {mmaResultPayload && (
+                                    <details className="rounded border border-gray-200 bg-gray-50 px-3 py-2">
+                                        <summary className="cursor-pointer text-xs font-medium text-gray-700">
+                                            MMA Response
+                                        </summary>
+                                        <pre className="mt-2 max-h-64 overflow-auto text-[11px] leading-relaxed text-gray-700 whitespace-pre-wrap">
+                                            {JSON.stringify(mmaResultPayload, null, 2)}
+                                        </pre>
+                                    </details>
                                 )}
                             </div>
                         )}

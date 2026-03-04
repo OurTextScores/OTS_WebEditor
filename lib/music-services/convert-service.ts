@@ -284,7 +284,21 @@ export async function runMusicConvertService(body: unknown, options?: ConvertSer
         }
         inputContent = inputArtifact.content;
         inputEncoding = inputArtifact.encoding === 'base64' ? 'base64' : 'utf8';
-        inferredFormat = inputArtifact.format;
+        inferredFormat = normalizeMusicFormat(inputArtifact.format);
+        if (!inferredFormat) {
+            return {
+                status: 400,
+                body: {
+                    ok: false,
+                    error: {
+                        code: 'invalid_request',
+                        message: 'Input artifact format is not supported for conversion.',
+                        format: inputArtifact.format,
+                        inputArtifactId,
+                    },
+                },
+            };
+        }
     } else {
         const base64Content = readBase64Content(data);
         if (base64Content) {

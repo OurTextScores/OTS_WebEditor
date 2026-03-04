@@ -47,6 +47,11 @@ function isLikelyMidiToolingError(message: string) {
     .test(message);
 }
 
+function isLikelyMmaToolingError(message: string) {
+  return /mma tool unavailable|no mma command candidates|enoent|not found|timed out|did not generate midi/i
+    .test(message);
+}
+
 function maybeSkipIfMidiToolsUnavailable(status: number, payload: unknown) {
   const message = extractServiceErrorMessage(payload);
   if (status < 500 || !message) {
@@ -160,6 +165,44 @@ test.describe('Music service endpoints', () => {
     const json = await response.json();
     expect(json.outputArtifactId).toBeTruthy();
     expect(json.conversion?.outputFormat).toBe('abc');
+  });
+
+  test('mma template: returns a starter script from MusicXML input', async ({ request }) => {
+    const response = await request.post('/api/music/mma/template', {
+      data: {
+        content: SCALE_XML,
+        maxMeasures: 4,
+      },
+    });
+
+    expect(response.ok()).toBeTruthy();
+    const json = await response.json();
+    expect(typeof json.template).toBe('string');
+    expect(json.template).toContain('TimeSig');
+    expect(json.analysis?.meter).toBeTruthy();
+  });
+
+  test('mma render: compiles script and optionally converts to MusicXML', async ({ request }) => {
+    const script = `Tempo 108\nTimeSig 4 4\nKeySig C\nGroove Swing\n\n1 C | F | G7 | C |\n`;
+    const response = await request.post('/api/music/mma/render', {
+      data: {
+        script,
+        includeMidi: true,
+        includeMusicXml: true,
+      },
+      timeout: 90_000,
+    });
+    const json = await response.json();
+    if (!response.ok()) {
+      const message = extractServiceErrorMessage(json);
+      test.skip(isLikelyMmaToolingError(message), `MMA tooling unavailable in runtime: ${message}`);
+    }
+
+    expect(response.ok()).toBeTruthy();
+    expect(typeof json.midiBase64).toBe('string');
+    assertBase64MidiHeader(json.midiBase64 || '');
+    expect(typeof json.musicxml).toBe('string');
+    expect(json.musicxml).toContain('<score-partwise');
   });
 
   test('convert: MIDI upload (base64) to MusicXML stores artifacts', async ({ request }) => {

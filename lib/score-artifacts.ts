@@ -4,11 +4,13 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { MusicConversionResult, MusicFormat } from './music-conversion';
 
+export type ScoreArtifactFormat = MusicFormat | 'mma';
+
 export type ScoreArtifact = {
     id: string;
     kind: 'score-artifact@1';
     createdAt: string;
-    format: MusicFormat;
+    format: ScoreArtifactFormat;
     content: string;
     encoding?: 'utf8' | 'base64';
     mimeType?: string;

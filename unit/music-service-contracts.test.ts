@@ -7,13 +7,25 @@ import {
   MUSIC_PATCH_TOOL_CONTRACT,
   MUSIC_SCOREOPS_TOOL_CONTRACT,
   MUSIC_RENDER_TOOL_CONTRACT,
+  MUSIC_MMA_TEMPLATE_TOOL_CONTRACT,
+  MUSIC_MMA_RENDER_TOOL_CONTRACT,
   MUSIC_TOOL_CONTRACTS,
 } from '../lib/music-services/contracts';
 
 describe('music service tool contracts', () => {
   it('exports a stable set of uniquely named contracts', () => {
     const names = MUSIC_TOOL_CONTRACTS.map((contract) => contract.name);
-    expect(names).toEqual(['music.context', 'music.convert', 'music.diff_feedback', 'music.generate', 'music.patch', 'music.scoreops', 'music.render']);
+    expect(names).toEqual([
+      'music.context',
+      'music.convert',
+      'music.diff_feedback',
+      'music.generate',
+      'music.patch',
+      'music.scoreops',
+      'music.render',
+      'music.mma_template',
+      'music.mma_render',
+    ]);
     expect(new Set(names).size).toBe(names.length);
   });
 
@@ -83,6 +95,26 @@ describe('music service tool contracts', () => {
       type: 'object',
     });
     expect(MUSIC_RENDER_TOOL_CONTRACT.outputSchema).toMatchObject({
+      oneOf: expect.any(Array),
+    });
+  });
+
+  it('declares required MMA template contract fields', () => {
+    expect(MUSIC_MMA_TEMPLATE_TOOL_CONTRACT.description.length).toBeGreaterThan(0);
+    expect(MUSIC_MMA_TEMPLATE_TOOL_CONTRACT.inputSchema).toMatchObject({
+      type: 'object',
+    });
+    expect(MUSIC_MMA_TEMPLATE_TOOL_CONTRACT.outputSchema).toMatchObject({
+      oneOf: expect.any(Array),
+    });
+  });
+
+  it('declares required MMA render contract fields', () => {
+    expect(MUSIC_MMA_RENDER_TOOL_CONTRACT.description.length).toBeGreaterThan(0);
+    expect(MUSIC_MMA_RENDER_TOOL_CONTRACT.inputSchema).toMatchObject({
+      type: 'object',
+    });
+    expect(MUSIC_MMA_RENDER_TOOL_CONTRACT.outputSchema).toMatchObject({
       oneOf: expect.any(Array),
     });
   });
