@@ -89,18 +89,20 @@
 - Added API smoke tests for MIDI upload and roundtrip artifact-chain behavior.
 
 ### Blockers encountered
-- In local runtime, non-interactive MuseScore export/import commands hang and time out.
-- Observed environment characteristics:
-- `musescore` is present but version is `MuseScore2 2.3.2`.
-- `xvfb-run` is missing.
-- `DISPLAY=:0` exists (Xwayland), but CLI conversion still stalls during initialization/export.
-- Result: API MIDI conversions return timeout/tooling errors in this environment.
+- Initial local runtime blocked on non-interactive MuseScore conversion.
+- Root causes identified in `score_editor_api` runtime:
+- No MuseScore 4 provisioning (only older distro `musescore` path).
+- Missing `xvfb-run` and later `xauth`, causing wrapper failure.
+- Wrapper-selection inconsistency in one render-smoke path when `DISPLAY` was set.
 
 ### Workarounds implemented
-- Added robust e2e test behavior:
-- Tests try multiple real MIDI fixtures.
-- Tests skip only when errors indicate runtime/toolchain unavailability (command missing, display issues, timeout).
-- Preserved hard-fail semantics for actual request/validation failures where tooling is expected to work.
+- Implemented container parity patch for `score_editor_api`:
+- Added MuseScore 4 AppImage extraction + `musescore4` wrapper.
+- Added runtime deps: `xvfb`, `xauth`, `libopengl0`, `libpipewire-0.3-0`, with `musescore3` fallback.
+- Added explicit env defaults for MuseScore binary candidates and wrapper behavior.
+- Fixed render-smoke path to use shared `resolveXvfbRunPath()` logic so `MUSIC_MUSESCORE_USE_XVFB=true` is honored consistently.
+- Verified live conversion chain in local stack:
+- `ABC -> MusicXML -> MIDI -> MusicXML` completed without errors via `score_editor_api` API.
 
 ## 3. Summary of the implementation
 
@@ -132,55 +134,46 @@
 
 ## 4. Current blocker (non-interactive export)
 
-### Current blocker statement
-- MIDI conversion in this runtime is blocked by non-interactive MuseScore export/import instability.
+### Current status
+- Section 5 container/runtime parity patch is implemented.
+- Non-interactive conversion is working in local `score_editor_api` runtime.
 
 ### Evidence
-- `musescore --version` reports `MuseScore2 2.3.2`.
-- `xvfb-run` not installed.
-- CLI export commands (`-o ...`) for both XML and MIDI inputs time out without producing output artifacts.
-- Debug logs show GUI/Qt initialization but no conversion completion.
+- `musescore4 --version` returns (`MuseScore4 4.6.3`) in `ourtextscores_score_editor_api`.
+- `xvfb-run` and `xauth` are installed and available.
+- Live API conversion chain succeeds:
+- `ABC -> MusicXML -> MIDI -> MusicXML` with valid output artifacts and no conversion errors.
 
-### Impact
-- Unit tests pass (mocked/service-layer behavior), but true runtime MIDI conversion cannot be relied on in this container.
-- New e2e tests skip under this condition to avoid false negatives, but runtime functionality remains blocked until container/tooling is fixed.
+### Remaining risk
+- Dev compose currently installs packages at container startup, which is slower and can fail if package mirrors or AppImage download are unavailable.
 
 ## 5. Proposal for patch / next steps
 
-### Corrected diagnosis (container split)
-1. The known-good MuseScore 4 AppImage setup already exists in `OurTextScores/backend/Dockerfile` (extract AppImage, call `mscore4portable` directly, wrap with `xvfb-run`).
-2. The MIDI/XML conversion service runs in `score_editor_api` (OTS_Web), not in backend derivative pipeline.
-3. Current `score_editor_api` runtime paths do not include equivalent MuseScore provisioning:
-- Dev compose service uses `node:20-bookworm` + ad-hoc `apt-get install python3-pyparsing`.
-- Production image (`OTS_Web/Dockerfile.editor-api`) has no MuseScore/xvfb install.
+### Completed in this patch set
+1. Brought `score_editor_api` runtime closer to backend MuseScore setup in both:
+- `OTS_Web/Dockerfile.editor-api` (production image),
+- `OurTextScores/docker-compose.yml` and `docker-compose.score-editor-image.yml` (local/runtime wiring).
+2. Added MuseScore 4 wrapper defaults:
+- `MUSIC_MUSESCORE_BIN=musescore4`
+- `MUSIC_MUSESCORE_BIN_CANDIDATES=musescore4,mscore4portable,musescore3,musescore`
+- `MUSIC_MUSESCORE_USE_XVFB=true`
+3. Added missing `xauth` dependency required by `xvfb-run`.
+4. Fixed wrapper-path selection consistency in `lib/music-conversion.ts` render-smoke path.
 
-### Recommended patch (container/runtime)
-1. Bring `score_editor_api` to parity with backend MuseScore setup.
-2. For `score_editor_api` production image (`OTS_Web/Dockerfile.editor-api`):
-- Install `xvfb`, `libopengl0`, `libpipewire-0.3-0`, and `musescore3` fallback.
-- Download/extract MuseScore 4 AppImage at build time.
-- Create `/usr/local/bin/musescore4` wrapper that runs `/opt/musescore4/bin/mscore4portable` via `xvfb-run` with timeout.
-3. For local compose dev (`OurTextScores/docker-compose.yml` score_editor_api service):
-- Either switch to the built editor-api image, or install equivalent MuseScore tooling in the startup command.
-- Set env explicitly for conversion service:
-  - `MUSIC_MUSESCORE_BIN=musescore4`
-  - `MUSIC_MUSESCORE_BIN_CANDIDATES=musescore4,mscore4portable,musescore3,musescore`
-4. Keep `musescore3` as fallback path in case AppImage extraction/download is unavailable.
+### Next priority follow-ups
+1. Add conversion-capability health probe (small real conversion), not just tool-path checks.
+2. Add explicit MuseScore conversion timeout env (`MUSIC_MUSESCORE_TIMEOUT_MS`), optionally split by direction.
+3. Optimize base64 decode path to avoid repeated MIDI decode work in a single request.
+4. Tighten format inference behavior if additional binary formats are added later.
 
-### Recommended code patch (follow-up)
-1. Add conversion-capability smoke check in health (tiny XML->MIDI or MIDI->XML probe), not just script-path checks.
-2. Add an env-controlled wrapper preference:
-- `MUSIC_MUSESCORE_USE_XVFB=true|false` and force wrapper usage when enabled, even if `DISPLAY` is set.
-3. Add dedicated timeout controls for MuseScore conversions:
-- `MUSIC_MUSESCORE_TIMEOUT_MS` (or import/export split).
-4. Keep e2e skip logic only as a temporary guard; convert to strict pass once container parity is deployed.
-
-### Verification plan after patch
-1. Rebuild and run `score_editor_api` with updated image/runtime.
-2. Verify inside container:
-- `musescore4 --version` returns quickly.
-- A tiny non-interactive export command writes output file successfully.
-3. Run MIDI API smoke tests (`tests/music-api-smoke.spec.ts`) and confirm no skips.
-4. Run full flow validation:
-- `midi -> musicxml -> midi` roundtrip with artifact-chain checks.
-- health endpoint reports MIDI converter as available and probe passes.
+### Verification checklist
+1. Rebuild `score_editor_api` image from `OTS_Web/Dockerfile.editor-api`.
+2. Confirm container has:
+- `musescore4`,
+- `xvfb-run`,
+- `xauth`.
+3. Execute API smoke:
+- `musicxml -> midi`,
+- `midi -> musicxml`,
+- artifact-chain assertions.
+4. Keep e2e skip-on-toolchain-unavailable as temporary guard until all target environments are aligned.

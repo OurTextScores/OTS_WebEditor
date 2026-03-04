@@ -20,8 +20,48 @@ RUN npm run build
 FROM node:20-bookworm AS runner
 WORKDIR /app
 
+ARG MUSESCORE4_APPIMAGE_URL="https://github.com/musescore/MuseScore/releases/download/v4.6.3/MuseScore-Studio-4.6.3.252940956-x86_64.AppImage"
+
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV MUSESCORE_WRAPPER_TIMEOUT_SECONDS=300
+ENV MUSIC_MUSESCORE_BIN=musescore4
+ENV MUSIC_MUSESCORE_BIN_CANDIDATES=musescore4,mscore4portable,musescore3,musescore
+ENV MUSIC_MUSESCORE_USE_XVFB=true
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      python3 \
+      python3-pyparsing \
+      musescore3 \
+      xvfb \
+      xauth \
+      libopengl0 \
+      libpipewire-0.3-0 \
+      ca-certificates \
+      curl && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install MuseScore 4 by extracting AppImage and invoking mscore4portable directly.
+RUN if [ -n "$MUSESCORE4_APPIMAGE_URL" ]; then \
+      echo "Downloading MuseScore 4 AppImage from ${MUSESCORE4_APPIMAGE_URL}" && \
+      curl -fsSL "${MUSESCORE4_APPIMAGE_URL}" -o /tmp/MuseScore-4.AppImage && \
+      chmod +x /tmp/MuseScore-4.AppImage && \
+      /tmp/MuseScore-4.AppImage --appimage-extract && \
+      rm -rf /opt/musescore4 && \
+      mv squashfs-root /opt/musescore4 && \
+      printf '%s\n' \
+        '#!/bin/sh' \
+        'TIMEOUT_SECONDS="${MUSESCORE_WRAPPER_TIMEOUT_SECONDS:-300}"' \
+        'XVFB_ARGS="-screen 0 640x480x24 -ac +extension GLX +render -noreset"' \
+        'if [ "${TIMEOUT_SECONDS}" = "0" ]; then' \
+        '  exec xvfb-run -a -s "${XVFB_ARGS}" /opt/musescore4/bin/mscore4portable "$@"' \
+        'fi' \
+        'exec timeout "${TIMEOUT_SECONDS}" xvfb-run -a -s "${XVFB_ARGS}" /opt/musescore4/bin/mscore4portable "$@"' \
+      > /usr/local/bin/musescore4 && \
+      chmod +x /usr/local/bin/musescore4 && \
+      rm -f /tmp/MuseScore-4.AppImage; \
+    fi
 
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/next.config.ts ./next.config.ts

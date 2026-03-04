@@ -1199,9 +1199,7 @@ async function runRenderSmokeChecks(args: {
         const pdfPath = join(tempDir, 'smoke.pdf');
         await writeFile(xmlPath, normalizeTextForFormat('musicxml', outputContent).content, 'utf8');
         try {
-            const xvfbRunPath = !process.env.DISPLAY
-                ? (await fileExists('/usr/bin/xvfb-run') ? '/usr/bin/xvfb-run' : (await fileExists('/bin/xvfb-run') ? '/bin/xvfb-run' : null))
-                : null;
+            const xvfbRunPath = await resolveXvfbRunPath();
             const { command, result } = await runCommandWithCandidates({
                 candidates: config.musescoreBins,
                 argv: ['-o', pdfPath, xmlPath],
