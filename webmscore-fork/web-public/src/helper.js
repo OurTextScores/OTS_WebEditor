@@ -4,13 +4,38 @@ import { IS_NODE, getSelfURL } from './utils.js'
 
 const moduleOptions = IS_NODE
     ? {
+        resolveNodeAssetPath(pathOrName) {
+            const { basename, join } = require('path')
+            const name = basename(pathOrName)
+            const candidates = []
+            if (typeof __dirname === 'string' && __dirname.length > 0) {
+                candidates.push(join(__dirname, name))
+                candidates.push(join(__dirname, '..', name))
+            }
+            if (typeof process === 'object' && typeof process.cwd === 'function') {
+                const cwd = process.cwd()
+                candidates.push(join(cwd, 'webmscore-fork', 'web-public', name))
+                candidates.push(join(cwd, 'public', name))
+            }
+            candidates.push(pathOrName)
+            return candidates
+        },
         locateFile(path) {
-            const { join } = require('path')
-            return join(__dirname, path)
+            const [primary] = this.resolveNodeAssetPath(path)
+            return primary
         },
         getPreloadedPackage(remotePackageName) {
-            const buf = require('fs').readFileSync(remotePackageName).buffer
-            return buf
+            const fs = require('fs')
+            let lastError = null
+            for (const candidate of this.resolveNodeAssetPath(remotePackageName)) {
+                try {
+                    const buf = fs.readFileSync(candidate).buffer
+                    return buf
+                } catch (error) {
+                    lastError = error
+                }
+            }
+            throw lastError || new Error(`Unable to load ${remotePackageName}`)
         }
     }
     : {

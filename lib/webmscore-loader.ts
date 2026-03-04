@@ -1,5 +1,4 @@
-import WebMscoreImport from 'webmscore';
-import { InputFileFormat, Positions } from 'webmscore/schemas';
+import type { InputFileFormat, Positions } from '../webmscore-fork/web-public/schemas';
 
 export type { InputFileFormat, Positions };
 
@@ -153,15 +152,21 @@ export interface WebMscoreInstance {
 // always receive an object with { ready, load }.
 const resolveWebMscore = (mod: unknown): WebMscoreInstance => {
     const candidates = [
-        mod as Record<string, unknown> | undefined,
         (mod as any)?.default as Record<string, unknown> | undefined,
         (mod as any)?.default?.default as Record<string, unknown> | undefined,
+        mod as Record<string, unknown> | undefined,
     ];
 
     for (const candidate of candidates) {
         if (!candidate) continue;
-        const load = candidate.load;
-        const ready = candidate.ready;
+        let load: unknown;
+        let ready: unknown;
+        try {
+            load = candidate.load;
+            ready = candidate.ready;
+        } catch {
+            continue;
+        }
         if (typeof load === 'function' && ready && typeof (ready as Promise<void>).then === 'function') {
             return candidate as unknown as WebMscoreInstance;
         }
@@ -170,9 +175,9 @@ const resolveWebMscore = (mod: unknown): WebMscoreInstance => {
     throw new Error('Unexpected webmscore module shape: missing ready/load');
 };
 
-const WebMscore = resolveWebMscore(WebMscoreImport as unknown);
-
 let initialized = false;
+let webMscore: WebMscoreInstance | null = null;
+let initPromise: Promise<WebMscoreInstance> | null = null;
 let inProcessInitialized = false;
 let inProcessWebMscore: WebMscoreInstance | null = null;
 let inProcessInitPromise: Promise<WebMscoreInstance> | null = null;
@@ -190,13 +195,27 @@ const ensureBrowserMscoreScriptUrl = () => {
 };
 
 export const loadWebMscore = async (): Promise<WebMscoreInstance> => {
-    if (initialized) {
-        return WebMscore as unknown as WebMscoreInstance;
+    if (initialized && webMscore) {
+        return webMscore;
+    }
+    if (initPromise) {
+        return initPromise;
     }
 
-    await WebMscore.ready;
-    initialized = true;
-    return WebMscore as unknown as WebMscoreInstance;
+    initPromise = (async () => {
+        const imported = await import('../webmscore-fork/web-public/webmscore.webpack.mjs');
+        const resolved = resolveWebMscore(imported as unknown);
+        await resolved.ready;
+        webMscore = resolved;
+        initialized = true;
+        return resolved;
+    })();
+
+    try {
+        return await initPromise;
+    } finally {
+        initPromise = null;
+    }
 };
 
 export const loadWebMscoreInProcess = async (): Promise<WebMscoreInstance> => {
@@ -209,7 +228,9 @@ export const loadWebMscoreInProcess = async (): Promise<WebMscoreInstance> => {
 
     inProcessInitPromise = (async () => {
         ensureBrowserMscoreScriptUrl();
-        const inProcessImport = await import('../webmscore-fork/web-public/src/index.js');
+        const inProcessImport = typeof window === 'undefined'
+            ? await import('../webmscore-fork/web-public/src/nodejs.js')
+            : await import('../webmscore-fork/web-public/src/index.js');
         const resolved = resolveWebMscore(inProcessImport as unknown);
         await resolved.ready;
         inProcessWebMscore = resolved;
