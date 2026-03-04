@@ -4,6 +4,7 @@ const mocked = vi.hoisted(() => ({
   convertMusicNotation: vi.fn(),
   ensureMusicConversionToolsAvailable: vi.fn(),
   normalizeMusicFormat: vi.fn(),
+  runMusicConversionHealthProbe: vi.fn(),
   createScoreArtifact: vi.fn(),
   getScoreArtifact: vi.fn(),
   summarizeScoreArtifact: vi.fn((artifact: { id: string; format: string }) => ({
@@ -16,6 +17,7 @@ vi.mock('../lib/music-conversion', () => ({
   convertMusicNotation: mocked.convertMusicNotation,
   ensureMusicConversionToolsAvailable: mocked.ensureMusicConversionToolsAvailable,
   normalizeMusicFormat: mocked.normalizeMusicFormat,
+  runMusicConversionHealthProbe: mocked.runMusicConversionHealthProbe,
 }));
 
 vi.mock('../lib/score-artifacts', () => ({
@@ -37,6 +39,13 @@ describe('runMusicConvertService', () => {
       if (normalized === 'midi' || normalized === 'mid') return 'midi';
       return null;
     });
+    mocked.runMusicConversionHealthProbe.mockResolvedValue({
+      ok: true,
+      inputFormat: 'musicxml',
+      outputFormat: 'midi',
+      timeoutMs: 60000,
+      durationMs: 42,
+    });
   });
 
   it('returns health status payload when health check is requested', async () => {
@@ -46,6 +55,7 @@ describe('runMusicConvertService', () => {
         xml2abcScript: '/opt/notagen/xml2abc.py',
         abc2xmlScript: '/opt/notagen/abc2xml.py',
         pythonCommand: 'python3',
+        musescoreTimeoutMs: 60000,
         musescoreBins: ['musescore3'],
       },
       missing: [],
@@ -68,6 +78,40 @@ describe('runMusicConvertService', () => {
       pythonCommand: 'python3',
     });
     expect(mocked.convertMusicNotation).not.toHaveBeenCalled();
+    expect(mocked.runMusicConversionHealthProbe).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns 503 when tools are available but conversion probe fails', async () => {
+    mocked.ensureMusicConversionToolsAvailable.mockResolvedValue({
+      ok: true,
+      config: {
+        xml2abcScript: '/opt/notagen/xml2abc.py',
+        abc2xmlScript: '/opt/notagen/abc2xml.py',
+        pythonCommand: 'python3',
+        musescoreTimeoutMs: 60000,
+        musescoreBins: ['musescore3'],
+      },
+      missing: [],
+    });
+    mocked.runMusicConversionHealthProbe.mockResolvedValue({
+      ok: false,
+      inputFormat: 'musicxml',
+      outputFormat: 'midi',
+      timeoutMs: 60000,
+      durationMs: 100,
+      error: 'probe failed',
+    });
+
+    const result = await runMusicConvertService({ healthCheck: true });
+
+    expect(result.status).toBe(503);
+    expect(result.body).toMatchObject({
+      ok: false,
+      probe: {
+        ok: false,
+        error: 'probe failed',
+      },
+    });
   });
 
   it('returns 400 when output format is missing or invalid', async () => {

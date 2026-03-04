@@ -2,6 +2,7 @@ import {
     convertMusicNotation,
     ensureMusicConversionToolsAvailable,
     normalizeMusicFormat,
+    runMusicConversionHealthProbe,
 } from '../music-conversion';
 import {
     createScoreArtifact,
@@ -127,16 +128,29 @@ export async function runMusicConvertService(body: unknown, options?: ConvertSer
     const healthCheck = readBoolean(data?.healthCheck, data?.health_check, false);
     if (healthCheck) {
         const tools = await ensureMusicConversionToolsAvailable();
+        const probe = tools.ok
+            ? await runMusicConversionHealthProbe({ traceContext })
+            : {
+                ok: false,
+                inputFormat: 'musicxml' as const,
+                outputFormat: 'midi' as const,
+                timeoutMs: tools.config.musescoreTimeoutMs,
+                durationMs: 0,
+                error: 'Skipped because conversion tools are unavailable.',
+            };
         logConvertEvent('info', 'music.convert.health_probe', traceContext, {
             ok: tools.ok,
             missingCount: tools.missing.length,
             musescoreCandidates: tools.config.musescoreBins,
             pythonCommand: tools.config.pythonCommand,
+            probeOk: probe.ok,
+            probeDurationMs: probe.durationMs,
+            probeError: probe.error || null,
         });
         return {
-            status: tools.ok ? 200 : 503,
+            status: tools.ok && probe.ok ? 200 : 503,
             body: {
-                ok: tools.ok,
+                ok: tools.ok && probe.ok,
                 engine: 'notagen',
                 scripts: {
                     xml2abc: tools.config.xml2abcScript,
@@ -148,7 +162,12 @@ export async function runMusicConvertService(body: unknown, options?: ConvertSer
                 },
                 pythonCommand: tools.config.pythonCommand,
                 missing: tools.missing,
+                probe,
                 maxInputBytes: MAX_CONVERT_INPUT_BYTES,
+                timeouts: {
+                    defaultMs: tools.config.defaultTimeoutMs,
+                    musescoreMs: tools.config.musescoreTimeoutMs,
+                },
             },
         };
     }
