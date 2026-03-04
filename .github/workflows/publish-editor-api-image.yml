@@ -20,6 +20,24 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Verify LFS assets are present
+        run: |
+          min_wasm_bytes=1000000
+          min_data_bytes=1000000
+          actual_wasm_bytes=$(wc -c < public/webmscore.lib.wasm)
+          actual_data_bytes=$(wc -c < public/webmscore.lib.data)
+          actual_mem_wasm_bytes=$(wc -c < public/webmscore.lib.mem.wasm)
+          echo "webmscore.lib.wasm bytes: ${actual_wasm_bytes}"
+          echo "webmscore.lib.data bytes: ${actual_data_bytes}"
+          echo "webmscore.lib.mem.wasm bytes: ${actual_mem_wasm_bytes}"
+          if [ "${actual_wasm_bytes}" -lt "${min_wasm_bytes}" ] || [ "${actual_data_bytes}" -lt "${min_data_bytes}" ]; then
+            echo "LFS artifacts look unresolved (files are too small)."
+            exit 1
+          fi
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
