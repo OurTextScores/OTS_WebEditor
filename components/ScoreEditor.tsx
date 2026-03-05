@@ -7315,6 +7315,33 @@ ${partsBodyXml}
         }
     }, []);
 
+    const generateMmaTemplateFromXml = useCallback(async (xml: string, options?: { switchToMmaTab?: boolean }) => {
+        const estimatedMeasures = estimateMusicXmlMeasureCount(xml);
+        const payload = await postScoreEditorJson('/api/music/mma/template', {
+            content: xml,
+            maxMeasures: Math.min(
+                MMA_TEMPLATE_MAX_MEASURES,
+                Math.max(1, estimatedMeasures || MMA_TEMPLATE_MAX_MEASURES),
+            ),
+        });
+        const template = typeof payload.template === 'string' ? payload.template : '';
+        if (!template.trim()) {
+            throw new Error('MMA template response did not include a script.');
+        }
+        setMmaScript(template);
+        setMmaStarterPreset('lead-sheet');
+        const warnings = Array.isArray(payload.warnings)
+            ? payload.warnings.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+            : [];
+        setMmaWarnings(warnings);
+        setMmaSanitizedStderr('');
+        setMmaResultPayload(payload);
+        if (options?.switchToMmaTab) {
+            setXmlSidebarTab('mma');
+        }
+        return payload;
+    }, [postScoreEditorJson]);
+
     const handleMmaGenerateTemplate = async () => {
         setMmaBusy(true);
         setMmaError(null);
@@ -7324,26 +7351,7 @@ ${partsBodyXml}
                 alert('Load a score before generating an MMA starter from MusicXML.');
                 return;
             }
-            const estimatedMeasures = estimateMusicXmlMeasureCount(xml);
-            const payload = await postScoreEditorJson('/api/music/mma/template', {
-                content: xml,
-                maxMeasures: Math.min(
-                    MMA_TEMPLATE_MAX_MEASURES,
-                    Math.max(1, estimatedMeasures || MMA_TEMPLATE_MAX_MEASURES),
-                ),
-            });
-            const template = typeof payload.template === 'string' ? payload.template : '';
-            if (!template.trim()) {
-                throw new Error('MMA template response did not include a script.');
-            }
-            setMmaScript(template);
-            setMmaStarterPreset('lead-sheet');
-            const warnings = Array.isArray(payload.warnings)
-                ? payload.warnings.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-                : [];
-            setMmaWarnings(warnings);
-            setMmaSanitizedStderr('');
-            setMmaResultPayload(payload);
+            await generateMmaTemplateFromXml(xml);
         } catch (err) {
             console.error('Failed to generate MMA template', err);
             setMmaError(errorMessage(err) || 'Failed to generate MMA starter template.');
@@ -7472,7 +7480,7 @@ ${partsBodyXml}
         }
     };
 
-    const handleHarmonyAnalyze = async (applyImmediately = false) => {
+    const handleHarmonyAnalyze = async (options?: { applyImmediately?: boolean; persistArtifacts?: boolean; generateMmaTemplate?: boolean }) => {
         setHarmonyBusy(true);
         setHarmonyError(null);
         try {
@@ -7485,7 +7493,7 @@ ${partsBodyXml}
                 content: xml,
                 insertHarmony: true,
                 includeContent: true,
-                persistArtifacts: false,
+                persistArtifacts: options?.persistArtifacts ?? true,
                 preferLocalKey: true,
                 includeRomanNumerals: false,
                 simplifyForMma: true,
@@ -7503,7 +7511,17 @@ ${partsBodyXml}
             setHarmonyGeneratedXml(musicxml);
             setHarmonyResultPayload(payload);
 
-            if (applyImmediately) {
+            if (options?.generateMmaTemplate) {
+                setMmaBusy(true);
+                setMmaError(null);
+                try {
+                    await generateMmaTemplateFromXml(musicxml, { switchToMmaTab: true });
+                } finally {
+                    setMmaBusy(false);
+                }
+            }
+
+            if (options?.applyImmediately) {
                 setXmlLoading(true);
                 try {
                     await applyXmlToScore(musicxml, {
@@ -7542,6 +7560,15 @@ ${partsBodyXml}
         } finally {
             setXmlLoading(false);
         }
+    };
+
+    const handleDownloadHarmonyXml = () => {
+        if (!harmonyGeneratedXml.trim()) {
+            alert('No tagged MusicXML is available to download.');
+            return;
+        }
+        const filenameBase = scoreTitle ? `harmony-${toSafeFilename(scoreTitle)}` : 'harmony-tagged';
+        downloadBlob(harmonyGeneratedXml, `${filenameBase}.musicxml`, 'application/vnd.recordare.musicxml+xml');
     };
 
     const handleApplyAiOutput = async () => {
@@ -12174,7 +12201,7 @@ ${partsBodyXml}
                                     <div className="flex flex-wrap gap-2">
                                         <button
                                             type="button"
-                                            onClick={() => void handleHarmonyAnalyze(false)}
+                                            onClick={() => void handleHarmonyAnalyze({ applyImmediately: false, persistArtifacts: true })}
                                             disabled={harmonyBusy}
                                             className="flex-1 rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                             data-testid="btn-harmony-analyze"
@@ -12183,12 +12210,21 @@ ${partsBodyXml}
                                         </button>
                                         <button
                                             type="button"
-                                            onClick={() => void handleHarmonyAnalyze(true)}
+                                            onClick={() => void handleHarmonyAnalyze({ applyImmediately: true, persistArtifacts: true })}
                                             disabled={harmonyBusy}
                                             className="flex-1 rounded border border-blue-600 bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                                             data-testid="btn-harmony-analyze-apply"
                                         >
                                             {harmonyBusy ? 'Analyzing...' : 'Analyze + Apply Tags'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => void handleHarmonyAnalyze({ applyImmediately: false, persistArtifacts: true, generateMmaTemplate: true })}
+                                            disabled={harmonyBusy || mmaBusy}
+                                            className="flex-1 rounded border border-emerald-600 bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            data-testid="btn-harmony-analyze-mma"
+                                        >
+                                            {(harmonyBusy || mmaBusy) ? 'Working...' : 'Analyze + Generate MMA'}
                                         </button>
                                     </div>
                                 </div>
@@ -12229,6 +12265,15 @@ ${partsBodyXml}
                                 {harmonyGeneratedXml && (
                                     <>
                                         <div className="flex flex-wrap gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={handleDownloadHarmonyXml}
+                                                disabled={!harmonyGeneratedXml.trim()}
+                                                className="rounded border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                data-testid="btn-harmony-download-xml"
+                                            >
+                                                Download Tagged XML
+                                            </button>
                                             <button
                                                 type="button"
                                                 onClick={handleApplyHarmonyOutput}
