@@ -9,8 +9,6 @@ import {
   MUSIC_RENDER_TOOL_CONTRACT,
   MUSIC_MMA_TEMPLATE_TOOL_CONTRACT,
   MUSIC_MMA_RENDER_TOOL_CONTRACT,
-  MUSIC_CHORDGAN_OPTIONS_TOOL_CONTRACT,
-  MUSIC_CHORDGAN_TRANSFER_TOOL_CONTRACT,
   MUSIC_TOOL_CONTRACTS,
 } from '../lib/music-services/contracts';
 
@@ -27,8 +25,6 @@ describe('music service tool contracts', () => {
       'music.render',
       'music.mma_template',
       'music.mma_render',
-      'music.chordgan_options',
-      'music.chordgan_transfer',
     ]);
     expect(new Set(names).size).toBe(names.length);
   });
@@ -119,26 +115,6 @@ describe('music service tool contracts', () => {
       type: 'object',
     });
     expect(MUSIC_MMA_RENDER_TOOL_CONTRACT.outputSchema).toMatchObject({
-      oneOf: expect.any(Array),
-    });
-  });
-
-  it('declares required ChordGAN options contract fields', () => {
-    expect(MUSIC_CHORDGAN_OPTIONS_TOOL_CONTRACT.description.length).toBeGreaterThan(0);
-    expect(MUSIC_CHORDGAN_OPTIONS_TOOL_CONTRACT.inputSchema).toMatchObject({
-      type: 'object',
-    });
-    expect(MUSIC_CHORDGAN_OPTIONS_TOOL_CONTRACT.outputSchema).toMatchObject({
-      oneOf: expect.any(Array),
-    });
-  });
-
-  it('declares required ChordGAN transfer contract fields', () => {
-    expect(MUSIC_CHORDGAN_TRANSFER_TOOL_CONTRACT.description.length).toBeGreaterThan(0);
-    expect(MUSIC_CHORDGAN_TRANSFER_TOOL_CONTRACT.inputSchema).toMatchObject({
-      type: 'object',
-    });
-    expect(MUSIC_CHORDGAN_TRANSFER_TOOL_CONTRACT.outputSchema).toMatchObject({
       oneOf: expect.any(Array),
     });
   });
