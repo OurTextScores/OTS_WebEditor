@@ -35,7 +35,7 @@ ENV MUSIC_MMA_MAX_SCRIPT_BYTES=262144
 ENV MUSIC_MMA_MAX_STDERR_CHARS=8000
 ENV MUSIC_HARMONY_PYTHON=python3
 ENV MUSIC_HARMONY_SCRIPT=/app/tools/music21_harmony/analyze_harmony.py
-ENV MUSIC_HARMONY_TIMEOUT_MS=60000
+ENV MUSIC_HARMONY_TIMEOUT_MS=180000
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \

@@ -560,20 +560,32 @@ const isMissingProxyStatus = (status: number) => PROXY_MISSING_STATUSES.has(stat
 const errorMessage = (err: unknown) => (err instanceof Error ? err.message.trim() : '');
 
 const MMA_TEMPLATE_MAX_MEASURES = 2500;
+const HARMONY_ANALYZE_DEFAULT_TIMEOUT_MS = 60_000;
+const HARMONY_ANALYZE_MEDIUM_TIMEOUT_MS = 180_000;
+const HARMONY_ANALYZE_LARGE_TIMEOUT_MS = 300_000;
 
 const estimateMusicXmlMeasureCount = (xml: string) => {
-    const measureMatches = [...xml.matchAll(/<measure\b[^>]*\bnumber="([^"]+)"[^>]*>/gi)];
-    if (!measureMatches.length) {
+    const partMatches = [...xml.matchAll(/<part\b[^>]*\bid="[^"]+"[^>]*>([\s\S]*?)<\/part>/gi)];
+    const primaryPartXml = partMatches[0]?.[1] || '';
+    if (primaryPartXml) {
+        return (primaryPartXml.match(/<measure\b/gi) || []).length;
+    }
+    const allMeasures = (xml.match(/<measure\b/gi) || []).length;
+    if (!allMeasures) {
         return 0;
     }
-    const numericMeasures = measureMatches
-        .map((match) => Number(match[1]))
-        .filter((value) => Number.isFinite(value) && value > 0)
-        .map((value) => Math.trunc(value));
-    if (numericMeasures.length > 0) {
-        return Math.max(...numericMeasures);
+    return allMeasures;
+};
+
+const estimateHarmonyTimeoutMs = (xml: string) => {
+    const measureTagCount = (xml.match(/<measure\b/gi) || []).length;
+    if (measureTagCount >= 2000) {
+        return HARMONY_ANALYZE_LARGE_TIMEOUT_MS;
     }
-    return measureMatches.length;
+    if (measureTagCount >= 800) {
+        return HARMONY_ANALYZE_MEDIUM_TIMEOUT_MS;
+    }
+    return HARMONY_ANALYZE_DEFAULT_TIMEOUT_MS;
 };
 
 const formatAiDiffFeedbackError = (message: string) => {
@@ -7503,6 +7515,7 @@ ${partsBodyXml}
                 existingHarmonyMode: 'fill-missing',
                 harmonicRhythm: harmonyRhythmMode,
                 maxChangesPerMeasure: Math.min(8, Math.max(1, Math.trunc(harmonyMaxChangesPerMeasure || 1))),
+                timeoutMs: estimateHarmonyTimeoutMs(xml),
             });
             const warnings = Array.isArray(payload.warnings)
                 ? payload.warnings.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)

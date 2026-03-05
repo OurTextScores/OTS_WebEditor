@@ -274,10 +274,11 @@ def primary_part_or_stream(stream_obj: Any, stream_mod: Any) -> Any:
 def chord_kind_text_from_symbol(symbol: str, chord_symbol: Any) -> str:
     root_name = normalize_symbol(getattr(chord_symbol.root(), "name", ""))
     if not root_name:
+        return symbol.strip()
+    normalized_symbol = normalize_symbol(symbol)
+    if not normalized_symbol:
         return ""
-    if symbol.startswith(root_name):
-        return symbol[len(root_name):]
-    return ""
+    return normalized_symbol
 
 
 def main() -> int:

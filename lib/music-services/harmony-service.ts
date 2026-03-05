@@ -49,7 +49,7 @@ type HarmonyToolConfig = {
   timeoutMs: number;
 };
 
-const DEFAULT_TIMEOUT_MS = 60_000;
+const DEFAULT_TIMEOUT_MS = 180_000;
 const MIN_TIMEOUT_MS = 1_000;
 const MAX_TIMEOUT_MS = 300_000;
 const DEFAULT_SCRIPT_PATH = join(process.cwd(), 'tools', 'music21_harmony', 'analyze_harmony.py');
