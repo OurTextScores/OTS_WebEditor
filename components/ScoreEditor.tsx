@@ -531,7 +531,7 @@ const buildAiChatTranscript = (messages: AiChatMessage[]) => {
         : ''}`;
 };
 
-const MMA_BLUES_DEMO_TEMPLATE = `; 12-bar blues starter\nTempo 110\nTimeSig 4 4\nKeySig C\nGroove Swing\n\n1  C7 | F7 | C7 | C7 |\n5  F7 | F7 | C7 | C7 |\n9  G7 | F7 | C7 | G7 |\n`;
+const MMA_BLUES_DEMO_TEMPLATE = `Tempo 110\nTimeSig 4 4\nKeySig C\nGroove Swing\n\n1  C7 F7 C7 C7\n5  F7 F7 C7 C7\n9  G7 F7 C7 G7\n`;
 
 const decodeBase64ToBytes = (input: string) => {
     const compact = input.replace(/\s+/g, '');
@@ -6629,9 +6629,13 @@ ${partsBodyXml}
         captureApiTraceContext(response.headers);
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
-            const message = typeof asRecord(payload)?.error === 'string'
-                ? String(asRecord(payload)?.error)
-                : `Request failed: ${response.status}`;
+            const payloadRecord = asRecord(payload);
+            const payloadError = asRecord(payloadRecord?.error);
+            const message = typeof payloadRecord?.error === 'string'
+                ? String(payloadRecord.error)
+                : (typeof payloadError?.message === 'string'
+                    ? payloadError.message
+                    : `Request failed: ${response.status}`);
             throw new Error(message);
         }
         return asRecord(payload) || {};

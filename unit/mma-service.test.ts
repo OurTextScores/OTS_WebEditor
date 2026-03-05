@@ -36,7 +36,7 @@ describe('mma services', () => {
 
   it('returns generated MMA template payload', async () => {
     mocked.buildStarterTemplateFromXml.mockReturnValue({
-      template: 'Tempo 100\nTimeSig 4 4\nKeySig C\nGroove Swing\n\n1 C | F | G7 | C |\n',
+      template: 'Tempo 100\nTimeSig 4 4\nKeySig C\nGroove Swing\n\n1 C F G7 C\n',
       warnings: ['No harmony symbols found.'],
       analysis: {
         meter: '4/4',
@@ -117,7 +117,7 @@ describe('mma services', () => {
       .mockResolvedValueOnce({ id: 'xml-1', format: 'musicxml', content: '<score-partwise/>' });
 
     const result = await runMmaRenderService({
-      script: 'Tempo 100\n1 C | F | G7 | C |',
+      script: 'Tempo 100\n1 C F G7 C',
       includeMidi: true,
       includeMusicXml: true,
       persistArtifacts: true,

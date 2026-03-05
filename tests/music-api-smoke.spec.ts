@@ -183,7 +183,7 @@ test.describe('Music service endpoints', () => {
   });
 
   test('mma render: compiles script and optionally converts to MusicXML', async ({ request }) => {
-    const script = `Tempo 108\nTimeSig 4 4\nKeySig C\nGroove Swing\n\n1 C | F | G7 | C |\n`;
+    const script = `Tempo 108\nTimeSig 4 4\nKeySig C\nGroove Swing\n\n1 C F G7 C\n`;
     const response = await request.post('/api/music/mma/render', {
       data: {
         script,

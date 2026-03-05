@@ -107,7 +107,7 @@ describe('music-mma helpers', () => {
     expect(result.template).toContain('KeySig D');
     expect(result.template).toContain('Tempo 92');
     expect(result.template).toContain('Groove BossaNova');
-    expect(result.template).toContain('1  Dmaj7 | A7 |');
+    expect(result.template).toContain('1  Dmaj7 A7');
   });
 
   it('infers chords from note content when harmony tags are missing', () => {
@@ -117,7 +117,7 @@ describe('music-mma helpers', () => {
     expect(result.warnings[0]).toContain('inferred chord symbols');
     expect(result.analysis.harmonyMeasureCount).toBe(2);
     expect(result.analysis.harmonyCoverage).toBe(1);
-    expect(result.template).toContain('1  C | Am |');
+    expect(result.template).toContain('1  C Am');
   });
 
   it('fills missing harmony measures using note-based inference', () => {
@@ -127,7 +127,7 @@ describe('music-mma helpers', () => {
     expect(result.warnings[0]).toContain('Filled 1 measure');
     expect(result.analysis.harmonyMeasureCount).toBe(2);
     expect(result.analysis.harmonyCoverage).toBe(1);
-    expect(result.template).toContain('1  Dmaj7 | G7 |');
+    expect(result.template).toContain('1  Dmaj7 G7');
   });
 
   it('falls back to key-based placeholder chords when no harmony or notes exist', () => {
@@ -137,7 +137,7 @@ describe('music-mma helpers', () => {
     expect(result.warnings[0]).toContain('No <harmony> tags');
     expect(result.warnings[1]).toContain('Could not derive harmony');
     expect(result.analysis.harmonyMeasureCount).toBe(0);
-    expect(result.template).toContain('1  C | C |');
+    expect(result.template).toContain('1  C C');
   });
 
   it('validates empty and oversized scripts', () => {
@@ -147,7 +147,7 @@ describe('music-mma helpers', () => {
     expect(empty.ok).toBe(false);
     expect(empty.error).toContain('empty');
 
-    const oversized = validateMmaScript('Tempo 120\nGroove Swing\n1 C | F | G7 | C |\n');
+    const oversized = validateMmaScript('Tempo 120\nGroove Swing\n1 C F G7 C\n');
     expect(oversized.ok).toBe(false);
     expect(oversized.error).toContain('exceeds size limit');
   });
