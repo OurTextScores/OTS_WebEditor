@@ -33,10 +33,14 @@ ENV MUSIC_MMA_BIN=mma
 ENV MUSIC_MMA_TIMEOUT_MS=60000
 ENV MUSIC_MMA_MAX_SCRIPT_BYTES=262144
 ENV MUSIC_MMA_MAX_STDERR_CHARS=8000
+ENV MUSIC_HARMONY_PYTHON=python3
+ENV MUSIC_HARMONY_SCRIPT=/app/tools/music21_harmony/analyze_harmony.py
+ENV MUSIC_HARMONY_TIMEOUT_MS=60000
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       python3 \
+      python3-pip \
       python3-pyparsing \
       mma \
       musescore3 \
@@ -46,6 +50,7 @@ RUN apt-get update && \
       libpipewire-0.3-0 \
       ca-certificates \
       curl && \
+    python3 -m pip install --break-system-packages --no-cache-dir "music21>=9,<10" && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install MuseScore 4 by extracting AppImage and invoking mscore4portable directly.
@@ -74,6 +79,7 @@ COPY --from=builder /app/next.config.ts ./next.config.ts
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
+COPY --from=builder /app/tools ./tools
 COPY --from=builder /app/webmscore-fork/share/instruments ./webmscore-fork/share/instruments
 
 EXPOSE 3000

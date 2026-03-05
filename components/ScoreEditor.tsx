@@ -735,7 +735,7 @@ export default function ScoreEditor() {
     const [isResizingSidebar, setIsResizingSidebar] = useState(false);
     const sidebarResizeStartXRef = useRef<number>(0);
     const sidebarResizeStartWidthRef = useRef<number>(0);
-    const [xmlSidebarTab, setXmlSidebarTab] = useState<'xml' | 'assistant' | 'notagen' | 'mma'>('xml');
+    const [xmlSidebarTab, setXmlSidebarTab] = useState<'xml' | 'assistant' | 'notagen' | 'harmony' | 'mma'>('xml');
     const [codeEditorTheme, setCodeEditorTheme] = useState<CodeEditorThemeMode>('light');
     const [xmlText, setXmlText] = useState('');
     const [xmlDirty, setXmlDirty] = useState(false);
@@ -750,6 +750,11 @@ export default function ScoreEditor() {
     const [mmaMidiBase64, setMmaMidiBase64] = useState('');
     const [mmaGeneratedXml, setMmaGeneratedXml] = useState('');
     const [mmaResultPayload, setMmaResultPayload] = useState<Record<string, unknown> | null>(null);
+    const [harmonyBusy, setHarmonyBusy] = useState(false);
+    const [harmonyError, setHarmonyError] = useState<string | null>(null);
+    const [harmonyWarnings, setHarmonyWarnings] = useState<string[]>([]);
+    const [harmonyGeneratedXml, setHarmonyGeneratedXml] = useState('');
+    const [harmonyResultPayload, setHarmonyResultPayload] = useState<Record<string, unknown> | null>(null);
     const [aiProvider, setAiProvider] = useState<AiProvider>('openai');
     const [aiModel, setAiModel] = useState('');
     const [aiApiKey, setAiApiKey] = useState('');
@@ -1611,7 +1616,7 @@ export default function ScoreEditor() {
         if (aiEnabled) {
             return;
         }
-        if (xmlSidebarTab !== 'xml' && xmlSidebarTab !== 'mma') {
+        if (xmlSidebarTab !== 'xml' && xmlSidebarTab !== 'mma' && xmlSidebarTab !== 'harmony') {
             setXmlSidebarTab('xml');
         }
     }, [aiEnabled, xmlSidebarTab]);
@@ -3151,6 +3156,7 @@ ${partsBodyXml}
         const needsXmlForSidebarTab = (
             (xmlSidebarTab === 'assistant' && (aiIncludeXml || (aiMode === 'agent' && musicAgentIncludeCurrentXml)))
             || xmlSidebarTab === 'notagen'
+            || xmlSidebarTab === 'harmony'
             || xmlSidebarTab === 'mma'
         );
         if (needsXmlForSidebarTab && !xmlText.trim()) {
@@ -7466,6 +7472,78 @@ ${partsBodyXml}
         }
     };
 
+    const handleHarmonyAnalyze = async (applyImmediately = false) => {
+        setHarmonyBusy(true);
+        setHarmonyError(null);
+        try {
+            const xml = await resolveXmlContext();
+            if (!xml.trim()) {
+                alert('Load a score before running harmony analysis.');
+                return;
+            }
+            const payload = await postScoreEditorJson('/api/music/harmony/analyze', {
+                content: xml,
+                insertHarmony: true,
+                includeContent: true,
+                persistArtifacts: false,
+                preferLocalKey: true,
+                includeRomanNumerals: false,
+                simplifyForMma: true,
+                existingHarmonyMode: 'fill-missing',
+            });
+            const warnings = Array.isArray(payload.warnings)
+                ? payload.warnings.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+                : [];
+            const content = asRecord(payload.content);
+            const musicxml = typeof content?.musicxml === 'string' ? content.musicxml : '';
+            if (!musicxml.trim()) {
+                throw new Error('Harmony analysis did not return tagged MusicXML.');
+            }
+            setHarmonyWarnings(warnings);
+            setHarmonyGeneratedXml(musicxml);
+            setHarmonyResultPayload(payload);
+
+            if (applyImmediately) {
+                setXmlLoading(true);
+                try {
+                    await applyXmlToScore(musicxml, {
+                        telemetrySource: 'harmony_analysis_apply',
+                        inputFormat: 'musicxml',
+                    });
+                    setXmlSidebarTab('xml');
+                } finally {
+                    setXmlLoading(false);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to analyze harmony', err);
+            setHarmonyError(errorMessage(err) || 'Failed to analyze harmony.');
+        } finally {
+            setHarmonyBusy(false);
+        }
+    };
+
+    const handleApplyHarmonyOutput = async () => {
+        if (!harmonyGeneratedXml.trim()) {
+            alert('No tagged MusicXML is available yet.');
+            return;
+        }
+        setXmlLoading(true);
+        setXmlError(null);
+        try {
+            await applyXmlToScore(harmonyGeneratedXml, {
+                telemetrySource: 'harmony_analysis_apply',
+                inputFormat: 'musicxml',
+            });
+            setXmlSidebarTab('xml');
+        } catch (err) {
+            console.error('Failed to apply harmony-tagged MusicXML', err);
+            alert('Failed to apply harmony-tagged MusicXML. See console for details.');
+        } finally {
+            setXmlLoading(false);
+        }
+    };
+
     const handleApplyAiOutput = async () => {
         if (!aiPatchedXml.trim()) {
             alert(aiPatchError || 'AI patch has not produced valid MusicXML.');
@@ -11090,6 +11168,18 @@ ${partsBodyXml}
                                     )}
                                     <button
                                         type="button"
+                                        data-testid="tab-harmony"
+                                        onClick={() => setXmlSidebarTab('harmony')}
+                                        className={`rounded border px-2 py-1 ${
+                                            xmlSidebarTab === 'harmony'
+                                                ? 'border-gray-400 bg-gray-100 text-gray-900'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                                        }`}
+                                    >
+                                        Harmony
+                                    </button>
+                                    <button
+                                        type="button"
                                         data-testid="tab-mma"
                                         onClick={() => setXmlSidebarTab('mma')}
                                         className={`rounded border px-2 py-1 ${
@@ -12067,6 +12157,114 @@ ${partsBodyXml}
                                         </summary>
                                         <pre className="mt-2 max-h-64 overflow-auto text-[11px] leading-relaxed text-gray-700 whitespace-pre-wrap">
                                             {JSON.stringify(mmaResultPayload, null, 2)}
+                                        </pre>
+                                    </details>
+                                )}
+                            </div>
+                        )}
+                        {xmlSidebarTab === 'harmony' && (
+                            <div className="mt-3 space-y-3 text-sm text-gray-700">
+                                <div className="rounded border border-gray-200 bg-gray-50/70 p-3 space-y-3">
+                                    <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                                        Harmony Analysis
+                                    </div>
+                                    <div className="text-xs text-gray-600">
+                                        Generates MusicXML <code>{'<harmony>'}</code> tags using a music21-based analyzer. This improves MMA templates and can be used as a standalone score-enrichment pass.
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => void handleHarmonyAnalyze(false)}
+                                            disabled={harmonyBusy}
+                                            className="flex-1 rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            data-testid="btn-harmony-analyze"
+                                        >
+                                            {harmonyBusy ? 'Analyzing...' : 'Analyze Score'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => void handleHarmonyAnalyze(true)}
+                                            disabled={harmonyBusy}
+                                            className="flex-1 rounded border border-blue-600 bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            data-testid="btn-harmony-analyze-apply"
+                                        >
+                                            {harmonyBusy ? 'Analyzing...' : 'Analyze + Apply Tags'}
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                                    This feature generates chord-symbol tags for accompaniment and score enrichment. It is not yet a full Roman-numeral analysis workflow.
+                                </div>
+                                {harmonyError && (
+                                    <div className="text-xs text-red-600">
+                                        {harmonyError}
+                                    </div>
+                                )}
+                                {harmonyWarnings.length > 0 && (
+                                    <div className="space-y-1">
+                                        {harmonyWarnings.map((warning, index) => (
+                                            <div key={`harmony-warning-${index}`} className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                                                {warning}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                {harmonyResultPayload && (
+                                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                        {[
+                                            ['Measures', String(Number(asRecord(harmonyResultPayload.analysis)?.measureCount ?? 0) || 0)],
+                                            ['Tagged', String(Number(asRecord(harmonyResultPayload.analysis)?.harmonyTagCount ?? 0) || 0)],
+                                            ['Coverage', String(asRecord(harmonyResultPayload.analysis)?.coverage ?? '0')],
+                                            ['Local Key', String(asRecord(harmonyResultPayload.analysis)?.localKeyStrategy ?? 'n/a')],
+                                            ['Rhythm', String(asRecord(harmonyResultPayload.analysis)?.harmonicRhythm ?? 'n/a')],
+                                            ['Fallbacks', String(Number(asRecord(harmonyResultPayload.analysis)?.fallbackCount ?? 0) || 0)],
+                                        ].map(([label, value]) => (
+                                            <div key={label} className="rounded border border-gray-200 bg-gray-50 px-3 py-2">
+                                                <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{label}</div>
+                                                <div className="mt-1 text-sm text-gray-800">{value}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                {harmonyGeneratedXml && (
+                                    <>
+                                        <div className="flex flex-wrap gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={handleApplyHarmonyOutput}
+                                                disabled={harmonyBusy || !harmonyGeneratedXml.trim()}
+                                                className="rounded border border-blue-600 bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                data-testid="btn-harmony-apply-xml"
+                                            >
+                                                Apply Tagged XML
+                                            </button>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between text-xs text-gray-500">
+                                                <span>Tagged MusicXML</span>
+                                                <span>Review before applying</span>
+                                            </div>
+                                            <CodeMirrorEditor
+                                                testId="harmony-generated-xml"
+                                                value={harmonyGeneratedXml}
+                                                onChange={(nextValue) => setHarmonyGeneratedXml(nextValue)}
+                                                readOnly={false}
+                                                language="xml"
+                                                placeholderText="Tagged MusicXML will appear here."
+                                                height={220}
+                                                maxHeight={360}
+                                                themeMode={codeEditorTheme}
+                                            />
+                                        </div>
+                                    </>
+                                )}
+                                {harmonyResultPayload && (
+                                    <details className="rounded border border-gray-200 bg-gray-50 px-3 py-2">
+                                        <summary className="cursor-pointer text-xs font-medium text-gray-700">
+                                            Harmony Response
+                                        </summary>
+                                        <pre className="mt-2 max-h-64 overflow-auto text-[11px] leading-relaxed text-gray-700 whitespace-pre-wrap">
+                                            {JSON.stringify(harmonyResultPayload, null, 2)}
                                         </pre>
                                     </details>
                                 )}
