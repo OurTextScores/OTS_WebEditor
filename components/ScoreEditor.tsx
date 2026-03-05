@@ -227,6 +227,7 @@ type AiChatMessage = {
 };
 
 type MmaStarterPreset = 'blank' | 'lead-sheet' | 'blues';
+type HarmonyRhythmMode = 'auto' | 'measure' | 'beat';
 
 type BlockReviewStatus = 'pending' | 'accepted' | 'rejected' | 'comment';
 
@@ -755,6 +756,8 @@ export default function ScoreEditor() {
     const [harmonyWarnings, setHarmonyWarnings] = useState<string[]>([]);
     const [harmonyGeneratedXml, setHarmonyGeneratedXml] = useState('');
     const [harmonyResultPayload, setHarmonyResultPayload] = useState<Record<string, unknown> | null>(null);
+    const [harmonyRhythmMode, setHarmonyRhythmMode] = useState<HarmonyRhythmMode>('auto');
+    const [harmonyMaxChangesPerMeasure, setHarmonyMaxChangesPerMeasure] = useState(2);
     const [aiProvider, setAiProvider] = useState<AiProvider>('openai');
     const [aiModel, setAiModel] = useState('');
     const [aiApiKey, setAiApiKey] = useState('');
@@ -7498,6 +7501,8 @@ ${partsBodyXml}
                 includeRomanNumerals: false,
                 simplifyForMma: true,
                 existingHarmonyMode: 'fill-missing',
+                harmonicRhythm: harmonyRhythmMode,
+                maxChangesPerMeasure: Math.min(8, Math.max(1, Math.trunc(harmonyMaxChangesPerMeasure || 1))),
             });
             const warnings = Array.isArray(payload.warnings)
                 ? payload.warnings.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
@@ -12209,6 +12214,41 @@ ${partsBodyXml}
                                     <div className="text-xs text-gray-600">
                                         Generates MusicXML <code>{'<harmony>'}</code> tags using a music21-based analyzer. This improves MMA templates and can be used as a standalone score-enrichment pass.
                                     </div>
+                                    <div className="grid gap-2 sm:grid-cols-2">
+                                        <label className="flex flex-col gap-1">
+                                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                Harmonic Rhythm
+                                            </span>
+                                            <select
+                                                value={harmonyRhythmMode}
+                                                onChange={(event) => setHarmonyRhythmMode(event.target.value as HarmonyRhythmMode)}
+                                                className="rounded border border-gray-300 px-2 py-1 text-sm"
+                                                data-testid="select-harmony-rhythm"
+                                            >
+                                                <option value="auto">Auto (strong beats only)</option>
+                                                <option value="measure">One chord per measure</option>
+                                                <option value="beat">Allow beat-level changes</option>
+                                            </select>
+                                        </label>
+                                        <label className="flex flex-col gap-1">
+                                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                Max Changes / Measure
+                                            </span>
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                max={8}
+                                                step={1}
+                                                value={harmonyMaxChangesPerMeasure}
+                                                onChange={(event) => {
+                                                    const next = Number.parseInt(event.target.value, 10);
+                                                    setHarmonyMaxChangesPerMeasure(Number.isFinite(next) ? Math.min(8, Math.max(1, next)) : 2);
+                                                }}
+                                                className="rounded border border-gray-300 px-2 py-1 text-sm"
+                                                data-testid="input-harmony-max-changes"
+                                            />
+                                        </label>
+                                    </div>
                                     <div className="flex flex-wrap gap-2">
                                         <button
                                             type="button"
@@ -12265,6 +12305,7 @@ ${partsBodyXml}
                                             ['Local Key', String(asRecord(harmonyResultPayload.analysis)?.localKeyStrategy ?? 'n/a')],
                                             ['Rhythm', String(asRecord(harmonyResultPayload.analysis)?.harmonicRhythm ?? 'n/a')],
                                             ['Fallbacks', String(Number(asRecord(harmonyResultPayload.analysis)?.fallbackCount ?? 0) || 0)],
+                                            ['Suppressed', String(Number(asRecord(harmonyResultPayload.analysis)?.suppressedChangeCount ?? 0) || 0)],
                                         ].map(([label, value]) => (
                                             <div key={label} className="rounded border border-gray-200 bg-gray-50 px-3 py-2">
                                                 <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{label}</div>
