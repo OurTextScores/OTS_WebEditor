@@ -3,6 +3,7 @@ import json
 import os
 import sys
 import tempfile
+import warnings as py_warnings
 from collections import Counter
 from typing import Any, Dict, List, Optional
 
@@ -236,7 +237,9 @@ def serialize_score_to_musicxml(score_obj: Any) -> str:
     with tempfile.NamedTemporaryFile(delete=False, suffix=".musicxml") as handle:
         path = handle.name
     try:
-        score_obj.write("musicxml", fp=path)
+        with py_warnings.catch_warnings():
+            py_warnings.simplefilter("ignore")
+            score_obj.write("musicxml", fp=path)
         with open(path, "r", encoding="utf-8") as handle:
             return handle.read()
     finally:
@@ -244,6 +247,28 @@ def serialize_score_to_musicxml(score_obj: Any) -> str:
             os.unlink(path)
         except OSError:
             pass
+
+
+def append_captured_warnings(target: List[str], captured: List[Any]) -> None:
+    seen = set(target)
+    for warning in captured:
+        message = str(getattr(warning, "message", "") or "").strip()
+        if not message:
+            continue
+        normalized = f"music21 import warning: {message}"
+        if normalized in seen:
+            continue
+        target.append(normalized)
+        seen.add(normalized)
+
+
+def primary_part_or_stream(stream_obj: Any, stream_mod: Any) -> Any:
+    parts = list(getattr(stream_obj, "parts", []))
+    if parts:
+        return parts[0]
+    if isinstance(stream_obj, stream_mod.Part):
+        return stream_obj
+    return stream_obj
 
 
 def main() -> int:
@@ -266,7 +291,9 @@ def main() -> int:
         return 0
 
     try:
-        score = converter.parseData(xml)
+        with py_warnings.catch_warnings(record=True) as captured_warnings:
+            py_warnings.simplefilter("always")
+            score = converter.parseData(xml)
     except Exception as exc:
         emit(error_payload(
             "invalid_musicxml",
@@ -284,6 +311,7 @@ def main() -> int:
     max_changes_per_measure = max(1, int(settings.get("maxChangesPerMeasure") or 2))
 
     warnings: List[str] = []
+    append_captured_warnings(warnings, captured_warnings)
     if include_roman:
         warnings.append("Roman numeral output is not enabled in the Phase 1 skeleton.")
 
@@ -311,9 +339,9 @@ def main() -> int:
     preserved_existing_count = 0
     suppressed_changes = 0
     source_counts = Counter()
+    tagged_measure_numbers = set()
 
-    chordified_parts = list(chordified.parts)
-    chordified_part = chordified_parts[0] if chordified_parts else chordified
+    chordified_part = primary_part_or_stream(chordified, stream)
     source_measures = list(chordified_part.recurse().getElementsByClass(stream.Measure))
     local_keys = []
     for source_measure in source_measures:
@@ -379,6 +407,7 @@ def main() -> int:
                     tag = harmony.NoChord()
                 target_measure.insert(float(chosen["offsetBeats"]), tag)
                 tagged_count += 1
+                tagged_measure_numbers.add(int(measure_number))
 
     if suppressed_changes > 0:
         warnings.append(f"Suppressed {suppressed_changes} intra-measure harmony change(s) to respect harmonic-rhythm limits.")
@@ -387,9 +416,9 @@ def main() -> int:
 
     analysis = {
         "measureCount": len(source_measures),
-        "taggedMeasureCount": tagged_count,
+        "taggedMeasureCount": len(tagged_measure_numbers),
         "harmonyTagCount": tagged_count,
-        "coverage": round((tagged_count / len(source_measures)), 3) if source_measures else 0.0,
+        "coverage": round((len(tagged_measure_numbers) / len(source_measures)), 3) if source_measures else 0.0,
         "localKeyStrategy": "measure-analyze-key-smoothed" if prefer_local_key else "score-analyze-key",
         "harmonicRhythm": harmonic_rhythm,
         "existingHarmonyMode": existing_mode,
