@@ -271,6 +271,15 @@ def primary_part_or_stream(stream_obj: Any, stream_mod: Any) -> Any:
     return stream_obj
 
 
+def chord_kind_text_from_symbol(symbol: str, chord_symbol: Any) -> str:
+    root_name = normalize_symbol(getattr(chord_symbol.root(), "name", ""))
+    if not root_name:
+        return ""
+    if symbol.startswith(root_name):
+        return symbol[len(root_name):]
+    return ""
+
+
 def main() -> int:
     request = read_request()
     xml = str(request.get("xml") or "")
@@ -351,19 +360,19 @@ def main() -> int:
             local_keys.append(score_key)
     local_keys = smooth_measure_keys(local_keys, score_key)
 
-    target_measure_by_number = {}
-    for measure_obj in target_part.recurse().getElementsByClass(stream.Measure):
-        number = getattr(measure_obj, "number", None)
-        if number is not None and number not in target_measure_by_number:
-            target_measure_by_number[number] = measure_obj
+    target_measures = list(target_part.recurse().getElementsByClass(stream.Measure))
+    if len(target_measures) != len(source_measures):
+        warnings.append(
+            f"Measure alignment mismatch between source analysis ({len(source_measures)}) and target insertion part ({len(target_measures)}); "
+            f"processing {min(len(source_measures), len(target_measures))} measure(s) in sequence."
+        )
 
-    for source_measure, measure_key in zip(source_measures, local_keys):
+    for measure_index, (source_measure, measure_key, target_measure) in enumerate(zip(source_measures, local_keys, target_measures), start=1):
         measure_number = getattr(source_measure, "number", None)
-        if measure_number is None:
-            continue
-        target_measure = target_measure_by_number.get(measure_number)
-        if target_measure is None:
-            continue
+        try:
+            measure_number_value = int(measure_number)
+        except Exception:
+            measure_number_value = measure_index
 
         existing_harmony = list(target_measure.recurse().getElementsByClass(harmony.Harmony))
         if existing_harmony and existing_mode in ("preserve", "fill-missing"):
@@ -390,7 +399,8 @@ def main() -> int:
                 fallback_count += 1
 
             segment = {
-                "measure": int(measure_number),
+                "measureIndex": measure_index,
+                "measure": measure_number_value,
                 "offsetBeats": chosen["offsetBeats"],
                 "symbol": chosen["symbol"],
                 "roman": None,
@@ -403,11 +413,14 @@ def main() -> int:
             if insert_harmony:
                 try:
                     tag = harmony.ChordSymbol(chosen["symbol"])
+                    chord_kind_text = chord_kind_text_from_symbol(chosen["symbol"], tag)
+                    if chord_kind_text:
+                        tag.chordKindStr = chord_kind_text
                 except Exception:
                     tag = harmony.NoChord()
                 target_measure.insert(float(chosen["offsetBeats"]), tag)
                 tagged_count += 1
-                tagged_measure_numbers.add(int(measure_number))
+                tagged_measure_numbers.add(measure_index)
 
     if suppressed_changes > 0:
         warnings.append(f"Suppressed {suppressed_changes} intra-measure harmony change(s) to respect harmonic-rhythm limits.")

@@ -312,37 +312,52 @@ const pitchClassToName = (pitchClass: number, keyFifths: number) => {
     : FLAT_PITCH_NAMES[normalized]!;
 };
 
+type PartMeasureEntry = {
+  number: number | null;
+  xml: string;
+};
+
+const extractPartXmls = (xml: string) => {
+  const partRegex = /<part\b[^>]*\bid="[^"]+"[^>]*>([\s\S]*?)<\/part>/gi;
+  const parts: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = partRegex.exec(xml)) !== null) {
+    parts.push(match[1] || '');
+  }
+  return parts;
+};
+
+const extractMeasuresFromPart = (partXml: string) => {
+  const measureRegex = /(<measure\b[^>]*\/>)|(<measure\b[^>]*>)([\s\S]*?)<\/measure>/gi;
+  const measures: PartMeasureEntry[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = measureRegex.exec(partXml)) !== null) {
+    const measureTag = match[1] || match[2] || match[0];
+    const numberRaw = measureTag.match(/\bnumber="([^"]+)"/i)?.[1] ?? null;
+    const parsed = numberRaw === null ? Number.NaN : Number(numberRaw);
+    measures.push({
+      number: Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : null,
+      xml: match[3] || '',
+    });
+  }
+  return measures;
+};
+
+const extractPrimaryPartMeasures = (xml: string) => {
+  const [primaryPartXml = ''] = extractPartXmls(xml);
+  return extractMeasuresFromPart(primaryPartXml);
+};
+
 const extractMeasureCount = (xml: string) => {
-  const measureMatches = [...xml.matchAll(/<measure\b[^>]*\bnumber="([^"]+)"[^>]*>/gi)];
-  if (!measureMatches.length) {
-    return 0;
-  }
-  const numeric = measureMatches
-    .map((match) => Number(match[1]))
-    .filter((value) => Number.isFinite(value) && value > 0)
-    .map((value) => Math.trunc(value));
-  if (!numeric.length) {
-    return measureMatches.length;
-  }
-  return Math.max(...numeric);
+  return extractPrimaryPartMeasures(xml).length;
 };
 
 const extractHarmonyByMeasure = (xml: string, maxMeasures: number) => {
-  const measureRegex = /<measure\b[^>]*\bnumber="([^"]+)"[^>]*>([\s\S]*?)<\/measure>/gi;
+  const primaryMeasures = extractPrimaryPartMeasures(xml);
   const harmonyByMeasure = new Map<number, string>();
-  let match: RegExpExecArray | null;
-
-  while ((match = measureRegex.exec(xml)) !== null) {
-    const measureNumber = Number(match[1]);
-    if (!Number.isFinite(measureNumber) || measureNumber < 1) {
-      continue;
-    }
-    const bar = Math.trunc(measureNumber);
-    if (bar > maxMeasures || harmonyByMeasure.has(bar)) {
-      continue;
-    }
-
-    const measureXml = match[2] || '';
+  for (let index = 0; index < Math.min(primaryMeasures.length, maxMeasures); index += 1) {
+    const bar = index + 1;
+    const measureXml = primaryMeasures[index]?.xml || '';
     const harmonyMatch = measureXml.match(/<harmony\b[\s\S]*?<\/harmony>/i);
     if (!harmonyMatch) {
       continue;
@@ -363,21 +378,13 @@ const extractHarmonyByMeasure = (xml: string, maxMeasures: number) => {
 };
 
 const extractPitchClassWeightsByMeasure = (xml: string, maxMeasures: number) => {
-  const measureRegex = /<measure\b[^>]*\bnumber="([^"]+)"[^>]*>([\s\S]*?)<\/measure>/gi;
   const weightsByMeasure = new Map<number, Map<number, number>>();
-  let match: RegExpExecArray | null;
-
-  while ((match = measureRegex.exec(xml)) !== null) {
-    const measureNumber = Number(match[1]);
-    if (!Number.isFinite(measureNumber) || measureNumber < 1) {
-      continue;
-    }
-    const bar = Math.trunc(measureNumber);
-    if (bar > maxMeasures) {
-      continue;
-    }
-
-    const measureXml = match[2] || '';
+  const partXmls = extractPartXmls(xml);
+  for (const partXml of partXmls) {
+    const measures = extractMeasuresFromPart(partXml);
+    for (let index = 0; index < Math.min(measures.length, maxMeasures); index += 1) {
+      const bar = index + 1;
+      const measureXml = measures[index]?.xml || '';
     const noteRegex = /<note\b[\s\S]*?<\/note>/gi;
     let noteMatch: RegExpExecArray | null;
     while ((noteMatch = noteRegex.exec(measureXml)) !== null) {
@@ -405,6 +412,7 @@ const extractPitchClassWeightsByMeasure = (xml: string, maxMeasures: number) => 
       const measureWeights = weightsByMeasure.get(bar) ?? new Map<number, number>();
       weightsByMeasure.set(bar, measureWeights);
       measureWeights.set(pitchClass, (measureWeights.get(pitchClass) || 0) + durationWeight);
+    }
     }
   }
 

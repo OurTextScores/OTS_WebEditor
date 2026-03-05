@@ -77,6 +77,43 @@ const XML_WITH_PARTIAL_HARMONY = `<?xml version="1.0" encoding="UTF-8"?>
   </part>
 </score-partwise>`;
 
+const XML_WITH_MEASURE_RESTARTS = `<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="3.1">
+  <part-list>
+    <score-part id="P1"><part-name>Upper</part-name></score-part>
+    <score-part id="P2"><part-name>Lower</part-name></score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes><key><fifths>0</fifths></key><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
+      <harmony><root><root-step>C</root-step></root><kind>major</kind></harmony>
+    </measure>
+    <measure number="2">
+      <harmony><root><root-step>F</root-step></root><kind>major</kind></harmony>
+    </measure>
+    <measure number="1">
+      <harmony><root><root-step>G</root-step></root><kind>dominant</kind></harmony>
+    </measure>
+    <measure number="2">
+      <harmony><root><root-step>C</root-step></root><kind>major</kind></harmony>
+    </measure>
+  </part>
+  <part id="P2">
+    <measure number="1">
+      <note><pitch><step>C</step></pitch><duration>4</duration></note>
+    </measure>
+    <measure number="2">
+      <note><pitch><step>F</step></pitch><duration>4</duration></note>
+    </measure>
+    <measure number="1">
+      <note><pitch><step>G</step></pitch><duration>4</duration></note>
+    </measure>
+    <measure number="2">
+      <note><pitch><step>C</step></pitch><duration>4</duration></note>
+    </measure>
+  </part>
+</score-partwise>`;
+
 describe('music-mma helpers', () => {
   const originalMaxScriptBytes = process.env.MUSIC_MMA_MAX_SCRIPT_BYTES;
 
@@ -130,6 +167,16 @@ describe('music-mma helpers', () => {
     expect(result.template).toContain('1  Dmaj7 G7');
   });
 
+  it('uses sequential measure order when numbering restarts across movements or parts', () => {
+    const result = buildStarterTemplateFromXml(XML_WITH_MEASURE_RESTARTS, { maxMeasures: 8 });
+
+    expect(result.warnings).toEqual([]);
+    expect(result.analysis.measureCount).toBe(4);
+    expect(result.analysis.harmonyMeasureCount).toBe(4);
+    expect(result.analysis.harmonyCoverage).toBe(1);
+    expect(result.template).toContain('1  C F G7 C');
+  });
+
   it('falls back to key-based placeholder chords when no harmony or notes exist', () => {
     const result = buildStarterTemplateFromXml(XML_WITHOUT_HARMONY, { maxMeasures: 4 });
 
@@ -137,7 +184,8 @@ describe('music-mma helpers', () => {
     expect(result.warnings[0]).toContain('No <harmony> tags');
     expect(result.warnings[1]).toContain('Could not derive harmony');
     expect(result.analysis.harmonyMeasureCount).toBe(0);
-    expect(result.template).toContain('1  C C');
+    expect(result.analysis.measureCount).toBe(2);
+    expect(result.template).toContain('1  C');
   });
 
   it('validates empty and oversized scripts', () => {
