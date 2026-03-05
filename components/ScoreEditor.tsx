@@ -12055,6 +12055,17 @@ ${partsBodyXml}
                                             </button>
                                         </div>
                                     </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => void handleHarmonyAnalyze({ applyImmediately: false, persistArtifacts: true, generateMmaTemplate: true })}
+                                            disabled={mmaBusy || harmonyBusy}
+                                            className="w-full rounded border border-emerald-600 bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            data-testid="btn-mma-analyze-harmony-template"
+                                        >
+                                            {(mmaBusy || harmonyBusy) ? 'Working...' : 'Analyze Harmony + Generate'}
+                                        </button>
+                                    </div>
                                     <div className="space-y-2">
                                         <div className="flex items-center justify-between text-xs text-gray-500">
                                             <span>MMA Script</span>

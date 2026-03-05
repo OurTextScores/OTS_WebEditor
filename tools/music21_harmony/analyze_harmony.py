@@ -118,14 +118,30 @@ def simplify_symbol_for_mma(symbol: str, fallback_symbol: str) -> str:
     return root
 
 
-def choose_measure_symbol(measure_obj: Any, harmony_mod: Any, chord_mod: Any, fallback_symbol: str, simplify_for_mma: bool) -> Dict[str, Any]:
-    candidates = []
+def measure_duration_quarters(measure_obj: Any) -> float:
+    duration = float(getattr(getattr(measure_obj, "barDuration", None), "quarterLength", 0.0) or 0.0)
+    if duration > 0:
+        return duration
+    return float(getattr(getattr(measure_obj, "duration", None), "quarterLength", 4.0) or 4.0)
+
+
+def collect_measure_candidates(measure_obj: Any, harmony_mod: Any, chord_mod: Any, fallback_symbol: str, simplify_for_mma: bool) -> List[Dict[str, Any]]:
+    candidates: List[Dict[str, Any]] = []
     for item in measure_obj.recurse().getElementsByClass(chord_mod.Chord):
         quarter_length = float(getattr(getattr(item, "duration", None), "quarterLength", 0.0) or 0.0)
-        candidates.append((quarter_length, float(getattr(item, "offset", 0.0) or 0.0), item))
-    candidates.sort(key=lambda entry: (-entry[0], entry[1]))
+        offset = float(getattr(item, "offset", 0.0) or 0.0)
+        beat_strength = float(getattr(item, "beatStrength", 0.0) or 0.0)
+        candidates.append({
+            "quarterLength": quarter_length,
+            "offsetBeats": offset,
+            "beatStrength": beat_strength,
+            "chord": item,
+        })
+    candidates.sort(key=lambda entry: (entry["offsetBeats"], -entry["quarterLength"]))
 
-    for _, offset, chord_obj in candidates:
+    resolved: List[Dict[str, Any]] = []
+    for candidate in candidates:
+        chord_obj = candidate["chord"]
         try:
             symbol_obj = harmony_mod.chordSymbolFromChord(chord_obj)
             figure = str(getattr(symbol_obj, "figure", "") or "").strip()
@@ -140,21 +156,80 @@ def choose_measure_symbol(measure_obj: Any, harmony_mod: Any, chord_mod: Any, fa
             if simplify_for_mma:
                 normalized_figure = simplify_symbol_for_mma(normalized_figure, fallback_symbol)
             confidence = 0.9 if chord_type else 0.75
-            return {
+            resolved.append({
                 "symbol": normalized_figure,
-                "offsetBeats": float(offset),
+                "offsetBeats": float(candidate["offsetBeats"]),
+                "quarterLength": float(candidate["quarterLength"]),
+                "beatStrength": float(candidate["beatStrength"]),
                 "confidence": confidence,
                 "source": "music21-chordify",
-            }
+            })
         except Exception:
             continue
+    return resolved
 
-    return {
-        "symbol": fallback_symbol,
-        "offsetBeats": 0.0,
-        "confidence": 0.25,
-        "source": "tonic-fallback",
-    }
+
+def select_measure_segments(
+    measure_obj: Any,
+    harmony_mod: Any,
+    chord_mod: Any,
+    fallback_symbol: str,
+    simplify_for_mma: bool,
+    harmonic_rhythm: str,
+    max_changes_per_measure: int,
+) -> List[Dict[str, Any]]:
+    candidates = collect_measure_candidates(measure_obj, harmony_mod, chord_mod, fallback_symbol, simplify_for_mma)
+    if not candidates:
+        return [{
+            "symbol": fallback_symbol,
+            "offsetBeats": 0.0,
+            "quarterLength": measure_duration_quarters(measure_obj),
+            "beatStrength": 1.0,
+            "confidence": 0.25,
+            "source": "tonic-fallback",
+        }]
+
+    deduped: List[Dict[str, Any]] = []
+    seen_offsets = set()
+    for candidate in candidates:
+        offset_key = round(float(candidate["offsetBeats"]), 3)
+        if offset_key in seen_offsets:
+            continue
+        seen_offsets.add(offset_key)
+        if deduped and deduped[-1]["symbol"] == candidate["symbol"]:
+            continue
+        deduped.append(candidate)
+
+    if not deduped:
+        return [{
+            "symbol": fallback_symbol,
+            "offsetBeats": 0.0,
+            "quarterLength": measure_duration_quarters(measure_obj),
+            "beatStrength": 1.0,
+            "confidence": 0.25,
+            "source": "tonic-fallback",
+        }]
+
+    if harmonic_rhythm == "measure":
+        base = max(deduped, key=lambda entry: (entry["quarterLength"], -entry["offsetBeats"]))
+        return [{**base, "offsetBeats": 0.0}]
+
+    bar_quarters = measure_duration_quarters(measure_obj)
+    max_segments = max(1, int(max_changes_per_measure))
+    selected = [deduped[0]]
+    for candidate in deduped[1:]:
+        if len(selected) >= max_segments:
+            break
+        if candidate["symbol"] == selected[-1]["symbol"]:
+            continue
+        offset = float(candidate["offsetBeats"])
+        if harmonic_rhythm == "auto":
+            if offset < (bar_quarters / 2.0) and float(candidate["beatStrength"]) < 0.5:
+                continue
+        selected.append(candidate)
+
+    selected[0]["offsetBeats"] = 0.0
+    return selected
 
 
 def serialize_score_to_musicxml(score_obj: Any) -> str:
@@ -205,6 +280,8 @@ def main() -> int:
     include_roman = bool(settings.get("includeRomanNumerals", False))
     simplify_for_mma = bool(settings.get("simplifyForMma", True))
     existing_mode = str(settings.get("existingHarmonyMode") or "fill-missing").strip().lower()
+    harmonic_rhythm = str(settings.get("harmonicRhythm") or "auto").strip().lower()
+    max_changes_per_measure = max(1, int(settings.get("maxChangesPerMeasure") or 2))
 
     warnings: List[str] = []
     if include_roman:
@@ -232,6 +309,7 @@ def main() -> int:
     tagged_count = 0
     fallback_count = 0
     preserved_existing_count = 0
+    suppressed_changes = 0
     source_counts = Counter()
 
     chordified_parts = list(chordified.parts)
@@ -265,29 +343,45 @@ def main() -> int:
             continue
 
         measure_fallback_symbol = tonic_symbol(measure_key) if measure_key is not None else fallback_symbol
-        chosen = choose_measure_symbol(source_measure, harmony, chord, measure_fallback_symbol, simplify_for_mma)
-        source_counts[chosen["source"]] += 1
-        if chosen["source"] == "tonic-fallback":
-            fallback_count += 1
+        raw_candidates = collect_measure_candidates(source_measure, harmony, chord, measure_fallback_symbol, simplify_for_mma)
+        chosen_segments = select_measure_segments(
+            source_measure,
+            harmony,
+            chord,
+            measure_fallback_symbol,
+            simplify_for_mma,
+            harmonic_rhythm,
+            max_changes_per_measure,
+        )
+        if len(raw_candidates) > len(chosen_segments):
+            suppressed_changes += (len(raw_candidates) - len(chosen_segments))
 
-        segment = {
-            "measure": int(measure_number),
-            "offsetBeats": chosen["offsetBeats"],
-            "symbol": chosen["symbol"],
-            "roman": None,
-            "key": key_name(measure_key),
-            "confidence": chosen["confidence"],
-            "source": chosen["source"],
-        }
-        segments.append(segment)
+        for chosen in chosen_segments:
+            source_counts[chosen["source"]] += 1
+            if chosen["source"] == "tonic-fallback":
+                fallback_count += 1
 
-        if insert_harmony:
-            try:
-                tag = harmony.ChordSymbol(chosen["symbol"])
-            except Exception:
-                tag = harmony.NoChord()
-            target_measure.insert(float(chosen["offsetBeats"]), tag)
-            tagged_count += 1
+            segment = {
+                "measure": int(measure_number),
+                "offsetBeats": chosen["offsetBeats"],
+                "symbol": chosen["symbol"],
+                "roman": None,
+                "key": key_name(measure_key),
+                "confidence": chosen["confidence"],
+                "source": chosen["source"],
+            }
+            segments.append(segment)
+
+            if insert_harmony:
+                try:
+                    tag = harmony.ChordSymbol(chosen["symbol"])
+                except Exception:
+                    tag = harmony.NoChord()
+                target_measure.insert(float(chosen["offsetBeats"]), tag)
+                tagged_count += 1
+
+    if suppressed_changes > 0:
+        warnings.append(f"Suppressed {suppressed_changes} intra-measure harmony change(s) to respect harmonic-rhythm limits.")
 
     output_xml = serialize_score_to_musicxml(score)
 
@@ -297,11 +391,12 @@ def main() -> int:
         "harmonyTagCount": tagged_count,
         "coverage": round((tagged_count / len(source_measures)), 3) if source_measures else 0.0,
         "localKeyStrategy": "measure-analyze-key-smoothed" if prefer_local_key else "score-analyze-key",
-        "harmonicRhythm": "measure",
+        "harmonicRhythm": harmonic_rhythm,
         "existingHarmonyMode": existing_mode,
         "existingHarmonyPreservedCount": preserved_existing_count,
         "fallbackCount": fallback_count,
         "sourceBreakdown": dict(source_counts),
+        "suppressedChangeCount": suppressed_changes,
     }
 
     emit({
