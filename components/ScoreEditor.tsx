@@ -886,29 +886,6 @@ export default function ScoreEditor() {
         return trace;
     }, []);
 
-    const postScoreEditorJson = useCallback(async (path: string, body: Record<string, unknown>) => {
-        const response = await fetch(resolveScoreEditorApiPath(path), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(body),
-        });
-        captureApiTraceContext(response.headers);
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) {
-            const payloadRecord = asRecord(payload);
-            const payloadError = asRecord(payloadRecord?.error);
-            const message = typeof payloadRecord?.error === 'string'
-                ? String(payloadRecord.error)
-                : (typeof payloadError?.message === 'string'
-                    ? payloadError.message
-                    : `Request failed: ${response.status}`);
-            throw new Error(message);
-        }
-        return asRecord(payload) || {};
-    }, [captureApiTraceContext]);
-
     const emitEditorTelemetry = useCallback((
         eventName: string,
         properties?: Record<string, string | number | boolean | null | undefined>,
@@ -6717,6 +6694,29 @@ ${partsBodyXml}
             }
         }
     };
+
+    const postScoreEditorJson = useCallback(async (path: string, body: Record<string, unknown>) => {
+        const response = await fetch(resolveScoreEditorApiPath(path), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body),
+        });
+        captureApiTraceContext(response.headers);
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            const payloadRecord = asRecord(payload);
+            const payloadError = asRecord(payloadRecord?.error);
+            const message = typeof payloadRecord?.error === 'string'
+                ? String(payloadRecord.error)
+                : (typeof payloadError?.message === 'string'
+                    ? payloadError.message
+                    : `Request failed: ${response.status}`);
+            throw new Error(message);
+        }
+        return asRecord(payload) || {};
+    }, [captureApiTraceContext]);
 
     const handleMusicAgentSend = async () => {
         const prompt = (musicAgentPromptRef.current?.value ?? '').trim();

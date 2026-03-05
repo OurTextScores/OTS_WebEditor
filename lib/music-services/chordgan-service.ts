@@ -221,22 +221,11 @@ async function fetchChordGanSpaceStyles(args: {
   traceContext?: TraceContext;
 }): Promise<{ styles: string[]; raw: unknown }> {
   const { Client } = await import('@gradio/client');
-  let app: Awaited<ReturnType<typeof Client.connect>> | null = null;
-  try {
-    app = await Client.connect(args.spaceId, {
-      events: ['data', 'status', 'log'],
-      ...(args.hfToken ? { token: args.hfToken as `hf_${string}` } : {}),
-      ...(args.traceContext ? { headers: withTraceHeaders(args.traceContext) } : {}),
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'unknown error';
-    if (message.includes('Space metadata could not be loaded') && !args.hfToken) {
-      throw new Error(
-        `Space metadata could not be loaded for ${args.spaceId}. The Space may be private; configure MUSIC_CHORDGAN_SPACE_TOKEN or make the Space public.`,
-      );
-    }
-    throw error;
-  }
+  const app = await Client.connect(args.spaceId, {
+    events: ['data', 'status', 'log'],
+    ...(args.hfToken ? { token: args.hfToken as `hf_${string}` } : {}),
+    ...(args.traceContext ? { headers: withTraceHeaders(args.traceContext) } : {}),
+  });
   try {
     const result = await app.predict(args.apiName, []);
     const data = asRecord(result)?.data;
@@ -309,22 +298,11 @@ async function callChordGanSpaceTransfer(args: {
   traceContext?: TraceContext;
 }): Promise<{ midiBase64: string; strategy: string; raw: unknown }> {
   const { Client } = await import('@gradio/client');
-  let app: Awaited<ReturnType<typeof Client.connect>> | null = null;
-  try {
-    app = await Client.connect(args.spaceId, {
-      events: ['data', 'status', 'log'],
-      ...(args.hfToken ? { token: args.hfToken as `hf_${string}` } : {}),
-      ...(args.traceContext ? { headers: withTraceHeaders(args.traceContext) } : {}),
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'unknown error';
-    if (message.includes('Space metadata could not be loaded') && !args.hfToken) {
-      throw new Error(
-        `Space metadata could not be loaded for ${args.spaceId}. The Space may be private; configure MUSIC_CHORDGAN_SPACE_TOKEN or make the Space public.`,
-      );
-    }
-    throw error;
-  }
+  const app = await Client.connect(args.spaceId, {
+    events: ['data', 'status', 'log'],
+    ...(args.hfToken ? { token: args.hfToken as `hf_${string}` } : {}),
+    ...(args.traceContext ? { headers: withTraceHeaders(args.traceContext) } : {}),
+  });
 
   const startedAt = Date.now();
   let timer: ReturnType<typeof setTimeout> | null = null;
