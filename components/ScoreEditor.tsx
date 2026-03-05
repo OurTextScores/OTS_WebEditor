@@ -331,6 +331,8 @@ const MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_ID = (process.env.NEXT_PUBLIC_MUSI
 const MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_PERIOD = (process.env.NEXT_PUBLIC_MUSIC_NOTAGEN_SPACE_DEFAULT_PERIOD || 'Classical').trim();
 const MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_COMPOSER = (process.env.NEXT_PUBLIC_MUSIC_NOTAGEN_SPACE_DEFAULT_COMPOSER || 'Mozart, Wolfgang Amadeus').trim();
 const MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_INSTRUMENTATION = (process.env.NEXT_PUBLIC_MUSIC_NOTAGEN_SPACE_DEFAULT_INSTRUMENTATION || 'Keyboard').trim();
+const MUSIC_SPECIALISTS_DEFAULT_CHORDGAN_SPACE_ID = (process.env.NEXT_PUBLIC_MUSIC_CHORDGAN_DEFAULT_SPACE_ID || 'your-org/chordgan-space').trim();
+const MUSIC_SPECIALISTS_DEFAULT_CHORDGAN_STYLE = (process.env.NEXT_PUBLIC_MUSIC_CHORDGAN_DEFAULT_STYLE || 'classical').trim();
 const MUSIC_AGENT_DEFAULT_MODEL = (process.env.NEXT_PUBLIC_MUSIC_AGENT_DEFAULT_MODEL || 'gpt-5.2').trim();
 const CODE_EDITOR_THEME_OPTIONS: Array<{ value: CodeEditorThemeMode; label: string }> = [
     { value: 'light', label: 'Light' },
@@ -735,7 +737,7 @@ export default function ScoreEditor() {
     const [isResizingSidebar, setIsResizingSidebar] = useState(false);
     const sidebarResizeStartXRef = useRef<number>(0);
     const sidebarResizeStartWidthRef = useRef<number>(0);
-    const [xmlSidebarTab, setXmlSidebarTab] = useState<'xml' | 'assistant' | 'notagen' | 'mma'>('xml');
+    const [xmlSidebarTab, setXmlSidebarTab] = useState<'xml' | 'assistant' | 'notagen' | 'mma' | 'chordgan'>('xml');
     const [codeEditorTheme, setCodeEditorTheme] = useState<CodeEditorThemeMode>('light');
     const [xmlText, setXmlText] = useState('');
     const [xmlDirty, setXmlDirty] = useState(false);
@@ -750,6 +752,16 @@ export default function ScoreEditor() {
     const [mmaMidiBase64, setMmaMidiBase64] = useState('');
     const [mmaGeneratedXml, setMmaGeneratedXml] = useState('');
     const [mmaResultPayload, setMmaResultPayload] = useState<Record<string, unknown> | null>(null);
+    const [chordGanSpaceId, setChordGanSpaceId] = useState(MUSIC_SPECIALISTS_DEFAULT_CHORDGAN_SPACE_ID);
+    const [chordGanStyleOptions, setChordGanStyleOptions] = useState<string[]>([]);
+    const [chordGanStyle, setChordGanStyle] = useState(MUSIC_SPECIALISTS_DEFAULT_CHORDGAN_STYLE);
+    const [chordGanLoadingOptions, setChordGanLoadingOptions] = useState(false);
+    const [chordGanBusy, setChordGanBusy] = useState(false);
+    const [chordGanError, setChordGanError] = useState<string | null>(null);
+    const [chordGanWarnings, setChordGanWarnings] = useState<string[]>([]);
+    const [chordGanMidiBase64, setChordGanMidiBase64] = useState('');
+    const [chordGanGeneratedXml, setChordGanGeneratedXml] = useState('');
+    const [chordGanResultPayload, setChordGanResultPayload] = useState<Record<string, unknown> | null>(null);
     const [aiProvider, setAiProvider] = useState<AiProvider>('openai');
     const [aiModel, setAiModel] = useState('');
     const [aiApiKey, setAiApiKey] = useState('');
@@ -1574,6 +1586,52 @@ export default function ScoreEditor() {
     ]);
 
     useEffect(() => {
+        if (xmlSidebarTab !== 'chordgan') {
+            return;
+        }
+        if (chordGanStyleOptions.length > 0 || chordGanLoadingOptions) {
+            return;
+        }
+        void (async () => {
+            setChordGanLoadingOptions(true);
+            setChordGanError(null);
+            try {
+                const payload = await postScoreEditorJson('/api/music/chordgan/options', {
+                    backend: 'huggingface-space',
+                    spaceId: chordGanSpaceId || undefined,
+                });
+                const options = asRecord(payload.options);
+                const styles = Array.isArray(options?.styles)
+                    ? options.styles.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+                    : [];
+                if (styles.length > 0) {
+                    setChordGanStyleOptions(styles);
+                    if (!styles.includes(chordGanStyle)) {
+                        setChordGanStyle(styles[0] || chordGanStyle);
+                    }
+                }
+                const defaults = asRecord(options?.defaults);
+                const defaultSpaceId = typeof defaults?.spaceId === 'string' ? defaults.spaceId.trim() : '';
+                if (defaultSpaceId && !chordGanSpaceId.trim()) {
+                    setChordGanSpaceId(defaultSpaceId);
+                }
+            } catch (err) {
+                console.error('Failed to load ChordGAN options', err);
+                setChordGanError(errorMessage(err) || 'Failed to load ChordGAN options.');
+            } finally {
+                setChordGanLoadingOptions(false);
+            }
+        })();
+    }, [
+        chordGanLoadingOptions,
+        chordGanSpaceId,
+        chordGanStyle,
+        chordGanStyleOptions,
+        postScoreEditorJson,
+        xmlSidebarTab,
+    ]);
+
+    useEffect(() => {
         if (musicNotaGenSpaceComposers.length === 0) {
             return;
         }
@@ -1611,7 +1669,7 @@ export default function ScoreEditor() {
         if (aiEnabled) {
             return;
         }
-        if (xmlSidebarTab !== 'xml' && xmlSidebarTab !== 'mma') {
+        if (xmlSidebarTab !== 'xml' && xmlSidebarTab !== 'mma' && xmlSidebarTab !== 'chordgan') {
             setXmlSidebarTab('xml');
         }
     }, [aiEnabled, xmlSidebarTab]);
@@ -3152,6 +3210,7 @@ ${partsBodyXml}
             (xmlSidebarTab === 'assistant' && (aiIncludeXml || (aiMode === 'agent' && musicAgentIncludeCurrentXml)))
             || xmlSidebarTab === 'notagen'
             || xmlSidebarTab === 'mma'
+            || xmlSidebarTab === 'chordgan'
         );
         if (needsXmlForSidebarTab && !xmlText.trim()) {
             void loadXmlFromScore();
@@ -7466,6 +7525,125 @@ ${partsBodyXml}
         }
     };
 
+    const handleChordGanRun = async () => {
+        if (!chordGanStyle.trim()) {
+            alert('Select a ChordGAN style first.');
+            return;
+        }
+        setChordGanBusy(true);
+        setChordGanError(null);
+        try {
+            const xml = await resolveXmlContext();
+            if (!xml.trim()) {
+                alert('Load a score before running ChordGAN transfer.');
+                return;
+            }
+            const payload = await postScoreEditorJson('/api/music/chordgan/transfer', {
+                backend: 'huggingface-space',
+                spaceId: chordGanSpaceId || undefined,
+                style: chordGanStyle,
+                content: xml,
+                inputFormat: 'musicxml',
+                includeMidi: true,
+                includeMusicXml: true,
+                includeContent: true,
+                persistArtifacts: true,
+                dryRun: false,
+            });
+            const warnings = Array.isArray(payload.warnings)
+                ? payload.warnings.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+                : [];
+            const content = asRecord(payload.content);
+            const midiBase64 = typeof payload.midiBase64 === 'string'
+                ? payload.midiBase64
+                : (typeof content?.midi === 'string' ? content.midi : '');
+            const musicxml = typeof payload.musicxml === 'string'
+                ? payload.musicxml
+                : (typeof content?.musicxml === 'string' ? content.musicxml : '');
+            setChordGanWarnings(warnings);
+            setChordGanMidiBase64(midiBase64);
+            setChordGanGeneratedXml(musicxml);
+            setChordGanResultPayload(payload);
+        } catch (err) {
+            console.error('ChordGAN transfer failed', err);
+            setChordGanError(errorMessage(err) || 'ChordGAN transfer failed.');
+        } finally {
+            setChordGanBusy(false);
+        }
+    };
+
+    const handleChordGanDownload = (format: 'midi' | 'musicxml') => {
+        if (format === 'midi') {
+            if (!chordGanMidiBase64.trim()) {
+                alert('No ChordGAN MIDI output is available yet.');
+                return;
+            }
+            try {
+                const midiBytes = decodeBase64ToBytes(chordGanMidiBase64);
+                if (!midiBytes.length) {
+                    throw new Error('ChordGAN MIDI payload was empty.');
+                }
+                downloadBlob(midiBytes, 'chordgan-output.mid', 'audio/midi');
+            } catch (err) {
+                console.error('Failed to decode ChordGAN MIDI payload', err);
+                alert('Unable to decode ChordGAN MIDI for download.');
+            }
+            return;
+        }
+        if (!chordGanGeneratedXml.trim()) {
+            alert('No ChordGAN MusicXML output is available yet.');
+            return;
+        }
+        downloadBlob(chordGanGeneratedXml, 'chordgan-output.musicxml', 'application/vnd.recordare.musicxml+xml');
+    };
+
+    const handleApplyChordGanOutput = async () => {
+        if (!chordGanGeneratedXml.trim()) {
+            alert('No ChordGAN MusicXML output is available yet.');
+            return;
+        }
+        setXmlLoading(true);
+        setXmlError(null);
+        try {
+            if (!score) {
+                const encoder = new TextEncoder();
+                const encoded = encoder.encode(chordGanGeneratedXml);
+                const filenameBase = scoreTitle ? `chordgan-${toSafeFilename(scoreTitle)}` : 'chordgan-output';
+                const file = new File([encoded], `${filenameBase}.musicxml`, { type: 'application/xml' });
+                await handleFileUpload(file, {
+                    preserveScoreId: false,
+                    updateUrl: false,
+                    telemetrySource: 'chordgan_output',
+                });
+            } else {
+                const currentXml = await resolveXmlContext();
+                if (!currentXml.trim()) {
+                    throw new Error('Unable to load current score MusicXML for ChordGAN part append.');
+                }
+                const appendResult = appendMusicXmlParts(currentXml, chordGanGeneratedXml);
+                if (appendResult.appendedPartCount <= 0) {
+                    throw new Error('Generated ChordGAN MusicXML did not contain appendable parts.');
+                }
+                setChordGanWarnings((prev) => {
+                    const next = [...prev];
+                    next.push(`Appended ${appendResult.appendedPartCount} part(s) into the current score.`);
+                    appendResult.warnings.forEach((warning) => next.push(warning));
+                    return Array.from(new Set(next));
+                });
+                await applyXmlToScore(appendResult.xml, {
+                    telemetrySource: 'chordgan_output_append',
+                    inputFormat: 'musicxml',
+                });
+            }
+            setXmlSidebarTab('xml');
+        } catch (err) {
+            console.error('Failed to apply ChordGAN output MusicXML', err);
+            alert('Failed to apply generated ChordGAN MusicXML. See console for details.');
+        } finally {
+            setXmlLoading(false);
+        }
+    };
+
     const handleApplyAiOutput = async () => {
         if (!aiPatchedXml.trim()) {
             alert(aiPatchError || 'AI patch has not produced valid MusicXML.');
@@ -11100,6 +11278,18 @@ ${partsBodyXml}
                                     >
                                         MMA
                                     </button>
+                                    <button
+                                        type="button"
+                                        data-testid="tab-chordgan"
+                                        onClick={() => setXmlSidebarTab('chordgan')}
+                                        className={`rounded border px-2 py-1 ${
+                                            xmlSidebarTab === 'chordgan'
+                                                ? 'border-gray-400 bg-gray-100 text-gray-900'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                                        }`}
+                                    >
+                                        ChordGAN
+                                    </button>
                                 </div>
                                 <label className="flex items-center gap-2">
                                     <span className="text-[11px] uppercase tracking-wide text-gray-500">Theme</span>
@@ -12067,6 +12257,144 @@ ${partsBodyXml}
                                         </summary>
                                         <pre className="mt-2 max-h-64 overflow-auto text-[11px] leading-relaxed text-gray-700 whitespace-pre-wrap">
                                             {JSON.stringify(mmaResultPayload, null, 2)}
+                                        </pre>
+                                    </details>
+                                )}
+                            </div>
+                        )}
+                        {xmlSidebarTab === 'chordgan' && (
+                            <div className="mt-3 space-y-3 text-sm text-gray-700">
+                                <div className="rounded border border-gray-200 bg-gray-50/70 p-3 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                                            ChordGAN (Style Transfer)
+                                        </div>
+                                        <a
+                                            href="https://github.com/conanlu/chordgan"
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            title="ChordGAN project repository"
+                                            aria-label="Open ChordGAN project repository"
+                                            className="text-sm leading-none text-gray-500 hover:text-gray-700"
+                                        >
+                                            ⓘ
+                                        </a>
+                                    </div>
+                                    <div className="grid gap-2 sm:grid-cols-2">
+                                        <label className="flex flex-col gap-1">
+                                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                Space ID
+                                            </span>
+                                            <input
+                                                value={chordGanSpaceId}
+                                                onChange={(event) => setChordGanSpaceId(event.target.value)}
+                                                className="rounded border border-gray-300 px-2 py-1 text-sm"
+                                                placeholder="owner/chordgan-space"
+                                                data-testid="input-chordgan-space-id"
+                                            />
+                                        </label>
+                                        <label className="flex flex-col gap-1">
+                                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                Style
+                                            </span>
+                                            <select
+                                                value={chordGanStyle}
+                                                onChange={(event) => setChordGanStyle(event.target.value)}
+                                                className="rounded border border-gray-300 px-2 py-1 text-sm"
+                                                data-testid="select-chordgan-style"
+                                            >
+                                                {(chordGanStyleOptions.length > 0 ? chordGanStyleOptions : [chordGanStyle || 'classical']).map((option) => (
+                                                    <option key={option} value={option}>{option || 'Select style'}</option>
+                                                ))}
+                                            </select>
+                                        </label>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={handleChordGanRun}
+                                            disabled={chordGanBusy || chordGanLoadingOptions || !chordGanStyle.trim()}
+                                            className="flex-1 rounded border border-blue-600 bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            data-testid="btn-chordgan-run"
+                                        >
+                                            {chordGanBusy ? 'Running...' : 'Run ChordGAN Transfer'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleApplyChordGanOutput}
+                                            disabled={chordGanBusy || !chordGanGeneratedXml.trim()}
+                                            className="rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            data-testid="btn-chordgan-apply"
+                                        >
+                                            Append Parts to Score
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                                    ChordGAN output is appended as new instruments/parts to preserve your original score content.
+                                </div>
+                                {chordGanError && (
+                                    <div className="text-xs text-red-600">
+                                        {chordGanError}
+                                    </div>
+                                )}
+                                {chordGanWarnings.length > 0 && (
+                                    <div className="space-y-1">
+                                        {chordGanWarnings.map((warning, index) => (
+                                            <div key={`chordgan-warning-${index}`} className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                                                {warning}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                {(chordGanMidiBase64 || chordGanGeneratedXml) && (
+                                    <div className="flex flex-wrap gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleChordGanDownload('midi')}
+                                            disabled={!chordGanMidiBase64.trim()}
+                                            className="rounded border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            data-testid="btn-chordgan-download-midi"
+                                        >
+                                            Download .mid
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleChordGanDownload('musicxml')}
+                                            disabled={!chordGanGeneratedXml.trim()}
+                                            className="rounded border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            data-testid="btn-chordgan-download-xml"
+                                        >
+                                            Download .musicxml
+                                        </button>
+                                    </div>
+                                )}
+                                {chordGanGeneratedXml && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between text-xs text-gray-500">
+                                            <span>Generated MusicXML</span>
+                                            <span>Review before applying</span>
+                                        </div>
+                                        <CodeMirrorEditor
+                                            testId="chordgan-generated-xml"
+                                            value={chordGanGeneratedXml}
+                                            onChange={(nextValue) => setChordGanGeneratedXml(nextValue)}
+                                            readOnly={false}
+                                            language="xml"
+                                            placeholderText="ChordGAN MusicXML will appear here."
+                                            height={220}
+                                            maxHeight={360}
+                                            themeMode={codeEditorTheme}
+                                        />
+                                    </div>
+                                )}
+                                {chordGanResultPayload && (
+                                    <details className="rounded border border-gray-200 bg-gray-50 px-3 py-2">
+                                        <summary className="cursor-pointer text-xs font-medium text-gray-700">
+                                            ChordGAN Response
+                                        </summary>
+                                        <pre className="mt-2 max-h-64 overflow-auto text-[11px] leading-relaxed text-gray-700 whitespace-pre-wrap">
+                                            {JSON.stringify(chordGanResultPayload, null, 2)}
                                         </pre>
                                     </details>
                                 )}
