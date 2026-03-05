@@ -35,6 +35,7 @@ import {
     resolveLlmApiPath,
     resolveScoreEditorApiPath,
 } from '../lib/score-editor-api-client';
+import { appendMusicXmlParts } from '../lib/musicxml-append-parts';
 import {
     extractTraceContextFromHeaders,
     getOrCreateEditorSessionId,
@@ -556,6 +557,23 @@ const decodeBase64ToBytes = (input: string) => {
 const isMissingProxyStatus = (status: number) => PROXY_MISSING_STATUSES.has(status);
 
 const errorMessage = (err: unknown) => (err instanceof Error ? err.message.trim() : '');
+
+const MMA_TEMPLATE_MAX_MEASURES = 256;
+
+const estimateMusicXmlMeasureCount = (xml: string) => {
+    const measureMatches = [...xml.matchAll(/<measure\b[^>]*\bnumber="([^"]+)"[^>]*>/gi)];
+    if (!measureMatches.length) {
+        return 0;
+    }
+    const numericMeasures = measureMatches
+        .map((match) => Number(match[1]))
+        .filter((value) => Number.isFinite(value) && value > 0)
+        .map((value) => Math.trunc(value));
+    if (numericMeasures.length > 0) {
+        return Math.max(...numericMeasures);
+    }
+    return measureMatches.length;
+};
 
 const formatAiDiffFeedbackError = (message: string) => {
     const trimmed = message.trim();
@@ -7300,8 +7318,13 @@ ${partsBodyXml}
                 alert('Load a score before generating an MMA starter from MusicXML.');
                 return;
             }
+            const estimatedMeasures = estimateMusicXmlMeasureCount(xml);
             const payload = await postScoreEditorJson('/api/music/mma/template', {
                 content: xml,
+                maxMeasures: Math.min(
+                    MMA_TEMPLATE_MAX_MEASURES,
+                    Math.max(1, estimatedMeasures || MMA_TEMPLATE_MAX_MEASURES),
+                ),
             });
             const template = typeof payload.template === 'string' ? payload.template : '';
             if (!template.trim()) {
@@ -7415,8 +7438,22 @@ ${partsBodyXml}
                     telemetrySource: 'mma_output',
                 });
             } else {
-                await applyXmlToScore(mmaGeneratedXml, {
-                    telemetrySource: 'mma_output',
+                const currentXml = await resolveXmlContext();
+                if (!currentXml.trim()) {
+                    throw new Error('Unable to load current score MusicXML for MMA part append.');
+                }
+                const appendResult = appendMusicXmlParts(currentXml, mmaGeneratedXml);
+                if (appendResult.appendedPartCount <= 0) {
+                    throw new Error('Generated MMA MusicXML did not contain appendable parts.');
+                }
+                setMmaWarnings((prev) => {
+                    const next = [...prev];
+                    next.push(`Appended ${appendResult.appendedPartCount} part(s) into the current score.`);
+                    appendResult.warnings.forEach((warning) => next.push(warning));
+                    return Array.from(new Set(next));
+                });
+                await applyXmlToScore(appendResult.xml, {
+                    telemetrySource: 'mma_output_append',
                     inputFormat: 'musicxml',
                 });
             }
@@ -11940,7 +11977,7 @@ ${partsBodyXml}
                                     </div>
                                 </div>
                                 <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                                    MMA generates accompaniment from chord directives; output will not preserve source melody unless encoded in the MMA script.
+                                    Applying MMA output appends accompaniment instruments as new parts in the current score.
                                 </div>
                                 {mmaError && (
                                     <div className="text-xs text-red-600">
@@ -12000,7 +12037,7 @@ ${partsBodyXml}
                                             className="rounded border border-blue-600 bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                                             data-testid="btn-mma-apply-xml"
                                         >
-                                            Apply MusicXML to Score
+                                            Append Parts to Score
                                         </button>
                                     </div>
                                 )}
