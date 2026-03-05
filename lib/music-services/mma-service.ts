@@ -14,7 +14,7 @@ type MmaServiceOptions = {
 };
 
 const DEFAULT_MAX_TEMPLATE_MEASURES = 16;
-const MAX_TEMPLATE_MEASURES = 256;
+const MAX_TEMPLATE_MEASURES = 2500;
 
 const readBoundedInt = (value: unknown, fallback: number, min: number, max: number) => {
   const parsed = Number(value);

@@ -558,7 +558,7 @@ const isMissingProxyStatus = (status: number) => PROXY_MISSING_STATUSES.has(stat
 
 const errorMessage = (err: unknown) => (err instanceof Error ? err.message.trim() : '');
 
-const MMA_TEMPLATE_MAX_MEASURES = 256;
+const MMA_TEMPLATE_MAX_MEASURES = 2500;
 
 const estimateMusicXmlMeasureCount = (xml: string) => {
     const measureMatches = [...xml.matchAll(/<measure\b[^>]*\bnumber="([^"]+)"[^>]*>/gi)];
