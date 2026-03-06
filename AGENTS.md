@@ -208,23 +208,83 @@ Optional direct make (advanced, manual env required)
 Clean rebuild (avoid unless needed)
 - From `webmscore-fork/web-public`: `npm run build` (runs `make clean` and removes artifacts).
 
-## Adding a new WASM-exposed method (checklist)
+## WASM extension workflow
 
-When adding a new C++ function to the WASM bridge, **all six** of the following files must be updated. Missing any one will cause the method to silently not exist at runtime.
+Use this for any `webmscore` extension, not just score mutations. The recent authoritative example is commit `ed2ef1e` (`fix(harmony): force jazz chord symbol rendering after tag apply`), which touched the native export, JS bridge, worker RPC layer, TypeScript loader, app consumer, and generated artifacts.
+
+### Hand-edited layers for a new JS-visible WASM method
+
+When adding a new C++ function to the WASM bridge, update **all** relevant layers below. Missing one usually produces a method that compiles but silently does not exist in the app.
 
 | # | File | What to add |
 |---|------|-------------|
-| 1 | `webmscore-fork/web/main.cpp` | Static `_myMethod()` implementation + `EMSCRIPTEN_KEEPALIVE` export in the `extern "C"` block |
-| 2 | `webmscore-fork/web-public/src/index.js` | Instance method on the Score class that calls `Module.ccall(...)` |
-| 3 | **`webmscore-fork/web-public/src/worker-helper.js`** | Proxy method that calls `this.rpc('myMethod', [...args])`. **This is the one most likely to be forgotten** — the browser loads scores via a web worker and this file is the RPC proxy. Without it the method exists in the worker but is invisible to the main thread. |
-| 4 | `lib/webmscore-loader.ts` | Add to the `Score` TypeScript interface (optional `?:` signature) |
-| 5 | `components/ScoreEditor.tsx` | Add to the `MutationMethods` Pick type (~line 105) so `requireMutation()` can find it; add a `handle*` callback and pass it to `<Toolbar>` |
-| 6 | ScoreOps (if applicable): `lib/music-services/scoreops-service.ts` | Add to `SCORE_OP_SCHEMA`, `SCOREOPS_MUTATION_OPS`, `SCOREOPS_WASM_ELIGIBLE_OPS`, `buildDefaultMutationSupport()`, `evaluateWasmMutationSupport()`, the WASM executor switch in `executeOpsWithWasm`, the XML fallback in `applyOneOp`, and implement an `apply*` XML function |
+| 1 | `webmscore-fork/web/main.cpp` | Native implementation plus `EMSCRIPTEN_KEEPALIVE` export in the `extern "C"` block |
+| 2 | `webmscore-fork/web-public/src/index.js` | Main-thread score method, typically a `Module.ccall(...)` wrapper |
+| 3 | **`webmscore-fork/web-public/src/worker-helper.js`** | Worker RPC proxy (`this.rpc('myMethod', [...args])`). This is the layer most likely to be forgotten. |
+| 4 | `lib/webmscore-loader.ts` | Add the method to the `Score` TypeScript interface |
+| 5 | `components/ScoreEditor.tsx` | Wire the method into editor logic if it is user-facing |
+| 6 | `components/Toolbar.tsx` | If invoked from the toolbar, add handler/button plumbing here too |
+| 7 | `lib/music-services/scoreops-service.ts` | If ScoreOps/agent flows need the method, extend schema/capability/executor/fallback handling |
+| 8 | Tests | Add/update tests for any consumer layer you changed |
 
-**Build steps after changes:**
-1. `cd webmscore-fork/web-public && npm run compile` (C++ → WASM)
-2. `npm run bundle` (re-bundles worker-helper.js + index.js)
-3. `cd ../.. && npm run sync:wasm` (copies artifacts to `public/`)
+Notes:
+- `worker-helper.js` and `lib/webmscore-loader.ts` are the most common omissions.
+- If the change is a deep engraving fix with no new JS method (for example `d8bd9e3`), only native source + generated artifacts may change.
+- If the change is app-only, you may not need `ScoreOps`.
+
+### Generated artifacts touched by a typical extension
+
+After rebuilding, expect some or all of these generated files to change:
+
+- `webmscore-fork/web-public/webmscore.lib.js`
+- `webmscore-fork/web-public/webmscore.webpack.mjs`
+- `public/webmscore.lib.wasm`
+- `public/webmscore.lib.mem.wasm`
+- sometimes `public/webmscore.lib.data`
+
+### Incremental build steps
+
+Use the incremental path. **Do not use `npm run build` / clean rebuilds unless there is a specific reason.**
+
+1. `cd webmscore-fork/web-public && npm run compile`
+   - reliable C++ -> WASM build path
+2. If JS bridge files changed (`src/index.js`, `src/worker-helper.js`, or related bundling inputs):
+   - `npm run bundle`
+3. `cd ../.. && npm run sync:wasm`
+   - copies generated artifacts into `public/`
+
+Typical command sequence:
+
+```bash
+cd webmscore-fork/web-public
+npm run compile
+npm run bundle
+cd ../..
+npm run sync:wasm
+```
+
+Skip `npm run bundle` only if you changed native code exclusively and did not touch JS bridge files.
+
+### Verification checklist
+
+After rebuilding:
+
+1. Confirm the method exists across the bridge:
+   - `rg "myMethod" webmscore-fork/web/main.cpp webmscore-fork/web-public/src/index.js webmscore-fork/web-public/src/worker-helper.js lib/webmscore-loader.ts components/ScoreEditor.tsx`
+2. Confirm the bundled JS contains it:
+   - `rg "myMethod" webmscore-fork/web-public/webmscore.lib.js webmscore-fork/web-public/webmscore.webpack.mjs`
+3. Restart `npm run dev`
+4. Hard refresh the browser if it was already open
+5. If useful, probe the loaded score instance in devtools via the existing editor debug hooks
+
+### Design rule
+
+Prefer adding a native WASM primitive when the UI or agent would otherwise need to reconstruct score semantics indirectly in TypeScript or from SVG. Good candidates:
+
+- page/range playback/export
+- score-wide or range-wide selection helpers
+- anything that would otherwise require repeated JS-side measure/point selection loops
+- anything that should be reusable by both UI and ScoreOps/agent layers
 
 **MusicXML pickup measure notes:**
 - Pickup measures use `<measure number="0" implicit="yes">`.
