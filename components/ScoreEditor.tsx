@@ -4228,6 +4228,7 @@ ${partsBodyXml}
         largeScoreSessionRef.current = false;
         largeSessionXmlAutoloadDeferredLoggedRef.current = false;
         autoFitPendingRef.current = true;
+        let engineMode: string | undefined;
         try {
             const response = await fetch(url, signal ? { signal } : undefined);
             if (!response.ok) throw new Error('Failed to fetch score');
