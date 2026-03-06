@@ -4,11 +4,9 @@ import { ToolbarSectionProps } from '../types';
 import { Play, Square } from 'lucide-react';
 
 export const PlaybackSection: React.FC<ToolbarSectionProps> = ({
-    onPlayAudio,
     onPlayCurrentPageAudio,
     onPlayFromSelectionAudio,
     onStopAudio,
-    isPlaying,
     audioAvailable,
     audioBusy,
     selectionActive,
@@ -16,26 +14,15 @@ export const PlaybackSection: React.FC<ToolbarSectionProps> = ({
     return (
         <>
             <Button
-                data-testid="btn-play"
-                onClick={onPlayAudio}
-                disabled={!audioAvailable || !onPlayAudio || audioBusy}
+                data-testid="btn-play-current-page"
+                onClick={onPlayCurrentPageAudio}
+                disabled={!audioAvailable || !onPlayCurrentPageAudio || audioBusy}
                 variant="primary"
                 size="sm"
                 className="shadow-sm bg-green-600 hover:bg-green-700 border-green-600"
             >
                 <Play size={14} className="mr-2" />
-                {audioBusy ? 'Working…' : isPlaying ? 'Replay' : 'Play'}
-            </Button>
-            <Button
-                data-testid="btn-play-current-page"
-                onClick={onPlayCurrentPageAudio}
-                disabled={!audioAvailable || !onPlayCurrentPageAudio || audioBusy}
-                variant="outline"
-                size="sm"
-                className="shadow-sm"
-            >
-                <Play size={14} className="mr-2" />
-                Play Page
+                {audioBusy ? 'Working…' : 'Play Page'}
             </Button>
             <Button
                 data-testid="btn-play-from-selection"
