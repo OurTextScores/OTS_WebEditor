@@ -10814,7 +10814,7 @@ ${partsBodyXml}
                                             value={checkpointLabel}
                                             onChange={(event) => setCheckpointLabel(event.target.value)}
                                             placeholder="Checkpoint label"
-                                            className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                                            className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none"
                                         />
                                         <button
                                             type="button"
@@ -11265,7 +11265,7 @@ ${partsBodyXml}
                                                 : 'border-transparent text-gray-500 hover:text-gray-700'
                                         }`}
                                     >
-                                        Harmony
+                                        Chordify
                                     </button>
                                     <button
                                         type="button"
@@ -12167,6 +12167,18 @@ ${partsBodyXml}
                                             </button>
                                         </div>
                                     </div>
+                                    <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                                        <div>For better MMA results, generate chord tags first with Chordify.</div>
+                                        <div className="mt-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setXmlSidebarTab('harmony')}
+                                                className="rounded border border-amber-300 bg-white px-2 py-1 text-xs font-medium text-amber-900 hover:bg-amber-100"
+                                            >
+                                                Open Chordify
+                                            </button>
+                                        </div>
+                                    </div>
                                     <div className="flex flex-wrap gap-2">
                                         <button
                                             type="button"
@@ -12175,7 +12187,7 @@ ${partsBodyXml}
                                             className="w-full rounded border border-emerald-600 bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
                                             data-testid="btn-mma-analyze-harmony-template"
                                         >
-                                            {(mmaBusy || harmonyBusy) ? 'Working...' : 'Analyze Harmony + Generate'}
+                                            {(mmaBusy || harmonyBusy) ? 'Working...' : 'Chordify + Generate'}
                                         </button>
                                     </div>
                                     <div className="space-y-2">
@@ -12316,10 +12328,10 @@ ${partsBodyXml}
                             <div className="mt-3 space-y-3 text-sm text-gray-700">
                                 <div className="rounded border border-gray-200 bg-gray-50/70 p-3 space-y-3">
                                     <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                                        Harmony Analysis
+                                        Chordify
                                     </div>
                                     <div className="text-xs text-gray-600">
-                                        Generates MusicXML <code>{'<harmony>'}</code> tags using a music21-based analyzer. This improves MMA templates and can be used as a standalone score-enrichment pass.
+                                        Generates MusicXML <code>{'<harmony>'}</code> tags using a music21-based analyzer. This improves MMA templates and can be used as a standalone chord-symbol enrichment pass.
                                     </div>
                                     <div className="grid gap-2 sm:grid-cols-2">
                                         <label className="flex flex-col gap-1">
@@ -12364,7 +12376,7 @@ ${partsBodyXml}
                                             className="flex-1 rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                             data-testid="btn-harmony-analyze"
                                         >
-                                            {harmonyBusy ? 'Analyzing...' : 'Analyze Score'}
+                                            {harmonyBusy ? 'Chordifying...' : 'Chordify Score'}
                                         </button>
                                         <button
                                             type="button"
@@ -12373,7 +12385,7 @@ ${partsBodyXml}
                                             className="flex-1 rounded border border-blue-600 bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                                             data-testid="btn-harmony-analyze-apply"
                                         >
-                                            {harmonyBusy ? 'Analyzing...' : 'Analyze + Apply Tags'}
+                                            {harmonyBusy ? 'Chordifying...' : 'Chordify + Apply Tags'}
                                         </button>
                                         <button
                                             type="button"
@@ -12382,12 +12394,12 @@ ${partsBodyXml}
                                             className="flex-1 rounded border border-emerald-600 bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
                                             data-testid="btn-harmony-analyze-mma"
                                         >
-                                            {(harmonyBusy || mmaBusy) ? 'Working...' : 'Analyze + Generate MMA'}
+                                            {(harmonyBusy || mmaBusy) ? 'Working...' : 'Chordify + Generate MMA'}
                                         </button>
                                     </div>
                                 </div>
                                 <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                                    This feature generates chord-symbol tags for accompaniment and score enrichment. It is not yet a full Roman-numeral analysis workflow.
+                                    This feature generates chord-symbol tags for accompaniment and score enrichment. A true Functional Harmony tab will come later.
                                 </div>
                                 {harmonyError && (
                                     <div className="text-xs text-red-600">
@@ -12465,7 +12477,7 @@ ${partsBodyXml}
                                 {harmonyResultPayload && (
                                     <details className="rounded border border-gray-200 bg-gray-50 px-3 py-2">
                                         <summary className="cursor-pointer text-xs font-medium text-gray-700">
-                                            Harmony Response
+                                            Chordify Response
                                         </summary>
                                         <pre className="mt-2 max-h-64 overflow-auto text-[11px] leading-relaxed text-gray-700 whitespace-pre-wrap">
                                             {JSON.stringify(harmonyResultPayload, null, 2)}
