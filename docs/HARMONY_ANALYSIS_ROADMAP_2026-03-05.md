@@ -127,24 +127,26 @@ Success criteria:
 Goal:
 
 - expose analysis results independently from MMA
+- split `Chordify` from `Functional Harmony`
 
 Scope:
 
-- per-measure chord summary
-- inserted `<harmony>` tags
-- downloadable/analyzable MusicXML output
-- confidence and ambiguity warnings
+- keep `Chordify` focused on chord symbols and `<harmony>` tags
+- add a separate `Functional Harmony` tab for Roman numeral analysis
+- provide local key / modulation summaries
+- export sidecar analysis artifacts instead of mutating notation by default
 
 Success criteria:
 
-- user can run analysis without invoking MMA
-- score can be reloaded with inserted harmony annotations
+- user can run theory-oriented analysis without invoking MMA
+- `Chordify` remains production-safe and accompaniment-oriented
+- functional results are inspectable/exportable without destabilizing score mutation paths
 
 ## Phase 3: `AugmentedNet` integration
 
 Goal:
 
-- add deeper functional analysis
+- add deeper functional analysis to the new `Functional Harmony` tab
 
 Scope:
 
@@ -214,6 +216,6 @@ Mitigation:
 ## 8. Immediate next steps
 
 1. design the `music21`-based harmonic-tagging service
-2. implement it behind a dedicated API route
-3. integrate it into the editor and MMA workflow
-4. evaluate `AugmentedNet` separately as a non-blocking follow-up
+2. design and implement a separate `Functional Harmony` tab
+3. keep `Chordify` integrated into the editor and MMA workflow
+4. evaluate `AugmentedNet` separately as a non-blocking follow-up backend for Functional Harmony
