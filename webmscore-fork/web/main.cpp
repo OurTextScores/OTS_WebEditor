@@ -9,6 +9,7 @@
 
 #include <QGuiApplication>
 #include <QFontDatabase>
+#include <QDataStream>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -768,6 +769,128 @@ static engraving::Measure* layoutMeasureAtIndex(MainScore& score, int measureInd
     return nullptr;
 }
 
+static bool measureRangeForPage(MainScore& score, int pageIndex, int& startMeasureIndex, int& endMeasureIndex)
+{
+    startMeasureIndex = -1;
+    endMeasureIndex = -1;
+
+    if (pageIndex < 0 || pageIndex >= score->npages()) {
+        return false;
+    }
+
+    int index = 0;
+    for (auto* measure = score->firstMeasureMM(); measure; measure = measure->nextMeasureMM()) {
+        auto* system = measure->system();
+        auto* page = system ? system->page() : nullptr;
+        if (page && score->pageIdx(page) == pageIndex) {
+            if (startMeasureIndex < 0) {
+                startMeasureIndex = index;
+            }
+            endMeasureIndex = index;
+        }
+        ++index;
+    }
+
+    return startMeasureIndex >= 0 && endMeasureIndex >= startMeasureIndex;
+}
+
+static int measureIndexFor(MainScore& score, engraving::Measure* targetMeasure)
+{
+    if (!targetMeasure) {
+        return -1;
+    }
+
+    int index = 0;
+    for (auto* measure = score->firstMeasureMM(); measure; measure = measure->nextMeasureMM()) {
+        if (measure == targetMeasure) {
+            return index;
+        }
+        ++index;
+    }
+
+    return -1;
+}
+
+static bool measureRangeForSelection(MainScore& score, int& startMeasureIndex, int& endMeasureIndex)
+{
+    startMeasureIndex = -1;
+    endMeasureIndex = -1;
+
+    engraving::Measure* startMeasure = nullptr;
+    engraving::Measure* endMeasure = nullptr;
+    if (!selectionMeasureRange(score, startMeasure, endMeasure)) {
+        return false;
+    }
+
+    startMeasureIndex = measureIndexFor(score, startMeasure);
+    endMeasureIndex = measureIndexFor(score, endMeasure ? endMeasure : startMeasure);
+    return startMeasureIndex >= 0 && endMeasureIndex >= startMeasureIndex;
+}
+
+static bool playbackWindowForMeasureRange(
+    MainScore& score,
+    int startMeasureIndex,
+    int endMeasureIndex,
+    float& startTimeSeconds,
+    float& durationSeconds
+)
+{
+    auto* startMeasure = measureAtIndex(score, startMeasureIndex);
+    auto* endMeasure = measureAtIndex(score, endMeasureIndex);
+    if (!startMeasure || !endMeasure || endMeasureIndex < startMeasureIndex) {
+        return false;
+    }
+
+    const midi::tick_t rawStartTick = startMeasure->tick().ticks();
+    const midi::tick_t rawEndTick = (endMeasure->tick() + endMeasure->ticks()).ticks();
+    const midi::tick_t playedStartTick = score->repeatList().tick2utick(rawStartTick);
+    const midi::tick_t playedEndTick = score->repeatList().tick2utick(rawEndTick);
+
+    startTimeSeconds = static_cast<float>(score->utick2utime(playedStartTick));
+    const float endTimeSeconds = static_cast<float>(score->utick2utime(playedEndTick));
+    durationSeconds = std::max(0.05f, endTimeSeconds - startTimeSeconds);
+    return true;
+}
+
+static QByteArray encodeFloat32StereoWav(const std::vector<float>& interleavedSamples, uint32_t sampleRate = 44100, uint16_t channels = 2)
+{
+    const uint16_t bitsPerSample = 32;
+    const uint16_t formatCode = 3; // IEEE float
+    const uint32_t bytesPerSample = bitsPerSample / 8;
+    const uint32_t dataSize = static_cast<uint32_t>(interleavedSamples.size() * sizeof(float));
+    const uint32_t fmtChunkSize = 18;
+    const uint32_t overallSize = 4 + (8 + fmtChunkSize) + (8 + dataSize);
+    const uint16_t blockAlign = static_cast<uint16_t>(channels * bytesPerSample);
+    const uint32_t byteRate = sampleRate * blockAlign;
+
+    QByteArray wav;
+    wav.reserve(static_cast<int>(44 + dataSize));
+    QDataStream stream(&wav, QIODevice::WriteOnly);
+    stream.setByteOrder(QDataStream::LittleEndian);
+
+    stream.writeRawData("RIFF", 4);
+    stream << overallSize;
+    stream.writeRawData("WAVE", 4);
+    stream.writeRawData("fmt ", 4);
+    stream << fmtChunkSize;
+    stream << formatCode;
+    stream << channels;
+    stream << sampleRate;
+    stream << byteRate;
+    stream << blockAlign;
+    stream << bitsPerSample;
+    stream << static_cast<uint16_t>(0); // cbSize
+    stream.writeRawData("data", 4);
+    stream << dataSize;
+    if (!interleavedSamples.empty()) {
+        stream.writeRawData(
+            reinterpret_cast<const char*>(interleavedSamples.data()),
+            static_cast<int>(dataSize)
+        );
+    }
+    return wav;
+}
+
 static int layoutMeasureCount(MainScore& score)
 {
     int count = 0;
@@ -1187,6 +1310,36 @@ WasmRes _measureLineBreaks(uintptr_t score_ptr, int excerptId)
     }
     const QJsonDocument doc(breaks);
     return WasmRes(doc.toJson(QJsonDocument::Compact));
+}
+
+WasmRes _measureRangeForPage(uintptr_t score_ptr, int pageIndex, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    int startMeasureIndex = -1;
+    int endMeasureIndex = -1;
+    if (!measureRangeForPage(score, pageIndex, startMeasureIndex, endMeasureIndex)) {
+        return WasmRes(QByteArray("null"));
+    }
+
+    QJsonObject result;
+    result.insert(QStringLiteral("startMeasureIndex"), startMeasureIndex);
+    result.insert(QStringLiteral("endMeasureIndex"), endMeasureIndex);
+    return WasmRes(QJsonDocument(result).toJson(QJsonDocument::Compact));
+}
+
+WasmRes _selectionMeasureRange(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    int startMeasureIndex = -1;
+    int endMeasureIndex = -1;
+    if (!measureRangeForSelection(score, startMeasureIndex, endMeasureIndex)) {
+        return WasmRes(QByteArray("null"));
+    }
+
+    QJsonObject result;
+    result.insert(QStringLiteral("startMeasureIndex"), startMeasureIndex);
+    result.insert(QStringLiteral("endMeasureIndex"), endMeasureIndex);
+    return WasmRes(QJsonDocument(result).toJson(QJsonDocument::Compact));
 }
 
 bool _setMeasureLineBreaks(uintptr_t score_ptr, const char* data, uint32_t size, int excerptId)
@@ -2293,6 +2446,41 @@ static engraving::EngravingItem* pickTopmostSelectableItem(std::vector<engraving
     return nullptr;
 }
 
+static std::vector<engraving::EngravingItem*> selectableItemsAtPoint(engraving::Page* page, const mu::PointF& pt)
+{
+    if (!page) {
+        return {};
+    }
+
+    auto items = page->items(pt);
+    if (!items.empty()) {
+        return items;
+    }
+
+    const mu::PointF localPt = pt - page->pos();
+    items = page->items(localPt);
+    if (!items.empty()) {
+        return items;
+    }
+
+    constexpr double kHitRadii[] = { 1.5, 3.0, 6.0, 10.0 };
+    for (double radius : kHitRadii) {
+        const mu::RectF globalRect(pt.x() - radius, pt.y() - radius, radius * 2.0, radius * 2.0);
+        items = page->items(globalRect);
+        if (!items.empty()) {
+            return items;
+        }
+
+        const mu::RectF localRect(localPt.x() - radius, localPt.y() - radius, radius * 2.0, radius * 2.0);
+        items = page->items(localRect);
+        if (!items.empty()) {
+            return items;
+        }
+    }
+
+    return {};
+}
+
 bool _selectTextElementAtPoint(uintptr_t score_ptr, int pageNumber, double x, double y, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
@@ -2306,7 +2494,7 @@ bool _selectTextElementAtPoint(uintptr_t score_ptr, int pageNumber, double x, do
     engraving::Page* page = pages.at(pageNumber);
     const mu::PointF pt(x, y);
 
-    auto items = page->items(pt);
+    auto items = selectableItemsAtPoint(page, pt);
     engraving::EngravingItem* target = pickTopmostTextItem(items);
     if (!target) {
         return false;
@@ -2332,7 +2520,7 @@ bool _selectElementAtPoint(uintptr_t score_ptr, int pageNumber, double x, double
     engraving::Page* page = pages.at(pageNumber);
     const mu::PointF pt(x, y);
 
-    auto items = page->items(pt);
+    auto items = selectableItemsAtPoint(page, pt);
     if (items.empty()) {
         return false;
     }
@@ -2591,7 +2779,7 @@ bool _selectElementAtPointWithMode(uintptr_t score_ptr, int pageNumber, double x
     engraving::Page* page = pages.at(pageNumber);
     const mu::PointF pt(x, y);
 
-    auto items = page->items(pt);
+    auto items = selectableItemsAtPoint(page, pt);
     if (items.empty()) {
         return false;
     }
@@ -2895,6 +3083,18 @@ uintptr_t _synthAudioFromSelection(uintptr_t score_ptr, int excerptId)
     return MainAudio::Synth::start(score, starttime);
 }
 
+uintptr_t _synthAudioForMeasureRange(uintptr_t score_ptr, int startMeasureIndex, int endMeasureIndex, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    float startTimeSeconds = 0.f;
+    float durationSeconds = 0.f;
+    if (!playbackWindowForMeasureRange(score, startMeasureIndex, endMeasureIndex, startTimeSeconds, durationSeconds)) {
+        LOGW() << "synthAudioForMeasureRange: invalid measure range " << startMeasureIndex << " " << endMeasureIndex;
+        return 0;
+    }
+    return MainAudio::Synth::start(score, startTimeSeconds, durationSeconds);
+}
+
 uintptr_t _synthAudioSelectionPreview(uintptr_t score_ptr, float durationSeconds, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
@@ -2907,6 +3107,54 @@ uintptr_t _synthAudioSelectionPreview(uintptr_t score_ptr, float durationSeconds
     const uintptr_t synth = MainAudio::Synth::startPreview(score, durationSeconds);
     LOGI() << "synthAudioSelectionPreview: synth iterator created";
     return synth;
+}
+
+WasmRes _saveAudioForMeasureRange(uintptr_t score_ptr, const char* format, int startMeasureIndex, int endMeasureIndex, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+
+    const QString outputFormat = QString::fromUtf8(format);
+    if (outputFormat != "wav") {
+        throw QString("saveAudioForMeasureRange currently supports wav only");
+    }
+
+    float startTimeSeconds = 0.f;
+    float durationSeconds = 0.f;
+    if (!playbackWindowForMeasureRange(score, startMeasureIndex, endMeasureIndex, startTimeSeconds, durationSeconds)) {
+        throw QString("Invalid measure range");
+    }
+
+    auto synth = MainAudio::Synth::start(score, startTimeSeconds, durationSeconds);
+    if (!static_cast<uintptr_t>(synth)) {
+        throw QString("Unable to initialize audio synth");
+    }
+
+    std::vector<float> interleavedSamples;
+    const uint32_t channels = 2;
+    bool finished = false;
+    while (!finished) {
+        const auto* raw = synth.process(false);
+        if (!raw) {
+            break;
+        }
+
+        const auto* res = reinterpret_cast<const MainAudio::Synth::SynthRes*>(raw);
+        const size_t floatCount = res->chunkSize / sizeof(float);
+        const size_t framesPerChannel = channels > 0 ? floatCount / channels : 0;
+        const auto* deinterleaved = reinterpret_cast<const float*>(res->chunk);
+        if (framesPerChannel > 0) {
+            const size_t base = interleavedSamples.size();
+            interleavedSamples.resize(base + (framesPerChannel * channels));
+            for (size_t frame = 0; frame < framesPerChannel; ++frame) {
+                interleavedSamples[base + frame * channels] = deinterleaved[frame];
+                interleavedSamples[base + frame * channels + 1] = deinterleaved[framesPerChannel + frame];
+            }
+        }
+        finished = res->done;
+        free(const_cast<char*>(raw));
+    }
+
+    return WasmRes(encodeFloat32StereoWav(interleavedSamples));
 }
 
 WasmRes _getSelectionBoundingBox(uintptr_t score_ptr, int excerptId)
@@ -5010,6 +5258,16 @@ extern "C" {
     };
 
     EMSCRIPTEN_KEEPALIVE
+    WasmResBytes measureRangeForPage(uintptr_t score_ptr, int pageIndex, int excerptId = -1) {
+        return _measureRangeForPage(score_ptr, pageIndex, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    WasmResBytes selectionMeasureRange(uintptr_t score_ptr, int excerptId = -1) {
+        return _selectionMeasureRange(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
     bool setMeasureLineBreaks(uintptr_t score_ptr, const char* data, uint32_t size, int excerptId = -1) {
         return _setMeasureLineBreaks(score_ptr, data, size, excerptId);
     };
@@ -5052,6 +5310,11 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     WasmResBytes saveAudio(uintptr_t score_ptr, const char* format, int excerptId = -1) {
         return _saveAudio(score_ptr, format, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    WasmResBytes saveAudioForMeasureRange(uintptr_t score_ptr, const char* format, int startMeasureIndex, int endMeasureIndex, int excerptId = -1) {
+        return _saveAudioForMeasureRange(score_ptr, format, startMeasureIndex, endMeasureIndex, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE
@@ -5454,6 +5717,11 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     uintptr_t synthAudioFromSelection(uintptr_t score_ptr, int excerptId = -1) {
         return _synthAudioFromSelection(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    uintptr_t synthAudioForMeasureRange(uintptr_t score_ptr, int startMeasureIndex, int endMeasureIndex, int excerptId = -1) {
+        return _synthAudioForMeasureRange(score_ptr, startMeasureIndex, endMeasureIndex, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE

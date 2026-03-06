@@ -40,7 +40,18 @@ const moduleOptions = IS_NODE
     }
     : {
         locateFile(path) {
-            // %INJECTION_HINT_0%
+            const baseUrl = typeof MSCORE_BASEURL == 'string'
+                ? MSCORE_BASEURL
+                : (typeof document !== 'undefined' ? document.baseURI : getSelfURL())
+            if (path.endsWith('webmscore.lib.js.mem') || path.endsWith('webmscore.lib.mem.wasm')) {
+                return new URL('webmscore.lib.mem.wasm', baseUrl).href
+            }
+            if (path.endsWith('webmscore.lib.wasm') || path.endsWith('.wasm')) {
+                return new URL('webmscore.lib.wasm', baseUrl).href
+            }
+            if (path.endsWith('webmscore.lib.data') || path.endsWith('.data')) {
+                return new URL('webmscore.lib.data', baseUrl).href
+            }
             // fix loading the preload pack in Browsers and WebWorkers
             const prefix = typeof MSCORE_SCRIPT_URL == 'string'
                 ? MSCORE_SCRIPT_URL  // to use like an environment variable

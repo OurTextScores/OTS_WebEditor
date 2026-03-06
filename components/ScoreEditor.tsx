@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import remarkGfm from 'remark-gfm';
-import { loadWebMscore, Score, InputFileFormat, Positions, type LayoutProgressState } from '../lib/webmscore-loader';
+import { loadWebMscore, loadWebMscoreInProcess, Score, InputFileFormat, Positions, type LayoutProgressState } from '../lib/webmscore-loader';
 import {
     deleteCheckpoint,
     getCheckpoint,
@@ -619,7 +619,30 @@ const decodeBase64ToBytes = (input: string) => {
 
 const isMissingProxyStatus = (status: number) => PROXY_MISSING_STATUSES.has(status);
 
-const errorMessage = (err: unknown) => (err instanceof Error ? err.message.trim() : '');
+const errorMessage = (err: unknown) => {
+    if (typeof err === 'string') {
+        return err.trim();
+    }
+    if (err instanceof Error) {
+        const message = typeof err.message === 'string' ? err.message.trim() : '';
+        if (message) {
+            return message;
+        }
+        const name = typeof err.name === 'string' ? err.name.trim() : '';
+        return name;
+    }
+    if (err && typeof err === 'object') {
+        const maybeMessage = (err as { message?: unknown }).message;
+        if (typeof maybeMessage === 'string') {
+            return maybeMessage.trim();
+        }
+        const maybeName = (err as { name?: unknown }).name;
+        if (typeof maybeName === 'string') {
+            return maybeName.trim();
+        }
+    }
+    return '';
+};
 
 const MMA_TEMPLATE_MAX_MEASURES = 2500;
 const HARMONY_ANALYZE_DEFAULT_TIMEOUT_MS = 60_000;
@@ -937,6 +960,7 @@ export default function ScoreEditor() {
     const [isPlaying, setIsPlaying] = useState(false);
     const [audioBusy, setAudioBusy] = useState(false);
     const audioUrlRef = useRef<string | null>(null);
+    const tempPlaybackAudioUrlRef = useRef<string | null>(null);
     const audioCtxRef = useRef<AudioContext | null>(null);
     const audioSourcesRef = useRef<AudioBufferSourceNode[]>([]);
     const streamIteratorRef = useRef<((cancel?: boolean) => Promise<any>) | null>(null);
@@ -1041,6 +1065,30 @@ export default function ScoreEditor() {
     );
     const resolveWebMscoreEngine = async () => {
         return { webMscore: await loadWebMscore(), mode: 'worker' as const };
+    };
+
+    const loadScoreWithEngineFallback = async (
+        format: InputFileFormat,
+        data: Uint8Array,
+        logStage?: (stage: string, extra?: unknown) => void,
+    ) => {
+        let resolvedEngine = await resolveWebMscoreEngine();
+        try {
+            const workerData = resolvedEngine.mode === 'worker' ? data.slice() : data;
+            const loadResult = await loadScoreWithInitialLayout(resolvedEngine.webMscore, format, workerData);
+            return { ...loadResult, engineMode: resolvedEngine.mode };
+        } catch (workerErr) {
+            if (resolvedEngine.mode !== 'worker') {
+                throw workerErr;
+            }
+            logStage?.('worker-engine:failed', workerErr);
+            console.warn('Worker webmscore load failed, retrying with in-process engine.', workerErr);
+            resolvedEngine = { webMscore: await loadWebMscoreInProcess(), mode: 'in_process' as const };
+            const fallbackData = data.slice();
+            const loadResult = await loadScoreWithInitialLayout(resolvedEngine.webMscore, format, fallbackData);
+            logStage?.('in-process-engine:done');
+            return { ...loadResult, engineMode: resolvedEngine.mode };
+        }
     };
     const aiKeyStorageKey = `ots_${aiProvider}_api_key`;
     const aiModelStorageKey = `ots_${aiProvider}_model`;
@@ -3856,8 +3904,9 @@ ${partsBodyXml}
 
         try {
             logLargeLoad('progressive-load:start', { timeoutMs: progressiveLoadTimeoutMs(format) });
+            const progressiveData = data.slice();
             const loadedScore = await runWithTimeout(
-                WebMscore.load(format, data, [], false),
+                WebMscore.load(format, progressiveData, [], false),
                 progressiveLoadTimeoutMs(format),
                 `Progressive load for ${format}`,
             );
@@ -4017,6 +4066,16 @@ ${partsBodyXml}
             }
         };
 
+        if (loadedScore.saveAudio) {
+            log('soundfont:warmup-scheduled');
+            queueMicrotask(() => {
+                void ensureSoundFontLoaded(loadedScore).catch((err) => {
+                    log('soundfont:warmup-failed', err);
+                    console.warn('Background SoundFont warmup failed.', err);
+                });
+            });
+        }
+
         if (isLargeInput) {
             log('background-tasks:deferred', {
                 reason: 'large-upload',
@@ -4084,7 +4143,8 @@ ${partsBodyXml}
             const inputIsLarge = isLargeScoreData(data);
             largeScoreSessionRef.current = inputIsLarge;
             const format = detectInputFormat(url);
-            const { webMscore: WebMscore, mode: engineMode } = await resolveWebMscoreEngine();
+            const resolvedEngine = await resolveWebMscoreEngine();
+            engineMode = resolvedEngine.mode;
             if (inputIsLarge) {
                 console.info(`[large-load] ${format} engine:${engineMode}`);
             }
@@ -4093,7 +4153,21 @@ ${partsBodyXml}
                 score.destroy();
             }
 
-            const { loadedScore, progressivePaging, progressiveHasMore, initialAvailablePages } = await loadScoreWithInitialLayout(WebMscore, format, data);
+            const skipCoverPage = shouldSkipCoverPageFirstRender(format, data);
+            const { loadedScore, progressivePaging, progressiveHasMore, initialAvailablePages, engineMode: actualEngineMode } = await loadScoreWithEngineFallback(
+                format,
+                data,
+                inputIsLarge
+                    ? (stage: string, extra?: unknown) => {
+                        if (typeof extra === 'undefined') {
+                            console.info(`[large-load] ${format} ${stage}`);
+                            return;
+                        }
+                        console.info(`[large-load] ${format} ${stage}`, extra);
+                    }
+                    : undefined,
+            );
+            engineMode = actualEngineMode;
             if (signal?.aborted) {
                 loadedScore.destroy();
                 return;
@@ -4108,7 +4182,6 @@ ${partsBodyXml}
                 console.warn('Mutation APIs not detected on loaded score; enabling toolbar anyway.');
             }
             setMutationEnabled(true);
-            const skipCoverPage = shouldSkipCoverPageFirstRender(format, data);
             let initialPage = 0;
             if (progressivePaging) {
                 const progressivePages = Math.max(1, initialAvailablePages || 1);
@@ -4279,7 +4352,6 @@ ${partsBodyXml}
             logUploadStage('read-buffer:done', { bytes: inputByteLength });
             format = detectInputFormat(file.name);
             const resolvedEngine = await resolveWebMscoreEngine();
-            const WebMscore = resolvedEngine.webMscore;
             engineMode = resolvedEngine.mode;
             logUploadStage('webmscore-ready', { engineMode });
 
@@ -4288,8 +4360,16 @@ ${partsBodyXml}
                 score.destroy();
             }
 
-            const loadResult = await loadScoreWithInitialLayout(WebMscore, format, data);
-            const { loadedScore, progressivePaging: nextProgressivePaging, progressiveHasMore: nextProgressiveHasMore, initialAvailablePages } = loadResult;
+            const skipCoverPage = shouldSkipCoverPageFirstRender(format, data);
+            const loadResult = await loadScoreWithEngineFallback(format, data, logUploadStage);
+            const {
+                loadedScore,
+                progressivePaging: nextProgressivePaging,
+                progressiveHasMore: nextProgressiveHasMore,
+                initialAvailablePages,
+                engineMode: actualEngineMode,
+            } = loadResult;
+            engineMode = actualEngineMode;
             progressivePaging = nextProgressivePaging;
             progressiveHasMore = nextProgressiveHasMore;
             logUploadStage('load-score:done', { progressivePaging, progressiveHasMore, initialAvailablePages });
@@ -4303,7 +4383,6 @@ ${partsBodyXml}
                 console.warn('Mutation APIs not detected on loaded score; enabling toolbar anyway.');
             }
             setMutationEnabled(true);
-            const skipCoverPage = shouldSkipCoverPageFirstRender(format, data);
             let initialPage = 0;
             if (progressivePaging) {
                 const progressivePages = Math.max(1, initialAvailablePages || 1);
@@ -9572,6 +9651,55 @@ ${partsBodyXml}
         }
     };
 
+    const getPageMeasureRange = async (targetScore: Score, pageIndex: number) => {
+        if (typeof targetScore.measureRangeForPage !== 'function') {
+            throw new Error('Current-page audio requires an updated webmscore build.');
+        }
+        const safePageIndex = Math.max(0, pageIndex || 0);
+        const range = await Promise.resolve(targetScore.measureRangeForPage(safePageIndex));
+        if (!range || !Number.isFinite(range.startMeasureIndex) || !Number.isFinite(range.endMeasureIndex)) {
+            throw new Error(`No measures found on page ${safePageIndex + 1}.`);
+        }
+        return range;
+    };
+
+    const getSelectionMeasureRange = async (targetScore: Score) => {
+        if (typeof targetScore.selectionMeasureRange !== 'function') {
+            throw new Error('Selection audio requires an updated webmscore build.');
+        }
+        const range = await Promise.resolve(targetScore.selectionMeasureRange());
+        if (!range || !Number.isFinite(range.startMeasureIndex) || !Number.isFinite(range.endMeasureIndex)) {
+            throw new Error('No measure range is selected.');
+        }
+        return range;
+    };
+
+    const handleExportCurrentPageAudio = async () => {
+        if (!score || !score.saveAudioForMeasureRange) {
+            alert('Current-page audio export is not available in this build.');
+            return;
+        }
+        try {
+            setAudioBusy(true);
+            const ok = await ensureSoundFontLoaded(undefined, { forceRetry: true });
+            if (!ok) {
+                alert('No default soundfont found. Configure NEXT_PUBLIC_SOUNDFONT_CDN_URL or provide /public/soundfonts/default.sf3 (or .sf2).');
+                return;
+            }
+            const { startMeasureIndex, endMeasureIndex } = await getPageMeasureRange(
+                score,
+                Math.max(0, currentPageRef.current || 0),
+            );
+            const wav = await score.saveAudioForMeasureRange('wav', startMeasureIndex, endMeasureIndex);
+            downloadBlob(wav, `score-page-${Math.max(0, currentPageRef.current) + 1}.wav`, 'audio/wav');
+        } catch (err) {
+            console.error('Failed to export current-page audio', err);
+            alert(err instanceof Error ? err.message : 'Unable to export current-page audio. See console for details.');
+        } finally {
+            setAudioBusy(false);
+        }
+    };
+
     const stopSynthStream = async (
         sourcesRef: React.MutableRefObject<AudioBufferSourceNode[]>,
         iteratorRef: React.MutableRefObject<((cancel?: boolean) => Promise<any>) | null>,
@@ -9605,6 +9733,10 @@ ${partsBodyXml}
         if (audioRef.current) {
             audioRef.current.pause();
             audioRef.current.currentTime = 0;
+        }
+        if (tempPlaybackAudioUrlRef.current) {
+            URL.revokeObjectURL(tempPlaybackAudioUrlRef.current);
+            tempPlaybackAudioUrlRef.current = null;
         }
         await stopSynthStream(audioSourcesRef, streamIteratorRef, options);
         await stopPreviewAudio(options);
@@ -9715,16 +9847,60 @@ ${partsBodyXml}
         }
     };
 
-    const playFromUrl = async (url: string) => {
+    const playFromUrl = async (url: string, options?: { revokeOnEnded?: boolean }) => {
+        if (tempPlaybackAudioUrlRef.current) {
+            URL.revokeObjectURL(tempPlaybackAudioUrlRef.current);
+            tempPlaybackAudioUrlRef.current = null;
+        }
         if (audioRef.current) {
             audioRef.current.pause();
             audioRef.current.src = '';
         }
         const audio = new Audio(url);
         audioRef.current = audio;
-        audio.onended = () => setIsPlaying(false);
+        if (options?.revokeOnEnded) {
+            tempPlaybackAudioUrlRef.current = url;
+        }
+        audio.onended = () => {
+            setIsPlaying(false);
+            if (options?.revokeOnEnded && tempPlaybackAudioUrlRef.current === url) {
+                URL.revokeObjectURL(url);
+                tempPlaybackAudioUrlRef.current = null;
+            }
+        };
         await audio.play();
         setIsPlaying(true);
+    };
+
+    const playPageAudio = async (pageIndex: number) => {
+        if (!score || !score.saveAudioForMeasureRange) {
+            alert('Current-page audio playback is not available in this build.');
+            return;
+        }
+        try {
+            setAudioBusy(true);
+            const ok = await ensureSoundFontLoaded(undefined, { forceRetry: true });
+            if (!ok) {
+                alert('No default soundfont found. Configure NEXT_PUBLIC_SOUNDFONT_CDN_URL or provide /public/soundfonts/default.sf3 (or .sf2).');
+                return;
+            }
+            await stopAudio({ awaitCancel: true });
+            const { startMeasureIndex, endMeasureIndex } = await getPageMeasureRange(score, pageIndex);
+            const wav = await score.saveAudioForMeasureRange('wav', startMeasureIndex, endMeasureIndex);
+            const blob = new Blob([wav], { type: 'audio/wav' });
+            const url = URL.createObjectURL(blob);
+            await playFromUrl(url, { revokeOnEnded: true });
+        } catch (err) {
+            console.error('Failed to play current-page audio', err);
+            alert(err instanceof Error ? err.message : 'Unable to play current-page audio. See console for details.');
+            await stopAudio({ awaitCancel: true });
+        } finally {
+            setAudioBusy(false);
+        }
+    };
+
+    const playCurrentPageAudio = async () => {
+        await playPageAudio(Math.max(0, currentPageRef.current || 0));
     };
 
     const playTransportAudio = async (fromSelection: boolean) => {
@@ -9781,7 +9957,6 @@ ${partsBodyXml}
                     }
                     return;
                 }
-                // Fallback to full WAV generation
                 if (audioUrlRef.current) {
                     await playFromUrl(audioUrlRef.current);
                 } else {
@@ -10916,7 +11091,9 @@ ${partsBodyXml}
                 onExportAbc={handleExportAbc}
                 onExportMidi={handleExportMidi}
                 onExportAudio={handleExportAudio}
+                onExportCurrentPageAudio={score?.saveAudioForMeasureRange ? handleExportCurrentPageAudio : undefined}
                 onPlayAudio={handlePlayAudio}
+                onPlayCurrentPageAudio={score?.saveAudioForMeasureRange ? playCurrentPageAudio : undefined}
                 onPlayFromSelectionAudio={handlePlayFromSelectionAudio}
                 onStopAudio={() => { void stopAudio({ awaitCancel: true }); }}
                 isPlaying={isPlaying}

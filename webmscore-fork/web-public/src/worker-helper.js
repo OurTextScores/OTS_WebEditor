@@ -116,7 +116,7 @@ class WebMscoreW {
      * Communicate with the worker thread with JSON-RPC
      * @private
      * @typedef {{ id: number; result?: any; error?: any; }} RPCRes
-     * @param {keyof import('./index').default | '_synthAudio' | '_synthAudioFromSelection' | '_synthAudioSelectionPreview' | 'processSynth' | 'processSynthBatch' | 'load' | 'ready' | 'setLogLevel'} method 
+     * @param {keyof import('./index').default | '_synthAudio' | '_synthAudioFromSelection' | '_synthAudioForMeasureRange' | '_synthAudioSelectionPreview' | 'processSynth' | 'processSynthBatch' | 'load' | 'ready' | 'setLogLevel'} method 
      * @param {any[]} params 
      * @param {Transferable[]} transfer
      */
@@ -376,6 +376,23 @@ class WebMscoreW {
     }
 
     /**
+     * Resolve the inclusive measure range rendered on a page.
+     * @param {number} pageIndex
+     * @returns {Promise<{startMeasureIndex: number, endMeasureIndex: number} | null>}
+     */
+    measureRangeForPage(pageIndex) {
+        return this.rpc('measureRangeForPage', [pageIndex])
+    }
+
+    /**
+     * Resolve the inclusive measure range covered by the current selection.
+     * @returns {Promise<{startMeasureIndex: number, endMeasureIndex: number} | null>}
+     */
+    selectionMeasureRange() {
+        return this.rpc('selectionMeasureRange')
+    }
+
+    /**
      * Get the positions of segments
      * @returns {Promise<import('../schemas').Positions>}
      */
@@ -467,6 +484,17 @@ class WebMscoreW {
     }
 
     /**
+     * Export a measure range as an audio file.
+     * @param {'wav'} format
+     * @param {number} startMeasureIndex
+     * @param {number} endMeasureIndex
+     * @returns {Promise<Uint8Array>}
+     */
+    saveAudioForMeasureRange(format, startMeasureIndex, endMeasureIndex) {
+        return this.rpc('saveAudioForMeasureRange', [format, startMeasureIndex, endMeasureIndex])
+    }
+
+    /**
      * Export positions of measures or segments (if `ofSegments` == true) as JSON string
      * @param {boolean} ofSegments
      * @also `score.measurePositions()` and `score.segmentPositions()`
@@ -508,6 +536,20 @@ class WebMscoreW {
      */
     async synthAudioBatchFromSelection(batchSize) {
         const fnptr = await this.rpc('_synthAudioFromSelection')
+        return (cancel) => {
+            return this.rpc('processSynthBatch', [fnptr, batchSize, cancel])
+        }
+    }
+
+    /**
+     * Synthesize audio frames for a measure range.
+     * @param {number} startMeasureIndex
+     * @param {number} endMeasureIndex
+     * @param {number} batchSize
+     * @returns {Promise<(cancel?: boolean) => Promise<import('../schemas').SynthRes[]>>}
+     */
+    async synthAudioBatchForMeasureRange(startMeasureIndex, endMeasureIndex, batchSize) {
+        const fnptr = await this.rpc('_synthAudioForMeasureRange', [startMeasureIndex, endMeasureIndex])
         return (cancel) => {
             return this.rpc('processSynthBatch', [fnptr, batchSize, cancel])
         }

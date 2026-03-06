@@ -11,12 +11,16 @@ export interface Score {
     saveMsc?: (format?: 'mscz' | 'mscx') => Promise<Uint8Array>;
     saveMidi?: (midiExpandRepeats?: boolean, exportRPNs?: boolean) => Promise<Uint8Array>;
     saveAudio?: (format: 'wav' | 'ogg' | 'flac' | 'mp3') => Promise<Uint8Array>;
+    saveAudioForMeasureRange?: (format: 'wav', startMeasureIndex: number, endMeasureIndex: number) => Promise<Uint8Array>;
     savePng?: (pageNumber?: number, drawPageBackground?: boolean, transparent?: boolean) => Promise<Uint8Array>;
     setSoundFont: (data: Uint8Array) => Promise<void>;
     synthAudioBatchFromSelection?: (batchSize: number) => Promise<(cancel?: boolean) => Promise<unknown[]>> | ((cancel?: boolean) => Promise<unknown[]>);
+    synthAudioBatchForMeasureRange?: (startMeasureIndex: number, endMeasureIndex: number, batchSize: number) => Promise<(cancel?: boolean) => Promise<unknown[]>> | ((cancel?: boolean) => Promise<unknown[]>);
     synthSelectionPreviewBatch?: (batchSize: number, durationMs?: number) => Promise<(cancel?: boolean) => Promise<unknown[]>> | ((cancel?: boolean) => Promise<unknown[]>);
     metadata: () => Promise<Record<string, unknown>>;
     measurePositions: () => Promise<Positions>;
+    measureRangeForPage?: (pageIndex: number) => Promise<{ startMeasureIndex: number; endMeasureIndex: number } | null> | { startMeasureIndex: number; endMeasureIndex: number } | null;
+    selectionMeasureRange?: () => Promise<{ startMeasureIndex: number; endMeasureIndex: number } | null> | { startMeasureIndex: number; endMeasureIndex: number } | null;
     segmentPositions: () => Promise<Positions>;
     measureSignatureCount?: (partIndex: number) => Promise<number> | number;
     measureSignatureAt?: (partIndex: number, measureIndex: number) => Promise<string> | string;

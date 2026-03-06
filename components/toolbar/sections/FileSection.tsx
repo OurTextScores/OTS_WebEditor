@@ -17,6 +17,7 @@ export const FileSection: React.FC<ToolbarSectionProps> = ({
     onExportAbc,
     onExportMidi,
     onExportAudio,
+    onExportCurrentPageAudio,
     onSoundFontUpload,
     exportsEnabled,
     pngAvailable,
@@ -85,6 +86,9 @@ export const FileSection: React.FC<ToolbarSectionProps> = ({
                     <DropdownMenuItem data-testid="btn-export-midi" disabled={!exportsEnabled || !onExportMidi} onSelect={() => onExportMidi?.()}>MIDI</DropdownMenuItem>
                     <DropdownMenuItem data-testid="btn-export-audio" disabled={!exportsEnabled || !onExportAudio || !audioAvailable || audioBusy} onSelect={() => onExportAudio?.()}>
                         {audioBusy ? 'Exporting…' : 'WAV'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem data-testid="btn-export-current-page-audio" disabled={!exportsEnabled || !onExportCurrentPageAudio || !audioAvailable || audioBusy} onSelect={() => onExportCurrentPageAudio?.()}>
+                        {audioBusy ? 'Exporting…' : 'Current Page WAV'}
                     </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>

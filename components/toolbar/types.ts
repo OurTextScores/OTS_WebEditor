@@ -45,11 +45,13 @@ export interface ToolbarSectionProps {
     onExportAbc?: () => void;
     onExportMidi?: () => void;
     onExportAudio?: () => void;
+    onExportCurrentPageAudio?: () => void;
     onSoundFontUpload?: (file: File) => void;
     exportsEnabled?: boolean;
     pngAvailable?: boolean;
     audioAvailable?: boolean;
     onPlayAudio?: () => void;
+    onPlayCurrentPageAudio?: () => void;
     onPlayFromSelectionAudio?: () => void;
     onStopAudio?: () => void;
     isPlaying?: boolean;

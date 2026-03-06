@@ -455,6 +455,41 @@ class WebMscore {
     }
 
     /**
+     * Resolve the inclusive measure range rendered on a page.
+     * @param {number} pageIndex zero-based page index
+     * @returns {Promise<{startMeasureIndex: number, endMeasureIndex: number} | null>}
+     */
+    async measureRangeForPage(pageIndex) {
+        const dataptr = Module.ccall('measureRangeForPage',
+            'number',
+            ['number', 'number', 'number'],
+            [this.scoreptr, pageIndex, this.excerptId]
+        )
+        const json = WasmRes.readText(dataptr)
+        if (!json || json === 'null') {
+            return null
+        }
+        return JSON.parse(json)
+    }
+
+    /**
+     * Resolve the inclusive measure range covered by the current selection.
+     * @returns {Promise<{startMeasureIndex: number, endMeasureIndex: number} | null>}
+     */
+    async selectionMeasureRange() {
+        const dataptr = Module.ccall('selectionMeasureRange',
+            'number',
+            ['number', 'number'],
+            [this.scoreptr, this.excerptId]
+        )
+        const json = WasmRes.readText(dataptr)
+        if (!json || json === 'null') {
+            return null
+        }
+        return JSON.parse(json)
+    }
+
+    /**
      * Get the positions of segments
      * @returns {Promise<import('../schemas').Positions>}
      */
@@ -594,6 +629,31 @@ class WebMscore {
     }
 
     /**
+     * Export a measure range as an audio file.
+     * @param {'wav'} format
+     * @param {number} startMeasureIndex
+     * @param {number} endMeasureIndex
+     * @returns {Promise<Uint8Array>}
+     */
+    async saveAudioForMeasureRange(format, startMeasureIndex, endMeasureIndex) {
+        if (!WebMscore.hasSoundfont) {
+            throw new Error('The soundfont is not set.')
+        }
+        if (format !== 'wav') {
+            throw new Error('saveAudioForMeasureRange currently supports wav only')
+        }
+
+        const fileformatptr = getStrPtr(format)
+        const dataptr = Module.ccall('saveAudioForMeasureRange',
+            'number',
+            ['number', 'number', 'number', 'number', 'number'],
+            [this.scoreptr, fileformatptr, startMeasureIndex, endMeasureIndex, this.excerptId]
+        )
+        freePtr(fileformatptr)
+        return WasmRes.readData(dataptr)
+    }
+
+    /**
      * Synthesize audio frames
      * 
      * `synthAudio` is single instance, i.e. you can't have multiple iterators. If you call `synthAudio` multiple times, it will reset the time offset of all iterators the function returned.
@@ -639,6 +699,33 @@ class WebMscore {
 
         if (!iteratorFnPtr) {
             throw new Error('synthAudioFromSelection: Internal Error.')
+        }
+
+        return (cancel) => {
+            return this.processSynthBatch(iteratorFnPtr, batchSize, cancel)
+        }
+    }
+
+    /**
+     * Synthesize audio frames for a measure range.
+     * @param {number} startMeasureIndex
+     * @param {number} endMeasureIndex
+     * @param {number} batchSize
+     * @returns {Promise<(cancel?: boolean) => Promise<import('../schemas').SynthRes[]>>}
+     */
+    async synthAudioBatchForMeasureRange(startMeasureIndex, endMeasureIndex, batchSize) {
+        if (!WebMscore.hasSoundfont) {
+            throw new Error('The soundfont is not set.')
+        }
+
+        const iteratorFnPtr = Module.ccall('synthAudioForMeasureRange',
+            'number',
+            ['number', 'number', 'number', 'number'],
+            [this.scoreptr, startMeasureIndex, endMeasureIndex, this.excerptId]
+        )
+
+        if (!iteratorFnPtr) {
+            throw new Error('synthAudioForMeasureRange: Internal Error.')
         }
 
         return (cancel) => {
