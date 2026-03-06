@@ -94,11 +94,13 @@ const asRecord = (value: unknown): Record<string, any> | null => (
 type NotaGenSpaceCombinations = Record<string, Record<string, string[]>>;
 
 const TRANSPORT_SYNTH_BATCH_SIZE = 2;
-const SELECTION_SYNTH_BATCH_SIZE = 1;
+const SELECTION_SYNTH_BATCH_SIZE = 8;
 const PREVIEW_SYNTH_BATCH_SIZE = 1;
 const PREVIEW_DURATION_MS = 350;
 const SYNTH_START_PREROLL_SECONDS = 0.015;
-const LARGE_SCORE_INTERACTION_PROBE_DELAYS_MS = [0, 2000, 5000, 15000, 30000, 60000] as const;
+const SELECTION_SYNTH_START_PREROLL_SECONDS = 0.12;
+const SELECTION_STREAM_STARTUP_BUFFER_SECONDS = 0.6;
+const SELECTION_STREAM_MIN_STARTUP_BATCHES = 3;
 const LARGE_SCORE_INTERACTION_PRIME_DELAY_MS = 0;
 
 type PartAlignment = {
@@ -985,8 +987,6 @@ export default function ScoreEditor() {
     const largeScoreSessionRef = useRef(false);
     const largeSessionXmlAutoloadDeferredLoggedRef = useRef(false);
     const backgroundInitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const interactionProbeTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-    const interactionProbeRunIdRef = useRef(0);
     const interactionPrimeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const interactionPrimeRunIdRef = useRef(0);
     const scoreOperationQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -1034,14 +1034,6 @@ export default function ScoreEditor() {
         setInteractionPreparing(next.preparing);
     }, []);
 
-    const clearInteractionProbeTimers = useCallback(() => {
-        interactionProbeRunIdRef.current += 1;
-        for (const timer of interactionProbeTimersRef.current) {
-            clearTimeout(timer);
-        }
-        interactionProbeTimersRef.current = [];
-    }, []);
-
     const clearInteractionPrime = useCallback(() => {
         interactionPrimeRunIdRef.current += 1;
         if (interactionPrimeTimerRef.current) {
@@ -1079,10 +1071,9 @@ export default function ScoreEditor() {
                 patch_applies: counters.patchApplies,
                 patch_apply_failures: counters.patchApplyFailures,
             }, { beacon: true });
-            clearInteractionProbeTimers();
             clearInteractionPrime();
         };
-    }, [clearInteractionPrime, clearInteractionProbeTimers, emitEditorTelemetry]);
+    }, [clearInteractionPrime, emitEditorTelemetry]);
 
     const detectInputFormat = (source: string): InputFileFormat => {
         const normalized = source.toLowerCase().split('#')[0].split('?')[0];
@@ -3726,81 +3717,8 @@ ${partsBodyXml}
         }
     }, []);
 
-    const logInteractionReadiness = useCallback(async (
-        label: string,
-        targetScore?: Score | null,
-        extra?: Record<string, unknown>,
-    ) => {
-        const activeScore = targetScore ?? scoreRef.current ?? score;
-        if (!activeScore || !largeScoreSessionRef.current) {
-            return;
-        }
-        let layoutState: LayoutProgressState | null = null;
-        let layoutProbeError: string | null = null;
-        if (activeScore.layoutUntilPageState) {
-            try {
-                const targetPage = Math.max(0, currentPageRef.current || 0);
-                const raw = await runSerializedScoreOperation(
-                    () => Promise.resolve(activeScore.layoutUntilPageState!(targetPage)),
-                    `layoutUntilPageState(diag page=${targetPage + 1})`,
-                );
-                layoutState = parseLayoutProgressState(raw);
-            } catch (err) {
-                layoutProbeError = errorMessage(err);
-            }
-        }
-        console.info('[interaction-readiness]', {
-            label,
-            currentPage: currentPageRef.current + 1,
-            pageCount,
-            progressivePagingActive,
-            progressiveHasMorePages,
-            mutationsAvailable: hasMutationApi(activeScore),
-            hasSelectElementAtPoint: typeof activeScore.selectElementAtPoint === 'function',
-            hasSelectElementAtPointWithMode: typeof activeScore.selectElementAtPointWithMode === 'function',
-            hasSelectionBoundingBoxes: typeof activeScore.getSelectionBoundingBoxes === 'function',
-            selectedPointPresent: Boolean(selectedPointRef.current),
-            layoutState: layoutState
-                ? {
-                    targetPage: layoutState.targetPage + 1,
-                    targetSatisfied: layoutState.targetSatisfied,
-                    availablePages: layoutState.availablePages,
-                    totalMeasures: layoutState.totalMeasures,
-                    laidOutMeasures: layoutState.laidOutMeasures,
-                    hasMorePages: layoutState.hasMorePages,
-                    isComplete: layoutState.isComplete,
-                }
-                : null,
-            layoutProbeError,
-            ...extra,
-        });
-    }, [pageCount, progressivePagingActive, progressiveHasMorePages, runSerializedScoreOperation, score]);
-
-    const scheduleInteractionReadinessProbes = useCallback((
-        targetScore: Score,
-        context: Record<string, unknown>,
-    ) => {
-        if (!largeScoreSessionRef.current) {
-            return;
-        }
-        clearInteractionProbeTimers();
-        const runId = interactionProbeRunIdRef.current;
-        interactionProbeTimersRef.current = LARGE_SCORE_INTERACTION_PROBE_DELAYS_MS.map((delayMs) => (
-            setTimeout(() => {
-                if (interactionProbeRunIdRef.current !== runId || scoreRef.current !== targetScore) {
-                    return;
-                }
-                void logInteractionReadiness('scheduled-probe', targetScore, {
-                    ...context,
-                    delayMs,
-                });
-            }, delayMs)
-        ));
-    }, [clearInteractionProbeTimers, logInteractionReadiness]);
-
     const scheduleLargeScoreInteractionPrime = useCallback((
         targetScore: Score,
-        context: Record<string, unknown>,
     ) => {
         if (!largeScoreSessionRef.current) {
             return;
@@ -3812,18 +3730,15 @@ ${partsBodyXml}
                 return;
             }
             void (async () => {
-                const start = performance.now();
-                void logInteractionReadiness('interaction-prime:start', targetScore, context);
                 try {
                     if (targetScore.relayout) {
                         await runSerializedScoreOperation(
                             () => Promise.resolve(targetScore.relayout!()),
                             'relayout(interaction-prime)',
                         );
-                        void logInteractionReadiness('interaction-prime:relayout-done', targetScore, context);
                     }
                     const refreshedPage = await refreshPageCount(targetScore, currentPageRef.current);
-                    const rendered = await renderScore(targetScore, refreshedPage, false);
+                    await renderScore(targetScore, refreshedPage, false);
                     setInteractionState({ preparing: false, ready: true });
                     if (targetScore.saveAudio) {
                         queueMicrotask(() => {
@@ -3832,12 +3747,6 @@ ${partsBodyXml}
                             });
                         });
                     }
-                    void logInteractionReadiness('interaction-prime:done', targetScore, {
-                        ...context,
-                        durationMs: Math.round(performance.now() - start),
-                        refreshedPage: refreshedPage + 1,
-                        rendered,
-                    });
                 } catch (err) {
                     setInteractionState({ preparing: false, ready: true });
                     if (targetScore.saveAudio) {
@@ -3847,22 +3756,10 @@ ${partsBodyXml}
                             });
                         });
                     }
-                    void logInteractionReadiness('interaction-prime:failed', targetScore, {
-                        ...context,
-                        durationMs: Math.round(performance.now() - start),
-                        error: errorMessage(err),
-                    });
                 }
             })();
         }, LARGE_SCORE_INTERACTION_PRIME_DELAY_MS);
-    }, [clearInteractionPrime, logInteractionReadiness]);
-
-    useEffect(() => {
-        if (!largeScoreSessionRef.current || !scoreRef.current) {
-            return;
-        }
-        void logInteractionReadiness('progressive-state:update', scoreRef.current);
-    }, [currentPage, pageCount, progressiveHasMorePages, progressivePagingActive, logInteractionReadiness]);
+    }, [clearInteractionPrime]);
 
     const resolveCurrentPageSvgContext = useCallback(async () => {
         const renderedSvg = containerRef.current?.querySelector('svg');
@@ -4292,7 +4189,6 @@ ${partsBodyXml}
         }
         const loadStartedAt = Date.now();
         clearScheduledBackgroundInit();
-        clearInteractionProbeTimers();
         clearInteractionPrime();
         const urlScoreId = searchParams.get('scoreId') || `url:${url}`;
         if (urlScoreId !== scoreId) {
@@ -4406,35 +4302,9 @@ ${partsBodyXml}
             if (!rendered) {
                 console.warn('Initial render did not produce SVG content.');
             }
-            void logInteractionReadiness('post-load:url', loadedScore, {
-                loadSource: 'url',
-                format,
-                inputBytes: inputByteLength,
-                progressivePaging,
-                progressiveHasMore,
-                engineMode,
-                initialAvailablePages,
-                rendered,
-            });
-            scheduleInteractionReadinessProbes(loadedScore, {
-                loadSource: 'url',
-                format,
-                inputBytes: inputByteLength,
-                progressivePaging,
-                progressiveHasMore,
-                engineMode,
-            });
             if (inputIsLarge && progressivePaging && initialAvailablePages <= 1) {
                 setInteractionState({ preparing: true, ready: false });
-                scheduleLargeScoreInteractionPrime(loadedScore, {
-                    loadSource: 'url',
-                    format,
-                    inputBytes: inputByteLength,
-                    progressivePaging,
-                    progressiveHasMore,
-                    engineMode,
-                    initialAvailablePages,
-                });
+                scheduleLargeScoreInteractionPrime(loadedScore);
             } else {
                 setInteractionState({ preparing: false, ready: true });
             }
@@ -4510,7 +4380,6 @@ ${partsBodyXml}
         },
     ): Promise<boolean> => {
         clearScheduledBackgroundInit();
-        clearInteractionProbeTimers();
         clearInteractionPrime();
         setLoading(true);
         const loadStartedAt = Date.now();
@@ -4649,35 +4518,9 @@ ${partsBodyXml}
                 }
             }
             logUploadStage('render-score:done', { rendered, initialPage });
-            void logInteractionReadiness('post-load:upload', loadedScore, {
-                loadSource: telemetrySource,
-                format,
-                inputBytes: inputByteLength,
-                progressivePaging,
-                progressiveHasMore,
-                engineMode,
-                initialAvailablePages,
-                rendered,
-            });
-            scheduleInteractionReadinessProbes(loadedScore, {
-                loadSource: telemetrySource,
-                format,
-                inputBytes: inputByteLength,
-                progressivePaging,
-                progressiveHasMore,
-                engineMode,
-            });
             if (isLargeUpload && progressivePaging && initialAvailablePages <= 1) {
                 setInteractionState({ preparing: true, ready: false });
-                scheduleLargeScoreInteractionPrime(loadedScore, {
-                    loadSource: telemetrySource,
-                    format,
-                    inputBytes: inputByteLength,
-                    progressivePaging,
-                    progressiveHasMore,
-                    engineMode,
-                    initialAvailablePages,
-                });
+                scheduleLargeScoreInteractionPrime(loadedScore);
             } else {
                 setInteractionState({ preparing: false, ready: true });
             }
@@ -10056,18 +9899,100 @@ ${partsBodyXml}
             generationRef: React.MutableRefObject<number>;
             maxDurationSeconds?: number;
             trackTransportState: boolean;
+            debugLabel: string;
+            prerollSeconds?: number;
+            startupBufferSeconds?: number;
+            minStartupBatches?: number;
         },
     ) => {
         const audioCtx = await ensureAudioContextReady();
         const generation = ++options.generationRef.current;
         options.iteratorRef.current = batchFn;
-        const baseTime = audioCtx.currentTime + SYNTH_START_PREROLL_SECONDS;
+        const prerollSeconds = options.prerollSeconds ?? SYNTH_START_PREROLL_SECONDS;
+        const startupBufferSeconds = options.startupBufferSeconds ?? 0;
+        const minStartupBatches = options.minStartupBatches ?? 1;
+        let baseTime: number | null = null;
         let streamStartTimeSeconds: number | null = null;
         let lastSource: AudioBufferSourceNode | null = null;
         let startedAny = false;
+        let batchCount = 0;
+        let bufferedUntilSeconds = 0;
+        let pendingChunks: { buffer: AudioBuffer; relativeChunkStart: number }[] = [];
+        const mergeWindowSeconds = options.debugLabel === 'selection-transport' ? 0.5 : 0;
+        const mergeTargetFrames = mergeWindowSeconds > 0
+            ? Math.max(512, Math.round(audioCtx.sampleRate * mergeWindowSeconds))
+            : 0;
+        const contiguousToleranceSeconds = 1 / audioCtx.sampleRate;
+        let mergedChunkState: {
+            relativeChunkStart: number;
+            lastRelativeChunkEnd: number;
+            channels: number;
+            totalFrames: number;
+            channelSlices: Float32Array[][];
+        } | null = null;
+
+        const scheduleChunk = (buffer: AudioBuffer, relativeChunkStart: number) => {
+            if (baseTime === null) {
+                baseTime = audioCtx.currentTime + prerollSeconds;
+            }
+            const source = audioCtx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(audioCtx.destination);
+            const scheduledStart = baseTime + relativeChunkStart;
+            source.start(scheduledStart);
+            options.sourcesRef.current.push(source);
+            lastSource = source;
+            startedAny = true;
+            if (options.trackTransportState) {
+                setIsPlaying(true);
+            }
+        };
+
+        const enqueueBuffer = (buffer: AudioBuffer, relativeChunkStart: number, hitDoneForChunk: boolean) => {
+            if (baseTime === null && batchCount < minStartupBatches && !hitDoneForChunk) {
+                pendingChunks.push({ buffer, relativeChunkStart });
+            } else if (baseTime === null && bufferedUntilSeconds < startupBufferSeconds && !hitDoneForChunk) {
+                pendingChunks.push({ buffer, relativeChunkStart });
+            } else {
+                if (baseTime === null) {
+                    flushPendingChunks();
+                }
+                scheduleChunk(buffer, relativeChunkStart);
+            }
+        };
+
+        const flushMergedChunk = (hitDoneForChunk: boolean) => {
+            if (!mergedChunkState) {
+                return null;
+            }
+            const { channels, totalFrames, channelSlices, relativeChunkStart } = mergedChunkState;
+            const buffer = audioCtx.createBuffer(channels, totalFrames, audioCtx.sampleRate);
+            for (let ch = 0; ch < channels; ch += 1) {
+                const merged = new Float32Array(totalFrames);
+                let offset = 0;
+                for (const slice of channelSlices[ch]) {
+                    merged.set(slice, offset);
+                    offset += slice.length;
+                }
+                buffer.copyToChannel(merged, ch);
+            }
+            mergedChunkState = null;
+            return enqueueBuffer(buffer, relativeChunkStart, hitDoneForChunk);
+        };
+
+        const flushPendingChunks = () => {
+            if (pendingChunks.length === 0) {
+                return;
+            }
+            for (const pending of pendingChunks) {
+                scheduleChunk(pending.buffer, pending.relativeChunkStart);
+            }
+            pendingChunks = [];
+        };
 
         while (options.generationRef.current === generation) {
             const batch = await batchFn(false);
+            batchCount += 1;
             if (!Array.isArray(batch) || batch.length === 0) {
                 break;
             }
@@ -10087,6 +10012,11 @@ ${partsBodyXml}
                 const relativeChunkEnd = typeof res.endTime === 'number'
                     ? Math.max(0, res.endTime - streamStartTimeSeconds)
                     : null;
+                if (typeof relativeChunkEnd === 'number') {
+                    if (relativeChunkEnd > bufferedUntilSeconds) {
+                        bufferedUntilSeconds = relativeChunkEnd;
+                    }
+                }
                 if (options.maxDurationSeconds && typeof relativeChunkEnd === 'number' && relativeChunkEnd >= options.maxDurationSeconds) {
                     hitDone = true;
                 }
@@ -10096,29 +10026,75 @@ ${partsBodyXml}
                 let channels = Math.floor(floats.length / framesPerChannel);
                 if (!Number.isInteger(channels) || channels < 1) channels = 1;
                 if (channels > 2) channels = 2;
-                const buffer = audioCtx.createBuffer(channels, framesPerChannel, audioCtx.sampleRate);
-                for (let ch = 0; ch < channels; ch++) {
+
+                const channelSlices: Float32Array[] = [];
+                for (let ch = 0; ch < channels; ch += 1) {
                     const start = ch * framesPerChannel;
-                    const slice = floats.subarray(start, start + framesPerChannel);
-                    buffer.copyToChannel(slice, ch);
+                    channelSlices.push(Float32Array.from(floats.subarray(start, start + framesPerChannel)));
                 }
-                const source = audioCtx.createBufferSource();
-                source.buffer = buffer;
-                source.connect(audioCtx.destination);
-                source.start(baseTime + relativeChunkStart);
-                options.sourcesRef.current.push(source);
-                lastSource = source;
-                startedAny = true;
-                if (options.trackTransportState) {
-                    setIsPlaying(true);
+                const shouldMerge =
+                    mergeTargetFrames > 0
+                    && typeof relativeChunkEnd === 'number'
+                    && !hitDone;
+                if (shouldMerge) {
+                    const canAppend = mergedChunkState
+                        && mergedChunkState.channels === channels
+                        && Math.abs(relativeChunkStart - mergedChunkState.lastRelativeChunkEnd) <= contiguousToleranceSeconds
+                        && (mergedChunkState.totalFrames + framesPerChannel) <= mergeTargetFrames;
+                    if (!canAppend && mergedChunkState) {
+                        flushMergedChunk(false);
+                    }
+                    if (!mergedChunkState) {
+                        mergedChunkState = {
+                            relativeChunkStart,
+                            lastRelativeChunkEnd: relativeChunkEnd,
+                            channels,
+                            totalFrames: framesPerChannel,
+                            channelSlices: channelSlices.map(slice => [slice]),
+                        };
+                    } else {
+                        mergedChunkState.lastRelativeChunkEnd = relativeChunkEnd;
+                        mergedChunkState.totalFrames += framesPerChannel;
+                        for (let ch = 0; ch < channels; ch += 1) {
+                            mergedChunkState.channelSlices[ch].push(channelSlices[ch]);
+                        }
+                    }
+                    if (mergedChunkState.totalFrames >= mergeTargetFrames) {
+                        flushMergedChunk(false);
+                    }
+                } else {
+                    if (mergedChunkState) {
+                        flushMergedChunk(false);
+                    }
+                    const buffer = audioCtx.createBuffer(channels, framesPerChannel, audioCtx.sampleRate);
+                    for (let ch = 0; ch < channels; ch += 1) {
+                        buffer.copyToChannel(channelSlices[ch], ch);
+                    }
+                    enqueueBuffer(buffer, relativeChunkStart, hitDone);
                 }
 
                 if (hitDone) break;
             }
 
+            if (hitDone && mergedChunkState) {
+                flushMergedChunk(true);
+            }
+
+            if (baseTime === null && (hitDone || (batchCount >= minStartupBatches && bufferedUntilSeconds >= startupBufferSeconds))) {
+                flushPendingChunks();
+            }
+
             if (hitDone) {
                 break;
             }
+        }
+
+        if (mergedChunkState) {
+            flushMergedChunk(false);
+        }
+
+        if (baseTime === null && pendingChunks.length > 0) {
+            flushPendingChunks();
         }
 
         if (!startedAny || options.generationRef.current !== generation) {
@@ -10230,6 +10206,10 @@ ${partsBodyXml}
                         iteratorRef: streamIteratorRef,
                         generationRef: transportPlaybackGenerationRef,
                         trackTransportState: true,
+                        debugLabel: useSelectionStreaming ? 'selection-transport' : 'transport',
+                        prerollSeconds: useSelectionStreaming ? SELECTION_SYNTH_START_PREROLL_SECONDS : SYNTH_START_PREROLL_SECONDS,
+                        startupBufferSeconds: useSelectionStreaming ? SELECTION_STREAM_STARTUP_BUFFER_SECONDS : 0,
+                        minStartupBatches: useSelectionStreaming ? SELECTION_STREAM_MIN_STARTUP_BATCHES : 1,
                     });
                     streamed = true;
                 } catch (streamErr) {
@@ -10279,14 +10259,6 @@ ${partsBodyXml}
     ) => {
         const activeScore = scoreRef.current ?? score;
         if (!interactionReady || !activeScore || !activeScore.synthSelectionPreviewBatch || isPlaying || audioBusy) {
-            console.debug('[AUDITION] skipped preview request', {
-                trigger,
-                interactionReady,
-                hasScore: Boolean(activeScore),
-                hasPreviewApi: Boolean(activeScore?.synthSelectionPreviewBatch),
-                isPlaying,
-                audioBusy,
-            });
             return;
         }
 
@@ -10294,15 +10266,7 @@ ${partsBodyXml}
         const previewPoint = selectionPoint ?? selectedPointRef.current;
         if (shouldReselectForPreview && previewPoint && activeScore.selectElementAtPoint) {
             try {
-                const selected = await activeScore.selectElementAtPoint(previewPoint.page, previewPoint.x, previewPoint.y);
-                if (selected === false) {
-                    console.warn('[AUDITION] preview reselection returned false', {
-                        trigger,
-                        page: previewPoint.page,
-                        x: previewPoint.x,
-                        y: previewPoint.y,
-                    });
-                }
+                await activeScore.selectElementAtPoint(previewPoint.page, previewPoint.x, previewPoint.y);
             } catch (err) {
                 console.warn('[AUDITION] preview reselection failed', { trigger, err });
             }
@@ -10316,11 +10280,6 @@ ${partsBodyXml}
 
         await stopPreviewAudio({ awaitCancel: true });
         try {
-            console.debug('[AUDITION] requesting preview stream', {
-                trigger,
-                batchSize: PREVIEW_SYNTH_BATCH_SIZE,
-                durationMs: PREVIEW_DURATION_MS,
-            });
             const batchFn = await activeScore.synthSelectionPreviewBatch(PREVIEW_SYNTH_BATCH_SIZE, PREVIEW_DURATION_MS) as SynthBatchIterator;
             await playSynthBatchStream(batchFn, {
                 sourcesRef: previewAudioSourcesRef,
@@ -10328,8 +10287,8 @@ ${partsBodyXml}
                 generationRef: previewPlaybackGenerationRef,
                 maxDurationSeconds: 0.6,
                 trackTransportState: false,
+                debugLabel: `preview:${trigger}`,
             });
-            console.debug('[AUDITION] preview playback started', { trigger });
         } catch (err) {
             console.warn('[AUDITION] selection preview playback failed', { trigger, err });
             await stopPreviewAudio({ awaitCancel: true });
@@ -11018,10 +10977,6 @@ ${partsBodyXml}
                 trySelect()
                     .then(async (selected) => {
                         if (selected === false) {
-                            void logInteractionReadiness('selection-click:fallback-miss', score, {
-                                pageIndex: pageIndex + 1,
-                                mode: 'point-fallback',
-                            });
                             clearSelectionState();
                             return;
                         }
@@ -11072,32 +11027,16 @@ ${partsBodyXml}
                         // Render with backend highlighting
                         // For measure selections, skip overlay refresh to preserve selectionBoxes state
                         if (hasMeasureSelection) {
-                            void logInteractionReadiness('selection-click:measure-success', score, {
-                                pageIndex: pageIndex + 1,
-                                mode: 'point-fallback',
-                                hasMeasureSelection,
-                                selectionBoxCount,
-                            });
                             await renderScore(score, pageIndex);
                             void playSelectionPreview('selection-click:measure', fallback.point);
                         } else {
                             // For single element selections, use normal flow with overlay
                             setHasBackendHighlighting(false);
-                            void logInteractionReadiness('selection-click:element-success', score, {
-                                pageIndex: pageIndex + 1,
-                                mode: 'point-fallback',
-                                hasMeasureSelection,
-                            });
                             await refreshSelectionFromSvg();
                             void playSelectionPreview('selection-click:element', fallback.point, { reselect: true });
                         }
                     })
                     .catch(err => {
-                        void logInteractionReadiness('selection-click:fallback-error', score, {
-                            pageIndex: pageIndex + 1,
-                            mode: 'point-fallback',
-                            error: errorMessage(err),
-                        });
                         console.warn('selectMeasureAtPoint/selectElementAtPoint not available or failed:', err);
                         clearSelectionState();
                     });
@@ -11187,20 +11126,8 @@ ${partsBodyXml}
                 Promise.resolve(selectionPromise)
                     .then((selected) => {
                         if (selected === false) {
-                            void logInteractionReadiness('selection-click:element-miss', score, {
-                                pageIndex: pageIndex + 1,
-                                mode,
-                                additiveSelection,
-                                isShiftClick,
-                            });
                             throw new Error('selectElementAtPoint returned false');
                         }
-                        void logInteractionReadiness('selection-click:element-success', score, {
-                            pageIndex: pageIndex + 1,
-                            mode,
-                            additiveSelection,
-                            isShiftClick,
-                        });
                         return refreshSelectionFromSvg(fallback);
                     })
                     .then(() => {
@@ -11211,13 +11138,6 @@ ${partsBodyXml}
                         );
                     })
                     .catch(err => {
-                        void logInteractionReadiness('selection-click:element-error', score, {
-                            pageIndex: pageIndex + 1,
-                            mode,
-                            additiveSelection,
-                            isShiftClick,
-                            error: errorMessage(err),
-                        });
                         console.warn('selectElementAtPoint not available or failed:', err);
                         setSelectedElement(null);
                         setSelectionBoxes([]);
