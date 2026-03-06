@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { applyTraceHeaders, resolveTraceContext, withTraceHeaders } from '../../../../lib/trace-http';
+import { augmentPromptWithSourceRag } from '../_lib/source-rag';
 
 export const dynamic = 'force-static';
 
@@ -53,6 +54,8 @@ export async function POST(request: Request) {
         const model = String(body?.model || '').trim();
         const prompt = String(body?.prompt || '').trim();
         const promptText = typeof body?.promptText === 'string' ? body.promptText.trim() : '';
+        const sourceContext = body?.sourceContext;
+        const enableSourceRag = body?.enableSourceRag === true;
         const systemPromptInput = typeof body?.systemPrompt === 'string' ? body.systemPrompt.trim() : '';
         const xml = typeof body?.xml === 'string' ? body.xml : '';
         const imageBase64 = typeof body?.imageBase64 === 'string' ? body.imageBase64.trim() : '';
@@ -68,7 +71,14 @@ export async function POST(request: Request) {
         }
 
         const systemPrompt = systemPromptInput || 'You are a MusicXML editor. Return only a JSON patch payload (musicxml-patch@1), no markdown or commentary.';
-        const userPrompt = promptText || buildPrompt(prompt, xml);
+        const basePrompt = promptText || buildPrompt(prompt, xml);
+        const sourceRagResult = await augmentPromptWithSourceRag({
+            sourceContext,
+            enableSourceRag,
+            promptText: basePrompt,
+            prompt,
+        });
+        const userPrompt = sourceRagResult.promptText || basePrompt;
         const normalizedModel = normalizeGeminiModel(model);
         if (!normalizedModel) {
             return tracedJson({ error: 'Missing model.' }, { status: 400 });
@@ -125,7 +135,7 @@ export async function POST(request: Request) {
 
         const data = await response.json();
         const text = parseGeminiText(data);
-        return tracedJson({ text });
+        return tracedJson({ text, sourceRag: sourceRagResult.sourceRag });
     } catch (err) {
         console.error('Gemini proxy error', err);
         return tracedJson({ error: 'Gemini proxy error.' }, { status: 500 });

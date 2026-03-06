@@ -6232,6 +6232,7 @@ ${partsBodyXml}
         image?: AiImageAttachment | null;
         pdf?: AiPdfAttachment | null;
         maxTokens: number | null;
+        enableSourceRag?: boolean;
     }) => {
         const {
             provider,
@@ -6244,6 +6245,7 @@ ${partsBodyXml}
             image = null,
             pdf = null,
             maxTokens,
+            enableSourceRag = false,
         } = payload;
         const systemPrompt = systemPromptOverride.trim() || AI_PATCH_SYSTEM_PROMPT;
         const userPrompt = promptText.trim() || buildPromptWithSections(prompt, xml.trim() ? [{ title: 'Current MusicXML', content: xml }] : []);
@@ -6258,6 +6260,7 @@ ${partsBodyXml}
                     prompt,
                     xml,
                     sourceContext: activeLaunchContext || undefined,
+                    enableSourceRag,
                     systemPrompt: systemPrompt || undefined,
                     promptText: userPrompt,
                     imageBase64: image?.base64 ?? '',
@@ -6695,6 +6698,7 @@ ${partsBodyXml}
                 image: imageAttachment,
                 pdf: pdfAttachment,
                 maxTokens,
+                enableSourceRag: true,
             });
             const responseText = rawText.trim();
             if (!responseText) {

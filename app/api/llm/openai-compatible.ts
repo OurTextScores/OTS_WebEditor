@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { applyTraceHeaders, resolveTraceContext, withTraceHeaders } from '../../../lib/trace-http';
+import { augmentPromptWithSourceRag } from './_lib/source-rag';
 
 export type OpenAiCompatibleProvider = 'openai' | 'grok' | 'deepseek' | 'kimi';
 
@@ -121,6 +122,8 @@ type NormalizedRequest = {
     model: string;
     prompt: string;
     promptText: string;
+    sourceContext?: unknown;
+    enableSourceRag: boolean;
     systemPrompt: string;
     xml: string;
     imageBase64: string;
@@ -137,6 +140,8 @@ const parseRequestBody = (body: unknown): NormalizedRequest => {
     const model = String(data?.model || '').trim();
     const prompt = String(data?.prompt || '').trim();
     const promptText = typeof data?.promptText === 'string' ? data.promptText.trim() : '';
+    const sourceContext = data?.sourceContext;
+    const enableSourceRag = data?.enableSourceRag === true;
     const systemPromptInput = typeof data?.systemPrompt === 'string' ? data.systemPrompt.trim() : '';
     const xml = typeof data?.xml === 'string' ? data.xml : '';
     const imageBase64 = typeof data?.imageBase64 === 'string' ? data.imageBase64.trim() : '';
@@ -153,6 +158,8 @@ const parseRequestBody = (body: unknown): NormalizedRequest => {
         model,
         prompt,
         promptText,
+        sourceContext,
+        enableSourceRag,
         systemPrompt,
         xml,
         imageBase64,
@@ -216,6 +223,8 @@ export async function handleOpenAiCompatibleRequest(provider: OpenAiCompatiblePr
             model,
             prompt,
             promptText,
+            sourceContext,
+            enableSourceRag,
             systemPrompt,
             xml,
             imageBase64,
@@ -230,7 +239,14 @@ export async function handleOpenAiCompatibleRequest(provider: OpenAiCompatiblePr
             return tracedJson({ error: 'Missing apiKey, model, or prompt/promptText.' }, { status: 400 });
         }
 
-        const userPrompt = promptText || buildPrompt(prompt, xml);
+        const basePrompt = promptText || buildPrompt(prompt, xml);
+        const sourceRagResult = await augmentPromptWithSourceRag({
+            sourceContext,
+            enableSourceRag,
+            promptText: basePrompt,
+            prompt,
+        });
+        const userPrompt = sourceRagResult.promptText || basePrompt;
         const hasImage = Boolean(imageBase64);
         const hasPdf = Boolean(pdfBase64);
         if (hasPdf && !config.supportsPdfAttachments) {
@@ -273,7 +289,7 @@ export async function handleOpenAiCompatibleRequest(provider: OpenAiCompatiblePr
 
             if (response.ok) {
                 const data = await response.json();
-                return tracedJson({ text: parseResponsesText(data) });
+                return tracedJson({ text: parseResponsesText(data), sourceRag: sourceRagResult.sourceRag });
             }
 
             const errorText = await response.text();
@@ -305,7 +321,7 @@ export async function handleOpenAiCompatibleRequest(provider: OpenAiCompatiblePr
         }
 
         const chatData = await chatResponse.json();
-        return tracedJson({ text: parseChatCompletionsText(chatData) });
+        return tracedJson({ text: parseChatCompletionsText(chatData), sourceRag: sourceRagResult.sourceRag });
     } catch (err) {
         console.error(`${config.label} proxy error`, err);
         return tracedJson({ error: `${config.label} proxy error.` }, { status: 500 });
