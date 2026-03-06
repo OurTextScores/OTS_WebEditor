@@ -2,7 +2,7 @@
 
 ## 1. Objective
 
-Add a new `Functional Harmony` tab to OTS that is distinct from `Chordify`.
+Add a new `Harmony` tab to OTS that is distinct from `Chordify`.
 
 `Chordify` remains the practical chord-symbol pipeline:
 
@@ -10,7 +10,7 @@ Add a new `Functional Harmony` tab to OTS that is distinct from `Chordify`.
 - improve MMA accompaniment generation
 - enrich scores with lead-sheet style chord labels
 
-`Functional Harmony` should instead target theory-oriented harmonic analysis:
+`Harmony` should instead target theory-oriented harmonic analysis:
 
 - Roman numeral analysis
 - local key / tonicization tracking
@@ -20,7 +20,7 @@ Add a new `Functional Harmony` tab to OTS that is distinct from `Chordify`.
 The key product decision is separation of concerns:
 
 1. `Chordify` answers: "What chord symbols should appear in this score?"
-2. `Functional Harmony` answers: "What is the harmonic function of this passage?"
+2. `Harmony` answers: "What is the harmonic function of this passage?"
 
 ## 2. Why a Separate Tab
 
@@ -45,7 +45,7 @@ Putting functional analysis into the same UI would blur two different tasks and 
 
 ## In scope
 
-- separate `Functional Harmony` XML sidebar tab
+- separate `Harmony` XML sidebar tab
 - analyze current MusicXML score without modifying it by default
 - return per-segment Roman numeral analysis
 - return local-key trajectory
@@ -67,7 +67,7 @@ Putting functional analysis into the same UI would blur two different tasks and 
 
 Add a new XML sidebar tab:
 
-- `Functional Harmony`
+- `Harmony`
 
 This tab should sit beside:
 
@@ -79,7 +79,7 @@ This tab should sit beside:
 
 ## 4.2 Primary actions
 
-1. `Analyze Function`
+1. `Analyze Harmony`
 
 - runs the default functional-analysis backend on the current MusicXML
 - returns analysis summary, warnings, and segment list
@@ -120,7 +120,7 @@ Optional panels:
 
 ## 5.1 Separation from Chordify
 
-`Chordify` and `Functional Harmony` must have separate service entrypoints and contracts.
+`Chordify` and `Harmony` must have separate service entrypoints and contracts.
 
 Reasons:
 

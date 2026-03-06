@@ -5,7 +5,9 @@ const mocked = vi.hoisted(() => ({
   runMusicContextService: vi.fn(),
   runMusicConvertService: vi.fn(),
   runDiffFeedbackService: vi.fn(),
+  runFunctionalHarmonyAnalyzeService: vi.fn(),
   runMusicGenerateService: vi.fn(),
+  runHarmonyAnalyzeService: vi.fn(),
   runMusicScoreOpsPromptService: vi.fn(),
   runMusicScoreOpsService: vi.fn(),
   runMusicPatchService: vi.fn(),
@@ -38,8 +40,16 @@ vi.mock('../lib/music-services/diff-feedback-service', () => ({
   runDiffFeedbackService: mocked.runDiffFeedbackService,
 }));
 
+vi.mock('../lib/music-services/functional-harmony-service', () => ({
+  runFunctionalHarmonyAnalyzeService: mocked.runFunctionalHarmonyAnalyzeService,
+}));
+
 vi.mock('../lib/music-services/generate-service', () => ({
   runMusicGenerateService: mocked.runMusicGenerateService,
+}));
+
+vi.mock('../lib/music-services/harmony-service', () => ({
+  runHarmonyAnalyzeService: mocked.runHarmonyAnalyzeService,
 }));
 
 vi.mock('../lib/music-services/scoreops-service', () => ({
@@ -102,6 +112,64 @@ describe('runMusicAgentRouter', () => {
     });
     expect(mocked.runMusicContextService).toHaveBeenCalledWith({
       content: '<score-partwise version="3.1"></score-partwise>',
+    });
+  });
+
+  it('uses fallback router and harmony-analyze service for chordify prompts', async () => {
+    delete process.env.OPENAI_API_KEY;
+    mocked.runHarmonyAnalyzeService.mockResolvedValue({
+      status: 200,
+      body: {
+        ok: true,
+        analysis: { harmonyTagCount: 12, coverage: 0.9 },
+      },
+    });
+
+    const result = await runMusicAgentRouter({
+      prompt: 'Chordify this score and prepare it for MMA',
+      toolInput: {
+        context: {
+          content: '<score-partwise version="3.1"></score-partwise>',
+        },
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({
+      mode: 'fallback',
+      selectedTool: 'music.harmony_analyze',
+      toolOk: true,
+    });
+    expect(mocked.runHarmonyAnalyzeService).toHaveBeenCalledWith({
+      content: '<score-partwise version="3.1"></score-partwise>',
+    });
+  });
+
+  it('marks fallback functional harmony requests as applyable when prompt explicitly asks to add Roman numerals to the score', async () => {
+    delete process.env.OPENAI_API_KEY;
+    mocked.runFunctionalHarmonyAnalyzeService.mockResolvedValue({
+      status: 200,
+      body: {
+        ok: true,
+        annotatedXml: '<score-partwise version="3.1"></score-partwise>',
+      },
+    });
+
+    const result = await runMusicAgentRouter({
+      prompt: 'Analyze the harmony and add Roman numerals to the score',
+      toolInput: {
+        context: {
+          content: '<score-partwise version="3.1"></score-partwise>',
+        },
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({
+      mode: 'fallback',
+      selectedTool: 'music.functional_harmony_analyze',
+      applyToScore: true,
+      toolOk: true,
     });
   });
 
@@ -329,6 +397,35 @@ describe('runMusicAgentRouter', () => {
       toolOk: true,
     });
     expect(mocked.run).toHaveBeenCalledTimes(1);
+  });
+
+  it('normalizes functional harmony tool selection from Agents SDK output', async () => {
+    process.env.OPENAI_API_KEY = 'sk-test';
+    mocked.run.mockResolvedValue({
+      finalOutput: {
+        selectedTool: 'music_functional_harmony_analyze',
+        toolStatus: 200,
+        toolOk: true,
+        response: 'Used functional harmony analysis.',
+      },
+    });
+
+    const result = await runMusicAgentRouter({
+      prompt: 'Analyze the harmony and identify modulations',
+      toolInput: {
+        functional_harmony_analyze: {
+          scoreSessionId: 'sess-1',
+        },
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({
+      mode: 'agents-sdk',
+      selectedTool: 'music.functional_harmony_analyze',
+      toolStatus: 200,
+      toolOk: true,
+    });
   });
 
   it('falls back to heuristic router if agents-sdk execution throws', async () => {

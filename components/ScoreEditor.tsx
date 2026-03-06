@@ -759,7 +759,7 @@ export default function ScoreEditor() {
     const [isResizingSidebar, setIsResizingSidebar] = useState(false);
     const sidebarResizeStartXRef = useRef<number>(0);
     const sidebarResizeStartWidthRef = useRef<number>(0);
-    const [xmlSidebarTab, setXmlSidebarTab] = useState<'xml' | 'assistant' | 'notagen' | 'harmony' | 'mma'>('xml');
+    const [xmlSidebarTab, setXmlSidebarTab] = useState<'xml' | 'assistant' | 'notagen' | 'harmony' | 'functional' | 'mma'>('xml');
     const [codeEditorTheme, setCodeEditorTheme] = useState<CodeEditorThemeMode>('light');
     const [xmlText, setXmlText] = useState('');
     const [xmlDirty, setXmlDirty] = useState(false);
@@ -783,6 +783,14 @@ export default function ScoreEditor() {
     const [harmonyResultPayload, setHarmonyResultPayload] = useState<Record<string, unknown> | null>(null);
     const [harmonyRhythmMode, setHarmonyRhythmMode] = useState<HarmonyRhythmMode>('auto');
     const [harmonyMaxChangesPerMeasure, setHarmonyMaxChangesPerMeasure] = useState(2);
+    const [functionalHarmonyBusy, setFunctionalHarmonyBusy] = useState(false);
+    const [functionalHarmonyError, setFunctionalHarmonyError] = useState<string | null>(null);
+    const [functionalHarmonyWarnings, setFunctionalHarmonyWarnings] = useState<string[]>([]);
+    const [functionalHarmonyResult, setFunctionalHarmonyResult] = useState<Record<string, unknown> | null>(null);
+    const [functionalHarmonySegments, setFunctionalHarmonySegments] = useState<Record<string, unknown>[]>([]);
+    const [functionalHarmonyAnnotatedXml, setFunctionalHarmonyAnnotatedXml] = useState('');
+    const [functionalHarmonyJsonExport, setFunctionalHarmonyJsonExport] = useState('');
+    const [functionalHarmonyRntxtExport, setFunctionalHarmonyRntxtExport] = useState('');
     const [aiProvider, setAiProvider] = useState<AiProvider>('openai');
     const [aiModel, setAiModel] = useState('');
     const [aiApiKey, setAiApiKey] = useState('');
@@ -1644,7 +1652,7 @@ export default function ScoreEditor() {
         if (aiEnabled) {
             return;
         }
-        if (xmlSidebarTab !== 'xml' && xmlSidebarTab !== 'mma' && xmlSidebarTab !== 'harmony') {
+        if (xmlSidebarTab !== 'xml' && xmlSidebarTab !== 'mma' && xmlSidebarTab !== 'harmony' && xmlSidebarTab !== 'functional') {
             setXmlSidebarTab('xml');
         }
     }, [aiEnabled, xmlSidebarTab]);
@@ -3189,6 +3197,7 @@ ${partsBodyXml}
             (xmlSidebarTab === 'assistant' && (aiIncludeXml || (aiMode === 'agent' && musicAgentIncludeCurrentXml)))
             || xmlSidebarTab === 'notagen'
             || xmlSidebarTab === 'harmony'
+            || xmlSidebarTab === 'functional'
             || xmlSidebarTab === 'mma'
         );
         if (needsXmlForSidebarTab && !xmlText.trim()) {
@@ -6873,6 +6882,8 @@ ${partsBodyXml}
                 parsedResult = raw;
             }
 
+            const shouldApplyAnalysisResult = parsed?.applyToScore === true;
+
             // Sync score revision if returned in tool result
             const resBody = asRecord(asRecord(parsedResult)?.body);
             if (typeof resBody?.newRevision === 'number') {
@@ -6947,6 +6958,48 @@ ${partsBodyXml}
                     } catch (applyErr) {
                         console.error('Failed to apply Music Agent scoreops output', applyErr);
                         setMusicAgentPatchError('ScoreOps output was generated but could not be applied to the score.');
+                    }
+                } else if (typeof asRecord(bodyPayload?.error)?.message === 'string') {
+                    setMusicAgentPatchError(String(asRecord(bodyPayload?.error)?.message));
+                } else if (typeof asRecord(resultPayload?.error)?.message === 'string') {
+                    setMusicAgentPatchError(String(asRecord(resultPayload?.error)?.message));
+                }
+            } else if (selectedTool === 'music.harmony_analyze') {
+                const resultPayload = asRecord(parsedResult);
+                const bodyPayload = asRecord(resultPayload?.body);
+                const contentPayload = asRecord(bodyPayload?.content);
+                const nextXml = typeof contentPayload?.musicxml === 'string' ? contentPayload.musicxml : '';
+                if (shouldApplyAnalysisResult && nextXml.trim()) {
+                    try {
+                        await applyXmlToScore(nextXml, {
+                            telemetrySource: 'music_agent_harmony_analyze',
+                            inputFormat: 'musicxml',
+                            enforceJazzHarmonyStyle: true,
+                        });
+                        setXmlSidebarTab('xml');
+                    } catch (applyErr) {
+                        console.error('Failed to apply Music Agent harmony analysis output', applyErr);
+                        setMusicAgentPatchError('Harmony analysis output was generated but could not be applied to the score.');
+                    }
+                } else if (typeof asRecord(bodyPayload?.error)?.message === 'string') {
+                    setMusicAgentPatchError(String(asRecord(bodyPayload?.error)?.message));
+                } else if (typeof asRecord(resultPayload?.error)?.message === 'string') {
+                    setMusicAgentPatchError(String(asRecord(resultPayload?.error)?.message));
+                }
+            } else if (selectedTool === 'music.functional_harmony_analyze') {
+                const resultPayload = asRecord(parsedResult);
+                const bodyPayload = asRecord(resultPayload?.body);
+                const nextXml = typeof bodyPayload?.annotatedXml === 'string' ? bodyPayload.annotatedXml : '';
+                if (shouldApplyAnalysisResult && nextXml.trim()) {
+                    try {
+                        await applyXmlToScore(nextXml, {
+                            telemetrySource: 'music_agent_functional_harmony_analyze',
+                            inputFormat: 'musicxml',
+                        });
+                        setXmlSidebarTab('xml');
+                    } catch (applyErr) {
+                        console.error('Failed to apply Music Agent functional harmony output', applyErr);
+                        setMusicAgentPatchError('Harmony analysis output was generated but Roman numeral annotations could not be applied to the score.');
                     }
                 } else if (typeof asRecord(bodyPayload?.error)?.message === 'string') {
                     setMusicAgentPatchError(String(asRecord(bodyPayload?.error)?.message));
@@ -7631,6 +7684,94 @@ ${partsBodyXml}
         }
         const filenameBase = scoreTitle ? `harmony-${toSafeFilename(scoreTitle)}` : 'harmony-tagged';
         downloadBlob(harmonyGeneratedXml, `${filenameBase}.musicxml`, 'application/vnd.recordare.musicxml+xml');
+    };
+
+    const handleFunctionalHarmonyAnalyze = async () => {
+        setFunctionalHarmonyBusy(true);
+        setFunctionalHarmonyError(null);
+        try {
+            const xml = await resolveXmlContext();
+            if (!xml.trim()) {
+                alert('Load a score before running harmony analysis.');
+                return;
+            }
+            const payload = await postScoreEditorJson('/api/music/functional-harmony/analyze', {
+                content: xml,
+                backend: 'music21-roman',
+                includeSegments: true,
+                includeTextExport: true,
+                includeAnnotatedContent: true,
+                persistArtifacts: true,
+            });
+            setFunctionalHarmonyResult(payload);
+            setFunctionalHarmonyWarnings(
+                Array.isArray(payload.warnings)
+                    ? payload.warnings.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+                    : [],
+            );
+            setFunctionalHarmonySegments(
+                Array.isArray(payload.segments)
+                    ? payload.segments.filter((value): value is Record<string, unknown> => Boolean(asRecord(value)))
+                    : [],
+            );
+            const exportsRecord = asRecord(payload.exports);
+            setFunctionalHarmonyAnnotatedXml(typeof payload.annotatedXml === 'string' ? payload.annotatedXml : '');
+            setFunctionalHarmonyJsonExport(typeof exportsRecord?.json === 'string' ? exportsRecord.json : '');
+            setFunctionalHarmonyRntxtExport(typeof exportsRecord?.rntxt === 'string' ? exportsRecord.rntxt : '');
+        } catch (err) {
+            console.error('Failed to analyze harmony', err);
+            setFunctionalHarmonyError(errorMessage(err) || 'Failed to analyze harmony.');
+        } finally {
+            setFunctionalHarmonyBusy(false);
+        }
+    };
+
+    const handleDownloadFunctionalHarmony = (format: 'json' | 'rntxt') => {
+        if (format === 'json') {
+            if (!functionalHarmonyJsonExport.trim()) {
+                alert('No harmony JSON export is available yet.');
+                return;
+            }
+            const filenameBase = scoreTitle ? `functional-harmony-${toSafeFilename(scoreTitle)}` : 'functional-harmony';
+            downloadBlob(functionalHarmonyJsonExport, `${filenameBase}.json`, 'application/json');
+            return;
+        }
+        if (!functionalHarmonyRntxtExport.trim()) {
+            alert('No harmony text export is available yet.');
+            return;
+        }
+        const filenameBase = scoreTitle ? `functional-harmony-${toSafeFilename(scoreTitle)}` : 'functional-harmony';
+        downloadBlob(functionalHarmonyRntxtExport, `${filenameBase}.rntxt`, 'text/plain;charset=utf-8');
+    };
+
+    const handleDownloadFunctionalHarmonyXml = () => {
+        if (!functionalHarmonyAnnotatedXml.trim()) {
+            alert('No annotated harmony MusicXML is available yet.');
+            return;
+        }
+        const filenameBase = scoreTitle ? `functional-harmony-${toSafeFilename(scoreTitle)}` : 'functional-harmony';
+        downloadBlob(functionalHarmonyAnnotatedXml, `${filenameBase}.musicxml`, 'application/vnd.recordare.musicxml+xml');
+    };
+
+    const handleApplyFunctionalHarmonyOutput = async () => {
+        if (!functionalHarmonyAnnotatedXml.trim()) {
+            alert('No annotated harmony MusicXML is available yet.');
+            return;
+        }
+        setXmlLoading(true);
+        setXmlError(null);
+        try {
+            await applyXmlToScore(functionalHarmonyAnnotatedXml, {
+                telemetrySource: 'functional_harmony_apply',
+                inputFormat: 'musicxml',
+            });
+            setXmlSidebarTab('xml');
+        } catch (err) {
+            console.error('Failed to apply harmony-annotated MusicXML', err);
+            alert('Failed to apply harmony-annotated MusicXML. See console for details.');
+        } finally {
+            setXmlLoading(false);
+        }
     };
 
     const handleApplyAiOutput = async () => {
@@ -11269,6 +11410,18 @@ ${partsBodyXml}
                                     </button>
                                     <button
                                         type="button"
+                                        data-testid="tab-functional-harmony"
+                                        onClick={() => setXmlSidebarTab('functional')}
+                                        className={`rounded border px-2 py-1 ${
+                                            xmlSidebarTab === 'functional'
+                                                ? 'border-gray-400 bg-gray-100 text-gray-900'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                                        }`}
+                                    >
+                                        Harmony
+                                    </button>
+                                    <button
+                                        type="button"
                                         data-testid="tab-mma"
                                         onClick={() => setXmlSidebarTab('mma')}
                                         className={`rounded border px-2 py-1 ${
@@ -12376,7 +12529,7 @@ ${partsBodyXml}
                                             className="flex-1 rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                             data-testid="btn-harmony-analyze"
                                         >
-                                            {harmonyBusy ? 'Chordifying...' : 'Chordify Score'}
+                                            {harmonyBusy ? 'Analyzing...' : 'Chordify Score'}
                                         </button>
                                         <button
                                             type="button"
@@ -12385,7 +12538,7 @@ ${partsBodyXml}
                                             className="flex-1 rounded border border-blue-600 bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                                             data-testid="btn-harmony-analyze-apply"
                                         >
-                                            {harmonyBusy ? 'Chordifying...' : 'Chordify + Apply Tags'}
+                                            {harmonyBusy ? 'Analyzing...' : 'Chordify + Apply Tags'}
                                         </button>
                                         <button
                                             type="button"
@@ -12399,7 +12552,7 @@ ${partsBodyXml}
                                     </div>
                                 </div>
                                 <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                                    This feature generates chord-symbol tags for accompaniment and score enrichment. A true Functional Harmony tab will come later.
+                                    This feature generates chord-symbol tags for accompaniment and score enrichment. Use Harmony for Roman numerals, local keys, and cadence summaries.
                                 </div>
                                 {harmonyError && (
                                     <div className="text-xs text-red-600">
@@ -12481,6 +12634,182 @@ ${partsBodyXml}
                                         </summary>
                                         <pre className="mt-2 max-h-64 overflow-auto text-[11px] leading-relaxed text-gray-700 whitespace-pre-wrap">
                                             {JSON.stringify(harmonyResultPayload, null, 2)}
+                                        </pre>
+                                    </details>
+                                )}
+                            </div>
+                        )}
+                        {xmlSidebarTab === 'functional' && (
+                            <div className="mt-3 space-y-3 text-sm text-gray-700">
+                                <div className="rounded border border-gray-200 bg-gray-50/70 p-3 space-y-3">
+                                    <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                                        Harmony
+                                    </div>
+                                    <div className="text-xs text-gray-600">
+                                        Roman-numeral and local-key analysis for theory-oriented review. This workflow does not modify the score in Phase 1.
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => void handleFunctionalHarmonyAnalyze()}
+                                            disabled={functionalHarmonyBusy}
+                                            className="flex-1 rounded border border-blue-600 bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            data-testid="btn-functional-harmony-analyze"
+                                        >
+                                            {functionalHarmonyBusy ? 'Analyzing...' : 'Analyze Harmony'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDownloadFunctionalHarmony('json')}
+                                            disabled={!functionalHarmonyJsonExport.trim()}
+                                            className="rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            data-testid="btn-functional-harmony-download-json"
+                                        >
+                                            Download JSON
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDownloadFunctionalHarmony('rntxt')}
+                                            disabled={!functionalHarmonyRntxtExport.trim()}
+                                            className="rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            data-testid="btn-functional-harmony-download-rntxt"
+                                        >
+                                            Download RN Text
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleDownloadFunctionalHarmonyXml}
+                                            disabled={!functionalHarmonyAnnotatedXml.trim()}
+                                            className="rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            data-testid="btn-functional-harmony-download-xml"
+                                        >
+                                            Download Annotated XML
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => void handleApplyFunctionalHarmonyOutput()}
+                                            disabled={functionalHarmonyBusy || !functionalHarmonyAnnotatedXml.trim()}
+                                            className="rounded border border-blue-600 bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            data-testid="btn-functional-harmony-apply-xml"
+                                        >
+                                            Apply Roman Numerals
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="rounded border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
+                                    Use Chordify for chord symbols and MMA preparation. Use Harmony for Roman numerals, local keys, and cadence/modulation summaries.
+                                </div>
+                                {functionalHarmonyError && (
+                                    <div className="text-xs text-red-600">
+                                        {functionalHarmonyError}
+                                    </div>
+                                )}
+                                {functionalHarmonyWarnings.length > 0 && (
+                                    <div className="space-y-1">
+                                        {functionalHarmonyWarnings.map((warning, index) => (
+                                            <div key={`functional-harmony-warning-${index}`} className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                                                {warning}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                {functionalHarmonyResult && (
+                                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                        {[
+                                            ['Measures', String(Number(asRecord(functionalHarmonyResult.analysis)?.measureCount ?? 0) || 0)],
+                                            ['Segments', String(Number(asRecord(functionalHarmonyResult.analysis)?.segmentCount ?? 0) || 0)],
+                                            ['Coverage', String(asRecord(functionalHarmonyResult.analysis)?.coverage ?? '0')],
+                                            ['Local Keys', String(Number(asRecord(functionalHarmonyResult.analysis)?.localKeyCount ?? 0) || 0)],
+                                            ['Modulations', String(Number(asRecord(functionalHarmonyResult.analysis)?.modulationCount ?? 0) || 0)],
+                                            ['Cadences', String(Number(asRecord(functionalHarmonyResult.analysis)?.cadenceCount ?? 0) || 0)],
+                                            ['Backend', String(asRecord(functionalHarmonyResult.analysis)?.engine ?? 'n/a')],
+                                        ].map(([label, value]) => (
+                                            <div key={label} className="rounded border border-gray-200 bg-gray-50 px-3 py-2">
+                                                <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{label}</div>
+                                                <div className="mt-1 text-sm text-gray-800">{value}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                {functionalHarmonySegments.length > 0 && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between text-xs text-gray-500">
+                                            <span>Segments</span>
+                                            <span>{functionalHarmonySegments.length} segment(s)</span>
+                                        </div>
+                                        <div className="max-h-64 overflow-auto rounded border border-gray-200 bg-gray-50">
+                                            <table className="min-w-full text-left text-xs">
+                                                <thead className="sticky top-0 bg-gray-100 text-gray-600">
+                                                    <tr>
+                                                        <th className="px-3 py-2 font-semibold">Measure</th>
+                                                        <th className="px-3 py-2 font-semibold">RN</th>
+                                                        <th className="px-3 py-2 font-semibold">Key</th>
+                                                        <th className="px-3 py-2 font-semibold">Function</th>
+                                                        <th className="px-3 py-2 font-semibold">Cadence</th>
+                                                        <th className="px-3 py-2 font-semibold">Conf.</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {functionalHarmonySegments.slice(0, 200).map((segment, index) => (
+                                                        <tr key={`functional-harmony-segment-${index}`} className="border-t border-gray-200">
+                                                            <td className="px-3 py-2 text-gray-700">{String(segment.measureNumber ?? segment.measureIndex ?? '')}</td>
+                                                            <td className="px-3 py-2 font-mono text-gray-900">{String(segment.romanNumeral ?? '')}</td>
+                                                            <td className="px-3 py-2 text-gray-700">{String(segment.key ?? '')}</td>
+                                                            <td className="px-3 py-2 text-gray-700">{String(segment.functionLabel ?? '')}</td>
+                                                            <td className="px-3 py-2 text-gray-700">{String(segment.cadenceLabel ?? '')}</td>
+                                                            <td className="px-3 py-2 text-gray-700">{segment.confidence === undefined || segment.confidence === null ? '' : String(segment.confidence)}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+                                {functionalHarmonyRntxtExport && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between text-xs text-gray-500">
+                                            <span>RN Text Export</span>
+                                            <span>Review before download</span>
+                                        </div>
+                                        <CodeMirrorEditor
+                                            testId="functional-harmony-rntxt"
+                                            value={functionalHarmonyRntxtExport}
+                                            onChange={(nextValue) => setFunctionalHarmonyRntxtExport(nextValue)}
+                                            readOnly={false}
+                                            language="none"
+                                            placeholderText="Harmony text export will appear here."
+                                            height={180}
+                                            maxHeight={280}
+                                            themeMode={codeEditorTheme}
+                                        />
+                                    </div>
+                                )}
+                                {functionalHarmonyAnnotatedXml && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between text-xs text-gray-500">
+                                            <span>Annotated MusicXML</span>
+                                            <span>Review before applying</span>
+                                        </div>
+                                        <CodeMirrorEditor
+                                            testId="functional-harmony-annotated-xml"
+                                            value={functionalHarmonyAnnotatedXml}
+                                            onChange={(nextValue) => setFunctionalHarmonyAnnotatedXml(nextValue)}
+                                            readOnly={false}
+                                            language="xml"
+                                            placeholderText="Annotated MusicXML will appear here."
+                                            height={220}
+                                            maxHeight={360}
+                                            themeMode={codeEditorTheme}
+                                        />
+                                    </div>
+                                )}
+                                {functionalHarmonyResult && (
+                                    <details className="rounded border border-gray-200 bg-gray-50 px-3 py-2">
+                                        <summary className="cursor-pointer text-xs font-medium text-gray-700">
+                                            Harmony Response
+                                        </summary>
+                                        <pre className="mt-2 max-h-64 overflow-auto text-[11px] leading-relaxed text-gray-700 whitespace-pre-wrap">
+                                            {JSON.stringify(functionalHarmonyResult, null, 2)}
                                         </pre>
                                     </details>
                                 )}

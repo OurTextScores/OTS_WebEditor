@@ -6,7 +6,9 @@ const mocked = vi.hoisted(() => ({
   runMusicContextService: vi.fn(),
   runMusicConvertService: vi.fn(),
   runDiffFeedbackService: vi.fn(),
+  runFunctionalHarmonyAnalyzeService: vi.fn(),
   runMusicGenerateService: vi.fn(),
+  runHarmonyAnalyzeService: vi.fn(),
   runMusicScoreOpsPromptService: vi.fn(),
   runMusicScoreOpsService: vi.fn(),
   runMusicPatchService: vi.fn(),
@@ -40,8 +42,16 @@ vi.mock('../lib/music-services/diff-feedback-service', () => ({
   runDiffFeedbackService: (payload: any) => mocked.runDiffFeedbackService(payload),
 }));
 
+vi.mock('../lib/music-services/functional-harmony-service', () => ({
+  runFunctionalHarmonyAnalyzeService: (payload: any) => mocked.runFunctionalHarmonyAnalyzeService(payload),
+}));
+
 vi.mock('../lib/music-services/generate-service', () => ({
   runMusicGenerateService: (payload: any) => mocked.runMusicGenerateService(payload),
+}));
+
+vi.mock('../lib/music-services/harmony-service', () => ({
+  runHarmonyAnalyzeService: (payload: any) => mocked.runHarmonyAnalyzeService(payload),
 }));
 
 vi.mock('../lib/music-services/scoreops-service', () => ({

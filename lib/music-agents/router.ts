@@ -7,7 +7,9 @@ import { z } from 'zod';
 import { runMusicContextService } from '../music-services/context-service';
 import { runMusicConvertService } from '../music-services/convert-service';
 import { runDiffFeedbackService } from '../music-services/diff-feedback-service';
+import { runFunctionalHarmonyAnalyzeService } from '../music-services/functional-harmony-service';
 import { runMusicGenerateService } from '../music-services/generate-service';
+import { runHarmonyAnalyzeService } from '../music-services/harmony-service';
 import { runMusicPatchService } from '../music-services/patch-service';
 import { runMusicRenderService } from '../music-services/render-service';
 import { runMusicScoreOpsPromptService, runMusicScoreOpsService } from '../music-services/scoreops-service';
@@ -16,20 +18,33 @@ import {
   MUSIC_CONTEXT_TOOL_CONTRACT,
   MUSIC_CONVERT_TOOL_CONTRACT,
   MUSIC_DIFF_FEEDBACK_TOOL_CONTRACT,
+  MUSIC_FUNCTIONAL_HARMONY_ANALYZE_TOOL_CONTRACT,
   MUSIC_GENERATE_TOOL_CONTRACT,
+  MUSIC_HARMONY_ANALYZE_TOOL_CONTRACT,
   MUSIC_PATCH_TOOL_CONTRACT,
   MUSIC_SCOREOPS_TOOL_CONTRACT,
   MUSIC_RENDER_TOOL_CONTRACT,
 } from '../music-services/contracts';
 import { normalizeScoreSessionId } from '../music-services/common';
 
-type MusicAgentToolName = 'music.context' | 'music.convert' | 'music.diff_feedback' | 'music.generate' | 'music.scoreops' | 'music.patch' | 'music.render';
+type MusicAgentToolName =
+  | 'music.context'
+  | 'music.convert'
+  | 'music.diff_feedback'
+  | 'music.functional_harmony_analyze'
+  | 'music.generate'
+  | 'music.harmony_analyze'
+  | 'music.scoreops'
+  | 'music.patch'
+  | 'music.render';
 
 type ToolDefaults = {
   context?: Record<string, unknown>;
   convert?: Record<string, unknown>;
   diff_feedback?: Record<string, unknown>;
+  functional_harmony_analyze?: Record<string, unknown>;
   generate?: Record<string, unknown>;
+  harmony_analyze?: Record<string, unknown>;
   scoreops?: Record<string, unknown>;
   patch?: Record<string, unknown>;
   render?: Record<string, unknown>;
@@ -178,6 +193,61 @@ function summarizeForModel(
         }
       }
     } else {
+      if (fullResult.tool === 'music.harmony_analyze') {
+        const analysis = asRecord(body.analysis);
+        const summaryBody: Record<string, unknown> = {
+          ok: body.ok,
+          warnings: body.warnings,
+          analysis: analysis ? {
+            measureCount: analysis.measureCount,
+            harmonyTagCount: analysis.harmonyTagCount,
+            coverage: analysis.coverage,
+            localKeyStrategy: analysis.localKeyStrategy,
+            harmonicRhythm: analysis.harmonicRhythm,
+            fallbackCount: analysis.fallbackCount,
+            suppressedChangeCount: analysis.suppressedChangeCount,
+          } : undefined,
+          artifacts: body.artifacts,
+        };
+        if (typeof body.content === 'string' && body.content.trim()) {
+          summaryBody.content = `[musicxml omitted, ${body.content.length} chars]`;
+        }
+        summary.body = summaryBody;
+        summary._note = 'Full harmony analysis result stored internally; MusicXML content omitted from model summary.';
+        return summary;
+      }
+      if (fullResult.tool === 'music.functional_harmony_analyze') {
+        const analysis = asRecord(body.analysis);
+        const segments = Array.isArray(body.segments) ? body.segments.slice(0, 8) : [];
+        const exportsObj = asRecord(body.exports);
+        const summaryBody: Record<string, unknown> = {
+          ok: body.ok,
+          warnings: body.warnings,
+          analysis: analysis ? {
+            measureCount: analysis.measureCount,
+            segmentCount: analysis.segmentCount,
+            coverage: analysis.coverage,
+            localKeyCount: analysis.localKeyCount,
+            modulationCount: analysis.modulationCount,
+            cadenceCount: analysis.cadenceCount,
+            engine: analysis.engine,
+          } : undefined,
+          segments,
+          artifacts: body.artifacts,
+        };
+        if (typeof body.annotatedXml === 'string' && body.annotatedXml.trim()) {
+          summaryBody.annotatedXml = `[musicxml omitted, ${body.annotatedXml.length} chars]`;
+        }
+        if (exportsObj) {
+          summaryBody.exports = {
+            json: typeof exportsObj.json === 'string' ? `[json omitted, ${exportsObj.json.length} chars]` : undefined,
+            rntxt: typeof exportsObj.rntxt === 'string' ? `[rntxt omitted, ${exportsObj.rntxt.length} chars]` : undefined,
+          };
+        }
+        summary.body = summaryBody;
+        summary._note = 'Full functional harmony result stored internally; large exports omitted from model summary.';
+        return summary;
+      }
       // Default heuristic summarization for other tools
       for (const key of bodyKeys) {
         const val = body[key];
@@ -212,13 +282,32 @@ const getDefaultModel = (provider: string) => DEFAULT_MODELS[provider] || DEFAUL
 // toFunctionToolName(), so the model sees music_context, music_scoreops, etc.
 // The enum here must match the names the model actually outputs.
 const AGENT_OUTPUT_SCHEMA = z.object({
-  selectedTool: z.enum(['music_context', 'music_convert', 'music_diff_feedback', 'music_generate', 'music_scoreops', 'music_patch', 'music_render']),
+  selectedTool: z.enum([
+    'music_context',
+    'music_convert',
+    'music_diff_feedback',
+    'music_functional_harmony_analyze',
+    'music_generate',
+    'music_harmony_analyze',
+    'music_scoreops',
+    'music_patch',
+    'music_render',
+  ]),
   toolStatus: z.number(),
   toolOk: z.boolean(),
+  applyToScore: z.boolean().optional(),
   response: z.string(),
   error: z.string().nullable().optional(),
   result: z.string().nullable().optional().describe('JSON-encoded result object from the tool call'),
 });
+
+function promptRequestsAnalysisApply(prompt: string): boolean {
+  const normalized = prompt.toLowerCase();
+  const wantsAction = /\b(apply|insert|add|annotate|write|put)\b/.test(normalized);
+  const wantsScoreTarget = /\b(score|staff|staves|notation)\b/.test(normalized);
+  const wantsHarmonyMarkup = /\b(roman numeral|roman numerals|chord symbols?|harmony tags?)\b/.test(normalized);
+  return wantsAction && (wantsScoreTarget || wantsHarmonyMarkup);
+}
 
 function mergeToolInput(
   defaults: Record<string, unknown> | undefined,
@@ -247,6 +336,14 @@ function traceLog(
 
 function classifyPrompt(prompt: string | AgentInputItem[]): MusicAgentToolName {
   const normalized = extractTextFromPrompt(prompt).toLowerCase();
+  const isFunctionalHarmony = /\b(roman numeral|roman numerals|functional harmony|harmony analysis|analyze harmony|analyse harmony|cadence|cadences|modulation|modulations|tonicization|tonicizations|key trajectory)\b/.test(normalized);
+  if (isFunctionalHarmony) {
+    return 'music.functional_harmony_analyze';
+  }
+  const isChordify = /\b(chordify|chord symbols?|harmony tags?|lead sheet|lead-sheet|mma|accompaniment chords?)\b/.test(normalized);
+  if (isChordify) {
+    return 'music.harmony_analyze';
+  }
   const isGenerate = /\b(generate|compose|write|create|new score|melody|variation)\b/.test(normalized);
   if (isGenerate) {
     return 'music.generate';
@@ -325,6 +422,7 @@ async function runFallbackRouter(
   try {
     const selectedTool = classifyPrompt(prompt);
     const promptText = extractTextFromPrompt(prompt);
+    const applyToScore = promptRequestsAnalysisApply(promptText);
     traceLog(trace, 'music_agent.fallback.selected_tool', {
       selectedTool,
     });
@@ -365,6 +463,58 @@ async function runFallbackRouter(
         response: result.status < 400
           ? 'Conversion completed via fallback router.'
           : 'Conversion failed in fallback router.',
+        result: result.body,
+      },
+    };
+  }
+  if (selectedTool === 'music.harmony_analyze') {
+    const harmonyDefaults = {
+      ...(toolInput?.harmony_analyze || {}),
+    };
+    const contextDefaults = asRecord(toolInput?.context);
+    if (!harmonyDefaults.content && typeof contextDefaults?.content === 'string') {
+      harmonyDefaults.content = contextDefaults.content;
+    }
+    const result = trace?.traceContext
+      ? await runHarmonyAnalyzeService(harmonyDefaults, { traceContext: trace.traceContext })
+      : await runHarmonyAnalyzeService(harmonyDefaults);
+    return {
+      status: result.status,
+      body: {
+        mode: 'fallback',
+        selectedTool,
+        toolStatus: result.status,
+        toolOk: result.status < 400,
+        response: result.status < 400
+          ? 'Chord-symbol analysis completed via fallback router.'
+          : 'Chord-symbol analysis failed in fallback router.',
+        applyToScore,
+        result: result.body,
+      },
+    };
+  }
+  if (selectedTool === 'music.functional_harmony_analyze') {
+    const functionalDefaults = {
+      ...(toolInput?.functional_harmony_analyze || {}),
+    };
+    const contextDefaults = asRecord(toolInput?.context);
+    if (!functionalDefaults.content && typeof contextDefaults?.content === 'string') {
+      functionalDefaults.content = contextDefaults.content;
+    }
+    const result = trace?.traceContext
+      ? await runFunctionalHarmonyAnalyzeService(functionalDefaults, { traceContext: trace.traceContext })
+      : await runFunctionalHarmonyAnalyzeService(functionalDefaults);
+    return {
+      status: result.status,
+      body: {
+        mode: 'fallback',
+        selectedTool,
+        toolStatus: result.status,
+        toolOk: result.status < 400,
+        response: result.status < 400
+          ? 'Functional harmony analysis completed via fallback router.'
+          : 'Functional harmony analysis failed in fallback router.',
+        applyToScore,
         result: result.body,
       },
     };
@@ -698,6 +848,76 @@ function createMusicRouterAgent() {
     },
   });
 
+  const musicHarmonyAnalyzeTool = tool({
+    name: MUSIC_HARMONY_ANALYZE_TOOL_CONTRACT.name,
+    description: MUSIC_HARMONY_ANALYZE_TOOL_CONTRACT.description,
+    parameters: MUSIC_HARMONY_ANALYZE_TOOL_CONTRACT.inputSchema,
+    strict: false,
+    execute: async (input, runContext) => {
+      console.info('[music-agent] Tool called: music.harmony_analyze');
+      const rawContext: any = (runContext as any)?.context || runContext;
+      const defaults = rawContext?.toolInput?.harmony_analyze;
+      const payload = mergeToolInput(defaults, input);
+      if (!payload.scoreSessionId && rawContext?.toolInput?.harmony_analyze?.scoreSessionId) {
+        payload.scoreSessionId = rawContext.toolInput.harmony_analyze.scoreSessionId;
+        payload.baseRevision = rawContext.toolInput.harmony_analyze.baseRevision;
+      }
+      const contextDefaults = rawContext?.toolInput?.context;
+      if (!payload.content && !payload.scoreSessionId && typeof contextDefaults?.content === 'string') {
+        payload.content = contextDefaults.content;
+      }
+      const toolTrace = rawContext?.trace;
+      const result = toolTrace?.traceContext
+        ? await runHarmonyAnalyzeService(payload, { traceContext: toolTrace.traceContext })
+        : await runHarmonyAnalyzeService(payload);
+      console.info(`[music-agent] Tool music.harmony_analyze completed: status=${result.status}`);
+      const fullResult = {
+        tool: 'music.harmony_analyze',
+        status: result.status,
+        ok: result.status < 400,
+        body: result.body,
+        scoreSessionId: (result.body as any).scoreSessionId,
+        revision: (result.body as any).revision,
+      };
+      return summarizeForModel(fullResult, runContext);
+    },
+  });
+
+  const musicFunctionalHarmonyAnalyzeTool = tool({
+    name: MUSIC_FUNCTIONAL_HARMONY_ANALYZE_TOOL_CONTRACT.name,
+    description: MUSIC_FUNCTIONAL_HARMONY_ANALYZE_TOOL_CONTRACT.description,
+    parameters: MUSIC_FUNCTIONAL_HARMONY_ANALYZE_TOOL_CONTRACT.inputSchema,
+    strict: false,
+    execute: async (input, runContext) => {
+      console.info('[music-agent] Tool called: music.functional_harmony_analyze');
+      const rawContext: any = (runContext as any)?.context || runContext;
+      const defaults = rawContext?.toolInput?.functional_harmony_analyze;
+      const payload = mergeToolInput(defaults, input);
+      if (!payload.scoreSessionId && rawContext?.toolInput?.functional_harmony_analyze?.scoreSessionId) {
+        payload.scoreSessionId = rawContext.toolInput.functional_harmony_analyze.scoreSessionId;
+        payload.baseRevision = rawContext.toolInput.functional_harmony_analyze.baseRevision;
+      }
+      const contextDefaults = rawContext?.toolInput?.context;
+      if (!payload.content && !payload.scoreSessionId && typeof contextDefaults?.content === 'string') {
+        payload.content = contextDefaults.content;
+      }
+      const toolTrace = rawContext?.trace;
+      const result = toolTrace?.traceContext
+        ? await runFunctionalHarmonyAnalyzeService(payload, { traceContext: toolTrace.traceContext })
+        : await runFunctionalHarmonyAnalyzeService(payload);
+      console.info(`[music-agent] Tool music.functional_harmony_analyze completed: status=${result.status}`);
+      const fullResult = {
+        tool: 'music.functional_harmony_analyze',
+        status: result.status,
+        ok: result.status < 400,
+        body: result.body,
+        scoreSessionId: (result.body as any).scoreSessionId,
+        revision: (result.body as any).revision,
+      };
+      return summarizeForModel(fullResult, runContext);
+    },
+  });
+
   const musicPatchTool = tool({
     name: MUSIC_PATCH_TOOL_CONTRACT.name,
     description: MUSIC_PATCH_TOOL_CONTRACT.description,
@@ -849,6 +1069,10 @@ function createMusicRouterAgent() {
       '  * Tip: Use `include_abc: true` for a compact representation.',
       '  * Tip: Use the `fingerprint` object in the result for high-level musical facts (note distribution, key/time signatures) to justify your harmonic reasoning.',
       '  * Tip: If the user request is about specific measures, provide `measureStart` and `measureEnd` to get targeted XML snippets.',
+      '- music_harmony_analyze: generate chord symbols / MusicXML harmony tags (Chordify) for accompaniment prep and lead-sheet style analysis.',
+      '  * Tip: Use this for chord symbols, harmony tags, or MMA preparation.',
+      '- music_functional_harmony_analyze: Roman numerals, local keys, cadences, and modulation-oriented harmonic analysis.',
+      '  * Tip: Use this for Roman numeral analysis or when the user asks about harmonic function.',
       '- music_render: generate a visual snapshot (PNG/PDF) of the score.',
       '  * Tip: Use this when you need to see visual notation particulars, layout, or symbols not easily captured in XML/ABC.',
       '- music_convert: format conversion between MusicXML and ABC.',
@@ -858,6 +1082,9 @@ function createMusicRouterAgent() {
       '- music_patch: score edit requests that should produce a musicxml-patch@1 payload.',
       '',
       'When you need to analyze the score (e.g., determine current key signature from notes), call music_context first.',
+      'Use music_harmony_analyze for chord-symbol / harmony-tag tasks. Use music_functional_harmony_analyze for Roman numerals, cadences, modulations, and local-key analysis.',
+      'When using music_harmony_analyze or music_functional_harmony_analyze, set `applyToScore: true` only if the user actually wants the score annotated and the tool result contains applyable MusicXML.',
+      'If the user wants analysis only, leave `applyToScore` false or omit it.',
       'If you need to see the score visual layout or particulars, call music_render.',
       'NEVER ask the user to provide the MusicXML, PDF, or image of the current score unless you have first tried the tools and they failed.',
       'If a tool returns "session_not_found", it means the server-side cache was cleared; in this case, and ONLY in this case, should you ask the user to "Refresh the score session".',
@@ -889,7 +1116,17 @@ function createMusicRouterAgent() {
       'The `result` field can be null — the system will inject the full tool output automatically.',
       'Keep response concise and mention why the selected tool was chosen.',
     ].join('\n'),
-    tools: [musicContextTool, musicConvertTool, musicDiffFeedbackTool, musicGenerateTool, musicScoreOpsTool, musicPatchTool, musicRenderTool],
+    tools: [
+      musicContextTool,
+      musicConvertTool,
+      musicDiffFeedbackTool,
+      musicFunctionalHarmonyAnalyzeTool,
+      musicGenerateTool,
+      musicHarmonyAnalyzeTool,
+      musicScoreOpsTool,
+      musicPatchTool,
+      musicRenderTool,
+    ],
     outputType: AGENT_OUTPUT_SCHEMA,
   });
 }
@@ -933,7 +1170,16 @@ export async function runMusicAgentRouter(
   const bodyRevision = typeof data?.baseRevision === 'number' ? data.baseRevision : (typeof data?.revision === 'number' ? data.revision : undefined);
   if (bodySessionId) {
     toolInput = toolInput || {};
-    const tools: Array<keyof ToolDefaults> = ['context', 'convert', 'diff_feedback', 'scoreops', 'patch', 'render'];
+    const tools: Array<keyof ToolDefaults> = [
+      'context',
+      'convert',
+      'diff_feedback',
+      'functional_harmony_analyze',
+      'harmony_analyze',
+      'scoreops',
+      'patch',
+      'render',
+    ];
     for (const t of tools) {
       if (!toolInput[t] || !asRecord(toolInput[t])?.scoreSessionId) {
         toolInput[t] = {
@@ -1050,7 +1296,9 @@ export async function runMusicAgentRouter(
         music_context: 'music.context',
         music_convert: 'music.convert',
         music_diff_feedback: 'music.diff_feedback',
+        music_functional_harmony_analyze: 'music.functional_harmony_analyze',
         music_generate: 'music.generate',
+        music_harmony_analyze: 'music.harmony_analyze',
         music_scoreops: 'music.scoreops',
         music_patch: 'music.patch',
         music_render: 'music.render',

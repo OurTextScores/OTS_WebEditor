@@ -3,6 +3,7 @@ import {
   MUSIC_CONTEXT_TOOL_CONTRACT,
   MUSIC_CONVERT_TOOL_CONTRACT,
   MUSIC_DIFF_FEEDBACK_TOOL_CONTRACT,
+  MUSIC_FUNCTIONAL_HARMONY_ANALYZE_TOOL_CONTRACT,
   MUSIC_GENERATE_TOOL_CONTRACT,
   MUSIC_HARMONY_ANALYZE_TOOL_CONTRACT,
   MUSIC_PATCH_TOOL_CONTRACT,
@@ -20,6 +21,7 @@ describe('music service tool contracts', () => {
       'music.context',
       'music.convert',
       'music.diff_feedback',
+      'music.functional_harmony_analyze',
       'music.generate',
       'music.harmony_analyze',
       'music.patch',
@@ -77,6 +79,16 @@ describe('music service tool contracts', () => {
       type: 'object',
     });
     expect(MUSIC_DIFF_FEEDBACK_TOOL_CONTRACT.outputSchema).toMatchObject({
+      oneOf: expect.any(Array),
+    });
+  });
+
+  it('declares required functional harmony analyze contract fields', () => {
+    expect(MUSIC_FUNCTIONAL_HARMONY_ANALYZE_TOOL_CONTRACT.description.length).toBeGreaterThan(0);
+    expect(MUSIC_FUNCTIONAL_HARMONY_ANALYZE_TOOL_CONTRACT.inputSchema).toMatchObject({
+      type: 'object',
+    });
+    expect(MUSIC_FUNCTIONAL_HARMONY_ANALYZE_TOOL_CONTRACT.outputSchema).toMatchObject({
       oneOf: expect.any(Array),
     });
   });

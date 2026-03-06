@@ -1,6 +1,7 @@
 import { MUSIC_CONTEXT_TOOL_CONTRACT } from './music-context-contract';
 import { MUSIC_CONVERT_TOOL_CONTRACT } from './music-convert-contract';
 import { MUSIC_DIFF_FEEDBACK_TOOL_CONTRACT } from './music-diff-feedback-contract';
+import { MUSIC_FUNCTIONAL_HARMONY_ANALYZE_TOOL_CONTRACT } from './music-functional-harmony-analyze-contract';
 import { MUSIC_GENERATE_TOOL_CONTRACT } from './music-generate-contract';
 import { MUSIC_HARMONY_ANALYZE_TOOL_CONTRACT } from './music-harmony-analyze-contract';
 import { MUSIC_PATCH_TOOL_CONTRACT } from './music-patch-contract';
@@ -12,6 +13,7 @@ import { MUSIC_MMA_RENDER_TOOL_CONTRACT } from './music-mma-render-contract';
 export { MUSIC_CONTEXT_TOOL_CONTRACT } from './music-context-contract';
 export { MUSIC_CONVERT_TOOL_CONTRACT } from './music-convert-contract';
 export { MUSIC_DIFF_FEEDBACK_TOOL_CONTRACT } from './music-diff-feedback-contract';
+export { MUSIC_FUNCTIONAL_HARMONY_ANALYZE_TOOL_CONTRACT } from './music-functional-harmony-analyze-contract';
 export { MUSIC_GENERATE_TOOL_CONTRACT } from './music-generate-contract';
 export { MUSIC_HARMONY_ANALYZE_TOOL_CONTRACT } from './music-harmony-analyze-contract';
 export { MUSIC_PATCH_TOOL_CONTRACT } from './music-patch-contract';
@@ -25,6 +27,7 @@ export const MUSIC_TOOL_CONTRACTS = [
   MUSIC_CONTEXT_TOOL_CONTRACT,
   MUSIC_CONVERT_TOOL_CONTRACT,
   MUSIC_DIFF_FEEDBACK_TOOL_CONTRACT,
+  MUSIC_FUNCTIONAL_HARMONY_ANALYZE_TOOL_CONTRACT,
   MUSIC_GENERATE_TOOL_CONTRACT,
   MUSIC_HARMONY_ANALYZE_TOOL_CONTRACT,
   MUSIC_PATCH_TOOL_CONTRACT,

@@ -5,10 +5,13 @@ const mocked = vi.hoisted(() => ({
   runMusicContextService: vi.fn(),
   runMusicConvertService: vi.fn(),
   runDiffFeedbackService: vi.fn(),
+  runFunctionalHarmonyAnalyzeService: vi.fn(),
   runMusicGenerateService: vi.fn(),
+  runHarmonyAnalyzeService: vi.fn(),
   runMusicScoreOpsPromptService: vi.fn(),
   runMusicScoreOpsService: vi.fn(),
   runMusicPatchService: vi.fn(),
+  runMusicRenderService: vi.fn(),
 }));
 
 vi.mock('@openai/agents', () => {
@@ -37,8 +40,16 @@ vi.mock('../lib/music-services/diff-feedback-service', () => ({
   runDiffFeedbackService: mocked.runDiffFeedbackService,
 }));
 
+vi.mock('../lib/music-services/functional-harmony-service', () => ({
+  runFunctionalHarmonyAnalyzeService: mocked.runFunctionalHarmonyAnalyzeService,
+}));
+
 vi.mock('../lib/music-services/generate-service', () => ({
   runMusicGenerateService: mocked.runMusicGenerateService,
+}));
+
+vi.mock('../lib/music-services/harmony-service', () => ({
+  runHarmonyAnalyzeService: mocked.runHarmonyAnalyzeService,
 }));
 
 vi.mock('../lib/music-services/scoreops-service', () => ({
@@ -48,6 +59,10 @@ vi.mock('../lib/music-services/scoreops-service', () => ({
 
 vi.mock('../lib/music-services/patch-service', () => ({
   runMusicPatchService: mocked.runMusicPatchService,
+}));
+
+vi.mock('../lib/music-services/render-service', () => ({
+  runMusicRenderService: mocked.runMusicRenderService,
 }));
 
 import { runMusicAgentRouter } from '../lib/music-agents/router';

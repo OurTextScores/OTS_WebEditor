@@ -75,8 +75,8 @@ describe('runMusicAgentRouter Concurrency', () => {
 
       // Verify OpenAI was instantiated twice with correct keys
       expect(OpenAI).toHaveBeenCalledTimes(2);
-      expect(OpenAI).toHaveBeenNthCalledWith(1, { apiKey: 'key-A' });
-      expect(OpenAI).toHaveBeenNthCalledWith(2, { apiKey: 'key-B' });
+      expect(OpenAI).toHaveBeenNthCalledWith(1, { apiKey: 'key-A', dangerouslyAllowBrowser: true });
+      expect(OpenAI).toHaveBeenNthCalledWith(2, { apiKey: 'key-B', dangerouslyAllowBrowser: true });
 
       // Verify OpenAIResponsesModel was instantiated twice with respective clients
       expect(OpenAIResponsesModel).toHaveBeenCalledTimes(2);
