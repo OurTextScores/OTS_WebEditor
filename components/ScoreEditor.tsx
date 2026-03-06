@@ -99,7 +99,7 @@ const PREVIEW_SYNTH_BATCH_SIZE = 1;
 const PREVIEW_DURATION_MS = 350;
 const SYNTH_START_PREROLL_SECONDS = 0.015;
 const LARGE_SCORE_INTERACTION_PROBE_DELAYS_MS = [0, 2000, 5000, 15000, 30000, 60000] as const;
-const LARGE_SCORE_INTERACTION_PRIME_DELAY_MS = 750;
+const LARGE_SCORE_INTERACTION_PRIME_DELAY_MS = 0;
 
 type PartAlignment = {
     partIndex: number;
@@ -772,6 +772,8 @@ export default function ScoreEditor() {
     const [interactionReady, setInteractionReady] = useState(false);
     const [interactionPreparing, setInteractionPreparing] = useState(false);
     const interactiveMutationEnabled = mutationEnabled && interactionReady;
+    const interactionReadyRef = useRef(interactionReady);
+    const interactionPreparingRef = useRef(interactionPreparing);
     const [soundFontLoaded, setSoundFontLoaded] = useState(false);
     const [triedSoundFont, setTriedSoundFont] = useState(false);
     const soundFontLoadedRef = useRef(soundFontLoaded);
@@ -1022,6 +1024,13 @@ export default function ScoreEditor() {
             ...(properties || {}),
         }, options);
     }, [isEmbedBuild]);
+
+    const setInteractionState = useCallback((next: { ready: boolean; preparing: boolean }) => {
+        interactionReadyRef.current = next.ready;
+        interactionPreparingRef.current = next.preparing;
+        setInteractionReady(next.ready);
+        setInteractionPreparing(next.preparing);
+    }, []);
 
     const clearInteractionProbeTimers = useCallback(() => {
         interactionProbeRunIdRef.current += 1;
@@ -3813,8 +3822,7 @@ ${partsBodyXml}
                     }
                     const refreshedPage = await refreshPageCount(targetScore, currentPageRef.current);
                     const rendered = await renderScore(targetScore, refreshedPage, false);
-                    setInteractionPreparing(false);
-                    setInteractionReady(true);
+                    setInteractionState({ preparing: false, ready: true });
                     void logInteractionReadiness('interaction-prime:done', targetScore, {
                         ...context,
                         durationMs: Math.round(performance.now() - start),
@@ -3822,8 +3830,7 @@ ${partsBodyXml}
                         rendered,
                     });
                 } catch (err) {
-                    setInteractionPreparing(false);
-                    setInteractionReady(true);
+                    setInteractionState({ preparing: false, ready: true });
                     void logInteractionReadiness('interaction-prime:failed', targetScore, {
                         ...context,
                         durationMs: Math.round(performance.now() - start),
@@ -4144,6 +4151,13 @@ ${partsBodyXml}
                 backgroundInitTimerRef.current = null;
                 return;
             }
+            if (isLargeInput && interactionPreparingRef.current) {
+                backgroundInitTimerRef.current = setTimeout(() => {
+                    void runTasks(attempt);
+                }, 1000);
+                log('background-tasks:deferred', { reason: 'interaction-preparing', attempt });
+                return;
+            }
             if (
                 isLargeInput
                 && (pageNavigationInFlightRef.current || progressivePageLoadInFlightRef.current)
@@ -4220,13 +4234,17 @@ ${partsBodyXml}
         };
 
         if (loadedScore.saveAudio) {
-            log('soundfont:warmup-scheduled');
-            queueMicrotask(() => {
-                void ensureSoundFontLoaded(loadedScore).catch((err) => {
-                    log('soundfont:warmup-failed', err);
-                    console.warn('Background SoundFont warmup failed.', err);
+            if (isLargeInput && interactionPreparingRef.current) {
+                log('soundfont:warmup-deferred', { reason: 'interaction-preparing' });
+            } else {
+                log('soundfont:warmup-scheduled');
+                queueMicrotask(() => {
+                    void ensureSoundFontLoaded(loadedScore).catch((err) => {
+                        log('soundfont:warmup-failed', err);
+                        console.warn('Background SoundFont warmup failed.', err);
+                    });
                 });
-            });
+            }
         }
 
         if (isLargeInput) {
@@ -4266,8 +4284,7 @@ ${partsBodyXml}
         setSelectedElementClasses('');
         setSelectedLayoutBreakSubtype(null);
         setMutationEnabled(false);
-        setInteractionReady(false);
-        setInteractionPreparing(false);
+        setInteractionState({ preparing: false, ready: false });
         soundFontLoadedRef.current = false;
         triedSoundFontRef.current = false;
         soundFontLoadPromiseRef.current = null;
@@ -4384,8 +4401,7 @@ ${partsBodyXml}
                 engineMode,
             });
             if (inputIsLarge && progressivePaging && initialAvailablePages <= 1) {
-                setInteractionPreparing(true);
-                setInteractionReady(false);
+                setInteractionState({ preparing: true, ready: false });
                 scheduleLargeScoreInteractionPrime(loadedScore, {
                     loadSource: 'url',
                     format,
@@ -4396,8 +4412,7 @@ ${partsBodyXml}
                     initialAvailablePages,
                 });
             } else {
-                setInteractionPreparing(false);
-                setInteractionReady(true);
+                setInteractionState({ preparing: false, ready: true });
             }
             if (autoFitPendingRef.current && typeof window !== 'undefined') {
                 window.requestAnimationFrame(() => {
@@ -4445,8 +4460,7 @@ ${partsBodyXml}
             return true;
         } catch (err) {
             console.error('Error auto-loading file:', err);
-            setInteractionPreparing(false);
-            setInteractionReady(false);
+            setInteractionState({ preparing: false, ready: false });
             telemetryCountersRef.current.documentLoadFailures += 1;
             emitEditorTelemetry('score_editor_document_load_failed', {
                 load_source: 'url',
@@ -4510,8 +4524,7 @@ ${partsBodyXml}
         setSelectedElementClasses('');
         setSelectedLayoutBreakSubtype(null);
         setMutationEnabled(false);
-        setInteractionReady(false);
-        setInteractionPreparing(false);
+        setInteractionState({ preparing: false, ready: false });
         soundFontLoadedRef.current = false;
         triedSoundFontRef.current = false;
         soundFontLoadPromiseRef.current = null;
@@ -4629,8 +4642,7 @@ ${partsBodyXml}
                 engineMode,
             });
             if (isLargeUpload && progressivePaging && initialAvailablePages <= 1) {
-                setInteractionPreparing(true);
-                setInteractionReady(false);
+                setInteractionState({ preparing: true, ready: false });
                 scheduleLargeScoreInteractionPrime(loadedScore, {
                     loadSource: telemetrySource,
                     format,
@@ -4641,8 +4653,7 @@ ${partsBodyXml}
                     initialAvailablePages,
                 });
             } else {
-                setInteractionPreparing(false);
-                setInteractionReady(true);
+                setInteractionState({ preparing: false, ready: true });
             }
             if (autoFitPendingRef.current && typeof window !== 'undefined') {
                 window.requestAnimationFrame(() => {
@@ -4680,8 +4691,7 @@ ${partsBodyXml}
         } catch (err) {
             console.error('Error loading file:', err);
             alert('Failed to load score. See console for details.');
-            setInteractionPreparing(false);
-            setInteractionReady(false);
+            setInteractionState({ preparing: false, ready: false });
             telemetryCountersRef.current.documentLoadFailures += 1;
             emitEditorTelemetry('score_editor_document_load_failed', {
                 load_source: telemetrySource,
