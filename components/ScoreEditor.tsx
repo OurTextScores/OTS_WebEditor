@@ -201,6 +201,7 @@ type MutationMethods = Pick<
 >;
 
 const PROXY_MISSING_STATUSES = new Set([404, 405, 501]);
+const AI_CHAT_SOURCE_RAG_HINT_DISMISSED_STORAGE_KEY = 'ots_ai_chat_source_rag_hint_dismissed';
 const ANTHROPIC_EMBED_PROXY_ERROR = [
     'Claude requires an LLM proxy in embed mode because browser-direct Anthropic calls are blocked by CORS.',
     'Configure NEXT_PUBLIC_SCORE_EDITOR_API_BASE (recommended) or NEXT_PUBLIC_LLM_PROXY_URL, or serve /api/llm/anthropic on the same origin.',
@@ -897,6 +898,7 @@ export default function ScoreEditor() {
     const [aiMaxTokens, setAiMaxTokens] = useState(4096);
     const [aiChatInput, setAiChatInput] = useState('');
     const [aiChatMessages, setAiChatMessages] = useState<AiChatMessage[]>([]);
+    const [aiChatSourceRagHintDismissed, setAiChatSourceRagHintDismissed] = useState(false);
     const [aiOutput, setAiOutput] = useState('');
     const [aiPatch, setAiPatch] = useState<MusicXmlPatch | null>(null);
     const [aiPatchError, setAiPatchError] = useState<string | null>(null);
@@ -1542,6 +1544,26 @@ export default function ScoreEditor() {
             window.localStorage.removeItem(aiModelStorageKey);
         }
     }, [aiEnabled, aiModel, aiModelStorageKey]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+        setAiChatSourceRagHintDismissed(
+            window.localStorage.getItem(AI_CHAT_SOURCE_RAG_HINT_DISMISSED_STORAGE_KEY) === '1',
+        );
+    }, []);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+        if (aiChatSourceRagHintDismissed) {
+            window.localStorage.setItem(AI_CHAT_SOURCE_RAG_HINT_DISMISSED_STORAGE_KEY, '1');
+        } else {
+            window.localStorage.removeItem(AI_CHAT_SOURCE_RAG_HINT_DISMISSED_STORAGE_KEY);
+        }
+    }, [aiChatSourceRagHintDismissed]);
 
     useEffect(() => {
         if (typeof window === 'undefined') {
@@ -11967,9 +11989,21 @@ ${partsBodyXml}
                                                     </div>
                                                 )}
                                             </div>
-                                            <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
-                                                External-source lookup is on-demand. Ask for source history, background, citations, or explicitly mention IMSLP/Wikipedia/web search to use it.
-                                            </div>
+                                            {!aiChatSourceRagHintDismissed && (
+                                                <div className="flex items-start justify-between gap-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+                                                    <div>
+                                                        External-source lookup is on-demand. Ask for source history, background, citations, or explicitly mention IMSLP/Wikipedia/web search to use it.
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setAiChatSourceRagHintDismissed(true)}
+                                                        className="shrink-0 rounded border border-amber-300 bg-white/80 px-2 py-0.5 text-[10px] font-medium text-amber-900 hover:bg-white"
+                                                        aria-label="Dismiss external-source lookup hint"
+                                                    >
+                                                        Dismiss
+                                                    </button>
+                                                </div>
+                                            )}
                                             <div className="text-[11px] text-gray-500">
                                                 Drag the lower-right corner of the chat panel above to resize it.
                                             </div>
