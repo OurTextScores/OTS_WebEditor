@@ -127,12 +127,12 @@ Success criteria:
 Goal:
 
 - expose analysis results independently from MMA
-- split `Chordify` from `Functional Harmony`
+- split `Chordify` from `Harmony`
 
 Scope:
 
 - keep `Chordify` focused on chord symbols and `<harmony>` tags
-- add a separate `Functional Harmony` tab for Roman numeral analysis
+- add a separate `Harmony` tab for Roman numeral analysis
 - provide local key / modulation summaries
 - export sidecar analysis artifacts instead of mutating notation by default
 
@@ -146,7 +146,7 @@ Success criteria:
 
 Goal:
 
-- add deeper functional analysis to the new `Functional Harmony` tab
+- add deeper functional analysis to the new `Harmony` tab
 
 Scope:
 
@@ -213,9 +213,127 @@ Mitigation:
 
 - keep experimental work on dedicated branches until there is a clear product path
 
-## 8. Immediate next steps
+## 8. Phase 2.5: `music21` quality tuning
+
+Even though `music21` is the current analysis engine, result quality is still heavily shaped by OTS-owned heuristics around reduction, segmentation, and post-processing.
+
+Tuning backlog:
+
+1. chord reduction before Roman-numeral assignment
+
+- filter non-chord tones more aggressively in dense textures
+- prefer metrically strong verticalities over ornamental events
+- optionally collapse repeated passing sonorities inside one harmonic span
+
+2. local-key segmentation
+
+- replace the current 3-measure smoothing vote with a stronger region model
+- require persistence before key-change promotion
+- suppress one-measure oscillations unless the modulation evidence is strong
+
+3. harmonic-span selection
+
+- move beyond exactly one symbol per measure where cadence or applied-dominant motion is obvious
+- allow beat-level subsegments only when confidence rises materially
+- keep a conservative default so output remains legible
+
+4. cadence heuristics
+
+- upgrade from simple `V -> I` / `IV -> I` pattern checks
+- incorporate inversion, metric position, and phrase-end hints
+- distinguish authentic / half / deceptive / plagal more reliably
+
+5. confidence scoring
+
+- lower confidence when local key is unstable
+- lower confidence when several candidate chords compete in the same span
+- expose these scores consistently in exports/UI
+
+6. movement and phrase boundaries
+
+- avoid carrying prior context too aggressively across section/movement resets
+- use rests, double bars, repeats, and tempo changes as soft boundary hints
+
+7. evaluation loop
+
+- curate a regression set from representative OTS scores
+- compare Harmony output against analyst expectations on a small golden set
+- tune heuristics for stability before introducing a second backend
+
+Success criteria for this tuning phase:
+
+- fewer obviously unstable Roman numerals on real scores
+- better local-key continuity
+- cadence summaries that are useful rather than merely present
+- no regression in current Chordify / MMA workflows
+
+## 9. `AugmentedNet` planning track
+
+Goal:
+
+- add a second Harmony backend for stronger Roman-numeral analysis without disturbing the current deterministic path
+
+Why this is a planning track first:
+
+- the current `music21` backend is already functional and shippable
+- `AugmentedNet` adds model/runtime/dependency complexity
+- backend comparison criteria should be defined before implementation work starts
+
+Planned work:
+
+1. repository and artifact audit
+
+- confirm current upstream repo state
+- identify pretrained checkpoint availability
+- verify inference entrypoint and supported input formats
+- verify license compatibility for OTS deployment
+
+2. runtime packaging design
+
+- decide whether `AugmentedNet` runs:
+  - inside `score_editor_api`
+  - as a separate service/container
+  - or as a hosted remote backend
+- define Python/runtime dependency isolation from the existing `music21` helper
+
+3. adapter design
+
+- normalize MusicXML input into the form expected by `AugmentedNet`
+- normalize model output into the existing Harmony service contract:
+  - `analysis`
+  - `segments`
+  - `keys`
+  - `cadences`
+  - `warnings`
+  - optional annotated MusicXML
+
+4. qualification set
+
+- evaluate on a small corpus of OTS scores plus selected common-practice material
+- compare against the current deterministic backend for:
+  - coverage
+  - local-key stability
+  - cadence usefulness
+  - obvious RN correctness
+
+5. product decision gate
+
+- ship as:
+  - optional backend selector in `Harmony`, or
+  - internal fallback / comparison mode only
+- only proceed if it is meaningfully better than tuned `music21` on real scores
+
+Open questions to answer before implementation:
+
+- checkpoint/source-of-truth location
+- runtime footprint and cold-start cost
+- whether annotated MusicXML should be emitted directly or reconstructed in OTS
+- whether `AugmentedNet` is robust enough on polyphonic keyboard scores outside its benchmark distribution
+
+## 10. Immediate next steps
 
 1. design the `music21`-based harmonic-tagging service
 2. design and implement a separate `Functional Harmony` tab
 3. keep `Chordify` integrated into the editor and MMA workflow
-4. evaluate `AugmentedNet` separately as a non-blocking follow-up backend for Functional Harmony
+4. tune the deterministic `music21` Harmony backend on a small regression set
+5. audit `AugmentedNet` as a non-blocking follow-up backend for Harmony
