@@ -98,6 +98,8 @@ const SELECTION_SYNTH_BATCH_SIZE = 1;
 const PREVIEW_SYNTH_BATCH_SIZE = 1;
 const PREVIEW_DURATION_MS = 350;
 const SYNTH_START_PREROLL_SECONDS = 0.015;
+const LARGE_SCORE_INTERACTION_PROBE_DELAYS_MS = [0, 2000, 5000, 15000, 30000, 60000] as const;
+const LARGE_SCORE_INTERACTION_PRIME_DELAY_MS = 750;
 
 type PartAlignment = {
     partIndex: number;
@@ -767,6 +769,9 @@ export default function ScoreEditor() {
     const blockOverlayRefreshRef = useRef(false);
     const selectionOverlayGenerationRef = useRef(0);
     const [mutationEnabled, setMutationEnabled] = useState(false);
+    const [interactionReady, setInteractionReady] = useState(false);
+    const [interactionPreparing, setInteractionPreparing] = useState(false);
+    const interactiveMutationEnabled = mutationEnabled && interactionReady;
     const [soundFontLoaded, setSoundFontLoaded] = useState(false);
     const [triedSoundFont, setTriedSoundFont] = useState(false);
     const soundFontLoadedRef = useRef(soundFontLoaded);
@@ -976,6 +981,10 @@ export default function ScoreEditor() {
     const largeScoreSessionRef = useRef(false);
     const largeSessionXmlAutoloadDeferredLoggedRef = useRef(false);
     const backgroundInitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const interactionProbeTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+    const interactionProbeRunIdRef = useRef(0);
+    const interactionPrimeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const interactionPrimeRunIdRef = useRef(0);
     const scoreOperationQueueRef = useRef<Promise<void>>(Promise.resolve());
     const editorSessionIdRef = useRef('');
     const editorMountedAtRef = useRef(0);
@@ -1014,6 +1023,22 @@ export default function ScoreEditor() {
         }, options);
     }, [isEmbedBuild]);
 
+    const clearInteractionProbeTimers = useCallback(() => {
+        interactionProbeRunIdRef.current += 1;
+        for (const timer of interactionProbeTimersRef.current) {
+            clearTimeout(timer);
+        }
+        interactionProbeTimersRef.current = [];
+    }, []);
+
+    const clearInteractionPrime = useCallback(() => {
+        interactionPrimeRunIdRef.current += 1;
+        if (interactionPrimeTimerRef.current) {
+            clearTimeout(interactionPrimeTimerRef.current);
+            interactionPrimeTimerRef.current = null;
+        }
+    }, []);
+
     useEffect(() => {
         if (!editorSessionIdRef.current) {
             editorSessionIdRef.current = getOrCreateEditorSessionId();
@@ -1043,8 +1068,10 @@ export default function ScoreEditor() {
                 patch_applies: counters.patchApplies,
                 patch_apply_failures: counters.patchApplyFailures,
             }, { beacon: true });
+            clearInteractionProbeTimers();
+            clearInteractionPrime();
         };
-    }, [emitEditorTelemetry]);
+    }, [clearInteractionPrime, clearInteractionProbeTimers, emitEditorTelemetry]);
 
     const detectInputFormat = (source: string): InputFileFormat => {
         const normalized = source.toLowerCase().split('#')[0].split('?')[0];
@@ -3688,6 +3715,132 @@ ${partsBodyXml}
         }
     }, []);
 
+    const logInteractionReadiness = useCallback(async (
+        label: string,
+        targetScore?: Score | null,
+        extra?: Record<string, unknown>,
+    ) => {
+        const activeScore = targetScore ?? scoreRef.current ?? score;
+        if (!activeScore || !largeScoreSessionRef.current) {
+            return;
+        }
+        let layoutState: LayoutProgressState | null = null;
+        let layoutProbeError: string | null = null;
+        if (activeScore.layoutUntilPageState) {
+            try {
+                const targetPage = Math.max(0, currentPageRef.current || 0);
+                const raw = await runSerializedScoreOperation(
+                    () => Promise.resolve(activeScore.layoutUntilPageState!(targetPage)),
+                    `layoutUntilPageState(diag page=${targetPage + 1})`,
+                );
+                layoutState = parseLayoutProgressState(raw);
+            } catch (err) {
+                layoutProbeError = errorMessage(err);
+            }
+        }
+        console.info('[interaction-readiness]', {
+            label,
+            currentPage: currentPageRef.current + 1,
+            pageCount,
+            progressivePagingActive,
+            progressiveHasMorePages,
+            mutationsAvailable: hasMutationApi(activeScore),
+            hasSelectElementAtPoint: typeof activeScore.selectElementAtPoint === 'function',
+            hasSelectElementAtPointWithMode: typeof activeScore.selectElementAtPointWithMode === 'function',
+            hasSelectionBoundingBoxes: typeof activeScore.getSelectionBoundingBoxes === 'function',
+            selectedPointPresent: Boolean(selectedPointRef.current),
+            layoutState: layoutState
+                ? {
+                    targetPage: layoutState.targetPage + 1,
+                    targetSatisfied: layoutState.targetSatisfied,
+                    availablePages: layoutState.availablePages,
+                    totalMeasures: layoutState.totalMeasures,
+                    laidOutMeasures: layoutState.laidOutMeasures,
+                    hasMorePages: layoutState.hasMorePages,
+                    isComplete: layoutState.isComplete,
+                }
+                : null,
+            layoutProbeError,
+            ...extra,
+        });
+    }, [pageCount, progressivePagingActive, progressiveHasMorePages, runSerializedScoreOperation, score]);
+
+    const scheduleInteractionReadinessProbes = useCallback((
+        targetScore: Score,
+        context: Record<string, unknown>,
+    ) => {
+        if (!largeScoreSessionRef.current) {
+            return;
+        }
+        clearInteractionProbeTimers();
+        const runId = interactionProbeRunIdRef.current;
+        interactionProbeTimersRef.current = LARGE_SCORE_INTERACTION_PROBE_DELAYS_MS.map((delayMs) => (
+            setTimeout(() => {
+                if (interactionProbeRunIdRef.current !== runId || scoreRef.current !== targetScore) {
+                    return;
+                }
+                void logInteractionReadiness('scheduled-probe', targetScore, {
+                    ...context,
+                    delayMs,
+                });
+            }, delayMs)
+        ));
+    }, [clearInteractionProbeTimers, logInteractionReadiness]);
+
+    const scheduleLargeScoreInteractionPrime = useCallback((
+        targetScore: Score,
+        context: Record<string, unknown>,
+    ) => {
+        if (!largeScoreSessionRef.current) {
+            return;
+        }
+        clearInteractionPrime();
+        const runId = interactionPrimeRunIdRef.current;
+        interactionPrimeTimerRef.current = setTimeout(() => {
+            if (interactionPrimeRunIdRef.current !== runId || scoreRef.current !== targetScore) {
+                return;
+            }
+            void (async () => {
+                const start = performance.now();
+                void logInteractionReadiness('interaction-prime:start', targetScore, context);
+                try {
+                    if (targetScore.relayout) {
+                        await runSerializedScoreOperation(
+                            () => Promise.resolve(targetScore.relayout!()),
+                            'relayout(interaction-prime)',
+                        );
+                        void logInteractionReadiness('interaction-prime:relayout-done', targetScore, context);
+                    }
+                    const refreshedPage = await refreshPageCount(targetScore, currentPageRef.current);
+                    const rendered = await renderScore(targetScore, refreshedPage, false);
+                    setInteractionPreparing(false);
+                    setInteractionReady(true);
+                    void logInteractionReadiness('interaction-prime:done', targetScore, {
+                        ...context,
+                        durationMs: Math.round(performance.now() - start),
+                        refreshedPage: refreshedPage + 1,
+                        rendered,
+                    });
+                } catch (err) {
+                    setInteractionPreparing(false);
+                    setInteractionReady(true);
+                    void logInteractionReadiness('interaction-prime:failed', targetScore, {
+                        ...context,
+                        durationMs: Math.round(performance.now() - start),
+                        error: errorMessage(err),
+                    });
+                }
+            })();
+        }, LARGE_SCORE_INTERACTION_PRIME_DELAY_MS);
+    }, [clearInteractionPrime, logInteractionReadiness]);
+
+    useEffect(() => {
+        if (!largeScoreSessionRef.current || !scoreRef.current) {
+            return;
+        }
+        void logInteractionReadiness('progressive-state:update', scoreRef.current);
+    }, [currentPage, pageCount, progressiveHasMorePages, progressivePagingActive, logInteractionReadiness]);
+
     const resolveCurrentPageSvgContext = useCallback(async () => {
         const renderedSvg = containerRef.current?.querySelector('svg');
         if (renderedSvg instanceof SVGSVGElement) {
@@ -4099,6 +4252,8 @@ ${partsBodyXml}
         }
         const loadStartedAt = Date.now();
         clearScheduledBackgroundInit();
+        clearInteractionProbeTimers();
+        clearInteractionPrime();
         const urlScoreId = searchParams.get('scoreId') || `url:${url}`;
         if (urlScoreId !== scoreId) {
             setScoreId(urlScoreId);
@@ -4111,6 +4266,8 @@ ${partsBodyXml}
         setSelectedElementClasses('');
         setSelectedLayoutBreakSubtype(null);
         setMutationEnabled(false);
+        setInteractionReady(false);
+        setInteractionPreparing(false);
         soundFontLoadedRef.current = false;
         triedSoundFontRef.current = false;
         soundFontLoadPromiseRef.current = null;
@@ -4208,6 +4365,40 @@ ${partsBodyXml}
             if (!rendered) {
                 console.warn('Initial render did not produce SVG content.');
             }
+            void logInteractionReadiness('post-load:url', loadedScore, {
+                loadSource: 'url',
+                format,
+                inputBytes: inputByteLength,
+                progressivePaging,
+                progressiveHasMore,
+                engineMode,
+                initialAvailablePages,
+                rendered,
+            });
+            scheduleInteractionReadinessProbes(loadedScore, {
+                loadSource: 'url',
+                format,
+                inputBytes: inputByteLength,
+                progressivePaging,
+                progressiveHasMore,
+                engineMode,
+            });
+            if (inputIsLarge && progressivePaging && initialAvailablePages <= 1) {
+                setInteractionPreparing(true);
+                setInteractionReady(false);
+                scheduleLargeScoreInteractionPrime(loadedScore, {
+                    loadSource: 'url',
+                    format,
+                    inputBytes: inputByteLength,
+                    progressivePaging,
+                    progressiveHasMore,
+                    engineMode,
+                    initialAvailablePages,
+                });
+            } else {
+                setInteractionPreparing(false);
+                setInteractionReady(true);
+            }
             if (autoFitPendingRef.current && typeof window !== 'undefined') {
                 window.requestAnimationFrame(() => {
                     window.requestAnimationFrame(() => {
@@ -4254,6 +4445,8 @@ ${partsBodyXml}
             return true;
         } catch (err) {
             console.error('Error auto-loading file:', err);
+            setInteractionPreparing(false);
+            setInteractionReady(false);
             telemetryCountersRef.current.documentLoadFailures += 1;
             emitEditorTelemetry('score_editor_document_load_failed', {
                 load_source: 'url',
@@ -4279,6 +4472,8 @@ ${partsBodyXml}
         },
     ): Promise<boolean> => {
         clearScheduledBackgroundInit();
+        clearInteractionProbeTimers();
+        clearInteractionPrime();
         setLoading(true);
         const loadStartedAt = Date.now();
         const uploadStart = performance.now();
@@ -4315,6 +4510,8 @@ ${partsBodyXml}
         setSelectedElementClasses('');
         setSelectedLayoutBreakSubtype(null);
         setMutationEnabled(false);
+        setInteractionReady(false);
+        setInteractionPreparing(false);
         soundFontLoadedRef.current = false;
         triedSoundFontRef.current = false;
         soundFontLoadPromiseRef.current = null;
@@ -4413,6 +4610,40 @@ ${partsBodyXml}
                 }
             }
             logUploadStage('render-score:done', { rendered, initialPage });
+            void logInteractionReadiness('post-load:upload', loadedScore, {
+                loadSource: telemetrySource,
+                format,
+                inputBytes: inputByteLength,
+                progressivePaging,
+                progressiveHasMore,
+                engineMode,
+                initialAvailablePages,
+                rendered,
+            });
+            scheduleInteractionReadinessProbes(loadedScore, {
+                loadSource: telemetrySource,
+                format,
+                inputBytes: inputByteLength,
+                progressivePaging,
+                progressiveHasMore,
+                engineMode,
+            });
+            if (isLargeUpload && progressivePaging && initialAvailablePages <= 1) {
+                setInteractionPreparing(true);
+                setInteractionReady(false);
+                scheduleLargeScoreInteractionPrime(loadedScore, {
+                    loadSource: telemetrySource,
+                    format,
+                    inputBytes: inputByteLength,
+                    progressivePaging,
+                    progressiveHasMore,
+                    engineMode,
+                    initialAvailablePages,
+                });
+            } else {
+                setInteractionPreparing(false);
+                setInteractionReady(true);
+            }
             if (autoFitPendingRef.current && typeof window !== 'undefined') {
                 window.requestAnimationFrame(() => {
                     window.requestAnimationFrame(() => {
@@ -4449,6 +4680,8 @@ ${partsBodyXml}
         } catch (err) {
             console.error('Error loading file:', err);
             alert('Failed to load score. See console for details.');
+            setInteractionPreparing(false);
+            setInteractionReady(false);
             telemetryCountersRef.current.documentLoadFailures += 1;
             emitEditorTelemetry('score_editor_document_load_failed', {
                 load_source: telemetrySource,
@@ -8351,6 +8584,10 @@ ${partsBodyXml}
             console.warn(`Mutation "${label}" requested but no score is loaded.`);
             return;
         }
+        if (!interactiveMutationEnabled) {
+            console.warn(`Mutation "${label}" skipped: interaction not ready.`);
+            return;
+        }
         if (!action) {
             console.warn(`Mutation "${label}" requested but binding is missing on Score instance.`);
             return;
@@ -9262,7 +9499,7 @@ ${partsBodyXml}
                 };
                 const hasSelection = Boolean(selectedElement) || selectionBoxes.length > 0;
 
-                if (mutationEnabled && hasSelection) {
+                if (interactiveMutationEnabled && hasSelection) {
                     if (rawKey in durationMap) {
                         event.preventDefault();
                         handleSetDurationType(durationMap[rawKey]);
@@ -9315,7 +9552,7 @@ ${partsBodyXml}
             }
 
             if (key === 'arrowup' || key === 'arrowdown') {
-                if (!mutationEnabled) {
+                if (!interactiveMutationEnabled) {
                     return;
                 }
                 const hasSelection = Boolean(selectedElement) || selectionBoxes.length > 0;
@@ -9334,7 +9571,7 @@ ${partsBodyXml}
             }
 
             if (key === 'arrowleft' || key === 'arrowright') {
-                if (!mutationEnabled) {
+                if (!interactiveMutationEnabled) {
                     return;
                 }
                 const hasSelection = Boolean(selectedElement) || selectionBoxes.length > 0;
@@ -9361,7 +9598,7 @@ ${partsBodyXml}
             }
 
             if (key === 'delete' || key === 'backspace') {
-                if (mutationEnabled && (selectedElement || selectionBoxes.length > 0)) {
+                if (interactiveMutationEnabled && (selectedElement || selectionBoxes.length > 0)) {
                     event.preventDefault();
                     if (selectedLayoutBreakSubtype === 'line') {
                         handleToggleLineBreak();
@@ -9380,7 +9617,7 @@ ${partsBodyXml}
         return () => window.removeEventListener('keydown', onKeyDown);
     }, [
         score,
-        mutationEnabled,
+        interactiveMutationEnabled,
         selectedElement,
         selectionBoxes.length,
         handleAddPitchByStep,
@@ -9982,9 +10219,10 @@ ${partsBodyXml}
         options?: { reselect?: boolean },
     ) => {
         const activeScore = scoreRef.current ?? score;
-        if (!activeScore || !activeScore.synthSelectionPreviewBatch || isPlaying || audioBusy) {
+        if (!interactionReady || !activeScore || !activeScore.synthSelectionPreviewBatch || isPlaying || audioBusy) {
             console.debug('[AUDITION] skipped preview request', {
                 trigger,
+                interactionReady,
                 hasScore: Boolean(activeScore),
                 hasPreviewApi: Boolean(activeScore?.synthSelectionPreviewBatch),
                 isPlaying,
@@ -10044,6 +10282,9 @@ ${partsBodyXml}
     };
 
     const handlePlayFromSelectionAudio = async () => {
+        if (!interactionReady) {
+            return;
+        }
         await playTransportAudio(true);
     };
 
@@ -10319,6 +10560,9 @@ ${partsBodyXml}
     };
 
     const handleScorePointerDown = (e: React.PointerEvent) => {
+        if (!interactionReady) {
+            return;
+        }
         if (e.button !== 0) {
             return;
         }
@@ -10465,6 +10709,9 @@ ${partsBodyXml}
     };
 
     const handleScoreMouseDown = (e: React.MouseEvent) => {
+        if (!interactionReady) {
+            return;
+        }
         if (e.button !== 0) {
             return;
         }
@@ -10612,6 +10859,9 @@ ${partsBodyXml}
     };
 
     const handleScoreClick = (e: React.MouseEvent) => {
+        if (!interactionReady) {
+            return;
+        }
         if (ignoreNextClickRef.current) {
             ignoreNextClickRef.current = false;
             return;
@@ -10709,17 +10959,23 @@ ${partsBodyXml}
                 trySelect()
                     .then(async (selected) => {
                         if (selected === false) {
+                            void logInteractionReadiness('selection-click:fallback-miss', score, {
+                                pageIndex: pageIndex + 1,
+                                mode: 'point-fallback',
+                            });
                             clearSelectionState();
                             return;
                         }
 
                         // Get selection bounding boxes for keyboard/button enablement
                         let hasMeasureSelection = false;
+                        let selectionBoxCount = 0;
                         if (score.getSelectionBoundingBoxes) {
                             try {
                                 const bboxes = await score.getSelectionBoundingBoxes();
                                 if (bboxes && bboxes.length > 0) {
                                     hasMeasureSelection = true;
+                                    selectionBoxCount = bboxes.length;
                                     // Set boxes for state tracking (keyboard shortcuts, button states)
                                     // Set backend highlighting flag to skip visual rendering (backend handles it)
                                     const boxes: SelectionBox[] = bboxes.map((bb: any, index: number) => {
@@ -10757,16 +11013,32 @@ ${partsBodyXml}
                         // Render with backend highlighting
                         // For measure selections, skip overlay refresh to preserve selectionBoxes state
                         if (hasMeasureSelection) {
+                            void logInteractionReadiness('selection-click:measure-success', score, {
+                                pageIndex: pageIndex + 1,
+                                mode: 'point-fallback',
+                                hasMeasureSelection,
+                                selectionBoxCount,
+                            });
                             await renderScore(score, pageIndex);
                             void playSelectionPreview('selection-click:measure', fallback.point);
                         } else {
                             // For single element selections, use normal flow with overlay
                             setHasBackendHighlighting(false);
+                            void logInteractionReadiness('selection-click:element-success', score, {
+                                pageIndex: pageIndex + 1,
+                                mode: 'point-fallback',
+                                hasMeasureSelection,
+                            });
                             await refreshSelectionFromSvg();
                             void playSelectionPreview('selection-click:element', fallback.point, { reselect: true });
                         }
                     })
                     .catch(err => {
+                        void logInteractionReadiness('selection-click:fallback-error', score, {
+                            pageIndex: pageIndex + 1,
+                            mode: 'point-fallback',
+                            error: errorMessage(err),
+                        });
                         console.warn('selectMeasureAtPoint/selectElementAtPoint not available or failed:', err);
                         clearSelectionState();
                     });
@@ -10856,8 +11128,20 @@ ${partsBodyXml}
                 Promise.resolve(selectionPromise)
                     .then((selected) => {
                         if (selected === false) {
+                            void logInteractionReadiness('selection-click:element-miss', score, {
+                                pageIndex: pageIndex + 1,
+                                mode,
+                                additiveSelection,
+                                isShiftClick,
+                            });
                             throw new Error('selectElementAtPoint returned false');
                         }
+                        void logInteractionReadiness('selection-click:element-success', score, {
+                            pageIndex: pageIndex + 1,
+                            mode,
+                            additiveSelection,
+                            isShiftClick,
+                        });
                         return refreshSelectionFromSvg(fallback);
                     })
                     .then(() => {
@@ -10868,6 +11152,13 @@ ${partsBodyXml}
                         );
                     })
                     .catch(err => {
+                        void logInteractionReadiness('selection-click:element-error', score, {
+                            pageIndex: pageIndex + 1,
+                            mode,
+                            additiveSelection,
+                            isShiftClick,
+                            error: errorMessage(err),
+                        });
                         console.warn('selectElementAtPoint not available or failed:', err);
                         setSelectedElement(null);
                         setSelectionBoxes([]);
@@ -10975,7 +11266,7 @@ ${partsBodyXml}
             }
             : null;
     const textSelectionActive = hasTextElementClass(selectedElementClasses) || Boolean(textEditorPosition);
-    const selectedTextControlDisabled = !mutationEnabled || !score?.setSelectedText;
+    const selectedTextControlDisabled = !interactiveMutationEnabled || !score?.setSelectedText;
     const checkpointControlsDisabled = checkpointBusy || checkpointLoading;
     const checkpointSaveDisabled = checkpointControlsDisabled || !score || !score?.saveXml;
     const checkpointCompareDisabled = checkpointControlsDisabled || !score;
@@ -11079,7 +11370,7 @@ ${partsBodyXml}
                     onSetAccidental={handleSetAccidental}
                 onDurationLonger={handleDurationLonger}
 	                onDurationShorter={handleDurationShorter}
-	                mutationsEnabled={mutationEnabled}
+	                mutationsEnabled={interactiveMutationEnabled}
                 selectionActive={Boolean(selectedElement) || selectionBoxes.length > 0 || Boolean(selectedPoint)}
                 onExportSvg={handleExportSvg}
                 onExportPdf={handleExportPdf}
@@ -11094,7 +11385,7 @@ ${partsBodyXml}
                 onExportCurrentPageAudio={score?.saveAudioForMeasureRange ? handleExportCurrentPageAudio : undefined}
                 onPlayAudio={handlePlayAudio}
                 onPlayCurrentPageAudio={score?.saveAudioForMeasureRange ? playCurrentPageAudio : undefined}
-                onPlayFromSelectionAudio={handlePlayFromSelectionAudio}
+                onPlayFromSelectionAudio={interactionReady ? handlePlayFromSelectionAudio : undefined}
                 onStopAudio={() => { void stopAudio({ awaitCancel: true }); }}
                 isPlaying={isPlaying}
                 audioBusy={audioBusy}
@@ -11399,47 +11690,65 @@ ${partsBodyXml}
                 )}
 
                 {!loading && score && (
-                    <div className="mb-3 flex items-center justify-end gap-2 text-sm text-gray-600">
-                        <button
-                            type="button"
-                            onClick={() => setProgressiveLoadEnabled((prev) => !prev)}
-                            className="px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50"
-                            title="Applies to future score loads"
-                        >
-                            Progressive load: {progressiveLoadEnabled ? 'On' : 'Off'}
-                        </button>
-                        <span data-testid="page-indicator">
-                            Page {currentPage + 1} of {progressivePagingActive && progressiveHasMorePages ? `${pageCount}+` : pageCount}
-                        </span>
-                        <select
-                            className="px-2 py-1 border border-gray-300 rounded bg-white text-sm"
-                            onChange={handlePageSelect}
-                            value={currentPage}
-                            data-testid="page-select"
-                        >
-                            {Array.from({ length: pageCount }, (_, index) => (
-                                <option key={index} value={index}>
-                                    Page {index + 1}
-                                </option>
-                            ))}
-                        </select>
-                        <button
-                            type="button"
-                            onClick={() => handlePrevPage()}
-                            disabled={currentPage <= 0}
-                            className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Prev
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => handleNextPage()}
-                            disabled={currentPage >= pageCount - 1 && !(progressivePagingActive && progressiveHasMorePages)}
-                            className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Next
-                        </button>
-                    </div>
+                    <>
+                        {interactionPreparing && (
+                            <div
+                                data-testid="interaction-preparing-banner"
+                                className="mb-3 flex items-center justify-between gap-3 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+                            >
+                                <div>
+                                    <div className="font-medium">Finalizing interactive layout...</div>
+                                    <div className="text-xs text-amber-800">
+                                        Viewing and page playback are available. Note selection, note editing, and selection playback will unlock when relayout finishes.
+                                    </div>
+                                </div>
+                                <div className="shrink-0 text-xs font-semibold uppercase tracking-wide text-amber-700">
+                                    Preparing
+                                </div>
+                            </div>
+                        )}
+                        <div className="mb-3 flex items-center justify-end gap-2 text-sm text-gray-600">
+                            <button
+                                type="button"
+                                onClick={() => setProgressiveLoadEnabled((prev) => !prev)}
+                                className="px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50"
+                                title="Applies to future score loads"
+                            >
+                                Progressive load: {progressiveLoadEnabled ? 'On' : 'Off'}
+                            </button>
+                            <span data-testid="page-indicator">
+                                Page {currentPage + 1} of {progressivePagingActive && progressiveHasMorePages ? `${pageCount}+` : pageCount}
+                            </span>
+                            <select
+                                className="px-2 py-1 border border-gray-300 rounded bg-white text-sm"
+                                onChange={handlePageSelect}
+                                value={currentPage}
+                                data-testid="page-select"
+                            >
+                                {Array.from({ length: pageCount }, (_, index) => (
+                                    <option key={index} value={index}>
+                                        Page {index + 1}
+                                    </option>
+                                ))}
+                            </select>
+                            <button
+                                type="button"
+                                onClick={() => handlePrevPage()}
+                                disabled={currentPage <= 0}
+                                className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Prev
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleNextPage()}
+                                disabled={currentPage >= pageCount - 1 && !(progressivePagingActive && progressiveHasMorePages)}
+                                className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </>
                 )}
 
 	            <div
