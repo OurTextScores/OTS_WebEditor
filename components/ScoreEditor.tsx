@@ -41,6 +41,10 @@ import {
     getOrCreateEditorSessionId,
     trackEditorAnalyticsEvent,
 } from '../lib/editor-analytics';
+import {
+    MMA_ARRANGEMENT_PRESETS,
+    type MmaArrangementPreset,
+} from '../lib/music-mma-presets';
 
 type SelectionBox = {
     index: number | null;
@@ -535,7 +539,7 @@ const buildAiChatTranscript = (messages: AiChatMessage[]) => {
         : ''}`;
 };
 
-const MMA_BLUES_DEMO_TEMPLATE = `Tempo 110\nTimeSig 4 4\nKeySig C\nGroove Swing\n\n1  C7 F7 C7 C7\n5  F7 F7 C7 C7\n9  G7 F7 C7 G7\n`;
+const MMA_BLUES_DEMO_TEMPLATE = `Tempo 110\nTimeSig 4 4\nKeySig C\nGroove Swing\n\n1  C7\n2  F7\n3  C7\n4  C7\n5  F7\n6  F7\n7  C7\n8  C7\n9  G7\n10  F7\n11  C7\n12  G7\n`;
 
 const decodeBase64ToBytes = (input: string) => {
     const compact = input.replace(/\s+/g, '');
@@ -757,6 +761,7 @@ export default function ScoreEditor() {
     const [xmlLoading, setXmlLoading] = useState(false);
     const [xmlError, setXmlError] = useState<string | null>(null);
     const [mmaStarterPreset, setMmaStarterPreset] = useState<MmaStarterPreset>('lead-sheet');
+    const [mmaArrangementPreset, setMmaArrangementPreset] = useState<MmaArrangementPreset>('full-groove');
     const [mmaScript, setMmaScript] = useState('');
     const [mmaBusy, setMmaBusy] = useState(false);
     const [mmaError, setMmaError] = useState<string | null>(null);
@@ -7367,6 +7372,7 @@ ${partsBodyXml}
                 MMA_TEMPLATE_MAX_MEASURES,
                 Math.max(1, estimatedMeasures || MMA_TEMPLATE_MAX_MEASURES),
             ),
+            arrangementPreset: mmaArrangementPreset,
         });
         const template = typeof payload.template === 'string' ? payload.template : '';
         if (!template.trim()) {
@@ -7384,7 +7390,7 @@ ${partsBodyXml}
             setXmlSidebarTab('mma');
         }
         return payload;
-    }, [postScoreEditorJson]);
+    }, [mmaArrangementPreset, postScoreEditorJson]);
 
     const handleMmaGenerateTemplate = async () => {
         setMmaBusy(true);
@@ -12092,6 +12098,29 @@ ${partsBodyXml}
                                                 <option value="blues">12-bar Blues (demo)</option>
                                             </select>
                                         </label>
+                                        <label className="flex flex-col gap-1">
+                                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                Arrangement
+                                            </span>
+                                            <select
+                                                value={mmaArrangementPreset}
+                                                onChange={(event) => setMmaArrangementPreset(event.target.value as MmaArrangementPreset)}
+                                                className="rounded border border-gray-300 px-2 py-1 text-sm"
+                                                data-testid="select-mma-arrangement"
+                                            >
+                                                {MMA_ARRANGEMENT_PRESETS.map((preset) => (
+                                                    <option key={preset.id} value={preset.id}>
+                                                        {preset.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </label>
+                                    </div>
+                                    <div className="rounded border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600">
+                                        {MMA_ARRANGEMENT_PRESETS.find((preset) => preset.id === mmaArrangementPreset)?.description
+                                            || 'Use the groove as-is with its default accompaniment layers.'}
+                                    </div>
+                                    <div className="grid gap-2 sm:grid-cols-2">
                                         <div className="flex items-end">
                                             <button
                                                 type="button"

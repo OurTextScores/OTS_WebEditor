@@ -20,6 +20,8 @@ export const MUSIC_MMA_TEMPLATE_TOOL_CONTRACT: MusicToolContract = {
       max_measures: { type: 'number', minimum: 1, maximum: 2500 },
       defaultGroove: { type: 'string' },
       default_groove: { type: 'string' },
+      arrangementPreset: { type: 'string', enum: ['full-groove', 'piano-trio', 'guitar-trio', 'bass-drums', 'piano-solo', 'strings-pad'] },
+      arrangement_preset: { type: 'string', enum: ['full-groove', 'piano-trio', 'guitar-trio', 'bass-drums', 'piano-solo', 'strings-pad'] },
     },
   },
   outputSchema: {

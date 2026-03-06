@@ -51,6 +51,7 @@ describe('mma services', () => {
     const result = await runMmaTemplateService({
       content: '<score-partwise version="3.1"></score-partwise>',
       maxMeasures: 4,
+      arrangementPreset: 'piano-trio',
     });
 
     expect(result.status).toBe(200);
@@ -62,6 +63,12 @@ describe('mma services', () => {
       },
     });
     expect(mocked.buildStarterTemplateFromXml).toHaveBeenCalledTimes(1);
+    expect(mocked.buildStarterTemplateFromXml).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        arrangementPreset: 'piano-trio',
+      }),
+    );
   });
 
   it('rejects invalid script payloads', async () => {

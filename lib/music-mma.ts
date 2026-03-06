@@ -2,11 +2,13 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { getMmaArrangementDirectives, type MmaArrangementPreset } from './music-mma-presets';
 import { type TraceContext } from './trace-http';
 
 export type MmaTemplateBuildOptions = {
   maxMeasures?: number;
   defaultGroove?: string;
+  arrangementPreset?: MmaArrangementPreset;
 };
 
 export type MmaTemplateBuildResult = {
@@ -542,6 +544,9 @@ export function buildStarterTemplateFromXml(xml: string, options?: MmaTemplateBu
   const warnings: string[] = [];
   const maxMeasures = Math.max(1, Math.floor(options?.maxMeasures || 16));
   const groove = (options?.defaultGroove || DEFAULT_GROOVE).trim() || DEFAULT_GROOVE;
+  const arrangementDirectives = options?.arrangementPreset
+    ? getMmaArrangementDirectives(options.arrangementPreset)
+    : [];
 
   const beats = xml.match(/<beats>\s*(\d+)\s*<\/beats>/i)?.[1] || DEFAULT_METER.split('/')[0]!;
   const beatType = xml.match(/<beat-type>\s*(\d+)\s*<\/beat-type>/i)?.[1] || DEFAULT_METER.split('/')[1]!;
@@ -604,6 +609,7 @@ export function buildStarterTemplateFromXml(xml: string, options?: MmaTemplateBu
     `TimeSig ${beats} ${beatType}`,
     `KeySig ${key}`,
     `Groove ${groove}`,
+    ...arrangementDirectives,
     '',
   ];
 

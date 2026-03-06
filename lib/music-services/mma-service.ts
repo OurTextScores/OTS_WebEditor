@@ -1,4 +1,5 @@
 import { buildStarterTemplateFromXml, runMmaCompile, validateMmaScript } from '../music-mma';
+import { isMmaArrangementPreset } from '../music-mma-presets';
 import { convertMusicNotation } from '../music-conversion';
 import { createScoreArtifact, summarizeScoreArtifact } from '../score-artifacts';
 import { type TraceContext } from '../trace-http';
@@ -82,11 +83,18 @@ export async function runMmaTemplateService(body: unknown, options?: MmaServiceO
   const defaultGroove = typeof data?.defaultGroove === 'string'
     ? data.defaultGroove.trim()
     : (typeof data?.default_groove === 'string' ? data.default_groove.trim() : '');
+  const arrangementPresetRaw = typeof data?.arrangementPreset === 'string'
+    ? data.arrangementPreset.trim()
+    : (typeof data?.arrangement_preset === 'string' ? data.arrangement_preset.trim() : '');
+  const arrangementPreset = isMmaArrangementPreset(arrangementPresetRaw)
+    ? arrangementPresetRaw
+    : undefined;
 
   const startedAt = Date.now();
   const result = buildStarterTemplateFromXml(resolution.xml, {
     maxMeasures,
     defaultGroove: defaultGroove || undefined,
+    arrangementPreset,
   });
 
   logMmaServiceEvent('info', 'music.mma.template.result', traceContext, {

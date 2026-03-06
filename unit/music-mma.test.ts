@@ -129,6 +129,7 @@ describe('music-mma helpers', () => {
     const result = buildStarterTemplateFromXml(XML_WITH_HARMONY, {
       maxMeasures: 8,
       defaultGroove: 'BossaNova',
+      arrangementPreset: 'piano-trio',
     });
 
     expect(result.warnings).toEqual([]);
@@ -144,6 +145,8 @@ describe('music-mma helpers', () => {
     expect(result.template).toContain('KeySig D');
     expect(result.template).toContain('Tempo 92');
     expect(result.template).toContain('Groove BossaNova');
+    expect(result.template).toContain('AllTracks Chord Voice Piano1');
+    expect(result.template).toContain('AllTracks Bass Walk Voice AcousticBass');
     expect(result.template).toContain('1  Dmaj7');
     expect(result.template).toContain('2  A7');
   });
