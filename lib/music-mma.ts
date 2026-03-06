@@ -595,13 +595,8 @@ export function buildStarterTemplateFromXml(xml: string, options?: MmaTemplateBu
     warnings.push(`Could not derive harmony for ${fallbackCount}/${measureCount} measure(s); using fallback ${key} chords.`);
   }
 
-  const groups: string[] = [];
-  for (let offset = 0; offset < chords.length; offset += 4) {
-    groups.push(chords.slice(offset, offset + 4).join(' '));
-  }
-
-  const body = groups
-    .map((group, index) => `${(index * 4) + 1}  ${group}`)
+  const body = chords
+    .map((chord, index) => `${index + 1}  ${chord}`)
     .join('\n');
 
   const headerLines = [

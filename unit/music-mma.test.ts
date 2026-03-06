@@ -144,7 +144,8 @@ describe('music-mma helpers', () => {
     expect(result.template).toContain('KeySig D');
     expect(result.template).toContain('Tempo 92');
     expect(result.template).toContain('Groove BossaNova');
-    expect(result.template).toContain('1  Dmaj7 A7');
+    expect(result.template).toContain('1  Dmaj7');
+    expect(result.template).toContain('2  A7');
   });
 
   it('infers chords from note content when harmony tags are missing', () => {
@@ -154,7 +155,8 @@ describe('music-mma helpers', () => {
     expect(result.warnings[0]).toContain('inferred chord symbols');
     expect(result.analysis.harmonyMeasureCount).toBe(2);
     expect(result.analysis.harmonyCoverage).toBe(1);
-    expect(result.template).toContain('1  C Am');
+    expect(result.template).toContain('1  C');
+    expect(result.template).toContain('2  Am');
   });
 
   it('fills missing harmony measures using note-based inference', () => {
@@ -164,7 +166,8 @@ describe('music-mma helpers', () => {
     expect(result.warnings[0]).toContain('Filled 1 measure');
     expect(result.analysis.harmonyMeasureCount).toBe(2);
     expect(result.analysis.harmonyCoverage).toBe(1);
-    expect(result.template).toContain('1  Dmaj7 G7');
+    expect(result.template).toContain('1  Dmaj7');
+    expect(result.template).toContain('2  G7');
   });
 
   it('uses sequential measure order when numbering restarts across movements or parts', () => {
@@ -174,7 +177,10 @@ describe('music-mma helpers', () => {
     expect(result.analysis.measureCount).toBe(4);
     expect(result.analysis.harmonyMeasureCount).toBe(4);
     expect(result.analysis.harmonyCoverage).toBe(1);
-    expect(result.template).toContain('1  C F G7 C');
+    expect(result.template).toContain('1  C');
+    expect(result.template).toContain('2  F');
+    expect(result.template).toContain('3  G7');
+    expect(result.template).toContain('4  C');
   });
 
   it('falls back to key-based placeholder chords when no harmony or notes exist', () => {
@@ -186,6 +192,7 @@ describe('music-mma helpers', () => {
     expect(result.analysis.harmonyMeasureCount).toBe(0);
     expect(result.analysis.measureCount).toBe(2);
     expect(result.template).toContain('1  C');
+    expect(result.template).toContain('2  C');
   });
 
   it('validates empty and oversized scripts', () => {
@@ -195,7 +202,7 @@ describe('music-mma helpers', () => {
     expect(empty.ok).toBe(false);
     expect(empty.error).toContain('empty');
 
-    const oversized = validateMmaScript('Tempo 120\nGroove Swing\n1 C F G7 C\n');
+    const oversized = validateMmaScript('Tempo 120\nGroove Swing\n1 C\n2 F\n3 G7\n4 C\n');
     expect(oversized.ok).toBe(false);
     expect(oversized.error).toContain('exceeds size limit');
   });
