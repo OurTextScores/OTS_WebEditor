@@ -779,6 +779,8 @@ export default function ScoreEditor() {
     const soundFontLoadedRef = useRef(soundFontLoaded);
     const triedSoundFontRef = useRef(triedSoundFont);
     const soundFontLoadPromiseRef = useRef<Promise<boolean> | null>(null);
+    const soundFontPrefetchPromiseRef = useRef<Promise<{ url: string; buf: Uint8Array } | null> | null>(null);
+    const soundFontPrefetchResultRef = useRef<{ url: string; buf: Uint8Array } | null>(null);
     const [scoreTitle, setScoreTitle] = useState('');
     const [scoreSubtitle, setScoreSubtitle] = useState('');
     const [scoreComposer, setScoreComposer] = useState('');
@@ -3823,6 +3825,13 @@ ${partsBodyXml}
                     const refreshedPage = await refreshPageCount(targetScore, currentPageRef.current);
                     const rendered = await renderScore(targetScore, refreshedPage, false);
                     setInteractionState({ preparing: false, ready: true });
+                    if (targetScore.saveAudio) {
+                        queueMicrotask(() => {
+                            void ensureSoundFontLoaded(targetScore).catch((err) => {
+                                console.warn('Deferred SoundFont warmup after interaction prime failed.', err);
+                            });
+                        });
+                    }
                     void logInteractionReadiness('interaction-prime:done', targetScore, {
                         ...context,
                         durationMs: Math.round(performance.now() - start),
@@ -3831,6 +3840,13 @@ ${partsBodyXml}
                     });
                 } catch (err) {
                     setInteractionState({ preparing: false, ready: true });
+                    if (targetScore.saveAudio) {
+                        queueMicrotask(() => {
+                            void ensureSoundFontLoaded(targetScore).catch((soundFontErr) => {
+                                console.warn('Deferred SoundFont warmup after failed interaction prime failed.', soundFontErr);
+                            });
+                        });
+                    }
                     void logInteractionReadiness('interaction-prime:failed', targetScore, {
                         ...context,
                         durationMs: Math.round(performance.now() - start),
@@ -4236,6 +4252,12 @@ ${partsBodyXml}
         if (loadedScore.saveAudio) {
             if (isLargeInput && interactionPreparingRef.current) {
                 log('soundfont:warmup-deferred', { reason: 'interaction-preparing' });
+                queueMicrotask(() => {
+                    void prefetchSoundFontBytes().catch((err) => {
+                        log('soundfont:warmup-prefetch-failed', err);
+                        console.warn('Background SoundFont prefetch failed.', err);
+                    });
+                });
             } else {
                 log('soundfont:warmup-scheduled');
                 queueMicrotask(() => {
@@ -4288,6 +4310,8 @@ ${partsBodyXml}
         soundFontLoadedRef.current = false;
         triedSoundFontRef.current = false;
         soundFontLoadPromiseRef.current = null;
+        soundFontPrefetchPromiseRef.current = null;
+        soundFontPrefetchResultRef.current = null;
         setSoundFontLoaded(false);
         setTriedSoundFont(false);
         setScoreDirtySinceCheckpoint(false);
@@ -4528,6 +4552,8 @@ ${partsBodyXml}
         soundFontLoadedRef.current = false;
         triedSoundFontRef.current = false;
         soundFontLoadPromiseRef.current = null;
+        soundFontPrefetchPromiseRef.current = null;
+        soundFontPrefetchResultRef.current = null;
         setSoundFontLoaded(false);
         setTriedSoundFont(false);
         setScoreDirtySinceCheckpoint(false);
@@ -5525,6 +5551,75 @@ ${partsBodyXml}
         }
     };
 
+
+    const buildSoundFontCandidates = useCallback((): string[] => {
+        const urls: string[] = [];
+        const seen = new Set<string>();
+        const add = (url: string) => {
+            if (!url || seen.has(url)) {
+                return;
+            }
+            seen.add(url);
+            urls.push(url);
+        };
+
+        const cdnRaw = (process.env.NEXT_PUBLIC_SOUNDFONT_CDN_URL || '').trim();
+        if (cdnRaw) {
+            const cdn = cdnRaw.replace(/\/+$/, '');
+            const lower = cdn.toLowerCase();
+            const pointsToFile = lower.endsWith('.sf2') || lower.endsWith('.sf3');
+
+            if (pointsToFile) {
+                add(cdn);
+            } else {
+                add(`${cdn}.sf3`);
+                add(`${cdn}.sf2`);
+                add(`${cdn}/MuseScore_General.sf3`);
+                add(`${cdn}/MuseScore_General.sf2`);
+                add(`${cdn}/default.sf3`);
+                add(`${cdn}/default.sf2`);
+            }
+        }
+
+        add('/soundfonts/MuseScore_General.sf3');
+        add('/soundfonts/MuseScore_General.sf2');
+        add('/soundfonts/default.sf3');
+        add('/soundfonts/default.sf2');
+
+        return urls;
+    }, []);
+
+    const prefetchSoundFontBytes = useCallback(async (): Promise<{ url: string; buf: Uint8Array } | null> => {
+        if (soundFontPrefetchResultRef.current) {
+            return soundFontPrefetchResultRef.current;
+        }
+        if (soundFontPrefetchPromiseRef.current) {
+            return soundFontPrefetchPromiseRef.current;
+        }
+        const prefetchPromise = (async () => {
+            const candidates = buildSoundFontCandidates();
+            console.debug('[AUDIO] soundfont candidates', { candidates });
+            for (const url of candidates) {
+                try {
+                    const res = await fetch(url);
+                    if (!res.ok) {
+                        console.warn('[AUDIO] soundfont candidate not found', { url, status: res.status });
+                        continue;
+                    }
+                    const buf = new Uint8Array(await res.arrayBuffer());
+                    const result = { url, buf };
+                    soundFontPrefetchResultRef.current = result;
+                    return result;
+                } catch (err) {
+                    console.warn('Default soundfont fetch failed for', url, err);
+                }
+            }
+            return null;
+        })();
+        soundFontPrefetchPromiseRef.current = prefetchPromise;
+        return prefetchPromise;
+    }, [buildSoundFontCandidates]);
+
     const ensureSoundFontLoaded = async (
         targetScore?: Score,
         options?: { forceRetry?: boolean },
@@ -5550,72 +5645,26 @@ ${partsBodyXml}
             console.debug('[AUDIO] retrying soundfont load after previous failure');
         }
 
-        const buildSoundFontCandidates = (): string[] => {
-            const urls: string[] = [];
-            const seen = new Set<string>();
-            const add = (url: string) => {
-                if (!url || seen.has(url)) {
-                    return;
-                }
-                seen.add(url);
-                urls.push(url);
-            };
-
-            const cdnRaw = (process.env.NEXT_PUBLIC_SOUNDFONT_CDN_URL || '').trim();
-            if (cdnRaw) {
-                const cdn = cdnRaw.replace(/\/+$/, '');
-                const lower = cdn.toLowerCase();
-                const pointsToFile = lower.endsWith('.sf2') || lower.endsWith('.sf3');
-
-                if (pointsToFile) {
-                    add(cdn);
-                } else {
-                    // Support both:
-                    // 1) prefix style: .../MuseScore_General -> .../MuseScore_General.sf3
-                    // 2) directory style: .../soundfonts -> .../soundfonts/default.sf3
-                    add(`${cdn}.sf3`);
-                    add(`${cdn}.sf2`);
-                    add(`${cdn}/MuseScore_General.sf3`);
-                    add(`${cdn}/MuseScore_General.sf2`);
-                    add(`${cdn}/default.sf3`);
-                    add(`${cdn}/default.sf2`);
-                }
-            }
-
-            add('/soundfonts/MuseScore_General.sf3');
-            add('/soundfonts/MuseScore_General.sf2');
-            add('/soundfonts/default.sf3');
-            add('/soundfonts/default.sf2');
-
-            return urls;
-        };
-
         const loadPromise = (async () => {
             triedSoundFontRef.current = true;
             setTriedSoundFont(true);
-            const candidates = buildSoundFontCandidates();
-            console.debug('[AUDIO] soundfont candidates', { candidates });
-            for (const url of candidates) {
-                try {
-                    const res = await fetch(url);
-                    if (!res.ok) {
-                        console.warn('[AUDIO] soundfont candidate not found', { url, status: res.status });
-                        continue;
-                    }
-                    const buf = new Uint8Array(await res.arrayBuffer());
-                    await runSerializedScoreOperation(
-                        () => activeScore.setSoundFont(buf),
-                        'setSoundFont',
-                    );
-                    soundFontLoadedRef.current = true;
-                    setSoundFontLoaded(true);
-                    console.debug('[AUDIO] soundfont loaded', { url, bytes: buf.byteLength });
-                    return true;
-                } catch (err) {
-                    console.warn('Default soundfont load failed for', url, err);
-                }
+            const prefetched = await prefetchSoundFontBytes();
+            if (!prefetched) {
+                return false;
             }
-            return false;
+            try {
+                await runSerializedScoreOperation(
+                    () => activeScore.setSoundFont(prefetched.buf),
+                    'setSoundFont',
+                );
+                soundFontLoadedRef.current = true;
+                setSoundFontLoaded(true);
+                console.debug('[AUDIO] soundfont loaded', { url: prefetched.url, bytes: prefetched.buf.byteLength });
+                return true;
+            } catch (err) {
+                console.warn('Default soundfont apply failed for', prefetched.url, err);
+                return false;
+            }
         })();
 
         soundFontLoadPromiseRef.current = loadPromise;
