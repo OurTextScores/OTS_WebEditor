@@ -174,6 +174,8 @@ type MutationMethods = Pick<
     | 'redo'
     | 'relayout'
     | 'setTimeSignature'
+    | 'setHarmonyVoiceLiteral'
+    | 'setChordSymbolStylePreset'
     | 'setClef'
     | 'toggleRepeatStart'
     | 'toggleRepeatEnd'
@@ -2986,6 +2988,7 @@ ${partsBodyXml}
         options?: {
             telemetrySource?: string;
             inputFormat?: string;
+            enforceJazzHarmonyStyle?: boolean;
         },
     ) => {
         if (!score) {
@@ -3013,6 +3016,9 @@ ${partsBodyXml}
             telemetrySource: options?.telemetrySource || 'xml_apply',
         });
         if (applied) {
+            if (options?.enforceJazzHarmonyStyle) {
+                await applyHarmonyDisplayInterpretation(scoreRef.current ?? score, false);
+            }
             telemetryCountersRef.current.patchApplies += 1;
             emitEditorTelemetry('score_editor_patch_applied', {
                 source: options?.telemetrySource || 'xml_apply',
@@ -4414,6 +4420,29 @@ ${partsBodyXml}
             return false;
         }
     };
+
+    async function applyHarmonyDisplayInterpretation(targetScore: Score | null, literal: boolean): Promise<boolean> {
+        if (!targetScore?.setHarmonyVoiceLiteral && !targetScore?.setChordSymbolStylePreset) {
+            console.warn('Harmony display interpretation mutation is not available in this WASM build.');
+            return false;
+        }
+        try {
+            if (targetScore.setHarmonyVoiceLiteral) {
+                await targetScore.setHarmonyVoiceLiteral(literal);
+            }
+            if (targetScore.setChordSymbolStylePreset) {
+                await targetScore.setChordSymbolStylePreset(literal ? 'std' : 'jazz');
+            }
+            if (targetScore.relayout) {
+                await targetScore.relayout();
+            }
+            await renderScore(targetScore, currentPageRef.current);
+            return true;
+        } catch (err) {
+            console.warn('Failed to update harmony display interpretation', err);
+            return false;
+        }
+    }
 
     const renderScoreToContainer = useCallback(async (
         currentScore: Score,
@@ -7545,6 +7574,7 @@ ${partsBodyXml}
                     await applyXmlToScore(musicxml, {
                         telemetrySource: 'harmony_analysis_apply',
                         inputFormat: 'musicxml',
+                        enforceJazzHarmonyStyle: true,
                     });
                     setXmlSidebarTab('xml');
                 } finally {
@@ -7570,6 +7600,7 @@ ${partsBodyXml}
             await applyXmlToScore(harmonyGeneratedXml, {
                 telemetrySource: 'harmony_analysis_apply',
                 inputFormat: 'musicxml',
+                enforceJazzHarmonyStyle: true,
             });
             setXmlSidebarTab('xml');
         } catch (err) {

@@ -4744,6 +4744,38 @@ bool _setKeySignature(uintptr_t score_ptr, int fifths, int excerptId)
     return true;
 }
 
+bool _setHarmonyVoiceLiteral(uintptr_t score_ptr, bool literal, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    score->startCmd();
+    score->undoChangeStyleVal(engraving::Sid::harmonyVoiceLiteral, literal);
+    score->endCmd();
+    return true;
+}
+
+bool _setChordSymbolStylePreset(uintptr_t score_ptr, const char* preset, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    const String rawPreset = preset ? String::fromUtf8(preset).trimmed() : String();
+    String styleValue = u"std";
+    String chordFile = u"chords_std.xml";
+
+    if (rawPreset == u"jazz") {
+        styleValue = u"jazz";
+        chordFile = u"chords_jazz.xml";
+    } else if (!(rawPreset.isEmpty() || rawPreset == u"std")) {
+        LOGW() << "setChordSymbolStylePreset: unsupported preset " << rawPreset;
+        return false;
+    }
+
+    score->startCmd();
+    score->undoChangeStyleVal(engraving::Sid::chordsXmlFile, false);
+    score->undoChangeStyleVal(engraving::Sid::chordStyle, styleValue);
+    score->undoChangeStyleVal(engraving::Sid::chordDescriptionFile, chordFile);
+    score->endCmd();
+    return true;
+}
+
 int _getKeySignature(uintptr_t score_ptr, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
@@ -5391,6 +5423,16 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool setKeySignature(uintptr_t score_ptr, int fifths, int excerptId = -1) {
         return _setKeySignature(score_ptr, fifths, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool setHarmonyVoiceLiteral(uintptr_t score_ptr, bool literal, int excerptId = -1) {
+        return _setHarmonyVoiceLiteral(score_ptr, literal, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool setChordSymbolStylePreset(uintptr_t score_ptr, const char* preset, int excerptId = -1) {
+        return _setChordSymbolStylePreset(score_ptr, preset, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE

@@ -1687,6 +1687,29 @@ class WebMscore {
     }
 
     /**
+     * Set chord symbol interpretation mode.
+     * @param {boolean} literal true = Literal, false = Jazz
+     * @returns {Promise<boolean>}
+     */
+    async setHarmonyVoiceLiteral(literal) {
+        return Module.ccall('setHarmonyVoiceLiteral', 'boolean', ['number', 'boolean', 'number'], [this.scoreptr, literal, this.excerptId])
+    }
+
+    /**
+     * Set chord symbol style preset.
+     * @param {'std' | 'jazz'} preset
+     * @returns {Promise<boolean>}
+     */
+    async setChordSymbolStylePreset(preset) {
+        const strptr = getStrPtr(preset == null ? '' : String(preset))
+        try {
+            return Module.ccall('setChordSymbolStylePreset', 'boolean', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    /**
      * Get the key signature (global) at the start of the score.
      * @returns {Promise<number>} fifths -7..+7 (Cb..C#)
      */

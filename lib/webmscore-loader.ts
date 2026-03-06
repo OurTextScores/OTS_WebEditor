@@ -80,6 +80,8 @@ export interface Score {
     setTimeSignature?: (numerator: number, denominator: number) => Promise<unknown> | unknown;
     setTimeSignatureWithType?: (numerator: number, denominator: number, timeSigType: number) => Promise<unknown> | unknown;
     setKeySignature?: (fifths: number) => Promise<unknown> | unknown;
+    setHarmonyVoiceLiteral?: (literal: boolean) => Promise<unknown> | unknown;
+    setChordSymbolStylePreset?: (preset: 'std' | 'jazz') => Promise<unknown> | unknown;
     getKeySignature?: () => Promise<number> | number;
     setClef?: (clefType: number) => Promise<unknown> | unknown;
     addDynamic?: (dynamicType: number) => Promise<unknown> | unknown;

@@ -1049,6 +1049,24 @@ class WebMscoreW {
     }
 
     /**
+     * Set chord symbol interpretation mode.
+     * @param {boolean} literal true = Literal, false = Jazz
+     * @returns {Promise<boolean>}
+     */
+    setHarmonyVoiceLiteral(literal) {
+        return this.rpc('setHarmonyVoiceLiteral', [literal])
+    }
+
+    /**
+     * Set chord symbol style preset.
+     * @param {'std' | 'jazz'} preset
+     * @returns {Promise<boolean>}
+     */
+    setChordSymbolStylePreset(preset) {
+        return this.rpc('setChordSymbolStylePreset', [preset])
+    }
+
+    /**
      * Get the key signature (global) at the start of the score.
      * @returns {Promise<number>} fifths -7..+7 (Cb..C#)
      */
