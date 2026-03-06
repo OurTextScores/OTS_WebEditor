@@ -35,6 +35,10 @@ import {
     resolveLlmApiPath,
     resolveScoreEditorApiPath,
 } from '../lib/score-editor-api-client';
+import {
+    parseEditorLaunchContextParam,
+    sanitizeEditorLaunchContext,
+} from '../lib/editor-launch-context';
 import { appendMusicXmlParts } from '../lib/musicxml-append-parts';
 import {
     extractTraceContextFromHeaders,
@@ -649,6 +653,12 @@ export default function ScoreEditor() {
     const leftLabel = searchParams.get('leftLabel') || 'Left';
     const rightLabel = searchParams.get('rightLabel') || 'Right';
     const isEmbedMode = Boolean(compareLeftUrl && compareRightUrl);
+    const launchContext = useMemo(
+        () => parseEditorLaunchContextParam(searchParams.get('launchContext')),
+        [searchParams],
+    );
+    const [sessionLaunchContext, setSessionLaunchContext] = useState<ReturnType<typeof sanitizeEditorLaunchContext>>(null);
+    const activeLaunchContext = launchContext || sessionLaunchContext;
 
     const [score, setScore] = useState<Score | null>(null);
     const [scoreSessionId, setScoreSessionId] = useState<string | null>(null);
@@ -1730,7 +1740,8 @@ export default function ScoreEditor() {
 
         const loadScoreFromSession = async () => {
             try {
-                const { xml, filename } = JSON.parse(openInEditorData);
+                const { xml, filename, launchContext: storedLaunchContext } = JSON.parse(openInEditorData);
+                setSessionLaunchContext(sanitizeEditorLaunchContext(storedLaunchContext));
 
                 // Clear the sessionStorage
                 sessionStorage.removeItem('openInEditor');
@@ -2621,6 +2632,11 @@ ${partsBodyXml}
             const isSync = Boolean(scoreSessionId);
             const endpoint = isSync ? '/api/music/scoreops/sync' : '/api/music/scoreops/session/open';
             const body: any = { content };
+            if (activeLaunchContext) {
+                body.scoreMeta = {
+                    launchContext: activeLaunchContext,
+                };
+            }
             if (isSync) {
                 body.scoreSessionId = scoreSessionId;
                 body.baseRevision = scoreRevision;
@@ -2650,7 +2666,7 @@ ${partsBodyXml}
             isSyncingRef.current = false;
         }
         return { scoreSessionId: nextSessionId, revision: nextRevision };
-    }, [resolveXmlContext, scoreSessionId, scoreRevision]);
+    }, [activeLaunchContext, resolveXmlContext, scoreSessionId, scoreRevision]);
 
     // Automatically open/sync session when score changes (debounced)
     useEffect(() => {
@@ -5520,12 +5536,16 @@ ${partsBodyXml}
 
         // Store XML in sessionStorage for the new tab to pick up
         const filename = `${label.replace(/[^a-zA-Z0-9]/g, '_')}.xml`;
-        sessionStorage.setItem('openInEditor', JSON.stringify({ xml, filename }));
+        sessionStorage.setItem('openInEditor', JSON.stringify({
+            xml,
+            filename,
+            launchContext: activeLaunchContext || undefined,
+        }));
 
         // Open a new tab with the full editor
         // Use absolute path to avoid base tag interference when embedded
         window.open('/score-editor/index.html', '_blank');
-    }, [compareView, compareLeftXml, compareRightXml, compareLeftLabel, compareRightLabel]);
+    }, [activeLaunchContext, compareView, compareLeftXml, compareRightXml, compareLeftLabel, compareRightLabel]);
 
     useEffect(() => {
         if (!compareView) {
@@ -6237,6 +6257,7 @@ ${partsBodyXml}
                     model,
                     prompt,
                     xml,
+                    sourceContext: activeLaunchContext || undefined,
                     systemPrompt: systemPrompt || undefined,
                     promptText: userPrompt,
                     imageBase64: image?.base64 ?? '',

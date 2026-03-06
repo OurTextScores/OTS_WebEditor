@@ -169,6 +169,9 @@ function summarizeForModel(
         if (context.partList) {
           summarizedContext.partList = context.partList;
         }
+        if (context.sourceContext) {
+          summarizedContext.sourceContext = context.sourceContext;
+        }
         // Add summary of measure range
         const measureRange = asRecord(context.measureRange);
         if (measureRange) {

@@ -134,4 +134,31 @@ describe('runMusicContextService', () => {
     expect(context.fullXml).toBeTruthy();
     expect(context.fullXml.truncated).toBe(true);
   });
+
+  it('includes source context when provided directly', async () => {
+    const result = await runMusicContextService({
+      content: SAMPLE_XML,
+      launchContext: {
+        source: 'ourtextscores',
+        workId: '12345',
+        sourceId: 'source-1',
+        revisionId: 'rev-9',
+        workTitle: 'Prelude in C',
+        composer: 'J.S. Bach',
+        imslpUrl: 'https://imslp.org/wiki/Test_Work',
+      },
+      includeFullXml: false,
+    });
+
+    expect(result.status).toBe(200);
+    expect((result.body as any).context.sourceContext).toMatchObject({
+      source: 'ourtextscores',
+      workId: '12345',
+      sourceId: 'source-1',
+      revisionId: 'rev-9',
+      workTitle: 'Prelude in C',
+      composer: 'J.S. Bach',
+      imslpUrl: 'https://imslp.org/wiki/Test_Work',
+    });
+  });
 });

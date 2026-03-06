@@ -264,6 +264,48 @@ describe('runMusicScoreOpsService', () => {
     expect(patch.ops?.some((op) => op.path.includes('/attributes/time/beats') && op.value === '3')).toBe(true);
   });
 
+  it('persists launch context metadata on open and sync', async () => {
+    const open = await runMusicScoreOpsService({
+      action: 'open',
+      content: SAMPLE_XML,
+      scoreMeta: {
+        launchContext: {
+          source: 'ourtextscores',
+          workId: '12345',
+          sourceId: 'source-1',
+          revisionId: 'rev-1',
+          workTitle: 'Prelude in C',
+          composer: 'J.S. Bach',
+          imslpUrl: 'https://imslp.org/wiki/Test_Work',
+        },
+      },
+    }, 'open');
+
+    expect(open.status).toBe(200);
+    expect((open.body as any).metadata?.launchContext).toMatchObject({
+      source: 'ourtextscores',
+      workId: '12345',
+      sourceId: 'source-1',
+      revisionId: 'rev-1',
+    });
+
+    const scoreSessionId = String(open.body.scoreSessionId);
+    const sync = await runMusicScoreOpsService({
+      action: 'sync',
+      scoreSessionId,
+      baseRevision: 0,
+      content: SAMPLE_XML.replace('Original Title', 'Updated Title'),
+    }, 'sync');
+
+    expect(sync.status).toBe(200);
+    expect((sync.body as any).metadata?.launchContext).toMatchObject({
+      source: 'ourtextscores',
+      workId: '12345',
+      sourceId: 'source-1',
+      revisionId: 'rev-1',
+    });
+  });
+
   it('returns stale_revision when baseRevision does not match latest', async () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);

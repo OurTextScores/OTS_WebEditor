@@ -1,11 +1,19 @@
 import { createHash, randomUUID } from 'node:crypto';
 
+import type { EditorLaunchContext } from '../editor-launch-context';
+
+export type ScoreOpsSessionMetadata = {
+  launchContext?: EditorLaunchContext | null;
+  [key: string]: unknown;
+};
+
 export type ScoreOpsSessionState = {
   scoreSessionId: string;
   revision: number;
   artifactId: string | null;
   contentHash: string;
   content: string;
+  metadata: ScoreOpsSessionMetadata | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -25,6 +33,7 @@ export function createScoreOpsSession(input: {
   content: string;
   artifactId: string | null;
   revision?: number;
+  metadata?: ScoreOpsSessionMetadata | null;
 }) {
   const now = new Date().toISOString();
   const session: ScoreOpsSessionState = {
@@ -33,6 +42,7 @@ export function createScoreOpsSession(input: {
     artifactId: input.artifactId,
     contentHash: computeScoreHash(input.content),
     content: input.content,
+    metadata: input.metadata ?? null,
     createdAt: now,
     updatedAt: now,
   };
@@ -46,6 +56,7 @@ export function updateScoreOpsSession(
     content: string;
     artifactId: string | null;
     nextRevision?: number;
+    metadata?: ScoreOpsSessionMetadata | null;
   },
 ) {
   const existing = sessions.get(scoreSessionId);
@@ -61,6 +72,7 @@ export function updateScoreOpsSession(
     artifactId: input.artifactId,
     content: input.content,
     contentHash: computeScoreHash(input.content),
+    metadata: input.metadata === undefined ? existing.metadata : input.metadata,
     updatedAt: new Date().toISOString(),
   };
   sessions.set(scoreSessionId, next);

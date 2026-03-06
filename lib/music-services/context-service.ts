@@ -4,6 +4,10 @@ import {
 } from '../score-artifacts';
 import { convertMusicNotation } from '../music-conversion';
 import {
+    sanitizeEditorLaunchContext,
+    type EditorLaunchContext,
+} from '../editor-launch-context';
+import {
     asRecord,
     readBoolean,
     resolveScoreContent,
@@ -235,6 +239,9 @@ export async function runMusicContextService(body: unknown): Promise<ContextServ
     const { xml, artifact: resolutionArtifact, session } = resolution;
     const filename = typeof data?.filename === 'string' ? data.filename : undefined;
     const persistArtifact = readBoolean(data?.persistArtifact, data?.persist_artifact, false);
+    const directLaunchContext = sanitizeEditorLaunchContext(data?.launchContext);
+    const sessionLaunchContext = sanitizeEditorLaunchContext(session?.metadata?.launchContext);
+    const sourceContext: EditorLaunchContext | null = sessionLaunchContext || directLaunchContext;
 
     let inputArtifact = resolutionArtifact;
     if (persistArtifact && !inputArtifact) {
@@ -347,6 +354,7 @@ export async function runMusicContextService(body: unknown): Promise<ContextServ
                     results: searchHits,
                     limitedTo: maxSearchResults,
                 },
+                sourceContext,
                 partList: partListOutput ? {
                     xml: partListOutput.text,
                     truncated: partListOutput.truncated,

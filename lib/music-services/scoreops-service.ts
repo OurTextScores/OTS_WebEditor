@@ -17,12 +17,14 @@ import {
   resolveScoreContent,
   type ServiceResult,
 } from './common';
+import { sanitizeEditorLaunchContext } from '../editor-launch-context';
 import {
   clearScoreOpsSessions,
   createScoreOpsSession,
   getScoreOpsSession,
   updateScoreOpsSession,
   type ScoreOpsSessionState,
+  type ScoreOpsSessionMetadata,
 } from './scoreops-session-store';
 
 type ScoreOpsServiceResult = ServiceResult;
@@ -410,6 +412,8 @@ const SYNC_REQUEST_SCHEMA = z.object({
   input_artifact_id: z.string().trim().min(1).optional(),
   content: z.string().optional(),
   text: z.string().optional(),
+  scoreMeta: z.record(z.string(), z.unknown()).optional(),
+  score_meta: z.record(z.string(), z.unknown()).optional(),
 });
 
 const REQUEST_SCHEMA = z.discriminatedUnion('action', [
@@ -420,6 +424,38 @@ const REQUEST_SCHEMA = z.discriminatedUnion('action', [
 ]);
 
 type RequestPayload = z.infer<typeof REQUEST_SCHEMA>;
+
+function readScoreMeta(
+  payload: {
+    scoreMeta?: Record<string, unknown>;
+    score_meta?: Record<string, unknown>;
+  },
+): Record<string, unknown> | null {
+  return asRecord(payload.scoreMeta) || asRecord(payload.score_meta) || null;
+}
+
+function buildSessionMetadata(
+  payload: {
+    scoreMeta?: Record<string, unknown>;
+    score_meta?: Record<string, unknown>;
+  },
+  existing?: ScoreOpsSessionMetadata | null,
+): ScoreOpsSessionMetadata | null {
+  const scoreMeta = readScoreMeta(payload);
+  const launchContext = sanitizeEditorLaunchContext(scoreMeta?.launchContext);
+  const next: ScoreOpsSessionMetadata = {
+    ...(existing || {}),
+  };
+
+  if (scoreMeta) {
+    next.scoreMeta = scoreMeta;
+  }
+  if (launchContext) {
+    next.launchContext = launchContext;
+  }
+
+  return Object.keys(next).length > 0 ? next : null;
+}
 
 function errorResultWrapper(
   status: number,
@@ -2254,6 +2290,7 @@ async function openSession(payload: z.infer<typeof OPEN_REQUEST_SCHEMA>): Promis
   if (resolved.error) {
     return resolved.error;
   }
+  const sessionMetadata = buildSessionMetadata(payload);
 
   const initialArtifact = resolved.artifact || await createScoreArtifact({
     format: 'musicxml',
@@ -2262,6 +2299,7 @@ async function openSession(payload: z.infer<typeof OPEN_REQUEST_SCHEMA>): Promis
     metadata: {
       origin: 'api/music/scoreops/session/open',
       scoreMeta: payload.scoreMeta || payload.score_meta || null,
+      launchContext: sessionMetadata?.launchContext || null,
     },
   });
 
@@ -2269,6 +2307,7 @@ async function openSession(payload: z.infer<typeof OPEN_REQUEST_SCHEMA>): Promis
     content: resolved.xml,
     artifactId: initialArtifact.id,
     revision: 0,
+    metadata: sessionMetadata,
   });
 
   return {
@@ -2281,6 +2320,7 @@ async function openSession(payload: z.infer<typeof OPEN_REQUEST_SCHEMA>): Promis
         artifactId: session.artifactId,
         contentHash: session.contentHash,
       },
+      metadata: session.metadata,
       inputArtifact: summarizeScoreArtifact(initialArtifact),
     },
   };
@@ -2408,6 +2448,8 @@ async function ensureSessionForApplyOrSync(payload: {
   input_artifact_id?: string;
   content?: string;
   text?: string;
+  scoreMeta?: Record<string, unknown>;
+  score_meta?: Record<string, unknown>;
 }): Promise<{ session: ScoreOpsSessionState | null; error?: ScoreOpsServiceResult }> {
   if (payload.scoreSessionId) {
     const existing = getScoreOpsSession(payload.scoreSessionId);
@@ -2440,6 +2482,7 @@ async function ensureSessionForApplyOrSync(payload: {
     content: resolved.xml,
     artifactId: artifact.id,
     revision: 0,
+    metadata: buildSessionMetadata(payload),
   });
 
   return { session };
@@ -2739,6 +2782,7 @@ async function syncSession(payload: z.infer<typeof SYNC_REQUEST_SCHEMA>): Promis
   if (resolved.error) {
     return resolved.error;
   }
+  const nextMetadata = buildSessionMetadata(payload, session.metadata);
 
   const artifact = resolved.artifact || await createScoreArtifact({
     format: 'musicxml',
@@ -2750,12 +2794,15 @@ async function syncSession(payload: z.infer<typeof SYNC_REQUEST_SCHEMA>): Promis
       origin: 'api/music/scoreops/sync',
       scoreSessionId: session.scoreSessionId,
       baseRevision: session.revision,
+      scoreMeta: payload.scoreMeta || payload.score_meta || null,
+      launchContext: nextMetadata?.launchContext || null,
     },
   });
 
   const updated = updateScoreOpsSession(session.scoreSessionId, {
     content: resolved.xml,
     artifactId: artifact.id,
+    metadata: nextMetadata,
   });
 
   if (!updated) {
@@ -2773,6 +2820,7 @@ async function syncSession(payload: z.infer<typeof SYNC_REQUEST_SCHEMA>): Promis
         artifactId: updated.artifactId,
         contentHash: updated.contentHash,
       },
+      metadata: updated.metadata,
       outputArtifact: summarizeScoreArtifact(artifact),
     },
   };
