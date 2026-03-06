@@ -11589,7 +11589,7 @@ ${partsBodyXml}
                             </>
                         )}
                         {xmlSidebarTab === 'assistant' && aiEnabled && (
-                            <div className="mt-3 space-y-3 text-sm text-gray-700">
+                            <div className="mt-3 flex min-h-full flex-col gap-3 text-sm text-gray-700">
                                 {aiDiffFeedbackBusy && (
                                     <div
                                         data-testid="ai-diff-feedback-working"
@@ -11603,88 +11603,95 @@ ${partsBodyXml}
                                         Diff feedback failed: {aiDiffFeedbackError}
                                     </div>
                                 )}
-                                <div>
-                                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                        Provider
-                                    </label>
-                                    <select
-                                        value={aiProvider}
-                                        onChange={(event) => setAiProvider(event.target.value as AiProvider)}
-                                        className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                                    >
-                                        {(Object.keys(AI_PROVIDER_LABELS) as AiProvider[]).map((provider) => (
-                                            <option key={provider} value={provider}>
-                                                {AI_PROVIDER_LABELS[provider]}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                        Model
-                                    </label>
-                                    <input
-                                        list="ai-models"
-                                        value={aiModel}
-                                        onChange={(event) => setAiModel(event.target.value)}
-                                        className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                                        placeholder="Enter model name"
-                                    />
-                                    <datalist id="ai-models">
-                                        {aiModels.map((modelId) => (
-                                            <option key={modelId} value={modelId} />
-                                        ))}
-                                    </datalist>
-                                    {aiModelsLoading && (
-                                        <div className="mt-1 text-[11px] text-gray-500">
-                                            Loading models...
-                                        </div>
-                                    )}
-                                    {!aiModelsLoading && !aiModels.length && !aiModelsError && (
-                                        <div className="mt-1 text-[11px] text-gray-500">
-                                            No models loaded. Enter a model name manually.
-                                        </div>
-                                    )}
-                                    {aiModelsError && (
-                                        <div className="mt-1 text-xs text-red-600">
-                                            {aiModelsError}
-                                        </div>
-                                    )}
-                                    {aiModelHint && (
-                                        <div className="mt-1 text-[11px] text-amber-600">
-                                            {aiModelHint}
-                                        </div>
-                                    )}
-                                </div>
-                                <form onSubmit={(e) => e.preventDefault()}>
-                                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                        API Key ({AI_PROVIDER_LABELS[aiProvider]})
-                                    </label>
-                                    <input
-                                        type="password"
-                                        value={aiApiKey}
-                                        onChange={(event) => setAiApiKey(event.target.value)}
-                                        className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                                        placeholder="Paste your key"
-                                        autoComplete="off"
-                                    />
-                                    <div className="mt-1 text-[11px] text-gray-500">
-                                        Stored locally in this browser. Requests are sent directly unless a proxy is configured.
-                                    </div>
-                                    {AI_PROVIDER_CONFIGS[aiProvider].apiKeyUrl && (
-                                        <div className="mt-1 text-[11px]">
-                                            <a
-                                                href={AI_PROVIDER_CONFIGS[aiProvider].apiKeyUrl}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="text-blue-600 hover:text-blue-700 hover:underline"
+                                <details className="rounded border border-gray-200 bg-gray-50/70 px-3 py-2" open>
+                                    <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                        Model &amp; Access
+                                    </summary>
+                                    <div className="mt-3 space-y-3">
+                                        <div>
+                                            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                Provider
+                                            </label>
+                                            <select
+                                                value={aiProvider}
+                                                onChange={(event) => setAiProvider(event.target.value as AiProvider)}
+                                                className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
                                             >
-                                                Create {AI_PROVIDER_LABELS[aiProvider]} API key
-                                            </a>
+                                                {(Object.keys(AI_PROVIDER_LABELS) as AiProvider[]).map((provider) => (
+                                                    <option key={provider} value={provider}>
+                                                        {AI_PROVIDER_LABELS[provider]}
+                                                    </option>
+                                                ))}
+                                            </select>
                                         </div>
-                                    )}
-                                </form>
-                                <div className="space-y-2">
+                                        <div>
+                                            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                Model
+                                            </label>
+                                            <input
+                                                list="ai-models"
+                                                value={aiModel}
+                                                onChange={(event) => setAiModel(event.target.value)}
+                                                className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                                placeholder="Enter model name"
+                                            />
+                                            <datalist id="ai-models">
+                                                {aiModels.map((modelId) => (
+                                                    <option key={modelId} value={modelId} />
+                                                ))}
+                                            </datalist>
+                                            {aiModelsLoading && (
+                                                <div className="mt-1 text-[11px] text-gray-500">
+                                                    Loading models...
+                                                </div>
+                                            )}
+                                            {!aiModelsLoading && !aiModels.length && !aiModelsError && (
+                                                <div className="mt-1 text-[11px] text-gray-500">
+                                                    No models loaded. Enter a model name manually.
+                                                </div>
+                                            )}
+                                            {aiModelsError && (
+                                                <div className="mt-1 text-xs text-red-600">
+                                                    {aiModelsError}
+                                                </div>
+                                            )}
+                                            {aiModelHint && (
+                                                <div className="mt-1 text-[11px] text-amber-600">
+                                                    {aiModelHint}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <form onSubmit={(e) => e.preventDefault()}>
+                                            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                API Key ({AI_PROVIDER_LABELS[aiProvider]})
+                                            </label>
+                                            <input
+                                                type="password"
+                                                value={aiApiKey}
+                                                onChange={(event) => setAiApiKey(event.target.value)}
+                                                className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                                                placeholder="Paste your key"
+                                                autoComplete="off"
+                                            />
+                                            <div className="mt-1 text-[11px] text-gray-500">
+                                                Stored locally in this browser. Requests are sent directly unless a proxy is configured.
+                                            </div>
+                                            {AI_PROVIDER_CONFIGS[aiProvider].apiKeyUrl && (
+                                                <div className="mt-1 text-[11px]">
+                                                    <a
+                                                        href={AI_PROVIDER_CONFIGS[aiProvider].apiKeyUrl}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="text-blue-600 hover:text-blue-700 hover:underline"
+                                                    >
+                                                        Create {AI_PROVIDER_LABELS[aiProvider]} API key
+                                                    </a>
+                                                </div>
+                                            )}
+                                        </form>
+                                    </div>
+                                </details>
+                                <div className="flex min-h-0 flex-1 flex-col gap-2">
                                     <div className="flex items-center gap-2 text-xs">
                                         <button
                                             type="button"
@@ -11728,83 +11735,85 @@ ${partsBodyXml}
                                             )}
                                         </div>
                                     </div>
-                                    <div className="space-y-2 text-xs text-gray-600">
-                                        <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                                    <details className="rounded border border-gray-200 bg-gray-50/70 px-3 py-2 text-xs text-gray-600">
+                                        <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-gray-500">
                                             Context
+                                        </summary>
+                                        <div className="mt-3 space-y-2">
+                                            <div className="flex flex-col items-start gap-y-2">
+                                                <label className="flex items-center gap-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={aiIncludeSelection}
+                                                        onChange={(event) => setAiIncludeSelection(event.target.checked)}
+                                                    />
+                                                    Include selection
+                                                </label>
+                                                <label className="flex items-center gap-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={aiIncludePage}
+                                                        onChange={(event) => setAiIncludePage(event.target.checked)}
+                                                    />
+                                                    Include current page
+                                                </label>
+                                                <label className="flex items-center gap-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={aiIncludeRenderedImage}
+                                                        onChange={(event) => setAiIncludeRenderedImage(event.target.checked)}
+                                                        disabled={!aiProviderCapabilities.supportsRenderedImageContext}
+                                                    />
+                                                    Include rendered image
+                                                </label>
+                                                <label className="flex items-center gap-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={aiIncludePdf}
+                                                        onChange={(event) => setAiIncludePdf(event.target.checked)}
+                                                        disabled={!aiProviderCapabilities.supportsPdfContext}
+                                                    />
+                                                    Include score PDF
+                                                </label>
+                                                <label className="flex items-center gap-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={aiIncludeChat}
+                                                        onChange={(event) => setAiIncludeChat(event.target.checked)}
+                                                    />
+                                                    Include chat
+                                                </label>
+                                                <label className="flex items-center gap-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={aiIncludeXml}
+                                                        onChange={(event) => setAiIncludeXml(event.target.checked)}
+                                                    />
+                                                    Include MusicXML text
+                                                </label>
+                                            </div>
+                                            {aiIncludeRenderedImage && !score?.savePng && (
+                                                <div className="text-[11px] text-amber-600">
+                                                    PNG capture is not available in this build. The request will continue without image context.
+                                                </div>
+                                            )}
+                                            {!aiProviderCapabilities.supportsRenderedImageContext && (
+                                                <div className="text-[11px] text-gray-500">
+                                                    {AI_PROVIDER_LABELS[aiProvider]} image attachments are disabled in this integration.
+                                                </div>
+                                            )}
+                                            {!aiProviderCapabilities.supportsPdfContext && (
+                                                <div className="text-[11px] text-gray-500">
+                                                    {AI_PROVIDER_LABELS[aiProvider]} PDF attachments are not yet enabled in this integration.
+                                                </div>
+                                            )}
+                                            {aiIncludePdf && (
+                                                <div className="text-[11px] text-gray-500">
+                                                    PDF context is generated from the current score and attached when available.
+                                                </div>
+                                            )}
                                         </div>
-                                        <div className="flex flex-col items-start gap-y-2">
-                                            <label className="flex items-center gap-2">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={aiIncludeSelection}
-                                                    onChange={(event) => setAiIncludeSelection(event.target.checked)}
-                                                />
-                                                Include selection
-                                            </label>
-                                            <label className="flex items-center gap-2">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={aiIncludePage}
-                                                    onChange={(event) => setAiIncludePage(event.target.checked)}
-                                                />
-                                                Include current page
-                                            </label>
-                                            <label className="flex items-center gap-2">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={aiIncludeRenderedImage}
-                                                    onChange={(event) => setAiIncludeRenderedImage(event.target.checked)}
-                                                    disabled={!aiProviderCapabilities.supportsRenderedImageContext}
-                                                />
-                                                Include rendered image
-                                            </label>
-                                            <label className="flex items-center gap-2">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={aiIncludePdf}
-                                                    onChange={(event) => setAiIncludePdf(event.target.checked)}
-                                                    disabled={!aiProviderCapabilities.supportsPdfContext}
-                                                />
-                                                Include score PDF
-                                            </label>
-                                            <label className="flex items-center gap-2">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={aiIncludeChat}
-                                                    onChange={(event) => setAiIncludeChat(event.target.checked)}
-                                                />
-                                                Include chat
-                                            </label>
-                                            <label className="flex items-center gap-2">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={aiIncludeXml}
-                                                    onChange={(event) => setAiIncludeXml(event.target.checked)}
-                                                />
-                                                Include MusicXML text
-                                            </label>
-                                        </div>
-                                        {aiIncludeRenderedImage && !score?.savePng && (
-                                            <div className="text-[11px] text-amber-600">
-                                                PNG capture is not available in this build. The request will continue without image context.
-                                            </div>
-                                        )}
-                                        {!aiProviderCapabilities.supportsRenderedImageContext && (
-                                            <div className="text-[11px] text-gray-500">
-                                                {AI_PROVIDER_LABELS[aiProvider]} image attachments are disabled in this integration.
-                                            </div>
-                                        )}
-                                        {!aiProviderCapabilities.supportsPdfContext && (
-                                            <div className="text-[11px] text-gray-500">
-                                                {AI_PROVIDER_LABELS[aiProvider]} PDF attachments are not yet enabled in this integration.
-                                            </div>
-                                        )}
-                                        {aiIncludePdf && (
-                                            <div className="text-[11px] text-gray-500">
-                                                PDF context is generated from the current score and attached when available.
-                                            </div>
-                                        )}
-                                    </div>
+                                    </details>
                                     {aiMode === 'patch' && (
                                         <div className="space-y-2">
                                             <div>
@@ -11864,7 +11873,7 @@ ${partsBodyXml}
                                         </div>
                                     )}
                                     {aiMode === 'chat' && (
-                                        <div className="space-y-2">
+                                        <div className="flex min-h-0 flex-1 flex-col gap-2">
                                             <div className="flex items-center justify-between text-xs text-gray-500">
                                                 <span>Open Chat</span>
                                                 <button
@@ -11876,7 +11885,10 @@ ${partsBodyXml}
                                                     Clear
                                                 </button>
                                             </div>
-                                            <div className="max-h-64 min-h-[140px] overflow-y-auto rounded border border-gray-200 bg-gray-50 p-2">
+                                            <div
+                                                className="min-h-[260px] flex-1 overflow-y-auto rounded border border-gray-200 bg-gray-50 p-2"
+                                                style={{ resize: 'vertical' }}
+                                            >
                                                 {aiChatMessages.length ? (
                                                     <div className="space-y-2">
                                                         {aiChatMessages.map((message, index) => (
@@ -11957,6 +11969,9 @@ ${partsBodyXml}
                                             </div>
                                             <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
                                                 External-source lookup is on-demand. Ask for source history, background, citations, or explicitly mention IMSLP/Wikipedia/web search to use it.
+                                            </div>
+                                            <div className="text-[11px] text-gray-500">
+                                                Drag the lower-right corner of the chat panel above to resize it.
                                             </div>
                                             <textarea
                                                 value={aiChatInput}
