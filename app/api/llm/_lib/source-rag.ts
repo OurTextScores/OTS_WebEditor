@@ -7,6 +7,15 @@ type SourceRagInput = {
     prompt?: string;
 };
 
+type SourceRagEvidence = {
+    id: string;
+    label: string;
+    url: string;
+    tier: 'authority' | 'archive' | 'reference' | 'scholarly' | 'source';
+    score: number;
+    snippets: string[];
+};
+
 type SourceRagResult = {
     promptText: string;
     sourceContext: EditorLaunchContext | null;
@@ -16,31 +25,118 @@ type SourceRagResult = {
         reason?: string;
         sourceUrl?: string;
         snippetCount?: number;
+        sourceCount?: number;
+        sources?: Array<{
+            id: string;
+            label: string;
+            url: string;
+            tier: string;
+            score: number;
+        }>;
     };
 };
 
-type CachedPage = {
+type CachedValue = {
     expiresAt: number;
-    text: string;
-    title: string;
+    value: unknown;
 };
 
-const cache = (globalThis as any).__otsSourceRagCache || new Map<string, CachedPage>();
+type RetrievalIntent = 'overview' | 'source_history' | 'analysis' | 'metadata';
+
+type WikipediaSearchResponse = {
+    query?: {
+        search?: Array<{
+            title?: string;
+            snippet?: string;
+        }>;
+    };
+};
+
+type WikipediaSummaryResponse = {
+    title?: string;
+    extract?: string;
+    content_urls?: {
+        desktop?: {
+            page?: string;
+        };
+    };
+};
+
+type WikidataSearchResponse = {
+    search?: Array<{
+        id?: string;
+        label?: string;
+        description?: string;
+        concepturi?: string;
+    }>;
+};
+
+type RismSearchResponse = {
+    items?: Array<{
+        id?: string;
+        label?: Record<string, string[]>;
+        summary?: Record<string, { value?: Record<string, string[]> }>;
+        flags?: {
+            hasDigitization?: boolean;
+        };
+    }>;
+};
+
+type OpenAlexResponse = {
+    results?: Array<{
+        id?: string;
+        title?: string;
+        display_name?: string;
+        relevance_score?: number;
+        publication_year?: number;
+        primary_topic?: {
+            display_name?: string;
+            subfield?: { display_name?: string };
+            field?: { display_name?: string };
+            domain?: { display_name?: string };
+        };
+        primary_location?: {
+            landing_page_url?: string | null;
+            source?: {
+                display_name?: string;
+                is_oa?: boolean;
+                is_in_doaj?: boolean;
+            };
+        };
+        best_oa_location?: {
+            landing_page_url?: string | null;
+            pdf_url?: string | null;
+            source?: {
+                display_name?: string;
+                is_oa?: boolean;
+                is_in_doaj?: boolean;
+            };
+        };
+        abstract_inverted_index?: Record<string, number[]>;
+    }>;
+};
+
+const cache = (globalThis as any).__otsSourceRagCache || new Map<string, CachedValue>();
 (globalThis as any).__otsSourceRagCache = cache;
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
-const MAX_PAGE_CHARS = 120_000;
-const MAX_SNIPPETS = 6;
-const SNIPPET_WINDOW = 220;
-const FETCH_TIMEOUT_MS = 6_000;
+const FETCH_TIMEOUT_MS = 8_000;
+const MAX_HTML_CHARS = 120_000;
+const MAX_SNIPPETS_PER_SOURCE = 2;
+const MAX_TOTAL_EVIDENCE = 4;
+const USER_AGENT = 'OurTextScores-ScoreEditor/1.0 (+source-rag)';
 const STOPWORDS = new Set([
     'about', 'after', 'again', 'also', 'among', 'because', 'before', 'being', 'between',
     'could', 'first', 'from', 'into', 'latest', 'message', 'music', 'score', 'their',
     'there', 'these', 'this', 'those', 'through', 'under', 'using', 'which', 'would',
     'with', 'what', 'when', 'where', 'while', 'your', 'have', 'just', 'than', 'that',
-    'them', 'then', 'they', 'were', 'will', 'shall', 'into', 'onto', 'over', 'page',
-    'imslp', 'wiki',
+    'them', 'then', 'they', 'were', 'will', 'shall', 'onto', 'over', 'page', 'wiki',
+    'imslp', 'work', 'piece', 'question', 'editor', 'chat',
 ]);
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object' ? value as Record<string, unknown> : null;
+}
 
 function stripHtml(html: string) {
     return html
@@ -53,26 +149,18 @@ function stripHtml(html: string) {
         .replace(/&amp;/gi, '&')
         .replace(/&quot;/gi, '"')
         .replace(/&#39;/gi, "'")
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
         .replace(/\s+/g, ' ')
         .trim();
 }
 
-function extractTitle(html: string) {
-    const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || '';
-    return stripHtml(title).slice(0, 300);
+function stripTagsPreservingText(html: string) {
+    return stripHtml(html).slice(0, 1200);
 }
 
 function normalizeSourceContext(sourceContext: unknown) {
     return sanitizeEditorLaunchContext(sourceContext);
-}
-
-function isImslpUrl(value: string) {
-    try {
-        const url = new URL(value);
-        return /^https?:$/.test(url.protocol) && /(^|\.)imslp\.org$/i.test(url.hostname);
-    } catch {
-        return false;
-    }
 }
 
 function tokenizeQuery(text: string) {
@@ -89,7 +177,25 @@ function tokenizeQuery(text: string) {
         .map(([token]) => token);
 }
 
-function extractRelevantSnippets(text: string, queryText: string) {
+function dedupeStrings(values: string[]) {
+    const seen = new Set<string>();
+    const next: string[] = [];
+    for (const value of values) {
+        const trimmed = value.trim();
+        if (!trimmed) {
+            continue;
+        }
+        const key = trimmed.toLowerCase();
+        if (seen.has(key)) {
+            continue;
+        }
+        seen.add(key);
+        next.push(trimmed);
+    }
+    return next;
+}
+
+function extractRelevantSnippets(text: string, queryText: string, maxSnippets = MAX_SNIPPETS_PER_SOURCE) {
     const lowered = text.toLowerCase();
     const tokens = tokenizeQuery(queryText);
     const snippets: string[] = [];
@@ -97,13 +203,13 @@ function extractRelevantSnippets(text: string, queryText: string) {
 
     for (const token of tokens) {
         let index = 0;
-        while (snippets.length < MAX_SNIPPETS) {
+        while (snippets.length < maxSnippets) {
             const found = lowered.indexOf(token, index);
             if (found < 0) {
                 break;
             }
-            const start = Math.max(0, found - SNIPPET_WINDOW);
-            const end = Math.min(text.length, found + token.length + SNIPPET_WINDOW);
+            const start = Math.max(0, found - 220);
+            const end = Math.min(text.length, found + token.length + 220);
             const snippet = text.slice(start, end).trim();
             const normalized = snippet.toLowerCase();
             if (snippet.length >= 40 && !seen.has(normalized)) {
@@ -112,75 +218,537 @@ function extractRelevantSnippets(text: string, queryText: string) {
             }
             index = found + token.length;
         }
-        if (snippets.length >= MAX_SNIPPETS) {
+        if (snippets.length >= maxSnippets) {
             break;
         }
     }
 
     if (!snippets.length && text.trim()) {
-        snippets.push(text.slice(0, Math.min(text.length, 500)).trim());
+        snippets.push(text.slice(0, Math.min(text.length, 420)).trim());
     }
-    return snippets.slice(0, MAX_SNIPPETS);
+    return snippets.slice(0, maxSnippets);
 }
 
-async function fetchImslpPage(url: string): Promise<{ text: string; title: string }> {
-    const now = Date.now();
-    const cached = cache.get(url);
-    if (cached && cached.expiresAt > now) {
-        return { text: cached.text, title: cached.title };
+function normalizeImslpTitleFromUrl(url: string) {
+    try {
+        const parsed = new URL(url);
+        const rawTitle = parsed.pathname.split('/').pop() || '';
+        return decodeURIComponent(rawTitle)
+            .replace(/_/g, ' ')
+            .replace(/^wiki\//i, '')
+            .trim();
+    } catch {
+        return '';
     }
+}
 
+function extractTitleFromHtml(html: string) {
+    const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || '';
+    return stripHtml(title).slice(0, 300);
+}
+
+function inferIntent(promptText: string): RetrievalIntent {
+    const text = promptText.toLowerCase();
+    if (/(manuscript|autograph|source history|provenance|holding|library|archive|copyist|edition|edition history|siglum)/.test(text)) {
+        return 'source_history';
+    }
+    if (/(harmony|analysis|analyze|roman numeral|cadence|modulation|form|theory)/.test(text)) {
+        return 'analysis';
+    }
+    if (/(catalog|catalogue|opus|bwv|kv|k\.|hob|date|instrumentation|identifier|metadata)/.test(text)) {
+        return 'metadata';
+    }
+    return 'overview';
+}
+
+function buildQueryParts(sourceContext: EditorLaunchContext | null, promptText: string) {
+    const parts = dedupeStrings([
+        sourceContext?.workTitle || '',
+        sourceContext?.composer || '',
+        normalizeImslpTitleFromUrl(sourceContext?.imslpUrl || ''),
+    ]);
+    const composed = parts.join(' ').trim();
+    const fallback = promptText.trim();
+    return {
+        entityQuery: composed || fallback,
+        workQuery: sourceContext?.workTitle || normalizeImslpTitleFromUrl(sourceContext?.imslpUrl || '') || fallback,
+        composerQuery: sourceContext?.composer || '',
+    };
+}
+
+function cacheKey(prefix: string, value: string) {
+    return `${prefix}:${value}`;
+}
+
+async function fetchCachedJson<T>(url: string, key: string): Promise<T> {
+    const now = Date.now();
+    const cached = cache.get(key);
+    if (cached && cached.expiresAt > now) {
+        return cached.value as T;
+    }
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
         const response = await fetch(url, {
             method: 'GET',
             headers: {
-                'User-Agent': 'OurTextScores-ScoreEditor/1.0 (+source-rag)',
+                'Accept': 'application/json, application/ld+json;q=0.9, text/plain;q=0.2, */*;q=0.1',
+                'User-Agent': USER_AGENT,
+                'Api-User-Agent': USER_AGENT,
             },
             signal: controller.signal,
             cache: 'no-store',
         });
         if (!response.ok) {
-            throw new Error(`IMSLP fetch failed with ${response.status}`);
+            throw new Error(`fetch failed with ${response.status}`);
         }
-        const html = await response.text();
-        const title = extractTitle(html);
-        const text = stripHtml(html).slice(0, MAX_PAGE_CHARS);
-        cache.set(url, {
+        const data = await response.json() as T;
+        cache.set(key, {
             expiresAt: now + CACHE_TTL_MS,
-            text,
-            title,
+            value: data,
         });
-        return { text, title };
+        return data;
     } finally {
         clearTimeout(timeout);
     }
 }
 
-function buildRagSection(args: {
+async function fetchCachedText(url: string, key: string, accept = 'text/html, text/plain;q=0.9, */*;q=0.1'): Promise<string> {
+    const now = Date.now();
+    const cached = cache.get(key);
+    if (cached && cached.expiresAt > now) {
+        return String(cached.value || '');
+    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try {
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': accept,
+                'User-Agent': USER_AGENT,
+                'Api-User-Agent': USER_AGENT,
+            },
+            signal: controller.signal,
+            cache: 'no-store',
+        });
+        if (!response.ok) {
+            throw new Error(`fetch failed with ${response.status}`);
+        }
+        const text = await response.text();
+        cache.set(key, {
+            expiresAt: now + CACHE_TTL_MS,
+            value: text,
+        });
+        return text;
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+function labelFromLocalizedField(value: Record<string, string[]> | undefined) {
+    if (!value) {
+        return '';
+    }
+    const candidates = [value.none, value.en, value.de, value.fr];
+    for (const entry of candidates) {
+        if (Array.isArray(entry) && entry[0]) {
+            return entry[0];
+        }
+    }
+    return '';
+}
+
+function firstSummaryValue(summary: Record<string, { value?: Record<string, string[]> }> | undefined, field: string) {
+    const value = summary?.[field]?.value;
+    if (!value) {
+        return '';
+    }
+    return labelFromLocalizedField(value);
+}
+
+function buildAbstractFromInvertedIndex(index: Record<string, number[]> | undefined) {
+    if (!index) {
+        return '';
+    }
+    const tokens: Array<[number, string]> = [];
+    Object.entries(index).forEach(([word, positions]) => {
+        positions.forEach((position) => tokens.push([position, word]));
+    });
+    return tokens
+        .sort((a, b) => a[0] - b[0])
+        .map(([, word]) => word)
+        .join(' ')
+        .trim();
+}
+
+function scoreEvidence(args: {
+    tier: SourceRagEvidence['tier'];
+    intent: RetrievalIntent;
+    text: string;
+    entityQuery: string;
+    composerQuery: string;
+    workQuery: string;
+    sourceBoost?: number;
+}) {
+    let score = 0;
+    if (args.tier === 'authority') score += 100;
+    if (args.tier === 'archive') score += 97;
+    if (args.tier === 'source') score += 92;
+    if (args.tier === 'reference') score += 82;
+    if (args.tier === 'scholarly') score += 78;
+
+    if (args.intent === 'source_history' && args.tier === 'archive') score += 22;
+    if (args.intent === 'source_history' && args.tier === 'source') score += 18;
+    if (args.intent === 'source_history' && args.tier === 'authority') score += 10;
+    if (args.intent === 'analysis' && args.tier === 'scholarly') score += 16;
+    if (args.intent === 'overview' && args.tier === 'reference') score += 12;
+    if (args.intent === 'metadata' && args.tier === 'authority') score += 16;
+
+    const haystack = args.text.toLowerCase();
+    for (const token of tokenizeQuery(args.entityQuery)) {
+        if (haystack.includes(token)) {
+            score += 2;
+        }
+    }
+    if (args.composerQuery && haystack.includes(args.composerQuery.toLowerCase())) {
+        score += 8;
+    }
+    if (args.workQuery && haystack.includes(args.workQuery.toLowerCase())) {
+        score += 8;
+    }
+    if (args.sourceBoost) {
+        score += args.sourceBoost;
+    }
+    return score;
+}
+
+async function fetchImslpEvidence(args: {
     sourceContext: EditorLaunchContext;
-    title: string;
-    snippets: string[];
+    queryText: string;
+    intent: RetrievalIntent;
+    entityQuery: string;
+    composerQuery: string;
+    workQuery: string;
+}): Promise<SourceRagEvidence | null> {
+    if (!args.sourceContext.imslpUrl) {
+        return null;
+    }
+    const html = await fetchCachedText(args.sourceContext.imslpUrl, cacheKey('imslp', args.sourceContext.imslpUrl));
+    const title = extractTitleFromHtml(html);
+    const text = stripHtml(html).slice(0, MAX_HTML_CHARS);
+    const snippets = extractRelevantSnippets(text, args.queryText);
+    if (!snippets.length) {
+        return null;
+    }
+    const label = args.sourceContext.workTitle || title || normalizeImslpTitleFromUrl(args.sourceContext.imslpUrl) || 'IMSLP';
+    return {
+        id: 'imslp',
+        label,
+        url: args.sourceContext.imslpUrl,
+        tier: 'source',
+        score: scoreEvidence({
+            tier: 'source',
+            intent: args.intent,
+            text: `${label} ${title} ${text.slice(0, 2000)}`,
+            entityQuery: args.entityQuery,
+            composerQuery: args.composerQuery,
+            workQuery: args.workQuery,
+            sourceBoost: 6,
+        }),
+        snippets,
+    };
+}
+
+async function fetchWikipediaEvidence(args: {
+    queryText: string;
+    intent: RetrievalIntent;
+    entityQuery: string;
+    composerQuery: string;
+    workQuery: string;
+}): Promise<SourceRagEvidence | null> {
+    const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&format=json&srlimit=3&srsearch=${encodeURIComponent(args.entityQuery)}`;
+    const search = await fetchCachedJson<WikipediaSearchResponse>(searchUrl, cacheKey('wikipedia-search', args.entityQuery));
+    const first = search.query?.search?.[0];
+    const title = first?.title?.trim();
+    if (!title) {
+        return null;
+    }
+    const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title.replace(/ /g, '_'))}`;
+    let summary: WikipediaSummaryResponse | null = null;
+    try {
+        summary = await fetchCachedJson<WikipediaSummaryResponse>(summaryUrl, cacheKey('wikipedia-summary', title));
+    } catch {
+        summary = null;
+    }
+    const snippetSource = [
+        summary?.extract || '',
+        stripTagsPreservingText(first?.snippet || ''),
+    ].filter(Boolean).join(' ');
+    const snippets = extractRelevantSnippets(snippetSource, args.queryText);
+    if (!snippets.length) {
+        return null;
+    }
+    const pageUrl = summary?.content_urls?.desktop?.page || `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
+    return {
+        id: 'wikipedia',
+        label: summary?.title || title,
+        url: pageUrl,
+        tier: 'reference',
+        score: scoreEvidence({
+            tier: 'reference',
+            intent: args.intent,
+            text: `${title} ${snippetSource}`,
+            entityQuery: args.entityQuery,
+            composerQuery: args.composerQuery,
+            workQuery: args.workQuery,
+            sourceBoost: 8,
+        }),
+        snippets,
+    };
+}
+
+async function fetchWikidataEvidence(args: {
+    intent: RetrievalIntent;
+    entityQuery: string;
+    composerQuery: string;
+    workQuery: string;
+}): Promise<SourceRagEvidence | null> {
+    const candidates = dedupeStrings([
+        args.workQuery && args.composerQuery ? `${args.workQuery} ${args.composerQuery}` : '',
+        args.workQuery,
+        args.composerQuery,
+        args.entityQuery,
+    ]).slice(0, 3);
+
+    for (const candidate of candidates) {
+        const url = `https://www.wikidata.org/w/api.php?action=wbsearchentities&language=en&format=json&limit=3&search=${encodeURIComponent(candidate)}`;
+        const response = await fetchCachedJson<WikidataSearchResponse>(url, cacheKey('wikidata-search', candidate));
+        const first = response.search?.find((item) => item.id && (item.label || item.description));
+        if (!first?.id) {
+            continue;
+        }
+        const snippetText = [first.label, first.description].filter(Boolean).join(' - ');
+        const snippets = extractRelevantSnippets(snippetText, candidate || args.entityQuery, 1);
+        if (!snippets.length) {
+            continue;
+        }
+        return {
+            id: 'wikidata',
+            label: first.label || first.id,
+            url: first.concepturi || `https://www.wikidata.org/wiki/${first.id}`,
+            tier: 'authority',
+            score: scoreEvidence({
+                tier: 'authority',
+                intent: args.intent,
+                text: snippetText,
+                entityQuery: args.entityQuery,
+                composerQuery: args.composerQuery,
+                workQuery: args.workQuery,
+                sourceBoost: 12,
+            }),
+            snippets,
+        };
+    }
+    return null;
+}
+
+async function fetchRismEvidence(args: {
+    intent: RetrievalIntent;
+    entityQuery: string;
+    composerQuery: string;
+    workQuery: string;
+}): Promise<SourceRagEvidence | null> {
+    const query = dedupeStrings([
+        args.workQuery && args.composerQuery ? `${args.workQuery} ${args.composerQuery}` : '',
+        args.workQuery,
+        args.entityQuery,
+    ])[0];
+    if (!query) {
+        return null;
+    }
+    const url = `https://rism.online/search?q=${encodeURIComponent(query)}&rows=20&mode=sources`;
+    const response = await fetchCachedJson<RismSearchResponse>(url, cacheKey('rism-search', query));
+    const items = Array.isArray(response.items) ? response.items : [];
+    const ranked = items.map((item) => {
+        const label = labelFromLocalizedField(item.label) || 'RISM source';
+        const composer = firstSummaryValue(item.summary, 'sourceComposer') || firstSummaryValue(item.summary, 'sourceComposers');
+        const dates = firstSummaryValue(item.summary, 'dateStatements');
+        const contentType = firstSummaryValue(item.summary, 'materialContentTypes');
+        const sourceType = firstSummaryValue(item.summary, 'materialSourceTypes');
+        const snippetText = [label, composer, sourceType, contentType, dates].filter(Boolean).join(' | ');
+        return {
+            item,
+            label,
+            snippetText,
+            score: scoreEvidence({
+                tier: 'authority',
+                intent: args.intent,
+                text: snippetText,
+                entityQuery: args.entityQuery,
+                composerQuery: args.composerQuery,
+                workQuery: args.workQuery,
+                sourceBoost: item.flags?.hasDigitization ? 10 : 4,
+            }),
+        };
+    }).sort((a, b) => b.score - a.score);
+
+    const best = ranked[0];
+    if (!best?.item?.id) {
+        return null;
+    }
+    return {
+            id: 'rism',
+            label: best.label,
+            url: best.item.id,
+            tier: 'archive',
+            score: best.score,
+            snippets: extractRelevantSnippets(best.snippetText, query, 1),
+        };
+}
+
+function isLikelyMusicScholarlyResult(item: NonNullable<OpenAlexResponse['results']>[number], entityQuery: string, composerQuery: string, workQuery: string) {
+    const primaryTopic = item.primary_topic?.display_name || '';
+    const subfield = item.primary_topic?.subfield?.display_name || '';
+    const sourceName = item.primary_location?.source?.display_name || item.best_oa_location?.source?.display_name || '';
+    const text = `${item.title || ''} ${item.display_name || ''} ${primaryTopic} ${subfield} ${sourceName}`.toLowerCase();
+    if (/music theory online|musicology|musical analysis|music/.test(text)) {
+        return true;
+    }
+    if (composerQuery && text.includes(composerQuery.toLowerCase())) {
+        return true;
+    }
+    if (workQuery && text.includes(workQuery.toLowerCase())) {
+        return true;
+    }
+    return tokenizeQuery(entityQuery).some((token) => text.includes(token));
+}
+
+async function fetchOpenAlexEvidence(args: {
+    intent: RetrievalIntent;
+    entityQuery: string;
+    composerQuery: string;
+    workQuery: string;
+}): Promise<SourceRagEvidence | null> {
+    const query = dedupeStrings([
+        args.workQuery && args.composerQuery ? `${args.workQuery} ${args.composerQuery}` : '',
+        args.entityQuery,
+    ])[0];
+    if (!query) {
+        return null;
+    }
+    const url = `https://api.openalex.org/works?search=${encodeURIComponent(query)}&per-page=5&filter=is_oa:true`;
+    const response = await fetchCachedJson<OpenAlexResponse>(url, cacheKey('openalex-search', query));
+    const items = (response.results || [])
+        .filter((item) => isLikelyMusicScholarlyResult(item, args.entityQuery, args.composerQuery, args.workQuery))
+        .map((item) => {
+            const sourceName = item.primary_location?.source?.display_name || item.best_oa_location?.source?.display_name || 'OpenAlex';
+            const abstract = buildAbstractFromInvertedIndex(item.abstract_inverted_index);
+            const snippetText = [
+                item.display_name || item.title || '',
+                sourceName,
+                item.primary_topic?.display_name || '',
+                item.primary_topic?.subfield?.display_name || '',
+                abstract,
+            ].filter(Boolean).join(' | ');
+            const url = item.best_oa_location?.landing_page_url
+                || item.primary_location?.landing_page_url
+                || item.id
+                || 'https://api.openalex.org';
+            return {
+                label: `${item.display_name || item.title || 'OpenAlex result'} (${sourceName})`,
+                url,
+                snippetText,
+                score: scoreEvidence({
+                    tier: 'scholarly',
+                    intent: args.intent,
+                    text: snippetText,
+                    entityQuery: args.entityQuery,
+                    composerQuery: args.composerQuery,
+                    workQuery: args.workQuery,
+                    sourceBoost: /music theory online/i.test(sourceName) ? 12 : 0,
+                }) + (item.relevance_score || 0),
+            };
+        })
+        .sort((a, b) => b.score - a.score);
+
+    const best = items[0];
+    if (!best) {
+        return null;
+    }
+    return {
+        id: 'openalex',
+        label: best.label,
+        url: best.url,
+        tier: 'scholarly',
+        score: best.score,
+        snippets: extractRelevantSnippets(best.snippetText, query, 1),
+    };
+}
+
+function chooseEvidenceSet(evidence: SourceRagEvidence[]) {
+    const sorted = [...evidence].sort((a, b) => b.score - a.score);
+    const picked: SourceRagEvidence[] = [];
+    const usedIds = new Set<string>();
+    const bestByTier = new Map<string, SourceRagEvidence>();
+
+    for (const item of sorted) {
+        const existing = bestByTier.get(item.tier);
+        if (!existing || item.score > existing.score) {
+            bestByTier.set(item.tier, item);
+        }
+    }
+
+    for (const item of Array.from(bestByTier.values()).sort((a, b) => b.score - a.score)) {
+        if (picked.length >= MAX_TOTAL_EVIDENCE) {
+            break;
+        }
+        picked.push(item);
+        usedIds.add(item.id);
+    }
+
+    for (const item of sorted) {
+        if (picked.length >= MAX_TOTAL_EVIDENCE) {
+            break;
+        }
+        if (usedIds.has(item.id)) {
+            continue;
+        }
+        picked.push(item);
+        usedIds.add(item.id);
+    }
+
+    return picked.slice(0, MAX_TOTAL_EVIDENCE);
+}
+
+function buildRagSection(args: {
+    evidence: SourceRagEvidence[];
+    sourceContext: EditorLaunchContext | null;
+    intent: RetrievalIntent;
 }) {
     const lines = [
-        'External Source Context (IMSLP)',
-        `Source URL: ${args.sourceContext.imslpUrl}`,
+        'External Source Context (ranked retrieval)',
+        `Retrieval intent: ${args.intent}`,
     ];
-    if (args.sourceContext.workTitle) {
+    if (args.sourceContext?.workTitle) {
         lines.push(`Work: ${args.sourceContext.workTitle}`);
     }
-    if (args.sourceContext.composer) {
+    if (args.sourceContext?.composer) {
         lines.push(`Composer: ${args.sourceContext.composer}`);
     }
-    if (args.title) {
-        lines.push(`Retrieved page title: ${args.title}`);
+    if (args.sourceContext?.imslpUrl) {
+        lines.push(`Launch source URL: ${args.sourceContext.imslpUrl}`);
     }
-    lines.push('Relevant IMSLP page snippets:');
-    args.snippets.forEach((snippet, index) => {
-        lines.push(`${index + 1}. ${snippet}`);
+    lines.push('Use these as supporting external sources. Prefer higher-tier evidence when sources disagree, and say when evidence is mixed or indirect.');
+    args.evidence.forEach((item, index) => {
+        lines.push(``);
+        lines.push(`Source ${index + 1}: ${item.label}`);
+        lines.push(`Tier: ${item.tier}`);
+        lines.push(`URL: ${item.url}`);
+        item.snippets.forEach((snippet, snippetIndex) => {
+            lines.push(`Snippet ${snippetIndex + 1}: ${snippet}`);
+        });
     });
-    lines.push('Use this as supporting retrieval context. If it conflicts with the score or is ambiguous, say so.');
     return lines.join('\n');
 }
 
@@ -202,38 +770,83 @@ export async function augmentPromptWithSourceRag(input: SourceRagInput): Promise
             },
         };
     }
-    if (!sourceContext?.imslpUrl || !isImslpUrl(sourceContext.imslpUrl)) {
+
+    const hasContext = Boolean(sourceContext?.workTitle || sourceContext?.composer || sourceContext?.imslpUrl);
+    if (!hasContext) {
         return {
             promptText,
             sourceContext,
             sourceRag: {
                 enabled: true,
                 used: false,
-                reason: 'invalid_or_missing_imslp_url',
+                reason: 'missing_source_context',
             },
         };
     }
 
+    const intent = inferIntent(promptText);
+    const queries = buildQueryParts(sourceContext, promptText);
+
     try {
-        const page = await fetchImslpPage(sourceContext.imslpUrl);
-        const snippets = extractRelevantSnippets(page.text, promptText || `${sourceContext.workTitle || ''} ${sourceContext.composer || ''}`);
-        if (!snippets.length) {
+        const settled = await Promise.allSettled([
+            fetchImslpEvidence({
+                sourceContext: sourceContext as EditorLaunchContext,
+                queryText: promptText || queries.entityQuery,
+                intent,
+                entityQuery: queries.entityQuery,
+                composerQuery: queries.composerQuery,
+                workQuery: queries.workQuery,
+            }),
+            fetchWikipediaEvidence({
+                queryText: promptText || queries.entityQuery,
+                intent,
+                entityQuery: queries.entityQuery,
+                composerQuery: queries.composerQuery,
+                workQuery: queries.workQuery,
+            }),
+            fetchWikidataEvidence({
+                intent,
+                entityQuery: queries.entityQuery,
+                composerQuery: queries.composerQuery,
+                workQuery: queries.workQuery,
+            }),
+            fetchRismEvidence({
+                intent,
+                entityQuery: queries.entityQuery,
+                composerQuery: queries.composerQuery,
+                workQuery: queries.workQuery,
+            }),
+            fetchOpenAlexEvidence({
+                intent,
+                entityQuery: queries.entityQuery,
+                composerQuery: queries.composerQuery,
+                workQuery: queries.workQuery,
+            }),
+        ]);
+
+        const evidence = settled
+            .filter((entry): entry is PromiseFulfilledResult<SourceRagEvidence | null> => entry.status === 'fulfilled')
+            .map((entry) => entry.value)
+            .filter((entry): entry is SourceRagEvidence => Boolean(entry && entry.snippets.length));
+
+        const selected = chooseEvidenceSet(evidence);
+        if (!selected.length) {
             return {
                 promptText,
                 sourceContext,
                 sourceRag: {
                     enabled: true,
                     used: false,
-                    reason: 'no_relevant_snippets',
-                    sourceUrl: sourceContext.imslpUrl,
+                    reason: 'no_relevant_sources',
+                    sourceUrl: sourceContext?.imslpUrl,
                 },
             };
         }
 
         const ragSection = buildRagSection({
+            evidence: selected,
             sourceContext,
-            title: page.title,
-            snippets,
+            intent,
         });
 
         return {
@@ -242,8 +855,17 @@ export async function augmentPromptWithSourceRag(input: SourceRagInput): Promise
             sourceRag: {
                 enabled: true,
                 used: true,
-                sourceUrl: sourceContext.imslpUrl,
-                snippetCount: snippets.length,
+                reason: undefined,
+                sourceUrl: sourceContext?.imslpUrl,
+                sourceCount: selected.length,
+                snippetCount: selected.reduce((sum, item) => sum + item.snippets.length, 0),
+                sources: selected.map((item) => ({
+                    id: item.id,
+                    label: item.label,
+                    url: item.url,
+                    tier: item.tier,
+                    score: item.score,
+                })),
             },
         };
     } catch (error) {
@@ -253,8 +875,8 @@ export async function augmentPromptWithSourceRag(input: SourceRagInput): Promise
             sourceRag: {
                 enabled: true,
                 used: false,
-                reason: error instanceof Error ? error.message : 'fetch_failed',
-                sourceUrl: sourceContext.imslpUrl,
+                reason: error instanceof Error ? error.message : 'retrieval_failed',
+                sourceUrl: sourceContext?.imslpUrl,
             },
         };
     }
