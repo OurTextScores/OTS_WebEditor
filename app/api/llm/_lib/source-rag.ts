@@ -11,7 +11,7 @@ type SourceRagEvidence = {
     id: string;
     label: string;
     url: string;
-    tier: 'authority' | 'archive' | 'reference' | 'scholarly' | 'source';
+    tier: 'authority' | 'catalog' | 'archive' | 'reference' | 'scholarly' | 'source';
     score: number;
     snippets: string[];
 };
@@ -116,6 +116,59 @@ type OpenAlexResponse = {
     }>;
 };
 
+type LibraryOfCongressResponse = {
+    results?: Array<{
+        id?: string;
+        title?: string;
+        description?: string | string[];
+        item?: {
+            title?: string;
+            created_published?: string;
+        };
+        contributor?: string[];
+        subject?: string[];
+        partof?: string[];
+        url?: string;
+    }>;
+};
+
+type MusicBrainzWorkResponse = {
+    works?: Array<{
+        id?: string;
+        title?: string;
+        disambiguation?: string;
+        'first-release-date'?: string;
+        type?: string;
+        score?: number;
+        relations?: Array<{
+            type?: string;
+            artist?: {
+                name?: string;
+            };
+        }>;
+        'artist-credit'?: Array<{
+            name?: string;
+            artist?: {
+                name?: string;
+            };
+        }>;
+    }>;
+};
+
+type MusicBrainzArtistResponse = {
+    artists?: Array<{
+        id?: string;
+        name?: string;
+        disambiguation?: string;
+        country?: string;
+        'life-span'?: {
+            begin?: string;
+            end?: string;
+        };
+        score?: number;
+    }>;
+};
+
 const cache = (globalThis as any).__otsSourceRagCache || new Map<string, CachedValue>();
 (globalThis as any).__otsSourceRagCache = cache;
 
@@ -123,7 +176,7 @@ const CACHE_TTL_MS = 15 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 8_000;
 const MAX_HTML_CHARS = 120_000;
 const MAX_SNIPPETS_PER_SOURCE = 2;
-const MAX_TOTAL_EVIDENCE = 4;
+const MAX_TOTAL_EVIDENCE = 5;
 const USER_AGENT = 'OurTextScores-ScoreEditor/1.0 (+source-rag)';
 const STOPWORDS = new Set([
     'about', 'after', 'again', 'also', 'among', 'because', 'before', 'being', 'between',
@@ -393,6 +446,7 @@ function scoreEvidence(args: {
 }) {
     let score = 0;
     if (args.tier === 'authority') score += 100;
+    if (args.tier === 'catalog') score += 99;
     if (args.tier === 'archive') score += 97;
     if (args.tier === 'source') score += 92;
     if (args.tier === 'reference') score += 82;
@@ -401,9 +455,11 @@ function scoreEvidence(args: {
     if (args.intent === 'source_history' && args.tier === 'archive') score += 22;
     if (args.intent === 'source_history' && args.tier === 'source') score += 18;
     if (args.intent === 'source_history' && args.tier === 'authority') score += 10;
+    if (args.intent === 'source_history' && args.tier === 'catalog') score += 8;
     if (args.intent === 'analysis' && args.tier === 'scholarly') score += 16;
     if (args.intent === 'overview' && args.tier === 'reference') score += 12;
     if (args.intent === 'metadata' && args.tier === 'authority') score += 16;
+    if (args.intent === 'metadata' && args.tier === 'catalog') score += 14;
 
     const haystack = args.text.toLowerCase();
     for (const token of tokenizeQuery(args.entityQuery)) {
@@ -582,13 +638,13 @@ async function fetchRismEvidence(args: {
             label,
             snippetText,
             score: scoreEvidence({
-                tier: 'authority',
+                tier: 'archive',
                 intent: args.intent,
                 text: snippetText,
                 entityQuery: args.entityQuery,
                 composerQuery: args.composerQuery,
                 workQuery: args.workQuery,
-                sourceBoost: item.flags?.hasDigitization ? 10 : 4,
+                sourceBoost: item.flags?.hasDigitization ? 16 : 8,
             }),
         };
     }).sort((a, b) => b.score - a.score);
@@ -683,6 +739,179 @@ async function fetchOpenAlexEvidence(args: {
         tier: 'scholarly',
         score: best.score,
         snippets: extractRelevantSnippets(best.snippetText, query, 1),
+    };
+}
+
+async function fetchLibraryOfCongressEvidence(args: {
+    intent: RetrievalIntent;
+    entityQuery: string;
+    composerQuery: string;
+    workQuery: string;
+}): Promise<SourceRagEvidence | null> {
+    const query = dedupeStrings([
+        args.workQuery && args.composerQuery ? `${args.workQuery} ${args.composerQuery}` : '',
+        args.entityQuery,
+        args.workQuery,
+    ])[0];
+    if (!query) {
+        return null;
+    }
+    const url = `https://www.loc.gov/search/?fo=json&q=${encodeURIComponent(query)}`;
+    const response = await fetchCachedJson<LibraryOfCongressResponse>(url, cacheKey('loc-search', query));
+    const results = Array.isArray(response.results) ? response.results : [];
+    const ranked = results
+        .map((item) => {
+            const label = item.title || item.item?.title || 'Library of Congress result';
+            const snippetText = [
+                label,
+                Array.isArray(item.description) ? item.description.join(' | ') : (item.description || ''),
+                item.item?.created_published || '',
+                Array.isArray(item.contributor) ? item.contributor.join(' | ') : '',
+                Array.isArray(item.partof) ? item.partof.join(' | ') : '',
+                Array.isArray(item.subject) ? item.subject.join(' | ') : '',
+            ].filter(Boolean).join(' | ');
+            const resultUrl = item.url || item.id || '';
+            return {
+                label,
+                url: resultUrl,
+                snippetText,
+                score: scoreEvidence({
+                    tier: 'archive',
+                    intent: args.intent,
+                    text: snippetText,
+                    entityQuery: args.entityQuery,
+                    composerQuery: args.composerQuery,
+                    workQuery: args.workQuery,
+                    sourceBoost: 2,
+                }),
+            };
+        })
+        .filter((item) => item.url)
+        .sort((a, b) => b.score - a.score);
+
+    const best = ranked[0];
+    if (!best) {
+        return null;
+    }
+
+    return {
+        id: 'loc',
+        label: `${best.label} (Library of Congress)`,
+        url: best.url,
+        tier: 'archive',
+        score: best.score,
+        snippets: extractRelevantSnippets(best.snippetText, query, 1),
+    };
+}
+
+function extractMusicBrainzComposer(item: NonNullable<MusicBrainzWorkResponse['works']>[number]) {
+    const credit = Array.isArray(item['artist-credit']) ? item['artist-credit'] : [];
+    const names = credit
+        .map((entry) => entry.artist?.name || entry.name || '')
+        .filter(Boolean);
+    return dedupeStrings(names).join(', ');
+}
+
+async function fetchMusicBrainzEvidence(args: {
+    intent: RetrievalIntent;
+    entityQuery: string;
+    composerQuery: string;
+    workQuery: string;
+}): Promise<SourceRagEvidence | null> {
+    const workQuery = dedupeStrings([
+        args.workQuery && args.composerQuery ? `work:${args.workQuery} AND artist:${args.composerQuery}` : '',
+        args.workQuery ? `work:${args.workQuery}` : '',
+    ])[0];
+
+    if (workQuery) {
+        const workUrl = `https://musicbrainz.org/ws/2/work/?query=${encodeURIComponent(workQuery)}&fmt=json&limit=3`;
+        const workResponse = await fetchCachedJson<MusicBrainzWorkResponse>(workUrl, cacheKey('musicbrainz-work', workQuery));
+        const works = Array.isArray(workResponse.works) ? workResponse.works : [];
+        const rankedWorks = works
+            .map((item) => {
+                const composer = extractMusicBrainzComposer(item);
+                const snippetText = [
+                    item.title || '',
+                    composer,
+                    item.disambiguation || '',
+                    item.type || '',
+                    item['first-release-date'] || '',
+                ].filter(Boolean).join(' | ');
+                return {
+                    id: item.id || '',
+                    label: item.title || 'MusicBrainz work',
+                    snippetText,
+                    score: scoreEvidence({
+                        tier: 'catalog',
+                        intent: args.intent,
+                        text: snippetText,
+                        entityQuery: args.entityQuery,
+                        composerQuery: args.composerQuery,
+                        workQuery: args.workQuery,
+                        sourceBoost: typeof item.score === 'number' ? item.score / 10 : 8,
+                    }),
+                };
+            })
+            .filter((item) => item.id)
+            .sort((a, b) => b.score - a.score);
+
+        const bestWork = rankedWorks[0];
+        if (bestWork) {
+            return {
+                id: 'musicbrainz',
+                label: `${bestWork.label} (MusicBrainz)`,
+                url: `https://musicbrainz.org/work/${bestWork.id}`,
+                tier: 'catalog',
+                score: bestWork.score,
+                snippets: extractRelevantSnippets(bestWork.snippetText, args.entityQuery, 1),
+            };
+        }
+    }
+
+    if (!args.composerQuery) {
+        return null;
+    }
+    const artistUrl = `https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(args.composerQuery)}&fmt=json&limit=3`;
+    const artistResponse = await fetchCachedJson<MusicBrainzArtistResponse>(artistUrl, cacheKey('musicbrainz-artist', args.composerQuery));
+    const artists = Array.isArray(artistResponse.artists) ? artistResponse.artists : [];
+    const rankedArtists = artists
+        .map((item) => {
+            const snippetText = [
+                item.name || '',
+                item.disambiguation || '',
+                item.country || '',
+                item['life-span']?.begin || '',
+                item['life-span']?.end || '',
+            ].filter(Boolean).join(' | ');
+            return {
+                id: item.id || '',
+                label: item.name || 'MusicBrainz artist',
+                snippetText,
+                score: scoreEvidence({
+                    tier: 'catalog',
+                    intent: args.intent,
+                    text: snippetText,
+                    entityQuery: args.entityQuery,
+                    composerQuery: args.composerQuery,
+                    workQuery: args.workQuery,
+                    sourceBoost: typeof item.score === 'number' ? item.score / 10 : 6,
+                }),
+            };
+        })
+        .filter((item) => item.id)
+        .sort((a, b) => b.score - a.score);
+
+    const bestArtist = rankedArtists[0];
+    if (!bestArtist) {
+        return null;
+    }
+    return {
+        id: 'musicbrainz',
+        label: `${bestArtist.label} (MusicBrainz)`,
+        url: `https://musicbrainz.org/artist/${bestArtist.id}`,
+        tier: 'catalog',
+        score: bestArtist.score,
+        snippets: extractRelevantSnippets(bestArtist.snippetText, args.composerQuery, 1),
     };
 }
 
@@ -817,6 +1046,18 @@ export async function augmentPromptWithSourceRag(input: SourceRagInput): Promise
                 workQuery: queries.workQuery,
             }),
             fetchOpenAlexEvidence({
+                intent,
+                entityQuery: queries.entityQuery,
+                composerQuery: queries.composerQuery,
+                workQuery: queries.workQuery,
+            }),
+            fetchLibraryOfCongressEvidence({
+                intent,
+                entityQuery: queries.entityQuery,
+                composerQuery: queries.composerQuery,
+                workQuery: queries.workQuery,
+            }),
+            fetchMusicBrainzEvidence({
                 intent,
                 entityQuery: queries.entityQuery,
                 composerQuery: queries.composerQuery,

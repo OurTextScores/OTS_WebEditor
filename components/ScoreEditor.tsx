@@ -236,9 +236,26 @@ type AiPdfAttachment = {
     filename: string;
 };
 
+type AiSourceRagInfo = {
+    enabled: boolean;
+    used: boolean;
+    reason?: string;
+    sourceUrl?: string;
+    snippetCount?: number;
+    sourceCount?: number;
+    sources?: Array<{
+        id: string;
+        label: string;
+        url: string;
+        tier: string;
+        score: number;
+    }>;
+};
+
 type AiChatMessage = {
     role: 'user' | 'assistant';
     text: string;
+    sourceRag?: AiSourceRagInfo | null;
 };
 
 type MmaStarterPreset = 'blank' | 'lead-sheet' | 'blues';
@@ -6274,7 +6291,12 @@ ${partsBodyXml}
             captureApiTraceContext(response.headers);
             if (response.ok) {
                 const data = await response.json();
-                return typeof data?.text === 'string' ? data.text : '';
+                return {
+                    text: typeof data?.text === 'string' ? data.text : '',
+                    sourceRag: (data && typeof data === 'object' && 'sourceRag' in data && data.sourceRag && typeof data.sourceRag === 'object')
+                        ? data.sourceRag as AiSourceRagInfo
+                        : null,
+                };
             }
             if (provider === 'anthropic' && isEmbedBuild && !llmProxyBase && isMissingProxyStatus(response.status)) {
                 throw new Error(ANTHROPIC_EMBED_PROXY_ERROR);
@@ -6286,7 +6308,7 @@ ${partsBodyXml}
             }
         }
 
-        return requestAiTextDirect({
+        const text = await requestAiTextDirect({
             provider,
             apiKey,
             model,
@@ -6296,6 +6318,7 @@ ${partsBodyXml}
             image,
             pdf,
         });
+        return { text, sourceRag: null };
     };
 
     const requestAiPatchTextWithRetry = async (payload: Parameters<typeof requestAiText>[0]) => {
@@ -6317,7 +6340,8 @@ ${partsBodyXml}
             }
         };
 
-        const firstRawText = await requestPatchAttempt('initial');
+        const firstResult = await requestPatchAttempt('initial');
+        const firstRawText = firstResult.text;
         const firstExtracted = extractJsonFromResponse(firstRawText);
         const firstParsed = firstExtracted ? parseMusicXmlPatch(firstExtracted) : { patch: null, error: 'missing' };
         if (firstExtracted && !firstParsed.error && firstParsed.patch) {
@@ -6348,7 +6372,7 @@ ${partsBodyXml}
             promptText: retryPromptText,
             systemPrompt: AI_PATCH_SYSTEM_PROMPT,
         };
-        const retryRawText = await (async () => {
+        const retryResult = await (async () => {
             try {
                 return await requestAiText(retryPayload);
             } catch (err) {
@@ -6364,6 +6388,7 @@ ${partsBodyXml}
                 return requestAiText(retryPayload);
             }
         })();
+        const retryRawText = retryResult.text;
         const retryExtracted = extractJsonFromResponse(retryRawText);
         return {
             rawText: retryRawText,
@@ -6687,7 +6712,7 @@ ${partsBodyXml}
             const maxTokens = aiMaxTokensMode === 'custom' ? aiMaxTokens : null;
             requestIssued = true;
             telemetryCountersRef.current.aiRequests += 1;
-            const rawText = await requestAiText({
+            const result = await requestAiText({
                 provider: aiProvider,
                 apiKey: aiApiKey,
                 model: aiModel,
@@ -6700,13 +6725,13 @@ ${partsBodyXml}
                 maxTokens,
                 enableSourceRag: true,
             });
-            const responseText = rawText.trim();
+            const responseText = result.text.trim();
             if (!responseText) {
                 failureReason = 'No response was returned by the model.';
                 setAiError(failureReason);
                 return;
             }
-            setAiChatMessages((prev) => [...prev, { role: 'assistant', text: responseText }]);
+            setAiChatMessages((prev) => [...prev, { role: 'assistant', text: responseText, sourceRag: result.sourceRag }]);
             outcome = 'success';
         } catch (err) {
             console.error('AI chat request failed', err);
@@ -11863,6 +11888,34 @@ ${partsBodyXml}
                                                                         {message.text}
                                                                     </ReactMarkdown>
                                                                 </div>
+                                                                {message.role === 'assistant' && message.sourceRag?.enabled && (
+                                                                    <div className="mt-2 rounded border border-blue-100 bg-white/70 p-2 text-[10px] text-gray-600">
+                                                                        <div className="font-semibold uppercase tracking-wide text-gray-500">
+                                                                            External Sources
+                                                                        </div>
+                                                                        {message.sourceRag.used && message.sourceRag.sources?.length ? (
+                                                                            <div className="mt-1 space-y-1">
+                                                                                {message.sourceRag.sources.map((source) => (
+                                                                                    <div key={`${source.id}-${source.url}`} className="leading-relaxed">
+                                                                                        <a
+                                                                                            href={source.url}
+                                                                                            target="_blank"
+                                                                                            rel="noreferrer"
+                                                                                            className="font-medium text-blue-700 hover:underline"
+                                                                                        >
+                                                                                            {source.label}
+                                                                                        </a>
+                                                                                        <span className="ml-1 text-gray-500">[{source.tier}]</span>
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div className="mt-1 text-gray-500">
+                                                                                Retrieval not used{message.sourceRag.reason ? `: ${message.sourceRag.reason}` : '.'}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         ))}
                                                     </div>

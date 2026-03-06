@@ -150,6 +150,41 @@ describe('augmentPromptWithSourceRag', () => {
           ],
         });
       }
+      if (url.startsWith('https://www.loc.gov/search/?')) {
+        return Response.json({
+          results: [
+            {
+              id: 'https://www.loc.gov/item/test-bach/',
+              title: 'Prelude in C major',
+              description: ['Library of Congress catalog record for Bach Prelude in C major.'],
+              contributor: ['Bach, Johann Sebastian'],
+              item: {
+                created_published: 'Washington, 1900',
+              },
+            },
+          ],
+        });
+      }
+      if (url.startsWith('https://musicbrainz.org/ws/2/work/')) {
+        return Response.json({
+          works: [
+            {
+              id: 'mb-work-1',
+              title: 'Prelude in C major, BWV 846',
+              disambiguation: 'keyboard work by Johann Sebastian Bach',
+              type: 'Composition',
+              'first-release-date': '1722',
+              score: 100,
+              'artist-credit': [
+                {
+                  name: 'Johann Sebastian Bach',
+                  artist: { name: 'Johann Sebastian Bach' },
+                },
+              ],
+            },
+          ],
+        });
+      }
       throw new Error(`Unexpected URL: ${url}`);
     });
     global.fetch = fetchSpy as typeof global.fetch;
@@ -223,6 +258,26 @@ describe('augmentPromptWithSourceRag', () => {
       if (url.startsWith('https://api.openalex.org/works?')) {
         return Response.json({ results: [] });
       }
+      if (url.startsWith('https://www.loc.gov/search/?')) {
+        return Response.json({ results: [] });
+      }
+      if (url.startsWith('https://musicbrainz.org/ws/2/work/')) {
+        return Response.json({ works: [] });
+      }
+      if (url.startsWith('https://musicbrainz.org/ws/2/artist/')) {
+        return Response.json({
+          artists: [
+            {
+              id: 'mb-artist-1',
+              name: 'Johann Sebastian Bach',
+              disambiguation: 'German composer and musician',
+              country: 'DE',
+              'life-span': { begin: '1685', end: '1750' },
+              score: 100,
+            },
+          ],
+        });
+      }
       throw new Error(`Unexpected URL: ${url}`);
     });
     global.fetch = fetchSpy as typeof global.fetch;
@@ -238,5 +293,115 @@ describe('augmentPromptWithSourceRag', () => {
     expect(result.sourceRag.used).toBe(true);
     expect(result.sourceRag.sources?.some((item) => item.id === 'wikipedia')).toBe(true);
     expect(result.promptText).toContain('https://en.wikipedia.org/wiki/Johann_Sebastian_Bach');
+  });
+
+  it('can include library of congress evidence when other adapters are empty', async () => {
+    const fetchSpy = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith('https://en.wikipedia.org/w/api.php')) {
+        return Response.json({ query: { search: [] } });
+      }
+      if (url.startsWith('https://www.wikidata.org/w/api.php')) {
+        return Response.json({ search: [] });
+      }
+      if (url.startsWith('https://rism.online/search?')) {
+        return Response.json({ items: [] });
+      }
+      if (url.startsWith('https://api.openalex.org/works?')) {
+        return Response.json({ results: [] });
+      }
+      if (url.startsWith('https://www.loc.gov/search/?')) {
+        return Response.json({
+          results: [
+            {
+              id: 'https://www.loc.gov/item/test-march/',
+              title: 'Military march',
+              description: ['Library of Congress holding for a march associated with Sousa.'],
+              contributor: ['Sousa, John Philip'],
+              item: {
+                created_published: '1896',
+              },
+            },
+          ],
+        });
+      }
+      if (url.startsWith('https://musicbrainz.org/ws/2/work/')) {
+        return Response.json({ works: [] });
+      }
+      if (url.startsWith('https://musicbrainz.org/ws/2/artist/')) {
+        return Response.json({ artists: [] });
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+    global.fetch = fetchSpy as typeof global.fetch;
+
+    const result = await augmentPromptWithSourceRag({
+      enableSourceRag: true,
+      promptText: 'Summarize the source history of this march.',
+      sourceContext: {
+        workTitle: 'Military March',
+        composer: 'John Philip Sousa',
+      },
+    });
+
+    expect(result.sourceRag.used).toBe(true);
+    expect(result.sourceRag.sources?.some((item) => item.id === 'loc')).toBe(true);
+    expect(result.promptText).toContain('https://www.loc.gov/item/test-march/');
+  });
+
+  it('can include musicbrainz evidence when authority search falls through', async () => {
+    const fetchSpy = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith('https://en.wikipedia.org/w/api.php')) {
+        return Response.json({ query: { search: [] } });
+      }
+      if (url.startsWith('https://www.wikidata.org/w/api.php')) {
+        return Response.json({ search: [] });
+      }
+      if (url.startsWith('https://rism.online/search?')) {
+        return Response.json({ items: [] });
+      }
+      if (url.startsWith('https://api.openalex.org/works?')) {
+        return Response.json({ results: [] });
+      }
+      if (url.startsWith('https://www.loc.gov/search/?')) {
+        return Response.json({ results: [] });
+      }
+      if (url.startsWith('https://musicbrainz.org/ws/2/work/')) {
+        return Response.json({
+          works: [
+            {
+              id: 'mb-work-2',
+              title: 'Maple Leaf Rag',
+              disambiguation: 'rag by Scott Joplin',
+              type: 'Composition',
+              'first-release-date': '1899',
+              score: 100,
+              'artist-credit': [
+                {
+                  name: 'Scott Joplin',
+                  artist: { name: 'Scott Joplin' },
+                },
+              ],
+            },
+          ],
+        });
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+    global.fetch = fetchSpy as typeof global.fetch;
+
+    const result = await augmentPromptWithSourceRag({
+      enableSourceRag: true,
+      promptText: 'Give me metadata and catalog context for Maple Leaf Rag.',
+      sourceContext: {
+        workTitle: 'Maple Leaf Rag',
+        composer: 'Scott Joplin',
+      },
+    });
+
+    expect(result.sourceRag.used).toBe(true);
+    expect(result.sourceRag.sources?.some((item) => item.id === 'musicbrainz')).toBe(true);
+    expect(result.promptText).toContain('https://musicbrainz.org/work/mb-work-2');
   });
 });
