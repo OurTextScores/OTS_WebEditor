@@ -565,6 +565,35 @@ const buildAiChatTranscript = (messages: AiChatMessage[]) => {
         : ''}`;
 };
 
+const shouldEnableSourceRagForPrompt = (text: string) => {
+    const normalized = text.trim().toLowerCase();
+    if (!normalized) {
+        return false;
+    }
+    return [
+        /\blook\s+up\b/,
+        /\bresearch\b/,
+        /\bsearch\b/,
+        /\bfind\s+(?:sources|references|background|history|information|info)\b/,
+        /\bsource\s+history\b/,
+        /\bbackground\b/,
+        /\bhistorical?\s+context\b/,
+        /\breception\b/,
+        /\bpublication\s+history\b/,
+        /\bmanuscript\b/,
+        /\bprovenance\b/,
+        /\bcitation[s]?\b/,
+        /\bcite\b/,
+        /\bimslp\b/,
+        /\bwikipedia\b/,
+        /\bwikidata\b/,
+        /\brism\b/,
+        /\bopenalex\b/,
+        /\bweb\b/,
+        /\bonline\b/,
+    ].some((pattern) => pattern.test(normalized));
+};
+
 const MMA_BLUES_DEMO_TEMPLATE = `Tempo 110\nTimeSig 4 4\nKeySig C\nGroove Swing\n\n1  C7\n2  F7\n3  C7\n4  C7\n5  F7\n6  F7\n7  C7\n8  C7\n9  G7\n10  F7\n11  C7\n12  G7\n`;
 
 const decodeBase64ToBytes = (input: string) => {
@@ -6634,6 +6663,7 @@ ${partsBodyXml}
 
         const userMessage: AiChatMessage = { role: 'user', text: aiChatInput.trim() };
         const nextMessages = [...aiChatMessages, userMessage];
+        const shouldUseSourceRag = shouldEnableSourceRagForPrompt(userMessage.text);
 
         setAiBusy(true);
         setAiError(null);
@@ -6723,7 +6753,7 @@ ${partsBodyXml}
                 image: imageAttachment,
                 pdf: pdfAttachment,
                 maxTokens,
-                enableSourceRag: true,
+                enableSourceRag: shouldUseSourceRag,
             });
             const responseText = result.text.trim();
             if (!responseText) {
@@ -11921,16 +11951,19 @@ ${partsBodyXml}
                                                     </div>
                                                 ) : (
                                                     <div className="text-xs text-gray-500">
-                                                        Start a conversation about this score. You can include this chat when generating patches.
+                                                        Start a conversation about this score. You can include this chat when generating patches. Ask for source history, background, or “look this up on IMSLP/Wikipedia” to trigger external-source retrieval.
                                                     </div>
                                                 )}
+                                            </div>
+                                            <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+                                                External-source lookup is on-demand. Ask for source history, background, citations, or explicitly mention IMSLP/Wikipedia/web search to use it.
                                             </div>
                                             <textarea
                                                 value={aiChatInput}
                                                 onChange={(event) => setAiChatInput(event.target.value)}
                                                 rows={3}
                                                 className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                                                placeholder="Ask a question or request guidance."
+                                                placeholder="Ask a question or request guidance. Mention source history, IMSLP, Wikipedia, or citations to use external lookup."
                                             />
                                             <button
                                                 type="button"
