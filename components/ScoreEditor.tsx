@@ -45,6 +45,11 @@ import {
     MMA_ARRANGEMENT_PRESETS,
     type MmaArrangementPreset,
 } from '../lib/music-mma-presets';
+import {
+    DEFAULT_MMA_GROOVE,
+    findMmaGrooveOption,
+    MMA_GROOVE_OPTION_GROUPS,
+} from '../lib/music-mma-grooves';
 
 type SelectionBox = {
     index: number | null;
@@ -762,6 +767,7 @@ export default function ScoreEditor() {
     const [xmlError, setXmlError] = useState<string | null>(null);
     const [mmaStarterPreset, setMmaStarterPreset] = useState<MmaStarterPreset>('lead-sheet');
     const [mmaArrangementPreset, setMmaArrangementPreset] = useState<MmaArrangementPreset>('full-groove');
+    const [mmaGroove, setMmaGroove] = useState(DEFAULT_MMA_GROOVE);
     const [mmaScript, setMmaScript] = useState('');
     const [mmaBusy, setMmaBusy] = useState(false);
     const [mmaError, setMmaError] = useState<string | null>(null);
@@ -7373,6 +7379,7 @@ ${partsBodyXml}
                 Math.max(1, estimatedMeasures || MMA_TEMPLATE_MAX_MEASURES),
             ),
             arrangementPreset: mmaArrangementPreset,
+            defaultGroove: mmaGroove,
         });
         const template = typeof payload.template === 'string' ? payload.template : '';
         if (!template.trim()) {
@@ -7390,7 +7397,7 @@ ${partsBodyXml}
             setXmlSidebarTab('mma');
         }
         return payload;
-    }, [mmaArrangementPreset, postScoreEditorJson]);
+    }, [mmaArrangementPreset, mmaGroove, postScoreEditorJson]);
 
     const handleMmaGenerateTemplate = async () => {
         setMmaBusy(true);
@@ -12082,7 +12089,7 @@ ${partsBodyXml}
                                             ⓘ
                                         </a>
                                     </div>
-                                    <div className="grid gap-2 sm:grid-cols-2">
+                                    <div className="grid gap-2 sm:grid-cols-3">
                                         <label className="flex flex-col gap-1">
                                             <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                                                 Starter
@@ -12115,10 +12122,37 @@ ${partsBodyXml}
                                                 ))}
                                             </select>
                                         </label>
+                                        <label className="flex flex-col gap-1">
+                                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                Groove
+                                            </span>
+                                            <select
+                                                value={mmaGroove}
+                                                onChange={(event) => setMmaGroove(event.target.value)}
+                                                className="rounded border border-gray-300 px-2 py-1 text-sm"
+                                                data-testid="select-mma-groove"
+                                            >
+                                                {MMA_GROOVE_OPTION_GROUPS.map((group) => (
+                                                    <optgroup key={group.id} label={group.label}>
+                                                        {group.options.map((option) => (
+                                                            <option key={option.value} value={option.value}>
+                                                                {option.label}
+                                                            </option>
+                                                        ))}
+                                                    </optgroup>
+                                                ))}
+                                            </select>
+                                        </label>
                                     </div>
-                                    <div className="rounded border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600">
-                                        {MMA_ARRANGEMENT_PRESETS.find((preset) => preset.id === mmaArrangementPreset)?.description
-                                            || 'Use the groove as-is with its default accompaniment layers.'}
+                                    <div className="grid gap-2 sm:grid-cols-2">
+                                        <div className="rounded border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600">
+                                            {MMA_ARRANGEMENT_PRESETS.find((preset) => preset.id === mmaArrangementPreset)?.description
+                                                || 'Use the groove as-is with its default accompaniment layers.'}
+                                        </div>
+                                        <div className="rounded border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600">
+                                            {findMmaGrooveOption(mmaGroove)?.description
+                                                || 'Curated MMA groove from the local installed groove library.'}
+                                        </div>
                                     </div>
                                     <div className="grid gap-2 sm:grid-cols-2">
                                         <div className="flex items-end">
