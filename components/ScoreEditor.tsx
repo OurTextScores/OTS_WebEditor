@@ -11757,7 +11757,7 @@ ${partsBodyXml}
                                             )}
                                         </div>
                                     </div>
-                                    <details className="rounded border border-gray-200 bg-gray-50/70 px-3 py-2 text-xs text-gray-600">
+                                    <details className="rounded border border-gray-200 bg-gray-50/70 px-3 py-2 text-xs text-gray-600" open>
                                         <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-gray-500">
                                             Context
                                         </summary>
@@ -12004,9 +12004,6 @@ ${partsBodyXml}
                                                     </button>
                                                 </div>
                                             )}
-                                            <div className="text-[11px] text-gray-500">
-                                                Drag the lower-right corner of the chat panel above to resize it.
-                                            </div>
                                             <textarea
                                                 value={aiChatInput}
                                                 onChange={(event) => setAiChatInput(event.target.value)}
