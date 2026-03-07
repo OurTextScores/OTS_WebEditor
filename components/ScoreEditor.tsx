@@ -6419,6 +6419,10 @@ ${partsBodyXml}
             }
             const branch = versionsBranchName.trim() || 'trunk';
             const selectedBranch = sourceHistory?.selectedBranch;
+            if (selectedBranch?.lifecycle === 'closed') {
+                setVersionsActionError('This branch is closed while its change review is closed. Reopen the CR before committing.');
+                return;
+            }
             const targetRevisionId = selectedBranch?.headRevisionId
                 || selectedBranch?.baseRevisionId
                 || otsSourceContext.revisionId
@@ -6464,14 +6468,18 @@ ${partsBodyXml}
             console.error('Failed to commit source revision', err);
             if (err instanceof OurTextScoresApiError && err.status === 409) {
                 const details = asRecord(err.details);
-                const actualHeadSequenceNumber = typeof details?.actualHeadSequenceNumber === 'number'
-                    ? details.actualHeadSequenceNumber
-                    : null;
-                setVersionsActionError(
-                    actualHeadSequenceNumber !== null
-                        ? `Branch head changed. Refresh and review revision #${actualHeadSequenceNumber} before committing.`
-                        : 'Branch head changed. Refresh and review the latest branch revision before committing.'
-                );
+                if (details?.error === 'branch_closed_for_review') {
+                    setVersionsActionError('This branch is closed while its change review is closed. Reopen the CR before committing.');
+                } else {
+                    const actualHeadSequenceNumber = typeof details?.actualHeadSequenceNumber === 'number'
+                        ? details.actualHeadSequenceNumber
+                        : null;
+                    setVersionsActionError(
+                        actualHeadSequenceNumber !== null
+                            ? `Branch head changed. Refresh and review revision #${actualHeadSequenceNumber} before committing.`
+                            : 'Branch head changed. Refresh and review the latest branch revision before committing.'
+                    );
+                }
             } else {
                 setVersionsActionError(errorMessage(err) || 'Failed to commit current score.');
             }

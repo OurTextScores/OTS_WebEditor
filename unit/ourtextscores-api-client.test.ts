@@ -38,8 +38,8 @@ describe('ourtextscores-api-client', () => {
             text: async () => JSON.stringify({
                 source: { workId: '10', sourceId: 's1', label: 'Score', sourceType: 'score', defaultBranch: 'trunk' },
                 viewer: { authenticated: true, canCreateBranch: true, canCommitToSelectedBranch: true },
-                selectedBranch: { name: 'trunk', policy: 'public', commitCount: 1, empty: false },
-                branches: [{ name: 'trunk', policy: 'public', commitCount: 1, empty: false }],
+                selectedBranch: { name: 'trunk', policy: 'public', lifecycle: 'open', commitCount: 1, empty: false },
+                branches: [{ name: 'trunk', policy: 'public', lifecycle: 'open', commitCount: 1, empty: false }],
                 revisions: [],
                 nextCursor: null,
             }),

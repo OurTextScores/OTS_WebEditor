@@ -174,6 +174,9 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
                         {versionsSelectedBranch.policy === 'owner_approval' ? 'Owner approval required' : 'Open branch'}
                     </div>
                     <div>
+                        Lifecycle: {versionsSelectedBranch.lifecycle === 'closed' ? 'Closed for review' : 'Open'}
+                    </div>
+                    <div>
                         {versionsSelectedBranch.commitCount} commit{versionsSelectedBranch.commitCount === 1 ? '' : 's'}
                     </div>
                     {versionsSelectedBranch.empty && versionsSelectedBranch.baseRevisionId && (
@@ -223,7 +226,9 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
                 </button>
                 {!versionsCanCommit && (
                     <div className="mt-2 text-xs text-gray-500">
-                        Sign in with commit access to create a server revision.
+                        {versionsSelectedBranch?.lifecycle === 'closed'
+                            ? 'This branch is closed while its change review is closed. Reopen the CR to commit again.'
+                            : 'Sign in with commit access to create a server revision.'}
                     </div>
                 )}
             </div>

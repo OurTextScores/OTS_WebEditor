@@ -20,6 +20,7 @@ export class OurTextScoresApiError extends Error {
 export type SourceHistoryBranch = {
     name: string;
     policy: 'public' | 'owner_approval';
+    lifecycle: 'open' | 'closed';
     ownerUserId?: string;
     ownerUsername?: string;
     baseRevisionId?: string;
