@@ -18,6 +18,7 @@ import {
 } from '../lib/checkpoints';
 import { CodeMirrorEditor, type CodeEditorThemeMode } from './CodeMirrorEditor';
 import { Toolbar, type MeasureInsertTarget } from './Toolbar';
+import { LeftSidebar, type LeftSidebarTab } from './score-editor/LeftSidebar';
 import {
     AI_PROVIDER_CAPABILITIES,
     AI_PROVIDER_CONFIGS,
@@ -839,7 +840,7 @@ export default function ScoreEditor() {
     const compareRightRenderInFlightRef = useRef(false);
     const musicNotaGenProgressPreRef = useRef<HTMLPreElement | null>(null);
     const [checkpointsCollapsed, setCheckpointsCollapsed] = useState(false);
-    const [leftSidebarTab, setLeftSidebarTab] = useState<'checkpoints' | 'scores'>('checkpoints');
+    const [leftSidebarTab, setLeftSidebarTab] = useState<LeftSidebarTab>('checkpoints');
     const [scoreSummaries, setScoreSummaries] = useState<ScoreSummary[]>([]);
     const [scoreSummariesLoading, setScoreSummariesLoading] = useState(false);
     const [scoreSummariesError, setScoreSummariesError] = useState<string | null>(null);
@@ -11430,228 +11431,36 @@ ${partsBodyXml}
             )}
 
             <div className="flex flex-1 min-h-0">
-                {!isEmbedMode && (
-                <aside
-                    className={`shrink-0 border-r bg-white text-sm ${
-                        xmlSidebarMode === 'full' ? 'hidden' : checkpointsCollapsed ? 'w-12' : 'w-72'
-                    } ${checkpointsCollapsed ? '' : 'overflow-y-auto'}`}
-                    data-testid="checkpoint-sidebar"
-                >
-                    <div className={checkpointsCollapsed ? 'flex items-center justify-center p-2' : 'flex items-center justify-between p-4'}>
-                        {!checkpointsCollapsed && (
-                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                Checkpoints
-                            </span>
-                        )}
-                        <div className={checkpointsCollapsed ? '' : 'flex items-center gap-2'}>
-                            {!checkpointsCollapsed && (
-                                <button
-                                    type="button"
-                                    data-testid="btn-checkpoint-refresh"
-                                    onClick={loadCheckpointList}
-                                    disabled={checkpointControlsDisabled}
-                                    className="text-xs font-medium text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Refresh
-                                </button>
-                            )}
-                            <button
-                                type="button"
-                                data-testid="btn-checkpoint-toggle"
-                                aria-expanded={!checkpointsCollapsed}
-                                aria-controls="checkpoint-sidebar-content"
-                                aria-label={checkpointsCollapsed ? 'Show checkpoints' : 'Hide checkpoints'}
-                                onClick={() => setCheckpointsCollapsed((prev) => !prev)}
-                                className="text-xs font-medium text-gray-600 hover:text-gray-900"
-                            >
-                                {checkpointsCollapsed ? '>>' : '<<'}
-                            </button>
-                        </div>
-                    </div>
-                    {!checkpointsCollapsed && (
-                        <div id="checkpoint-sidebar-content" className="px-4 pb-4">
-                            <div className="mt-3 flex gap-2 text-xs font-medium text-gray-600">
-                                <button
-                                    type="button"
-                                    data-testid="tab-checkpoints"
-                                    onClick={() => setLeftSidebarTab('checkpoints')}
-                                    className={`rounded border px-2 py-1 ${
-                                        leftSidebarTab === 'checkpoints'
-                                            ? 'border-gray-400 bg-gray-100 text-gray-900'
-                                            : 'border-transparent text-gray-500 hover:text-gray-700'
-                                    }`}
-                                >
-                                    Checkpoints
-                                </button>
-                                <button
-                                    type="button"
-                                    data-testid="tab-scores"
-                                    onClick={() => setLeftSidebarTab('scores')}
-                                    className={`rounded border px-2 py-1 ${
-                                        leftSidebarTab === 'scores'
-                                            ? 'border-gray-400 bg-gray-100 text-gray-900'
-                                            : 'border-transparent text-gray-500 hover:text-gray-700'
-                                    }`}
-                                >
-                                    Scores
-                                </button>
-                            </div>
-                            {leftSidebarTab === 'checkpoints' && (
-                                <>
-                                    <div className="mt-3 flex flex-col gap-2">
-                                        <input
-                                            data-testid="input-checkpoint-label"
-                                            type="text"
-                                            value={checkpointLabel}
-                                            onChange={(event) => setCheckpointLabel(event.target.value)}
-                                            placeholder="Checkpoint label"
-                                            className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none"
-                                        />
-                                        <button
-                                            type="button"
-                                            data-testid="btn-checkpoint-save"
-                                            onClick={handleSaveCheckpoint}
-                                            disabled={checkpointSaveDisabled}
-                                            className={`w-full rounded border px-3 py-1 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
-                                                !checkpointSaveDisabled && scoreDirtySinceCheckpoint
-                                                    ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
-                                                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                                            }`}
-                                        >
-                                            Save Checkpoint
-                                        </button>
-                                        {!score && (
-                                            <span className="text-xs text-gray-400">
-                                                Load a score to enable checkpoints.
-                                            </span>
-                                        )}
-                                    </div>
-                                    {checkpointError && (
-                                        <div className="mt-3 text-xs text-red-600">
-                                            {checkpointError}
-                                        </div>
-                                    )}
-                                    {checkpointLoading && (
-                                        <div className="mt-3 text-xs text-gray-400">
-                                            Loading checkpoints...
-                                        </div>
-                                    )}
-                                    {!checkpointLoading && checkpoints.length === 0 && (
-                                        <div className="mt-3 text-xs text-gray-400">
-                                            No checkpoints yet.
-                                        </div>
-                                    )}
-                                    <div className="mt-3 space-y-3">
-                                        {checkpoints.map((checkpoint) => (
-                                            <div
-                                                key={checkpoint.id}
-                                                className="rounded border border-gray-200 p-2"
-                                            >
-                                                <div className="text-sm font-medium text-gray-800">
-                                                    {checkpoint.title}
-                                                </div>
-                                                <div className="text-xs text-gray-500">
-                                                    {formatTimestamp(checkpoint.createdAt)}
-                                                    {checkpoint.size ? ` · ${formatBytes(checkpoint.size)}` : ''}
-                                                </div>
-                                                <div className="mt-2 flex flex-wrap gap-2">
-                                                    <button
-                                                        type="button"
-                                                        data-testid={`btn-checkpoint-restore-${checkpoint.id}`}
-                                                        onClick={() => handleRestoreCheckpoint(checkpoint)}
-                                                        disabled={checkpointControlsDisabled}
-                                                        className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    >
-                                                        Restore
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        data-testid={`btn-checkpoint-compare-${checkpoint.id}`}
-                                                        onClick={() => handleCompareCheckpoint(checkpoint)}
-                                                        disabled={checkpointCompareDisabled}
-                                                        className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    >
-                                                        Compare
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        data-testid={`btn-checkpoint-delete-${checkpoint.id}`}
-                                                        onClick={() => handleDeleteCheckpoint(checkpoint)}
-                                                        disabled={checkpointControlsDisabled}
-                                                        className="rounded border border-gray-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </>
-                            )}
-                            {leftSidebarTab === 'scores' && (
-                                <>
-                                    {scoreSummariesError && (
-                                        <div className="mt-3 text-xs text-red-600">
-                                            {scoreSummariesError}
-                                        </div>
-                                    )}
-                                    {scoreSummariesLoading && (
-                                        <div className="mt-3 text-xs text-gray-400">
-                                            Loading scores...
-                                        </div>
-                                    )}
-                                    {!scoreSummariesLoading && scoreSummaries.length === 0 && (
-                                        <div className="mt-3 text-xs text-gray-400">
-                                            No saved scores yet.
-                                        </div>
-                                    )}
-                                    <div className="mt-3 space-y-3">
-                                        {scoreSummaries.map((summary) => {
-                                            const info = summarizeScoreId(summary.scoreId);
-                                            const isCurrent = summary.scoreId === scoreId;
-                                            return (
-                                                <div
-                                                    key={summary.scoreId}
-                                                    className={`rounded border p-2 ${isCurrent ? 'border-blue-300 bg-blue-50' : 'border-gray-200'}`}
-                                                >
-                                                    <div className="flex items-center justify-between gap-2">
-                                                        <div className="text-sm font-medium text-gray-800">
-                                                            {info.title}
-                                                        </div>
-                                                        {isCurrent && (
-                                                            <span className="text-[10px] font-semibold uppercase text-blue-700">
-                                                                Current
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    {info.detail && (
-                                                        <div className="text-xs text-gray-500 break-all">
-                                                            {info.detail}
-                                                        </div>
-                                                    )}
-                                                    <div className="mt-1 text-xs text-gray-500">
-                                                        {summary.count} checkpoint{summary.count === 1 ? '' : 's'}
-                                                        {summary.lastUpdated ? ` · ${formatTimestamp(summary.lastUpdated)}` : ''}
-                                                    </div>
-                                                    <div className="mt-2 flex flex-wrap gap-2">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleOpenScoreFromSummary(summary)}
-                                                            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
-                                                        >
-                                                            Open score
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    )}
-                </aside>
-                )}
+                <LeftSidebar
+                    hidden={isEmbedMode || xmlSidebarMode === 'full'}
+                    collapsed={checkpointsCollapsed}
+                    onToggleCollapsed={() => setCheckpointsCollapsed((prev) => !prev)}
+                    onRefresh={() => void loadCheckpointList()}
+                    checkpointControlsDisabled={checkpointControlsDisabled}
+                    leftSidebarTab={leftSidebarTab}
+                    onTabChange={setLeftSidebarTab}
+                    checkpointLabel={checkpointLabel}
+                    onCheckpointLabelChange={setCheckpointLabel}
+                    onSaveCheckpoint={() => void handleSaveCheckpoint()}
+                    checkpointSaveDisabled={checkpointSaveDisabled}
+                    scoreLoaded={Boolean(score)}
+                    checkpointError={checkpointError}
+                    checkpointLoading={checkpointLoading}
+                    checkpoints={checkpoints}
+                    checkpointCompareDisabled={checkpointCompareDisabled}
+                    onRestoreCheckpoint={(checkpoint) => void handleRestoreCheckpoint(checkpoint)}
+                    onCompareCheckpoint={(checkpoint) => void handleCompareCheckpoint(checkpoint)}
+                    onDeleteCheckpoint={(checkpoint) => void handleDeleteCheckpoint(checkpoint)}
+                    scoreDirtySinceCheckpoint={scoreDirtySinceCheckpoint}
+                    scoreSummariesError={scoreSummariesError}
+                    scoreSummariesLoading={scoreSummariesLoading}
+                    scoreSummaries={scoreSummaries}
+                    currentScoreId={scoreId}
+                    onOpenScoreFromSummary={handleOpenScoreFromSummary}
+                    formatTimestamp={formatTimestamp}
+                    formatBytes={formatBytes}
+                    summarizeScoreId={summarizeScoreId}
+                />
 
                 <div
                     ref={scrollContainerRef}

@@ -2,6 +2,7 @@ export type EditorLaunchContext = {
   source?: string;
   workId?: string;
   sourceId?: string;
+  branchName?: string;
   revisionId?: string;
   sourceType?: string;
   sourceLabel?: string;
@@ -15,6 +16,7 @@ const FIELD_LIMITS: Record<keyof EditorLaunchContext, number> = {
   source: 64,
   workId: 128,
   sourceId: 128,
+  branchName: 128,
   revisionId: 128,
   sourceType: 64,
   sourceLabel: 256,
