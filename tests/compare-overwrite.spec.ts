@@ -13,7 +13,7 @@ test('compare overwrite applies left measure to right', async ({ page }) => {
 
   const firstNote = page.locator('svg .Note').first();
   await firstNote.click();
-  await page.locator('[data-testid^="selection-overlay-"]').first().waitFor({ timeout: 10_000 });
+  await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
   await page.getByTestId('btn-pitch-up').click();
 
   await checkpointCard.getByRole('button', { name: 'Compare' }).click();
