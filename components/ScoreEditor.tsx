@@ -5828,6 +5828,47 @@ ${partsBodyXml}
         window.location.assign(nextUrl.toString());
     };
 
+    const loadOtsRevisionIntoEditor = useCallback(async (input: {
+        revisionId: string;
+        branchName: string;
+        sequenceNumber?: number;
+        telemetrySource: string;
+    }) => {
+        if (!otsSourceContext) {
+            return;
+        }
+        const xml = await getSourceCanonicalXml({
+            workId: otsSourceContext.workId,
+            sourceId: otsSourceContext.sourceId,
+            revisionId: input.revisionId,
+        });
+        const suffix = typeof input.sequenceNumber === 'number' ? `-${input.sequenceNumber}` : '';
+        const file = new File(
+            [new TextEncoder().encode(xml)],
+            `${otsSourceContext.sourceId}${suffix}.musicxml`,
+            { type: 'application/xml' }
+        );
+        setRuntimeLaunchContext(sanitizeEditorLaunchContext({
+            ...(activeLaunchContext || {}),
+            source: 'ourtextscores',
+            workId: otsSourceContext.workId,
+            sourceId: otsSourceContext.sourceId,
+            revisionId: input.revisionId,
+            branchName: input.branchName,
+            canonicalXmlUrl: buildSourceCanonicalXmlUrl({
+                workId: otsSourceContext.workId,
+                sourceId: otsSourceContext.sourceId,
+                revisionId: input.revisionId,
+            }),
+        } satisfies EditorLaunchContext));
+        setVersionsBranchName(input.branchName || versionsBranchName);
+        await handleFileUpload(file, {
+            scoreIdOverride: buildOtsScoreId(otsSourceContext.workId, otsSourceContext.sourceId),
+            updateUrl: false,
+            telemetrySource: input.telemetrySource,
+        });
+    }, [activeLaunchContext, handleFileUpload, otsSourceContext, versionsBranchName]);
+
     const handleVersionsOpenRevision = async (revision: SourceHistoryRevision) => {
         if (!otsSourceContext) {
             return;
@@ -5836,33 +5877,10 @@ ${partsBodyXml}
         setVersionsActionNotice(null);
         setLoading(true);
         try {
-            const xml = await getSourceCanonicalXml({
-                workId: otsSourceContext.workId,
-                sourceId: otsSourceContext.sourceId,
+            await loadOtsRevisionIntoEditor({
                 revisionId: revision.revisionId,
-            });
-            const file = new File(
-                [new TextEncoder().encode(xml)],
-                `${otsSourceContext.sourceId}-${revision.sequenceNumber}.musicxml`,
-                { type: 'application/xml' }
-            );
-            setRuntimeLaunchContext(sanitizeEditorLaunchContext({
-                ...(activeLaunchContext || {}),
-                source: 'ourtextscores',
-                workId: otsSourceContext.workId,
-                sourceId: otsSourceContext.sourceId,
-                revisionId: revision.revisionId,
-                branchName: revision.branchName,
-                canonicalXmlUrl: buildSourceCanonicalXmlUrl({
-                    workId: otsSourceContext.workId,
-                    sourceId: otsSourceContext.sourceId,
-                    revisionId: revision.revisionId,
-                }),
-            } satisfies EditorLaunchContext));
-            setVersionsBranchName(revision.branchName || versionsBranchName);
-            await handleFileUpload(file, {
-                scoreIdOverride: buildOtsScoreId(otsSourceContext.workId, otsSourceContext.sourceId),
-                updateUrl: false,
+                branchName: revision.branchName || versionsBranchName,
+                sequenceNumber: revision.sequenceNumber,
                 telemetrySource: 'ots_history_open',
             });
         } catch (err) {
@@ -5947,6 +5965,35 @@ ${partsBodyXml}
             setVersionsActionError(errorMessage(err) || 'Failed to open revision diff.');
         }
     }, [otsSourceContext, sourceHistory, versionsSelectedBaseRevisionId]);
+
+    const handleVersionsLoadBranchHead = useCallback(async () => {
+        if (!sourceHistory?.selectedBranch) {
+            return;
+        }
+        const selectedBranch = sourceHistory.selectedBranch;
+        const targetRevisionId = selectedBranch.headRevisionId || selectedBranch.baseRevisionId;
+        if (!targetRevisionId) {
+            setVersionsActionError('This branch does not have a loadable revision yet.');
+            return;
+        }
+        const targetRevision = sourceHistory.revisions.find((revision) => revision.revisionId === targetRevisionId);
+        setVersionsActionError(null);
+        setVersionsActionNotice(null);
+        setLoading(true);
+        try {
+            await loadOtsRevisionIntoEditor({
+                revisionId: targetRevisionId,
+                branchName: selectedBranch.name,
+                sequenceNumber: targetRevision?.sequenceNumber,
+                telemetrySource: selectedBranch.headRevisionId ? 'ots_branch_head_open' : 'ots_branch_base_open',
+            });
+        } catch (err) {
+            console.error('Failed to load selected branch revision', err);
+            setVersionsActionError(errorMessage(err) || 'Failed to load selected branch.');
+        } finally {
+            setLoading(false);
+        }
+    }, [loadOtsRevisionIntoEditor, sourceHistory]);
 
     const handleVersionsCreateBranch = useCallback(async () => {
         if (!otsSourceContext) {
@@ -11777,6 +11824,28 @@ ${partsBodyXml}
     const aiApplyDisabled = xmlControlsDisabled || !aiPatchedXml.trim() || Boolean(aiPatchError);
     const patchEditorHeight = '35vh';
     const patchEditorMaxHeight = '45vh';
+    const versionsWorkingBranchName = activeLaunchContext?.branchName || otsSourceContext?.branchName || versionsBranchName;
+    const versionsViewingDifferentBranch = Boolean(otsSourceContext && versionsWorkingBranchName !== versionsBranchName);
+    const versionsStatusMessage = otsSourceContext
+        ? (
+            scoreDirtySinceCheckpoint
+                ? (
+                    versionsViewingDifferentBranch
+                        ? `Detached from ${activeLaunchContext?.revisionId || 'the loaded revision'} on branch "${versionsWorkingBranchName}". Commit target is "${versionsBranchName}". Use Load branch head to switch the working copy.`
+                        : `Detached from ${activeLaunchContext?.revisionId || 'the loaded revision'}. Committing will create a revision on branch "${versionsBranchName}".`
+                )
+                : (
+                    versionsViewingDifferentBranch
+                        ? `Working copy tracks ${activeLaunchContext?.revisionId || 'the loaded revision'} on branch "${versionsWorkingBranchName}". Selected branch is "${versionsBranchName}". Use Load branch head to switch the working copy.`
+                        : `Tracking ${activeLaunchContext?.revisionId || 'the loaded revision'} on branch "${versionsWorkingBranchName}". Commit target is "${versionsBranchName}".`
+                )
+        )
+        : null;
+    const versionsLoadBranchLabel = sourceHistory?.selectedBranch?.headRevisionId
+        ? 'Load branch head'
+        : sourceHistory?.selectedBranch?.baseRevisionId
+            ? 'Load branch base'
+            : 'Load branch head';
 
     return (
         <div className="flex flex-col h-screen">
@@ -11920,14 +11989,9 @@ ${partsBodyXml}
                     versionsActionError={versionsActionError}
                     versionsActionNotice={versionsActionNotice}
                     versionsStatusMode={scoreDirtySinceCheckpoint ? 'detached' : 'tracking'}
-                    versionsStatusMessage={otsSourceContext
-                        ? (
-                            scoreDirtySinceCheckpoint
-                                ? `Detached from ${activeLaunchContext?.revisionId || 'the loaded revision'}. Committing will create a revision on branch "${versionsBranchName}".`
-                                : `Tracking ${activeLaunchContext?.revisionId || 'the loaded revision'} on branch "${activeLaunchContext?.branchName || versionsBranchName}". Commit target is "${versionsBranchName}".`
-                        )
-                        : null}
+                    versionsStatusMessage={versionsStatusMessage}
                     versionsSelectedBaseRevisionId={versionsSelectedBaseRevisionId}
+                    versionsLoadBranchLabel={versionsLoadBranchLabel}
                     versionsCommitMessage={versionsCommitMessage}
                     onVersionsCommitMessageChange={setVersionsCommitMessage}
                     onVersionsCommitCurrent={() => void handleVersionsCommitCurrent()}
@@ -11942,6 +12006,7 @@ ${partsBodyXml}
                     onVersionsDiffRevision={(revision) => void handleVersionsDiffRevision(revision)}
                     onVersionsSelectBaseRevision={(revision) => setVersionsSelectedBaseRevisionId(revision?.revisionId || null)}
                     onVersionsDiffAgainstBase={(revision) => void handleVersionsDiffAgainstBase(revision)}
+                    onVersionsLoadBranchHead={() => void handleVersionsLoadBranchHead()}
                     checkpointLabel={checkpointLabel}
                     onCheckpointLabelChange={setCheckpointLabel}
                     onSaveCheckpoint={() => void handleSaveCheckpoint()}

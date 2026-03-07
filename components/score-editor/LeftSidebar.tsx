@@ -33,6 +33,7 @@ type LeftSidebarProps = {
     versionsStatusMode?: 'tracking' | 'detached';
     versionsStatusMessage?: string | null;
     versionsSelectedBaseRevisionId?: string | null;
+    versionsLoadBranchLabel?: string;
     versionsCommitMessage?: string;
     onVersionsCommitMessageChange?: (value: string) => void;
     onVersionsCommitCurrent?: () => void;
@@ -47,6 +48,7 @@ type LeftSidebarProps = {
     onVersionsDiffRevision?: (revision: SourceHistoryRevision) => void;
     onVersionsSelectBaseRevision?: (revision: SourceHistoryRevision | null) => void;
     onVersionsDiffAgainstBase?: (revision: SourceHistoryRevision) => void;
+    onVersionsLoadBranchHead?: () => void;
     checkpointLabel: string;
     onCheckpointLabelChange: (value: string) => void;
     onSaveCheckpoint: () => void;
@@ -85,6 +87,7 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
     | 'versionsStatusMode'
     | 'versionsStatusMessage'
     | 'versionsSelectedBaseRevisionId'
+    | 'versionsLoadBranchLabel'
     | 'versionsCommitMessage'
     | 'onVersionsCommitMessageChange'
     | 'onVersionsCommitCurrent'
@@ -99,6 +102,7 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
     | 'onVersionsDiffRevision'
     | 'onVersionsSelectBaseRevision'
     | 'onVersionsDiffAgainstBase'
+    | 'onVersionsLoadBranchHead'
 >) {
     const {
         versionsLoading = false,
@@ -115,6 +119,7 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
         versionsStatusMode = 'tracking',
         versionsStatusMessage = null,
         versionsSelectedBaseRevisionId = null,
+        versionsLoadBranchLabel = 'Load branch head',
         versionsCommitMessage = '',
         onVersionsCommitMessageChange,
         onVersionsCommitCurrent,
@@ -129,6 +134,7 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
         onVersionsDiffRevision,
         onVersionsSelectBaseRevision,
         onVersionsDiffAgainstBase,
+        onVersionsLoadBranchHead,
     } = props;
     const selectedBaseRevision = versionsSelectedBaseRevisionId
         ? versionsRevisions.find((revision) => revision.revisionId === versionsSelectedBaseRevisionId) ?? null
@@ -167,6 +173,14 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
                     {versionsSelectedBranch.empty && versionsSelectedBranch.baseRevisionId && (
                         <div>Based on {versionsSelectedBranch.baseRevisionId}</div>
                     )}
+                    <button
+                        type="button"
+                        onClick={onVersionsLoadBranchHead}
+                        disabled={versionsActionBusy}
+                        className="mt-2 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+                    >
+                        {versionsActionBusy ? 'Working...' : versionsLoadBranchLabel}
+                    </button>
                 </div>
             )}
             {versionsStatusMessage && (
@@ -634,6 +648,7 @@ export function LeftSidebar(props: LeftSidebarProps) {
                             versionsStatusMode={props.versionsStatusMode}
                             versionsStatusMessage={props.versionsStatusMessage}
                             versionsSelectedBaseRevisionId={props.versionsSelectedBaseRevisionId}
+                            versionsLoadBranchLabel={props.versionsLoadBranchLabel}
                             versionsCommitMessage={props.versionsCommitMessage}
                             onVersionsCommitMessageChange={props.onVersionsCommitMessageChange}
                             onVersionsCommitCurrent={props.onVersionsCommitCurrent}
@@ -648,6 +663,7 @@ export function LeftSidebar(props: LeftSidebarProps) {
                             onVersionsDiffRevision={props.onVersionsDiffRevision}
                             onVersionsSelectBaseRevision={props.onVersionsSelectBaseRevision}
                             onVersionsDiffAgainstBase={props.onVersionsDiffAgainstBase}
+                            onVersionsLoadBranchHead={props.onVersionsLoadBranchHead}
                         />
                     ) : leftSidebarTab === 'checkpoints' ? (
                         <CheckpointsTabPanel {...props} />
