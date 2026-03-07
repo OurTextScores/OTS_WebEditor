@@ -142,9 +142,9 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
     const selectedBaseRevision = versionsSelectedBaseRevisionId
         ? versionsRevisions.find((revision) => revision.revisionId === versionsSelectedBaseRevisionId) ?? null
         : null;
-    const versionsStatusClassName = versionsStatusMode === 'detached'
-        ? 'mt-3 rounded border border-amber-700 bg-amber-200 px-2 py-2 text-sm font-medium text-amber-950 shadow-sm'
-        : 'mt-3 rounded border border-emerald-700 bg-emerald-200 px-2 py-2 text-sm font-medium text-emerald-950 shadow-sm';
+    const versionsStatusStyle = versionsStatusMode === 'detached'
+        ? { borderColor: '#b45309', backgroundColor: '#fde68a', color: '#451a03' }
+        : { borderColor: '#047857', backgroundColor: '#bbf7d0', color: '#052e16' };
 
     return (
         <>
@@ -190,7 +190,10 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
                 </div>
             )}
             {versionsStatusMessage && (
-                <div className={versionsStatusClassName}>
+                <div
+                    className="mt-3 rounded border px-2 py-2 text-sm font-semibold shadow-sm"
+                    style={versionsStatusStyle}
+                >
                     {versionsStatusMessage}
                 </div>
             )}
