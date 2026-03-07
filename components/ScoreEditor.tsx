@@ -839,6 +839,7 @@ export default function ScoreEditor() {
     const leftLabel = searchParams.get('leftLabel') || 'Left';
     const rightLabel = searchParams.get('rightLabel') || 'Right';
     const changeReviewId = searchParams.get('changeReviewId')?.trim() || '';
+    const changeReviewPatchset = searchParams.get('patchset')?.trim() || '';
     const isEmbedMode = Boolean(compareLeftUrl && compareRightUrl);
     const isChangeReviewCompareMode = isEmbedMode && Boolean(changeReviewId);
     const launchContext = useMemo(
@@ -955,6 +956,7 @@ export default function ScoreEditor() {
     const [changeReviewNewThreadContent, setChangeReviewNewThreadContent] = useState('');
     const [changeReviewReplyThreadId, setChangeReviewReplyThreadId] = useState<string | null>(null);
     const [changeReviewReplyContent, setChangeReviewReplyContent] = useState('');
+    const [changeReviewFocusedAnchorId, setChangeReviewFocusedAnchorId] = useState<string | null>(null);
     const [aiDiffReviews, setAiDiffReviews] = useState<BlockReview[]>([]);
     const [aiDiffIteration, setAiDiffIteration] = useState(0);
     const [aiDiffGlobalComment, setAiDiffGlobalComment] = useState('');
@@ -2382,7 +2384,7 @@ export default function ScoreEditor() {
         try {
             const [detail, diff] = await Promise.all([
                 fetchJsonOrThrow<ChangeReviewDetail>(`/api/proxy/change-reviews/${encodeURIComponent(changeReviewId)}`),
-                fetchJsonOrThrow<ChangeReviewDiff>(`/api/proxy/change-reviews/${encodeURIComponent(changeReviewId)}/diff`),
+                fetchJsonOrThrow<ChangeReviewDiff>(`/api/proxy/change-reviews/${encodeURIComponent(changeReviewId)}/diff${changeReviewPatchset ? `?patchset=${encodeURIComponent(changeReviewPatchset)}` : ''}`),
             ]);
             setChangeReviewDetail(detail);
             setChangeReviewDiff(diff);
@@ -2391,7 +2393,7 @@ export default function ScoreEditor() {
         } finally {
             setChangeReviewLoading(false);
         }
-    }, [changeReviewId]);
+    }, [changeReviewId, changeReviewPatchset]);
     const notifyParentChangeReviewUpdated = useCallback(() => {
         if (typeof window === 'undefined' || !changeReviewId || window.parent === window) {
             return;
@@ -14721,6 +14723,7 @@ ${partsBodyXml}
                                                                 <div
                                                                     className="relative w-full"
                                                                     style={{ height: `${compareGutterTrackHeight}px` }}
+                                                                    onClick={() => setChangeReviewFocusedAnchorId(null)}
                                                                 >
                                                                     {changeReviewRegions.map((region) => {
                                                                         const thread = changeReviewThreadsByAnchor.get(region.anchorId);
@@ -14749,13 +14752,20 @@ ${partsBodyXml}
                                                                             : region.changeType === 'removed'
                                                                                 ? 'border-rose-300'
                                                                                 : 'border-amber-300';
+                                                                        const isFocused = changeReviewFocusedAnchorId === region.anchorId;
+                                                                        const isDimmed = changeReviewFocusedAnchorId !== null && !isFocused;
                                                                         return (
                                                                             <div
                                                                                 key={`compare-review-region-${index}-${region.anchorId}`}
-                                                                                className={`absolute left-0 right-0 rounded border bg-white px-2 py-2 ${regionColorClasses}`}
+                                                                                className={`absolute left-0 right-0 cursor-pointer rounded border bg-white px-2 py-2 transition-opacity duration-150 ${regionColorClasses}${isDimmed ? ' opacity-40' : ''}${isFocused ? ' ring-2 ring-blue-400 shadow-md' : ''}`}
                                                                                 style={{
                                                                                     top: `${blockTop}px`,
                                                                                     minHeight: `${blockHeight}px`,
+                                                                                    zIndex: isFocused ? 50 : 10,
+                                                                                }}
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    setChangeReviewFocusedAnchorId(isFocused ? null : region.anchorId);
                                                                                 }}
                                                                             >
                                                                                 <div className="flex items-center justify-between gap-2 text-[9px] text-gray-400">
