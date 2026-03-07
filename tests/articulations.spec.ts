@@ -24,11 +24,11 @@ test('staccato button toggles articulation on selected note', async ({ page }) =
   await page.locator('svg .Note').first().click();
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
 
-  await page.getByTestId('dropdown-articulations').locator('summary').click();
+  await page.getByTestId('dropdown-articulations').click();
   await page.getByTestId('btn-artic-articStaccatoAbove').click();
   await expect.poll(async () => await hasStaccato(), { timeout: 20_000 }).toBe(true);
 
-  await page.getByTestId('dropdown-articulations').locator('summary').click();
+  await page.getByTestId('dropdown-articulations').click();
   await page.getByTestId('btn-artic-articStaccatoAbove').click();
   await expect.poll(async () => await hasStaccato(), { timeout: 20_000 }).toBe(false);
 });

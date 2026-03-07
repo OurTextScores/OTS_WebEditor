@@ -1,6 +1,6 @@
 import { expect, test } from 'playwright/test';
 
-test('add note control is available in the toolbar', async ({ page }) => {
+test('add note control is not exposed in the toolbar', async ({ page }) => {
   await page.goto('/?score=/test_scores/bach_orig.mscz');
   await page.waitForSelector('svg .Clef', { timeout: 60_000 });
 
@@ -9,14 +9,7 @@ test('add note control is available in the toolbar', async ({ page }) => {
   });
   test.skip(!hasAddNoteApi, 'Add Note API not available in this webmscore build');
 
-  const topLevel = page.getByTestId('btn-add-note-top');
-  await expect(topLevel).toBeVisible();
-  await expect(topLevel).toBeDisabled();
-
-  const dropdown = page.getByTestId('dropdown-rhythm');
-  await dropdown.locator('summary').click();
-
-  const addNoteButton = dropdown.getByTestId('btn-add-note-dropdown');
-  await expect(addNoteButton).toBeVisible();
-  await expect(addNoteButton).toBeDisabled();
+  await expect(page.getByTestId('btn-add-note-top')).toHaveCount(0);
+  await page.getByTestId('dropdown-rhythm').click();
+  await expect(page.getByTestId('btn-add-note-dropdown')).toHaveCount(0);
 });
