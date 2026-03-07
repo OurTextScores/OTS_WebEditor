@@ -142,6 +142,9 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
     const selectedBaseRevision = versionsSelectedBaseRevisionId
         ? versionsRevisions.find((revision) => revision.revisionId === versionsSelectedBaseRevisionId) ?? null
         : null;
+    const versionsStatusClassName = versionsStatusMode === 'detached'
+        ? 'mt-3 rounded border border-amber-700 bg-amber-200 px-2 py-2 text-sm font-medium text-amber-950 shadow-sm'
+        : 'mt-3 rounded border border-emerald-700 bg-emerald-200 px-2 py-2 text-sm font-medium text-emerald-950 shadow-sm';
 
     return (
         <>
@@ -187,11 +190,7 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
                 </div>
             )}
             {versionsStatusMessage && (
-                <div className={`mt-3 rounded border px-2 py-2 text-xs ${
-                    versionsStatusMode === 'detached'
-                        ? 'border-amber-400 bg-amber-100 text-amber-950'
-                        : 'border-emerald-400 bg-emerald-100 text-emerald-950'
-                }`}>
+                <div className={versionsStatusClassName}>
                     {versionsStatusMessage}
                 </div>
             )}
@@ -340,7 +339,7 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
                             <button
                                 type="button"
                                 onClick={() => onVersionsOpenChangeReview?.(revision)}
-                                className="rounded border border-cyan-300 bg-cyan-50 px-2 py-1 text-xs text-cyan-700 hover:bg-cyan-100"
+                                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
                             >
                                 Open CR
                             </button>
