@@ -55,4 +55,27 @@ describe('ourtextscores-api-client', () => {
         );
         expect(result.source.workId).toBe('10');
     });
+
+    it('throws a structured API error for non-ok responses', async () => {
+        vi.stubEnv('NEXT_PUBLIC_SCORE_EDITOR_API_BASE', '/api/score-editor');
+        vi.stubEnv('NEXT_PUBLIC_SCORE_EDITOR_OTS_API_BASE', '');
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: false,
+            status: 409,
+            text: async () => JSON.stringify({
+                error: 'branch_head_changed',
+                actualHeadSequenceNumber: 12,
+            }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { getSourceHistory, OurTextScoresApiError } = await import('../lib/ourtextscores-api-client');
+
+        await expect(getSourceHistory({ workId: '10', sourceId: 's1' })).rejects.toMatchObject({
+            name: 'OurTextScoresApiError',
+            message: 'branch_head_changed',
+            status: 409,
+        });
+        await expect(getSourceHistory({ workId: '10', sourceId: 's1' })).rejects.toBeInstanceOf(OurTextScoresApiError);
+    });
 });

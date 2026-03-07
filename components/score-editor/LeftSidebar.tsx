@@ -25,9 +25,23 @@ type LeftSidebarProps = {
     versionsBranches?: SourceHistoryBranch[];
     versionsSelectedBranch?: SourceHistoryBranch | null;
     versionsRevisions?: SourceHistoryRevision[];
+    versionsCanCreateBranch?: boolean;
+    versionsCanCommit?: boolean;
+    versionsActionBusy?: boolean;
+    versionsActionError?: string | null;
+    versionsActionNotice?: string | null;
+    versionsCommitMessage?: string;
+    onVersionsCommitMessageChange?: (value: string) => void;
+    onVersionsCommitCurrent?: () => void;
+    versionsCreateBranchName?: string;
+    onVersionsCreateBranchNameChange?: (value: string) => void;
+    versionsCreateBranchPolicy?: 'public' | 'owner_approval';
+    onVersionsCreateBranchPolicyChange?: (value: 'public' | 'owner_approval') => void;
+    onVersionsCreateBranch?: () => void;
     onVersionsBranchChange?: (branchName: string) => void;
     onVersionsRefresh?: () => void;
     onVersionsOpenRevision?: (revision: SourceHistoryRevision) => void;
+    onVersionsDiffRevision?: (revision: SourceHistoryRevision) => void;
     checkpointLabel: string;
     onCheckpointLabelChange: (value: string) => void;
     onSaveCheckpoint: () => void;
@@ -58,9 +72,23 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
     | 'versionsBranches'
     | 'versionsSelectedBranch'
     | 'versionsRevisions'
+    | 'versionsCanCreateBranch'
+    | 'versionsCanCommit'
+    | 'versionsActionBusy'
+    | 'versionsActionError'
+    | 'versionsActionNotice'
+    | 'versionsCommitMessage'
+    | 'onVersionsCommitMessageChange'
+    | 'onVersionsCommitCurrent'
+    | 'versionsCreateBranchName'
+    | 'onVersionsCreateBranchNameChange'
+    | 'versionsCreateBranchPolicy'
+    | 'onVersionsCreateBranchPolicyChange'
+    | 'onVersionsCreateBranch'
     | 'onVersionsBranchChange'
     | 'onVersionsRefresh'
     | 'onVersionsOpenRevision'
+    | 'onVersionsDiffRevision'
 >) {
     const {
         versionsLoading = false,
@@ -69,9 +97,23 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
         versionsBranches = [],
         versionsSelectedBranch = null,
         versionsRevisions = [],
+        versionsCanCreateBranch = false,
+        versionsCanCommit = false,
+        versionsActionBusy = false,
+        versionsActionError = null,
+        versionsActionNotice = null,
+        versionsCommitMessage = '',
+        onVersionsCommitMessageChange,
+        onVersionsCommitCurrent,
+        versionsCreateBranchName = '',
+        onVersionsCreateBranchNameChange,
+        versionsCreateBranchPolicy = 'public',
+        onVersionsCreateBranchPolicyChange,
+        onVersionsCreateBranch,
         onVersionsBranchChange,
         onVersionsRefresh,
         onVersionsOpenRevision,
+        onVersionsDiffRevision,
     } = props;
 
     return (
@@ -109,9 +151,77 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
                     )}
                 </div>
             )}
+            <div className="mt-3 rounded border border-gray-200 p-2">
+                <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Commit Current Score
+                </div>
+                <textarea
+                    value={versionsCommitMessage}
+                    onChange={(event) => onVersionsCommitMessageChange?.(event.target.value)}
+                    placeholder="Commit message"
+                    rows={3}
+                    className="mt-2 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none"
+                />
+                <button
+                    type="button"
+                    onClick={onVersionsCommitCurrent}
+                    disabled={versionsActionBusy || !versionsCanCommit}
+                    className="mt-2 w-full rounded border border-blue-600 bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-200 disabled:text-gray-500"
+                >
+                    {versionsActionBusy ? 'Working...' : 'Commit current score'}
+                </button>
+                {!versionsCanCommit && (
+                    <div className="mt-2 text-xs text-gray-500">
+                        Sign in with commit access to create a server revision.
+                    </div>
+                )}
+            </div>
+            <div className="mt-3 rounded border border-gray-200 p-2">
+                <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Create Branch
+                </div>
+                <input
+                    type="text"
+                    value={versionsCreateBranchName}
+                    onChange={(event) => onVersionsCreateBranchNameChange?.(event.target.value)}
+                    placeholder="new-branch"
+                    className="mt-2 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none"
+                />
+                <select
+                    value={versionsCreateBranchPolicy}
+                    onChange={(event) => onVersionsCreateBranchPolicyChange?.(event.target.value as 'public' | 'owner_approval')}
+                    className="mt-2 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900"
+                >
+                    <option value="public">Open</option>
+                    <option value="owner_approval">Owner approval required</option>
+                </select>
+                <button
+                    type="button"
+                    onClick={onVersionsCreateBranch}
+                    disabled={versionsActionBusy || !versionsCanCreateBranch || !versionsCreateBranchName.trim()}
+                    className="mt-2 w-full rounded border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+                >
+                    {versionsActionBusy ? 'Working...' : 'Create branch'}
+                </button>
+                {!versionsCanCreateBranch && (
+                    <div className="mt-2 text-xs text-gray-500">
+                        Sign in to create a branch.
+                    </div>
+                )}
+            </div>
             {versionsError && (
                 <div className="mt-3 text-xs text-red-600">
                     {versionsError}
+                </div>
+            )}
+            {versionsActionError && (
+                <div className="mt-3 text-xs text-red-600">
+                    {versionsActionError}
+                </div>
+            )}
+            {versionsActionNotice && (
+                <div className="mt-3 text-xs text-green-700">
+                    {versionsActionNotice}
                 </div>
             )}
             {versionsLoading && (
@@ -151,6 +261,13 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
                                 className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
                             >
                                 Open
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => onVersionsDiffRevision?.(revision)}
+                                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                            >
+                                Diff vs current
                             </button>
                         </div>
                     </div>
@@ -449,9 +566,23 @@ export function LeftSidebar(props: LeftSidebarProps) {
                             versionsBranches={props.versionsBranches}
                             versionsSelectedBranch={props.versionsSelectedBranch}
                             versionsRevisions={props.versionsRevisions}
+                            versionsCanCreateBranch={props.versionsCanCreateBranch}
+                            versionsCanCommit={props.versionsCanCommit}
+                            versionsActionBusy={props.versionsActionBusy}
+                            versionsActionError={props.versionsActionError}
+                            versionsActionNotice={props.versionsActionNotice}
+                            versionsCommitMessage={props.versionsCommitMessage}
+                            onVersionsCommitMessageChange={props.onVersionsCommitMessageChange}
+                            onVersionsCommitCurrent={props.onVersionsCommitCurrent}
+                            versionsCreateBranchName={props.versionsCreateBranchName}
+                            onVersionsCreateBranchNameChange={props.onVersionsCreateBranchNameChange}
+                            versionsCreateBranchPolicy={props.versionsCreateBranchPolicy}
+                            onVersionsCreateBranchPolicyChange={props.onVersionsCreateBranchPolicyChange}
+                            onVersionsCreateBranch={props.onVersionsCreateBranch}
                             onVersionsBranchChange={props.onVersionsBranchChange}
                             onVersionsRefresh={props.onVersionsRefresh}
                             onVersionsOpenRevision={props.onVersionsOpenRevision}
+                            onVersionsDiffRevision={props.onVersionsDiffRevision}
                         />
                     ) : leftSidebarTab === 'checkpoints' ? (
                         <CheckpointsTabPanel {...props} />

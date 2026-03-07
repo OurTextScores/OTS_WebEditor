@@ -5,6 +5,18 @@ const ensureLeadingSlash = (value: string) => (value.startsWith('/') ? value : `
 
 const SCORE_EDITOR_OTS_API_BASE = trimTrailingSlashes((process.env.NEXT_PUBLIC_SCORE_EDITOR_OTS_API_BASE || '').trim());
 
+export class OurTextScoresApiError extends Error {
+    status: number;
+    details: unknown;
+
+    constructor(message: string, status: number, details: unknown) {
+        super(message);
+        this.name = 'OurTextScoresApiError';
+        this.status = status;
+        this.details = details;
+    }
+}
+
 export type SourceHistoryBranch = {
     name: string;
     policy: 'public' | 'owner_approval';
@@ -97,7 +109,7 @@ const readJsonResponse = async <T>(response: Response): Promise<T> => {
             : (data && typeof data === 'object' && 'error' in data && typeof (data as any).error === 'string')
                 ? (data as any).error
                 : `Request failed with status ${response.status}`;
-        throw new Error(message);
+        throw new OurTextScoresApiError(message, response.status, data);
     }
 
     return data as T;

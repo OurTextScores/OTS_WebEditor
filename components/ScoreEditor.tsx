@@ -43,8 +43,11 @@ import {
 } from '../lib/editor-launch-context';
 import {
     buildSourceCanonicalXmlUrl,
+    commitSourceRevision,
+    createSourceBranch,
     getSourceCanonicalXml,
     getSourceHistory,
+    OurTextScoresApiError,
     type SourceHistoryResponse,
     type SourceHistoryRevision,
 } from '../lib/ourtextscores-api-client';
@@ -871,6 +874,12 @@ export default function ScoreEditor() {
     const [sourceHistory, setSourceHistory] = useState<SourceHistoryResponse | null>(null);
     const [versionsLoading, setVersionsLoading] = useState(false);
     const [versionsError, setVersionsError] = useState<string | null>(null);
+    const [versionsActionBusy, setVersionsActionBusy] = useState(false);
+    const [versionsActionError, setVersionsActionError] = useState<string | null>(null);
+    const [versionsActionNotice, setVersionsActionNotice] = useState<string | null>(null);
+    const [versionsCommitMessage, setVersionsCommitMessage] = useState('');
+    const [versionsCreateBranchName, setVersionsCreateBranchName] = useState('');
+    const [versionsCreateBranchPolicy, setVersionsCreateBranchPolicy] = useState<'public' | 'owner_approval'>('public');
     const [scoreSummaries, setScoreSummaries] = useState<ScoreSummary[]>([]);
     const [scoreSummariesLoading, setScoreSummariesLoading] = useState(false);
     const [scoreSummariesError, setScoreSummariesError] = useState<string | null>(null);
@@ -3344,6 +3353,15 @@ ${partsBodyXml}
         }
     }, [otsSourceContext, versionsBranchName]);
 
+    const resolveVersionsTargetRevisionId = useCallback(() => {
+        const selectedBranch = sourceHistory?.selectedBranch;
+        return selectedBranch?.headRevisionId
+            || selectedBranch?.baseRevisionId
+            || otsSourceContext?.revisionId
+            || activeLaunchContext?.revisionId
+            || undefined;
+    }, [sourceHistory, otsSourceContext, activeLaunchContext]);
+
     const createInitialLoadCheckpoint = useCallback(async (loadedScore: Score, preferredScoreId?: string) => {
         if (!isIndexedDbAvailable() || !loadedScore?.saveXml) {
             return;
@@ -3413,6 +3431,12 @@ ${partsBodyXml}
             setSourceHistory(null);
             setVersionsError(null);
             setVersionsLoading(false);
+            setVersionsActionBusy(false);
+            setVersionsActionError(null);
+            setVersionsActionNotice(null);
+            setVersionsCommitMessage('');
+            setVersionsCreateBranchName('');
+            setVersionsCreateBranchPolicy('public');
             if (leftSidebarTab === 'versions') {
                 setLeftSidebarTab('checkpoints');
             }
@@ -5760,6 +5784,8 @@ ${partsBodyXml}
         if (!otsSourceContext) {
             return;
         }
+        setVersionsActionError(null);
+        setVersionsActionNotice(null);
         setLoading(true);
         try {
             const xml = await getSourceCanonicalXml({
@@ -5798,6 +5824,172 @@ ${partsBodyXml}
             setLoading(false);
         }
     };
+
+    const handleVersionsDiffRevision = useCallback(async (revision: SourceHistoryRevision) => {
+        if (!otsSourceContext || !score) {
+            alert('Load a score before opening a version diff.');
+            return;
+        }
+        setVersionsActionBusy(true);
+        setVersionsActionError(null);
+        setVersionsActionNotice(null);
+        try {
+            const [currentData, revisionXml] = await Promise.all([
+                getScoreXmlData(),
+                getSourceCanonicalXml({
+                    workId: otsSourceContext.workId,
+                    sourceId: otsSourceContext.sourceId,
+                    revisionId: revision.revisionId,
+                }),
+            ]);
+            if (!currentData) {
+                return;
+            }
+            const currentXml = new TextDecoder().decode(currentData);
+            setCompareSwapped(false);
+            setCompareView({
+                title: `Revision #${revision.sequenceNumber}`,
+                currentXml,
+                checkpointXml: revisionXml,
+            });
+        } catch (err) {
+            console.error('Failed to diff source revision', err);
+            setVersionsActionError(errorMessage(err) || 'Failed to load version diff.');
+        } finally {
+            setVersionsActionBusy(false);
+        }
+    }, [otsSourceContext, score, getScoreXmlData]);
+
+    const handleVersionsCreateBranch = useCallback(async () => {
+        if (!otsSourceContext) {
+            return;
+        }
+        const branchName = versionsCreateBranchName.trim();
+        if (!branchName) {
+            alert('Enter a branch name first.');
+            return;
+        }
+        setVersionsActionBusy(true);
+        setVersionsActionError(null);
+        setVersionsActionNotice(null);
+        try {
+            const targetRevisionId = resolveVersionsTargetRevisionId();
+            await createSourceBranch({
+                workId: otsSourceContext.workId,
+                sourceId: otsSourceContext.sourceId,
+                request: {
+                    name: branchName,
+                    policy: versionsCreateBranchPolicy,
+                    baseRevisionId: targetRevisionId,
+                },
+            });
+            setVersionsCreateBranchName('');
+            setVersionsBranchName(branchName);
+            setVersionsActionNotice(`Created branch "${branchName}".`);
+            await refreshSourceHistory(branchName);
+        } catch (err) {
+            console.error('Failed to create source branch', err);
+            setVersionsActionError(errorMessage(err) || 'Failed to create branch.');
+        } finally {
+            setVersionsActionBusy(false);
+        }
+    }, [
+        otsSourceContext,
+        refreshSourceHistory,
+        resolveVersionsTargetRevisionId,
+        versionsCreateBranchName,
+        versionsCreateBranchPolicy,
+    ]);
+
+    const handleVersionsCommitCurrent = useCallback(async () => {
+        if (!otsSourceContext) {
+            return;
+        }
+        if (!score) {
+            alert('Load a score before creating a version.');
+            return;
+        }
+        setVersionsActionBusy(true);
+        setVersionsActionError(null);
+        setVersionsActionNotice(null);
+        try {
+            const data = await getScoreXmlData();
+            if (!data) {
+                return;
+            }
+            const branch = versionsBranchName.trim() || 'trunk';
+            const selectedBranch = sourceHistory?.selectedBranch;
+            const targetRevisionId = selectedBranch?.headRevisionId
+                || selectedBranch?.baseRevisionId
+                || otsSourceContext.revisionId
+                || activeLaunchContext?.revisionId
+                || undefined;
+            const filenameBase = scoreTitle ? toSafeFilename(scoreTitle) : otsSourceContext.sourceId;
+            const file = new File([data], `${filenameBase || 'score'}.musicxml`, { type: 'application/xml' });
+            const form = new FormData();
+            form.append('file', file);
+            if (versionsCommitMessage.trim()) {
+                form.append('commitMessage', versionsCommitMessage.trim());
+            }
+            form.append('branchName', branch);
+            if (targetRevisionId) {
+                form.append('expectedHeadRevisionId', targetRevisionId);
+                form.append('baseRevisionId', targetRevisionId);
+            }
+
+            const result = await commitSourceRevision({
+                workId: otsSourceContext.workId,
+                sourceId: otsSourceContext.sourceId,
+                body: form,
+            });
+            const nextRevisionId = result.revisionId;
+            setRuntimeLaunchContext(sanitizeEditorLaunchContext({
+                ...(activeLaunchContext || {}),
+                source: 'ourtextscores',
+                workId: otsSourceContext.workId,
+                sourceId: otsSourceContext.sourceId,
+                revisionId: nextRevisionId,
+                branchName: branch,
+                canonicalXmlUrl: buildSourceCanonicalXmlUrl({
+                    workId: otsSourceContext.workId,
+                    sourceId: otsSourceContext.sourceId,
+                    revisionId: nextRevisionId,
+                }),
+            } satisfies EditorLaunchContext));
+            setVersionsCommitMessage('');
+            setVersionsBranchName(branch);
+            setVersionsActionNotice(result.message || 'Created a new revision.');
+            await refreshSourceHistory(branch);
+        } catch (err) {
+            console.error('Failed to commit source revision', err);
+            if (err instanceof OurTextScoresApiError && err.status === 409) {
+                const details = asRecord(err.details);
+                const actualHeadSequenceNumber = typeof details?.actualHeadSequenceNumber === 'number'
+                    ? details.actualHeadSequenceNumber
+                    : null;
+                setVersionsActionError(
+                    actualHeadSequenceNumber !== null
+                        ? `Branch head changed. Refresh and review revision #${actualHeadSequenceNumber} before committing.`
+                        : 'Branch head changed. Refresh and review the latest branch revision before committing.'
+                );
+            } else {
+                setVersionsActionError(errorMessage(err) || 'Failed to commit current score.');
+            }
+        } finally {
+            setVersionsActionBusy(false);
+        }
+    }, [
+        otsSourceContext,
+        score,
+        getScoreXmlData,
+        versionsBranchName,
+        sourceHistory,
+        activeLaunchContext,
+        scoreTitle,
+        versionsCommitMessage,
+        refreshSourceHistory,
+        toSafeFilename,
+    ]);
 
     const handleSaveCheckpoint = async () => {
         if (!score) {
@@ -11619,9 +11811,23 @@ ${partsBodyXml}
                     versionsBranches={sourceHistory?.branches || []}
                     versionsSelectedBranch={sourceHistory?.selectedBranch || null}
                     versionsRevisions={sourceHistory?.revisions || []}
+                    versionsCanCreateBranch={Boolean(sourceHistory?.viewer?.canCreateBranch)}
+                    versionsCanCommit={Boolean(sourceHistory?.viewer?.canCommitToSelectedBranch)}
+                    versionsActionBusy={versionsActionBusy}
+                    versionsActionError={versionsActionError}
+                    versionsActionNotice={versionsActionNotice}
+                    versionsCommitMessage={versionsCommitMessage}
+                    onVersionsCommitMessageChange={setVersionsCommitMessage}
+                    onVersionsCommitCurrent={() => void handleVersionsCommitCurrent()}
+                    versionsCreateBranchName={versionsCreateBranchName}
+                    onVersionsCreateBranchNameChange={setVersionsCreateBranchName}
+                    versionsCreateBranchPolicy={versionsCreateBranchPolicy}
+                    onVersionsCreateBranchPolicyChange={setVersionsCreateBranchPolicy}
+                    onVersionsCreateBranch={() => void handleVersionsCreateBranch()}
                     onVersionsBranchChange={setVersionsBranchName}
                     onVersionsRefresh={() => void refreshSourceHistory()}
                     onVersionsOpenRevision={(revision) => void handleVersionsOpenRevision(revision)}
+                    onVersionsDiffRevision={(revision) => void handleVersionsDiffRevision(revision)}
                     checkpointLabel={checkpointLabel}
                     onCheckpointLabelChange={setCheckpointLabel}
                     onSaveCheckpoint={() => void handleSaveCheckpoint()}
