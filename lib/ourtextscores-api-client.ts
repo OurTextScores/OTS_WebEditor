@@ -204,3 +204,35 @@ export const getSourceTextDiff = async (input: {
     }
     return response.text();
 };
+
+export const buildSourceCanonicalXmlUrl = (input: {
+    workId: string;
+    sourceId: string;
+    revisionId?: string;
+}) => {
+    const params = new URLSearchParams();
+    if (input.revisionId?.trim()) {
+        params.set('r', input.revisionId.trim());
+    }
+    const query = params.toString();
+    return resolveOurTextScoresApiPath(
+        `/works/${encodeURIComponent(input.workId)}/sources/${encodeURIComponent(input.sourceId)}/canonical.xml${query ? `?${query}` : ''}`
+    );
+};
+
+export const getSourceCanonicalXml = async (input: {
+    workId: string;
+    sourceId: string;
+    revisionId?: string;
+    signal?: AbortSignal;
+}) => {
+    const response = await fetch(buildSourceCanonicalXmlUrl(input), {
+        method: 'GET',
+        cache: 'no-store',
+        signal: input.signal,
+    });
+    if (!response.ok) {
+        throw new Error(await response.text() || `Request failed with status ${response.status}`);
+    }
+    return response.text();
+};

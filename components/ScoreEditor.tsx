@@ -38,8 +38,16 @@ import {
 } from '../lib/score-editor-api-client';
 import {
     parseEditorLaunchContextParam,
+    type EditorLaunchContext,
     sanitizeEditorLaunchContext,
 } from '../lib/editor-launch-context';
+import {
+    buildSourceCanonicalXmlUrl,
+    getSourceCanonicalXml,
+    getSourceHistory,
+    type SourceHistoryResponse,
+    type SourceHistoryRevision,
+} from '../lib/ourtextscores-api-client';
 import { appendMusicXmlParts } from '../lib/musicxml-append-parts';
 import {
     extractTraceContextFromHeaders,
@@ -733,7 +741,24 @@ export default function ScoreEditor() {
         [searchParams],
     );
     const [sessionLaunchContext, setSessionLaunchContext] = useState<ReturnType<typeof sanitizeEditorLaunchContext>>(null);
-    const activeLaunchContext = launchContext || sessionLaunchContext;
+    const [runtimeLaunchContext, setRuntimeLaunchContext] = useState<ReturnType<typeof sanitizeEditorLaunchContext>>(null);
+    const activeLaunchContext = runtimeLaunchContext || launchContext || sessionLaunchContext;
+    const otsSourceContext = useMemo(() => {
+        if (
+            activeLaunchContext?.source !== 'ourtextscores'
+            || !activeLaunchContext.workId
+            || !activeLaunchContext.sourceId
+        ) {
+            return null;
+        }
+        return {
+            workId: activeLaunchContext.workId,
+            sourceId: activeLaunchContext.sourceId,
+            revisionId: activeLaunchContext.revisionId,
+            branchName: activeLaunchContext.branchName || 'trunk',
+            canonicalXmlUrl: activeLaunchContext.canonicalXmlUrl,
+        };
+    }, [activeLaunchContext]);
 
     const [score, setScore] = useState<Score | null>(null);
     const [scoreSessionId, setScoreSessionId] = useState<string | null>(null);
@@ -841,6 +866,11 @@ export default function ScoreEditor() {
     const musicNotaGenProgressPreRef = useRef<HTMLPreElement | null>(null);
     const [checkpointsCollapsed, setCheckpointsCollapsed] = useState(false);
     const [leftSidebarTab, setLeftSidebarTab] = useState<LeftSidebarTab>('checkpoints');
+    const versionsTabInitializedRef = useRef(false);
+    const [versionsBranchName, setVersionsBranchName] = useState('trunk');
+    const [sourceHistory, setSourceHistory] = useState<SourceHistoryResponse | null>(null);
+    const [versionsLoading, setVersionsLoading] = useState(false);
+    const [versionsError, setVersionsError] = useState<string | null>(null);
     const [scoreSummaries, setScoreSummaries] = useState<ScoreSummary[]>([]);
     const [scoreSummariesLoading, setScoreSummariesLoading] = useState(false);
     const [scoreSummariesError, setScoreSummariesError] = useState<string | null>(null);
@@ -2033,6 +2063,8 @@ export default function ScoreEditor() {
         window.history.replaceState({}, '', url.toString());
     };
 
+    const buildOtsScoreId = (workId: string, sourceId: string) => `ots:${workId}:${sourceId}`;
+
     const ensureScoreId = (fallbackPrefix: string) => {
         if (scoreId) {
             return scoreId;
@@ -2059,6 +2091,14 @@ export default function ScoreEditor() {
         }
         if (id === 'legacy') {
             return { title: 'Legacy checkpoints', detail: 'Unscoped checkpoints', type: 'legacy' as const };
+        }
+        if (id.startsWith('ots:')) {
+            const [, workId = '', sourceId = ''] = id.split(':');
+            return {
+                title: sourceId ? `OTS source ${sourceId}` : 'OurTextScores source',
+                detail: workId ? `Work ${workId}` : 'OurTextScores source',
+                type: 'other' as const
+            };
         }
         return { title: id, detail: '', type: 'other' as const };
     };
@@ -3277,6 +3317,33 @@ ${partsBodyXml}
         }
     }, [scoreId, loadScoreSummaryList]);
 
+    const refreshSourceHistory = useCallback(async (branchNameOverride?: string) => {
+        if (!otsSourceContext) {
+            setSourceHistory(null);
+            return;
+        }
+        setVersionsLoading(true);
+        try {
+            const nextHistory = await getSourceHistory({
+                workId: otsSourceContext.workId,
+                sourceId: otsSourceContext.sourceId,
+                branch: branchNameOverride ?? versionsBranchName,
+                limit: 100,
+            });
+            setSourceHistory(nextHistory);
+            setVersionsError(null);
+            if (nextHistory.selectedBranch?.name && nextHistory.selectedBranch.name !== versionsBranchName) {
+                setVersionsBranchName(nextHistory.selectedBranch.name);
+            }
+        } catch (err) {
+            console.warn('Failed to load OurTextScores source history', err);
+            setSourceHistory(null);
+            setVersionsError(errorMessage(err) || 'Unable to load versions.');
+        } finally {
+            setVersionsLoading(false);
+        }
+    }, [otsSourceContext, versionsBranchName]);
+
     const createInitialLoadCheckpoint = useCallback(async (loadedScore: Score, preferredScoreId?: string) => {
         if (!isIndexedDbAvailable() || !loadedScore?.saveXml) {
             return;
@@ -3325,6 +3392,13 @@ ${partsBodyXml}
     }, [loadScoreSummaryList]);
 
     useEffect(() => {
+        if (!otsSourceContext) {
+            return;
+        }
+        void refreshSourceHistory();
+    }, [otsSourceContext, versionsBranchName, refreshSourceHistory]);
+
+    useEffect(() => {
         const paramScoreId = searchParams.get('scoreId');
         const urlScore = searchParams.get('score');
         const nextScoreId = paramScoreId || (urlScore ? `url:${urlScore}` : '');
@@ -3332,6 +3406,29 @@ ${partsBodyXml}
             setScoreId(nextScoreId);
         }
     }, [searchParams, scoreId]);
+
+    useEffect(() => {
+        if (!otsSourceContext) {
+            versionsTabInitializedRef.current = false;
+            setSourceHistory(null);
+            setVersionsError(null);
+            setVersionsLoading(false);
+            if (leftSidebarTab === 'versions') {
+                setLeftSidebarTab('checkpoints');
+            }
+            return;
+        }
+        setVersionsBranchName(otsSourceContext.branchName || 'trunk');
+        if (!scoreId) {
+            const nextScoreId = buildOtsScoreId(otsSourceContext.workId, otsSourceContext.sourceId);
+            setScoreId(nextScoreId);
+            updateUrlScoreId(nextScoreId);
+        }
+        if (!versionsTabInitializedRef.current) {
+            setLeftSidebarTab('versions');
+            versionsTabInitializedRef.current = true;
+        }
+    }, [otsSourceContext, scoreId, leftSidebarTab]);
 
     useEffect(() => {
         if (!score) {
@@ -3558,9 +3655,36 @@ ${partsBodyXml}
 
         const boot = async () => {
             try {
+                const hasSessionRestore = typeof window !== 'undefined' && Boolean(sessionStorage.getItem('openInEditor'));
                 const scoreUrl = searchParams.get('score');
                 if (scoreUrl) {
                     await handleUrlLoad(scoreUrl, abortController.signal);
+                    return;
+                }
+                if (!hasSessionRestore && launchContext?.canonicalXmlUrl) {
+                    if (
+                        launchContext.source === 'ourtextscores'
+                        && launchContext.workId
+                        && launchContext.sourceId
+                    ) {
+                        const response = await fetch(launchContext.canonicalXmlUrl, { signal: abortController.signal });
+                        if (!response.ok) {
+                            throw new Error('Failed to fetch launch-context score');
+                        }
+                        const xml = await response.text();
+                        const file = new File(
+                            [new TextEncoder().encode(xml)],
+                            `${launchContext.sourceId}-${launchContext.revisionId || 'launch'}.musicxml`,
+                            { type: 'application/xml' }
+                        );
+                        await handleFileUpload(file, {
+                            scoreIdOverride: buildOtsScoreId(launchContext.workId, launchContext.sourceId),
+                            updateUrl: false,
+                            telemetrySource: 'ots_launch',
+                        });
+                        return;
+                    }
+                    await handleUrlLoad(launchContext.canonicalXmlUrl, abortController.signal);
                 }
             } catch (err) {
                 if (!abortController.signal.aborted) {
@@ -3571,7 +3695,7 @@ ${partsBodyXml}
 
         boot();
         return () => abortController.abort();
-    }, [searchParams]);
+    }, [searchParams, launchContext?.canonicalXmlUrl]);
 
     const parseLayoutProgressState = (value: unknown): LayoutProgressState | null => {
         if (!value || typeof value !== 'object') {
@@ -5630,6 +5754,49 @@ ${partsBodyXml}
         nextUrl.searchParams.set('score', urlValue);
         nextUrl.searchParams.delete('scoreId');
         window.location.assign(nextUrl.toString());
+    };
+
+    const handleVersionsOpenRevision = async (revision: SourceHistoryRevision) => {
+        if (!otsSourceContext) {
+            return;
+        }
+        setLoading(true);
+        try {
+            const xml = await getSourceCanonicalXml({
+                workId: otsSourceContext.workId,
+                sourceId: otsSourceContext.sourceId,
+                revisionId: revision.revisionId,
+            });
+            const file = new File(
+                [new TextEncoder().encode(xml)],
+                `${otsSourceContext.sourceId}-${revision.sequenceNumber}.musicxml`,
+                { type: 'application/xml' }
+            );
+            setRuntimeLaunchContext(sanitizeEditorLaunchContext({
+                ...(activeLaunchContext || {}),
+                source: 'ourtextscores',
+                workId: otsSourceContext.workId,
+                sourceId: otsSourceContext.sourceId,
+                revisionId: revision.revisionId,
+                branchName: revision.branchName,
+                canonicalXmlUrl: buildSourceCanonicalXmlUrl({
+                    workId: otsSourceContext.workId,
+                    sourceId: otsSourceContext.sourceId,
+                    revisionId: revision.revisionId,
+                }),
+            } satisfies EditorLaunchContext));
+            setVersionsBranchName(revision.branchName || versionsBranchName);
+            await handleFileUpload(file, {
+                scoreIdOverride: buildOtsScoreId(otsSourceContext.workId, otsSourceContext.sourceId),
+                updateUrl: false,
+                telemetrySource: 'ots_history_open',
+            });
+        } catch (err) {
+            console.error('Failed to open source revision', err);
+            alert('Failed to open version. See console for details.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleSaveCheckpoint = async () => {
@@ -11435,10 +11602,26 @@ ${partsBodyXml}
                     hidden={isEmbedMode || xmlSidebarMode === 'full'}
                     collapsed={checkpointsCollapsed}
                     onToggleCollapsed={() => setCheckpointsCollapsed((prev) => !prev)}
-                    onRefresh={() => void loadCheckpointList()}
+                    onRefresh={() => {
+                        if (otsSourceContext && leftSidebarTab === 'versions') {
+                            void refreshSourceHistory();
+                            return;
+                        }
+                        void loadCheckpointList();
+                    }}
                     checkpointControlsDisabled={checkpointControlsDisabled}
                     leftSidebarTab={leftSidebarTab}
                     onTabChange={setLeftSidebarTab}
+                    showVersionsTab={Boolean(otsSourceContext)}
+                    versionsLoading={versionsLoading}
+                    versionsError={versionsError}
+                    versionsBranchName={versionsBranchName}
+                    versionsBranches={sourceHistory?.branches || []}
+                    versionsSelectedBranch={sourceHistory?.selectedBranch || null}
+                    versionsRevisions={sourceHistory?.revisions || []}
+                    onVersionsBranchChange={setVersionsBranchName}
+                    onVersionsRefresh={() => void refreshSourceHistory()}
+                    onVersionsOpenRevision={(revision) => void handleVersionsOpenRevision(revision)}
                     checkpointLabel={checkpointLabel}
                     onCheckpointLabelChange={setCheckpointLabel}
                     onSaveCheckpoint={() => void handleSaveCheckpoint()}

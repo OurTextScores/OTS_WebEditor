@@ -1,7 +1,8 @@
 import React from 'react';
 import type { CheckpointSummary, ScoreSummary } from '../../lib/checkpoints';
+import type { SourceHistoryBranch, SourceHistoryRevision } from '../../lib/ourtextscores-api-client';
 
-export type LeftSidebarTab = 'checkpoints' | 'scores';
+export type LeftSidebarTab = 'versions' | 'checkpoints' | 'scores';
 
 type ScoreIdSummary = {
     title: string;
@@ -17,6 +18,16 @@ type LeftSidebarProps = {
     checkpointControlsDisabled: boolean;
     leftSidebarTab: LeftSidebarTab;
     onTabChange: (tab: LeftSidebarTab) => void;
+    showVersionsTab?: boolean;
+    versionsLoading?: boolean;
+    versionsError?: string | null;
+    versionsBranchName?: string;
+    versionsBranches?: SourceHistoryBranch[];
+    versionsSelectedBranch?: SourceHistoryBranch | null;
+    versionsRevisions?: SourceHistoryRevision[];
+    onVersionsBranchChange?: (branchName: string) => void;
+    onVersionsRefresh?: () => void;
+    onVersionsOpenRevision?: (revision: SourceHistoryRevision) => void;
     checkpointLabel: string;
     onCheckpointLabelChange: (value: string) => void;
     onSaveCheckpoint: () => void;
@@ -39,6 +50,115 @@ type LeftSidebarProps = {
     formatBytes: (bytes: number) => string;
     summarizeScoreId: (id: string) => ScoreIdSummary;
 };
+
+function VersionsTabPanel(props: Pick<LeftSidebarProps,
+    | 'versionsLoading'
+    | 'versionsError'
+    | 'versionsBranchName'
+    | 'versionsBranches'
+    | 'versionsSelectedBranch'
+    | 'versionsRevisions'
+    | 'onVersionsBranchChange'
+    | 'onVersionsRefresh'
+    | 'onVersionsOpenRevision'
+>) {
+    const {
+        versionsLoading = false,
+        versionsError = null,
+        versionsBranchName = 'trunk',
+        versionsBranches = [],
+        versionsSelectedBranch = null,
+        versionsRevisions = [],
+        onVersionsBranchChange,
+        onVersionsRefresh,
+        onVersionsOpenRevision,
+    } = props;
+
+    return (
+        <>
+            <div className="mt-3 flex items-center gap-2">
+                <select
+                    value={versionsBranchName}
+                    onChange={(event) => onVersionsBranchChange?.(event.target.value)}
+                    className="flex-1 rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900"
+                >
+                    {versionsBranches.map((branch) => (
+                        <option key={branch.name} value={branch.name}>
+                            {branch.name}
+                        </option>
+                    ))}
+                </select>
+                <button
+                    type="button"
+                    onClick={onVersionsRefresh}
+                    className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                >
+                    Refresh
+                </button>
+            </div>
+            {versionsSelectedBranch && (
+                <div className="mt-2 rounded border border-gray-200 bg-gray-50 px-2 py-2 text-xs text-gray-600">
+                    <div className="font-medium text-gray-800">
+                        {versionsSelectedBranch.policy === 'owner_approval' ? 'Owner approval required' : 'Open branch'}
+                    </div>
+                    <div>
+                        {versionsSelectedBranch.commitCount} commit{versionsSelectedBranch.commitCount === 1 ? '' : 's'}
+                    </div>
+                    {versionsSelectedBranch.empty && versionsSelectedBranch.baseRevisionId && (
+                        <div>Based on {versionsSelectedBranch.baseRevisionId}</div>
+                    )}
+                </div>
+            )}
+            {versionsError && (
+                <div className="mt-3 text-xs text-red-600">
+                    {versionsError}
+                </div>
+            )}
+            {versionsLoading && (
+                <div className="mt-3 text-xs text-gray-400">
+                    Loading versions...
+                </div>
+            )}
+            {!versionsLoading && versionsRevisions.length === 0 && (
+                <div className="mt-3 text-xs text-gray-400">
+                    No revisions on this branch yet.
+                </div>
+            )}
+            <div className="mt-3 space-y-3">
+                {versionsRevisions.map((revision) => (
+                    <div key={revision.revisionId} className="rounded border border-gray-200 p-2">
+                        <div className="flex items-center justify-between gap-2">
+                            <div className="text-sm font-medium text-gray-800">
+                                #{revision.sequenceNumber}
+                            </div>
+                            {revision.isBranchHead && (
+                                <span className="text-[10px] font-semibold uppercase text-blue-700">
+                                    Head
+                                </span>
+                            )}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                            {revision.changeSummary || 'No change summary'}
+                        </div>
+                        <div className="mt-1 text-xs text-gray-500">
+                            {new Date(revision.createdAt).toLocaleString()}
+                            {revision.createdByUsername ? ` · ${revision.createdByUsername}` : ''}
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                onClick={() => onVersionsOpenRevision?.(revision)}
+                                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                            >
+                                Open
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </>
+    );
+}
 
 function CheckpointsTabPanel(props: Omit<LeftSidebarProps, 'hidden' | 'collapsed' | 'onToggleCollapsed' | 'onRefresh' | 'leftSidebarTab' | 'onTabChange' | 'scoreSummariesError' | 'scoreSummariesLoading' | 'scoreSummaries' | 'currentScoreId' | 'onOpenScoreFromSummary' | 'summarizeScoreId'>) {
     const {
@@ -236,6 +356,7 @@ export function LeftSidebar(props: LeftSidebarProps) {
         checkpointControlsDisabled,
         leftSidebarTab,
         onTabChange,
+        showVersionsTab = false,
     } = props;
 
     if (hidden) {
@@ -281,6 +402,20 @@ export function LeftSidebar(props: LeftSidebarProps) {
             {!collapsed && (
                 <div id="checkpoint-sidebar-content" className="px-4 pb-4">
                     <div className="mt-3 flex gap-2 text-xs font-medium text-gray-600">
+                        {showVersionsTab && (
+                            <button
+                                type="button"
+                                data-testid="tab-versions"
+                                onClick={() => onTabChange('versions')}
+                                className={`rounded border px-2 py-1 ${
+                                    leftSidebarTab === 'versions'
+                                        ? 'border-gray-400 bg-gray-100 text-gray-900'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                                }`}
+                            >
+                                Versions
+                            </button>
+                        )}
                         <button
                             type="button"
                             data-testid="tab-checkpoints"
@@ -306,7 +441,19 @@ export function LeftSidebar(props: LeftSidebarProps) {
                             Scores
                         </button>
                     </div>
-                    {leftSidebarTab === 'checkpoints' ? (
+                    {leftSidebarTab === 'versions' ? (
+                        <VersionsTabPanel
+                            versionsLoading={props.versionsLoading}
+                            versionsError={props.versionsError}
+                            versionsBranchName={props.versionsBranchName}
+                            versionsBranches={props.versionsBranches}
+                            versionsSelectedBranch={props.versionsSelectedBranch}
+                            versionsRevisions={props.versionsRevisions}
+                            onVersionsBranchChange={props.onVersionsBranchChange}
+                            onVersionsRefresh={props.onVersionsRefresh}
+                            onVersionsOpenRevision={props.onVersionsOpenRevision}
+                        />
+                    ) : leftSidebarTab === 'checkpoints' ? (
                         <CheckpointsTabPanel {...props} />
                     ) : (
                         <ScoresTabPanel
