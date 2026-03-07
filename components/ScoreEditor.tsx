@@ -2187,21 +2187,45 @@ export default function ScoreEditor() {
     const comparePartCount = Math.max(scoreParts.length, compareRightParts.length, 1);
     const compareCheckpointTitle = compareView?.checkpointLabel || compareView?.title || 'Checkpoint';
     const compareCurrentTitle = compareView?.currentLabel || 'Current';
-    const compareLeftScore = useMemo(() => compareSwapped ? compareRightScore : score, [compareSwapped, compareRightScore, score]);
-    const compareRightScoreDisplay = useMemo(() => compareSwapped ? score : compareRightScore, [compareSwapped, score, compareRightScore]);
-    const compareLeftParts = useMemo(() => compareSwapped ? compareRightParts : scoreParts, [compareSwapped, compareRightParts, scoreParts]);
-    const compareRightPartsDisplay = useMemo(() => compareSwapped ? scoreParts : compareRightParts, [compareSwapped, scoreParts, compareRightParts]);
+    const compareLeftScore = useMemo(
+        () => (isEmbedMode
+            ? (compareSwapped ? compareRightScore : score)
+            : (compareSwapped ? score : compareRightScore)),
+        [compareSwapped, compareRightScore, isEmbedMode, score],
+    );
+    const compareRightScoreDisplay = useMemo(
+        () => (isEmbedMode
+            ? (compareSwapped ? score : compareRightScore)
+            : (compareSwapped ? compareRightScore : score)),
+        [compareSwapped, score, compareRightScore, isEmbedMode],
+    );
+    const compareLeftParts = useMemo(
+        () => (isEmbedMode
+            ? (compareSwapped ? compareRightParts : scoreParts)
+            : (compareSwapped ? scoreParts : compareRightParts)),
+        [compareSwapped, compareRightParts, scoreParts, isEmbedMode],
+    );
+    const compareRightPartsDisplay = useMemo(
+        () => (isEmbedMode
+            ? (compareSwapped ? scoreParts : compareRightParts)
+            : (compareSwapped ? compareRightParts : scoreParts)),
+        [compareSwapped, scoreParts, compareRightParts, isEmbedMode],
+    );
     const compareLeftLabel = isEmbedMode
         ? (compareSwapped ? rightLabel : leftLabel)
-        : (compareSwapped ? compareCheckpointTitle : compareCurrentTitle);
+        : (compareSwapped ? compareCurrentTitle : compareCheckpointTitle);
     const compareRightLabel = isEmbedMode
         ? (compareSwapped ? leftLabel : rightLabel)
-        : (compareSwapped ? compareCurrentTitle : compareCheckpointTitle);
+        : (compareSwapped ? compareCheckpointTitle : compareCurrentTitle);
     const compareLeftXml = compareView
-        ? (compareSwapped ? compareView.checkpointXml : compareView.currentXml)
+        ? (isEmbedMode
+            ? (compareSwapped ? compareView.checkpointXml : compareView.currentXml)
+            : (compareSwapped ? compareView.currentXml : compareView.checkpointXml))
         : '';
     const compareRightXml = compareView
-        ? (compareSwapped ? compareView.currentXml : compareView.checkpointXml)
+        ? (isEmbedMode
+            ? (compareSwapped ? compareView.currentXml : compareView.checkpointXml)
+            : (compareSwapped ? compareView.checkpointXml : compareView.currentXml))
         : '';
     const compareLeftIsCurrent = compareLeftScore === score;
     const compareRightIsCurrent = compareRightScoreDisplay === score;

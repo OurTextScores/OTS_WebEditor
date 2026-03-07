@@ -110,7 +110,7 @@ const openAssistantProposalCompare = async (page: Parameters<typeof test>[0]['pa
   await page.getByRole('button', { name: 'Generate Patch' }).click();
 
   await waitForDiffReviewReady(page);
-  await expect(page.getByText('Current vs Assistant Proposal')).toBeVisible();
+  await expect(page.getByText('Assistant Proposal vs Current')).toBeVisible();
   await expect(page.getByTestId('compare-pane-right').getByText('Loading checkpoint score...')).toHaveCount(0, { timeout: 20_000 });
 };
 
