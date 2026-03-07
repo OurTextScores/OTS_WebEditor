@@ -6286,34 +6286,25 @@ ${partsBodyXml}
         if (!otsSourceContext) {
             return;
         }
-        const revisions = sourceHistory?.revisions || [];
-        let baseRevision = versionsSelectedBaseRevisionId && versionsSelectedBaseRevisionId !== revision.revisionId
-            ? (revisions.find((candidate) => candidate.revisionId === versionsSelectedBaseRevisionId) || null)
-            : null;
-        if (!baseRevision) {
-            const revisionIndex = revisions.findIndex((candidate) => candidate.revisionId === revision.revisionId);
-            if (revisionIndex === -1 || revisionIndex >= revisions.length - 1) {
-                setVersionsActionError('Select a base revision first, or choose a revision with an older predecessor.');
-                return;
-            }
-            baseRevision = revisions[revisionIndex + 1];
+        const branchName = (revision.branchName || revision.fossilBranch || 'trunk').trim() || 'trunk';
+        const branch = sourceHistory?.branches.find((candidate) => candidate.name === branchName) || null;
+        if (branch?.policy === 'owner_approval') {
+            setVersionsActionError('Change reviews are not available for owner approval branches.');
+            return;
         }
         setVersionsActionBusy(true);
         setVersionsActionError(null);
         setVersionsActionNotice(null);
         try {
-            const ordered = [baseRevision, revision].slice().sort((a, b) => a.sequenceNumber - b.sequenceNumber);
             const response = await fetch(
-                `/api/proxy/works/${encodeURIComponent(otsSourceContext.workId)}/sources/${encodeURIComponent(otsSourceContext.sourceId)}/change-reviews`,
+                `/api/proxy/works/${encodeURIComponent(otsSourceContext.workId)}/sources/${encodeURIComponent(otsSourceContext.sourceId)}/branches/${encodeURIComponent(branchName)}/change-review`,
                 {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        baseRevisionId: ordered[0].revisionId,
-                        headRevisionId: ordered[1].revisionId,
-                        title: `Review #${ordered[0].sequenceNumber} -> #${ordered[1].sequenceNumber}`,
+                        title: `CR for ${branchName}`,
                     }),
                 },
             );
@@ -6331,14 +6322,14 @@ ${partsBodyXml}
             if (!opened) {
                 window.location.assign(reviewUrl);
             }
-            setVersionsActionNotice(`Opened CR for #${ordered[0].sequenceNumber} -> #${ordered[1].sequenceNumber}.`);
+            setVersionsActionNotice(`Opened CR for branch "${branchName}".`);
         } catch (err) {
             console.error('Failed to open change review', err);
             setVersionsActionError(errorMessage(err) || 'Failed to open change review.');
         } finally {
             setVersionsActionBusy(false);
         }
-    }, [otsSourceContext, sourceHistory, versionsSelectedBaseRevisionId]);
+    }, [otsSourceContext, sourceHistory]);
 
     const handleVersionsLoadBranchHead = useCallback(async () => {
         if (!sourceHistory?.selectedBranch) {

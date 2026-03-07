@@ -339,13 +339,15 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
                                     Diff vs base
                                 </button>
                             )}
-                            <button
-                                type="button"
-                                onClick={() => onVersionsOpenChangeReview?.(revision)}
-                                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
-                            >
-                                Open CR
-                            </button>
+                            {versionsBranches.find((branch) => branch.name === (revision.branchName || revision.fossilBranch || 'trunk'))?.policy !== 'owner_approval' && (
+                                <button
+                                    type="button"
+                                    onClick={() => onVersionsOpenChangeReview?.(revision)}
+                                    className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                                >
+                                    Open CR
+                                </button>
+                            )}
                         </div>
                     </div>
                 ))}
