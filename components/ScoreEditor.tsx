@@ -84,6 +84,14 @@ type SelectionFallback = {
     point: { page: number; x: number; y: number };
 } | null;
 
+type CompareViewState = {
+    title: string;
+    currentXml: string;
+    checkpointXml: string;
+    currentLabel?: string;
+    checkpointLabel?: string;
+};
+
 type MeasureAlignmentRow = {
     leftIndex: number | null;
     rightIndex: number | null;
@@ -823,7 +831,7 @@ export default function ScoreEditor() {
     const [checkpointBusy, setCheckpointBusy] = useState(false);
     const [checkpointLoading, setCheckpointLoading] = useState(false);
     const [checkpointError, setCheckpointError] = useState<string | null>(null);
-    const [compareView, setCompareView] = useState<{ title: string; currentXml: string; checkpointXml: string } | null>(null);
+    const [compareView, setCompareView] = useState<CompareViewState | null>(null);
     const [compareSwapped, setCompareSwapped] = useState(false);
     const [compareLeftCheckpointLabel, setCompareLeftCheckpointLabel] = useState('');
     const [compareRightCheckpointLabel, setCompareRightCheckpointLabel] = useState('');
@@ -877,6 +885,7 @@ export default function ScoreEditor() {
     const [versionsActionBusy, setVersionsActionBusy] = useState(false);
     const [versionsActionError, setVersionsActionError] = useState<string | null>(null);
     const [versionsActionNotice, setVersionsActionNotice] = useState<string | null>(null);
+    const [versionsSelectedBaseRevisionId, setVersionsSelectedBaseRevisionId] = useState<string | null>(null);
     const [versionsCommitMessage, setVersionsCommitMessage] = useState('');
     const [versionsCreateBranchName, setVersionsCreateBranchName] = useState('');
     const [versionsCreateBranchPolicy, setVersionsCreateBranchPolicy] = useState<'public' | 'owner_approval'>('public');
@@ -1903,6 +1912,8 @@ export default function ScoreEditor() {
                     title: leftLabel,
                     currentXml: rightXml,
                     checkpointXml: leftXml,
+                    currentLabel: rightLabel,
+                    checkpointLabel: leftLabel,
                 });
 
             } catch (err) {
@@ -2174,17 +2185,18 @@ export default function ScoreEditor() {
     }, [newScoreCommonInstrumentPreferences, newScoreInstrumentOptions]);
 
     const comparePartCount = Math.max(scoreParts.length, compareRightParts.length, 1);
-    const compareCheckpointTitle = compareView?.title || 'Checkpoint';
+    const compareCheckpointTitle = compareView?.checkpointLabel || compareView?.title || 'Checkpoint';
+    const compareCurrentTitle = compareView?.currentLabel || 'Current';
     const compareLeftScore = useMemo(() => compareSwapped ? compareRightScore : score, [compareSwapped, compareRightScore, score]);
     const compareRightScoreDisplay = useMemo(() => compareSwapped ? score : compareRightScore, [compareSwapped, score, compareRightScore]);
     const compareLeftParts = useMemo(() => compareSwapped ? compareRightParts : scoreParts, [compareSwapped, compareRightParts, scoreParts]);
     const compareRightPartsDisplay = useMemo(() => compareSwapped ? scoreParts : compareRightParts, [compareSwapped, scoreParts, compareRightParts]);
     const compareLeftLabel = isEmbedMode
         ? (compareSwapped ? rightLabel : leftLabel)
-        : (compareSwapped ? compareCheckpointTitle : 'Current');
+        : (compareSwapped ? compareCheckpointTitle : compareCurrentTitle);
     const compareRightLabel = isEmbedMode
         ? (compareSwapped ? leftLabel : rightLabel)
-        : (compareSwapped ? 'Current' : compareCheckpointTitle);
+        : (compareSwapped ? compareCurrentTitle : compareCheckpointTitle);
     const compareLeftXml = compareView
         ? (compareSwapped ? compareView.checkpointXml : compareView.currentXml)
         : '';
@@ -3206,6 +3218,7 @@ ${partsBodyXml}
                 data: buffer,
                 size: currentData.byteLength,
                 scoreId: activeScoreId,
+                ...buildCheckpointMetadata(),
             });
             setScoreDirtySinceCheckpoint(false);
             await loadCheckpointList();
@@ -3362,6 +3375,24 @@ ${partsBodyXml}
             || undefined;
     }, [sourceHistory, otsSourceContext, activeLaunchContext]);
 
+    const buildCheckpointMetadata = useCallback((overrides?: {
+        branchName?: string;
+        upstreamRevisionId?: string;
+        baseRevisionId?: string;
+    }) => {
+        if (activeLaunchContext?.source !== 'ourtextscores' || !activeLaunchContext.workId || !activeLaunchContext.sourceId) {
+            return {};
+        }
+        return {
+            upstreamKind: 'ourtextscores' as const,
+            workId: activeLaunchContext.workId,
+            sourceId: activeLaunchContext.sourceId,
+            branchName: overrides?.branchName ?? versionsBranchName ?? activeLaunchContext.branchName ?? 'trunk',
+            baseRevisionId: overrides?.baseRevisionId ?? activeLaunchContext.revisionId,
+            upstreamRevisionId: overrides?.upstreamRevisionId ?? activeLaunchContext.revisionId,
+        };
+    }, [activeLaunchContext, versionsBranchName]);
+
     const createInitialLoadCheckpoint = useCallback(async (loadedScore: Score, preferredScoreId?: string) => {
         if (!isIndexedDbAvailable() || !loadedScore?.saveXml) {
             return;
@@ -3385,6 +3416,7 @@ ${partsBodyXml}
                 data: xmlData.buffer.slice(xmlData.byteOffset, xmlData.byteOffset + xmlData.byteLength),
                 size: xmlData.byteLength,
                 scoreId: activeScoreId,
+                ...buildCheckpointMetadata(),
             });
 
             await loadCheckpointList(activeScoreId);
@@ -3392,7 +3424,7 @@ ${partsBodyXml}
         } catch (err) {
             console.warn('Failed to create initial load checkpoint', err);
         }
-    }, [ensureScoreId, loadCheckpointList, normalizeXmlData]);
+    }, [buildCheckpointMetadata, ensureScoreId, loadCheckpointList, normalizeXmlData]);
 
     const exposeScoreToWindow = (s: Score | null) => {
         // Handy for Playwright/debug sessions to poke at WASM bindings directly
@@ -3417,6 +3449,16 @@ ${partsBodyXml}
     }, [otsSourceContext, versionsBranchName, refreshSourceHistory]);
 
     useEffect(() => {
+        if (!versionsSelectedBaseRevisionId) {
+            return;
+        }
+        const stillVisible = sourceHistory?.revisions.some((revision) => revision.revisionId === versionsSelectedBaseRevisionId);
+        if (!stillVisible) {
+            setVersionsSelectedBaseRevisionId(null);
+        }
+    }, [sourceHistory, versionsSelectedBaseRevisionId]);
+
+    useEffect(() => {
         const paramScoreId = searchParams.get('scoreId');
         const urlScore = searchParams.get('score');
         const nextScoreId = paramScoreId || (urlScore ? `url:${urlScore}` : '');
@@ -3434,6 +3476,7 @@ ${partsBodyXml}
             setVersionsActionBusy(false);
             setVersionsActionError(null);
             setVersionsActionNotice(null);
+            setVersionsSelectedBaseRevisionId(null);
             setVersionsCommitMessage('');
             setVersionsCreateBranchName('');
             setVersionsCreateBranchPolicy('public');
@@ -3443,6 +3486,7 @@ ${partsBodyXml}
             return;
         }
         setVersionsBranchName(otsSourceContext.branchName || 'trunk');
+        setVersionsSelectedBaseRevisionId(null);
         if (!scoreId) {
             const nextScoreId = buildOtsScoreId(otsSourceContext.workId, otsSourceContext.sourceId);
             setScoreId(nextScoreId);
@@ -5440,6 +5484,8 @@ ${partsBodyXml}
                 title: 'Assistant Proposal',
                 currentXml,
                 checkpointXml: proposedXml,
+                currentLabel: 'Current',
+                checkpointLabel: 'Assistant Proposal',
             });
             setAiDiffIteration(typeof result.iteration === 'number' ? result.iteration : aiDiffIteration + 1);
             setAiDiffReviews((prev) => prev.filter((review) => review.status === 'accepted'));
@@ -5466,6 +5512,8 @@ ${partsBodyXml}
                 title: 'Assistant Proposal',
                 currentXml,
                 checkpointXml: previousCheckpointXml,
+                currentLabel: 'Current',
+                checkpointLabel: 'Assistant Proposal',
             });
         } finally {
             setAiDiffFeedbackBusy(false);
@@ -5851,6 +5899,8 @@ ${partsBodyXml}
                 title: `Revision #${revision.sequenceNumber}`,
                 currentXml,
                 checkpointXml: revisionXml,
+                currentLabel: 'Current',
+                checkpointLabel: `Revision #${revision.sequenceNumber}`,
             });
         } catch (err) {
             console.error('Failed to diff source revision', err);
@@ -5859,6 +5909,44 @@ ${partsBodyXml}
             setVersionsActionBusy(false);
         }
     }, [otsSourceContext, score, getScoreXmlData]);
+
+    const handleVersionsDiffAgainstBase = useCallback(async (revision: SourceHistoryRevision) => {
+        if (!otsSourceContext || !versionsSelectedBaseRevisionId || versionsSelectedBaseRevisionId === revision.revisionId) {
+            return;
+        }
+        const baseRevision = sourceHistory?.revisions.find((candidate) => candidate.revisionId === versionsSelectedBaseRevisionId);
+        if (!baseRevision) {
+            setVersionsActionError('Selected base revision is no longer available on this branch.');
+            return;
+        }
+        setVersionsActionError(null);
+        setVersionsActionNotice(null);
+        try {
+            const nextUrl = new URL(window.location.href);
+            nextUrl.searchParams.set('compareLeft', buildSourceCanonicalXmlUrl({
+                workId: otsSourceContext.workId,
+                sourceId: otsSourceContext.sourceId,
+                revisionId: baseRevision.revisionId,
+            }));
+            nextUrl.searchParams.set('compareRight', buildSourceCanonicalXmlUrl({
+                workId: otsSourceContext.workId,
+                sourceId: otsSourceContext.sourceId,
+                revisionId: revision.revisionId,
+            }));
+            nextUrl.searchParams.set('leftLabel', `Revision #${baseRevision.sequenceNumber}`);
+            nextUrl.searchParams.set('rightLabel', `Revision #${revision.sequenceNumber}`);
+            nextUrl.searchParams.delete('score');
+            nextUrl.searchParams.delete('scoreId');
+            nextUrl.searchParams.delete('launchContext');
+            const opened = window.open(nextUrl.toString(), '_blank', 'noopener,noreferrer');
+            if (!opened) {
+                setVersionsActionError('Popup blocked. Allow popups to open the revision diff.');
+            }
+        } catch (err) {
+            console.error('Failed to open revision diff', err);
+            setVersionsActionError(errorMessage(err) || 'Failed to open revision diff.');
+        }
+    }, [otsSourceContext, sourceHistory, versionsSelectedBaseRevisionId]);
 
     const handleVersionsCreateBranch = useCallback(async () => {
         if (!otsSourceContext) {
@@ -6016,6 +6104,7 @@ ${partsBodyXml}
                 data: buffer,
                 size: data.byteLength,
                 scoreId: activeScoreId,
+                ...buildCheckpointMetadata(),
             });
             setScoreDirtySinceCheckpoint(false);
             setCheckpointLabel('');
@@ -6072,6 +6161,9 @@ ${partsBodyXml}
                 data: xmlData.buffer.slice(xmlData.byteOffset, xmlData.byteOffset + xmlData.byteLength),
                 size: xmlData.byteLength,
                 scoreId: activeScoreId,
+                ...buildCheckpointMetadata({
+                    branchName: targetIsCurrent ? activeLaunchContext?.branchName : versionsBranchName,
+                }),
             });
             await loadCheckpointList();
             // Clear the label field after saving
@@ -6098,6 +6190,9 @@ ${partsBodyXml}
         getScoreXmlData,
         getScoreMusicXmlText,
         ensureScoreId,
+        buildCheckpointMetadata,
+        activeLaunchContext?.branchName,
+        versionsBranchName,
         loadCheckpointList,
     ]);
 
@@ -6157,7 +6252,13 @@ ${partsBodyXml}
             const decoder = new TextDecoder();
             const currentXml = decoder.decode(currentData);
             const checkpointXml = decoder.decode(new Uint8Array(record.data));
-            setCompareView({ title: checkpoint.title, currentXml, checkpointXml });
+            setCompareView({
+                title: checkpoint.title,
+                currentXml,
+                checkpointXml,
+                currentLabel: 'Current',
+                checkpointLabel: checkpoint.title,
+            });
         } catch (err) {
             console.error('Failed to compare checkpoint', err);
             alert('Failed to compare checkpoint. See console for details.');
@@ -7041,6 +7142,8 @@ ${partsBodyXml}
             title: 'Assistant Proposal',
             currentXml: trimmedBase,
             checkpointXml: trimmedProposed,
+            currentLabel: 'Current',
+            checkpointLabel: 'Assistant Proposal',
         });
         return true;
     }, []);
@@ -11816,6 +11919,15 @@ ${partsBodyXml}
                     versionsActionBusy={versionsActionBusy}
                     versionsActionError={versionsActionError}
                     versionsActionNotice={versionsActionNotice}
+                    versionsStatusMode={scoreDirtySinceCheckpoint ? 'detached' : 'tracking'}
+                    versionsStatusMessage={otsSourceContext
+                        ? (
+                            scoreDirtySinceCheckpoint
+                                ? `Detached from ${activeLaunchContext?.revisionId || 'the loaded revision'}. Committing will create a revision on branch "${versionsBranchName}".`
+                                : `Tracking ${activeLaunchContext?.revisionId || 'the loaded revision'} on branch "${activeLaunchContext?.branchName || versionsBranchName}". Commit target is "${versionsBranchName}".`
+                        )
+                        : null}
+                    versionsSelectedBaseRevisionId={versionsSelectedBaseRevisionId}
                     versionsCommitMessage={versionsCommitMessage}
                     onVersionsCommitMessageChange={setVersionsCommitMessage}
                     onVersionsCommitCurrent={() => void handleVersionsCommitCurrent()}
@@ -11828,6 +11940,8 @@ ${partsBodyXml}
                     onVersionsRefresh={() => void refreshSourceHistory()}
                     onVersionsOpenRevision={(revision) => void handleVersionsOpenRevision(revision)}
                     onVersionsDiffRevision={(revision) => void handleVersionsDiffRevision(revision)}
+                    onVersionsSelectBaseRevision={(revision) => setVersionsSelectedBaseRevisionId(revision?.revisionId || null)}
+                    onVersionsDiffAgainstBase={(revision) => void handleVersionsDiffAgainstBase(revision)}
                     checkpointLabel={checkpointLabel}
                     onCheckpointLabelChange={setCheckpointLabel}
                     onSaveCheckpoint={() => void handleSaveCheckpoint()}
@@ -13916,10 +14030,10 @@ ${partsBodyXml}
                         <div className="flex flex-wrap items-center justify-between gap-3">
                             <div className="space-y-1">
                                 <div className="text-sm font-semibold text-gray-800">
-                                    Compare Checkpoint
+                                    Compare Scores
                                 </div>
                                 <div className="text-xs text-gray-500">
-                                    Current vs {compareView.title}
+                                    {compareLeftLabel} vs {compareRightLabel}
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
@@ -14514,7 +14628,7 @@ ${partsBodyXml}
                                 <div className="mt-3 grid gap-4 md:grid-cols-2" style={{ height: 'calc(100vh - 300px)' }}>
                                     <div className="flex flex-col gap-2">
                                         <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                            Current
+                                            {compareLeftLabel}
                                         </span>
                                         <textarea
                                             readOnly
@@ -14524,7 +14638,7 @@ ${partsBodyXml}
                                     </div>
                                     <div className="flex flex-col gap-2">
                                         <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                            {compareView.title}
+                                            {compareRightLabel}
                                         </span>
                                         <textarea
                                             readOnly

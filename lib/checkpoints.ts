@@ -6,6 +6,12 @@ export type CheckpointRecord = {
     format: 'musicxml';
     data: ArrayBuffer;
     size: number;
+    upstreamKind?: 'ourtextscores';
+    workId?: string;
+    sourceId?: string;
+    branchName?: string;
+    baseRevisionId?: string;
+    upstreamRevisionId?: string;
 };
 
 export type CheckpointSummary = {
@@ -15,6 +21,12 @@ export type CheckpointSummary = {
     createdAt: number;
     format: 'musicxml';
     size: number;
+    upstreamKind?: 'ourtextscores';
+    workId?: string;
+    sourceId?: string;
+    branchName?: string;
+    baseRevisionId?: string;
+    upstreamRevisionId?: string;
 };
 
 export type ScoreSummary = {
@@ -94,6 +106,12 @@ export const listCheckpoints = async (scoreId?: string): Promise<CheckpointSumma
                 createdAt: item.createdAt,
                 format: item.format,
                 size: item.size,
+                upstreamKind: item.upstreamKind,
+                workId: item.workId,
+                sourceId: item.sourceId,
+                branchName: item.branchName,
+                baseRevisionId: item.baseRevisionId,
+                upstreamRevisionId: item.upstreamRevisionId,
             }));
             summaries.sort((a, b) => b.createdAt - a.createdAt);
             resolve(summaries);

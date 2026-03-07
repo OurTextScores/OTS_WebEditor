@@ -30,6 +30,9 @@ type LeftSidebarProps = {
     versionsActionBusy?: boolean;
     versionsActionError?: string | null;
     versionsActionNotice?: string | null;
+    versionsStatusMode?: 'tracking' | 'detached';
+    versionsStatusMessage?: string | null;
+    versionsSelectedBaseRevisionId?: string | null;
     versionsCommitMessage?: string;
     onVersionsCommitMessageChange?: (value: string) => void;
     onVersionsCommitCurrent?: () => void;
@@ -42,6 +45,8 @@ type LeftSidebarProps = {
     onVersionsRefresh?: () => void;
     onVersionsOpenRevision?: (revision: SourceHistoryRevision) => void;
     onVersionsDiffRevision?: (revision: SourceHistoryRevision) => void;
+    onVersionsSelectBaseRevision?: (revision: SourceHistoryRevision | null) => void;
+    onVersionsDiffAgainstBase?: (revision: SourceHistoryRevision) => void;
     checkpointLabel: string;
     onCheckpointLabelChange: (value: string) => void;
     onSaveCheckpoint: () => void;
@@ -77,6 +82,9 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
     | 'versionsActionBusy'
     | 'versionsActionError'
     | 'versionsActionNotice'
+    | 'versionsStatusMode'
+    | 'versionsStatusMessage'
+    | 'versionsSelectedBaseRevisionId'
     | 'versionsCommitMessage'
     | 'onVersionsCommitMessageChange'
     | 'onVersionsCommitCurrent'
@@ -89,6 +97,8 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
     | 'onVersionsRefresh'
     | 'onVersionsOpenRevision'
     | 'onVersionsDiffRevision'
+    | 'onVersionsSelectBaseRevision'
+    | 'onVersionsDiffAgainstBase'
 >) {
     const {
         versionsLoading = false,
@@ -102,6 +112,9 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
         versionsActionBusy = false,
         versionsActionError = null,
         versionsActionNotice = null,
+        versionsStatusMode = 'tracking',
+        versionsStatusMessage = null,
+        versionsSelectedBaseRevisionId = null,
         versionsCommitMessage = '',
         onVersionsCommitMessageChange,
         onVersionsCommitCurrent,
@@ -114,7 +127,12 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
         onVersionsRefresh,
         onVersionsOpenRevision,
         onVersionsDiffRevision,
+        onVersionsSelectBaseRevision,
+        onVersionsDiffAgainstBase,
     } = props;
+    const selectedBaseRevision = versionsSelectedBaseRevisionId
+        ? versionsRevisions.find((revision) => revision.revisionId === versionsSelectedBaseRevisionId) ?? null
+        : null;
 
     return (
         <>
@@ -149,6 +167,20 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
                     {versionsSelectedBranch.empty && versionsSelectedBranch.baseRevisionId && (
                         <div>Based on {versionsSelectedBranch.baseRevisionId}</div>
                     )}
+                </div>
+            )}
+            {versionsStatusMessage && (
+                <div className={`mt-3 rounded border px-2 py-2 text-xs ${
+                    versionsStatusMode === 'detached'
+                        ? 'border-amber-300 bg-amber-50 text-amber-900'
+                        : 'border-emerald-300 bg-emerald-50 text-emerald-900'
+                }`}>
+                    {versionsStatusMessage}
+                </div>
+            )}
+            {versionsSelectedBaseRevisionId && (
+                <div className="mt-3 rounded border border-blue-200 bg-blue-50 px-2 py-2 text-xs text-blue-900">
+                    Base revision selected for diff: {selectedBaseRevision ? `#${selectedBaseRevision.sequenceNumber}` : versionsSelectedBaseRevisionId}
                 </div>
             )}
             <div className="mt-3 rounded border border-gray-200 p-2">
@@ -236,7 +268,10 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
             )}
             <div className="mt-3 space-y-3">
                 {versionsRevisions.map((revision) => (
-                    <div key={revision.revisionId} className="rounded border border-gray-200 p-2">
+                    <div
+                        key={revision.revisionId}
+                        className={`rounded border p-2 ${versionsSelectedBaseRevisionId === revision.revisionId ? 'border-blue-300 bg-blue-50' : 'border-gray-200'}`}
+                    >
                         <div className="flex items-center justify-between gap-2">
                             <div className="text-sm font-medium text-gray-800">
                                 #{revision.sequenceNumber}
@@ -269,6 +304,22 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
                             >
                                 Diff vs current
                             </button>
+                            <button
+                                type="button"
+                                onClick={() => onVersionsSelectBaseRevision?.(versionsSelectedBaseRevisionId === revision.revisionId ? null : revision)}
+                                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                            >
+                                {versionsSelectedBaseRevisionId === revision.revisionId ? 'Clear base' : 'Set base'}
+                            </button>
+                            {versionsSelectedBaseRevisionId && versionsSelectedBaseRevisionId !== revision.revisionId && (
+                                <button
+                                    type="button"
+                                    onClick={() => onVersionsDiffAgainstBase?.(revision)}
+                                    className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                                >
+                                    Diff vs base
+                                </button>
+                            )}
                         </div>
                     </div>
                 ))}
@@ -355,6 +406,15 @@ function CheckpointsTabPanel(props: Omit<LeftSidebarProps, 'hidden' | 'collapsed
                             {formatTimestamp(checkpoint.createdAt)}
                             {checkpoint.size ? ` · ${formatBytes(checkpoint.size)}` : ''}
                         </div>
+                        {(checkpoint.branchName || checkpoint.upstreamRevisionId || checkpoint.sourceId) && (
+                            <div className="mt-1 text-xs text-gray-500">
+                                {checkpoint.branchName ? `Branch ${checkpoint.branchName}` : ''}
+                                {checkpoint.branchName && checkpoint.upstreamRevisionId ? ' · ' : ''}
+                                {checkpoint.upstreamRevisionId ? `Revision ${checkpoint.upstreamRevisionId}` : ''}
+                                {(checkpoint.branchName || checkpoint.upstreamRevisionId) && checkpoint.sourceId ? ' · ' : ''}
+                                {checkpoint.sourceId ? `Source ${checkpoint.sourceId}` : ''}
+                            </div>
+                        )}
                         <div className="mt-2 flex flex-wrap gap-2">
                             <button
                                 type="button"
@@ -571,6 +631,9 @@ export function LeftSidebar(props: LeftSidebarProps) {
                             versionsActionBusy={props.versionsActionBusy}
                             versionsActionError={props.versionsActionError}
                             versionsActionNotice={props.versionsActionNotice}
+                            versionsStatusMode={props.versionsStatusMode}
+                            versionsStatusMessage={props.versionsStatusMessage}
+                            versionsSelectedBaseRevisionId={props.versionsSelectedBaseRevisionId}
                             versionsCommitMessage={props.versionsCommitMessage}
                             onVersionsCommitMessageChange={props.onVersionsCommitMessageChange}
                             onVersionsCommitCurrent={props.onVersionsCommitCurrent}
@@ -583,6 +646,8 @@ export function LeftSidebar(props: LeftSidebarProps) {
                             onVersionsRefresh={props.onVersionsRefresh}
                             onVersionsOpenRevision={props.onVersionsOpenRevision}
                             onVersionsDiffRevision={props.onVersionsDiffRevision}
+                            onVersionsSelectBaseRevision={props.onVersionsSelectBaseRevision}
+                            onVersionsDiffAgainstBase={props.onVersionsDiffAgainstBase}
                         />
                     ) : leftSidebarTab === 'checkpoints' ? (
                         <CheckpointsTabPanel {...props} />
