@@ -49,6 +49,7 @@ type LeftSidebarProps = {
     onVersionsSelectBaseRevision?: (revision: SourceHistoryRevision | null) => void;
     onVersionsDiffAgainstBase?: (revision: SourceHistoryRevision) => void;
     onVersionsLoadBranchHead?: () => void;
+    onVersionsOpenChangeReview?: (revision: SourceHistoryRevision) => void;
     checkpointLabel: string;
     onCheckpointLabelChange: (value: string) => void;
     onSaveCheckpoint: () => void;
@@ -103,6 +104,7 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
     | 'onVersionsSelectBaseRevision'
     | 'onVersionsDiffAgainstBase'
     | 'onVersionsLoadBranchHead'
+    | 'onVersionsOpenChangeReview'
 >) {
     const {
         versionsLoading = false,
@@ -135,6 +137,7 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
         onVersionsSelectBaseRevision,
         onVersionsDiffAgainstBase,
         onVersionsLoadBranchHead,
+        onVersionsOpenChangeReview,
     } = props;
     const selectedBaseRevision = versionsSelectedBaseRevisionId
         ? versionsRevisions.find((revision) => revision.revisionId === versionsSelectedBaseRevisionId) ?? null
@@ -186,8 +189,8 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
             {versionsStatusMessage && (
                 <div className={`mt-3 rounded border px-2 py-2 text-xs ${
                     versionsStatusMode === 'detached'
-                        ? 'border-amber-300 bg-amber-50 text-amber-900'
-                        : 'border-emerald-300 bg-emerald-50 text-emerald-900'
+                        ? 'border-amber-400 bg-amber-100 text-amber-950'
+                        : 'border-emerald-400 bg-emerald-100 text-emerald-950'
                 }`}>
                     {versionsStatusMessage}
                 </div>
@@ -334,6 +337,13 @@ function VersionsTabPanel(props: Pick<LeftSidebarProps,
                                     Diff vs base
                                 </button>
                             )}
+                            <button
+                                type="button"
+                                onClick={() => onVersionsOpenChangeReview?.(revision)}
+                                className="rounded border border-cyan-300 bg-cyan-50 px-2 py-1 text-xs text-cyan-700 hover:bg-cyan-100"
+                            >
+                                Open CR
+                            </button>
                         </div>
                     </div>
                 ))}
@@ -562,7 +572,7 @@ export function LeftSidebar(props: LeftSidebarProps) {
             <div className={collapsed ? 'flex items-center justify-center p-2' : 'flex items-center justify-between p-4'}>
                 {!collapsed && (
                     <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        Checkpoints
+                        History
                     </span>
                 )}
                 <div className={collapsed ? '' : 'flex items-center gap-2'}>
@@ -604,20 +614,20 @@ export function LeftSidebar(props: LeftSidebarProps) {
                                         : 'border-transparent text-gray-500 hover:text-gray-700'
                                 }`}
                             >
-                                Versions
+                                OTS Revisions
                             </button>
                         )}
                         <button
                             type="button"
                             data-testid="tab-checkpoints"
                             onClick={() => onTabChange('checkpoints')}
-                            className={`rounded border px-2 py-1 ${
-                                leftSidebarTab === 'checkpoints'
-                                    ? 'border-gray-400 bg-gray-100 text-gray-900'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                            }`}
-                        >
-                            Checkpoints
+                                className={`rounded border px-2 py-1 ${
+                                    leftSidebarTab === 'checkpoints'
+                                        ? 'border-gray-400 bg-gray-100 text-gray-900'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                                }`}
+                            >
+                            Local Checkpoints
                         </button>
                         <button
                             type="button"
@@ -664,6 +674,7 @@ export function LeftSidebar(props: LeftSidebarProps) {
                             onVersionsSelectBaseRevision={props.onVersionsSelectBaseRevision}
                             onVersionsDiffAgainstBase={props.onVersionsDiffAgainstBase}
                             onVersionsLoadBranchHead={props.onVersionsLoadBranchHead}
+                            onVersionsOpenChangeReview={props.onVersionsOpenChangeReview}
                         />
                     ) : leftSidebarTab === 'checkpoints' ? (
                         <CheckpointsTabPanel {...props} />

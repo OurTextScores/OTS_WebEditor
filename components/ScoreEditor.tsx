@@ -981,7 +981,6 @@ export default function ScoreEditor() {
     const musicNotaGenProgressPreRef = useRef<HTMLPreElement | null>(null);
     const [checkpointsCollapsed, setCheckpointsCollapsed] = useState(false);
     const [leftSidebarTab, setLeftSidebarTab] = useState<LeftSidebarTab>('checkpoints');
-    const versionsTabInitializedRef = useRef(false);
     const [versionsBranchName, setVersionsBranchName] = useState('trunk');
     const [sourceHistory, setSourceHistory] = useState<SourceHistoryResponse | null>(null);
     const [versionsLoading, setVersionsLoading] = useState(false);
@@ -3791,7 +3790,6 @@ ${partsBodyXml}
 
     useEffect(() => {
         if (!otsSourceContext) {
-            versionsTabInitializedRef.current = false;
             setSourceHistory(null);
             setVersionsError(null);
             setVersionsLoading(false);
@@ -3814,11 +3812,7 @@ ${partsBodyXml}
             setScoreId(nextScoreId);
             updateUrlScoreId(nextScoreId);
         }
-        if (!versionsTabInitializedRef.current) {
-            setLeftSidebarTab('versions');
-            versionsTabInitializedRef.current = true;
-        }
-    }, [otsSourceContext, scoreId, leftSidebarTab]);
+    }, [otsSourceContext, scoreId]);
 
     useEffect(() => {
         if (!score) {
@@ -6285,6 +6279,64 @@ ${partsBodyXml}
         } catch (err) {
             console.error('Failed to open revision diff', err);
             setVersionsActionError(errorMessage(err) || 'Failed to open revision diff.');
+        }
+    }, [otsSourceContext, sourceHistory, versionsSelectedBaseRevisionId]);
+
+    const handleVersionsOpenChangeReview = useCallback(async (revision: SourceHistoryRevision) => {
+        if (!otsSourceContext) {
+            return;
+        }
+        const revisions = sourceHistory?.revisions || [];
+        let baseRevision = versionsSelectedBaseRevisionId && versionsSelectedBaseRevisionId !== revision.revisionId
+            ? (revisions.find((candidate) => candidate.revisionId === versionsSelectedBaseRevisionId) || null)
+            : null;
+        if (!baseRevision) {
+            const revisionIndex = revisions.findIndex((candidate) => candidate.revisionId === revision.revisionId);
+            if (revisionIndex === -1 || revisionIndex >= revisions.length - 1) {
+                setVersionsActionError('Select a base revision first, or choose a revision with an older predecessor.');
+                return;
+            }
+            baseRevision = revisions[revisionIndex + 1];
+        }
+        setVersionsActionBusy(true);
+        setVersionsActionError(null);
+        setVersionsActionNotice(null);
+        try {
+            const ordered = [baseRevision, revision].slice().sort((a, b) => a.sequenceNumber - b.sequenceNumber);
+            const response = await fetch(
+                `/api/proxy/works/${encodeURIComponent(otsSourceContext.workId)}/sources/${encodeURIComponent(otsSourceContext.sourceId)}/change-reviews`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        baseRevisionId: ordered[0].revisionId,
+                        headRevisionId: ordered[1].revisionId,
+                        title: `Review #${ordered[0].sequenceNumber} -> #${ordered[1].sequenceNumber}`,
+                    }),
+                },
+            );
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(text || `Failed to open change review (${response.status})`);
+            }
+            const data = asRecord(await response.json().catch(() => ({})));
+            const reviewId = typeof data?.reviewId === 'string' ? data.reviewId : '';
+            if (!reviewId) {
+                throw new Error('Change review response did not include a review ID.');
+            }
+            const reviewUrl = `/change-reviews/${encodeURIComponent(reviewId)}`;
+            const opened = window.open(reviewUrl, '_blank', 'noopener,noreferrer');
+            if (!opened) {
+                window.location.assign(reviewUrl);
+            }
+            setVersionsActionNotice(`Opened CR for #${ordered[0].sequenceNumber} -> #${ordered[1].sequenceNumber}.`);
+        } catch (err) {
+            console.error('Failed to open change review', err);
+            setVersionsActionError(errorMessage(err) || 'Failed to open change review.');
+        } finally {
+            setVersionsActionBusy(false);
         }
     }, [otsSourceContext, sourceHistory, versionsSelectedBaseRevisionId]);
 
@@ -12146,6 +12198,9 @@ ${partsBodyXml}
     const aiApplyDisabled = xmlControlsDisabled || !aiPatchedXml.trim() || Boolean(aiPatchError);
     const patchEditorHeight = '35vh';
     const patchEditorMaxHeight = '45vh';
+    const versionsLoadedRevisionLabel = activeLaunchContext?.revisionId
+        ? `rev ${activeLaunchContext.revisionId.slice(0, 8)}`
+        : 'current loaded revision';
     const versionsWorkingBranchName = activeLaunchContext?.branchName || otsSourceContext?.branchName || versionsBranchName;
     const versionsViewingDifferentBranch = Boolean(otsSourceContext && versionsWorkingBranchName !== versionsBranchName);
     const versionsStatusMessage = otsSourceContext
@@ -12153,13 +12208,13 @@ ${partsBodyXml}
             scoreDirtySinceCheckpoint
                 ? (
                     versionsViewingDifferentBranch
-                        ? `Detached from ${activeLaunchContext?.revisionId || 'the loaded revision'} on branch "${versionsWorkingBranchName}". Commit target is "${versionsBranchName}". Use Load branch head to switch the working copy.`
-                        : `Detached from ${activeLaunchContext?.revisionId || 'the loaded revision'}. Committing will create a revision on branch "${versionsBranchName}".`
+                        ? `Detached from ${versionsLoadedRevisionLabel} on ${versionsWorkingBranchName}. Commit target: ${versionsBranchName}. Use Load branch head to switch the working copy.`
+                        : `Detached from ${versionsLoadedRevisionLabel}. Commit target: ${versionsBranchName}.`
                 )
                 : (
                     versionsViewingDifferentBranch
-                        ? `Working copy tracks ${activeLaunchContext?.revisionId || 'the loaded revision'} on branch "${versionsWorkingBranchName}". Selected branch is "${versionsBranchName}". Use Load branch head to switch the working copy.`
-                        : `Tracking ${activeLaunchContext?.revisionId || 'the loaded revision'} on branch "${versionsWorkingBranchName}". Commit target is "${versionsBranchName}".`
+                        ? `Loaded ${versionsLoadedRevisionLabel} on ${versionsWorkingBranchName}. Selected branch: ${versionsBranchName}. Use Load branch head to switch the working copy.`
+                        : `Tracking ${versionsLoadedRevisionLabel} on ${versionsWorkingBranchName}. Commit target: ${versionsBranchName}.`
                 )
         )
         : null;
@@ -12329,6 +12384,7 @@ ${partsBodyXml}
                     onVersionsSelectBaseRevision={(revision) => setVersionsSelectedBaseRevisionId(revision?.revisionId || null)}
                     onVersionsDiffAgainstBase={(revision) => void handleVersionsDiffAgainstBase(revision)}
                     onVersionsLoadBranchHead={() => void handleVersionsLoadBranchHead()}
+                    onVersionsOpenChangeReview={(revision) => void handleVersionsOpenChangeReview(revision)}
                     checkpointLabel={checkpointLabel}
                     onCheckpointLabelChange={setCheckpointLabel}
                     onSaveCheckpoint={() => void handleSaveCheckpoint()}
