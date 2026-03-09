@@ -1,19 +1,22 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '../../ui/Button';
 import { DropdownMenuItem, DropdownMenuContent, DropdownMenuTrigger, DropdownMenu } from '../../ui/DropdownMenu';
 import { ToolbarSectionProps } from '../types';
 import { accidentalOptions } from '../constants';
-import { ArrowDown, ArrowUp, ChevronsDown, ChevronsUp, Hash } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronsDown, ChevronsUp, Hash, ArrowUpDown } from 'lucide-react';
+import { TransposeDialog } from '../TransposeDialog';
 
 export const PitchSection: React.FC<ToolbarSectionProps> = ({
     onPitchDown,
     onPitchUp,
     onTranspose,
+    onTransposeEx,
     onSetAccidental,
     mutationsEnabled,
     selectionActive,
 }) => {
     const mutationDisabled = !mutationsEnabled;
+    const [transposeDialogOpen, setTransposeDialogOpen] = useState(false);
 
     return (
         <>
@@ -66,6 +69,27 @@ export const PitchSection: React.FC<ToolbarSectionProps> = ({
             >
                 <ChevronsUp size={14} />
             </Button>
+            <div className="h-3 w-px bg-slate-200"></div>
+            <Button
+                data-testid="btn-transpose-dialog"
+                title="Transpose... (full options)"
+                aria-label="Transpose"
+                onClick={() => setTransposeDialogOpen(true)}
+                disabled={mutationDisabled || !onTransposeEx}
+                variant="outline"
+                size="sm"
+                className="shadow-sm"
+            >
+                <ArrowUpDown size={14} className="mr-1" />
+                Transpose...
+            </Button>
+            {onTransposeEx && (
+                <TransposeDialog
+                    open={transposeDialogOpen}
+                    onOpenChange={setTransposeDialogOpen}
+                    onTranspose={onTransposeEx}
+                />
+            )}
             <div className="h-3 w-px bg-slate-200"></div>
             <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>

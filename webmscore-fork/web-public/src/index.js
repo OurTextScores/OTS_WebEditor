@@ -1143,13 +1143,28 @@ class WebMscore {
     }
 
     /**
-     * Transpose the current selection by semitone delta.
-     * If there is no selection, this transposes the whole score.
-     * @param {number} semitones
+     * Transpose the current selection (or whole score if no selection).
+     * @param {number} mode         0=TO_KEY, 1=BY_INTERVAL, 2=DIATONICALLY
+     * @param {number} direction    0=UP, 1=DOWN, 2=CLOSEST
+     * @param {number} key          target key (-7..7, only used for TO_KEY mode)
+     * @param {number} interval     interval index (0-25 chromatic, 0-6 diatonic)
+     * @param {boolean} trKeys      transpose key signatures
+     * @param {boolean} trChordNames transpose chord symbols
+     * @param {boolean} useDoubleSharpsFlats use double sharps/flats
      * @returns {Promise<boolean>}
      */
-    async transpose(semitones) {
-        return Module.ccall('transpose', 'boolean', ['number', 'number', 'number'], [this.scoreptr, semitones, this.excerptId])
+    async transpose(mode, direction, key, interval, trKeys, trChordNames, useDoubleSharpsFlats) {
+        return Module.ccall('transpose', 'boolean',
+            ['number', 'number', 'number', 'number', 'number', 'boolean', 'boolean', 'boolean', 'number'],
+            [this.scoreptr, mode, direction, key, interval, trKeys, trChordNames, useDoubleSharpsFlats, this.excerptId])
+    }
+
+    /**
+     * Select all elements in the score.
+     * @returns {Promise<boolean>}
+     */
+    async selectAll() {
+        return Module.ccall('selectAll', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
     }
 
     /**

@@ -374,7 +374,7 @@ describe('ScoreEditor', () => {
     await user.click(await screen.findByTestId('btn-keysig-0'));
 
     await waitFor(() => expect(score.pitchUp).toHaveBeenCalled());
-    await waitFor(() => expect(score.transpose).toHaveBeenCalledWith(12));
+    await waitFor(() => expect(score.transpose).toHaveBeenCalledWith(1, 0, 0, 25, true, true, true));
     await waitFor(() => expect(score.setAccidental).toHaveBeenCalledWith(3));
     await waitFor(() => expect(score.doubleDuration).toHaveBeenCalled());
     await waitFor(() => expect(score.toggleDot).toHaveBeenCalled());

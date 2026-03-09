@@ -62,8 +62,8 @@ const mocked = vi.hoisted(() => {
       changeSelectedElementsVoice: vi.fn(async (_voiceIndex: number) => {
         updateSelectedMeasure((measureXml) => measureXml.replace(/<voice>\d+<\/voice>/i, `<voice>${_voiceIndex + 1}</voice>`));
       }),
-      transpose: vi.fn(async (semitones: number) => {
-        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/note>/, `</note><!-- transposed:${semitones} -->`));
+      transpose: vi.fn(async (mode: number, direction: number, key: number, interval: number, _trKeys: boolean, _trChordNames: boolean, _useDoubleSharps: boolean) => {
+        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/note>/, `</note><!-- transposed:mode=${mode},dir=${direction},key=${key},interval=${interval} -->`));
       }),
       addTempoText: vi.fn(async (bpm: number) => {
         updateSelectedMeasure((measureXml) => measureXml.replace(/<\/measure>/, `<direction><sound tempo="${bpm}"/></direction></measure>`));
@@ -575,6 +575,83 @@ describe('runMusicScoreOpsService', () => {
     expect(result.status).toBe(422);
   });
 
+  // --- transpose (full API) tests ---
+
+  it('rejects transpose with invalid mode', async () => {
+    const result = await runMusicScoreOpsService({
+      action: 'apply',
+      content: SAMPLE_XML,
+      ops: [{ op: 'transpose', mode: 'invalid', direction: 'up', key: 0, interval: 0 }],
+    }, 'apply');
+    expect(result.status).toBe(400);
+  });
+
+  it('rejects transpose with out-of-range key', async () => {
+    const result = await runMusicScoreOpsService({
+      action: 'apply',
+      content: SAMPLE_XML,
+      ops: [{ op: 'transpose', mode: 'to_key', direction: 'closest', key: 10, interval: 0 }],
+    }, 'apply');
+    expect(result.status).toBe(400);
+  });
+
+  it('rejects transpose with out-of-range interval', async () => {
+    const result = await runMusicScoreOpsService({
+      action: 'apply',
+      content: SAMPLE_XML,
+      ops: [{ op: 'transpose', mode: 'by_interval', direction: 'up', key: 0, interval: 30 }],
+    }, 'apply');
+    expect(result.status).toBe(400);
+  });
+
+  it('executes transpose to_key via wasm', async () => {
+    const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
+    const scoreSessionId = String(open.body.scoreSessionId);
+
+    const apply = await runMusicScoreOpsService({
+      action: 'apply',
+      scoreSessionId,
+      baseRevision: 0,
+      ops: [{ op: 'transpose', mode: 'to_key', direction: 'closest', key: 2 }],
+      options: { includeXml: true, preferredExecutor: 'wasm' },
+    }, 'apply');
+
+    expect(apply.status).toBe(200);
+    expect(apply.body).toMatchObject({
+      ok: true,
+      executor: { selected: 'wasm' },
+    });
+  });
+
+  it('executes transpose by_interval via wasm', async () => {
+    const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
+    const scoreSessionId = String(open.body.scoreSessionId);
+
+    const apply = await runMusicScoreOpsService({
+      action: 'apply',
+      scoreSessionId,
+      baseRevision: 0,
+      ops: [{ op: 'transpose', mode: 'by_interval', direction: 'up', key: 0, interval: 8 }],
+      options: { includeXml: true, preferredExecutor: 'wasm' },
+    }, 'apply');
+
+    expect(apply.status).toBe(200);
+    expect(apply.body).toMatchObject({
+      ok: true,
+      executor: { selected: 'wasm' },
+    });
+  });
+
+  it('returns error for transpose in xml mode', async () => {
+    const result = await runMusicScoreOpsService({
+      action: 'apply',
+      content: SAMPLE_XML,
+      ops: [{ op: 'transpose', mode: 'to_key', direction: 'closest', key: 2 }],
+      options: { preferredExecutor: 'xml' },
+    }, 'apply');
+    expect(result.status).toBe(422);
+  });
+
   it('rejects add_tempo_marking with invalid bpm', async () => {
     const result = await runMusicScoreOpsService({
       action: 'apply',
@@ -674,6 +751,27 @@ describe('runMusicScoreOpsService', () => {
     ]));
   });
 
+  it('parses "transpose to key of G Major" to transpose op', async () => {
+    const parsed = __scoreOpsTestOnly.parsePromptToOps('transpose to key of G Major');
+    expect(parsed.ops).toEqual(expect.arrayContaining([
+      expect.objectContaining({ op: 'transpose', mode: 'to_key', direction: 'closest', key: 1 }),
+    ]));
+  });
+
+  it('parses "transpose up a major third" to transpose op', async () => {
+    const parsed = __scoreOpsTestOnly.parsePromptToOps('transpose up a major third');
+    expect(parsed.ops).toEqual(expect.arrayContaining([
+      expect.objectContaining({ op: 'transpose', mode: 'by_interval', direction: 'up', interval: 8 }),
+    ]));
+  });
+
+  it('parses "transpose down a perfect fifth" to transpose op', async () => {
+    const parsed = __scoreOpsTestOnly.parsePromptToOps('transpose down a perfect fifth');
+    expect(parsed.ops).toEqual(expect.arrayContaining([
+      expect.objectContaining({ op: 'transpose', mode: 'by_interval', direction: 'down', interval: 14 }),
+    ]));
+  });
+
   it('parses tempo prompt to add_tempo_marking op', async () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps('set tempo to 120 bpm');
     expect(parsed.ops).toEqual(expect.arrayContaining([
@@ -751,12 +849,14 @@ describe('runMusicScoreOpsService', () => {
     };
     expect(capabilities.ops).toEqual(expect.arrayContaining([
       'transpose_selection',
+      'transpose',
       'add_tempo_marking',
       'add_dynamic',
       'select_measure_range',
       'select_all',
     ]));
     expect(capabilities.mutationOps.transpose_selection).toBeDefined();
+    expect(capabilities.mutationOps.transpose).toBeDefined();
     expect(capabilities.mutationOps.add_tempo_marking).toBeDefined();
     expect(capabilities.mutationOps.add_dynamic).toBeDefined();
   });

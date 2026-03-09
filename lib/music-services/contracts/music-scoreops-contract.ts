@@ -25,7 +25,7 @@ export const MUSIC_SCOREOPS_TOOL_CONTRACT: MusicToolContract = {
               type: 'string',
               enum: [
                 'set_key_signature', 'set_time_signature', 'set_clef',
-                'set_metadata_text', 'transpose_selection',
+                'set_metadata_text', 'transpose_selection', 'transpose',
                 'insert_measures', 'remove_measures',
                 'delete_selection', 'delete_text_by_content',
                 'add_tempo_marking', 'add_dynamic',

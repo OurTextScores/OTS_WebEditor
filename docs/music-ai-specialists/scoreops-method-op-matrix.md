@@ -28,6 +28,7 @@ This matrix is the scoping artifact used to finalize the ScoreOps MVP op set.
 | `setTimeSignature?`, `setTimeSignatureWithType?` | `set_time_signature` | `{ numerator, denominator, symbol? }` | global/range | method exists | fail + rollback | P0 | Wrapper |
 | `setClef?` | `set_clef` | `{ clef: "treble|bass|alto|tenor", scope }` | range | method exists; scope resolvable | fail + rollback | P0 | Wrapper |
 | `transpose?` | `transpose_selection` | `{ semitones, scope? }` | selection/range | selection exists or range can be selected | fail + rollback | P0 | Wrapper |
+| `transpose?` (full API) | `transpose` | `{ mode, direction, key?, interval?, transposeKeys?, transposeChordNames?, useDoubleSharpsFlats?, scope? }` | selection/range/global | WASM only; mode: to_key/by_interval/diatonically | fail + rollback | P0 | Wrapper |
 | `pitchUp?`, `pitchDown?` | `transpose_stepwise` | `{ direction: "up|down", steps }` | selection | selection exists | fail + rollback | P1 | Wrapper |
 | `setAccidental?` | `set_accidental` | `{ accidental: "sharp|flat|natural|double-sharp|double-flat", scope? }` | selection/range | selection exists | fail + rollback | P1 | Wrapper |
 | `doubleDuration?`, `halfDuration?`, `setDurationType?`, `toggleDot?`, `toggleDoubleDot?` | `set_duration` / `scale_duration` / `set_dots` | typed duration operations | selection/range | selection exists | fail + rollback | P1 | Wrapper |
@@ -88,6 +89,7 @@ Reason: they are UI/runtime-fragile, not semantically stable for agent planning.
 - `set_time_signature`
 - `set_clef`
 - `transpose_selection`
+- `transpose`
 - `delete_selection`
 - `insert_measures`
 - `remove_measures`
@@ -147,6 +149,7 @@ Status update (2026-02-27):
 | `remove_measures` | done | done | done | done | yes | yes |
 | `delete_text_by_content` | done | done | — (xml-only) | done | yes | yes |
 | `transpose_selection` | done | — (wasm-only) | done | done | yes | yes |
+| `transpose` | done | — (wasm-only) | done | done | yes | yes |
 | `add_tempo_marking` | done | done | done | done | yes | yes |
 | `add_dynamic` | done | done | done | done | yes | yes |
 | `select_measure_range` | done | no-op (wasm-only) | done | done | yes | yes |
@@ -156,6 +159,7 @@ Status update (2026-02-27):
 
 Notes:
 - `transpose_selection` requires WASM; XML executor returns unsupported error.
+- `transpose` (full API) requires WASM; supports 3 modes: `to_key` (TransposeMode=0), `by_interval` (TransposeMode=1), `diatonically` (TransposeMode=2). Uses the full `Score::transpose(mode, direction, key, interval, trKeys, trChordNames, useDoubleSharpsFlats)` C++ API. Key range -7..+7 (fifths), interval 0..25 (intervalList index). Prompt parser handles "transpose to key of G Major" and "transpose up a major third" patterns.
 - `add_tempo_marking` XML executor inserts `<direction><sound tempo="BPM"/></direction>`.
 - `select_measure_range` / `select_all` are WASM-only selection state ops; skipped as no-ops in XML mode.
 - `selectAll` doesn't exist in webmscore; synthesized via `selectPartMeasureByIndex` across all measures.

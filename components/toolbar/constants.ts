@@ -192,6 +192,7 @@ export const shortcutEntries = [
         title: 'Shortcut: Press A-G to respell pitch, hold Shift to add another pitch to the chord',
     },
     { label: 'Rest: 0 (insert rest)', title: 'Shortcut: Press 0 to insert a rest instead of a note' },
+    { label: 'Select All: Ctrl/Cmd + A', title: 'Shortcut: Ctrl/Cmd + A' },
     { label: 'Copy: Ctrl/Cmd + C', title: 'Shortcut: Ctrl/Cmd + C' },
     { label: 'Paste: Ctrl/Cmd + V', title: 'Shortcut: Ctrl/Cmd + V' },
 ];

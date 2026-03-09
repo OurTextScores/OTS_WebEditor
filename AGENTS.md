@@ -189,6 +189,27 @@ Progress
 - Frontend calls the optional mutation APIs for selection, pitch/duration, delete, undo/redo, relayout; re-renders after each mutation.  
 - WASM glue patched to provide correct env imports/exports and default `-platform wasm`/ENV to bypass missing Qt offscreen plugin; artifacts copied to `public/`.
 
+## Files that will need to change for WASM extension
+
+For a new JS-visible WASM extension, the expected file chain is:
+
+### Native / bridge
+- `webmscore-fork/web/main.cpp`
+- `webmscore-fork/web-public/src/index.js`
+- `webmscore-fork/web-public/src/worker-helper.js`
+- `lib/webmscore-loader.ts`
+
+### App wiring
+- `components/ScoreEditor.tsx`
+- possibly `components/Toolbar.tsx` if we expose page playback controls there
+
+### Generated artifacts after rebuild
+- `webmscore-fork/web-public/webmscore.lib.js`
+- `webmscore-fork/web-public/webmscore.webpack.mjs`
+- `public/webmscore.lib.wasm`
+- `public/webmscore.lib.mem.wasm`
+- maybe `public/webmscore.lib.data`
+
 ## Webmscore rebuild + artifact sync
 
 Incremental builds (preferred)

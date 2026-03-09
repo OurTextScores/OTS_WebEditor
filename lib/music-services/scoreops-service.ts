@@ -152,6 +152,17 @@ const SCORE_OP_SCHEMA = z.discriminatedUnion('op', [
     scope: SCOPE_SCHEMA.optional(),
   }),
   z.object({
+    op: z.literal('transpose'),
+    mode: z.enum(['to_key', 'by_interval', 'diatonically']),
+    direction: z.enum(['up', 'down', 'closest']),
+    key: z.number().int().min(-7).max(7).optional().default(0),
+    interval: z.number().int().min(0).max(25).optional().default(0),
+    transposeKeys: z.boolean().optional().default(true),
+    transposeChordNames: z.boolean().optional().default(true),
+    useDoubleSharpsFlats: z.boolean().optional().default(true),
+    scope: SCOPE_SCHEMA.optional(),
+  }),
+  z.object({
     op: z.literal('add_tempo_marking'),
     bpm: z.number().int().min(20).max(400),
     scope: SCOPE_SCHEMA.optional(),
@@ -250,6 +261,7 @@ const SCOREOPS_MUTATION_OPS: ScoreOpName[] = [
   'remove_measures',
   'delete_text_by_content',
   'transpose_selection',
+  'transpose',
   'add_tempo_marking',
   'add_dynamic',
   'replace_selected_text',
@@ -273,6 +285,7 @@ const SCOREOPS_WASM_ELIGIBLE_OPS = new Set<ScoreOpName>([
   'insert_measures',
   'remove_measures',
   'transpose_selection',
+  'transpose',
   'add_tempo_marking',
   'add_dynamic',
   'select_measure_range',
@@ -1265,6 +1278,8 @@ function applyOneOp(xml: string, op: ScoreOp): ApplyOneOpResult {
       return toApplyOneOpResult(applyDeleteTextByContent(xml, op));
     case 'transpose_selection':
       return { error: 'transpose_selection requires WASM executor (pitch arithmetic not supported in XML mode).' };
+    case 'transpose':
+      return { error: 'transpose requires WASM executor (pitch arithmetic not supported in XML mode).' };
     case 'add_tempo_marking':
       return toApplyOneOpResult(applyAddTempoMarking(xml, op));
     case 'add_dynamic':
@@ -1861,7 +1876,41 @@ async function executeOpsWithWasm(
           if (!selected.ok) {
             return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
           }
-          await Promise.resolve(score.transpose(op.semitones));
+          // BY_INTERVAL mode (1), direction: UP(0) or DOWN(1), key=0, interval index, trKeys, trChordNames, doubleSharps
+          const semitones = op.semitones;
+          const absSemi = Math.abs(semitones);
+          const direction = semitones >= 0 ? 0 : 1;
+          // Map common semitone counts to intervalList indices
+          const semiToIdx: Record<number, number> = {
+            1: 3, 2: 4, 3: 7, 4: 8, 5: 11, 6: 12, 7: 14, 8: 17, 9: 18, 10: 21, 11: 22, 12: 25,
+          };
+          const idx = semiToIdx[absSemi] ?? 0;
+          await Promise.resolve(score.transpose(1, direction, 0, idx, true, true, true));
+        }
+      } else if (op.op === 'transpose') {
+        if (typeof score.transpose !== 'function') {
+          return { ok: false, fallbackReason: 'transpose is unavailable in current webmscore runtime.' };
+        }
+        const modeMap = { to_key: 0, by_interval: 1, diatonically: 2 } as const;
+        const dirMap = { up: 0, down: 1, closest: 2 } as const;
+        const tMode = modeMap[op.mode];
+        const tDir = dirMap[op.direction];
+        const tKey = op.key ?? 0;
+        const tInterval = op.interval ?? 0;
+        const tKeys = op.transposeKeys ?? true;
+        const tChordNames = op.transposeChordNames ?? true;
+        const tDoubleSharps = op.useDoubleSharpsFlats ?? true;
+        if (targets.length > 0) {
+          for (const target of targets) {
+            const selected = await selectMeasureOnScore(score, partIndexById, target.partId, target.measureNumber);
+            if (!selected.ok) {
+              return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+            }
+            await Promise.resolve(score.transpose(tMode, tDir, tKey, tInterval, tKeys, tChordNames, tDoubleSharps));
+          }
+        } else {
+          // No scope — transpose whole score (the C++ function auto-selects all if no selection)
+          await Promise.resolve(score.transpose(tMode, tDir, tKey, tInterval, tKeys, tChordNames, tDoubleSharps));
         }
       } else if (op.op === 'add_tempo_marking') {
         if (typeof score.addTempoText !== 'function') {
@@ -2143,6 +2192,7 @@ function buildDefaultMutationSupport(): ScoreOpsMutationOpSupport {
     remove_measures: { xml: true, wasm: false },
     delete_text_by_content: { xml: true, wasm: false },
     transpose_selection: { xml: false, wasm: false },
+    transpose: { xml: false, wasm: false },
     add_tempo_marking: { xml: true, wasm: false },
     add_dynamic: { xml: true, wasm: false },
     select_measure_range: { xml: false, wasm: false },
@@ -2177,6 +2227,7 @@ function evaluateWasmMutationSupport(wasmMethods: Set<string>) {
     remove_measures: requiresSelectionOps && has('removeSelectedMeasures'),
     delete_text_by_content: false,
     transpose_selection: requiresSelectionOps && has('transpose'),
+    transpose: requiresSelectionOps && has('transpose'),
     add_tempo_marking: requiresSelectionOps && has('addTempoText'),
     add_dynamic: requiresSelectionOps && has('addDynamic'),
     select_measure_range: requiresSelectionOps,
@@ -3207,6 +3258,88 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
       ops.push({
         op: 'transpose_selection',
         semitones,
+        ...(stepScope ? { scope: stepScope } : {}),
+      });
+    }
+  }
+
+  // Full transpose: "transpose to key of G Major", "transpose to D minor"
+  const transposeToKeyRegex = /transpos(?:e|ing)\s+to\s+(?:(?:the\s+)?key\s+(?:of\s+)?)?([A-Ga-g])[\s-]?(?:flat|b|\u266D)?\s*(?:sharp|#|\u266F)?\s*(?:major|minor)?/gi;
+  for (const m of stepText.matchAll(transposeToKeyRegex)) {
+    const keyName = m[0].toLowerCase();
+    const keyMap: Record<string, number> = {
+      'c flat': -7, 'cb': -7, 'c\u266D': -7,
+      'g flat': -6, 'gb': -6, 'g\u266D': -6,
+      'd flat': -5, 'db': -5, 'd\u266D': -5,
+      'a flat': -4, 'ab': -4, 'a\u266D': -4,
+      'e flat': -3, 'eb': -3, 'e\u266D': -3,
+      'b flat': -2, 'bb': -2, 'b\u266D': -2,
+      'f': -1,
+      'c': 0,
+      'g': 1,
+      'd': 2,
+      'a': 3,
+      'e': 4,
+      'b': 5,
+      'f sharp': 6, 'f#': 6, 'f\u266F': 6,
+      'c sharp': 7, 'c#': 7, 'c\u266F': 7,
+    };
+    // Try to extract key from the matched text
+    const keyLetter = m[1].toUpperCase();
+    const hasFlat = /flat|b|\u266D/i.test(m[0]);
+    const hasSharp = /sharp|#|\u266F/i.test(m[0]);
+    const keyLookup = hasFlat ? `${keyLetter.toLowerCase()} flat` : hasSharp ? `${keyLetter.toLowerCase()} sharp` : keyLetter.toLowerCase();
+    const fifths = keyMap[keyLookup];
+    if (fifths !== undefined) {
+      ops.push({
+        op: 'transpose' as const,
+        mode: 'to_key' as const,
+        direction: 'closest' as const,
+        key: fifths,
+        interval: 0,
+        transposeKeys: true,
+        transposeChordNames: true,
+        useDoubleSharpsFlats: true,
+        ...(stepScope ? { scope: stepScope } : {}),
+      });
+    }
+  }
+
+  // Interval-based: "transpose up a major third", "transpose down a perfect fifth"
+  const intervalNames: Record<string, number> = {
+    'perfect unison': 0, 'unison': 0,
+    'augmented unison': 1,
+    'minor second': 3, 'half step': 3,
+    'major second': 4, 'whole step': 4,
+    'augmented second': 5,
+    'minor third': 7,
+    'major third': 8,
+    'perfect fourth': 11, 'fourth': 11,
+    'augmented fourth': 12, 'tritone': 12,
+    'diminished fifth': 13,
+    'perfect fifth': 14, 'fifth': 14,
+    'minor sixth': 17,
+    'major sixth': 18,
+    'minor seventh': 21,
+    'major seventh': 22,
+    'perfect octave': 25, 'octave': 25,
+  };
+  const intervalNamesPattern = Object.keys(intervalNames).sort((a, b) => b.length - a.length).join('|');
+  const transposeIntervalRegex = new RegExp(`transpos(?:e|ing)\\s+(up|down)\\s+(?:a\\s+|by\\s+(?:a\\s+)?)?(${intervalNamesPattern})`, 'gi');
+  for (const m of stepText.matchAll(transposeIntervalRegex)) {
+    const dir = m[1].toLowerCase() as 'up' | 'down';
+    const intervalName = m[2].toLowerCase();
+    const intervalIdx = intervalNames[intervalName];
+    if (intervalIdx !== undefined) {
+      ops.push({
+        op: 'transpose' as const,
+        mode: 'by_interval' as const,
+        direction: dir,
+        key: 0,
+        interval: intervalIdx,
+        transposeKeys: true,
+        transposeChordNames: true,
+        useDoubleSharpsFlats: true,
         ...(stepScope ? { scope: stepScope } : {}),
       });
     }

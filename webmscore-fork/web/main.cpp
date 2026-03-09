@@ -3430,12 +3430,11 @@ bool _flipStem(uintptr_t score_ptr, int excerptId)
 }
 
 
-bool _transpose(uintptr_t score_ptr, int semitones, int excerptId)
+bool _transpose(uintptr_t score_ptr, int mode, int direction, int key,
+                int transposeInterval, bool trKeys, bool trChordNames,
+                bool useDoubleSharpsFlats, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
-    if (semitones == 0) {
-        return true;
-    }
 
     const bool hadSelection = !score->selection().isNone();
     if (!hadSelection) {
@@ -3446,11 +3445,13 @@ bool _transpose(uintptr_t score_ptr, int semitones, int excerptId)
         }
     }
 
-    // Convert Chords to Notes for transpose operation (uses upDown which needs uniqueNotes)
-    _convertRangeToListSelection(score_ptr, excerptId);
+    auto tMode = static_cast<engraving::TransposeMode>(mode);
+    auto tDir  = static_cast<engraving::TransposeDirection>(direction);
+    auto tKey  = static_cast<engraving::Key>(key);
 
     score->startCmd();
-    score->upDownDelta(semitones);
+    bool ok = score->transpose(tMode, tDir, tKey, transposeInterval,
+                               trKeys, trChordNames, useDoubleSharpsFlats);
     score->endCmd();
 
     if (!hadSelection) {
@@ -3458,7 +3459,14 @@ bool _transpose(uintptr_t score_ptr, int semitones, int excerptId)
         score->setSelectionChanged(true);
     }
 
-    return true;
+    return ok;
+}
+
+bool _selectAll(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    score->cmdSelectAll();
+    return !score->selection().isNone();
 }
 
 bool _setAccidental(uintptr_t score_ptr, int accidentalType, int excerptId)
@@ -5419,8 +5427,16 @@ extern "C" {
 
 
     EMSCRIPTEN_KEEPALIVE
-    bool transpose(uintptr_t score_ptr, int semitones, int excerptId = -1) {
-        return _transpose(score_ptr, semitones, excerptId);
+    bool transpose(uintptr_t score_ptr, int mode, int direction, int key,
+                   int transposeInterval, bool trKeys, bool trChordNames,
+                   bool useDoubleSharpsFlats, int excerptId = -1) {
+        return _transpose(score_ptr, mode, direction, key, transposeInterval,
+                          trKeys, trChordNames, useDoubleSharpsFlats, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool selectAll(uintptr_t score_ptr, int excerptId = -1) {
+        return _selectAll(score_ptr, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE

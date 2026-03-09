@@ -739,13 +739,26 @@ class WebMscoreW {
     }
 
     /**
-     * Transpose the current selection by semitone delta.
-     * If there is no selection, this transposes the whole score.
-     * @param {number} semitones
+     * Transpose the current selection (or whole score if no selection).
+     * @param {number} mode
+     * @param {number} direction
+     * @param {number} key
+     * @param {number} interval
+     * @param {boolean} trKeys
+     * @param {boolean} trChordNames
+     * @param {boolean} useDoubleSharpsFlats
      * @returns {Promise<boolean>}
      */
-    transpose(semitones) {
-        return this.rpc('transpose', [semitones])
+    transpose(mode, direction, key, interval, trKeys, trChordNames, useDoubleSharpsFlats) {
+        return this.rpc('transpose', [mode, direction, key, interval, trKeys, trChordNames, useDoubleSharpsFlats])
+    }
+
+    /**
+     * Select all elements in the score.
+     * @returns {Promise<boolean>}
+     */
+    selectAll() {
+        return this.rpc('selectAll')
     }
 
     /**

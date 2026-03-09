@@ -4823,12 +4823,12 @@ ${partsBodyXml}
             if (autoFitPendingRef.current && typeof window !== 'undefined') {
                 window.requestAnimationFrame(() => {
                     window.requestAnimationFrame(() => {
-                        handleFitWidth();
+                        handleFitHeight();
                         autoFitPendingRef.current = false;
                     });
                 });
             } else {
-                handleFitWidth();
+                handleFitHeight();
                 autoFitPendingRef.current = false;
             }
             if (!signal?.aborted) {
@@ -5039,12 +5039,12 @@ ${partsBodyXml}
             if (autoFitPendingRef.current && typeof window !== 'undefined') {
                 window.requestAnimationFrame(() => {
                     window.requestAnimationFrame(() => {
-                        handleFitWidth();
+                        handleFitHeight();
                         autoFitPendingRef.current = false;
                     });
                 });
             } else {
-                handleFitWidth();
+                handleFitHeight();
                 autoFitPendingRef.current = false;
             }
             setLoading(false);
@@ -9554,11 +9554,48 @@ ${partsBodyXml}
         if (!fn) return;
         return fn();
     }, { playSelectionPreview: true });
-    const handleTranspose = (semitones: number) => performMutation(`transpose ${semitones}`, async () => {
+    const handleTranspose = (semitones: number) => performMutation(`transpose ${semitones} semitones`, async () => {
         const fn = requireMutation('transpose');
         if (!fn) return;
-        return fn(semitones);
+        // Use BY_INTERVAL mode with the closest standard interval for octave shortcuts
+        // For octave up/down (±12), use Perfect Octave (index 25)
+        const absSemitones = Math.abs(semitones);
+        if (absSemitones === 12) {
+            const direction = semitones > 0 ? 0 : 1; // UP=0, DOWN=1
+            return fn(1, direction, 0, 25, true, true, true); // BY_INTERVAL, Perfect Octave
+        }
+        // For other semitone values, use BY_INTERVAL with lookup
+        // Simple mapping: semitones to interval index (common ones)
+        const semitonesToInterval: Record<number, number> = {
+            1: 3, 2: 4, 3: 7, 4: 8, 5: 11, 6: 12, 7: 14, 8: 17, 9: 18, 10: 21, 11: 22, 12: 25,
+        };
+        const idx = semitonesToInterval[absSemitones] ?? 0;
+        const direction = semitones > 0 ? 0 : 1;
+        return fn(1, direction, 0, idx, true, true, true);
     }, { skipWasmReselect: true, playSelectionPreview: true });
+    const handleTransposeEx = (mode: number, direction: number, key: number, interval: number, trKeys: boolean, trChordNames: boolean, useDoubleSharpsFlats: boolean) =>
+        performMutation('transpose', async () => {
+            const fn = requireMutation('transpose');
+            if (!fn) return;
+            return fn(mode, direction, key, interval, trKeys, trChordNames, useDoubleSharpsFlats);
+        }, { skipWasmReselect: true, playSelectionPreview: true });
+    const handleSelectAll = async () => {
+        if (!score) return;
+        const fn = requireMutation('selectAll');
+        if (!fn) return;
+        await fn();
+        // Re-render to show selection highlights
+        await renderScore(score);
+        // Refresh selection overlays
+        const activeScore = scoreRef.current ?? score;
+        const getBBoxesFn = (activeScore as MutationMethods).getSelectionBoundingBoxes;
+        if (typeof getBBoxesFn === 'function') {
+            const boxes = await getBBoxesFn.call(activeScore);
+            if (Array.isArray(boxes) && boxes.length > 0) {
+                setSelectionBoxes(boxes);
+            }
+        }
+    };
     const handleInsertMeasures = (count: number, target: MeasureInsertTarget) => performMutation('insert measures', async () => {
         await ensureSelectionInWasm();
         const fn = requireMutation('insertMeasures');
@@ -10253,6 +10290,11 @@ ${partsBodyXml}
                     handleRedo();
                     return;
                 }
+                if (key === 'a') {
+                    event.preventDefault();
+                    handleSelectAll();
+                    return;
+                }
                 if (key === 'c') {
                     event.preventDefault();
                     handleCopySelection();
@@ -10426,6 +10468,7 @@ ${partsBodyXml}
         handleDeleteSelection,
         handleCopySelection,
         handlePasteSelection,
+        handleSelectAll,
     ]);
 
     const handleSetTimeSignature = async (num: number, den: number, timeSigType?: number) => {
@@ -12252,11 +12295,13 @@ ${partsBodyXml}
                 onFitWidth={handleFitWidth}
                 onFitHeight={handleFitHeight}
                 onDeleteSelection={handleDeleteSelection}
+                onSelectAll={handleSelectAll}
                 onUndo={handleUndo}
                 onRedo={handleRedo}
 	                onPitchUp={handlePitchUp}
                 onPitchDown={handlePitchDown}
                     onTranspose={handleTranspose}
+                    onTransposeEx={handleTransposeEx}
                     onSetAccidental={handleSetAccidental}
                 onDurationLonger={handleDurationLonger}
 	                onDurationShorter={handleDurationShorter}
@@ -12918,7 +12963,7 @@ ${partsBodyXml}
                                                 autoComplete="off"
                                             />
                                             <div className="mt-1 text-[11px] text-gray-500">
-                                                Stored locally in this browser. Requests are sent directly unless a proxy is configured.
+                                                Stored locally in this browser.
                                             </div>
                                             {AI_PROVIDER_CONFIGS[aiProvider].apiKeyUrl && (
                                                 <div className="mt-1 text-[11px]">

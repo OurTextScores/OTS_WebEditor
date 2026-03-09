@@ -54,7 +54,8 @@ export interface Score {
     deleteSelection?: () => Promise<unknown> | unknown;
     pitchUp?: () => Promise<unknown> | unknown;
     pitchDown?: () => Promise<unknown> | unknown;
-    transpose?: (semitones: number) => Promise<unknown> | unknown;
+    transpose?: (mode: number, direction: number, key: number, interval: number, trKeys: boolean, trChordNames: boolean, useDoubleSharpsFlats: boolean) => Promise<unknown> | unknown;
+    selectAll?: () => Promise<unknown> | unknown;
     setAccidental?: (accidentalType: number) => Promise<unknown> | unknown;
     doubleDuration?: () => Promise<unknown> | unknown;
     halfDuration?: () => Promise<unknown> | unknown;

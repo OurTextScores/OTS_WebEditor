@@ -1,12 +1,13 @@
 import React from 'react';
 import { Button } from '../../ui/Button';
 import { ToolbarSectionProps } from '../types';
-import { Trash2, Undo2, Redo2 } from 'lucide-react';
+import { Trash2, Undo2, Redo2, CheckSquare } from 'lucide-react';
 
 export const EditSection: React.FC<ToolbarSectionProps> = ({
     onDeleteSelection,
     onUndo,
     onRedo,
+    onSelectAll,
     mutationsEnabled,
     selectionActive,
 }) => {
@@ -14,6 +15,20 @@ export const EditSection: React.FC<ToolbarSectionProps> = ({
 
     return (
         <>
+            <Button
+                data-testid="btn-select-all"
+                title="Shortcut: Ctrl/Cmd + A (Select All)"
+                aria-label="Select All"
+                onClick={onSelectAll}
+                disabled={!mutationsEnabled || !onSelectAll}
+                variant="outline"
+                size="sm"
+                className="shadow-sm"
+            >
+                <CheckSquare size={14} className="mr-2" />
+                Select All
+            </Button>
+            <div className="h-3 w-px bg-slate-200"></div>
             <Button
                 data-testid="btn-delete"
                 title="Shortcut: Delete / Backspace"

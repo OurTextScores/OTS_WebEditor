@@ -32,6 +32,8 @@ export interface ToolbarSectionProps {
     onDurationLonger?: () => void;
     onDurationShorter?: () => void;
     onTranspose?: (semitones: number) => void;
+    onTransposeEx?: (mode: number, direction: number, key: number, interval: number, trKeys: boolean, trChordNames: boolean, useDoubleSharpsFlats: boolean) => void;
+    onSelectAll?: () => void;
     onSetAccidental?: (accidentalType: number) => void;
     mutationsEnabled?: boolean;
     selectionActive?: boolean;

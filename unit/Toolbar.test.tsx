@@ -389,14 +389,14 @@ describe('Toolbar', () => {
         exportsEnabled
         audioAvailable
         onExportAudio={() => {}}
-        onPlayAudio={() => {}}
+        onPlayCurrentPageAudio={() => {}}
         onStopAudio={() => {}}
         audioBusy
       />,
     );
 
     fireEvent.pointerDown(screen.getByRole('button', { name: 'Export' }));
-    expect(screen.getByTestId('btn-play')).toHaveTextContent('Working…');
+    expect(screen.getByTestId('btn-play-current-page')).toHaveTextContent('Working…');
     expect(screen.getByTestId('btn-export-audio')).toHaveTextContent('Exporting…');
   });
 
