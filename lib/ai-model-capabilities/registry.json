@@ -1,15 +1,26 @@
 {
-  "version": "2026-07-17.2",
+  "version": "2026-09-10.1",
   "rules": [
     {
       "id": "openai-gpt-4-multimodal",
       "provider": "openai",
       "modelPattern": "^gpt-(?:4o|4\\.1)(?:[-.]|$)",
       "capabilities": {
-        "inputs": { "text": "supported", "image": "supported", "pdf": "supported" },
+        "inputs": {
+          "text": "supported",
+          "image": "supported",
+          "pdf": "supported"
+        },
         "parameters": {
-          "maxOutputTokens": { "support": "supported", "min": 1 },
-          "temperature": { "support": "supported", "min": 0, "max": 2 }
+          "maxOutputTokens": {
+            "support": "supported",
+            "min": 1
+          },
+          "temperature": {
+            "support": "supported",
+            "min": 0,
+            "max": 2
+          }
         }
       },
       "evidence": {
@@ -22,11 +33,22 @@
       "provider": "openai",
       "modelPattern": "^gpt-5(?:[-.]|$)",
       "capabilities": {
-        "inputs": { "text": "supported", "image": "supported", "pdf": "supported" },
+        "inputs": {
+          "text": "supported",
+          "image": "supported",
+          "pdf": "supported"
+        },
         "parameters": {
-          "maxOutputTokens": { "support": "supported", "min": 1 },
-          "temperature": { "support": "unsupported" },
-          "reasoning": { "support": "supported" }
+          "maxOutputTokens": {
+            "support": "supported",
+            "min": 1
+          },
+          "temperature": {
+            "support": "unsupported"
+          },
+          "reasoning": {
+            "support": "supported"
+          }
         }
       },
       "evidence": {
@@ -40,11 +62,20 @@
       "provider": "openai",
       "modelPattern": "^o[1-9](?:[-.]|$)",
       "capabilities": {
-        "inputs": { "text": "supported" },
+        "inputs": {
+          "text": "supported"
+        },
         "parameters": {
-          "maxOutputTokens": { "support": "supported", "min": 1 },
-          "temperature": { "support": "unsupported" },
-          "reasoning": { "support": "supported" }
+          "maxOutputTokens": {
+            "support": "supported",
+            "min": 1
+          },
+          "temperature": {
+            "support": "unsupported"
+          },
+          "reasoning": {
+            "support": "supported"
+          }
         }
       },
       "evidence": {
@@ -53,14 +84,58 @@
       }
     },
     {
+      "id": "openai-gpt-6-reasoning",
+      "provider": "openai",
+      "modelPattern": "^gpt-6(?:[-.]|$)",
+      "capabilities": {
+        "contextWindow": 1050000,
+        "maxOutputTokens": 128000,
+        "inputs": {
+          "text": "supported",
+          "image": "supported",
+          "pdf": "supported"
+        },
+        "parameters": {
+          "maxOutputTokens": {
+            "support": "supported",
+            "min": 1,
+            "max": 128000
+          },
+          "temperature": {
+            "support": "unsupported"
+          },
+          "reasoning": {
+            "support": "supported",
+            "modes": ["low", "medium", "high", "xhigh", "max"]
+          }
+        }
+      },
+      "evidence": {
+        "url": "https://developers.openai.com/api/docs/models",
+        "verifiedAt": "2026-09-10",
+        "note": "GPT-6 follows the GPT-5 reasoning contract: sampling controls are omitted, reasoning effort is documented as low/medium/high/xhigh/max. PDF input per the file-inputs guide, which uses gpt-6-astra in its own examples."
+      }
+    },
+    {
       "id": "anthropic-claude-3-and-4",
       "provider": "anthropic",
       "modelPattern": "^claude-(?:3|sonnet-4|haiku-4)(?:[-.]|$)",
       "capabilities": {
-        "inputs": { "text": "supported", "image": "supported", "pdf": "supported" },
+        "inputs": {
+          "text": "supported",
+          "image": "supported",
+          "pdf": "supported"
+        },
         "parameters": {
-          "maxOutputTokens": { "support": "supported", "min": 1 },
-          "temperature": { "support": "supported", "min": 0, "max": 1 }
+          "maxOutputTokens": {
+            "support": "supported",
+            "min": 1
+          },
+          "temperature": {
+            "support": "supported",
+            "min": 0,
+            "max": 1
+          }
         }
       },
       "evidence": {
@@ -73,11 +148,22 @@
       "provider": "anthropic",
       "modelPattern": "^claude-opus-4-(?:7|8)(?:[-.]|$)",
       "capabilities": {
-        "inputs": { "text": "supported", "image": "supported", "pdf": "supported" },
+        "inputs": {
+          "text": "supported",
+          "image": "supported",
+          "pdf": "supported"
+        },
         "parameters": {
-          "maxOutputTokens": { "support": "supported", "min": 1 },
-          "temperature": { "support": "unsupported" },
-          "reasoning": { "support": "supported" }
+          "maxOutputTokens": {
+            "support": "supported",
+            "min": 1
+          },
+          "temperature": {
+            "support": "unsupported"
+          },
+          "reasoning": {
+            "support": "supported"
+          }
         }
       },
       "evidence": {
@@ -92,11 +178,26 @@
       "capabilities": {
         "contextWindow": 1000000,
         "maxOutputTokens": 131072,
-        "inputs": { "text": "supported", "image": "supported", "pdf": "supported" },
+        "inputs": {
+          "text": "supported",
+          "image": "supported",
+          "pdf": "supported"
+        },
         "parameters": {
-          "maxOutputTokens": { "support": "supported", "min": 1, "max": 131072 },
-          "temperature": { "support": "supported", "min": 0, "max": 1 },
-          "reasoning": { "support": "supported", "modes": ["off", "enabled", "adaptive"] }
+          "maxOutputTokens": {
+            "support": "supported",
+            "min": 1,
+            "max": 131072
+          },
+          "temperature": {
+            "support": "supported",
+            "min": 0,
+            "max": 1
+          },
+          "reasoning": {
+            "support": "supported",
+            "modes": ["off", "enabled", "adaptive"]
+          }
         }
       },
       "evidence": {
@@ -106,16 +207,61 @@
       }
     },
     {
-      "id": "anthropic-sonnet-5",
+      "id": "anthropic-opus-4-5",
       "provider": "anthropic",
-      "modelPattern": "^claude-sonnet-5$",
+      "modelPattern": "^claude-opus-4-5(?:[-.]|$)",
+      "capabilities": {
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000,
+        "inputs": {
+          "text": "supported",
+          "image": "supported",
+          "pdf": "supported"
+        },
+        "parameters": {
+          "maxOutputTokens": {
+            "support": "supported",
+            "min": 1,
+            "max": 64000
+          },
+          "temperature": {
+            "support": "supported",
+            "min": 0,
+            "max": 1
+          },
+          "reasoning": {
+            "support": "supported",
+            "modes": ["off", "enabled"]
+          }
+        }
+      },
+      "evidence": {
+        "url": "https://platform.claude.com/docs/en/about-claude/models/overview",
+        "verifiedAt": "2026-09-10",
+        "note": "A gap rather than a new model: anthropic-claude-3-and-4 covers sonnet-4 and haiku-4 but not opus-4, and the 4.6/4.7/4.8 rules start above it. Limits and flags confirmed against the Models API, which advertises manual extended thinking (types.enabled) and not adaptive. Opus 4.5 predates the removal of non-default sampling, as anthropic-opus-4-6 records for its own generation."
+      }
+    },
+    {
+      "id": "anthropic-claude-5",
+      "provider": "anthropic",
+      "modelPattern": "^claude-(?:opus|sonnet|fable)-5(?:[-.]|$)",
       "capabilities": {
         "contextWindow": 1000000,
-        "maxOutputTokens": 131072,
-        "inputs": { "text": "supported", "image": "supported", "pdf": "supported" },
+        "maxOutputTokens": 128000,
+        "inputs": {
+          "text": "supported",
+          "image": "supported",
+          "pdf": "supported"
+        },
         "parameters": {
-          "maxOutputTokens": { "support": "supported", "min": 1, "max": 131072 },
-          "temperature": { "support": "unsupported" },
+          "maxOutputTokens": {
+            "support": "supported",
+            "min": 1,
+            "max": 128000
+          },
+          "temperature": {
+            "support": "unsupported"
+          },
           "reasoning": {
             "support": "supported",
             "modes": ["off", "adaptive"],
@@ -124,51 +270,61 @@
         }
       },
       "evidence": {
-        "url": "https://platform.claude.com/docs/en/about-claude/models/whats-new-sonnet-5",
-        "verifiedAt": "2026-07-17",
-        "note": "OTS omits temperature because non-default sampling values return 400; the backwards-compatible default value does not provide a useful control."
+        "url": "https://platform.claude.com/docs/en/about-claude/models/overview",
+        "verifiedAt": "2026-09-10",
+        "note": "One rule for the generation rather than an exact ID each: the previous ^claude-sonnet-5$ and ^claude-fable-5$ could not match a point release, so claude-fable-5-1 and claude-opus-5 resolved to unknown and the editor refused image, PDF and max-output requests against them. Limits and modality flags confirmed against the Models API for claude-opus-5, claude-sonnet-5, claude-fable-5 and claude-fable-5-1, which advertise an identical capability shape. Max output is the synchronous Messages API limit; the 300k batch beta is out of scope. Extended thinking (thinking.type enabled) is not accepted on this generation. OTS omits temperature because non-default sampling values return 400."
       }
     },
     {
-      "id": "anthropic-fable-5",
+      "id": "anthropic-fable-5-always-on-thinking",
       "provider": "anthropic",
-      "modelPattern": "^claude-fable-5$",
+      "modelPattern": "^claude-fable-5(?:-\\d+)?$",
       "capabilities": {
-        "contextWindow": 1000000,
-        "maxOutputTokens": 131072,
-        "inputs": { "text": "supported", "image": "supported", "pdf": "supported" },
         "parameters": {
-          "maxOutputTokens": { "support": "supported", "min": 1, "max": 131072 },
-          "temperature": { "support": "unsupported" },
-          "reasoning": { "support": "supported", "modes": ["adaptive"], "default": "adaptive" }
+          "reasoning": {
+            "support": "supported",
+            "modes": ["adaptive"],
+            "default": "adaptive"
+          }
         }
       },
       "evidence": {
-        "url": "https://platform.claude.com/docs/en/about-claude/models/introducing-claude-fable-5-and-claude-mythos-5",
-        "verifiedAt": "2026-07-17",
-        "note": "Fable 5 has always-on adaptive thinking. OTS omits the deprecated temperature parameter used only for backwards compatibility."
+        "url": "https://platform.claude.com/docs/en/about-claude/models/overview",
+        "verifiedAt": "2026-09-10",
+        "note": "Fable's thinking is adaptive and always on, so it cannot be turned off. Declares only the reasoning modes, overriding the family rule above and inheriting everything else from it."
       }
     },
     {
       "id": "gemini-generative-multimodal",
       "provider": "gemini",
-      "modelPattern": "^gemini-(?:1\\.5|2(?:\\.0|\\.5)?|3(?:\\.0|\\.1)?)-",
+      "modelPattern": "^gemini-(?:1\\.5|2(?:\\.0|\\.5)?|3(?:\\.\\d+)?)-",
       "capabilities": {
-        "inputs": { "text": "supported", "image": "supported", "pdf": "supported" },
+        "inputs": {
+          "text": "supported",
+          "image": "supported",
+          "pdf": "supported"
+        },
         "parameters": {
-          "maxOutputTokens": { "support": "supported", "min": 1 },
-          "temperature": { "support": "supported", "min": 0 }
+          "maxOutputTokens": {
+            "support": "supported",
+            "min": 1
+          },
+          "temperature": {
+            "support": "supported",
+            "min": 0
+          }
         }
       },
       "evidence": {
         "url": "https://ai.google.dev/api/models",
-        "verifiedAt": "2026-07-17"
+        "verifiedAt": "2026-09-10",
+        "note": "The 3.x branch was pinned to 3.0/3.1, so every later minor -- 3.5-flash-lite through 3.8-flash -- fell through to unknown."
       }
     },
     {
-      "id": "gemini-3-5-flash",
+      "id": "gemini-3-x-flash",
       "provider": "gemini",
-      "modelPattern": "^gemini-3\\.5-flash$",
+      "modelPattern": "^gemini-3\\.\\d+-flash$",
       "capabilities": {
         "contextWindow": 1048576,
         "maxOutputTokens": 65536,
@@ -179,15 +335,24 @@
           "video": "supported"
         },
         "parameters": {
-          "maxOutputTokens": { "support": "supported", "min": 1, "max": 65536 },
-          "temperature": { "support": "supported", "min": 0 },
-          "reasoning": { "support": "supported" }
+          "maxOutputTokens": {
+            "support": "supported",
+            "min": 1,
+            "max": 65536
+          },
+          "temperature": {
+            "support": "supported",
+            "min": 0
+          },
+          "reasoning": {
+            "support": "supported"
+          }
         }
       },
       "evidence": {
-        "url": "https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash",
-        "verifiedAt": "2026-07-17",
-        "note": "Live Gemini metadata remains authoritative for the default and maximum temperature."
+        "url": "https://ai.google.dev/api/models",
+        "verifiedAt": "2026-09-10",
+        "note": "gemini-3.5 through 3.8 flash advertise identical limits (1048576 in, 65536 out) and a temperature ceiling of 2 on the Models API. Deliberately excludes -lite, whose reasoning support is not confirmed; it inherits the family rule above. Live Gemini metadata remains authoritative for the default and maximum temperature."
       }
     },
     {
@@ -195,10 +360,19 @@
       "provider": "grok",
       "modelPattern": "^grok-(?:3|4)(?:[-.]|$)",
       "capabilities": {
-        "inputs": { "text": "supported" },
+        "inputs": {
+          "text": "supported"
+        },
         "parameters": {
-          "maxOutputTokens": { "support": "supported", "min": 1 },
-          "temperature": { "support": "supported", "min": 0, "max": 2 }
+          "maxOutputTokens": {
+            "support": "supported",
+            "min": 1
+          },
+          "temperature": {
+            "support": "supported",
+            "min": 0,
+            "max": 2
+          }
         }
       },
       "evidence": {
@@ -211,11 +385,25 @@
       "provider": "deepseek",
       "modelPattern": "^deepseek-chat$",
       "capabilities": {
-        "inputs": { "text": "supported", "image": "unsupported", "pdf": "unsupported" },
+        "inputs": {
+          "text": "supported",
+          "image": "unsupported",
+          "pdf": "unsupported"
+        },
         "parameters": {
-          "maxOutputTokens": { "support": "supported", "min": 1 },
-          "temperature": { "support": "supported", "min": 0, "max": 2 },
-          "reasoning": { "support": "supported", "modes": ["off", "on"] }
+          "maxOutputTokens": {
+            "support": "supported",
+            "min": 1
+          },
+          "temperature": {
+            "support": "supported",
+            "min": 0,
+            "max": 2
+          },
+          "reasoning": {
+            "support": "supported",
+            "modes": ["off", "on"]
+          }
         }
       },
       "evidence": {
@@ -228,11 +416,23 @@
       "provider": "deepseek",
       "modelPattern": "^deepseek-reasoner$",
       "capabilities": {
-        "inputs": { "text": "supported", "image": "unsupported", "pdf": "unsupported" },
+        "inputs": {
+          "text": "supported",
+          "image": "unsupported",
+          "pdf": "unsupported"
+        },
         "parameters": {
-          "maxOutputTokens": { "support": "supported", "min": 1 },
-          "temperature": { "support": "unsupported" },
-          "reasoning": { "support": "supported", "default": "on" }
+          "maxOutputTokens": {
+            "support": "supported",
+            "min": 1
+          },
+          "temperature": {
+            "support": "unsupported"
+          },
+          "reasoning": {
+            "support": "supported",
+            "default": "on"
+          }
         }
       },
       "evidence": {
@@ -247,11 +447,28 @@
       "capabilities": {
         "contextWindow": 1000000,
         "maxOutputTokens": 393216,
-        "inputs": { "text": "supported", "image": "unsupported", "pdf": "unsupported" },
+        "inputs": {
+          "text": "supported",
+          "image": "unsupported",
+          "pdf": "unsupported"
+        },
         "parameters": {
-          "maxOutputTokens": { "support": "supported", "min": 1, "max": 393216 },
-          "temperature": { "support": "supported", "min": 0, "max": 2, "default": 1 },
-          "reasoning": { "support": "supported", "modes": ["off", "on"], "default": "on" }
+          "maxOutputTokens": {
+            "support": "supported",
+            "min": 1,
+            "max": 393216
+          },
+          "temperature": {
+            "support": "supported",
+            "min": 0,
+            "max": 2,
+            "default": 1
+          },
+          "reasoning": {
+            "support": "supported",
+            "modes": ["off", "on"],
+            "default": "on"
+          }
         }
       },
       "evidence": {
@@ -272,9 +489,17 @@
           "video": "supported"
         },
         "parameters": {
-          "maxOutputTokens": { "support": "supported", "min": 1 },
-          "temperature": { "support": "unsupported" },
-          "reasoning": { "support": "supported", "modes": ["off", "on"] }
+          "maxOutputTokens": {
+            "support": "supported",
+            "min": 1
+          },
+          "temperature": {
+            "support": "unsupported"
+          },
+          "reasoning": {
+            "support": "supported",
+            "modes": ["off", "on"]
+          }
         }
       },
       "evidence": {
@@ -296,9 +521,19 @@
           "video": "supported"
         },
         "parameters": {
-          "maxOutputTokens": { "support": "supported", "min": 1 },
-          "temperature": { "support": "supported", "fixed": 1 },
-          "reasoning": { "support": "supported", "modes": ["on"], "default": "on" }
+          "maxOutputTokens": {
+            "support": "supported",
+            "min": 1
+          },
+          "temperature": {
+            "support": "supported",
+            "fixed": 1
+          },
+          "reasoning": {
+            "support": "supported",
+            "modes": ["on"],
+            "default": "on"
+          }
         }
       },
       "evidence": {
@@ -327,8 +562,15 @@
             "max": 1048576,
             "default": 131072
           },
-          "temperature": { "support": "supported", "fixed": 1 },
-          "reasoning": { "support": "supported", "modes": ["max"], "default": "max" }
+          "temperature": {
+            "support": "supported",
+            "fixed": 1
+          },
+          "reasoning": {
+            "support": "supported",
+            "modes": ["max"],
+            "default": "max"
+          }
         }
       },
       "evidence": {

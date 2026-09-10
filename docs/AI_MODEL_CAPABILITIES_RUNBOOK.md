@@ -49,6 +49,10 @@ npm run audit:ai-models -- --json
 1. Run the audit and identify an unmatched model or a changed provider behavior.
 2. Read the provider's official model and request documentation. Do not infer capabilities from a model name alone.
 3. Prefer a narrow family rule when the provider documents a family-wide contract. Use an exact-model rule for exceptions.
+   Write the pattern so it survives a point release: an exact `^claude-fable-5$` does not match `claude-fable-5-1`, and a
+   model that matches no rule resolves to `unknown`, which makes the editor refuse image, PDF and max-output requests
+   against it. That is how Fable 5.1 and GPT-6 reached production unusable. Reserve exact matches for a genuine exception,
+   and let it declare only the fields that differ.
 4. Declare only confirmed fields. Omitted fields resolve to `unknown`; do not use `supported` as a default.
 5. Add an official HTTPS evidence URL, the review date, and a note when the rule is intentionally conservative.
 6. Increment the registry version using `YYYY-MM-DD.N`.

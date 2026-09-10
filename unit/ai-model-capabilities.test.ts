@@ -31,12 +31,74 @@ describe('AI model capabilities', () => {
     );
   });
 
+  it('covers point releases and siblings, not just the exact ID reviewed', () => {
+    /*
+        The rules for the Claude 5 generation were written as exact matches on
+        the IDs that existed at the time, so claude-fable-5-1 and claude-opus-5
+        shipped to production resolving to unknown: the editor refused a score
+        image, a PDF, or any custom max output against the newest models it
+        offered. Same shape on Gemini, whose 3.x branch was pinned to 3.0/3.1.
+        A rule that cannot survive a point release is the bug, so pin that.
+    */
+    const generation = [
+      ['anthropic', 'claude-opus-5'],
+      ['anthropic', 'claude-sonnet-5'],
+      ['anthropic', 'claude-fable-5'],
+      ['anthropic', 'claude-fable-5-1'],
+      ['anthropic', 'claude-opus-4-5-20251101'],
+      ['openai', 'gpt-6-astra'],
+      ['gemini', 'gemini-3.6-flash'],
+      ['gemini', 'gemini-3.8-flash'],
+    ] as const;
+
+    for (const [provider, model] of generation) {
+      const descriptor = resolveAiModelDescriptor(provider, model);
+      expect(descriptor.source, model).toBe('registry');
+      expect(descriptor.inputs.image, model).toBe('supported');
+      expect(descriptor.inputs.pdf, model).toBe('supported');
+      expect(
+        validateAiModelRequest(provider, model, { hasImage: true, hasPdf: true }).ok,
+        model,
+      ).toBe(true);
+    }
+
+    // Fable thinks adaptively and cannot be told not to; the rest of the
+    // generation may turn it off. The exception declares only that, and
+    // inherits the family's limits.
+    expect(
+      resolveAiModelDescriptor('anthropic', 'claude-fable-5-1').parameters.reasoning.modes,
+    ).toEqual(['adaptive']);
+    expect(
+      resolveAiModelDescriptor('anthropic', 'claude-opus-5').parameters.reasoning.modes,
+    ).toEqual(['off', 'adaptive']);
+    expect(resolveAiModelDescriptor('anthropic', 'claude-fable-5-1').maxOutputTokens).toBe(128_000);
+
+    // Opus 4.5 is an older generation and keeps its own smaller limits and its
+    // manual thinking, rather than inheriting the 5 family's.
+    const opus45 = resolveAiModelDescriptor('anthropic', 'claude-opus-4-5-20251101');
+    expect(opus45.contextWindow).toBe(200_000);
+    expect(opus45.maxOutputTokens).toBe(64_000);
+    expect(opus45.parameters.temperature.support).toBe('supported');
+    expect(opus45.parameters.reasoning.modes).toEqual(['off', 'enabled']);
+
+    // GPT-6 follows the GPT-5 reasoning contract: no sampling control.
+    expect(resolveAiModelDescriptor('openai', 'gpt-6-astra').parameters.temperature.support).toBe(
+      'unsupported',
+    );
+
+    // Gemini's -lite is deliberately not in the flash rule: its reasoning
+    // support is unconfirmed, so it inherits the family and stays unknown.
+    expect(
+      resolveAiModelDescriptor('gemini', 'gemini-3.5-flash-lite').parameters.reasoning.support,
+    ).toBe('unknown');
+  });
+
   it('resolves the reviewed unmatched model additions', () => {
     const cases = [
-      ['anthropic', 'claude-fable-5', 'anthropic-fable-5'],
+      ['anthropic', 'claude-fable-5', 'anthropic-claude-5'],
       ['anthropic', 'claude-opus-4-6', 'anthropic-opus-4-6'],
-      ['anthropic', 'claude-sonnet-5', 'anthropic-sonnet-5'],
-      ['gemini', 'gemini-3.5-flash', 'gemini-3-5-flash'],
+      ['anthropic', 'claude-sonnet-5', 'anthropic-claude-5'],
+      ['gemini', 'gemini-3.5-flash', 'gemini-3-x-flash'],
       ['deepseek', 'deepseek-v4-flash', 'deepseek-v4'],
       ['deepseek', 'deepseek-v4-pro', 'deepseek-v4'],
       ['kimi', 'kimi-k2.7-code', 'kimi-k2-7-code'],
