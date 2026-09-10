@@ -1646,6 +1646,19 @@ export function ScannerSystemRows({
   // view's own business, because everything a reader needs to move — the
   // rows, the scan, the readings — is already here.
   const [selectedBlockIndex, setSelectedBlockIndex] = useState<number | undefined>(onlyBlockIndex);
+  /*
+   * Which line the reader was taken to, when the block alone does not say.
+   *
+   * A difference whose bars straddle the end of one system and the start of
+   * the next belongs to both rows, and both offer it as their first conflict --
+   * so a line named by block index alone is ambiguous, and resolving it by
+   * search always found the earlier row. "Next line" then asked for a block the
+   * current row already held and the view did not move at all.
+   *
+   * Undefined means "wherever this block is", which is what the host asking for
+   * a block index means and what a reader who has not navigated yet wants.
+   */
+  const [selectedRow, setSelectedRow] = useState<number | undefined>(undefined);
   const [staleCrops, setStaleCrops] = useState<Set<number>>(new Set());
   // The difference the pointer is over, if any. Hover is a question — "which
   // bars is this one?" — and this is what answers it.
@@ -1657,10 +1670,20 @@ export function ScannerSystemRows({
     engineId: string;
     message: string;
   } | null>(null);
-  useEffect(() => setSelectedBlockIndex(onlyBlockIndex), [onlyBlockIndex]);
-  const selectedRowIndex = differencesByRow.findIndex((entries) =>
-    entries.some((entry) => entry.blockIndex === selectedBlockIndex),
-  );
+  useEffect(() => {
+    setSelectedBlockIndex(onlyBlockIndex);
+    // The host naming a block replaces where the reader had walked to.
+    setSelectedRow(undefined);
+  }, [onlyBlockIndex]);
+  // The row navigation last chose, while it still holds the selected block;
+  // otherwise the first row that holds it.
+  const selectedRowIndex =
+    selectedRow !== undefined &&
+    differencesByRow[selectedRow]?.some((entry) => entry.blockIndex === selectedBlockIndex)
+      ? selectedRow
+      : differencesByRow.findIndex((entries) =>
+          entries.some((entry) => entry.blockIndex === selectedBlockIndex),
+        );
   const selectedPosition = navigableLines.findIndex((entry) => entry.rowIndex === selectedRowIndex);
   const isFirstConflictLine = selectedPosition <= 0;
   const isLastConflictLine = selectedPosition < 0 || selectedPosition >= navigableLines.length - 1;
@@ -1669,6 +1692,7 @@ export function ScannerSystemRows({
     const target = navigableLines[position];
     if (!target) return;
     setSelectedBlockIndex(target.blockIndex);
+    setSelectedRow(target.rowIndex);
   };
 
   useEffect(() => {

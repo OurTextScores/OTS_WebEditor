@@ -905,6 +905,93 @@ describe('the difference navigator', () => {
     expect(screen.getAllByTestId('pane-measures')).toHaveLength(2);
   });
 
+  it('walks the whole page, not just the first step', async () => {
+    // Two lines cannot catch a walk that stalls in the middle of one.
+    const calls: FetchCall[] = [];
+    const four: ScannerSystem[] = [0, 1, 2, 3].map((index) => ({
+      systemIndex: index,
+      leftMeasureIndexes: [index],
+      rightMeasureIndexes: [index],
+      cropUrl: `systems/${index}/crop`,
+    }));
+    renderRows(
+      [0, 1, 2, 3].map((index) => ({
+        ...grounded,
+        blockIndex: index,
+        leftMeasureIndexes: [index],
+        rightMeasureIndexes: [index],
+        contentSignature: `scanner-block-content-v2:${index}`,
+      })),
+      calls,
+      { systems: four, onlyBlockIndex: 0 },
+    );
+
+    expect(await screen.findByTestId('difference-title')).toHaveTextContent('Conflict line 1 of 4');
+    for (const line of [2, 3, 4]) {
+      await userEvent.click(screen.getByTestId('btn-next-difference'));
+      expect(screen.getByTestId('difference-title')).toHaveTextContent(
+        `Conflict line ${line} of 4`,
+      );
+    }
+    expect(screen.getByTestId('btn-next-difference')).toBeDisabled();
+    for (const line of [3, 2, 1]) {
+      await userEvent.click(screen.getByTestId('btn-previous-difference'));
+      expect(screen.getByTestId('difference-title')).toHaveTextContent(
+        `Conflict line ${line} of 4`,
+      );
+    }
+    expect(screen.getByTestId('btn-previous-difference')).toBeDisabled();
+  });
+
+  it('walks to the next line when a conflict spans the system break', async () => {
+    /*
+        A difference whose bars straddle the end of one system and the start of
+        the next belongs to both rows, so both rows offer it as their first
+        conflict. Navigation named a line by that block index alone, so "next
+        line" asked for a block the current row already holds, the row lookup
+        found the earlier row again, and the button did nothing at all.
+    */
+    const calls: FetchCall[] = [];
+    const split: ScannerSystem[] = [
+      { systemIndex: 0, leftMeasureIndexes: [0, 1], rightMeasureIndexes: [0, 1] },
+      { systemIndex: 1, leftMeasureIndexes: [2, 3], rightMeasureIndexes: [2, 3] },
+    ];
+    renderRows(
+      [
+        // Straddles the break: on both rows.
+        { ...grounded, blockIndex: 0, leftMeasureIndexes: [1, 2], rightMeasureIndexes: [1, 2] },
+        {
+          ...grounded,
+          blockIndex: 1,
+          leftMeasureIndexes: [3],
+          rightMeasureIndexes: [3],
+          contentSignature: 'scanner-block-content-v2:def',
+        },
+      ],
+      calls,
+      { systems: split, onlyBlockIndex: 0 },
+    );
+
+    expect(await screen.findByTestId('difference-title')).toHaveTextContent('Conflict line 1 of 2');
+    expect(screen.getByTestId('btn-next-difference')).not.toBeDisabled();
+    expect(screen.getByTestId('btn-previous-difference')).toBeDisabled();
+    // The first line is the first system, and it is the only one shown.
+    expect(screen.getByTestId('system-row-header')).toHaveTextContent('Conflict line 1 of 2');
+    expect(screen.getAllByTestId('system-row-header')).toHaveLength(1);
+
+    await userEvent.click(screen.getByTestId('btn-next-difference'));
+    expect(screen.getByTestId('difference-title')).toHaveTextContent('Conflict line 2 of 2');
+    expect(screen.getByTestId('btn-next-difference')).toBeDisabled();
+    // The second row really is on screen: it is the one carrying the conflict
+    // that only exists there.
+    expect(await screen.findByTestId('btn-take-down-1')).toBeInTheDocument();
+
+    // And back, which the same ambiguity would have broken in the same way.
+    await userEvent.click(screen.getByTestId('btn-previous-difference'));
+    expect(screen.getByTestId('difference-title')).toHaveTextContent('Conflict line 1 of 2');
+    expect(screen.queryByTestId('btn-take-down-1')).not.toBeInTheDocument();
+  });
+
   it('does not let a pointer resize the panes', async () => {
     /*
         Pane geometry follows the conflict under review: which bars each pane
