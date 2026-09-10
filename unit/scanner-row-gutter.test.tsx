@@ -905,6 +905,64 @@ describe('the difference navigator', () => {
     expect(screen.getAllByTestId('pane-measures')).toHaveLength(2);
   });
 
+  it('does not let a pointer resize the panes', async () => {
+    /*
+        Pane geometry follows the conflict under review: which bars each pane
+        draws, and from those the band it clips to and the height it takes. When
+        hovering decided that too, moving the pointer onto a Take control
+        rescaled the music beside it -- and in Stacked, where the panes and
+        gutters are one flow, a pane that grew pushed the control down and out
+        from under the pointer, which fired the next hover.
+
+        What the control would do is still shown, by the preview wash on the
+        exact bars. Nothing here should move.
+    */
+    const calls: FetchCall[] = [];
+    const wide: ScannerSystem[] = [
+      {
+        systemIndex: 0,
+        leftMeasureIndexes: [0, 1, 2, 3, 4],
+        rightMeasureIndexes: [0, 1, 2, 3, 4],
+      },
+    ];
+    renderRows(
+      [
+        { ...grounded, blockIndex: 0, leftMeasureIndexes: [1], rightMeasureIndexes: [1] },
+        {
+          ...grounded,
+          blockIndex: 1,
+          leftMeasureIndexes: [3],
+          rightMeasureIndexes: [3],
+          contentSignature: 'scanner-block-content-v2:def',
+        },
+      ],
+      calls,
+      { systems: wide },
+    );
+
+    await screen.findByTestId('btn-take-down-1');
+    const geometry = () =>
+      screen.getAllByTestId('pane-measures').map((node) => ({
+        bars: node.textContent,
+        left: node.dataset.placeLeft,
+        width: node.dataset.placeWidth,
+        height: (node.parentElement as HTMLElement).style.height,
+      }));
+    await waitFor(() => expect(geometry()).toHaveLength(3));
+    const resting = geometry();
+    // Otherwise "unchanged" would be a statement about nothing.
+    expect(resting.every((pane) => pane.bars && pane.bars.length > 0)).toBe(true);
+
+    for (const control of ['btn-take-down-1', 'btn-take-up-1', 'btn-take-down-0']) {
+      fireEvent.mouseEnter(screen.getByTestId(control));
+      expect(geometry(), control).toEqual(resting);
+    }
+
+    // And the hover did reach the row -- it is the preview and the description
+    // that answer it, not a resize.
+    expect(screen.getByTestId('difference-description')).toBeInTheDocument();
+  });
+
   it('keeps the hover description below the controls that summon it', async () => {
     /*
         The description's height varies -- with the number of conflicts on the

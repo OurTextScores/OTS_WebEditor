@@ -2395,11 +2395,27 @@ export function ScannerSystemRows({
         // until a decision changes it, so marking it differently would
         // be claiming a difference that has not happened yet.
         const symbols = activeRegion?.symbolDifferences || [];
-        // What this row is about: the selected difference when there is
-        // one, and otherwise everything differing on the line.
-        const focusRegions = activeRegion
-          ? [activeRegion]
-          : selectedRegion && differences.some((r) => r.blockIndex === selectedRegion.blockIndex)
+        /*
+                    What this row is about: the selected difference when there
+                    is one, and otherwise everything differing on the line.
+
+                    Deliberately not the hovered one. Every pane's geometry is
+                    derived from this -- which bars it draws, and from those the
+                    band it clips to and the scale it draws at, and from those
+                    its height. Letting a pointer decide it meant that hovering
+                    a Take control resized the panes: in Stacked, where panes
+                    and gutters are a single flow, a pane that grew pushed every
+                    control below it down and moved the button being hovered,
+                    which fired the next hover. Selection is an act and may
+                    resize; a pointer passing over is not and may not.
+
+                    Nothing is lost by it. What a hovered control would take is
+                    already washed onto the exact bars, in all three panes, by
+                    the preview boxes below -- which is the question hovering
+                    asks, answered without moving anything.
+                */
+        const focusRegions =
+          selectedRegion && differences.some((r) => r.blockIndex === selectedRegion.blockIndex)
             ? [selectedRegion]
             : differences;
         /*
