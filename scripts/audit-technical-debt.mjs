@@ -56,12 +56,7 @@ const scoreEditor = {
 };
 
 const eslintPath = resolve(root, 'node_modules/eslint/bin/eslint.js');
-const eslintResult = spawnSync(process.execPath, [
-  eslintPath,
-  ...ownedRoots,
-  '--format',
-  'json',
-], {
+const eslintResult = spawnSync(process.execPath, [eslintPath, ...ownedRoots, '--format', 'json'], {
   cwd: root,
   encoding: 'utf8',
   maxBuffer: 64 * 1024 * 1024,
@@ -101,13 +96,11 @@ for (const row of eslintRows) {
 
 const topRules = [...ruleCounts.entries()]
   .map(([rule, counts]) => ({ rule, ...counts }))
-  .sort((a, b) => (b.errors + b.warnings) - (a.errors + a.warnings))
+  .sort((a, b) => b.errors + b.warnings - (a.errors + a.warnings))
   .slice(0, 10);
 const topFiles = eslintRows
   .filter((row) => row.errorCount > 0 || row.warningCount > 0)
-  .sort((a, b) => (
-    (b.errorCount + b.warningCount) - (a.errorCount + a.warningCount)
-  ))
+  .sort((a, b) => b.errorCount + b.warningCount - (a.errorCount + a.warningCount))
   .slice(0, 10)
   .map((row) => ({
     file: relative(root, row.filePath),
@@ -120,12 +113,9 @@ let unconditionalSkips = 0;
 let localSuppressionDirectives = 0;
 for (const file of ownedFiles) {
   const source = readFileSync(file, 'utf8');
-  unconditionalSkips += (
-    source.match(/\b(?:test|it|describe)\.skip\s*\(\s*(['"`])/g) || []
-  ).length;
-  localSuppressionDirectives += (
-    source.match(/eslint-disable|@ts-ignore|@ts-expect-error/g) || []
-  ).length;
+  unconditionalSkips += (source.match(/\b(?:test|it|describe)\.skip\s*\(\s*(['"`])/g) || []).length;
+  localSuppressionDirectives += (source.match(/eslint-disable|@ts-ignore|@ts-expect-error/g) || [])
+    .length;
 }
 
 const moduleBudgets = budget.modules || {};
@@ -173,9 +163,17 @@ const checks = [
   ['ScoreEditor bytes', report.scoreEditor.bytes, budget.scoreEditor.maxBytes],
   ['ESLint errors', report.eslint.errors, budget.eslint.maxErrors],
   ['ESLint warnings', report.eslint.warnings, budget.eslint.maxWarnings],
-  ['files with ESLint findings', report.eslint.filesWithFindings, budget.eslint.maxFilesWithFindings],
+  [
+    'files with ESLint findings',
+    report.eslint.filesWithFindings,
+    budget.eslint.maxFilesWithFindings,
+  ],
   ['unconditional test skips', report.tests.unconditionalSkips, budget.tests.maxUnconditionalSkips],
-  ['local suppression directives', report.suppressions.localDirectives, budget.suppressions.maxLocalDirectives],
+  [
+    'local suppression directives',
+    report.suppressions.localDirectives,
+    budget.suppressions.maxLocalDirectives,
+  ],
   ...report.modules.flatMap((entry) => [
     [`${entry.path} lines`, entry.lines, moduleBudgets[entry.path].maxLines],
     [`${entry.path} bytes`, entry.bytes, moduleBudgets[entry.path].maxBytes],
@@ -201,9 +199,11 @@ if (jsonOutput) {
   if (report.modules.length > 0) {
     console.log('[debt:audit] budgeted modules:');
     for (const entry of report.modules) {
-      console.log(entry.missing
-        ? `  ${entry.path}: MISSING`
-        : `  ${entry.path}: ${entry.lines} lines, ${entry.bytes} bytes`);
+      console.log(
+        entry.missing
+          ? `  ${entry.path}: MISSING`
+          : `  ${entry.path}: ${entry.lines} lines, ${entry.bytes} bytes`,
+      );
     }
   }
   console.log('[debt:audit] top rules:');
@@ -241,14 +241,18 @@ const checkRatchetDirection = () => {
     const detail = `${budgetPath} does not exist at ${candidates.join(' or ')}`;
     if (process.env.CI) {
       console.error(`[debt:audit] ratchet direction unverifiable: ${detail}.`);
-      console.error('[debt:audit] the debt job needs full history (fetch-depth: 0) to compare budgets.');
+      console.error(
+        '[debt:audit] the debt job needs full history (fetch-depth: 0) to compare budgets.',
+      );
       return false;
     }
     console.warn(`[debt:audit] ratchet direction not checked: ${detail}.`);
     return true;
   }
   if (baseRef !== preferredRef) {
-    console.log(`[debt:audit] ${preferredRef} predates ${budgetPath}; comparing budgets against ${baseRef}.`);
+    console.log(
+      `[debt:audit] ${preferredRef} predates ${budgetPath}; comparing budgets against ${baseRef}.`,
+    );
   }
 
   const { raises, failures: directionFailures } = analyzeRatchetDirection(

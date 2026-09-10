@@ -13,12 +13,16 @@ describe('extractPatchAnnotations (Part B)', () => {
   });
 
   it('reads annotations nested under .patch', () => {
-    const out = extractPatchAnnotations({ patch: { annotations: [{ part: 1, measure: 5, comment: 'x' }] } });
+    const out = extractPatchAnnotations({
+      patch: { annotations: [{ part: 1, measure: 5, comment: 'x' }] },
+    });
     expect(out).toEqual([{ partIndex: 0, measure: 5, comment: 'x' }]);
   });
 
   it('honors an explicit 0-based partIndex over 1-based part', () => {
-    const out = extractPatchAnnotations({ annotations: [{ partIndex: 0, measure: 1, comment: 'y' }] });
+    const out = extractPatchAnnotations({
+      annotations: [{ partIndex: 0, measure: 1, comment: 'y' }],
+    });
     expect(out[0].partIndex).toBe(0);
   });
 

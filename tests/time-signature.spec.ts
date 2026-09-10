@@ -13,7 +13,11 @@ test('time signature change starts at selected note', async ({ page }) => {
       }
       const bytes: Uint8Array = await score.saveMsc('mscx');
       const xml = new TextDecoder().decode(bytes);
-      const matches = Array.from(xml.matchAll(/<TimeSig>[\s\S]*?<sigN>(\d+)<\/sigN>[\s\S]*?<sigD>(\d+)<\/sigD>[\s\S]*?<\/TimeSig>/g));
+      const matches = Array.from(
+        xml.matchAll(
+          /<TimeSig>[\s\S]*?<sigN>(\d+)<\/sigN>[\s\S]*?<sigD>(\d+)<\/sigD>[\s\S]*?<\/TimeSig>/g,
+        ),
+      );
       return matches.map((m) => `${m[1]}/${m[2]}`);
     });
   };
@@ -38,8 +42,12 @@ test('time signature change starts at selected note', async ({ page }) => {
 
   // Start time signature should remain unchanged (change is inserted later in the score).
   await expect.poll(async () => (await readTimeSigs())[0], { timeout: 20_000 }).toBe(startSig);
-  await expect.poll(async () => (await readTimeSigs()).length, { timeout: 20_000 }).toBeGreaterThan(1);
-  await expect.poll(async () => (await readTimeSigs()).includes(targetSig), { timeout: 20_000 }).toBe(true);
+  await expect
+    .poll(async () => (await readTimeSigs()).length, { timeout: 20_000 })
+    .toBeGreaterThan(1);
+  await expect
+    .poll(async () => (await readTimeSigs()).includes(targetSig), { timeout: 20_000 })
+    .toBe(true);
 });
 
 test('custom time signature applies at selection', async ({ page }) => {
@@ -54,7 +62,11 @@ test('custom time signature applies at selection', async ({ page }) => {
       }
       const bytes: Uint8Array = await score.saveMsc('mscx');
       const xml = new TextDecoder().decode(bytes);
-      const matches = Array.from(xml.matchAll(/<TimeSig>[\s\S]*?<sigN>(\d+)<\/sigN>[\s\S]*?<sigD>(\d+)<\/sigD>[\s\S]*?<\/TimeSig>/g));
+      const matches = Array.from(
+        xml.matchAll(
+          /<TimeSig>[\s\S]*?<sigN>(\d+)<\/sigN>[\s\S]*?<sigD>(\d+)<\/sigD>[\s\S]*?<\/TimeSig>/g,
+        ),
+      );
       return matches.map((m) => `${m[1]}/${m[2]}`);
     });
   };
@@ -71,5 +83,7 @@ test('custom time signature applies at selection', async ({ page }) => {
   await expect(applyButton).toBeEnabled();
   await applyButton.click();
 
-  await expect.poll(async () => (await readTimeSigs()).includes('5/8'), { timeout: 20_000 }).toBe(true);
+  await expect
+    .poll(async () => (await readTimeSigs()).includes('5/8'), { timeout: 20_000 })
+    .toBe(true);
 });

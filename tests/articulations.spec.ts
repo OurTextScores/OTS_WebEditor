@@ -14,8 +14,8 @@ test('staccato button toggles articulation on selected note', async ({ page }) =
       const bytes: Uint8Array = await score.saveMsc('mscx');
       const xml = new TextDecoder().decode(bytes);
       return (
-        xml.includes('<subtype>articStaccatoAbove</subtype>')
-        || xml.includes('<subtype>articStaccatoBelow</subtype>')
+        xml.includes('<subtype>articStaccatoAbove</subtype>') ||
+        xml.includes('<subtype>articStaccatoBelow</subtype>')
       );
     });
   };

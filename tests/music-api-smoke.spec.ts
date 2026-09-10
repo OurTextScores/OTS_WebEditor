@@ -10,15 +10,21 @@ const SCALE_XML = readFileSync(
 const MIDI_FIXTURES = [
   {
     filename: 'midi3.mid',
-    contentBase64: readFileSync(resolve(__dirname, '../webmscore-fork/test/midi/midi3.mid')).toString('base64'),
+    contentBase64: readFileSync(
+      resolve(__dirname, '../webmscore-fork/test/midi/midi3.mid'),
+    ).toString('base64'),
   },
   {
     filename: 'midi5.mid',
-    contentBase64: readFileSync(resolve(__dirname, '../webmscore-fork/test/midi/midi5.mid')).toString('base64'),
+    contentBase64: readFileSync(
+      resolve(__dirname, '../webmscore-fork/test/midi/midi5.mid'),
+    ).toString('base64'),
   },
   {
     filename: 'midi1.mid',
-    contentBase64: readFileSync(resolve(__dirname, '../webmscore-fork/test/midi/midi1.mid')).toString('base64'),
+    contentBase64: readFileSync(
+      resolve(__dirname, '../webmscore-fork/test/midi/midi1.mid'),
+    ).toString('base64'),
   },
 ];
 
@@ -43,13 +49,15 @@ function extractServiceErrorMessage(payload: unknown): string {
 }
 
 function isLikelyMidiToolingError(message: string) {
-  return /not found|enoent|no command candidates|cannot open display|could not connect to display|xvfb-run|qt\.qpa|platform plugin|timed out/i
-    .test(message);
+  return /not found|enoent|no command candidates|cannot open display|could not connect to display|xvfb-run|qt\.qpa|platform plugin|timed out/i.test(
+    message,
+  );
 }
 
 function isLikelyMmaToolingError(message: string) {
-  return /mma tool unavailable|no mma command candidates|enoent|not found|timed out|did not generate midi/i
-    .test(message);
+  return /mma tool unavailable|no mma command candidates|enoent|not found|timed out|did not generate midi/i.test(
+    message,
+  );
 }
 
 function maybeSkipIfMidiToolsUnavailable(status: number, payload: unknown) {
@@ -57,7 +65,10 @@ function maybeSkipIfMidiToolsUnavailable(status: number, payload: unknown) {
   if (status < 500 || !message) {
     return;
   }
-  test.skip(isLikelyMidiToolingError(message), `MIDI conversion tooling unavailable in runtime: ${message}`);
+  test.skip(
+    isLikelyMidiToolingError(message),
+    `MIDI conversion tooling unavailable in runtime: ${message}`,
+  );
 }
 
 function assertBase64MidiHeader(contentBase64: string) {
@@ -90,7 +101,10 @@ type ArtifactResponsePayload = {
   [key: string]: unknown;
 };
 
-async function convertMidiFixtureToXml(request: APIRequestContext, options?: { includeContent?: boolean }) {
+async function convertMidiFixtureToXml(
+  request: APIRequestContext,
+  options?: { includeContent?: boolean },
+) {
   const attempts: Array<{ filename: string; status: number; message: string }> = [];
   for (const fixture of MIDI_FIXTURES) {
     const response = await request.post('/api/music/convert', {
@@ -224,7 +238,7 @@ test.describe('Music service endpoints', () => {
       data: { id: json.inputArtifactId, includeContent: true },
     });
     expect(inputArtifactResponse.ok()).toBeTruthy();
-    const inputArtifactJson = await inputArtifactResponse.json() as ArtifactResponsePayload;
+    const inputArtifactJson = (await inputArtifactResponse.json()) as ArtifactResponsePayload;
     expect(inputArtifactJson.artifact?.format).toBe('midi');
     expect(inputArtifactJson.artifact?.encoding).toBe('base64');
     expect(typeof inputArtifactJson.artifact?.content).toBe('string');
@@ -234,7 +248,7 @@ test.describe('Music service endpoints', () => {
       data: { id: json.outputArtifactId, includeContent: true },
     });
     expect(outputArtifactResponse.ok()).toBeTruthy();
-    const outputArtifactJson = await outputArtifactResponse.json() as ArtifactResponsePayload;
+    const outputArtifactJson = (await outputArtifactResponse.json()) as ArtifactResponsePayload;
     expect(outputArtifactJson.artifact?.format).toBe('musicxml');
     expect(outputArtifactJson.artifact?.encoding).toBe('utf8');
     expect(outputArtifactJson.artifact?.parentArtifactId).toBe(json.inputArtifactId);
@@ -257,7 +271,7 @@ test.describe('Music service endpoints', () => {
       },
       timeout: 90_000,
     });
-    const xmlToMidiJson = await xmlToMidiResponse.json() as ConvertResponsePayload;
+    const xmlToMidiJson = (await xmlToMidiResponse.json()) as ConvertResponsePayload;
     expect(xmlToMidiResponse.ok()).toBeTruthy();
     expect(xmlToMidiJson.inputArtifactId).toBe(midiToXmlJson.outputArtifactId);
     expect(xmlToMidiJson.outputArtifactId).toBeTruthy();
@@ -272,7 +286,8 @@ test.describe('Music service endpoints', () => {
       data: { id: xmlToMidiJson.outputArtifactId, includeContent: true },
     });
     expect(roundtripArtifactResponse.ok()).toBeTruthy();
-    const roundtripArtifactJson = await roundtripArtifactResponse.json() as ArtifactResponsePayload;
+    const roundtripArtifactJson =
+      (await roundtripArtifactResponse.json()) as ArtifactResponsePayload;
     expect(roundtripArtifactJson.artifact?.format).toBe('midi');
     expect(roundtripArtifactJson.artifact?.encoding).toBe('base64');
     expect(roundtripArtifactJson.artifact?.parentArtifactId).toBe(xmlToMidiJson.inputArtifactId);
@@ -398,7 +413,9 @@ test.describe('Music service endpoints', () => {
     expect(decoded).toContain('<score-partwise');
   });
 
-  test('scoreops apply: export_score with midi-only in XML mode returns error', async ({ request }) => {
+  test('scoreops apply: export_score with midi-only in XML mode returns error', async ({
+    request,
+  }) => {
     const response = await request.post('/api/music/scoreops/apply', {
       data: {
         action: 'apply',
@@ -413,7 +430,9 @@ test.describe('Music service endpoints', () => {
     expect(response.status()).toBe(422);
   });
 
-  test('scoreops apply: export_score mixed formats returns musicxml, notes midi unavailable', async ({ request }) => {
+  test('scoreops apply: export_score mixed formats returns musicxml, notes midi unavailable', async ({
+    request,
+  }) => {
     const response = await request.post('/api/music/scoreops/apply', {
       data: {
         action: 'apply',
@@ -709,7 +728,14 @@ test.describe('Agent fallback router', () => {
 /*  Run: OPENAI_API_KEY=sk-... npm run test:e2e:music                 */
 /* ------------------------------------------------------------------ */
 const HAS_API_KEY = Boolean(process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY);
-console.log('HAS_API_KEY:', HAS_API_KEY, 'OPENAI:', !!process.env.OPENAI_API_KEY, 'ANTHROPIC:', !!process.env.ANTHROPIC_API_KEY);
+console.log(
+  'HAS_API_KEY:',
+  HAS_API_KEY,
+  'OPENAI:',
+  !!process.env.OPENAI_API_KEY,
+  'ANTHROPIC:',
+  !!process.env.ANTHROPIC_API_KEY,
+);
 
 test.describe('Music Agent SDK E2E', () => {
   test.skip(!HAS_API_KEY, 'Requires OPENAI_API_KEY or ANTHROPIC_API_KEY');
@@ -719,11 +745,15 @@ test.describe('Music Agent SDK E2E', () => {
       data: {
         prompt: [
           { type: 'input_text', text: 'Analyze the key signature of this PDF score.' },
-          { type: 'input_file', file: { url: 'data:application/pdf;base64,JVBERi0xLjQKJ...' }, filename: 'score.pdf' }
+          {
+            type: 'input_file',
+            file: { url: 'data:application/pdf;base64,JVBERi0xLjQKJ...' },
+            filename: 'score.pdf',
+          },
         ],
         toolInput: {
-          context: { content: MINIMAL_XML }
-        }
+          context: { content: MINIMAL_XML },
+        },
       },
       timeout: 90_000,
     });

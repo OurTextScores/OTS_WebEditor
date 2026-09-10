@@ -26,9 +26,8 @@ const FIELD_LIMITS: Record<keyof EditorLaunchContext, number> = {
   canonicalXmlUrl: 4096,
 };
 
-const asRecord = (value: unknown): Record<string, unknown> | null => (
-  value && typeof value === 'object' ? value as Record<string, unknown> : null
-);
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
 
 const readBoundedString = (value: unknown, maxLength: number) => {
   if (typeof value !== 'string') {
@@ -58,7 +57,9 @@ export function sanitizeEditorLaunchContext(value: unknown): EditorLaunchContext
   return Object.keys(next).length > 0 ? next : null;
 }
 
-export function parseEditorLaunchContextParam(value: string | null | undefined): EditorLaunchContext | null {
+export function parseEditorLaunchContextParam(
+  value: string | null | undefined,
+): EditorLaunchContext | null {
   if (!value?.trim()) {
     return null;
   }

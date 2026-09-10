@@ -29,20 +29,15 @@ const forbidden = [
 let failed = false;
 
 for (const project of projects) {
-  const result = spawnSync(process.execPath, [
-    tsc,
-    '-p',
-    project.config,
-    '--listFilesOnly',
-    '--pretty',
-    'false',
-    '--incremental',
-    'false',
-  ], {
-    cwd: root,
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-  });
+  const result = spawnSync(
+    process.execPath,
+    [tsc, '-p', project.config, '--listFilesOnly', '--pretty', 'false', '--incremental', 'false'],
+    {
+      cwd: root,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    },
+  );
 
   if (result.status !== 0) {
     process.stderr.write(result.stderr || result.stdout);
@@ -59,14 +54,14 @@ for (const project of projects) {
     .filter((file) => file.startsWith(`${root}${sep}`))
     .map((file) => relative(root, file).split(sep).join('/'));
   const ownedFiles = projectFiles.filter((file) => !file.startsWith('node_modules/'));
-  const forbiddenFiles = ownedFiles.filter((file) => (
-    forbidden.some((fragment) => `/${file}`.includes(fragment))
-  ));
-  const missingRoots = project.required.filter((required) => (
+  const forbiddenFiles = ownedFiles.filter((file) =>
+    forbidden.some((fragment) => `/${file}`.includes(fragment)),
+  );
+  const missingRoots = project.required.filter((required) =>
     required.endsWith('/')
       ? !projectFiles.some((file) => file.startsWith(required))
-      : !projectFiles.includes(required)
-  ));
+      : !projectFiles.includes(required),
+  );
 
   if (forbiddenFiles.length > 0 || missingRoots.length > 0) {
     failed = true;

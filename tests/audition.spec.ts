@@ -16,12 +16,13 @@ type AuditionWindow = typeof window & {
   __auditionOriginalFetch?: typeof window.fetch;
 };
 
-const readPreviewCallCount = (page: Page) => page.evaluate(() => (
-  window as AuditionWindow
-).__auditionPreviewCalls.length);
+const readPreviewCallCount = (page: Page) =>
+  page.evaluate(() => (window as AuditionWindow).__auditionPreviewCalls.length);
 
 async function installAuditionSpy(page: Page) {
-  await page.waitForFunction(() => Boolean((window as AuditionWindow).__webmscore), { timeout: 30_000 });
+  await page.waitForFunction(() => Boolean((window as AuditionWindow).__webmscore), {
+    timeout: 30_000,
+  });
 
   await page.evaluate(() => {
     const g = window as AuditionWindow;
@@ -36,11 +37,8 @@ async function installAuditionSpy(page: Page) {
       const originalFetch = window.fetch.bind(window);
       g.__auditionOriginalFetch = originalFetch;
       window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url = typeof input === 'string'
-          ? input
-          : input instanceof URL
-            ? input.toString()
-            : input.url;
+        const url =
+          typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
         if (/\.(sf2|sf3)(\?|$)/i.test(url)) {
           return new Response(new Uint8Array([1, 2, 3]), { status: 200 });
         }
@@ -58,12 +56,14 @@ async function installAuditionSpy(page: Page) {
         if (cancel) {
           return [];
         }
-        return [{
-          chunk,
-          startTime: 0,
-          endTime: 0.05,
-          done: true,
-        }];
+        return [
+          {
+            chunk,
+            startTime: 0,
+            endTime: 0.05,
+            done: true,
+          },
+        ];
       };
     };
   });
@@ -75,7 +75,11 @@ function maybeAttachDebugConsole(page: Page) {
   }
   page.on('console', (msg) => {
     const text = msg.text();
-    if (text.includes('[AUDITION]') || text.includes('[AUDIO]') || text.includes('Mutation "raise pitch"')) {
+    if (
+      text.includes('[AUDITION]') ||
+      text.includes('[AUDIO]') ||
+      text.includes('Mutation "raise pitch"')
+    ) {
       console.log(`[browser] ${text}`);
     }
   });
@@ -90,9 +94,14 @@ test('selection requests audition preview stream', async ({ page }) => {
   await page.locator('svg .Note').first().click();
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
 
-  await expect.poll(async () => {
-    return readPreviewCallCount(page);
-  }, { timeout: 10_000 }).toBeGreaterThan(0);
+  await expect
+    .poll(
+      async () => {
+        return readPreviewCallCount(page);
+      },
+      { timeout: 10_000 },
+    )
+    .toBeGreaterThan(0);
 
   const firstArgs = await page.evaluate(() => (window as AuditionWindow).__auditionPreviewCalls[0]);
   expect(firstArgs[0]).toBe(1);
@@ -107,17 +116,27 @@ test('mutation requests audition preview stream', async ({ page }) => {
 
   await page.locator('svg .Note').first().click();
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
-  await expect.poll(async () => {
-    return readPreviewCallCount(page);
-  }, { timeout: 10_000 }).toBeGreaterThan(0);
+  await expect
+    .poll(
+      async () => {
+        return readPreviewCallCount(page);
+      },
+      { timeout: 10_000 },
+    )
+    .toBeGreaterThan(0);
   await page.evaluate(() => {
     (window as AuditionWindow).__auditionPreviewCalls = [];
   });
   await page.getByTestId('btn-pitch-up').click();
 
-  await expect.poll(async () => {
-    return readPreviewCallCount(page);
-  }, { timeout: 10_000 }).toBeGreaterThan(0);
+  await expect
+    .poll(
+      async () => {
+        return readPreviewCallCount(page);
+      },
+      { timeout: 10_000 },
+    )
+    .toBeGreaterThan(0);
 });
 
 test('repeated note selections request audition preview each time', async ({ page }) => {
@@ -129,21 +148,36 @@ test('repeated note selections request audition preview each time', async ({ pag
   const notes = page.locator('svg .Note');
   await notes.nth(0).click();
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
-  await expect.poll(async () => {
-    return readPreviewCallCount(page);
-  }, { timeout: 10_000 }).toBeGreaterThan(0);
+  await expect
+    .poll(
+      async () => {
+        return readPreviewCallCount(page);
+      },
+      { timeout: 10_000 },
+    )
+    .toBeGreaterThan(0);
 
   const afterFirst = await readPreviewCallCount(page);
   await notes.nth(1).click();
-  await expect.poll(async () => {
-    return readPreviewCallCount(page);
-  }, { timeout: 10_000 }).toBeGreaterThan(afterFirst);
+  await expect
+    .poll(
+      async () => {
+        return readPreviewCallCount(page);
+      },
+      { timeout: 10_000 },
+    )
+    .toBeGreaterThan(afterFirst);
 
   const afterSecond = await readPreviewCallCount(page);
   await notes.nth(2).click();
-  await expect.poll(async () => {
-    return readPreviewCallCount(page);
-  }, { timeout: 10_000 }).toBeGreaterThan(afterSecond);
+  await expect
+    .poll(
+      async () => {
+        return readPreviewCallCount(page);
+      },
+      { timeout: 10_000 },
+    )
+    .toBeGreaterThan(afterSecond);
 });
 
 test('range selection remains intact with audition enabled', async ({ page }) => {
@@ -168,9 +202,14 @@ test('range selection remains intact with audition enabled', async ({ page }) =>
   await notes.nth(1).click({ modifiers: ['Shift'] });
   await page.waitForTimeout(300);
 
-  await expect.poll(async () => {
-    return readPreviewCallCount(page);
-  }, { timeout: 10_000 }).toBeGreaterThan(0);
+  await expect
+    .poll(
+      async () => {
+        return readPreviewCallCount(page);
+      },
+      { timeout: 10_000 },
+    )
+    .toBeGreaterThan(0);
 
   await page.keyboard.press('Control+C');
   await notes.nth(2).click();

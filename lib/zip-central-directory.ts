@@ -28,7 +28,7 @@ const ZIP64_SENTINEL_32 = 0xffffffff;
 const ZIP64_SENTINEL_16 = 0xffff;
 
 export function isZipArchive(data: Uint8Array): boolean {
-    return data.byteLength >= 2 && data[0] === 0x50 && data[1] === 0x4b;
+  return data.byteLength >= 2 && data[0] === 0x50 && data[1] === 0x4b;
 }
 
 /**
@@ -36,56 +36,56 @@ export function isZipArchive(data: Uint8Array): boolean {
  * read — a truncated download, a ZIP64 archive, or bytes that only look like a ZIP.
  */
 export function readZipEntryNames(data: Uint8Array): string[] | null {
-    if (!isZipArchive(data) || data.byteLength < EOCD_MIN_SIZE) {
-        return null;
-    }
-    const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  if (!isZipArchive(data) || data.byteLength < EOCD_MIN_SIZE) {
+    return null;
+  }
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
 
-    const searchFloor = Math.max(0, data.byteLength - MAX_EOCD_SEARCH);
-    let eocd = -1;
-    for (let index = data.byteLength - EOCD_MIN_SIZE; index >= searchFloor; index -= 1) {
-        if (view.getUint32(index, true) === EOCD_SIGNATURE) {
-            eocd = index;
-            break;
-        }
+  const searchFloor = Math.max(0, data.byteLength - MAX_EOCD_SEARCH);
+  let eocd = -1;
+  for (let index = data.byteLength - EOCD_MIN_SIZE; index >= searchFloor; index -= 1) {
+    if (view.getUint32(index, true) === EOCD_SIGNATURE) {
+      eocd = index;
+      break;
     }
-    if (eocd < 0) {
-        return null;
-    }
+  }
+  if (eocd < 0) {
+    return null;
+  }
 
-    const entryCount = view.getUint16(eocd + 10, true);
-    const directorySize = view.getUint32(eocd + 12, true);
-    const directoryOffset = view.getUint32(eocd + 16, true);
-    if (
-        entryCount === ZIP64_SENTINEL_16
-        || directorySize === ZIP64_SENTINEL_32
-        || directoryOffset === ZIP64_SENTINEL_32
-        || directoryOffset + directorySize > data.byteLength
-    ) {
-        return null;
-    }
+  const entryCount = view.getUint16(eocd + 10, true);
+  const directorySize = view.getUint32(eocd + 12, true);
+  const directoryOffset = view.getUint32(eocd + 16, true);
+  if (
+    entryCount === ZIP64_SENTINEL_16 ||
+    directorySize === ZIP64_SENTINEL_32 ||
+    directoryOffset === ZIP64_SENTINEL_32 ||
+    directoryOffset + directorySize > data.byteLength
+  ) {
+    return null;
+  }
 
-    const decoder = new TextDecoder('utf-8', { fatal: false });
-    const names: string[] = [];
-    let cursor = directoryOffset;
-    for (let entry = 0; entry < entryCount; entry += 1) {
-        if (cursor + CENTRAL_HEADER_SIZE > data.byteLength) {
-            return null;
-        }
-        if (view.getUint32(cursor, true) !== CENTRAL_FILE_SIGNATURE) {
-            return null;
-        }
-        const nameLength = view.getUint16(cursor + 28, true);
-        const extraLength = view.getUint16(cursor + 30, true);
-        const commentLength = view.getUint16(cursor + 32, true);
-        const nameStart = cursor + CENTRAL_HEADER_SIZE;
-        const nameEnd = nameStart + nameLength;
-        if (nameEnd > data.byteLength) {
-            return null;
-        }
-        names.push(decoder.decode(data.subarray(nameStart, nameEnd)));
-        cursor = nameEnd + extraLength + commentLength;
+  const decoder = new TextDecoder('utf-8', { fatal: false });
+  const names: string[] = [];
+  let cursor = directoryOffset;
+  for (let entry = 0; entry < entryCount; entry += 1) {
+    if (cursor + CENTRAL_HEADER_SIZE > data.byteLength) {
+      return null;
     }
+    if (view.getUint32(cursor, true) !== CENTRAL_FILE_SIGNATURE) {
+      return null;
+    }
+    const nameLength = view.getUint16(cursor + 28, true);
+    const extraLength = view.getUint16(cursor + 30, true);
+    const commentLength = view.getUint16(cursor + 32, true);
+    const nameStart = cursor + CENTRAL_HEADER_SIZE;
+    const nameEnd = nameStart + nameLength;
+    if (nameEnd > data.byteLength) {
+      return null;
+    }
+    names.push(decoder.decode(data.subarray(nameStart, nameEnd)));
+    cursor = nameEnd + extraLength + commentLength;
+  }
 
-    return names;
+  return names;
 }

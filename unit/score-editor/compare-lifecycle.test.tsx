@@ -4,15 +4,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { setupScoreEditorTest, testGlobals } from './test-harness';
 
 const mocked = vi.hoisted(() => ({
-    loadWebMscore: vi.fn(),
-    loadWebMscoreInProcess: vi.fn(),
+  loadWebMscore: vi.fn(),
+  loadWebMscoreInProcess: vi.fn(),
 }));
 const mockedNavigation = vi.hoisted(() => ({ useSearchParams: vi.fn() }));
 
 vi.mock('next/navigation', () => ({ useSearchParams: mockedNavigation.useSearchParams }));
 vi.mock('../../lib/webmscore-loader', () => ({
-    loadWebMscore: mocked.loadWebMscore,
-    loadWebMscoreInProcess: mocked.loadWebMscoreInProcess,
+  loadWebMscore: mocked.loadWebMscore,
+  loadWebMscoreInProcess: mocked.loadWebMscoreInProcess,
 }));
 
 import ScoreEditor from '../../components/ScoreEditor';
@@ -51,27 +51,27 @@ describe('ScoreEditor: compare pane lifecycle, routing and audio teardown', () =
       npages: vi.fn(async () => 1),
       relayout: vi.fn(async () => true),
       selectElementAtPointWithMode: vi.fn(async () => true),
-      getSelectionBoundingBoxes: vi.fn(async () => [{
-        page: 0,
-        x: 12,
-        y: 8,
-        width: 18,
-        height: 14,
-      }]),
+      getSelectionBoundingBoxes: vi.fn(async () => [
+        {
+          page: 0,
+          x: 12,
+          y: 8,
+          width: 18,
+          height: 14,
+        },
+      ]),
     });
     const mainScore = makeScore();
     const auxiliaryScore = {
       ...makeScore(),
       insertMeasures: vi.fn(() => insertPending),
-      setNoteEntryMode: vi.fn((enabled: boolean) => (
-        enabled ? Promise.resolve(true) : noteEntryDisablePending
-      )),
+      setNoteEntryMode: vi.fn((enabled: boolean) =>
+        enabled ? Promise.resolve(true) : noteEntryDisablePending,
+      ),
     };
     const webmscore = {
       ready: Promise.resolve(),
-      load: vi.fn()
-        .mockResolvedValueOnce(mainScore)
-        .mockResolvedValueOnce(auxiliaryScore),
+      load: vi.fn().mockResolvedValueOnce(mainScore).mockResolvedValueOnce(auxiliaryScore),
     };
 
     params.values = {
@@ -101,28 +101,38 @@ describe('ScoreEditor: compare pane lifecycle, routing and audio teardown', () =
     const selectionSurface = leftPane.querySelector('[title^="Click to select this score"]');
     expect(selectionSurface).toBeTruthy();
     fireEvent.click(selectionSurface!, { clientX: 30, clientY: 20 });
-    await waitFor(() => expect(auxiliaryScore.selectElementAtPointWithMode).toHaveBeenCalledWith(
-      0,
-      expect.any(Number),
-      expect.any(Number),
-      0,
-    ));
-    await waitFor(() => expect(screen.getByTestId('compare-selection-overlay-left')).toHaveStyle({
-      left: '12px',
-      top: '8px',
-      width: '18px',
-      height: '14px',
-    }));
+    await waitFor(() =>
+      expect(auxiliaryScore.selectElementAtPointWithMode).toHaveBeenCalledWith(
+        0,
+        expect.any(Number),
+        expect.any(Number),
+        0,
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('compare-selection-overlay-left')).toHaveStyle({
+        left: '12px',
+        top: '8px',
+        width: '18px',
+        height: '14px',
+      }),
+    );
     auxiliaryScore.getSelectionBoundingBoxes.mockResolvedValueOnce([]);
     fireEvent.click(selectionSurface!, { clientX: 30, clientY: 20, ctrlKey: true });
-    await waitFor(() => expect(auxiliaryScore.selectElementAtPointWithMode).toHaveBeenLastCalledWith(
-      0,
-      expect.any(Number),
-      expect.any(Number),
-      2,
-    ));
-    await waitFor(() => expect(screen.queryByTestId('compare-selection-overlay-left')).not.toBeInTheDocument());
-    expect(auxiliaryScore.saveSvg.mock.calls.every((call: unknown[]) => call[2] === true)).toBe(true);
+    await waitFor(() =>
+      expect(auxiliaryScore.selectElementAtPointWithMode).toHaveBeenLastCalledWith(
+        0,
+        expect.any(Number),
+        expect.any(Number),
+        2,
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.queryByTestId('compare-selection-overlay-left')).not.toBeInTheDocument(),
+    );
+    expect(auxiliaryScore.saveSvg.mock.calls.every((call: unknown[]) => call[2] === true)).toBe(
+      true,
+    );
 
     await user.click(await screen.findByTestId('btn-compare-add-bar-left'));
     await waitFor(() => expect(auxiliaryScore.insertMeasures).toHaveBeenCalledWith(1, 3));
@@ -136,8 +146,9 @@ describe('ScoreEditor: compare pane lifecycle, routing and audio teardown', () =
 
     resolveNoteEntryDisable(true);
     await waitFor(() => expect(auxiliaryScore.destroy).toHaveBeenCalledOnce());
-    expect(auxiliaryScore.setNoteEntryMode.mock.invocationCallOrder.at(-1))
-      .toBeLessThan(auxiliaryScore.destroy.mock.invocationCallOrder[0]);
+    expect(auxiliaryScore.setNoteEntryMode.mock.invocationCallOrder.at(-1)).toBeLessThan(
+      auxiliaryScore.destroy.mock.invocationCallOrder[0],
+    );
   });
 
   // AC-16 of the editable-compare design: publishing an edited proposal must not reload
@@ -184,9 +195,7 @@ describe('ScoreEditor: compare pane lifecycle, routing and audio teardown', () =
     };
     const webmscore = {
       ready: Promise.resolve(),
-      load: vi.fn()
-        .mockResolvedValueOnce(mainScore)
-        .mockResolvedValueOnce(auxiliaryScore),
+      load: vi.fn().mockResolvedValueOnce(mainScore).mockResolvedValueOnce(auxiliaryScore),
     };
 
     params.values = {
@@ -267,32 +276,33 @@ describe('ScoreEditor: compare pane lifecycle, routing and audio teardown', () =
     };
     mocked.loadWebMscore.mockResolvedValue({
       ready: Promise.resolve(),
-      load: vi.fn()
-        .mockResolvedValueOnce(mainScore)
-        .mockResolvedValueOnce(auxiliaryScore),
+      load: vi.fn().mockResolvedValueOnce(mainScore).mockResolvedValueOnce(auxiliaryScore),
     });
-    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
-      if (url.endsWith('/left.musicxml') || url.endsWith('/right.musicxml')) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith('/left.musicxml') || url.endsWith('/right.musicxml')) {
+          return {
+            ok: true,
+            text: async () => xml,
+            arrayBuffer: async () => new TextEncoder().encode(xml).buffer,
+          };
+        }
+        if (url.includes('/soundfonts/')) {
+          return {
+            ok: true,
+            text: async () => '',
+            arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+          };
+        }
         return {
-          ok: true,
-          text: async () => xml,
-          arrayBuffer: async () => new TextEncoder().encode(xml).buffer,
-        };
-      }
-      if (url.includes('/soundfonts/')) {
-        return {
-          ok: true,
+          ok: false,
           text: async () => '',
-          arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+          arrayBuffer: async () => new ArrayBuffer(0),
         };
-      }
-      return {
-        ok: false,
-        text: async () => '',
-        arrayBuffer: async () => new ArrayBuffer(0),
-      };
-    }));
+      }),
+    );
 
     const { unmount } = render(<ScoreEditor />);
     await waitFor(() => expect(auxiliaryScore.saveSvg).toHaveBeenCalled());
@@ -330,21 +340,21 @@ describe('ScoreEditor: compare pane lifecycle, routing and audio teardown', () =
       relayout: vi.fn(async () => true),
       selectAll: vi.fn(async () => true),
       pitchUp: vi.fn(async () => true),
-      getSelectionBoundingBoxes: vi.fn(async () => [{
-        page: 0,
-        x: 12,
-        y: 8,
-        width: 18,
-        height: 14,
-      }]),
+      getSelectionBoundingBoxes: vi.fn(async () => [
+        {
+          page: 0,
+          x: 12,
+          y: 8,
+          width: 18,
+          height: 14,
+        },
+      ]),
     });
     const mainScore = makeScore();
     const auxiliaryScore = makeScore();
     const webmscore = {
       ready: Promise.resolve(),
-      load: vi.fn()
-        .mockResolvedValueOnce(mainScore)
-        .mockResolvedValueOnce(auxiliaryScore),
+      load: vi.fn().mockResolvedValueOnce(mainScore).mockResolvedValueOnce(auxiliaryScore),
     };
 
     params.values = {
@@ -352,21 +362,24 @@ describe('ScoreEditor: compare pane lifecycle, routing and audio teardown', () =
       compareRight: '/right.musicxml',
     };
     mocked.loadWebMscore.mockResolvedValue(webmscore);
-    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
-      if (url.endsWith('/left.musicxml') || url.endsWith('/right.musicxml')) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith('/left.musicxml') || url.endsWith('/right.musicxml')) {
+          return {
+            ok: true,
+            text: async () => xml,
+            arrayBuffer: async () => new TextEncoder().encode(xml).buffer,
+          };
+        }
         return {
-          ok: true,
-          text: async () => xml,
-          arrayBuffer: async () => new TextEncoder().encode(xml).buffer,
+          ok: false,
+          text: async () => '',
+          arrayBuffer: async () => new ArrayBuffer(0),
         };
-      }
-      return {
-        ok: false,
-        text: async () => '',
-        arrayBuffer: async () => new ArrayBuffer(0),
-      };
-    }));
+      }),
+    );
 
     render(<ScoreEditor />);
     await waitFor(() => expect(auxiliaryScore.saveSvg).toHaveBeenCalled());

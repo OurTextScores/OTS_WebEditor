@@ -24,10 +24,12 @@ describe('runMusicRenderService', () => {
     expect(result.body.format).toBe('png');
     expect(result.body.mimeType).toBe('image/png');
     expect(result.body.dataUrl).toBe('data:image/png;base64,ZmFrZS1wbmctZGF0YQ==');
-    expect(renderMusicSnapshot).toHaveBeenCalledWith(expect.objectContaining({
-      format: 'png',
-      dpi: 150,
-    }));
+    expect(renderMusicSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({
+        format: 'png',
+        dpi: 150,
+      }),
+    );
   });
 
   it('returns a 400 result if content is missing', async () => {

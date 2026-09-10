@@ -46,21 +46,18 @@ import {
 // whether the finalized candidate ships as a normal AiEditProposal.
 
 export type DeepEditErrorCategory =
-  | 'no_finalize'
-  | 'gate_failed'
-  | 'budget_exhausted'
-  | 'provider'
-  | 'timeout'
-  | 'request';
+  'no_finalize' | 'gate_failed' | 'budget_exhausted' | 'provider' | 'timeout' | 'request';
 
 export type DeepEditAudit = {
   effort: AiEditEffort;
   budgets: DeepEditBudgets;
   finalizedCandidateId: string | null;
   rationale: string;
-  candidates: Array<ReturnType<DeepEditCapability['auditCandidates']>[number] & {
-    diff: ReturnType<typeof summarizeMeasureDifferences>;
-  }>;
+  candidates: Array<
+    ReturnType<DeepEditCapability['auditCandidates']>[number] & {
+      diff: ReturnType<typeof summarizeMeasureDifferences>;
+    }
+  >;
   counters: { llmCalls: number; toolCalls: number; renders: number };
   environment: DeepEditCapability['environment'];
   elapsedMs: number;
@@ -88,7 +85,12 @@ const MAX_RATIONALE_CHARS = 2_000;
 const MAX_ANALYSIS_RESULT_CHARS = 4_000;
 const MAX_TOOL_ERROR_CHARS = 2_000;
 
-const readClampedEnvInteger = (name: string, fallback: number, minimum: number, maximum: number) => {
+const readClampedEnvInteger = (
+  name: string,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+) => {
   const value = Number(process.env[name]);
   if (!Number.isFinite(value)) {
     return fallback;
@@ -117,13 +119,53 @@ export const resolveDeepEditBudgets = (effortInput?: unknown): DeepEditBudgets =
   const effort = parseAiEditEffort(effortInput);
   const profile = AI_EDIT_EFFORT_PROFILES[effort].deep;
   return {
-    maxLlmCalls: resolveDeepProfileLimit({ effort, profileValue: profile.maxLlmCalls, envName: 'MUSIC_DEEP_EDIT_MAX_LLM_CALLS', minimum: 1, maximum: 32 }),
-    maxToolCalls: resolveDeepProfileLimit({ effort, profileValue: profile.maxToolCalls, envName: 'MUSIC_DEEP_EDIT_MAX_TOOL_CALLS', minimum: 1, maximum: 64 }),
-    maxCandidates: resolveDeepProfileLimit({ effort, profileValue: profile.maxCandidates, envName: 'MUSIC_DEEP_EDIT_MAX_CANDIDATES', minimum: 1, maximum: 8 }),
-    maxRenders: resolveDeepProfileLimit({ effort, profileValue: profile.maxRenders, envName: 'MUSIC_DEEP_EDIT_MAX_RENDERS', minimum: 0, maximum: 8 }),
-    budgetMs: resolveDeepProfileLimit({ effort, profileValue: profile.budgetMs, envName: 'MUSIC_DEEP_EDIT_BUDGET_MS', minimum: 10_000, maximum: MAX_BUDGET_MS }),
-    maxCandidateBytes: readClampedEnvInteger('MUSIC_DEEP_EDIT_MAX_CANDIDATE_BYTES', DEFAULT_MAX_CANDIDATE_BYTES, 10_000, 50 * 1024 * 1024),
-    maxTotalBytes: readClampedEnvInteger('MUSIC_DEEP_EDIT_MAX_TOTAL_BYTES', DEFAULT_MAX_TOTAL_BYTES, 10_000, 200 * 1024 * 1024),
+    maxLlmCalls: resolveDeepProfileLimit({
+      effort,
+      profileValue: profile.maxLlmCalls,
+      envName: 'MUSIC_DEEP_EDIT_MAX_LLM_CALLS',
+      minimum: 1,
+      maximum: 32,
+    }),
+    maxToolCalls: resolveDeepProfileLimit({
+      effort,
+      profileValue: profile.maxToolCalls,
+      envName: 'MUSIC_DEEP_EDIT_MAX_TOOL_CALLS',
+      minimum: 1,
+      maximum: 64,
+    }),
+    maxCandidates: resolveDeepProfileLimit({
+      effort,
+      profileValue: profile.maxCandidates,
+      envName: 'MUSIC_DEEP_EDIT_MAX_CANDIDATES',
+      minimum: 1,
+      maximum: 8,
+    }),
+    maxRenders: resolveDeepProfileLimit({
+      effort,
+      profileValue: profile.maxRenders,
+      envName: 'MUSIC_DEEP_EDIT_MAX_RENDERS',
+      minimum: 0,
+      maximum: 8,
+    }),
+    budgetMs: resolveDeepProfileLimit({
+      effort,
+      profileValue: profile.budgetMs,
+      envName: 'MUSIC_DEEP_EDIT_BUDGET_MS',
+      minimum: 10_000,
+      maximum: MAX_BUDGET_MS,
+    }),
+    maxCandidateBytes: readClampedEnvInteger(
+      'MUSIC_DEEP_EDIT_MAX_CANDIDATE_BYTES',
+      DEFAULT_MAX_CANDIDATE_BYTES,
+      10_000,
+      50 * 1024 * 1024,
+    ),
+    maxTotalBytes: readClampedEnvInteger(
+      'MUSIC_DEEP_EDIT_MAX_TOTAL_BYTES',
+      DEFAULT_MAX_TOTAL_BYTES,
+      10_000,
+      200 * 1024 * 1024,
+    ),
   };
 };
 
@@ -243,10 +285,14 @@ const describeError = (error: unknown, fallback: string) => {
 const engineLoadXml = async (capability: DeepEditCapability, xml: string): Promise<void> => {
   let score: Score | null = null;
   try {
-    score = await withSandboxDeadline(capability, (async () => {
-      const webMscore = await loadWebMscoreInProcess();
-      return webMscore.load('musicxml', new TextEncoder().encode(xml));
-    })(), 'Engine check');
+    score = await withSandboxDeadline(
+      capability,
+      (async () => {
+        const webMscore = await loadWebMscoreInProcess();
+        return webMscore.load('musicxml', new TextEncoder().encode(xml));
+      })(),
+      'Engine check',
+    );
   } finally {
     try {
       score?.destroy?.();
@@ -256,8 +302,10 @@ const engineLoadXml = async (capability: DeepEditCapability, xml: string): Promi
   }
 };
 
-const ENGINE_UNAVAILABLE_MESSAGE = 'The notation engine is unavailable in this deployment. Skip engine checks and finalize your best candidate.';
-const RENDER_UNAVAILABLE_MESSAGE = 'Rendering is unavailable in this deployment. Skip render checks and finalize your best candidate.';
+const ENGINE_UNAVAILABLE_MESSAGE =
+  'The notation engine is unavailable in this deployment. Skip engine checks and finalize your best candidate.';
+const RENDER_UNAVAILABLE_MESSAGE =
+  'Rendering is unavailable in this deployment. Skip render checks and finalize your best candidate.';
 
 const verifyCandidateEngine = async (
   capability: DeepEditCapability,
@@ -291,9 +339,12 @@ const verifyCandidateEngine = async (
         capability.environment.engine = 'available';
       } catch {
         capability.environment.engine = 'unavailable';
-        console.warn('[deep-edit] Notation engine unavailable; engine verification disabled for this request.', {
-          detail: message.slice(0, 300),
-        });
+        console.warn(
+          '[deep-edit] Notation engine unavailable; engine verification disabled for this request.',
+          {
+            detail: message.slice(0, 300),
+          },
+        );
         return { ok: false, candidateId, error: ENGINE_UNAVAILABLE_MESSAGE };
       }
     }
@@ -314,16 +365,27 @@ const verifyCandidateRender = async (
   if (capability.environment.render === 'unavailable') {
     return { ok: false, candidateId, error: RENDER_UNAVAILABLE_MESSAGE };
   }
-  const renderXml = (content: string) => withSandboxDeadline(capability, renderMusicSnapshot({
-    content,
-    format: 'png',
-    timeoutMs: Math.min(60_000, Math.max(1_000, capability.remainingMs())),
-  }), 'Render');
+  const renderXml = (content: string) =>
+    withSandboxDeadline(
+      capability,
+      renderMusicSnapshot({
+        content,
+        format: 'png',
+        timeoutMs: Math.min(60_000, Math.max(1_000, capability.remainingMs())),
+      }),
+      'Render',
+    );
   try {
     const { buffer, mimeType } = await renderXml(xml);
     capability.environment.render = 'available';
     capability.recordVerification(candidateId, 'render');
-    return { ok: true, candidateId, verification: 'render', mimeType, renderedBytes: buffer.byteLength };
+    return {
+      ok: true,
+      candidateId,
+      verification: 'render',
+      mimeType,
+      renderedBytes: buffer.byteLength,
+    };
   } catch (error) {
     const message = boundError(describeError(error, 'Render failed.'));
     if (capability.expired()) {
@@ -335,9 +397,12 @@ const verifyCandidateRender = async (
         capability.environment.render = 'available';
       } catch {
         capability.environment.render = 'unavailable';
-        console.warn('[deep-edit] Rendering unavailable; render verification disabled for this request.', {
-          detail: message.slice(0, 300),
-        });
+        console.warn(
+          '[deep-edit] Rendering unavailable; render verification disabled for this request.',
+          {
+            detail: message.slice(0, 300),
+          },
+        );
         return { ok: false, candidateId, error: RENDER_UNAVAILABLE_MESSAGE };
       }
     }
@@ -360,9 +425,7 @@ export async function executeSandboxTool(
     const candidateId = String(args.candidateId ?? '');
     const rationale = String(args.rationale ?? '').slice(0, MAX_RATIONALE_CHARS);
     const finalized = capability.tryFinalize(candidateId, rationale);
-    return finalized.ok
-      ? { ok: true, candidateId }
-      : { ok: false, error: finalized.error };
+    return finalized.ok ? { ok: true, candidateId } : { ok: false, error: finalized.error };
   }
   const charged = capability.chargeToolCall();
   if (!charged.ok) {
@@ -384,21 +447,27 @@ export async function executeSandboxTool(
       // Strict tool schemas express optional op fields as nullable; strip nulls so the
       // shared patch parser sees the canonical shape.
       const patchInput = asRecord(args.patch);
-      const normalizedPatch = patchInput && Array.isArray(patchInput.ops)
-        ? {
-          ...patchInput,
-          ops: patchInput.ops.map((op) => {
-            const record = asRecord(op);
-            if (!record) {
-              return op;
+      const normalizedPatch =
+        patchInput && Array.isArray(patchInput.ops)
+          ? {
+              ...patchInput,
+              ops: patchInput.ops.map((op) => {
+                const record = asRecord(op);
+                if (!record) {
+                  return op;
+                }
+                return Object.fromEntries(
+                  Object.entries(record).filter(([, value]) => value !== null),
+                );
+              }),
             }
-            return Object.fromEntries(Object.entries(record).filter(([, value]) => value !== null));
-          }),
-        }
-        : args.patch ?? null;
+          : (args.patch ?? null);
       const parsed = parseMusicXmlPatch(JSON.stringify(normalizedPatch));
       if (parsed.error || !parsed.patch) {
-        return { ok: false, error: boundError(parsed.error || 'Invalid musicxml-patch@1 payload.') };
+        return {
+          ok: false,
+          error: boundError(parsed.error || 'Invalid musicxml-patch@1 payload.'),
+        };
       }
       const baseXml = capability.resolveXml(sourceId);
       if (baseXml === null) {
@@ -406,11 +475,17 @@ export async function executeSandboxTool(
       }
       const applied = await applyMusicXmlPatch(baseXml, parsed.patch);
       if (applied.error || !applied.xml.trim()) {
-        return { ok: false, error: boundError(applied.error || 'Patch application returned empty MusicXML.') };
+        return {
+          ok: false,
+          error: boundError(applied.error || 'Patch application returned empty MusicXML.'),
+        };
       }
       const structuralIssues = findIntroducedMusicXmlStructuralIssues(baseXml, applied.xml);
       if (structuralIssues.length) {
-        return { ok: false, error: boundError(`Patch introduced invalid MusicXML: ${structuralIssues[0].message}`) };
+        return {
+          ok: false,
+          error: boundError(`Patch introduced invalid MusicXML: ${structuralIssues[0].message}`),
+        };
       }
       const minted = capability.mintCandidate({
         parentId: sourceId,
@@ -458,14 +533,20 @@ export async function executeSandboxTool(
       const proposedXml = typeof proposal?.proposedXml === 'string' ? proposal.proposedXml : '';
       if (result.status >= 400 || !proposedXml.trim()) {
         const detail = asRecord(result.body.error);
-        const message = typeof result.body.error === 'string'
-          ? result.body.error
-          : typeof detail?.message === 'string' ? detail.message : 'ScoreOps execution failed.';
+        const message =
+          typeof result.body.error === 'string'
+            ? result.body.error
+            : typeof detail?.message === 'string'
+              ? detail.message
+              : 'ScoreOps execution failed.';
         return { ok: false, error: boundError(message) };
       }
       const structuralIssues = findIntroducedMusicXmlStructuralIssues(baseXml, proposedXml);
       if (structuralIssues.length) {
-        return { ok: false, error: boundError(`ScoreOps introduced invalid MusicXML: ${structuralIssues[0].message}`) };
+        return {
+          ok: false,
+          error: boundError(`ScoreOps introduced invalid MusicXML: ${structuralIssues[0].message}`),
+        };
       }
       const minted = capability.mintCandidate({
         parentId: sourceId,
@@ -522,12 +603,18 @@ export async function executeSandboxTool(
         'Analysis',
       );
       if (result.status >= 400) {
-        const message = typeof result.body.error === 'string' ? result.body.error : 'Analysis failed.';
+        const message =
+          typeof result.body.error === 'string' ? result.body.error : 'Analysis failed.';
         return { ok: false, error: boundError(message) };
       }
       const omittedKeys = new Set([
-        'content', 'annotatedXml', 'artifacts',
-        'jsonArtifact', 'rntxtArtifact', 'annotatedArtifact', 'sourceArtifactId',
+        'content',
+        'annotatedXml',
+        'artifacts',
+        'jsonArtifact',
+        'rntxtArtifact',
+        'annotatedArtifact',
+        'sourceArtifactId',
       ]);
       const rest = Object.fromEntries(
         Object.entries(result.body).filter(([key]) => !omittedKeys.has(key)),
@@ -546,7 +633,8 @@ export async function executeSandboxTool(
         return invalidIdError(candidateId);
       }
       const kind = typeof args.kind === 'string' ? args.kind.trim() : '';
-      const value = typeof args.value === 'number' || typeof args.value === 'string' ? args.value : '';
+      const value =
+        typeof args.value === 'number' || typeof args.value === 'string' ? args.value : '';
       if (!kind || value === '') {
         return { ok: false, error: 'record_score requires kind and a string/number value.' };
       }
@@ -574,12 +662,14 @@ const CANDIDATE_ID_SCHEMA = z.string().min(1).max(32);
 
 const STRICT_PATCH_SCHEMA = z.object({
   format: z.literal('musicxml-patch@1'),
-  ops: z.array(z.object({
-    op: z.enum(['replace', 'setText', 'setAttr', 'insertBefore', 'insertAfter', 'delete']),
-    path: z.string(),
-    value: z.string().nullable(),
-    name: z.string().nullable(),
-  })),
+  ops: z.array(
+    z.object({
+      op: z.enum(['replace', 'setText', 'setAttr', 'insertBefore', 'insertAfter', 'delete']),
+      path: z.string(),
+      value: z.string().nullable(),
+      name: z.string().nullable(),
+    }),
+  ),
 });
 
 export const DEEP_EDIT_TOOL_PARAMETERS: Record<string, z.ZodObject> = {
@@ -595,7 +685,9 @@ export const DEEP_EDIT_TOOL_PARAMETERS: Record<string, z.ZodObject> = {
   sandbox_render: z.object({ candidateId: CANDIDATE_ID_SCHEMA }),
   sandbox_measure_diff: z.object({
     candidateId: CANDIDATE_ID_SCHEMA,
-    againstId: CANDIDATE_ID_SCHEMA.nullable().describe('Compare against this candidate, or null for base'),
+    againstId: CANDIDATE_ID_SCHEMA.nullable().describe(
+      'Compare against this candidate, or null for base',
+    ),
   }),
   sandbox_analyze: z.object({
     candidateId: CANDIDATE_ID_SCHEMA,
@@ -620,7 +712,11 @@ class DeepEditLlmBudgetError extends Error {
   }
 }
 
-const modelForRequest = (provider: 'openai' | 'anthropic', apiKey: string, modelName: string): Model => {
+const modelForRequest = (
+  provider: 'openai' | 'anthropic',
+  apiKey: string,
+  modelName: string,
+): Model => {
   if (provider === 'anthropic') {
     const client = createAnthropic({ apiKey });
     return aisdk(client(modelName));
@@ -633,31 +729,34 @@ const withLlmBudget = (
   inner: Model,
   capability: DeepEditCapability,
   onProgress?: AiEditProgressReporter,
-): Model => new Proxy(inner, {
-  get(target, prop, receiver) {
-    if (prop === 'getResponse' || prop === 'getStreamedResponse') {
-      return (...callArgs: unknown[]) => {
-        const charge = capability.chargeLlmCall();
-        if (!charge.ok) {
-          throw new DeepEditLlmBudgetError(charge.reason);
-        }
-        reportAiEditProgress(onProgress, {
-          phase: 'provider.attempt_started',
-          message: `Starting Deep Edit model turn ${capability.counters.llmCalls}`,
-          llmCalls: capability.counters.llmCalls,
-        });
-        return (target as unknown as Record<string, (...inner: unknown[]) => unknown>)[prop as string](...callArgs);
-      };
-    }
-    return Reflect.get(target, prop, receiver);
-  },
-});
+): Model =>
+  new Proxy(inner, {
+    get(target, prop, receiver) {
+      if (prop === 'getResponse' || prop === 'getStreamedResponse') {
+        return (...callArgs: unknown[]) => {
+          const charge = capability.chargeLlmCall();
+          if (!charge.ok) {
+            throw new DeepEditLlmBudgetError(charge.reason);
+          }
+          reportAiEditProgress(onProgress, {
+            phase: 'provider.attempt_started',
+            message: `Starting Deep Edit model turn ${capability.counters.llmCalls}`,
+            llmCalls: capability.counters.llmCalls,
+          });
+          return (target as unknown as Record<string, (...inner: unknown[]) => unknown>)[
+            prop as string
+          ](...callArgs);
+        };
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  });
 
 const SANDBOX_INSTRUCTIONS = [
   'You are a MusicXML deep-edit agent working in an isolated sandbox.',
   'The user\'s current score is candidate "base". You cannot modify base or the user\'s score; you create candidates.',
   'Workflow: create one or more candidate edits, verify them, compare them, then call finalize with the best candidate id.',
-  'Do not finalize until the candidate materially satisfies the user\'s musical request. A formatting-only change or an unrelated duration/metadata edit is not success.',
+  "Do not finalize until the candidate materially satisfies the user's musical request. A formatting-only change or an unrelated duration/metadata edit is not success.",
   'When changing a rest into a pitched note, replace the note origin: a MusicXML <note> must contain exactly one of <pitch>, <unpitched>, or <rest>, never both <rest> and <pitch>.',
   '',
   'Tools:',
@@ -679,73 +778,78 @@ const defaultDriver: (
   apiKey: string,
   modelName: string,
   modelOverride?: Model,
-) => DeepEditDriver = (
-  provider,
-  apiKey,
-  modelName,
-  modelOverride,
-) => async ({ capability, executeTool, instructions, prompt, onProgress }) => {
-  const jsonTool = (
-    name: string,
-    description: string,
-  ) => tool({
-    name,
-    description,
-    parameters: DEEP_EDIT_TOOL_PARAMETERS[name],
-    execute: async (input: unknown) => JSON.stringify(
-      await executeTool(name, asRecord(input) ?? {}),
-    ),
-  });
+) => DeepEditDriver =
+  (provider, apiKey, modelName, modelOverride) =>
+  async ({ capability, executeTool, instructions, prompt, onProgress }) => {
+    const jsonTool = (name: string, description: string) =>
+      tool({
+        name,
+        description,
+        parameters: DEEP_EDIT_TOOL_PARAMETERS[name],
+        execute: async (input: unknown) =>
+          JSON.stringify(await executeTool(name, asRecord(input) ?? {})),
+      });
 
-  const agent = new Agent({
-    name: 'DeepEdit',
-    instructions,
-    model: withLlmBudget(
-      modelOverride ?? modelForRequest(provider, apiKey, modelName),
-      capability,
-      onProgress,
-    ),
-    modelSettings: { toolChoice: 'required' },
-    tools: [
-      jsonTool('sandbox_apply_patch', 'Apply a musicxml-patch@1 to a candidate, minting a new candidate. Use null for op fields you do not need.'),
-      jsonTool('sandbox_scoreops', 'Run structured score operations against a candidate, minting a new candidate. opsJson is a JSON-encoded array of operation objects.'),
-      jsonTool('sandbox_engine_check', 'Load a candidate in the notation engine to verify it.'),
-      jsonTool('sandbox_render', 'Render a candidate as the strongest verification level.'),
-      jsonTool('sandbox_measure_diff', 'Summarize per-measure differences between candidates. Pass null as againstId to compare with base.'),
-      jsonTool('sandbox_analyze', 'Run a harmony or functional-harmony analysis on a candidate.'),
-      jsonTool('sandbox_record_score', 'Record an assessment score for a candidate.'),
-      jsonTool('finalize', 'Finish the deep edit by naming the candidate to propose, with a short rationale. Fails (and lets you retry) if the id is not a candidate you created.'),
-    ],
-    // The loop ends only when finalize actually succeeded; a finalize with an unknown
-    // candidate id returns a tool error the model can recover from.
-    toolUseBehavior: () => (
-      capability.finalized()
-        ? { isFinalOutput: true, isInterrupted: undefined, finalOutput: JSON.stringify({ ok: true }) }
-        : { isFinalOutput: false, isInterrupted: undefined }
-    ),
-  });
-
-  try {
-    const runner = new Runner({ tracingDisabled: true });
-    await runner.run(agent, prompt, {
-      maxTurns: capability.budgets.maxLlmCalls + 2,
-      signal: capability.signal,
+    const agent = new Agent({
+      name: 'DeepEdit',
+      instructions,
+      model: withLlmBudget(
+        modelOverride ?? modelForRequest(provider, apiKey, modelName),
+        capability,
+        onProgress,
+      ),
+      modelSettings: { toolChoice: 'required' },
+      tools: [
+        jsonTool(
+          'sandbox_apply_patch',
+          'Apply a musicxml-patch@1 to a candidate, minting a new candidate. Use null for op fields you do not need.',
+        ),
+        jsonTool(
+          'sandbox_scoreops',
+          'Run structured score operations against a candidate, minting a new candidate. opsJson is a JSON-encoded array of operation objects.',
+        ),
+        jsonTool('sandbox_engine_check', 'Load a candidate in the notation engine to verify it.'),
+        jsonTool('sandbox_render', 'Render a candidate as the strongest verification level.'),
+        jsonTool(
+          'sandbox_measure_diff',
+          'Summarize per-measure differences between candidates. Pass null as againstId to compare with base.',
+        ),
+        jsonTool('sandbox_analyze', 'Run a harmony or functional-harmony analysis on a candidate.'),
+        jsonTool('sandbox_record_score', 'Record an assessment score for a candidate.'),
+        jsonTool(
+          'finalize',
+          'Finish the deep edit by naming the candidate to propose, with a short rationale. Fails (and lets you retry) if the id is not a candidate you created.',
+        ),
+      ],
+      // The loop ends only when finalize actually succeeded; a finalize with an unknown
+      // candidate id returns a tool error the model can recover from.
+      toolUseBehavior: () =>
+        capability.finalized()
+          ? {
+              isFinalOutput: true,
+              isInterrupted: undefined,
+              finalOutput: JSON.stringify({ ok: true }),
+            }
+          : { isFinalOutput: false, isInterrupted: undefined },
     });
-  } catch (error) {
-    if (error instanceof DeepEditLlmBudgetError || capability.signal.aborted) {
-      return capability.finalized();
-    }
-    throw error;
-  }
-  return capability.finalized();
-};
 
-const buildDeepEditPrompt = (instruction: string, baseXml: string) => [
-  `EDIT REQUEST:\n${instruction}`,
-  '',
-  'CURRENT MUSICXML (candidate "base"):',
-  baseXml,
-].join('\n');
+    try {
+      const runner = new Runner({ tracingDisabled: true });
+      await runner.run(agent, prompt, {
+        maxTurns: capability.budgets.maxLlmCalls + 2,
+        signal: capability.signal,
+      });
+    } catch (error) {
+      if (error instanceof DeepEditLlmBudgetError || capability.signal.aborted) {
+        return capability.finalized();
+      }
+      throw error;
+    }
+    return capability.finalized();
+  };
+
+const buildDeepEditPrompt = (instruction: string, baseXml: string) =>
+  [`EDIT REQUEST:\n${instruction}`, '', 'CURRENT MUSICXML (candidate "base"):', baseXml].join('\n');
 
 const errorResult = (
   status: number,
@@ -800,15 +904,28 @@ export async function runDeepEditService(
   if (!requestedModel) {
     return errorResult(400, 'request', 'Select a model for Deep Edit.');
   }
-  const apiKeyInput = (typeof data?.apiKey === 'string' ? data.apiKey : (typeof data?.api_key === 'string' ? data.api_key : '')).trim();
+  const apiKeyInput = (
+    typeof data?.apiKey === 'string'
+      ? data.apiKey
+      : typeof data?.api_key === 'string'
+        ? data.api_key
+        : ''
+  ).trim();
   const apiKey = resolveApiKeyForProvider(provider, apiKeyInput);
   if (!apiKey) {
-    return errorResult(401, 'request', `Missing ${provider === 'openai' ? 'OpenAI' : 'Anthropic'} API key.`);
+    return errorResult(
+      401,
+      'request',
+      `Missing ${provider === 'openai' ? 'OpenAI' : 'Anthropic'} API key.`,
+    );
   }
 
   const resolution = await resolveScoreContent(body);
   if (resolution.error) {
-    return { status: resolution.error.status, body: { ...resolution.error.body, errorCategory: 'request' } };
+    return {
+      status: resolution.error.status,
+      body: { ...resolution.error.body, errorCategory: 'request' },
+    };
   }
   const baseXml = resolution.xml;
   if (!looksLikeMusicXml(baseXml) || !/<score-(?:partwise|timewise)\b/i.test(baseXml)) {
@@ -832,14 +949,26 @@ export async function runDeepEditService(
   );
   const contentBytes = Buffer.byteLength(baseXml, 'utf8');
   if (contentBytes > maximumContentBytes) {
-    return errorResult(413, 'request', `Base MusicXML exceeds the ${maximumContentBytes} byte limit.`);
+    return errorResult(
+      413,
+      'request',
+      `Base MusicXML exceeds the ${maximumContentBytes} byte limit.`,
+    );
   }
   if (contentBytes > budgets.maxCandidateBytes) {
-    return errorResult(413, 'request', `Base MusicXML exceeds the ${budgets.maxCandidateBytes} byte Deep Edit limit.`);
+    return errorResult(
+      413,
+      'request',
+      `Base MusicXML exceeds the ${budgets.maxCandidateBytes} byte Deep Edit limit.`,
+    );
   }
   const loopPrompt = promptText || buildDeepEditPrompt(prompt, baseXml);
   if (loopPrompt.length > maximumPromptChars) {
-    return errorResult(413, 'request', `Deep Edit prompt exceeds the ${maximumPromptChars} character limit.`);
+    return errorResult(
+      413,
+      'request',
+      `Deep Edit prompt exceeds the ${maximumPromptChars} character limit.`,
+    );
   }
 
   reportAiEditProgress(options?.onProgress, {
@@ -875,12 +1004,17 @@ export async function runDeepEditService(
   });
 
   try {
-    const driver = options?.driveAgent ?? defaultDriver(provider, apiKey, requestedModel, options?.modelOverride);
+    const driver =
+      options?.driveAgent ??
+      defaultDriver(provider, apiKey, requestedModel, options?.modelOverride);
     const toolProgress = (name: string): { tool: AiEditProgressTool; label: string } | null => {
       const tools: Record<string, { tool: AiEditProgressTool; label: string }> = {
         sandbox_apply_patch: { tool: 'apply_patch', label: 'Applying a candidate patch' },
         sandbox_scoreops: { tool: 'scoreops', label: 'Running structured score operations' },
-        sandbox_engine_check: { tool: 'engine_check', label: 'Checking a candidate in the notation engine' },
+        sandbox_engine_check: {
+          tool: 'engine_check',
+          label: 'Checking a candidate in the notation engine',
+        },
         sandbox_render: { tool: 'render', label: 'Rendering a candidate for verification' },
         sandbox_measure_diff: { tool: 'measure_diff', label: 'Comparing candidate measures' },
         sandbox_analyze: { tool: 'analyze', label: 'Analyzing a candidate' },
@@ -904,19 +1038,24 @@ export async function runDeepEditService(
       }
       const result = await executeSandboxTool(capability, name, toolArgs);
       if (descriptor) {
-        const verificationLevel = result.verification === 'tool_execution'
-          || result.verification === 'patch_apply'
-          || result.verification === 'engine_load'
-          || result.verification === 'render'
-          ? result.verification
-          : undefined;
+        const verificationLevel =
+          result.verification === 'tool_execution' ||
+          result.verification === 'patch_apply' ||
+          result.verification === 'engine_load' ||
+          result.verification === 'render'
+            ? result.verification
+            : undefined;
         reportAiEditProgress(options?.onProgress, {
-          phase: name === 'finalize' && result.ok
-            ? 'candidate.finalized'
-            : verificationTool ? 'verification.completed' : 'tool.completed',
-          message: name === 'finalize' && result.ok
-            ? 'Candidate selected for the final verification gate'
-            : `${descriptor.label} ${result.ok ? 'completed' : 'did not complete'}`,
+          phase:
+            name === 'finalize' && result.ok
+              ? 'candidate.finalized'
+              : verificationTool
+                ? 'verification.completed'
+                : 'tool.completed',
+          message:
+            name === 'finalize' && result.ok
+              ? 'Candidate selected for the final verification gate'
+              : `${descriptor.label} ${result.ok ? 'completed' : 'did not complete'}`,
           tool: descriptor.tool,
           toolCalls: capability.counters.toolCalls,
           candidates: capability.auditCandidates().length,
@@ -970,14 +1109,29 @@ export async function runDeepEditService(
 
     const winner = capability.getCandidate(finalized.candidateId);
     if (!winner) {
-      return errorResult(422, 'gate_failed', `Finalized candidate "${finalized.candidateId.slice(0, 32)}" does not exist.`, auditFor(null, finalized.rationale));
+      return errorResult(
+        422,
+        'gate_failed',
+        `Finalized candidate "${finalized.candidateId.slice(0, 32)}" does not exist.`,
+        auditFor(null, finalized.rationale),
+      );
     }
     if (!capability.differsFromBase(winner.id)) {
-      return errorResult(422, 'gate_failed', 'Finalized candidate does not materially differ from the base score.', auditFor(winner.id, finalized.rationale));
+      return errorResult(
+        422,
+        'gate_failed',
+        'Finalized candidate does not materially differ from the base score.',
+        auditFor(winner.id, finalized.rationale),
+      );
     }
     const structuralIssues = findIntroducedMusicXmlStructuralIssues(baseXml, winner.xml);
     if (structuralIssues.length) {
-      return errorResult(422, 'gate_failed', `Finalized candidate contains invalid MusicXML: ${structuralIssues[0].message}`, auditFor(winner.id, finalized.rationale));
+      return errorResult(
+        422,
+        'gate_failed',
+        `Finalized candidate contains invalid MusicXML: ${structuralIssues[0].message}`,
+        auditFor(winner.id, finalized.rationale),
+      );
     }
 
     // Feasibility gate: the winner must hold the strongest level attempted during the
@@ -985,13 +1139,15 @@ export async function runDeepEditService(
     // missing checks itself, charging the same budgets.
     const requiredLevel: DeepEditVerificationLevel = (() => {
       const attempted = capability.strongestAttemptedLevel();
-      const floor: DeepEditVerificationLevel = winner.createdByTool === 'scoreops' ? 'engine_load' : 'patch_apply';
+      const floor: DeepEditVerificationLevel =
+        winner.createdByTool === 'scoreops' ? 'engine_load' : 'patch_apply';
       return DEEP_EDIT_LEVEL_RANK[attempted] >= DEEP_EDIT_LEVEL_RANK[floor] ? attempted : floor;
     })();
     while (DEEP_EDIT_LEVEL_RANK[winner.verification] < DEEP_EDIT_LEVEL_RANK[requiredLevel]) {
-      const nextCheck = DEEP_EDIT_LEVEL_RANK[winner.verification] < DEEP_EDIT_LEVEL_RANK.engine_load
-        ? 'sandbox_engine_check'
-        : 'sandbox_render';
+      const nextCheck =
+        DEEP_EDIT_LEVEL_RANK[winner.verification] < DEEP_EDIT_LEVEL_RANK.engine_load
+          ? 'sandbox_engine_check'
+          : 'sandbox_render';
       const checked = await executeToolWithProgress(nextCheck, { candidateId: winner.id });
       if (!checked.ok) {
         const budgetReason = typeof checked.budget === 'string';
@@ -1017,7 +1173,12 @@ export async function runDeepEditService(
       },
     });
     if (!proposal) {
-      return errorResult(500, 'request', 'Failed to build the deep-edit proposal.', auditFor(winner.id, finalized.rationale));
+      return errorResult(
+        500,
+        'request',
+        'Failed to build the deep-edit proposal.',
+        auditFor(winner.id, finalized.rationale),
+      );
     }
     const proposalSessionId = randomUUID();
     const continuityToken = createProposalContinuityToken({

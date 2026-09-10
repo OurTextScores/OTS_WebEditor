@@ -4,15 +4,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { boundingRect, setupScoreEditorTest, testGlobals } from './test-harness';
 
 const mocked = vi.hoisted(() => ({
-    loadWebMscore: vi.fn(),
-    loadWebMscoreInProcess: vi.fn(),
+  loadWebMscore: vi.fn(),
+  loadWebMscoreInProcess: vi.fn(),
 }));
 const mockedNavigation = vi.hoisted(() => ({ useSearchParams: vi.fn() }));
 
 vi.mock('next/navigation', () => ({ useSearchParams: mockedNavigation.useSearchParams }));
 vi.mock('../../lib/webmscore-loader', () => ({
-    loadWebMscore: mocked.loadWebMscore,
-    loadWebMscoreInProcess: mocked.loadWebMscoreInProcess,
+  loadWebMscore: mocked.loadWebMscore,
+  loadWebMscoreInProcess: mocked.loadWebMscoreInProcess,
 }));
 
 import ScoreEditor from '../../components/ScoreEditor';
@@ -64,7 +64,9 @@ describe('ScoreEditor: toolbar mutations, note input and keyboard shortcuts', ()
     const file = new File([new Uint8Array([1])], 'demo.mscz', { type: 'application/octet-stream' });
     await user.upload(screen.getByTestId('open-score-input'), file);
 
-    await waitFor(() => expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy(),
+    );
 
     const note = screen.getByTestId('svg-container').querySelector('.Note');
     expect(note).toBeTruthy();
@@ -88,7 +90,9 @@ describe('ScoreEditor: toolbar mutations, note input and keyboard shortcuts', ()
     await user.click(await screen.findByTestId('btn-keysig-0'));
 
     await waitFor(() => expect(score.pitchUp).toHaveBeenCalled());
-    await waitFor(() => expect(score.transpose).toHaveBeenCalledWith(1, 0, 0, 25, true, true, true));
+    await waitFor(() =>
+      expect(score.transpose).toHaveBeenCalledWith(1, 0, 0, 25, true, true, true),
+    );
     await waitFor(() => expect(score.setAccidental).toHaveBeenCalledWith(3));
     await waitFor(() => expect(score.doubleDuration).toHaveBeenCalled());
     await waitFor(() => expect(score.toggleDot).toHaveBeenCalled());
@@ -132,7 +136,9 @@ describe('ScoreEditor: toolbar mutations, note input and keyboard shortcuts', ()
     const file = new File([new Uint8Array([1])], 'demo.mscz', { type: 'application/octet-stream' });
     await user.upload(screen.getByTestId('open-score-input'), file);
 
-    await waitFor(() => expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy(),
+    );
     expect(screen.queryByTestId('selection-overlay')).not.toBeInTheDocument();
 
     const tempoInput = screen.getByTestId('input-tempo-bpm');
@@ -178,7 +184,9 @@ describe('ScoreEditor: toolbar mutations, note input and keyboard shortcuts', ()
     const file = new File([new Uint8Array([1])], 'demo.mscz', { type: 'application/octet-stream' });
     await user.upload(screen.getByTestId('open-score-input'), file);
 
-    await waitFor(() => expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy(),
+    );
 
     const note = screen.getByTestId('svg-container').querySelector('.Note');
     expect(note).toBeTruthy();
@@ -215,7 +223,9 @@ describe('ScoreEditor: toolbar mutations, note input and keyboard shortcuts', ()
     let cursorX = 14;
     const score = {
       destroy: vi.fn(),
-      saveSvg: vi.fn(async () => '<svg width="200" height="100"><g class="Rest selected"></g></svg>'),
+      saveSvg: vi.fn(
+        async () => '<svg width="200" height="100"><g class="Rest selected"></g></svg>',
+      ),
       setNoteEntryMode: vi.fn(async () => true),
       getNoteInputCursorRect: vi.fn(async () => ({
         page: 0,
@@ -247,22 +257,28 @@ describe('ScoreEditor: toolbar mutations, note input and keyboard shortcuts', ()
     render(<ScoreEditor />);
     const file = new File([new Uint8Array([1])], 'demo.mscz', { type: 'application/octet-stream' });
     await user.upload(screen.getByTestId('open-score-input'), file);
-    await waitFor(() => expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy(),
+    );
 
     fireEvent.keyDown(window, { key: 'n' });
-    await waitFor(() => expect(screen.getByTestId('note-input-cursor')).toHaveStyle({
-      left: '14px',
-      top: '20px',
-      width: '18px',
-      height: '48px',
-      borderLeft: '3px solid #0065BF',
-    }));
+    await waitFor(() =>
+      expect(screen.getByTestId('note-input-cursor')).toHaveStyle({
+        left: '14px',
+        top: '20px',
+        width: '18px',
+        height: '48px',
+        borderLeft: '3px solid #0065BF',
+      }),
+    );
 
     fireEvent.keyDown(window, { key: 'c' });
     await waitFor(() => expect(score.addPitchByStep).toHaveBeenCalledWith(0, false, false));
-    await waitFor(() => expect(screen.getByTestId('note-input-cursor')).toHaveStyle({
-      left: '46px',
-    }));
+    await waitFor(() =>
+      expect(screen.getByTestId('note-input-cursor')).toHaveStyle({
+        left: '46px',
+      }),
+    );
 
     fireEvent.keyDown(window, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByTestId('note-input-cursor')).not.toBeInTheDocument());
@@ -331,21 +347,29 @@ describe('ScoreEditor: toolbar mutations, note input and keyboard shortcuts', ()
 
     const file = new File([new Uint8Array([1])], 'demo.mscz', { type: 'application/octet-stream' });
     await user.upload(screen.getByTestId('open-score-input'), file);
-    await waitFor(() => expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy(),
+    );
 
     const notes = screen.getByTestId('svg-container').querySelectorAll('.Note');
     expect(notes.length).toBe(2);
     fireEvent.click(notes[0]!);
     await screen.findByTestId('selection-overlay');
 
-    await waitFor(() => expect(screen.getByTestId('selection-overlay')).toHaveStyle({ left: '0px' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('selection-overlay')).toHaveStyle({ left: '0px' }),
+    );
 
     fireEvent.keyDown(window, { key: 'ArrowRight' });
-    await waitFor(() => expect(screen.getByTestId('selection-overlay')).toHaveStyle({ left: '120px' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('selection-overlay')).toHaveStyle({ left: '120px' }),
+    );
     expect(score.selectNextChord).toHaveBeenCalled();
 
     fireEvent.keyDown(window, { key: 'ArrowLeft' });
-    await waitFor(() => expect(screen.getByTestId('selection-overlay')).toHaveStyle({ left: '0px' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('selection-overlay')).toHaveStyle({ left: '0px' }),
+    );
     expect(score.selectPrevChord).toHaveBeenCalled();
   });
 
@@ -378,7 +402,9 @@ describe('ScoreEditor: toolbar mutations, note input and keyboard shortcuts', ()
     const file = new File([new Uint8Array([1])], 'demo.mscz', { type: 'application/octet-stream' });
     await user.upload(screen.getByTestId('open-score-input'), file);
 
-    await waitFor(() => expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy(),
+    );
 
     const note = screen.getByTestId('svg-container').querySelector('.Note');
     expect(note).toBeTruthy();
@@ -387,7 +413,9 @@ describe('ScoreEditor: toolbar mutations, note input and keyboard shortcuts', ()
 
     await user.click(screen.getByTestId('dropdown-rhythm'));
     await user.click(await screen.findByTestId('btn-double-dot'));
-    expect(testGlobals.alert).toHaveBeenCalledWith('This build of webmscore does not expose "toggleDoubleDot".');
+    expect(testGlobals.alert).toHaveBeenCalledWith(
+      'This build of webmscore does not expose "toggleDoubleDot".',
+    );
   });
 
   it('clears selection on delete even when the binding is missing', async () => {
@@ -419,7 +447,9 @@ describe('ScoreEditor: toolbar mutations, note input and keyboard shortcuts', ()
     const file = new File([new Uint8Array([1])], 'demo.mscz', { type: 'application/octet-stream' });
     await user.upload(screen.getByTestId('open-score-input'), file);
 
-    await waitFor(() => expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy(),
+    );
 
     const note = screen.getByTestId('svg-container').querySelector('.Note');
     expect(note).toBeTruthy();
@@ -428,6 +458,8 @@ describe('ScoreEditor: toolbar mutations, note input and keyboard shortcuts', ()
 
     await user.click(screen.getByTestId('btn-delete'));
     await waitFor(() => expect(screen.queryByTestId('selection-overlay')).not.toBeInTheDocument());
-    expect(testGlobals.alert).toHaveBeenCalledWith('This build of webmscore does not expose "deleteSelection".');
+    expect(testGlobals.alert).toHaveBeenCalledWith(
+      'This build of webmscore does not expose "deleteSelection".',
+    );
   });
 });

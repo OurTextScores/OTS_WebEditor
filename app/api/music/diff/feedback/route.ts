@@ -10,9 +10,8 @@ import {
 
 export const runtime = 'nodejs';
 
-const asRecord = (value: unknown): Record<string, unknown> | null => (
-  value && typeof value === 'object' ? value as Record<string, unknown> : null
-);
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
 
 const readTrimmedString = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
 
@@ -55,7 +54,8 @@ export async function POST(request: Request) {
     const verification = asRecord(result.body.verification);
     const budget = asRecord(verification?.budget);
     summaryExtra = {
-      proposalSessionId: typeof result.body.proposalSessionId === 'string' ? result.body.proposalSessionId : null,
+      proposalSessionId:
+        typeof result.body.proposalSessionId === 'string' ? result.body.proposalSessionId : null,
       cycle: typeof audit?.cycle === 'number' ? audit.cycle : null,
       feedbackCounts: feedbackCounts ?? null,
       contextProvided: contextFlags?.provided === true,
@@ -67,19 +67,30 @@ export async function POST(request: Request) {
       llmCalls: typeof verification?.llmCalls === 'number' ? verification.llmCalls : null,
       editEffort: typeof verification?.effort === 'string' ? verification.effort : null,
       requestBudgetMs: typeof budget?.budgetMs === 'number' ? budget.budgetMs : null,
-      providerStatus: typeof result.body.providerStatus === 'number' ? result.body.providerStatus : null,
-      errorCategory: status < 400 ? null : status === 400 ? 'request' : status === 422 ? 'verification' : status === 504 ? 'timeout' : 'provider',
+      providerStatus:
+        typeof result.body.providerStatus === 'number' ? result.body.providerStatus : null,
+      errorCategory:
+        status < 400
+          ? null
+          : status === 400
+            ? 'request'
+            : status === 422
+              ? 'verification'
+              : status === 504
+                ? 'timeout'
+                : 'provider',
     };
   };
-  const logSummary = () => logApiRouteSummary({
-    event: 'diff.feedback.summary',
-    route: '/api/music/diff/feedback',
-    method: 'POST',
-    status,
-    startedAt,
-    trace,
-    extra: summaryExtra,
-  });
+  const logSummary = () =>
+    logApiRouteSummary({
+      event: 'diff.feedback.summary',
+      route: '/api/music/diff/feedback',
+      method: 'POST',
+      status,
+      startedAt,
+      trace,
+      extra: summaryExtra,
+    });
   try {
     const body = await request.json();
     if (routeWouldUseServerAiKey(body)) {
@@ -100,7 +111,11 @@ export async function POST(request: Request) {
         startedAt,
         parentSignal: request.signal,
         run: async (onProgress, signal) => {
-          const result = await runDiffFeedbackService(body, { traceContext: trace, signal, onProgress });
+          const result = await runDiffFeedbackService(body, {
+            traceContext: trace,
+            signal,
+            onProgress,
+          });
           recordResultSummary(result);
           return result;
         },
@@ -110,7 +125,10 @@ export async function POST(request: Request) {
       return response;
     }
 
-    const result = await runDiffFeedbackService(body, { traceContext: trace, signal: request.signal });
+    const result = await runDiffFeedbackService(body, {
+      traceContext: trace,
+      signal: request.signal,
+    });
     recordResultSummary(result);
     const response = NextResponse.json(result.body, { status: result.status });
     applyTraceHeaders(response.headers, trace);

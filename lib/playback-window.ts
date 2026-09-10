@@ -27,10 +27,10 @@
  */
 
 export interface RenderWindow {
-    /** Stop pulling once scheduled audio reaches this far ahead of the playhead. */
-    horizonSeconds: number;
-    /** Resume pulling once it falls back to this. */
-    lowWaterSeconds: number;
+  /** Stop pulling once scheduled audio reaches this far ahead of the playhead. */
+  horizonSeconds: number;
+  /** Resume pulling once it falls back to this. */
+  lowWaterSeconds: number;
 }
 
 /**
@@ -42,8 +42,8 @@ export interface RenderWindow {
  * that is why this is a named constant and not a literal in the stream loop.
  */
 export const DEFAULT_RENDER_WINDOW: RenderWindow = {
-    horizonSeconds: 20,
-    lowWaterSeconds: 10,
+  horizonSeconds: 20,
+  lowWaterSeconds: 10,
 };
 
 /**
@@ -54,26 +54,26 @@ export const DEFAULT_RENDER_WINDOW: RenderWindow = {
  * @returns milliseconds to wait; 0 means pull immediately
  */
 export function renderWindowDelayMs(
-    aheadSeconds: number,
-    window: RenderWindow = DEFAULT_RENDER_WINDOW,
-    draining = false,
+  aheadSeconds: number,
+  window: RenderWindow = DEFAULT_RENDER_WINDOW,
+  draining = false,
 ): number {
-    if (!Number.isFinite(aheadSeconds)) {
-        // A non-finite reading means the caller has no usable clock yet. Keep
-        // pulling rather than stalling playback on a bad measurement.
-        return 0;
-    }
+  if (!Number.isFinite(aheadSeconds)) {
+    // A non-finite reading means the caller has no usable clock yet. Keep
+    // pulling rather than stalling playback on a bad measurement.
+    return 0;
+  }
 
-    const horizon = Math.max(0, window.horizonSeconds);
-    const lowWater = Math.min(Math.max(0, window.lowWaterSeconds), horizon);
+  const horizon = Math.max(0, window.horizonSeconds);
+  const lowWater = Math.min(Math.max(0, window.lowWaterSeconds), horizon);
 
-    if (!draining && aheadSeconds <= horizon) {
-        return 0;
-    }
+  if (!draining && aheadSeconds <= horizon) {
+    return 0;
+  }
 
-    // Idle until the buffer drains to the low-water mark, so we refill in batches
-    // rather than waking on every chunk.
-    return Math.max(0, (aheadSeconds - lowWater) * 1000);
+  // Idle until the buffer drains to the low-water mark, so we refill in batches
+  // rather than waking on every chunk.
+  return Math.max(0, (aheadSeconds - lowWater) * 1000);
 }
 
 /**
@@ -82,13 +82,17 @@ export function renderWindowDelayMs(
  * Only achievable if played sources are released as they finish; the horizon alone
  * caps how far *ahead* buffers are produced, not how many are retained.
  */
-export function maxBufferedChunks(window: RenderWindow, sampleRate: number, framesPerChunk: number): number {
-    return Math.ceil((window.horizonSeconds * sampleRate) / framesPerChunk);
+export function maxBufferedChunks(
+  window: RenderWindow,
+  sampleRate: number,
+  framesPerChunk: number,
+): number {
+  return Math.ceil((window.horizonSeconds * sampleRate) / framesPerChunk);
 }
 
 /** The subset of AudioBufferSourceNode this module needs, so it is testable with fakes. */
 export interface ReleasableSource {
-    disconnect: () => void;
+  disconnect: () => void;
 }
 
 /**
@@ -102,14 +106,14 @@ export interface ReleasableSource {
  * which is what makes the O(n) scan here cheap.
  */
 export function releaseScheduledSource<T extends ReleasableSource>(sources: T[], source: T): void {
-    try {
-        source.disconnect();
-    } catch {
-        // Already disconnected, or the context is gone. Either way it is released.
-    }
+  try {
+    source.disconnect();
+  } catch {
+    // Already disconnected, or the context is gone. Either way it is released.
+  }
 
-    const index = sources.indexOf(source);
-    if (index !== -1) {
-        sources.splice(index, 1);
-    }
+  const index = sources.indexOf(source);
+  if (index !== -1) {
+    sources.splice(index, 1);
+  }
 }

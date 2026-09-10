@@ -9,7 +9,8 @@ afterEach(() => {
 });
 
 if (typeof window !== 'undefined' && !window.requestAnimationFrame) {
-  window.requestAnimationFrame = (cb: FrameRequestCallback) => window.setTimeout(() => cb(performance.now()), 0);
+  window.requestAnimationFrame = (cb: FrameRequestCallback) =>
+    window.setTimeout(() => cb(performance.now()), 0);
   window.cancelAnimationFrame = (id: number) => window.clearTimeout(id);
 }
 

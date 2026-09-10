@@ -51,21 +51,22 @@ Use this for any `webmscore` extension, not just score mutations. An authoritati
 
 When adding a new C++ function to the WASM bridge, update **all** relevant layers below. Missing one usually produces a method that compiles but silently does not exist in the app.
 
-| # | File | What to add |
-|---|------|-------------|
-| 1 | `webmscore-fork/web/main.cpp` | Native implementation plus `EMSCRIPTEN_KEEPALIVE` export in the `extern "C"` block |
-| 2 | `webmscore-fork/web-public/src/index.js` | Main-thread score method, typically a `Module.ccall(...)` wrapper |
-| 3 | **`webmscore-fork/web-public/src/worker-helper.js`** | Worker RPC proxy (`this.rpc('myMethod', [...args])`). This is the layer most likely to be forgotten. |
-| 4 | `lib/webmscore-loader.ts` | Add the method to the `Score` TypeScript interface |
-| 5 | `components/ScoreEditor.tsx` | Wire the method into editor logic if it is user-facing |
-| 6 | `components/Toolbar.tsx` | If invoked from the toolbar, add handler/button plumbing here too |
-| 7 | `lib/music-services/scoreops-service.ts` | If ScoreOps/agent flows need the method, extend schema/capability/executor/fallback handling |
-| 8 | Tests | Add/update tests for any consumer layer you changed |
+| #   | File                                                 | What to add                                                                                          |
+| --- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| 1   | `webmscore-fork/web/main.cpp`                        | Native implementation plus `EMSCRIPTEN_KEEPALIVE` export in the `extern "C"` block                   |
+| 2   | `webmscore-fork/web-public/src/index.js`             | Main-thread score method, typically a `Module.ccall(...)` wrapper                                    |
+| 3   | **`webmscore-fork/web-public/src/worker-helper.js`** | Worker RPC proxy (`this.rpc('myMethod', [...args])`). This is the layer most likely to be forgotten. |
+| 4   | `lib/webmscore-loader.ts`                            | Add the method to the `Score` TypeScript interface                                                   |
+| 5   | `components/ScoreEditor.tsx`                         | Wire the method into editor logic if it is user-facing                                               |
+| 6   | `components/Toolbar.tsx`                             | If invoked from the toolbar, add handler/button plumbing here too                                    |
+| 7   | `lib/music-services/scoreops-service.ts`             | If ScoreOps/agent flows need the method, extend schema/capability/executor/fallback handling         |
+| 8   | Tests                                                | Add/update tests for any consumer layer you changed                                                  |
 
 Notes:
+
 - **When a native change appears not to take effect, run `npm run check:bridge` first.** It names
   the broken layer in one line (e.g. `missing-from-generated-bundle: <method> is in the bridge
-  source but not in webmscore.webpack.mjs; the bundle predates the source`) and costs seconds,
+source but not in webmscore.webpack.mjs; the bundle predates the source`) and costs seconds,
   versus bisecting rebuilds at ~8 minutes each.
 - `worker-helper.js` and `lib/webmscore-loader.ts` are the most common omissions.
 - If the change is a deep engraving fix with no new JS method, only native source + generated artifacts may change.
@@ -84,7 +85,7 @@ interchangeable and everything works; **add or remove an export and the module s
 instantiating** — no console error, no stack trace, nothing renders anywhere, in the plain editor
 as well as the compare panes. It is indistinguishable by eye from a corrupt engine build.
 
-Note this is *not* what `c33e7a7b` hit — that change touched no JS bridge and no export, and a
+Note this is _not_ what `c33e7a7b` hit — that change touched no JS bridge and no export, and a
 stale bundle is harmless when the export table is unchanged. Its cause is still unidentified. What
 is settled is that the build environment was not to blame: a null rebuild on this machine is
 byte-deterministic (identical source, identical bytes) and behaviourally identical to the committed
@@ -126,6 +127,7 @@ Prefer adding a native WASM primitive when the UI or agent would otherwise need 
 ## Gotchas
 
 **MusicXML pickup measures:**
+
 - Pickup measures use `<measure number="0" implicit="yes">`.
 - All `<attributes>` (divisions, key, time, clefs, staves) must go on the pickup measure. Measure 1 must NOT have its own `<attributes>` block or you get duplicate clefs/time signatures.
 - Rest notes in the pickup need an explicit `<type>` element (e.g., `<type>quarter</type>`) — without it MuseScore renders a whole rest regardless of the `<duration>` value.

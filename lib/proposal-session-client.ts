@@ -33,18 +33,20 @@ export type ClientProposalSession = {
   constraints: ProposalConstraint[];
 };
 
-export type ProposalHashSource = {
-  baseContentHash?: unknown;
-  baseIdentityHash?: unknown;
-  proposedContentHash?: unknown;
-  proposedIdentityHash?: unknown;
-} | null | undefined;
+export type ProposalHashSource =
+  | {
+      baseContentHash?: unknown;
+      baseIdentityHash?: unknown;
+      proposedContentHash?: unknown;
+      proposedIdentityHash?: unknown;
+    }
+  | null
+  | undefined;
 
 const CONSTRAINTS_MAX = 120;
 
-const readHash = (value: unknown): string | null => (
-  typeof value === 'string' && value.trim() ? value.trim() : null
-);
+const readHash = (value: unknown): string | null =>
+  typeof value === 'string' && value.trim() ? value.trim() : null;
 
 const fallbackSessionId = () => {
   if (globalThis.crypto?.randomUUID) {
@@ -87,11 +89,17 @@ export function createClientProposalSession(args: {
   continuityToken?: unknown;
 }): ClientProposalSession {
   return {
-    id: (typeof args.id === 'string' && args.id.trim()) ? args.id.trim() : fallbackSessionId(),
+    id: typeof args.id === 'string' && args.id.trim() ? args.id.trim() : fallbackSessionId(),
     originalInstruction: args.originalInstruction,
     includeChat: args.includeChat,
     cycle: 1,
-    previousCycle: buildPreviousCycle(1, args.proposal, args.patch ?? null, args.annotations ?? [], args.continuityToken),
+    previousCycle: buildPreviousCycle(
+      1,
+      args.proposal,
+      args.patch ?? null,
+      args.annotations ?? [],
+      args.continuityToken,
+    ),
     constraints: [],
   };
 }
@@ -117,18 +125,22 @@ export function accumulateProposalConstraints(
   sentBlocks: SentFeedbackBlock[],
   globalComment: string,
 ): ProposalConstraint[] {
-  const blockKey = (partIndex: number | null, measureRange: string | null) => (
-    `${partIndex ?? 'x'}:${measureRange ?? ''}`
-  );
+  const blockKey = (partIndex: number | null, measureRange: string | null) =>
+    `${partIndex ?? 'x'}:${measureRange ?? ''}`;
   const decidedKeys = new Set(
     sentBlocks
-      .filter((block) => block.status === 'accepted' || block.status === 'rejected' || block.status === 'comment')
+      .filter(
+        (block) =>
+          block.status === 'accepted' || block.status === 'rejected' || block.status === 'comment',
+      )
       .map((block) => blockKey(block.partIndex, block.measureRange)),
   );
   // Any explicit decision this cycle supersedes older located constraints at the same spot.
-  const next = existing.filter((constraint) => (
-    constraint.measureRange === null || !decidedKeys.has(blockKey(constraint.partIndex, constraint.measureRange))
-  ));
+  const next = existing.filter(
+    (constraint) =>
+      constraint.measureRange === null ||
+      !decidedKeys.has(blockKey(constraint.partIndex, constraint.measureRange)),
+  );
   const seenKeys = new Set<string>();
   for (const block of sentBlocks) {
     const key = blockKey(block.partIndex, block.measureRange);
@@ -156,7 +168,13 @@ export function accumulateProposalConstraints(
     }
   }
   const note = globalComment.trim();
-  if (note && !next.some((constraint) => constraint.kind === 'note' && constraint.measureRange === null && constraint.text === note)) {
+  if (
+    note &&
+    !next.some(
+      (constraint) =>
+        constraint.kind === 'note' && constraint.measureRange === null && constraint.text === note,
+    )
+  ) {
     next.push({
       cycle: revisedCycle,
       kind: 'note',
@@ -168,27 +186,40 @@ export function accumulateProposalConstraints(
   return next.length > CONSTRAINTS_MAX ? next.slice(next.length - CONSTRAINTS_MAX) : next;
 }
 
-export function advanceClientProposalSession(session: ClientProposalSession, args: {
-  responseId?: unknown;
-  newCycle?: unknown;
-  proposal?: ProposalHashSource;
-  patch?: unknown | null;
-  annotations?: PatchAnnotation[];
-  continuityToken?: unknown;
-  sentBlocks: SentFeedbackBlock[];
-  sentGlobalComment: string;
-}): ClientProposalSession {
+export function advanceClientProposalSession(
+  session: ClientProposalSession,
+  args: {
+    responseId?: unknown;
+    newCycle?: unknown;
+    proposal?: ProposalHashSource;
+    patch?: unknown | null;
+    annotations?: PatchAnnotation[];
+    continuityToken?: unknown;
+    sentBlocks: SentFeedbackBlock[];
+    sentGlobalComment: string;
+  },
+): ClientProposalSession {
   const revisedCycle = session.cycle;
   // Only the exact successor cycle is a valid transition; anything else means local state
   // diverged from the server, so keep counting locally rather than adopting the jump.
-  const newCycle = typeof args.newCycle === 'number' && args.newCycle === session.cycle + 1
-    ? args.newCycle
-    : session.cycle + 1;
+  const newCycle =
+    typeof args.newCycle === 'number' && args.newCycle === session.cycle + 1
+      ? args.newCycle
+      : session.cycle + 1;
   return {
     ...session,
-    id: (typeof args.responseId === 'string' && args.responseId.trim()) ? args.responseId.trim() : session.id,
+    id:
+      typeof args.responseId === 'string' && args.responseId.trim()
+        ? args.responseId.trim()
+        : session.id,
     cycle: newCycle,
-    previousCycle: buildPreviousCycle(newCycle, args.proposal, args.patch ?? null, args.annotations ?? [], args.continuityToken),
+    previousCycle: buildPreviousCycle(
+      newCycle,
+      args.proposal,
+      args.patch ?? null,
+      args.annotations ?? [],
+      args.continuityToken,
+    ),
     constraints: accumulateProposalConstraints(
       session.constraints,
       revisedCycle,
@@ -212,20 +243,22 @@ export function buildProposalSessionRequestPayload(
     id: session.id,
     cycle: session.cycle,
     originalInstruction: session.originalInstruction,
-    ...(session.previousCycle ? {
-      previousCycle: {
-        cycle: session.cycle,
-        baseContentHash: session.previousCycle.baseContentHash,
-        baseIdentityHash: session.previousCycle.baseIdentityHash,
-        proposedContentHash: session.previousCycle.proposedContentHash,
-        proposedIdentityHash: session.previousCycle.proposedIdentityHash,
-        expectedCurrentContentHash: expectedCurrent.contentHash,
-        expectedCurrentIdentityHash: expectedCurrent.identityHash,
-        continuityToken: session.previousCycle.continuityToken,
-        patch: session.previousCycle.patch,
-        annotations: session.previousCycle.annotations,
-      },
-    } : {}),
+    ...(session.previousCycle
+      ? {
+          previousCycle: {
+            cycle: session.cycle,
+            baseContentHash: session.previousCycle.baseContentHash,
+            baseIdentityHash: session.previousCycle.baseIdentityHash,
+            proposedContentHash: session.previousCycle.proposedContentHash,
+            proposedIdentityHash: session.previousCycle.proposedIdentityHash,
+            expectedCurrentContentHash: expectedCurrent.contentHash,
+            expectedCurrentIdentityHash: expectedCurrent.identityHash,
+            continuityToken: session.previousCycle.continuityToken,
+            patch: session.previousCycle.patch,
+            annotations: session.previousCycle.annotations,
+          },
+        }
+      : {}),
     constraints: session.constraints,
   };
 }

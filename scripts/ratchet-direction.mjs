@@ -18,21 +18,21 @@
 
 /** Numeric budget leaves, flattened to dotted keys. */
 const flattenBudgets = (budget) => {
-    const out = new Map();
-    const visit = (value, path) => {
-        if (typeof value === 'number') {
-            out.set(path.join('.'), value);
-            return;
-        }
-        if (!value || typeof value !== 'object' || Array.isArray(value)) return;
-        for (const [key, child] of Object.entries(value)) {
-            // Keys starting with `_` are prose comments, and `raises` is the log itself.
-            if (key.startsWith('_') || (path.length === 0 && key === 'raises')) continue;
-            visit(child, [...path, key]);
-        }
-    };
-    visit(budget, []);
-    return out;
+  const out = new Map();
+  const visit = (value, path) => {
+    if (typeof value === 'number') {
+      out.set(path.join('.'), value);
+      return;
+    }
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return;
+    for (const [key, child] of Object.entries(value)) {
+      // Keys starting with `_` are prose comments, and `raises` is the log itself.
+      if (key.startsWith('_') || (path.length === 0 && key === 'raises')) continue;
+      visit(child, [...path, key]);
+    }
+  };
+  visit(budget, []);
+  return out;
 };
 
 const MINIMUM_REASON_LENGTH = 20;
@@ -43,52 +43,58 @@ const MINIMUM_REASON_LENGTH = 20;
  * @returns {{ raises: Array<{key: string, from: number, to: number}>, failures: Array<{rule: string, detail: string}> }}
  */
 export function analyzeRatchetDirection(baseBudget, currentBudget) {
-    const failures = [];
-    const fail = (rule, detail) => failures.push({ rule, detail });
+  const failures = [];
+  const fail = (rule, detail) => failures.push({ rule, detail });
 
-    const base = flattenBudgets(baseBudget);
-    const current = flattenBudgets(currentBudget);
-    const declared = Array.isArray(currentBudget?.raises) ? currentBudget.raises : [];
+  const base = flattenBudgets(baseBudget);
+  const current = flattenBudgets(currentBudget);
+  const declared = Array.isArray(currentBudget?.raises) ? currentBudget.raises : [];
 
-    const raises = [];
-    for (const [key, value] of current) {
-        const previous = base.get(key);
-        // A newly budgeted surface is not a raise: it had no budget to raise.
-        if (previous === undefined || value <= previous) continue;
-        raises.push({ key, from: previous, to: value });
+  const raises = [];
+  for (const [key, value] of current) {
+    const previous = base.get(key);
+    // A newly budgeted surface is not a raise: it had no budget to raise.
+    if (previous === undefined || value <= previous) continue;
+    raises.push({ key, from: previous, to: value });
 
-        const entry = declared.find((row) => (
-            row && row.key === key && row.from === previous && row.to === value
-        ));
-        if (!entry) {
-            fail(
-                'undeclared-raise',
-                `${key} rose ${previous} -> ${value} with no matching entry in "raises". `
-                + `Add { "key": "${key}", "from": ${previous}, "to": ${value}, "reason": "…" } `
-                + 'or bring the tree back under the existing budget.',
-            );
-            continue;
-        }
-        if (typeof entry.reason !== 'string' || entry.reason.trim().length < MINIMUM_REASON_LENGTH) {
-            fail(
-                'unjustified-raise',
-                `${key} rose ${previous} -> ${value} but its "raises" entry has no usable reason `
-                + `(at least ${MINIMUM_REASON_LENGTH} characters).`,
-            );
-        }
+    const entry = declared.find(
+      (row) => row && row.key === key && row.from === previous && row.to === value,
+    );
+    if (!entry) {
+      fail(
+        'undeclared-raise',
+        `${key} rose ${previous} -> ${value} with no matching entry in "raises". ` +
+          `Add { "key": "${key}", "from": ${previous}, "to": ${value}, "reason": "…" } ` +
+          'or bring the tree back under the existing budget.',
+      );
+      continue;
     }
-
-    // A declared raise for a budget that did not move is either a typo or a leftover
-    // pre-authorization for a raise nobody has made. Neither should sit in the file.
-    for (const entry of declared) {
-        if (!entry || typeof entry.key !== 'string') {
-            fail('malformed-raise-entry', `"raises" contains an entry with no key: ${JSON.stringify(entry)}`);
-            continue;
-        }
-        if (!current.has(entry.key)) {
-            fail('stale-raise-entry', `raises entry for ${entry.key} names a budget that no longer exists; remove it.`);
-        }
+    if (typeof entry.reason !== 'string' || entry.reason.trim().length < MINIMUM_REASON_LENGTH) {
+      fail(
+        'unjustified-raise',
+        `${key} rose ${previous} -> ${value} but its "raises" entry has no usable reason ` +
+          `(at least ${MINIMUM_REASON_LENGTH} characters).`,
+      );
     }
+  }
 
-    return { raises, failures };
+  // A declared raise for a budget that did not move is either a typo or a leftover
+  // pre-authorization for a raise nobody has made. Neither should sit in the file.
+  for (const entry of declared) {
+    if (!entry || typeof entry.key !== 'string') {
+      fail(
+        'malformed-raise-entry',
+        `"raises" contains an entry with no key: ${JSON.stringify(entry)}`,
+      );
+      continue;
+    }
+    if (!current.has(entry.key)) {
+      fail(
+        'stale-raise-entry',
+        `raises entry for ${entry.key} names a budget that no longer exists; remove it.`,
+      );
+    }
+  }
+
+  return { raises, failures };
 }

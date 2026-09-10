@@ -23,9 +23,10 @@ describe('RootLayout', () => {
     expect(treeProps.suppressHydrationWarning).toBe(true);
 
     const children = React.Children.toArray(treeProps.children);
-    const body = children.find((candidate): candidate is React.ReactElement<{ children: React.ReactNode }> => (
-      React.isValidElement<{ children: React.ReactNode }>(candidate) && candidate.type === 'body'
-    ));
+    const body = children.find(
+      (candidate): candidate is React.ReactElement<{ children: React.ReactNode }> =>
+        React.isValidElement<{ children: React.ReactNode }>(candidate) && candidate.type === 'body',
+    );
     expect(body).toBeDefined();
     expect(body?.props.children).toBe(child);
   });

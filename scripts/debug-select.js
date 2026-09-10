@@ -2,10 +2,14 @@ const { chromium } = require('playwright');
 (async () => {
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
-  page.on('console', msg => console.log('PAGE:', msg.text()));
-  page.on('pageerror', err => console.log('PAGE ERROR:', err.message, err.stack));
-   page.on('requestfailed', req => console.log('REQUEST FAILED:', req.url(), req.failure()?.errorText));
-  await page.goto('http://localhost:3000/?score=/test_scores/bach_orig.mscz', { waitUntil: 'networkidle' });
+  page.on('console', (msg) => console.log('PAGE:', msg.text()));
+  page.on('pageerror', (err) => console.log('PAGE ERROR:', err.message, err.stack));
+  page.on('requestfailed', (req) =>
+    console.log('REQUEST FAILED:', req.url(), req.failure()?.errorText),
+  );
+  await page.goto('http://localhost:3000/?score=/test_scores/bach_orig.mscz', {
+    waitUntil: 'networkidle',
+  });
   await page.waitForSelector('.Note');
   const note = await page.$('.Note');
   await note.scrollIntoViewIfNeeded();
@@ -21,8 +25,8 @@ const { chromium } = require('playwright');
     const container = svg?.parentElement;
     if (!container || !window.__webmscore?.selectElementAtPoint) return null;
     const containerRect = container.getBoundingClientRect();
-    const x = (b.x - containerRect.left) + b.width / 2;
-    const y = (b.y - containerRect.top) + b.height / 2;
+    const x = b.x - containerRect.left + b.width / 2;
+    const y = b.y - containerRect.top + b.height / 2;
     return window.__webmscore.selectElementAtPoint(0, x, y);
   }, box);
   console.log('selectElementAtPoint result', selectResult);

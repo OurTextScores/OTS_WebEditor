@@ -1,6 +1,6 @@
 export const AI_EDIT_EFFORTS = ['efficient', 'balanced', 'thorough'] as const;
 
-export type AiEditEffort = typeof AI_EDIT_EFFORTS[number];
+export type AiEditEffort = (typeof AI_EDIT_EFFORTS)[number];
 
 export type AiEditEffortProfile = {
   label: string;
@@ -60,15 +60,16 @@ export const AI_EDIT_EFFORT_PROFILES: Record<AiEditEffort, AiEditEffortProfile> 
   },
 };
 
-export const parseAiEditEffort = (value: unknown): AiEditEffort => (
+export const parseAiEditEffort = (value: unknown): AiEditEffort =>
   typeof value === 'string' && AI_EDIT_EFFORTS.includes(value.trim().toLowerCase() as AiEditEffort)
-    ? value.trim().toLowerCase() as AiEditEffort
-    : DEFAULT_AI_EDIT_EFFORT
-);
+    ? (value.trim().toLowerCase() as AiEditEffort)
+    : DEFAULT_AI_EDIT_EFFORT;
 
 export const formatAiEditBudgetDuration = (budgetMs: number): string => {
   const totalSeconds = Math.max(0, Math.round(budgetMs / 1000));
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  return minutes > 0 && seconds === 0 ? `${minutes} min` : `${minutes}:${String(seconds).padStart(2, '0')}`;
+  return minutes > 0 && seconds === 0
+    ? `${minutes} min`
+    : `${minutes}:${String(seconds).padStart(2, '0')}`;
 };

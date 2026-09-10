@@ -17,7 +17,9 @@ export async function POST(request: Request) {
   };
 
   try {
-    const result = await runFunctionalHarmonyAnalyzeService(await request.json(), { traceContext: trace });
+    const result = await runFunctionalHarmonyAnalyzeService(await request.json(), {
+      traceContext: trace,
+    });
     status = result.status;
     return tracedJson(result.body, { status });
   } catch (error) {

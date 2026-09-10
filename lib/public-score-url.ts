@@ -4,10 +4,7 @@ import { isZipArchive, readZipEntryNames } from './zip-central-directory';
 /** Fallback probe window for archives whose central directory cannot be read. */
 const TAIL_PROBE_BYTES = 64 * 1024;
 
-const GOOGLE_DRIVE_HOSTS = new Set([
-  'drive.google.com',
-  'drive.usercontent.google.com',
-]);
+const GOOGLE_DRIVE_HOSTS = new Set(['drive.google.com', 'drive.usercontent.google.com']);
 
 const GOOGLE_DRIVE_FILE_ID = /^[A-Za-z0-9_-]+$/;
 
@@ -49,7 +46,8 @@ export function resolvePublicScoreUrl(source: string): string {
     // In embed/static builds NEXT_PUBLIC_SCORE_EDITOR_API_BASE points to the
     // companion API proxy (e.g. /api/score-editor), which routes to the
     // score_editor_api Next.js service where /api/fetch-score lives.
-    const apiBase = (process.env.NEXT_PUBLIC_SCORE_EDITOR_API_BASE ?? '').replace(/\/$/, '') || '/api';
+    const apiBase =
+      (process.env.NEXT_PUBLIC_SCORE_EDITOR_API_BASE ?? '').replace(/\/$/, '') || '/api';
     return `${apiBase}/fetch-score?url=${encodeURIComponent(downloadUrl.toString())}`;
   } catch {
     // Relative URLs are valid score sources and should pass through unchanged.
@@ -126,7 +124,9 @@ export function detectScoreInputFormat(source: string, data?: Uint8Array): Input
       return 'mscz';
     }
 
-    const prefix = new TextDecoder().decode(data.subarray(0, Math.min(data.byteLength, 4096))).toLowerCase();
+    const prefix = new TextDecoder()
+      .decode(data.subarray(0, Math.min(data.byteLength, 4096)))
+      .toLowerCase();
     if (prefix.includes('<musescore')) {
       return 'mscx';
     }

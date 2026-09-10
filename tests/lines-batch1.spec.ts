@@ -2,19 +2,24 @@ import { expect, test, type Page } from 'playwright/test';
 
 test.use({ viewport: { width: 2400, height: 1600 } });
 
-const readMscx = (page: Page) => page.evaluate(async () => {
-  const score = (window as unknown as {
-    __webmscore?: { saveMsc?: (format: 'mscx') => Promise<Uint8Array> };
-  }).__webmscore;
-  if (!score?.saveMsc) throw new Error('window.__webmscore.saveMsc is unavailable');
-  return new TextDecoder().decode(await score.saveMsc('mscx'));
-});
+const readMscx = (page: Page) =>
+  page.evaluate(async () => {
+    const score = (
+      window as unknown as {
+        __webmscore?: { saveMsc?: (format: 'mscx') => Promise<Uint8Array> };
+      }
+    ).__webmscore;
+    if (!score?.saveMsc) throw new Error('window.__webmscore.saveMsc is unavailable');
+    return new TextDecoder().decode(await score.saveMsc('mscx'));
+  });
 
 const reloadCurrentMscx = async (page: Page) => {
   const bytes = await page.evaluate(async () => {
-    const score = (window as unknown as {
-      __webmscore?: { saveMsc?: (format: 'mscx') => Promise<Uint8Array> };
-    }).__webmscore;
+    const score = (
+      window as unknown as {
+        __webmscore?: { saveMsc?: (format: 'mscx') => Promise<Uint8Array> };
+      }
+    ).__webmscore;
     if (!score?.saveMsc) throw new Error('window.__webmscore.saveMsc is unavailable');
     return Array.from(await score.saveMsc('mscx'));
   });
@@ -65,7 +70,9 @@ test('adds an undoable 8va line that supports native grip editing', async ({ pag
   await openLines(page);
   await page.getByTestId('btn-ottava-0').click();
   await expect(page.locator('svg .OttavaSegment').first()).toBeVisible({ timeout: 20_000 });
-  await expect.poll(async () => (await readMscx(page)).includes('<Ottava>'), { timeout: 20_000 }).toBe(true);
+  await expect
+    .poll(async () => (await readMscx(page)).includes('<Ottava>'), { timeout: 20_000 })
+    .toBe(true);
 
   await doubleClickGeometry(page, 'svg path.OttavaSegment');
   await expect(page.locator('[data-testid^="spanner-grip-"]').first()).toBeVisible();
@@ -86,7 +93,11 @@ test('adds and serializes a non-default trill line', async ({ page }) => {
   await openLines(page);
   await page.getByTestId('btn-trill-3').click();
   await expect(page.locator('svg .TrillSegment').first()).toBeVisible({ timeout: 20_000 });
-  await expect.poll(async () => /<Trill>[\s\S]*?<subtype>prallprall<\/subtype>/.test(await readMscx(page)), { timeout: 20_000 }).toBe(true);
+  await expect
+    .poll(async () => /<Trill>[\s\S]*?<subtype>prallprall<\/subtype>/.test(await readMscx(page)), {
+      timeout: 20_000,
+    })
+    .toBe(true);
   await page.keyboard.press('Control+z');
   await expect(page.locator('svg .TrillSegment')).toHaveCount(0, { timeout: 20_000 });
   await page.keyboard.press('Control+y');
@@ -102,7 +113,11 @@ test('adds a wavy glissando between exactly two selected notes', async ({ page }
   await openLines(page);
   await page.getByTestId('btn-glissando-1').click();
   await expect(page.locator('svg .GlissandoSegment').first()).toBeVisible({ timeout: 20_000 });
-  await expect.poll(async () => /<Glissando>[\s\S]*?<subtype>1<\/subtype>/.test(await readMscx(page)), { timeout: 20_000 }).toBe(true);
+  await expect
+    .poll(async () => /<Glissando>[\s\S]*?<subtype>1<\/subtype>/.test(await readMscx(page)), {
+      timeout: 20_000,
+    })
+    .toBe(true);
   await page.keyboard.press('Control+z');
   await expect(page.locator('svg .GlissandoSegment')).toHaveCount(0, { timeout: 20_000 });
   await page.keyboard.press('Control+y');
@@ -119,9 +134,11 @@ test('rejects a glissando when only one note is selected', async ({ page }) => {
   await notes.first().click();
 
   const result = await page.evaluate(async () => {
-    const score = (window as unknown as {
-      __webmscore?: { addGlissando?: (type: number) => Promise<boolean> };
-    }).__webmscore;
+    const score = (
+      window as unknown as {
+        __webmscore?: { addGlissando?: (type: number) => Promise<boolean> };
+      }
+    ).__webmscore;
     if (!score?.addGlissando) throw new Error('window.__webmscore.addGlissando is unavailable');
     return score.addGlissando(0);
   });

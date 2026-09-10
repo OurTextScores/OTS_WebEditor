@@ -28,23 +28,21 @@ type BuildAiEditProposalArgs = {
   verification?: unknown;
 };
 
-const asRecord = (value: unknown): Record<string, unknown> | null => (
-  value && typeof value === 'object' ? value as Record<string, unknown> : null
-);
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
 
-export function buildAiEditProposal(
-  args: BuildAiEditProposalArgs,
-): AiEditProposal | null {
+export function buildAiEditProposal(args: BuildAiEditProposalArgs): AiEditProposal | null {
   if (!args.proposedXml.trim() || !args.base.xml.trim() || !args.base.contentHash.trim()) {
     return null;
   }
 
   const verificationInput = asRecord(args.verification);
-  const verificationLevel = verificationInput?.level === 'patch_apply'
-    || verificationInput?.level === 'engine_load'
-    || verificationInput?.level === 'render'
-    ? verificationInput.level
-    : 'tool_execution';
+  const verificationLevel =
+    verificationInput?.level === 'patch_apply' ||
+    verificationInput?.level === 'engine_load' ||
+    verificationInput?.level === 'render'
+      ? verificationInput.level
+      : 'tool_execution';
   const baseIdentityHash = computeMusicXmlIdentityHashServer(args.base.xml);
 
   return {
@@ -61,8 +59,12 @@ export function buildAiEditProposal(
     proposedIdentityHash: computeMusicXmlIdentityHashServer(args.proposedXml),
     verification: {
       level: verificationLevel,
-      ...(typeof verificationInput?.attempts === 'number' ? { attempts: verificationInput.attempts } : {}),
-      ...(typeof verificationInput?.llmCalls === 'number' ? { llmCalls: verificationInput.llmCalls } : {}),
+      ...(typeof verificationInput?.attempts === 'number'
+        ? { attempts: verificationInput.attempts }
+        : {}),
+      ...(typeof verificationInput?.llmCalls === 'number'
+        ? { llmCalls: verificationInput.llmCalls }
+        : {}),
     },
   };
 }

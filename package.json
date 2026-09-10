@@ -13,6 +13,8 @@
     "build:embed:full": "bash scripts/build-embed-with-soundfont.sh",
     "start": "next start",
     "lint": "eslint app components lib unit tests",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "typecheck": "npm run typecheck:app && npm run typecheck:tests",
     "typecheck:app": "node --max-old-space-size=4096 ./node_modules/typescript/bin/tsc -p tsconfig.app.json --noEmit",
     "typecheck:tests": "node --max-old-space-size=4096 ./node_modules/typescript/bin/tsc -p tsconfig.tests.json --noEmit",
@@ -92,6 +94,7 @@
     "file-loader": "^6.2.0",
     "jsdom": "^27.3.0",
     "playwright": "^1.57.0",
+    "prettier": "^3.9.6",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.0.16"

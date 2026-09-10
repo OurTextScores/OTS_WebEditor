@@ -10,9 +10,12 @@ import {
   type ProposalPreviousCycle,
 } from '../lib/music-services/proposal-session-context';
 
-const BASE_XML = '<score-partwise version="4.0"><part-list/><part id="P1"><measure number="1"/></part></score-partwise>';
-const PROPOSED_XML = '<score-partwise version="4.0"><part-list/><part id="P1"><measure number="1"><note/></measure></part></score-partwise>';
-const OTHER_XML = '<score-partwise version="4.0"><part-list/><part id="P1"><measure number="2"/></part></score-partwise>';
+const BASE_XML =
+  '<score-partwise version="4.0"><part-list/><part id="P1"><measure number="1"/></part></score-partwise>';
+const PROPOSED_XML =
+  '<score-partwise version="4.0"><part-list/><part id="P1"><measure number="1"><note/></measure></part></score-partwise>';
+const OTHER_XML =
+  '<score-partwise version="4.0"><part-list/><part id="P1"><measure number="2"/></part></score-partwise>';
 
 const VALID_PATCH = {
   format: 'musicxml-patch@1',
@@ -68,12 +71,32 @@ describe('parseProposalSessionContext', () => {
     ['bad id', validInput({ id: 'bad id with spaces' }), 'id'],
     ['cycle zero', validInput({ cycle: 0 }), 'cycle'],
     ['cycle/iteration mismatch', validInput({ cycle: 3 }), 'iteration'],
-    ['previousCycle cycle mismatch', validInput({ previousCycle: validPreviousCycle({ cycle: 2 }) }), 'previousCycle.cycle'],
-    ['previousCycle missing hashes', validInput({ previousCycle: validPreviousCycle({ baseContentHash: 'nope' }) }), 'hashes'],
-    ['previousCycle bad patch', validInput({ previousCycle: validPreviousCycle({ patch: { format: 'other' } }) }), 'patch'],
+    [
+      'previousCycle cycle mismatch',
+      validInput({ previousCycle: validPreviousCycle({ cycle: 2 }) }),
+      'previousCycle.cycle',
+    ],
+    [
+      'previousCycle missing hashes',
+      validInput({ previousCycle: validPreviousCycle({ baseContentHash: 'nope' }) }),
+      'hashes',
+    ],
+    [
+      'previousCycle bad patch',
+      validInput({ previousCycle: validPreviousCycle({ patch: { format: 'other' } }) }),
+      'patch',
+    ],
     ['constraints not array', validInput({ constraints: 'nope' }), 'constraints'],
-    ['constraint bad kind', validInput({ constraints: [{ cycle: 1, kind: 'weird', text: 'x' }] }), 'kind'],
-    ['constraint future cycle', validInput({ constraints: [{ cycle: 5, kind: 'note', text: 'x' }] }), 'cycle'],
+    [
+      'constraint bad kind',
+      validInput({ constraints: [{ cycle: 1, kind: 'weird', text: 'x' }] }),
+      'kind',
+    ],
+    [
+      'constraint future cycle',
+      validInput({ constraints: [{ cycle: 5, kind: 'note', text: 'x' }] }),
+      'cycle',
+    ],
   ])('rejects structural violation: %s', (_label, input, errorFragment) => {
     const result = parseProposalSessionContext(input, { iteration: 0 });
     expect('error' in result && result.error).toContain(errorFragment);
@@ -138,7 +161,13 @@ describe('parseProposalSessionContext', () => {
     try {
       const bigPatch = {
         format: 'musicxml-patch@1',
-        ops: [{ op: 'setText', path: '/score-partwise/part/measure/note/duration', value: 'x'.repeat(6_000) }],
+        ops: [
+          {
+            op: 'setText',
+            path: '/score-partwise/part/measure/note/duration',
+            value: 'x'.repeat(6_000),
+          },
+        ],
       };
       const manyConstraints = Array.from({ length: 40 }, (_, i) => ({
         cycle: 1,
@@ -193,7 +222,9 @@ describe('parseProposalSessionContext', () => {
     const result = parseProposalSessionContext(
       validInput({
         originalInstruction: 'line\u0000one\u0007 two',
-        constraints: [{ cycle: 1, kind: 'note', partIndex: null, measureRange: null, text: '\u0000 \u0007 ' }],
+        constraints: [
+          { cycle: 1, kind: 'note', partIndex: null, measureRange: null, text: '\u0000 \u0007 ' },
+        ],
       }),
       { iteration: 0 },
     );
@@ -207,13 +238,16 @@ describe('parseProposalSessionContext', () => {
 
 describe('evaluateProposalLineage', () => {
   const SESSION = { proposalSessionId: 'sess-lineage-1', cycle: 1 };
-  const tokenFor = (base: string, proposed: string) => createProposalContinuityToken({
-    proposalSessionId: SESSION.proposalSessionId,
-    cycle: SESSION.cycle,
-    baseContentHash: computeScoreHash(base),
-    proposedContentHash: computeScoreHash(proposed),
-  });
-  const previousCycle = (overrides: Partial<ProposalPreviousCycle> = {}): ProposalPreviousCycle => ({
+  const tokenFor = (base: string, proposed: string) =>
+    createProposalContinuityToken({
+      proposalSessionId: SESSION.proposalSessionId,
+      cycle: SESSION.cycle,
+      baseContentHash: computeScoreHash(base),
+      proposedContentHash: computeScoreHash(proposed),
+    });
+  const previousCycle = (
+    overrides: Partial<ProposalPreviousCycle> = {},
+  ): ProposalPreviousCycle => ({
     cycle: 1,
     baseContentHash: computeScoreHash(BASE_XML),
     baseIdentityHash: computeMusicXmlIdentityHashServer(BASE_XML),
@@ -228,27 +262,40 @@ describe('evaluateProposalLineage', () => {
   });
 
   it('returns none without a previous cycle', () => {
-    expect(evaluateProposalLineage(BASE_XML, null)).toEqual({ lineage: 'none', continuity: 'none' });
+    expect(evaluateProposalLineage(BASE_XML, null)).toEqual({
+      lineage: 'none',
+      continuity: 'none',
+    });
   });
 
   it('marks a base match as client_attested when no continuity token is present', () => {
-    expect(evaluateProposalLineage(BASE_XML, previousCycle(), SESSION))
-      .toEqual({ lineage: 'client_attested', continuity: 'client' });
+    expect(evaluateProposalLineage(BASE_XML, previousCycle(), SESSION)).toEqual({
+      lineage: 'client_attested',
+      continuity: 'client',
+    });
   });
 
   it('verifies base and proposal matches when the server continuity token checks out', () => {
     const withToken = previousCycle({ continuityToken: tokenFor(BASE_XML, PROPOSED_XML) });
-    expect(evaluateProposalLineage(BASE_XML, withToken, SESSION))
-      .toEqual({ lineage: 'verified', continuity: 'server' });
-    expect(evaluateProposalLineage(PROPOSED_XML, withToken, SESSION))
-      .toEqual({ lineage: 'verified', continuity: 'server' });
+    expect(evaluateProposalLineage(BASE_XML, withToken, SESSION)).toEqual({
+      lineage: 'verified',
+      continuity: 'server',
+    });
+    expect(evaluateProposalLineage(PROPOSED_XML, withToken, SESSION)).toEqual({
+      lineage: 'verified',
+      continuity: 'server',
+    });
   });
 
   it('keeps a partial-apply expectation match client_attested even with a valid token', () => {
-    const result = evaluateProposalLineage(OTHER_XML, previousCycle({
-      continuityToken: tokenFor(BASE_XML, PROPOSED_XML),
-      expectedCurrentContentHash: computeScoreHash(OTHER_XML),
-    }), SESSION);
+    const result = evaluateProposalLineage(
+      OTHER_XML,
+      previousCycle({
+        continuityToken: tokenFor(BASE_XML, PROPOSED_XML),
+        expectedCurrentContentHash: computeScoreHash(OTHER_XML),
+      }),
+      SESSION,
+    );
     expect(result).toEqual({ lineage: 'client_attested', continuity: 'server' });
   });
 
@@ -259,14 +306,17 @@ describe('evaluateProposalLineage', () => {
       baseContentHash: computeScoreHash(BASE_XML),
       proposedContentHash: computeScoreHash(PROPOSED_XML),
     });
-    expect(evaluateProposalLineage(BASE_XML, previousCycle({ continuityToken: foreignToken }), SESSION))
-      .toEqual({ lineage: 'client_attested', continuity: 'client' });
+    expect(
+      evaluateProposalLineage(BASE_XML, previousCycle({ continuityToken: foreignToken }), SESSION),
+    ).toEqual({ lineage: 'client_attested', continuity: 'client' });
   });
 
   it('matches identity hashes when raw bytes drifted', () => {
     const reserialized = `${BASE_XML}\n`;
     expect(computeScoreHash(reserialized)).not.toBe(computeScoreHash(BASE_XML));
-    expect(evaluateProposalLineage(reserialized, previousCycle(), SESSION).lineage).toBe('client_attested');
+    expect(evaluateProposalLineage(reserialized, previousCycle(), SESSION).lineage).toBe(
+      'client_attested',
+    );
   });
 
   it('reports mismatch when no hash matches', () => {
@@ -274,7 +324,9 @@ describe('evaluateProposalLineage', () => {
   });
 
   it('reports mismatch for unparseable current XML instead of throwing', () => {
-    expect(evaluateProposalLineage('<score-partwise><unclosed>', previousCycle(), SESSION).lineage).toBe('mismatch');
+    expect(
+      evaluateProposalLineage('<score-partwise><unclosed>', previousCycle(), SESSION).lineage,
+    ).toBe('mismatch');
   });
 });
 
@@ -290,7 +342,9 @@ describe('continuity tokens', () => {
     expect(token).toMatch(/^pct-v1:[0-9a-f]{64}$/);
     expect(verifyProposalContinuityToken(token, args)).toBe(true);
     expect(verifyProposalContinuityToken(token, { ...args, cycle: 3 })).toBe(false);
-    expect(verifyProposalContinuityToken(token, { ...args, proposalSessionId: 'other' })).toBe(false);
+    expect(verifyProposalContinuityToken(token, { ...args, proposalSessionId: 'other' })).toBe(
+      false,
+    );
     const tampered = `${token.slice(0, -1)}${token.endsWith('0') ? '1' : '0'}`;
     expect(verifyProposalContinuityToken(tampered, args)).toBe(false);
     expect(verifyProposalContinuityToken(null, args)).toBe(false);

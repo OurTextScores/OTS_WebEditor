@@ -63,10 +63,10 @@ export const readAiEditServiceResponse = async (
       throw new Error('AI edit progress stream version is unsupported.');
     }
     if (
-      parsed.eventName === 'progress'
-      && payload.type === 'progress'
-      && typeof payload.message === 'string'
-      && AI_EDIT_PROGRESS_PHASE_SET.has(String(payload.phase))
+      parsed.eventName === 'progress' &&
+      payload.type === 'progress' &&
+      typeof payload.message === 'string' &&
+      AI_EDIT_PROGRESS_PHASE_SET.has(String(payload.phase))
     ) {
       onProgress?.(payload as AiEditProgressEvent);
       return;

@@ -34,7 +34,8 @@ export function extractPatchAnnotations(payload: unknown): PatchAnnotation[] {
   if (!root) {
     return [];
   }
-  const inner = root.patch && typeof root.patch === 'object' ? (root.patch as Record<string, unknown>) : null;
+  const inner =
+    root.patch && typeof root.patch === 'object' ? (root.patch as Record<string, unknown>) : null;
   const rawList = Array.isArray(root.annotations)
     ? root.annotations
     : inner && Array.isArray(inner.annotations)
@@ -47,22 +48,24 @@ export function extractPatchAnnotations(payload: unknown): PatchAnnotation[] {
       continue;
     }
     const rec = item as Record<string, unknown>;
-    const comment = typeof rec.comment === 'string'
-      ? rec.comment.trim()
-      : typeof rec.text === 'string'
-        ? rec.text.trim()
-        : '';
+    const comment =
+      typeof rec.comment === 'string'
+        ? rec.comment.trim()
+        : typeof rec.text === 'string'
+          ? rec.text.trim()
+          : '';
     if (!comment) {
       continue;
     }
     // Prefer an explicit 0-based partIndex; otherwise treat `part`/`partNumber` as 1-based.
     const explicitIndex = toFiniteInt(rec.partIndex);
     const oneBasedPart = toFiniteInt(rec.part ?? rec.partNumber);
-    const partIndex = explicitIndex !== null
-      ? Math.max(0, explicitIndex)
-      : oneBasedPart !== null
-        ? Math.max(0, oneBasedPart - 1)
-        : 0;
+    const partIndex =
+      explicitIndex !== null
+        ? Math.max(0, explicitIndex)
+        : oneBasedPart !== null
+          ? Math.max(0, oneBasedPart - 1)
+          : 0;
     const measureInt = toFiniteInt(rec.measure ?? rec.measureNumber ?? rec.bar);
     const measure = measureInt !== null ? Math.max(1, measureInt) : 1;
     out.push({ partIndex, measure, comment });

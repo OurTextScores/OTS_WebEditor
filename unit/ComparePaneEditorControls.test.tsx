@@ -30,8 +30,14 @@ describe('ComparePaneEditorControls', () => {
     );
 
     expect(screen.getByTestId('compare-editor-controls-right')).toHaveTextContent('75%');
-    expect(screen.getByTestId('btn-compare-activate-right')).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByTestId('btn-compare-note-input-right')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('btn-compare-activate-right')).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByTestId('btn-compare-note-input-right')).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     expect(screen.getByTestId('btn-compare-note-input-right')).toHaveTextContent('Stop input');
     expect(screen.getByTestId('btn-compare-note-input-right')).toHaveAccessibleName(
       'Disable note input for right compare score',
@@ -66,8 +72,14 @@ describe('ComparePaneEditorControls', () => {
         onOpenPalettes={onOpenPalettes}
       />,
     );
-    expect(screen.getByTestId('btn-compare-activate-right')).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByTestId('btn-compare-note-input-right')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('btn-compare-activate-right')).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    expect(screen.getByTestId('btn-compare-note-input-right')).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
 
     rerender(
       <ComparePaneEditorControls
@@ -84,7 +96,10 @@ describe('ComparePaneEditorControls', () => {
         onOpenPalettes={onOpenPalettes}
       />,
     );
-    expect(screen.getByTestId('btn-compare-note-input-right')).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByTestId('btn-compare-note-input-right')).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
     expect(screen.getByTestId('btn-compare-note-input-right')).toHaveTextContent('Note input');
     expect(screen.getByTestId('btn-compare-note-input-right')).toHaveAccessibleName(
       'Enable note input for right compare score',

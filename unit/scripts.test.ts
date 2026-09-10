@@ -11,9 +11,10 @@ type SyncWasmModule = {
 const loadCjs = async <Module>(path: string): Promise<Module> => {
   const imported: unknown = await import(path);
   const moduleRecord = imported as Record<string, unknown>;
-  const resolved = moduleRecord.default && Object.keys(moduleRecord).length === 1
-    ? moduleRecord.default
-    : moduleRecord;
+  const resolved =
+    moduleRecord.default && Object.keys(moduleRecord).length === 1
+      ? moduleRecord.default
+      : moduleRecord;
   return resolved as Module;
 };
 
@@ -125,7 +126,9 @@ describe('scripts', () => {
     };
 
     try {
-      expect(() => mod.syncWasmArtifacts({ fsModule, log: vi.fn() })).toThrow('Missing source artifact');
+      expect(() => mod.syncWasmArtifacts({ fsModule, log: vi.fn() })).toThrow(
+        'Missing source artifact',
+      );
       expect(fsModule.existsSync).toHaveBeenNthCalledWith(
         1,
         '/envroot/webmscore-fork/web-public/webmscore.lib.js.mem',
@@ -152,7 +155,9 @@ describe('scripts', () => {
     };
 
     try {
-      expect(() => mod.syncWasmArtifacts({ fsModule, log: vi.fn() })).toThrow('Missing source artifact');
+      expect(() => mod.syncWasmArtifacts({ fsModule, log: vi.fn() })).toThrow(
+        'Missing source artifact',
+      );
       expect(fsModule.existsSync).toHaveBeenCalledWith(
         expect.stringContaining('webmscore-fork/web-public/webmscore.lib.js.mem'),
       );

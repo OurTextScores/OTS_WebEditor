@@ -1,45 +1,45 @@
 @font-face {
-    font-family: "LelandPalette";
-    src: url("../webmscore-fork/fonts/leland/Leland.woff2") format("woff2");
-    font-display: swap;
+  font-family: 'LelandPalette';
+  src: url('../webmscore-fork/fonts/leland/Leland.woff2') format('woff2');
+  font-display: swap;
 }
 
 /* Bravura has full SMuFL coverage; used as a fallback for glyphs Leland lacks. */
 @font-face {
-    font-family: "BravuraPalette";
-    src: url("../webmscore-fork/fonts/bravura/Bravura.woff2") format("woff2");
-    font-display: swap;
+  font-family: 'BravuraPalette';
+  src: url('../webmscore-fork/fonts/bravura/Bravura.woff2') format('woff2');
+  font-display: swap;
 }
 
 /* Fill the fixed-height cell and center the glyph. SMuFL glyphs carry a lot of
    vertical bearing, so we don't clip at the glyph level (that lopped off the
    top); the parent button hides any overflow symmetrically instead. */
 .glyph {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-    font-family: "LelandPalette", "BravuraPalette", serif;
-    font-size: 1.4rem;
-    font-style: normal;
-    font-weight: 400;
-    line-height: 1;
-    color: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-family: 'LelandPalette', 'BravuraPalette', serif;
+  font-size: 1.4rem;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1;
+  color: #0f172a;
 }
 
 /* Text directions (jumps: D.C., D.S. al Coda…) shown in the notation text font. */
 .textGlyph {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-    padding: 0 0.15rem;
-    font-family: "LelandPalette", "BravuraPalette", serif;
-    font-size: 0.72rem;
-    font-weight: 600;
-    line-height: 1.05;
-    text-align: center;
-    color: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 0 0.15rem;
+  font-family: 'LelandPalette', 'BravuraPalette', serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.05;
+  text-align: center;
+  color: #0f172a;
 }

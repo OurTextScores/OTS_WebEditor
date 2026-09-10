@@ -33,6 +33,7 @@ mv ~/soundfonts.backup public/soundfonts
 ```
 
 Important:
+
 - `NEXT_PUBLIC_SOUNDFONT_CDN_URL` is compile-time for static export builds.
 - If you omit it, the built app will only try local `/soundfonts/*` fallback files.
 - If a soundfont remains under `public/soundfonts/`, it will be copied into `out/`; move the
@@ -71,6 +72,7 @@ mv ~/soundfonts.backup public/soundfonts
 ## Output
 
 The build generates a static export in the `out/` directory:
+
 - **Size**: ~38MB (without soundfonts bundled)
 - **Base path**: `/score-editor` (configurable in `next.config.ts`)
 - **Format**: Static HTML/JS/CSS + WASM artifacts
@@ -105,12 +107,15 @@ The optional message API accepts commands only from `window.parent` at the exact
 `parentOrigin`; wildcards are rejected. Commands use this versioned envelope:
 
 ```js
-iframe.contentWindow.postMessage({
-  type: 'ots-player:command',
-  version: 1,
-  playerId: 'example-player',
-  command: 'play', // play, pause, toggle, stop, seek, set-volume, set-follow
-}, 'https://example.org');
+iframe.contentWindow.postMessage(
+  {
+    type: 'ots-player:command',
+    version: 1,
+    playerId: 'example-player',
+    command: 'play', // play, pause, toggle, stop, seek, set-volume, set-follow
+  },
+  'https://example.org',
+);
 ```
 
 The player responds to the same exact origin with `ots-player:event` messages for `ready`,
@@ -289,13 +294,13 @@ decision, made after an auto-sync attempt broke a deploy.
 `/opt/ourtextscores/` on the VPS is **not a git checkout**. Its compose files were authored
 for production and differ from the repo's dev-oriented ones in ways that matter:
 
-| Aspect | Repo `docker-compose.yml` (dev) | Prod VPS `docker-compose.yml` |
-|---|---|---|
-| Backend | `build: ./backend` (needs source tree) | `image: ghcr.io/…/ourtextscores-backend` (pinned) |
-| Port binding | `0.0.0.0` (e.g. `4000:4000`, `7700:7700`) | **`127.0.0.1:…`** (behind the reverse proxy) |
+| Aspect           | Repo `docker-compose.yml` (dev)                            | Prod VPS `docker-compose.yml`                             |
+| ---------------- | ---------------------------------------------------------- | --------------------------------------------------------- |
+| Backend          | `build: ./backend` (needs source tree)                     | `image: ghcr.io/…/ourtextscores-backend` (pinned)         |
+| Port binding     | `0.0.0.0` (e.g. `4000:4000`, `7700:7700`)                  | **`127.0.0.1:…`** (behind the reverse proxy)              |
 | Services present | frontend, mailpit, minio, mongo, meili, … (full dev stack) | reduced set (no `frontend` — it's on Vercel — no mailpit) |
-| Meili | `MEILI_MASTER_KEY` defaulted | `MEILI_MASTER_KEY` required, `MEILI_ENV=production` |
-| Volumes | `../mongo_data`, `../fossil_data`, … | prod paths (`./volumes/…`, `/mnt/pdmx`) + healthchecks |
+| Meili            | `MEILI_MASTER_KEY` defaulted                               | `MEILI_MASTER_KEY` required, `MEILI_ENV=production`       |
+| Volumes          | `../mongo_data`, `../fossil_data`, …                       | prod paths (`./volumes/…`, `/mnt/pdmx`) + healthchecks    |
 
 Two of these are actively dangerous to overwrite: the VPS has **no `./backend` source**, so a
 build-based backend service fails with `path ".../backend" not found`; and the repo's
@@ -323,7 +328,7 @@ build-based backend service fails with `path ".../backend" not found`; and the r
 5. Verify the running container: `docker compose … exec score_editor_api printenv | grep OTS_API_AUTH_TOKEN`
 
 > **We evaluated auto-syncing compose via CI and rejected it.** The `.yml` files carry no
-> secrets (only `${VAR}` interpolation from the VPS `.env`), so shipping them is *possible*,
+> secrets (only `${VAR}` interpolation from the VPS `.env`), so shipping them is _possible_,
 > but the prod files are a genuinely different, hardened artifact that the repo does not model.
 > Auto-copying the repo versions broke the backend deploy and would have exposed internal
 > ports. If repo/prod parity is ever needed, the correct approach is to commit the **actual
@@ -358,6 +363,7 @@ Permissions-Policy: camera=(), microphone=(), geolocation=()
 ```
 
 Notes:
+
 - `script-src` keeps `'unsafe-inline'` because a static export has no nonce mechanism; tighten
   to a nonce/hash policy only if you move off static export. `'wasm-unsafe-eval'` is required
   by the webmscore WASM runtime.
@@ -371,6 +377,7 @@ Notes:
 ### Using the Recommended CDN (MuseScore_General)
 
 The build above uses the free MuseScore_General soundfont from OSUOSL:
+
 - **URL**: `https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General`
 - **File**: `MuseScore_General.sf3` (38MB, compressed)
 - **License**: Free and open source
@@ -401,6 +408,7 @@ If you need to use a different soundfont:
 ### Local Soundfonts (Development Only)
 
 For local development, keep soundfonts in `public/soundfonts/`:
+
 ```
 public/soundfonts/default.sf3
 public/soundfonts/default.sf2
@@ -459,11 +467,13 @@ After deployment, you can embed the editor in an iframe:
 If you get OOM errors during build:
 
 1. **Remove soundfonts from `public/` before building** (most common cause)
+
    ```bash
    mv public/soundfonts ~/soundfonts.backup
    ```
 
 2. **Increase Node.js heap size** (if still failing):
+
    ```bash
    NODE_OPTIONS="--max-old-space-size=8192" npm run build
    ```
@@ -473,10 +483,12 @@ If you get OOM errors during build:
 ### API Routes Not Working in Export
 
 API routes that require server-side logic (like LLM integration) won't work in static export mode. The build:
+
 - Uses static JSON files for instrument templates/clefs
 - Disables features that require server-side processing
 
 LLM calls in embed builds should use a proxy:
+
 - The app first tries same-origin `/api/llm/*` routes.
 - You can force a different proxy origin with `NEXT_PUBLIC_LLM_PROXY_URL`.
 - Claude/Anthropic requires a proxy because browser-direct Anthropic calls are blocked by CORS.
@@ -551,19 +563,20 @@ If soundfonts don't load in production:
 
 All options are set via environment variables:
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `BUILD_MODE` | Enable static export | `embed` |
-| `NEXT_PUBLIC_BUILD_MODE` | Client-side build mode flag | `embed` |
-| `NEXT_PUBLIC_SOUNDFONT_CDN_URL` | CDN URL for soundfonts | `https://cdn.ourtextscores.com/soundfonts/default.sf3` |
-| `NEXT_PUBLIC_SCORE_EDITOR_API_BASE` | Same-origin proxy base for editor API routes in embed mode (LLM + music) | `/api/score-editor` |
-| `NEXT_PUBLIC_ANALYTICS_EVENTS_PATH` | Path for analytics event ingestion | `/api/analytics/events` |
+| Variable                            | Description                                                              | Example                                                |
+| ----------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------ |
+| `BUILD_MODE`                        | Enable static export                                                     | `embed`                                                |
+| `NEXT_PUBLIC_BUILD_MODE`            | Client-side build mode flag                                              | `embed`                                                |
+| `NEXT_PUBLIC_SOUNDFONT_CDN_URL`     | CDN URL for soundfonts                                                   | `https://cdn.ourtextscores.com/soundfonts/default.sf3` |
+| `NEXT_PUBLIC_SCORE_EDITOR_API_BASE` | Same-origin proxy base for editor API routes in embed mode (LLM + music) | `/api/score-editor`                                    |
+| `NEXT_PUBLIC_ANALYTICS_EVENTS_PATH` | Path for analytics event ingestion                                       | `/api/analytics/events`                                |
 
 See `.env.example` for more details.
 
 ## What Gets Included in the Build
 
 The `out/` directory contains:
+
 - **HTML/JS/CSS**: Next.js compiled static assets
 - **WASM artifacts**:
   - `webmscore.lib.wasm` (9.4MB)
@@ -586,4 +599,5 @@ The `out/` directory contains:
 ## License
 
 The MuseScore_General soundfont is free and open source. See:
+
 - https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/MuseScore_General_License.md

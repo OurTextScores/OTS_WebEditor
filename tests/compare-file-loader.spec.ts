@@ -8,9 +8,11 @@ test('loads two local score files into the compare workspace', async ({ page }) 
   await expect(loader).toBeVisible();
   await expect(loader.getByRole('button', { name: 'Compare' })).toBeDisabled();
 
-  await page.getByTestId('compare-left-score-input')
+  await page
+    .getByTestId('compare-left-score-input')
     .setInputFiles('public/test_scores/two_staves_four_bars.musicxml');
-  await page.getByTestId('compare-right-score-input')
+  await page
+    .getByTestId('compare-right-score-input')
     .setInputFiles('public/test_scores/two_staves_four_bars_inserted.musicxml');
 
   await expect(loader).toContainText('two_staves_four_bars.musicxml');
@@ -22,6 +24,10 @@ test('loads two local score files into the compare workspace', async ({ page }) 
   await expect(compareWorkspace).toContainText(
     'two_staves_four_bars.musicxml vs two_staves_four_bars_inserted.musicxml',
   );
-  await expect(page.getByTestId('compare-pane-left').locator('svg')).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByTestId('compare-pane-right').locator('svg')).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByTestId('compare-pane-left').locator('svg')).toBeVisible({
+    timeout: 60_000,
+  });
+  await expect(page.getByTestId('compare-pane-right').locator('svg')).toBeVisible({
+    timeout: 60_000,
+  });
 });

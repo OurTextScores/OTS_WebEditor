@@ -2,7 +2,8 @@ import type { MusicToolContract } from './types';
 
 export const MUSIC_MULTITRACK_VAE_TOOL_CONTRACT: MusicToolContract = {
   name: 'music.multitrack_vae',
-  description: 'Generate, interpolate, or reconstruct short multitrack (up to 8-track) General MIDI measures with Magenta Multitrack MusicVAE (via a Hugging Face Gradio Space), optionally chord-conditioned; converts the result to MusicXML.',
+  description:
+    'Generate, interpolate, or reconstruct short multitrack (up to 8-track) General MIDI measures with Magenta Multitrack MusicVAE (via a Hugging Face Gradio Space), optionally chord-conditioned; converts the result to MusicXML.',
   inputSchema: {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
     type: 'object',
@@ -11,7 +12,13 @@ export const MUSIC_MULTITRACK_VAE_TOOL_CONTRACT: MusicToolContract = {
     properties: {
       mode: {
         type: 'string',
-        enum: ['sample', 'chord_progression', 'style_interpolation', 'reconstruct', 'encode_interpolation'],
+        enum: [
+          'sample',
+          'chord_progression',
+          'style_interpolation',
+          'reconstruct',
+          'encode_interpolation',
+        ],
       },
       model: { type: 'string', enum: ['chords', 'unconditioned'] },
       chord: { type: 'string' },

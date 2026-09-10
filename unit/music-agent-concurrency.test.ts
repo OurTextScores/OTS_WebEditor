@@ -25,7 +25,10 @@ vi.mock('@openai/agents', () => {
 
 vi.mock('openai', () => {
   return {
-    OpenAI: vi.fn().mockImplementation(function(this: { apiKey?: string }, config: { apiKey: string }) {
+    OpenAI: vi.fn().mockImplementation(function (
+      this: { apiKey?: string },
+      config: { apiKey: string },
+    ) {
       this.apiKey = config.apiKey;
     }),
   };
@@ -33,7 +36,7 @@ vi.mock('openai', () => {
 
 vi.mock('@openai/agents-openai', () => {
   return {
-    OpenAIResponsesModel: vi.fn().mockImplementation(function(
+    OpenAIResponsesModel: vi.fn().mockImplementation(function (
       this: { client?: unknown; model?: unknown },
       client: unknown,
       model: unknown,
@@ -87,7 +90,6 @@ describe('runMusicAgentRouter Concurrency', () => {
 
       // Verify OpenAIResponsesModel was instantiated twice with respective clients
       expect(OpenAIResponsesModel).toHaveBeenCalledTimes(2);
-      
     } finally {
       process.env.OPENAI_API_KEY = priorEnvKey;
     }

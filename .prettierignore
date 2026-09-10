@@ -1,0 +1,20 @@
+# Build output and vendored artifacts
+.next/
+.next-dev-*/
+out/
+coverage/
+node_modules/
+test-results/
+playwright-report/
+blob-report/
+
+# Vendored/generated: not ours to restyle
+public/
+webmscore-fork/
+lib/wasm/
+*.min.js
+*.wasm
+
+# Generated data and lockfiles
+package-lock.json
+model-audit.json

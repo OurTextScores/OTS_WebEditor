@@ -6,7 +6,9 @@ test('instruments can be added, hidden, and removed', async ({ page }) => {
   await page.waitForSelector('svg .Clef', { timeout: 60_000 });
 
   const hasInstrumentApi = await page.evaluate(() => {
-    return typeof (window as BrowserScoreWindow).__webmscore?.listInstrumentTemplates === 'function';
+    return (
+      typeof (window as BrowserScoreWindow).__webmscore?.listInstrumentTemplates === 'function'
+    );
   });
   test.skip(!hasInstrumentApi, 'Instrument APIs not available in this webmscore build');
 
@@ -38,7 +40,8 @@ test('instruments can be added, hidden, and removed', async ({ page }) => {
 
   await ensureDropdownOpen();
   await instrumentSelect.click();
-  await expect.poll(async () => await page.getByRole('option').count(), { timeout: 20_000 })
+  await expect
+    .poll(async () => await page.getByRole('option').count(), { timeout: 20_000 })
     .toBeGreaterThan(0);
   await page.getByRole('option').first().click();
   await ensureDropdownOpen();
@@ -46,7 +49,8 @@ test('instruments can be added, hidden, and removed', async ({ page }) => {
   await expect(addButton).toBeEnabled();
   await addButton.click();
 
-  await expect.poll(async () => (await readParts()).length, { timeout: 20_000 })
+  await expect
+    .poll(async () => (await readParts()).length, { timeout: 20_000 })
     .toBe(initialParts.length + 1);
 
   const afterAddParts = await readParts();
@@ -58,23 +62,34 @@ test('instruments can be added, hidden, and removed', async ({ page }) => {
   const previousLabel = (await visibilityButton.textContent())?.trim() ?? '';
   await clickPartAction(`btn-part-visible-${newIndex}`);
 
-  await expect.poll(async () => {
-    const parts = await readParts();
-    return String(parts[newIndex]?.isVisible ?? '');
-  }, { timeout: 20_000 }).not.toBe(previousVisibility);
+  await expect
+    .poll(
+      async () => {
+        const parts = await readParts();
+        return String(parts[newIndex]?.isVisible ?? '');
+      },
+      { timeout: 20_000 },
+    )
+    .not.toBe(previousVisibility);
 
   await ensureDropdownOpen();
-  await expect.poll(async () => {
-    const label = await page.getByTestId(`btn-part-visible-${newIndex}`).textContent();
-    return label?.trim() ?? '';
-  }, { timeout: 20_000 }).not.toBe(previousLabel);
+  await expect
+    .poll(
+      async () => {
+        const label = await page.getByTestId(`btn-part-visible-${newIndex}`).textContent();
+        return label?.trim() ?? '';
+      },
+      { timeout: 20_000 },
+    )
+    .not.toBe(previousLabel);
 
-  page.once('dialog', dialog => {
+  page.once('dialog', (dialog) => {
     expect(dialog.message()).toContain('Remove');
     dialog.accept();
   });
   await clickPartAction(`btn-part-remove-${newIndex}`);
 
-  await expect.poll(async () => (await readParts()).length, { timeout: 20_000 })
+  await expect
+    .poll(async () => (await readParts()).length, { timeout: 20_000 })
     .toBe(initialParts.length);
 });

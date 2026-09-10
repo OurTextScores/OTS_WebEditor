@@ -10,10 +10,7 @@ export default defineConfig({
   // the credential-free editor matrix. The embed suite needs its static-build server
   // (playwright.config.embed.ts); the music API smoke suite needs external tooling and
   // provider dependencies (npm run test:e2e:music).
-  testIgnore: [
-    'embed-integration.spec.ts',
-    'music-api-smoke.spec.ts',
-  ],
+  testIgnore: ['embed-integration.spec.ts', 'music-api-smoke.spec.ts'],
   workers: 1,
   timeout: 2 * 60 * 1000,
   expect: {

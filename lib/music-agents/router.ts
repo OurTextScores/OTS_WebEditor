@@ -91,9 +91,8 @@ type RunMusicAgentRouterOptions = {
   trace?: MusicAgentTraceContext;
 };
 
-const asRecord = (value: unknown): Record<string, unknown> | null => (
-  value && typeof value === 'object' ? value as Record<string, unknown> : null
-);
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
 
 /**
  * Creates a scoped model instance tied to a specific API key.
@@ -108,7 +107,9 @@ function getModelForRequest(provider: string, apiKey: string, modelName: string)
     const client = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
     return new OpenAIResponsesModel(client, modelName);
   }
-  throw new Error(`Provider "${provider}" is not yet supported in Agent mode (OpenAI and Anthropic only).`);
+  throw new Error(
+    `Provider "${provider}" is not yet supported in Agent mode (OpenAI and Anthropic only).`,
+  );
 }
 
 /**
@@ -155,8 +156,11 @@ function summarizeForModel(
     tool: fullResult.tool,
     status: fullResult.status,
     ok: fullResult.ok,
-    scoreSessionId: fullResult.scoreSessionId || (asRecord(fullResult.body)?.scoreSessionId),
-    revision: fullResult.revision || (asRecord(fullResult.body)?.revision) || (asRecord(fullResult.body)?.newRevision),
+    scoreSessionId: fullResult.scoreSessionId || asRecord(fullResult.body)?.scoreSessionId,
+    revision:
+      fullResult.revision ||
+      asRecord(fullResult.body)?.revision ||
+      asRecord(fullResult.body)?.newRevision,
   };
 
   const body = asRecord(fullResult.body);
@@ -217,22 +221,25 @@ function summarizeForModel(
         const summaryBody: Record<string, unknown> = {
           ok: body.ok,
           warnings: body.warnings,
-          analysis: analysis ? {
-            measureCount: analysis.measureCount,
-            harmonyTagCount: analysis.harmonyTagCount,
-            coverage: analysis.coverage,
-            localKeyStrategy: analysis.localKeyStrategy,
-            harmonicRhythm: analysis.harmonicRhythm,
-            fallbackCount: analysis.fallbackCount,
-            suppressedChangeCount: analysis.suppressedChangeCount,
-          } : undefined,
+          analysis: analysis
+            ? {
+                measureCount: analysis.measureCount,
+                harmonyTagCount: analysis.harmonyTagCount,
+                coverage: analysis.coverage,
+                localKeyStrategy: analysis.localKeyStrategy,
+                harmonicRhythm: analysis.harmonicRhythm,
+                fallbackCount: analysis.fallbackCount,
+                suppressedChangeCount: analysis.suppressedChangeCount,
+              }
+            : undefined,
           artifacts: body.artifacts,
         };
         if (typeof body.content === 'string' && body.content.trim()) {
           summaryBody.content = `[musicxml omitted, ${body.content.length} chars]`;
         }
         summary.body = summaryBody;
-        summary._note = 'Full harmony analysis result stored internally; MusicXML content omitted from model summary.';
+        summary._note =
+          'Full harmony analysis result stored internally; MusicXML content omitted from model summary.';
         return summary;
       }
       if (fullResult.tool === 'music.functional_harmony_analyze') {
@@ -242,15 +249,17 @@ function summarizeForModel(
         const summaryBody: Record<string, unknown> = {
           ok: body.ok,
           warnings: body.warnings,
-          analysis: analysis ? {
-            measureCount: analysis.measureCount,
-            segmentCount: analysis.segmentCount,
-            coverage: analysis.coverage,
-            localKeyCount: analysis.localKeyCount,
-            modulationCount: analysis.modulationCount,
-            cadenceCount: analysis.cadenceCount,
-            engine: analysis.engine,
-          } : undefined,
+          analysis: analysis
+            ? {
+                measureCount: analysis.measureCount,
+                segmentCount: analysis.segmentCount,
+                coverage: analysis.coverage,
+                localKeyCount: analysis.localKeyCount,
+                modulationCount: analysis.modulationCount,
+                cadenceCount: analysis.cadenceCount,
+                engine: analysis.engine,
+              }
+            : undefined,
           segments,
           artifacts: body.artifacts,
         };
@@ -259,12 +268,19 @@ function summarizeForModel(
         }
         if (exportsObj) {
           summaryBody.exports = {
-            json: typeof exportsObj.json === 'string' ? `[json omitted, ${exportsObj.json.length} chars]` : undefined,
-            rntxt: typeof exportsObj.rntxt === 'string' ? `[rntxt omitted, ${exportsObj.rntxt.length} chars]` : undefined,
+            json:
+              typeof exportsObj.json === 'string'
+                ? `[json omitted, ${exportsObj.json.length} chars]`
+                : undefined,
+            rntxt:
+              typeof exportsObj.rntxt === 'string'
+                ? `[rntxt omitted, ${exportsObj.rntxt.length} chars]`
+                : undefined,
           };
         }
         summary.body = summaryBody;
-        summary._note = 'Full functional harmony result stored internally; large exports omitted from model summary.';
+        summary._note =
+          'Full functional harmony result stored internally; large exports omitted from model summary.';
         return summary;
       }
       // Default heuristic summarization for other tools
@@ -318,21 +334,24 @@ const AGENT_OUTPUT_SCHEMA = z.object({
   applyToScore: z.boolean().optional(),
   response: z.string(),
   error: z.string().nullable().optional(),
-  result: z.string().nullable().optional().describe('JSON-encoded result object from the tool call'),
+  result: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('JSON-encoded result object from the tool call'),
 });
 
 function promptRequestsAnalysisApply(prompt: string): boolean {
   const normalized = prompt.toLowerCase();
   const wantsAction = /\b(apply|insert|add|annotate|write|put)\b/.test(normalized);
   const wantsScoreTarget = /\b(score|staff|staves|notation)\b/.test(normalized);
-  const wantsHarmonyMarkup = /\b(roman numeral|roman numerals|chord symbols?|harmony tags?)\b/.test(normalized);
+  const wantsHarmonyMarkup = /\b(roman numeral|roman numerals|chord symbols?|harmony tags?)\b/.test(
+    normalized,
+  );
   return wantsAction && (wantsScoreTarget || wantsHarmonyMarkup);
 }
 
-function mergeToolInput(
-  defaults: Record<string, unknown> | undefined,
-  input: unknown,
-) {
+function mergeToolInput(defaults: Record<string, unknown> | undefined, input: unknown) {
   return {
     ...(defaults || {}),
     ...(asRecord(input) || {}),
@@ -381,31 +400,48 @@ function traceLog(
 
 function classifyPrompt(prompt: string | AgentInputItem[]): MusicAgentToolName {
   const normalized = extractTextFromPrompt(prompt).toLowerCase();
-  const isFunctionalHarmony = /\b(roman numeral|roman numerals|functional harmony|harmony analysis|analyze harmony|analyse harmony|cadence|cadences|modulation|modulations|tonicization|tonicizations|key trajectory)\b/.test(normalized);
+  const isFunctionalHarmony =
+    /\b(roman numeral|roman numerals|functional harmony|harmony analysis|analyze harmony|analyse harmony|cadence|cadences|modulation|modulations|tonicization|tonicizations|key trajectory)\b/.test(
+      normalized,
+    );
   if (isFunctionalHarmony) {
     return 'music.functional_harmony_analyze';
   }
-  const isChordify = /\b(chordify|chord symbols?|harmony tags?|lead sheet|lead-sheet|mma|accompaniment chords?)\b/.test(normalized);
+  const isChordify =
+    /\b(chordify|chord symbols?|harmony tags?|lead sheet|lead-sheet|mma|accompaniment chords?)\b/.test(
+      normalized,
+    );
   if (isChordify) {
     return 'music.harmony_analyze';
   }
   // Multitrack MusicVAE: latent multitrack MIDI (grooves, chord-conditioned measures,
   // style morph/interpolation). Checked before the generic generate heuristic so
   // MusicVAE-specific intents don't fall through to NotaGen.
-  const isMultitrackVae = /\b(musicvae|music vae|multitrack|multi-track|groove|grooves|drum ?beat|latent|interpolate between styles|style morph|morph between|blend .* (measures?|styles?)|arrange over|jam)\b/.test(normalized);
+  const isMultitrackVae =
+    /\b(musicvae|music vae|multitrack|multi-track|groove|grooves|drum ?beat|latent|interpolate between styles|style morph|morph between|blend .* (measures?|styles?)|arrange over|jam)\b/.test(
+      normalized,
+    );
   if (isMultitrackVae) {
     return 'music.multitrack_vae';
   }
-  const isGenerate = /\b(generate|compose|write|create|new score|melody|variation)\b/.test(normalized);
+  const isGenerate = /\b(generate|compose|write|create|new score|melody|variation)\b/.test(
+    normalized,
+  );
   if (isGenerate) {
     return 'music.generate';
   }
-  const isConvert = /\b(convert|conversion|abc|musicxml|xml)\b/.test(normalized)
-    && (/\bto abc\b/.test(normalized) || /\bto musicxml\b/.test(normalized) || /\bto xml\b/.test(normalized));
+  const isConvert =
+    /\b(convert|conversion|abc|musicxml|xml)\b/.test(normalized) &&
+    (/\bto abc\b/.test(normalized) ||
+      /\bto musicxml\b/.test(normalized) ||
+      /\bto xml\b/.test(normalized));
   if (isConvert) {
     return 'music.convert';
   }
-  const isPatch = /\b(change|edit|fix|remove|delete|move|transpose|revoice|beam|re-beam|rest|clef|key signature|time signature|patch|apply|export)\b/.test(normalized);
+  const isPatch =
+    /\b(change|edit|fix|remove|delete|move|transpose|revoice|beam|re-beam|rest|clef|key signature|time signature|patch|apply|export)\b/.test(
+      normalized,
+    );
   if (isPatch) {
     return 'music.scoreops';
   }
@@ -444,7 +480,8 @@ function attachAiEditProposal(
     sourceTool,
     base: {
       xml,
-      scoreSessionId: typeof resolvedBase?.scoreSessionId === 'string' ? resolvedBase.scoreSessionId : null,
+      scoreSessionId:
+        typeof resolvedBase?.scoreSessionId === 'string' ? resolvedBase.scoreSessionId : null,
       revision: typeof resolvedBase?.revision === 'number' ? resolvedBase.revision : null,
       contentHash,
     },
@@ -473,17 +510,20 @@ async function runPatchFallback(
   const promptText = extractTextFromPrompt(prompt);
   const patchPayload = {
     ...patchDefaults,
-    prompt: typeof patchDefaults.prompt === 'string' && patchDefaults.prompt.trim()
-      ? patchDefaults.prompt
-      : promptText,
+    prompt:
+      typeof patchDefaults.prompt === 'string' && patchDefaults.prompt.trim()
+        ? patchDefaults.prompt
+        : promptText,
   };
   const patchResult = trace?.traceContext
     ? await runMusicPatchService(patchPayload, { traceContext: trace.traceContext })
     : await runMusicPatchService(patchPayload);
-  const proposedXml = typeof patchResult.body.proposedXml === 'string' ? patchResult.body.proposedXml : '';
-  const resultBody = patchResult.status < 400 && proposedXml
-    ? attachAiEditProposal(patchResult.body, 'music.patch', proposedXml)
-    : stripResolvedBase(patchResult.body);
+  const proposedXml =
+    typeof patchResult.body.proposedXml === 'string' ? patchResult.body.proposedXml : '';
+  const resultBody =
+    patchResult.status < 400 && proposedXml
+      ? attachAiEditProposal(patchResult.body, 'music.patch', proposedXml)
+      : stripResolvedBase(patchResult.body);
   return {
     status: patchResult.status,
     body: {
@@ -491,9 +531,10 @@ async function runPatchFallback(
       selectedTool: 'music.patch',
       toolStatus: patchResult.status,
       toolOk: patchResult.status < 400,
-      response: patchResult.status < 400
-        ? 'Generated patch fallback after ScoreOps routing decision.'
-        : 'ScoreOps routing and patch fallback both failed.',
+      response:
+        patchResult.status < 400
+          ? 'Generated patch fallback after ScoreOps routing decision.'
+          : 'ScoreOps routing and patch fallback both failed.',
       result: resultBody,
       scoreOpsAttempt,
       scoreOpsRouting: {
@@ -516,351 +557,391 @@ async function runFallbackRouter(
     traceLog(trace, 'music_agent.fallback.selected_tool', {
       selectedTool,
     });
-  if (selectedTool === 'music.generate') {
-    const generatePayload = {
-      ...(toolInput?.generate || {}),
-      dryRun: true,
-      prompt: (toolInput?.generate?.prompt as string | undefined) || promptText,
-    };
-    const result = trace?.traceContext
-      ? await runMusicGenerateService(generatePayload, { traceContext: trace.traceContext })
-      : await runMusicGenerateService(generatePayload);
-    return {
-      status: result.status,
-      body: {
-        mode: 'fallback',
-        selectedTool,
-        toolStatus: result.status,
-        toolOk: result.status < 400,
-        response: result.status < 400
-          ? 'Prepared generation request via fallback router.'
-          : 'Generation request failed in fallback router.',
-        result: result.body,
-      },
-    };
-  }
-  if (selectedTool === 'music.multitrack_vae') {
-    const vaePayload = mergeToolInput({ mode: 'sample' }, toolInput?.multitrack_vae);
-    const result = trace?.traceContext
-      ? await runMusicMultitrackVaeService(vaePayload, { traceContext: trace.traceContext })
-      : await runMusicMultitrackVaeService(vaePayload);
-    return {
-      status: result.status,
-      body: {
-        mode: 'fallback',
-        selectedTool,
-        toolStatus: result.status,
-        toolOk: result.status < 400,
-        response: result.status < 400
-          ? 'Generated multitrack MusicVAE MIDI via fallback router.'
-          : 'Multitrack MusicVAE request failed in fallback router.',
-        result: result.body,
-      },
-    };
-  }
-  if (selectedTool === 'music.convert') {
-    const result = await runMusicConvertService({
-      ...(toolInput?.convert || {}),
-    });
-    return {
-      status: result.status,
-      body: {
-        mode: 'fallback',
-        selectedTool,
-        toolStatus: result.status,
-        toolOk: result.status < 400,
-        response: result.status < 400
-          ? 'Conversion completed via fallback router.'
-          : 'Conversion failed in fallback router.',
-        result: result.body,
-      },
-    };
-  }
-  if (selectedTool === 'music.harmony_analyze') {
-    const harmonyDefaults = {
-      ...(toolInput?.harmony_analyze || {}),
-    };
-    const contextDefaults = asRecord(toolInput?.context);
-    if (!harmonyDefaults.content && typeof contextDefaults?.content === 'string') {
-      harmonyDefaults.content = contextDefaults.content;
-    }
-    if (!harmonyDefaults.scoreSessionId && typeof contextDefaults?.scoreSessionId === 'string') {
-      harmonyDefaults.scoreSessionId = contextDefaults.scoreSessionId;
-      harmonyDefaults.baseRevision = contextDefaults.baseRevision;
-    }
-    const result = trace?.traceContext
-      ? await runHarmonyAnalyzeService(harmonyDefaults, { traceContext: trace.traceContext })
-      : await runHarmonyAnalyzeService(harmonyDefaults);
-    const harmonyContent = asRecord(result.body.content);
-    const proposedXml = typeof harmonyContent?.musicxml === 'string' ? harmonyContent.musicxml : '';
-    const resultBody = applyToScore && result.status < 400 && proposedXml
-      ? attachAiEditProposal(result.body, selectedTool, proposedXml, result.resolvedBase)
-      : stripResolvedBase(result.body);
-    return {
-      status: result.status,
-      body: {
-        mode: 'fallback',
-        selectedTool,
-        toolStatus: result.status,
-        toolOk: result.status < 400,
-        response: result.status < 400
-          ? 'Chord-symbol analysis completed via fallback router.'
-          : 'Chord-symbol analysis failed in fallback router.',
-        applyToScore,
-        result: resultBody,
-      },
-    };
-  }
-  if (selectedTool === 'music.functional_harmony_analyze') {
-    const functionalDefaults = {
-      ...(toolInput?.functional_harmony_analyze || {}),
-    };
-    const contextDefaults = asRecord(toolInput?.context);
-    if (!functionalDefaults.content && typeof contextDefaults?.content === 'string') {
-      functionalDefaults.content = contextDefaults.content;
-    }
-    if (!functionalDefaults.scoreSessionId && typeof contextDefaults?.scoreSessionId === 'string') {
-      functionalDefaults.scoreSessionId = contextDefaults.scoreSessionId;
-      functionalDefaults.baseRevision = contextDefaults.baseRevision;
-    }
-    const result = trace?.traceContext
-      ? await runFunctionalHarmonyAnalyzeService(functionalDefaults, { traceContext: trace.traceContext })
-      : await runFunctionalHarmonyAnalyzeService(functionalDefaults);
-    const proposedXml = typeof result.body.annotatedXml === 'string' ? result.body.annotatedXml : '';
-    const resultBody = applyToScore && result.status < 400 && proposedXml
-      ? attachAiEditProposal(result.body, selectedTool, proposedXml, result.resolvedBase)
-      : stripResolvedBase(result.body);
-    return {
-      status: result.status,
-      body: {
-        mode: 'fallback',
-        selectedTool,
-        toolStatus: result.status,
-        toolOk: result.status < 400,
-        response: result.status < 400
-          ? 'Functional harmony analysis completed via fallback router.'
-          : 'Functional harmony analysis failed in fallback router.',
-        applyToScore,
-        result: resultBody,
-      },
-    };
-  }
-  if (selectedTool === 'music.patch') {
-    const patchDefaults = {
-      ...(toolInput?.patch || {}),
-    };
-    const contextDefaults = asRecord(toolInput?.context);
-    if (!patchDefaults.content && typeof contextDefaults?.content === 'string') {
-      patchDefaults.content = contextDefaults.content;
-    }
-    const patchPayload = {
-      ...patchDefaults,
-      prompt: typeof patchDefaults.prompt === 'string' && patchDefaults.prompt.trim()
-        ? patchDefaults.prompt
-        : promptText,
-    };
-    const result = trace?.traceContext
-      ? await runMusicPatchService(patchPayload, { traceContext: trace.traceContext })
-      : await runMusicPatchService(patchPayload);
-    const proposedXml = typeof result.body.proposedXml === 'string' ? result.body.proposedXml : '';
-    const resultBody = result.status < 400 && proposedXml
-      ? attachAiEditProposal(result.body, selectedTool, proposedXml)
-      : stripResolvedBase(result.body);
-    return {
-      status: result.status,
-      body: {
-        mode: 'fallback',
-        selectedTool,
-        toolStatus: result.status,
-        toolOk: result.status < 400,
-        response: result.status < 400
-          ? 'Patch generated via fallback router.'
-          : 'Patch generation failed in fallback router.',
-        result: resultBody,
-      },
-    };
-  }
-  if (selectedTool === 'music.scoreops') {
-    const scoreOpsDefaults = {
-      ...(toolInput?.scoreops || {}),
-    };
-    const contextDefaults = asRecord(toolInput?.context);
-    if (!scoreOpsDefaults.content && typeof contextDefaults?.content === 'string') {
-      scoreOpsDefaults.content = contextDefaults.content;
-    }
-
-    // If ops array is provided (e.g., from a future UI), execute directly
-    if (Array.isArray(scoreOpsDefaults.ops) && scoreOpsDefaults.ops.length > 0) {
-      const directResult = await runMusicScoreOpsPreviewService({
-        action: 'apply',
-        scoreSessionId: scoreOpsDefaults.scoreSessionId,
-        baseRevision: scoreOpsDefaults.baseRevision,
-        inputArtifactId: scoreOpsDefaults.inputArtifactId || scoreOpsDefaults.input_artifact_id,
-        content: scoreOpsDefaults.content || scoreOpsDefaults.text,
-        ops: scoreOpsDefaults.ops,
-        options: {
-          atomic: true,
-          includeXml: true,
-          includeMeasureDiff: true,
-          ...(scoreOpsDefaults.options || {}),
-        },
-      });
-      return {
-        status: directResult.status,
-        body: {
-          mode: 'fallback',
-          selectedTool: 'music.scoreops',
-          toolStatus: directResult.status,
-          toolOk: directResult.status < 400,
-          response: directResult.status < 400
-            ? 'Score operations prepared as a verified proposal.'
-            : 'Direct ops execution failed.',
-          result: directResult.body,
-        },
+    if (selectedTool === 'music.generate') {
+      const generatePayload = {
+        ...(toolInput?.generate || {}),
+        dryRun: true,
+        prompt: (toolInput?.generate?.prompt as string | undefined) || promptText,
       };
-    }
-
-    const scoreOpsPayload: Record<string, unknown> & {
-      scoreSessionId?: string;
-      baseRevision?: number;
-      inputArtifactId?: string;
-      input_artifact_id?: string;
-      content?: string;
-      text?: string;
-    } = {
-      ...scoreOpsDefaults,
-      mutationMode: 'proposal',
-      prompt: typeof scoreOpsDefaults.prompt === 'string' && scoreOpsDefaults.prompt.trim()
-        ? scoreOpsDefaults.prompt
-        : promptText,
-    };
-    const scoreOpsResult = await runMusicScoreOpsPromptService(scoreOpsPayload);
-    const scoreOpsBody = asRecord(scoreOpsResult.body);
-    const {
-      planner,
-      parsedOps,
-      unsupportedSteps,
-      hasSupportedPlan,
-    } = extractPlannerDetails(scoreOpsBody);
-    traceLog(trace, 'music_agent.scoreops.initial_result', {
-      status: scoreOpsResult.status,
-      hasSupportedPlan,
-      parsedOpsCount: parsedOps.length,
-      unsupportedStepCount: unsupportedSteps.length,
-    });
-
-    if (scoreOpsResult.status < 400) {
+      const result = trace?.traceContext
+        ? await runMusicGenerateService(generatePayload, { traceContext: trace.traceContext })
+        : await runMusicGenerateService(generatePayload);
       return {
-        status: scoreOpsResult.status,
+        status: result.status,
         body: {
           mode: 'fallback',
           selectedTool,
-          toolStatus: scoreOpsResult.status,
-          toolOk: true,
-          response: unsupportedSteps.length
-            ? 'Prepared supported ScoreOps steps as a proposal; some requested steps are not yet supported.'
-            : 'Score operations prepared as a verified proposal.',
-          result: scoreOpsResult.body,
-          scoreOpsRouting: {
-            reason: unsupportedSteps.length ? 'partially_mappable' : 'fully_mappable',
-            path: 'scoreops',
-            unsupportedStepCount: unsupportedSteps.length,
-          },
+          toolStatus: result.status,
+          toolOk: result.status < 400,
+          response:
+            result.status < 400
+              ? 'Prepared generation request via fallback router.'
+              : 'Generation request failed in fallback router.',
+          result: result.body,
         },
       };
     }
-
-    const patchDefaults = {
-      ...(toolInput?.patch || {}),
-    };
-    if (!patchDefaults.content && typeof contextDefaults?.content === 'string') {
-      patchDefaults.content = contextDefaults.content;
-    }
-    const error = asRecord(scoreOpsBody?.error);
-    const errorCode = typeof error?.code === 'string' ? error.code : '';
-
-    if (errorCode === 'unsupported_op' && !hasSupportedPlan) {
-      return runPatchFallback(prompt, patchDefaults, scoreOpsResult.body, 'no_mappable_steps', trace);
-    }
-
-    if (hasSupportedPlan && parsedOps.length > 0) {
-      traceLog(trace, 'music_agent.scoreops.retry_xml.start', {
-        parsedOpsCount: parsedOps.length,
-      });
-      const retryResult = await runMusicScoreOpsPreviewService({
-        action: 'apply',
-        scoreSessionId: scoreOpsPayload.scoreSessionId,
-        baseRevision: scoreOpsPayload.baseRevision,
-        inputArtifactId: scoreOpsPayload.inputArtifactId,
-        input_artifact_id: scoreOpsPayload.input_artifact_id,
-        content: scoreOpsPayload.content,
-        text: scoreOpsPayload.text,
-        ops: parsedOps,
-        options: {
-          atomic: true,
-          includeXml: true,
-          includePatch: false,
-          includeMeasureDiff: true,
-          preferredExecutor: 'xml',
+    if (selectedTool === 'music.multitrack_vae') {
+      const vaePayload = mergeToolInput({ mode: 'sample' }, toolInput?.multitrack_vae);
+      const result = trace?.traceContext
+        ? await runMusicMultitrackVaeService(vaePayload, { traceContext: trace.traceContext })
+        : await runMusicMultitrackVaeService(vaePayload);
+      return {
+        status: result.status,
+        body: {
+          mode: 'fallback',
+          selectedTool,
+          toolStatus: result.status,
+          toolOk: result.status < 400,
+          response:
+            result.status < 400
+              ? 'Generated multitrack MusicVAE MIDI via fallback router.'
+              : 'Multitrack MusicVAE request failed in fallback router.',
+          result: result.body,
         },
+      };
+    }
+    if (selectedTool === 'music.convert') {
+      const result = await runMusicConvertService({
+        ...(toolInput?.convert || {}),
       });
-      traceLog(trace, 'music_agent.scoreops.retry_xml.result', {
-        status: retryResult.status,
-      });
+      return {
+        status: result.status,
+        body: {
+          mode: 'fallback',
+          selectedTool,
+          toolStatus: result.status,
+          toolOk: result.status < 400,
+          response:
+            result.status < 400
+              ? 'Conversion completed via fallback router.'
+              : 'Conversion failed in fallback router.',
+          result: result.body,
+        },
+      };
+    }
+    if (selectedTool === 'music.harmony_analyze') {
+      const harmonyDefaults = {
+        ...(toolInput?.harmony_analyze || {}),
+      };
+      const contextDefaults = asRecord(toolInput?.context);
+      if (!harmonyDefaults.content && typeof contextDefaults?.content === 'string') {
+        harmonyDefaults.content = contextDefaults.content;
+      }
+      if (!harmonyDefaults.scoreSessionId && typeof contextDefaults?.scoreSessionId === 'string') {
+        harmonyDefaults.scoreSessionId = contextDefaults.scoreSessionId;
+        harmonyDefaults.baseRevision = contextDefaults.baseRevision;
+      }
+      const result = trace?.traceContext
+        ? await runHarmonyAnalyzeService(harmonyDefaults, { traceContext: trace.traceContext })
+        : await runHarmonyAnalyzeService(harmonyDefaults);
+      const harmonyContent = asRecord(result.body.content);
+      const proposedXml =
+        typeof harmonyContent?.musicxml === 'string' ? harmonyContent.musicxml : '';
+      const resultBody =
+        applyToScore && result.status < 400 && proposedXml
+          ? attachAiEditProposal(result.body, selectedTool, proposedXml, result.resolvedBase)
+          : stripResolvedBase(result.body);
+      return {
+        status: result.status,
+        body: {
+          mode: 'fallback',
+          selectedTool,
+          toolStatus: result.status,
+          toolOk: result.status < 400,
+          response:
+            result.status < 400
+              ? 'Chord-symbol analysis completed via fallback router.'
+              : 'Chord-symbol analysis failed in fallback router.',
+          applyToScore,
+          result: resultBody,
+        },
+      };
+    }
+    if (selectedTool === 'music.functional_harmony_analyze') {
+      const functionalDefaults = {
+        ...(toolInput?.functional_harmony_analyze || {}),
+      };
+      const contextDefaults = asRecord(toolInput?.context);
+      if (!functionalDefaults.content && typeof contextDefaults?.content === 'string') {
+        functionalDefaults.content = contextDefaults.content;
+      }
+      if (
+        !functionalDefaults.scoreSessionId &&
+        typeof contextDefaults?.scoreSessionId === 'string'
+      ) {
+        functionalDefaults.scoreSessionId = contextDefaults.scoreSessionId;
+        functionalDefaults.baseRevision = contextDefaults.baseRevision;
+      }
+      const result = trace?.traceContext
+        ? await runFunctionalHarmonyAnalyzeService(functionalDefaults, {
+            traceContext: trace.traceContext,
+          })
+        : await runFunctionalHarmonyAnalyzeService(functionalDefaults);
+      const proposedXml =
+        typeof result.body.annotatedXml === 'string' ? result.body.annotatedXml : '';
+      const resultBody =
+        applyToScore && result.status < 400 && proposedXml
+          ? attachAiEditProposal(result.body, selectedTool, proposedXml, result.resolvedBase)
+          : stripResolvedBase(result.body);
+      return {
+        status: result.status,
+        body: {
+          mode: 'fallback',
+          selectedTool,
+          toolStatus: result.status,
+          toolOk: result.status < 400,
+          response:
+            result.status < 400
+              ? 'Functional harmony analysis completed via fallback router.'
+              : 'Functional harmony analysis failed in fallback router.',
+          applyToScore,
+          result: resultBody,
+        },
+      };
+    }
+    if (selectedTool === 'music.patch') {
+      const patchDefaults = {
+        ...(toolInput?.patch || {}),
+      };
+      const contextDefaults = asRecord(toolInput?.context);
+      if (!patchDefaults.content && typeof contextDefaults?.content === 'string') {
+        patchDefaults.content = contextDefaults.content;
+      }
+      const patchPayload = {
+        ...patchDefaults,
+        prompt:
+          typeof patchDefaults.prompt === 'string' && patchDefaults.prompt.trim()
+            ? patchDefaults.prompt
+            : promptText,
+      };
+      const result = trace?.traceContext
+        ? await runMusicPatchService(patchPayload, { traceContext: trace.traceContext })
+        : await runMusicPatchService(patchPayload);
+      const proposedXml =
+        typeof result.body.proposedXml === 'string' ? result.body.proposedXml : '';
+      const resultBody =
+        result.status < 400 && proposedXml
+          ? attachAiEditProposal(result.body, selectedTool, proposedXml)
+          : stripResolvedBase(result.body);
+      return {
+        status: result.status,
+        body: {
+          mode: 'fallback',
+          selectedTool,
+          toolStatus: result.status,
+          toolOk: result.status < 400,
+          response:
+            result.status < 400
+              ? 'Patch generated via fallback router.'
+              : 'Patch generation failed in fallback router.',
+          result: resultBody,
+        },
+      };
+    }
+    if (selectedTool === 'music.scoreops') {
+      const scoreOpsDefaults = {
+        ...(toolInput?.scoreops || {}),
+      };
+      const contextDefaults = asRecord(toolInput?.context);
+      if (!scoreOpsDefaults.content && typeof contextDefaults?.content === 'string') {
+        scoreOpsDefaults.content = contextDefaults.content;
+      }
 
-      if (retryResult.status < 400) {
+      // If ops array is provided (e.g., from a future UI), execute directly
+      if (Array.isArray(scoreOpsDefaults.ops) && scoreOpsDefaults.ops.length > 0) {
+        const directResult = await runMusicScoreOpsPreviewService({
+          action: 'apply',
+          scoreSessionId: scoreOpsDefaults.scoreSessionId,
+          baseRevision: scoreOpsDefaults.baseRevision,
+          inputArtifactId: scoreOpsDefaults.inputArtifactId || scoreOpsDefaults.input_artifact_id,
+          content: scoreOpsDefaults.content || scoreOpsDefaults.text,
+          ops: scoreOpsDefaults.ops,
+          options: {
+            atomic: true,
+            includeXml: true,
+            includeMeasureDiff: true,
+            ...(scoreOpsDefaults.options || {}),
+          },
+        });
         return {
-          status: retryResult.status,
+          status: directResult.status,
           body: {
             mode: 'fallback',
             selectedTool: 'music.scoreops',
-            toolStatus: retryResult.status,
-            toolOk: true,
-            response: 'Prepared a verified ScoreOps proposal via XML executor retry.',
-            result: {
-              ok: true,
-              mode: 'scoreops-retry',
-              planner,
-              execution: retryResult.body,
-            },
-            scoreOpsRouting: {
-              reason: 'execution_failed_after_plan_retry_success',
-              path: 'scoreops',
-            },
-            scoreOpsAttempt: scoreOpsResult.body,
+            toolStatus: directResult.status,
+            toolOk: directResult.status < 400,
+            response:
+              directResult.status < 400
+                ? 'Score operations prepared as a verified proposal.'
+                : 'Direct ops execution failed.',
+            result: directResult.body,
           },
         };
       }
 
-      return runPatchFallback(prompt, patchDefaults, {
-        initial: scoreOpsResult.body,
-        retry: retryResult.body,
-      }, 'execution_failed_after_plan_retry_failed', trace);
-    }
+      const scoreOpsPayload: Record<string, unknown> & {
+        scoreSessionId?: string;
+        baseRevision?: number;
+        inputArtifactId?: string;
+        input_artifact_id?: string;
+        content?: string;
+        text?: string;
+      } = {
+        ...scoreOpsDefaults,
+        mutationMode: 'proposal',
+        prompt:
+          typeof scoreOpsDefaults.prompt === 'string' && scoreOpsDefaults.prompt.trim()
+            ? scoreOpsDefaults.prompt
+            : promptText,
+      };
+      const scoreOpsResult = await runMusicScoreOpsPromptService(scoreOpsPayload);
+      const scoreOpsBody = asRecord(scoreOpsResult.body);
+      const { planner, parsedOps, unsupportedSteps, hasSupportedPlan } =
+        extractPlannerDetails(scoreOpsBody);
+      traceLog(trace, 'music_agent.scoreops.initial_result', {
+        status: scoreOpsResult.status,
+        hasSupportedPlan,
+        parsedOpsCount: parsedOps.length,
+        unsupportedStepCount: unsupportedSteps.length,
+      });
 
-    return runPatchFallback(prompt, patchDefaults, scoreOpsResult.body, 'scoreops_failed_no_recoverable_plan', trace);
-  }
-  const result = await runMusicContextService({
-    ...(toolInput?.context || {}),
-  });
-  return {
-    status: result.status,
-    body: {
-      mode: 'fallback',
-      selectedTool,
-      toolStatus: result.status,
-      toolOk: result.status < 400,
-      response: result.status < 400
-        ? 'Context extracted via fallback router.'
-        : 'Context extraction failed in fallback router.',
-      result: result.body,
-    },
-  };
+      if (scoreOpsResult.status < 400) {
+        return {
+          status: scoreOpsResult.status,
+          body: {
+            mode: 'fallback',
+            selectedTool,
+            toolStatus: scoreOpsResult.status,
+            toolOk: true,
+            response: unsupportedSteps.length
+              ? 'Prepared supported ScoreOps steps as a proposal; some requested steps are not yet supported.'
+              : 'Score operations prepared as a verified proposal.',
+            result: scoreOpsResult.body,
+            scoreOpsRouting: {
+              reason: unsupportedSteps.length ? 'partially_mappable' : 'fully_mappable',
+              path: 'scoreops',
+              unsupportedStepCount: unsupportedSteps.length,
+            },
+          },
+        };
+      }
+
+      const patchDefaults = {
+        ...(toolInput?.patch || {}),
+      };
+      if (!patchDefaults.content && typeof contextDefaults?.content === 'string') {
+        patchDefaults.content = contextDefaults.content;
+      }
+      const error = asRecord(scoreOpsBody?.error);
+      const errorCode = typeof error?.code === 'string' ? error.code : '';
+
+      if (errorCode === 'unsupported_op' && !hasSupportedPlan) {
+        return runPatchFallback(
+          prompt,
+          patchDefaults,
+          scoreOpsResult.body,
+          'no_mappable_steps',
+          trace,
+        );
+      }
+
+      if (hasSupportedPlan && parsedOps.length > 0) {
+        traceLog(trace, 'music_agent.scoreops.retry_xml.start', {
+          parsedOpsCount: parsedOps.length,
+        });
+        const retryResult = await runMusicScoreOpsPreviewService({
+          action: 'apply',
+          scoreSessionId: scoreOpsPayload.scoreSessionId,
+          baseRevision: scoreOpsPayload.baseRevision,
+          inputArtifactId: scoreOpsPayload.inputArtifactId,
+          input_artifact_id: scoreOpsPayload.input_artifact_id,
+          content: scoreOpsPayload.content,
+          text: scoreOpsPayload.text,
+          ops: parsedOps,
+          options: {
+            atomic: true,
+            includeXml: true,
+            includePatch: false,
+            includeMeasureDiff: true,
+            preferredExecutor: 'xml',
+          },
+        });
+        traceLog(trace, 'music_agent.scoreops.retry_xml.result', {
+          status: retryResult.status,
+        });
+
+        if (retryResult.status < 400) {
+          return {
+            status: retryResult.status,
+            body: {
+              mode: 'fallback',
+              selectedTool: 'music.scoreops',
+              toolStatus: retryResult.status,
+              toolOk: true,
+              response: 'Prepared a verified ScoreOps proposal via XML executor retry.',
+              result: {
+                ok: true,
+                mode: 'scoreops-retry',
+                planner,
+                execution: retryResult.body,
+              },
+              scoreOpsRouting: {
+                reason: 'execution_failed_after_plan_retry_success',
+                path: 'scoreops',
+              },
+              scoreOpsAttempt: scoreOpsResult.body,
+            },
+          };
+        }
+
+        return runPatchFallback(
+          prompt,
+          patchDefaults,
+          {
+            initial: scoreOpsResult.body,
+            retry: retryResult.body,
+          },
+          'execution_failed_after_plan_retry_failed',
+          trace,
+        );
+      }
+
+      return runPatchFallback(
+        prompt,
+        patchDefaults,
+        scoreOpsResult.body,
+        'scoreops_failed_no_recoverable_plan',
+        trace,
+      );
+    }
+    const result = await runMusicContextService({
+      ...(toolInput?.context || {}),
+    });
+    return {
+      status: result.status,
+      body: {
+        mode: 'fallback',
+        selectedTool,
+        toolStatus: result.status,
+        toolOk: result.status < 400,
+        response:
+          result.status < 400
+            ? 'Context extracted via fallback router.'
+            : 'Context extraction failed in fallback router.',
+        result: result.body,
+      },
+    };
   } catch (error) {
-    traceLog(trace, 'music_agent.fallback.exception', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-    }, 'error');
+    traceLog(
+      trace,
+      'music_agent.fallback.exception',
+      {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+      },
+      'error',
+    );
     return {
       status: 500,
       body: {
@@ -875,9 +956,8 @@ function createMusicRouterAgent() {
   // Contracts use our runtime-validated JSON Schema type. The SDK accepts the same
   // shape, but its nominal schema type is not structurally compatible.
   type NonStrictToolParameters = Extract<ToolInputParameters, { additionalProperties: true }>;
-  const toolParameters = (schema: unknown): NonStrictToolParameters => (
-    schema as NonStrictToolParameters
-  );
+  const toolParameters = (schema: unknown): NonStrictToolParameters =>
+    schema as NonStrictToolParameters;
   const musicContextTool = tool({
     name: MUSIC_CONTEXT_TOOL_CONTRACT.name,
     description: MUSIC_CONTEXT_TOOL_CONTRACT.description,
@@ -1029,7 +1109,11 @@ function createMusicRouterAgent() {
         payload.baseRevision = rawContext.toolInput.harmony_analyze.baseRevision;
       }
       const contextDefaults = rawContext?.toolInput?.context;
-      if (!payload.content && !payload.scoreSessionId && typeof contextDefaults?.content === 'string') {
+      if (
+        !payload.content &&
+        !payload.scoreSessionId &&
+        typeof contextDefaults?.content === 'string'
+      ) {
         payload.content = contextDefaults.content;
       }
       const toolTrace = rawContext?.trace;
@@ -1038,10 +1122,17 @@ function createMusicRouterAgent() {
         : await runHarmonyAnalyzeService(payload);
       console.info(`[music-agent] Tool music.harmony_analyze completed: status=${result.status}`);
       const harmonyContent = asRecord(result.body.content);
-      const proposedXml = typeof harmonyContent?.musicxml === 'string' ? harmonyContent.musicxml : '';
-      const resultBody = payload.applyToScore === true && result.status < 400 && proposedXml
-        ? attachAiEditProposal(result.body, 'music.harmony_analyze', proposedXml, result.resolvedBase)
-        : stripResolvedBase(result.body);
+      const proposedXml =
+        typeof harmonyContent?.musicxml === 'string' ? harmonyContent.musicxml : '';
+      const resultBody =
+        payload.applyToScore === true && result.status < 400 && proposedXml
+          ? attachAiEditProposal(
+              result.body,
+              'music.harmony_analyze',
+              proposedXml,
+              result.resolvedBase,
+            )
+          : stripResolvedBase(result.body);
       const fullResult = {
         tool: 'music.harmony_analyze',
         status: result.status,
@@ -1063,23 +1154,41 @@ function createMusicRouterAgent() {
       const rawContext = getMusicAgentRunnerContext(runContext);
       const defaults = rawContext?.toolInput?.functional_harmony_analyze;
       const payload = mergeToolInput(defaults, input);
-      if (!payload.scoreSessionId && rawContext?.toolInput?.functional_harmony_analyze?.scoreSessionId) {
+      if (
+        !payload.scoreSessionId &&
+        rawContext?.toolInput?.functional_harmony_analyze?.scoreSessionId
+      ) {
         payload.scoreSessionId = rawContext.toolInput.functional_harmony_analyze.scoreSessionId;
         payload.baseRevision = rawContext.toolInput.functional_harmony_analyze.baseRevision;
       }
       const contextDefaults = rawContext?.toolInput?.context;
-      if (!payload.content && !payload.scoreSessionId && typeof contextDefaults?.content === 'string') {
+      if (
+        !payload.content &&
+        !payload.scoreSessionId &&
+        typeof contextDefaults?.content === 'string'
+      ) {
         payload.content = contextDefaults.content;
       }
       const toolTrace = rawContext?.trace;
       const result = toolTrace?.traceContext
-        ? await runFunctionalHarmonyAnalyzeService(payload, { traceContext: toolTrace.traceContext })
+        ? await runFunctionalHarmonyAnalyzeService(payload, {
+            traceContext: toolTrace.traceContext,
+          })
         : await runFunctionalHarmonyAnalyzeService(payload);
-      console.info(`[music-agent] Tool music.functional_harmony_analyze completed: status=${result.status}`);
-      const proposedXml = typeof result.body.annotatedXml === 'string' ? result.body.annotatedXml : '';
-      const resultBody = payload.applyToScore === true && result.status < 400 && proposedXml
-        ? attachAiEditProposal(result.body, 'music.functional_harmony_analyze', proposedXml, result.resolvedBase)
-        : stripResolvedBase(result.body);
+      console.info(
+        `[music-agent] Tool music.functional_harmony_analyze completed: status=${result.status}`,
+      );
+      const proposedXml =
+        typeof result.body.annotatedXml === 'string' ? result.body.annotatedXml : '';
+      const resultBody =
+        payload.applyToScore === true && result.status < 400 && proposedXml
+          ? attachAiEditProposal(
+              result.body,
+              'music.functional_harmony_analyze',
+              proposedXml,
+              result.resolvedBase,
+            )
+          : stripResolvedBase(result.body);
       const fullResult = {
         tool: 'music.functional_harmony_analyze',
         status: result.status,
@@ -1110,10 +1219,12 @@ function createMusicRouterAgent() {
         ? await runMusicPatchService(payload, { traceContext: toolTrace.traceContext })
         : await runMusicPatchService(payload);
       console.info(`[music-agent] Tool music.patch completed: status=${result.status}`);
-      const proposedXml = typeof result.body.proposedXml === 'string' ? result.body.proposedXml : '';
-      const resultBody = result.status < 400 && proposedXml
-        ? attachAiEditProposal(result.body, 'music.patch', proposedXml)
-        : stripResolvedBase(result.body);
+      const proposedXml =
+        typeof result.body.proposedXml === 'string' ? result.body.proposedXml : '';
+      const resultBody =
+        result.status < 400 && proposedXml
+          ? attachAiEditProposal(result.body, 'music.patch', proposedXml)
+          : stripResolvedBase(result.body);
       const fullResult = {
         tool: 'music.patch',
         status: result.status,
@@ -1140,7 +1251,11 @@ function createMusicRouterAgent() {
         payload.baseRevision = rawContext.toolInput.scoreops.baseRevision;
       }
       const contextDefaults = rawContext?.toolInput?.context;
-      if (!payload.content && !payload.scoreSessionId && typeof contextDefaults?.content === 'string') {
+      if (
+        !payload.content &&
+        !payload.scoreSessionId &&
+        typeof contextDefaults?.content === 'string'
+      ) {
         payload.content = contextDefaults.content;
       }
 
@@ -1175,11 +1290,13 @@ function createMusicRouterAgent() {
             bodyKeys: Object.keys(result.body || {}),
           });
         }
-        console.info(`[music-agent] Tool music.scoreops (direct ops) completed: status=${result.status}`);
-        const fullResult = { 
-          tool: 'music.scoreops', 
-          status: result.status, 
-          ok: result.status < 400, 
+        console.info(
+          `[music-agent] Tool music.scoreops (direct ops) completed: status=${result.status}`,
+        );
+        const fullResult = {
+          tool: 'music.scoreops',
+          status: result.status,
+          ok: result.status < 400,
           body: result.body,
           ...getToolResultReference(result.body, ['newRevision', 'revision']),
         };
@@ -1192,10 +1309,10 @@ function createMusicRouterAgent() {
         mutationMode: 'proposal',
       });
       console.info(`[music-agent] Tool music.scoreops (prompt) completed: status=${result.status}`);
-      const fullResult = { 
-        tool: 'music.scoreops', 
-        status: result.status, 
-        ok: result.status < 400, 
+      const fullResult = {
+        tool: 'music.scoreops',
+        status: result.status,
+        ok: result.status < 400,
         body: result.body,
         ...getToolResultReference(result.body, ['newRevision', 'revision']),
       };
@@ -1218,7 +1335,11 @@ function createMusicRouterAgent() {
         payload.baseRevision = rawContext.toolInput.render.baseRevision;
       }
       const contextDefaults = rawContext?.toolInput?.context;
-      if (!payload.content && !payload.scoreSessionId && typeof contextDefaults?.content === 'string') {
+      if (
+        !payload.content &&
+        !payload.scoreSessionId &&
+        typeof contextDefaults?.content === 'string'
+      ) {
         payload.content = contextDefaults.content;
       }
       const result = await runMusicRenderService(payload);
@@ -1317,223 +1438,268 @@ export async function runMusicAgentRouter(
 ): Promise<MusicAgentResult> {
   const trace = options?.trace;
   try {
-  const data = asRecord(body);
-  const provider = typeof data?.provider === 'string' ? data.provider.trim() : 'openai';
-  const promptRaw = data?.prompt;
-  const prompt = (typeof promptRaw === 'string' || Array.isArray(promptRaw))
-    ? promptRaw as string | AgentInputItem[]
-    : '';
-  const promptText = extractTextFromPrompt(prompt);
+    const data = asRecord(body);
+    const provider = typeof data?.provider === 'string' ? data.provider.trim() : 'openai';
+    const promptRaw = data?.prompt;
+    const prompt =
+      typeof promptRaw === 'string' || Array.isArray(promptRaw)
+        ? (promptRaw as string | AgentInputItem[])
+        : '';
+    const promptText = extractTextFromPrompt(prompt);
 
-  traceLog(trace, 'music_agent.router.start', {
-    hasPrompt: Boolean(promptText),
-    promptLength: promptText.length,
-    isMultimodal: Array.isArray(prompt),
-    hasToolInput: Boolean(data?.toolInput),
-    useFallbackOnly: Boolean(data?.useFallbackOnly),
-  });
-  if (!promptText.trim()) {
-    traceLog(trace, 'music_agent.router.invalid_request', {
-      reason: 'missing_prompt',
-    }, 'warn');
-    return {
-      status: 400,
-      body: { error: 'Missing prompt for music agent router.' },
-    };
-  }
+    traceLog(trace, 'music_agent.router.start', {
+      hasPrompt: Boolean(promptText),
+      promptLength: promptText.length,
+      isMultimodal: Array.isArray(prompt),
+      hasToolInput: Boolean(data?.toolInput),
+      useFallbackOnly: Boolean(data?.useFallbackOnly),
+    });
+    if (!promptText.trim()) {
+      traceLog(
+        trace,
+        'music_agent.router.invalid_request',
+        {
+          reason: 'missing_prompt',
+        },
+        'warn',
+      );
+      return {
+        status: 400,
+        body: { error: 'Missing prompt for music agent router.' },
+      };
+    }
 
-  let toolInput = asRecord(data?.toolInput) as ToolDefaults | null;
-  const useFallbackOnly = Boolean(data?.useFallbackOnly);
+    let toolInput = asRecord(data?.toolInput) as ToolDefaults | null;
+    const useFallbackOnly = Boolean(data?.useFallbackOnly);
 
-  // Auto-wire scoreSessionId and baseRevision from top-level to tool defaults if missing
-  const bodySessionId = normalizeScoreSessionId(data);
-  const bodyRevision = typeof data?.baseRevision === 'number' ? data.baseRevision : (typeof data?.revision === 'number' ? data.revision : undefined);
-  if (bodySessionId) {
-    toolInput = toolInput || {};
-    const tools: Array<keyof ToolDefaults> = [
-      'context',
-      'convert',
-      'diff_feedback',
-      'functional_harmony_analyze',
-      'harmony_analyze',
-      'scoreops',
-      'patch',
-      'render',
-    ];
-    for (const t of tools) {
-      if (!toolInput[t] || !asRecord(toolInput[t])?.scoreSessionId) {
-        toolInput[t] = {
-          ...(asRecord(toolInput[t]) || {}),
-          scoreSessionId: bodySessionId,
-          baseRevision: bodyRevision,
+    // Auto-wire scoreSessionId and baseRevision from top-level to tool defaults if missing
+    const bodySessionId = normalizeScoreSessionId(data);
+    const bodyRevision =
+      typeof data?.baseRevision === 'number'
+        ? data.baseRevision
+        : typeof data?.revision === 'number'
+          ? data.revision
+          : undefined;
+    if (bodySessionId) {
+      toolInput = toolInput || {};
+      const tools: Array<keyof ToolDefaults> = [
+        'context',
+        'convert',
+        'diff_feedback',
+        'functional_harmony_analyze',
+        'harmony_analyze',
+        'scoreops',
+        'patch',
+        'render',
+      ];
+      for (const t of tools) {
+        if (!toolInput[t] || !asRecord(toolInput[t])?.scoreSessionId) {
+          toolInput[t] = {
+            ...(asRecord(toolInput[t]) || {}),
+            scoreSessionId: bodySessionId,
+            baseRevision: bodyRevision,
+          };
+        }
+      }
+    }
+
+    // Accept API key from request body (similar to patch-service.ts) or environment
+    const requestApiKey = (
+      typeof data?.apiKey === 'string'
+        ? data.apiKey
+        : typeof data?.api_key === 'string'
+          ? data.api_key
+          : ''
+    ).trim();
+    const envApiKey =
+      provider === 'anthropic'
+        ? allowServerCredentialFallback()
+          ? (process.env.ANTHROPIC_API_KEY || '').trim()
+          : ''
+        : allowServerCredentialFallback()
+          ? (process.env.OPENAI_API_KEY || '').trim()
+          : '';
+    const openaiApiKey = requestApiKey || envApiKey;
+
+    if (useFallbackOnly || !openaiApiKey) {
+      try {
+        const fallbackResult = await runFallbackRouter(prompt, toolInput || undefined, trace);
+        traceLog(trace, 'music_agent.router.fallback.complete', {
+          status: fallbackResult.status,
+          selectedTool: (fallbackResult.body.selectedTool as string | undefined) || null,
+        });
+        return fallbackResult;
+      } catch (error) {
+        traceLog(
+          trace,
+          'music_agent.router.fallback.error',
+          {
+            message: error instanceof Error ? error.message : 'Fallback music router failed.',
+          },
+          'error',
+        );
+        return {
+          status: 500,
+          body: {
+            error: error instanceof Error ? error.message : 'Fallback music router failed.',
+            mode: 'fallback',
+          },
         };
       }
     }
-  }
 
-  // Accept API key from request body (similar to patch-service.ts) or environment
-  const requestApiKey = (typeof data?.apiKey === 'string'
-    ? data.apiKey
-    : (typeof data?.api_key === 'string' ? data.api_key : '')).trim();
-  const envApiKey = provider === 'anthropic'
-    ? (allowServerCredentialFallback() ? (process.env.ANTHROPIC_API_KEY || '').trim() : '')
-    : (allowServerCredentialFallback() ? (process.env.OPENAI_API_KEY || '').trim() : '');
-  const openaiApiKey = requestApiKey || envApiKey;
+    const requestedModel = typeof data?.model === 'string' ? data.model.trim() : '';
+    const maxTurnsRaw = Number(data?.maxTurns);
+    const maxTurns = Number.isFinite(maxTurnsRaw) && maxTurnsRaw > 0 ? Math.floor(maxTurnsRaw) : 6;
+    const defaultModel = getDefaultModel(provider);
+    const currentModelName = requestedModel || defaultModel;
 
-  if (useFallbackOnly || !openaiApiKey) {
-    try {
-      const fallbackResult = await runFallbackRouter(prompt, toolInput || undefined, trace);
-      traceLog(trace, 'music_agent.router.fallback.complete', {
-        status: fallbackResult.status,
-        selectedTool: (fallbackResult.body.selectedTool as string | undefined) || null,
-      });
-      return fallbackResult;
-    } catch (error) {
-      traceLog(trace, 'music_agent.router.fallback.error', {
-        message: error instanceof Error ? error.message : 'Fallback music router failed.',
-      }, 'error');
-      return {
-        status: 500,
-        body: {
-          error: error instanceof Error ? error.message : 'Fallback music router failed.',
-          mode: 'fallback',
-        },
-      };
-    }
-  }
-
-  const requestedModel = typeof data?.model === 'string' ? data.model.trim() : '';
-  const maxTurnsRaw = Number(data?.maxTurns);
-  const maxTurns = Number.isFinite(maxTurnsRaw) && maxTurnsRaw > 0 ? Math.floor(maxTurnsRaw) : 6;
-  const defaultModel = getDefaultModel(provider);
-  const currentModelName = requestedModel || defaultModel;
-
-  traceLog(trace, 'music_agent.router.agents_sdk.start', {
-    provider,
-    model: currentModelName,
-    maxTurns,
-    isMultimodal: Array.isArray(prompt),
-  });
-  const agent = createMusicRouterAgent();
-  
-  if (data?.scoreSessionId) {
-    const sessionId = String(data.scoreSessionId);
-    const revision = Number(data.revision ?? data.baseRevision ?? 0);
-    const baseInstructions = typeof agent.instructions === 'string' ? agent.instructions : '';
-    agent.instructions = [
-      ...baseInstructions.split('\n'),
-      '',
-      `IMPORTANT: You are operating on an active score session: ${sessionId} (revision ${revision}).`,
-      'Tools will automatically reference this session if you do not provide explicit content.',
-    ].join('\n');
-  }
-
-  if (requestApiKey || provider !== 'openai') {
-    // Override the agent's model with one tied to the user's specific key
-    // This ensures concurrency safety.
-    agent.model = getModelForRequest(provider, openaiApiKey, currentModelName);
-  } else if (requestedModel) {
-    agent.model = requestedModel;
-  }
-
-  const AGENT_TIMEOUT_MS = 60_000;
-
-  try {
-    console.info(`[music-agent] Starting agent run: provider=${provider}, model=${currentModelName}, maxTurns=${maxTurns}, multimodal=${Array.isArray(prompt)}`);
-    const runContext: MusicAgentRunnerContext = {
-      toolInput: toolInput || undefined,
-      trace,
-    };
-    const agentPromise = run(agent, promptText, {
+    traceLog(trace, 'music_agent.router.agents_sdk.start', {
+      provider,
+      model: currentModelName,
       maxTurns,
-      context: runContext,
+      isMultimodal: Array.isArray(prompt),
     });
+    const agent = createMusicRouterAgent();
 
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error(`Agent run timed out after ${AGENT_TIMEOUT_MS / 1000}s`)), AGENT_TIMEOUT_MS);
-    });
-
-    const result = await Promise.race([agentPromise, timeoutPromise]);
-    console.info(`[music-agent] Agent run completed successfully`);
-
-    const finalOutput = asRecord(result.finalOutput);
-    if (!finalOutput) {
-      console.warn(`[music-agent] No structured output from agent`);
-      traceLog(trace, 'music_agent.router.agents_sdk.invalid_output', {
-        reason: 'missing_structured_output',
-      }, 'warn');
-      return {
-        status: 502,
-        body: {
-          error: 'MusicRouter did not return structured output.',
-          mode: 'agents-sdk',
-        },
-      };
+    if (data?.scoreSessionId) {
+      const sessionId = String(data.scoreSessionId);
+      const revision = Number(data.revision ?? data.baseRevision ?? 0);
+      const baseInstructions = typeof agent.instructions === 'string' ? agent.instructions : '';
+      agent.instructions = [
+        ...baseInstructions.split('\n'),
+        '',
+        `IMPORTANT: You are operating on an active score session: ${sessionId} (revision ${revision}).`,
+        'Tools will automatically reference this session if you do not provide explicit content.',
+      ].join('\n');
     }
 
-    // Normalize underscored selectedTool back to dotted names for frontend compatibility
-    if (typeof finalOutput.selectedTool === 'string') {
-      const selectedToolMap: Record<string, string> = {
-        music_context: 'music.context',
-        music_convert: 'music.convert',
-        music_diff_feedback: 'music.diff_feedback',
-        music_functional_harmony_analyze: 'music.functional_harmony_analyze',
-        music_generate: 'music.generate',
-        music_multitrack_vae: 'music.multitrack_vae',
-        music_harmony_analyze: 'music.harmony_analyze',
-        music_scoreops: 'music.scoreops',
-        music_patch: 'music.patch',
-        music_render: 'music.render',
-      };
-      finalOutput.selectedTool = selectedToolMap[finalOutput.selectedTool] || finalOutput.selectedTool.replace(/_/g, '.');
+    if (requestApiKey || provider !== 'openai') {
+      // Override the agent's model with one tied to the user's specific key
+      // This ensures concurrency safety.
+      agent.model = getModelForRequest(provider, openaiApiKey, currentModelName);
+    } else if (requestedModel) {
+      agent.model = requestedModel;
     }
 
-    // Inject the full (unsummarized) tool result — the model only saw the summary
-    if (runContext.lastToolResult) {
-      finalOutput.result = JSON.stringify(runContext.lastToolResult);
-    }
+    const AGENT_TIMEOUT_MS = 60_000;
 
-    traceLog(trace, 'music_agent.router.agents_sdk.complete', {
-      status: 200,
-      selectedTool: (finalOutput.selectedTool as string | undefined) || null,
-    });
-    return {
-      status: 200,
-      body: {
-        mode: 'agents-sdk',
-        provider,
-        model: currentModelName,
-        ...finalOutput,
-      },
-    };
-  } catch (error) {
-    console.error(`[music-agent] Agent run failed:`, error instanceof Error ? error.message : error);
-    traceLog(trace, 'music_agent.router.agents_sdk.error', {
-      message: error instanceof Error ? error.message : 'Music agent router failed.',
-    }, 'error');
-
-    // On timeout or agent failure, fall back to heuristic router
-    console.info(`[music-agent] Falling back to heuristic router`);
     try {
-      const fallbackResult = await runFallbackRouter(prompt, toolInput || undefined, trace);
-      return {
-        ...fallbackResult,
-        body: {
-          ...fallbackResult.body,
-          agentError: error instanceof Error ? error.message : 'Agent run failed',
-        },
+      console.info(
+        `[music-agent] Starting agent run: provider=${provider}, model=${currentModelName}, maxTurns=${maxTurns}, multimodal=${Array.isArray(prompt)}`,
+      );
+      const runContext: MusicAgentRunnerContext = {
+        toolInput: toolInput || undefined,
+        trace,
       };
-    } catch (fallbackError) {
+      const agentPromise = run(agent, promptText, {
+        maxTurns,
+        context: runContext,
+      });
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(
+          () => reject(new Error(`Agent run timed out after ${AGENT_TIMEOUT_MS / 1000}s`)),
+          AGENT_TIMEOUT_MS,
+        );
+      });
+
+      const result = await Promise.race([agentPromise, timeoutPromise]);
+      console.info(`[music-agent] Agent run completed successfully`);
+
+      const finalOutput = asRecord(result.finalOutput);
+      if (!finalOutput) {
+        console.warn(`[music-agent] No structured output from agent`);
+        traceLog(
+          trace,
+          'music_agent.router.agents_sdk.invalid_output',
+          {
+            reason: 'missing_structured_output',
+          },
+          'warn',
+        );
+        return {
+          status: 502,
+          body: {
+            error: 'MusicRouter did not return structured output.',
+            mode: 'agents-sdk',
+          },
+        };
+      }
+
+      // Normalize underscored selectedTool back to dotted names for frontend compatibility
+      if (typeof finalOutput.selectedTool === 'string') {
+        const selectedToolMap: Record<string, string> = {
+          music_context: 'music.context',
+          music_convert: 'music.convert',
+          music_diff_feedback: 'music.diff_feedback',
+          music_functional_harmony_analyze: 'music.functional_harmony_analyze',
+          music_generate: 'music.generate',
+          music_multitrack_vae: 'music.multitrack_vae',
+          music_harmony_analyze: 'music.harmony_analyze',
+          music_scoreops: 'music.scoreops',
+          music_patch: 'music.patch',
+          music_render: 'music.render',
+        };
+        finalOutput.selectedTool =
+          selectedToolMap[finalOutput.selectedTool] || finalOutput.selectedTool.replace(/_/g, '.');
+      }
+
+      // Inject the full (unsummarized) tool result — the model only saw the summary
+      if (runContext.lastToolResult) {
+        finalOutput.result = JSON.stringify(runContext.lastToolResult);
+      }
+
+      traceLog(trace, 'music_agent.router.agents_sdk.complete', {
+        status: 200,
+        selectedTool: (finalOutput.selectedTool as string | undefined) || null,
+      });
       return {
-        status: 500,
+        status: 200,
         body: {
-          error: error instanceof Error ? error.message : 'Music agent router failed.',
           mode: 'agents-sdk',
-          fallbackError: fallbackError instanceof Error ? fallbackError.message : 'Fallback also failed',
+          provider,
+          model: currentModelName,
+          ...finalOutput,
         },
       };
+    } catch (error) {
+      console.error(
+        `[music-agent] Agent run failed:`,
+        error instanceof Error ? error.message : error,
+      );
+      traceLog(
+        trace,
+        'music_agent.router.agents_sdk.error',
+        {
+          message: error instanceof Error ? error.message : 'Music agent router failed.',
+        },
+        'error',
+      );
+
+      // On timeout or agent failure, fall back to heuristic router
+      console.info(`[music-agent] Falling back to heuristic router`);
+      try {
+        const fallbackResult = await runFallbackRouter(prompt, toolInput || undefined, trace);
+        return {
+          ...fallbackResult,
+          body: {
+            ...fallbackResult.body,
+            agentError: error instanceof Error ? error.message : 'Agent run failed',
+          },
+        };
+      } catch (fallbackError) {
+        return {
+          status: 500,
+          body: {
+            error: error instanceof Error ? error.message : 'Music agent router failed.',
+            mode: 'agents-sdk',
+            fallbackError:
+              fallbackError instanceof Error ? fallbackError.message : 'Fallback also failed',
+          },
+        };
+      }
     }
-  }
   } catch (error) {
     console.error('runMusicAgentRouter unhandled error:', error);
     return {

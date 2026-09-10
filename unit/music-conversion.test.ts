@@ -13,7 +13,9 @@ describe('music-conversion MVP', () => {
     expect(result.content.startsWith('X:1\nT:Converted Score\n')).toBe(true);
     expect(result.normalization.schemaVersion).toBe('music-normalization@1');
     expect(result.normalization.format).toBe('abc');
-    expect(result.normalization.actions.some((a) => a.id === 'ensure-abc-x-header' && a.applied)).toBe(true);
+    expect(
+      result.normalization.actions.some((a) => a.id === 'ensure-abc-x-header' && a.applied),
+    ).toBe(true);
 
     expect(result.validation.schemaVersion).toBe('music-validation@1');
     expect(result.validation.summary.error).toBeGreaterThanOrEqual(0);
@@ -90,10 +92,12 @@ describe('music-conversion MVP', () => {
     expect(result.content).toBe(
       '**kern\t**kern\n*clefF4\t*clefG2\n*k[]\t*k[]\n*M4/4\t*M4/4\n16GGLL\t16ccLL\n=\t=\n*-\t*-\n',
     );
-    expect(result.normalization.actions).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: 'kern-spine-declaration', applied: true }),
-      expect.objectContaining({ id: 'kern-spine-terminator', applied: true }),
-    ]));
+    expect(result.normalization.actions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'kern-spine-declaration', applied: true }),
+        expect.objectContaining({ id: 'kern-spine-terminator', applied: true }),
+      ]),
+    );
     expect(result.validation.checks.some((c) => c.id === 'kern-spine' && c.ok)).toBe(true);
     expect(result.validation.checks.some((c) => c.id === 'kern-terminator' && c.ok)).toBe(true);
   });

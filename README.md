@@ -40,21 +40,23 @@ The score editor can be embedded as a standalone XML diff viewer by providing tw
 /?compareLeft=<url>&compareRight=<url>&leftLabel=<label>&rightLabel=<label>
 ```
 
-| Parameter | Required | Description | Example |
-|-----------|----------|-------------|---------|
-| `compareLeft` | Yes | URL to left/old XML file | `https://example.com/v1.xml` |
-| `compareRight` | Yes | URL to right/new XML file | `https://example.com/v2.xml` |
-| `leftLabel` | No | Label for left pane (default: "Left") | `Version 1` |
-| `rightLabel` | No | Label for right pane (default: "Right") | `Version 2` |
+| Parameter      | Required | Description                             | Example                      |
+| -------------- | -------- | --------------------------------------- | ---------------------------- |
+| `compareLeft`  | Yes      | URL to left/old XML file                | `https://example.com/v1.xml` |
+| `compareRight` | Yes      | URL to right/new XML file               | `https://example.com/v2.xml` |
+| `leftLabel`    | No       | Label for left pane (default: "Left")   | `Version 1`                  |
+| `rightLabel`   | No       | Label for right pane (default: "Right") | `Version 2`                  |
 
 ### Example Usage
 
 **Basic comparison:**
+
 ```
 http://localhost:3000/?compareLeft=https://raw.githubusercontent.com/user/repo/main/old.xml&compareRight=https://raw.githubusercontent.com/user/repo/main/new.xml
 ```
 
 **With custom labels:**
+
 ```
 http://localhost:3000/?compareLeft=https://example.com/old.xml&compareRight=https://example.com/new.xml&leftLabel=Before&rightLabel=After
 ```
@@ -87,6 +89,7 @@ You can embed the diff viewer in other web pages:
 This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)**, inherited from the MuseScore engraving engine (`libmscore`) used via the `webmscore-fork` dependency. See [LICENSE](LICENSE) for the full text.
 
 Key implications:
+
 - You may use, modify, and distribute this software freely.
 - Any distributed modifications must also be released under GPL-3.0 with source available.
 - The MuseScore font embedding exception applies: documents created with embedded MuseScore fonts are not themselves covered by the GPL.

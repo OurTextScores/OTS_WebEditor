@@ -13,15 +13,13 @@ type StreamServiceResult = {
 
 const encoder = new TextEncoder();
 
-const encodeEvent = (event: 'progress' | 'result', payload: unknown) => (
-  encoder.encode(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`)
-);
+const encodeEvent = (event: 'progress' | 'result', payload: unknown) =>
+  encoder.encode(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`);
 
-export const wantsAiEditProgressStream = (request: Request) => (
+export const wantsAiEditProgressStream = (request: Request) =>
   (request.headers.get('accept') || '')
     .split(',')
-    .some((value) => value.trim().toLowerCase().startsWith('text/event-stream'))
-);
+    .some((value) => value.trim().toLowerCase().startsWith('text/event-stream'));
 
 export const createAiEditProgressStreamResponse = (args: {
   operation: AiEditProgressOperation;
@@ -100,7 +98,8 @@ export const createAiEditProgressStreamResponse = (args: {
         }
       }, 15_000);
 
-      void args.run(reporter, requestController.signal)
+      void args
+        .run(reporter, requestController.signal)
         .catch((): StreamServiceResult => ({
           status: 500,
           body: { error: 'AI edit stream failed unexpectedly.' },
@@ -129,7 +128,9 @@ export const createAiEditProgressStreamResponse = (args: {
     },
     cancel(reason) {
       if (!requestController.signal.aborted) {
-        requestController.abort(reason ?? new DOMException('Progress stream cancelled.', 'AbortError'));
+        requestController.abort(
+          reason ?? new DOMException('Progress stream cancelled.', 'AbortError'),
+        );
       }
       closeStream();
     },

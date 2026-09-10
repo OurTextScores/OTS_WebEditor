@@ -31,13 +31,15 @@ test('title and composer text can be edited', async ({ page }) => {
   const newTitle = 'OTS Title Test';
   const newComposer = 'OTS Composer Test';
 
-  page.once('dialog', dialog => dialog.accept(newTitle));
+  page.once('dialog', (dialog) => dialog.accept(newTitle));
   await page.getByTestId('dropdown-text').click();
   await page.getByTestId('btn-text-title').click();
   await expect.poll(async () => (await readHeader()).title, { timeout: 20_000 }).toBe(newTitle);
 
-  page.once('dialog', dialog => dialog.accept(newComposer));
+  page.once('dialog', (dialog) => dialog.accept(newComposer));
   await page.getByTestId('dropdown-text').click();
   await page.getByTestId('btn-text-composer').click();
-  await expect.poll(async () => (await readHeader()).composer, { timeout: 20_000 }).toBe(newComposer);
+  await expect
+    .poll(async () => (await readHeader()).composer, { timeout: 20_000 })
+    .toBe(newComposer);
 });

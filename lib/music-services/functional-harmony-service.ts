@@ -4,7 +4,16 @@ import { constants as fsConstants } from 'node:fs';
 import { join } from 'node:path';
 import { createScoreArtifact, summarizeScoreArtifact } from '../score-artifacts';
 import type { TraceContext } from '../trace-http';
-import { asRecord, errorResult, looksLikeMusicXml, readBoolean, resolvedScoreSnapshot, resolveScoreContent, type ResolvedScoreSnapshot, type ServiceResult } from './common';
+import {
+  asRecord,
+  errorResult,
+  looksLikeMusicXml,
+  readBoolean,
+  resolvedScoreSnapshot,
+  resolveScoreContent,
+  type ResolvedScoreSnapshot,
+  type ServiceResult,
+} from './common';
 
 type FunctionalHarmonyServiceOptions = {
   traceContext?: TraceContext;
@@ -67,7 +76,8 @@ type FunctionalHarmonyHelperFailure = {
   warnings?: string[];
 };
 
-type FunctionalHarmonyHelperResponse = FunctionalHarmonyHelperSuccess | FunctionalHarmonyHelperFailure;
+type FunctionalHarmonyHelperResponse =
+  FunctionalHarmonyHelperSuccess | FunctionalHarmonyHelperFailure;
 
 type FunctionalHarmonyToolConfig = {
   pythonCommand: string;
@@ -78,7 +88,12 @@ type FunctionalHarmonyToolConfig = {
 const DEFAULT_TIMEOUT_MS = 180_000;
 const MIN_TIMEOUT_MS = 1_000;
 const MAX_TIMEOUT_MS = 300_000;
-const DEFAULT_SCRIPT_PATH = join(process.cwd(), 'tools', 'functional_harmony', 'analyze_functional_harmony.py');
+const DEFAULT_SCRIPT_PATH = join(
+  process.cwd(),
+  'tools',
+  'functional_harmony',
+  'analyze_functional_harmony.py',
+);
 
 const readBoundedInt = (value: unknown, fallback: number, min: number, max: number) => {
   const parsed = Number(value);
@@ -121,8 +136,11 @@ const logFunctionalHarmonyEvent = (
 };
 
 function getToolConfig(timeoutOverride?: number): FunctionalHarmonyToolConfig {
-  const pythonCommand = (process.env.MUSIC_FUNCTIONAL_HARMONY_PYTHON || 'python3').trim() || 'python3';
-  const scriptPath = (process.env.MUSIC_FUNCTIONAL_HARMONY_SCRIPT || DEFAULT_SCRIPT_PATH).trim() || DEFAULT_SCRIPT_PATH;
+  const pythonCommand =
+    (process.env.MUSIC_FUNCTIONAL_HARMONY_PYTHON || 'python3').trim() || 'python3';
+  const scriptPath =
+    (process.env.MUSIC_FUNCTIONAL_HARMONY_SCRIPT || DEFAULT_SCRIPT_PATH).trim() ||
+    DEFAULT_SCRIPT_PATH;
   const timeoutMs = readBoundedInt(
     timeoutOverride ?? process.env.MUSIC_FUNCTIONAL_HARMONY_TIMEOUT_MS,
     DEFAULT_TIMEOUT_MS,
@@ -215,7 +233,9 @@ async function runHelper(args: {
           ok: false,
           error: {
             code: 'helper_empty_output',
-            message: stderr.trim() || `Functional harmony helper exited with code ${String(code)} and no output.`,
+            message:
+              stderr.trim() ||
+              `Functional harmony helper exited with code ${String(code)} and no output.`,
           },
         });
         return;
@@ -238,7 +258,10 @@ async function runHelper(args: {
           ok: false,
           error: {
             code: 'helper_invalid_output',
-            message: error instanceof Error ? error.message : 'Functional harmony helper returned non-JSON output.',
+            message:
+              error instanceof Error
+                ? error.message
+                : 'Functional harmony helper returned non-JSON output.',
             details: {
               stderr: stderr.trim() || undefined,
             },
@@ -263,25 +286,46 @@ export async function runFunctionalHarmonyAnalyzeService(
     return resolution.error;
   }
   if (!looksLikeMusicXml(resolution.xml)) {
-    return errorResult(400, 'invalid_request', 'Functional harmony analysis currently requires MusicXML input.');
+    return errorResult(
+      400,
+      'invalid_request',
+      'Functional harmony analysis currently requires MusicXML input.',
+    );
   }
 
-  const backend = typeof data?.backend === 'string' && data.backend.trim() ? data.backend.trim() : 'music21-roman';
+  const backend =
+    typeof data?.backend === 'string' && data.backend.trim()
+      ? data.backend.trim()
+      : 'music21-roman';
   if (backend !== 'music21-roman') {
-    return errorResult(400, 'invalid_request', `Unsupported functional harmony backend: ${backend}.`);
+    return errorResult(
+      400,
+      'invalid_request',
+      `Unsupported functional harmony backend: ${backend}.`,
+    );
   }
 
   const includeSegments = readBoolean(data?.includeSegments, data?.include_segments, true);
   const includeTextExport = readBoolean(data?.includeTextExport, data?.include_text_export, true);
-  const includeAnnotatedContent = readBoolean(data?.includeAnnotatedContent, data?.include_annotated_content, true);
+  const includeAnnotatedContent = readBoolean(
+    data?.includeAnnotatedContent,
+    data?.include_annotated_content,
+    true,
+  );
   const persistArtifacts = readBoolean(data?.persistArtifacts, data?.persist_artifacts, true);
   const preferLocalKey = readBoolean(data?.preferLocalKey, data?.prefer_local_key, true);
   const detectCadences = readBoolean(data?.detectCadences, data?.detect_cadences, true);
   const detectModulations = readBoolean(data?.detectModulations, data?.detect_modulations, true);
-  const timeoutMs = readBoundedInt(data?.timeoutMs ?? data?.timeout_ms, DEFAULT_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS);
-  const granularity = typeof data?.granularity === 'string' && data.granularity.trim().toLowerCase() === 'measure'
-    ? 'measure'
-    : 'auto';
+  const timeoutMs = readBoundedInt(
+    data?.timeoutMs ?? data?.timeout_ms,
+    DEFAULT_TIMEOUT_MS,
+    MIN_TIMEOUT_MS,
+    MAX_TIMEOUT_MS,
+  );
+  const granularity =
+    typeof data?.granularity === 'string' && data.granularity.trim().toLowerCase() === 'measure'
+      ? 'measure'
+      : 'auto';
 
   logFunctionalHarmonyEvent('info', 'music.functional_harmony.request', traceContext, {
     backend,
@@ -328,7 +372,11 @@ export async function runFunctionalHarmonyAnalyzeService(
 
   const annotatedXml = typeof helper.annotatedXml === 'string' ? helper.annotatedXml.trim() : '';
   if (annotatedXml && !looksLikeMusicXml(annotatedXml)) {
-    return errorResult(400, 'bad_response', 'Functional harmony helper returned invalid annotated MusicXML.');
+    return errorResult(
+      400,
+      'bad_response',
+      'Functional harmony helper returned invalid annotated MusicXML.',
+    );
   }
 
   let jsonArtifact = null;
@@ -382,7 +430,7 @@ export async function runFunctionalHarmonyAnalyzeService(
     }
   }
 
-  const segments = includeSegments ? (helper.segments || []) : [];
+  const segments = includeSegments ? helper.segments || [] : [];
   const warnings = helper.warnings || [];
   logFunctionalHarmonyEvent('info', 'music.functional_harmony.result', traceContext, {
     backend,

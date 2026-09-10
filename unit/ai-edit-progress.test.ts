@@ -40,7 +40,10 @@ describe('AI edit progress streaming', () => {
       operation: 'patch',
       sequence: 1,
     });
-    expect(settled).toHaveBeenCalledWith({ status: 422, body: { error: 'No verified candidate.' } });
+    expect(settled).toHaveBeenCalledWith({
+      status: 422,
+      body: { error: 'No verified candidate.' },
+    });
   });
 
   it('keeps JSON responses compatible for non-streaming callers', async () => {
@@ -57,12 +60,17 @@ describe('AI edit progress streaming', () => {
     const response = createAiEditProgressStreamResponse({
       operation: 'deep',
       startedAt: Date.now(),
-      run: (_onProgress, signal) => new Promise((resolve) => {
-        signal.addEventListener('abort', () => {
-          observedAbort = true;
-          resolve({ status: 499, body: { error: 'cancelled' } });
-        }, { once: true });
-      }),
+      run: (_onProgress, signal) =>
+        new Promise((resolve) => {
+          signal.addEventListener(
+            'abort',
+            () => {
+              observedAbort = true;
+              resolve({ status: 499, body: { error: 'cancelled' } });
+            },
+            { once: true },
+          );
+        }),
     });
     const reader = response.body?.getReader();
     expect(reader).toBeDefined();
@@ -92,35 +100,44 @@ describe('AI edit progress streaming', () => {
     const reporter = vi.fn(() => {
       throw new Error('observer failed');
     });
-    expect(() => reportAiEditProgress(reporter, {
-      phase: 'request.validated',
-      message: `  ${'x'.repeat(300)}  `,
-    })).not.toThrow();
-    expect(reporter).toHaveBeenCalledWith(expect.objectContaining({
-      message: 'x'.repeat(200),
-    }));
+    expect(() =>
+      reportAiEditProgress(reporter, {
+        phase: 'request.validated',
+        message: `  ${'x'.repeat(300)}  `,
+      }),
+    ).not.toThrow();
+    expect(reporter).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'x'.repeat(200),
+      }),
+    );
   });
 
   it('ignores malformed progress updates without losing the terminal result', async () => {
     const updates: unknown[] = [];
-    const response = new Response([
-      `event: progress\ndata: ${JSON.stringify({
-        version: AI_EDIT_PROGRESS_VERSION,
-        type: 'progress',
-        phase: 'provider.secret_payload',
-        message: { unsafe: true },
-      })}\n\n`,
-      `event: result\ndata: ${JSON.stringify({
-        version: AI_EDIT_PROGRESS_VERSION,
-        type: 'result',
-        status: 200,
-        body: { ok: true },
-      })}\n\n`,
-    ].join(''), {
-      headers: { 'content-type': 'text/event-stream' },
-    });
+    const response = new Response(
+      [
+        `event: progress\ndata: ${JSON.stringify({
+          version: AI_EDIT_PROGRESS_VERSION,
+          type: 'progress',
+          phase: 'provider.secret_payload',
+          message: { unsafe: true },
+        })}\n\n`,
+        `event: result\ndata: ${JSON.stringify({
+          version: AI_EDIT_PROGRESS_VERSION,
+          type: 'result',
+          status: 200,
+          body: { ok: true },
+        })}\n\n`,
+      ].join(''),
+      {
+        headers: { 'content-type': 'text/event-stream' },
+      },
+    );
 
-    await expect(readAiEditServiceResponse(response, (update) => updates.push(update))).resolves.toEqual({
+    await expect(
+      readAiEditServiceResponse(response, (update) => updates.push(update)),
+    ).resolves.toEqual({
       status: 200,
       body: { ok: true },
     });

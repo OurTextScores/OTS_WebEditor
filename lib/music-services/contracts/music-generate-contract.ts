@@ -8,7 +8,10 @@ export const MUSIC_GENERATE_TOOL_CONTRACT: MusicToolContract = {
     type: 'object',
     additionalProperties: false,
     properties: {
-      backend: { type: 'string', enum: ['huggingface', 'hf', 'huggingface-space', 'hf-space', 'space', 'gradio-space'] },
+      backend: {
+        type: 'string',
+        enum: ['huggingface', 'hf', 'huggingface-space', 'hf-space', 'space', 'gradio-space'],
+      },
       hfToken: { type: 'string' },
       hf_token: { type: 'string' },
       modelId: { type: 'string' },
@@ -83,4 +86,3 @@ export const MUSIC_GENERATE_TOOL_CONTRACT: MusicToolContract = {
     ],
   },
 };
-

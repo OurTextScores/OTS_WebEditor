@@ -53,7 +53,8 @@ export type MusicXmlPatch = {
   ops: MusicXmlPatchOp[];
 };
 
-const AI_PATCH_SYSTEM_PROMPT = 'You are a MusicXML editor. Return only a single JSON object (musicxml-patch@1) — the patch and an optional "annotations" array. No markdown or prose outside the JSON.';
+const AI_PATCH_SYSTEM_PROMPT =
+  'You are a MusicXML editor. Return only a single JSON object (musicxml-patch@1) — the patch and an optional "annotations" array. No markdown or prose outside the JSON.';
 const AI_PATCH_REQUEST_RETRY_DELAY_MS = 600;
 
 const DEFAULT_PATCH_TRANSPORT_RETRIES = 1;
@@ -80,7 +81,12 @@ type XmlDomBindings = {
 };
 
 const OPENAI_COMPATIBLE_PROVIDER_SET = new Set<AiProvider>(['openai', 'grok', 'deepseek', 'kimi']);
-const PROVIDER_CAPABILITY_DISCOVERY_SET = new Set<AiProvider>(['anthropic', 'gemini', 'grok', 'kimi']);
+const PROVIDER_CAPABILITY_DISCOVERY_SET = new Set<AiProvider>([
+  'anthropic',
+  'gemini',
+  'grok',
+  'kimi',
+]);
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -90,12 +96,12 @@ export const resolveProvider = (value: unknown): AiProvider => {
   }
   const normalized = value.trim().toLowerCase();
   if (
-    normalized === 'openai'
-    || normalized === 'anthropic'
-    || normalized === 'gemini'
-    || normalized === 'grok'
-    || normalized === 'deepseek'
-    || normalized === 'kimi'
+    normalized === 'openai' ||
+    normalized === 'anthropic' ||
+    normalized === 'gemini' ||
+    normalized === 'grok' ||
+    normalized === 'deepseek' ||
+    normalized === 'kimi'
   ) {
     return normalized;
   }
@@ -130,7 +136,8 @@ export const resolveApiKeyForProvider = (provider: AiProvider, explicitApiKey: s
   return '';
 };
 
-const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error || ''));
+const errorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : String(error || '');
 
 export const extractJsonFromResponse = (responseText: string) => {
   const fenced = responseText.match(/```(?:json)?\s*([\s\S]*?)```/i);
@@ -140,7 +147,10 @@ export const extractJsonFromResponse = (responseText: string) => {
   return responseText.trim();
 };
 
-const buildPromptWithSections = (prompt: string, sections: Array<{ title: string; content: string }>) => {
+const buildPromptWithSections = (
+  prompt: string,
+  sections: Array<{ title: string; content: string }>,
+) => {
   const trimmedPrompt = prompt.trim();
   const contextSections = sections
     .map((section) => ({
@@ -179,12 +189,20 @@ If you need to add multiple sibling elements, use multiple ops (for example: rep
 
 ${PATCH_ANNOTATIONS_INSTRUCTION}`;
 
-  return buildPromptWithSections(prompt, xml.trim()
-    ? [{ title: 'Current MusicXML', content: xml }, { title: 'Patch Format Requirements', content: patchSpec }]
-    : [{ title: 'Patch Format Requirements', content: patchSpec }]);
+  return buildPromptWithSections(
+    prompt,
+    xml.trim()
+      ? [
+          { title: 'Current MusicXML', content: xml },
+          { title: 'Patch Format Requirements', content: patchSpec },
+        ]
+      : [{ title: 'Patch Format Requirements', content: patchSpec }],
+  );
 };
 
-export const parseMusicXmlPatch = (text: string): {
+export const parseMusicXmlPatch = (
+  text: string,
+): {
   patch: MusicXmlPatch | null;
   annotations?: PatchAnnotation[];
   error: string;
@@ -205,9 +223,17 @@ export const parseMusicXmlPatch = (text: string): {
     return { patch: null, error: 'Model response is not a musicxml-patch@1 payload.' };
   }
   const ops: MusicXmlPatchOp[] = [];
-  const allowedOps = new Set(['replace', 'setText', 'setAttr', 'insertBefore', 'insertAfter', 'delete']);
+  const allowedOps = new Set([
+    'replace',
+    'setText',
+    'setAttr',
+    'insertBefore',
+    'insertAfter',
+    'delete',
+  ]);
   const analyzeXmlFragmentShape = (value: string) => {
-    const tokenPattern = /<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?[\s\S]*?\?>|<![^>]*>|<\/?[^>]+?>|[^<]+/g;
+    const tokenPattern =
+      /<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?[\s\S]*?\?>|<![^>]*>|<\/?[^>]+?>|[^<]+/g;
     const tokens = value.match(tokenPattern) || [];
     let depth = 0;
     let topLevelElementCount = 0;
@@ -217,7 +243,11 @@ export const parseMusicXmlPatch = (text: string): {
       if (!token) {
         continue;
       }
-      if (token.startsWith('<!--') || token.startsWith('<?') || (token.startsWith('<!') && !token.startsWith('<![CDATA['))) {
+      if (
+        token.startsWith('<!--') ||
+        token.startsWith('<?') ||
+        (token.startsWith('<!') && !token.startsWith('<![CDATA['))
+      ) {
         continue;
       }
       if (token.startsWith('<![CDATA[')) {
@@ -267,7 +297,12 @@ export const parseMusicXmlPatch = (text: string): {
       return { patch: null, error: `Patch op ${i + 1} is missing a valid path.` };
     }
     const nextOp: MusicXmlPatchOp = { op: opName as MusicXmlPatchOp['op'], path };
-    if (opName === 'setText' || opName === 'replace' || opName === 'insertBefore' || opName === 'insertAfter') {
+    if (
+      opName === 'setText' ||
+      opName === 'replace' ||
+      opName === 'insertBefore' ||
+      opName === 'insertAfter'
+    ) {
       if (typeof op.value !== 'string') {
         return { patch: null, error: `Patch op ${i + 1} requires a string value.` };
       }
@@ -280,10 +315,16 @@ export const parseMusicXmlPatch = (text: string): {
       if (opName === 'replace' || opName === 'insertBefore' || opName === 'insertAfter') {
         const shape = analyzeXmlFragmentShape(op.value);
         if (shape.unbalancedTags) {
-          return { patch: null, error: `Patch op ${i + 1} ${opName} value has unbalanced XML tags.` };
+          return {
+            patch: null,
+            error: `Patch op ${i + 1} ${opName} value has unbalanced XML tags.`,
+          };
         }
         if (shape.hasTopLevelText) {
-          return { patch: null, error: `Patch op ${i + 1} ${opName} value has top-level text; it must contain exactly one XML element.` };
+          return {
+            patch: null,
+            error: `Patch op ${i + 1} ${opName} value has top-level text; it must contain exactly one XML element.`,
+          };
         }
         if (shape.topLevelElementCount !== 1) {
           return {
@@ -306,15 +347,19 @@ export const parseMusicXmlPatch = (text: string): {
     }
     ops.push(nextOp);
   }
-  return { patch: { format: 'musicxml-patch@1', ops }, annotations: extractPatchAnnotations(parsed), error: '' };
+  return {
+    patch: { format: 'musicxml-patch@1', ops },
+    annotations: extractPatchAnnotations(parsed),
+    error: '',
+  };
 };
 
 async function getXmlDomBindings(): Promise<XmlDomBindings | null> {
   if (
-    typeof DOMParser !== 'undefined'
-    && typeof XMLSerializer !== 'undefined'
-    && typeof XPathResult !== 'undefined'
-    && typeof Node !== 'undefined'
+    typeof DOMParser !== 'undefined' &&
+    typeof XMLSerializer !== 'undefined' &&
+    typeof XPathResult !== 'undefined' &&
+    typeof Node !== 'undefined'
   ) {
     return {
       DOMParser,
@@ -362,7 +407,9 @@ export async function applyMusicXmlPatch(baseXml: string, patch: MusicXmlPatch) 
       return { node: null as Node | null, error: 'Patch value is not valid XML.' };
     }
     const wrapper = fragmentDoc.documentElement;
-    const elementChildren = Array.from(wrapper.childNodes).filter((node) => node.nodeType === bindings.Node.ELEMENT_NODE);
+    const elementChildren = Array.from(wrapper.childNodes).filter(
+      (node) => node.nodeType === bindings.Node.ELEMENT_NODE,
+    );
     const textChildren = Array.from(wrapper.childNodes).filter(
       (node) => node.nodeType === bindings.Node.TEXT_NODE && (node.textContent ?? '').trim(),
     );
@@ -374,7 +421,13 @@ export async function applyMusicXmlPatch(baseXml: string, patch: MusicXmlPatch) 
   };
   const resolveNodes = (path: string) => {
     try {
-      const result = doc.evaluate(path, doc, resolver, bindings.XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+      const result = doc.evaluate(
+        path,
+        doc,
+        resolver,
+        bindings.XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+        null,
+      );
       if (result.snapshotLength < 1) {
         return { nodes: [] as Node[], error: `XPath "${path}" matched 0 nodes.` };
       }
@@ -409,8 +462,8 @@ export async function applyMusicXmlPatch(baseXml: string, patch: MusicXmlPatch) 
       }
       const rootNode = prefixResult.nodes[0];
       if (
-        rootNode.nodeType !== bindings.Node.ELEMENT_NODE
-        && rootNode.nodeType !== bindings.Node.DOCUMENT_NODE
+        rootNode.nodeType !== bindings.Node.ELEMENT_NODE &&
+        rootNode.nodeType !== bindings.Node.DOCUMENT_NODE
       ) {
         continue;
       }
@@ -428,9 +481,9 @@ export async function applyMusicXmlPatch(baseXml: string, patch: MusicXmlPatch) 
       for (const segment of missingSegments) {
         const nextNode = doc.createElement(segment);
         if (
-          current.nodeType === bindings.Node.ELEMENT_NODE
-          && (current as Element).tagName === 'measure'
-          && segment === 'attributes'
+          current.nodeType === bindings.Node.ELEMENT_NODE &&
+          (current as Element).tagName === 'measure' &&
+          segment === 'attributes'
         ) {
           const firstElementChild = Array.from(current.childNodes).find(
             (child) => child.nodeType === bindings.Node.ELEMENT_NODE,
@@ -464,7 +517,10 @@ export async function applyMusicXmlPatch(baseXml: string, patch: MusicXmlPatch) 
       return { xml: '', error: `Patch op ${i + 1} failed: ${error || 'Target not found.'}` };
     }
     if (nodes.length !== 1) {
-      return { xml: '', error: `Patch op ${i + 1} failed: XPath "${op.path}" matched ${nodes.length} nodes.` };
+      return {
+        xml: '',
+        error: `Patch op ${i + 1} failed: XPath "${op.path}" matched ${nodes.length} nodes.`,
+      };
     }
     const node = nodes[0];
     if (op.op === 'setText') {
@@ -548,23 +604,30 @@ export type GenerateApplyVerifiedPatchArgs = {
   requestText?: (args: RequestAiTextDirectArgs) => Promise<string>;
 };
 
-export type GenerateApplyVerifiedPatchResult = {
-  ok: true;
-  patch: MusicXmlPatch;
-  annotations: ReturnType<typeof extractPatchAnnotations>;
-  proposedXml: string;
-  failures: PatchAttemptFailure[];
-  verification: PatchApplyVerification;
-} | {
-  ok: false;
-  status: 422 | 502 | 504;
-  error: string;
-  providerStatus?: number | null;
-  failures: PatchAttemptFailure[];
-  verification: PatchApplyVerification;
-};
+export type GenerateApplyVerifiedPatchResult =
+  | {
+      ok: true;
+      patch: MusicXmlPatch;
+      annotations: ReturnType<typeof extractPatchAnnotations>;
+      proposedXml: string;
+      failures: PatchAttemptFailure[];
+      verification: PatchApplyVerification;
+    }
+  | {
+      ok: false;
+      status: 422 | 502 | 504;
+      error: string;
+      providerStatus?: number | null;
+      failures: PatchAttemptFailure[];
+      verification: PatchApplyVerification;
+    };
 
-const readClampedEnvInteger = (name: string, fallback: number, minimum: number, maximum: number) => {
+const readClampedEnvInteger = (
+  name: string,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+) => {
   const value = Number(process.env[name]);
   if (!Number.isFinite(value)) {
     return fallback;
@@ -639,20 +702,19 @@ descriptorRefreshGlobal.__otsPatchModelDescriptorRefresh = descriptorRefreshStat
 const capabilityNeedsDiscovery = (
   descriptor: AiModelDescriptor,
   request: AiModelRequestCapabilities,
-) => (
-  (request.maxTokens != null && descriptor.parameters.maxOutputTokens.support === 'unknown')
-  || (request.temperature != null && descriptor.parameters.temperature.support === 'unknown')
-  || (request.hasImage === true && descriptor.inputs.image === 'unknown')
-  || (request.hasPdf === true && descriptor.inputs.pdf === 'unknown')
-);
+) =>
+  (request.maxTokens != null && descriptor.parameters.maxOutputTokens.support === 'unknown') ||
+  (request.temperature != null && descriptor.parameters.temperature.support === 'unknown') ||
+  (request.hasImage === true && descriptor.inputs.image === 'unknown') ||
+  (request.hasPdf === true && descriptor.inputs.pdf === 'unknown');
 
-const descriptorRefreshKey = (provider: AiProvider, apiKey: string) => (
-  `${provider}:${createHash('sha256').update(apiKey, 'utf8').digest('hex').slice(0, 24)}`
-);
+const descriptorRefreshKey = (provider: AiProvider, apiKey: string) =>
+  `${provider}:${createHash('sha256').update(apiKey, 'utf8').digest('hex').slice(0, 24)}`;
 
 const pruneDescriptorRefreshState = (now: number) => {
-  descriptorRefreshState.recentStarts = descriptorRefreshState.recentStarts
-    .filter((startedAt) => now - startedAt < MODEL_REFRESH_WINDOW_MS);
+  descriptorRefreshState.recentStarts = descriptorRefreshState.recentStarts.filter(
+    (startedAt) => now - startedAt < MODEL_REFRESH_WINDOW_MS,
+  );
   for (const [key, entry] of descriptorRefreshState.entries) {
     if (!entry.inFlight && entry.nextAllowedAt <= now) {
       descriptorRefreshState.entries.delete(key);
@@ -713,9 +775,16 @@ const refreshModelDescriptor = async (
   descriptorRefreshState.recentStarts.push(now);
   const refresh = (async () => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(new Error('Model metadata refresh timed out.')), timeoutMs);
+    const timeout = setTimeout(
+      () => controller.abort(new Error('Model metadata refresh timed out.')),
+      timeoutMs,
+    );
     try {
-      const descriptors = await loadAiModelDescriptorsDirect({ provider, apiKey, signal: controller.signal });
+      const descriptors = await loadAiModelDescriptorsDirect({
+        provider,
+        apiKey,
+        signal: controller.signal,
+      });
       rememberDiscoveredAiModelDescriptors(descriptors);
       return getDiscoveredAiModelDescriptor(provider, model);
     } catch (error) {
@@ -752,18 +821,19 @@ const boundCandidate = (value: string, maximum: number) => {
   return `${value.slice(0, maximum)}\n[Previous candidate truncated at ${maximum} characters.]`;
 };
 
-const buildRepairContext = (candidate: string, failure: string, maximumCandidateChars: number) => [
-  'PATCH REPAIR REQUIRED:',
-  'The previous candidate did not apply to the supplied base MusicXML.',
-  '',
-  'PREVIOUS CANDIDATE:',
-  boundCandidate(candidate, maximumCandidateChars),
-  '',
-  'EXACT PARSE/APPLY ERROR:',
-  failure,
-  '',
-  'Return the full corrected musicxml-patch@1 JSON object only. Do not return a partial diff, markdown, or commentary.',
-].join('\n');
+const buildRepairContext = (candidate: string, failure: string, maximumCandidateChars: number) =>
+  [
+    'PATCH REPAIR REQUIRED:',
+    'The previous candidate did not apply to the supplied base MusicXML.',
+    '',
+    'PREVIOUS CANDIDATE:',
+    boundCandidate(candidate, maximumCandidateChars),
+    '',
+    'EXACT PARSE/APPLY ERROR:',
+    failure,
+    '',
+    'Return the full corrected musicxml-patch@1 JSON object only. Do not return a partial diff, markdown, or commentary.',
+  ].join('\n');
 
 const isRetryableTransportError = (error: unknown) => {
   if (error instanceof AiProviderRequestError) {
@@ -771,15 +841,15 @@ const isRetryableTransportError = (error: unknown) => {
   }
   const message = errorMessage(error).toLowerCase();
   return !(
-    message.includes('missing api')
-    || message.includes('invalid api')
-    || message.includes('unauthorized')
-    || message.includes('forbidden')
-    || message.includes('unsupported')
-    || message.includes('not supported')
-    || message.includes('not confirmed')
-    || message.includes('invalid request')
-    || message.includes('content policy')
+    message.includes('missing api') ||
+    message.includes('invalid api') ||
+    message.includes('unauthorized') ||
+    message.includes('forbidden') ||
+    message.includes('unsupported') ||
+    message.includes('not supported') ||
+    message.includes('not confirmed') ||
+    message.includes('invalid request') ||
+    message.includes('content policy')
   );
 };
 
@@ -793,7 +863,9 @@ const providerFailureMessage = (error: unknown) => {
   }
   const detail = boundFailureMessage(error.message.replace(/\s+/g, ' ').trim());
   const status = error.status === null ? '' : ` (HTTP ${error.status})`;
-  return detail ? `AI provider request failed${status}: ${detail}` : `AI provider request failed${status}.`;
+  return detail
+    ? `AI provider request failed${status}: ${detail}`
+    : `AI provider request failed${status}.`;
 };
 
 const verificationFor = (
@@ -857,17 +929,25 @@ export async function generateApplyVerifiedPatch(
     for (let transportAttempt = 0; transportAttempt <= transportRetries; transportAttempt += 1) {
       const remainingMs = deadlineAt - Date.now();
       if (remainingMs <= 0 || args.signal?.aborted) {
-        return { text: '', error: 'Music patch generation exceeded its request budget.', status: 504 as const, providerStatus: null };
+        return {
+          text: '',
+          error: 'Music patch generation exceeded its request budget.',
+          status: 504 as const,
+          providerStatus: null,
+        };
       }
 
       const controller = new AbortController();
       let timedOut = false;
       const abortFromParent = () => controller.abort(args.signal?.reason);
       args.signal?.addEventListener('abort', abortFromParent, { once: true });
-      const timeout = setTimeout(() => {
-        timedOut = true;
-        controller.abort(new Error('AI provider request timed out.'));
-      }, Math.min(remainingMs, requestTimeoutMs));
+      const timeout = setTimeout(
+        () => {
+          timedOut = true;
+          controller.abort(new Error('AI provider request timed out.'));
+        },
+        Math.min(remainingMs, requestTimeoutMs),
+      );
       try {
         const text = await requestText({
           provider: args.provider,
@@ -897,14 +977,20 @@ export async function generateApplyVerifiedPatch(
         lastError = error;
         const deadlineExpired = Date.now() >= deadlineAt || args.signal?.aborted;
         if (deadlineExpired) {
-          return { text: '', error: 'Music patch generation exceeded its request budget.', status: 504 as const, providerStatus: null };
+          return {
+            text: '',
+            error: 'Music patch generation exceeded its request budget.',
+            status: 504 as const,
+            providerStatus: null,
+          };
         }
-        const canRetry = transportAttempt < transportRetries && (timedOut || isRetryableTransportError(error));
+        const canRetry =
+          transportAttempt < transportRetries && (timedOut || isRetryableTransportError(error));
         if (!canRetry) {
           return {
             text: '',
             error: timedOut ? 'AI provider request timed out.' : providerFailureMessage(error),
-            status: timedOut ? 504 as const : 502 as const,
+            status: timedOut ? (504 as const) : (502 as const),
             providerStatus: error instanceof AiProviderRequestError ? error.status : null,
           };
         }
@@ -923,9 +1009,10 @@ export async function generateApplyVerifiedPatch(
   };
 
   while (attempts < maximumAttempts) {
-    const repairContext = attempts === 0
-      ? ''
-      : buildRepairContext(previousCandidate, previousError, maximumCandidateChars);
+    const repairContext =
+      attempts === 0
+        ? ''
+        : buildRepairContext(previousCandidate, previousError, maximumCandidateChars);
     const candidatePrompt = [args.promptText.trim(), repairContext].filter(Boolean).join('\n\n');
     const response = await requestCandidate(candidatePrompt);
     if (response.status !== 200) {
@@ -953,7 +1040,11 @@ export async function generateApplyVerifiedPatch(
     if (parsed.error || !parsed.patch) {
       previousCandidate = rawText;
       previousError = parsed.error || 'Model response is not a musicxml-patch@1 payload.';
-      failures.push({ attempt: attempts, category: 'parse', error: boundFailureMessage(previousError) });
+      failures.push({
+        attempt: attempts,
+        category: 'parse',
+        error: boundFailureMessage(previousError),
+      });
       reportAiEditProgress(args.onProgress, {
         phase: 'candidate.rejected',
         message: `Candidate ${attempts} needs JSON repair`,
@@ -968,7 +1059,11 @@ export async function generateApplyVerifiedPatch(
     if (applied.error || !applied.xml.trim()) {
       previousCandidate = extracted;
       previousError = applied.error || 'Patch application returned empty MusicXML.';
-      failures.push({ attempt: attempts, category: 'apply', error: boundFailureMessage(previousError) });
+      failures.push({
+        attempt: attempts,
+        category: 'apply',
+        error: boundFailureMessage(previousError),
+      });
       reportAiEditProgress(args.onProgress, {
         phase: 'candidate.rejected',
         message: `Candidate ${attempts} did not apply and will be repaired`,
@@ -981,7 +1076,11 @@ export async function generateApplyVerifiedPatch(
     if (byteLength(applied.xml) > maximumOutputBytes) {
       previousCandidate = extracted;
       previousError = `Applied MusicXML exceeds the ${maximumOutputBytes} byte output limit.`;
-      failures.push({ attempt: attempts, category: 'output_size', error: boundFailureMessage(previousError) });
+      failures.push({
+        attempt: attempts,
+        category: 'output_size',
+        error: boundFailureMessage(previousError),
+      });
       reportAiEditProgress(args.onProgress, {
         phase: 'candidate.rejected',
         message: `Candidate ${attempts} exceeded the output limit`,
@@ -1022,22 +1121,34 @@ export async function generateApplyVerifiedPatch(
 
 export async function runMusicPatchService(
   body: unknown,
-  options?: { traceContext?: TraceContext; signal?: AbortSignal; onProgress?: AiEditProgressReporter },
+  options?: {
+    traceContext?: TraceContext;
+    signal?: AbortSignal;
+    onProgress?: AiEditProgressReporter;
+  },
 ): Promise<PatchServiceResult> {
   const data = asRecord(body);
   const prompt = typeof data?.prompt === 'string' ? data.prompt.trim() : '';
   const promptText = typeof data?.promptText === 'string' ? data.promptText.trim() : '';
   const provider = resolveProvider(data?.provider);
-  const model = typeof data?.model === 'string' && data.model.trim()
-    ? data.model.trim()
-    : (DEFAULT_MODEL_BY_PROVIDER[provider] || DEFAULT_MODEL_BY_PROVIDER.openai);
+  const model =
+    typeof data?.model === 'string' && data.model.trim()
+      ? data.model.trim()
+      : DEFAULT_MODEL_BY_PROVIDER[provider] || DEFAULT_MODEL_BY_PROVIDER.openai;
   const maxTokensValue = Number(data?.maxTokens ?? data?.max_tokens);
   const maxTokens = Number.isFinite(maxTokensValue) && maxTokensValue > 0 ? maxTokensValue : null;
   const temperatureValue = Number(data?.temperature);
-  const temperature = data?.temperature != null && Number.isFinite(temperatureValue) ? temperatureValue : null;
+  const temperature =
+    data?.temperature != null && Number.isFinite(temperatureValue) ? temperatureValue : null;
   const effort = parseAiEditEffort(data?.editEffort ?? data?.effort);
   const dryRun = Boolean(data?.dryRun || data?.dry_run);
-  const apiKeyInput = (typeof data?.apiKey === 'string' ? data.apiKey : (typeof data?.api_key === 'string' ? data.api_key : '')).trim();
+  const apiKeyInput = (
+    typeof data?.apiKey === 'string'
+      ? data.apiKey
+      : typeof data?.api_key === 'string'
+        ? data.api_key
+        : ''
+  ).trim();
 
   if (!prompt && !promptText) {
     return {
@@ -1127,14 +1238,20 @@ export async function runMusicPatchService(
     if (!mediaType || !base64) {
       return {
         attachment: null,
-        error: { status: 400, body: { error: `${label} attachment requires mediaType and base64.` } },
+        error: {
+          status: 400,
+          body: { error: `${label} attachment requires mediaType and base64.` },
+        },
       };
     }
     const size = estimateBase64Bytes(base64);
     if (size > maximumBytes) {
       return {
         attachment: null,
-        error: { status: 413, body: { error: `${label} attachment exceeds the ${maximumBytes} byte limit.` } },
+        error: {
+          status: 413,
+          body: { error: `${label} attachment exceeds the ${maximumBytes} byte limit.` },
+        },
       };
     }
     return {
@@ -1158,9 +1275,8 @@ export async function runMusicPatchService(
 
   const apiKey = resolveApiKeyForProvider(provider, apiKeyInput);
   if (!apiKey) {
-    const providerLabel = provider === 'openai'
-      ? 'OpenAI'
-      : provider.charAt(0).toUpperCase() + provider.slice(1);
+    const providerLabel =
+      provider === 'openai' ? 'OpenAI' : provider.charAt(0).toUpperCase() + provider.slice(1);
     return {
       status: 400,
       body: { error: `Missing ${providerLabel} API key for music patch generation.` },
@@ -1190,16 +1306,17 @@ export async function runMusicPatchService(
     serverDescriptor,
   );
   if (
-    !capabilityValidation.ok
-    && !cachedDescriptor
-    && PROVIDER_CAPABILITY_DISCOVERY_SET.has(provider)
-    && capabilityNeedsDiscovery(serverDescriptor, requestCapabilities)
+    !capabilityValidation.ok &&
+    !cachedDescriptor &&
+    PROVIDER_CAPABILITY_DISCOVERY_SET.has(provider) &&
+    capabilityNeedsDiscovery(serverDescriptor, requestCapabilities)
   ) {
     const refreshedDescriptor = await refreshModelDescriptor(provider, apiKey, model);
     const normalizedRequestedModel = model.trim().replace(/^models\//, '');
-    const refreshedModelMatches = refreshedDescriptor
-      && refreshedDescriptor.provider === provider
-      && refreshedDescriptor.id.trim().replace(/^models\//, '') === normalizedRequestedModel;
+    const refreshedModelMatches =
+      refreshedDescriptor &&
+      refreshedDescriptor.provider === provider &&
+      refreshedDescriptor.id.trim().replace(/^models\//, '') === normalizedRequestedModel;
     if (refreshedDescriptor && refreshedModelMatches) {
       serverDescriptor = refreshedDescriptor;
       capabilityValidation = validateAiModelRequest(
@@ -1214,7 +1331,8 @@ export async function runMusicPatchService(
     return {
       status: 400,
       body: {
-        error: capabilityValidation.error || `Request options are not confirmed for model ${model}.`,
+        error:
+          capabilityValidation.error || `Request options are not confirmed for model ${model}.`,
         modelDescriptor: serverDescriptor,
       },
     };
@@ -1247,7 +1365,9 @@ export async function runMusicPatchService(
         body: {
           error: generated.error,
           effort,
-          ...(generated.providerStatus !== undefined ? { providerStatus: generated.providerStatus } : {}),
+          ...(generated.providerStatus !== undefined
+            ? { providerStatus: generated.providerStatus }
+            : {}),
           verification: generated.verification,
           failures: generated.failures,
         },
@@ -1264,19 +1384,20 @@ export async function runMusicPatchService(
     const proposalSessionId = randomUUID();
     const continuityToken = proposal
       ? createProposalContinuityToken({
-        proposalSessionId,
-        cycle: 1,
-        baseContentHash: proposal.baseContentHash,
-        proposedContentHash: proposal.proposedContentHash,
-      })
+          proposalSessionId,
+          cycle: 1,
+          baseContentHash: proposal.baseContentHash,
+          proposedContentHash: proposal.proposedContentHash,
+        })
       : null;
 
     return {
       status: 200,
       body: {
-        mode: provider === 'openai' || OPENAI_COMPATIBLE_PROVIDER_SET.has(provider)
-          ? 'openai-responses'
-          : `${provider}-direct`,
+        mode:
+          provider === 'openai' || OPENAI_COMPATIBLE_PROVIDER_SET.has(provider)
+            ? 'openai-responses'
+            : `${provider}-direct`,
         provider,
         model,
         effort,

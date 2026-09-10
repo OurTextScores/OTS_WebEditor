@@ -22,21 +22,36 @@ describe('Batch 6 UI', () => {
     const { rerender } = render(<FretboardEditor data={data} onChange={onChange} />);
 
     await user.click(screen.getByTestId('fretboard-cell-2-3'));
-    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ dots: [{ string: 2, fret: 3, type: 0 }] }));
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ dots: [{ string: 2, fret: 3, type: 0 }] }),
+    );
 
     await user.click(screen.getByTestId('fretboard-marker-0'));
-    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ markers: [{ string: 0, type: 1 }] }));
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ markers: [{ string: 0, type: 1 }] }),
+    );
 
-    rerender(<FretboardEditor data={{ ...data, markers: [{ string: 2, type: 1 }] }} onChange={onChange} />);
+    rerender(
+      <FretboardEditor data={{ ...data, markers: [{ string: 2, type: 1 }] }} onChange={onChange} />,
+    );
     await user.click(screen.getByTestId('fretboard-cell-2-3'));
-    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
-      dots: [{ string: 2, fret: 3, type: 0 }],
-      markers: [],
-    }));
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        dots: [{ string: 2, fret: 3, type: 0 }],
+        markers: [],
+      }),
+    );
 
-    rerender(<FretboardEditor data={{ ...data, dots: [{ string: 0, fret: 2, type: 0 }] }} onChange={onChange} />);
+    rerender(
+      <FretboardEditor
+        data={{ ...data, dots: [{ string: 0, fret: 2, type: 0 }] }}
+        onChange={onChange}
+      />,
+    );
     await user.click(screen.getByTestId('fretboard-marker-0'));
-    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ dots: [], markers: [{ string: 0, type: 1 }] }));
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ dots: [], markers: [{ string: 0, type: 1 }] }),
+    );
 
     rerender(<FretboardEditor data={{ ...data, strings: 5 }} onChange={onChange} />);
     expect(screen.getAllByTitle('Cycle open, muted, and unmarked')).toHaveLength(5);
@@ -52,11 +67,18 @@ describe('Batch 6 UI', () => {
     await user.type(screen.getByTestId('palette-search'), 'staccato');
     expect(screen.queryByTestId('palette-category-clefs')).not.toBeInTheDocument();
     await user.click(screen.getByTestId('palette-item-articulation-0'));
-    expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ label: 'Staccato', elementType: 2 }));
+    expect(onApply).toHaveBeenCalledWith(
+      expect.objectContaining({ label: 'Staccato', elementType: 2 }),
+    );
 
     const transfer = { setData: vi.fn(), effectAllowed: '' };
-    fireEvent.dragStart(screen.getByTestId('palette-item-articulation-0'), { dataTransfer: transfer });
-    expect(transfer.setData).toHaveBeenCalledWith('application/x-ots-score-palette+json', expect.any(String));
+    fireEvent.dragStart(screen.getByTestId('palette-item-articulation-0'), {
+      dataTransfer: transfer,
+    });
+    expect(transfer.setData).toHaveBeenCalledWith(
+      'application/x-ots-score-palette+json',
+      expect.any(String),
+    );
   });
 
   it('wires fretboard, bulk-tool, and palette controls', async () => {

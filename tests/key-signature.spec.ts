@@ -68,7 +68,11 @@ test('key signature change starts at selected note', async ({ page }) => {
   await expect.poll(async () => await readStartKeySignature(), { timeout: 20_000 }).toBe(start);
 
   // MusicXML should now contain a later key change.
-  await expect.poll(async () => (await readMusicXmlFifths()).length, { timeout: 20_000 }).toBeGreaterThan(1);
+  await expect
+    .poll(async () => (await readMusicXmlFifths()).length, { timeout: 20_000 })
+    .toBeGreaterThan(1);
   await expect.poll(async () => (await readMusicXmlFifths())[0], { timeout: 20_000 }).toBe(start);
-  await expect.poll(async () => (await readMusicXmlFifths()).includes(target), { timeout: 20_000 }).toBe(true);
+  await expect
+    .poll(async () => (await readMusicXmlFifths()).includes(target), { timeout: 20_000 })
+    .toBe(true);
 });

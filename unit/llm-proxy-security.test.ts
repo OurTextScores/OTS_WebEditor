@@ -27,10 +27,12 @@ describe('LLM proxy security gates', () => {
   });
 
   it('blocks proxy calls when no app token or explicit public opt-in is configured', async () => {
-    const response = await postOpenAiModels(new Request('http://localhost/api/llm/openai/models', {
-      method: 'POST',
-      body: JSON.stringify({ apiKey: 'sk-user' }),
-    }));
+    const response = await postOpenAiModels(
+      new Request('http://localhost/api/llm/openai/models', {
+        method: 'POST',
+        body: JSON.stringify({ apiKey: 'sk-user' }),
+      }),
+    );
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toMatchObject({
@@ -46,10 +48,12 @@ describe('LLM proxy security gates', () => {
       text: async () => 'provider-secret-detail',
     } as Response);
 
-    const response = await postOpenAiModels(new Request('http://localhost/api/llm/openai/models', {
-      method: 'POST',
-      body: JSON.stringify({ apiKey: 'sk-user' }),
-    }));
+    const response = await postOpenAiModels(
+      new Request('http://localhost/api/llm/openai/models', {
+        method: 'POST',
+        body: JSON.stringify({ apiKey: 'sk-user' }),
+      }),
+    );
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toMatchObject({
@@ -58,4 +62,3 @@ describe('LLM proxy security gates', () => {
     });
   });
 });
-

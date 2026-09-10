@@ -16,14 +16,18 @@ describe('AI edit effort profiles', () => {
   });
 
   it('keeps the profiles ordered by patch and deep-edit budgets', () => {
-    expect(AI_EDIT_EFFORT_PROFILES.efficient.patch.budgetMs)
-      .toBeLessThan(AI_EDIT_EFFORT_PROFILES.balanced.patch.budgetMs);
-    expect(AI_EDIT_EFFORT_PROFILES.balanced.patch.budgetMs)
-      .toBeLessThan(AI_EDIT_EFFORT_PROFILES.thorough.patch.budgetMs);
-    expect(AI_EDIT_EFFORT_PROFILES.efficient.deep.maxLlmCalls)
-      .toBeLessThan(AI_EDIT_EFFORT_PROFILES.balanced.deep.maxLlmCalls);
-    expect(AI_EDIT_EFFORT_PROFILES.balanced.deep.maxLlmCalls)
-      .toBeLessThan(AI_EDIT_EFFORT_PROFILES.thorough.deep.maxLlmCalls);
+    expect(AI_EDIT_EFFORT_PROFILES.efficient.patch.budgetMs).toBeLessThan(
+      AI_EDIT_EFFORT_PROFILES.balanced.patch.budgetMs,
+    );
+    expect(AI_EDIT_EFFORT_PROFILES.balanced.patch.budgetMs).toBeLessThan(
+      AI_EDIT_EFFORT_PROFILES.thorough.patch.budgetMs,
+    );
+    expect(AI_EDIT_EFFORT_PROFILES.efficient.deep.maxLlmCalls).toBeLessThan(
+      AI_EDIT_EFFORT_PROFILES.balanced.deep.maxLlmCalls,
+    );
+    expect(AI_EDIT_EFFORT_PROFILES.balanced.deep.maxLlmCalls).toBeLessThan(
+      AI_EDIT_EFFORT_PROFILES.thorough.deep.maxLlmCalls,
+    );
   });
 
   it('formats elapsed and budget durations compactly', () => {

@@ -53,10 +53,12 @@ describe('POST /api/music/agent route', () => {
       },
     });
 
-    const response = await POST(new Request('http://localhost/api/music/agent', {
-      method: 'POST',
-      body: JSON.stringify({ prompt: 'analyze this score' }),
-    }));
+    const response = await POST(
+      new Request('http://localhost/api/music/agent', {
+        method: 'POST',
+        body: JSON.stringify({ prompt: 'analyze this score' }),
+      }),
+    );
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
@@ -71,10 +73,12 @@ describe('POST /api/music/agent route', () => {
       body: { error: 'Missing prompt for music agent router.' },
     });
 
-    const response = await POST(new Request('http://localhost/api/music/agent', {
-      method: 'POST',
-      body: JSON.stringify({}),
-    }));
+    const response = await POST(
+      new Request('http://localhost/api/music/agent', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      }),
+    );
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
@@ -85,10 +89,12 @@ describe('POST /api/music/agent route', () => {
   it('refuses to spend a server key before the router is ever reached', async () => {
     process.env.OPENAI_API_KEY = 'server-key';
 
-    const response = await POST(new Request('http://localhost/api/music/agent', {
-      method: 'POST',
-      body: JSON.stringify({ prompt: 'analyze this score' }),
-    }));
+    const response = await POST(
+      new Request('http://localhost/api/music/agent', {
+        method: 'POST',
+        body: JSON.stringify({ prompt: 'analyze this score' }),
+      }),
+    );
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toMatchObject({
@@ -104,13 +110,14 @@ describe('POST /api/music/agent route', () => {
       body: { mode: 'fallback', selectedTool: 'music.context' },
     });
 
-    const response = await POST(new Request('http://localhost/api/music/agent', {
-      method: 'POST',
-      body: JSON.stringify({ prompt: 'analyze this score', apiKey: 'caller-key' }),
-    }));
+    const response = await POST(
+      new Request('http://localhost/api/music/agent', {
+        method: 'POST',
+        body: JSON.stringify({ prompt: 'analyze this score', apiKey: 'caller-key' }),
+      }),
+    );
 
     expect(response.status).toBe(200);
     expect(mocked.runMusicAgentRouter).toHaveBeenCalled();
   });
 });
-

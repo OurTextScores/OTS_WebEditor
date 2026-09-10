@@ -25,137 +25,139 @@ export type HeaderTextTarget = 'title' | 'subtitle' | 'composer' | 'lyricist';
 export type HeaderEditorPoint = { clientX: number; clientY: number };
 
 export interface InstrumentTemplate {
-    id: string;
-    name: string;
-    groupId?: string;
-    groupName?: string;
-    familyId?: string;
-    familyName?: string;
-    staffCount?: number;
-    isExtended?: boolean;
+  id: string;
+  name: string;
+  groupId?: string;
+  groupName?: string;
+  familyId?: string;
+  familyName?: string;
+  staffCount?: number;
+  isExtended?: boolean;
 }
 
 export interface InstrumentTemplateGroup {
-    id: string;
-    name: string;
-    instruments: InstrumentTemplate[];
+  id: string;
+  name: string;
+  instruments: InstrumentTemplate[];
 }
 
 export interface PartSummary {
-    index: number;
-    name: string;
-    instrumentName: string;
-    instrumentId: string;
-    isVisible: boolean;
+  index: number;
+  name: string;
+  instrumentName: string;
+  instrumentId: string;
+  isVisible: boolean;
 }
 
 export type ToolbarProps = ToolbarSectionProps;
 
-const SECTION_COMPONENTS: Record<ToolbarSectionId, { label: string; bgColor: string; Component: React.FC<ToolbarSectionProps> }> = {
-    file: { label: 'File', bgColor: 'bg-blue-50/40', Component: FileSection },
-    view: { label: 'View', bgColor: 'bg-slate-50/50', Component: ViewSection },
-    playback: { label: 'Playback', bgColor: 'bg-green-50/40', Component: PlaybackSection },
-    tempo: { label: 'Tempo', bgColor: 'bg-purple-50/40', Component: TempoSection },
-    measures: { label: 'Bars', bgColor: 'bg-amber-50/40', Component: MeasuresSection },
-    signatures: { label: 'Signatures', bgColor: 'bg-indigo-50/40', Component: SignaturesSection },
-    score: { label: 'Score', bgColor: 'bg-rose-50/40', Component: ScoreSection },
-    notes: { label: 'Notes', bgColor: 'bg-teal-50/40', Component: NotesSection },
-    expression: { label: 'Expression', bgColor: 'bg-cyan-50/40', Component: ExpressionSection },
-    edit: { label: 'Edit', bgColor: 'bg-red-50/40', Component: EditSection },
-    layout: { label: 'Layout', bgColor: 'bg-lime-50/40', Component: LayoutSection },
-    pitch: { label: 'Pitch', bgColor: 'bg-sky-50/40', Component: PitchSection },
-    duration: { label: 'Duration', bgColor: 'bg-violet-50/40', Component: DurationSection },
-    help: { label: 'Help', bgColor: 'bg-slate-50/60', Component: HelpSection },
+const SECTION_COMPONENTS: Record<
+  ToolbarSectionId,
+  { label: string; bgColor: string; Component: React.FC<ToolbarSectionProps> }
+> = {
+  file: { label: 'File', bgColor: 'bg-blue-50/40', Component: FileSection },
+  view: { label: 'View', bgColor: 'bg-slate-50/50', Component: ViewSection },
+  playback: { label: 'Playback', bgColor: 'bg-green-50/40', Component: PlaybackSection },
+  tempo: { label: 'Tempo', bgColor: 'bg-purple-50/40', Component: TempoSection },
+  measures: { label: 'Bars', bgColor: 'bg-amber-50/40', Component: MeasuresSection },
+  signatures: { label: 'Signatures', bgColor: 'bg-indigo-50/40', Component: SignaturesSection },
+  score: { label: 'Score', bgColor: 'bg-rose-50/40', Component: ScoreSection },
+  notes: { label: 'Notes', bgColor: 'bg-teal-50/40', Component: NotesSection },
+  expression: { label: 'Expression', bgColor: 'bg-cyan-50/40', Component: ExpressionSection },
+  edit: { label: 'Edit', bgColor: 'bg-red-50/40', Component: EditSection },
+  layout: { label: 'Layout', bgColor: 'bg-lime-50/40', Component: LayoutSection },
+  pitch: { label: 'Pitch', bgColor: 'bg-sky-50/40', Component: PitchSection },
+  duration: { label: 'Duration', bgColor: 'bg-violet-50/40', Component: DurationSection },
+  help: { label: 'Help', bgColor: 'bg-slate-50/60', Component: HelpSection },
 };
 
 export const Toolbar: React.FC<ToolbarProps> = (props) => {
-    const [toolbarCollapsed, setToolbarCollapsed] = useState(
-        () => typeof window !== 'undefined' && window.innerWidth < 1024,
-    );
+  const [toolbarCollapsed, setToolbarCollapsed] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < 1024,
+  );
 
-    const {
-        orderedIds,
-        snapConfig,
-        dragSourceId,
-        dragTargetId,
-        handleDragStart,
-        handleDragOver,
-        handleDrop,
-        handleDragEnd,
-        toggleSnap,
-        resetOrder,
-    } = useToolbarOrder();
+  const {
+    orderedIds,
+    snapConfig,
+    dragSourceId,
+    dragTargetId,
+    handleDragStart,
+    handleDragOver,
+    handleDrop,
+    handleDragEnd,
+    toggleSnap,
+    resetOrder,
+  } = useToolbarOrder();
 
-    return (
-        <Collapsible
-            open={!toolbarCollapsed}
-            onOpenChange={(open) => setToolbarCollapsed(!open)}
-        >
-            <div
-                className="relative flex flex-col gap-0 overflow-visible border-b border-slate-200 bg-white shadow-sm"
-                style={{ zIndex: 100 }}
+  return (
+    <Collapsible open={!toolbarCollapsed} onOpenChange={(open) => setToolbarCollapsed(!open)}>
+      <div
+        className="relative flex flex-col gap-0 overflow-visible border-b border-slate-200 bg-white shadow-sm"
+        style={{ zIndex: 100 }}
+      >
+        <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-gradient-to-r from-blue-50 via-slate-50 to-blue-50 px-3 py-1">
+          <div className="flex items-center gap-1.5">
+            <div className="h-4 w-0.5 rounded-full bg-blue-600"></div>
+            <span className="text-xs font-bold tracking-wide text-slate-800">Score Tools</span>
+            <Button
+              variant="ghost"
+              size="xs"
+              onClick={resetOrder}
+              className="ml-2 h-6 px-1.5 text-[10px] text-slate-500 hover:text-blue-600"
+              title="Reset Toolbar Layout"
             >
-                <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-gradient-to-r from-blue-50 via-slate-50 to-blue-50 px-3 py-1">
-                    <div className="flex items-center gap-1.5">
-                        <div className="h-4 w-0.5 rounded-full bg-blue-600"></div>
-                        <span className="text-xs font-bold tracking-wide text-slate-800">
-                            Score Tools
-                        </span>
-                        <Button
-                            variant="ghost"
-                            size="xs"
-                            onClick={resetOrder}
-                            className="ml-2 h-6 px-1.5 text-[10px] text-slate-500 hover:text-blue-600"
-                            title="Reset Toolbar Layout"
-                        >
-                            <RotateCcw size={10} className="mr-1" />
-                            Reset Layout
-                        </Button>
-                    </div>
-                    <CollapsibleTrigger asChild>
-                        <Button
-                            aria-expanded={!toolbarCollapsed}
-                            aria-controls="toolbar-content"
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs font-semibold text-blue-700 hover:bg-blue-100"
-                        >
-                            {toolbarCollapsed ? (
-                                <><ChevronDown size={14} className="mr-1" /> Show Tools</>
-                            ) : (
-                                <><ChevronUp size={14} className="mr-1" /> Hide Tools</>
-                            )}
-                        </Button>
-                    </CollapsibleTrigger>
-                </div>
-                <CollapsibleContent
-                    id="toolbar-content"
-                    className="flex flex-wrap items-start gap-x-1.5 gap-y-0.5 px-1.5 py-0.5 bg-gradient-to-b from-slate-50 to-white"
-                >
-                    {orderedIds.map((id) => {
-                        const section = SECTION_COMPONENTS[id];
-                        if (!section) return null;
-                        return (
-                            <ToolbarSection
-                                key={id}
-                                id={id}
-                                label={section.label}
-                                bgColor={section.bgColor}
-                                isRightSnapped={snapConfig[id] === 'right'}
-                                isDragging={dragSourceId === id}
-                                isDropTarget={dragTargetId === id}
-                                onDragStart={handleDragStart}
-                                onDragOver={handleDragOver}
-                                onDrop={handleDrop}
-                                onDragEnd={handleDragEnd}
-                                onToggleSnap={toggleSnap}
-                            >
-                                <section.Component {...props} />
-                            </ToolbarSection>
-                        );
-                    })}
-                </CollapsibleContent>
-            </div>
-        </Collapsible>
-    );
+              <RotateCcw size={10} className="mr-1" />
+              Reset Layout
+            </Button>
+          </div>
+          <CollapsibleTrigger asChild>
+            <Button
+              aria-expanded={!toolbarCollapsed}
+              aria-controls="toolbar-content"
+              variant="ghost"
+              size="sm"
+              className="text-xs font-semibold text-blue-700 hover:bg-blue-100"
+            >
+              {toolbarCollapsed ? (
+                <>
+                  <ChevronDown size={14} className="mr-1" /> Show Tools
+                </>
+              ) : (
+                <>
+                  <ChevronUp size={14} className="mr-1" /> Hide Tools
+                </>
+              )}
+            </Button>
+          </CollapsibleTrigger>
+        </div>
+        <CollapsibleContent
+          id="toolbar-content"
+          className="flex flex-wrap items-start gap-x-1.5 gap-y-0.5 px-1.5 py-0.5 bg-gradient-to-b from-slate-50 to-white"
+        >
+          {orderedIds.map((id) => {
+            const section = SECTION_COMPONENTS[id];
+            if (!section) return null;
+            return (
+              <ToolbarSection
+                key={id}
+                id={id}
+                label={section.label}
+                bgColor={section.bgColor}
+                isRightSnapped={snapConfig[id] === 'right'}
+                isDragging={dragSourceId === id}
+                isDropTarget={dragTargetId === id}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                onDragEnd={handleDragEnd}
+                onToggleSnap={toggleSnap}
+              >
+                <section.Component {...props} />
+              </ToolbarSection>
+            );
+          })}
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
+  );
 };

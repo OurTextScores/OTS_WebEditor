@@ -4,15 +4,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { setupScoreEditorTest, testGlobals } from './test-harness';
 
 const mocked = vi.hoisted(() => ({
-    loadWebMscore: vi.fn(),
-    loadWebMscoreInProcess: vi.fn(),
+  loadWebMscore: vi.fn(),
+  loadWebMscoreInProcess: vi.fn(),
 }));
 const mockedNavigation = vi.hoisted(() => ({ useSearchParams: vi.fn() }));
 
 vi.mock('next/navigation', () => ({ useSearchParams: mockedNavigation.useSearchParams }));
 vi.mock('../../lib/webmscore-loader', () => ({
-    loadWebMscore: mocked.loadWebMscore,
-    loadWebMscoreInProcess: mocked.loadWebMscoreInProcess,
+  loadWebMscore: mocked.loadWebMscore,
+  loadWebMscoreInProcess: mocked.loadWebMscoreInProcess,
 }));
 
 import ScoreEditor from '../../components/ScoreEditor';
@@ -402,6 +402,8 @@ describe('ScoreEditor: soundfont loading, playback and preview audio', () => {
 
     fireEvent.keyDown(window, { key: 'c' });
     await waitFor(() => expect(score.addPitchByStep).toHaveBeenCalledWith(0, false, false));
-    await waitFor(() => expect(score.synthSelectionPreviewBatch.mock.calls.length).toBeGreaterThanOrEqual(2));
+    await waitFor(() =>
+      expect(score.synthSelectionPreviewBatch.mock.calls.length).toBeGreaterThanOrEqual(2),
+    );
   });
 });

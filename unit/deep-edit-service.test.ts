@@ -80,11 +80,13 @@ const BASE_XML = `<?xml version="1.0" encoding="UTF-8"?>
 
 const VALID_PATCH = {
   format: 'musicxml-patch@1',
-  ops: [{
-    op: 'setText',
-    path: '/score-partwise/part[@id="P1"]/measure[@number="1"]/note[1]/pitch/step',
-    value: 'G',
-  }],
+  ops: [
+    {
+      op: 'setText',
+      path: '/score-partwise/part[@id="P1"]/measure[@number="1"]/note[1]/pitch/step',
+      value: 'G',
+    },
+  ],
 };
 
 const budgets = (overrides: Partial<DeepEditBudgets> = {}): DeepEditBudgets => ({
@@ -151,11 +153,19 @@ describe('runDeepEditService', () => {
     engineLoadOk();
     const progress: Array<Record<string, unknown>> = [];
     const driver: DeepEditDriver = async ({ executeTool }) => {
-      const applied = await executeTool('sandbox_apply_patch', { baseCandidateId: 'base', patch: VALID_PATCH });
+      const applied = await executeTool('sandbox_apply_patch', {
+        baseCandidateId: 'base',
+        patch: VALID_PATCH,
+      });
       expect(applied.ok).toBe(true);
-      const checked = await executeTool('sandbox_engine_check', { candidateId: applied.candidateId });
+      const checked = await executeTool('sandbox_engine_check', {
+        candidateId: applied.candidateId,
+      });
       expect(checked.ok).toBe(true);
-      return { candidateId: String(applied.candidateId), rationale: 'Only candidate; engine verified.' };
+      return {
+        candidateId: String(applied.candidateId),
+        rationale: 'Only candidate; engine verified.',
+      };
     };
 
     const result = await runDeepEditService(request(), {
@@ -169,7 +179,9 @@ describe('runDeepEditService', () => {
       baseXml: BASE_XML,
       verification: { level: 'engine_load' },
     });
-    expect(String((result.body.proposal as Record<string, unknown>).proposedXml)).toContain('<step>G</step>');
+    expect(String((result.body.proposal as Record<string, unknown>).proposedXml)).toContain(
+      '<step>G</step>',
+    );
     expect(result.body.patch).toMatchObject({ format: 'musicxml-patch@1' });
     expect(String(result.body.proposalSessionId)).toMatch(/^[0-9a-f-]{36}$/);
     expect(String(result.body.continuityToken)).toMatch(/^pct-v1:/);
@@ -196,11 +208,17 @@ describe('runDeepEditService', () => {
   it('gates an unchecked finalized candidate by running the missing check itself', async () => {
     engineLoadOk();
     const driver: DeepEditDriver = async ({ executeTool }) => {
-      const first = await executeTool('sandbox_apply_patch', { baseCandidateId: 'base', patch: VALID_PATCH });
+      const first = await executeTool('sandbox_apply_patch', {
+        baseCandidateId: 'base',
+        patch: VALID_PATCH,
+      });
       const checked = await executeTool('sandbox_engine_check', { candidateId: first.candidateId });
       expect(checked.ok).toBe(true);
       // Second candidate is finalized WITHOUT its own engine check.
-      const second = await executeTool('sandbox_apply_patch', { baseCandidateId: 'base', patch: VALID_PATCH });
+      const second = await executeTool('sandbox_apply_patch', {
+        baseCandidateId: 'base',
+        patch: VALID_PATCH,
+      });
       return { candidateId: String(second.candidateId), rationale: 'Prefer the second attempt.' };
     };
 
@@ -225,7 +243,10 @@ describe('runDeepEditService', () => {
       }),
     });
     const driver: DeepEditDriver = async ({ executeTool }) => {
-      const first = await executeTool('sandbox_apply_patch', { baseCandidateId: 'base', patch: VALID_PATCH });
+      const first = await executeTool('sandbox_apply_patch', {
+        baseCandidateId: 'base',
+        patch: VALID_PATCH,
+      });
       const checked = await executeTool('sandbox_engine_check', { candidateId: first.candidateId });
       expect(checked.ok).toBe(false);
       expect(String(checked.error)).toContain('corrupt beam group');
@@ -247,13 +268,19 @@ describe('runDeepEditService', () => {
     // the candidate is not blamed, and the failed attempt does not raise the gate bar.
     mocked.loadWebMscoreInProcess.mockRejectedValue(new Error('wasm runtime missing'));
     const driver: DeepEditDriver = async ({ executeTool }) => {
-      const first = await executeTool('sandbox_apply_patch', { baseCandidateId: 'base', patch: VALID_PATCH });
+      const first = await executeTool('sandbox_apply_patch', {
+        baseCandidateId: 'base',
+        patch: VALID_PATCH,
+      });
       const checked = await executeTool('sandbox_engine_check', { candidateId: first.candidateId });
       expect(checked).toMatchObject({ ok: false });
       expect(String(checked.error)).toContain('unavailable in this deployment');
       const again = await executeTool('sandbox_engine_check', { candidateId: first.candidateId });
       expect(String(again.error)).toContain('unavailable');
-      return { candidateId: String(first.candidateId), rationale: 'Best available without an engine.' };
+      return {
+        candidateId: String(first.candidateId),
+        rationale: 'Best available without an engine.',
+      };
     };
 
     const result = await runDeepEditService(request(), { driveAgent: driver });
@@ -269,11 +296,13 @@ describe('runDeepEditService', () => {
   it('rejects a patch that gives one note both rest and pitch origins', async () => {
     const invalidPatch = {
       format: 'musicxml-patch@1',
-      ops: [{
-        op: 'insertBefore',
-        path: '/score-partwise/part[@id="P1"]/measure[@number="1"]/note[1]/pitch',
-        value: '<rest/>',
-      }],
+      ops: [
+        {
+          op: 'insertBefore',
+          path: '/score-partwise/part[@id="P1"]/measure[@number="1"]/note[1]/pitch',
+          value: '<rest/>',
+        },
+      ],
     };
     const driver: DeepEditDriver = async ({ executeTool }) => {
       const applied = await executeTool('sandbox_apply_patch', {
@@ -294,11 +323,13 @@ describe('runDeepEditService', () => {
   it('does not finalize an identity-equivalent candidate', async () => {
     const sameValuePatch = {
       format: 'musicxml-patch@1',
-      ops: [{
-        op: 'setText',
-        path: '/score-partwise/part[@id="P1"]/measure[@number="1"]/note[1]/pitch/step',
-        value: 'C',
-      }],
+      ops: [
+        {
+          op: 'setText',
+          path: '/score-partwise/part[@id="P1"]/measure[@number="1"]/note[1]/pitch/step',
+          value: 'C',
+        },
+      ],
     };
     const driver: DeepEditDriver = async ({ capability, executeTool }) => {
       const applied = await executeTool('sandbox_apply_patch', {
@@ -359,7 +390,9 @@ describe('runDeepEditService', () => {
 
   it('rejects model-supplied ids that are not capability-minted candidates', async () => {
     const driver: DeepEditDriver = async ({ executeTool }) => {
-      const bySession = await executeTool('sandbox_engine_check', { candidateId: 'sess_live_user_score' });
+      const bySession = await executeTool('sandbox_engine_check', {
+        candidateId: 'sess_live_user_score',
+      });
       expect(bySession.ok).toBe(false);
       expect(String(bySession.error)).toContain('not a live candidate id');
       const byPath = await executeTool('sandbox_measure_diff', { candidateId: '../artifacts/x' });
@@ -376,7 +409,10 @@ describe('runDeepEditService', () => {
     const driver: DeepEditDriver = async ({ executeTool }) => {
       let lastBudgetError = '';
       for (let i = 0; i < 10; i += 1) {
-        const outcome = await executeTool('sandbox_apply_patch', { baseCandidateId: 'base', patch: VALID_PATCH });
+        const outcome = await executeTool('sandbox_apply_patch', {
+          baseCandidateId: 'base',
+          patch: VALID_PATCH,
+        });
         if (!outcome.ok && typeof outcome.budget === 'string') {
           lastBudgetError = String(outcome.budget);
           break;
@@ -400,9 +436,15 @@ describe('runDeepEditService', () => {
   it('reports budget_exhausted when gating the winner would exceed the budget', async () => {
     engineLoadOk();
     const driver: DeepEditDriver = async ({ executeTool }) => {
-      const first = await executeTool('sandbox_apply_patch', { baseCandidateId: 'base', patch: VALID_PATCH });
+      const first = await executeTool('sandbox_apply_patch', {
+        baseCandidateId: 'base',
+        patch: VALID_PATCH,
+      });
       await executeTool('sandbox_engine_check', { candidateId: first.candidateId });
-      const second = await executeTool('sandbox_apply_patch', { baseCandidateId: 'base', patch: VALID_PATCH });
+      const second = await executeTool('sandbox_apply_patch', {
+        baseCandidateId: 'base',
+        patch: VALID_PATCH,
+      });
       return { candidateId: String(second.candidateId), rationale: 'Second, ungated.' };
     };
 
@@ -418,9 +460,15 @@ describe('runDeepEditService', () => {
 
   it('counts renders separately and upgrades the winner to render level', async () => {
     engineLoadOk();
-    mocked.renderMusicSnapshot.mockResolvedValue({ buffer: Buffer.from([1, 2, 3]), mimeType: 'image/png' });
+    mocked.renderMusicSnapshot.mockResolvedValue({
+      buffer: Buffer.from([1, 2, 3]),
+      mimeType: 'image/png',
+    });
     const driver: DeepEditDriver = async ({ executeTool }) => {
-      const applied = await executeTool('sandbox_apply_patch', { baseCandidateId: 'base', patch: VALID_PATCH });
+      const applied = await executeTool('sandbox_apply_patch', {
+        baseCandidateId: 'base',
+        patch: VALID_PATCH,
+      });
       const rendered = await executeTool('sandbox_render', { candidateId: applied.candidateId });
       expect(rendered.ok).toBe(true);
       const again = await executeTool('sandbox_render', { candidateId: applied.candidateId });
@@ -456,12 +504,21 @@ describe('runDeepEditService', () => {
       body: { ok: true, segments: [{ measure: 1, chord: 'C' }] },
     });
     const driver: DeepEditDriver = async ({ executeTool }) => {
-      const applied = await executeTool('sandbox_apply_patch', { baseCandidateId: 'base', patch: VALID_PATCH });
-      const functional = await executeTool('sandbox_analyze', { candidateId: String(applied.candidateId), kind: 'functional_harmony' });
+      const applied = await executeTool('sandbox_apply_patch', {
+        baseCandidateId: 'base',
+        patch: VALID_PATCH,
+      });
+      const functional = await executeTool('sandbox_analyze', {
+        candidateId: String(applied.candidateId),
+        kind: 'functional_harmony',
+      });
       expect(functional.ok).toBe(true);
       expect(String(functional.analysis)).not.toContain('should-not-leak');
       expect(String(functional.analysis)).not.toContain('<score-partwise');
-      const harmony = await executeTool('sandbox_analyze', { candidateId: String(applied.candidateId), kind: 'harmony' });
+      const harmony = await executeTool('sandbox_analyze', {
+        candidateId: String(applied.candidateId),
+        kind: 'harmony',
+      });
       expect(harmony.ok).toBe(true);
       await executeTool('sandbox_engine_check', { candidateId: applied.candidateId });
       return { candidateId: String(applied.candidateId), rationale: 'Analyzed and verified.' };
@@ -482,16 +539,24 @@ describe('runDeepEditService', () => {
   it('omits the patch from the response when the winner is not base-relative', async () => {
     engineLoadOk();
     const driver: DeepEditDriver = async ({ executeTool }) => {
-      const first = await executeTool('sandbox_apply_patch', { baseCandidateId: 'base', patch: VALID_PATCH });
+      const first = await executeTool('sandbox_apply_patch', {
+        baseCandidateId: 'base',
+        patch: VALID_PATCH,
+      });
       const chainedPatch = {
         format: 'musicxml-patch@1',
-        ops: [{
-          op: 'setText',
-          path: '/score-partwise/part[@id="P1"]/measure[@number="1"]/note[1]/duration',
-          value: '2',
-        }],
+        ops: [
+          {
+            op: 'setText',
+            path: '/score-partwise/part[@id="P1"]/measure[@number="1"]/note[1]/duration',
+            value: '2',
+          },
+        ],
       };
-      const second = await executeTool('sandbox_apply_patch', { baseCandidateId: String(first.candidateId), patch: chainedPatch });
+      const second = await executeTool('sandbox_apply_patch', {
+        baseCandidateId: String(first.candidateId),
+        patch: chainedPatch,
+      });
       expect(second.ok).toBe(true);
       await executeTool('sandbox_engine_check', { candidateId: second.candidateId });
       return { candidateId: String(second.candidateId), rationale: 'Chained refinement.' };
@@ -517,9 +582,15 @@ describe('runDeepEditService', () => {
       expect(baseId.ok).toBe(false);
       expect(capability.finalized()).toBeNull();
 
-      const applied = await executeTool('sandbox_apply_patch', { baseCandidateId: 'base', patch: VALID_PATCH });
+      const applied = await executeTool('sandbox_apply_patch', {
+        baseCandidateId: 'base',
+        patch: VALID_PATCH,
+      });
       await executeTool('sandbox_engine_check', { candidateId: applied.candidateId });
-      const good = await executeTool('finalize', { candidateId: String(applied.candidateId), rationale: 'Recovered.' });
+      const good = await executeTool('finalize', {
+        candidateId: String(applied.candidateId),
+        rationale: 'Recovered.',
+      });
       expect(good.ok).toBe(true);
       return capability.finalized();
     };
@@ -556,7 +627,10 @@ describe('runDeepEditService', () => {
   it('classifies candidate-limit exhaustion as budget_exhausted, not no_finalize', async () => {
     const driver: DeepEditDriver = async ({ executeTool }) => {
       await executeTool('sandbox_apply_patch', { baseCandidateId: 'base', patch: VALID_PATCH });
-      const denied = await executeTool('sandbox_apply_patch', { baseCandidateId: 'base', patch: VALID_PATCH });
+      const denied = await executeTool('sandbox_apply_patch', {
+        baseCandidateId: 'base',
+        patch: VALID_PATCH,
+      });
       expect(denied).toMatchObject({ ok: false, budget: 'candidate_limit' });
       return null;
     };
@@ -577,8 +651,13 @@ describe('runDeepEditService', () => {
     });
     const parent = new AbortController();
     const driver: DeepEditDriver = async ({ executeTool }) => {
-      const applied = await executeTool('sandbox_apply_patch', { baseCandidateId: 'base', patch: VALID_PATCH });
-      const pendingCheck = executeTool('sandbox_engine_check', { candidateId: applied.candidateId });
+      const applied = await executeTool('sandbox_apply_patch', {
+        baseCandidateId: 'base',
+        patch: VALID_PATCH,
+      });
+      const pendingCheck = executeTool('sandbox_engine_check', {
+        candidateId: applied.candidateId,
+      });
       setTimeout(() => parent.abort(new Error('client went away')), 20);
       const checked = await pendingCheck;
       expect(checked.ok).toBe(false);
@@ -596,7 +675,9 @@ describe('runDeepEditService', () => {
 
   it('rejects a misspelled provider instead of coercing it to OpenAI', async () => {
     const driver = vi.fn();
-    const result = await runDeepEditService(request({ provider: 'anthorpic' }), { driveAgent: driver });
+    const result = await runDeepEditService(request({ provider: 'anthorpic' }), {
+      driveAgent: driver,
+    });
     expect(result.status).toBe(400);
     expect(String(result.body.error)).toContain('OpenAI and Anthropic');
     expect(driver).not.toHaveBeenCalled();
@@ -607,10 +688,9 @@ describe('runDeepEditService', () => {
     process.env.MUSIC_PATCH_MAX_PROMPT_CHARS = '10000';
     try {
       const driver = vi.fn();
-      const result = await runDeepEditService(
-        request({ promptText: 'x'.repeat(10_001) }),
-        { driveAgent: driver },
-      );
+      const result = await runDeepEditService(request({ promptText: 'x'.repeat(10_001) }), {
+        driveAgent: driver,
+      });
       expect(result.status).toBe(413);
       expect(String(result.body.error)).toContain('character limit');
       expect(driver).not.toHaveBeenCalled();
@@ -625,14 +705,23 @@ describe('runDeepEditService', () => {
 
   it('returns typed request errors before any loop work', async () => {
     const driver = vi.fn();
-    const missingInstruction = await runDeepEditService(request({ prompt: '' }), { driveAgent: driver });
+    const missingInstruction = await runDeepEditService(request({ prompt: '' }), {
+      driveAgent: driver,
+    });
     expect(missingInstruction.status).toBe(400);
-    const badProvider = await runDeepEditService(request({ provider: 'gemini' }), { driveAgent: driver });
+    const badProvider = await runDeepEditService(request({ provider: 'gemini' }), {
+      driveAgent: driver,
+    });
     expect(badProvider.status).toBe(400);
     expect(String(badProvider.body.error)).toContain('OpenAI and Anthropic');
-    const withImage = await runDeepEditService(request({ image: { mediaType: 'image/png', base64: 'aa' } }), { driveAgent: driver });
+    const withImage = await runDeepEditService(
+      request({ image: { mediaType: 'image/png', base64: 'aa' } }),
+      { driveAgent: driver },
+    );
     expect(withImage.status).toBe(400);
-    const notXml = await runDeepEditService(request({ content: 'not xml' }), { driveAgent: driver });
+    const notXml = await runDeepEditService(request({ content: 'not xml' }), {
+      driveAgent: driver,
+    });
     expect(notXml.status).toBe(400);
     expect(driver).not.toHaveBeenCalled();
   });
@@ -650,8 +739,10 @@ describe('runDeepEditService', () => {
 
 describe('summarizeMeasureDifferences', () => {
   it('reports changed, added, and removed measures compactly', () => {
-    const left = '<part id="P1"><measure number="1"><note>a</note></measure><measure number="2"><note>b</note></measure></part>';
-    const right = '<part id="P1"><measure number="1"><note>a</note></measure><measure number="2"><note>B</note></measure><measure number="3"><note>c</note></measure></part>';
+    const left =
+      '<part id="P1"><measure number="1"><note>a</note></measure><measure number="2"><note>b</note></measure></part>';
+    const right =
+      '<part id="P1"><measure number="1"><note>a</note></measure><measure number="2"><note>B</note></measure><measure number="3"><note>c</note></measure></part>';
     expect(summarizeMeasureDifferences(left, right)).toMatchObject({
       changedMeasures: ['P1:2'],
       addedMeasures: ['P1:3'],

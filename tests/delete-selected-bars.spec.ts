@@ -29,7 +29,8 @@ test('selecting a bar enables Delete Selected Bars and removes that bar', async 
   await page.goto(SCORE);
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
 
-  await expect.poll(async () => await readPitches(page), { timeout: 20_000 })
+  await expect
+    .poll(async () => await readPitches(page), { timeout: 20_000 })
     .toEqual(['F4', 'A4', 'C5', 'E5']);
 
   const deleteBars = page.getByTestId('btn-remove-containing-measures');
@@ -57,6 +58,7 @@ test('selecting a bar enables Delete Selected Bars and removes that bar', async 
   await deleteBars.click();
 
   // Bar 2 (A4) is gone; the others survive in order.
-  await expect.poll(async () => await readPitches(page), { timeout: 20_000 })
+  await expect
+    .poll(async () => await readPitches(page), { timeout: 20_000 })
     .toEqual(['F4', 'C5', 'E5']);
 });

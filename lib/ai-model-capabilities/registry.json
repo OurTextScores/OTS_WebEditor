@@ -116,7 +116,11 @@
         "parameters": {
           "maxOutputTokens": { "support": "supported", "min": 1, "max": 131072 },
           "temperature": { "support": "unsupported" },
-          "reasoning": { "support": "supported", "modes": ["off", "adaptive"], "default": "adaptive" }
+          "reasoning": {
+            "support": "supported",
+            "modes": ["off", "adaptive"],
+            "default": "adaptive"
+          }
         }
       },
       "evidence": {
@@ -168,7 +172,12 @@
       "capabilities": {
         "contextWindow": 1048576,
         "maxOutputTokens": 65536,
-        "inputs": { "text": "supported", "image": "supported", "pdf": "supported", "video": "supported" },
+        "inputs": {
+          "text": "supported",
+          "image": "supported",
+          "pdf": "supported",
+          "video": "supported"
+        },
         "parameters": {
           "maxOutputTokens": { "support": "supported", "min": 1, "max": 65536 },
           "temperature": { "support": "supported", "min": 0 },
@@ -256,7 +265,12 @@
       "provider": "kimi",
       "modelPattern": "^kimi-k2\\.(?:5|6)(?:[-.]|$)",
       "capabilities": {
-        "inputs": { "text": "supported", "image": "supported", "pdf": "unsupported", "video": "supported" },
+        "inputs": {
+          "text": "supported",
+          "image": "supported",
+          "pdf": "unsupported",
+          "video": "supported"
+        },
         "parameters": {
           "maxOutputTokens": { "support": "supported", "min": 1 },
           "temperature": { "support": "unsupported" },
@@ -275,7 +289,12 @@
       "modelPattern": "^kimi-k2\\.7-code(?:-highspeed)?$",
       "capabilities": {
         "contextWindow": 262144,
-        "inputs": { "text": "supported", "image": "supported", "pdf": "unsupported", "video": "supported" },
+        "inputs": {
+          "text": "supported",
+          "image": "supported",
+          "pdf": "unsupported",
+          "video": "supported"
+        },
         "parameters": {
           "maxOutputTokens": { "support": "supported", "min": 1 },
           "temperature": { "support": "supported", "fixed": 1 },
@@ -295,9 +314,19 @@
       "capabilities": {
         "contextWindow": 1048576,
         "maxOutputTokens": 1048576,
-        "inputs": { "text": "supported", "image": "supported", "pdf": "unsupported", "video": "supported" },
+        "inputs": {
+          "text": "supported",
+          "image": "supported",
+          "pdf": "unsupported",
+          "video": "supported"
+        },
         "parameters": {
-          "maxOutputTokens": { "support": "supported", "min": 1, "max": 1048576, "default": 131072 },
+          "maxOutputTokens": {
+            "support": "supported",
+            "min": 1,
+            "max": 1048576,
+            "default": 131072
+          },
           "temperature": { "support": "supported", "fixed": 1 },
           "reasoning": { "support": "supported", "modes": ["max"], "default": "max" }
         }

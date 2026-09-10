@@ -12,7 +12,8 @@ export type AppendMusicXmlMeasuresResult = {
   warnings: string[];
 };
 
-const isElement = (node: Node | null): node is Element => Boolean(node && node.nodeType === Node.ELEMENT_NODE);
+const isElement = (node: Node | null): node is Element =>
+  Boolean(node && node.nodeType === Node.ELEMENT_NODE);
 
 const firstChildElementByName = (parent: Element, localName: string): Element | null => {
   for (const child of Array.from(parent.children)) {
@@ -55,7 +56,10 @@ const collectUsedIds = (root: Element) => {
 const collectUsedPartIds = (root: Element) => {
   const ids = new Set<string>();
   for (const child of Array.from(root.children)) {
-    if ((child.localName === 'part' || child.localName === 'score-part') && child.getAttribute('id')) {
+    if (
+      (child.localName === 'part' || child.localName === 'score-part') &&
+      child.getAttribute('id')
+    ) {
       ids.add(child.getAttribute('id') || '');
     }
   }
@@ -123,7 +127,12 @@ const ensureUniqueId = (candidate: string, usedIds: Set<string>) => {
   return `${candidate}_${suffix}`;
 };
 
-const remapScorePartIds = (scorePart: Element, oldPartId: string, newPartId: string, usedIds: Set<string>) => {
+const remapScorePartIds = (
+  scorePart: Element,
+  oldPartId: string,
+  newPartId: string,
+  usedIds: Set<string>,
+) => {
   const idMap = new Map<string, string>();
   const withIds = [scorePart, ...Array.from(scorePart.getElementsByTagName('*'))];
   for (const node of withIds) {
@@ -145,7 +154,12 @@ const remapScorePartIds = (scorePart: Element, oldPartId: string, newPartId: str
   return idMap;
 };
 
-const remapPartNodeRefs = (part: Element, oldPartId: string, newPartId: string, idMap: Map<string, string>) => {
+const remapPartNodeRefs = (
+  part: Element,
+  oldPartId: string,
+  newPartId: string,
+  idMap: Map<string, string>,
+) => {
   part.setAttribute('id', newPartId);
   const nodes = [part, ...Array.from(part.getElementsByTagName('*'))];
   for (const node of nodes) {
@@ -197,7 +211,10 @@ const ensureNewPagePrint = (doc: Document, measure: Element) => {
   measure.insertBefore(print, measure.firstChild);
 };
 
-export const appendMusicXmlMeasures = (baseXml: string, sourceXml: string): AppendMusicXmlMeasuresResult => {
+export const appendMusicXmlMeasures = (
+  baseXml: string,
+  sourceXml: string,
+): AppendMusicXmlMeasuresResult => {
   const { doc: baseDoc, root: baseRoot } = parseMusicXml(baseXml, 'Target');
   const { root: sourceRoot } = parseMusicXml(sourceXml, 'Generated');
 
@@ -211,7 +228,9 @@ export const appendMusicXmlMeasures = (baseXml: string, sourceXml: string): Appe
     throw new Error('Generated MusicXML does not contain any <part> elements to append.');
   }
   if (sourceParts.length > targetParts.length) {
-    warnings.push(`Generated MusicXML has ${sourceParts.length} part(s), but the target has ${targetParts.length}; extra generated parts were ignored.`);
+    warnings.push(
+      `Generated MusicXML has ${sourceParts.length} part(s), but the target has ${targetParts.length}; extra generated parts were ignored.`,
+    );
   }
 
   let appendedMeasureCount = 0;
@@ -222,7 +241,9 @@ export const appendMusicXmlMeasures = (baseXml: string, sourceXml: string): Appe
     const targetPart = targetParts[index];
     const sourceMeasures = directChildrenByName(sourcePart, 'measure');
     if (!sourceMeasures.length) {
-      warnings.push(`Generated part ${sourcePart.getAttribute('id') || index + 1} had no measures to append.`);
+      warnings.push(
+        `Generated part ${sourcePart.getAttribute('id') || index + 1} had no measures to append.`,
+      );
       continue;
     }
 
@@ -254,7 +275,10 @@ export const appendMusicXmlMeasures = (baseXml: string, sourceXml: string): Appe
   };
 };
 
-export const appendMusicXmlParts = (baseXml: string, sourceXml: string): AppendMusicXmlPartsResult => {
+export const appendMusicXmlParts = (
+  baseXml: string,
+  sourceXml: string,
+): AppendMusicXmlPartsResult => {
   const { doc: baseDoc, root: baseRoot } = parseMusicXml(baseXml, 'Target');
   const { root: sourceRoot } = parseMusicXml(sourceXml, 'Generated');
 
@@ -327,7 +351,9 @@ export const appendMusicXmlParts = (baseXml: string, sourceXml: string): AppendM
       const partName = baseDoc.createElement('part-name');
       partName.textContent = partNameFromPart(sourcePart, `Imported Part ${newPartId}`);
       scorePartNode.appendChild(partName);
-      warnings.push(`Generated part ${oldPartId} had no matching <score-part>; created a minimal descriptor.`);
+      warnings.push(
+        `Generated part ${oldPartId} had no matching <score-part>; created a minimal descriptor.`,
+      );
     }
 
     const idMap = remapScorePartIds(scorePartNode, oldPartId, newPartId, usedIds);

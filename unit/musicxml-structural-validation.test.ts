@@ -12,26 +12,38 @@ const score = (note: string) => `<score-partwise version="4.0">
 
 describe('MusicXML structural validation', () => {
   it('accepts pitched notes and rests with one origin', () => {
-    expect(findMusicXmlStructuralIssues(score('<note><rest/><duration>4</duration></note>'))).toEqual([]);
-    expect(findMusicXmlStructuralIssues(score('<note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration></note>'))).toEqual([]);
+    expect(
+      findMusicXmlStructuralIssues(score('<note><rest/><duration>4</duration></note>')),
+    ).toEqual([]);
+    expect(
+      findMusicXmlStructuralIssues(
+        score('<note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration></note>'),
+      ),
+    ).toEqual([]);
   });
 
   it('reports a note containing both rest and pitch', () => {
-    const issues = findMusicXmlStructuralIssues(score(
-      '<note><rest/><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration></note>',
-    ));
-    expect(issues).toEqual([expect.objectContaining({
-      code: 'note-origin-count',
-      location: 'P1/measure-1/note-1',
-    })]);
+    const issues = findMusicXmlStructuralIssues(
+      score(
+        '<note><rest/><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration></note>',
+      ),
+    );
+    expect(issues).toEqual([
+      expect.objectContaining({
+        code: 'note-origin-count',
+        location: 'P1/measure-1/note-1',
+      }),
+    ]);
   });
 
   it('only reports violations introduced by the proposal', () => {
     const invalid = score('<note><rest/><pitch><step>C</step><octave>4</octave></pitch></note>');
     expect(findIntroducedMusicXmlStructuralIssues(invalid, invalid)).toEqual([]);
-    expect(findIntroducedMusicXmlStructuralIssues(
-      score('<note><rest/><duration>4</duration></note>'),
-      invalid,
-    )).toHaveLength(1);
+    expect(
+      findIntroducedMusicXmlStructuralIssues(
+        score('<note><rest/><duration>4</duration></note>'),
+        invalid,
+      ),
+    ).toHaveLength(1);
   });
 });

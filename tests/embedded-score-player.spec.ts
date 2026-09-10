@@ -1,130 +1,159 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('embedded score player', () => {
-    test('loads a score with a native playback timeline', async ({ page }) => {
-        await page.goto('/?score=%2Ftest_scores%2Fbach_orig.mscz&embed=player');
+  test('loads a score with a native playback timeline', async ({ page }) => {
+    await page.goto('/?score=%2Ftest_scores%2Fbach_orig.mscz&embed=player');
 
-        await expect(page.getByTestId('embedded-score-player')).toBeVisible();
-        await expect(page.getByTestId('player-svg').locator('svg')).toBeVisible({ timeout: 30_000 });
-        await expect(page.getByTestId('player-seek')).toBeEnabled();
+    await expect(page.getByTestId('embedded-score-player')).toBeVisible();
+    await expect(page.getByTestId('player-svg').locator('svg')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('player-seek')).toBeEnabled();
 
-        const duration = await page.getByTestId('player-seek').getAttribute('max');
-        expect(Number(duration)).toBeGreaterThan(0);
-        await expect(page.getByText(/^Page 1 of /)).toBeVisible();
+    const duration = await page.getByTestId('player-seek').getAttribute('max');
+    expect(Number(duration)).toBeGreaterThan(0);
+    await expect(page.getByText(/^Page 1 of /)).toBeVisible();
 
-        const fittedWidths = await page.evaluate(() => {
-            const viewport = document.querySelector('[data-testid="player-viewport"]') as HTMLElement;
-            const svg = document.querySelector('[data-testid="player-svg"] > svg') as SVGElement;
-            return {
-                available: viewport.clientWidth - 48,
-                score: svg.getBoundingClientRect().width,
-            };
-        });
-        expect(Math.abs(fittedWidths.score - fittedWidths.available)).toBeLessThanOrEqual(2);
+    const fittedWidths = await page.evaluate(() => {
+      const viewport = document.querySelector('[data-testid="player-viewport"]') as HTMLElement;
+      const svg = document.querySelector('[data-testid="player-svg"] > svg') as SVGElement;
+      return {
+        available: viewport.clientWidth - 48,
+        score: svg.getBoundingClientRect().width,
+      };
     });
+    expect(Math.abs(fittedWidths.score - fittedWidths.available)).toBeLessThanOrEqual(2);
+  });
 
-    test('fits the score and transport without horizontal overflow on mobile', async ({ page }) => {
-        await page.setViewportSize({ width: 390, height: 700 });
-        await page.goto('/?score=%2Ftest_scores%2Fplayback_timeline.musicxml&embed=player');
-        await expect(page.getByTestId('player-svg').locator('svg')).toBeVisible({ timeout: 30_000 });
+  test('fits the score and transport without horizontal overflow on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 700 });
+    await page.goto('/?score=%2Ftest_scores%2Fplayback_timeline.musicxml&embed=player');
+    await expect(page.getByTestId('player-svg').locator('svg')).toBeVisible({ timeout: 30_000 });
 
-        const layout = await page.evaluate(() => {
-            const viewport = document.querySelector('[data-testid="player-viewport"]') as HTMLElement;
-            const svg = document.querySelector('[data-testid="player-svg"] > svg') as SVGElement;
-            const controls = document.querySelector('[data-testid="player-play"]')?.closest('.sticky') as HTMLElement;
-            return {
-                expectedScoreWidth: viewport.clientWidth - 24,
-                scoreWidth: svg.getBoundingClientRect().width,
-                controlsClientWidth: controls.clientWidth,
-                controlsScrollWidth: controls.scrollWidth,
-            };
-        });
-        expect(Math.abs(layout.scoreWidth - layout.expectedScoreWidth)).toBeLessThanOrEqual(2);
-        expect(layout.controlsScrollWidth).toBeLessThanOrEqual(layout.controlsClientWidth);
+    const layout = await page.evaluate(() => {
+      const viewport = document.querySelector('[data-testid="player-viewport"]') as HTMLElement;
+      const svg = document.querySelector('[data-testid="player-svg"] > svg') as SVGElement;
+      const controls = document
+        .querySelector('[data-testid="player-play"]')
+        ?.closest('.sticky') as HTMLElement;
+      return {
+        expectedScoreWidth: viewport.clientWidth - 24,
+        scoreWidth: svg.getBoundingClientRect().width,
+        controlsClientWidth: controls.clientWidth,
+        controlsScrollWidth: controls.scrollWidth,
+      };
     });
+    expect(Math.abs(layout.scoreWidth - layout.expectedScoreWidth)).toBeLessThanOrEqual(2);
+    expect(layout.controlsScrollWidth).toBeLessThanOrEqual(layout.controlsClientWidth);
+  });
 
-    test('keeps the active-measure overlay aligned while zooming', async ({ page }) => {
-        await page.goto('/?score=%2Ftest_scores%2Fplayback_timeline.musicxml&embed=player');
-        await expect(page.getByTestId('active-measure-highlight')).toBeVisible({ timeout: 30_000 });
+  test('keeps the active-measure overlay aligned while zooming', async ({ page }) => {
+    await page.goto('/?score=%2Ftest_scores%2Fplayback_timeline.musicxml&embed=player');
+    await expect(page.getByTestId('active-measure-highlight')).toBeVisible({ timeout: 30_000 });
 
-        const alignmentError = async () => page.evaluate(() => {
-            const notation = document.querySelector('[data-testid="player-svg"] > svg') as SVGSVGElement;
-            const highlight = document.querySelector('[data-testid="active-measure-highlight"]') as SVGRectElement;
-            const notationBox = notation.getBoundingClientRect();
-            const highlightBox = highlight.getBoundingClientRect();
-            const viewBox = notation.viewBox.baseVal;
-            const expectedX = notationBox.left + Number(highlight.getAttribute('x')) / viewBox.width * notationBox.width;
-            const expectedY = notationBox.top + Number(highlight.getAttribute('y')) / viewBox.height * notationBox.height;
-            return Math.max(Math.abs(highlightBox.left - expectedX), Math.abs(highlightBox.top - expectedY));
-        });
+    const alignmentError = async () =>
+      page.evaluate(() => {
+        const notation = document.querySelector(
+          '[data-testid="player-svg"] > svg',
+        ) as SVGSVGElement;
+        const highlight = document.querySelector(
+          '[data-testid="active-measure-highlight"]',
+        ) as SVGRectElement;
+        const notationBox = notation.getBoundingClientRect();
+        const highlightBox = highlight.getBoundingClientRect();
+        const viewBox = notation.viewBox.baseVal;
+        const expectedX =
+          notationBox.left +
+          (Number(highlight.getAttribute('x')) / viewBox.width) * notationBox.width;
+        const expectedY =
+          notationBox.top +
+          (Number(highlight.getAttribute('y')) / viewBox.height) * notationBox.height;
+        return Math.max(
+          Math.abs(highlightBox.left - expectedX),
+          Math.abs(highlightBox.top - expectedY),
+        );
+      });
 
-        expect(await alignmentError()).toBeLessThan(1);
-        await page.getByRole('button', { name: 'Zoom in' }).click();
-        expect(await alignmentError()).toBeLessThan(1);
-        await page.getByRole('button', { name: 'Zoom out' }).click();
-        expect(await alignmentError()).toBeLessThan(1);
-    });
+    expect(await alignmentError()).toBeLessThan(1);
+    await page.getByRole('button', { name: 'Zoom in' }).click();
+    expect(await alignmentError()).toBeLessThan(1);
+    await page.getByRole('button', { name: 'Zoom out' }).click();
+    expect(await alignmentError()).toBeLessThan(1);
+  });
 
-    test('keeps embed=1 as a player compatibility alias', async ({ page }) => {
-        await page.goto('/?score=%2Ftest_scores%2Fbach_orig.mscz&embed=1');
-        await expect(page.getByTestId('embedded-score-player')).toBeVisible();
-    });
+  test('keeps embed=1 as a player compatibility alias', async ({ page }) => {
+    await page.goto('/?score=%2Ftest_scores%2Fbach_orig.mscz&embed=1');
+    await expect(page.getByTestId('embedded-score-player')).toBeVisible();
+  });
 
-    test('exchanges versioned messages only with the configured parent origin', async ({ page }) => {
-        await page.route('**/player-host.html', (route) => route.fulfill({
-            contentType: 'text/html',
-            body: `<!doctype html><title>Player host</title>
+  test('exchanges versioned messages only with the configured parent origin', async ({ page }) => {
+    await page.route('**/player-host.html', (route) =>
+      route.fulfill({
+        contentType: 'text/html',
+        body: `<!doctype html><title>Player host</title>
                 <iframe id="player" title="Hosted score player"></iframe>
                 <script>
                     window.__playerEvents = [];
                     window.addEventListener('message', event => window.__playerEvents.push(event.data));
                     document.querySelector('#player').src = '/?score=%2Ftest_scores%2Fbach_orig.mscz&embed=player&playerId=hosted&parentOrigin=' + encodeURIComponent(location.origin);
                 </script>`,
-        }));
-        await page.goto('/player-host.html');
+      }),
+    );
+    await page.goto('/player-host.html');
 
-        const iframe = page.getByTitle('Hosted score player').contentFrame();
-        await expect(iframe.getByTestId('player-seek')).toBeEnabled({ timeout: 30_000 });
-        await expect.poll(() => page.evaluate(() => (
+    const iframe = page.getByTitle('Hosted score player').contentFrame();
+    await expect(iframe.getByTestId('player-seek')).toBeEnabled({ timeout: 30_000 });
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          (
             window as typeof window & { __playerEvents: Array<{ event?: string }> }
-        ).__playerEvents.some((event) => event.event === 'ready'))).toBe(true);
+          ).__playerEvents.some((event) => event.event === 'ready'),
+        ),
+      )
+      .toBe(true);
 
-        const duration = Number(await iframe.getByTestId('player-seek').getAttribute('max'));
-        const target = Math.min(500, duration);
-        await iframe.locator('body').evaluate((_, value) => {
-            window.dispatchEvent(new MessageEvent('message', {
-                origin: 'https://untrusted.example',
-                source: window.parent,
-                data: {
-                    type: 'ots-player:command',
-                    version: 1,
-                    playerId: 'hosted',
-                    command: 'seek',
-                    value,
-                },
-            }));
-        }, target);
-        await expect(iframe.getByTestId('player-seek')).toHaveValue('0');
+    const duration = Number(await iframe.getByTestId('player-seek').getAttribute('max'));
+    const target = Math.min(500, duration);
+    await iframe.locator('body').evaluate((_, value) => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          origin: 'https://untrusted.example',
+          source: window.parent,
+          data: {
+            type: 'ots-player:command',
+            version: 1,
+            playerId: 'hosted',
+            command: 'seek',
+            value,
+          },
+        }),
+      );
+    }, target);
+    await expect(iframe.getByTestId('player-seek')).toHaveValue('0');
 
-        const origin = new URL(page.url()).origin;
-        await iframe.locator('body').evaluate((_, payload) => {
-            window.dispatchEvent(new MessageEvent('message', {
-                origin: payload.origin,
-                source: window.parent,
-                data: {
-                    type: 'ots-player:command',
-                    version: 1,
-                    playerId: 'hosted',
-                    command: 'seek',
-                    value: payload.target,
-                },
-            }));
-        }, { origin, target });
-        await expect(iframe.getByTestId('player-seek')).toHaveValue(String(target));
+    const origin = new URL(page.url()).origin;
+    await iframe.locator('body').evaluate(
+      (_, payload) => {
+        window.dispatchEvent(
+          new MessageEvent('message', {
+            origin: payload.origin,
+            source: window.parent,
+            data: {
+              type: 'ots-player:command',
+              version: 1,
+              playerId: 'hosted',
+              command: 'seek',
+              value: payload.target,
+            },
+          }),
+        );
+      },
+      { origin, target },
+    );
+    await expect(iframe.getByTestId('player-seek')).toHaveValue(String(target));
 
-        const eventPayload = await page.evaluate(() => JSON.stringify((
-            window as typeof window & { __playerEvents: unknown[] }
-        ).__playerEvents));
-        expect(eventPayload).not.toContain('bach_orig.mscz');
-    });
+    const eventPayload = await page.evaluate(() =>
+      JSON.stringify((window as typeof window & { __playerEvents: unknown[] }).__playerEvents),
+    );
+    expect(eventPayload).not.toContain('bach_orig.mscz');
+  });
 });

@@ -2,7 +2,8 @@ import type { MusicToolContract } from './types';
 
 export const MUSIC_HARMONY_ANALYZE_TOOL_CONTRACT: MusicToolContract = {
   name: 'music.harmony_analyze',
-  description: 'Analyze MusicXML harmony, optionally insert <harmony> tags, and return tagged MusicXML plus analysis metadata.',
+  description:
+    'Analyze MusicXML harmony, optionally insert <harmony> tags, and return tagged MusicXML plus analysis metadata.',
   inputSchema: {
     type: 'object',
     properties: {

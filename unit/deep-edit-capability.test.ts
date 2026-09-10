@@ -6,7 +6,8 @@ import {
   type DeepEditBudgets,
 } from '../lib/music-services/deep-edit-capability';
 
-const BASE_XML = '<score-partwise version="4.0"><part-list/><part id="P1"><measure number="1"/></part></score-partwise>';
+const BASE_XML =
+  '<score-partwise version="4.0"><part-list/><part id="P1"><measure number="1"/></part></score-partwise>';
 
 const budgets = (overrides: Partial<DeepEditBudgets> = {}): DeepEditBudgets => ({
   maxLlmCalls: 12,
@@ -53,21 +54,28 @@ describe('DeepEditCapability', () => {
   });
 
   it('enforces the candidate count limit', () => {
-    capability = new DeepEditCapability({ baseXml: BASE_XML, budgets: budgets({ maxCandidates: 2 }) });
+    capability = new DeepEditCapability({
+      baseXml: BASE_XML,
+      budgets: budgets({ maxCandidates: 2 }),
+    });
     for (let i = 0; i < 2; i += 1) {
-      expect(capability.mintCandidate({
+      expect(
+        capability.mintCandidate({
+          parentId: DEEP_EDIT_BASE_ID,
+          xml: `${BASE_XML}<!-- ${i} -->`,
+          createdByTool: 'apply_patch',
+          verification: 'patch_apply',
+        }).ok,
+      ).toBe(true);
+    }
+    expect(
+      capability.mintCandidate({
         parentId: DEEP_EDIT_BASE_ID,
-        xml: `${BASE_XML}<!-- ${i} -->`,
+        xml: BASE_XML,
         createdByTool: 'apply_patch',
         verification: 'patch_apply',
-      }).ok).toBe(true);
-    }
-    expect(capability.mintCandidate({
-      parentId: DEEP_EDIT_BASE_ID,
-      xml: BASE_XML,
-      createdByTool: 'apply_patch',
-      verification: 'patch_apply',
-    })).toEqual({ ok: false, reason: 'candidate_limit' });
+      }),
+    ).toEqual({ ok: false, reason: 'candidate_limit' });
   });
 
   it('enforces per-candidate and total byte limits', () => {
@@ -75,24 +83,30 @@ describe('DeepEditCapability', () => {
       baseXml: BASE_XML,
       budgets: budgets({ maxCandidateBytes: 300, maxTotalBytes: 500 }),
     });
-    expect(capability.mintCandidate({
-      parentId: DEEP_EDIT_BASE_ID,
-      xml: 'x'.repeat(301),
-      createdByTool: 'apply_patch',
-      verification: 'patch_apply',
-    })).toEqual({ ok: false, reason: 'candidate_bytes' });
-    expect(capability.mintCandidate({
-      parentId: DEEP_EDIT_BASE_ID,
-      xml: 'x'.repeat(300),
-      createdByTool: 'apply_patch',
-      verification: 'patch_apply',
-    }).ok).toBe(true);
-    expect(capability.mintCandidate({
-      parentId: DEEP_EDIT_BASE_ID,
-      xml: 'y'.repeat(250),
-      createdByTool: 'apply_patch',
-      verification: 'patch_apply',
-    })).toEqual({ ok: false, reason: 'total_bytes' });
+    expect(
+      capability.mintCandidate({
+        parentId: DEEP_EDIT_BASE_ID,
+        xml: 'x'.repeat(301),
+        createdByTool: 'apply_patch',
+        verification: 'patch_apply',
+      }),
+    ).toEqual({ ok: false, reason: 'candidate_bytes' });
+    expect(
+      capability.mintCandidate({
+        parentId: DEEP_EDIT_BASE_ID,
+        xml: 'x'.repeat(300),
+        createdByTool: 'apply_patch',
+        verification: 'patch_apply',
+      }).ok,
+    ).toBe(true);
+    expect(
+      capability.mintCandidate({
+        parentId: DEEP_EDIT_BASE_ID,
+        xml: 'y'.repeat(250),
+        createdByTool: 'apply_patch',
+        verification: 'patch_apply',
+      }),
+    ).toEqual({ ok: false, reason: 'total_bytes' });
     expect(capability.counters.candidateBytes).toBe(300);
   });
 
@@ -114,7 +128,10 @@ describe('DeepEditCapability', () => {
   });
 
   it('aborts its signal at the deadline and refuses further charges', () => {
-    capability = new DeepEditCapability({ baseXml: BASE_XML, budgets: budgets({ budgetMs: 5_000 }) });
+    capability = new DeepEditCapability({
+      baseXml: BASE_XML,
+      budgets: budgets({ budgetMs: 5_000 }),
+    });
     expect(capability.signal.aborted).toBe(false);
     vi.advanceTimersByTime(5_001);
     expect(capability.signal.aborted).toBe(true);
@@ -186,11 +203,13 @@ describe('DeepEditCapability', () => {
     if (!minted.ok) {
       throw new Error('expected mint');
     }
-    expect(capability.recordScore(minted.candidate.id, {
-      kind: 'self_assessment',
-      value: 'good voice leading',
-      detail: 'd'.repeat(1_000),
-    })).toBe(true);
+    expect(
+      capability.recordScore(minted.candidate.id, {
+        kind: 'self_assessment',
+        value: 'good voice leading',
+        detail: 'd'.repeat(1_000),
+      }),
+    ).toBe(true);
     expect(capability.recordScore('cand-99', { kind: 'x', value: 1 })).toBe(false);
 
     const audit = capability.auditCandidates();

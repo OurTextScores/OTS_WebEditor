@@ -12,35 +12,32 @@
  * a later paste silently discards.
  */
 export type SelectionClipboardPayload = {
-    mimeType: string;
-    data: Uint8Array;
+  mimeType: string;
+  data: Uint8Array;
 };
 
 export type SelectionReader = () => Promise<string> | string;
 export type SelectionDataReader = () => Promise<Uint8Array> | Uint8Array;
-export type SelectionPaster = (
-    mimeType: string,
-    data: Uint8Array,
-) => Promise<unknown> | unknown;
+export type SelectionPaster = (mimeType: string, data: Uint8Array) => Promise<unknown> | unknown;
 
 export async function readSelectionPayload(
-    getType: SelectionReader,
-    getData: SelectionDataReader,
+  getType: SelectionReader,
+  getData: SelectionDataReader,
 ): Promise<SelectionClipboardPayload | null> {
-    // Invoke both RPC wrappers before yielding so a later click cannot split the
-    // MIME type and bytes across two different engine selections.
-    const typePromise = Promise.resolve(getType());
-    const dataPromise = Promise.resolve(getData());
-    const [mimeType, data] = await Promise.all([typePromise, dataPromise]);
-    if (!mimeType || !data || data.length === 0) {
-        return null;
-    }
-    // Detach from the engine's buffer before it is stored: `selectionMimeData()` hands
-    // back a view into the WASM heap, which the next operation can reuse or free.
-    return {
-        mimeType,
-        data: data instanceof Uint8Array ? data.slice() : new Uint8Array(data),
-    };
+  // Invoke both RPC wrappers before yielding so a later click cannot split the
+  // MIME type and bytes across two different engine selections.
+  const typePromise = Promise.resolve(getType());
+  const dataPromise = Promise.resolve(getData());
+  const [mimeType, data] = await Promise.all([typePromise, dataPromise]);
+  if (!mimeType || !data || data.length === 0) {
+    return null;
+  }
+  // Detach from the engine's buffer before it is stored: `selectionMimeData()` hands
+  // back a view into the WASM heap, which the next operation can reuse or free.
+  return {
+    mimeType,
+    data: data instanceof Uint8Array ? data.slice() : new Uint8Array(data),
+  };
 }
 
 /**
@@ -50,42 +47,39 @@ export async function readSelectionPayload(
  * leave MuseScore without a valid single-note destination.
  */
 export async function pasteClipboardPayload(options: {
-    readPayload: () => SelectionClipboardPayload | null;
-    copyInFlight: Promise<boolean> | null;
-    selectionInFlight?: Promise<unknown> | null;
-    selectionProjectionNeeded: boolean;
-    ensureSelection: () => Promise<void>;
-    paste: SelectionPaster | null;
-    onEmpty?: () => void;
+  readPayload: () => SelectionClipboardPayload | null;
+  copyInFlight: Promise<boolean> | null;
+  selectionInFlight?: Promise<unknown> | null;
+  selectionProjectionNeeded: boolean;
+  ensureSelection: () => Promise<void>;
+  paste: SelectionPaster | null;
+  onEmpty?: () => void;
 }): Promise<unknown> {
-    const {
-        readPayload,
-        copyInFlight,
-        selectionInFlight,
-        selectionProjectionNeeded,
-        ensureSelection,
-        paste,
-        onEmpty,
-    } = options;
+  const {
+    readPayload,
+    copyInFlight,
+    selectionInFlight,
+    selectionProjectionNeeded,
+    ensureSelection,
+    paste,
+    onEmpty,
+  } = options;
 
-    if (copyInFlight || selectionInFlight) {
-        await Promise.all([
-            copyInFlight?.catch(() => false),
-            selectionInFlight?.catch(() => false),
-        ]);
-    }
-    const payload = readPayload();
-    if (!payload) {
-        onEmpty?.();
-        return false;
-    }
-    if (!paste) {
-        return false;
-    }
-    if (selectionProjectionNeeded) {
-        await ensureSelection();
-    }
-    return paste(payload.mimeType, payload.data);
+  if (copyInFlight || selectionInFlight) {
+    await Promise.all([copyInFlight?.catch(() => false), selectionInFlight?.catch(() => false)]);
+  }
+  const payload = readPayload();
+  if (!payload) {
+    onEmpty?.();
+    return false;
+  }
+  if (!paste) {
+    return false;
+  }
+  if (selectionProjectionNeeded) {
+    await ensureSelection();
+  }
+  return paste(payload.mimeType, payload.data);
 }
 
 /**
@@ -93,23 +87,23 @@ export async function pasteClipboardPayload(options: {
  * only if the engine reports nothing selected. Returns whether anything was stored.
  */
 export async function copySelectionToClipboard(options: {
-    getType: SelectionReader | null;
-    getData: SelectionDataReader | null;
-    ensureSelection: () => Promise<void>;
-    store: (payload: SelectionClipboardPayload) => void;
+  getType: SelectionReader | null;
+  getData: SelectionDataReader | null;
+  ensureSelection: () => Promise<void>;
+  store: (payload: SelectionClipboardPayload) => void;
 }): Promise<boolean> {
-    const { getType, getData, ensureSelection, store } = options;
-    if (!getType || !getData) {
-        return false;
-    }
-    let payload = await readSelectionPayload(getType, getData);
-    if (!payload) {
-        await ensureSelection();
-        payload = await readSelectionPayload(getType, getData);
-    }
-    if (!payload) {
-        return false;
-    }
-    store(payload);
-    return true;
+  const { getType, getData, ensureSelection, store } = options;
+  if (!getType || !getData) {
+    return false;
+  }
+  let payload = await readSelectionPayload(getType, getData);
+  if (!payload) {
+    await ensureSelection();
+    payload = await readSelectionPayload(getType, getData);
+  }
+  if (!payload) {
+    return false;
+  }
+  store(payload);
+  return true;
 }

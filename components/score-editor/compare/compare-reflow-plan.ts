@@ -19,43 +19,42 @@ import type { Positions } from '@/lib/webmscore-loader';
  * actually held live-keyed data.
  */
 export type MeasureAlignmentRow = {
-    leftIndex: number | null;
-    rightIndex: number | null;
-    match: boolean;
+  leftIndex: number | null;
+  rightIndex: number | null;
+  match: boolean;
 };
 
 export type ReflowAlignment = {
-    rows: MeasureAlignmentRow[];
-    leftCount: number;
-    rightCount: number;
+  rows: MeasureAlignmentRow[];
+  leftCount: number;
+  rightCount: number;
 };
 
 export type ComparePane = 'left' | 'right';
 
 export type CompareReflowPlanInput = {
-    /** Existing line breaks read from the live score. */
-    liveBreaks: boolean[];
-    /** Existing line breaks read from the auxiliary score. */
-    auxiliaryBreaks: boolean[];
-    /** True when the live score is displayed in the left pane. */
-    liveIsLeftPane: boolean;
-    /** Pane-oriented alignments. */
-    alignments: ReflowAlignment[];
-    /** Pane-oriented mismatch break builder. */
-    buildMismatchBreaks: (
-        rows: MeasureAlignmentRow[],
-        pane: ComparePane,
-        measureCount: number,
-    ) => boolean[];
+  /** Existing line breaks read from the live score. */
+  liveBreaks: boolean[];
+  /** Existing line breaks read from the auxiliary score. */
+  auxiliaryBreaks: boolean[];
+  /** True when the live score is displayed in the left pane. */
+  liveIsLeftPane: boolean;
+  /** Pane-oriented alignments. */
+  alignments: ReflowAlignment[];
+  /** Pane-oriented mismatch break builder. */
+  buildMismatchBreaks: (
+    rows: MeasureAlignmentRow[],
+    pane: ComparePane,
+    measureCount: number,
+  ) => boolean[];
 };
 
 export type CompareReflowPlan = {
-    /** Line breaks to apply to the live score. */
-    liveReflow: boolean[];
-    /** Line breaks to apply to the auxiliary score. */
-    auxiliaryReflow: boolean[];
+  /** Line breaks to apply to the live score. */
+  liveReflow: boolean[];
+  /** Line breaks to apply to the auxiliary score. */
+  auxiliaryReflow: boolean[];
 };
-
 
 /** Which system a measure landed in, by measure index. Undefined when not laid out. */
 export type SystemOfMeasure = (measureIndex: number) => number | undefined;
@@ -74,49 +73,45 @@ export type SystemOfMeasure = (measureIndex: number) => number | undefined;
  * derived from where the panes actually wrapped at the current width.
  */
 export function buildResyncBreaks(
-    rows: MeasureAlignmentRow[],
-    leftSystemOf: SystemOfMeasure,
-    rightSystemOf: SystemOfMeasure,
+  rows: MeasureAlignmentRow[],
+  leftSystemOf: SystemOfMeasure,
+  rightSystemOf: SystemOfMeasure,
 ): { left: number[]; right: number[] } {
-    const left: number[] = [];
-    const right: number[] = [];
+  const left: number[] = [];
+  const right: number[] = [];
 
-    const wrapsBetween = (
-        systemOf: SystemOfMeasure,
-        current: number | null,
-        next: number | null,
-    ) => {
-        if (current === null || next === null) {
-            return false;
-        }
-        const currentSystem = systemOf(current);
-        const nextSystem = systemOf(next);
-        if (currentSystem === undefined || nextSystem === undefined) {
-            return false;
-        }
-        return currentSystem !== nextSystem;
-    };
-
-    for (let index = 0; index < rows.length - 1; index += 1) {
-        const row = rows[index];
-        const nextRow = rows[index + 1];
-        const wraps = wrapsBetween(leftSystemOf, row.leftIndex, nextRow.leftIndex)
-            || wrapsBetween(rightSystemOf, row.rightIndex, nextRow.rightIndex);
-        if (!wraps) {
-            continue;
-        }
-        // Break on both panes at this row, so the next row starts a system in each.
-        if (row.leftIndex !== null) {
-            left.push(row.leftIndex);
-        }
-        if (row.rightIndex !== null) {
-            right.push(row.rightIndex);
-        }
+  const wrapsBetween = (systemOf: SystemOfMeasure, current: number | null, next: number | null) => {
+    if (current === null || next === null) {
+      return false;
     }
+    const currentSystem = systemOf(current);
+    const nextSystem = systemOf(next);
+    if (currentSystem === undefined || nextSystem === undefined) {
+      return false;
+    }
+    return currentSystem !== nextSystem;
+  };
 
-    return { left, right };
+  for (let index = 0; index < rows.length - 1; index += 1) {
+    const row = rows[index];
+    const nextRow = rows[index + 1];
+    const wraps =
+      wrapsBetween(leftSystemOf, row.leftIndex, nextRow.leftIndex) ||
+      wrapsBetween(rightSystemOf, row.rightIndex, nextRow.rightIndex);
+    if (!wraps) {
+      continue;
+    }
+    // Break on both panes at this row, so the next row starts a system in each.
+    if (row.leftIndex !== null) {
+      left.push(row.leftIndex);
+    }
+    if (row.rightIndex !== null) {
+      right.push(row.rightIndex);
+    }
+  }
+
+  return { left, right };
 }
-
 
 /** Vertical padding to add below a measure, in spatium. */
 export type MeasureGap = { measureIndex: number; gap: number };
@@ -125,88 +120,88 @@ export type MeasureGap = { measureIndex: number; gap: number };
 export type SystemHeight = (system: number) => number | undefined;
 
 export type CompareSystemGeometry = {
-    systemOf: SystemOfMeasure;
-    systemHeight: SystemHeight;
+  systemOf: SystemOfMeasure;
+  systemHeight: SystemHeight;
 };
 
 /** Layout geometry from one settled `measurePositions()` snapshot. */
 export function buildCompareSystemGeometry(positions: Positions): CompareSystemGeometry {
-    const systemByMeasure = new Map<number, number>();
-    const systemByPosition = new Map<string, number>();
-    const heightBySystem = new Map<number, number>();
-    const topBySystem = new Map<number, { page: number; y: number }>();
+  const systemByMeasure = new Map<number, number>();
+  const systemByPosition = new Map<string, number>();
+  const heightBySystem = new Map<number, number>();
+  const topBySystem = new Map<number, { page: number; y: number }>();
 
-    positions.elements.forEach((element, measureIndex) => {
-        const key = `${element.page}:${Math.round(element.y)}`;
-        let system = systemByPosition.get(key);
-        if (system === undefined) {
-            system = systemByPosition.size;
-            systemByPosition.set(key, system);
-            topBySystem.set(system, { page: element.page, y: element.y });
-        }
-        systemByMeasure.set(measureIndex, system);
-        const height = typeof element.sy === 'number' ? element.sy : element.height ?? 0;
-        if (height > 0) {
-            heightBySystem.set(system, Math.max(heightBySystem.get(system) ?? 0, height));
-        }
-    });
-
-    // A measure box describes the system's ink, not the vertical slot the next system
-    // occupies. Prefer the distance between consecutive system tops so the spacer also
-    // accounts for normal inter-system leading; retain ink height for the last system on
-    // a page, where no following top can provide that measurement.
-    for (let system = 0; system < systemByPosition.size - 1; system += 1) {
-        const current = topBySystem.get(system);
-        const next = topBySystem.get(system + 1);
-        if (current && next && current.page === next.page && next.y > current.y) {
-            heightBySystem.set(system, next.y - current.y);
-        }
+  positions.elements.forEach((element, measureIndex) => {
+    const key = `${element.page}:${Math.round(element.y)}`;
+    let system = systemByPosition.get(key);
+    if (system === undefined) {
+      system = systemByPosition.size;
+      systemByPosition.set(key, system);
+      topBySystem.set(system, { page: element.page, y: element.y });
     }
+    systemByMeasure.set(measureIndex, system);
+    const height = typeof element.sy === 'number' ? element.sy : (element.height ?? 0);
+    if (height > 0) {
+      heightBySystem.set(system, Math.max(heightBySystem.get(system) ?? 0, height));
+    }
+  });
 
-    return {
-        systemOf: (measureIndex) => systemByMeasure.get(measureIndex),
-        systemHeight: (system) => heightBySystem.get(system),
-    };
+  // A measure box describes the system's ink, not the vertical slot the next system
+  // occupies. Prefer the distance between consecutive system tops so the spacer also
+  // accounts for normal inter-system leading; retain ink height for the last system on
+  // a page, where no following top can provide that measurement.
+  for (let system = 0; system < systemByPosition.size - 1; system += 1) {
+    const current = topBySystem.get(system);
+    const next = topBySystem.get(system + 1);
+    if (current && next && current.page === next.page && next.y > current.y) {
+      heightBySystem.set(system, next.y - current.y);
+    }
+  }
+
+  return {
+    systemOf: (measureIndex) => systemByMeasure.get(measureIndex),
+    systemHeight: (system) => heightBySystem.get(system),
+  };
 }
 
 /** Remaining vertical offset between paired rows downstream of a structural gap. */
 export function measureStructuralGapResidual(
-    alignments: Array<{ rows: MeasureAlignmentRow[] }>,
-    leftPositions: Positions,
-    rightPositions: Positions,
+  alignments: Array<{ rows: MeasureAlignmentRow[] }>,
+  leftPositions: Positions,
+  rightPositions: Positions,
 ): { left: number; right: number } {
-    let left = 0;
-    let right = 0;
-    const documentY = (positions: Positions, measureIndex: number) => {
-        const element = positions.elements[measureIndex];
-        if (!element) {
-            return undefined;
-        }
-        return element.y + element.page * (positions.pageSize?.height ?? 0);
-    };
+  let left = 0;
+  let right = 0;
+  const documentY = (positions: Positions, measureIndex: number) => {
+    const element = positions.elements[measureIndex];
+    if (!element) {
+      return undefined;
+    }
+    return element.y + element.page * (positions.pageSize?.height ?? 0);
+  };
 
-    alignments.forEach((alignment) => {
-        let structuralGapSeen = false;
-        alignment.rows.forEach((row) => {
-            if (row.leftIndex === null || row.rightIndex === null) {
-                structuralGapSeen = true;
-                return;
-            }
-            if (!structuralGapSeen) {
-                return;
-            }
-            const leftY = documentY(leftPositions, row.leftIndex);
-            const rightY = documentY(rightPositions, row.rightIndex);
-            if (leftY === undefined || rightY === undefined) {
-                return;
-            }
-            const delta = rightY - leftY;
-            left = Math.max(left, delta);
-            right = Math.max(right, -delta);
-        });
+  alignments.forEach((alignment) => {
+    let structuralGapSeen = false;
+    alignment.rows.forEach((row) => {
+      if (row.leftIndex === null || row.rightIndex === null) {
+        structuralGapSeen = true;
+        return;
+      }
+      if (!structuralGapSeen) {
+        return;
+      }
+      const leftY = documentY(leftPositions, row.leftIndex);
+      const rightY = documentY(rightPositions, row.rightIndex);
+      if (leftY === undefined || rightY === undefined) {
+        return;
+      }
+      const delta = rightY - leftY;
+      left = Math.max(left, delta);
+      right = Math.max(right, -delta);
     });
+  });
 
-    return { left, right };
+  return { left, right };
 }
 
 /**
@@ -217,15 +212,15 @@ export function measureStructuralGapResidual(
  * anchor: retain the largest requirement any part measured there.
  */
 export function mergeAlignmentGaps(plans: MeasureGap[][]): MeasureGap[] {
-    const byMeasure = new Map<number, number>();
-    plans.flat().forEach(({ measureIndex, gap }) => {
-        if (gap > 0) {
-            byMeasure.set(measureIndex, Math.max(byMeasure.get(measureIndex) ?? 0, gap));
-        }
-    });
-    return [...byMeasure.entries()]
-        .sort(([leftIndex], [rightIndex]) => leftIndex - rightIndex)
-        .map(([measureIndex, gap]) => ({ measureIndex, gap }));
+  const byMeasure = new Map<number, number>();
+  plans.flat().forEach(({ measureIndex, gap }) => {
+    if (gap > 0) {
+      byMeasure.set(measureIndex, Math.max(byMeasure.get(measureIndex) ?? 0, gap));
+    }
+  });
+  return [...byMeasure.entries()]
+    .sort(([leftIndex], [rightIndex]) => leftIndex - rightIndex)
+    .map(([measureIndex, gap]) => ({ measureIndex, gap }));
 }
 
 /**
@@ -242,98 +237,99 @@ export function mergeAlignmentGaps(plans: MeasureGap[][]): MeasureGap[] {
  * that is the only anchor available — the missing bar has no measure to hang anything on.
  */
 export function buildAlignmentGaps(
-    rows: MeasureAlignmentRow[],
-    leftSystemOf: SystemOfMeasure,
-    rightSystemOf: SystemOfMeasure,
-    leftSystemHeight: SystemHeight,
-    rightSystemHeight: SystemHeight,
+  rows: MeasureAlignmentRow[],
+  leftSystemOf: SystemOfMeasure,
+  rightSystemOf: SystemOfMeasure,
+  leftSystemHeight: SystemHeight,
+  rightSystemHeight: SystemHeight,
 ): { left: MeasureGap[]; right: MeasureGap[] } {
-    const left = new Map<number, number>();
-    const right = new Map<number, number>();
+  const left = new Map<number, number>();
+  const right = new Map<number, number>();
 
-    const seenLeft = new Set<number>();
-    const seenRight = new Set<number>();
-    let lastLeftMeasure: number | null = null;
-    let lastRightMeasure: number | null = null;
+  const seenLeft = new Set<number>();
+  const seenRight = new Set<number>();
+  let lastLeftMeasure: number | null = null;
+  let lastRightMeasure: number | null = null;
 
-    for (const row of rows) {
-        const leftSystem = row.leftIndex !== null ? leftSystemOf(row.leftIndex) : undefined;
-        const rightSystem = row.rightIndex !== null ? rightSystemOf(row.rightIndex) : undefined;
+  for (const row of rows) {
+    const leftSystem = row.leftIndex !== null ? leftSystemOf(row.leftIndex) : undefined;
+    const rightSystem = row.rightIndex !== null ? rightSystemOf(row.rightIndex) : undefined;
 
-        const leftGained = leftSystem !== undefined && !seenLeft.has(leftSystem);
-        const rightGained = rightSystem !== undefined && !seenRight.has(rightSystem);
+    const leftGained = leftSystem !== undefined && !seenLeft.has(leftSystem);
+    const rightGained = rightSystem !== undefined && !seenRight.has(rightSystem);
 
-        if (leftGained) {
-            seenLeft.add(leftSystem!);
-        }
-        if (rightGained) {
-            seenRight.add(rightSystem!);
-        }
-
-        // Only a structural gap can require padding. Different wrap points with measures
-        // on both sides are transient until buildResyncBreaks settles and must never add a
-        // spacer of their own.
-        if (row.leftIndex === null && rightGained && lastLeftMeasure !== null) {
-            const height = rightSystemHeight(rightSystem!);
-            if (height && height > 0) {
-                left.set(lastLeftMeasure, (left.get(lastLeftMeasure) ?? 0) + height);
-            }
-        }
-        if (row.rightIndex === null && leftGained && lastRightMeasure !== null) {
-            const height = leftSystemHeight(leftSystem!);
-            if (height && height > 0) {
-                right.set(lastRightMeasure, (right.get(lastRightMeasure) ?? 0) + height);
-            }
-        }
-
-        if (row.leftIndex !== null) {
-            lastLeftMeasure = row.leftIndex;
-        }
-        if (row.rightIndex !== null) {
-            lastRightMeasure = row.rightIndex;
-        }
+    if (leftGained) {
+      seenLeft.add(leftSystem!);
+    }
+    if (rightGained) {
+      seenRight.add(rightSystem!);
     }
 
-    const toGaps = (gaps: Map<number, number>) => [...gaps.entries()]
-        .map(([measureIndex, gap]) => ({ measureIndex, gap }));
-    return { left: toGaps(left), right: toGaps(right) };
+    // Only a structural gap can require padding. Different wrap points with measures
+    // on both sides are transient until buildResyncBreaks settles and must never add a
+    // spacer of their own.
+    if (row.leftIndex === null && rightGained && lastLeftMeasure !== null) {
+      const height = rightSystemHeight(rightSystem!);
+      if (height && height > 0) {
+        left.set(lastLeftMeasure, (left.get(lastLeftMeasure) ?? 0) + height);
+      }
+    }
+    if (row.rightIndex === null && leftGained && lastRightMeasure !== null) {
+      const height = leftSystemHeight(leftSystem!);
+      if (height && height > 0) {
+        right.set(lastRightMeasure, (right.get(lastRightMeasure) ?? 0) + height);
+      }
+    }
+
+    if (row.leftIndex !== null) {
+      lastLeftMeasure = row.leftIndex;
+    }
+    if (row.rightIndex !== null) {
+      lastRightMeasure = row.rightIndex;
+    }
+  }
+
+  const toGaps = (gaps: Map<number, number>) =>
+    [...gaps.entries()].map(([measureIndex, gap]) => ({ measureIndex, gap }));
+  return { left: toGaps(left), right: toGaps(right) };
 }
 
 export function buildCompareReflowPlan({
-    liveBreaks,
-    auxiliaryBreaks,
-    liveIsLeftPane,
-    alignments,
-    buildMismatchBreaks,
+  liveBreaks,
+  auxiliaryBreaks,
+  liveIsLeftPane,
+  alignments,
+  buildMismatchBreaks,
 }: CompareReflowPlanInput): CompareReflowPlan {
-    const livePane: ComparePane = liveIsLeftPane ? 'left' : 'right';
-    const auxiliaryPane: ComparePane = liveIsLeftPane ? 'right' : 'left';
+  const livePane: ComparePane = liveIsLeftPane ? 'left' : 'right';
+  const auxiliaryPane: ComparePane = liveIsLeftPane ? 'right' : 'left';
 
-    const paneCount = (pane: ComparePane) => Math.max(
-        0,
-        ...alignments.map((alignment) => (
-            pane === 'left' ? alignment.leftCount : alignment.rightCount
-        )),
+  const paneCount = (pane: ComparePane) =>
+    Math.max(
+      0,
+      ...alignments.map((alignment) =>
+        pane === 'left' ? alignment.leftCount : alignment.rightCount,
+      ),
     );
 
-    const planFor = (pane: ComparePane, breaks: boolean[]) => {
-        // The measure count must come from the same pane as the mismatch rows; taking
-        // it from the other pane silently truncates or over-extends the plan.
-        const count = breaks.length || paneCount(pane);
-        const normalized = Array.from({ length: count }, (_, index) => Boolean(breaks[index]));
-        const mismatch = Array.from({ length: count }, () => false);
-        alignments.forEach((alignment) => {
-            buildMismatchBreaks(alignment.rows, pane, count).forEach((value, index) => {
-                if (value) {
-                    mismatch[index] = true;
-                }
-            });
-        });
-        return normalized.map((value, index) => value || mismatch[index]);
-    };
+  const planFor = (pane: ComparePane, breaks: boolean[]) => {
+    // The measure count must come from the same pane as the mismatch rows; taking
+    // it from the other pane silently truncates or over-extends the plan.
+    const count = breaks.length || paneCount(pane);
+    const normalized = Array.from({ length: count }, (_, index) => Boolean(breaks[index]));
+    const mismatch = Array.from({ length: count }, () => false);
+    alignments.forEach((alignment) => {
+      buildMismatchBreaks(alignment.rows, pane, count).forEach((value, index) => {
+        if (value) {
+          mismatch[index] = true;
+        }
+      });
+    });
+    return normalized.map((value, index) => value || mismatch[index]);
+  };
 
-    return {
-        liveReflow: planFor(livePane, liveBreaks),
-        auxiliaryReflow: planFor(auxiliaryPane, auxiliaryBreaks),
-    };
+  return {
+    liveReflow: planFor(livePane, liveBreaks),
+    auxiliaryReflow: planFor(auxiliaryPane, auxiliaryBreaks),
+  };
 }

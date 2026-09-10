@@ -12,11 +12,11 @@ type NoteFrame = {
   origins: string[];
 };
 
-const attributeValue = (tag: SaxesTagNS, localName: string) => (
-  Object.values(tag.attributes).find((attribute) => attribute.local === localName)?.value ?? ''
-);
+const attributeValue = (tag: SaxesTagNS, localName: string) =>
+  Object.values(tag.attributes).find((attribute) => attribute.local === localName)?.value ?? '';
 
-const issueKey = (issue: MusicXmlStructuralIssue) => `${issue.code}:${issue.location}:${issue.message}`;
+const issueKey = (issue: MusicXmlStructuralIssue) =>
+  `${issue.code}:${issue.location}:${issue.message}`;
 
 /**
  * Check a small set of MusicXML invariants that are especially important when the full
@@ -59,9 +59,9 @@ export function findMusicXmlStructuralIssues(xml: string): MusicXmlStructuralIss
     }
     const note = noteFrames.at(-1);
     if (
-      note
-      && depth === note.depth + 1
-      && (tag.local === 'pitch' || tag.local === 'unpitched' || tag.local === 'rest')
+      note &&
+      depth === note.depth + 1 &&
+      (tag.local === 'pitch' || tag.local === 'unpitched' || tag.local === 'rest')
     ) {
       note.origins.push(tag.local);
     }
@@ -96,5 +96,7 @@ export function findIntroducedMusicXmlStructuralIssues(
   proposedXml: string,
 ): MusicXmlStructuralIssue[] {
   const baseIssues = new Set(findMusicXmlStructuralIssues(baseXml).map(issueKey));
-  return findMusicXmlStructuralIssues(proposedXml).filter((issue) => !baseIssues.has(issueKey(issue)));
+  return findMusicXmlStructuralIssues(proposedXml).filter(
+    (issue) => !baseIssues.has(issueKey(issue)),
+  );
 }

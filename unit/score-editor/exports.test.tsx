@@ -4,15 +4,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { setupScoreEditorTest, testGlobals } from './test-harness';
 
 const mocked = vi.hoisted(() => ({
-    loadWebMscore: vi.fn(),
-    loadWebMscoreInProcess: vi.fn(),
+  loadWebMscore: vi.fn(),
+  loadWebMscoreInProcess: vi.fn(),
 }));
 const mockedNavigation = vi.hoisted(() => ({ useSearchParams: vi.fn() }));
 
 vi.mock('next/navigation', () => ({ useSearchParams: mockedNavigation.useSearchParams }));
 vi.mock('../../lib/webmscore-loader', () => ({
-    loadWebMscore: mocked.loadWebMscore,
-    loadWebMscoreInProcess: mocked.loadWebMscoreInProcess,
+  loadWebMscore: mocked.loadWebMscore,
+  loadWebMscoreInProcess: mocked.loadWebMscoreInProcess,
 }));
 
 import ScoreEditor from '../../components/ScoreEditor';
@@ -48,7 +48,11 @@ describe('ScoreEditor: zoom and export bindings', () => {
       savePng: vi.fn(async () => new Uint8Array([2])),
       saveMxl: vi.fn(async () => new Uint8Array([3])),
       saveMsc: vi.fn(async () => new Uint8Array([4])),
-      saveXml: vi.fn(async () => new TextEncoder().encode('<score-partwise version="3.1"><part-list/><part id="P1"><measure number="1"/></part></score-partwise>')),
+      saveXml: vi.fn(async () =>
+        new TextEncoder().encode(
+          '<score-partwise version="3.1"><part-list/><part id="P1"><measure number="1"/></part></score-partwise>',
+        ),
+      ),
       saveMidi: vi.fn(async () => new Uint8Array([5])),
       metadata: vi.fn(async () => ({})),
       measurePositions: vi.fn(async () => ({})),
@@ -62,11 +66,8 @@ describe('ScoreEditor: zoom and export bindings', () => {
 
     mocked.loadWebMscore.mockResolvedValue(webmscore);
     testGlobals.fetch = vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string'
-        ? input
-        : input instanceof URL
-          ? input.toString()
-          : input.url;
+      const url =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
       if (url.includes('/api/music/convert')) {
         return {
           ok: true,
@@ -92,7 +93,9 @@ describe('ScoreEditor: zoom and export bindings', () => {
     const file = new File([new Uint8Array([1])], 'demo.mscz', { type: 'application/octet-stream' });
     await user.upload(screen.getByTestId('open-score-input'), file);
 
-    await waitFor(() => expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy(),
+    );
 
     await user.click(screen.getByTestId('dropdown-export'));
     await user.click(await screen.findByTestId('btn-export-pdf'));
@@ -121,10 +124,12 @@ describe('ScoreEditor: zoom and export bindings', () => {
     await waitFor(() => expect(score.saveXml).toHaveBeenCalled());
     await waitFor(() => expect(score.saveMidi).toHaveBeenCalledWith(true, true));
     await waitFor(() => expect(testGlobals.URL.createObjectURL).toHaveBeenCalled());
-    await waitFor(() => expect(testGlobals.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/music/convert'),
-      expect.any(Object),
-    ));
+    await waitFor(() =>
+      expect(testGlobals.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/music/convert'),
+        expect.any(Object),
+      ),
+    );
   }, 10000);
 
   it('alerts when optional export bindings are missing', async () => {
@@ -155,7 +160,9 @@ describe('ScoreEditor: zoom and export bindings', () => {
     const file = new File([new Uint8Array([1])], 'demo.mscz', { type: 'application/octet-stream' });
     await user.upload(screen.getByTestId('open-score-input'), file);
 
-    await waitFor(() => expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy(),
+    );
 
     await user.click(screen.getByTestId('dropdown-export'));
     await user.click(await screen.findByTestId('btn-export-mxl'));
@@ -171,7 +178,9 @@ describe('ScoreEditor: zoom and export bindings', () => {
 
     await user.click(screen.getByTestId('dropdown-export'));
     await user.click(await screen.findByTestId('btn-export-musicxml'));
-    expect(testGlobals.alert).toHaveBeenCalledWith('MusicXML export is not available in this build.');
+    expect(testGlobals.alert).toHaveBeenCalledWith(
+      'MusicXML export is not available in this build.',
+    );
 
     await user.click(screen.getByTestId('dropdown-export'));
     await user.click(await screen.findByTestId('btn-export-abc'));

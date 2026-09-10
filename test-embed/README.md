@@ -65,6 +65,7 @@ When working correctly, you should see:
 ### 404 Errors for WASM Files
 
 If you see errors like:
+
 ```
 GET http://localhost:8080/webmscore.lib.wasm [404 Not Found]
 ```
@@ -72,9 +73,11 @@ GET http://localhost:8080/webmscore.lib.wasm [404 Not Found]
 This means the base tag is missing or not being respected. Check:
 
 1. **Verify base tag in HTML**:
+
    ```bash
    grep -o '<base[^>]*>' out/index.html
    ```
+
    Should show: `<base href="/score-editor/"/>`
 
 2. **Clear browser cache**: Hard refresh with Ctrl+Shift+R
@@ -84,11 +87,13 @@ This means the base tag is missing or not being respected. Check:
 ### Server Won't Start
 
 Make sure nothing else is using port 8080:
+
 ```bash
 lsof -i :8080
 ```
 
 To use a different port, set `PORT` when starting the server:
+
 ```bash
 PORT=8091 node test-embed/server.js
 ```
@@ -97,13 +102,14 @@ PORT=8091 node test-embed/server.js
 
 The test server includes an in-memory analytics stub for testing editor telemetry:
 
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/api/analytics/events` | `POST` | Accepts event payloads, logs to stdout as structured JSON, stores in memory, returns 201 |
-| `/api/analytics/__test-log` | `GET` | Returns all captured events as `{ events: [...] }` |
-| `/api/analytics/__test-log` | `DELETE` | Clears captured events |
+| Route                       | Method   | Description                                                                              |
+| --------------------------- | -------- | ---------------------------------------------------------------------------------------- |
+| `/api/analytics/events`     | `POST`   | Accepts event payloads, logs to stdout as structured JSON, stores in memory, returns 201 |
+| `/api/analytics/__test-log` | `GET`    | Returns all captured events as `{ events: [...] }`                                       |
+| `/api/analytics/__test-log` | `DELETE` | Clears captured events                                                                   |
 
 Each captured event includes:
+
 - `timestamp` — ISO 8601 timestamp
 - `payload` — the JSON body sent by the client
 - `traceHeaders` — any trace headers present on the request (see below)
@@ -134,5 +140,6 @@ The test server (`server.js`) routes requests:
 - `http://localhost:8080/api/analytics/__test-log` → view/clear captured events (GET/DELETE)
 
 This exactly simulates the setup in OurTextScores where:
+
 - Next.js serves the main application
 - Static files in `public/score-editor/` serve the embedded editor

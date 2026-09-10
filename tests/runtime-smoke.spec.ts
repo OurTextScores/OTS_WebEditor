@@ -1,9 +1,8 @@
 import { expect, test } from '@playwright/test';
 
-const shouldIgnoreConsoleError = (text: string) => (
-  text.includes('/api/analytics/events')
-  || text.includes('Failed to load resource: the server responded with a status of 404')
-);
+const shouldIgnoreConsoleError = (text: string) =>
+  text.includes('/api/analytics/events') ||
+  text.includes('Failed to load resource: the server responded with a status of 404');
 
 test('editor boots without runtime exceptions', async ({ page }) => {
   const runtimeErrors: string[] = [];

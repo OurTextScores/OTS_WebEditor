@@ -14,34 +14,46 @@ test('static editor bundle loads the score without runtime errors', async ({ pag
   const pageErrors: Error[] = [];
   page.on('pageerror', (error) => pageErrors.push(error));
 
-  await page.goto(`${BASE}/score-editor/index.html?score=/score-editor/test_scores/three_notes_cde.musicxml`, {
-    waitUntil: 'domcontentloaded',
-  });
+  await page.goto(
+    `${BASE}/score-editor/index.html?score=/score-editor/test_scores/three_notes_cde.musicxml`,
+    {
+      waitUntil: 'domcontentloaded',
+    },
+  );
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
 
   expect(pageErrors).toEqual([]);
 });
 
-test('static player bundle loads under the /score-editor base path and reports readiness', async ({ page, request }) => {
+test('static player bundle loads under the /score-editor base path and reports readiness', async ({
+  page,
+  request,
+}) => {
   const pageErrors: Error[] = [];
   page.on('pageerror', (error) => pageErrors.push(error));
   await request.delete(`${BASE}/api/analytics/__test-log`);
 
-  await page.goto(`${BASE}/score-editor/index.html?score=/score-editor/test_scores/three_notes_cde.musicxml&embed=player`, {
-    waitUntil: 'domcontentloaded',
-  });
+  await page.goto(
+    `${BASE}/score-editor/index.html?score=/score-editor/test_scores/three_notes_cde.musicxml&embed=player`,
+    {
+      waitUntil: 'domcontentloaded',
+    },
+  );
 
   await expect(page.getByTestId('embedded-score-player')).toBeVisible();
   await expect(page.getByTestId('player-svg').locator('svg')).toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId('player-seek')).toBeEnabled();
   expect(Number(await page.getByTestId('player-seek').getAttribute('max'))).toBeGreaterThan(0);
-  await expect.poll(async () => {
-    const response = await request.get(`${BASE}/api/analytics/__test-log`);
-    const body = await response.json();
-    return body.events.some((entry: { payload?: { eventName?: string } }) => (
-      entry.payload?.eventName === 'score_player_loaded'
-    ));
-  }).toBe(true);
+  await expect
+    .poll(async () => {
+      const response = await request.get(`${BASE}/api/analytics/__test-log`);
+      const body = await response.json();
+      return body.events.some(
+        (entry: { payload?: { eventName?: string } }) =>
+          entry.payload?.eventName === 'score_player_loaded',
+      );
+    })
+    .toBe(true);
   expect(pageErrors).toEqual([]);
 });
 
@@ -54,9 +66,7 @@ test.describe('Analytics Stub', () => {
   test('POST /api/analytics/events returns 201 with valid payload', async ({ request }) => {
     const response = await request.post(`${BASE}/api/analytics/events`, {
       data: {
-        events: [
-          { event: 'score_editor_test_event', properties: { foo: 'bar' } },
-        ],
+        events: [{ event: 'score_editor_test_event', properties: { foo: 'bar' } }],
       },
     });
     expect(response.status()).toBe(201);
@@ -68,9 +78,7 @@ test.describe('Analytics Stub', () => {
     // Send an event
     await request.post(`${BASE}/api/analytics/events`, {
       data: {
-        events: [
-          { event: 'score_editor_page_view', properties: { page: '/editor' } },
-        ],
+        events: [{ event: 'score_editor_page_view', properties: { page: '/editor' } }],
       },
     });
 
@@ -117,7 +125,7 @@ test.describe('Trace Header Capture', () => {
   test('analytics stub captures trace headers from request', async ({ request }) => {
     const traceHeaders = {
       'x-request-id': 'test-req-id-12345',
-      'traceparent': '00-abcdef1234567890abcdef1234567890-abcdef1234567890-01',
+      traceparent: '00-abcdef1234567890abcdef1234567890-abcdef1234567890-01',
     };
 
     await request.post(`${BASE}/api/analytics/events`, {
@@ -130,7 +138,7 @@ test.describe('Trace Header Capture', () => {
     expect(body.events).toHaveLength(1);
     expect(body.events[0].traceHeaders['x-request-id']).toBe('test-req-id-12345');
     expect(body.events[0].traceHeaders['traceparent']).toBe(
-      '00-abcdef1234567890abcdef1234567890-abcdef1234567890-01'
+      '00-abcdef1234567890abcdef1234567890-abcdef1234567890-01',
     );
   });
 });

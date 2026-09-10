@@ -176,7 +176,8 @@ describe('runMusicAgentRouter', () => {
 
   it('marks fallback functional harmony requests as applyable when prompt explicitly asks to add Roman numerals to the score', async () => {
     delete process.env.OPENAI_API_KEY;
-    const resolvedXml = '<score-partwise version="3.1"><work><work-title>Resolved base</work-title></work></score-partwise>';
+    const resolvedXml =
+      '<score-partwise version="3.1"><work><work-title>Resolved base</work-title></work></score-partwise>';
     mocked.runFunctionalHarmonyAnalyzeService.mockResolvedValue({
       status: 200,
       body: {
@@ -377,7 +378,9 @@ describe('runMusicAgentRouter', () => {
         planner: {
           parsedOps: [{ op: 'set_key_signature', fifths: 1 }],
           supportedSteps: [{ index: 0, text: 'Change key signature to G major', opCount: 1 }],
-          unsupportedSteps: [{ index: 1, text: 'Fix beaming in bars 10-12', reason: 'unsupported' }],
+          unsupportedSteps: [
+            { index: 1, text: 'Fix beaming in bars 10-12', reason: 'unsupported' },
+          ],
         },
         execution: { ok: true },
       },

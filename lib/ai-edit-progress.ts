@@ -16,7 +16,7 @@ export const AI_EDIT_PROGRESS_PHASES = [
   'candidate.finalized',
 ] as const;
 
-export type AiEditProgressPhase = typeof AI_EDIT_PROGRESS_PHASES[number];
+export type AiEditProgressPhase = (typeof AI_EDIT_PROGRESS_PHASES)[number];
 export type AiEditProgressOperation = 'patch' | 'deep' | 'feedback';
 
 export const AI_EDIT_PROGRESS_TOOLS = [
@@ -30,7 +30,7 @@ export const AI_EDIT_PROGRESS_TOOLS = [
   'finalize',
 ] as const;
 
-export type AiEditProgressTool = typeof AI_EDIT_PROGRESS_TOOLS[number];
+export type AiEditProgressTool = (typeof AI_EDIT_PROGRESS_TOOLS)[number];
 
 export type AiEditProgressUpdate = {
   phase: AiEditProgressPhase;

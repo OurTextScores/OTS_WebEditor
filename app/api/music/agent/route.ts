@@ -5,9 +5,8 @@ import { applyTraceHeaders, resolveTraceContext } from '../../../../lib/trace-ht
 
 export const runtime = 'nodejs';
 
-const asRecord = (value: unknown): Record<string, unknown> | null => (
-  value && typeof value === 'object' ? value as Record<string, unknown> : null
-);
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
 
 const readTrimmedString = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
 
@@ -20,9 +19,8 @@ const routeWouldUseServerAiKey = (body: unknown) => {
   if (requestApiKey) {
     return false;
   }
-  const provider = readTrimmedString(data?.provider).toLowerCase() === 'anthropic'
-    ? 'anthropic'
-    : 'openai';
+  const provider =
+    readTrimmedString(data?.provider).toLowerCase() === 'anthropic' ? 'anthropic' : 'openai';
   return provider === 'anthropic'
     ? Boolean((process.env.ANTHROPIC_API_KEY || '').trim())
     : Boolean((process.env.OPENAI_API_KEY || '').trim());
@@ -44,21 +42,20 @@ export async function POST(request: Request) {
     body = await request.json();
   } catch {
     const durationMs = Date.now() - startedAt;
-    console.info(JSON.stringify({
-      event: 'music_agent.request.summary',
-      traceId,
-      requestId: traceContext.requestId,
-      sessionId: traceContext.sessionId || null,
-      route: '/api/music/agent',
-      status: 400,
-      durationMs,
-      mode: 'invalid-json',
-      selectedTool: null,
-    }));
-    return tracedJson(
-      { error: 'Invalid JSON body.', traceId },
-      { status: 400 },
+    console.info(
+      JSON.stringify({
+        event: 'music_agent.request.summary',
+        traceId,
+        requestId: traceContext.requestId,
+        sessionId: traceContext.sessionId || null,
+        route: '/api/music/agent',
+        status: 400,
+        durationMs,
+        mode: 'invalid-json',
+        selectedTool: null,
+      }),
     );
+    return tracedJson({ error: 'Invalid JSON body.', traceId }, { status: 400 });
   }
 
   if (routeWouldUseServerAiKey(body)) {
@@ -72,7 +69,11 @@ export async function POST(request: Request) {
     }
   }
 
-  const traceLog = (level: 'info' | 'warn' | 'error', event: string, payload: Record<string, unknown>) => {
+  const traceLog = (
+    level: 'info' | 'warn' | 'error',
+    event: string,
+    payload: Record<string, unknown>,
+  ) => {
     const serialized = JSON.stringify({
       event,
       route: '/api/music/agent',
@@ -113,18 +114,21 @@ export async function POST(request: Request) {
   }
 
   const durationMs = Date.now() - startedAt;
-  const resultBody = (result.body && typeof result.body === 'object') ? result.body as Record<string, unknown> : {};
-  console.info(JSON.stringify({
-    event: 'music_agent.request.summary',
-    traceId,
-    requestId: traceContext.requestId,
-    sessionId: traceContext.sessionId || null,
-    route: '/api/music/agent',
-    status: result.status,
-    durationMs,
-    mode: typeof resultBody.mode === 'string' ? resultBody.mode : null,
-    selectedTool: typeof resultBody.selectedTool === 'string' ? resultBody.selectedTool : null,
-  }));
+  const resultBody =
+    result.body && typeof result.body === 'object' ? (result.body as Record<string, unknown>) : {};
+  console.info(
+    JSON.stringify({
+      event: 'music_agent.request.summary',
+      traceId,
+      requestId: traceContext.requestId,
+      sessionId: traceContext.sessionId || null,
+      route: '/api/music/agent',
+      status: result.status,
+      durationMs,
+      mode: typeof resultBody.mode === 'string' ? resultBody.mode : null,
+      selectedTool: typeof resultBody.selectedTool === 'string' ? resultBody.selectedTool : null,
+    }),
+  );
 
   return tracedJson(
     {

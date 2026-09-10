@@ -4,15 +4,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { boundingRect, setupScoreEditorTest, testGlobals } from './test-harness';
 
 const mocked = vi.hoisted(() => ({
-    loadWebMscore: vi.fn(),
-    loadWebMscoreInProcess: vi.fn(),
+  loadWebMscore: vi.fn(),
+  loadWebMscoreInProcess: vi.fn(),
 }));
 const mockedNavigation = vi.hoisted(() => ({ useSearchParams: vi.fn() }));
 
 vi.mock('next/navigation', () => ({ useSearchParams: mockedNavigation.useSearchParams }));
 vi.mock('../../lib/webmscore-loader', () => ({
-    loadWebMscore: mocked.loadWebMscore,
-    loadWebMscoreInProcess: mocked.loadWebMscoreInProcess,
+  loadWebMscore: mocked.loadWebMscore,
+  loadWebMscoreInProcess: mocked.loadWebMscoreInProcess,
 }));
 
 import ScoreEditor from '../../components/ScoreEditor';
@@ -25,7 +25,9 @@ describe('ScoreEditor: selection geometry and overlay refresh', () => {
 
     const score = {
       destroy: vi.fn(),
-      saveSvg: vi.fn(async () => '<svg><g id="page-2"><g class="Note"><path id="inner"/></g></g></svg>'),
+      saveSvg: vi.fn(
+        async () => '<svg><g id="page-2"><g class="Note"><path id="inner"/></g></g></svg>',
+      ),
       selectElementAtPoint: vi.fn(async () => true),
       metadata: vi.fn(async () => ({})),
       measurePositions: vi.fn(async () => ({})),
@@ -48,13 +50,21 @@ describe('ScoreEditor: selection geometry and overlay refresh', () => {
     const file = new File([new Uint8Array([1])], 'demo.mscz', { type: 'application/octet-stream' });
     await user.upload(screen.getByTestId('open-score-input'), file);
 
-    await waitFor(() => expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy(),
+    );
 
     const inner = screen.getByTestId('svg-container').querySelector('#inner');
     expect(inner).toBeTruthy();
     fireEvent.click(inner!);
 
-    await waitFor(() => expect(score.selectElementAtPoint).toHaveBeenCalledWith(1, expect.any(Number), expect.any(Number)));
+    await waitFor(() =>
+      expect(score.selectElementAtPoint).toHaveBeenCalledWith(
+        1,
+        expect.any(Number),
+        expect.any(Number),
+      ),
+    );
 
     await screen.findByTestId('selection-overlay');
 
@@ -131,7 +141,9 @@ describe('ScoreEditor: selection geometry and overlay refresh', () => {
 
     const file = new File([new Uint8Array([1])], 'demo.mscz', { type: 'application/octet-stream' });
     await user.upload(screen.getByTestId('open-score-input'), file);
-    await waitFor(() => expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy(),
+    );
 
     const svg = screen.getByTestId('svg-container').querySelector('svg');
     expect(svg).toBeTruthy();
@@ -203,7 +215,9 @@ describe('ScoreEditor: selection geometry and overlay refresh', () => {
 
     const file = new File([new Uint8Array([1])], 'demo.mscz', { type: 'application/octet-stream' });
     await user.upload(screen.getByTestId('open-score-input'), file);
-    await waitFor(() => expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy(),
+    );
 
     const note = screen.getByTestId('svg-container').querySelector('.Note');
     expect(note).toBeTruthy();
@@ -214,7 +228,9 @@ describe('ScoreEditor: selection geometry and overlay refresh', () => {
 
     await user.click(screen.getByTestId('btn-pitch-up'));
 
-    await waitFor(() => expect(screen.getByTestId('selection-overlay')).toHaveStyle({ left: '20px', top: '30px' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('selection-overlay')).toHaveStyle({ left: '20px', top: '30px' }),
+    );
     expect(score.pitchUp).toHaveBeenCalled();
   });
 });

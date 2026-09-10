@@ -50,7 +50,9 @@ test('repeat count sets endRepeat', async ({ page }) => {
   await dropdown.getByTestId('btn-repeat-count-3').click();
 
   await expect
-    .poll(async () => (await readMscx(page)).includes('<endRepeat>3</endRepeat>'), { timeout: 20_000 })
+    .poll(async () => (await readMscx(page)).includes('<endRepeat>3</endRepeat>'), {
+      timeout: 20_000,
+    })
     .toBe(true);
 });
 
@@ -63,7 +65,9 @@ test('barline double applies subtype', async ({ page }) => {
   await dropdown.getByTestId('btn-barline-2').click();
 
   await expect
-    .poll(async () => countMatches(await readMscx(page), /<subtype>double<\/subtype>/g), { timeout: 20_000 })
+    .poll(async () => countMatches(await readMscx(page), /<subtype>double<\/subtype>/g), {
+      timeout: 20_000,
+    })
     .toBeGreaterThan(doubleBarBefore);
 });
 

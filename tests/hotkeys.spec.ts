@@ -39,19 +39,25 @@ test('hotkeys drive delete, undo/redo, and copy/paste', async ({ page }) => {
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
 
   await page.keyboard.press('Delete');
-  await expect.poll(async () => countNotes(await readMscx()), { timeout: 20_000 }).toBe(initial - 1);
+  await expect
+    .poll(async () => countNotes(await readMscx()), { timeout: 20_000 })
+    .toBe(initial - 1);
 
   await page.keyboard.press('Control+Z');
   await expect.poll(async () => countNotes(await readMscx()), { timeout: 20_000 }).toBe(initial);
 
   await page.keyboard.press('Control+Y');
-  await expect.poll(async () => countNotes(await readMscx()), { timeout: 20_000 }).toBe(initial - 1);
+  await expect
+    .poll(async () => countNotes(await readMscx()), { timeout: 20_000 })
+    .toBe(initial - 1);
 
   await page.keyboard.press('Control+Z');
   await expect.poll(async () => countNotes(await readMscx()), { timeout: 20_000 }).toBe(initial);
 
   await page.keyboard.press('Meta+Shift+Z');
-  await expect.poll(async () => countNotes(await readMscx()), { timeout: 20_000 }).toBe(initial - 1);
+  await expect
+    .poll(async () => countNotes(await readMscx()), { timeout: 20_000 })
+    .toBe(initial - 1);
 
   await page.keyboard.press('Control+Z');
   await expect.poll(async () => countNotes(await readMscx()), { timeout: 20_000 }).toBe(initial);
@@ -85,13 +91,16 @@ test('multi-selection copy/paste with shift-click', async ({ page }) => {
   // not a stable musical identity. Resolve C, D, and E by their current x positions
   // before each click (also avoiding coordinates captured mid zoom transition).
   const notes = page.locator('svg .Note');
-  const currentNoteIndices = async () => notes.evaluateAll((nodes) => nodes
-    .map((node, index) => {
-      const rect = node.getBoundingClientRect();
-      return { index, x: rect.left + rect.width / 2 };
-    })
-    .sort((a, b) => a.x - b.x)
-    .map(({ index }) => index));
+  const currentNoteIndices = async () =>
+    notes.evaluateAll((nodes) =>
+      nodes
+        .map((node, index) => {
+          const rect = node.getBoundingClientRect();
+          return { index, x: rect.left + rect.width / 2 };
+        })
+        .sort((a, b) => a.x - b.x)
+        .map(({ index }) => index),
+    );
 
   // Select first note
   let noteIndices = await currentNoteIndices();

@@ -17,10 +17,12 @@ describe('POST /api/music/generate route', () => {
       body: { specialist: 'notagen', generation: null },
     });
 
-    const response = await POST(new Request('http://localhost/api/music/generate', {
-      method: 'POST',
-      body: JSON.stringify({ dryRun: true }),
-    }));
+    const response = await POST(
+      new Request('http://localhost/api/music/generate', {
+        method: 'POST',
+        body: JSON.stringify({ dryRun: true }),
+      }),
+    );
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
@@ -35,10 +37,12 @@ describe('POST /api/music/generate route', () => {
       body: { error: 'Generated ABC failed validation.' },
     });
 
-    const response = await POST(new Request('http://localhost/api/music/generate', {
-      method: 'POST',
-      body: JSON.stringify({}),
-    }));
+    const response = await POST(
+      new Request('http://localhost/api/music/generate', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      }),
+    );
 
     expect(response.status).toBe(422);
     await expect(response.json()).resolves.toMatchObject({
@@ -46,4 +50,3 @@ describe('POST /api/music/generate route', () => {
     });
   });
 });
-

@@ -10,9 +10,8 @@ import {
 
 export const runtime = 'nodejs';
 
-const asRecord = (value: unknown): Record<string, unknown> | null => (
-  value && typeof value === 'object' ? value as Record<string, unknown> : null
-);
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
 
 export async function POST(request: Request) {
   const startedAt = Date.now();
@@ -29,8 +28,10 @@ export async function POST(request: Request) {
     const verification = asRecord(proposal?.verification);
     summaryExtra = {
       ...summaryExtra,
-      errorCategory: typeof result.body.errorCategory === 'string' ? result.body.errorCategory : null,
-      finalizedCandidateId: typeof deepEdit?.finalizedCandidateId === 'string' ? deepEdit.finalizedCandidateId : null,
+      errorCategory:
+        typeof result.body.errorCategory === 'string' ? result.body.errorCategory : null,
+      finalizedCandidateId:
+        typeof deepEdit?.finalizedCandidateId === 'string' ? deepEdit.finalizedCandidateId : null,
       candidateCount: Array.isArray(deepEdit?.candidates) ? deepEdit.candidates.length : null,
       verificationLevel: typeof verification?.level === 'string' ? verification.level : null,
       llmCalls: typeof counters?.llmCalls === 'number' ? counters.llmCalls : null,
@@ -41,15 +42,16 @@ export async function POST(request: Request) {
       requestBudgetMs: typeof budgets?.budgetMs === 'number' ? budgets.budgetMs : null,
     };
   };
-  const logSummary = () => logApiRouteSummary({
-    event: 'music.patch.deep.summary',
-    route: '/api/music/patch/deep',
-    method: 'POST',
-    status,
-    startedAt,
-    trace,
-    extra: summaryExtra,
-  });
+  const logSummary = () =>
+    logApiRouteSummary({
+      event: 'music.patch.deep.summary',
+      route: '/api/music/patch/deep',
+      method: 'POST',
+      status,
+      startedAt,
+      trace,
+      extra: summaryExtra,
+    });
   try {
     const access = requireSensitiveApiAccess({
       request,
@@ -78,7 +80,10 @@ export async function POST(request: Request) {
     };
     if (typeof data?.content !== 'string' || !data.content.trim()) {
       status = 400;
-      const response = NextResponse.json({ error: 'Base MusicXML content is required.' }, { status });
+      const response = NextResponse.json(
+        { error: 'Base MusicXML content is required.' },
+        { status },
+      );
       applyTraceHeaders(response.headers, trace);
       return response;
     }
@@ -90,7 +95,11 @@ export async function POST(request: Request) {
         startedAt,
         parentSignal: request.signal,
         run: async (onProgress, signal) => {
-          const result = await runDeepEditService(body, { traceContext: trace, signal, onProgress });
+          const result = await runDeepEditService(body, {
+            traceContext: trace,
+            signal,
+            onProgress,
+          });
           recordResultSummary(result);
           return result;
         },

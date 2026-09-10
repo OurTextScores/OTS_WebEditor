@@ -10,7 +10,8 @@ const OPENAI_MODELS_RESPONSE = {
 };
 
 const SCORE_SESSION_ID = 'sess_assistant_diff_test';
-const scoreHash = (xml: string) => `sha256:${createHash('sha256').update(xml, 'utf8').digest('hex')}`;
+const scoreHash = (xml: string) =>
+  `sha256:${createHash('sha256').update(xml, 'utf8').digest('hex')}`;
 
 type FeedbackProposalSession = {
   id?: unknown;
@@ -173,21 +174,21 @@ const buildDiffFeedbackResponse = (
   };
 };
 
-const countHighlights = async (page: Page) => (
-  await page.getByTestId('compare-left-highlight').count()
-  + await page.getByTestId('compare-right-highlight').count()
-);
+const countHighlights = async (page: Page) =>
+  (await page.getByTestId('compare-left-highlight').count()) +
+  (await page.getByTestId('compare-right-highlight').count());
 
 const proposalUserEditDiff = (request: { userEdits?: unknown }): string => {
   const edits = request.userEdits;
   if (!Array.isArray(edits)) {
     throw new Error('Expected feedback request to contain userEdits.');
   }
-  const proposalEdit = edits.find((entry): entry is Record<string, unknown> => (
-    typeof entry === 'object'
-    && entry !== null
-    && (entry as Record<string, unknown>).side === 'proposal'
-  ));
+  const proposalEdit = edits.find(
+    (entry): entry is Record<string, unknown> =>
+      typeof entry === 'object' &&
+      entry !== null &&
+      (entry as Record<string, unknown>).side === 'proposal',
+  );
   if (!proposalEdit || typeof proposalEdit.diff !== 'string') {
     throw new Error('Expected feedback request to contain a proposal edit diff.');
   }
@@ -213,12 +214,16 @@ const openAssistantProposalCompare = async (
   if (options.effort) {
     await page.getByTestId('ai-edit-effort').selectOption(options.effort);
   }
-  await page.getByPlaceholder('Describe the change you want in the MusicXML.').fill('Change the first note to G.');
+  await page
+    .getByPlaceholder('Describe the change you want in the MusicXML.')
+    .fill('Change the first note to G.');
   await page.getByRole('button', { name: 'Generate Patch' }).click();
 
   await waitForDiffReviewReady(page);
   await expect(page.getByText('Current vs Assistant Proposal')).toBeVisible();
-  await expect(page.getByTestId('compare-pane-right').getByText('Loading checkpoint score...')).toHaveCount(0, { timeout: 20_000 });
+  await expect(
+    page.getByTestId('compare-pane-right').getByText('Loading checkpoint score...'),
+  ).toHaveCount(0, { timeout: 20_000 });
 };
 
 test.describe('Assistant diff editor flow', () => {
@@ -249,7 +254,10 @@ test.describe('Assistant diff editor flow', () => {
     await page.route('**/api/music/patch', async (route) => {
       patchRequest = route.request().postDataJSON();
       const baseXml = String(patchRequest?.content || '');
-      const proposalBaseXml = baseXml.replace('<score-partwise', '<!-- server serialization -->\n<score-partwise');
+      const proposalBaseXml = baseXml.replace(
+        '<score-partwise',
+        '<!-- server serialization -->\n<score-partwise',
+      );
       const proposedXml = proposalBaseXml.replace(/<step>\s*C\s*<\/step>/, '<step>G</step>');
       const baseContentHash = scoreHash(proposalBaseXml);
       const baseIdentityHash = computeMusicXmlIdentityHashServer(proposalBaseXml);
@@ -287,19 +295,29 @@ test.describe('Assistant diff editor flow', () => {
     expect(String(capturedPatchRequest?.content)).toContain('<score-partwise');
     expect(String(capturedPatchRequest?.promptText)).toContain('Change the first note to G.');
 
-    await expect.poll(async () => (
-      await page.getByTestId('compare-left-highlight').count()
-      + await page.getByTestId('compare-right-highlight').count()
-    ), { timeout: 20_000 }).toBeGreaterThan(0);
+    await expect
+      .poll(
+        async () =>
+          (await page.getByTestId('compare-left-highlight').count()) +
+          (await page.getByTestId('compare-right-highlight').count()),
+        { timeout: 20_000 },
+      )
+      .toBeGreaterThan(0);
 
     await page.getByRole('button', { name: 'Apply All AI Changes' }).click();
 
-    await expect.poll(async () => (
-      await page.getByTestId('compare-left-highlight').count()
-      + await page.getByTestId('compare-right-highlight').count()
-    ), { timeout: 20_000 }).toBe(0);
+    await expect
+      .poll(
+        async () =>
+          (await page.getByTestId('compare-left-highlight').count()) +
+          (await page.getByTestId('compare-right-highlight').count()),
+        { timeout: 20_000 },
+      )
+      .toBe(0);
     const savedXml = await page.evaluate(async () => {
-      const score = (window as typeof window & { __webmscore?: { saveXml?: () => Promise<unknown> } }).__webmscore;
+      const score = (
+        window as typeof window & { __webmscore?: { saveXml?: () => Promise<unknown> } }
+      ).__webmscore;
       const data = await score?.saveXml?.();
       if (typeof data === 'string') {
         return data;
@@ -334,7 +352,9 @@ test.describe('Assistant diff editor flow', () => {
     await page.getByTestId('tab-ai').click();
     await page.getByPlaceholder('Enter model name').fill('gpt-test-model');
     await page.getByPlaceholder('Paste your key').fill('test-key');
-    await page.getByPlaceholder('Describe the change you want in the MusicXML.').fill('Change the first note to G.');
+    await page
+      .getByPlaceholder('Describe the change you want in the MusicXML.')
+      .fill('Change the first note to G.');
     await page.getByRole('button', { name: 'Generate Patch' }).click();
 
     const working = page.getByTestId('ai-edit-working');
@@ -349,60 +369,73 @@ test.describe('Assistant diff editor flow', () => {
     await expect(page.getByText('Request cancelled.')).toHaveCount(0);
   });
 
-  test('patch generation displays streamed server progress before the terminal result', async ({ page }) => {
+  test('patch generation displays streamed server progress before the terminal result', async ({
+    page,
+  }) => {
     await page.addInitScript(() => {
       const originalFetch = window.fetch.bind(window);
       window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url = typeof input === 'string'
-          ? input
-          : input instanceof URL ? input.toString() : input.url;
+        const url =
+          typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
         if (!url.includes('/api/music/patch') || url.includes('/api/music/patch/deep')) {
           return originalFetch(input, init);
         }
         const encoder = new TextEncoder();
-        const event = (name: string, payload: Record<string, unknown>) => (
-          encoder.encode(`event: ${name}\ndata: ${JSON.stringify(payload)}\n\n`)
-        );
-        return new Response(new ReadableStream<Uint8Array>({
-          start(controller) {
-            controller.enqueue(event('progress', {
-              version: 'ai-edit-progress@1',
-              type: 'progress',
-              operation: 'patch',
-              sequence: 1,
-              elapsedMs: 5,
-              phase: 'request.accepted',
-              message: 'Request accepted',
-            }));
-            window.setTimeout(() => controller.enqueue(event('progress', {
-              version: 'ai-edit-progress@1',
-              type: 'progress',
-              operation: 'patch',
-              sequence: 2,
-              elapsedMs: 50,
-              phase: 'candidate.received',
-              message: 'Checking candidate 1 of 3',
-              attempt: 1,
-              maxAttempts: 3,
-              llmCalls: 1,
-            })), 50);
-            window.setTimeout(() => {
-              controller.enqueue(event('result', {
-                version: 'ai-edit-progress@1',
-                type: 'result',
-                operation: 'patch',
-                sequence: 3,
-                elapsedMs: 1_500,
-                status: 422,
-                body: { error: 'Synthetic stream failure.' },
-              }));
-              controller.close();
-            }, 1_500);
+        const event = (name: string, payload: Record<string, unknown>) =>
+          encoder.encode(`event: ${name}\ndata: ${JSON.stringify(payload)}\n\n`);
+        return new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(
+                event('progress', {
+                  version: 'ai-edit-progress@1',
+                  type: 'progress',
+                  operation: 'patch',
+                  sequence: 1,
+                  elapsedMs: 5,
+                  phase: 'request.accepted',
+                  message: 'Request accepted',
+                }),
+              );
+              window.setTimeout(
+                () =>
+                  controller.enqueue(
+                    event('progress', {
+                      version: 'ai-edit-progress@1',
+                      type: 'progress',
+                      operation: 'patch',
+                      sequence: 2,
+                      elapsedMs: 50,
+                      phase: 'candidate.received',
+                      message: 'Checking candidate 1 of 3',
+                      attempt: 1,
+                      maxAttempts: 3,
+                      llmCalls: 1,
+                    }),
+                  ),
+                50,
+              );
+              window.setTimeout(() => {
+                controller.enqueue(
+                  event('result', {
+                    version: 'ai-edit-progress@1',
+                    type: 'result',
+                    operation: 'patch',
+                    sequence: 3,
+                    elapsedMs: 1_500,
+                    status: 422,
+                    body: { error: 'Synthetic stream failure.' },
+                  }),
+                );
+                controller.close();
+              }, 1_500);
+            },
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'text/event-stream; charset=utf-8' },
           },
-        }), {
-          status: 200,
-          headers: { 'content-type': 'text/event-stream; charset=utf-8' },
-        });
+        );
       };
     });
 
@@ -412,11 +445,17 @@ test.describe('Assistant diff editor flow', () => {
     await page.getByTestId('tab-ai').click();
     await page.getByPlaceholder('Enter model name').fill('gpt-test-model');
     await page.getByPlaceholder('Paste your key').fill('test-key');
-    await page.getByPlaceholder('Describe the change you want in the MusicXML.').fill('Change the first note to G.');
+    await page
+      .getByPlaceholder('Describe the change you want in the MusicXML.')
+      .fill('Change the first note to G.');
     await page.getByRole('button', { name: 'Generate Patch' }).click();
 
-    await expect(page.getByTestId('ai-edit-working')).toContainText('Checking candidate 1 of 3', { timeout: 5_000 });
-    await expect(page.getByText('Synthetic stream failure.').first()).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByTestId('ai-edit-working')).toContainText('Checking candidate 1 of 3', {
+      timeout: 5_000,
+    });
+    await expect(page.getByText('Synthetic stream failure.').first()).toBeVisible({
+      timeout: 5_000,
+    });
     await expect(page.getByTestId('ai-edit-working')).toHaveCount(0);
   });
 
@@ -435,14 +474,20 @@ test.describe('Assistant diff editor flow', () => {
     await page.getByTestId('tab-ai').click();
     await page.getByPlaceholder('Enter model name').fill('gpt-test-model');
     await page.getByPlaceholder('Paste your key').fill('test-key');
-    await page.getByPlaceholder('Describe the change you want in the MusicXML.').fill('Change the first note to G.');
+    await page
+      .getByPlaceholder('Describe the change you want in the MusicXML.')
+      .fill('Change the first note to G.');
     await page.getByRole('button', { name: 'Generate Patch' }).click();
 
-    await expect(page.getByText('AI response is not valid JSON.').first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('AI response is not valid JSON.').first()).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(page.getByTestId('checkpoint-compare-modal')).toHaveCount(0);
   });
 
-  test('missing verified patch endpoint does not fall back to a direct LLM proxy', async ({ page }) => {
+  test('missing verified patch endpoint does not fall back to a direct LLM proxy', async ({
+    page,
+  }) => {
     let genericLlmCalls = 0;
     await page.route('**/api/music/patch', async (route) => {
       await route.fulfill({ status: 404, body: '{}' });
@@ -458,10 +503,14 @@ test.describe('Assistant diff editor flow', () => {
     await page.getByTestId('tab-ai').click();
     await page.getByPlaceholder('Enter model name').fill('gpt-test-model');
     await page.getByPlaceholder('Paste your key').fill('test-key');
-    await page.getByPlaceholder('Describe the change you want in the MusicXML.').fill('Change the first note to G.');
+    await page
+      .getByPlaceholder('Describe the change you want in the MusicXML.')
+      .fill('Change the first note to G.');
     await page.getByRole('button', { name: 'Generate Patch' }).click();
 
-    await expect(page.getByText('Patch request failed: 404').first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Patch request failed: 404').first()).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(page.getByTestId('checkpoint-compare-modal')).toHaveCount(0);
     expect(genericLlmCalls).toBe(0);
   });
@@ -518,7 +567,9 @@ test.describe('Assistant diff editor flow', () => {
     await page.getByRole('button', { name: 'Apply All AI Changes' }).click();
     await expect.poll(() => countHighlights(page), { timeout: 20_000 }).toBe(0);
     const savedXml = await page.evaluate(async () => {
-      const score = (window as typeof window & { __webmscore?: { saveXml?: () => Promise<unknown> } }).__webmscore;
+      const score = (
+        window as typeof window & { __webmscore?: { saveXml?: () => Promise<unknown> } }
+      ).__webmscore;
       const data = await score?.saveXml?.();
       if (typeof data === 'string') {
         return data;
@@ -582,7 +633,9 @@ test.describe('Assistant diff editor flow', () => {
     await expect(page.getByRole('button', { name: /Send Feedback \(1 comment\)/ })).toBeVisible();
   });
 
-  test('send feedback closes diff while request is running and reopens with new proposal', async ({ page }) => {
+  test('send feedback closes diff while request is running and reopens with new proposal', async ({
+    page,
+  }) => {
     let feedbackCalls = 0;
     const feedbackRequests: DiffFeedbackRequest[] = [];
     let releaseFeedback: (() => void) | null = null;
@@ -598,20 +651,25 @@ test.describe('Assistant diff editor flow', () => {
       await feedbackPaused;
       await route.fulfill({
         status: 200,
-        body: JSON.stringify(buildDiffFeedbackResponse(
-          'A',
-          1,
-          String(feedbackPayload.content || ''),
-          { effort: 'thorough' },
-        )),
+        body: JSON.stringify(
+          buildDiffFeedbackResponse('A', 1, String(feedbackPayload.content || ''), {
+            effort: 'thorough',
+          }),
+        ),
       });
     });
 
     await openAssistantProposalCompare(page, { effort: 'thorough' });
     await page.getByRole('button', { name: 'Comment' }).first().click();
-    await page.getByPlaceholder('Describe the revision needed...').first().fill('Please use A instead.');
+    await page
+      .getByPlaceholder('Describe the revision needed...')
+      .first()
+      .fill('Please use A instead.');
     await page.getByRole('button', { name: 'Enter' }).first().click();
-    await page.getByRole('button', { name: /Send Feedback/ }).first().click();
+    await page
+      .getByRole('button', { name: /Send Feedback/ })
+      .first()
+      .click();
 
     await expect(page.getByTestId('checkpoint-compare-modal')).toHaveCount(0, { timeout: 5_000 });
     await expect(page.getByTestId('ai-diff-feedback-working')).toBeVisible({ timeout: 5_000 });
@@ -669,11 +727,15 @@ test.describe('Assistant diff editor flow', () => {
 
     await expect(working).toHaveCount(0, { timeout: 5_000 });
     await waitForDiffReviewReady(page);
-    await expect(page.getByText(/Assistant Proposal vs Current|Current vs Assistant Proposal/)).toBeVisible();
+    await expect(
+      page.getByText(/Assistant Proposal vs Current|Current vs Assistant Proposal/),
+    ).toBeVisible();
     await expect(page.getByText('Iteration 1 review')).toBeVisible();
     await expect(page.getByText('Iteration 2 review')).toHaveCount(0);
     await expect(page.getByText(/Diff feedback failed:/)).toHaveCount(0);
-    await expect(page.getByRole('button', { name: /Send Feedback \(1 edited score\)/ })).toBeEnabled();
+    await expect(
+      page.getByRole('button', { name: /Send Feedback \(1 edited score\)/ }),
+    ).toBeEnabled();
   });
 
   test('successful edit-only feedback starts a clean proposal baseline', async ({ page }) => {
@@ -686,11 +748,9 @@ test.describe('Assistant diff editor flow', () => {
       const step = requests.length === 1 ? 'A' : 'B';
       await route.fulfill({
         status: 200,
-        body: JSON.stringify(buildDiffFeedbackResponse(
-          step,
-          requests.length,
-          String(payload.content || ''),
-        )),
+        body: JSON.stringify(
+          buildDiffFeedbackResponse(step, requests.length, String(payload.content || '')),
+        ),
       });
     });
 
@@ -744,12 +804,22 @@ test.describe('Assistant diff editor flow', () => {
 
     await openAssistantProposalCompare(page);
     await page.getByRole('button', { name: 'Comment' }).first().click();
-    await page.getByPlaceholder('Describe the revision needed...').first().fill('Please adjust this phrase.');
+    await page
+      .getByPlaceholder('Describe the revision needed...')
+      .first()
+      .fill('Please adjust this phrase.');
     await page.getByRole('button', { name: 'Enter' }).first().click();
-    await page.getByPlaceholder('Overall feedback for the next revision...').fill('Overall dynamics are too aggressive.');
-    await page.getByRole('button', { name: /Send Feedback/ }).first().click();
+    await page
+      .getByPlaceholder('Overall feedback for the next revision...')
+      .fill('Overall dynamics are too aggressive.');
+    await page
+      .getByRole('button', { name: /Send Feedback/ })
+      .first()
+      .click();
 
-    await expect.poll(() => capturedGlobalComment, { timeout: 20_000 }).toContain('dynamics are too aggressive');
+    await expect
+      .poll(() => capturedGlobalComment, { timeout: 20_000 })
+      .toContain('dynamics are too aggressive');
   });
 
   test('diff feedback request carries iteration and advances review state', async ({ page }) => {
@@ -764,7 +834,9 @@ test.describe('Assistant diff editor flow', () => {
       const step = callCount === 1 ? 'A' : 'B';
       await route.fulfill({
         status: 200,
-        body: JSON.stringify(buildDiffFeedbackResponse(step, callCount, String(payload.content || ''))),
+        body: JSON.stringify(
+          buildDiffFeedbackResponse(step, callCount, String(payload.content || '')),
+        ),
       });
     });
 
@@ -773,7 +845,10 @@ test.describe('Assistant diff editor flow', () => {
     await page.getByRole('button', { name: 'Comment' }).first().click();
     await page.getByPlaceholder('Describe the revision needed...').first().fill('Round 1: use A.');
     await page.getByRole('button', { name: 'Enter' }).first().click();
-    await page.getByRole('button', { name: /Send Feedback/ }).first().click();
+    await page
+      .getByRole('button', { name: /Send Feedback/ })
+      .first()
+      .click();
 
     await expect.poll(() => callCount, { timeout: 20_000 }).toBe(1);
     await waitForDiffReviewReady(page);
@@ -781,7 +856,9 @@ test.describe('Assistant diff editor flow', () => {
     expect(requests[0]?.iteration).toBe(0);
   });
 
-  test('proposal-session continuity flows through consecutive feedback cycles', async ({ page }) => {
+  test('proposal-session continuity flows through consecutive feedback cycles', async ({
+    page,
+  }) => {
     let callCount = 0;
     const requests: DiffFeedbackRequest[] = [];
 
@@ -793,18 +870,27 @@ test.describe('Assistant diff editor flow', () => {
       const step = callCount === 1 ? 'A' : 'B';
       await route.fulfill({
         status: 200,
-        body: JSON.stringify(buildDiffFeedbackResponse(step, callCount, String(payload.content || ''))),
+        body: JSON.stringify(
+          buildDiffFeedbackResponse(step, callCount, String(payload.content || '')),
+        ),
       });
     });
 
     await openAssistantProposalCompare(page);
-    await expect(page.getByTestId('ai-proposal-audit')).toContainText('Cycle 1', { timeout: 20_000 });
+    await expect(page.getByTestId('ai-proposal-audit')).toContainText('Cycle 1', {
+      timeout: 20_000,
+    });
     await expect(page.getByTestId('ai-proposal-audit')).toContainText('apply-verified');
 
     // Cycle 1 feedback: reject the block and leave a global note.
     await page.getByRole('button', { name: 'Reject' }).first().dispatchEvent('click');
-    await page.getByPlaceholder('Overall feedback for the next revision...').fill('No slurs anywhere.');
-    await page.getByRole('button', { name: /Send Feedback/ }).first().click();
+    await page
+      .getByPlaceholder('Overall feedback for the next revision...')
+      .fill('No slurs anywhere.');
+    await page
+      .getByRole('button', { name: /Send Feedback/ })
+      .first()
+      .click();
     await expect.poll(() => callCount, { timeout: 20_000 }).toBe(1);
     await waitForDiffReviewReady(page);
     await expect(page.getByText('Iteration 2 review')).toBeVisible({ timeout: 20_000 });
@@ -816,7 +902,12 @@ test.describe('Assistant diff editor flow', () => {
     expect(firstSession?.originalInstruction).toBe('Change the first note to G.');
     expect(firstSession?.previousCycle?.cycle).toBe(1);
     expect(firstSession?.previousCycle?.patch?.format).toBe('musicxml-patch@1');
-    expect(String(firstSession?.previousCycle?.expectedCurrentContentHash || firstSession?.previousCycle?.baseContentHash)).toMatch(/^sha256:/);
+    expect(
+      String(
+        firstSession?.previousCycle?.expectedCurrentContentHash ||
+          firstSession?.previousCycle?.baseContentHash,
+      ),
+    ).toMatch(/^sha256:/);
     expect(firstSession?.constraints).toEqual([]);
     expect(requests[0]?.chatHistory).toBeUndefined();
 
@@ -824,7 +915,10 @@ test.describe('Assistant diff editor flow', () => {
     await page.getByRole('button', { name: 'Comment' }).first().click();
     await page.getByPlaceholder('Describe the revision needed...').first().fill('Round 2: use B.');
     await page.getByRole('button', { name: 'Enter' }).first().click();
-    await page.getByRole('button', { name: /Send Feedback/ }).first().click();
+    await page
+      .getByRole('button', { name: /Send Feedback/ })
+      .first()
+      .click();
     await expect.poll(() => callCount, { timeout: 20_000 }).toBe(2);
     await waitForDiffReviewReady(page);
 
@@ -835,10 +929,14 @@ test.describe('Assistant diff editor flow', () => {
     expect(secondSession?.previousCycle?.cycle).toBe(2);
     const constraints = secondSession?.constraints ?? [];
     expect(constraints.some((entry) => entry.kind === 'rejected')).toBe(true);
-    expect(constraints.some((entry) => entry.kind === 'note' && entry.text === 'No slurs anywhere.')).toBe(true);
+    expect(
+      constraints.some((entry) => entry.kind === 'note' && entry.text === 'No slurs anywhere.'),
+    ).toBe(true);
   });
 
-  test('deep edit toggle routes to the deep endpoint and surfaces the deep audit', async ({ page }) => {
+  test('deep edit toggle routes to the deep endpoint and surfaces the deep audit', async ({
+    page,
+  }) => {
     let deepRequest: Record<string, unknown> | null = null;
     let shallowCalls = 0;
     await page.route('**/api/music/patch', async (route) => {
@@ -877,8 +975,20 @@ test.describe('Assistant diff editor flow', () => {
             finalizedCandidateId: 'cand-2',
             rationale: 'Second candidate rendered cleanly and keeps the voicing.',
             candidates: [
-              { id: 'cand-1', parentId: 'base', createdByTool: 'apply_patch', verification: 'patch_apply', scores: [] },
-              { id: 'cand-2', parentId: 'base', createdByTool: 'apply_patch', verification: 'engine_load', scores: [] },
+              {
+                id: 'cand-1',
+                parentId: 'base',
+                createdByTool: 'apply_patch',
+                verification: 'patch_apply',
+                scores: [],
+              },
+              {
+                id: 'cand-2',
+                parentId: 'base',
+                createdByTool: 'apply_patch',
+                verification: 'engine_load',
+                scores: [],
+              },
             ],
             counters: { llmCalls: 5, toolCalls: 6, renders: 0 },
             elapsedMs: 42,
@@ -893,7 +1003,9 @@ test.describe('Assistant diff editor flow', () => {
     await page.getByTestId('tab-ai').click();
     await page.getByPlaceholder('Enter model name').fill('gpt-test-model');
     await page.getByPlaceholder('Paste your key').fill('test-key');
-    await page.getByPlaceholder('Describe the change you want in the MusicXML.').fill('Change the first note to G.');
+    await page
+      .getByPlaceholder('Describe the change you want in the MusicXML.')
+      .fill('Change the first note to G.');
     await page.getByTestId('ai-deep-edit-toggle').check();
     await page.getByRole('button', { name: 'Deep Edit' }).click();
 
@@ -945,7 +1057,15 @@ test.describe('Assistant diff editor flow', () => {
           deepEdit: {
             finalizedCandidateId: 'cand-1',
             rationale: 'Single verified candidate.',
-            candidates: [{ id: 'cand-1', parentId: 'base', createdByTool: 'apply_patch', verification: 'engine_load', scores: [] }],
+            candidates: [
+              {
+                id: 'cand-1',
+                parentId: 'base',
+                createdByTool: 'apply_patch',
+                verification: 'engine_load',
+                scores: [],
+              },
+            ],
             counters: { llmCalls: 4, toolCalls: 3, renders: 0 },
             elapsedMs: 30,
           },
@@ -957,9 +1077,11 @@ test.describe('Assistant diff editor flow', () => {
       feedbackPayloads.push(feedbackPayload);
       await route.fulfill({
         status: 200,
-        body: JSON.stringify(buildDiffFeedbackResponse('A', 1, String(feedbackPayload?.content || ''), {
-          proposalSessionId: deepSessionId,
-        })),
+        body: JSON.stringify(
+          buildDiffFeedbackResponse('A', 1, String(feedbackPayload?.content || ''), {
+            proposalSessionId: deepSessionId,
+          }),
+        ),
       });
     });
 
@@ -969,7 +1091,9 @@ test.describe('Assistant diff editor flow', () => {
     await page.getByTestId('tab-ai').click();
     await page.getByPlaceholder('Enter model name').fill('gpt-test-model');
     await page.getByPlaceholder('Paste your key').fill('test-key');
-    await page.getByPlaceholder('Describe the change you want in the MusicXML.').fill('Change the first note to G.');
+    await page
+      .getByPlaceholder('Describe the change you want in the MusicXML.')
+      .fill('Change the first note to G.');
     await page.getByTestId('ai-deep-edit-toggle').check();
     await page.getByRole('button', { name: 'Deep Edit' }).click();
     await waitForDiffReviewReady(page);
@@ -977,7 +1101,10 @@ test.describe('Assistant diff editor flow', () => {
     await page.getByRole('button', { name: 'Comment' }).first().click();
     await page.getByPlaceholder('Describe the revision needed...').first().fill('Use A instead.');
     await page.getByRole('button', { name: 'Enter' }).first().click();
-    await page.getByRole('button', { name: /Send Feedback/ }).first().click();
+    await page
+      .getByRole('button', { name: /Send Feedback/ })
+      .first()
+      .click();
 
     await waitForDiffReviewReady(page);
     await expect(page.getByText('Iteration 2 review')).toBeVisible({ timeout: 20_000 });
@@ -1000,11 +1127,14 @@ test.describe('Assistant diff editor flow', () => {
       const baseXml = String(deepRequest?.content || '');
       const patch: MusicXmlPatch = {
         format: 'musicxml-patch@1',
-        ops: [{
-          op: 'replace',
-          path: '/score-partwise/part[1]/measure[@number="1"]/note[1]',
-          value: '<note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>whole</type></note>',
-        }],
+        ops: [
+          {
+            op: 'replace',
+            path: '/score-partwise/part[1]/measure[@number="1"]/note[1]',
+            value:
+              '<note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>whole</type></note>',
+          },
+        ],
       };
       const applied = await applyMusicXmlPatch(baseXml, patch);
       expect(applied.error).toBeFalsy();
@@ -1036,13 +1166,15 @@ test.describe('Assistant diff editor flow', () => {
           deepEdit: {
             finalizedCandidateId: 'cand-1',
             rationale: 'Replaced the opening rest with a pitched note.',
-            candidates: [{
-              id: 'cand-1',
-              parentId: 'base',
-              createdByTool: 'apply_patch',
-              verification: 'patch_apply',
-              scores: [],
-            }],
+            candidates: [
+              {
+                id: 'cand-1',
+                parentId: 'base',
+                createdByTool: 'apply_patch',
+                verification: 'patch_apply',
+                scores: [],
+              },
+            ],
             counters: { llmCalls: 2, toolCalls: 2, renders: 0 },
             elapsedMs: 10,
           },
@@ -1066,13 +1198,20 @@ test.describe('Assistant diff editor flow', () => {
     await page.getByTestId('tab-ai').click();
     await page.getByPlaceholder('Enter model name').fill('gpt-test-model');
     await page.getByPlaceholder('Paste your key').fill('test-key');
-    await page.getByPlaceholder('Describe the change you want in the MusicXML.').fill('Replace the first rest with C4.');
+    await page
+      .getByPlaceholder('Describe the change you want in the MusicXML.')
+      .fill('Replace the first rest with C4.');
     await page.getByTestId('ai-deep-edit-toggle').check();
     await page.getByRole('button', { name: 'Deep Edit' }).click();
     await waitForDiffReviewReady(page);
 
-    await page.getByPlaceholder('Overall feedback for the next revision...').fill('Use D4 instead.');
-    await page.getByRole('button', { name: /Send Feedback/ }).first().click();
+    await page
+      .getByPlaceholder('Overall feedback for the next revision...')
+      .fill('Use D4 instead.');
+    await page
+      .getByRole('button', { name: /Send Feedback/ })
+      .first()
+      .click();
     await expect.poll(() => feedbackRequest, { timeout: 20_000 }).not.toBeNull();
 
     const capturedDeepRequest = deepRequest as Record<string, unknown> | null;
@@ -1102,11 +1241,15 @@ test.describe('Assistant diff editor flow', () => {
     await page.getByTestId('tab-ai').click();
     await page.getByPlaceholder('Enter model name').fill('gpt-test-model');
     await page.getByPlaceholder('Paste your key').fill('test-key');
-    await page.getByPlaceholder('Describe the change you want in the MusicXML.').fill('Change the first note to G.');
+    await page
+      .getByPlaceholder('Describe the change you want in the MusicXML.')
+      .fill('Change the first note to G.');
     await page.getByTestId('ai-deep-edit-toggle').check();
     await page.getByRole('button', { name: 'Deep Edit' }).click();
 
-    await expect(page.getByText('Deep edit ran out of budget before finalizing a candidate.').first()).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.getByText('Deep edit ran out of budget before finalizing a candidate.').first(),
+    ).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId('checkpoint-compare-modal')).toHaveCount(0);
   });
 
@@ -1116,9 +1259,11 @@ test.describe('Assistant diff editor flow', () => {
       const payload = route.request().postDataJSON();
       await route.fulfill({
         status: 200,
-        body: JSON.stringify(buildDiffFeedbackResponse('A', 1, String(payload.content || ''), {
-          previousCycleDropped: true,
-        })),
+        body: JSON.stringify(
+          buildDiffFeedbackResponse('A', 1, String(payload.content || ''), {
+            previousCycleDropped: true,
+          }),
+        ),
       });
     });
 
@@ -1126,7 +1271,10 @@ test.describe('Assistant diff editor flow', () => {
     await page.getByRole('button', { name: 'Comment' }).first().click();
     await page.getByPlaceholder('Describe the revision needed...').first().fill('Use A.');
     await page.getByRole('button', { name: 'Enter' }).first().click();
-    await page.getByRole('button', { name: /Send Feedback/ }).first().click();
+    await page
+      .getByRole('button', { name: /Send Feedback/ })
+      .first()
+      .click();
 
     await waitForDiffReviewReady(page);
     await expect(page.getByTestId('ai-proposal-audit')).toContainText(

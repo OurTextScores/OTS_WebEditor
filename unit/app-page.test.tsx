@@ -13,7 +13,9 @@ vi.mock('next/dynamic', () => ({
     options?.loading?.();
 
     const index = mocks.dynamicIndex++;
-    const Mock = () => <div data-testid={index === 0 ? 'dynamic-score-editor' : 'dynamic-score-player'} />;
+    const Mock = () => (
+      <div data-testid={index === 0 ? 'dynamic-score-editor' : 'dynamic-score-player'} />
+    );
     return Mock;
   },
 }));
@@ -55,7 +57,12 @@ describe('Home page', () => {
 
   it('keeps compare and review modes ahead of player routing', () => {
     const searches = [
-      new URLSearchParams({ score: '/bach.mscz', embed: 'player', compareLeft: '/a', compareRight: '/b' }),
+      new URLSearchParams({
+        score: '/bach.mscz',
+        embed: 'player',
+        compareLeft: '/a',
+        compareRight: '/b',
+      }),
       new URLSearchParams({ score: '/bach.mscz', embed: 'player', reviewScore: '/review' }),
     ];
     for (const search of searches) {

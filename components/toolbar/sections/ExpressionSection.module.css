@@ -1,48 +1,48 @@
 @font-face {
-    font-family: "LelandToolbar";
-    src: url("../../../webmscore-fork/fonts/leland/Leland.woff2") format("woff2");
-    font-display: swap;
+  font-family: 'LelandToolbar';
+  src: url('../../../webmscore-fork/fonts/leland/Leland.woff2') format('woff2');
+  font-display: swap;
 }
 
 .markingsMenu {
-    max-height: var(--radix-dropdown-menu-content-available-height);
-    overflow-y: auto;
-    overscroll-behavior: contain;
+  max-height: var(--radix-dropdown-menu-content-available-height);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .dynamicSymbol {
-    font-family: "LelandToolbar", serif;
-    font-size: 1.75rem;
-    font-style: normal;
-    font-weight: 400;
-    line-height: 1;
+  font-family: 'LelandToolbar', serif;
+  font-size: 1.75rem;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1;
 }
 
 .hairpinSymbol {
-    font-family: "LelandToolbar", serif;
-    font-size: 2rem;
-    font-style: normal;
-    font-weight: 400;
-    line-height: 0.75;
+  font-family: 'LelandToolbar', serif;
+  font-size: 2rem;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 0.75;
 }
 
 .hairpinTriggerSymbol {
-    font-family: "LelandToolbar", serif;
-    font-size: 1.25rem;
-    font-style: normal;
-    font-weight: 400;
-    line-height: 1;
-    margin-right: 0.4rem;
+  font-family: 'LelandToolbar', serif;
+  font-size: 1.25rem;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1;
+  margin-right: 0.4rem;
 }
 
 .articulationSymbol {
-    display: inline-flex;
-    min-width: 1.75rem;
-    justify-content: center;
-    font-family: "LelandToolbar", serif;
-    font-size: 1.5rem;
-    font-style: normal;
-    font-weight: 400;
-    line-height: 1;
-    color: #0f172a;
+  display: inline-flex;
+  min-width: 1.75rem;
+  justify-content: center;
+  font-family: 'LelandToolbar', serif;
+  font-size: 1.5rem;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1;
+  color: #0f172a;
 }

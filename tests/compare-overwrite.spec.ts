@@ -14,18 +14,19 @@ test('compare overwrite applies left measure to right', async ({ page }) => {
 
   // Full pitch signature, not just <step>: btn-pitch-up raises by a semitone, so C becomes
   // C sharp -- <step> stays "C" and only <alter> changes.
-  const readFirstPitch = async (): Promise<string> => page.evaluate(async () => {
-    const score = (window as BrowserScoreWindow).__webmscore;
-    if (!score?.saveXml) {
-      throw new Error('window.__webmscore.saveXml is not available');
-    }
-    const xml: string = await score.saveXml();
-    const pitch = xml.match(/<pitch>[\s\S]*?<\/pitch>/)?.[0] ?? '';
-    const step = pitch.match(/<step>([A-G])<\/step>/)?.[1] ?? '';
-    const alter = pitch.match(/<alter>(-?\d+)<\/alter>/)?.[1] ?? '0';
-    const octave = pitch.match(/<octave>(\d+)<\/octave>/)?.[1] ?? '';
-    return `${step}${alter}/${octave}`;
-  });
+  const readFirstPitch = async (): Promise<string> =>
+    page.evaluate(async () => {
+      const score = (window as BrowserScoreWindow).__webmscore;
+      if (!score?.saveXml) {
+        throw new Error('window.__webmscore.saveXml is not available');
+      }
+      const xml: string = await score.saveXml();
+      const pitch = xml.match(/<pitch>[\s\S]*?<\/pitch>/)?.[0] ?? '';
+      const step = pitch.match(/<step>([A-G])<\/step>/)?.[1] ?? '';
+      const alter = pitch.match(/<alter>(-?\d+)<\/alter>/)?.[1] ?? '0';
+      const octave = pitch.match(/<octave>(\d+)<\/octave>/)?.[1] ?? '';
+      return `${step}${alter}/${octave}`;
+    });
 
   const pitchBeforeEdit = await readFirstPitch();
 
@@ -43,17 +44,27 @@ test('compare overwrite applies left measure to right', async ({ page }) => {
   await checkpointCard.getByRole('button', { name: 'Compare' }).click();
   await page.getByTestId('checkpoint-compare-modal').waitFor({ timeout: 20_000 });
 
-  await expect.poll(async () => {
-    return page.getByTestId('compare-right-highlight').count();
-  }, { timeout: 20_000 }).toBeGreaterThan(0);
+  await expect
+    .poll(
+      async () => {
+        return page.getByTestId('compare-right-highlight').count();
+      },
+      { timeout: 20_000 },
+    )
+    .toBeGreaterThan(0);
 
   const overwriteRight = page.getByRole('button', { name: /Overwrite right/i }).first();
   await expect(overwriteRight).toBeEnabled({ timeout: 10_000 });
   await overwriteRight.click();
 
-  await expect.poll(async () => {
-    const rightCount = await page.getByTestId('compare-right-highlight').count();
-    const leftCount = await page.getByTestId('compare-left-highlight').count();
-    return { rightCount, leftCount };
-  }, { timeout: 20_000 }).toEqual({ rightCount: 0, leftCount: 0 });
+  await expect
+    .poll(
+      async () => {
+        const rightCount = await page.getByTestId('compare-right-highlight').count();
+        const leftCount = await page.getByTestId('compare-left-highlight').count();
+        return { rightCount, leftCount };
+      },
+      { timeout: 20_000 },
+    )
+    .toEqual({ rightCount: 0, leftCount: 0 });
 });

@@ -91,7 +91,7 @@ const KIND_SUFFIX_MAP: Record<string, string> = {
   'half-diminished': 'm7b5',
   'suspended-fourth': 'sus4',
   'suspended-second': 'sus2',
-  'power': '5',
+  power: '5',
 };
 
 const STEP_TO_PITCH_CLASS: Record<string, number> = {
@@ -104,7 +104,20 @@ const STEP_TO_PITCH_CLASS: Record<string, number> = {
   B: 11,
 };
 
-const SHARP_PITCH_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const;
+const SHARP_PITCH_NAMES = [
+  'C',
+  'C#',
+  'D',
+  'D#',
+  'E',
+  'F',
+  'F#',
+  'G',
+  'G#',
+  'A',
+  'A#',
+  'B',
+] as const;
 const FLAT_PITCH_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'] as const;
 
 type ChordCandidate = {
@@ -116,8 +129,20 @@ type ChordCandidate = {
 };
 
 const INFERRED_CHORD_CANDIDATES: ChordCandidate[] = [
-  { suffix: 'maj7', intervals: [0, 4, 7, 11], minCoverage: 0.58, minPresentIntervals: 4, priority: 8 },
-  { suffix: 'm7', intervals: [0, 3, 7, 10], minCoverage: 0.58, minPresentIntervals: 4, priority: 8 },
+  {
+    suffix: 'maj7',
+    intervals: [0, 4, 7, 11],
+    minCoverage: 0.58,
+    minPresentIntervals: 4,
+    priority: 8,
+  },
+  {
+    suffix: 'm7',
+    intervals: [0, 3, 7, 10],
+    minCoverage: 0.58,
+    minPresentIntervals: 4,
+    priority: 8,
+  },
   { suffix: '7', intervals: [0, 4, 7, 10], minCoverage: 0.58, minPresentIntervals: 4, priority: 8 },
   { suffix: '', intervals: [0, 4, 7], minCoverage: 0.55, minPresentIntervals: 3, priority: 6 },
   { suffix: 'm', intervals: [0, 3, 7], minCoverage: 0.55, minPresentIntervals: 3, priority: 6 },
@@ -126,10 +151,7 @@ const INFERRED_CHORD_CANDIDATES: ChordCandidate[] = [
 ];
 
 const parseCommandCandidates = (csv: string | undefined, defaults: Array<string | undefined>) => {
-  const values = [
-    ...(csv ? csv.split(',') : []),
-    ...defaults,
-  ]
+  const values = [...(csv ? csv.split(',') : []), ...defaults]
     .map((value) => String(value || '').trim())
     .filter(Boolean);
   return [...new Set(values)];
@@ -150,9 +172,18 @@ export function getMmaToolConfig(): MmaToolConfig {
   ]);
   return {
     bins,
-    defaultTimeoutMs: parsePositiveIntegerEnv(process.env.MUSIC_MMA_TIMEOUT_MS, DEFAULT_MMA_TIMEOUT_MS),
-    maxScriptBytes: parsePositiveIntegerEnv(process.env.MUSIC_MMA_MAX_SCRIPT_BYTES, DEFAULT_MMA_MAX_SCRIPT_BYTES),
-    maxStderrChars: parsePositiveIntegerEnv(process.env.MUSIC_MMA_MAX_STDERR_CHARS, DEFAULT_MMA_MAX_STDERR_CHARS),
+    defaultTimeoutMs: parsePositiveIntegerEnv(
+      process.env.MUSIC_MMA_TIMEOUT_MS,
+      DEFAULT_MMA_TIMEOUT_MS,
+    ),
+    maxScriptBytes: parsePositiveIntegerEnv(
+      process.env.MUSIC_MMA_MAX_SCRIPT_BYTES,
+      DEFAULT_MMA_MAX_SCRIPT_BYTES,
+    ),
+    maxStderrChars: parsePositiveIntegerEnv(
+      process.env.MUSIC_MMA_MAX_STDERR_CHARS,
+      DEFAULT_MMA_MAX_STDERR_CHARS,
+    ),
   };
 }
 
@@ -259,7 +290,10 @@ const runCommandWithCandidates = async (args: {
         args: [...parsed.prefixArgs, ...args.argv],
       };
     } catch (error) {
-      const code = typeof error === 'object' && error && 'code' in error ? String((error as { code?: string }).code || '') : '';
+      const code =
+        typeof error === 'object' && error && 'code' in error
+          ? String((error as { code?: string }).code || '')
+          : '';
       if (code === 'ENOENT') {
         lastError = error;
         continue;
@@ -272,7 +306,8 @@ const runCommandWithCandidates = async (args: {
     throw new Error('No MMA command candidates configured.');
   }
 
-  const reason = lastError instanceof Error ? lastError.message : 'All MMA command candidates failed.';
+  const reason =
+    lastError instanceof Error ? lastError.message : 'All MMA command candidates failed.';
   throw new Error(`MMA tool unavailable. Tried: ${attempts.join(', ')}. Last error: ${reason}`);
 };
 
@@ -369,7 +404,8 @@ const extractHarmonyByMeasure = (xml: string, maxMeasures: number) => {
     if (!rootStep) {
       continue;
     }
-    const rootAlter = harmonyMatch[0].match(/<root-alter>\s*([-+]?\d+)\s*<\/root-alter>/)?.[1] ?? null;
+    const rootAlter =
+      harmonyMatch[0].match(/<root-alter>\s*([-+]?\d+)\s*<\/root-alter>/)?.[1] ?? null;
     const kindMatch = harmonyMatch[0].match(/<kind\b[^>]*>[\s\S]*?<\/kind>/i)?.[0] || '';
     const root = normalizeRoot(rootStep, rootAlter);
     const suffix = kindMatch ? parseHarmonyKind(kindMatch) : '';
@@ -387,41 +423,51 @@ const extractPitchClassWeightsByMeasure = (xml: string, maxMeasures: number) => 
     for (let index = 0; index < Math.min(measures.length, maxMeasures); index += 1) {
       const bar = index + 1;
       const measureXml = measures[index]?.xml || '';
-    const noteRegex = /<note\b[\s\S]*?<\/note>/gi;
-    let noteMatch: RegExpExecArray | null;
-    while ((noteMatch = noteRegex.exec(measureXml)) !== null) {
-      const noteXml = noteMatch[0];
-      if (/<rest\b/i.test(noteXml) || /<unpitched\b/i.test(noteXml) || /<grace\b/i.test(noteXml)) {
-        continue;
+      const noteRegex = /<note\b[\s\S]*?<\/note>/gi;
+      let noteMatch: RegExpExecArray | null;
+      while ((noteMatch = noteRegex.exec(measureXml)) !== null) {
+        const noteXml = noteMatch[0];
+        if (
+          /<rest\b/i.test(noteXml) ||
+          /<unpitched\b/i.test(noteXml) ||
+          /<grace\b/i.test(noteXml)
+        ) {
+          continue;
+        }
+
+        const step = noteXml.match(/<step>\s*([A-Ga-g])\s*<\/step>/i)?.[1]?.toUpperCase() || '';
+        if (!step) {
+          continue;
+        }
+        const basePitch = STEP_TO_PITCH_CLASS[step];
+        if (typeof basePitch !== 'number') {
+          continue;
+        }
+
+        const alterRaw = Number(noteXml.match(/<alter>\s*([-+]?\d+)\s*<\/alter>/i)?.[1] ?? '0');
+        const alter = Number.isFinite(alterRaw) ? Math.trunc(alterRaw) : 0;
+        const pitchClass = mod12(basePitch + alter);
+
+        const durationRaw = Number(
+          noteXml.match(/<duration>\s*([-+]?\d+)\s*<\/duration>/i)?.[1] ?? '1',
+        );
+        const durationWeight =
+          Number.isFinite(durationRaw) && durationRaw > 0 ? Math.trunc(durationRaw) : 1;
+
+        const measureWeights = weightsByMeasure.get(bar) ?? new Map<number, number>();
+        weightsByMeasure.set(bar, measureWeights);
+        measureWeights.set(pitchClass, (measureWeights.get(pitchClass) || 0) + durationWeight);
       }
-
-      const step = noteXml.match(/<step>\s*([A-Ga-g])\s*<\/step>/i)?.[1]?.toUpperCase() || '';
-      if (!step) {
-        continue;
-      }
-      const basePitch = STEP_TO_PITCH_CLASS[step];
-      if (typeof basePitch !== 'number') {
-        continue;
-      }
-
-      const alterRaw = Number(noteXml.match(/<alter>\s*([-+]?\d+)\s*<\/alter>/i)?.[1] ?? '0');
-      const alter = Number.isFinite(alterRaw) ? Math.trunc(alterRaw) : 0;
-      const pitchClass = mod12(basePitch + alter);
-
-      const durationRaw = Number(noteXml.match(/<duration>\s*([-+]?\d+)\s*<\/duration>/i)?.[1] ?? '1');
-      const durationWeight = Number.isFinite(durationRaw) && durationRaw > 0 ? Math.trunc(durationRaw) : 1;
-
-      const measureWeights = weightsByMeasure.get(bar) ?? new Map<number, number>();
-      weightsByMeasure.set(bar, measureWeights);
-      measureWeights.set(pitchClass, (measureWeights.get(pitchClass) || 0) + durationWeight);
-    }
     }
   }
 
   return weightsByMeasure;
 };
 
-const inferChordFromPitchClassWeights = (weights: Map<number, number>, keyFifths: number): string | null => {
+const inferChordFromPitchClassWeights = (
+  weights: Map<number, number>,
+  keyFifths: number,
+): string | null => {
   let totalWeight = 0;
   for (const value of weights.values()) {
     totalWeight += value;
@@ -430,7 +476,8 @@ const inferChordFromPitchClassWeights = (weights: Map<number, number>, keyFifths
     return null;
   }
 
-  let best: { score: number; coverage: number; root: number; candidate: ChordCandidate } | null = null;
+  let best: { score: number; coverage: number; root: number; candidate: ChordCandidate } | null =
+    null;
 
   for (let root = 0; root < 12; root += 1) {
     for (const candidate of INFERRED_CHORD_CANDIDATES) {
@@ -463,12 +510,19 @@ const inferChordFromPitchClassWeights = (weights: Map<number, number>, keyFifths
       }
 
       const rootWeight = weights.get(root) || 0;
-      const thirdInterval = candidate.intervals.includes(4) ? 4 : (candidate.intervals.includes(3) ? 3 : null);
-      const thirdWeight = thirdInterval === null ? 0 : (weights.get(mod12(root + thirdInterval)) || 0);
+      const thirdInterval = candidate.intervals.includes(4)
+        ? 4
+        : candidate.intervals.includes(3)
+          ? 3
+          : null;
+      const thirdWeight =
+        thirdInterval === null ? 0 : weights.get(mod12(root + thirdInterval)) || 0;
       const fifthWeight = weights.get(mod12(root + 7)) || 0;
       const seventhWeight = candidate.intervals.includes(10)
-        ? (weights.get(mod12(root + 10)) || 0)
-        : (candidate.intervals.includes(11) ? (weights.get(mod12(root + 11)) || 0) : 0);
+        ? weights.get(mod12(root + 10)) || 0
+        : candidate.intervals.includes(11)
+          ? weights.get(mod12(root + 11)) || 0
+          : 0;
 
       let score = 0;
       score += matchedWeight * 2.35;
@@ -540,7 +594,10 @@ export function validateMmaScript(script: string): MmaScriptValidation {
   };
 }
 
-export function buildStarterTemplateFromXml(xml: string, options?: MmaTemplateBuildOptions): MmaTemplateBuildResult {
+export function buildStarterTemplateFromXml(
+  xml: string,
+  options?: MmaTemplateBuildOptions,
+): MmaTemplateBuildResult {
   const warnings: string[] = [];
   const maxMeasures = Math.max(1, Math.floor(options?.maxMeasures || 16));
   const groove = (options?.defaultGroove || DEFAULT_GROOVE).trim() || DEFAULT_GROOVE;
@@ -549,7 +606,8 @@ export function buildStarterTemplateFromXml(xml: string, options?: MmaTemplateBu
     : [];
 
   const beats = xml.match(/<beats>\s*(\d+)\s*<\/beats>/i)?.[1] || DEFAULT_METER.split('/')[0]!;
-  const beatType = xml.match(/<beat-type>\s*(\d+)\s*<\/beat-type>/i)?.[1] || DEFAULT_METER.split('/')[1]!;
+  const beatType =
+    xml.match(/<beat-type>\s*(\d+)\s*<\/beat-type>/i)?.[1] || DEFAULT_METER.split('/')[1]!;
   const meter = `${beats}/${beatType}`;
 
   const tempoRaw = Number(xml.match(/<sound\b[^>]*\btempo="([0-9.]+)"/i)?.[1] || '');
@@ -588,21 +646,27 @@ export function buildStarterTemplateFromXml(xml: string, options?: MmaTemplateBu
 
   if (explicitCount === 0) {
     if (inferredCount > 0) {
-      warnings.push(`No <harmony> tags found in source MusicXML; inferred chord symbols from note content for ${inferredCount}/${measureCount} measure(s).`);
+      warnings.push(
+        `No <harmony> tags found in source MusicXML; inferred chord symbols from note content for ${inferredCount}/${measureCount} measure(s).`,
+      );
     } else {
-      warnings.push(`No <harmony> tags found and note-based inference was unavailable; using fallback ${key} chords.`);
+      warnings.push(
+        `No <harmony> tags found and note-based inference was unavailable; using fallback ${key} chords.`,
+      );
     }
   } else if (inferredCount > 0) {
-    warnings.push(`Filled ${inferredCount} measure(s) without <harmony> tags using note-based chord inference.`);
+    warnings.push(
+      `Filled ${inferredCount} measure(s) without <harmony> tags using note-based chord inference.`,
+    );
   }
 
   if (fallbackCount > 0) {
-    warnings.push(`Could not derive harmony for ${fallbackCount}/${measureCount} measure(s); using fallback ${key} chords.`);
+    warnings.push(
+      `Could not derive harmony for ${fallbackCount}/${measureCount} measure(s); using fallback ${key} chords.`,
+    );
   }
 
-  const body = chords
-    .map((chord, index) => `${index + 1}  ${chord}`)
-    .join('\n');
+  const body = chords.map((chord, index) => `${index + 1}  ${chord}`).join('\n');
 
   const headerLines = [
     `Tempo ${tempo}`,
@@ -622,7 +686,8 @@ export function buildStarterTemplateFromXml(xml: string, options?: MmaTemplateBu
       tempo,
       measureCount,
       harmonyMeasureCount: explicitCount + inferredCount,
-      harmonyCoverage: measureCount > 0 ? Number(((explicitCount + inferredCount) / measureCount).toFixed(3)) : 0,
+      harmonyCoverage:
+        measureCount > 0 ? Number(((explicitCount + inferredCount) / measureCount).toFixed(3)) : 0,
     },
   };
 }
@@ -636,14 +701,16 @@ const logMmaEvent = (args: {
   traceContext?: TraceContext;
   extra?: Record<string, unknown>;
 }) => {
-  console.info(JSON.stringify({
-    event: args.event,
-    requestId: args.traceContext?.requestId || null,
-    traceId: args.traceContext?.traceId || null,
-    sessionId: args.traceContext?.sessionId || null,
-    clientSessionId: args.traceContext?.clientSessionId || null,
-    ...(args.extra || {}),
-  }));
+  console.info(
+    JSON.stringify({
+      event: args.event,
+      requestId: args.traceContext?.requestId || null,
+      traceId: args.traceContext?.traceId || null,
+      sessionId: args.traceContext?.sessionId || null,
+      clientSessionId: args.traceContext?.clientSessionId || null,
+      ...(args.extra || {}),
+    }),
+  );
 };
 
 export async function runMmaCompile(args: {
@@ -652,7 +719,8 @@ export async function runMmaCompile(args: {
   traceContext?: TraceContext;
 }) {
   const config = getMmaToolConfig();
-  const timeoutMs = args.timeoutMs && args.timeoutMs > 0 ? Math.floor(args.timeoutMs) : config.defaultTimeoutMs;
+  const timeoutMs =
+    args.timeoutMs && args.timeoutMs > 0 ? Math.floor(args.timeoutMs) : config.defaultTimeoutMs;
 
   const scriptValidation = validateMmaScript(args.script);
   if (!scriptValidation.ok) {
@@ -674,11 +742,15 @@ export async function runMmaCompile(args: {
     });
 
     const stderr = sanitizeStderr(
-      [commandResult.stderr, commandResult.stdout].filter((value) => Boolean(value && value.trim())).join('\n'),
+      [commandResult.stderr, commandResult.stdout]
+        .filter((value) => Boolean(value && value.trim()))
+        .join('\n'),
       config.maxStderrChars,
     );
     if (commandResult.exitCode !== 0) {
-      throw new Error(stderr || `MMA command failed with exit code ${String(commandResult.exitCode)}.`);
+      throw new Error(
+        stderr || `MMA command failed with exit code ${String(commandResult.exitCode)}.`,
+      );
     }
 
     const midiBytes = await readFile(outputPath);

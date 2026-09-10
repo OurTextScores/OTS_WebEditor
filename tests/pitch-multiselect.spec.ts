@@ -21,24 +21,35 @@ test('pitch up preserves multi-selection across repeated edits', async ({ page }
     });
   };
 
-  await expect.poll(async () => await readPitches(), { timeout: 20_000 }).toEqual(['C4', 'D4', 'E4']);
+  await expect
+    .poll(async () => await readPitches(), { timeout: 20_000 })
+    .toEqual(['C4', 'D4', 'E4']);
 
   const notes = page.locator('svg .Note');
   await notes.nth(0).click();
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
-  const rightmost = await notes.evaluateAll(elements => elements.reduce((best, element) => {
-    const rect = element.getBoundingClientRect();
-    const point = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-    return !best || point.x > best.x ? point : best;
-  }, null as { x: number; y: number } | null));
+  const rightmost = await notes.evaluateAll((elements) =>
+    elements.reduce(
+      (best, element) => {
+        const rect = element.getBoundingClientRect();
+        const point = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        return !best || point.x > best.x ? point : best;
+      },
+      null as { x: number; y: number } | null,
+    ),
+  );
   expect(rightmost).not.toBeNull();
   await page.keyboard.down('Control');
   await page.mouse.click(rightmost!.x, rightmost!.y);
   await page.keyboard.up('Control');
 
   await page.getByTestId('btn-pitch-up').click();
-  await expect.poll(async () => await readPitches(), { timeout: 20_000 }).toEqual(['C14', 'D4', 'F4']);
+  await expect
+    .poll(async () => await readPitches(), { timeout: 20_000 })
+    .toEqual(['C14', 'D4', 'F4']);
 
   await page.getByTestId('btn-pitch-up').click();
-  await expect.poll(async () => await readPitches(), { timeout: 20_000 }).toEqual(['D4', 'D4', 'F14']);
+  await expect
+    .poll(async () => await readPitches(), { timeout: 20_000 })
+    .toEqual(['D4', 'D4', 'F14']);
 });

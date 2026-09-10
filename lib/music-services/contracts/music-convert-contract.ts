@@ -2,7 +2,8 @@ import type { MusicToolContract } from './types';
 
 export const MUSIC_CONVERT_TOOL_CONTRACT: MusicToolContract = {
   name: 'music.convert',
-  description: 'Convert between MusicXML, ABC, MIDI, and **kern, with artifact creation and validation metadata.',
+  description:
+    'Convert between MusicXML, ABC, MIDI, and **kern, with artifact creation and validation metadata.',
   inputSchema: {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
     type: 'object',
@@ -10,10 +11,22 @@ export const MUSIC_CONVERT_TOOL_CONTRACT: MusicToolContract = {
     properties: {
       healthCheck: { type: 'boolean' },
       health_check: { type: 'boolean' },
-      inputFormat: { type: 'string', enum: ['abc', 'musicxml', 'xml', 'midi', 'mid', 'kern', 'krn', '**kern', 'humdrum'] },
-      input_format: { type: 'string', enum: ['abc', 'musicxml', 'xml', 'midi', 'mid', 'kern', 'krn', '**kern', 'humdrum'] },
-      outputFormat: { type: 'string', enum: ['abc', 'musicxml', 'xml', 'midi', 'mid', 'kern', 'krn', '**kern', 'humdrum'] },
-      output_format: { type: 'string', enum: ['abc', 'musicxml', 'xml', 'midi', 'mid', 'kern', 'krn', '**kern', 'humdrum'] },
+      inputFormat: {
+        type: 'string',
+        enum: ['abc', 'musicxml', 'xml', 'midi', 'mid', 'kern', 'krn', '**kern', 'humdrum'],
+      },
+      input_format: {
+        type: 'string',
+        enum: ['abc', 'musicxml', 'xml', 'midi', 'mid', 'kern', 'krn', '**kern', 'humdrum'],
+      },
+      outputFormat: {
+        type: 'string',
+        enum: ['abc', 'musicxml', 'xml', 'midi', 'mid', 'kern', 'krn', '**kern', 'humdrum'],
+      },
+      output_format: {
+        type: 'string',
+        enum: ['abc', 'musicxml', 'xml', 'midi', 'mid', 'kern', 'krn', '**kern', 'humdrum'],
+      },
       content: { type: 'string' },
       contentBase64: { type: 'string' },
       content_base64: { type: 'string' },

@@ -35,7 +35,9 @@ const FEEDBACK_BASE_XML = `<?xml version="1.0" encoding="UTF-8"?>
 test.describe('Diff feedback OpenAI e2e', () => {
   test.skip(!HAS_OPENAI_KEY, 'Requires OPENAI_API_KEY in environment');
 
-  test('second-iteration style clef revision keeps accepted key signature and applies', async ({ request }) => {
+  test('second-iteration style clef revision keeps accepted key signature and applies', async ({
+    request,
+  }) => {
     const response = await request.post('/api/music/diff/feedback', {
       data: {
         provider: 'openai',
@@ -49,7 +51,8 @@ test.describe('Diff feedback OpenAI e2e', () => {
             partIndex: 0,
             measureRange: '2',
             status: 'comment',
-            comment: 'Change measure 2 to treble clef (sign G, line 2). Keep measure 1 key signature unchanged.',
+            comment:
+              'Change measure 2 to treble clef (sign G, line 2). Keep measure 1 key signature unchanged.',
           },
         ],
         globalComment: 'Only revise measure 2. Do not modify accepted measure 1.',

@@ -65,8 +65,10 @@ function readNonNegativeEnvInt(name: string, fallback: number) {
   return Number.isFinite(value) && value >= 0 ? value : fallback;
 }
 
-const getTtlMs = () => readNonNegativeEnvInt('MUSIC_SCOREOPS_SESSION_TTL_MS', DEFAULT_SESSION_TTL_MS);
-const getMaxSessions = () => readNonNegativeEnvInt('MUSIC_SCOREOPS_SESSION_MAX', DEFAULT_SESSION_MAX);
+const getTtlMs = () =>
+  readNonNegativeEnvInt('MUSIC_SCOREOPS_SESSION_TTL_MS', DEFAULT_SESSION_TTL_MS);
+const getMaxSessions = () =>
+  readNonNegativeEnvInt('MUSIC_SCOREOPS_SESSION_MAX', DEFAULT_SESSION_MAX);
 const getCleanupIntervalMs = () =>
   readNonNegativeEnvInt('MUSIC_SCOREOPS_SESSION_CLEANUP_INTERVAL_MS', DEFAULT_CLEANUP_INTERVAL_MS);
 const getMaxContentBytes = () =>

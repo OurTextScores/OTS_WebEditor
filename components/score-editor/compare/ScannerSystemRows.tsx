@@ -1,26 +1,23 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
-import { FloatingPalettes } from "../../FloatingPalettes";
-import {
-  scorePaletteMutation,
-  type ScorePaletteItem,
-} from "../../toolbar/palette";
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Image from 'next/image';
+import { FloatingPalettes } from '../../FloatingPalettes';
+import { scorePaletteMutation, type ScorePaletteItem } from '../../toolbar/palette';
 import {
   loadWebMscore,
   type IrregularMeasure,
   type Positions,
   type Score,
-} from "@/lib/webmscore-loader";
-import { routeCompareKeyboardShortcut } from "./compare-keyboard-policy";
-import type { CompareSide, CompareTransportState } from "./compare-types";
-import type { CompareTransport } from "./useCompareTransport";
+} from '@/lib/webmscore-loader';
+import { routeCompareKeyboardShortcut } from './compare-keyboard-policy';
+import type { CompareSide, CompareTransportState } from './compare-types';
+import type { CompareTransport } from './useCompareTransport';
 import {
   measureCount,
   useMergedScoreDocument,
   type MergedScoreState,
-} from "./useMergedScoreDocument";
+} from './useMergedScoreDocument';
 
 /**
  * The scan's systems, with each engine's measures and a crop of the source page.
@@ -112,23 +109,21 @@ export type ScannerComponentDifference = {
 };
 
 const DIFFERENCE_LABELS: Record<string, string> = {
-  notation: "notes or rhythm",
-  voice: "voices",
-  staff: "staff assignment",
-  attributes: "clef, key, time or divisions",
-  lyrics: "lyrics",
-  dynamics: "dynamics",
-  directions: "directions",
-  notations: "slurs, ties or other notation",
-  "measure-added": "only in the second reading",
-  "measure-removed": "only in the first reading",
+  notation: 'notes or rhythm',
+  voice: 'voices',
+  staff: 'staff assignment',
+  attributes: 'clef, key, time or divisions',
+  lyrics: 'lyrics',
+  dynamics: 'dynamics',
+  directions: 'directions',
+  notations: 'slurs, ties or other notation',
+  'measure-added': 'only in the second reading',
+  'measure-removed': 'only in the first reading',
 };
 
 function detailList(values: readonly string[], omitted = 0): string {
-  const shown = values.join("; ");
-  return omitted > 0
-    ? `${shown}${shown ? "; " : ""}… (${omitted} more)`
-    : shown;
+  const shown = values.join('; ');
+  return omitted > 0 ? `${shown}${shown ? '; ' : ''}… (${omitted} more)` : shown;
 }
 
 /**
@@ -149,43 +144,31 @@ export function scannerRegionDifferenceDescriptions(
       difference.leftMeasureLabel ||
       difference.rightMeasureLabel ||
       `bar ${Math.min(difference.leftMeasureIndex, difference.rightMeasureIndex) + 1}`;
-    const left = detailList(
-      difference.leftOnly || [],
-      difference.leftOmitted || 0,
-    );
-    const right = detailList(
-      difference.rightOnly || [],
-      difference.rightOmitted || 0,
-    );
+    const left = detailList(difference.leftOnly || [], difference.leftOmitted || 0);
+    const right = detailList(difference.rightOnly || [], difference.rightOmitted || 0);
     const sides = [
-      left ? `${leftLabel} only: ${left}` : "",
-      right ? `${rightLabel} only: ${right}` : "",
+      left ? `${leftLabel} only: ${left}` : '',
+      right ? `${rightLabel} only: ${right}` : '',
     ].filter(Boolean);
     if (sides.length > 0) {
       descriptions.push(
-        `${measure} · ${DIFFERENCE_LABELS[difference.component] || difference.component} — ${sides.join(" · ")}`,
+        `${measure} · ${DIFFERENCE_LABELS[difference.component] || difference.component} — ${sides.join(' · ')}`,
       );
     }
   }
 
   const classes = [...new Set(region.differenceClasses || [])];
-  if (classes.includes("measure-removed")) {
-    descriptions.push(
-      `${region.leftMeasureLabel || "A measure"} appears only in ${leftLabel}`,
-    );
-    covered.add("measure-removed");
+  if (classes.includes('measure-removed')) {
+    descriptions.push(`${region.leftMeasureLabel || 'A measure'} appears only in ${leftLabel}`);
+    covered.add('measure-removed');
   }
-  if (classes.includes("measure-added")) {
-    descriptions.push(
-      `${region.rightMeasureLabel || "A measure"} appears only in ${rightLabel}`,
-    );
-    covered.add("measure-added");
+  if (classes.includes('measure-added')) {
+    descriptions.push(`${region.rightMeasureLabel || 'A measure'} appears only in ${rightLabel}`);
+    covered.add('measure-added');
   }
   const unexplained = classes.filter((name) => !covered.has(name));
   if (unexplained.length > 0) {
-    descriptions.push(
-      unexplained.map((name) => DIFFERENCE_LABELS[name] || name).join(", "),
-    );
+    descriptions.push(unexplained.map((name) => DIFFERENCE_LABELS[name] || name).join(', '));
   }
   return descriptions;
 }
@@ -194,8 +177,8 @@ export function scannerRegionDifferenceDescriptions(
 const RENDER_WIDTH = 1400;
 const HORIZONTAL_PANE_WIDTH = 520;
 
-type ScannerRowLayout = "horizontal" | "vertical";
-type ScannerPane = "scan" | "left" | "merged" | "right";
+type ScannerRowLayout = 'horizontal' | 'vertical';
+type ScannerPane = 'scan' | 'left' | 'merged' | 'right';
 
 /**
  * Force this engine's line breaks onto the scan's system boundaries.
@@ -220,33 +203,25 @@ export function lineStartsInMerge(
   map: readonly (number | null)[] | undefined,
 ): number[] {
   if (!map) return [...starts];
-  return starts
-    .map((start) => map.indexOf(start))
-    .filter((position) => position >= 0);
+  return starts.map((start) => map.indexOf(start)).filter((position) => position >= 0);
 }
 
-export function withForcedSystemBreaks(
-  xml: string,
-  startMeasureIndexes: number[],
-): string {
-  if (typeof DOMParser === "undefined" || startMeasureIndexes.length === 0)
-    return xml;
+export function withForcedSystemBreaks(xml: string, startMeasureIndexes: number[]): string {
+  if (typeof DOMParser === 'undefined' || startMeasureIndexes.length === 0) return xml;
   const starts = new Set(startMeasureIndexes.filter((index) => index > 0));
-  const doc = new DOMParser().parseFromString(xml, "application/xml");
-  if (doc.getElementsByTagName("parsererror").length > 0) return xml;
-  for (const part of Array.from(doc.getElementsByTagName("part"))) {
+  const doc = new DOMParser().parseFromString(xml, 'application/xml');
+  if (doc.getElementsByTagName('parsererror').length > 0) return xml;
+  for (const part of Array.from(doc.getElementsByTagName('part'))) {
     Array.from(part.children)
-      .filter((child) => child.tagName === "measure")
+      .filter((child) => child.tagName === 'measure')
       .forEach((measure, index) => {
         // Whatever the engine wanted is discarded: the scan decides.
-        Array.from(measure.getElementsByTagName("print")).forEach((node) =>
-          node.parentElement === measure
-            ? measure.removeChild(node)
-            : undefined,
+        Array.from(measure.getElementsByTagName('print')).forEach((node) =>
+          node.parentElement === measure ? measure.removeChild(node) : undefined,
         );
         if (!starts.has(index)) return;
-        const print = doc.createElement("print");
-        print.setAttribute("new-system", "yes");
+        const print = doc.createElement('print');
+        print.setAttribute('new-system', 'yes');
         measure.insertBefore(print, measure.firstChild);
       });
   }
@@ -286,25 +261,17 @@ type RenderedSide = {
   renderScale: number;
 };
 
-function measureBounds(
-  positions: Positions | null,
-  scale: number,
-): Array<MeasureBox | undefined> {
+function measureBounds(positions: Positions | null, scale: number): Array<MeasureBox | undefined> {
   if (!positions?.elements?.length) return [];
   const pageHeight = positions.pageSize?.height ?? 0;
   return positions.elements.map((element) => {
-    const rawHeight =
-      typeof element.sy === "number" ? element.sy : (element.height ?? 0);
-    const rawWidth =
-      typeof element.sx === "number" ? element.sx : (element.width ?? 0);
+    const rawHeight = typeof element.sy === 'number' ? element.sy : (element.height ?? 0);
+    const rawWidth = typeof element.sx === 'number' ? element.sx : (element.width ?? 0);
     // Endless layout still reports per-page coordinates, so a later page's
     // measures would otherwise stack on top of the first.
     const needsPageOffset =
-      pageHeight > 0 &&
-      element.page > 0 &&
-      element.y + rawHeight <= pageHeight * 1.2;
-    const top =
-      (element.y + (needsPageOffset ? element.page * pageHeight : 0)) * scale;
+      pageHeight > 0 && element.page > 0 && element.y + rawHeight <= pageHeight * 1.2;
+    const top = (element.y + (needsPageOffset ? element.page * pageHeight : 0)) * scale;
     return {
       left: element.x * scale,
       width: rawWidth * scale,
@@ -326,9 +293,9 @@ function measureBounds(
 function svgAtRenderWidth(svg: string): string {
   return svg.replace(/<svg\b[^>]*>/, (tag) => {
     const withoutSize = tag
-      .replace(/\swidth="[^"]*"/i, "")
-      .replace(/\sheight="[^"]*"/i, "")
-      .replace(/\spreserveAspectRatio="[^"]*"/i, "");
+      .replace(/\swidth="[^"]*"/i, '')
+      .replace(/\sheight="[^"]*"/i, '')
+      .replace(/\spreserveAspectRatio="[^"]*"/i, '');
     return withoutSize.replace(
       /^<svg/,
       `<svg width="${RENDER_WIDTH}" preserveAspectRatio="xMinYMin meet"`,
@@ -355,18 +322,11 @@ export function placeUnderMerged(
   ownIndexes: readonly number[],
   paneWidth: number,
 ): { left: number; width: number } | null {
-  if (
-    !merged ||
-    paneWidth <= 0 ||
-    mergedIndexes.length === 0 ||
-    ownIndexes.length === 0
-  ) {
+  if (!merged || paneWidth <= 0 || mergedIndexes.length === 0 || ownIndexes.length === 0) {
     return null;
   }
   const boxesFor = (indexes: readonly number[]) =>
-    indexes
-      .map((index) => merged.measures[index])
-      .filter((box): box is MeasureBox => Boolean(box));
+    indexes.map((index) => merged.measures[index]).filter((box): box is MeasureBox => Boolean(box));
   const lineBoxes = boxesFor(mergedIndexes);
   const targetBoxes = boxesFor(ownIndexes);
   if (lineBoxes.length === 0 || targetBoxes.length === 0) return null;
@@ -377,9 +337,7 @@ export function placeUnderMerged(
   const scale = paneWidth / lineWidth;
 
   const targetLeft = Math.min(...targetBoxes.map((box) => box.left));
-  const targetRight = Math.max(
-    ...targetBoxes.map((box) => box.left + box.width),
-  );
+  const targetRight = Math.max(...targetBoxes.map((box) => box.left + box.width));
   return {
     left: (targetLeft - lineLeft) * scale,
     width: Math.max(1, (targetRight - targetLeft) * scale),
@@ -418,13 +376,13 @@ function eventBoxes(
     // fires on every bar of a page, the two sides have stopped counting the
     // same thing and symbol highlighting is off everywhere.
     console.debug(
-      "[scanner-rows] symbol highlight skipped: measure",
+      '[scanner-rows] symbol highlight skipped: measure',
       measureIndex,
-      "has",
+      'has',
       inside.length,
-      "drawn positions against",
+      'drawn positions against',
       eventCount,
-      "analysed events",
+      'analysed events',
     );
     return [];
   }
@@ -505,35 +463,23 @@ export function engravedRowWindow(
   if (!rendered || measureIndexes.length === 0) return [...measureIndexes];
   const placed = measureIndexes
     .map((index) => ({ index, box: rendered.measures[index] }))
-    .filter((entry): entry is { index: number; box: MeasureBox } =>
-      Boolean(entry.box),
-    );
+    .filter((entry): entry is { index: number; box: MeasureBox } => Boolean(entry.box));
   if (placed.length === 0) return [...measureIndexes];
 
-  const staff = Math.max(
-    1,
-    Math.min(...placed.map((entry) => entry.box.height)),
-  );
+  const staff = Math.max(1, Math.min(...placed.map((entry) => entry.box.height)));
   const rows: Array<{ top: number; indexes: number[] }> = [];
-  for (const entry of [...placed].sort(
-    (left, right) => left.box.top - right.box.top,
-  )) {
+  for (const entry of [...placed].sort((left, right) => left.box.top - right.box.top)) {
     const row = rows[rows.length - 1];
     // Half a staff apart is more than engraving jitter and less than a
     // system's spacing, so it separates rows without splitting one.
-    if (row && entry.box.top - row.top <= staff / 2)
-      row.indexes.push(entry.index);
+    if (row && entry.box.top - row.top <= staff / 2) row.indexes.push(entry.index);
     else rows.push({ top: entry.box.top, indexes: [entry.index] });
   }
   if (rows.length <= 1) return [...measureIndexes];
 
   const wanted = new Set(contested);
-  const holdsAll = rows.find((row) =>
-    [...wanted].every((index) => row.indexes.includes(index)),
-  );
-  const holdsSome = rows.find((row) =>
-    row.indexes.some((index) => wanted.has(index)),
-  );
+  const holdsAll = rows.find((row) => [...wanted].every((index) => row.indexes.includes(index)));
+  const holdsSome = rows.find((row) => row.indexes.some((index) => wanted.has(index)));
   const chosen = holdsAll ?? holdsSome ?? rows[0];
   return [...chosen.indexes].sort((left, right) => left - right);
 }
@@ -556,38 +502,32 @@ export function engravedRowWindow(
 const SCANNER_SYSTEM_DISTANCE_TENTHS = 240;
 
 export function withSystemSpacing(xml: string): string {
-  if (typeof DOMParser === "undefined") return xml;
-  const doc = new DOMParser().parseFromString(xml, "application/xml");
-  if (doc.getElementsByTagName("parsererror").length > 0) return xml;
+  if (typeof DOMParser === 'undefined') return xml;
+  const doc = new DOMParser().parseFromString(xml, 'application/xml');
+  if (doc.getElementsByTagName('parsererror').length > 0) return xml;
   const root = doc.documentElement;
   if (!root) return xml;
 
-  let defaults = Array.from(root.children).find(
-    (child) => child.tagName === "defaults",
-  );
+  let defaults = Array.from(root.children).find((child) => child.tagName === 'defaults');
   if (!defaults) {
-    defaults = doc.createElement("defaults");
+    defaults = doc.createElement('defaults');
     // `<defaults>` follows the header blocks and precedes `<part-list>`.
-    const partList = Array.from(root.children).find(
-      (child) => child.tagName === "part-list",
-    );
+    const partList = Array.from(root.children).find((child) => child.tagName === 'part-list');
     root.insertBefore(defaults, partList ?? root.firstChild);
   }
   const container = defaults;
-  Array.from(container.getElementsByTagName("system-layout")).forEach((node) =>
+  Array.from(container.getElementsByTagName('system-layout')).forEach((node) =>
     node.parentElement === container ? container.removeChild(node) : undefined,
   );
   // A `<print>` carrying its own system layout would override the default.
-  Array.from(doc.getElementsByTagName("system-layout")).forEach((node) =>
-    node.parentElement?.tagName === "print"
-      ? node.parentElement.removeChild(node)
-      : undefined,
+  Array.from(doc.getElementsByTagName('system-layout')).forEach((node) =>
+    node.parentElement?.tagName === 'print' ? node.parentElement.removeChild(node) : undefined,
   );
 
-  const layout = doc.createElement("system-layout");
+  const layout = doc.createElement('system-layout');
   for (const [name, value] of [
-    ["system-distance", SCANNER_SYSTEM_DISTANCE_TENTHS],
-    ["top-system-distance", SCANNER_SYSTEM_DISTANCE_TENTHS / 2],
+    ['system-distance', SCANNER_SYSTEM_DISTANCE_TENTHS],
+    ['top-system-distance', SCANNER_SYSTEM_DISTANCE_TENTHS / 2],
   ] as const) {
     const node = doc.createElement(name);
     node.textContent = String(value);
@@ -595,24 +535,19 @@ export function withSystemSpacing(xml: string): string {
   }
   // Inside `<defaults>`, `<system-layout>` follows `<scaling>` and `<page-layout>`.
   const after = Array.from(container.children).filter((child) =>
-    ["scaling", "page-layout"].includes(child.tagName),
+    ['scaling', 'page-layout'].includes(child.tagName),
   );
   const anchor = after[after.length - 1];
-  container.insertBefore(
-    layout,
-    anchor ? anchor.nextSibling : container.firstChild,
-  );
+  container.insertBefore(layout, anchor ? anchor.nextSibling : container.firstChild);
   return new XMLSerializer().serializeToString(doc);
 }
 
 /** `n/d` as a number, for comparing a bar's length against its time signature. */
 export function fractionValue(value: string): number {
-  const [numerator, denominator] = String(value).split("/");
+  const [numerator, denominator] = String(value).split('/');
   const top = Number(numerator);
   const bottom = Number(denominator);
-  return Number.isFinite(top) && Number.isFinite(bottom) && bottom !== 0
-    ? top / bottom
-    : NaN;
+  return Number.isFinite(top) && Number.isFinite(bottom) && bottom !== 0 ? top / bottom : NaN;
 }
 
 /**
@@ -624,15 +559,11 @@ export function fractionValue(value: string): number {
  * holding more has no such reading — the engine put more into it than the time
  * signature has room for, which is a mistake every time.
  */
-export function overfullMeasures(
-  measures: readonly IrregularMeasure[],
-): IrregularMeasure[] {
+export function overfullMeasures(measures: readonly IrregularMeasure[]): IrregularMeasure[] {
   return measures.filter((measure) => {
     const actual = fractionValue(measure.actual);
     const nominal = fractionValue(measure.nominal);
-    return (
-      Number.isFinite(actual) && Number.isFinite(nominal) && actual > nominal
-    );
+    return Number.isFinite(actual) && Number.isFinite(nominal) && actual > nominal;
   });
 }
 
@@ -642,17 +573,12 @@ export function scannerMeasureIsPickup(measure: IrregularMeasure): boolean {
   const nominal = fractionValue(measure.nominal);
   return (
     measure.pickup === true ||
-    (measure.index === 0 &&
-      Number.isFinite(actual) &&
-      Number.isFinite(nominal) &&
-      actual < nominal)
+    (measure.index === 0 && Number.isFinite(actual) && Number.isFinite(nominal) && actual < nominal)
   );
 }
 
 export function scannerMeasureLabel(measure: IrregularMeasure): string {
-  return scannerMeasureIsPickup(measure)
-    ? "pickup measure 0"
-    : `bar ${measure.number}`;
+  return scannerMeasureIsPickup(measure) ? 'pickup measure 0' : `bar ${measure.number}`;
 }
 
 /** Draw an already-loaded score; used for the merged document, which is live. */
@@ -696,14 +622,11 @@ async function renderScoreSide(
   return {
     svg: svgAtRenderWidth(svg),
     measures: measureBounds(positions, renderScale),
-    segments: measureBounds(segments, renderScale).filter(
-      (box): box is MeasureBox => Boolean(box),
-    ),
+    segments: measureBounds(segments, renderScale).filter((box): box is MeasureBox => Boolean(box)),
     staffBands: staffBands.map((band) => ({
       page: band.page,
       partIndex: band.partIndex,
-      top:
-        (band.y + band.page * (positions?.pageSize?.height || 0)) * renderScale,
+      top: (band.y + band.page * (positions?.pageSize?.height || 0)) * renderScale,
       height: band.height * renderScale,
     })),
     width: RENDER_WIDTH,
@@ -713,15 +636,12 @@ async function renderScoreSide(
 }
 
 /** Draw an engine reading. Its score is transient: engine panes are evidence. */
-async function renderSide(
-  xml: string,
-  startIndexes: number[],
-): Promise<RenderedSide | null> {
+async function renderSide(xml: string, startIndexes: number[]): Promise<RenderedSide | null> {
   const WebMscore = await loadWebMscore();
   const reflowed = withSystemSpacing(withForcedSystemBreaks(xml, startIndexes));
   let score: Score | null = null;
   try {
-    score = await WebMscore.load("xml", new TextEncoder().encode(reflowed));
+    score = await WebMscore.load('xml', new TextEncoder().encode(reflowed));
     if (!score) return null;
     return await renderScoreSide(score);
   } finally {
@@ -762,7 +682,7 @@ function SystemPane({
   measureIndexes: number[];
   label: string;
   paneWidth: number;
-  tone?: "merged";
+  tone?: 'merged';
   /** Playback state for this pane, when the workspace supplies a transport. */
   transport?: CompareTransportState;
   onTogglePlay?: () => void;
@@ -816,10 +736,8 @@ function SystemPane({
   const attachPane = useCallback((node: HTMLDivElement | null) => {
     observed.current?.disconnect();
     observed.current = null;
-    if (!node || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(() =>
-      setMeasuredWidth(node.clientWidth),
-    );
+    if (!node || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => setMeasuredWidth(node.clientWidth));
     observer.observe(node);
     observed.current = observer;
     setMeasuredWidth(node.clientWidth);
@@ -837,15 +755,11 @@ function SystemPane({
   const localize = (box: MeasureBox | undefined): MeasureBox | undefined => {
     if (!box || partIndex === undefined || !rendered) return box;
     const band = rendered.staffBands
-      .filter(
-        (entry) =>
-          entry.partIndex === partIndex && entry.page === (box.page || 0),
-      )
+      .filter((entry) => entry.partIndex === partIndex && entry.page === (box.page || 0))
       .map((entry) => ({
         entry,
         overlap:
-          Math.min(box.top + box.height, entry.top + entry.height) -
-          Math.max(box.top, entry.top),
+          Math.min(box.top + box.height, entry.top + entry.height) - Math.max(box.top, entry.top),
       }))
       .sort((left, right) => right.overlap - left.overlap)[0]?.entry;
     return band ? { ...box, top: band.top, height: band.height } : box;
@@ -871,15 +785,11 @@ function SystemPane({
     .map(localize)
     .filter(
       (box): box is MeasureBox =>
-        Boolean(box) &&
-        (box!.top + box!.height <= rawTop || box!.top >= rawBottom),
+        Boolean(box) && (box!.top + box!.height <= rawTop || box!.top >= rawBottom),
     );
   const nearestAbove = others
     .filter((box) => box.top + box.height <= rawTop)
-    .reduce(
-      (closest, box) => Math.max(closest, box.top + box.height),
-      -Infinity,
-    );
+    .reduce((closest, box) => Math.max(closest, box.top + box.height), -Infinity);
   const nearestBelow = others
     .filter((box) => box.top >= rawBottom)
     .reduce((closest, box) => Math.min(closest, box.top), Infinity);
@@ -890,15 +800,11 @@ function SystemPane({
   const top = Math.max(
     0,
     rawTop -
-      (Number.isFinite(nearestAbove)
-        ? Math.min(wanted, (rawTop - nearestAbove) / 2)
-        : wanted),
+      (Number.isFinite(nearestAbove) ? Math.min(wanted, (rawTop - nearestAbove) / 2) : wanted),
   );
   const bottom =
     rawBottom +
-    (Number.isFinite(nearestBelow)
-      ? Math.min(wanted, (nearestBelow - rawBottom) / 2)
-      : wanted);
+    (Number.isFinite(nearestBelow) ? Math.min(wanted, (nearestBelow - rawBottom) / 2) : wanted);
 
   // Clip horizontally to the music, not the page. An engraved page carries
   // margins the scan crop above does not, so without this the reading sits
@@ -926,20 +832,14 @@ function SystemPane({
   const toScorePoint = (event: React.MouseEvent<HTMLDivElement>) => {
     if (!rendered) return null;
     const rect = event.currentTarget.getBoundingClientRect();
-    const renderX =
-      (event.clientX - rect.left - geometry.offsetX) / geometry.scale +
-      geometry.left;
+    const renderX = (event.clientX - rect.left - geometry.offsetX) / geometry.scale + geometry.left;
     const renderY = (event.clientY - rect.top) / geometry.scale + geometry.top;
-    const page =
-      rendered.pageHeight > 0 ? Math.floor(renderY / rendered.pageHeight) : 0;
+    const page = rendered.pageHeight > 0 ? Math.floor(renderY / rendered.pageHeight) : 0;
     const pageY = renderY - page * rendered.pageHeight;
     const clickedPartIndex =
       partIndex ??
       rendered.staffBands.find(
-        (band) =>
-          band.page === page &&
-          renderY >= band.top &&
-          renderY <= band.top + band.height,
+        (band) => band.page === page && renderY >= band.top && renderY <= band.top + band.height,
       )?.partIndex;
     const measureIndex = measureIndexes.find((index) => {
       const box = localize(rendered.measures[index]);
@@ -976,10 +876,8 @@ function SystemPane({
        * and without contributing, which is what was meant both times.
        */
       className={`relative w-full overflow-clip rounded border bg-white ${
-        tone === "merged"
-          ? "border-cyan-300 ring-1 ring-cyan-200"
-          : "border-gray-200"
-      } ${onPointMutate && noteInput ? "cursor-crosshair" : ""}`}
+        tone === 'merged' ? 'border-cyan-300 ring-1 ring-cyan-200' : 'border-gray-200'
+      } ${onPointMutate && noteInput ? 'cursor-crosshair' : ''}`}
       style={{ height: Math.max(1, (bottom - top) * scale) }}
       onClick={
         onPointMutate
@@ -989,16 +887,16 @@ function SystemPane({
             }
           : undefined
       }
-      data-testid={tone === "merged" ? "merged-system-pane" : undefined}
+      data-testid={tone === 'merged' ? 'merged-system-pane' : undefined}
     >
       {/* What this pane was asked to draw, and where, so a test can read it. */}
       <span
         className="hidden"
         data-testid="pane-measures"
-        data-place-left={place ? Math.round(place.left) : ""}
-        data-place-width={place ? Math.round(place.width) : ""}
+        data-place-left={place ? Math.round(place.left) : ''}
+        data-place-width={place ? Math.round(place.width) : ''}
       >
-        {measureIndexes.join(",")}
+        {measureIndexes.join(',')}
       </span>
       <div
         className="absolute left-0 top-0 origin-top-left"
@@ -1089,10 +987,10 @@ function SystemPane({
               onTogglePlay();
             }}
             disabled={transport?.isBusy}
-            aria-label={`${playing ? "Pause" : "Play"} ${label}`}
+            aria-label={`${playing ? 'Pause' : 'Play'} ${label}`}
             className="rounded border border-gray-400 bg-white px-1.5 py-0.5 text-[11px] leading-none text-gray-800 shadow-sm hover:bg-gray-50 disabled:opacity-50"
           >
-            {transport?.isBusy ? "…" : playing ? "❚❚" : "▶"}
+            {transport?.isBusy ? '…' : playing ? '❚❚' : '▶'}
           </button>
           {/*
                         Stop is not pause: it gives the row back its silence and
@@ -1129,7 +1027,7 @@ function SystemPane({
 export function mergedReadsBlockFrom(
   blockIndex: number,
   sourceEngineId: string,
-  decisions: MergedScoreState["decisions"],
+  decisions: MergedScoreState['decisions'],
 ): string {
   let current = sourceEngineId;
   for (const decision of decisions || []) {
@@ -1141,7 +1039,7 @@ export function mergedReadsBlockFrom(
 
 export function mergedBlockFlagged(
   blockIndex: number,
-  decisions: MergedScoreState["decisions"],
+  decisions: MergedScoreState['decisions'],
 ): boolean {
   let flagged = false;
   for (const decision of decisions || []) {
@@ -1154,7 +1052,7 @@ export function mergedBlockFlagged(
 
 function blockHasExplicitReview(
   blockIndex: number,
-  decisions: MergedScoreState["decisions"],
+  decisions: MergedScoreState['decisions'],
 ): boolean {
   return (
     (decisions || []).some(
@@ -1165,12 +1063,11 @@ function blockHasExplicitReview(
   );
 }
 
-export type MergedBarState =
-  "inherited" | "taken" | "markings-merged" | "edited" | "flagged";
+export type MergedBarState = 'inherited' | 'taken' | 'markings-merged' | 'edited' | 'flagged';
 
 export function mergedBarStatesForRegion(
   region: ScannerRowRegion,
-  mergeSource: "left" | "right",
+  mergeSource: 'left' | 'right',
   state: MergedScoreState | null | undefined,
 ): Array<{ measureIndex: number; state: MergedBarState }> {
   const decisions = (state?.decisions || []).filter(
@@ -1178,19 +1075,13 @@ export function mergedBarStatesForRegion(
   );
   const contentDecision = [...decisions]
     .reverse()
-    .find(
-      (decision) =>
-        Boolean(decision.engineId) || Boolean(decision.markingsOnly),
-    );
+    .find((decision) => Boolean(decision.engineId) || Boolean(decision.markingsOnly));
   const flagged = mergedBlockFlagged(region.blockIndex, decisions);
   const sourceIndexes =
-    mergeSource === "left"
-      ? region.leftMeasureIndexes
-      : region.rightMeasureIndexes;
+    mergeSource === 'left' ? region.leftMeasureIndexes : region.rightMeasureIndexes;
   const map =
-    (region.stablePartKey
-      ? state?.measureMaps?.[region.stablePartKey]
-      : undefined) || state?.measureMap;
+    (region.stablePartKey ? state?.measureMaps?.[region.stablePartKey] : undefined) ||
+    state?.measureMap;
   const mapped = map
     ? sourceIndexes.flatMap((sourceIndex) =>
         map.flatMap((mappedSource, measureIndex) =>
@@ -1214,14 +1105,14 @@ export function mergedBarStatesForRegion(
   return [...new Set(measureIndexes)].map((measureIndex) => ({
     measureIndex,
     state: flagged
-      ? "flagged"
+      ? 'flagged'
       : edited.has(measureIndex)
-        ? "edited"
+        ? 'edited'
         : contentDecision?.markingsOnly
-          ? "markings-merged"
+          ? 'markings-merged'
           : contentDecision?.engineId
-            ? "taken"
-            : "inherited",
+            ? 'taken'
+            : 'inherited',
   }));
 }
 
@@ -1240,7 +1131,7 @@ export function mergedBarStatesForRegion(
  */
 function Gutter({
   direction,
-  layout = "vertical",
+  layout = 'vertical',
   label,
   regions,
   engineId,
@@ -1250,7 +1141,7 @@ function Gutter({
   outcome,
   busy,
 }: {
-  direction: "down" | "up";
+  direction: 'down' | 'up';
   layout?: ScannerRowLayout;
   label: string;
   regions: ScannerRowRegion[];
@@ -1273,24 +1164,20 @@ function Gutter({
    * a button below it reads as a button that does nothing.
    */
   outcome: { blockIndex: number; engineId: string; message: string } | null;
-  onTake: (
-    region: ScannerRowRegion,
-    engineId: string,
-    kind?: "dynamics" | "lyrics",
-  ) => void;
+  onTake: (region: ScannerRowRegion, engineId: string, kind?: 'dynamics' | 'lyrics') => void;
   busy: boolean;
 }) {
   if (regions.length === 0 || !engineId) return null;
   return (
     <div
       className={`flex gap-1 py-0.5 text-[11px] text-gray-700 ${
-        layout === "horizontal"
-          ? "w-40 shrink-0 flex-col items-stretch justify-center"
-          : "flex-wrap items-center"
+        layout === 'horizontal'
+          ? 'w-40 shrink-0 flex-col items-stretch justify-center'
+          : 'flex-wrap items-center'
       }`}
     >
       <span
-        className={`${layout === "horizontal" ? "text-center" : "mr-1"} uppercase tracking-wide text-gray-500`}
+        className={`${layout === 'horizontal' ? 'text-center' : 'mr-1'} uppercase tracking-wide text-gray-500`}
       >
         take from {label}
       </span>
@@ -1321,28 +1208,24 @@ function Gutter({
                 */
         const alreadyRead = readsFrom(region.blockIndex) === engineId;
         const decidable = !alreadyRead;
-        const from =
-          direction === "down" ? region.leftMarkings : region.rightMarkings;
-        const bars = (
-          direction === "down"
-            ? region.leftMeasureIndexes
-            : region.rightMeasureIndexes
-        ).length;
+        const from = direction === 'down' ? region.leftMarkings : region.rightMarkings;
+        const bars = (direction === 'down' ? region.leftMeasureIndexes : region.rightMeasureIndexes)
+          .length;
         const arrow =
-          layout === "horizontal"
-            ? direction === "down"
-              ? "→"
-              : "←"
-            : direction === "down"
-              ? "↓"
-              : "↑";
+          layout === 'horizontal'
+            ? direction === 'down'
+              ? '→'
+              : '←'
+            : direction === 'down'
+              ? '↓'
+              : '↑';
         return (
           <span
             key={region.blockIndex}
             className={`flex gap-0.5 ${
-              layout === "horizontal"
-                ? "flex-wrap items-center justify-center rounded border border-gray-200 bg-gray-50 p-1"
-                : "items-center"
+              layout === 'horizontal'
+                ? 'flex-wrap items-center justify-center rounded border border-gray-200 bg-gray-50 p-1'
+                : 'items-center'
             }`}
             onMouseEnter={() => onPreview(region)}
             onFocusCapture={() => onPreview(region)}
@@ -1362,7 +1245,7 @@ function Gutter({
               className="rounded border border-cyan-600 bg-white px-1.5 py-0.5 font-semibold text-cyan-800 shadow-sm hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-600 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-50 disabled:font-normal disabled:text-gray-400 disabled:shadow-none"
             >
               {arrow} {region.blockIndex + 1}
-              {bars === 0 ? " (remove)" : bars > 1 ? ` (${bars} bars)` : ""}
+              {bars === 0 ? ' (remove)' : bars > 1 ? ` (${bars} bars)` : ''}
             </button>
             {/*
                             Only when this side has any. Dynamics and lyrics are
@@ -1376,7 +1259,7 @@ function Gutter({
                 data-testid={`btn-take-${direction}-dynamics-${region.blockIndex}`}
                 disabled={busy}
                 title={`Take only the dynamics of difference ${region.blockIndex + 1} from ${label}, leaving the notes`}
-                onClick={() => onTake(region, engineId, "dynamics")}
+                onClick={() => onTake(region, engineId, 'dynamics')}
                 className="rounded border border-cyan-300 bg-white px-1 py-0.5 text-cyan-800 hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-600 disabled:border-gray-300 disabled:bg-gray-50 disabled:text-gray-400"
               >
                 {arrow} dynamics
@@ -1388,7 +1271,7 @@ function Gutter({
                 data-testid={`btn-take-${direction}-lyrics-${region.blockIndex}`}
                 disabled={busy}
                 title={`Take only the lyrics of difference ${region.blockIndex + 1} from ${label}, leaving the notes`}
-                onClick={() => onTake(region, engineId, "lyrics")}
+                onClick={() => onTake(region, engineId, 'lyrics')}
                 className="rounded border border-cyan-300 bg-white px-1 py-0.5 text-cyan-800 hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-600 disabled:border-gray-300 disabled:bg-gray-50 disabled:text-gray-400"
               >
                 {arrow} lyrics
@@ -1477,13 +1360,9 @@ export function ScannerSystemRows({
   const rowRefs = useRef<Array<HTMLDivElement | null>>([]);
   const paneRef = useRef<HTMLDivElement>(null);
   const [paneWidth, setPaneWidth] = useState(0);
-  const [rowGranularity, setRowGranularity] = useState<"system" | "staff">(
-    "system",
-  );
-  const [rowLayout, setRowLayout] = useState<ScannerRowLayout>("horizontal");
-  const [collapsedPanes, setCollapsedPanes] = useState<
-    Record<ScannerPane, boolean>
-  >({
+  const [rowGranularity, setRowGranularity] = useState<'system' | 'staff'>('system');
+  const [rowLayout, setRowLayout] = useState<ScannerRowLayout>('horizontal');
+  const [collapsedPanes, setCollapsedPanes] = useState<Record<ScannerPane, boolean>>({
     scan: false,
     left: false,
     merged: false,
@@ -1501,32 +1380,23 @@ export function ScannerSystemRows({
    * Transcoda page" the ordinary entry point rather than a special action, and
    * per-bar decisions override it from S3 onward.
    */
-  const [mergeSource, setMergeSource] = useState<"left" | "right">(
-    mergedState?.sourceEngineId && mergedState.sourceEngineId === rightEngineId
-      ? "right"
-      : "left",
+  const [mergeSource, setMergeSource] = useState<'left' | 'right'>(
+    mergedState?.sourceEngineId && mergedState.sourceEngineId === rightEngineId ? 'right' : 'left',
   );
 
   const leftStarts = useMemo(
-    () =>
-      systems
-        .map((system) => system.leftMeasureIndexes[0])
-        .filter((n) => n !== undefined),
+    () => systems.map((system) => system.leftMeasureIndexes[0]).filter((n) => n !== undefined),
     [systems],
   );
   const rightStarts = useMemo(
-    () =>
-      systems
-        .map((system) => system.rightMeasureIndexes[0])
-        .filter((n) => n !== undefined),
+    () => systems.map((system) => system.rightMeasureIndexes[0]).filter((n) => n !== undefined),
     [systems],
   );
 
-  const mergeStarts = mergeSource === "left" ? leftStarts : rightStarts;
-  const mergeSourceXml = mergeSource === "left" ? leftXml : rightXml;
-  const mergedLabel = mergeSource === "left" ? leftLabel : rightLabel;
-  const mergedEngineId =
-    (mergeSource === "left" ? leftEngineId : rightEngineId) || "";
+  const mergeStarts = mergeSource === 'left' ? leftStarts : rightStarts;
+  const mergeSourceXml = mergeSource === 'left' ? leftXml : rightXml;
+  const mergedLabel = mergeSource === 'left' ? leftLabel : rightLabel;
+  const mergedEngineId = (mergeSource === 'left' ? leftEngineId : rightEngineId) || '';
 
   /**
    * Reflow whatever the merged document is onto the scan's systems.
@@ -1570,9 +1440,9 @@ export function ScannerSystemRows({
   });
 
   const chooseMergeSource = useCallback(
-    async (side: "left" | "right") => {
+    async (side: 'left' | 'right') => {
       if (side === mergeSource) return;
-      const engineId = side === "left" ? leftEngineId : rightEngineId;
+      const engineId = side === 'left' ? leftEngineId : rightEngineId;
       if (!engineId || !leftEngineId || !rightEngineId) return;
       const outcome = await merged.chooseSource({
         engineId,
@@ -1587,9 +1457,7 @@ export function ScannerSystemRows({
       // Changing the local side now triggers a reload of that persisted
       // revision with the matching scan-system breaks.
       setMergeSource(side);
-      setNotice(
-        `Started the merged score from ${side === "left" ? leftLabel : rightLabel}.`,
-      );
+      setNotice(`Started the merged score from ${side === 'left' ? leftLabel : rightLabel}.`);
     },
     [leftEngineId, leftLabel, mergeSource, merged, rightEngineId, rightLabel],
   );
@@ -1616,8 +1484,7 @@ export function ScannerSystemRows({
         setLeft(renderedLeft);
         setRight(renderedRight);
       } catch (err) {
-        if (!cancelled)
-          setError(err instanceof Error ? err.message : String(err));
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
       } finally {
         if (!cancelled) setBusy(false);
       }
@@ -1672,12 +1539,9 @@ export function ScannerSystemRows({
 
   const fixMeasureLength = useCallback(
     (measureIndex: number) => {
-      void mutateMerged(
-        `set bar ${measureIndex + 1} to its time signature`,
-        async (target) => {
-          await target.setMeasureLengthToTimeSignature?.(measureIndex);
-        },
-      );
+      void mutateMerged(`set bar ${measureIndex + 1} to its time signature`, async (target) => {
+        await target.setMeasureLengthToTimeSignature?.(measureIndex);
+      });
     },
     [mutateMerged],
   );
@@ -1698,9 +1562,7 @@ export function ScannerSystemRows({
       `set ${overfull.length} over-full bars to their time signature`,
       async (target) => {
         // Descending, so an earlier fix cannot renumber a later target.
-        for (const bar of [...overfull].sort(
-          (left, right) => right.index - left.index,
-        )) {
+        for (const bar of [...overfull].sort((left, right) => right.index - left.index)) {
           await target.setMeasureLengthToTimeSignature?.(bar.index);
         }
       },
@@ -1721,8 +1583,7 @@ export function ScannerSystemRows({
         });
         if (!cancelled) setMergedRender(rendered);
       } catch (err) {
-        if (!cancelled)
-          setError(err instanceof Error ? err.message : String(err));
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
       }
     })();
     return () => {
@@ -1736,15 +1597,13 @@ export function ScannerSystemRows({
       system: ScannerSystem;
       systemPosition: number;
       key: string;
-      staffRow?: NonNullable<ScannerSystem["staffRows"]>[number];
+      staffRow?: NonNullable<ScannerSystem['staffRows']>[number];
     }>
   >(
     () =>
       systems.flatMap((system, systemPosition) => {
-        if (rowGranularity === "system" || !system.staffRows?.length) {
-          return [
-            { system, systemPosition, key: `system-${system.systemIndex}` },
-          ];
+        if (rowGranularity === 'system' || !system.staffRows?.length) {
+          return [{ system, systemPosition, key: `system-${system.systemIndex}` }];
         }
         return system.staffRows.map((staffRow) => ({
           system,
@@ -1758,12 +1617,8 @@ export function ScannerSystemRows({
 
   const differencesByRow = useMemo(() => {
     return allRows.map(({ system, staffRow }) => {
-      const left = new Set(
-        staffRow?.leftMeasureIndexes || system.leftMeasureIndexes,
-      );
-      const right = new Set(
-        staffRow?.rightMeasureIndexes || system.rightMeasureIndexes,
-      );
+      const left = new Set(staffRow?.leftMeasureIndexes || system.leftMeasureIndexes);
+      const right = new Set(staffRow?.rightMeasureIndexes || system.rightMeasureIndexes);
       return regions.filter(
         (region) =>
           (!staffRow || region.stablePartKey === staffRow.stablePartKey) &&
@@ -1783,24 +1638,18 @@ export function ScannerSystemRows({
    */
   const navigableLines = useMemo(() => {
     return differencesByRow.flatMap((entries, rowIndex) =>
-      entries.length > 0
-        ? [{ blockIndex: entries[0].blockIndex, rowIndex }]
-        : [],
+      entries.length > 0 ? [{ blockIndex: entries[0].blockIndex, rowIndex }] : [],
     );
   }, [differencesByRow]);
 
   // The host names the difference to open; moving between them is this
   // view's own business, because everything a reader needs to move — the
   // rows, the scan, the readings — is already here.
-  const [selectedBlockIndex, setSelectedBlockIndex] = useState<
-    number | undefined
-  >(onlyBlockIndex);
+  const [selectedBlockIndex, setSelectedBlockIndex] = useState<number | undefined>(onlyBlockIndex);
   const [staleCrops, setStaleCrops] = useState<Set<number>>(new Set());
   // The difference the pointer is over, if any. Hover is a question — "which
   // bars is this one?" — and this is what answers it.
-  const [previewRegion, setPreviewRegion] = useState<ScannerRowRegion | null>(
-    null,
-  );
+  const [previewRegion, setPreviewRegion] = useState<ScannerRowRegion | null>(null);
   // A take the reviewer may repeat deliberately, after being told why it
   // refused. Cleared as soon as anything else happens.
   const [takeOutcome, setTakeOutcome] = useState<{
@@ -1812,15 +1661,10 @@ export function ScannerSystemRows({
   const selectedRowIndex = differencesByRow.findIndex((entries) =>
     entries.some((entry) => entry.blockIndex === selectedBlockIndex),
   );
-  const selectedPosition = navigableLines.findIndex(
-    (entry) => entry.rowIndex === selectedRowIndex,
-  );
+  const selectedPosition = navigableLines.findIndex((entry) => entry.rowIndex === selectedRowIndex);
   const isFirstConflictLine = selectedPosition <= 0;
-  const isLastConflictLine =
-    selectedPosition < 0 || selectedPosition >= navigableLines.length - 1;
-  const selectedRegion = regions.find(
-    (region) => region.blockIndex === selectedBlockIndex,
-  );
+  const isLastConflictLine = selectedPosition < 0 || selectedPosition >= navigableLines.length - 1;
+  const selectedRegion = regions.find((region) => region.blockIndex === selectedBlockIndex);
   const goToLine = (position: number) => {
     const target = navigableLines[position];
     if (!target) return;
@@ -1831,8 +1675,8 @@ export function ScannerSystemRows({
     if (selectedRowIndex < 0) return;
     const frame = window.requestAnimationFrame(() =>
       rowRefs.current[selectedRowIndex]?.scrollIntoView?.({
-        behavior: "smooth",
-        block: "center",
+        behavior: 'smooth',
+        block: 'center',
       }),
     );
     return () => window.cancelAnimationFrame(frame);
@@ -1861,7 +1705,7 @@ export function ScannerSystemRows({
 
   useEffect(() => {
     const node = paneRef.current;
-    if (!node || typeof ResizeObserver === "undefined") return;
+    if (!node || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(() => setPaneWidth(node.clientWidth));
     observer.observe(node);
     setPaneWidth(node.clientWidth);
@@ -1890,9 +1734,9 @@ export function ScannerSystemRows({
 
   const mergedIndexes = (
     system: ScannerSystem,
-    staffRow?: NonNullable<ScannerSystem["staffRows"]>[number],
+    staffRow?: NonNullable<ScannerSystem['staffRows']>[number],
   ) =>
-    mergeSource === "left"
+    mergeSource === 'left'
       ? staffRow?.leftMeasureIndexes || system.leftMeasureIndexes
       : staffRow?.rightMeasureIndexes || system.rightMeasureIndexes;
 
@@ -1900,8 +1744,7 @@ export function ScannerSystemRows({
     const result = new Map<number, string>();
     for (const system of systems) {
       for (const row of system.staffRows || []) {
-        const ordinal =
-          mergeSource === "left" ? row.leftPartIndex : row.rightPartIndex;
+        const ordinal = mergeSource === 'left' ? row.leftPartIndex : row.rightPartIndex;
         if (ordinal !== undefined) result.set(ordinal, row.stablePartKey);
       }
     }
@@ -1911,20 +1754,12 @@ export function ScannerSystemRows({
 
   /** A click in the merged pane either places a note or selects what is there. */
   const handleMergedPoint = useCallback(
-    (point: {
-      page: number;
-      x: number;
-      y: number;
-      measureIndex?: number;
-      partIndex?: number;
-    }) => {
+    (point: { page: number; x: number; y: number; measureIndex?: number; partIndex?: number }) => {
       const stablePartKey =
-        point.partIndex === undefined
-          ? undefined
-          : mergedPartKeys.get(point.partIndex);
+        point.partIndex === undefined ? undefined : mergedPartKeys.get(point.partIndex);
       activeEditPartKey.current = stablePartKey;
       void mutateMerged(
-        noteInput ? "place a note" : "select that bar",
+        noteInput ? 'place a note' : 'select that bar',
         async (target) => {
           if (noteInput && target.putNote) {
             await target.putNote(point.page, point.x, point.y, false, false);
@@ -1944,8 +1779,7 @@ export function ScannerSystemRows({
           mutates: noteInput,
           skipRelayout: !noteInput,
           stablePartKey,
-          measureIndexes:
-            point.measureIndex === undefined ? undefined : [point.measureIndex],
+          measureIndexes: point.measureIndex === undefined ? undefined : [point.measureIndex],
         },
       );
     },
@@ -1955,7 +1789,7 @@ export function ScannerSystemRows({
   const toggleNoteInput = useCallback(() => {
     const next = !noteInput;
     void mutateMerged(
-      next ? "start note input" : "stop note input",
+      next ? 'start note input' : 'stop note input',
       async (target) => {
         /*
          * The selection is where note input starts.
@@ -1982,21 +1816,15 @@ export function ScannerSystemRows({
     (item: ScorePaletteItem) => {
       const binding = scorePaletteMutation(item);
       if (!binding) {
-        setNotice(
-          `The ${item.label} palette item is not available in this editor.`,
-        );
+        setNotice(`The ${item.label} palette item is not available in this editor.`);
         return;
       }
       void mutateMerged(
         `apply ${item.label}`,
         async (score) => {
-          const method = (score as unknown as Record<string, unknown>)[
-            binding.methodName
-          ];
-          if (typeof method !== "function") {
-            throw new Error(
-              `This build of webmscore does not expose "${binding.methodName}".`,
-            );
+          const method = (score as unknown as Record<string, unknown>)[binding.methodName];
+          if (typeof method !== 'function') {
+            throw new Error(`This build of webmscore does not expose "${binding.methodName}".`);
           }
           await Reflect.apply(method, score, binding.args);
         },
@@ -2015,7 +1843,7 @@ export function ScannerSystemRows({
       if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
       routeCompareKeyboardShortcut(event, {
         active: true,
-        activeRole: "merged",
+        activeRole: 'merged',
         hasSelection,
         noteMode: noteInput,
         mutate: (label, methodName, args, skipRelayout) => {
@@ -2023,7 +1851,7 @@ export function ScannerSystemRows({
             label,
             async (score) => {
               const method = score[methodName];
-              if (typeof method === "function") {
+              if (typeof method === 'function') {
                 await Reflect.apply(method, score, args || []);
               }
             },
@@ -2032,10 +1860,10 @@ export function ScannerSystemRows({
         },
         updateInputState: (methodName, args) => {
           void mutateMerged(
-            "change note input",
+            'change note input',
             async (score) => {
               const method = score[methodName];
-              if (typeof method === "function") {
+              if (typeof method === 'function') {
                 await Reflect.apply(method, score, args || []);
               }
             },
@@ -2051,16 +1879,12 @@ export function ScannerSystemRows({
         setHasSelection: (_role, selected) => setHasSelection(selected),
       });
     };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
   }, [hasSelection, mergedScore, mutateMerged, noteInput, toggleNoteInput]);
 
   const takeBlock = useCallback(
-    (
-      region: ScannerRowRegion,
-      engineId: string,
-      kind?: "dynamics" | "lyrics",
-    ) => {
+    (region: ScannerRowRegion, engineId: string, kind?: 'dynamics' | 'lyrics') => {
       if (!region.contentSignature || !leftEngineId || !rightEngineId) return;
       void merged
         .take({
@@ -2081,8 +1905,8 @@ export function ScannerSystemRows({
             return;
           }
           const repaired = outcome.repairs.length
-            ? ` ${outcome.repairs.map((repair) => repair.detail).join(" ")}`
-            : "";
+            ? ` ${outcome.repairs.map((repair) => repair.detail).join(' ')}`
+            : '';
           setTakeOutcome({
             blockIndex: region.blockIndex,
             engineId,
@@ -2107,10 +1931,7 @@ export function ScannerSystemRows({
   const flagBlock = useCallback(
     (region: ScannerRowRegion) => {
       if (!region.contentSignature || !leftEngineId || !rightEngineId) return;
-      const flagged = !mergedBlockFlagged(
-        region.blockIndex,
-        merged.state?.decisions,
-      );
+      const flagged = !mergedBlockFlagged(region.blockIndex, merged.state?.decisions);
       void merged
         .flag({
           blockIndex: region.blockIndex,
@@ -2140,11 +1961,8 @@ export function ScannerSystemRows({
           region.contentSignature &&
           (!stablePartKey || region.stablePartKey === stablePartKey) &&
           !blockHasExplicitReview(region.blockIndex, merged.state?.decisions) &&
-          mergedReadsBlockFrom(
-            region.blockIndex,
-            mergedEngineId,
-            merged.state?.decisions,
-          ) !== engineId,
+          mergedReadsBlockFrom(region.blockIndex, mergedEngineId, merged.state?.decisions) !==
+            engineId,
       );
       void merged
         .takeMany(
@@ -2160,8 +1978,8 @@ export function ScannerSystemRows({
           setNotice(
             outcome.ok
               ? pending.length === 0
-                ? "Every undecided difference in that scope already follows this reading."
-                : `Took ${pending.length} undecided difference${pending.length === 1 ? "" : "s"} from ${engineId}. Explicit decisions were preserved.`
+                ? 'Every undecided difference in that scope already follows this reading.'
+                : `Took ${pending.length} undecided difference${pending.length === 1 ? '' : 's'} from ${engineId}. Explicit decisions were preserved.`
               : outcome.error,
           ),
         );
@@ -2180,7 +1998,7 @@ export function ScannerSystemRows({
     const outcome = await merged.save({ acceptStale: true });
     setNotice(
       outcome.ok
-        ? "Saved against the new readings. This merged score is what page assembly uses."
+        ? 'Saved against the new readings. This merged score is what page assembly uses.'
         : outcome.error,
     );
   }, [merged]);
@@ -2200,8 +2018,8 @@ export function ScannerSystemRows({
   const scanCrop = (
     system: ScannerSystem,
     rowIndex: number,
-    position: "above" | "below" = "above",
-    staffRow?: NonNullable<ScannerSystem["staffRows"]>[number],
+    position: 'above' | 'below' = 'above',
+    staffRow?: NonNullable<ScannerSystem['staffRows']>[number],
     highlightRegion?: ScannerRowRegion | null,
   ) => {
     if (!system.cropUrl) return null;
@@ -2216,11 +2034,11 @@ export function ScannerSystemRows({
         <p
           role="alert"
           className={`rounded border border-amber-400 bg-amber-50 px-2 py-1 text-[11px] text-amber-900 ${
-            position === "above" ? "mb-2" : "mt-2"
+            position === 'above' ? 'mb-2' : 'mt-2'
           }`}
         >
-          This scan crop is no longer current. Reload the page to compare
-          against the readings as they stand now.
+          This scan crop is no longer current. Reload the page to compare against the readings as
+          they stand now.
         </p>
       );
     }
@@ -2232,12 +2050,8 @@ export function ScannerSystemRows({
     const window =
       staffRow && cropRegion
         ? {
-            left:
-              (staffRow.region[0] - cropRegion[0]) /
-              Math.max(1, cropRegion[2] - cropRegion[0]),
-            top:
-              (staffRow.region[1] - cropRegion[1]) /
-              Math.max(1, cropRegion[3] - cropRegion[1]),
+            left: (staffRow.region[0] - cropRegion[0]) / Math.max(1, cropRegion[2] - cropRegion[0]),
+            top: (staffRow.region[1] - cropRegion[1]) / Math.max(1, cropRegion[3] - cropRegion[1]),
             width:
               (staffRow.region[2] - staffRow.region[0]) /
               Math.max(1, cropRegion[2] - cropRegion[0]),
@@ -2246,17 +2060,13 @@ export function ScannerSystemRows({
               Math.max(1, cropRegion[3] - cropRegion[1]),
           }
         : { left: 0, top: 0, width: 1, height: 1 };
-    const cropWidth = cropRegion
-      ? Math.max(1, cropRegion[2] - cropRegion[0])
-      : 1400;
-    const cropHeight = cropRegion
-      ? Math.max(1, cropRegion[3] - cropRegion[1])
-      : 400;
+    const cropWidth = cropRegion ? Math.max(1, cropRegion[2] - cropRegion[0]) : 1400;
+    const cropHeight = cropRegion ? Math.max(1, cropRegion[3] - cropRegion[1]) : 400;
     const systemAspect = cropRegion ? cropWidth / cropHeight : undefined;
     return (
       <div
         className={`relative overflow-hidden rounded border border-gray-200 bg-white ${
-          position === "above" ? "mb-2" : "mt-2"
+          position === 'above' ? 'mb-2' : 'mt-2'
         }`}
         style={
           systemAspect
@@ -2266,24 +2076,20 @@ export function ScannerSystemRows({
                 // two-bar line. Enlarging a scan beyond its source
                 // pixels adds blur and makes it look falsely zoomed.
                 width: `min(100%, ${Math.max(1, cropWidth * window.width)}px)`,
-                marginInline: "auto",
+                marginInline: 'auto',
               }
             : undefined
         }
       >
         <Image
           src={resolveUrl(system.cropUrl)}
-          alt={`Scan of system ${rowIndex + 1}${position === "below" ? ", repeated" : ""}`}
+          alt={`Scan of system ${rowIndex + 1}${position === 'below' ? ', repeated' : ''}`}
           width={cropWidth}
           height={cropHeight}
           unoptimized
-          onError={() =>
-            setStaleCrops((current) => new Set(current).add(system.systemIndex))
-          }
+          onError={() => setStaleCrops((current) => new Set(current).add(system.systemIndex))}
           className={
-            systemAspect
-              ? "absolute max-w-none object-contain"
-              : "relative w-full object-contain"
+            systemAspect ? 'absolute max-w-none object-contain' : 'relative w-full object-contain'
           }
           style={
             systemAspect
@@ -2331,24 +2137,16 @@ export function ScannerSystemRows({
             way this gets the window's full height.
         */
     <div ref={paneRef} className="flex flex-col gap-3 p-4">
-      {(selectedBlockIndex === undefined ||
-        busy ||
-        merged.loading ||
-        error ||
-        merged.error) && (
+      {(selectedBlockIndex === undefined || busy || merged.loading || error || merged.error) && (
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-600">
           {selectedBlockIndex === undefined && (
             <span>
-              {`${systems.length} system${systems.length === 1 ? "" : "s"} from the scan${
-                differingRows > 0
-                  ? `, ${differingRows} with differences`
-                  : ", none differing"
+              {`${systems.length} system${systems.length === 1 ? '' : 's'} from the scan${
+                differingRows > 0 ? `, ${differingRows} with differences` : ', none differing'
               }`}
             </span>
           )}
-          {(busy || merged.loading) && (
-            <span aria-live="polite">Laying out the readings…</span>
-          )}
+          {(busy || merged.loading) && <span aria-live="polite">Laying out the readings…</span>}
           {(error || merged.error) && (
             <span className="text-red-700" role="alert">
               {error || merged.error}
@@ -2359,10 +2157,8 @@ export function ScannerSystemRows({
 
       <div className="flex flex-col gap-2 rounded-lg border border-cyan-200 bg-cyan-50/50 px-3 py-2 text-xs">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-medium text-gray-700">
-            Merged score starts from
-          </span>
-          {(["left", "right"] as const).map((side) => (
+          <span className="font-medium text-gray-700">Merged score starts from</span>
+          {(['left', 'right'] as const).map((side) => (
             <button
               key={side}
               type="button"
@@ -2377,16 +2173,16 @@ export function ScannerSystemRows({
               }
               className={`rounded border px-2 py-1 ${
                 mergeSource === side
-                  ? "border-cyan-700 bg-cyan-600 font-semibold text-white shadow-sm"
-                  : "border-gray-400 bg-white text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+                  ? 'border-cyan-700 bg-cyan-600 font-semibold text-white shadow-sm'
+                  : 'border-gray-400 bg-white text-gray-800 hover:bg-gray-50 disabled:opacity-50'
               }`}
             >
-              {side === "left" ? leftLabel : rightLabel}
+              {side === 'left' ? leftLabel : rightLabel}
             </button>
           ))}
           <span className="text-gray-600">
-            Neither engine is the score. Only the merged pane can be edited; the
-            engine panes are the evidence it is judged against.
+            Neither engine is the score. Only the merged pane can be edited; the engine panes are
+            the evidence it is judged against.
           </span>
           {overfull.length > 0 && (
             <button
@@ -2398,28 +2194,25 @@ export function ScannerSystemRows({
               className="rounded border border-amber-500 bg-white px-2 py-1 font-medium text-amber-900 hover:bg-amber-50 disabled:opacity-50"
             >
               correct {overfull.length} over-full bar
-              {overfull.length === 1 ? "" : "s"}
+              {overfull.length === 1 ? '' : 's'}
             </button>
           )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-medium text-gray-700">Rows</span>
-          {(["system", "staff"] as const).map((mode) => (
+          {(['system', 'staff'] as const).map((mode) => (
             <button
               key={mode}
               type="button"
               aria-pressed={rowGranularity === mode}
-              disabled={
-                mode === "staff" &&
-                !systems.some((system) => system.staffRows?.length)
-              }
+              disabled={mode === 'staff' && !systems.some((system) => system.staffRows?.length)}
               onClick={() => setRowGranularity(mode)}
               data-testid={`btn-rows-${mode}`}
               className={`rounded border px-2 py-1 disabled:opacity-50 ${
                 rowGranularity === mode
-                  ? "border-cyan-700 bg-cyan-600 font-semibold text-white"
-                  : "border-gray-400 bg-white text-gray-800 hover:bg-gray-50"
+                  ? 'border-cyan-700 bg-cyan-600 font-semibold text-white'
+                  : 'border-gray-400 bg-white text-gray-800 hover:bg-gray-50'
               }`}
             >
               by {mode}
@@ -2451,7 +2244,7 @@ export function ScannerSystemRows({
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-medium text-gray-700">View</span>
-          {(["horizontal", "vertical"] as const).map((layout) => (
+          {(['horizontal', 'vertical'] as const).map((layout) => (
             <button
               key={layout}
               type="button"
@@ -2460,33 +2253,33 @@ export function ScannerSystemRows({
               data-testid={`btn-layout-${layout}`}
               className={`rounded border px-2 py-1 ${
                 rowLayout === layout
-                  ? "border-cyan-700 bg-cyan-600 font-semibold text-white"
-                  : "border-gray-400 bg-white text-gray-800 hover:bg-gray-50"
+                  ? 'border-cyan-700 bg-cyan-600 font-semibold text-white'
+                  : 'border-gray-400 bg-white text-gray-800 hover:bg-gray-50'
               }`}
             >
-              {layout === "horizontal" ? "Across" : "Stacked"}
+              {layout === 'horizontal' ? 'Across' : 'Stacked'}
             </button>
           ))}
           <span className="ml-1 font-medium text-gray-700">Panes</span>
           {(
             [
-              ["scan", "Scan"],
-              ["left", leftLabel],
-              ["merged", "Merged"],
-              ["right", rightLabel],
+              ['scan', 'Scan'],
+              ['left', leftLabel],
+              ['merged', 'Merged'],
+              ['right', rightLabel],
             ] as const
           ).map(([pane, label]) => (
             <button
               key={pane}
               type="button"
               aria-pressed={!collapsedPanes[pane]}
-              aria-label={`${collapsedPanes[pane] ? "Show" : "Hide"} ${label} pane`}
+              aria-label={`${collapsedPanes[pane] ? 'Show' : 'Hide'} ${label} pane`}
               onClick={() => togglePane(pane)}
               data-testid={`btn-toggle-pane-${pane}`}
               className={`rounded border px-2 py-1 ${
                 collapsedPanes[pane]
-                  ? "border-gray-300 bg-gray-100 text-gray-500"
-                  : "border-cyan-500 bg-white text-cyan-900"
+                  ? 'border-gray-300 bg-gray-100 text-gray-500'
+                  : 'border-cyan-500 bg-white text-cyan-900'
               }`}
             >
               {collapsedPanes[pane] ? `Show ${label}` : `Hide ${label}`}
@@ -2503,12 +2296,12 @@ export function ScannerSystemRows({
                     */}
           <span className="text-gray-600" data-testid="merged-status">
             {merged.saving
-              ? "Saving…"
+              ? 'Saving…'
               : merged.dirty
-                ? "Saving shortly…"
+                ? 'Saving shortly…'
                 : merged.state?.present
-                  ? `Saved, revision ${merged.state.revision}${merged.state.edited ? ", hand-corrected" : ""}`
-                  : "No changes yet"}
+                  ? `Saved, revision ${merged.state.revision}${merged.state.edited ? ', hand-corrected' : ''}`
+                  : 'No changes yet'}
           </span>
         </div>
 
@@ -2517,9 +2310,9 @@ export function ScannerSystemRows({
             className="rounded border border-amber-400 bg-amber-50 px-2 py-1 text-amber-900"
             role="alert"
           >
-            An engine has re-read this page since this merge was saved. Nothing
-            has been thrown away, but the merge answers readings that no longer
-            exist and is not being used for assembly. Review it, then{" "}
+            An engine has re-read this page since this merge was saved. Nothing has been thrown
+            away, but the merge answers readings that no longer exist and is not being used for
+            assembly. Review it, then{' '}
             <button
               type="button"
               onClick={() => void saveAgainstNewReadings()}
@@ -2537,79 +2330,62 @@ export function ScannerSystemRows({
 
       {onlyBlockIndex !== undefined && visibleRows.length === 0 && (
         <p className="rounded border border-dashed border-gray-300 px-3 py-2 text-xs text-gray-500">
-          This difference has no verified place on the scan, so there is no line
-          to show it on.
+          This difference has no verified place on the scan, so there is no line to show it on.
         </p>
       )}
 
-      {visibleRows.map(
-        ({ system, systemPosition, staffRow, key, rowIndex }) => {
-          const differences = differencesByRow[rowIndex];
-          const leftRowIndexes =
-            staffRow?.leftMeasureIndexes || system.leftMeasureIndexes;
-          const rightRowIndexes =
-            staffRow?.rightMeasureIndexes || system.rightMeasureIndexes;
-          // A Take hover/focus establishes the one conflict being
-          // inspected. It stays active until another Take replaces it,
-          // but only appears on the row that owns it.
-          const activeRegion =
-            previewRegion &&
-            differences.some(
-              (region) => region.blockIndex === previewRegion.blockIndex,
-            )
-              ? previewRegion
-              : null;
-          const differenceDescriptions = activeRegion
-            ? scannerRegionDifferenceDescriptions(
-                activeRegion,
-                leftLabel,
-                rightLabel,
-              ).map((description) => ({
+      {visibleRows.map(({ system, systemPosition, staffRow, key, rowIndex }) => {
+        const differences = differencesByRow[rowIndex];
+        const leftRowIndexes = staffRow?.leftMeasureIndexes || system.leftMeasureIndexes;
+        const rightRowIndexes = staffRow?.rightMeasureIndexes || system.rightMeasureIndexes;
+        // A Take hover/focus establishes the one conflict being
+        // inspected. It stays active until another Take replaces it,
+        // but only appears on the row that owns it.
+        const activeRegion =
+          previewRegion &&
+          differences.some((region) => region.blockIndex === previewRegion.blockIndex)
+            ? previewRegion
+            : null;
+        const differenceDescriptions = activeRegion
+          ? scannerRegionDifferenceDescriptions(activeRegion, leftLabel, rightLabel).map(
+              (description) => ({
                 blockIndex: activeRegion.blockIndex,
                 description,
-              }))
-            : [];
-          const renderDifferenceDescription = (
-            position: "scan-to-left" | "right-to-scan",
-          ) =>
-            differenceDescriptions.length > 0 ? (
-              <div
-                className={`${position === "scan-to-left" ? "mb-2 " : ""}rounded-md border border-amber-300 bg-amber-50 px-3 py-1 text-center text-sm font-bold text-amber-950`}
-                data-testid="difference-description"
-                data-position={position}
-              >
-                {differenceDescriptions.map((entry, index) => (
-                  <div
-                    key={`${position}-${entry.blockIndex}-${index}`}
-                    className={
-                      index > 0 ? "mt-1 border-t border-amber-200 pt-1" : ""
-                    }
-                  >
-                    {differences.length > 1 && (
-                      <span>Conflict {entry.blockIndex + 1}: </span>
-                    )}
-                    {entry.description}
-                  </div>
-                ))}
-              </div>
-            ) : null;
-          // Every unmatched event in the conflict under inspection. The
-          // merged pane inherits the highlights of
-          // whichever reading it was started from — it *is* that reading
-          // until a decision changes it, so marking it differently would
-          // be claiming a difference that has not happened yet.
-          const symbols = activeRegion?.symbolDifferences || [];
-          // What this row is about: the selected difference when there is
-          // one, and otherwise everything differing on the line.
-          const focusRegions = activeRegion
-            ? [activeRegion]
-            : selectedRegion &&
-                differences.some(
-                  (r) => r.blockIndex === selectedRegion.blockIndex,
-                )
-              ? [selectedRegion]
-              : differences;
-          /*
+              }),
+            )
+          : [];
+        const renderDifferenceDescription = (position: 'scan-to-left' | 'right-to-scan') =>
+          differenceDescriptions.length > 0 ? (
+            <div
+              className={`${position === 'scan-to-left' ? 'mb-2 ' : ''}rounded-md border border-amber-300 bg-amber-50 px-3 py-1 text-center text-sm font-bold text-amber-950`}
+              data-testid="difference-description"
+              data-position={position}
+            >
+              {differenceDescriptions.map((entry, index) => (
+                <div
+                  key={`${position}-${entry.blockIndex}-${index}`}
+                  className={index > 0 ? 'mt-1 border-t border-amber-200 pt-1' : ''}
+                >
+                  {differences.length > 1 && <span>Conflict {entry.blockIndex + 1}: </span>}
+                  {entry.description}
+                </div>
+              ))}
+            </div>
+          ) : null;
+        // Every unmatched event in the conflict under inspection. The
+        // merged pane inherits the highlights of
+        // whichever reading it was started from — it *is* that reading
+        // until a decision changes it, so marking it differently would
+        // be claiming a difference that has not happened yet.
+        const symbols = activeRegion?.symbolDifferences || [];
+        // What this row is about: the selected difference when there is
+        // one, and otherwise everything differing on the line.
+        const focusRegions = activeRegion
+          ? [activeRegion]
+          : selectedRegion && differences.some((r) => r.blockIndex === selectedRegion.blockIndex)
+            ? [selectedRegion]
+            : differences;
+        /*
                     The engine panes narrow; the scan and the merged score do
                     not. The two readings are what is being compared, so their
                     width should go to the bars in question — but the scan is
@@ -2617,550 +2393,476 @@ export function ScannerSystemRows({
                     score is the thing being built, which a reviewer needs to
                     see as a line rather than as a fragment of one.
                 */
-          const focusIndexes = (side: "left" | "right") =>
-            focusedMeasureIndexes(
-              side === "left" ? leftRowIndexes : rightRowIndexes,
-              focusRegions.flatMap((region) =>
-                side === "left"
-                  ? region.leftMeasureIndexes
-                  : region.rightMeasureIndexes,
-              ),
-            );
-          const leftFocus = focusIndexes("left");
-          const rightFocus = focusIndexes("right");
-          // What the merged pane can actually show of this line, and the
-          // bars under review decide which part when it cannot show all.
-          const mergedWindow = engravedRowWindow(
-            mergedRender,
-            mergedIndexes(system, staffRow),
+        const focusIndexes = (side: 'left' | 'right') =>
+          focusedMeasureIndexes(
+            side === 'left' ? leftRowIndexes : rightRowIndexes,
             focusRegions.flatMap((region) =>
-              mergeSource === "left"
-                ? region.leftMeasureIndexes
-                : region.rightMeasureIndexes,
+              side === 'left' ? region.leftMeasureIndexes : region.rightMeasureIndexes,
             ),
           );
-          const rowPaneWidth =
-            rowLayout === "horizontal" ? HORIZONTAL_PANE_WIDTH : paneWidth;
-          // Hovering a take shows both halves of what it would do: the
-          // bars it would copy, in the reading they come from, and the
-          // bars they would land on, in the merged score.
-          const previewBoxes = (
-            rendered: RenderedSide | null,
-            measureIndexes: readonly number[],
-          ): MeasureBox[] =>
-            !activeRegion || !rendered
-              ? []
-              : measureIndexes
-                  .map((index) => rendered.measures[index])
-                  .filter((box): box is MeasureBox => Boolean(box));
-          // Each engine pane sits over the merged bars it would replace,
-          // at the merged score's own scale. The merged score's bars are
-          // the ones its own reading contributed, so the indexes to line
-          // up against are that side's.
-          // Both engine panes get the same box: the span the merged score
-          // devotes to the bars in question. Each still draws its own
-          // bars — one reading may have three where the other has two —
-          // and they occupy the same column, which is the comparison.
-          const enginePlace = placeUnderMerged(
-            mergedRender,
-            // The bars the merged pane is drawing, not the ones the line
-            // nominally holds: the engine panes sit over what is on
-            // screen, and a window that dropped a bar moved everything.
-            mergedWindow,
-            mergeSource === "left" ? leftFocus : rightFocus,
-            rowPaneWidth,
-          );
-          const leftPlace = enginePlace;
-          const rightPlace = enginePlace;
-          const leftPreview = previewBoxes(
-            left,
-            activeRegion?.leftMeasureIndexes || [],
-          );
-          const rightPreview = previewBoxes(
-            right,
-            activeRegion?.rightMeasureIndexes || [],
-          );
-          const mergedPreview = previewBoxes(
-            mergedRender,
-            (mergeSource === "left"
-              ? activeRegion?.leftMeasureIndexes
-              : activeRegion?.rightMeasureIndexes) || [],
-          );
-          const droppedFromLine =
-            mergedIndexes(system, staffRow).length - mergedWindow.length;
-          // Only the bars this row is showing; the rest belong to other rows.
-          const onThisRow = new Set(mergedWindow);
-          const rowIrregular = irregular.filter((bar) =>
-            onThisRow.has(bar.index),
-          );
-          const highlightsFor = (
-            rendered: RenderedSide | null,
-            pick: (difference: ScannerSymbolDifference) => {
-              measureIndex: number;
-              indexes: number[];
-              count: number;
-            },
-          ) =>
-            symbols.flatMap((difference) => {
-              const { measureIndex, indexes, count } = pick(difference);
-              return eventBoxes(rendered, measureIndex, indexes, count);
-            });
-          const leftHighlights = highlightsFor(left, (difference) => ({
-            measureIndex: difference.leftMeasureIndex,
-            indexes: difference.leftEventIndexes,
-            count: difference.leftEventCount,
-          }));
-          const rightHighlights = highlightsFor(right, (difference) => ({
-            measureIndex: difference.rightMeasureIndex,
-            indexes: difference.rightEventIndexes,
-            count: difference.rightEventCount,
-          }));
-          const mergedHighlights = highlightsFor(mergedRender, (difference) =>
-            mergeSource === "left"
-              ? {
-                  measureIndex: difference.leftMeasureIndex,
-                  indexes: difference.leftEventIndexes,
-                  count: difference.leftEventCount,
-                }
-              : {
-                  measureIndex: difference.rightMeasureIndex,
-                  indexes: difference.rightEventIndexes,
-                  count: difference.rightEventCount,
-                },
-          );
-          const explicitBarStates = differences.flatMap((region) =>
-            mergedBarStatesForRegion(region, mergeSource, merged.state)
-              .filter((entry) => onThisRow.has(entry.measureIndex))
-              .map((entry) => ({
-                ...entry,
-                blockIndex: region.blockIndex,
-                stablePartKey: region.stablePartKey,
-                partIndex:
-                  mergeSource === "left"
-                    ? region.leftPartIndex
-                    : region.rightPartIndex,
-              })),
-          );
-          const explicitlyShown = new Set(
-            explicitBarStates.map(
-              (entry) => `${entry.stablePartKey || ""}:${entry.measureIndex}`,
-            ),
-          );
-          const editedOnRow = merged.editedMeasures.filter(
-            (entry) =>
-              onThisRow.has(entry.measureIndex) &&
-              (!staffRow ||
-                !entry.stablePartKey ||
-                entry.stablePartKey === staffRow.stablePartKey),
-          );
-          const barStateEntries = [
-            ...explicitBarStates,
-            ...editedOnRow
-              .filter(
-                (entry) =>
-                  !explicitlyShown.has(
-                    `${entry.stablePartKey || ""}:${entry.measureIndex}`,
-                  ),
-              )
-              .map((entry) => ({
-                ...entry,
-                state: "edited" as const,
-                blockIndex: undefined,
-                partIndex: undefined,
-              })),
-            ...mergedWindow
-              .filter(
-                (measureIndex) =>
-                  !explicitBarStates.some(
-                    (entry) => entry.measureIndex === measureIndex,
-                  ) &&
-                  !editedOnRow.some(
-                    (entry) => entry.measureIndex === measureIndex,
-                  ),
-              )
-              .map((measureIndex) => ({
-                measureIndex,
-                state: "inherited" as const,
-                blockIndex: undefined,
-                stablePartKey: staffRow?.stablePartKey,
-                partIndex:
-                  mergeSource === "left"
-                    ? staffRow?.leftPartIndex
-                    : staffRow?.rightPartIndex,
-              })),
-          ];
-          return (
-            <div
-              key={key}
-              ref={(node) => {
-                rowRefs.current[rowIndex] = node;
-              }}
-              /*
+        const leftFocus = focusIndexes('left');
+        const rightFocus = focusIndexes('right');
+        // What the merged pane can actually show of this line, and the
+        // bars under review decide which part when it cannot show all.
+        const mergedWindow = engravedRowWindow(
+          mergedRender,
+          mergedIndexes(system, staffRow),
+          focusRegions.flatMap((region) =>
+            mergeSource === 'left' ? region.leftMeasureIndexes : region.rightMeasureIndexes,
+          ),
+        );
+        const rowPaneWidth = rowLayout === 'horizontal' ? HORIZONTAL_PANE_WIDTH : paneWidth;
+        // Hovering a take shows both halves of what it would do: the
+        // bars it would copy, in the reading they come from, and the
+        // bars they would land on, in the merged score.
+        const previewBoxes = (
+          rendered: RenderedSide | null,
+          measureIndexes: readonly number[],
+        ): MeasureBox[] =>
+          !activeRegion || !rendered
+            ? []
+            : measureIndexes
+                .map((index) => rendered.measures[index])
+                .filter((box): box is MeasureBox => Boolean(box));
+        // Each engine pane sits over the merged bars it would replace,
+        // at the merged score's own scale. The merged score's bars are
+        // the ones its own reading contributed, so the indexes to line
+        // up against are that side's.
+        // Both engine panes get the same box: the span the merged score
+        // devotes to the bars in question. Each still draws its own
+        // bars — one reading may have three where the other has two —
+        // and they occupy the same column, which is the comparison.
+        const enginePlace = placeUnderMerged(
+          mergedRender,
+          // The bars the merged pane is drawing, not the ones the line
+          // nominally holds: the engine panes sit over what is on
+          // screen, and a window that dropped a bar moved everything.
+          mergedWindow,
+          mergeSource === 'left' ? leftFocus : rightFocus,
+          rowPaneWidth,
+        );
+        const leftPlace = enginePlace;
+        const rightPlace = enginePlace;
+        const leftPreview = previewBoxes(left, activeRegion?.leftMeasureIndexes || []);
+        const rightPreview = previewBoxes(right, activeRegion?.rightMeasureIndexes || []);
+        const mergedPreview = previewBoxes(
+          mergedRender,
+          (mergeSource === 'left'
+            ? activeRegion?.leftMeasureIndexes
+            : activeRegion?.rightMeasureIndexes) || [],
+        );
+        const droppedFromLine = mergedIndexes(system, staffRow).length - mergedWindow.length;
+        // Only the bars this row is showing; the rest belong to other rows.
+        const onThisRow = new Set(mergedWindow);
+        const rowIrregular = irregular.filter((bar) => onThisRow.has(bar.index));
+        const highlightsFor = (
+          rendered: RenderedSide | null,
+          pick: (difference: ScannerSymbolDifference) => {
+            measureIndex: number;
+            indexes: number[];
+            count: number;
+          },
+        ) =>
+          symbols.flatMap((difference) => {
+            const { measureIndex, indexes, count } = pick(difference);
+            return eventBoxes(rendered, measureIndex, indexes, count);
+          });
+        const leftHighlights = highlightsFor(left, (difference) => ({
+          measureIndex: difference.leftMeasureIndex,
+          indexes: difference.leftEventIndexes,
+          count: difference.leftEventCount,
+        }));
+        const rightHighlights = highlightsFor(right, (difference) => ({
+          measureIndex: difference.rightMeasureIndex,
+          indexes: difference.rightEventIndexes,
+          count: difference.rightEventCount,
+        }));
+        const mergedHighlights = highlightsFor(mergedRender, (difference) =>
+          mergeSource === 'left'
+            ? {
+                measureIndex: difference.leftMeasureIndex,
+                indexes: difference.leftEventIndexes,
+                count: difference.leftEventCount,
+              }
+            : {
+                measureIndex: difference.rightMeasureIndex,
+                indexes: difference.rightEventIndexes,
+                count: difference.rightEventCount,
+              },
+        );
+        const explicitBarStates = differences.flatMap((region) =>
+          mergedBarStatesForRegion(region, mergeSource, merged.state)
+            .filter((entry) => onThisRow.has(entry.measureIndex))
+            .map((entry) => ({
+              ...entry,
+              blockIndex: region.blockIndex,
+              stablePartKey: region.stablePartKey,
+              partIndex: mergeSource === 'left' ? region.leftPartIndex : region.rightPartIndex,
+            })),
+        );
+        const explicitlyShown = new Set(
+          explicitBarStates.map((entry) => `${entry.stablePartKey || ''}:${entry.measureIndex}`),
+        );
+        const editedOnRow = merged.editedMeasures.filter(
+          (entry) =>
+            onThisRow.has(entry.measureIndex) &&
+            (!staffRow || !entry.stablePartKey || entry.stablePartKey === staffRow.stablePartKey),
+        );
+        const barStateEntries = [
+          ...explicitBarStates,
+          ...editedOnRow
+            .filter(
+              (entry) => !explicitlyShown.has(`${entry.stablePartKey || ''}:${entry.measureIndex}`),
+            )
+            .map((entry) => ({
+              ...entry,
+              state: 'edited' as const,
+              blockIndex: undefined,
+              partIndex: undefined,
+            })),
+          ...mergedWindow
+            .filter(
+              (measureIndex) =>
+                !explicitBarStates.some((entry) => entry.measureIndex === measureIndex) &&
+                !editedOnRow.some((entry) => entry.measureIndex === measureIndex),
+            )
+            .map((measureIndex) => ({
+              measureIndex,
+              state: 'inherited' as const,
+              blockIndex: undefined,
+              stablePartKey: staffRow?.stablePartKey,
+              partIndex:
+                mergeSource === 'left' ? staffRow?.leftPartIndex : staffRow?.rightPartIndex,
+            })),
+        ];
+        return (
+          <div
+            key={key}
+            ref={(node) => {
+              rowRefs.current[rowIndex] = node;
+            }}
+            /*
                             A row that contains a difference gets a marked edge,
                             not a wash. Tinting the whole card said "different"
                             about the five agreeing staves in it as loudly as
                             about the one bar that differs, and the gutter below
                             already names exactly which bar that is.
                         */
-              className={`rounded-lg border p-3 ${
-                differences.length > 0
-                  ? "border-gray-200 border-l-4 border-l-amber-400"
-                  : "border-gray-200"
-              }`}
+            className={`rounded-lg border p-3 ${
+              differences.length > 0
+                ? 'border-gray-200 border-l-4 border-l-amber-400'
+                : 'border-gray-200'
+            }`}
+          >
+            <div
+              className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs"
+              data-testid="system-row-header"
             >
-              <div
-                className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs"
-                data-testid="system-row-header"
-              >
-                <span className="flex flex-wrap items-center gap-2">
-                  <span
-                    className="font-medium text-gray-700"
-                    data-testid={
-                      selectedRowIndex === rowIndex
-                        ? "difference-title"
-                        : undefined
-                    }
-                  >
-                    {selectedRowIndex === rowIndex
-                      ? `Conflict line ${selectedPosition + 1} of ${navigableLines.length}`
-                      : `System ${systemPosition + 1}`}
-                    {staffRow
-                      ? ` · part ${((mergeSource === "left" ? staffRow.leftPartIndex : staffRow.rightPartIndex) ?? 0) + 1}`
-                      : ""}
-                  </span>
-                  {selectedRowIndex === rowIndex &&
-                    navigableLines.length > 0 && (
-                      <span className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          disabled={isFirstConflictLine}
-                          onClick={() => goToLine(selectedPosition - 1)}
-                          data-testid="btn-previous-difference"
-                          className="rounded border border-gray-400 bg-white px-2 py-0.5 text-gray-800 hover:bg-gray-50 disabled:border-gray-300 disabled:text-gray-400"
-                        >
-                          ← previous line
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isLastConflictLine}
-                          onClick={() => goToLine(selectedPosition + 1)}
-                          data-testid="btn-next-difference"
-                          className="rounded border border-gray-400 bg-white px-2 py-0.5 text-gray-800 hover:bg-gray-50 disabled:border-gray-300 disabled:text-gray-400"
-                        >
-                          next line →
-                        </button>
-                      </span>
-                    )}
+              <span className="flex flex-wrap items-center gap-2">
+                <span
+                  className="font-medium text-gray-700"
+                  data-testid={selectedRowIndex === rowIndex ? 'difference-title' : undefined}
+                >
+                  {selectedRowIndex === rowIndex
+                    ? `Conflict line ${selectedPosition + 1} of ${navigableLines.length}`
+                    : `System ${systemPosition + 1}`}
+                  {staffRow
+                    ? ` · part ${((mergeSource === 'left' ? staffRow.leftPartIndex : staffRow.rightPartIndex) ?? 0) + 1}`
+                    : ''}
                 </span>
-                {staffRow && differences.length > 0 && (
-                  <span className="flex flex-wrap items-center gap-1 text-gray-600">
-                    {staffRow && differences.length > 0 && leftEngineId && (
-                      <button
-                        type="button"
-                        disabled={merged.saving || merged.busy}
-                        onClick={() =>
-                          takeScope(leftEngineId, staffRow.stablePartKey)
-                        }
-                        data-testid={`btn-take-part-left-${staffRow.stablePartKey}`}
-                        className="rounded border border-cyan-400 bg-white px-1.5 py-0.5 text-cyan-900 disabled:opacity-50"
-                      >
-                        take undecided part from {leftLabel}
-                      </button>
-                    )}
-                    {staffRow && differences.length > 0 && rightEngineId && (
-                      <button
-                        type="button"
-                        disabled={merged.saving || merged.busy}
-                        onClick={() =>
-                          takeScope(rightEngineId, staffRow.stablePartKey)
-                        }
-                        data-testid={`btn-take-part-right-${staffRow.stablePartKey}`}
-                        className="rounded border border-cyan-400 bg-white px-1.5 py-0.5 text-cyan-900 disabled:opacity-50"
-                      >
-                        take undecided part from {rightLabel}
-                      </button>
-                    )}
+                {selectedRowIndex === rowIndex && navigableLines.length > 0 && (
+                  <span className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      disabled={isFirstConflictLine}
+                      onClick={() => goToLine(selectedPosition - 1)}
+                      data-testid="btn-previous-difference"
+                      className="rounded border border-gray-400 bg-white px-2 py-0.5 text-gray-800 hover:bg-gray-50 disabled:border-gray-300 disabled:text-gray-400"
+                    >
+                      ← previous line
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isLastConflictLine}
+                      onClick={() => goToLine(selectedPosition + 1)}
+                      data-testid="btn-next-difference"
+                      className="rounded border border-gray-400 bg-white px-2 py-0.5 text-gray-800 hover:bg-gray-50 disabled:border-gray-300 disabled:text-gray-400"
+                    >
+                      next line →
+                    </button>
                   </span>
                 )}
-              </div>
-
-              {barStateEntries.length > 0 && (
-                <div className="mb-2 flex flex-wrap items-center gap-1 text-[11px]">
-                  {barStateEntries.map((bar, index) => (
-                    <span
-                      key={`state-${bar.blockIndex ?? "row"}-${bar.stablePartKey || ""}-${bar.measureIndex}-${index}`}
-                      data-testid="merged-bar-state"
-                      data-state={bar.state}
-                      className={`rounded border px-1.5 py-0.5 ${
-                        bar.state === "flagged"
-                          ? "border-rose-400 bg-rose-50 text-rose-900"
-                          : bar.state === "edited"
-                            ? "border-violet-400 bg-violet-50 text-violet-900"
-                            : bar.state === "taken"
-                              ? "border-cyan-400 bg-cyan-50 text-cyan-900"
-                              : bar.state === "markings-merged"
-                                ? "border-emerald-400 bg-emerald-50 text-emerald-900"
-                                : "border-gray-300 bg-gray-50 text-gray-600"
-                      }`}
+              </span>
+              {staffRow && differences.length > 0 && (
+                <span className="flex flex-wrap items-center gap-1 text-gray-600">
+                  {staffRow && differences.length > 0 && leftEngineId && (
+                    <button
+                      type="button"
+                      disabled={merged.saving || merged.busy}
+                      onClick={() => takeScope(leftEngineId, staffRow.stablePartKey)}
+                      data-testid={`btn-take-part-left-${staffRow.stablePartKey}`}
+                      className="rounded border border-cyan-400 bg-white px-1.5 py-0.5 text-cyan-900 disabled:opacity-50"
                     >
-                      {bar.partIndex !== undefined
-                        ? `part ${bar.partIndex + 1}, `
-                        : ""}
-                      bar {bar.measureIndex + 1}:{" "}
-                      {bar.state === "flagged" ? "skipped" : bar.state}
-                    </span>
-                  ))}
-                  {differences.map((region) => {
-                    const flagged = mergedBlockFlagged(
-                      region.blockIndex,
-                      merged.state?.decisions,
-                    );
-                    return region.contentSignature ? (
-                      <button
-                        key={`flag-${region.blockIndex}`}
-                        type="button"
-                        onClick={() => flagBlock(region)}
-                        disabled={merged.saving || merged.busy}
-                        data-testid={`btn-flag-${region.blockIndex}`}
-                        aria-pressed={flagged}
-                        className="rounded border border-rose-400 bg-white px-1.5 py-0.5 text-rose-900 disabled:opacity-50"
-                      >
-                        {flagged ? "Reopen conflict" : "Skip conflict"}
-                      </button>
-                    ) : null;
-                  })}
-                </div>
+                      take undecided part from {leftLabel}
+                    </button>
+                  )}
+                  {staffRow && differences.length > 0 && rightEngineId && (
+                    <button
+                      type="button"
+                      disabled={merged.saving || merged.busy}
+                      onClick={() => takeScope(rightEngineId, staffRow.stablePartKey)}
+                      data-testid={`btn-take-part-right-${staffRow.stablePartKey}`}
+                      className="rounded border border-cyan-400 bg-white px-1.5 py-0.5 text-cyan-900 disabled:opacity-50"
+                    >
+                      take undecided part from {rightLabel}
+                    </button>
+                  )}
+                </span>
               )}
+            </div>
 
-              {!collapsedPanes.scan &&
-                scanCrop(
-                  system,
-                  systemPosition,
-                  "above",
-                  staffRow,
-                  activeRegion,
-                )}
+            {barStateEntries.length > 0 && (
+              <div className="mb-2 flex flex-wrap items-center gap-1 text-[11px]">
+                {barStateEntries.map((bar, index) => (
+                  <span
+                    key={`state-${bar.blockIndex ?? 'row'}-${bar.stablePartKey || ''}-${bar.measureIndex}-${index}`}
+                    data-testid="merged-bar-state"
+                    data-state={bar.state}
+                    className={`rounded border px-1.5 py-0.5 ${
+                      bar.state === 'flagged'
+                        ? 'border-rose-400 bg-rose-50 text-rose-900'
+                        : bar.state === 'edited'
+                          ? 'border-violet-400 bg-violet-50 text-violet-900'
+                          : bar.state === 'taken'
+                            ? 'border-cyan-400 bg-cyan-50 text-cyan-900'
+                            : bar.state === 'markings-merged'
+                              ? 'border-emerald-400 bg-emerald-50 text-emerald-900'
+                              : 'border-gray-300 bg-gray-50 text-gray-600'
+                    }`}
+                  >
+                    {bar.partIndex !== undefined ? `part ${bar.partIndex + 1}, ` : ''}
+                    bar {bar.measureIndex + 1}: {bar.state === 'flagged' ? 'skipped' : bar.state}
+                  </span>
+                ))}
+                {differences.map((region) => {
+                  const flagged = mergedBlockFlagged(region.blockIndex, merged.state?.decisions);
+                  return region.contentSignature ? (
+                    <button
+                      key={`flag-${region.blockIndex}`}
+                      type="button"
+                      onClick={() => flagBlock(region)}
+                      disabled={merged.saving || merged.busy}
+                      data-testid={`btn-flag-${region.blockIndex}`}
+                      aria-pressed={flagged}
+                      className="rounded border border-rose-400 bg-white px-1.5 py-0.5 text-rose-900 disabled:opacity-50"
+                    >
+                      {flagged ? 'Reopen conflict' : 'Skip conflict'}
+                    </button>
+                  ) : null;
+                })}
+              </div>
+            )}
 
-              {renderDifferenceDescription("scan-to-left")}
+            {!collapsedPanes.scan &&
+              scanCrop(system, systemPosition, 'above', staffRow, activeRegion)}
 
-              {/*
+            {renderDifferenceDescription('scan-to-left')}
+
+            {/*
                             Reading, merge, reading, with a gutter between each
                             pane and the merged score — so "take from above" and
                             "take from below" read the way a three-way merge
                             does, and the arrow points where the bar will go.
                         */}
+            <div className={rowLayout === 'horizontal' ? 'overflow-x-auto pb-2' : ''}>
               <div
                 className={
-                  rowLayout === "horizontal" ? "overflow-x-auto pb-2" : ""
+                  rowLayout === 'horizontal'
+                    ? 'flex w-max min-w-full items-start gap-2'
+                    : 'space-y-2'
                 }
               >
-                <div
-                  className={
-                    rowLayout === "horizontal"
-                      ? "flex w-max min-w-full items-start gap-2"
-                      : "space-y-2"
-                  }
-                >
-                  {!collapsedPanes.left && (
-                    <div
-                      className={
-                        rowLayout === "horizontal" ? "shrink-0" : undefined
-                      }
-                      style={
-                        rowLayout === "horizontal"
-                          ? { width: HORIZONTAL_PANE_WIDTH }
-                          : undefined
-                      }
-                    >
-                      <div className="mb-1 text-[11px] uppercase tracking-wide text-gray-500">
-                        {leftLabel}
-                      </div>
-                      <SystemPane
-                        rendered={left}
-                        highlights={leftHighlights}
-                        preview={leftPreview}
-                        place={leftPlace}
-                        measureIndexes={leftFocus}
-                        label={leftLabel}
-                        paneWidth={rowPaneWidth}
-                        partIndex={staffRow?.leftPartIndex}
-                        {...paneTransport("left", leftFocus)}
-                      />
+                {!collapsedPanes.left && (
+                  <div
+                    className={rowLayout === 'horizontal' ? 'shrink-0' : undefined}
+                    style={
+                      rowLayout === 'horizontal' ? { width: HORIZONTAL_PANE_WIDTH } : undefined
+                    }
+                  >
+                    <div className="mb-1 text-[11px] uppercase tracking-wide text-gray-500">
+                      {leftLabel}
                     </div>
-                  )}
-                  {!collapsedPanes.left && !collapsedPanes.merged && (
-                    <Gutter
-                      readsFrom={readsFrom}
-                      onPreview={setPreviewRegion}
-                      outcome={takeOutcome}
-                      direction="down"
-                      layout={rowLayout}
+                    <SystemPane
+                      rendered={left}
+                      highlights={leftHighlights}
+                      preview={leftPreview}
+                      place={leftPlace}
+                      measureIndexes={leftFocus}
                       label={leftLabel}
-                      regions={differences}
-                      engineId={leftEngineId}
-                      onTake={takeBlock}
-                      busy={merged.saving}
+                      paneWidth={rowPaneWidth}
+                      partIndex={staffRow?.leftPartIndex}
+                      {...paneTransport('left', leftFocus)}
                     />
-                  )}
-                  {!collapsedPanes.merged && (
-                    <div
-                      className={
-                        rowLayout === "horizontal" ? "shrink-0" : undefined
-                      }
-                      style={
-                        rowLayout === "horizontal"
-                          ? { width: HORIZONTAL_PANE_WIDTH }
-                          : undefined
-                      }
-                    >
-                      <div className="mb-1 flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wide text-cyan-800">
-                        <span className="font-semibold">Merged</span>
-                        <span
-                          className="flex items-center gap-1 normal-case tracking-normal"
-                          data-testid="merged-pane-controls"
+                  </div>
+                )}
+                {!collapsedPanes.left && !collapsedPanes.merged && (
+                  <Gutter
+                    readsFrom={readsFrom}
+                    onPreview={setPreviewRegion}
+                    outcome={takeOutcome}
+                    direction="down"
+                    layout={rowLayout}
+                    label={leftLabel}
+                    regions={differences}
+                    engineId={leftEngineId}
+                    onTake={takeBlock}
+                    busy={merged.saving}
+                  />
+                )}
+                {!collapsedPanes.merged && (
+                  <div
+                    className={rowLayout === 'horizontal' ? 'shrink-0' : undefined}
+                    style={
+                      rowLayout === 'horizontal' ? { width: HORIZONTAL_PANE_WIDTH } : undefined
+                    }
+                  >
+                    <div className="mb-1 flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wide text-cyan-800">
+                      <span className="font-semibold">Merged</span>
+                      <span
+                        className="flex items-center gap-1 normal-case tracking-normal"
+                        data-testid="merged-pane-controls"
+                      >
+                        <button
+                          type="button"
+                          onClick={toggleNoteInput}
+                          aria-pressed={noteInput}
+                          disabled={!mergedScore || merged.busy}
+                          data-testid="btn-merged-note-input"
+                          className={`rounded border px-2 py-0.5 disabled:opacity-50 ${
+                            noteInput
+                              ? 'border-cyan-700 bg-cyan-600 font-semibold text-white shadow-sm'
+                              : 'border-gray-400 bg-white text-gray-800 hover:bg-gray-50'
+                          }`}
                         >
-                          <button
-                            type="button"
-                            onClick={toggleNoteInput}
-                            aria-pressed={noteInput}
-                            disabled={!mergedScore || merged.busy}
-                            data-testid="btn-merged-note-input"
-                            className={`rounded border px-2 py-0.5 disabled:opacity-50 ${
-                              noteInput
-                                ? "border-cyan-700 bg-cyan-600 font-semibold text-white shadow-sm"
-                                : "border-gray-400 bg-white text-gray-800 hover:bg-gray-50"
-                            }`}
-                          >
-                            {noteInput ? "Note input on" : "Note input"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setPalettesOpen(true)}
-                            disabled={
-                              !mergedScore || !hasSelection || merged.busy
-                            }
-                            data-testid="btn-merged-palettes"
-                            title={
-                              hasSelection
-                                ? "Open score palettes"
-                                : "Select something in the merged score first"
-                            }
-                            className="rounded border border-gray-400 bg-white px-2 py-0.5 text-gray-800 hover:bg-gray-50 disabled:opacity-50"
-                          >
-                            Palettes
-                          </button>
-                        </span>
-                        {rowIrregular.length > 0 && (
-                          /*
+                          {noteInput ? 'Note input on' : 'Note input'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPalettesOpen(true)}
+                          disabled={!mergedScore || !hasSelection || merged.busy}
+                          data-testid="btn-merged-palettes"
+                          title={
+                            hasSelection
+                              ? 'Open score palettes'
+                              : 'Select something in the merged score first'
+                          }
+                          className="rounded border border-gray-400 bg-white px-2 py-0.5 text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          Palettes
+                        </button>
+                      </span>
+                      {rowIrregular.length > 0 && (
+                        /*
                                             Said on the row that holds the bar,
                                             not in a list somewhere else: the
                                             reviewer is looking at this line,
                                             and the fix is for one bar of it.
                                         */
-                          <span className="flex flex-wrap items-center gap-1 normal-case tracking-normal">
-                            {rowIrregular.map((bar) => (
-                              <span
-                                key={bar.index}
-                                className="flex items-center gap-1 rounded border border-amber-400 bg-amber-50 px-1.5 py-0.5 text-amber-900"
-                                data-testid="irregular-bar"
-                              >
-                                {scannerMeasureLabel(bar)} holds {bar.actual},
-                                not {bar.nominal}
-                                {!scannerMeasureIsPickup(bar) && (
-                                  <button
-                                    type="button"
-                                    data-testid={`btn-fix-bar-${bar.index}`}
-                                    disabled={merged.busy}
-                                    onClick={() => fixMeasureLength(bar.index)}
-                                    title={`Set ${scannerMeasureLabel(bar)} to ${bar.nominal}, as Measure Properties would`}
-                                    className="rounded border border-amber-500 bg-white px-1 py-0.5 font-medium hover:bg-amber-100 disabled:opacity-50"
-                                  >
-                                    make it {bar.nominal}
-                                  </button>
-                                )}
-                              </span>
-                            ))}
-                          </span>
-                        )}
-                        {droppedFromLine > 0 && (
-                          <span
-                            className="normal-case tracking-normal text-gray-500"
-                            data-testid="merged-line-trimmed"
-                          >
-                            not showing {droppedFromLine} bar
-                            {droppedFromLine === 1 ? "" : "s"} that did not fit
-                            on one system
-                          </span>
-                        )}
-                        <span className="normal-case tracking-normal text-gray-500">
-                          {merged.dirty
-                            ? `started from ${mergedLabel}, edited here`
-                            : `every bar inherited from ${mergedLabel}`}
+                        <span className="flex flex-wrap items-center gap-1 normal-case tracking-normal">
+                          {rowIrregular.map((bar) => (
+                            <span
+                              key={bar.index}
+                              className="flex items-center gap-1 rounded border border-amber-400 bg-amber-50 px-1.5 py-0.5 text-amber-900"
+                              data-testid="irregular-bar"
+                            >
+                              {scannerMeasureLabel(bar)} holds {bar.actual}, not {bar.nominal}
+                              {!scannerMeasureIsPickup(bar) && (
+                                <button
+                                  type="button"
+                                  data-testid={`btn-fix-bar-${bar.index}`}
+                                  disabled={merged.busy}
+                                  onClick={() => fixMeasureLength(bar.index)}
+                                  title={`Set ${scannerMeasureLabel(bar)} to ${bar.nominal}, as Measure Properties would`}
+                                  className="rounded border border-amber-500 bg-white px-1 py-0.5 font-medium hover:bg-amber-100 disabled:opacity-50"
+                                >
+                                  make it {bar.nominal}
+                                </button>
+                              )}
+                            </span>
+                          ))}
                         </span>
-                      </div>
-                      <SystemPane
-                        rendered={mergedRender}
-                        highlights={mergedHighlights}
-                        preview={mergedPreview}
-                        noteInput={noteInput}
-                        measureIndexes={mergedWindow}
-                        label="The merged score"
-                        paneWidth={rowPaneWidth}
-                        partIndex={
-                          mergeSource === "left"
-                            ? staffRow?.leftPartIndex
-                            : staffRow?.rightPartIndex
-                        }
-                        tone="merged"
-                        onPointMutate={handleMergedPoint}
-                        {...paneTransport("middle", mergedWindow)}
-                      />
+                      )}
+                      {droppedFromLine > 0 && (
+                        <span
+                          className="normal-case tracking-normal text-gray-500"
+                          data-testid="merged-line-trimmed"
+                        >
+                          not showing {droppedFromLine} bar
+                          {droppedFromLine === 1 ? '' : 's'} that did not fit on one system
+                        </span>
+                      )}
+                      <span className="normal-case tracking-normal text-gray-500">
+                        {merged.dirty
+                          ? `started from ${mergedLabel}, edited here`
+                          : `every bar inherited from ${mergedLabel}`}
+                      </span>
                     </div>
-                  )}
-                  {!collapsedPanes.merged && !collapsedPanes.right && (
-                    <Gutter
-                      readsFrom={readsFrom}
-                      onPreview={setPreviewRegion}
-                      outcome={takeOutcome}
-                      direction="up"
-                      layout={rowLayout}
-                      label={rightLabel}
-                      regions={differences}
-                      engineId={rightEngineId}
-                      onTake={takeBlock}
-                      busy={merged.saving}
+                    <SystemPane
+                      rendered={mergedRender}
+                      highlights={mergedHighlights}
+                      preview={mergedPreview}
+                      noteInput={noteInput}
+                      measureIndexes={mergedWindow}
+                      label="The merged score"
+                      paneWidth={rowPaneWidth}
+                      partIndex={
+                        mergeSource === 'left' ? staffRow?.leftPartIndex : staffRow?.rightPartIndex
+                      }
+                      tone="merged"
+                      onPointMutate={handleMergedPoint}
+                      {...paneTransport('middle', mergedWindow)}
                     />
-                  )}
-                  {!collapsedPanes.right && (
-                    <div
-                      className={
-                        rowLayout === "horizontal" ? "shrink-0" : undefined
-                      }
-                      style={
-                        rowLayout === "horizontal"
-                          ? { width: HORIZONTAL_PANE_WIDTH }
-                          : undefined
-                      }
-                    >
-                      <div className="mb-1 text-[11px] uppercase tracking-wide text-gray-500">
-                        {rightLabel}
-                      </div>
-                      <SystemPane
-                        rendered={right}
-                        highlights={rightHighlights}
-                        preview={rightPreview}
-                        place={rightPlace}
-                        measureIndexes={rightFocus}
-                        label={rightLabel}
-                        paneWidth={rowPaneWidth}
-                        partIndex={staffRow?.rightPartIndex}
-                        {...paneTransport("right", rightFocus)}
-                      />
+                  </div>
+                )}
+                {!collapsedPanes.merged && !collapsedPanes.right && (
+                  <Gutter
+                    readsFrom={readsFrom}
+                    onPreview={setPreviewRegion}
+                    outcome={takeOutcome}
+                    direction="up"
+                    layout={rowLayout}
+                    label={rightLabel}
+                    regions={differences}
+                    engineId={rightEngineId}
+                    onTake={takeBlock}
+                    busy={merged.saving}
+                  />
+                )}
+                {!collapsedPanes.right && (
+                  <div
+                    className={rowLayout === 'horizontal' ? 'shrink-0' : undefined}
+                    style={
+                      rowLayout === 'horizontal' ? { width: HORIZONTAL_PANE_WIDTH } : undefined
+                    }
+                  >
+                    <div className="mb-1 text-[11px] uppercase tracking-wide text-gray-500">
+                      {rightLabel}
                     </div>
-                  )}
-                  {rowLayout === "vertical" &&
-                    renderDifferenceDescription("right-to-scan")}
-                  {/*
+                    <SystemPane
+                      rendered={right}
+                      highlights={rightHighlights}
+                      preview={rightPreview}
+                      place={rightPlace}
+                      measureIndexes={rightFocus}
+                      label={rightLabel}
+                      paneWidth={rowPaneWidth}
+                      partIndex={staffRow?.rightPartIndex}
+                      {...paneTransport('right', rightFocus)}
+                    />
+                  </div>
+                )}
+                {rowLayout === 'vertical' && renderDifferenceDescription('right-to-scan')}
+                {/*
                                 The scan again, under the second reading.
 
                                 One copy at the top of the row put the scan
@@ -3170,21 +2872,14 @@ export function ScannerSystemRows({
                                 in your head past two other staves. It is the
                                 same image, and images are cheap next to that.
                             */}
-                  {rowLayout === "vertical" &&
-                    !collapsedPanes.scan &&
-                    scanCrop(
-                      system,
-                      systemPosition,
-                      "below",
-                      staffRow,
-                      activeRegion,
-                    )}
-                </div>
+                {rowLayout === 'vertical' &&
+                  !collapsedPanes.scan &&
+                  scanCrop(system, systemPosition, 'below', staffRow, activeRegion)}
               </div>
             </div>
-          );
-        },
-      )}
+          </div>
+        );
+      })}
       {palettesOpen && (
         <FloatingPalettes
           disabled={!hasSelection || merged.busy}

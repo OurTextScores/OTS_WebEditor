@@ -9,17 +9,15 @@ import {
 
 describe('resolvePublicScoreUrl', () => {
   it('routes a Google Drive share URL through the server-side proxy', () => {
-    expect(resolvePublicScoreUrl(
-      'https://drive.google.com/file/d/abc_123-XYZ/view?usp=sharing',
-    )).toBe(
+    expect(
+      resolvePublicScoreUrl('https://drive.google.com/file/d/abc_123-XYZ/view?usp=sharing'),
+    ).toBe(
       '/api/fetch-score?url=https%3A%2F%2Fdrive.usercontent.google.com%2Fdownload%3Fid%3Dabc_123-XYZ%26export%3Ddownload',
     );
   });
 
   it('supports Google Drive links that carry the file ID in the query', () => {
-    expect(resolvePublicScoreUrl(
-      'https://drive.google.com/open?id=abc123',
-    )).toBe(
+    expect(resolvePublicScoreUrl('https://drive.google.com/open?id=abc123')).toBe(
       '/api/fetch-score?url=https%3A%2F%2Fdrive.usercontent.google.com%2Fdownload%3Fid%3Dabc123%26export%3Ddownload',
     );
   });
@@ -28,9 +26,7 @@ describe('resolvePublicScoreUrl', () => {
     const original = process.env.NEXT_PUBLIC_SCORE_EDITOR_API_BASE;
     process.env.NEXT_PUBLIC_SCORE_EDITOR_API_BASE = '/api/score-editor';
     try {
-      expect(resolvePublicScoreUrl(
-        'https://drive.google.com/file/d/abc123/view?usp=sharing',
-      )).toBe(
+      expect(resolvePublicScoreUrl('https://drive.google.com/file/d/abc123/view?usp=sharing')).toBe(
         '/api/score-editor/fetch-score?url=https%3A%2F%2Fdrive.usercontent.google.com%2Fdownload%3Fid%3Dabc123%26export%3Ddownload',
       );
     } finally {
@@ -41,27 +37,33 @@ describe('resolvePublicScoreUrl', () => {
 
   it('does not alter relative or non-Google URLs', () => {
     expect(resolvePublicScoreUrl('/scores/example.musicxml')).toBe('/scores/example.musicxml');
-    expect(resolvePublicScoreUrl('https://example.com/example.mscz')).toBe('https://example.com/example.mscz');
+    expect(resolvePublicScoreUrl('https://example.com/example.mscz')).toBe(
+      'https://example.com/example.mscz',
+    );
   });
 });
 
 describe('buildScoreEditorShareUrl', () => {
   it('uses the runtime origin and editor path while removing unrelated query parameters', () => {
     const driveUrl = 'https://drive.google.com/file/d/abc123/view?usp=sharing';
-    expect(buildScoreEditorShareUrl(
-      driveUrl,
-      'https://www.ourtextscores.com/score-editor?old=value#section',
-    )).toBe(
-      `https://www.ourtextscores.com/score-editor?score=${encodeURIComponent(driveUrl)}`,
-    );
+    expect(
+      buildScoreEditorShareUrl(
+        driveUrl,
+        'https://www.ourtextscores.com/score-editor?old=value#section',
+      ),
+    ).toBe(`https://www.ourtextscores.com/score-editor?score=${encodeURIComponent(driveUrl)}`);
   });
 
   it('supports an explicitly configured public editor URL', () => {
-    expect(buildScoreEditorShareUrl(
-      'https://drive.google.com/open?id=abc123',
-      'http://localhost:3000/',
-      'https://staging.example.com/score-editor',
-    )).toBe('https://staging.example.com/score-editor?score=https%3A%2F%2Fdrive.google.com%2Fopen%3Fid%3Dabc123');
+    expect(
+      buildScoreEditorShareUrl(
+        'https://drive.google.com/open?id=abc123',
+        'http://localhost:3000/',
+        'https://staging.example.com/score-editor',
+      ),
+    ).toBe(
+      'https://staging.example.com/score-editor?score=https%3A%2F%2Fdrive.google.com%2Fopen%3Fid%3Dabc123',
+    );
   });
 
   it('recognizes Drive file links but rejects folders and other providers', () => {
@@ -82,7 +84,11 @@ describe('detectScoreInputFormat', () => {
     // Classic MSCZ (pre-4.x): just a .mscx inside the zip
     const msczClassic = new Uint8Array([0x50, 0x4b, ...new TextEncoder().encode('score.mscx')]);
     // MuseScore 4.x MSCZ: also has META-INF/container.xml alongside the .mscx
-    const mscz4x = new Uint8Array([0x50, 0x4b, ...new TextEncoder().encode('something-5string.mscxMETA-INF/container.xml')]);
+    const mscz4x = new Uint8Array([
+      0x50,
+      0x4b,
+      ...new TextEncoder().encode('something-5string.mscxMETA-INF/container.xml'),
+    ]);
     expect(detectScoreInputFormat('https://example.com/download', mxl)).toBe('mxl');
     expect(detectScoreInputFormat('https://example.com/download', msczClassic)).toBe('mscz');
     expect(detectScoreInputFormat('https://example.com/download', mscz4x)).toBe('mscz');

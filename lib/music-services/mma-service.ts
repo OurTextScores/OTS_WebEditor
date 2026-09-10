@@ -64,7 +64,10 @@ function readScript(data: Record<string, unknown> | null): string {
   return readContent(data);
 }
 
-export async function runMmaTemplateService(body: unknown, options?: MmaServiceOptions): Promise<MmaServiceResult> {
+export async function runMmaTemplateService(
+  body: unknown,
+  options?: MmaServiceOptions,
+): Promise<MmaServiceResult> {
   const traceContext = options?.traceContext;
   const data = asRecord(body);
 
@@ -80,12 +83,18 @@ export async function runMmaTemplateService(body: unknown, options?: MmaServiceO
     MAX_TEMPLATE_MEASURES,
   );
 
-  const defaultGroove = typeof data?.defaultGroove === 'string'
-    ? data.defaultGroove.trim()
-    : (typeof data?.default_groove === 'string' ? data.default_groove.trim() : '');
-  const arrangementPresetRaw = typeof data?.arrangementPreset === 'string'
-    ? data.arrangementPreset.trim()
-    : (typeof data?.arrangement_preset === 'string' ? data.arrangement_preset.trim() : '');
+  const defaultGroove =
+    typeof data?.defaultGroove === 'string'
+      ? data.defaultGroove.trim()
+      : typeof data?.default_groove === 'string'
+        ? data.default_groove.trim()
+        : '';
+  const arrangementPresetRaw =
+    typeof data?.arrangementPreset === 'string'
+      ? data.arrangementPreset.trim()
+      : typeof data?.arrangement_preset === 'string'
+        ? data.arrangement_preset.trim()
+        : '';
   const arrangementPreset = isMmaArrangementPreset(arrangementPresetRaw)
     ? arrangementPresetRaw
     : undefined;
@@ -119,20 +128,25 @@ export async function runMmaTemplateService(body: unknown, options?: MmaServiceO
   };
 }
 
-export async function runMmaRenderService(body: unknown, options?: MmaServiceOptions): Promise<MmaServiceResult> {
+export async function runMmaRenderService(
+  body: unknown,
+  options?: MmaServiceOptions,
+): Promise<MmaServiceResult> {
   const traceContext = options?.traceContext;
   const data = asRecord(body);
   const script = readScript(data);
-  const filename = typeof data?.filename === 'string' && data.filename.trim()
-    ? data.filename.trim()
-    : 'accompaniment.mma';
+  const filename =
+    typeof data?.filename === 'string' && data.filename.trim()
+      ? data.filename.trim()
+      : 'accompaniment.mma';
   const includeMidi = readBoolean(data?.includeMidi, data?.include_midi, true);
   const includeMusicXml = readBoolean(data?.includeMusicXml, data?.include_music_xml, false);
   const persistArtifacts = readBoolean(data?.persistArtifacts, data?.persist_artifacts, true);
   const validate = readBoolean(data?.validate, undefined, true);
   const deepValidate = readBoolean(data?.deepValidate, data?.deep_validate, true);
   const timeoutValue = Number(data?.timeoutMs ?? data?.timeout_ms);
-  const timeoutMs = Number.isFinite(timeoutValue) && timeoutValue > 0 ? Math.trunc(timeoutValue) : undefined;
+  const timeoutMs =
+    Number.isFinite(timeoutValue) && timeoutValue > 0 ? Math.trunc(timeoutValue) : undefined;
 
   if (!includeMidi && !includeMusicXml) {
     return {
@@ -220,7 +234,9 @@ export async function runMmaRenderService(body: unknown, options?: MmaServiceOpt
       });
       musicXmlContent = musicXmlConversion.content;
       if (musicXmlConversion.validation.summary.warning > 0) {
-        warnings.push(`MIDI -> MusicXML conversion returned ${musicXmlConversion.validation.summary.warning} warning(s).`);
+        warnings.push(
+          `MIDI -> MusicXML conversion returned ${musicXmlConversion.validation.summary.warning} warning(s).`,
+        );
       }
       logMmaServiceEvent('info', 'music.mma.render.convert_result', traceContext, {
         ok: true,
@@ -229,7 +245,8 @@ export async function runMmaRenderService(body: unknown, options?: MmaServiceOpt
         errorCount: musicXmlConversion.validation.summary.error,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'MIDI to MusicXML conversion failed.';
+      const message =
+        error instanceof Error ? error.message : 'MIDI to MusicXML conversion failed.';
       logMmaServiceEvent('error', 'music.mma.render.convert_result', traceContext, {
         ok: false,
         durationMs: Date.now() - convertStartedAt,
@@ -329,10 +346,12 @@ export async function runMmaRenderService(body: unknown, options?: MmaServiceOpt
           },
         ],
       },
-      conversion: musicXmlConversion ? {
-        normalization: musicXmlConversion.normalization,
-        validation: musicXmlConversion.validation,
-      } : null,
+      conversion: musicXmlConversion
+        ? {
+            normalization: musicXmlConversion.normalization,
+            validation: musicXmlConversion.validation,
+          }
+        : null,
     },
     provenance: {
       engine: 'mma',

@@ -36,10 +36,12 @@ describe('POST /api/music/patch/deep', () => {
   });
 
   it('blocks calls when no app token or explicit public opt-in is configured', async () => {
-    const response = await POST(new Request('http://localhost/api/music/patch/deep', {
-      method: 'POST',
-      body: JSON.stringify({ content: '<score-partwise/>' }),
-    }));
+    const response = await POST(
+      new Request('http://localhost/api/music/patch/deep', {
+        method: 'POST',
+        body: JSON.stringify({ content: '<score-partwise/>' }),
+      }),
+    );
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toMatchObject({
@@ -51,14 +53,18 @@ describe('POST /api/music/patch/deep', () => {
   it('rejects invalid JSON and missing MusicXML before calling the service', async () => {
     process.env.ALLOW_UNAUTHENTICATED_LLM_PROXY = '1';
 
-    const invalidJson = await POST(new Request('http://localhost/api/music/patch/deep', {
-      method: 'POST',
-      body: '{',
-    }));
-    const missingContent = await POST(new Request('http://localhost/api/music/patch/deep', {
-      method: 'POST',
-      body: JSON.stringify({ prompt: 'transpose' }),
-    }));
+    const invalidJson = await POST(
+      new Request('http://localhost/api/music/patch/deep', {
+        method: 'POST',
+        body: '{',
+      }),
+    );
+    const missingContent = await POST(
+      new Request('http://localhost/api/music/patch/deep', {
+        method: 'POST',
+        body: JSON.stringify({ prompt: 'transpose' }),
+      }),
+    );
 
     expect(invalidJson.status).toBe(400);
     expect(missingContent.status).toBe(400);
@@ -89,15 +95,17 @@ describe('POST /api/music/patch/deep', () => {
       },
     });
 
-    const response = await POST(new Request('http://localhost/api/music/patch/deep', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-ots-api-token': 'app-token',
-        'x-request-id': 'req-deep-1',
-      },
-      body: JSON.stringify({ content: '<score-partwise/>', prompt: 'Improve the voicing.' }),
-    }));
+    const response = await POST(
+      new Request('http://localhost/api/music/patch/deep', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-ots-api-token': 'app-token',
+          'x-request-id': 'req-deep-1',
+        },
+        body: JSON.stringify({ content: '<score-partwise/>', prompt: 'Improve the voicing.' }),
+      }),
+    );
 
     expect(response.status).toBe(200);
     expect(response.headers.get('x-request-id')).toBe('req-deep-1');
@@ -127,15 +135,17 @@ describe('POST /api/music/patch/deep', () => {
         body: { proposedXml: '<score-partwise/>', deepEdit: { counters: { llmCalls: 1 } } },
       };
     });
-    const response = await POST(new Request('http://localhost/api/music/patch/deep', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        accept: 'text/event-stream',
-        'x-ots-api-token': 'app-token',
-      },
-      body: JSON.stringify({ content: '<score-partwise/>', prompt: 'Improve it.' }),
-    }));
+    const response = await POST(
+      new Request('http://localhost/api/music/patch/deep', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          accept: 'text/event-stream',
+          'x-ots-api-token': 'app-token',
+        },
+        body: JSON.stringify({ content: '<score-partwise/>', prompt: 'Improve it.' }),
+      }),
+    );
     const progress: Array<Record<string, unknown>> = [];
 
     const result = await readAiEditServiceResponse(response, (event) => progress.push(event));
@@ -144,7 +154,10 @@ describe('POST /api/music/patch/deep', () => {
     expect(progress.map((event) => event.phase)).toEqual(['request.accepted', 'deep.started']);
     expect(mocked.runDeepEditService).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ signal: expect.any(AbortSignal), onProgress: expect.any(Function) }),
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+        onProgress: expect.any(Function),
+      }),
     );
   });
 
@@ -155,14 +168,21 @@ describe('POST /api/music/patch/deep', () => {
       body: {
         error: 'Deep edit ran out of budget before finalizing a candidate.',
         errorCategory: 'budget_exhausted',
-        deepEdit: { finalizedCandidateId: null, candidates: [], counters: { llmCalls: 12, toolCalls: 24, renders: 0 }, elapsedMs: 9 },
+        deepEdit: {
+          finalizedCandidateId: null,
+          candidates: [],
+          counters: { llmCalls: 12, toolCalls: 24, renders: 0 },
+          elapsedMs: 9,
+        },
       },
     });
 
-    const response = await POST(new Request('http://localhost/api/music/patch/deep', {
-      method: 'POST',
-      body: JSON.stringify({ content: '<score-partwise/>', prompt: 'x' }),
-    }));
+    const response = await POST(
+      new Request('http://localhost/api/music/patch/deep', {
+        method: 'POST',
+        body: JSON.stringify({ content: '<score-partwise/>', prompt: 'x' }),
+      }),
+    );
 
     expect(response.status).toBe(422);
     await expect(response.json()).resolves.toMatchObject({

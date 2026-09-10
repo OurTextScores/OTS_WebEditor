@@ -9,4 +9,3 @@ try {
   console.error('[sync-wasm] Failed:', err.message);
   process.exit(1);
 }
-

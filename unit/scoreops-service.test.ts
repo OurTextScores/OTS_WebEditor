@@ -7,7 +7,10 @@ const mocked = vi.hoisted(() => {
     let xml = initialXml;
     let selectedMeasure = 1;
     const updateSelectedMeasure = (updater: (measureXml: string) => string) => {
-      const measureRegex = new RegExp(`(<measure\\b[^>]*number="${selectedMeasure}"[^>]*>[\\s\\S]*?<\\/measure>)`, 'i');
+      const measureRegex = new RegExp(
+        `(<measure\\b[^>]*number="${selectedMeasure}"[^>]*>[\\s\\S]*?<\\/measure>)`,
+        'i',
+      );
       const match = xml.match(measureRegex);
       if (!match) {
         return;
@@ -23,17 +26,22 @@ const mocked = vi.hoisted(() => {
         selectedMeasure = measureIndex + 1;
       }),
       setKeySignature: vi.fn(async (fifths: number) => {
-        updateSelectedMeasure((measureXml) => measureXml.replace(/(<fifths>)-?\d+(<\/fifths>)/i, `$1${fifths}$2`));
+        updateSelectedMeasure((measureXml) =>
+          measureXml.replace(/(<fifths>)-?\d+(<\/fifths>)/i, `$1${fifths}$2`),
+        );
       }),
       setTitleText: vi.fn(async (title: string) => {
-        xml = xml.replace(/<movement-title>[\s\S]*?<\/movement-title>/i, `<movement-title>${title}</movement-title>`);
+        xml = xml.replace(
+          /<movement-title>[\s\S]*?<\/movement-title>/i,
+          `<movement-title>${title}</movement-title>`,
+        );
       }),
       setTimeSignature: vi.fn(async (numerator: number, denominator: number) => {
-        updateSelectedMeasure((measureXml) => (
+        updateSelectedMeasure((measureXml) =>
           measureXml
             .replace(/(<beats>)\d+(<\/beats>)/i, `$1${numerator}$2`)
-            .replace(/(<beat-type>)\d+(<\/beat-type>)/i, `$1${denominator}$2`)
-        ));
+            .replace(/(<beat-type>)\d+(<\/beat-type>)/i, `$1${denominator}$2`),
+        );
       }),
       setClef: vi.fn(async (clefType: number) => {
         const map: Record<number, { sign: string; line: string }> = {
@@ -43,69 +51,123 @@ const mocked = vi.hoisted(() => {
           11: { sign: 'C', line: '4' },
         };
         const target = map[clefType] || map[0];
-        updateSelectedMeasure((measureXml) => (
+        updateSelectedMeasure((measureXml) =>
           measureXml
             .replace(/(<clef>[\s\S]*?<sign>)[A-Z](<\/sign>)/i, `$1${target.sign}$2`)
-            .replace(/(<clef>[\s\S]*?<line>)\d+(<\/line>)/i, `$1${target.line}$2`)
-        ));
+            .replace(/(<clef>[\s\S]*?<line>)\d+(<\/line>)/i, `$1${target.line}$2`),
+        );
       }),
       setSelectedText: vi.fn(async (text: string) => {
         // Insert a text element marker so XML changes detectably
         xml = xml.replace(/<\/score-partwise>/, `<!-- selectedText:${text} --></score-partwise>`);
       }),
       setDurationType: vi.fn(async () => {
-        updateSelectedMeasure((measureXml) => measureXml.replace(/<type>[^<]*<\/type>/i, '<type>quarter</type>'));
+        updateSelectedMeasure((measureXml) =>
+          measureXml.replace(/<type>[^<]*<\/type>/i, '<type>quarter</type>'),
+        );
       }),
       setVoice: vi.fn(async (_voiceIndex: number) => {
-        updateSelectedMeasure((measureXml) => measureXml.replace(/<voice>\d+<\/voice>/i, `<voice>${_voiceIndex + 1}</voice>`));
+        updateSelectedMeasure((measureXml) =>
+          measureXml.replace(/<voice>\d+<\/voice>/i, `<voice>${_voiceIndex + 1}</voice>`),
+        );
       }),
       changeSelectedElementsVoice: vi.fn(async (_voiceIndex: number) => {
-        updateSelectedMeasure((measureXml) => measureXml.replace(/<voice>\d+<\/voice>/i, `<voice>${_voiceIndex + 1}</voice>`));
+        updateSelectedMeasure((measureXml) =>
+          measureXml.replace(/<voice>\d+<\/voice>/i, `<voice>${_voiceIndex + 1}</voice>`),
+        );
       }),
       transpose: vi.fn(async (mode: number, direction: number, key: number, interval: number) => {
-        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/note>/, `</note><!-- transposed:mode=${mode},dir=${direction},key=${key},interval=${interval} -->`));
+        updateSelectedMeasure((measureXml) =>
+          measureXml.replace(
+            /<\/note>/,
+            `</note><!-- transposed:mode=${mode},dir=${direction},key=${key},interval=${interval} -->`,
+          ),
+        );
       }),
       addTempoText: vi.fn(async (bpm: number) => {
-        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/measure>/, `<direction><sound tempo="${bpm}"/></direction></measure>`));
+        updateSelectedMeasure((measureXml) =>
+          measureXml.replace(
+            /<\/measure>/,
+            `<direction><sound tempo="${bpm}"/></direction></measure>`,
+          ),
+        );
       }),
       addDynamic: vi.fn(async (typeCode: number) => {
-        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/measure>/, `<direction><dynamics type="${typeCode}"/></direction></measure>`));
+        updateSelectedMeasure((measureXml) =>
+          measureXml.replace(
+            /<\/measure>/,
+            `<direction><dynamics type="${typeCode}"/></direction></measure>`,
+          ),
+        );
       }),
       setAccidental: vi.fn(async (_accidentalType: number) => {
-        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/note>/, `<!-- accidental:${_accidentalType} --></note>`));
+        updateSelectedMeasure((measureXml) =>
+          measureXml.replace(/<\/note>/, `<!-- accidental:${_accidentalType} --></note>`),
+        );
       }),
       addStaffText: vi.fn(async (text: string) => {
-        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/measure>/, `<direction><words>${text}</words></direction></measure>`));
+        updateSelectedMeasure((measureXml) =>
+          measureXml.replace(
+            /<\/measure>/,
+            `<direction><words>${text}</words></direction></measure>`,
+          ),
+        );
       }),
       addSystemText: vi.fn(async (text: string) => {
-        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/measure>/, `<direction><words>${text}</words></direction></measure>`));
+        updateSelectedMeasure((measureXml) =>
+          measureXml.replace(
+            /<\/measure>/,
+            `<direction><words>${text}</words></direction></measure>`,
+          ),
+        );
       }),
       addExpressionText: vi.fn(async (text: string) => {
-        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/measure>/, `<direction><words>${text}</words></direction></measure>`));
+        updateSelectedMeasure((measureXml) =>
+          measureXml.replace(
+            /<\/measure>/,
+            `<direction><words>${text}</words></direction></measure>`,
+          ),
+        );
       }),
       addLyricText: vi.fn(async (text: string) => {
-        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/measure>/, `<lyric>${text}</lyric></measure>`));
+        updateSelectedMeasure((measureXml) =>
+          measureXml.replace(/<\/measure>/, `<lyric>${text}</lyric></measure>`),
+        );
       }),
       addHarmonyText: vi.fn(async (_variant: number, text: string) => {
-        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/measure>/, `<harmony>${text}</harmony></measure>`));
+        updateSelectedMeasure((measureXml) =>
+          measureXml.replace(/<\/measure>/, `<harmony>${text}</harmony></measure>`),
+        );
       }),
       toggleLineBreak: vi.fn(async () => {
-        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/measure>/, `<!-- lineBreak --></measure>`));
+        updateSelectedMeasure((measureXml) =>
+          measureXml.replace(/<\/measure>/, `<!-- lineBreak --></measure>`),
+        );
       }),
       togglePageBreak: vi.fn(async () => {
-        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/measure>/, `<!-- pageBreak --></measure>`));
+        updateSelectedMeasure((measureXml) =>
+          measureXml.replace(/<\/measure>/, `<!-- pageBreak --></measure>`),
+        );
       }),
       toggleRepeatStart: vi.fn(async () => {
-        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/measure>/, `<!-- repeatStart --></measure>`));
+        updateSelectedMeasure((measureXml) =>
+          measureXml.replace(/<\/measure>/, `<!-- repeatStart --></measure>`),
+        );
       }),
       toggleRepeatEnd: vi.fn(async () => {
-        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/measure>/, `<!-- repeatEnd --></measure>`));
+        updateSelectedMeasure((measureXml) =>
+          measureXml.replace(/<\/measure>/, `<!-- repeatEnd --></measure>`),
+        );
       }),
       setRepeatCount: vi.fn(async (_count: number) => {
-        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/measure>/, `<!-- repeatCount:${_count} --></measure>`));
+        updateSelectedMeasure((measureXml) =>
+          measureXml.replace(/<\/measure>/, `<!-- repeatCount:${_count} --></measure>`),
+        );
       }),
       setBarLineType: vi.fn(async (_barlineType: number) => {
-        updateSelectedMeasure((measureXml) => measureXml.replace(/<\/measure>/, `<!-- barline:${_barlineType} --></measure>`));
+        updateSelectedMeasure((measureXml) =>
+          measureXml.replace(/<\/measure>/, `<!-- barline:${_barlineType} --></measure>`),
+        );
       }),
       undo: vi.fn(async () => {
         xml = xml.replace(/<\/score-partwise>/, `<!-- undo --></score-partwise>`);
@@ -118,7 +180,9 @@ const mocked = vi.hoisted(() => {
   return {
     artifacts,
     loadWebMscoreInProcess: vi.fn(async () => ({
-      load: vi.fn(async (_format: string, data: Uint8Array) => createFakeWasmScore(new TextDecoder().decode(data))),
+      load: vi.fn(async (_format: string, data: Uint8Array) =>
+        createFakeWasmScore(new TextDecoder().decode(data)),
+      ),
     })),
     createScoreArtifact: vi.fn(async (input: Record<string, unknown>) => {
       const id = `art-${nextId++}`;
@@ -204,18 +268,24 @@ describe('runMusicScoreOpsService', () => {
   });
 
   it('opens, inspects, and applies deterministic operations', async () => {
-    const open = await runMusicScoreOpsService({
-      action: 'open',
-      content: SAMPLE_XML,
-    }, 'open');
+    const open = await runMusicScoreOpsService(
+      {
+        action: 'open',
+        content: SAMPLE_XML,
+      },
+      'open',
+    );
     expect(open.status).toBe(200);
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const inspect = await runMusicScoreOpsService({
-      action: 'inspect',
-      scoreSessionId,
-      include: { capabilities: true, scoreSummary: true },
-    }, 'inspect');
+    const inspect = await runMusicScoreOpsService(
+      {
+        action: 'inspect',
+        scoreSessionId,
+        include: { capabilities: true, scoreSummary: true },
+      },
+      'inspect',
+    );
     expect(inspect.status).toBe(200);
     expect(inspect.body).toMatchObject({
       ok: true,
@@ -237,17 +307,20 @@ describe('runMusicScoreOpsService', () => {
       },
     });
 
-    const apply = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [
-        { op: 'set_key_signature', fifths: 1 },
-        { op: 'set_time_signature', numerator: 3, denominator: 4 },
-        { op: 'set_clef', clef: 'treble' },
-      ],
-      options: { includeXml: true, includePatch: true },
-    }, 'apply');
+    const apply = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [
+          { op: 'set_key_signature', fifths: 1 },
+          { op: 'set_time_signature', numerator: 3, denominator: 4 },
+          { op: 'set_clef', clef: 'treble' },
+        ],
+        options: { includeXml: true, includePatch: true },
+      },
+      'apply',
+    );
 
     expect(apply.status).toBe(200);
     expect(apply.body).toMatchObject({
@@ -263,11 +336,18 @@ describe('runMusicScoreOpsService', () => {
     expect(output).toContain('<beat-type>4</beat-type>');
     expect(output).toContain('<clef><sign>G</sign><line>2</line></clef>');
 
-    const patch = apply.body.patch as { format?: string; ops?: Array<{ op: string; path: string; value?: string }> };
+    const patch = apply.body.patch as {
+      format?: string;
+      ops?: Array<{ op: string; path: string; value?: string }>;
+    };
     expect(patch.format).toBe('musicxml-patch@1');
     expect(Array.isArray(patch.ops)).toBe(true);
-    expect(patch.ops?.some((op) => op.path.includes('/attributes/key/fifths') && op.value === '1')).toBe(true);
-    expect(patch.ops?.some((op) => op.path.includes('/attributes/time/beats') && op.value === '3')).toBe(true);
+    expect(
+      patch.ops?.some((op) => op.path.includes('/attributes/key/fifths') && op.value === '1'),
+    ).toBe(true);
+    expect(
+      patch.ops?.some((op) => op.path.includes('/attributes/time/beats') && op.value === '3'),
+    ).toBe(true);
   });
 
   it('previews operations without mutating the source session or creating an artifact', async () => {
@@ -325,24 +405,28 @@ describe('runMusicScoreOpsService', () => {
   });
 
   it('persists launch context metadata on open and sync', async () => {
-    const open = await runMusicScoreOpsService({
-      action: 'open',
-      content: SAMPLE_XML,
-      scoreMeta: {
-        launchContext: {
-          source: 'ourtextscores',
-          workId: '12345',
-          sourceId: 'source-1',
-          revisionId: 'rev-1',
-          workTitle: 'Prelude in C',
-          composer: 'J.S. Bach',
-          imslpUrl: 'https://imslp.org/wiki/Test_Work',
+    const open = await runMusicScoreOpsService(
+      {
+        action: 'open',
+        content: SAMPLE_XML,
+        scoreMeta: {
+          launchContext: {
+            source: 'ourtextscores',
+            workId: '12345',
+            sourceId: 'source-1',
+            revisionId: 'rev-1',
+            workTitle: 'Prelude in C',
+            composer: 'J.S. Bach',
+            imslpUrl: 'https://imslp.org/wiki/Test_Work',
+          },
         },
       },
-    }, 'open');
+      'open',
+    );
 
     expect(open.status).toBe(200);
-    const openMetadata = open.body.metadata as { launchContext?: Record<string, unknown> } | undefined;
+    const openMetadata = open.body.metadata as
+      { launchContext?: Record<string, unknown> } | undefined;
     expect(openMetadata?.launchContext).toMatchObject({
       source: 'ourtextscores',
       workId: '12345',
@@ -351,15 +435,19 @@ describe('runMusicScoreOpsService', () => {
     });
 
     const scoreSessionId = String(open.body.scoreSessionId);
-    const sync = await runMusicScoreOpsService({
-      action: 'sync',
-      scoreSessionId,
-      baseRevision: 0,
-      content: SAMPLE_XML.replace('Original Title', 'Updated Title'),
-    }, 'sync');
+    const sync = await runMusicScoreOpsService(
+      {
+        action: 'sync',
+        scoreSessionId,
+        baseRevision: 0,
+        content: SAMPLE_XML.replace('Original Title', 'Updated Title'),
+      },
+      'sync',
+    );
 
     expect(sync.status).toBe(200);
-    const syncMetadata = sync.body.metadata as { launchContext?: Record<string, unknown> } | undefined;
+    const syncMetadata = sync.body.metadata as
+      { launchContext?: Record<string, unknown> } | undefined;
     expect(syncMetadata?.launchContext).toMatchObject({
       source: 'ourtextscores',
       workId: '12345',
@@ -372,20 +460,26 @@ describe('runMusicScoreOpsService', () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const first = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [{ op: 'set_metadata_text', field: 'title', value: 'Updated' }],
-    }, 'apply');
+    const first = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'set_metadata_text', field: 'title', value: 'Updated' }],
+      },
+      'apply',
+    );
     expect(first.status).toBe(200);
 
-    const stale = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [{ op: 'set_metadata_text', field: 'title', value: 'Again' }],
-    }, 'apply');
+    const stale = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'set_metadata_text', field: 'title', value: 'Again' }],
+      },
+      'apply',
+    );
 
     expect(stale.status).toBe(409);
     expect(stale.body).toMatchObject({
@@ -400,16 +494,19 @@ describe('runMusicScoreOpsService', () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const apply = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [
-        { op: 'set_metadata_text', field: 'title', value: 'Rollback Candidate' },
-        { op: 'remove_measures', scope: { measureStart: 99, measureEnd: 100 } },
-      ],
-      options: { atomic: true },
-    }, 'apply');
+    const apply = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [
+          { op: 'set_metadata_text', field: 'title', value: 'Rollback Candidate' },
+          { op: 'remove_measures', scope: { measureStart: 99, measureEnd: 100 } },
+        ],
+        options: { atomic: true },
+      },
+      'apply',
+    );
 
     expect(apply.status).toBe(422);
     expect(apply.body).toMatchObject({
@@ -419,11 +516,14 @@ describe('runMusicScoreOpsService', () => {
       },
     });
 
-    const inspect = await runMusicScoreOpsService({
-      action: 'inspect',
-      scoreSessionId,
-      include: { scoreSummary: true },
-    }, 'inspect');
+    const inspect = await runMusicScoreOpsService(
+      {
+        action: 'inspect',
+        scoreSessionId,
+        include: { scoreSummary: true },
+      },
+      'inspect',
+    );
 
     expect(inspect.status).toBe(200);
     expect(inspect.body).toMatchObject({ revision: 0 });
@@ -453,7 +553,8 @@ describe('runMusicScoreOpsService', () => {
 
   it('decomposes multi-step prompts and reports unsupported steps explicitly', async () => {
     const result = await runMusicScoreOpsPromptService({
-      prompt: '1. Change key signature to G major, 2. Remove the text "Original Title", 3. Fix weird beaming in measures 29-30',
+      prompt:
+        '1. Change key signature to G major, 2. Remove the text "Original Title", 3. Fix weird beaming in measures 29-30',
       content: SAMPLE_XML,
     });
 
@@ -471,33 +572,38 @@ describe('runMusicScoreOpsService', () => {
       unsupportedSteps?: Array<{ text?: string; reason?: string }>;
     };
     expect((planner.supportedSteps || []).length).toBeGreaterThan(0);
-    expect((planner.unsupportedSteps || []).some((step) => (
-      `${step.text || ''} ${step.reason || ''}`.toLowerCase().includes('beaming')
-    ))).toBe(true);
+    expect(
+      (planner.unsupportedSteps || []).some((step) =>
+        `${step.text || ''} ${step.reason || ''}`.toLowerCase().includes('beaming'),
+      ),
+    ).toBe(true);
   });
 
   it('maps scoped key/time prompts to measure-scoped operations', async () => {
     const result = await runMusicScoreOpsPromptService({
-      prompt: 'Set key signature to G major in measures 1-2 and set time signature to 3/4 in measures 1-2',
+      prompt:
+        'Set key signature to G major in measures 1-2 and set time signature to 3/4 in measures 1-2',
       content: SAMPLE_XML,
     });
 
     expect(result.status).toBe(200);
     const planner = result.body.planner as { parsedOps?: Array<Record<string, unknown>> };
     const parsedOps = planner.parsedOps || [];
-    expect(parsedOps).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        op: 'set_key_signature',
-        fifths: 1,
-        scope: { measureStart: 1, measureEnd: 2 },
-      }),
-      expect.objectContaining({
-        op: 'set_time_signature',
-        numerator: 3,
-        denominator: 4,
-        scope: { measureStart: 1, measureEnd: 2 },
-      }),
-    ]));
+    expect(parsedOps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          op: 'set_key_signature',
+          fifths: 1,
+          scope: { measureStart: 1, measureEnd: 2 },
+        }),
+        expect.objectContaining({
+          op: 'set_time_signature',
+          numerator: 3,
+          denominator: 4,
+          scope: { measureStart: 1, measureEnd: 2 },
+        }),
+      ]),
+    );
   });
 
   it('returns structured unsupported-step details when no operations can be mapped', async () => {
@@ -523,22 +629,26 @@ describe('runMusicScoreOpsService', () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const apply = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [
-        { op: 'insert_measures', count: 1, target: 'after_measure', afterMeasure: 1 },
-      ],
-      options: { includePatch: true, includeXml: true },
-    }, 'apply');
+    const apply = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'insert_measures', count: 1, target: 'after_measure', afterMeasure: 1 }],
+        options: { includePatch: true, includeXml: true },
+      },
+      'apply',
+    );
 
     expect(apply.status).toBe(200);
     expect(apply.body).toMatchObject({
       ok: true,
       patchMode: 'measure-diff-fallback',
     });
-    const patch = apply.body.patch as { format?: string; ops?: Array<{ op: string; path: string }> };
+    const patch = apply.body.patch as {
+      format?: string;
+      ops?: Array<{ op: string; path: string }>;
+    };
     expect(patch.format).toBe('musicxml-patch@1');
     expect((patch.ops || []).length).toBeGreaterThan(0);
   });
@@ -547,15 +657,16 @@ describe('runMusicScoreOpsService', () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const apply = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [
-        { op: 'set_metadata_text', field: 'title', value: 'Updated via WASM' },
-      ],
-      options: { includeXml: true, preferredExecutor: 'wasm' },
-    }, 'apply');
+    const apply = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'set_metadata_text', field: 'title', value: 'Updated via WASM' }],
+        options: { includeXml: true, preferredExecutor: 'wasm' },
+      },
+      'apply',
+    );
 
     expect(apply.status).toBe(200);
     expect(apply.body).toMatchObject({
@@ -574,15 +685,16 @@ describe('runMusicScoreOpsService', () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const apply = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [
-        { op: 'delete_text_by_content', text: 'Original', maxDeletes: 10 },
-      ],
-      options: { includeXml: true, preferredExecutor: 'wasm' },
-    }, 'apply');
+    const apply = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'delete_text_by_content', text: 'Original', maxDeletes: 10 }],
+        options: { includeXml: true, preferredExecutor: 'wasm' },
+      },
+      'apply',
+    );
 
     expect(apply.status).toBe(200);
     expect(apply.body).toMatchObject({
@@ -600,11 +712,14 @@ describe('runMusicScoreOpsService', () => {
   // --- Batch 1: New mutation ops ---
 
   it('rejects transpose_selection with invalid semitones', async () => {
-    const result = await runMusicScoreOpsService({
-      action: 'apply',
-      content: SAMPLE_XML,
-      ops: [{ op: 'transpose_selection', semitones: 30 }],
-    }, 'apply');
+    const result = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        content: SAMPLE_XML,
+        ops: [{ op: 'transpose_selection', semitones: 30 }],
+      },
+      'apply',
+    );
     expect(result.status).toBe(400);
   });
 
@@ -612,13 +727,16 @@ describe('runMusicScoreOpsService', () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const apply = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [{ op: 'transpose_selection', semitones: 3 }],
-      options: { includeXml: true, preferredExecutor: 'wasm' },
-    }, 'apply');
+    const apply = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'transpose_selection', semitones: 3 }],
+        options: { includeXml: true, preferredExecutor: 'wasm' },
+      },
+      'apply',
+    );
 
     expect(apply.status).toBe(200);
     expect(apply.body).toMatchObject({
@@ -628,41 +746,53 @@ describe('runMusicScoreOpsService', () => {
   });
 
   it('returns error for transpose_selection in xml mode', async () => {
-    const result = await runMusicScoreOpsService({
-      action: 'apply',
-      content: SAMPLE_XML,
-      ops: [{ op: 'transpose_selection', semitones: 3 }],
-      options: { preferredExecutor: 'xml' },
-    }, 'apply');
+    const result = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        content: SAMPLE_XML,
+        ops: [{ op: 'transpose_selection', semitones: 3 }],
+        options: { preferredExecutor: 'xml' },
+      },
+      'apply',
+    );
     expect(result.status).toBe(422);
   });
 
   // --- transpose (full API) tests ---
 
   it('rejects transpose with invalid mode', async () => {
-    const result = await runMusicScoreOpsService({
-      action: 'apply',
-      content: SAMPLE_XML,
-      ops: [{ op: 'transpose', mode: 'invalid', direction: 'up', key: 0, interval: 0 }],
-    }, 'apply');
+    const result = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        content: SAMPLE_XML,
+        ops: [{ op: 'transpose', mode: 'invalid', direction: 'up', key: 0, interval: 0 }],
+      },
+      'apply',
+    );
     expect(result.status).toBe(400);
   });
 
   it('rejects transpose with out-of-range key', async () => {
-    const result = await runMusicScoreOpsService({
-      action: 'apply',
-      content: SAMPLE_XML,
-      ops: [{ op: 'transpose', mode: 'to_key', direction: 'closest', key: 10, interval: 0 }],
-    }, 'apply');
+    const result = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        content: SAMPLE_XML,
+        ops: [{ op: 'transpose', mode: 'to_key', direction: 'closest', key: 10, interval: 0 }],
+      },
+      'apply',
+    );
     expect(result.status).toBe(400);
   });
 
   it('rejects transpose with out-of-range interval', async () => {
-    const result = await runMusicScoreOpsService({
-      action: 'apply',
-      content: SAMPLE_XML,
-      ops: [{ op: 'transpose', mode: 'by_interval', direction: 'up', key: 0, interval: 30 }],
-    }, 'apply');
+    const result = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        content: SAMPLE_XML,
+        ops: [{ op: 'transpose', mode: 'by_interval', direction: 'up', key: 0, interval: 30 }],
+      },
+      'apply',
+    );
     expect(result.status).toBe(400);
   });
 
@@ -670,13 +800,16 @@ describe('runMusicScoreOpsService', () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const apply = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [{ op: 'transpose', mode: 'to_key', direction: 'closest', key: 2 }],
-      options: { includeXml: true, preferredExecutor: 'wasm' },
-    }, 'apply');
+    const apply = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'transpose', mode: 'to_key', direction: 'closest', key: 2 }],
+        options: { includeXml: true, preferredExecutor: 'wasm' },
+      },
+      'apply',
+    );
 
     expect(apply.status).toBe(200);
     expect(apply.body).toMatchObject({
@@ -689,13 +822,16 @@ describe('runMusicScoreOpsService', () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const apply = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [{ op: 'transpose', mode: 'by_interval', direction: 'up', key: 0, interval: 8 }],
-      options: { includeXml: true, preferredExecutor: 'wasm' },
-    }, 'apply');
+    const apply = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'transpose', mode: 'by_interval', direction: 'up', key: 0, interval: 8 }],
+        options: { includeXml: true, preferredExecutor: 'wasm' },
+      },
+      'apply',
+    );
 
     expect(apply.status).toBe(200);
     expect(apply.body).toMatchObject({
@@ -705,31 +841,40 @@ describe('runMusicScoreOpsService', () => {
   });
 
   it('returns error for transpose in xml mode', async () => {
-    const result = await runMusicScoreOpsService({
-      action: 'apply',
-      content: SAMPLE_XML,
-      ops: [{ op: 'transpose', mode: 'to_key', direction: 'closest', key: 2 }],
-      options: { preferredExecutor: 'xml' },
-    }, 'apply');
+    const result = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        content: SAMPLE_XML,
+        ops: [{ op: 'transpose', mode: 'to_key', direction: 'closest', key: 2 }],
+        options: { preferredExecutor: 'xml' },
+      },
+      'apply',
+    );
     expect(result.status).toBe(422);
   });
 
   it('rejects add_tempo_marking with invalid bpm', async () => {
-    const result = await runMusicScoreOpsService({
-      action: 'apply',
-      content: SAMPLE_XML,
-      ops: [{ op: 'add_tempo_marking', bpm: 5 }],
-    }, 'apply');
+    const result = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        content: SAMPLE_XML,
+        ops: [{ op: 'add_tempo_marking', bpm: 5 }],
+      },
+      'apply',
+    );
     expect(result.status).toBe(400);
   });
 
   it('applies add_tempo_marking via xml executor', async () => {
-    const result = await runMusicScoreOpsService({
-      action: 'apply',
-      content: SAMPLE_XML,
-      ops: [{ op: 'add_tempo_marking', bpm: 120 }],
-      options: { includeXml: true, preferredExecutor: 'xml' },
-    }, 'apply');
+    const result = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        content: SAMPLE_XML,
+        ops: [{ op: 'add_tempo_marking', bpm: 120 }],
+        options: { includeXml: true, preferredExecutor: 'xml' },
+      },
+      'apply',
+    );
 
     expect(result.status).toBe(200);
     const output = (result.body.output as { content?: string })?.content || '';
@@ -741,13 +886,16 @@ describe('runMusicScoreOpsService', () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const apply = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [{ op: 'add_tempo_marking', bpm: 120 }],
-      options: { includeXml: true, preferredExecutor: 'wasm' },
-    }, 'apply');
+    const apply = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'add_tempo_marking', bpm: 120 }],
+        options: { includeXml: true, preferredExecutor: 'wasm' },
+      },
+      'apply',
+    );
 
     expect(apply.status).toBe(200);
     expect(apply.body).toMatchObject({
@@ -757,21 +905,27 @@ describe('runMusicScoreOpsService', () => {
   });
 
   it('rejects add_dynamic with invalid dynamic value', async () => {
-    const result = await runMusicScoreOpsService({
-      action: 'apply',
-      content: SAMPLE_XML,
-      ops: [{ op: 'add_dynamic', dynamic: 'invalid' }],
-    }, 'apply');
+    const result = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        content: SAMPLE_XML,
+        ops: [{ op: 'add_dynamic', dynamic: 'invalid' }],
+      },
+      'apply',
+    );
     expect(result.status).toBe(400);
   });
 
   it('applies add_dynamic via xml executor', async () => {
-    const result = await runMusicScoreOpsService({
-      action: 'apply',
-      content: SAMPLE_XML,
-      ops: [{ op: 'add_dynamic', dynamic: 'ff' }],
-      options: { includeXml: true, preferredExecutor: 'xml' },
-    }, 'apply');
+    const result = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        content: SAMPLE_XML,
+        ops: [{ op: 'add_dynamic', dynamic: 'ff' }],
+        options: { includeXml: true, preferredExecutor: 'xml' },
+      },
+      'apply',
+    );
 
     expect(result.status).toBe(200);
     const output = (result.body.output as { content?: string })?.content || '';
@@ -782,13 +936,16 @@ describe('runMusicScoreOpsService', () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const apply = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [{ op: 'add_dynamic', dynamic: 'ff' }],
-      options: { includeXml: true, preferredExecutor: 'wasm' },
-    }, 'apply');
+    const apply = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'add_dynamic', dynamic: 'ff' }],
+        options: { includeXml: true, preferredExecutor: 'wasm' },
+      },
+      'apply',
+    );
 
     expect(apply.status).toBe(200);
     expect(apply.body).toMatchObject({
@@ -801,92 +958,120 @@ describe('runMusicScoreOpsService', () => {
 
   it('parses transpose prompt to transpose_selection op', async () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps('transpose up 3 semitones');
-    expect(parsed.ops).toEqual(expect.arrayContaining([
-      expect.objectContaining({ op: 'transpose_selection', semitones: 3 }),
-    ]));
+    expect(parsed.ops).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ op: 'transpose_selection', semitones: 3 }),
+      ]),
+    );
   });
 
   it('parses transpose down prompt correctly', async () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps('transpose down 5 semitones');
-    expect(parsed.ops).toEqual(expect.arrayContaining([
-      expect.objectContaining({ op: 'transpose_selection', semitones: -5 }),
-    ]));
+    expect(parsed.ops).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ op: 'transpose_selection', semitones: -5 }),
+      ]),
+    );
   });
 
   it('parses "transpose to key of G Major" to transpose op', async () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps('transpose to key of G Major');
-    expect(parsed.ops).toEqual(expect.arrayContaining([
-      expect.objectContaining({ op: 'transpose', mode: 'to_key', direction: 'closest', key: 1 }),
-    ]));
+    expect(parsed.ops).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ op: 'transpose', mode: 'to_key', direction: 'closest', key: 1 }),
+      ]),
+    );
   });
 
   it('parses "transpose up a major third" to transpose op', async () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps('transpose up a major third');
-    expect(parsed.ops).toEqual(expect.arrayContaining([
-      expect.objectContaining({ op: 'transpose', mode: 'by_interval', direction: 'up', interval: 8 }),
-    ]));
+    expect(parsed.ops).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          op: 'transpose',
+          mode: 'by_interval',
+          direction: 'up',
+          interval: 8,
+        }),
+      ]),
+    );
   });
 
   it('parses "transpose down a perfect fifth" to transpose op', async () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps('transpose down a perfect fifth');
-    expect(parsed.ops).toEqual(expect.arrayContaining([
-      expect.objectContaining({ op: 'transpose', mode: 'by_interval', direction: 'down', interval: 14 }),
-    ]));
+    expect(parsed.ops).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          op: 'transpose',
+          mode: 'by_interval',
+          direction: 'down',
+          interval: 14,
+        }),
+      ]),
+    );
   });
 
   it('parses tempo prompt to add_tempo_marking op', async () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps('set tempo to 120 bpm');
-    expect(parsed.ops).toEqual(expect.arrayContaining([
-      expect.objectContaining({ op: 'add_tempo_marking', bpm: 120 }),
-    ]));
+    expect(parsed.ops).toEqual(
+      expect.arrayContaining([expect.objectContaining({ op: 'add_tempo_marking', bpm: 120 })]),
+    );
   });
 
   it('parses dynamic prompt to add_dynamic op', async () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps('add ff dynamic');
-    expect(parsed.ops).toEqual(expect.arrayContaining([
-      expect.objectContaining({ op: 'add_dynamic', dynamic: 'ff' }),
-    ]));
+    expect(parsed.ops).toEqual(
+      expect.arrayContaining([expect.objectContaining({ op: 'add_dynamic', dynamic: 'ff' })]),
+    );
   });
 
   it('parses "delete measures 3-5" to delete_selection op', async () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps('delete measures 3-5');
-    expect(parsed.ops).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        op: 'delete_selection',
-        scope: { measureStart: 3, measureEnd: 5 },
-      }),
-    ]));
+    expect(parsed.ops).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          op: 'delete_selection',
+          scope: { measureStart: 3, measureEnd: 5 },
+        }),
+      ]),
+    );
   });
 
   it('parses "clear measure 2" to delete_selection op', async () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps('clear measure 2');
-    expect(parsed.ops).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        op: 'delete_selection',
-        scope: { measureStart: 2, measureEnd: 2 },
-      }),
-    ]));
+    expect(parsed.ops).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          op: 'delete_selection',
+          scope: { measureStart: 2, measureEnd: 2 },
+        }),
+      ]),
+    );
   });
 
   it('parses "select measures 5-8" to select_measure_range op', async () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps('select measures 5-8');
-    expect(parsed.ops).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        op: 'select_measure_range',
-        scope: { measureStart: 5, measureEnd: 8 },
-      }),
-    ]));
+    expect(parsed.ops).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          op: 'select_measure_range',
+          scope: { measureStart: 5, measureEnd: 8 },
+        }),
+      ]),
+    );
   });
 
   it('parses "select all" to select_all op', async () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps('select all');
-    expect(parsed.ops).toEqual(expect.arrayContaining([
-      expect.objectContaining({ op: 'select_all' }),
-    ]));
+    expect(parsed.ops).toEqual(
+      expect.arrayContaining([expect.objectContaining({ op: 'select_all' })]),
+    );
   });
 
   it('parses multi-step "select measures 1-4 then transpose up 3 semitones"', async () => {
-    const parsed = __scoreOpsTestOnly.parsePromptToOps('select measures 1-4 then transpose up 3 semitones');
+    const parsed = __scoreOpsTestOnly.parsePromptToOps(
+      'select measures 1-4 then transpose up 3 semitones',
+    );
     expect(parsed.ops.map((op: { op: string }) => op.op)).toEqual(
       expect.arrayContaining(['select_measure_range', 'transpose_selection']),
     );
@@ -898,25 +1083,30 @@ describe('runMusicScoreOpsService', () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const inspect = await runMusicScoreOpsService({
-      action: 'inspect',
-      scoreSessionId,
-      include: { capabilities: true },
-    }, 'inspect');
+    const inspect = await runMusicScoreOpsService(
+      {
+        action: 'inspect',
+        scoreSessionId,
+        include: { capabilities: true },
+      },
+      'inspect',
+    );
 
     expect(inspect.status).toBe(200);
     const capabilities = inspect.body.capabilities as {
       ops: string[];
       mutationOps: Record<string, { xml: boolean; wasm: boolean }>;
     };
-    expect(capabilities.ops).toEqual(expect.arrayContaining([
-      'transpose_selection',
-      'transpose',
-      'add_tempo_marking',
-      'add_dynamic',
-      'select_measure_range',
-      'select_all',
-    ]));
+    expect(capabilities.ops).toEqual(
+      expect.arrayContaining([
+        'transpose_selection',
+        'transpose',
+        'add_tempo_marking',
+        'add_dynamic',
+        'select_measure_range',
+        'select_all',
+      ]),
+    );
     expect(capabilities.mutationOps.transpose_selection).toBeDefined();
     expect(capabilities.mutationOps.transpose).toBeDefined();
     expect(capabilities.mutationOps.add_tempo_marking).toBeDefined();
@@ -927,12 +1117,15 @@ describe('runMusicScoreOpsService', () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const inspect = await runMusicScoreOpsService({
-      action: 'inspect',
-      scoreSessionId,
-      scope: { partId: 'P1', measureStart: 1, measureEnd: 1 },
-      include: { measureSignatures: true },
-    }, 'inspect');
+    const inspect = await runMusicScoreOpsService(
+      {
+        action: 'inspect',
+        scoreSessionId,
+        scope: { partId: 'P1', measureStart: 1, measureEnd: 1 },
+        include: { measureSignatures: true },
+      },
+      'inspect',
+    );
 
     expect(inspect.status).toBe(200);
     expect(inspect.body.partSignatures).toBeDefined();
@@ -947,16 +1140,19 @@ describe('runMusicScoreOpsService', () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const apply = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [
-        { op: 'select_measure_range', scope: { measureStart: 1, measureEnd: 2 } },
-        { op: 'set_key_signature', fifths: 2 },
-      ],
-      options: { includeXml: true, preferredExecutor: 'wasm' },
-    }, 'apply');
+    const apply = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [
+          { op: 'select_measure_range', scope: { measureStart: 1, measureEnd: 2 } },
+          { op: 'set_key_signature', fifths: 2 },
+        ],
+        options: { includeXml: true, preferredExecutor: 'wasm' },
+      },
+      'apply',
+    );
 
     expect(apply.status).toBe(200);
     expect(apply.body).toMatchObject({
@@ -969,16 +1165,16 @@ describe('runMusicScoreOpsService', () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const apply = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [
-        { op: 'select_all' },
-        { op: 'set_key_signature', fifths: 3 },
-      ],
-      options: { includeXml: true, preferredExecutor: 'wasm' },
-    }, 'apply');
+    const apply = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'select_all' }, { op: 'set_key_signature', fifths: 3 }],
+        options: { includeXml: true, preferredExecutor: 'wasm' },
+      },
+      'apply',
+    );
 
     expect(apply.status).toBe(200);
     expect(apply.body).toMatchObject({
@@ -991,13 +1187,16 @@ describe('runMusicScoreOpsService', () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const apply = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [{ op: 'add_tempo_marking', bpm: 120 }],
-      options: { includePatch: true },
-    }, 'apply');
+    const apply = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'add_tempo_marking', bpm: 120 }],
+        options: { includePatch: true },
+      },
+      'apply',
+    );
 
     expect(apply.status).toBe(200);
     expect(apply.body.patchMode).toBe('op-derived');
@@ -1009,13 +1208,16 @@ describe('runMusicScoreOpsService', () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const apply = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [{ op: 'add_dynamic', dynamic: 'ff' }],
-      options: { includePatch: true },
-    }, 'apply');
+    const apply = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'add_dynamic', dynamic: 'ff' }],
+        options: { includePatch: true },
+      },
+      'apply',
+    );
 
     expect(apply.status).toBe(200);
     expect(apply.body.patchMode).toBe('op-derived');
@@ -1027,28 +1229,34 @@ describe('runMusicScoreOpsService', () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const apply = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [{ op: 'transpose_selection', semitones: 3 }],
-      options: { includePatch: true, preferredExecutor: 'wasm' },
-    }, 'apply');
+    const apply = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'transpose_selection', semitones: 3 }],
+        options: { includePatch: true, preferredExecutor: 'wasm' },
+      },
+      'apply',
+    );
 
     expect(apply.status).toBe(200);
     expect(apply.body.patchMode).toBe('measure-diff-fallback');
   });
 
   it('selection ops are no-ops in xml executor mode', async () => {
-    const result = await runMusicScoreOpsService({
-      action: 'apply',
-      content: SAMPLE_XML,
-      ops: [
-        { op: 'select_measure_range', scope: { measureStart: 1, measureEnd: 2 } },
-        { op: 'set_key_signature', fifths: 2 },
-      ],
-      options: { preferredExecutor: 'xml', includeXml: true },
-    }, 'apply');
+    const result = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        content: SAMPLE_XML,
+        ops: [
+          { op: 'select_measure_range', scope: { measureStart: 1, measureEnd: 2 } },
+          { op: 'set_key_signature', fifths: 2 },
+        ],
+        options: { preferredExecutor: 'xml', includeXml: true },
+      },
+      'apply',
+    );
 
     expect(result.status).toBe(200);
     expect(result.body).toMatchObject({ ok: true });
@@ -1059,20 +1267,26 @@ describe('runMusicScoreOpsService', () => {
   // --- P1 ops: replace_selected_text, set_duration, set_voice ---
 
   it('rejects set_duration with invalid duration type', async () => {
-    const result = await runMusicScoreOpsService({
-      action: 'apply',
-      content: SAMPLE_XML,
-      ops: [{ op: 'set_duration', durationType: 'invalid' }],
-    }, 'apply');
+    const result = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        content: SAMPLE_XML,
+        ops: [{ op: 'set_duration', durationType: 'invalid' }],
+      },
+      'apply',
+    );
     expect(result.status).toBe(400);
   });
 
   it('rejects set_voice with voice out of range', async () => {
-    const result = await runMusicScoreOpsService({
-      action: 'apply',
-      content: SAMPLE_XML,
-      ops: [{ op: 'set_voice', voice: 5 }],
-    }, 'apply');
+    const result = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        content: SAMPLE_XML,
+        ops: [{ op: 'set_voice', voice: 5 }],
+      },
+      'apply',
+    );
     expect(result.status).toBe(400);
   });
 
@@ -1080,13 +1294,16 @@ describe('runMusicScoreOpsService', () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const apply = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [{ op: 'replace_selected_text', value: 'New Text' }],
-      options: { includeXml: true, preferredExecutor: 'wasm' },
-    }, 'apply');
+    const apply = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'replace_selected_text', value: 'New Text' }],
+        options: { includeXml: true, preferredExecutor: 'wasm' },
+      },
+      'apply',
+    );
 
     expect(apply.status).toBe(200);
     expect(apply.body).toMatchObject({
@@ -1099,13 +1316,16 @@ describe('runMusicScoreOpsService', () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const apply = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [{ op: 'set_duration', durationType: 'quarter' }],
-      options: { includeXml: true, preferredExecutor: 'wasm' },
-    }, 'apply');
+    const apply = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'set_duration', durationType: 'quarter' }],
+        options: { includeXml: true, preferredExecutor: 'wasm' },
+      },
+      'apply',
+    );
 
     expect(apply.status).toBe(200);
     expect(apply.body).toMatchObject({
@@ -1118,13 +1338,16 @@ describe('runMusicScoreOpsService', () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const apply = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [{ op: 'set_voice', voice: 2 }],
-      options: { includeXml: true, preferredExecutor: 'wasm' },
-    }, 'apply');
+    const apply = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'set_voice', voice: 2 }],
+        options: { includeXml: true, preferredExecutor: 'wasm' },
+      },
+      'apply',
+    );
 
     expect(apply.status).toBe(200);
     expect(apply.body).toMatchObject({
@@ -1139,52 +1362,65 @@ describe('runMusicScoreOpsService', () => {
       { op: 'set_duration', durationType: 'quarter' },
       { op: 'set_voice', voice: 1 },
     ]) {
-      const result = await runMusicScoreOpsService({
-        action: 'apply',
-        content: SAMPLE_XML,
-        ops: [op],
-        options: { preferredExecutor: 'xml' },
-      }, 'apply');
+      const result = await runMusicScoreOpsService(
+        {
+          action: 'apply',
+          content: SAMPLE_XML,
+          ops: [op],
+          options: { preferredExecutor: 'xml' },
+        },
+        'apply',
+      );
       expect(result.status).toBe(422);
     }
   });
 
   it('parses "set duration to quarter" prompt', () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps('set duration to quarter');
-    expect(parsed.ops).toEqual(expect.arrayContaining([
-      expect.objectContaining({ op: 'set_duration', durationType: 'quarter' }),
-    ]));
+    expect(parsed.ops).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ op: 'set_duration', durationType: 'quarter' }),
+      ]),
+    );
   });
 
   it('parses "change voice 2" prompt', () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps('set voice 3');
-    expect(parsed.ops).toEqual(expect.arrayContaining([
-      expect.objectContaining({ op: 'set_voice', voice: 3 }),
-    ]));
+    expect(parsed.ops).toEqual(
+      expect.arrayContaining([expect.objectContaining({ op: 'set_voice', voice: 3 })]),
+    );
   });
 
   it('parses "replace text with New Title" prompt', () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps('replace text with "New Title"');
-    expect(parsed.ops).toEqual(expect.arrayContaining([
-      expect.objectContaining({ op: 'replace_selected_text', value: 'New Title' }),
-    ]));
+    expect(parsed.ops).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ op: 'replace_selected_text', value: 'New Title' }),
+      ]),
+    );
   });
 
   it('includes P1 ops in capability reporting', async () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const inspect = await runMusicScoreOpsService({
-      action: 'inspect',
-      scoreSessionId,
-      include: { capabilities: true },
-    }, 'inspect');
+    const inspect = await runMusicScoreOpsService(
+      {
+        action: 'inspect',
+        scoreSessionId,
+        include: { capabilities: true },
+      },
+      'inspect',
+    );
 
     expect(inspect.status).toBe(200);
-    const capabilities = inspect.body.capabilities as { ops: string[]; mutationOps: Record<string, unknown> };
-    expect(capabilities.ops).toEqual(expect.arrayContaining([
-      'replace_selected_text', 'set_duration', 'set_voice',
-    ]));
+    const capabilities = inspect.body.capabilities as {
+      ops: string[];
+      mutationOps: Record<string, unknown>;
+    };
+    expect(capabilities.ops).toEqual(
+      expect.arrayContaining(['replace_selected_text', 'set_duration', 'set_voice']),
+    );
     expect(capabilities.mutationOps).toHaveProperty('replace_selected_text');
     expect(capabilities.mutationOps).toHaveProperty('set_duration');
     expect(capabilities.mutationOps).toHaveProperty('set_voice');
@@ -1194,7 +1430,7 @@ describe('runMusicScoreOpsService', () => {
 
   it('splits compound prompts with "plus" and "as well as"', () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps(
-      'set time signature to 3/4 plus change key signature to G major'
+      'set time signature to 3/4 plus change key signature to G major',
     );
     expect(parsed.ops).toHaveLength(2);
     expect(parsed.ops[0]).toMatchObject({ op: 'set_time_signature', numerator: 3, denominator: 4 });
@@ -1203,7 +1439,7 @@ describe('runMusicScoreOpsService', () => {
 
   it('splits prompts with "while also" and "but also"', () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps(
-      'set tempo to 120 while also adding ff dynamic'
+      'set tempo to 120 while also adding ff dynamic',
     );
     expect(parsed.ops).toHaveLength(2);
     expect(parsed.ops[0]).toMatchObject({ op: 'add_tempo_marking', bpm: 120 });
@@ -1212,7 +1448,7 @@ describe('runMusicScoreOpsService', () => {
 
   it('propagates trailing scope to earlier steps in compound prompt', () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps(
-      'change key signature to G major and set time signature to 3/4 in measures 5-8'
+      'change key signature to G major and set time signature to 3/4 in measures 5-8',
     );
     expect(parsed.ops).toHaveLength(2);
     // Both ops should get the scope from "in measures 5-8"
@@ -1230,7 +1466,7 @@ describe('runMusicScoreOpsService', () => {
 
   it('does not propagate scope when earlier steps have their own scope', () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps(
-      'change key signature to G major in measures 1-4 and set time signature to 3/4 in measures 5-8'
+      'change key signature to G major in measures 1-4 and set time signature to 3/4 in measures 5-8',
     );
     expect(parsed.ops).toHaveLength(2);
     expect(parsed.ops[0]).toMatchObject({
@@ -1245,7 +1481,7 @@ describe('runMusicScoreOpsService', () => {
 
   it('parses "first N measures" as scope', () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps(
-      'transpose up 3 semitones in the first 4 measures'
+      'transpose up 3 semitones in the first 4 measures',
     );
     expect(parsed.ops).toHaveLength(1);
     expect(parsed.ops[0]).toMatchObject({
@@ -1268,11 +1504,13 @@ describe('runMusicScoreOpsService', () => {
   });
 
   it('does not split on "and" inside quoted title values', () => {
-    const parsed = __scoreOpsTestOnly.parsePromptToOps(
-      'set title to "Rock and Roll"'
-    );
+    const parsed = __scoreOpsTestOnly.parsePromptToOps('set title to "Rock and Roll"');
     expect(parsed.ops).toHaveLength(1);
-    expect(parsed.ops[0]).toMatchObject({ op: 'set_metadata_text', field: 'title', value: 'Rock and Roll' });
+    expect(parsed.ops[0]).toMatchObject({
+      op: 'set_metadata_text',
+      field: 'title',
+      value: 'Rock and Roll',
+    });
   });
 
   // --- P1 ops: set_accidental ---
@@ -1280,37 +1518,50 @@ describe('runMusicScoreOpsService', () => {
   it('rejects set_accidental with invalid accidental', async () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
-    const result = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [{ op: 'set_accidental', accidental: 'triple-sharp' }],
-    }, 'apply');
+    const result = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'set_accidental', accidental: 'triple-sharp' }],
+      },
+      'apply',
+    );
     expect(result.status).toBe(400);
   });
 
   it('executes set_accidental via wasm', async () => {
-    const open = await runMusicScoreOpsService({
-      action: 'open',
-      content: SAMPLE_XML,
-    }, 'open');
+    const open = await runMusicScoreOpsService(
+      {
+        action: 'open',
+        content: SAMPLE_XML,
+      },
+      'open',
+    );
     const scoreSessionId = String(open.body.scoreSessionId);
-    const result = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      options: { preferredExecutor: 'wasm' },
-      ops: [{ op: 'set_accidental', accidental: 'sharp', scope: { measureStart: 1, measureEnd: 1 } }],
-    }, 'apply');
+    const result = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        options: { preferredExecutor: 'wasm' },
+        ops: [
+          { op: 'set_accidental', accidental: 'sharp', scope: { measureStart: 1, measureEnd: 1 } },
+        ],
+      },
+      'apply',
+    );
     expect(result.status).toBe(200);
     expect(result.body).toMatchObject({ ok: true, executor: { selected: 'wasm' } });
   });
 
   it('parses "set sharp accidental" prompt', () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps('set sharp accidental');
-    expect(parsed.ops).toEqual(expect.arrayContaining([
-      expect.objectContaining({ op: 'set_accidental', accidental: 'sharp' }),
-    ]));
+    expect(parsed.ops).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ op: 'set_accidental', accidental: 'sharp' }),
+      ]),
+    );
   });
 
   // --- P1 ops: insert_text ---
@@ -1318,13 +1569,23 @@ describe('runMusicScoreOpsService', () => {
   it('applies insert_text via xml executor', async () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
-    const result = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [{ op: 'insert_text', kind: 'staff', text: 'Hello World', scope: { measureStart: 1, measureEnd: 1 } }],
-      options: { includeXml: true },
-    }, 'apply');
+    const result = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [
+          {
+            op: 'insert_text',
+            kind: 'staff',
+            text: 'Hello World',
+            scope: { measureStart: 1, measureEnd: 1 },
+          },
+        ],
+        options: { includeXml: true },
+      },
+      'apply',
+    );
     expect(result.status).toBe(200);
     expect(result.body).toMatchObject({ ok: true });
     const content = (result.body.output as { content?: string })?.content || '';
@@ -1332,119 +1593,162 @@ describe('runMusicScoreOpsService', () => {
   });
 
   it('executes insert_text via wasm', async () => {
-    const open = await runMusicScoreOpsService({
-      action: 'open',
-      content: SAMPLE_XML,
-    }, 'open');
+    const open = await runMusicScoreOpsService(
+      {
+        action: 'open',
+        content: SAMPLE_XML,
+      },
+      'open',
+    );
     const scoreSessionId = String(open.body.scoreSessionId);
-    const result = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      options: { preferredExecutor: 'wasm' },
-      ops: [{ op: 'insert_text', kind: 'staff', text: 'Allegro', scope: { measureStart: 1, measureEnd: 1 } }],
-    }, 'apply');
+    const result = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        options: { preferredExecutor: 'wasm' },
+        ops: [
+          {
+            op: 'insert_text',
+            kind: 'staff',
+            text: 'Allegro',
+            scope: { measureStart: 1, measureEnd: 1 },
+          },
+        ],
+      },
+      'apply',
+    );
     expect(result.status).toBe(200);
     expect(result.body).toMatchObject({ ok: true, executor: { selected: 'wasm' } });
   });
 
   it('parses "add staff text Hello" prompt', () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps('add staff text "Allegro"');
-    expect(parsed.ops).toEqual(expect.arrayContaining([
-      expect.objectContaining({ op: 'insert_text', kind: 'staff', text: 'Allegro' }),
-    ]));
+    expect(parsed.ops).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ op: 'insert_text', kind: 'staff', text: 'Allegro' }),
+      ]),
+    );
   });
 
   // --- P1 ops: set_layout_break ---
 
   it('executes set_layout_break via wasm', async () => {
-    const open = await runMusicScoreOpsService({
-      action: 'open',
-      content: SAMPLE_XML,
-    }, 'open');
+    const open = await runMusicScoreOpsService(
+      {
+        action: 'open',
+        content: SAMPLE_XML,
+      },
+      'open',
+    );
     const scoreSessionId = String(open.body.scoreSessionId);
-    const result = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      options: { preferredExecutor: 'wasm' },
-      ops: [{ op: 'set_layout_break', breakType: 'line', scope: { measureStart: 1, measureEnd: 1 } }],
-    }, 'apply');
+    const result = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        options: { preferredExecutor: 'wasm' },
+        ops: [
+          { op: 'set_layout_break', breakType: 'line', scope: { measureStart: 1, measureEnd: 1 } },
+        ],
+      },
+      'apply',
+    );
     expect(result.status).toBe(200);
     expect(result.body).toMatchObject({ ok: true, executor: { selected: 'wasm' } });
   });
 
   it('parses "add line break" prompt', () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps('add line break in measure 4');
-    expect(parsed.ops).toEqual(expect.arrayContaining([
-      expect.objectContaining({ op: 'set_layout_break', breakType: 'line' }),
-    ]));
+    expect(parsed.ops).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ op: 'set_layout_break', breakType: 'line' }),
+      ]),
+    );
   });
 
   it('parses "set page break" prompt', () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps('set page break');
-    expect(parsed.ops).toEqual(expect.arrayContaining([
-      expect.objectContaining({ op: 'set_layout_break', breakType: 'page' }),
-    ]));
+    expect(parsed.ops).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ op: 'set_layout_break', breakType: 'page' }),
+      ]),
+    );
   });
 
   // --- P1 ops: set_repeat_markers ---
 
   it('executes set_repeat_markers via wasm', async () => {
-    const open = await runMusicScoreOpsService({
-      action: 'open',
-      content: SAMPLE_XML,
-    }, 'open');
+    const open = await runMusicScoreOpsService(
+      {
+        action: 'open',
+        content: SAMPLE_XML,
+      },
+      'open',
+    );
     const scoreSessionId = String(open.body.scoreSessionId);
-    const result = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      options: { preferredExecutor: 'wasm' },
-      ops: [{ op: 'set_repeat_markers', start: true, scope: { measureStart: 1, measureEnd: 1 } }],
-    }, 'apply');
+    const result = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        options: { preferredExecutor: 'wasm' },
+        ops: [{ op: 'set_repeat_markers', start: true, scope: { measureStart: 1, measureEnd: 1 } }],
+      },
+      'apply',
+    );
     expect(result.status).toBe(200);
     expect(result.body).toMatchObject({ ok: true, executor: { selected: 'wasm' } });
   });
 
   it('parses "add repeat start" prompt', () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps('add repeat start');
-    expect(parsed.ops).toEqual(expect.arrayContaining([
-      expect.objectContaining({ op: 'set_repeat_markers', start: true }),
-    ]));
+    expect(parsed.ops).toEqual(
+      expect.arrayContaining([expect.objectContaining({ op: 'set_repeat_markers', start: true })]),
+    );
   });
 
   // --- P1 ops: history_step ---
 
   it('executes history_step undo via wasm', async () => {
-    const open = await runMusicScoreOpsService({
-      action: 'open',
-      content: SAMPLE_XML,
-    }, 'open');
+    const open = await runMusicScoreOpsService(
+      {
+        action: 'open',
+        content: SAMPLE_XML,
+      },
+      'open',
+    );
     const scoreSessionId = String(open.body.scoreSessionId);
-    const result = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      options: { preferredExecutor: 'wasm' },
-      ops: [{ op: 'history_step', direction: 'undo', steps: 1 }],
-    }, 'apply');
+    const result = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        options: { preferredExecutor: 'wasm' },
+        ops: [{ op: 'history_step', direction: 'undo', steps: 1 }],
+      },
+      'apply',
+    );
     expect(result.status).toBe(200);
     expect(result.body).toMatchObject({ ok: true, executor: { selected: 'wasm' } });
   });
 
   it('parses "undo 3 steps" prompt', () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps('undo 3 steps');
-    expect(parsed.ops).toEqual(expect.arrayContaining([
-      expect.objectContaining({ op: 'history_step', direction: 'undo', steps: 3 }),
-    ]));
+    expect(parsed.ops).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ op: 'history_step', direction: 'undo', steps: 3 }),
+      ]),
+    );
   });
 
   it('parses "redo" prompt', () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps('redo');
-    expect(parsed.ops).toEqual(expect.arrayContaining([
-      expect.objectContaining({ op: 'history_step', direction: 'redo', steps: 1 }),
-    ]));
+    expect(parsed.ops).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ op: 'history_step', direction: 'redo', steps: 1 }),
+      ]),
+    );
   });
 
   // --- P1 ops: capability reporting ---
@@ -1452,16 +1756,28 @@ describe('runMusicScoreOpsService', () => {
   it('includes all P1 ops in capability reporting', async () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
-    const inspect = await runMusicScoreOpsService({
-      action: 'inspect',
-      scoreSessionId,
-      include: { capabilities: true },
-    }, 'inspect');
+    const inspect = await runMusicScoreOpsService(
+      {
+        action: 'inspect',
+        scoreSessionId,
+        include: { capabilities: true },
+      },
+      'inspect',
+    );
     expect(inspect.status).toBe(200);
-    const capabilities = inspect.body.capabilities as { ops: string[]; mutationOps: Record<string, unknown> };
-    expect(capabilities.ops).toEqual(expect.arrayContaining([
-      'set_accidental', 'insert_text', 'set_layout_break', 'set_repeat_markers', 'history_step',
-    ]));
+    const capabilities = inspect.body.capabilities as {
+      ops: string[];
+      mutationOps: Record<string, unknown>;
+    };
+    expect(capabilities.ops).toEqual(
+      expect.arrayContaining([
+        'set_accidental',
+        'insert_text',
+        'set_layout_break',
+        'set_repeat_markers',
+        'history_step',
+      ]),
+    );
     expect(capabilities.mutationOps).toHaveProperty('set_accidental');
     expect(capabilities.mutationOps).toHaveProperty('insert_text');
     expect(capabilities.mutationOps).toHaveProperty('set_layout_break');
@@ -1481,44 +1797,55 @@ describe('runMusicScoreOpsService', () => {
 
     for (const { prompt, expectedFifths } of testCases) {
       const parsed = __scoreOpsTestOnly.parsePromptToOps(prompt);
-      expect(parsed.ops).toEqual(expect.arrayContaining([
-        expect.objectContaining({ op: 'set_key_signature', fifths: expectedFifths }),
-      ]));
+      expect(parsed.ops).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ op: 'set_key_signature', fifths: expectedFifths }),
+        ]),
+      );
     }
   });
 
   it('parses text deletion with ASCII quotes and reversed word order', () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps('remove the "CLEAN VERSION" text');
-    expect(parsed.ops).toEqual(expect.arrayContaining([
-      expect.objectContaining({ op: 'delete_text_by_content', text: 'CLEAN VERSION' }),
-    ]));
+    expect(parsed.ops).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ op: 'delete_text_by_content', text: 'CLEAN VERSION' }),
+      ]),
+    );
   });
 
   it('parses text deletion with delete verb', () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps('delete the text "Original Title"');
-    expect(parsed.ops).toEqual(expect.arrayContaining([
-      expect.objectContaining({ op: 'delete_text_by_content', text: 'Original Title' }),
-    ]));
+    expect(parsed.ops).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ op: 'delete_text_by_content', text: 'Original Title' }),
+      ]),
+    );
   });
 
   it('parses unquoted text deletion with reversed word order', () => {
     const parsed = __scoreOpsTestOnly.parsePromptToOps('remove CLEAN VERSION text');
-    expect(parsed.ops).toEqual(expect.arrayContaining([
-      expect.objectContaining({ op: 'delete_text_by_content', text: 'CLEAN VERSION' }),
-    ]));
+    expect(parsed.ops).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ op: 'delete_text_by_content', text: 'CLEAN VERSION' }),
+      ]),
+    );
   });
 
   it('add_pickup inserts measure 0 with correct duration rest', async () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const apply = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [{ op: 'add_pickup', numerator: 1, denominator: 4 }],
-      options: { includeXml: true },
-    }, 'apply');
+    const apply = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'add_pickup', numerator: 1, denominator: 4 }],
+        options: { includeXml: true },
+      },
+      'apply',
+    );
 
     expect(apply.status).toBe(200);
     expect(apply.body).toMatchObject({ ok: true });
@@ -1533,13 +1860,16 @@ describe('runMusicScoreOpsService', () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const apply = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [{ op: 'add_pickup', numerator: 3, denominator: 8 }],
-      options: { includeXml: true },
-    }, 'apply');
+    const apply = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'add_pickup', numerator: 3, denominator: 8 }],
+        options: { includeXml: true },
+      },
+      'apply',
+    );
 
     expect(apply.status).toBe(200);
     const output = (apply.body.output as { content?: string })?.content || '';
@@ -1555,13 +1885,16 @@ describe('runMusicScoreOpsService', () => {
     const open = await runMusicScoreOpsService({ action: 'open', content: xmlWithPickup }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const apply = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [{ op: 'add_pickup', numerator: 1, denominator: 4 }],
-      options: { includeXml: true },
-    }, 'apply');
+    const apply = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'add_pickup', numerator: 1, denominator: 4 }],
+        options: { includeXml: true },
+      },
+      'apply',
+    );
 
     // Should fail since pickup already exists — returns execution_failure (422)
     expect(apply.status).toBe(422);
@@ -1569,19 +1902,23 @@ describe('runMusicScoreOpsService', () => {
   });
 
   it('add_pickup works with 3/4 time signature', async () => {
-    const xml34 = SAMPLE_XML
-      .replace('<beats>4</beats>', '<beats>3</beats>')
-      .replace('<beat-type>4</beat-type>', '<beat-type>4</beat-type>');
+    const xml34 = SAMPLE_XML.replace('<beats>4</beats>', '<beats>3</beats>').replace(
+      '<beat-type>4</beat-type>',
+      '<beat-type>4</beat-type>',
+    );
     const open = await runMusicScoreOpsService({ action: 'open', content: xml34 }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const apply = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [{ op: 'add_pickup', numerator: 1, denominator: 4 }],
-      options: { includeXml: true },
-    }, 'apply');
+    const apply = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'add_pickup', numerator: 1, denominator: 4 }],
+        options: { includeXml: true },
+      },
+      'apply',
+    );
 
     expect(apply.status).toBe(200);
     expect(apply.body).toMatchObject({ ok: true });
@@ -1591,19 +1928,23 @@ describe('runMusicScoreOpsService', () => {
   });
 
   it('add_pickup works with 6/8 time signature', async () => {
-    const xml68 = SAMPLE_XML
-      .replace('<beats>4</beats>', '<beats>6</beats>')
-      .replace('<beat-type>4</beat-type>', '<beat-type>8</beat-type>');
+    const xml68 = SAMPLE_XML.replace('<beats>4</beats>', '<beats>6</beats>').replace(
+      '<beat-type>4</beat-type>',
+      '<beat-type>8</beat-type>',
+    );
     const open = await runMusicScoreOpsService({ action: 'open', content: xml68 }, 'open');
     const scoreSessionId = String(open.body.scoreSessionId);
 
-    const apply = await runMusicScoreOpsService({
-      action: 'apply',
-      scoreSessionId,
-      baseRevision: 0,
-      ops: [{ op: 'add_pickup', numerator: 3, denominator: 8 }],
-      options: { includeXml: true },
-    }, 'apply');
+    const apply = await runMusicScoreOpsService(
+      {
+        action: 'apply',
+        scoreSessionId,
+        baseRevision: 0,
+        ops: [{ op: 'add_pickup', numerator: 3, denominator: 8 }],
+        options: { includeXml: true },
+      },
+      'apply',
+    );
 
     expect(apply.status).toBe(200);
     expect(apply.body).toMatchObject({ ok: true });
@@ -1618,13 +1959,16 @@ describe('runMusicScoreOpsService', () => {
       const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
       const scoreSessionId = String(open.body.scoreSessionId);
 
-      const apply = await runMusicScoreOpsService({
-        action: 'apply',
-        scoreSessionId,
-        baseRevision: 0,
-        ops: [{ op: 'export_score', formats: ['musicxml'] }],
-        options: { preferredExecutor: 'xml' },
-      }, 'apply');
+      const apply = await runMusicScoreOpsService(
+        {
+          action: 'apply',
+          scoreSessionId,
+          baseRevision: 0,
+          ops: [{ op: 'export_score', formats: ['musicxml'] }],
+          options: { preferredExecutor: 'xml' },
+        },
+        'apply',
+      );
 
       expect(apply.status).toBe(200);
       expect(apply.body).toMatchObject({ ok: true });
@@ -1639,13 +1983,16 @@ describe('runMusicScoreOpsService', () => {
       const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
       const scoreSessionId = String(open.body.scoreSessionId);
 
-      const apply = await runMusicScoreOpsService({
-        action: 'apply',
-        scoreSessionId,
-        baseRevision: 0,
-        ops: [{ op: 'export_score', formats: ['musicxml'] }],
-        options: { preferredExecutor: 'xml' },
-      }, 'apply');
+      const apply = await runMusicScoreOpsService(
+        {
+          action: 'apply',
+          scoreSessionId,
+          baseRevision: 0,
+          ops: [{ op: 'export_score', formats: ['musicxml'] }],
+          options: { preferredExecutor: 'xml' },
+        },
+        'apply',
+      );
 
       expect(apply.status).toBe(200);
       const exports = apply.body.exports as Record<string, string>;
@@ -1658,17 +2005,22 @@ describe('runMusicScoreOpsService', () => {
       const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
       const scoreSessionId = String(open.body.scoreSessionId);
 
-      const apply = await runMusicScoreOpsService({
-        action: 'apply',
-        scoreSessionId,
-        baseRevision: 0,
-        ops: [{ op: 'export_score', formats: ['midi'] }],
-        options: { preferredExecutor: 'xml' },
-      }, 'apply');
+      const apply = await runMusicScoreOpsService(
+        {
+          action: 'apply',
+          scoreSessionId,
+          baseRevision: 0,
+          ops: [{ op: 'export_score', formats: ['midi'] }],
+          options: { preferredExecutor: 'xml' },
+        },
+        'apply',
+      );
 
       // No exports available and no XML change → 422
       expect(apply.status).toBe(422);
-      const error = apply.body.error as { applied?: Array<{ op: string; ok: boolean; message: string }> };
+      const error = apply.body.error as {
+        applied?: Array<{ op: string; ok: boolean; message: string }>;
+      };
       expect(error?.applied).toBeDefined();
       const exportEntry = error.applied?.find((e) => e.op === 'export_score');
       expect(exportEntry).toBeDefined();
@@ -1680,13 +2032,16 @@ describe('runMusicScoreOpsService', () => {
       const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
       const scoreSessionId = String(open.body.scoreSessionId);
 
-      const apply = await runMusicScoreOpsService({
-        action: 'apply',
-        scoreSessionId,
-        baseRevision: 0,
-        ops: [{ op: 'export_score', formats: ['musicxml', 'midi'] }],
-        options: { preferredExecutor: 'xml' },
-      }, 'apply');
+      const apply = await runMusicScoreOpsService(
+        {
+          action: 'apply',
+          scoreSessionId,
+          baseRevision: 0,
+          ops: [{ op: 'export_score', formats: ['musicxml', 'midi'] }],
+          options: { preferredExecutor: 'xml' },
+        },
+        'apply',
+      );
 
       expect(apply.status).toBe(200);
       expect(apply.body).toMatchObject({ ok: true });
@@ -1703,12 +2058,15 @@ describe('runMusicScoreOpsService', () => {
       const open = await runMusicScoreOpsService({ action: 'open', content: SAMPLE_XML }, 'open');
       const scoreSessionId = String(open.body.scoreSessionId);
 
-      const apply = await runMusicScoreOpsService({
-        action: 'apply',
-        scoreSessionId,
-        baseRevision: 0,
-        ops: [{ op: 'export_score', formats: [] }],
-      }, 'apply');
+      const apply = await runMusicScoreOpsService(
+        {
+          action: 'apply',
+          scoreSessionId,
+          baseRevision: 0,
+          ops: [{ op: 'export_score', formats: [] }],
+        },
+        'apply',
+      );
 
       expect(apply.status).toBe(400);
       expect(apply.body).toMatchObject({ ok: false });

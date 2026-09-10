@@ -17,21 +17,21 @@
  * Pure and React-free so the mapping is proven by fixtures rather than by a render.
  */
 export type ComparePaneStatus = null | {
-    message: string;
-    overlay: boolean;
+  message: string;
+  overlay: boolean;
 };
 
 export type ComparePaneStatusInput = {
-    /** True when the live editor score is displayed in the left pane. */
-    liveIsLeftPane: boolean;
-    /** Whether the live editor score exists yet. */
-    liveScorePresent: boolean;
-    /** Whether the auxiliary score has finished loading into a `Score` instance. */
-    auxiliaryScorePresent: boolean;
-    /** Auxiliary load in flight. */
-    auxiliaryLoading: boolean;
-    /** Auxiliary load failure message, if any. */
-    auxiliaryError: string | null;
+  /** True when the live editor score is displayed in the left pane. */
+  liveIsLeftPane: boolean;
+  /** Whether the live editor score exists yet. */
+  liveScorePresent: boolean;
+  /** Whether the auxiliary score has finished loading into a `Score` instance. */
+  auxiliaryScorePresent: boolean;
+  /** Auxiliary load in flight. */
+  auxiliaryLoading: boolean;
+  /** Auxiliary load failure message, if any. */
+  auxiliaryError: string | null;
 };
 
 export const COMPARE_LIVE_PANE_EMPTY_MESSAGE = 'Load a score to compare.';
@@ -39,27 +39,25 @@ export const COMPARE_AUXILIARY_PANE_LOADING_MESSAGE = 'Loading checkpoint score.
 export const COMPARE_AUXILIARY_PANE_EMPTY_MESSAGE = 'Score not loaded.';
 
 export function resolveComparePaneStatus({
-    liveIsLeftPane,
-    liveScorePresent,
-    auxiliaryScorePresent,
-    auxiliaryLoading,
-    auxiliaryError,
+  liveIsLeftPane,
+  liveScorePresent,
+  auxiliaryScorePresent,
+  auxiliaryLoading,
+  auxiliaryError,
 }: ComparePaneStatusInput): { left: ComparePaneStatus; right: ComparePaneStatus } {
-    const live: ComparePaneStatus = liveScorePresent
+  const live: ComparePaneStatus = liveScorePresent
+    ? null
+    : { message: COMPARE_LIVE_PANE_EMPTY_MESSAGE, overlay: false };
+
+  // Error before loading, matching the original precedence: a failed load leaves the
+  // message set and the loading flag cleared, but a retry can set both.
+  const auxiliary: ComparePaneStatus = auxiliaryError
+    ? { message: auxiliaryError, overlay: true }
+    : auxiliaryLoading
+      ? { message: COMPARE_AUXILIARY_PANE_LOADING_MESSAGE, overlay: true }
+      : auxiliaryScorePresent
         ? null
-        : { message: COMPARE_LIVE_PANE_EMPTY_MESSAGE, overlay: false };
+        : { message: COMPARE_AUXILIARY_PANE_EMPTY_MESSAGE, overlay: true };
 
-    // Error before loading, matching the original precedence: a failed load leaves the
-    // message set and the loading flag cleared, but a retry can set both.
-    const auxiliary: ComparePaneStatus = auxiliaryError
-        ? { message: auxiliaryError, overlay: true }
-        : auxiliaryLoading
-            ? { message: COMPARE_AUXILIARY_PANE_LOADING_MESSAGE, overlay: true }
-            : auxiliaryScorePresent
-                ? null
-                : { message: COMPARE_AUXILIARY_PANE_EMPTY_MESSAGE, overlay: true };
-
-    return liveIsLeftPane
-        ? { left: live, right: auxiliary }
-        : { left: auxiliary, right: live };
+  return liveIsLeftPane ? { left: live, right: auxiliary } : { left: auxiliary, right: live };
 }

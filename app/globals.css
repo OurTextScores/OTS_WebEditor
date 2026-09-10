@@ -1,9 +1,9 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /* Bravura has full SMuFL coverage; a global fallback for glyphs Leland lacks. */
 @font-face {
-  font-family: "BravuraFallback";
-  src: url("../webmscore-fork/fonts/bravura/Bravura.woff2") format("woff2");
+  font-family: 'BravuraFallback';
+  src: url('../webmscore-fork/fonts/bravura/Bravura.woff2') format('woff2');
   font-display: swap;
 }
 
@@ -43,7 +43,7 @@ body {
   color-scheme: light;
 }
 
-.ots-score-player[data-theme="dark"] {
+.ots-score-player[data-theme='dark'] {
   --player-canvas: #020617;
   --player-panel: rgb(15 23 42 / 0.95);
   --player-control: #1e293b;

@@ -103,7 +103,11 @@ describe('runMusicAgentRouter Multimodal', () => {
 
     const multimodalPrompt = [
       { type: 'input_text', text: 'Analyze this PDF score' },
-      { type: 'input_file', file: { url: 'data:application/pdf;base64,AAA' }, filename: 'score.pdf' }
+      {
+        type: 'input_file',
+        file: { url: 'data:application/pdf;base64,AAA' },
+        filename: 'score.pdf',
+      },
     ];
 
     const result = await runMusicAgentRouter({
@@ -114,14 +118,14 @@ describe('runMusicAgentRouter Multimodal', () => {
     expect(mocked.run).toHaveBeenCalledWith(
       expect.anything(),
       'Analyze this PDF score',
-      expect.objectContaining({ maxTurns: 6 })
+      expect.objectContaining({ maxTurns: 6 }),
     );
   });
 
   it('extracts text from multimodal prompt for fallback router', async () => {
     // Force fallback by removing API key
     delete process.env.OPENAI_API_KEY;
-    
+
     mocked.runMusicContextService.mockResolvedValue({
       status: 200,
       body: { strategy: 'extract-all' },
@@ -129,7 +133,11 @@ describe('runMusicAgentRouter Multimodal', () => {
 
     const multimodalPrompt = [
       { type: 'input_text', text: 'Analyze this PDF score' },
-      { type: 'input_file', file: { url: 'data:application/pdf;base64,AAA' }, filename: 'score.pdf' }
+      {
+        type: 'input_file',
+        file: { url: 'data:application/pdf;base64,AAA' },
+        filename: 'score.pdf',
+      },
     ];
 
     const result = await runMusicAgentRouter({

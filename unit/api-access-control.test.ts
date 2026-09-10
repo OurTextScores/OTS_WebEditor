@@ -53,7 +53,9 @@ describe('requireSensitiveApiAccess', () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.response.status).toBe(403);
-    await expect(result.response.json()).resolves.toMatchObject({ code: 'api_auth_not_configured' });
+    await expect(result.response.json()).resolves.toMatchObject({
+      code: 'api_auth_not_configured',
+    });
   });
 
   it('returns 401 api_auth_required when a token is configured but the caller presents none', async () => {
@@ -170,7 +172,9 @@ describe('requireSensitiveApiAccess', () => {
     // Different client is unaffected by clientA's exhausted budget.
     expect(requireSensitiveApiAccess({ request: makeRequest({}, clientB), ...opts }).ok).toBe(true);
     // clientA is now over budget.
-    expect(requireSensitiveApiAccess({ request: makeRequest({}, clientA), ...opts }).ok).toBe(false);
+    expect(requireSensitiveApiAccess({ request: makeRequest({}, clientA), ...opts }).ok).toBe(
+      false,
+    );
   });
 });
 
@@ -184,7 +188,9 @@ describe('requireServerCredentialAccess', () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.response.status).toBe(403);
-    await expect(result.response.json()).resolves.toMatchObject({ code: 'server_credentials_disabled' });
+    await expect(result.response.json()).resolves.toMatchObject({
+      code: 'server_credentials_disabled',
+    });
   });
 
   it('still requires an app token even when server-key fallback is enabled', async () => {
@@ -198,7 +204,9 @@ describe('requireServerCredentialAccess', () => {
     // No token configured at all -> not configured (there is no public opt-in
     // escape hatch for server-credential routes).
     expect(result.response.status).toBe(403);
-    await expect(result.response.json()).resolves.toMatchObject({ code: 'api_auth_not_configured' });
+    await expect(result.response.json()).resolves.toMatchObject({
+      code: 'api_auth_not_configured',
+    });
   });
 
   it('returns 401 when server keys are enabled and a token is configured but not presented', () => {

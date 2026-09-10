@@ -18,21 +18,24 @@ import { resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 /** Class methods declared at one indent level inside a class body. */
-const parseClassMethods = (source) => new Set(
+const parseClassMethods = (source) =>
+  new Set(
     [...source.matchAll(/^ {4}(?:async\s+)?(?:get\s+|set\s+)?([a-zA-Z_$][\w$]*)\s*\(/gm)]
-        .map((match) => match[1])
-        .filter((name) => name !== 'constructor'),
-);
+      .map((match) => match[1])
+      .filter((name) => name !== 'constructor'),
+  );
 
 /** EMSCRIPTEN_KEEPALIVE exports inside the extern "C" block of main.cpp. */
 const parseNativeExports = (source) => {
-    const blockStart = source.indexOf('extern "C" {');
-    if (blockStart < 0) return null;
-    return new Set(
-        [...source.slice(blockStart).matchAll(
-            /EMSCRIPTEN_KEEPALIVE\s*\n\s*[\w:<>\s*&]+?\s+(\w+)\s*\(/g,
-        )].map((match) => match[1]),
-    );
+  const blockStart = source.indexOf('extern "C" {');
+  if (blockStart < 0) return null;
+  return new Set(
+    [
+      ...source
+        .slice(blockStart)
+        .matchAll(/EMSCRIPTEN_KEEPALIVE\s*\n\s*[\w:<>\s*&]+?\s+(\w+)\s*\(/g),
+    ].map((match) => match[1]),
+  );
 };
 
 /**
@@ -49,11 +52,11 @@ const parseNativeExports = (source) => {
  * the way out, which is what this enforces.
  */
 const parseStructReturningExports = (source) => {
-    const blockStart = source.indexOf('extern "C" {');
-    if (blockStart < 0) return [];
-    return [...source.slice(blockStart).matchAll(
-        /EMSCRIPTEN_KEEPALIVE\s*\n\s*WasmRes\s+(\w+)\s*\(/g,
-    )].map((match) => match[1]);
+  const blockStart = source.indexOf('extern "C" {');
+  if (blockStart < 0) return [];
+  return [
+    ...source.slice(blockStart).matchAll(/EMSCRIPTEN_KEEPALIVE\s*\n\s*WasmRes\s+(\w+)\s*\(/g),
+  ].map((match) => match[1]);
 };
 
 /**
@@ -61,28 +64,30 @@ const parseStructReturningExports = (source) => {
  * receiver, not just `this`: the module-level handshake calls `instance.rpc('ready')`,
  * `instance.rpc('load', ...)` and `instance.rpc('setLogLevel', ...)`.
  */
-const parseRpcTargets = (source) => new Set(
-    [...source.matchAll(/\.rpc\(\s*'([^']+)'/g)].map((match) => match[1]),
-);
+const parseRpcTargets = (source) =>
+  new Set([...source.matchAll(/\.rpc\(\s*'([^']+)'/g)].map((match) => match[1]));
 
 /** Member names of the exported Score interface. */
 const parseScoreInterface = (source) => {
-    const header = /export interface Score\s*\{/.exec(source);
-    if (!header) return null;
-    let depth = 0;
-    let end = -1;
-    for (let i = header.index + header[0].length - 1; i < source.length; i += 1) {
-        if (source[i] === '{') depth += 1;
-        else if (source[i] === '}') {
-            depth -= 1;
-            if (depth === 0) { end = i; break; }
-        }
+  const header = /export interface Score\s*\{/.exec(source);
+  if (!header) return null;
+  let depth = 0;
+  let end = -1;
+  for (let i = header.index + header[0].length - 1; i < source.length; i += 1) {
+    if (source[i] === '{') depth += 1;
+    else if (source[i] === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        end = i;
+        break;
+      }
     }
-    if (end < 0) return null;
-    const body = source.slice(header.index + header[0].length, end);
-    return new Set(
-        [...body.matchAll(/^\s{2,4}([a-zA-Z_$][\w$]*)\??\s*[:(]/gm)].map((match) => match[1]),
-    );
+  }
+  if (end < 0) return null;
+  const body = source.slice(header.index + header[0].length, end);
+  return new Set(
+    [...body.matchAll(/^\s{2,4}([a-zA-Z_$][\w$]*)\??\s*[:(]/gm)].map((match) => match[1]),
+  );
 };
 
 /**
@@ -93,118 +98,136 @@ const parseScoreInterface = (source) => {
  * @param {object} manifest
  */
 export function analyzeBridge(sources, manifest) {
-    const failures = [];
-    const fail = (rule, detail) => failures.push({ rule, detail });
+  const failures = [];
+  const fail = (rule, detail) => failures.push({ rule, detail });
 
-    for (const [layer, path] of Object.entries(manifest.layers)) {
-        if (sources[layer] == null) fail('layer-missing', `${layer} source not found at ${path}`);
-    }
-    if (failures.length > 0) return { report: null, failures };
+  for (const [layer, path] of Object.entries(manifest.layers)) {
+    if (sources[layer] == null) fail('layer-missing', `${layer} source not found at ${path}`);
+  }
+  if (failures.length > 0) return { report: null, failures };
 
-    const native = parseNativeExports(sources.native);
-    const mainThread = parseClassMethods(sources.mainThread);
-    const workerMethods = parseClassMethods(sources.worker);
-    const rpcTargets = parseRpcTargets(sources.worker);
-    const scoreMembers = parseScoreInterface(sources.typescript);
+  const native = parseNativeExports(sources.native);
+  const mainThread = parseClassMethods(sources.mainThread);
+  const workerMethods = parseClassMethods(sources.worker);
+  const rpcTargets = parseRpcTargets(sources.worker);
+  const scoreMembers = parseScoreInterface(sources.typescript);
 
-    for (const name of parseStructReturningExports(sources.native)) {
-        fail(
-            'native-struct-return',
-            `${name} returns WasmRes by value; declare it WasmResBytes or its `
-            + 'arguments arrive one slot late and the call never returns',
-        );
-    }
-
-    if (!native) fail('layer-unparseable', 'no extern "C" block found in the native layer');
-    if (!scoreMembers) fail('layer-unparseable', 'no exported Score interface found in the TypeScript layer');
-    if (failures.length > 0) return { report: null, failures };
-
-    const jsImplemented = manifest.jsImplementedRpcTargets || {};
-    const controlPlane = manifest.controlPlaneRpcTargets || {};
-    const typescriptOnly = manifest.typescriptOnlyMembers || {};
-    const syntheticPrefix = manifest.syntheticRpcPrefix || '';
-
-    const resolveNative = (rpcName) => {
-        if (native.has(rpcName)) return rpcName;
-        if (syntheticPrefix && rpcName.startsWith(syntheticPrefix)) {
-            const stripped = rpcName.slice(syntheticPrefix.length);
-            if (native.has(stripped)) return stripped;
-        }
-        return null;
-    };
-
-    // Rule 1/2: anything the app is allowed to call must exist on both JS layers.
-    for (const member of [...scoreMembers].sort()) {
-        if (member in typescriptOnly) continue;
-        if (!mainThread.has(member)) {
-            fail('missing-main-thread', `Score.${member} has no method in ${manifest.layers.mainThread}`);
-        }
-        if (!workerMethods.has(member)) {
-            fail('missing-worker-proxy', `Score.${member} has no worker method in ${manifest.layers.worker}`);
-        }
-    }
-
-    // Rule 3: every dispatched RPC name must land somewhere real.
-    for (const target of [...rpcTargets].sort()) {
-        if (target in controlPlane || target in jsImplemented) continue;
-        if (!resolveNative(target)) {
-            fail('unresolved-rpc-target', `worker dispatches '${target}' with no native export and no manifest entry`);
-        }
-    }
-
-    // Rule 4: allowlists must not rot. An entry that is no longer needed hides a real check.
-    for (const target of Object.keys(jsImplemented)) {
-        if (!rpcTargets.has(target)) {
-            fail('stale-allowlist', `jsImplementedRpcTargets.${target} is no longer dispatched; remove it`);
-        } else if (resolveNative(target)) {
-            fail('stale-allowlist', `jsImplementedRpcTargets.${target} now has a native export; remove it`);
-        }
-    }
-    for (const target of Object.keys(controlPlane)) {
-        if (!rpcTargets.has(target)) {
-            fail('stale-allowlist', `controlPlaneRpcTargets.${target} is no longer dispatched; remove it`);
-        }
-    }
-    for (const member of Object.keys(typescriptOnly)) {
-        if (!scoreMembers.has(member)) {
-            fail('stale-allowlist', `typescriptOnlyMembers.${member} is not on the Score interface; remove it`);
-        }
-    }
-
-    // Informational only: plenty of native exports are internal C helpers with no JS caller.
-    const reachableNative = new Set(
-        [...rpcTargets].map((target) => resolveNative(target)).filter(Boolean),
+  for (const name of parseStructReturningExports(sources.native)) {
+    fail(
+      'native-struct-return',
+      `${name} returns WasmRes by value; declare it WasmResBytes or its ` +
+        'arguments arrive one slot late and the call never returns',
     );
-    const unproxiedNative = [...native].filter((name) => !reachableNative.has(name)).sort();
+  }
 
-    // Layer 6: the generated artifacts the app actually loads.
-    const generated = analyzeGeneratedArtifacts(sources.generated, manifest, {
-        native,
-        rpcTargets,
-        mainThread,
-    });
-    failures.push(...generated.failures);
+  if (!native) fail('layer-unparseable', 'no extern "C" block found in the native layer');
+  if (!scoreMembers)
+    fail('layer-unparseable', 'no exported Score interface found in the TypeScript layer');
+  if (failures.length > 0) return { report: null, failures };
 
-    return {
-        report: {
-            counts: {
-                nativeExports: native.size,
-                mainThreadMethods: mainThread.size,
-                workerMethods: workerMethods.size,
-                rpcTargets: rpcTargets.size,
-                scoreMembers: scoreMembers.size,
-            },
-            unproxiedNative,
-            unverifiableSync: generated.unverifiable,
-        },
-        failures,
-    };
+  const jsImplemented = manifest.jsImplementedRpcTargets || {};
+  const controlPlane = manifest.controlPlaneRpcTargets || {};
+  const typescriptOnly = manifest.typescriptOnlyMembers || {};
+  const syntheticPrefix = manifest.syntheticRpcPrefix || '';
+
+  const resolveNative = (rpcName) => {
+    if (native.has(rpcName)) return rpcName;
+    if (syntheticPrefix && rpcName.startsWith(syntheticPrefix)) {
+      const stripped = rpcName.slice(syntheticPrefix.length);
+      if (native.has(stripped)) return stripped;
+    }
+    return null;
+  };
+
+  // Rule 1/2: anything the app is allowed to call must exist on both JS layers.
+  for (const member of [...scoreMembers].sort()) {
+    if (member in typescriptOnly) continue;
+    if (!mainThread.has(member)) {
+      fail('missing-main-thread', `Score.${member} has no method in ${manifest.layers.mainThread}`);
+    }
+    if (!workerMethods.has(member)) {
+      fail(
+        'missing-worker-proxy',
+        `Score.${member} has no worker method in ${manifest.layers.worker}`,
+      );
+    }
+  }
+
+  // Rule 3: every dispatched RPC name must land somewhere real.
+  for (const target of [...rpcTargets].sort()) {
+    if (target in controlPlane || target in jsImplemented) continue;
+    if (!resolveNative(target)) {
+      fail(
+        'unresolved-rpc-target',
+        `worker dispatches '${target}' with no native export and no manifest entry`,
+      );
+    }
+  }
+
+  // Rule 4: allowlists must not rot. An entry that is no longer needed hides a real check.
+  for (const target of Object.keys(jsImplemented)) {
+    if (!rpcTargets.has(target)) {
+      fail(
+        'stale-allowlist',
+        `jsImplementedRpcTargets.${target} is no longer dispatched; remove it`,
+      );
+    } else if (resolveNative(target)) {
+      fail(
+        'stale-allowlist',
+        `jsImplementedRpcTargets.${target} now has a native export; remove it`,
+      );
+    }
+  }
+  for (const target of Object.keys(controlPlane)) {
+    if (!rpcTargets.has(target)) {
+      fail(
+        'stale-allowlist',
+        `controlPlaneRpcTargets.${target} is no longer dispatched; remove it`,
+      );
+    }
+  }
+  for (const member of Object.keys(typescriptOnly)) {
+    if (!scoreMembers.has(member)) {
+      fail(
+        'stale-allowlist',
+        `typescriptOnlyMembers.${member} is not on the Score interface; remove it`,
+      );
+    }
+  }
+
+  // Informational only: plenty of native exports are internal C helpers with no JS caller.
+  const reachableNative = new Set(
+    [...rpcTargets].map((target) => resolveNative(target)).filter(Boolean),
+  );
+  const unproxiedNative = [...native].filter((name) => !reachableNative.has(name)).sort();
+
+  // Layer 6: the generated artifacts the app actually loads.
+  const generated = analyzeGeneratedArtifacts(sources.generated, manifest, {
+    native,
+    rpcTargets,
+    mainThread,
+  });
+  failures.push(...generated.failures);
+
+  return {
+    report: {
+      counts: {
+        nativeExports: native.size,
+        mainThreadMethods: mainThread.size,
+        workerMethods: workerMethods.size,
+        rpcTargets: rpcTargets.size,
+        scoreMembers: scoreMembers.size,
+      },
+      unproxiedNative,
+      unverifiableSync: generated.unverifiable,
+    },
+    failures,
+  };
 }
 
 /** Word-boundary presence. Substring matching would let `title` satisfy `titleFilenameSafe`. */
-const declaresName = (source, name) => (
-    new RegExp(`\\b_?${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(source)
-);
+const declaresName = (source, name) =>
+  new RegExp(`\\b_?${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(source);
 
 /**
  * Rules 5 and 6 of the AGENTS.md checklist: the hand-edited layers being consistent
@@ -224,146 +247,159 @@ const declaresName = (source, name) => (
  * browser verification.
  */
 export function analyzeGeneratedArtifacts(generated, manifest, parsed) {
-    const config = manifest.generated;
-    if (!config) return { failures: [], unverifiable: [] };
+  const config = manifest.generated;
+  if (!config) return { failures: [], unverifiable: [] };
 
-    const failures = [];
-    const fail = (rule, detail) => failures.push({ rule, detail });
-    const artifacts = generated || {};
+  const failures = [];
+  const fail = (rule, detail) => failures.push({ rule, detail });
+  const artifacts = generated || {};
 
-    if (config.glue) {
-        const glue = artifacts.glue;
-        if (glue == null) {
-            fail('generated-artifact-missing', `emscripten glue not found at ${config.glue}; run npm run compile in webmscore-fork/web-public`);
-        } else {
-            const absent = [...parsed.native].filter((name) => !declaresName(glue, name)).sort();
-            for (const name of absent) {
-                fail(
-                    'missing-from-generated-glue',
-                    `native export ${name} is not in ${config.glue}; the WASM build predates the native source (npm run compile)`,
-                );
-            }
-        }
+  if (config.glue) {
+    const glue = artifacts.glue;
+    if (glue == null) {
+      fail(
+        'generated-artifact-missing',
+        `emscripten glue not found at ${config.glue}; run npm run compile in webmscore-fork/web-public`,
+      );
+    } else {
+      const absent = [...parsed.native].filter((name) => !declaresName(glue, name)).sort();
+      for (const name of absent) {
+        fail(
+          'missing-from-generated-glue',
+          `native export ${name} is not in ${config.glue}; the WASM build predates the native source (npm run compile)`,
+        );
+      }
     }
+  }
 
-    // Everything the worker can dispatch or the main thread can call has to survive
-    // bundling, whichever entry point a consumer resolves.
-    const bundledNames = [...new Set([...parsed.rpcTargets, ...parsed.mainThread])].sort();
-    for (const bundlePath of Object.keys(config.bundles || {})) {
-        const bundle = (artifacts.bundles || {})[bundlePath];
-        if (bundle == null) {
-            fail('generated-artifact-missing', `bundle not found at ${bundlePath}; run npm run bundle in webmscore-fork/web-public`);
-            continue;
-        }
-        const absent = bundledNames.filter((name) => !declaresName(bundle, name));
-        for (const name of absent) {
-            fail(
-                'missing-from-generated-bundle',
-                `${name} is in the bridge source but not in ${bundlePath}; the bundle predates the source (npm run bundle)`,
-            );
-        }
+  // Everything the worker can dispatch or the main thread can call has to survive
+  // bundling, whichever entry point a consumer resolves.
+  const bundledNames = [...new Set([...parsed.rpcTargets, ...parsed.mainThread])].sort();
+  for (const bundlePath of Object.keys(config.bundles || {})) {
+    const bundle = (artifacts.bundles || {})[bundlePath];
+    if (bundle == null) {
+      fail(
+        'generated-artifact-missing',
+        `bundle not found at ${bundlePath}; run npm run bundle in webmscore-fork/web-public`,
+      );
+      continue;
     }
-
-    // The fork's build outputs are gitignored -- only the copies under public/ are
-    // committed -- so a fresh clone has nothing to compare against. That is normal in CI
-    // and is reported, not failed: with no locally built artifact there is simply nothing
-    // this rule can prove. It fails only where both sides exist and disagree, which is a
-    // developer or release machine that built but forgot to sync.
-    const unverifiable = [];
-    for (const [shipped, source] of Object.entries(config.synced || {})) {
-        const digests = artifacts.digests || {};
-        if (!digests[source]) {
-            unverifiable.push(`${shipped}: no local build at ${source}`);
-            continue;
-        }
-        if (!digests[shipped]) {
-            fail('generated-artifact-missing', `${shipped} is missing; run npm run sync:wasm`);
-            continue;
-        }
-        if (digests[shipped] !== digests[source]) {
-            fail(
-                'unsynced-generated-artifact',
-                `${shipped} differs from ${source}; the served artifact is not the one that was built (npm run sync:wasm)`,
-            );
-        }
+    const absent = bundledNames.filter((name) => !declaresName(bundle, name));
+    for (const name of absent) {
+      fail(
+        'missing-from-generated-bundle',
+        `${name} is in the bridge source but not in ${bundlePath}; the bundle predates the source (npm run bundle)`,
+      );
     }
+  }
 
-    return { failures, unverifiable };
+  // The fork's build outputs are gitignored -- only the copies under public/ are
+  // committed -- so a fresh clone has nothing to compare against. That is normal in CI
+  // and is reported, not failed: with no locally built artifact there is simply nothing
+  // this rule can prove. It fails only where both sides exist and disagree, which is a
+  // developer or release machine that built but forgot to sync.
+  const unverifiable = [];
+  for (const [shipped, source] of Object.entries(config.synced || {})) {
+    const digests = artifacts.digests || {};
+    if (!digests[source]) {
+      unverifiable.push(`${shipped}: no local build at ${source}`);
+      continue;
+    }
+    if (!digests[shipped]) {
+      fail('generated-artifact-missing', `${shipped} is missing; run npm run sync:wasm`);
+      continue;
+    }
+    if (digests[shipped] !== digests[source]) {
+      fail(
+        'unsynced-generated-artifact',
+        `${shipped} differs from ${source}; the served artifact is not the one that was built (npm run sync:wasm)`,
+      );
+    }
+  }
+
+  return { failures, unverifiable };
 }
 
 function main() {
-    // Resolved lazily so importing this module for its rules has no side effects.
-    const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
-    const jsonOutput = process.argv.includes('--json');
-    const manifest = JSON.parse(
-        readFileSync(resolve(root, 'scripts/webmscore-bridge-manifest.json'), 'utf8'),
-    );
-    const read = (relativePath) => {
-        try {
-            return readFileSync(resolve(root, relativePath), 'utf8');
-        } catch {
-            return null;
-        }
-    };
+  // Resolved lazily so importing this module for its rules has no side effects.
+  const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
+  const jsonOutput = process.argv.includes('--json');
+  const manifest = JSON.parse(
+    readFileSync(resolve(root, 'scripts/webmscore-bridge-manifest.json'), 'utf8'),
+  );
+  const read = (relativePath) => {
+    try {
+      return readFileSync(resolve(root, relativePath), 'utf8');
+    } catch {
+      return null;
+    }
+  };
 
-    const digest = (relativePath) => {
-        try {
-            return createHash('sha256').update(readFileSync(resolve(root, relativePath))).digest('hex');
-        } catch {
-            return null;
-        }
-    };
+  const digest = (relativePath) => {
+    try {
+      return createHash('sha256')
+        .update(readFileSync(resolve(root, relativePath)))
+        .digest('hex');
+    } catch {
+      return null;
+    }
+  };
 
-    const generatedConfig = manifest.generated || {};
-    const sources = {
-        ...Object.fromEntries(
-            Object.entries(manifest.layers).map(([layer, path]) => [layer, read(path)]),
-        ),
-        generated: {
-            glue: generatedConfig.glue ? read(generatedConfig.glue) : null,
-            bundles: Object.fromEntries(
-                Object.keys(generatedConfig.bundles || {}).map((path) => [path, read(path)]),
-            ),
-            digests: Object.fromEntries(
-                Object.entries(generatedConfig.synced || {})
-                    .flat()
-                    .map((path) => [path, digest(path)]),
-            ),
-        },
-    };
-    const { report, failures } = analyzeBridge(sources, manifest);
+  const generatedConfig = manifest.generated || {};
+  const sources = {
+    ...Object.fromEntries(
+      Object.entries(manifest.layers).map(([layer, path]) => [layer, read(path)]),
+    ),
+    generated: {
+      glue: generatedConfig.glue ? read(generatedConfig.glue) : null,
+      bundles: Object.fromEntries(
+        Object.keys(generatedConfig.bundles || {}).map((path) => [path, read(path)]),
+      ),
+      digests: Object.fromEntries(
+        Object.entries(generatedConfig.synced || {})
+          .flat()
+          .map((path) => [path, digest(path)]),
+      ),
+    },
+  };
+  const { report, failures } = analyzeBridge(sources, manifest);
 
-    if (!report) {
-        for (const failure of failures) console.error(`[bridge:audit] ${failure.rule}: ${failure.detail}`);
-        process.exitCode = 1;
+  if (!report) {
+    for (const failure of failures)
+      console.error(`[bridge:audit] ${failure.rule}: ${failure.detail}`);
+    process.exitCode = 1;
     return;
-    }
-    const { unproxiedNative } = report;
+  }
+  const { unproxiedNative } = report;
 
-    if (jsonOutput) {
-        console.log(JSON.stringify(report, null, 2));
-    } else {
-        console.log(`[bridge:audit] native exports: ${report.counts.nativeExports}`);
-        console.log(`[bridge:audit] main-thread methods: ${report.counts.mainThreadMethods}`);
-        console.log(`[bridge:audit] worker methods: ${report.counts.workerMethods}, rpc targets: ${report.counts.rpcTargets}`);
-        console.log(`[bridge:audit] Score interface members: ${report.counts.scoreMembers}`);
-        console.log(`[bridge:audit] native exports not reachable from the worker: ${unproxiedNative.length} (informational)`);
-        for (const name of unproxiedNative) console.log(`    ${name}`);
-        for (const note of report.unverifiableSync || []) {
-            console.log(`[bridge:audit] sync not verifiable here -- ${note}`);
-        }
+  if (jsonOutput) {
+    console.log(JSON.stringify(report, null, 2));
+  } else {
+    console.log(`[bridge:audit] native exports: ${report.counts.nativeExports}`);
+    console.log(`[bridge:audit] main-thread methods: ${report.counts.mainThreadMethods}`);
+    console.log(
+      `[bridge:audit] worker methods: ${report.counts.workerMethods}, rpc targets: ${report.counts.rpcTargets}`,
+    );
+    console.log(`[bridge:audit] Score interface members: ${report.counts.scoreMembers}`);
+    console.log(
+      `[bridge:audit] native exports not reachable from the worker: ${unproxiedNative.length} (informational)`,
+    );
+    for (const name of unproxiedNative) console.log(`    ${name}`);
+    for (const note of report.unverifiableSync || []) {
+      console.log(`[bridge:audit] sync not verifiable here -- ${note}`);
     }
+  }
 
-    if (failures.length > 0) {
-        console.error('[bridge:audit] bridge contract violations:');
-        for (const failure of failures) console.error(`  ${failure.rule}: ${failure.detail}`);
-        process.exitCode = 1;
-    } else {
-        console.log('[bridge:audit] all bridge layers consistent.');
-    }
+  if (failures.length > 0) {
+    console.error('[bridge:audit] bridge contract violations:');
+    for (const failure of failures) console.error(`  ${failure.rule}: ${failure.detail}`);
+    process.exitCode = 1;
+  } else {
+    console.log('[bridge:audit] all bridge layers consistent.');
+  }
 }
 
 // Only run the CLI when invoked directly, so tests can import analyzeBridge.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-    main();
+  main();
 }

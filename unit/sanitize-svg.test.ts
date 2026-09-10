@@ -20,7 +20,9 @@ describe('sanitizeEngineSvg (M3)', () => {
 
   it('removes <foreignObject> subtrees', () => {
     const out = sanitizeEngineSvg(
-      wrap('<foreignObject><div xmlns="http://www.w3.org/1999/xhtml">x</div></foreignObject><rect/>'),
+      wrap(
+        '<foreignObject><div xmlns="http://www.w3.org/1999/xhtml">x</div></foreignObject><rect/>',
+      ),
     );
     expect(out.toLowerCase()).not.toContain('foreignobject');
     expect(out).toContain('<rect');
@@ -41,7 +43,9 @@ describe('sanitizeEngineSvg (M3)', () => {
 
   it('removes javascript: hrefs (href and xlink:href) but keeps the element', () => {
     const out = sanitizeEngineSvg(
-      wrap('<a href="javascript:alert(1)"><text>x</text></a><a xlink:href="javascript:evil()"><text>y</text></a>'),
+      wrap(
+        '<a href="javascript:alert(1)"><text>x</text></a><a xlink:href="javascript:evil()"><text>y</text></a>',
+      ),
     );
     expect(out.toLowerCase()).not.toContain('javascript:');
     expect(out).toContain('<text');

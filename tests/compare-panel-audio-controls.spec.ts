@@ -4,7 +4,9 @@ import { expect, test } from '@playwright/test';
 // checkpoint) with its own independent play/pause/stop transport. Starting
 // playback on one panel must stop the other so only one voice plays at once.
 test('compare panels have independent play/pause/stop with mutual exclusion', async ({ page }) => {
-  page.on('dialog', (dialog) => { void dialog.dismiss(); });
+  page.on('dialog', (dialog) => {
+    void dialog.dismiss();
+  });
 
   await page.goto('/?score=/test_scores/three_notes_cde.musicxml');
   await page.waitForSelector('svg .Note', { timeout: 60_000 });

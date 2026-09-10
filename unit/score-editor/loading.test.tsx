@@ -4,15 +4,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { setupScoreEditorTest, testGlobals } from './test-harness';
 
 const mocked = vi.hoisted(() => ({
-    loadWebMscore: vi.fn(),
-    loadWebMscoreInProcess: vi.fn(),
+  loadWebMscore: vi.fn(),
+  loadWebMscoreInProcess: vi.fn(),
 }));
 const mockedNavigation = vi.hoisted(() => ({ useSearchParams: vi.fn() }));
 
 vi.mock('next/navigation', () => ({ useSearchParams: mockedNavigation.useSearchParams }));
 vi.mock('../../lib/webmscore-loader', () => ({
-    loadWebMscore: mocked.loadWebMscore,
-    loadWebMscoreInProcess: mocked.loadWebMscoreInProcess,
+  loadWebMscore: mocked.loadWebMscore,
+  loadWebMscoreInProcess: mocked.loadWebMscoreInProcess,
 }));
 
 import ScoreEditor from '../../components/ScoreEditor';
@@ -49,11 +49,15 @@ describe('ScoreEditor: loading, format detection and progressive layout', () => 
 
     render(<ScoreEditor />);
 
-    const file = new File([new Uint8Array([1, 2, 3])], 'demo.mscz', { type: 'application/octet-stream' });
+    const file = new File([new Uint8Array([1, 2, 3])], 'demo.mscz', {
+      type: 'application/octet-stream',
+    });
     await user.upload(screen.getByTestId('open-score-input'), file);
 
     await waitFor(() => expect(webmscore.load).toHaveBeenCalled());
-    await waitFor(() => expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy(),
+    );
 
     const note = screen.getByTestId('svg-container').querySelector('.Note');
     expect(note).toBeTruthy();
@@ -76,58 +80,61 @@ describe('ScoreEditor: loading, format detection and progressive layout', () => 
   it.each([
     ['embed', 'embed', '/score-editor/index.html'],
     ['a root deployment', undefined, '/'],
-  ])('opens the full editor at the deployed base path in %s', async (_label, buildMode, expectedUrl) => {
-    vi.stubEnv('NEXT_PUBLIC_BUILD_MODE', buildMode as string);
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+  ])(
+    'opens the full editor at the deployed base path in %s',
+    async (_label, buildMode, expectedUrl) => {
+      vi.stubEnv('NEXT_PUBLIC_BUILD_MODE', buildMode as string);
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <score-partwise version="3.1">
   <part-list><score-part id="P1"><part-name>Music</part-name></score-part></part-list>
   <part id="P1"><measure number="1"><note><rest/><duration>4</duration><type>whole</type></note></measure></part>
 </score-partwise>`;
-    const makeScore = () => ({
-      destroy: vi.fn(),
-      saveSvg: vi.fn(async () => '<svg><g class="Note"></g></svg>'),
-      saveMusicXml: vi.fn(async () => xml),
-      metadata: vi.fn(async () => ({ parts: [{ name: 'Music' }] })),
-      measurePositions: vi.fn(async () => ({
-        elements: [{ id: 0, x: 0, y: 0, sx: 100, sy: 40, page: 0 }],
-        events: [],
-        pageSize: { width: 100, height: 40 },
-      })),
-      segmentPositions: vi.fn(async () => ({})),
-      npages: vi.fn(async () => 1),
-    });
-    const auxiliaryScore = makeScore();
-    const webmscore = {
-      ready: Promise.resolve(),
-      load: vi.fn().mockResolvedValueOnce(makeScore()).mockResolvedValueOnce(auxiliaryScore),
-    };
+      const makeScore = () => ({
+        destroy: vi.fn(),
+        saveSvg: vi.fn(async () => '<svg><g class="Note"></g></svg>'),
+        saveMusicXml: vi.fn(async () => xml),
+        metadata: vi.fn(async () => ({ parts: [{ name: 'Music' }] })),
+        measurePositions: vi.fn(async () => ({
+          elements: [{ id: 0, x: 0, y: 0, sx: 100, sy: 40, page: 0 }],
+          events: [],
+          pageSize: { width: 100, height: 40 },
+        })),
+        segmentPositions: vi.fn(async () => ({})),
+        npages: vi.fn(async () => 1),
+      });
+      const auxiliaryScore = makeScore();
+      const webmscore = {
+        ready: Promise.resolve(),
+        load: vi.fn().mockResolvedValueOnce(makeScore()).mockResolvedValueOnce(auxiliaryScore),
+      };
 
-    params.values = {
-      compareLeft: '/left.musicxml',
-      compareRight: '/right.musicxml',
-    };
-    mocked.loadWebMscore.mockResolvedValue(webmscore);
-    testGlobals.fetch = vi.fn(async () => ({
-      ok: true,
-      text: async () => xml,
-      arrayBuffer: async () => new TextEncoder().encode(xml).buffer,
-    }));
-    const openSpy = vi.fn(() => null);
-    testGlobals.open = openSpy;
+      params.values = {
+        compareLeft: '/left.musicxml',
+        compareRight: '/right.musicxml',
+      };
+      mocked.loadWebMscore.mockResolvedValue(webmscore);
+      testGlobals.fetch = vi.fn(async () => ({
+        ok: true,
+        text: async () => xml,
+        arrayBuffer: async () => new TextEncoder().encode(xml).buffer,
+      }));
+      const openSpy = vi.fn(() => null);
+      testGlobals.open = openSpy;
 
-    const { unmount } = render(<ScoreEditor />);
-    await waitFor(() => expect(auxiliaryScore.saveSvg).toHaveBeenCalled());
+      const { unmount } = render(<ScoreEditor />);
+      await waitFor(() => expect(auxiliaryScore.saveSvg).toHaveBeenCalled());
 
-    const openButtons = await screen.findAllByTitle('Open this score in the full editor');
-    fireEvent.click(openButtons[0]);
+      const openButtons = await screen.findAllByTitle('Open this score in the full editor');
+      fireEvent.click(openButtons[0]);
 
-    expect(openSpy).toHaveBeenCalledWith(expectedUrl, '_blank');
-    unmount();
-  });
+      expect(openSpy).toHaveBeenCalledWith(expectedUrl, '_blank');
+      unmount();
+    },
+  );
 
   it('detects .mxl uploads and loads them with mxl format', async () => {
     const user = userEvent.setup();
-    const largeData = new Uint8Array((2 * 1024 * 1024) + 8);
+    const largeData = new Uint8Array(2 * 1024 * 1024 + 8);
 
     const score = {
       destroy: vi.fn(),
@@ -164,7 +171,7 @@ describe('ScoreEditor: loading, format detection and progressive layout', () => 
 
   it('detects .mscz uploads and starts with deferred load', async () => {
     const user = userEvent.setup();
-    const largeData = new Uint8Array((2 * 1024 * 1024) + 256);
+    const largeData = new Uint8Array(2 * 1024 * 1024 + 256);
     const score = {
       destroy: vi.fn(),
       saveSvg: vi.fn(async () => '<svg></svg>'),
@@ -199,12 +206,14 @@ describe('ScoreEditor: loading, format detection and progressive layout', () => 
 
   it('progressively lays out the next page when navigating large .musicxml scores', async () => {
     const user = userEvent.setup();
-    const largeData = new Uint8Array((2 * 1024 * 1024) + 8);
+    const largeData = new Uint8Array(2 * 1024 * 1024 + 8);
     let pages = 1;
 
     const score = {
       destroy: vi.fn(),
-      saveSvg: vi.fn(async (pageIndex?: number) => `<svg><text>page-${pageIndex ?? 0}</text></svg>`),
+      saveSvg: vi.fn(
+        async (pageIndex?: number) => `<svg><text>page-${pageIndex ?? 0}</text></svg>`,
+      ),
       savePdf: vi.fn(async () => new Uint8Array([1])),
       savePng: vi.fn(async () => new Uint8Array([2])),
       setSoundFont: vi.fn(async () => {}),
@@ -241,14 +250,26 @@ describe('ScoreEditor: loading, format detection and progressive layout', () => 
     const file = new File([largeData], 'beethoven.musicxml', { type: 'application/xml' });
     await user.upload(screen.getByTestId('open-score-input'), file);
 
-    await waitFor(() => expect(webmscore.load).toHaveBeenNthCalledWith(1, 'musicxml', expect.any(Uint8Array), [], false));
+    await waitFor(() =>
+      expect(webmscore.load).toHaveBeenNthCalledWith(
+        1,
+        'musicxml',
+        expect.any(Uint8Array),
+        [],
+        false,
+      ),
+    );
     await waitFor(() => expect(score.layoutUntilPage).toHaveBeenCalledWith(0));
-    await waitFor(() => expect(screen.getByTestId('page-indicator').textContent).toContain('Page 1 of 1+'));
+    await waitFor(() =>
+      expect(screen.getByTestId('page-indicator').textContent).toContain('Page 1 of 1+'),
+    );
 
     await user.click(screen.getByText('Next'));
 
     await waitFor(() => expect(score.layoutUntilPage).toHaveBeenCalledWith(1));
-    await waitFor(() => expect(screen.getByTestId('page-indicator').textContent).toContain('Page 2 of 2+'));
+    await waitFor(() =>
+      expect(screen.getByTestId('page-indicator').textContent).toContain('Page 2 of 2+'),
+    );
     await waitFor(() => expect(score.saveSvg).toHaveBeenCalledWith(1, true, true));
 
     await user.click(screen.getByTestId('dropdown-export'));
@@ -280,7 +301,9 @@ describe('ScoreEditor: loading, format detection and progressive layout', () => 
     await user.upload(screen.getByTestId('open-score-input'), file);
 
     await waitFor(() =>
-      expect(testGlobals.alert).toHaveBeenCalledWith('Failed to load score. See console for details.'),
+      expect(testGlobals.alert).toHaveBeenCalledWith(
+        'Failed to load score. See console for details.',
+      ),
     );
   });
 
@@ -310,6 +333,8 @@ describe('ScoreEditor: loading, format detection and progressive layout', () => 
 
     await waitFor(() => expect(webmscore.load).toHaveBeenCalled());
     expect(webmscore.load).toHaveBeenCalledWith('musicxml', expect.any(Uint8Array));
-    await waitFor(() => expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy(),
+    );
   });
 });

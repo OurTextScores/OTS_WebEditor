@@ -24,10 +24,12 @@ describe('POST /api/music/convert route', () => {
       body: { ok: true, outputArtifactId: 'out-1' },
     });
 
-    const response = await POST(new Request('http://localhost/api/music/convert', {
-      method: 'POST',
-      body: JSON.stringify({ inputFormat: 'musicxml', outputFormat: 'abc' }),
-    }));
+    const response = await POST(
+      new Request('http://localhost/api/music/convert', {
+        method: 'POST',
+        body: JSON.stringify({ inputFormat: 'musicxml', outputFormat: 'abc' }),
+      }),
+    );
 
     expect(response.status).toBe(201);
     await expect(response.json()).resolves.toMatchObject({ ok: true, outputArtifactId: 'out-1' });
@@ -37,10 +39,12 @@ describe('POST /api/music/convert route', () => {
   it('maps MusicServiceError to status and error payload', async () => {
     mocked.runMusicConvertService.mockRejectedValue(new MusicServiceError('bad input', 422));
 
-    const response = await POST(new Request('http://localhost/api/music/convert', {
-      method: 'POST',
-      body: JSON.stringify({}),
-    }));
+    const response = await POST(
+      new Request('http://localhost/api/music/convert', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      }),
+    );
 
     expect(response.status).toBe(422);
     await expect(response.json()).resolves.toMatchObject({ error: 'bad input' });
@@ -49,13 +53,17 @@ describe('POST /api/music/convert route', () => {
   it('maps generic tools-unavailable errors to 503', async () => {
     mocked.runMusicConvertService.mockRejectedValue(new Error('Tools unavailable in this runtime'));
 
-    const response = await POST(new Request('http://localhost/api/music/convert', {
-      method: 'POST',
-      body: JSON.stringify({}),
-    }));
+    const response = await POST(
+      new Request('http://localhost/api/music/convert', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      }),
+    );
 
     expect(response.status).toBe(503);
-    await expect(response.json()).resolves.toMatchObject({ error: 'Tools unavailable in this runtime' });
+    await expect(response.json()).resolves.toMatchObject({
+      error: 'Tools unavailable in this runtime',
+    });
   });
 
   it('forces formats for the kern to MusicXML route', async () => {
@@ -64,10 +72,12 @@ describe('POST /api/music/convert route', () => {
       body: { ok: true, outputArtifactId: 'xml-out' },
     });
 
-    const response = await postKernToMusicXml(new Request('http://localhost/api/music/kern/to-musicxml', {
-      method: 'POST',
-      body: JSON.stringify({ outputFormat: 'abc', content: '**kern\n4c\n*-\n' }),
-    }));
+    const response = await postKernToMusicXml(
+      new Request('http://localhost/api/music/kern/to-musicxml', {
+        method: 'POST',
+        body: JSON.stringify({ outputFormat: 'abc', content: '**kern\n4c\n*-\n' }),
+      }),
+    );
 
     expect(response.status).toBe(200);
     expect(mocked.runMusicConvertService).toHaveBeenCalledWith(
@@ -86,10 +96,15 @@ describe('POST /api/music/convert route', () => {
       body: { ok: true, outputArtifactId: 'kern-out' },
     });
 
-    const response = await postMusicXmlToKern(new Request('http://localhost/api/music/musicxml/to-kern', {
-      method: 'POST',
-      body: JSON.stringify({ inputFormat: 'abc', content: '<score-partwise version="3.1"></score-partwise>' }),
-    }));
+    const response = await postMusicXmlToKern(
+      new Request('http://localhost/api/music/musicxml/to-kern', {
+        method: 'POST',
+        body: JSON.stringify({
+          inputFormat: 'abc',
+          content: '<score-partwise version="3.1"></score-partwise>',
+        }),
+      }),
+    );
 
     expect(response.status).toBe(200);
     expect(mocked.runMusicConvertService).toHaveBeenCalledWith(

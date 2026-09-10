@@ -24,9 +24,16 @@ test('toolbar shows enabled add-measures apply button', async ({ page }) => {
   });
   await page.goto('/?score=/test_scores/single_note_c4.musicxml', { waitUntil: 'networkidle' });
   await page.waitForSelector('svg', { timeout: 20000 });
-  await page.waitForFunction(() => Boolean((window as ToolbarScoreWindow).__webmscore), { timeout: 20000 });
-  await page.waitForFunction(() => Boolean((window as ToolbarScoreWindow).__webmscore?.insertMeasures), { timeout: 20000 });
-  const hasInsert = await page.evaluate(() => Boolean((window as ToolbarScoreWindow).__webmscore?.insertMeasures));
+  await page.waitForFunction(() => Boolean((window as ToolbarScoreWindow).__webmscore), {
+    timeout: 20000,
+  });
+  await page.waitForFunction(
+    () => Boolean((window as ToolbarScoreWindow).__webmscore?.insertMeasures),
+    { timeout: 20000 },
+  );
+  const hasInsert = await page.evaluate(() =>
+    Boolean((window as ToolbarScoreWindow).__webmscore?.insertMeasures),
+  );
   const scoreProps = await page.evaluate(() => {
     const score = (window as ToolbarScoreWindow).__webmscore;
     if (!score) {
@@ -73,21 +80,29 @@ test('remove trailing empty measures button works', async ({ page }) => {
   await page.getByTestId('btn-insert-measures').click();
 
   // Wait for measures to be added
-  await expect.poll(async () => countMeasures(await readMscx()), { timeout: 20_000 }).toBe(initialMeasures + 3);
+  await expect
+    .poll(async () => countMeasures(await readMscx()), { timeout: 20_000 })
+    .toBe(initialMeasures + 3);
 
   // Click "Remove Trailing Empty" button
   await page.getByTestId('btn-remove-trailing-empty').click();
 
   // Verify the empty measures were removed
-  await expect.poll(async () => countMeasures(await readMscx()), { timeout: 20_000 }).toBe(initialMeasures);
+  await expect
+    .poll(async () => countMeasures(await readMscx()), { timeout: 20_000 })
+    .toBe(initialMeasures);
 
   // Test undo - measures should come back
   await page.keyboard.press('Control+Z');
-  await expect.poll(async () => countMeasures(await readMscx()), { timeout: 20_000 }).toBe(initialMeasures + 3);
+  await expect
+    .poll(async () => countMeasures(await readMscx()), { timeout: 20_000 })
+    .toBe(initialMeasures + 3);
 
   // Test redo - measures should be removed again
   await page.keyboard.press('Control+Y');
-  await expect.poll(async () => countMeasures(await readMscx()), { timeout: 20_000 }).toBe(initialMeasures);
+  await expect
+    .poll(async () => countMeasures(await readMscx()), { timeout: 20_000 })
+    .toBe(initialMeasures);
 });
 
 test('Add Pickup button is visible in Bars section', async ({ page }) => {

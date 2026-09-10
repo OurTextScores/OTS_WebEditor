@@ -6,12 +6,7 @@ import {
 } from '../score-artifacts';
 import { loadWebMscoreInProcess, type Score } from '../webmscore-loader';
 import { computeMusicXmlIdentityHashServer } from '../musicxml-identity-server';
-import {
-  asRecord,
-  errorResult,
-  resolveScoreContent,
-  type ServiceResult,
-} from './common';
+import { asRecord, errorResult, resolveScoreContent, type ServiceResult } from './common';
 import { sanitizeEditorLaunchContext } from '../editor-launch-context';
 import {
   clearScoreOpsSessions,
@@ -58,41 +53,87 @@ type MusicXmlPatch = {
 
 const DEFAULT_INSPECT_MEASURE_LIMIT = 16;
 
-const SCOPE_SCHEMA = z.object({
-  partId: z.string().trim().min(1).optional(),
-  measureStart: z.number().int().min(1).optional(),
-  measureEnd: z.number().int().min(1).optional(),
-}).superRefine((scope, ctx) => {
-  if (scope.measureStart && scope.measureEnd && scope.measureStart > scope.measureEnd) {
-    ctx.addIssue({
-      code: 'custom',
-      message: 'measureStart must be <= measureEnd.',
-      path: ['measureStart'],
-    });
-  }
-});
+const SCOPE_SCHEMA = z
+  .object({
+    partId: z.string().trim().min(1).optional(),
+    measureStart: z.number().int().min(1).optional(),
+    measureEnd: z.number().int().min(1).optional(),
+  })
+  .superRefine((scope, ctx) => {
+    if (scope.measureStart && scope.measureEnd && scope.measureStart > scope.measureEnd) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'measureStart must be <= measureEnd.',
+        path: ['measureStart'],
+      });
+    }
+  });
 
 const METADATA_FIELD_SCHEMA = z.enum(['title', 'subtitle', 'composer', 'lyricist']);
 const CLEF_SCHEMA = z.enum(['treble', 'bass', 'alto', 'tenor']);
 const DYNAMIC_SCHEMA = z.enum([
-  'ppp', 'pp', 'p', 'mp', 'mf', 'f', 'ff', 'fff', 'fp', 'sfz',
-  'pppppp', 'ppppp', 'pppp', 'ffff', 'fffff', 'ffffff',
-  'pf', 'sf', 'sff', 'sffz', 'sfp', 'sfpp', 'rfz', 'rf', 'fz',
+  'ppp',
+  'pp',
+  'p',
+  'mp',
+  'mf',
+  'f',
+  'ff',
+  'fff',
+  'fp',
+  'sfz',
+  'pppppp',
+  'ppppp',
+  'pppp',
+  'ffff',
+  'fffff',
+  'ffffff',
+  'pf',
+  'sf',
+  'sff',
+  'sffz',
+  'sfp',
+  'sfpp',
+  'rfz',
+  'rf',
+  'fz',
 ]);
 const INSERT_TARGET_SCHEMA = z.enum(['start', 'end', 'after_measure']);
 const DURATION_TYPE_SCHEMA = z.enum([
-  'long', 'breve', 'whole', 'half', 'quarter', 'eighth',
-  '16th', '32nd', '64th', '128th', '256th', '512th', '1024th',
+  'long',
+  'breve',
+  'whole',
+  'half',
+  'quarter',
+  'eighth',
+  '16th',
+  '32nd',
+  '64th',
+  '128th',
+  '256th',
+  '512th',
+  '1024th',
 ]);
 const VOICE_SCHEMA = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]);
 const ACCIDENTAL_SCHEMA = z.enum(['sharp', 'flat', 'natural', 'double-sharp', 'double-flat']);
 const TEXT_KIND_SCHEMA = z.enum([
-  'staff', 'system', 'expression', 'lyric', 'harmony',
-  'fingering', 'instrument_change', 'sticking',
+  'staff',
+  'system',
+  'expression',
+  'lyric',
+  'harmony',
+  'fingering',
+  'instrument_change',
+  'sticking',
 ]);
 const BREAK_TYPE_SCHEMA = z.enum(['line', 'page']);
 const BARLINE_TYPE_SCHEMA = z.enum([
-  'normal', 'double', 'end', 'start-repeat', 'end-repeat', 'end-start-repeat',
+  'normal',
+  'double',
+  'end',
+  'start-repeat',
+  'end-repeat',
+  'end-start-repeat',
 ]);
 
 const SCORE_OP_SCHEMA = z.discriminatedUnion('op', [
@@ -244,10 +285,13 @@ type ScoreOp = z.infer<typeof SCORE_OP_SCHEMA>;
 
 type ScoreOpName = ScoreOp['op'];
 
-type ScoreOpsMutationOpSupport = Record<ScoreOpName, {
-  xml: boolean;
-  wasm: boolean;
-}>;
+type ScoreOpsMutationOpSupport = Record<
+  ScoreOpName,
+  {
+    xml: boolean;
+    wasm: boolean;
+  }
+>;
 
 const SCOREOPS_MUTATION_OPS: ScoreOpName[] = [
   'set_metadata_text',
@@ -300,16 +344,9 @@ const SCOREOPS_WASM_ELIGIBLE_OPS = new Set<ScoreOpName>([
   'export_score',
 ]);
 
-const SCOREOPS_SELECTION_OPS = [
-  'select_measure_range',
-  'select_all',
-] as const;
+const SCOREOPS_SELECTION_OPS = ['select_measure_range', 'select_all'] as const;
 
-const SCOREOPS_INSPECT_OPS = [
-  'inspect_score',
-  'inspect_scope',
-  'inspect_selection',
-] as const;
+const SCOREOPS_INSPECT_OPS = ['inspect_score', 'inspect_scope', 'inspect_selection'] as const;
 
 const SCOREOPS_CAPABILITY_PROBE_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <score-partwise version="4.0">
@@ -388,13 +425,15 @@ const INSPECT_REQUEST_SCHEMA = z.object({
   scoreSessionId: z.string().trim().min(1),
   revision: z.number().int().min(0).optional(),
   scope: SCOPE_SCHEMA.optional(),
-  include: z.object({
-    capabilities: z.boolean().optional(),
-    selectionSummary: z.boolean().optional(),
-    scoreSummary: z.boolean().optional(),
-    measureSignatures: z.boolean().optional(),
-    targetPreview: z.boolean().optional(),
-  }).optional(),
+  include: z
+    .object({
+      capabilities: z.boolean().optional(),
+      selectionSummary: z.boolean().optional(),
+      scoreSummary: z.boolean().optional(),
+      measureSignatures: z.boolean().optional(),
+      targetPreview: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 const APPLY_REQUEST_SCHEMA = z.object({
@@ -407,13 +446,15 @@ const APPLY_REQUEST_SCHEMA = z.object({
   content: z.string().optional(),
   text: z.string().optional(),
   ops: z.array(SCORE_OP_SCHEMA).min(1),
-  options: z.object({
-    atomic: z.boolean().optional(),
-    includePatch: z.boolean().optional(),
-    includeXml: z.boolean().optional(),
-    includeMeasureDiff: z.boolean().optional(),
-    preferredExecutor: z.enum(['auto', 'wasm', 'xml']).optional(),
-  }).optional(),
+  options: z
+    .object({
+      atomic: z.boolean().optional(),
+      includePatch: z.boolean().optional(),
+      includeXml: z.boolean().optional(),
+      includeMeasureDiff: z.boolean().optional(),
+      preferredExecutor: z.enum(['auto', 'wasm', 'xml']).optional(),
+    })
+    .optional(),
 });
 
 const SYNC_REQUEST_SCHEMA = z.object({
@@ -437,12 +478,10 @@ const REQUEST_SCHEMA = z.discriminatedUnion('action', [
 
 type RequestPayload = z.infer<typeof REQUEST_SCHEMA>;
 
-function readScoreMeta(
-  payload: {
-    scoreMeta?: Record<string, unknown>;
-    score_meta?: Record<string, unknown>;
-  },
-): Record<string, unknown> | null {
+function readScoreMeta(payload: {
+  scoreMeta?: Record<string, unknown>;
+  score_meta?: Record<string, unknown>;
+}): Record<string, unknown> | null {
   return asRecord(payload.scoreMeta) || asRecord(payload.score_meta) || null;
 }
 
@@ -599,7 +638,10 @@ function setMovementTag(xml: string, tagName: 'movement-title' | 'movement-numbe
   if (tagRegex.test(xml)) {
     return xml.replace(tagRegex, `<${tagName}>${escaped}</${tagName}>`);
   }
-  return xml.replace(/<score-partwise\b([^>]*)>/i, `<score-partwise$1><${tagName}>${escaped}</${tagName}>`);
+  return xml.replace(
+    /<score-partwise\b([^>]*)>/i,
+    `<score-partwise$1><${tagName}>${escaped}</${tagName}>`,
+  );
 }
 
 function setCreatorTag(xml: string, creatorType: 'composer' | 'lyricist', value: string) {
@@ -609,9 +651,15 @@ function setCreatorTag(xml: string, creatorType: 'composer' | 'lyricist', value:
     return xml.replace(creatorRegex, `<creator type="${creatorType}">${escaped}</creator>`);
   }
   if (/<identification\b[\s\S]*?<\/identification>/i.test(xml)) {
-    return xml.replace(/<\/identification>/i, `<creator type="${creatorType}">${escaped}</creator></identification>`);
+    return xml.replace(
+      /<\/identification>/i,
+      `<creator type="${creatorType}">${escaped}</creator></identification>`,
+    );
   }
-  return xml.replace(/<score-partwise\b([^>]*)>/i, `<score-partwise$1><identification><creator type="${creatorType}">${escaped}</creator></identification>`);
+  return xml.replace(
+    /<score-partwise\b([^>]*)>/i,
+    `<score-partwise$1><identification><creator type="${creatorType}">${escaped}</creator></identification>`,
+  );
 }
 
 function measureInScope(measure: MeasureBlock, scope?: ScoreScope) {
@@ -668,8 +716,13 @@ function updatePartMeasures(
   return { content: out, changedCount };
 }
 
-function collectMeasurePreview(xml: string, scope?: ScoreScope, limit = DEFAULT_INSPECT_MEASURE_LIMIT) {
-  const results: Array<{ partId: string; measureNumber: string; truncated: boolean; xml: string }> = [];
+function collectMeasurePreview(
+  xml: string,
+  scope?: ScoreScope,
+  limit = DEFAULT_INSPECT_MEASURE_LIMIT,
+) {
+  const results: Array<{ partId: string; measureNumber: string; truncated: boolean; xml: string }> =
+    [];
   const partRegex = /<part\b([^>]*)>([\s\S]*?)<\/part>/gi;
   let partMatch: RegExpExecArray | null;
   while ((partMatch = partRegex.exec(xml)) !== null && results.length < limit) {
@@ -695,7 +748,10 @@ function collectMeasurePreview(xml: string, scope?: ScoreScope, limit = DEFAULT_
         partId,
         measureNumber: numText,
         truncated: xmlSnippet.length > 1600,
-        xml: xmlSnippet.length > 1600 ? `${xmlSnippet.slice(0, 1600)}\n<!-- ...truncated... -->` : xmlSnippet,
+        xml:
+          xmlSnippet.length > 1600
+            ? `${xmlSnippet.slice(0, 1600)}\n<!-- ...truncated... -->`
+            : xmlSnippet,
       });
     }
   }
@@ -704,7 +760,8 @@ function collectMeasurePreview(xml: string, scope?: ScoreScope, limit = DEFAULT_
 
 function extractScoreSummary(xml: string) {
   const partNames: Array<{ partId: string; name: string }> = [];
-  const scorePartRegex = /<score-part\b[^>]*\bid="([^"]+)"[^>]*>[\s\S]*?<part-name>([\s\S]*?)<\/part-name>[\s\S]*?<\/score-part>/gi;
+  const scorePartRegex =
+    /<score-part\b[^>]*\bid="([^"]+)"[^>]*>[\s\S]*?<part-name>([\s\S]*?)<\/part-name>[\s\S]*?<\/score-part>/gi;
   let scorePartMatch: RegExpExecArray | null;
   while ((scorePartMatch = scorePartRegex.exec(xml)) !== null) {
     partNames.push({
@@ -713,7 +770,8 @@ function extractScoreSummary(xml: string) {
     });
   }
 
-  const firstFifths = xml.match(/<key\b[^>]*>[\s\S]*?<fifths>(-?\d+)<\/fifths>[\s\S]*?<\/key>/i)?.[1] ?? null;
+  const firstFifths =
+    xml.match(/<key\b[^>]*>[\s\S]*?<fifths>(-?\d+)<\/fifths>[\s\S]*?<\/key>/i)?.[1] ?? null;
   const firstTime = (() => {
     const beats = xml.match(/<time\b[^>]*>[\s\S]*?<beats>(\d+)<\/beats>/i)?.[1];
     const beatType = xml.match(/<time\b[^>]*>[\s\S]*?<beat-type>(\d+)<\/beat-type>/i)?.[1];
@@ -732,16 +790,23 @@ function extractScoreSummary(xml: string) {
   if (partNames.length > 1) {
     const parts = parsePartBlocks(xml);
     for (const part of parts) {
-      const fifthsMatch = part.content.match(/<key\b[^>]*>[\s\S]*?<fifths>(-?\d+)<\/fifths>[\s\S]*?<\/key>/i);
+      const fifthsMatch = part.content.match(
+        /<key\b[^>]*>[\s\S]*?<fifths>(-?\d+)<\/fifths>[\s\S]*?<\/key>/i,
+      );
       const beatsMatch = part.content.match(/<time\b[^>]*>[\s\S]*?<beats>(\d+)<\/beats>/i);
-      const beatTypeMatch = part.content.match(/<time\b[^>]*>[\s\S]*?<beat-type>(\d+)<\/beat-type>/i);
+      const beatTypeMatch = part.content.match(
+        /<time\b[^>]*>[\s\S]*?<beat-type>(\d+)<\/beat-type>/i,
+      );
       const clefSignMatch = part.content.match(/<clef\b[^>]*>[\s\S]*?<sign>([A-Z])<\/sign>/i);
       const clefLineMatch = part.content.match(/<clef\b[^>]*>[\s\S]*?<line>(\d+)<\/line>/i);
       partDetails.push({
         partId: part.partId,
         keyFifths: fifthsMatch ? Number(fifthsMatch[1]) : null,
         timeSignature: beatsMatch && beatTypeMatch ? `${beatsMatch[1]}/${beatTypeMatch[1]}` : null,
-        clef: clefSignMatch && clefLineMatch ? { sign: clefSignMatch[1], line: clefLineMatch[1] } : null,
+        clef:
+          clefSignMatch && clefLineMatch
+            ? { sign: clefSignMatch[1], line: clefLineMatch[1] }
+            : null,
       });
     }
   }
@@ -756,7 +821,9 @@ function extractScoreSummary(xml: string) {
 }
 
 function resolveTargetPartIds(xml: string, partId?: string) {
-  const parts = parsePartBlocks(xml).map((p) => p.partId).filter(Boolean);
+  const parts = parsePartBlocks(xml)
+    .map((p) => p.partId)
+    .filter(Boolean);
   if (!parts.length) {
     return [];
   }
@@ -768,15 +835,31 @@ function resolveTargetPartIds(xml: string, partId?: string) {
 
 function applySetMetadataText(xml: string, op: Extract<ScoreOp, { op: 'set_metadata_text' }>) {
   if (op.field === 'title') {
-    return { xml: setMovementTag(xml, 'movement-title', op.value), changed: true, summary: 'Updated title.' };
+    return {
+      xml: setMovementTag(xml, 'movement-title', op.value),
+      changed: true,
+      summary: 'Updated title.',
+    };
   }
   if (op.field === 'subtitle') {
-    return { xml: setMovementTag(xml, 'movement-number', op.value), changed: true, summary: 'Updated subtitle.' };
+    return {
+      xml: setMovementTag(xml, 'movement-number', op.value),
+      changed: true,
+      summary: 'Updated subtitle.',
+    };
   }
   if (op.field === 'composer') {
-    return { xml: setCreatorTag(xml, 'composer', op.value), changed: true, summary: 'Updated composer.' };
+    return {
+      xml: setCreatorTag(xml, 'composer', op.value),
+      changed: true,
+      summary: 'Updated composer.',
+    };
   }
-  return { xml: setCreatorTag(xml, 'lyricist', op.value), changed: true, summary: 'Updated lyricist.' };
+  return {
+    xml: setCreatorTag(xml, 'lyricist', op.value),
+    changed: true,
+    summary: 'Updated lyricist.',
+  };
 }
 
 function applySetKeySignature(xml: string, op: Extract<ScoreOp, { op: 'set_key_signature' }>) {
@@ -793,7 +876,11 @@ function applySetKeySignature(xml: string, op: Extract<ScoreOp, { op: 'set_key_s
       if (!measureInScope(measure, op.scope)) {
         return measure;
       }
-      const nextMeasure = applyBlockInMeasure(measure.full, 'key', `<key><fifths>${op.fifths}</fifths></key>`);
+      const nextMeasure = applyBlockInMeasure(
+        measure.full,
+        'key',
+        `<key><fifths>${op.fifths}</fifths></key>`,
+      );
       return { ...measure, full: nextMeasure };
     });
     changed += updated.changedCount;
@@ -878,7 +965,10 @@ function applySetClef(xml: string, op: Extract<ScoreOp, { op: 'set_clef' }>) {
   } as const;
 }
 
-function applyDeleteTextByContent(xml: string, op: Extract<ScoreOp, { op: 'delete_text_by_content' }>) {
+function applyDeleteTextByContent(
+  xml: string,
+  op: Extract<ScoreOp, { op: 'delete_text_by_content' }>,
+) {
   const escaped = op.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const pattern = new RegExp(escaped, 'g');
   let replacements = 0;
@@ -1002,9 +1092,8 @@ function applyInsertMeasures(xml: string, op: Extract<ScoreOp, { op: 'insert_mea
       return [...inserted, ...shiftedMeasures].map((m) => m.full).join('\n');
     }
 
-    const targetAfter = op.target === 'after_measure'
-      ? (op.afterMeasure ?? lastMeasure)
-      : lastMeasure;
+    const targetAfter =
+      op.target === 'after_measure' ? (op.afterMeasure ?? lastMeasure) : lastMeasure;
 
     const afterIndex = measures.findIndex((measure) => measure.number === targetAfter);
     const insertIndex = afterIndex >= 0 ? afterIndex + 1 : measures.length;
@@ -1048,7 +1137,12 @@ function applyInsertMeasures(xml: string, op: Extract<ScoreOp, { op: 'insert_mea
 
 function pickupRestType(numerator: number, denominator: number): string {
   const denomTypes: Record<number, string> = {
-    1: 'whole', 2: 'half', 4: 'quarter', 8: 'eighth', 16: '16th', 32: '32nd',
+    1: 'whole',
+    2: 'half',
+    4: 'quarter',
+    8: 'eighth',
+    16: '16th',
+    32: '32nd',
   };
   if (numerator === 1) return denomTypes[denominator] || 'quarter';
   if (numerator === 3) {
@@ -1083,7 +1177,9 @@ function applyAddPickup(xml: string, op: Extract<ScoreOp, { op: 'add_pickup' }>)
 
     // Move full attributes (key, time, clefs) to the pickup measure.
     // Remove the attributes block from measure 1 to avoid duplicate clefs/time sigs.
-    const attributesXml = attrsMatch ? attrsMatch[0] : `<attributes><divisions>${divisions}</divisions></attributes>`;
+    const attributesXml = attrsMatch
+      ? attrsMatch[0]
+      : `<attributes><divisions>${divisions}</divisions></attributes>`;
     const strippedFirstMeasure = attrsMatch
       ? firstMeasure.full.replace(attrsMatch[0], '')
       : firstMeasure.full;
@@ -1128,7 +1224,8 @@ function applyAddTempoMarking(xml: string, op: Extract<ScoreOp, { op: 'add_tempo
         return measure;
       }
       const insertPos = openTagMatch[0].length;
-      const nextFull = measure.full.slice(0, insertPos) + tempoDirection + measure.full.slice(insertPos);
+      const nextFull =
+        measure.full.slice(0, insertPos) + tempoDirection + measure.full.slice(insertPos);
       return { ...measure, full: nextFull };
     });
     changed += updated.changedCount;
@@ -1164,7 +1261,8 @@ function applyAddDynamic(xml: string, op: Extract<ScoreOp, { op: 'add_dynamic' }
         return measure;
       }
       const insertPos = openTagMatch[0].length;
-      const nextFull = measure.full.slice(0, insertPos) + dynamicDirection + measure.full.slice(insertPos);
+      const nextFull =
+        measure.full.slice(0, insertPos) + dynamicDirection + measure.full.slice(insertPos);
       return { ...measure, full: nextFull };
     });
     changed += updated.changedCount;
@@ -1202,7 +1300,8 @@ function applyInsertText(xml: string, op: Extract<ScoreOp, { op: 'insert_text' }
         return measure;
       }
       const insertPos = openTagMatch[0].length;
-      const nextFull = measure.full.slice(0, insertPos) + textDirection + measure.full.slice(insertPos);
+      const nextFull =
+        measure.full.slice(0, insertPos) + textDirection + measure.full.slice(insertPos);
       return { ...measure, full: nextFull };
     });
     changed += updated.changedCount;
@@ -1225,18 +1324,14 @@ type OpApplyResult = {
   message: string;
 };
 
-type ApplyOneOpResult =
-  | { error: string }
-  | { xml: string; changed: boolean; summary: string };
+type ApplyOneOpResult = { error: string } | { xml: string; changed: boolean; summary: string };
 
 function isApplyOneOpError(result: ApplyOneOpResult): result is { error: string } {
   return 'error' in result;
 }
 
 function toApplyOneOpResult(
-  result:
-    | { error: string }
-    | { xml: string; changed: boolean; summary: string },
+  result: { error: string } | { xml: string; changed: boolean; summary: string },
 ): ApplyOneOpResult {
   if ('error' in result) {
     return { error: result.error };
@@ -1267,9 +1362,14 @@ function applyOneOp(xml: string, op: ScoreOp): ApplyOneOpResult {
     case 'delete_text_by_content':
       return toApplyOneOpResult(applyDeleteTextByContent(xml, op));
     case 'transpose_selection':
-      return { error: 'transpose_selection requires WASM executor (pitch arithmetic not supported in XML mode).' };
+      return {
+        error:
+          'transpose_selection requires WASM executor (pitch arithmetic not supported in XML mode).',
+      };
     case 'transpose':
-      return { error: 'transpose requires WASM executor (pitch arithmetic not supported in XML mode).' };
+      return {
+        error: 'transpose requires WASM executor (pitch arithmetic not supported in XML mode).',
+      };
     case 'add_tempo_marking':
       return toApplyOneOpResult(applyAddTempoMarking(xml, op));
     case 'add_dynamic':
@@ -1279,7 +1379,9 @@ function applyOneOp(xml: string, op: ScoreOp): ApplyOneOpResult {
     case 'select_all':
       return { xml, changed: false, summary: 'Selection ops are WASM-only; skipped in XML mode.' };
     case 'replace_selected_text':
-      return { error: 'replace_selected_text requires WASM executor (needs active text selection).' };
+      return {
+        error: 'replace_selected_text requires WASM executor (needs active text selection).',
+      };
     case 'set_duration':
       return { error: 'set_duration requires WASM executor.' };
     case 'set_voice':
@@ -1301,11 +1403,14 @@ function applyOneOp(xml: string, op: ScoreOp): ApplyOneOpResult {
   }
 }
 
-type ScorePartMeasureIndex = Map<string, {
-  partXml: string;
-  measures: Map<number, string>;
-  numbers: number[];
-}>;
+type ScorePartMeasureIndex = Map<
+  string,
+  {
+    partXml: string;
+    measures: Map<number, string>;
+    numbers: number[];
+  }
+>;
 
 function buildPartMeasureIndex(xml: string): ScorePartMeasureIndex {
   const index: ScorePartMeasureIndex = new Map();
@@ -1349,9 +1454,21 @@ function buildOpDerivedPatchOps(
         return [{ op: 'setText', path: '/score-partwise/movement-number', value: op.value }];
       }
       if (op.field === 'composer') {
-        return [{ op: 'setText', path: '/score-partwise/identification/creator[@type=\'composer\']', value: op.value }];
+        return [
+          {
+            op: 'setText',
+            path: "/score-partwise/identification/creator[@type='composer']",
+            value: op.value,
+          },
+        ];
       }
-      return [{ op: 'setText', path: '/score-partwise/identification/creator[@type=\'lyricist\']', value: op.value }];
+      return [
+        {
+          op: 'setText',
+          path: "/score-partwise/identification/creator[@type='lyricist']",
+          value: op.value,
+        },
+      ];
     }
     case 'set_key_signature': {
       const partIds = resolveTargetPartIds(afterXml, op.scope?.partId);
@@ -1498,11 +1615,13 @@ function buildMeasureDiffFallbackPatch(beforeXml: string, afterXml: string): Mus
   if (beforePartIds.join('|') !== afterPartIds.join('|')) {
     return {
       format: 'musicxml-patch@1',
-      ops: [{
-        op: 'replace',
-        path: '/score-partwise',
-        value: afterXml,
-      }],
+      ops: [
+        {
+          op: 'replace',
+          path: '/score-partwise',
+          value: afterXml,
+        },
+      ],
     };
   }
 
@@ -1537,11 +1656,13 @@ function buildMeasureDiffFallbackPatch(beforeXml: string, afterXml: string): Mus
   if (!ops.length) {
     return {
       format: 'musicxml-patch@1',
-      ops: [{
-        op: 'replace',
-        path: '/score-partwise',
-        value: afterXml,
-      }],
+      ops: [
+        {
+          op: 'replace',
+          path: '/score-partwise',
+          value: afterXml,
+        },
+      ],
     };
   }
   return { format: 'musicxml-patch@1', ops };
@@ -1584,9 +1705,7 @@ function buildScoreOpsPatch(
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
-function normalizeExecutorPreference(
-  optionPreference: unknown,
-): ScoreOpsExecutorMode {
+function normalizeExecutorPreference(optionPreference: unknown): ScoreOpsExecutorMode {
   if (optionPreference === 'wasm' || optionPreference === 'xml' || optionPreference === 'auto') {
     return optionPreference;
   }
@@ -1686,7 +1805,10 @@ async function selectMeasureOnScore(
   measureNumber: number,
 ): Promise<{ ok: boolean; reason?: string }> {
   if (!score.selectPartMeasureByIndex) {
-    return { ok: false, reason: 'selectPartMeasureByIndex is unavailable in this webmscore runtime.' };
+    return {
+      ok: false,
+      reason: 'selectPartMeasureByIndex is unavailable in this webmscore runtime.',
+    };
   }
   const partIndex = partIndexById.get(partId);
   if (partIndex === undefined) {
@@ -1701,21 +1823,18 @@ async function selectMeasureOnScore(
 
 type WasmExecutionResult =
   | {
-    ok: true;
-    xml: string;
-    applied: OpApplyResult[];
-    summaries: string[];
-    exports?: Record<string, string>;
-  }
+      ok: true;
+      xml: string;
+      applied: OpApplyResult[];
+      summaries: string[];
+      exports?: Record<string, string>;
+    }
   | {
-    ok: false;
-    fallbackReason: string;
-  };
+      ok: false;
+      fallbackReason: string;
+    };
 
-async function executeOpsWithWasm(
-  beforeXml: string,
-  ops: ScoreOp[],
-): Promise<WasmExecutionResult> {
+async function executeOpsWithWasm(beforeXml: string, ops: ScoreOp[]): Promise<WasmExecutionResult> {
   let score: Score | null = null;
   try {
     const webMscore = await loadWebMscoreInProcess();
@@ -1739,7 +1858,10 @@ async function executeOpsWithWasm(
       }
 
       if (op.op === 'delete_text_by_content') {
-        return { ok: false, fallbackReason: 'delete_text_by_content is not supported by wasm executor.' };
+        return {
+          ok: false,
+          fallbackReason: 'delete_text_by_content is not supported by wasm executor.',
+        };
       }
 
       if (op.op === 'export_score') {
@@ -1765,9 +1887,10 @@ async function executeOpsWithWasm(
           index,
           op: 'export_score',
           ok: exportedFormats.length > 0,
-          message: exportedFormats.length > 0
-            ? `Exported: ${exportedFormats.join(', ')}`
-            : 'No formats could be exported.',
+          message:
+            exportedFormats.length > 0
+              ? `Exported: ${exportedFormats.join(', ')}`
+              : 'No formats could be exported.',
         });
         if (exportedFormats.length > 0) {
           summaries.push(`Exported score in ${exportedFormats.join(', ')} format(s).`);
@@ -1782,64 +1905,112 @@ async function executeOpsWithWasm(
         } as const;
         const setter = methodMap[op.field];
         if (typeof setter !== 'function') {
-          return { ok: false, fallbackReason: `Missing wasm setter for metadata field: ${op.field}` };
+          return {
+            ok: false,
+            fallbackReason: `Missing wasm setter for metadata field: ${op.field}`,
+          };
         }
         await Promise.resolve(setter(op.value));
       } else if (op.op === 'set_key_signature') {
         if (typeof score.setKeySignature !== 'function') {
-          return { ok: false, fallbackReason: 'setKeySignature is unavailable in current webmscore runtime.' };
+          return {
+            ok: false,
+            fallbackReason: 'setKeySignature is unavailable in current webmscore runtime.',
+          };
         }
         for (const target of targets) {
-          const selected = await selectMeasureOnScore(score, partIndexById, target.partId, target.measureNumber);
+          const selected = await selectMeasureOnScore(
+            score,
+            partIndexById,
+            target.partId,
+            target.measureNumber,
+          );
           if (!selected.ok) {
-            return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+            return {
+              ok: false,
+              fallbackReason: selected.reason || 'Failed to select target measure.',
+            };
           }
           await Promise.resolve(score.setKeySignature(op.fifths));
         }
       } else if (op.op === 'set_time_signature') {
         if (typeof score.setTimeSignature !== 'function') {
-          return { ok: false, fallbackReason: 'setTimeSignature is unavailable in current webmscore runtime.' };
+          return {
+            ok: false,
+            fallbackReason: 'setTimeSignature is unavailable in current webmscore runtime.',
+          };
         }
         for (const target of targets) {
-          const selected = await selectMeasureOnScore(score, partIndexById, target.partId, target.measureNumber);
+          const selected = await selectMeasureOnScore(
+            score,
+            partIndexById,
+            target.partId,
+            target.measureNumber,
+          );
           if (!selected.ok) {
-            return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+            return {
+              ok: false,
+              fallbackReason: selected.reason || 'Failed to select target measure.',
+            };
           }
           await Promise.resolve(score.setTimeSignature(op.numerator, op.denominator));
         }
       } else if (op.op === 'set_clef') {
         if (typeof score.setClef !== 'function') {
-          return { ok: false, fallbackReason: 'setClef is unavailable in current webmscore runtime.' };
+          return {
+            ok: false,
+            fallbackReason: 'setClef is unavailable in current webmscore runtime.',
+          };
         }
         const clefValue = mapClefToWasmValue(op.clef);
         for (const target of targets) {
-          const selected = await selectMeasureOnScore(score, partIndexById, target.partId, target.measureNumber);
+          const selected = await selectMeasureOnScore(
+            score,
+            partIndexById,
+            target.partId,
+            target.measureNumber,
+          );
           if (!selected.ok) {
-            return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+            return {
+              ok: false,
+              fallbackReason: selected.reason || 'Failed to select target measure.',
+            };
           }
           await Promise.resolve(score.setClef(clefValue));
         }
       } else if (op.op === 'insert_measures') {
         if (typeof score.insertMeasures !== 'function') {
-          return { ok: false, fallbackReason: 'insertMeasures is unavailable in current webmscore runtime.' };
+          return {
+            ok: false,
+            fallbackReason: 'insertMeasures is unavailable in current webmscore runtime.',
+          };
         }
         if (op.target === 'after_measure') {
           const partId = op.partId || Array.from(partIndexById.keys())[0];
           const afterMeasure = op.afterMeasure || 1;
           const selected = await selectMeasureOnScore(score, partIndexById, partId, afterMeasure);
           if (!selected.ok) {
-            return { ok: false, fallbackReason: selected.reason || 'Failed to select insert anchor.' };
+            return {
+              ok: false,
+              fallbackReason: selected.reason || 'Failed to select insert anchor.',
+            };
           }
         }
         await Promise.resolve(score.insertMeasures(op.count, mapInsertTarget(op.target)));
       } else if (op.op === 'add_pickup') {
         if (typeof score.addPickupMeasure !== 'function') {
-          return { ok: false, fallbackReason: 'addPickupMeasure is unavailable in current webmscore runtime.' };
+          return {
+            ok: false,
+            fallbackReason: 'addPickupMeasure is unavailable in current webmscore runtime.',
+          };
         }
         await Promise.resolve(score.addPickupMeasure(op.numerator, op.denominator));
       } else if (op.op === 'remove_measures' || op.op === 'delete_selection') {
         if (typeof score.removeSelectedMeasures !== 'function') {
-          return { ok: false, fallbackReason: 'removeSelectedMeasures is unavailable in current webmscore runtime.' };
+          return {
+            ok: false,
+            fallbackReason: 'removeSelectedMeasures is unavailable in current webmscore runtime.',
+          };
         }
         const scope = op.scope;
         if (!scope.measureStart) {
@@ -1850,21 +2021,40 @@ async function executeOpsWithWasm(
         for (const partId of partIds) {
           const deleteCount = Math.max(0, end - scope.measureStart + 1);
           for (let i = 0; i < deleteCount; i += 1) {
-            const selected = await selectMeasureOnScore(score, partIndexById, partId, scope.measureStart);
+            const selected = await selectMeasureOnScore(
+              score,
+              partIndexById,
+              partId,
+              scope.measureStart,
+            );
             if (!selected.ok) {
-              return { ok: false, fallbackReason: selected.reason || 'Failed to select measure for deletion.' };
+              return {
+                ok: false,
+                fallbackReason: selected.reason || 'Failed to select measure for deletion.',
+              };
             }
             await Promise.resolve(score.removeSelectedMeasures());
           }
         }
       } else if (op.op === 'transpose_selection') {
         if (typeof score.transpose !== 'function') {
-          return { ok: false, fallbackReason: 'transpose is unavailable in current webmscore runtime.' };
+          return {
+            ok: false,
+            fallbackReason: 'transpose is unavailable in current webmscore runtime.',
+          };
         }
         for (const target of targets) {
-          const selected = await selectMeasureOnScore(score, partIndexById, target.partId, target.measureNumber);
+          const selected = await selectMeasureOnScore(
+            score,
+            partIndexById,
+            target.partId,
+            target.measureNumber,
+          );
           if (!selected.ok) {
-            return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+            return {
+              ok: false,
+              fallbackReason: selected.reason || 'Failed to select target measure.',
+            };
           }
           // BY_INTERVAL mode (1), direction: UP(0) or DOWN(1), key=0, interval index, trKeys, trChordNames, doubleSharps
           const semitones = op.semitones;
@@ -1872,14 +2062,28 @@ async function executeOpsWithWasm(
           const direction = semitones >= 0 ? 0 : 1;
           // Map common semitone counts to intervalList indices
           const semiToIdx: Record<number, number> = {
-            1: 3, 2: 4, 3: 7, 4: 8, 5: 11, 6: 12, 7: 14, 8: 17, 9: 18, 10: 21, 11: 22, 12: 25,
+            1: 3,
+            2: 4,
+            3: 7,
+            4: 8,
+            5: 11,
+            6: 12,
+            7: 14,
+            8: 17,
+            9: 18,
+            10: 21,
+            11: 22,
+            12: 25,
           };
           const idx = semiToIdx[absSemi] ?? 0;
           await Promise.resolve(score.transpose(1, direction, 0, idx, true, true, true));
         }
       } else if (op.op === 'transpose') {
         if (typeof score.transpose !== 'function') {
-          return { ok: false, fallbackReason: 'transpose is unavailable in current webmscore runtime.' };
+          return {
+            ok: false,
+            fallbackReason: 'transpose is unavailable in current webmscore runtime.',
+          };
         }
         const modeMap = { to_key: 0, by_interval: 1, diatonically: 2 } as const;
         const dirMap = { up: 0, down: 1, closest: 2 } as const;
@@ -1892,43 +2096,98 @@ async function executeOpsWithWasm(
         const tDoubleSharps = op.useDoubleSharpsFlats ?? true;
         if (targets.length > 0) {
           for (const target of targets) {
-            const selected = await selectMeasureOnScore(score, partIndexById, target.partId, target.measureNumber);
+            const selected = await selectMeasureOnScore(
+              score,
+              partIndexById,
+              target.partId,
+              target.measureNumber,
+            );
             if (!selected.ok) {
-              return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+              return {
+                ok: false,
+                fallbackReason: selected.reason || 'Failed to select target measure.',
+              };
             }
-            await Promise.resolve(score.transpose(tMode, tDir, tKey, tInterval, tKeys, tChordNames, tDoubleSharps));
+            await Promise.resolve(
+              score.transpose(tMode, tDir, tKey, tInterval, tKeys, tChordNames, tDoubleSharps),
+            );
           }
         } else {
           // No scope — transpose whole score (the C++ function auto-selects all if no selection)
-          await Promise.resolve(score.transpose(tMode, tDir, tKey, tInterval, tKeys, tChordNames, tDoubleSharps));
+          await Promise.resolve(
+            score.transpose(tMode, tDir, tKey, tInterval, tKeys, tChordNames, tDoubleSharps),
+          );
         }
       } else if (op.op === 'add_tempo_marking') {
         if (typeof score.addTempoText !== 'function') {
-          return { ok: false, fallbackReason: 'addTempoText is unavailable in current webmscore runtime.' };
+          return {
+            ok: false,
+            fallbackReason: 'addTempoText is unavailable in current webmscore runtime.',
+          };
         }
         if (targets.length) {
-          const selected = await selectMeasureOnScore(score, partIndexById, targets[0].partId, targets[0].measureNumber);
+          const selected = await selectMeasureOnScore(
+            score,
+            partIndexById,
+            targets[0].partId,
+            targets[0].measureNumber,
+          );
           if (!selected.ok) {
-            return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+            return {
+              ok: false,
+              fallbackReason: selected.reason || 'Failed to select target measure.',
+            };
           }
         }
         await Promise.resolve(score.addTempoText(op.bpm));
       } else if (op.op === 'add_dynamic') {
         if (typeof score.addDynamic !== 'function') {
-          return { ok: false, fallbackReason: 'addDynamic is unavailable in current webmscore runtime.' };
+          return {
+            ok: false,
+            fallbackReason: 'addDynamic is unavailable in current webmscore runtime.',
+          };
         }
         // Maps to engraving::DynamicType enum in libmscore (types.h)
         const dynamicTypeMap: Record<string, number> = {
-          pppppp: 1, ppppp: 2, pppp: 3, ppp: 4, pp: 5, p: 6, mp: 7, mf: 8,
-          f: 9, ff: 10, fff: 11, ffff: 12, fffff: 13, ffffff: 14,
-          fp: 15, pf: 16, sf: 17, sfz: 18, sff: 19, sffz: 20,
-          sfp: 21, sfpp: 22, rfz: 23, rf: 24, fz: 25,
+          pppppp: 1,
+          ppppp: 2,
+          pppp: 3,
+          ppp: 4,
+          pp: 5,
+          p: 6,
+          mp: 7,
+          mf: 8,
+          f: 9,
+          ff: 10,
+          fff: 11,
+          ffff: 12,
+          fffff: 13,
+          ffffff: 14,
+          fp: 15,
+          pf: 16,
+          sf: 17,
+          sfz: 18,
+          sff: 19,
+          sffz: 20,
+          sfp: 21,
+          sfpp: 22,
+          rfz: 23,
+          rf: 24,
+          fz: 25,
         };
         const dynamicTypeCode = dynamicTypeMap[op.dynamic] ?? 8;
         if (targets.length) {
-          const selected = await selectMeasureOnScore(score, partIndexById, targets[0].partId, targets[0].measureNumber);
+          const selected = await selectMeasureOnScore(
+            score,
+            partIndexById,
+            targets[0].partId,
+            targets[0].measureNumber,
+          );
           if (!selected.ok) {
-            return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+            return {
+              ok: false,
+              fallbackReason: selected.reason || 'Failed to select target measure.',
+            };
           }
         }
         await Promise.resolve(score.addDynamic(dynamicTypeCode));
@@ -1939,49 +2198,102 @@ async function executeOpsWithWasm(
         }
         const rangeTargets = enumerateTargetsForScope(currentXml, scope);
         for (const target of rangeTargets) {
-          const selected = await selectMeasureOnScore(score, partIndexById, target.partId, target.measureNumber);
+          const selected = await selectMeasureOnScore(
+            score,
+            partIndexById,
+            target.partId,
+            target.measureNumber,
+          );
           if (!selected.ok) {
-            return { ok: false, fallbackReason: selected.reason || 'Failed to select measure range.' };
+            return {
+              ok: false,
+              fallbackReason: selected.reason || 'Failed to select measure range.',
+            };
           }
         }
       } else if (op.op === 'replace_selected_text') {
         if (typeof score.setSelectedText !== 'function') {
-          return { ok: false, fallbackReason: 'setSelectedText is unavailable in current webmscore runtime.' };
+          return {
+            ok: false,
+            fallbackReason: 'setSelectedText is unavailable in current webmscore runtime.',
+          };
         }
         if (targets.length) {
-          const selected = await selectMeasureOnScore(score, partIndexById, targets[0].partId, targets[0].measureNumber);
+          const selected = await selectMeasureOnScore(
+            score,
+            partIndexById,
+            targets[0].partId,
+            targets[0].measureNumber,
+          );
           if (!selected.ok) {
-            return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+            return {
+              ok: false,
+              fallbackReason: selected.reason || 'Failed to select target measure.',
+            };
           }
         }
         await Promise.resolve(score.setSelectedText(op.value));
       } else if (op.op === 'set_duration') {
         if (typeof score.setDurationType !== 'function') {
-          return { ok: false, fallbackReason: 'setDurationType is unavailable in current webmscore runtime.' };
+          return {
+            ok: false,
+            fallbackReason: 'setDurationType is unavailable in current webmscore runtime.',
+          };
         }
         // Maps to engraving::DurationType enum in libmscore (types.h)
         const durationTypeMap: Record<string, number> = {
-          long: 0, breve: 1, whole: 2, half: 3, quarter: 4, eighth: 5,
-          '16th': 6, '32nd': 7, '64th': 8, '128th': 9, '256th': 10, '512th': 11, '1024th': 12,
+          long: 0,
+          breve: 1,
+          whole: 2,
+          half: 3,
+          quarter: 4,
+          eighth: 5,
+          '16th': 6,
+          '32nd': 7,
+          '64th': 8,
+          '128th': 9,
+          '256th': 10,
+          '512th': 11,
+          '1024th': 12,
         };
         const durationCode = durationTypeMap[op.durationType] ?? 4;
         for (const target of targets) {
-          const selected = await selectMeasureOnScore(score, partIndexById, target.partId, target.measureNumber);
+          const selected = await selectMeasureOnScore(
+            score,
+            partIndexById,
+            target.partId,
+            target.measureNumber,
+          );
           if (!selected.ok) {
-            return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+            return {
+              ok: false,
+              fallbackReason: selected.reason || 'Failed to select target measure.',
+            };
           }
           await Promise.resolve(score.setDurationType(durationCode));
         }
       } else if (op.op === 'set_voice') {
         const voiceMethod = score.changeSelectedElementsVoice || score.setVoice;
         if (typeof voiceMethod !== 'function') {
-          return { ok: false, fallbackReason: 'setVoice/changeSelectedElementsVoice is unavailable in current webmscore runtime.' };
+          return {
+            ok: false,
+            fallbackReason:
+              'setVoice/changeSelectedElementsVoice is unavailable in current webmscore runtime.',
+          };
         }
         const voiceIndex = op.voice - 1; // API uses 0-based, schema uses 1-based
         for (const target of targets) {
-          const selected = await selectMeasureOnScore(score, partIndexById, target.partId, target.measureNumber);
+          const selected = await selectMeasureOnScore(
+            score,
+            partIndexById,
+            target.partId,
+            target.measureNumber,
+          );
           if (!selected.ok) {
-            return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+            return {
+              ok: false,
+              fallbackReason: selected.reason || 'Failed to select target measure.',
+            };
           }
           await Promise.resolve(voiceMethod(voiceIndex));
         }
@@ -1994,28 +2306,49 @@ async function executeOpsWithWasm(
           for (let m = 1; m <= lastMeasure; m += 1) {
             const selected = await selectMeasureOnScore(score, partIndexById, partId, m);
             if (!selected.ok) {
-              return { ok: false, fallbackReason: selected.reason || 'Failed to select all measures.' };
+              return {
+                ok: false,
+                fallbackReason: selected.reason || 'Failed to select all measures.',
+              };
             }
           }
         }
       } else if (op.op === 'set_accidental') {
         if (typeof score.setAccidental !== 'function') {
-          return { ok: false, fallbackReason: 'setAccidental is unavailable in current webmscore runtime.' };
+          return {
+            ok: false,
+            fallbackReason: 'setAccidental is unavailable in current webmscore runtime.',
+          };
         }
         // Maps to engraving::AccidentalType enum
         const accidentalTypeMap: Record<string, number> = {
-          'natural': 0, 'sharp': 1, 'flat': 2, 'double-sharp': 3, 'double-flat': 4,
+          natural: 0,
+          sharp: 1,
+          flat: 2,
+          'double-sharp': 3,
+          'double-flat': 4,
         };
         const accidentalCode = accidentalTypeMap[op.accidental] ?? 0;
         for (const target of targets) {
-          const selected = await selectMeasureOnScore(score, partIndexById, target.partId, target.measureNumber);
+          const selected = await selectMeasureOnScore(
+            score,
+            partIndexById,
+            target.partId,
+            target.measureNumber,
+          );
           if (!selected.ok) {
-            return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+            return {
+              ok: false,
+              fallbackReason: selected.reason || 'Failed to select target measure.',
+            };
           }
           await Promise.resolve(score.setAccidental(accidentalCode));
         }
       } else if (op.op === 'insert_text') {
-        const textMethodMap: Record<string, ((text: string) => Promise<unknown> | unknown) | undefined> = {
+        const textMethodMap: Record<
+          string,
+          ((text: string) => Promise<unknown> | unknown) | undefined
+        > = {
           staff: score.addStaffText,
           system: score.addSystemText,
           expression: score.addExpressionText,
@@ -2024,59 +2357,114 @@ async function executeOpsWithWasm(
         const textMethod = textMethodMap[op.kind];
         if (op.kind === 'harmony') {
           if (typeof score.addHarmonyText !== 'function') {
-            return { ok: false, fallbackReason: 'addHarmonyText is unavailable in current webmscore runtime.' };
+            return {
+              ok: false,
+              fallbackReason: 'addHarmonyText is unavailable in current webmscore runtime.',
+            };
           }
           if (targets.length) {
-            const selected = await selectMeasureOnScore(score, partIndexById, targets[0].partId, targets[0].measureNumber);
+            const selected = await selectMeasureOnScore(
+              score,
+              partIndexById,
+              targets[0].partId,
+              targets[0].measureNumber,
+            );
             if (!selected.ok) {
-              return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+              return {
+                ok: false,
+                fallbackReason: selected.reason || 'Failed to select target measure.',
+              };
             }
           }
           await Promise.resolve(score.addHarmonyText(0, op.text));
         } else if (typeof textMethod === 'function') {
           if (targets.length) {
-            const selected = await selectMeasureOnScore(score, partIndexById, targets[0].partId, targets[0].measureNumber);
+            const selected = await selectMeasureOnScore(
+              score,
+              partIndexById,
+              targets[0].partId,
+              targets[0].measureNumber,
+            );
             if (!selected.ok) {
-              return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+              return {
+                ok: false,
+                fallbackReason: selected.reason || 'Failed to select target measure.',
+              };
             }
           }
           await Promise.resolve(textMethod(op.text));
         } else {
-          return { ok: false, fallbackReason: `Text method for kind "${op.kind}" is unavailable in current webmscore runtime.` };
+          return {
+            ok: false,
+            fallbackReason: `Text method for kind "${op.kind}" is unavailable in current webmscore runtime.`,
+          };
         }
       } else if (op.op === 'set_layout_break') {
         const breakMethod = op.breakType === 'line' ? score.toggleLineBreak : score.togglePageBreak;
         if (typeof breakMethod !== 'function') {
-          return { ok: false, fallbackReason: `toggle${op.breakType === 'line' ? 'Line' : 'Page'}Break is unavailable in current webmscore runtime.` };
+          return {
+            ok: false,
+            fallbackReason: `toggle${op.breakType === 'line' ? 'Line' : 'Page'}Break is unavailable in current webmscore runtime.`,
+          };
         }
         for (const target of targets) {
-          const selected = await selectMeasureOnScore(score, partIndexById, target.partId, target.measureNumber);
+          const selected = await selectMeasureOnScore(
+            score,
+            partIndexById,
+            target.partId,
+            target.measureNumber,
+          );
           if (!selected.ok) {
-            return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+            return {
+              ok: false,
+              fallbackReason: selected.reason || 'Failed to select target measure.',
+            };
           }
           await Promise.resolve(breakMethod());
         }
       } else if (op.op === 'set_repeat_markers') {
         if (op.start !== undefined) {
           if (typeof score.toggleRepeatStart !== 'function') {
-            return { ok: false, fallbackReason: 'toggleRepeatStart is unavailable in current webmscore runtime.' };
+            return {
+              ok: false,
+              fallbackReason: 'toggleRepeatStart is unavailable in current webmscore runtime.',
+            };
           }
           for (const target of targets) {
-            const selected = await selectMeasureOnScore(score, partIndexById, target.partId, target.measureNumber);
+            const selected = await selectMeasureOnScore(
+              score,
+              partIndexById,
+              target.partId,
+              target.measureNumber,
+            );
             if (!selected.ok) {
-              return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+              return {
+                ok: false,
+                fallbackReason: selected.reason || 'Failed to select target measure.',
+              };
             }
             await Promise.resolve(score.toggleRepeatStart());
           }
         }
         if (op.end !== undefined) {
           if (typeof score.toggleRepeatEnd !== 'function') {
-            return { ok: false, fallbackReason: 'toggleRepeatEnd is unavailable in current webmscore runtime.' };
+            return {
+              ok: false,
+              fallbackReason: 'toggleRepeatEnd is unavailable in current webmscore runtime.',
+            };
           }
           for (const target of targets) {
-            const selected = await selectMeasureOnScore(score, partIndexById, target.partId, target.measureNumber);
+            const selected = await selectMeasureOnScore(
+              score,
+              partIndexById,
+              target.partId,
+              target.measureNumber,
+            );
             if (!selected.ok) {
-              return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+              return {
+                ok: false,
+                fallbackReason: selected.reason || 'Failed to select target measure.',
+              };
             }
             await Promise.resolve(score.toggleRepeatEnd());
           }
@@ -2086,13 +2474,26 @@ async function executeOpsWithWasm(
         }
         if (op.barline !== undefined && typeof score.setBarLineType === 'function') {
           const barlineTypeMap: Record<string, number> = {
-            normal: 1, double: 2, end: 3, 'start-repeat': 4, 'end-repeat': 5, 'end-start-repeat': 6,
+            normal: 1,
+            double: 2,
+            end: 3,
+            'start-repeat': 4,
+            'end-repeat': 5,
+            'end-start-repeat': 6,
           };
           const barlineCode = barlineTypeMap[op.barline] ?? 1;
           for (const target of targets) {
-            const selected = await selectMeasureOnScore(score, partIndexById, target.partId, target.measureNumber);
+            const selected = await selectMeasureOnScore(
+              score,
+              partIndexById,
+              target.partId,
+              target.measureNumber,
+            );
             if (!selected.ok) {
-              return { ok: false, fallbackReason: selected.reason || 'Failed to select target measure.' };
+              return {
+                ok: false,
+                fallbackReason: selected.reason || 'Failed to select target measure.',
+              };
             }
             await Promise.resolve(score.setBarLineType(barlineCode));
           }
@@ -2100,13 +2501,19 @@ async function executeOpsWithWasm(
       } else if (op.op === 'history_step') {
         const historyMethod = op.direction === 'undo' ? score.undo : score.redo;
         if (typeof historyMethod !== 'function') {
-          return { ok: false, fallbackReason: `${op.direction} is unavailable in current webmscore runtime.` };
+          return {
+            ok: false,
+            fallbackReason: `${op.direction} is unavailable in current webmscore runtime.`,
+          };
         }
         for (let i = 0; i < op.steps; i += 1) {
           await Promise.resolve(historyMethod());
         }
       } else {
-        return { ok: false, fallbackReason: `Unsupported wasm operation: ${(op as { op: string }).op}` };
+        return {
+          ok: false,
+          fallbackReason: `Unsupported wasm operation: ${(op as { op: string }).op}`,
+        };
       }
 
       await relayoutIfSupported(score);
@@ -2135,9 +2542,10 @@ async function executeOpsWithWasm(
   } catch (error) {
     return {
       ok: false,
-      fallbackReason: error instanceof Error
-        ? `WASM execution failed: ${error.message}`
-        : 'WASM execution failed.',
+      fallbackReason:
+        error instanceof Error
+          ? `WASM execution failed: ${error.message}`
+          : 'WASM execution failed.',
     };
   } finally {
     if (score) {
@@ -2203,10 +2611,11 @@ function buildDefaultMutationSupport(): ScoreOpsMutationOpSupport {
 function evaluateWasmMutationSupport(wasmMethods: Set<string>) {
   const has = (name: string) => wasmMethods.has(name);
   const requiresSelectionOps = has('saveXml') && has('selectPartMeasureByIndex');
-  const hasAnyMetadataSetter = has('setTitleText')
-    || has('setSubtitleText')
-    || has('setComposerText')
-    || has('setLyricistText');
+  const hasAnyMetadataSetter =
+    has('setTitleText') ||
+    has('setSubtitleText') ||
+    has('setComposerText') ||
+    has('setLyricistText');
   return {
     set_metadata_text: has('saveXml') && hasAnyMetadataSetter,
     set_key_signature: requiresSelectionOps && has('setKeySignature'),
@@ -2226,9 +2635,17 @@ function evaluateWasmMutationSupport(wasmMethods: Set<string>) {
     set_duration: requiresSelectionOps && has('setDurationType'),
     set_voice: requiresSelectionOps && (has('changeSelectedElementsVoice') || has('setVoice')),
     set_accidental: requiresSelectionOps && has('setAccidental'),
-    insert_text: requiresSelectionOps && (has('addStaffText') || has('addSystemText') || has('addExpressionText') || has('addLyricText') || has('addHarmonyText')),
+    insert_text:
+      requiresSelectionOps &&
+      (has('addStaffText') ||
+        has('addSystemText') ||
+        has('addExpressionText') ||
+        has('addLyricText') ||
+        has('addHarmonyText')),
     set_layout_break: requiresSelectionOps && (has('toggleLineBreak') || has('togglePageBreak')),
-    set_repeat_markers: requiresSelectionOps && (has('toggleRepeatStart') || has('toggleRepeatEnd') || has('setBarLineType')),
+    set_repeat_markers:
+      requiresSelectionOps &&
+      (has('toggleRepeatStart') || has('toggleRepeatEnd') || has('setBarLineType')),
     history_step: has('saveXml') && (has('undo') || has('redo')),
     add_pickup: has('addPickupMeasure') || has('saveXml'),
     export_score: has('saveMxl') || has('saveMidi') || has('savePdf'),
@@ -2248,7 +2665,9 @@ async function probeWasmCapabilities(): Promise<ScoreOpsWasmProbe> {
     try {
       const webMscore = await loadWebMscoreInProcess();
       score = await webMscore.load('musicxml', textEncoder.encode(SCOREOPS_CAPABILITY_PROBE_XML));
-      const detected = SCOREOPS_WASM_METHOD_KEYS.filter((name) => typeof score?.[name] === 'function');
+      const detected = SCOREOPS_WASM_METHOD_KEYS.filter(
+        (name) => typeof score?.[name] === 'function',
+      );
       wasmProbeCache = {
         available: true,
         wasmMethods: detected,
@@ -2291,11 +2710,7 @@ async function buildCapabilities(): Promise<ScoreOpsCapabilitySnapshot> {
   }
 
   return {
-    ops: [
-      ...SCOREOPS_INSPECT_OPS,
-      ...SCOREOPS_MUTATION_OPS,
-      ...SCOREOPS_SELECTION_OPS,
-    ],
+    ops: [...SCOREOPS_INSPECT_OPS, ...SCOREOPS_MUTATION_OPS, ...SCOREOPS_SELECTION_OPS],
     mutationOps,
     runtime: {
       executor: 'musicxml-string',
@@ -2316,7 +2731,12 @@ async function resolveSourceMusicXml(data: {
   score_session_id?: string;
   content?: string;
   text?: string;
-}): Promise<{ xml: string; artifact: ScoreArtifact | null; session: ScoreOpsSessionState | null; error?: ScoreOpsServiceResult }> {
+}): Promise<{
+  xml: string;
+  artifact: ScoreArtifact | null;
+  session: ScoreOpsSessionState | null;
+  error?: ScoreOpsServiceResult;
+}> {
   const resolution = await resolveScoreContent(data);
   return {
     xml: resolution.xml,
@@ -2326,23 +2746,27 @@ async function resolveSourceMusicXml(data: {
   };
 }
 
-async function openSession(payload: z.infer<typeof OPEN_REQUEST_SCHEMA>): Promise<ScoreOpsServiceResult> {
+async function openSession(
+  payload: z.infer<typeof OPEN_REQUEST_SCHEMA>,
+): Promise<ScoreOpsServiceResult> {
   const resolved = await resolveSourceMusicXml(payload);
   if (resolved.error) {
     return resolved.error;
   }
   const sessionMetadata = buildSessionMetadata(payload);
 
-  const initialArtifact = resolved.artifact || await createScoreArtifact({
-    format: 'musicxml',
-    content: resolved.xml,
-    label: 'scoreops-open',
-    metadata: {
-      origin: 'api/music/scoreops/session/open',
-      scoreMeta: payload.scoreMeta || payload.score_meta || null,
-      launchContext: sessionMetadata?.launchContext || null,
-    },
-  });
+  const initialArtifact =
+    resolved.artifact ||
+    (await createScoreArtifact({
+      format: 'musicxml',
+      content: resolved.xml,
+      label: 'scoreops-open',
+      metadata: {
+        origin: 'api/music/scoreops/session/open',
+        scoreMeta: payload.scoreMeta || payload.score_meta || null,
+        launchContext: sessionMetadata?.launchContext || null,
+      },
+    }));
 
   const session = createScoreOpsSession({
     content: resolved.xml,
@@ -2374,15 +2798,23 @@ function getSessionForRequest(scoreSessionId: string | undefined) {
   return getScoreOpsSession(scoreSessionId);
 }
 
-function ensureRevision(session: ScoreOpsSessionState, baseRevision: number | undefined): ScoreOpsServiceResult | null {
+function ensureRevision(
+  session: ScoreOpsSessionState,
+  baseRevision: number | undefined,
+): ScoreOpsServiceResult | null {
   if (baseRevision === undefined) {
     return null;
   }
   if (baseRevision !== session.revision) {
-    return errorResult(409, 'stale_revision', `baseRevision=${baseRevision} is stale; latest is ${session.revision}`, {
-      latestRevision: session.revision,
-      scoreSessionId: session.scoreSessionId,
-    });
+    return errorResult(
+      409,
+      'stale_revision',
+      `baseRevision=${baseRevision} is stale; latest is ${session.revision}`,
+      {
+        latestRevision: session.revision,
+        scoreSessionId: session.scoreSessionId,
+      },
+    );
   }
   return null;
 }
@@ -2403,7 +2835,9 @@ function buildSelectionSummary(scope?: ScoreScope) {
   };
 }
 
-async function inspectSession(payload: z.infer<typeof INSPECT_REQUEST_SCHEMA>): Promise<ScoreOpsServiceResult> {
+async function inspectSession(
+  payload: z.infer<typeof INSPECT_REQUEST_SCHEMA>,
+): Promise<ScoreOpsServiceResult> {
   const session = getSessionForRequest(payload.scoreSessionId);
   if (!session) {
     return errorResult(404, 'session_not_found', 'ScoreOps session not found.', {
@@ -2445,7 +2879,13 @@ async function inspectSession(payload: z.infer<typeof INSPECT_REQUEST_SCHEMA>): 
     };
   }
   if (include.measureSignatures) {
-    const signatures = (Array.from(session.content.matchAll(/<time\b[^>]*>[\s\S]*?<beats>(\d+)<\/beats>[\s\S]*?<beat-type>(\d+)<\/beat-type>[\s\S]*?<\/time>/gi)) as RegExpMatchArray[])
+    const signatures = (
+      Array.from(
+        session.content.matchAll(
+          /<time\b[^>]*>[\s\S]*?<beats>(\d+)<\/beats>[\s\S]*?<beat-type>(\d+)<\/beat-type>[\s\S]*?<\/time>/gi,
+        ),
+      ) as RegExpMatchArray[]
+    )
       .slice(0, 24)
       .map((match) => `${match[1]}/${match[2]}`);
     body.measureSignatures = signatures;
@@ -2457,13 +2897,21 @@ async function inspectSession(payload: z.infer<typeof INSPECT_REQUEST_SCHEMA>): 
         const measures = parseMeasureBlocks(targetPart.content);
         const scopeStart = payload.scope.measureStart ?? 1;
         const scopeEnd = payload.scope.measureEnd ?? scopeStart;
-        const partSigs: Array<{ measure: number; key: string | null; time: string | null; clef: string | null }> = [];
+        const partSigs: Array<{
+          measure: number;
+          key: string | null;
+          time: string | null;
+          clef: string | null;
+        }> = [];
         for (const measure of measures) {
           if (measure.number === null) continue;
           if (measure.number < scopeStart || measure.number > scopeEnd) continue;
-          const fifths = measure.full.match(/<key\b[^>]*>[\s\S]*?<fifths>(-?\d+)<\/fifths>/i)?.[1] ?? null;
+          const fifths =
+            measure.full.match(/<key\b[^>]*>[\s\S]*?<fifths>(-?\d+)<\/fifths>/i)?.[1] ?? null;
           const beats = measure.full.match(/<time\b[^>]*>[\s\S]*?<beats>(\d+)<\/beats>/i)?.[1];
-          const beatType = measure.full.match(/<time\b[^>]*>[\s\S]*?<beat-type>(\d+)<\/beat-type>/i)?.[1];
+          const beatType = measure.full.match(
+            /<time\b[^>]*>[\s\S]*?<beat-type>(\d+)<\/beat-type>/i,
+          )?.[1];
           const clefSign = measure.full.match(/<clef\b[^>]*>[\s\S]*?<sign>([A-Z])<\/sign>/i)?.[1];
           partSigs.push({
             measure: measure.number,
@@ -2510,14 +2958,16 @@ async function ensureSessionForApplyOrSync(payload: {
     return { session: null, error: resolved.error };
   }
 
-  const artifact = resolved.artifact || await createScoreArtifact({
-    format: 'musicxml',
-    content: resolved.xml,
-    label: 'scoreops-lazy-open',
-    metadata: {
-      origin: 'api/music/scoreops/lazy-open',
-    },
-  });
+  const artifact =
+    resolved.artifact ||
+    (await createScoreArtifact({
+      format: 'musicxml',
+      content: resolved.xml,
+      label: 'scoreops-lazy-open',
+      metadata: {
+        origin: 'api/music/scoreops/lazy-open',
+      },
+    }));
 
   const session = createScoreOpsSession({
     content: resolved.xml,
@@ -2529,7 +2979,9 @@ async function ensureSessionForApplyOrSync(payload: {
   return { session };
 }
 
-async function applyOps(payload: z.infer<typeof APPLY_REQUEST_SCHEMA>): Promise<ScoreOpsServiceResult> {
+async function applyOps(
+  payload: z.infer<typeof APPLY_REQUEST_SCHEMA>,
+): Promise<ScoreOpsServiceResult> {
   const mutationMode = payload.mutationMode ?? 'commit';
   let session: ScoreOpsSessionState | null = null;
   if (mutationMode === 'proposal') {
@@ -2625,9 +3077,10 @@ async function applyOps(payload: z.infer<typeof APPLY_REQUEST_SCHEMA>): Promise<
           index,
           op: 'export_score',
           ok: exportedFormats.length > 0,
-          message: exportedFormats.length > 0
-            ? `Exported: ${exportedFormats.join(', ')}${unsupported.length ? ` (${unsupported.join(', ')} require WASM)` : ''}`
-            : `${unsupported.join(', ')} export requires WASM executor.`,
+          message:
+            exportedFormats.length > 0
+              ? `Exported: ${exportedFormats.join(', ')}${unsupported.length ? ` (${unsupported.join(', ')} require WASM)` : ''}`
+              : `${unsupported.join(', ')} export requires WASM executor.`,
         });
         if (exportedFormats.length > 0) {
           summaries.push(`Exported score as ${exportedFormats.join(', ')}.`);
@@ -2762,9 +3215,15 @@ async function applyOps(payload: z.infer<typeof APPLY_REQUEST_SCHEMA>): Promise<
       changes: {
         summary: summaries.join(' '),
         count: applied.filter((entry) => entry.ok).length,
-        ...(includeMeasureDiff ? {
-          measurePreview: collectMeasurePreview(workingXml, undefined, DEFAULT_INSPECT_MEASURE_LIMIT),
-        } : {}),
+        ...(includeMeasureDiff
+          ? {
+              measurePreview: collectMeasurePreview(
+                workingXml,
+                undefined,
+                DEFAULT_INSPECT_MEASURE_LIMIT,
+              ),
+            }
+          : {}),
       },
       executor: {
         preferred: preferredExecutor,
@@ -2851,9 +3310,15 @@ async function applyOps(payload: z.infer<typeof APPLY_REQUEST_SCHEMA>): Promise<
     changes: {
       summary: summaries.join(' '),
       count: applied.filter((entry) => entry.ok).length,
-      ...(includeMeasureDiff ? {
-        measurePreview: collectMeasurePreview(workingXml, undefined, DEFAULT_INSPECT_MEASURE_LIMIT),
-      } : {}),
+      ...(includeMeasureDiff
+        ? {
+            measurePreview: collectMeasurePreview(
+              workingXml,
+              undefined,
+              DEFAULT_INSPECT_MEASURE_LIMIT,
+            ),
+          }
+        : {}),
     },
     outputArtifact: summarizeScoreArtifact(artifact),
     executor: {
@@ -2891,7 +3356,9 @@ async function applyOps(payload: z.infer<typeof APPLY_REQUEST_SCHEMA>): Promise<
   };
 }
 
-async function syncSession(payload: z.infer<typeof SYNC_REQUEST_SCHEMA>): Promise<ScoreOpsServiceResult> {
+async function syncSession(
+  payload: z.infer<typeof SYNC_REQUEST_SCHEMA>,
+): Promise<ScoreOpsServiceResult> {
   const sessionResolution = await ensureSessionForApplyOrSync(payload);
   if (sessionResolution.error) {
     return sessionResolution.error;
@@ -2912,20 +3379,22 @@ async function syncSession(payload: z.infer<typeof SYNC_REQUEST_SCHEMA>): Promis
   }
   const nextMetadata = buildSessionMetadata(payload, session.metadata);
 
-  const artifact = resolved.artifact || await createScoreArtifact({
-    format: 'musicxml',
-    content: resolved.xml,
-    label: 'scoreops-sync',
-    parentArtifactId: session.artifactId || undefined,
-    sourceArtifactId: session.artifactId || undefined,
-    metadata: {
-      origin: 'api/music/scoreops/sync',
-      scoreSessionId: session.scoreSessionId,
-      baseRevision: session.revision,
-      scoreMeta: payload.scoreMeta || payload.score_meta || null,
-      launchContext: nextMetadata?.launchContext || null,
-    },
-  });
+  const artifact =
+    resolved.artifact ||
+    (await createScoreArtifact({
+      format: 'musicxml',
+      content: resolved.xml,
+      label: 'scoreops-sync',
+      parentArtifactId: session.artifactId || undefined,
+      sourceArtifactId: session.artifactId || undefined,
+      metadata: {
+        origin: 'api/music/scoreops/sync',
+        scoreSessionId: session.scoreSessionId,
+        baseRevision: session.revision,
+        scoreMeta: payload.scoreMeta || payload.score_meta || null,
+        launchContext: nextMetadata?.launchContext || null,
+      },
+    }));
 
   const updated = updateScoreOpsSession(session.scoreSessionId, {
     content: resolved.xml,
@@ -2958,7 +3427,8 @@ export async function runMusicScoreOpsService(
   body: unknown,
   forcedAction?: RequestPayload['action'],
 ): Promise<ScoreOpsServiceResult> {
-  const payloadInput = (body && typeof body === 'object') ? { ...(body as Record<string, unknown>) } : {};
+  const payloadInput =
+    body && typeof body === 'object' ? { ...(body as Record<string, unknown>) } : {};
   if (forcedAction) {
     payloadInput.action = forcedAction;
   }
@@ -2995,21 +3465,27 @@ export async function runMusicScoreOpsService(
   }
 }
 
-export async function runMusicScoreOpsPreviewService(body: unknown): Promise<ScoreOpsServiceResult> {
-  const data = (body && typeof body === 'object') ? body as Record<string, unknown> : {};
-  const options = (data.options && typeof data.options === 'object')
-    ? data.options as Record<string, unknown>
-    : {};
-  return runMusicScoreOpsService({
-    ...data,
-    action: 'apply',
-    mutationMode: 'proposal',
-    options: {
-      ...options,
-      includeXml: true,
-      includeMeasureDiff: true,
+export async function runMusicScoreOpsPreviewService(
+  body: unknown,
+): Promise<ScoreOpsServiceResult> {
+  const data = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+  const options =
+    data.options && typeof data.options === 'object'
+      ? (data.options as Record<string, unknown>)
+      : {};
+  return runMusicScoreOpsService(
+    {
+      ...data,
+      action: 'apply',
+      mutationMode: 'proposal',
+      options: {
+        ...options,
+        includeXml: true,
+        includeMeasureDiff: true,
+      },
     },
-  }, 'apply');
+    'apply',
+  );
 }
 
 const MAJOR_KEY_TO_FIFTHS: Record<string, number> = {
@@ -3092,13 +3568,15 @@ function splitPromptIntoSteps(prompt: string): string[] {
 
   if (rough.length > 1) {
     // Don't propagate scope for numbered/multi-line lists — each step is independent
-    return rough.map((line, index) => {
-      let cleaned = line.replace(/^\d+[\).]\s*/, '').trim();
-      if (index === 0) {
-        cleaned = cleaned.replace(/^please[:,]?\s*/i, '').trim();
-      }
-      return cleaned;
-    }).filter(Boolean);
+    return rough
+      .map((line, index) => {
+        let cleaned = line.replace(/^\d+[\).]\s*/, '').trim();
+        if (index === 0) {
+          cleaned = cleaned.replace(/^please[:,]?\s*/i, '').trim();
+        }
+        return cleaned;
+      })
+      .filter(Boolean);
   }
 
   const single = (rough[0] || prompt).trim();
@@ -3130,7 +3608,7 @@ function splitOnSafeConjunction(text: string): string[] {
 
   // Restore quotes
   return parts.map((part) =>
-    part.replace(/__QUOTE(\d+)__/g, (_m, idx) => `"${quotes[Number(idx)]}"`)
+    part.replace(/__QUOTE(\d+)__/g, (_m, idx) => `"${quotes[Number(idx)]}"`),
   );
 }
 
@@ -3193,7 +3671,8 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
   const unsupportedReasons: string[] = [];
   const stepScope = parseMeasureScopeFromText(stepText);
 
-  const keyRegex = /(?:(?:set|change|correct|fix)\s+(?:the\s+)?)?key(?:\s+signature)?\s+(?:to|as)\s+([A-Ga-g][#b♯♭]?)(?:\s+(major|minor))?/gi;
+  const keyRegex =
+    /(?:(?:set|change|correct|fix)\s+(?:the\s+)?)?key(?:\s+signature)?\s+(?:to|as)\s+([A-Ga-g][#b♯♭]?)(?:\s+(major|minor))?/gi;
   for (const keyMatch of stepText.matchAll(keyRegex)) {
     const tonic = normalizeKeyName(keyMatch[1]);
     const mode = (keyMatch[2] || 'major').toLowerCase();
@@ -3226,7 +3705,8 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
     }
   }
 
-  const metadataRegex = /(?:set|change|update)\s+(title|subtitle|composer|lyricist)\s+(?:to|as)\s+["“]?([^"”,\n]+)["”]?/gi;
+  const metadataRegex =
+    /(?:set|change|update)\s+(title|subtitle|composer|lyricist)\s+(?:to|as)\s+["“]?([^"”,\n]+)["”]?/gi;
   for (const metadataMatch of stepText.matchAll(metadataRegex)) {
     const field = metadataMatch[1].toLowerCase() as z.infer<typeof METADATA_FIELD_SCHEMA>;
     const value = metadataMatch[2].trim();
@@ -3243,7 +3723,9 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
   for (const clefMatch of stepText.matchAll(clefRegex)) {
     const clef = clefMatch[1].toLowerCase() as z.infer<typeof CLEF_SCHEMA>;
     if (/last\s+\d+\s+(?:measure|bar)s?/i.test(stepText) && !stepScope) {
-      unsupportedReasons.push('Clef change references "last N bars/measures", which needs explicit measure numbers.');
+      unsupportedReasons.push(
+        'Clef change references "last N bars/measures", which needs explicit measure numbers.',
+      );
       continue;
     }
     ops.push({
@@ -3253,8 +3735,10 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
     });
   }
 
-  const removeQuotedTextRegex = /(?:remove|delete)\s+(?:the\s+)?text\s+[""\u201C\u201D]([^""\u201C\u201D]+)[""\u201C\u201D]/gi;
-  const removeQuotedReverseRegex = /(?:remove|delete)\s+(?:the\s+)?[""\u201C\u201D]([^""\u201C\u201D]+)[""\u201C\u201D]\s+text/gi;
+  const removeQuotedTextRegex =
+    /(?:remove|delete)\s+(?:the\s+)?text\s+[""\u201C\u201D]([^""\u201C\u201D]+)[""\u201C\u201D]/gi;
+  const removeQuotedReverseRegex =
+    /(?:remove|delete)\s+(?:the\s+)?[""\u201C\u201D]([^""\u201C\u201D]+)[""\u201C\u201D]\s+text/gi;
   for (const removeTextMatch of stepText.matchAll(removeQuotedTextRegex)) {
     const text = removeTextMatch[1].trim();
     if (text) {
@@ -3267,7 +3751,12 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
   }
   for (const removeTextMatch of stepText.matchAll(removeQuotedReverseRegex)) {
     const text = removeTextMatch[1].trim();
-    if (text && !ops.some((op) => op.op === 'delete_text_by_content' && (op as { text: string }).text === text)) {
+    if (
+      text &&
+      !ops.some(
+        (op) => op.op === 'delete_text_by_content' && (op as { text: string }).text === text,
+      )
+    ) {
       ops.push({
         op: 'delete_text_by_content',
         text,
@@ -3277,8 +3766,12 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
   }
 
   if (!ops.some((op) => op.op === 'delete_text_by_content')) {
-    const removeUnquotedTextMatch = stepText.match(/(?:remove|delete)\s+(?:the\s+)?text\s+([A-Z][A-Z0-9 _-]{2,80})/i);
-    const removeUnquotedReverseMatch = stepText.match(/(?:remove|delete)\s+(?:the\s+)?([A-Z][A-Z0-9 _-]{2,80})\s+text/i);
+    const removeUnquotedTextMatch = stepText.match(
+      /(?:remove|delete)\s+(?:the\s+)?text\s+([A-Z][A-Z0-9 _-]{2,80})/i,
+    );
+    const removeUnquotedReverseMatch = stepText.match(
+      /(?:remove|delete)\s+(?:the\s+)?([A-Z][A-Z0-9 _-]{2,80})\s+text/i,
+    );
     if (removeUnquotedTextMatch) {
       ops.push({
         op: 'delete_text_by_content',
@@ -3305,10 +3798,17 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
     });
   }
 
-  const deleteSelectionRegex = /(?:delete|clear|erase)\s+(?:measure|bar)s?\s+(\d+)\s*(?:-|to|through)\s*(\d+)/gi;
+  const deleteSelectionRegex =
+    /(?:delete|clear|erase)\s+(?:measure|bar)s?\s+(\d+)\s*(?:-|to|through)\s*(\d+)/gi;
   for (const deleteMatch of stepText.matchAll(deleteSelectionRegex)) {
-    if (!ops.some((op) => op.op === 'remove_measures'
-      && (op as Extract<ScoreOp, { op: 'remove_measures' }>).scope.measureStart === Number(deleteMatch[1]))) {
+    if (
+      !ops.some(
+        (op) =>
+          op.op === 'remove_measures' &&
+          (op as Extract<ScoreOp, { op: 'remove_measures' }>).scope.measureStart ===
+            Number(deleteMatch[1]),
+      )
+    ) {
       ops.push({
         op: 'delete_selection',
         scope: {
@@ -3319,7 +3819,8 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
     }
   }
 
-  const deleteSingleMeasureRegex = /(?:delete|clear|erase)\s+(?:measure|bar)\s+(\d+)(?!\s*(?:-|to|through))/gi;
+  const deleteSingleMeasureRegex =
+    /(?:delete|clear|erase)\s+(?:measure|bar)\s+(\d+)(?!\s*(?:-|to|through))/gi;
   for (const deleteMatch of stepText.matchAll(deleteSingleMeasureRegex)) {
     const measure = Number(deleteMatch[1]);
     ops.push({
@@ -3331,7 +3832,8 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
     });
   }
 
-  const insertMeasuresRegex = /insert\s+(\d+)\s+(?:measure|bar)s?(?:\s+(?:after\s+(?:measure|bar)\s+(\d+)|at\s+the\s+(beginning|start|end)))?/gi;
+  const insertMeasuresRegex =
+    /insert\s+(\d+)\s+(?:measure|bar)s?(?:\s+(?:after\s+(?:measure|bar)\s+(\d+)|at\s+the\s+(beginning|start|end)))?/gi;
   for (const insertMeasuresMatch of stepText.matchAll(insertMeasuresRegex)) {
     const count = Number(insertMeasuresMatch[1]);
     const afterMeasure = insertMeasuresMatch[2] ? Number(insertMeasuresMatch[2]) : undefined;
@@ -3350,7 +3852,8 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
     });
   }
 
-  const transposeRegex = /transpos(?:e|ing)\s+(up|down)?\s*(\d+)\s*(?:semi-?tone|half[\s-]?step|step)s?/gi;
+  const transposeRegex =
+    /transpos(?:e|ing)\s+(up|down)?\s*(\d+)\s*(?:semi-?tone|half[\s-]?step|step)s?/gi;
   for (const transposeMatch of stepText.matchAll(transposeRegex)) {
     const direction = (transposeMatch[1] || '').toLowerCase();
     let semitones = Number(transposeMatch[2]);
@@ -3367,30 +3870,51 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
   }
 
   // Full transpose: "transpose to key of G Major", "transpose to D minor"
-  const transposeToKeyRegex = /transpos(?:e|ing)\s+to\s+(?:(?:the\s+)?key\s+(?:of\s+)?)?([A-Ga-g])[\s-]?(?:flat|b|\u266D)?\s*(?:sharp|#|\u266F)?\s*(?:major|minor)?/gi;
+  const transposeToKeyRegex =
+    /transpos(?:e|ing)\s+to\s+(?:(?:the\s+)?key\s+(?:of\s+)?)?([A-Ga-g])[\s-]?(?:flat|b|\u266D)?\s*(?:sharp|#|\u266F)?\s*(?:major|minor)?/gi;
   for (const m of stepText.matchAll(transposeToKeyRegex)) {
     const keyMap: Record<string, number> = {
-      'c flat': -7, 'cb': -7, 'c\u266D': -7,
-      'g flat': -6, 'gb': -6, 'g\u266D': -6,
-      'd flat': -5, 'db': -5, 'd\u266D': -5,
-      'a flat': -4, 'ab': -4, 'a\u266D': -4,
-      'e flat': -3, 'eb': -3, 'e\u266D': -3,
-      'b flat': -2, 'bb': -2, 'b\u266D': -2,
-      'f': -1,
-      'c': 0,
-      'g': 1,
-      'd': 2,
-      'a': 3,
-      'e': 4,
-      'b': 5,
-      'f sharp': 6, 'f#': 6, 'f\u266F': 6,
-      'c sharp': 7, 'c#': 7, 'c\u266F': 7,
+      'c flat': -7,
+      cb: -7,
+      'c\u266D': -7,
+      'g flat': -6,
+      gb: -6,
+      'g\u266D': -6,
+      'd flat': -5,
+      db: -5,
+      'd\u266D': -5,
+      'a flat': -4,
+      ab: -4,
+      'a\u266D': -4,
+      'e flat': -3,
+      eb: -3,
+      'e\u266D': -3,
+      'b flat': -2,
+      bb: -2,
+      'b\u266D': -2,
+      f: -1,
+      c: 0,
+      g: 1,
+      d: 2,
+      a: 3,
+      e: 4,
+      b: 5,
+      'f sharp': 6,
+      'f#': 6,
+      'f\u266F': 6,
+      'c sharp': 7,
+      'c#': 7,
+      'c\u266F': 7,
     };
     // Try to extract key from the matched text
     const keyLetter = m[1].toUpperCase();
     const hasFlat = /flat|b|\u266D/i.test(m[0]);
     const hasSharp = /sharp|#|\u266F/i.test(m[0]);
-    const keyLookup = hasFlat ? `${keyLetter.toLowerCase()} flat` : hasSharp ? `${keyLetter.toLowerCase()} sharp` : keyLetter.toLowerCase();
+    const keyLookup = hasFlat
+      ? `${keyLetter.toLowerCase()} flat`
+      : hasSharp
+        ? `${keyLetter.toLowerCase()} sharp`
+        : keyLetter.toLowerCase();
     const fifths = keyMap[keyLookup];
     if (fifths !== undefined) {
       ops.push({
@@ -3409,25 +3933,37 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
 
   // Interval-based: "transpose up a major third", "transpose down a perfect fifth"
   const intervalNames: Record<string, number> = {
-    'perfect unison': 0, 'unison': 0,
+    'perfect unison': 0,
+    unison: 0,
     'augmented unison': 1,
-    'minor second': 3, 'half step': 3,
-    'major second': 4, 'whole step': 4,
+    'minor second': 3,
+    'half step': 3,
+    'major second': 4,
+    'whole step': 4,
     'augmented second': 5,
     'minor third': 7,
     'major third': 8,
-    'perfect fourth': 11, 'fourth': 11,
-    'augmented fourth': 12, 'tritone': 12,
+    'perfect fourth': 11,
+    fourth: 11,
+    'augmented fourth': 12,
+    tritone: 12,
     'diminished fifth': 13,
-    'perfect fifth': 14, 'fifth': 14,
+    'perfect fifth': 14,
+    fifth: 14,
     'minor sixth': 17,
     'major sixth': 18,
     'minor seventh': 21,
     'major seventh': 22,
-    'perfect octave': 25, 'octave': 25,
+    'perfect octave': 25,
+    octave: 25,
   };
-  const intervalNamesPattern = Object.keys(intervalNames).sort((a, b) => b.length - a.length).join('|');
-  const transposeIntervalRegex = new RegExp(`transpos(?:e|ing)\\s+(up|down)\\s+(?:a\\s+|by\\s+(?:a\\s+)?)?(${intervalNamesPattern})`, 'gi');
+  const intervalNamesPattern = Object.keys(intervalNames)
+    .sort((a, b) => b.length - a.length)
+    .join('|');
+  const transposeIntervalRegex = new RegExp(
+    `transpos(?:e|ing)\\s+(up|down)\\s+(?:a\\s+|by\\s+(?:a\\s+)?)?(${intervalNamesPattern})`,
+    'gi',
+  );
   for (const m of stepText.matchAll(transposeIntervalRegex)) {
     const dir = m[1].toLowerCase() as 'up' | 'down';
     const intervalName = m[2].toLowerCase();
@@ -3447,7 +3983,8 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
     }
   }
 
-  const tempoRegex = /(?:set(?:ting)?|add(?:ing)?|chang(?:e|ing))\s+tempo\s+(?:to|as|marking)?\s*(\d+)\s*(?:bpm)?/gi;
+  const tempoRegex =
+    /(?:set(?:ting)?|add(?:ing)?|chang(?:e|ing))\s+tempo\s+(?:to|as|marking)?\s*(\d+)\s*(?:bpm)?/gi;
   for (const tempoMatch of stepText.matchAll(tempoRegex)) {
     const bpm = Number(tempoMatch[1]);
     if (bpm >= 20 && bpm <= 400) {
@@ -3459,7 +3996,8 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
     }
   }
 
-  const dynamicRegex = /(?:add(?:ing)?|set(?:ting)?|insert(?:ing)?)\s+(?:a\s+)?(pppppp|ppppp|pppp|ppp|pp|p|mp|mf|ffffff|fffff|ffff|fff|ff|f|fp|pf|sfz|sffz|sff|sfpp|sfp|sf|rfz|rf|fz)\s+(?:dynamic|marking)?/gi;
+  const dynamicRegex =
+    /(?:add(?:ing)?|set(?:ting)?|insert(?:ing)?)\s+(?:a\s+)?(pppppp|ppppp|pppp|ppp|pp|p|mp|mf|ffffff|fffff|ffff|fff|ff|f|fp|pf|sfz|sffz|sff|sfpp|sfp|sf|rfz|rf|fz)\s+(?:dynamic|marking)?/gi;
   for (const dynamicMatch of stepText.matchAll(dynamicRegex)) {
     const dynamic = dynamicMatch[1].toLowerCase() as z.infer<typeof DYNAMIC_SCHEMA>;
     ops.push({
@@ -3469,7 +4007,9 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
     });
   }
 
-  const selectRangeMatch = stepText.match(/select\s+(?:measure|bar)s?\s+(\d+)\s*(?:-|to|through)\s*(\d+)/i);
+  const selectRangeMatch = stepText.match(
+    /select\s+(?:measure|bar)s?\s+(\d+)\s*(?:-|to|through)\s*(\d+)/i,
+  );
   if (selectRangeMatch) {
     ops.push({
       op: 'select_measure_range',
@@ -3484,7 +4024,8 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
     ops.push({ op: 'select_all' });
   }
 
-  const durationRegex = /(?:set|change)\s+(?:note\s+)?duration\s+(?:to\s+)?(long|breve|whole|half|quarter|eighth|16th|32nd|64th|128th|256th|512th|1024th)(?:\s+note)?/gi;
+  const durationRegex =
+    /(?:set|change)\s+(?:note\s+)?duration\s+(?:to\s+)?(long|breve|whole|half|quarter|eighth|16th|32nd|64th|128th|256th|512th|1024th)(?:\s+note)?/gi;
   for (const durationMatch of stepText.matchAll(durationRegex)) {
     const durationType = durationMatch[1].toLowerCase() as z.infer<typeof DURATION_TYPE_SCHEMA>;
     ops.push({
@@ -3504,7 +4045,8 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
     });
   }
 
-  const replaceTextRegex = /(?:replace|change)\s+(?:selected\s+)?text\s+(?:to|with)\s+[""\u201C]?([^""\u201D\n]+)[""\u201D]?/gi;
+  const replaceTextRegex =
+    /(?:replace|change)\s+(?:selected\s+)?text\s+(?:to|with)\s+[""\u201C]?([^""\u201D\n]+)[""\u201D]?/gi;
   for (const replaceMatch of stepText.matchAll(replaceTextRegex)) {
     const value = replaceMatch[1].trim();
     if (value) {
@@ -3516,9 +4058,12 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
     }
   }
 
-  const accidentalRegex = /(?:set|add|change)\s+(?:accidental\s+(?:to\s+)?)?(sharp|flat|natural|double[- ]sharp|double[- ]flat)(?:\s+accidental)?/gi;
+  const accidentalRegex =
+    /(?:set|add|change)\s+(?:accidental\s+(?:to\s+)?)?(sharp|flat|natural|double[- ]sharp|double[- ]flat)(?:\s+accidental)?/gi;
   for (const accMatch of stepText.matchAll(accidentalRegex)) {
-    const accidental = accMatch[1].toLowerCase().replace(' ', '-') as z.infer<typeof ACCIDENTAL_SCHEMA>;
+    const accidental = accMatch[1].toLowerCase().replace(' ', '-') as z.infer<
+      typeof ACCIDENTAL_SCHEMA
+    >;
     ops.push({
       op: 'set_accidental',
       accidental,
@@ -3526,7 +4071,8 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
     });
   }
 
-  const insertTextRegex = /(?:add|insert)\s+(?:(staff|system|expression|lyric|harmony|fingering|instrument[_ ]change|sticking)\s+)?text\s+[""\u201C]([^""\u201D]+)[""\u201D]/gi;
+  const insertTextRegex =
+    /(?:add|insert)\s+(?:(staff|system|expression|lyric|harmony|fingering|instrument[_ ]change|sticking)\s+)?text\s+[""\u201C]([^""\u201D]+)[""\u201D]/gi;
   for (const textMatch of stepText.matchAll(insertTextRegex)) {
     const rawKind = (textMatch[1] || 'staff').toLowerCase().replace(' ', '_');
     const kind = TEXT_KIND_SCHEMA.safeParse(rawKind);
@@ -3584,7 +4130,12 @@ function parsePromptStep(stepText: string): { ops: ScoreOp[]; unsupportedReasons
     unsupportedReasons.push('Beaming/rest cleanup is not implemented in ScoreOps yet.');
   }
 
-  if (!ops.length && /(?:change|set|move|remove|delete|insert|fix|cleanup|transpose|rewrite|edit|select|replace|undo|redo|toggle|add)\b/i.test(stepText)) {
+  if (
+    !ops.length &&
+    /(?:change|set|move|remove|delete|insert|fix|cleanup|transpose|rewrite|edit|select|replace|undo|redo|toggle|add)\b/i.test(
+      stepText,
+    )
+  ) {
     unsupportedReasons.push('No supported ScoreOps mapping found for this step.');
   }
 
@@ -3680,7 +4231,7 @@ function applyCapabilityGatingToPromptPlan(
 }
 
 export async function runMusicScoreOpsPromptService(body: unknown): Promise<ScoreOpsServiceResult> {
-  const data = (body && typeof body === 'object') ? (body as Record<string, unknown>) : {};
+  const data = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
   const prompt = typeof data.prompt === 'string' ? data.prompt.trim() : '';
   if (!prompt) {
     return errorResult(400, 'invalid_request', 'Missing prompt for scoreops planning.');
@@ -3704,9 +4255,14 @@ export async function runMusicScoreOpsPromptService(body: unknown): Promise<Scor
   };
 
   if (!capabilityGated.ops.length) {
-    return errorResult(422, 'unsupported_op', 'Prompt could not be mapped to supported ScoreOps MVP operations.', {
-      planner: plannerSummary,
-    });
+    return errorResult(
+      422,
+      'unsupported_op',
+      'Prompt could not be mapped to supported ScoreOps MVP operations.',
+      {
+        planner: plannerSummary,
+      },
+    );
   }
 
   const applyBody: Record<string, unknown> = {
@@ -3714,15 +4270,27 @@ export async function runMusicScoreOpsPromptService(body: unknown): Promise<Scor
     mutationMode: data.mutationMode === 'proposal' ? 'proposal' : 'commit',
     scoreSessionId: typeof data.scoreSessionId === 'string' ? data.scoreSessionId : undefined,
     baseRevision: typeof data.baseRevision === 'number' ? data.baseRevision : undefined,
-    inputArtifactId: typeof data.inputArtifactId === 'string' ? data.inputArtifactId : (typeof data.input_artifact_id === 'string' ? data.input_artifact_id : undefined),
-    content: typeof data.content === 'string' ? data.content : (typeof data.text === 'string' ? data.text : undefined),
+    inputArtifactId:
+      typeof data.inputArtifactId === 'string'
+        ? data.inputArtifactId
+        : typeof data.input_artifact_id === 'string'
+          ? data.input_artifact_id
+          : undefined,
+    content:
+      typeof data.content === 'string'
+        ? data.content
+        : typeof data.text === 'string'
+          ? data.text
+          : undefined,
     ops: capabilityGated.ops,
     options: {
       atomic: true,
       includeXml: true,
       includePatch: false,
       includeMeasureDiff: true,
-      ...(data.options && typeof data.options === 'object' ? data.options as Record<string, unknown> : {}),
+      ...(data.options && typeof data.options === 'object'
+        ? (data.options as Record<string, unknown>)
+        : {}),
     },
   };
 

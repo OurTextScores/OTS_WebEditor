@@ -27,7 +27,10 @@ describe('buildCompareUserEditDiff', () => {
 
     const result = buildCompareUserEditDiff(
       Array.from({ length: 100 }, (_, index) => `<measure number="${index}"/>`).join('\n'),
-      Array.from({ length: 100 }, (_, index) => `<measure number="${index}"><note/></measure>`).join('\n'),
+      Array.from(
+        { length: 100 },
+        (_, index) => `<measure number="${index}"><note/></measure>`,
+      ).join('\n'),
       'Current',
       500,
     );

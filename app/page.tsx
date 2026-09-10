@@ -26,14 +26,12 @@ const EmbeddedScorePlayer = dynamic(() => import('@/components/score-player/Embe
 function AppContent() {
   const searchParams = useSearchParams();
   const hasCompareMode = Boolean(
-    (searchParams.get('compareLeft') && searchParams.get('compareRight'))
-      || searchParams.get('reviewScore'),
+    (searchParams.get('compareLeft') && searchParams.get('compareRight')) ||
+    searchParams.get('reviewScore'),
   );
   const embedMode = searchParams.get('embed');
   const showPlayer = Boolean(
-    searchParams.get('score')
-      && !hasCompareMode
-      && (embedMode === 'player' || embedMode === '1'),
+    searchParams.get('score') && !hasCompareMode && (embedMode === 'player' || embedMode === '1'),
   );
 
   return (
@@ -45,7 +43,13 @@ function AppContent() {
 
 export default function Home() {
   return (
-    <Suspense fallback={<div className="flex h-screen items-center justify-center bg-slate-100 text-slate-600">Loading…</div>}>
+    <Suspense
+      fallback={
+        <div className="flex h-screen items-center justify-center bg-slate-100 text-slate-600">
+          Loading…
+        </div>
+      }
+    >
       <AppContent />
     </Suspense>
   );

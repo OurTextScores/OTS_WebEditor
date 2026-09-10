@@ -3,7 +3,12 @@
 const fs = require('fs');
 const path = require('path');
 
-const defaultFiles = ['webmscore.lib.js', 'webmscore.lib.wasm', 'webmscore.lib.data', 'webmscore.lib.mem.wasm'];
+const defaultFiles = [
+  'webmscore.lib.js',
+  'webmscore.lib.wasm',
+  'webmscore.lib.data',
+  'webmscore.lib.mem.wasm',
+];
 const optionalFiles = ['webmscore.lib.js.mem'];
 
 function syncWasmArtifacts({

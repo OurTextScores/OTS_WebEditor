@@ -14,26 +14,26 @@ console.log(`📦 Packaging release: ${archiveName}`);
 
 // Check if out/ exists
 if (!fs.existsSync(OUTPUT_DIR)) {
-    console.error('❌ Error: out/ directory not found. Run "npm run build" first.');
-    process.exit(1);
+  console.error('❌ Error: out/ directory not found. Run "npm run build" first.');
+  process.exit(1);
 }
 
 // Create release directory
 if (!fs.existsSync(RELEASE_DIR)) {
-    fs.mkdirSync(RELEASE_DIR, { recursive: true });
+  fs.mkdirSync(RELEASE_DIR, { recursive: true });
 }
 
 // Create tarball
 const tarballPath = path.join(RELEASE_DIR, `${archiveName}.tar.gz`);
 console.log('📦 Creating tarball...');
 try {
-    execSync(`tar -czf "${tarballPath}" -C out .`, { stdio: 'inherit' });
-    const stats = fs.statSync(tarballPath);
-    const sizeMB = (stats.size / 1024 / 1024).toFixed(2);
-    console.log(`✅ Created: ${tarballPath} (${sizeMB} MB)`);
+  execSync(`tar -czf "${tarballPath}" -C out .`, { stdio: 'inherit' });
+  const stats = fs.statSync(tarballPath);
+  const sizeMB = (stats.size / 1024 / 1024).toFixed(2);
+  console.log(`✅ Created: ${tarballPath} (${sizeMB} MB)`);
 } catch (err) {
-    console.error('❌ Failed to create tarball:', err.message);
-    process.exit(1);
+  console.error('❌ Failed to create tarball:', err.message);
+  process.exit(1);
 }
 
 // Create zip file
@@ -41,13 +41,13 @@ const zipPath = path.join(RELEASE_DIR, `${archiveName}.zip`);
 const zipName = `${archiveName}.zip`;
 console.log('📦 Creating zip...');
 try {
-    execSync(`cd out && zip -r "${path.join('..', 'release', zipName)}" . -q`, { stdio: 'inherit' });
-    const stats = fs.statSync(zipPath);
-    const sizeMB = (stats.size / 1024 / 1024).toFixed(2);
-    console.log(`✅ Created: ${zipPath} (${sizeMB} MB)`);
+  execSync(`cd out && zip -r "${path.join('..', 'release', zipName)}" . -q`, { stdio: 'inherit' });
+  const stats = fs.statSync(zipPath);
+  const sizeMB = (stats.size / 1024 / 1024).toFixed(2);
+  console.log(`✅ Created: ${zipPath} (${sizeMB} MB)`);
 } catch (err) {
-    console.error('❌ Failed to create zip:', err.message);
-    process.exit(1);
+  console.error('❌ Failed to create zip:', err.message);
+  process.exit(1);
 }
 
 // Create a README for the release
@@ -196,16 +196,16 @@ const checksumFile = path.join(RELEASE_DIR, `${archiveName}-checksums.txt`);
 const checksums = [];
 
 try {
-    const tarSha256 = execSync(`sha256sum "${tarballPath}"`, { encoding: 'utf-8' }).trim();
-    checksums.push(tarSha256);
+  const tarSha256 = execSync(`sha256sum "${tarballPath}"`, { encoding: 'utf-8' }).trim();
+  checksums.push(tarSha256);
 
-    const zipSha256 = execSync(`sha256sum "${zipPath}"`, { encoding: 'utf-8' }).trim();
-    checksums.push(zipSha256);
+  const zipSha256 = execSync(`sha256sum "${zipPath}"`, { encoding: 'utf-8' }).trim();
+  checksums.push(zipSha256);
 
-    fs.writeFileSync(checksumFile, checksums.join('\n') + '\n');
-    console.log(`✅ Created: ${checksumFile}`);
+  fs.writeFileSync(checksumFile, checksums.join('\n') + '\n');
+  console.log(`✅ Created: ${checksumFile}`);
 } catch (err) {
-    console.warn('⚠️  Could not generate checksums (sha256sum not available)');
+  console.warn('⚠️  Could not generate checksums (sha256sum not available)');
 }
 
 console.log('\n✨ Release packaging complete!');
@@ -214,7 +214,7 @@ console.log(`   - ${path.basename(tarballPath)}`);
 console.log(`   - ${path.basename(zipPath)}`);
 console.log(`   - ${path.basename(readmePath)}`);
 if (fs.existsSync(checksumFile)) {
-    console.log(`   - ${path.basename(checksumFile)}`);
+  console.log(`   - ${path.basename(checksumFile)}`);
 }
 console.log('\n📤 Next steps:');
 console.log('   1. Create a new GitHub release');

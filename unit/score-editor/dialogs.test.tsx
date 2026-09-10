@@ -4,15 +4,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { setupScoreEditorTest } from './test-harness';
 
 const mocked = vi.hoisted(() => ({
-    loadWebMscore: vi.fn(),
-    loadWebMscoreInProcess: vi.fn(),
+  loadWebMscore: vi.fn(),
+  loadWebMscoreInProcess: vi.fn(),
 }));
 const mockedNavigation = vi.hoisted(() => ({ useSearchParams: vi.fn() }));
 
 vi.mock('next/navigation', () => ({ useSearchParams: mockedNavigation.useSearchParams }));
 vi.mock('../../lib/webmscore-loader', () => ({
-    loadWebMscore: mocked.loadWebMscore,
-    loadWebMscoreInProcess: mocked.loadWebMscoreInProcess,
+  loadWebMscore: mocked.loadWebMscore,
+  loadWebMscoreInProcess: mocked.loadWebMscoreInProcess,
 }));
 
 import ScoreEditor from '../../components/ScoreEditor';
@@ -89,9 +89,7 @@ describe('ScoreEditor: dialogs rendered by the editor', () => {
     const mainScore = makeScore(rightXml);
     const leftCompareScore = makeScore(leftXml);
     const webmscore = {
-      load: vi.fn()
-        .mockResolvedValueOnce(mainScore)
-        .mockResolvedValueOnce(leftCompareScore),
+      load: vi.fn().mockResolvedValueOnce(mainScore).mockResolvedValueOnce(leftCompareScore),
       ready: Promise.resolve(),
     };
     mocked.loadWebMscore.mockResolvedValue(webmscore);
@@ -108,9 +106,6 @@ describe('ScoreEditor: dialogs rendered by the editor', () => {
 
     await waitFor(() => expect(screen.getByTestId('checkpoint-compare-modal')).toBeInTheDocument());
     expect(screen.getByText('reference.musicxml vs revision.musicxml')).toBeInTheDocument();
-    expect(webmscore.load.mock.calls.map((call) => call[0])).toEqual([
-      'musicxml',
-      'musicxml',
-    ]);
+    expect(webmscore.load.mock.calls.map((call) => call[0])).toEqual(['musicxml', 'musicxml']);
   });
 });

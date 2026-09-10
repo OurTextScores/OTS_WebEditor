@@ -59,7 +59,8 @@ describe('augmentPromptWithSourceRag', () => {
     const fetchSpy = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.startsWith('https://imslp.org/wiki/Test_Work')) {
-        return new Response(`
+        return new Response(
+          `
           <html>
             <head><title>Prelude in C (Bach)</title></head>
             <body>
@@ -67,7 +68,9 @@ describe('augmentPromptWithSourceRag', () => {
               <p>The page discusses manuscripts, copies, and publication details.</p>
             </body>
           </html>
-        `, { status: 200 });
+        `,
+          { status: 200 },
+        );
       }
       if (url.startsWith('https://en.wikipedia.org/w/api.php')) {
         return Response.json({
@@ -75,7 +78,8 @@ describe('augmentPromptWithSourceRag', () => {
             search: [
               {
                 title: 'Prelude and Fugue in C major, BWV 846',
-                snippet: 'The Prelude and Fugue in C major, BWV 846, is a keyboard composition written by Johann Sebastian Bach.',
+                snippet:
+                  'The Prelude and Fugue in C major, BWV 846, is a keyboard composition written by Johann Sebastian Bach.',
               },
             ],
           },
@@ -84,7 +88,8 @@ describe('augmentPromptWithSourceRag', () => {
       if (url.startsWith('https://en.wikipedia.org/api/rest_v1/page/summary/')) {
         return Response.json({
           title: 'Prelude and Fugue in C major, BWV 846',
-          extract: 'The Prelude and Fugue in C major, BWV 846, opens The Well-Tempered Clavier and is one of Bach\'s best-known keyboard works.',
+          extract:
+            "The Prelude and Fugue in C major, BWV 846, opens The Well-Tempered Clavier and is one of Bach's best-known keyboard works.",
           content_urls: {
             desktop: {
               page: 'https://en.wikipedia.org/wiki/Prelude_and_Fugue_in_C_major,_BWV_846',
@@ -109,7 +114,9 @@ describe('augmentPromptWithSourceRag', () => {
           items: [
             {
               id: 'https://rism.online/sources/1001102659',
-              label: { en: ['Preludes and Fugues–C major; Manuscript copy; D-B Mus.ms. Bach P 296 (39)'] },
+              label: {
+                en: ['Preludes and Fugues–C major; Manuscript copy; D-B Mus.ms. Bach P 296 (39)'],
+              },
               summary: {
                 sourceComposer: { value: { none: ['Bach, Johann Sebastian (1685-1750)'] } },
                 dateStatements: { value: { none: ['1763'] } },
@@ -226,7 +233,8 @@ describe('augmentPromptWithSourceRag', () => {
             search: [
               {
                 title: 'Johann Sebastian Bach',
-                snippet: 'Johann Sebastian Bach was a German composer and musician of the late Baroque period.',
+                snippet:
+                  'Johann Sebastian Bach was a German composer and musician of the late Baroque period.',
               },
             ],
           },
@@ -235,7 +243,8 @@ describe('augmentPromptWithSourceRag', () => {
       if (url.startsWith('https://en.wikipedia.org/api/rest_v1/page/summary/')) {
         return Response.json({
           title: 'Johann Sebastian Bach',
-          extract: 'Johann Sebastian Bach was a German composer and keyboardist of the late Baroque period.',
+          extract:
+            'Johann Sebastian Bach was a German composer and keyboardist of the late Baroque period.',
           content_urls: {
             desktop: {
               page: 'https://en.wikipedia.org/wiki/Johann_Sebastian_Bach',

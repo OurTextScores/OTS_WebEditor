@@ -21,10 +21,12 @@ describe('POST /api/music/context route', () => {
       },
     });
 
-    const response = await POST(new Request('http://localhost/api/music/context', {
-      method: 'POST',
-      body: JSON.stringify({ content: '<score-partwise />' }),
-    }));
+    const response = await POST(
+      new Request('http://localhost/api/music/context', {
+        method: 'POST',
+        body: JSON.stringify({ content: '<score-partwise />' }),
+      }),
+    );
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
@@ -36,10 +38,12 @@ describe('POST /api/music/context route', () => {
   it('maps MusicServiceError to status and error payload', async () => {
     mocked.runMusicContextService.mockRejectedValue(new MusicServiceError('invalid range', 400));
 
-    const response = await POST(new Request('http://localhost/api/music/context', {
-      method: 'POST',
-      body: JSON.stringify({ measureStart: 10, measureEnd: 2 }),
-    }));
+    const response = await POST(
+      new Request('http://localhost/api/music/context', {
+        method: 'POST',
+        body: JSON.stringify({ measureStart: 10, measureEnd: 2 }),
+      }),
+    );
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({ error: 'invalid range' });
@@ -48,13 +52,14 @@ describe('POST /api/music/context route', () => {
   it('maps unexpected errors to 500', async () => {
     mocked.runMusicContextService.mockRejectedValue(new Error('unexpected failure'));
 
-    const response = await POST(new Request('http://localhost/api/music/context', {
-      method: 'POST',
-      body: JSON.stringify({}),
-    }));
+    const response = await POST(
+      new Request('http://localhost/api/music/context', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      }),
+    );
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toMatchObject({ error: 'unexpected failure' });
   });
 });
-

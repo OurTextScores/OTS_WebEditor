@@ -8,13 +8,16 @@ const loadSingleNoteScore = async (page: Page) => {
   await expect(page.getByTestId('dropdown-markings')).toBeEnabled({ timeout: 20_000 });
 };
 
-const saveXml = (page: Page) => page.evaluate(async () => {
-  const scoreWindow = window as unknown as { __webmscore?: { saveXml?: () => Promise<string> } };
-  if (!scoreWindow.__webmscore?.saveXml) throw new Error('saveXml is unavailable');
-  return scoreWindow.__webmscore.saveXml();
-});
+const saveXml = (page: Page) =>
+  page.evaluate(async () => {
+    const scoreWindow = window as unknown as { __webmscore?: { saveXml?: () => Promise<string> } };
+    if (!scoreWindow.__webmscore?.saveXml) throw new Error('saveXml is unavailable');
+    return scoreWindow.__webmscore.saveXml();
+  });
 
-test('dragging a dynamic directly from Dynamics applies it as one undoable command', async ({ page }) => {
+test('dragging a dynamic directly from Dynamics applies it as one undoable command', async ({
+  page,
+}) => {
   await loadSingleNoteScore(page);
 
   await page.getByTestId('dropdown-markings').click();
@@ -30,7 +33,9 @@ test('dragging a clef directly from Clef applies it at the target measure', asyn
 
   await page.getByTestId('dropdown-clef').click();
   await page.getByTestId('btn-clef-20').dragTo(page.locator('svg .Note').first());
-  await expect.poll(async () => (await saveXml(page)).includes('<sign>F</sign>'), { timeout: 20_000 }).toBe(true);
+  await expect
+    .poll(async () => (await saveXml(page)).includes('<sign>F</sign>'), { timeout: 20_000 })
+    .toBe(true);
 });
 
 test('dragging directly from Articulations applies without a prior selection', async ({ page }) => {

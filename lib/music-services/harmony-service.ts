@@ -4,7 +4,16 @@ import { constants as fsConstants } from 'node:fs';
 import { join } from 'node:path';
 import { createScoreArtifact, summarizeScoreArtifact } from '../score-artifacts';
 import type { TraceContext } from '../trace-http';
-import { asRecord, errorResult, looksLikeMusicXml, readBoolean, resolvedScoreSnapshot, resolveScoreContent, type ResolvedScoreSnapshot, type ServiceResult } from './common';
+import {
+  asRecord,
+  errorResult,
+  looksLikeMusicXml,
+  readBoolean,
+  resolvedScoreSnapshot,
+  resolveScoreContent,
+  type ResolvedScoreSnapshot,
+  type ServiceResult,
+} from './common';
 
 type HarmonyServiceOptions = {
   traceContext?: TraceContext;
@@ -122,7 +131,8 @@ const logHarmonyServiceEvent = (
 
 function getHarmonyToolConfig(timeoutOverride?: number): HarmonyToolConfig {
   const pythonCommand = (process.env.MUSIC_HARMONY_PYTHON || 'python3').trim() || 'python3';
-  const scriptPath = (process.env.MUSIC_HARMONY_SCRIPT || DEFAULT_SCRIPT_PATH).trim() || DEFAULT_SCRIPT_PATH;
+  const scriptPath =
+    (process.env.MUSIC_HARMONY_SCRIPT || DEFAULT_SCRIPT_PATH).trim() || DEFAULT_SCRIPT_PATH;
   const timeoutMs = readBoundedInt(
     timeoutOverride ?? process.env.MUSIC_HARMONY_TIMEOUT_MS,
     DEFAULT_TIMEOUT_MS,
@@ -220,7 +230,8 @@ async function runHarmonyHelper(args: {
           ok: false,
           error: {
             code: 'helper_empty_output',
-            message: stderr.trim() || `Harmony helper exited with code ${String(code)} and no output.`,
+            message:
+              stderr.trim() || `Harmony helper exited with code ${String(code)} and no output.`,
           },
         });
         return;
@@ -243,7 +254,8 @@ async function runHarmonyHelper(args: {
           ok: false,
           error: {
             code: 'helper_invalid_output',
-            message: error instanceof Error ? error.message : 'Harmony helper returned non-JSON output.',
+            message:
+              error instanceof Error ? error.message : 'Harmony helper returned non-JSON output.',
             details: {
               stderr: stderr.trim() || undefined,
             },
@@ -289,7 +301,10 @@ function helperErrorStatus(code: string): number {
   }
 }
 
-export async function runHarmonyAnalyzeService(body: unknown, options?: HarmonyServiceOptions): Promise<HarmonyServiceResult> {
+export async function runHarmonyAnalyzeService(
+  body: unknown,
+  options?: HarmonyServiceOptions,
+): Promise<HarmonyServiceResult> {
   const traceContext = options?.traceContext;
   const data = asRecord(body);
   const resolution = await resolveScoreContent(body);
@@ -297,16 +312,26 @@ export async function runHarmonyAnalyzeService(body: unknown, options?: HarmonyS
     return resolution.error;
   }
   if (!looksLikeMusicXml(resolution.xml)) {
-    return errorResult(400, 'invalid_request', 'Harmony analysis currently supports MusicXML input only.');
+    return errorResult(
+      400,
+      'invalid_request',
+      'Harmony analysis currently supports MusicXML input only.',
+    );
   }
 
   const insertHarmony = readBoolean(data?.insertHarmony, data?.insert_harmony, true);
   const includeContent = readBoolean(data?.includeContent, data?.include_content, true);
   const persistArtifacts = readBoolean(data?.persistArtifacts, data?.persist_artifacts, false);
   const preferLocalKey = readBoolean(data?.preferLocalKey, data?.prefer_local_key, true);
-  const includeRomanNumerals = readBoolean(data?.includeRomanNumerals, data?.include_roman_numerals, false);
+  const includeRomanNumerals = readBoolean(
+    data?.includeRomanNumerals,
+    data?.include_roman_numerals,
+    false,
+  );
   const simplifyForMma = readBoolean(data?.simplifyForMma, data?.simplify_for_mma, true);
-  const existingHarmonyMode = normalizeExistingHarmonyMode(data?.existingHarmonyMode ?? data?.existing_harmony_mode);
+  const existingHarmonyMode = normalizeExistingHarmonyMode(
+    data?.existingHarmonyMode ?? data?.existing_harmony_mode,
+  );
   const harmonicRhythm = normalizeHarmonicRhythm(data?.harmonicRhythm ?? data?.harmonic_rhythm);
   const maxChangesPerMeasure = readBoundedInt(
     data?.maxChangesPerMeasure ?? data?.max_changes_per_measure,
@@ -314,7 +339,12 @@ export async function runHarmonyAnalyzeService(body: unknown, options?: HarmonyS
     1,
     8,
   );
-  const timeoutMs = readBoundedInt(data?.timeoutMs ?? data?.timeout_ms, DEFAULT_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS);
+  const timeoutMs = readBoundedInt(
+    data?.timeoutMs ?? data?.timeout_ms,
+    DEFAULT_TIMEOUT_MS,
+    MIN_TIMEOUT_MS,
+    MAX_TIMEOUT_MS,
+  );
 
   logHarmonyServiceEvent('info', 'music.harmony.analyze.request', traceContext, {
     insertHarmony,
@@ -350,12 +380,17 @@ export async function runHarmonyAnalyzeService(body: unknown, options?: HarmonyS
 
   if (!helper.ok) {
     const status = helperErrorStatus(helper.error.code);
-    logHarmonyServiceEvent(status >= 500 ? 'error' : 'warn', 'music.harmony.analyze.python_result', traceContext, {
-      ok: false,
-      durationMs: Date.now() - startedAt,
-      code: helper.error.code,
-      message: helper.error.message,
-    });
+    logHarmonyServiceEvent(
+      status >= 500 ? 'error' : 'warn',
+      'music.harmony.analyze.python_result',
+      traceContext,
+      {
+        ok: false,
+        durationMs: Date.now() - startedAt,
+        code: helper.error.code,
+        message: helper.error.message,
+      },
+    );
     return errorResult(status, helper.error.code, helper.error.message, helper.error.details);
   }
 
@@ -385,7 +420,9 @@ export async function runHarmonyAnalyzeService(body: unknown, options?: HarmonyS
   }
 
   const warnings = Array.isArray(helper.warnings)
-    ? helper.warnings.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    ? helper.warnings.filter(
+        (value): value is string => typeof value === 'string' && value.trim().length > 0,
+      )
     : [];
 
   logHarmonyServiceEvent('info', 'music.harmony.analyze.summary', traceContext, {

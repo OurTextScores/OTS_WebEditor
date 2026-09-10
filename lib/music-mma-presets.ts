@@ -1,10 +1,5 @@
 export type MmaArrangementPreset =
-  | 'full-groove'
-  | 'piano-trio'
-  | 'guitar-trio'
-  | 'bass-drums'
-  | 'piano-solo'
-  | 'strings-pad';
+  'full-groove' | 'piano-trio' | 'guitar-trio' | 'bass-drums' | 'piano-solo' | 'strings-pad';
 
 export type MmaArrangementPresetOption = {
   id: MmaArrangementPreset;
@@ -57,10 +52,7 @@ const DIRECTIVES_BY_PRESET: Record<MmaArrangementPreset, string[]> = {
     'AllTracks Bass Walk Voice AcousticBass',
     'AllTracks Arpeggio Scale Off',
   ],
-  'bass-drums': [
-    'AllTracks Chord Arpeggio Scale Off',
-    'AllTracks Bass Walk Voice AcousticBass',
-  ],
+  'bass-drums': ['AllTracks Chord Arpeggio Scale Off', 'AllTracks Bass Walk Voice AcousticBass'],
   'piano-solo': [
     'AllTracks Drum Off',
     'AllTracks Bass Walk Arpeggio Scale Off',
@@ -73,11 +65,9 @@ const DIRECTIVES_BY_PRESET: Record<MmaArrangementPreset, string[]> = {
   ],
 };
 
-export const isMmaArrangementPreset = (value: unknown): value is MmaArrangementPreset => (
-  typeof value === 'string'
-  && MMA_ARRANGEMENT_PRESETS.some((preset) => preset.id === value)
-);
+export const isMmaArrangementPreset = (value: unknown): value is MmaArrangementPreset =>
+  typeof value === 'string' && MMA_ARRANGEMENT_PRESETS.some((preset) => preset.id === value);
 
-export const getMmaArrangementDirectives = (preset: MmaArrangementPreset): string[] => (
-  [...DIRECTIVES_BY_PRESET[preset]]
-);
+export const getMmaArrangementDirectives = (preset: MmaArrangementPreset): string[] => [
+  ...DIRECTIVES_BY_PRESET[preset],
+];

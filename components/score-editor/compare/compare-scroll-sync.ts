@@ -12,14 +12,14 @@
  * surface and nothing exercised it.
  */
 export type ScrollPosition = {
-    scrollTop: number;
-    scrollLeft: number;
+  scrollTop: number;
+  scrollLeft: number;
 };
 
 export type CompareScrollSync = (
-    source: ScrollPosition,
-    target: ScrollPosition,
-    gutterTarget: Pick<ScrollPosition, 'scrollTop'>,
+  source: ScrollPosition,
+  target: ScrollPosition,
+  gutterTarget: Pick<ScrollPosition, 'scrollTop'>,
 ) => boolean;
 
 /**
@@ -27,17 +27,17 @@ export type CompareScrollSync = (
  * @returns the sync, which reports whether it ran
  */
 export function createCompareScrollSync(guard: { current: boolean }): CompareScrollSync {
-    return (source, target, gutterTarget) => {
-        if (guard.current) {
-            return false;
-        }
-        guard.current = true;
-        target.scrollTop = source.scrollTop;
-        target.scrollLeft = source.scrollLeft;
-        // The gutter follows vertically only: it is a narrow column beside the panes and
-        // has no horizontal extent to match.
-        gutterTarget.scrollTop = source.scrollTop;
-        guard.current = false;
-        return true;
-    };
+  return (source, target, gutterTarget) => {
+    if (guard.current) {
+      return false;
+    }
+    guard.current = true;
+    target.scrollTop = source.scrollTop;
+    target.scrollLeft = source.scrollLeft;
+    // The gutter follows vertically only: it is a narrow column beside the panes and
+    // has no horizontal extent to match.
+    gutterTarget.scrollTop = source.scrollTop;
+    guard.current = false;
+    return true;
+  };
 }

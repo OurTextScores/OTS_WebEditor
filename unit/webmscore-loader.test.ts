@@ -17,7 +17,9 @@ describe('loadWebMscore', () => {
     const mockLoad = vi.fn();
     const mockWebMscore = { ready, load: mockLoad };
 
-    vi.doMock('../webmscore-fork/web-public/webmscore.webpack.mjs', () => ({ default: mockWebMscore }));
+    vi.doMock('../webmscore-fork/web-public/webmscore.webpack.mjs', () => ({
+      default: mockWebMscore,
+    }));
 
     const { loadWebMscore } = await import('../lib/webmscore-loader');
 
@@ -35,7 +37,9 @@ describe('loadWebMscore', () => {
     const mockLoad = vi.fn();
     const mockWebMscore = { ready, load: mockLoad };
 
-    vi.doMock('../webmscore-fork/web-public/webmscore.webpack.mjs', () => ({ default: { default: mockWebMscore } }));
+    vi.doMock('../webmscore-fork/web-public/webmscore.webpack.mjs', () => ({
+      default: { default: mockWebMscore },
+    }));
 
     const { loadWebMscore } = await import('../lib/webmscore-loader');
     const instance = await loadWebMscore();

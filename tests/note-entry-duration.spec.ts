@@ -37,18 +37,19 @@ const openScore = async (page: import('playwright/test').Page) => {
 };
 
 /** Pitches and durations in document order, from the engine's own MusicXML export. */
-const contents = async (page: import('playwright/test').Page) => page.evaluate(async () => {
-  const score = (window as NoteEntryWindow).__webmscore;
-  if (!score?.saveXml) {
-    throw new Error('window.__webmscore.saveXml is not available');
-  }
-  const raw = await score.saveXml() as unknown;
-  const xml = typeof raw === 'string' ? raw : new TextDecoder().decode(raw as Uint8Array);
-  return {
-    steps: [...xml.matchAll(/<step>([A-G])<\/step>/g)].map((match) => match[1]).join(''),
-    types: [...xml.matchAll(/<type>(\w+)<\/type>/g)].map((match) => match[1]),
-  };
-});
+const contents = async (page: import('playwright/test').Page) =>
+  page.evaluate(async () => {
+    const score = (window as NoteEntryWindow).__webmscore;
+    if (!score?.saveXml) {
+      throw new Error('window.__webmscore.saveXml is not available');
+    }
+    const raw = (await score.saveXml()) as unknown;
+    const xml = typeof raw === 'string' ? raw : new TextDecoder().decode(raw as Uint8Array);
+    return {
+      steps: [...xml.matchAll(/<step>([A-G])<\/step>/g)].map((match) => match[1]).join(''),
+      types: [...xml.matchAll(/<type>(\w+)<\/type>/g)].map((match) => match[1]),
+    };
+  });
 
 const startNoteInput = async (page: import('playwright/test').Page) => {
   const box = await page.locator('svg .Note').first().boundingBox();
@@ -63,7 +64,10 @@ const startNoteInput = async (page: import('playwright/test').Page) => {
 
 test('enters a note at the duration chosen with the number keys', async ({ page }) => {
   await openScore(page);
-  expect(await contents(page)).toEqual({ steps: 'FACE', types: ['whole', 'whole', 'whole', 'whole'] });
+  expect(await contents(page)).toEqual({
+    steps: 'FACE',
+    types: ['whole', 'whole', 'whole', 'whole'],
+  });
 
   await startNoteInput(page);
   await page.keyboard.press('5');
@@ -71,10 +75,12 @@ test('enters a note at the duration chosen with the number keys', async ({ page 
 
   // A quarter at beat 1 replaces the head of bar 1 and leaves quarter + half behind it,
   // both still sounding the bar's original F.
-  await expect.poll(async () => contents(page), { timeout: 20_000 }).toEqual({
-    steps: 'DFFACE',
-    types: ['quarter', 'quarter', 'half', 'whole', 'whole', 'whole'],
-  });
+  await expect
+    .poll(async () => contents(page), { timeout: 20_000 })
+    .toEqual({
+      steps: 'DFFACE',
+      types: ['quarter', 'quarter', 'half', 'whole', 'whole', 'whole'],
+    });
 });
 
 test('preserves the chosen duration across consecutive entries', async ({ page }) => {
@@ -85,17 +91,21 @@ test('preserves the chosen duration across consecutive entries', async ({ page }
 
   await page.keyboard.press('7');
   await page.keyboard.press('d');
-  await expect.poll(async () => contents(page), { timeout: 20_000 }).toEqual({
-    steps: 'DACE',
-    types: ['whole', 'whole', 'whole', 'whole'],
-  });
+  await expect
+    .poll(async () => contents(page), { timeout: 20_000 })
+    .toEqual({
+      steps: 'DACE',
+      types: ['whole', 'whole', 'whole', 'whole'],
+    });
 
   await page.keyboard.press('7');
   await page.keyboard.press('d');
-  await expect.poll(async () => contents(page), { timeout: 20_000 }).toEqual({
-    steps: 'DDCE',
-    types: ['whole', 'whole', 'whole', 'whole'],
-  });
+  await expect
+    .poll(async () => contents(page), { timeout: 20_000 })
+    .toEqual({
+      steps: 'DDCE',
+      types: ['whole', 'whole', 'whole', 'whole'],
+    });
 });
 
 test('applies a duration change made between entries', async ({ page }) => {
@@ -105,15 +115,18 @@ test('applies a duration change made between entries', async ({ page }) => {
 
   await page.keyboard.press('7');
   await page.keyboard.press('d');
-  await expect.poll(async () => contents(page), { timeout: 20_000 })
+  await expect
+    .poll(async () => contents(page), { timeout: 20_000 })
     .toMatchObject({ types: ['whole', 'whole', 'whole', 'whole'] });
 
   await page.keyboard.press('5');
   await page.keyboard.press('d');
 
   // Bar 1 keeps its whole D; bar 2 takes a quarter D and splits the rest of its bar.
-  await expect.poll(async () => contents(page), { timeout: 20_000 }).toEqual({
-    steps: 'DDAACE',
-    types: ['whole', 'quarter', 'quarter', 'half', 'whole', 'whole'],
-  });
+  await expect
+    .poll(async () => contents(page), { timeout: 20_000 })
+    .toEqual({
+      steps: 'DDAACE',
+      types: ['whole', 'quarter', 'quarter', 'half', 'whole', 'whole'],
+    });
 });

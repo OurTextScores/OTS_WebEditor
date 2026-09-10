@@ -1,5 +1,9 @@
 import { getScoreArtifact, type ScoreArtifact } from '../score-artifacts';
-import { computeScoreHash, getScoreOpsSession, type ScoreOpsSessionState } from './scoreops-session-store';
+import {
+  computeScoreHash,
+  getScoreOpsSession,
+  type ScoreOpsSessionState,
+} from './scoreops-session-store';
 
 export type ServiceResult = {
   status: number;
@@ -29,9 +33,8 @@ export function resolvedScoreSnapshot(resolution: ScoreContentResolution): Resol
   };
 }
 
-export const asRecord = (value: unknown): Record<string, unknown> | null => (
-  value && typeof value === 'object' ? value as Record<string, unknown> : null
-);
+export const asRecord = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
 
 export function readBoolean(camel: unknown, snake: unknown, fallback: boolean) {
   if (typeof camel === 'boolean') {
@@ -81,10 +84,11 @@ export function normalizeScoreSessionId(data: Record<string, unknown> | null): s
 
 export function looksLikeMusicXml(text: string): boolean {
   const trimmed = text.trim();
-  return trimmed.startsWith('<') && (
-    trimmed.includes('<score-partwise') || 
-    trimmed.includes('<score-timewise') || 
-    trimmed.includes('<?xml')
+  return (
+    trimmed.startsWith('<') &&
+    (trimmed.includes('<score-partwise') ||
+      trimmed.includes('<score-timewise') ||
+      trimmed.includes('<?xml'))
   );
 }
 
@@ -93,13 +97,17 @@ export function looksLikeKern(text: string): boolean {
   if (/(^|\n)\*\*kern(\s|$)/m.test(trimmed)) {
     return true;
   }
-  const lines = trimmed.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const lines = trimmed
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
   const hasHumdrumInterpretation = lines.some((line) => /^\*(?:clef|k\[|M|MM|met|I)/.test(line));
-  const hasKernData = lines.some((line) => (
-    /^=/.test(line) ||
-    /^\d+(?:%?\d+)?\.?r(?:[LJkKlM]*)?$/.test(line) ||
-    /^\d+(?:%?\d+)?\.?[A-Ga-g]+[#n-]*(?:[LJkKlM]*)?$/.test(line)
-  ));
+  const hasKernData = lines.some(
+    (line) =>
+      /^=/.test(line) ||
+      /^\d+(?:%?\d+)?\.?r(?:[LJkKlM]*)?$/.test(line) ||
+      /^\d+(?:%?\d+)?\.?[A-Ga-g]+[#n-]*(?:[LJkKlM]*)?$/.test(line),
+  );
   return hasHumdrumInterpretation && hasKernData;
 }
 
@@ -107,7 +115,7 @@ export function errorResult(
   status: number,
   code: string,
   message: string,
-  details?: Record<string, unknown>
+  details?: Record<string, unknown>,
 ): ServiceResult {
   return {
     status,
@@ -130,7 +138,7 @@ export function errorResult(
  */
 export async function resolveScoreContent(body: unknown): Promise<ScoreContentResolution> {
   const data = asRecord(body);
-  
+
   // 1. Resolve via Score Session
   const sessionId = normalizeScoreSessionId(data);
   if (sessionId) {
@@ -143,21 +151,31 @@ export async function resolveScoreContent(body: unknown): Promise<ScoreContentRe
         error: errorResult(404, 'session_not_found', `Score session ${sessionId} not found.`),
       };
     }
-    
+
     // Revision check if baseRevision is provided
-    const baseRevision = typeof data?.baseRevision === 'number' ? data.baseRevision : (typeof data?.base_revision === 'number' ? data.base_revision : undefined);
+    const baseRevision =
+      typeof data?.baseRevision === 'number'
+        ? data.baseRevision
+        : typeof data?.base_revision === 'number'
+          ? data.base_revision
+          : undefined;
     if (baseRevision !== undefined && baseRevision !== session.revision) {
       return {
         xml: '',
         artifact: null,
         session: null,
-        error: errorResult(409, 'stale_revision', `baseRevision=${baseRevision} is stale; latest is ${session.revision}`, {
-          latestRevision: session.revision,
-          scoreSessionId: session.scoreSessionId,
-        }),
+        error: errorResult(
+          409,
+          'stale_revision',
+          `baseRevision=${baseRevision} is stale; latest is ${session.revision}`,
+          {
+            latestRevision: session.revision,
+            scoreSessionId: session.scoreSessionId,
+          },
+        ),
       };
     }
-    
+
     return { xml: session.content, artifact: null, session };
   }
 
@@ -194,19 +212,32 @@ export async function resolveScoreContent(body: unknown): Promise<ScoreContentRe
       xml: '',
       artifact: null,
       session: null,
-      error: errorResult(400, 'invalid_request', 'Missing score content, session, or input artifact.'),
+      error: errorResult(
+        400,
+        'invalid_request',
+        'Missing score content, session, or input artifact.',
+      ),
     };
   }
   // If it doesn't look like XML, we still return it but flag it.
   // Services like 'convert' support ABC and **kern input too.
-  if (!looksLikeMusicXml(xml) && !xml.includes('M:') && !xml.includes('K:') && !looksLikeKern(xml)) {
+  if (
+    !looksLikeMusicXml(xml) &&
+    !xml.includes('M:') &&
+    !xml.includes('K:') &&
+    !looksLikeKern(xml)
+  ) {
     return {
       xml: '',
       artifact: null,
       session: null,
-      error: errorResult(400, 'invalid_request', 'Input does not look like MusicXML, ABC, or **kern.'),
+      error: errorResult(
+        400,
+        'invalid_request',
+        'Input does not look like MusicXML, ABC, or **kern.',
+      ),
     };
   }
-  
+
   return { xml, artifact: null, session: null };
 }

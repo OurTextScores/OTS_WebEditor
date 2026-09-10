@@ -57,10 +57,15 @@ test('dragging a note vertically repitches it diatonically', async ({ page }) =>
   await expect(page.getByTestId('note-drag-ghost')).toBeVisible();
   // v2 live drag: the engine-rendered note moves before pointer-up, rather than
   // leaving all visual feedback to the JS ghost overlay.
-  await expect.poll(async () => {
-    const liveBox = await page.locator('svg .Note').first().boundingBox();
-    return liveBox?.y ?? initialBox.y;
-  }, { timeout: 20_000 }).toBeLessThan(initialBox.y - halfStep);
+  await expect
+    .poll(
+      async () => {
+        const liveBox = await page.locator('svg .Note').first().boundingBox();
+        return liveBox?.y ?? initialBox.y;
+      },
+      { timeout: 20_000 },
+    )
+    .toBeLessThan(initialBox.y - halfStep);
   await page.mouse.up();
 
   await expect.poll(async () => (await readPitch(page)).step, { timeout: 20_000 }).toBe('E');

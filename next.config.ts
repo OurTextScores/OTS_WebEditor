@@ -1,4 +1,4 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || undefined,
@@ -11,7 +11,8 @@ const nextConfig: NextConfig = {
   // Skip Next build type-check when explicitly requested (or for embed export).
   // Run `npm run typecheck` separately in these flows.
   typescript: {
-    ignoreBuildErrors: process.env.BUILD_MODE === 'embed' || process.env.SKIP_NEXT_TYPECHECK === '1',
+    ignoreBuildErrors:
+      process.env.BUILD_MODE === 'embed' || process.env.SKIP_NEXT_TYPECHECK === '1',
   },
   async headers() {
     if (process.env.BUILD_MODE === 'embed') {
@@ -43,26 +44,23 @@ const nextConfig: NextConfig = {
       { key: 'X-Content-Type-Options', value: 'nosniff' },
       { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
       { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
-      { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), browsing-topics=()' },
+      {
+        key: 'Permissions-Policy',
+        value: 'camera=(), microphone=(), geolocation=(), browsing-topics=()',
+      },
     ];
     return [
       {
         source: '/webmscore.lib.wasm',
-        headers: [
-          { key: 'Cache-Control', value: 'no-store' },
-        ],
+        headers: [{ key: 'Cache-Control', value: 'no-store' }],
       },
       {
         source: '/webmscore.lib.data',
-        headers: [
-          { key: 'Cache-Control', value: 'no-store' },
-        ],
+        headers: [{ key: 'Cache-Control', value: 'no-store' }],
       },
       {
         source: '/webmscore.lib.mem.wasm',
-        headers: [
-          { key: 'Cache-Control', value: 'no-store' },
-        ],
+        headers: [{ key: 'Cache-Control', value: 'no-store' }],
       },
       {
         source: '/:path*',
@@ -86,8 +84,8 @@ const nextConfig: NextConfig = {
         const webpack = require('webpack');
         config.plugins.push(
           new webpack.DefinePlugin({
-            'MSCORE_SCRIPT_URL': JSON.stringify('/score-editor/')
-          })
+            MSCORE_SCRIPT_URL: JSON.stringify('/score-editor/'),
+          }),
         );
       }
     }

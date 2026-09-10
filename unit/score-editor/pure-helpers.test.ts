@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-    buildPartLocalizedChangeReviewBarHighlights,
-    buildPartLocalizedChangeReviewHighlights,
-    buildPartLocalizedSuppliedHighlights,
-    sortChangeReviewRegionsByMeasure,
+  buildPartLocalizedChangeReviewBarHighlights,
+  buildPartLocalizedChangeReviewHighlights,
+  buildPartLocalizedSuppliedHighlights,
+  sortChangeReviewRegionsByMeasure,
 } from '../../lib/compare-highlights';
 import { scoreLoadErrorMessage } from '../../components/ScoreEditor';
 
@@ -12,9 +12,13 @@ import { scoreLoadErrorMessage } from '../../components/ScoreEditor';
 
 describe('scoreLoadErrorMessage', () => {
   it('surfaces the newer MuseScore format guidance without the WASM prefix', () => {
-    expect(scoreLoadErrorMessage(new Error(
-      'WebMscore Err[2007] This score was saved in a newer MuseScore format that this editor does not support yet. Export the score as MusicXML in MuseScore, then load the MusicXML file here.',
-    ))).toBe(
+    expect(
+      scoreLoadErrorMessage(
+        new Error(
+          'WebMscore Err[2007] This score was saved in a newer MuseScore format that this editor does not support yet. Export the score as MusicXML in MuseScore, then load the MusicXML file here.',
+        ),
+      ),
+    ).toBe(
       'This score was saved in a newer MuseScore format that this editor does not support yet. Export the score as MusicXML in MuseScore, then load the MusicXML file here.',
     );
   });

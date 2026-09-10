@@ -2,7 +2,8 @@ import type { MusicToolContract } from './types';
 
 export const MUSIC_MMA_RENDER_TOOL_CONTRACT: MusicToolContract = {
   name: 'music.mma_render',
-  description: 'Compile an MMA script to MIDI, optionally convert to MusicXML, and return artifact metadata.',
+  description:
+    'Compile an MMA script to MIDI, optionally convert to MusicXML, and return artifact metadata.',
   inputSchema: {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
     type: 'object',

@@ -28,9 +28,13 @@ test('clef can toggle and revert', async ({ page }) => {
 
   await page.getByTestId('dropdown-clef').click();
   await page.getByTestId('btn-clef-0').click();
-  await expect.poll(async () => await readConcertClefTypes(), { timeout: 20_000 }).toEqual([initial[0], 'G']);
+  await expect
+    .poll(async () => await readConcertClefTypes(), { timeout: 20_000 })
+    .toEqual([initial[0], 'G']);
 
   await page.getByTestId('dropdown-clef').click();
   await page.getByTestId('btn-clef-20').click();
-  await expect.poll(async () => await readConcertClefTypes(), { timeout: 20_000 }).toEqual([initial[0], initial[0]]);
+  await expect
+    .poll(async () => await readConcertClefTypes(), { timeout: 20_000 })
+    .toEqual([initial[0], initial[0]]);
 });

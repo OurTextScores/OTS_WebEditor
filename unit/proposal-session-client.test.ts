@@ -67,37 +67,64 @@ describe('accumulateProposalConstraints', () => {
   });
 
   it('accumulates rejected blocks and global notes across cycles', () => {
-    const cycle1 = accumulateProposalConstraints([], 1, [
-      { partIndex: 0, measureRange: '3-4', status: 'rejected' },
-      { partIndex: 0, measureRange: '5-6', status: 'accepted' },
-    ], 'No slurs.');
+    const cycle1 = accumulateProposalConstraints(
+      [],
+      1,
+      [
+        { partIndex: 0, measureRange: '3-4', status: 'rejected' },
+        { partIndex: 0, measureRange: '5-6', status: 'accepted' },
+      ],
+      'No slurs.',
+    );
     expect(cycle1).toEqual([
       rejected(0, '3-4'),
       { cycle: 1, kind: 'note', partIndex: null, measureRange: null, text: 'No slurs.' },
     ]);
 
-    const cycle2 = accumulateProposalConstraints(cycle1, 2, [
-      { partIndex: 1, measureRange: '8-8', status: 'rejected' },
-    ], '');
+    const cycle2 = accumulateProposalConstraints(
+      cycle1,
+      2,
+      [{ partIndex: 1, measureRange: '8-8', status: 'rejected' }],
+      '',
+    );
     expect(cycle2).toHaveLength(3);
     expect(cycle2.at(-1)).toEqual(rejected(1, '8-8', 2));
   });
 
   it('replaces an earlier rejection when a later cycle explicitly re-reviews the same block', () => {
     const existing = [rejected(0, '3-4'), rejected(1, '8-8')];
-    const next = accumulateProposalConstraints(existing, 2, [
-      { partIndex: 0, measureRange: '3-4', status: 'comment', comment: 'Actually revise this one.' },
-    ], '');
+    const next = accumulateProposalConstraints(
+      existing,
+      2,
+      [
+        {
+          partIndex: 0,
+          measureRange: '3-4',
+          status: 'comment',
+          comment: 'Actually revise this one.',
+        },
+      ],
+      '',
+    );
     expect(next).toEqual([
       rejected(1, '8-8'),
-      { cycle: 2, kind: 'note', partIndex: 0, measureRange: '3-4', text: 'Actually revise this one.' },
+      {
+        cycle: 2,
+        kind: 'note',
+        partIndex: 0,
+        measureRange: '3-4',
+        text: 'Actually revise this one.',
+      },
     ]);
   });
 
   it('accumulates block revision comments as located notes', () => {
-    const next = accumulateProposalConstraints([], 1, [
-      { partIndex: 0, measureRange: '5-6', status: 'comment', comment: 'Make this legato.' },
-    ], '');
+    const next = accumulateProposalConstraints(
+      [],
+      1,
+      [{ partIndex: 0, measureRange: '5-6', status: 'comment', comment: 'Make this legato.' }],
+      '',
+    );
     expect(next).toEqual([
       { cycle: 1, kind: 'note', partIndex: 0, measureRange: '5-6', text: 'Make this legato.' },
     ]);
@@ -106,32 +133,57 @@ describe('accumulateProposalConstraints', () => {
   it('never reverses a constraint for a pending (undecided) block', () => {
     const existing = [
       rejected(0, '3-4'),
-      { cycle: 1, kind: 'note' as const, partIndex: 0, measureRange: '5-6', text: 'Make this legato.' },
+      {
+        cycle: 1,
+        kind: 'note' as const,
+        partIndex: 0,
+        measureRange: '5-6',
+        text: 'Make this legato.',
+      },
     ];
-    const next = accumulateProposalConstraints(existing, 2, [
-      { partIndex: 0, measureRange: '3-4', status: 'pending' },
-      { partIndex: 0, measureRange: '5-6', status: 'pending' },
-    ], '');
+    const next = accumulateProposalConstraints(
+      existing,
+      2,
+      [
+        { partIndex: 0, measureRange: '3-4', status: 'pending' },
+        { partIndex: 0, measureRange: '5-6', status: 'pending' },
+      ],
+      '',
+    );
     expect(next).toEqual(existing);
   });
 
   it('clears located constraints when the user accepts that block', () => {
     const existing = [
       rejected(0, '3-4'),
-      { cycle: 1, kind: 'note' as const, partIndex: 0, measureRange: '5-6', text: 'Make this legato.' },
+      {
+        cycle: 1,
+        kind: 'note' as const,
+        partIndex: 0,
+        measureRange: '5-6',
+        text: 'Make this legato.',
+      },
     ];
-    const next = accumulateProposalConstraints(existing, 2, [
-      { partIndex: 0, measureRange: '3-4', status: 'accepted' },
-      { partIndex: 0, measureRange: '5-6', status: 'accepted' },
-    ], '');
+    const next = accumulateProposalConstraints(
+      existing,
+      2,
+      [
+        { partIndex: 0, measureRange: '3-4', status: 'accepted' },
+        { partIndex: 0, measureRange: '5-6', status: 'accepted' },
+      ],
+      '',
+    );
     expect(next).toEqual([]);
   });
 
   it('refreshes rather than duplicates a repeated rejection, and dedupes global notes', () => {
     const existing = [rejected(0, '3-4')];
-    const next = accumulateProposalConstraints(existing, 2, [
-      { partIndex: 0, measureRange: '3-4', status: 'rejected' },
-    ], '');
+    const next = accumulateProposalConstraints(
+      existing,
+      2,
+      [{ partIndex: 0, measureRange: '3-4', status: 'rejected' }],
+      '',
+    );
     expect(next).toEqual([rejected(0, '3-4', 2)]);
     const withNote = accumulateProposalConstraints(
       [{ cycle: 1, kind: 'note', partIndex: null, measureRange: null, text: 'No slurs.' }],
@@ -144,9 +196,12 @@ describe('accumulateProposalConstraints', () => {
 
   it('caps the constraint list keeping the most recent entries', () => {
     const existing = Array.from({ length: 120 }, (_, i) => rejected(0, `${i}-${i}`));
-    const next = accumulateProposalConstraints(existing, 3, [
-      { partIndex: 9, measureRange: '900-901', status: 'rejected' },
-    ], '');
+    const next = accumulateProposalConstraints(
+      existing,
+      3,
+      [{ partIndex: 9, measureRange: '900-901', status: 'rejected' }],
+      '',
+    );
     expect(next).toHaveLength(120);
     expect(next.at(-1)).toEqual(rejected(9, '900-901', 3));
     expect(next[0]).toEqual(rejected(0, '1-1'));
@@ -213,7 +268,10 @@ describe('buildProposalSessionRequestPayload', () => {
 
   it('omits previousCycle when the session has none', () => {
     const session = createClientProposalSession({ originalInstruction: 'x', includeChat: false });
-    const payload = buildProposalSessionRequestPayload(session, { contentHash: null, identityHash: null });
+    const payload = buildProposalSessionRequestPayload(session, {
+      contentHash: null,
+      identityHash: null,
+    });
     expect(payload.previousCycle).toBeUndefined();
   });
 });

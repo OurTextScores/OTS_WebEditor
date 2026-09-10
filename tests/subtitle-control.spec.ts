@@ -16,7 +16,7 @@ test('the subtitle prompt is pre-filled from metadata', async ({ page }) => {
   await page.waitForSelector('svg .Clef', { timeout: 60_000 });
 
   let promptDefault = '';
-  page.once('dialog', dialog => {
+  page.once('dialog', (dialog) => {
     promptDefault = dialog.defaultValue();
     return dialog.dismiss();
   });
@@ -48,7 +48,9 @@ test('title and subtitle persist after save and reload', async ({ page }) => {
         const subtitle =
           typeof score?.subtitle === 'function'
             ? await score.subtitle()
-            : (typeof metadata?.subtitle === 'string' ? metadata.subtitle : '');
+            : typeof metadata?.subtitle === 'string'
+              ? metadata.subtitle
+              : '';
         return {
           title: typeof metadata?.title === 'string' ? metadata.title : '',
           subtitle,
@@ -62,17 +64,17 @@ test('title and subtitle persist after save and reload', async ({ page }) => {
   const newTitle = 'OTS Title Reload';
   const newSubtitle = 'OTS Subtitle Reload';
 
-  page.once('dialog', dialog => dialog.accept(newTitle));
+  page.once('dialog', (dialog) => dialog.accept(newTitle));
   await page.getByTestId('dropdown-text').click();
   await page.getByTestId('btn-text-title').click();
 
-  page.once('dialog', dialog => dialog.accept(newSubtitle));
+  page.once('dialog', (dialog) => dialog.accept(newSubtitle));
   await page.getByTestId('dropdown-text').click();
   await page.getByTestId('btn-text-subtitle').click();
 
-  await expect.poll(async () => (await readHeader()).title, { timeout: 20_000 })
-    .toBe(newTitle);
-  await expect.poll(async () => (await readHeader()).subtitle, { timeout: 20_000 })
+  await expect.poll(async () => (await readHeader()).title, { timeout: 20_000 }).toBe(newTitle);
+  await expect
+    .poll(async () => (await readHeader()).subtitle, { timeout: 20_000 })
     .toBe(newSubtitle);
 
   const exportedXml = await page.evaluate(async () => {
@@ -102,8 +104,8 @@ test('title and subtitle persist after save and reload', async ({ page }) => {
   });
 
   await page.waitForSelector('svg .Clef', { timeout: 60_000 });
-  await expect.poll(async () => (await readHeader()).title, { timeout: 30_000 })
-    .toBe(newTitle);
-  await expect.poll(async () => (await readHeader()).subtitle, { timeout: 30_000 })
+  await expect.poll(async () => (await readHeader()).title, { timeout: 30_000 }).toBe(newTitle);
+  await expect
+    .poll(async () => (await readHeader()).subtitle, { timeout: 30_000 })
     .toBe(newSubtitle);
 });

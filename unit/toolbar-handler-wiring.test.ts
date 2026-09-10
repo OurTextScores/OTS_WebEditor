@@ -33,68 +33,68 @@ const SECTIONS_DIR = resolve(REPO, 'components/toolbar/sections');
 const ALLOWED_UNWIRED = new Map<string, string>([]);
 
 function toolbarCallSiteProps(): Set<string> {
-    const source = readFileSync(resolve(REPO, 'components/ScoreEditor.tsx'), 'utf8');
-    // The call site is one self-closing JSX element; it ends at the first `/>` that
-    // sits alone on its own line.
-    const block = source.match(/<Toolbar\b[\s\S]*?\n[ \t]*\/>/);
-    if (!block) {
-        throw new Error('Could not locate the <Toolbar .../> call site in ScoreEditor.tsx');
-    }
-    const props = new Set<string>();
-    for (const m of block[0].matchAll(/(?:^|\s)(on[A-Z][A-Za-z0-9]*)\s*=/g)) {
-        props.add(m[1]);
-    }
-    return props;
+  const source = readFileSync(resolve(REPO, 'components/ScoreEditor.tsx'), 'utf8');
+  // The call site is one self-closing JSX element; it ends at the first `/>` that
+  // sits alone on its own line.
+  const block = source.match(/<Toolbar\b[\s\S]*?\n[ \t]*\/>/);
+  if (!block) {
+    throw new Error('Could not locate the <Toolbar .../> call site in ScoreEditor.tsx');
+  }
+  const props = new Set<string>();
+  for (const m of block[0].matchAll(/(?:^|\s)(on[A-Z][A-Za-z0-9]*)\s*=/g)) {
+    props.add(m[1]);
+  }
+  return props;
 }
 
 /** Handler props each section references in a JSX expression, e.g. onClick={onFoo}. */
 function sectionHandlerRefs(): Map<string, Set<string>> {
-    const byFile = new Map<string, Set<string>>();
-    for (const file of readdirSync(SECTIONS_DIR).filter((f) => f.endsWith('.tsx'))) {
-        const source = readFileSync(resolve(SECTIONS_DIR, file), 'utf8');
-        const refs = new Set<string>();
-        // `{onFoo}` as a whole expression: onClick={onFoo}, and `!onFoo` inside a
-        // disabled={...} guard -- the two ways a section depends on a supplied handler.
-        for (const m of source.matchAll(/\{\s*(on[A-Z][A-Za-z0-9]*)\s*\}/g)) refs.add(m[1]);
-        for (const m of source.matchAll(/!\s*(on[A-Z][A-Za-z0-9]*)\b/g)) refs.add(m[1]);
-        if (refs.size > 0) byFile.set(file, refs);
-    }
-    return byFile;
+  const byFile = new Map<string, Set<string>>();
+  for (const file of readdirSync(SECTIONS_DIR).filter((f) => f.endsWith('.tsx'))) {
+    const source = readFileSync(resolve(SECTIONS_DIR, file), 'utf8');
+    const refs = new Set<string>();
+    // `{onFoo}` as a whole expression: onClick={onFoo}, and `!onFoo` inside a
+    // disabled={...} guard -- the two ways a section depends on a supplied handler.
+    for (const m of source.matchAll(/\{\s*(on[A-Z][A-Za-z0-9]*)\s*\}/g)) refs.add(m[1]);
+    for (const m of source.matchAll(/!\s*(on[A-Z][A-Za-z0-9]*)\b/g)) refs.add(m[1]);
+    if (refs.size > 0) byFile.set(file, refs);
+  }
+  return byFile;
 }
 
 describe('toolbar handler wiring', () => {
-    it('locates the ScoreEditor -> Toolbar call site and its handler props', () => {
-        const supplied = toolbarCallSiteProps();
-        // Sanity: if the extraction silently matched nothing useful, every assertion
-        // below would pass vacuously and the guard would be worthless.
-        expect(supplied.size).toBeGreaterThan(50);
-        expect(supplied.has('onTogglePlayPause')).toBe(true);
-        expect(supplied.has('onRemoveContainingMeasures')).toBe(true);
-    });
+  it('locates the ScoreEditor -> Toolbar call site and its handler props', () => {
+    const supplied = toolbarCallSiteProps();
+    // Sanity: if the extraction silently matched nothing useful, every assertion
+    // below would pass vacuously and the guard would be worthless.
+    expect(supplied.size).toBeGreaterThan(50);
+    expect(supplied.has('onTogglePlayPause')).toBe(true);
+    expect(supplied.has('onRemoveContainingMeasures')).toBe(true);
+  });
 
-    it('finds handler references in the toolbar sections', () => {
-        const byFile = sectionHandlerRefs();
-        expect(byFile.size).toBeGreaterThan(5);
-        expect(byFile.get('PlaybackSection.tsx')).toContain('onTogglePlayPause');
-        expect(byFile.get('MeasuresSection.tsx')).toContain('onRemoveContainingMeasures');
-    });
+  it('finds handler references in the toolbar sections', () => {
+    const byFile = sectionHandlerRefs();
+    expect(byFile.size).toBeGreaterThan(5);
+    expect(byFile.get('PlaybackSection.tsx')).toContain('onTogglePlayPause');
+    expect(byFile.get('MeasuresSection.tsx')).toContain('onRemoveContainingMeasures');
+  });
 
-    it('supplies every handler its sections depend on', () => {
-        const supplied = toolbarCallSiteProps();
-        const missing: string[] = [];
+  it('supplies every handler its sections depend on', () => {
+    const supplied = toolbarCallSiteProps();
+    const missing: string[] = [];
 
-        for (const [file, refs] of sectionHandlerRefs()) {
-            for (const ref of refs) {
-                if (supplied.has(ref) || ALLOWED_UNWIRED.has(ref)) continue;
-                missing.push(`${file}: ${ref}`);
-            }
-        }
+    for (const [file, refs] of sectionHandlerRefs()) {
+      for (const ref of refs) {
+        if (supplied.has(ref) || ALLOWED_UNWIRED.has(ref)) continue;
+        missing.push(`${file}: ${ref}`);
+      }
+    }
 
-        expect(
-            missing,
-            'These toolbar handlers are referenced by a section but never passed by '
-            + 'ScoreEditor, so their controls are dead in the running app. Wire them at '
-            + 'the <Toolbar .../> call site, or add them to ALLOWED_UNWIRED with a reason.',
-        ).toEqual([]);
-    });
+    expect(
+      missing,
+      'These toolbar handlers are referenced by a section but never passed by ' +
+        'ScoreEditor, so their controls are dead in the running app. Wire them at ' +
+        'the <Toolbar .../> call site, or add them to ALLOWED_UNWIRED with a reason.',
+    ).toEqual([]);
+  });
 });

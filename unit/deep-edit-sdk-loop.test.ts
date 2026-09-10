@@ -13,7 +13,10 @@ vi.mock('../lib/webmscore-loader', () => ({
 // toolUseBehavior, the LLM-budget model proxy) against a scripted Model, so SDK wiring
 // breaks here instead of only in production.
 import { tool } from '@openai/agents';
-import { DEEP_EDIT_TOOL_PARAMETERS, runDeepEditService } from '../lib/music-services/deep-edit-service';
+import {
+  DEEP_EDIT_TOOL_PARAMETERS,
+  runDeepEditService,
+} from '../lib/music-services/deep-edit-service';
 
 const BASE_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <score-partwise version="4.0">
@@ -27,11 +30,13 @@ const BASE_XML = `<?xml version="1.0" encoding="UTF-8"?>
 
 const VALID_PATCH = {
   format: 'musicxml-patch@1',
-  ops: [{
-    op: 'setText',
-    path: '/score-partwise/part[@id="P1"]/measure[@number="1"]/note[1]/pitch/step',
-    value: 'G',
-  }],
+  ops: [
+    {
+      op: 'setText',
+      path: '/score-partwise/part[@id="P1"]/measure[@number="1"]/note[1]/pitch/step',
+      value: 'G',
+    },
+  ],
 };
 
 type ScriptedCall = { name: string; args: Record<string, unknown> };
@@ -63,13 +68,15 @@ const scriptedModel = (script: ScriptedCall[]): { model: Model; requests: ModelR
       step += 1;
       return {
         usage: new Usage(),
-        output: [{
-          type: 'function_call',
-          callId: `call-${step}`,
-          name: call.name,
-          status: 'completed',
-          arguments: JSON.stringify(call.args),
-        }],
+        output: [
+          {
+            type: 'function_call',
+            callId: `call-${step}`,
+            name: call.name,
+            status: 'completed',
+            arguments: JSON.stringify(call.args),
+          },
+        ],
       };
     },
     getStreamedResponse: async function* streamed() {
@@ -141,12 +148,14 @@ describe('deep edit through the real agents SDK loop', () => {
     // Arguments use the strict wire shapes: nullable op fields and JSON-encoded ops.
     const strictPatch = {
       format: 'musicxml-patch@1',
-      ops: [{
-        op: 'setText',
-        path: '/score-partwise/part[@id="P1"]/measure[@number="1"]/note[1]/pitch/step',
-        value: 'G',
-        name: null,
-      }],
+      ops: [
+        {
+          op: 'setText',
+          path: '/score-partwise/part[@id="P1"]/measure[@number="1"]/note[1]/pitch/step',
+          value: 'G',
+          name: null,
+        },
+      ],
     };
     const { model, requests } = scriptedModel([
       { name: 'sandbox_apply_patch', args: { baseCandidateId: 'base', patch: strictPatch } },
@@ -172,7 +181,9 @@ describe('deep edit through the real agents SDK loop', () => {
         name: 'sandbox_scoreops',
         args: {
           baseCandidateId: 'base',
-          opsJson: JSON.stringify([{ op: 'set_metadata_text', field: 'title', value: 'Deep Edit Title' }]),
+          opsJson: JSON.stringify([
+            { op: 'set_metadata_text', field: 'title', value: 'Deep Edit Title' },
+          ]),
         },
       },
       { name: 'sandbox_engine_check', args: { candidateId: 'cand-1' } },

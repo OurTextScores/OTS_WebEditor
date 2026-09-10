@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createScoreOpsSession, clearScoreOpsSessions } from '../lib/music-services/scoreops-session-store';
+import {
+  createScoreOpsSession,
+  clearScoreOpsSessions,
+} from '../lib/music-services/scoreops-session-store';
 
 type MockAgentTool = {
   name: string;
@@ -113,25 +116,27 @@ describe('runMusicAgentRouter Sessions', () => {
       artifactId: 'art_123',
     });
 
-    mocked.run.mockImplementation(async (agent: MockAgent, _prompt: unknown, options: MockRunOptions) => {
-      // Simulate tool call by the agent
-      const tool = agent.tools.find((candidate) => candidate.name === 'music.context');
-      if (!tool) {
-        throw new Error('Expected music.context tool to be registered.');
-      }
-      // The SDK passes a RunContext which has the 'context' property
-      // options.context IS our MusicAgentRunnerContext
-      await tool.execute({ include_abc: true }, { context: options.context });
-      
-      return {
-        finalOutput: {
-          selectedTool: 'music_context',
-          toolStatus: 200,
-          toolOk: true,
-          response: 'Context loaded from session.',
-        },
-      };
-    });
+    mocked.run.mockImplementation(
+      async (agent: MockAgent, _prompt: unknown, options: MockRunOptions) => {
+        // Simulate tool call by the agent
+        const tool = agent.tools.find((candidate) => candidate.name === 'music.context');
+        if (!tool) {
+          throw new Error('Expected music.context tool to be registered.');
+        }
+        // The SDK passes a RunContext which has the 'context' property
+        // options.context IS our MusicAgentRunnerContext
+        await tool.execute({ include_abc: true }, { context: options.context });
+
+        return {
+          finalOutput: {
+            selectedTool: 'music_context',
+            toolStatus: 200,
+            toolOk: true,
+            response: 'Context loaded from session.',
+          },
+        };
+      },
+    );
 
     mocked.runMusicContextService.mockResolvedValue({
       status: 200,
@@ -146,9 +151,11 @@ describe('runMusicAgentRouter Sessions', () => {
 
     expect(result.status).toBe(200);
     // Verify tool was called with session info from defaults
-    expect(mocked.runMusicContextService).toHaveBeenCalledWith(expect.objectContaining({
-      scoreSessionId: session.scoreSessionId,
-      baseRevision: 0,
-    }));
+    expect(mocked.runMusicContextService).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scoreSessionId: session.scoreSessionId,
+        baseRevision: 0,
+      }),
+    );
   });
 });

@@ -2,7 +2,8 @@ import type { MusicToolContract } from './types';
 
 export const MUSIC_DIFF_FEEDBACK_TOOL_CONTRACT: MusicToolContract = {
   name: 'music.diff_feedback',
-  description: 'Iteratively revise an assistant proposal by sending per-block diff feedback and returning a refined musicxml-patch@1 plus proposed MusicXML.',
+  description:
+    'Iteratively revise an assistant proposal by sending per-block diff feedback and returning a refined musicxml-patch@1 plus proposed MusicXML.',
   inputSchema: {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
     type: 'object',

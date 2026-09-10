@@ -28,15 +28,18 @@ const BASE_XML = `<?xml version="1.0" encoding="UTF-8"?>
   <part id="P1"><measure number="1"><note><rest/><duration>1</duration><type>quarter</type></note></measure></part>
 </score-partwise>`;
 
-const validPatchText = (annotations?: unknown[]) => JSON.stringify({
-  format: 'musicxml-patch@1',
-  ops: [{
-    op: 'setText',
-    path: '/score-partwise/part[@id="P1"]/measure[@number="1"]/note/duration',
-    value: '2',
-  }],
-  ...(annotations ? { annotations } : {}),
-});
+const validPatchText = (annotations?: unknown[]) =>
+  JSON.stringify({
+    format: 'musicxml-patch@1',
+    ops: [
+      {
+        op: 'setText',
+        path: '/score-partwise/part[@id="P1"]/measure[@number="1"]/note/duration',
+        value: '2',
+      },
+    ],
+    ...(annotations ? { annotations } : {}),
+  });
 
 const PATCH_ENV_KEYS = [
   'MUSIC_PATCH_MAX_ATTEMPTS',
@@ -202,12 +205,16 @@ describe('runMusicPatchService', () => {
       ok: true,
       status: 200,
       json: async () => ({
-        output: [{
-          type: 'message',
-          content: [{
-            text: validPatchText(),
-          }],
-        }],
+        output: [
+          {
+            type: 'message',
+            content: [
+              {
+                text: validPatchText(),
+              },
+            ],
+          },
+        ],
       }),
     } as Response);
 
@@ -254,23 +261,31 @@ describe('runMusicPatchService', () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = String(input);
       if (url.endsWith('/v1beta/models')) {
-        return new Response(JSON.stringify({
-          models: [{
-            name: `models/${model}`,
-            baseModelId: model,
-            inputTokenLimit: 32_768,
-            outputTokenLimit: 4_096,
-            supportedGenerationMethods: ['generateContent'],
-          }],
-        }), { status: 200 });
+        return new Response(
+          JSON.stringify({
+            models: [
+              {
+                name: `models/${model}`,
+                baseModelId: model,
+                inputTokenLimit: 32_768,
+                outputTokenLimit: 4_096,
+                supportedGenerationMethods: ['generateContent'],
+              },
+            ],
+          }),
+          { status: 200 },
+        );
       }
       expect(url).toContain(`models/${model}:generateContent`);
       expect(JSON.parse(String(init?.body))).toMatchObject({
         generationConfig: { maxOutputTokens: 2_048 },
       });
-      return new Response(JSON.stringify({
-        candidates: [{ content: { parts: [{ text: validPatchText() }] } }],
-      }), { status: 200 });
+      return new Response(
+        JSON.stringify({
+          candidates: [{ content: { parts: [{ text: validPatchText() }] } }],
+        }),
+        { status: 200 },
+      );
     });
 
     const result = await runMusicPatchService({
@@ -309,29 +324,36 @@ describe('runMusicPatchService', () => {
       if (url.endsWith('/v1beta/models')) {
         markModelListStarted?.();
         await modelListPaused;
-        return new Response(JSON.stringify({
-          models: models.map((model, index) => ({
-            name: `models/${model}`,
-            baseModelId: model,
-            inputTokenLimit: 32_768,
-            outputTokenLimit: 4_096 * (index + 1),
-            supportedGenerationMethods: ['generateContent'],
-          })),
-        }), { status: 200 });
+        return new Response(
+          JSON.stringify({
+            models: models.map((model, index) => ({
+              name: `models/${model}`,
+              baseModelId: model,
+              inputTokenLimit: 32_768,
+              outputTokenLimit: 4_096 * (index + 1),
+              supportedGenerationMethods: ['generateContent'],
+            })),
+          }),
+          { status: 200 },
+        );
       }
       expect(models.some((model) => url.includes(`models/${model}:generateContent`))).toBe(true);
-      return new Response(JSON.stringify({
-        candidates: [{ content: { parts: [{ text: validPatchText() }] } }],
-      }), { status: 200 });
+      return new Response(
+        JSON.stringify({
+          candidates: [{ content: { parts: [{ text: validPatchText() }] } }],
+        }),
+        { status: 200 },
+      );
     });
-    const request = (model: string) => runMusicPatchService({
-      prompt: 'Fix the duration.',
-      content: BASE_XML,
-      provider: 'gemini',
-      apiKey: 'gemini-shared-concurrent-key',
-      model,
-      maxTokens: 2_048,
-    });
+    const request = (model: string) =>
+      runMusicPatchService({
+        prompt: 'Fix the duration.',
+        content: BASE_XML,
+        provider: 'gemini',
+        apiKey: 'gemini-shared-concurrent-key',
+        model,
+        maxTokens: 2_048,
+      });
 
     const first = request(models[0]);
     await modelListStarted;
@@ -344,12 +366,16 @@ describe('runMusicPatchService', () => {
     expect(secondResult.status).toBe(200);
     expect(firstResult.body.modelDescriptor).toMatchObject({ id: models[0] });
     expect(secondResult.body.modelDescriptor).toMatchObject({ id: models[1] });
-    expect(fetchSpy.mock.calls.filter(([input]) => String(input).endsWith('/v1beta/models'))).toHaveLength(1);
+    expect(
+      fetchSpy.mock.calls.filter(([input]) => String(input).endsWith('/v1beta/models')),
+    ).toHaveLength(1);
   });
 
   it('fails closed with zero LLM calls when metadata refresh fails and ignores a client descriptor hint', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('unavailable', { status: 503 }));
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('unavailable', { status: 503 }));
     const model = 'gemini-unconfirmed-client-hint-test';
 
     const result = await runMusicPatchService({
@@ -418,10 +444,16 @@ describe('generateApplyVerifiedPatch', () => {
   });
 
   it('uses one candidate attempt for the efficient profile', async () => {
-    const requestText = vi.fn(async (args: Parameters<NonNullable<Parameters<typeof generateApplyVerifiedPatch>[0]['requestText']>>[0]) => {
-      args.onRequest?.();
-      return 'not json';
-    });
+    const requestText = vi.fn(
+      async (
+        args: Parameters<
+          NonNullable<Parameters<typeof generateApplyVerifiedPatch>[0]['requestText']>
+        >[0],
+      ) => {
+        args.onRequest?.();
+        return 'not json';
+      },
+    );
     const result = await generateApplyVerifiedPatch({
       provider: 'openai',
       apiKey: 'sk-test',
@@ -468,12 +500,14 @@ describe('generateApplyVerifiedPatch', () => {
       'candidate.received',
       'patch.applied',
     ]);
-    expect(progress).toContainEqual(expect.objectContaining({
-      phase: 'patch.applied',
-      verificationLevel: 'patch_apply',
-      attempt: 1,
-      llmCalls: 1,
-    }));
+    expect(progress).toContainEqual(
+      expect.objectContaining({
+        phase: 'patch.applied',
+        verificationLevel: 'patch_apply',
+        attempt: 1,
+        llmCalls: 1,
+      }),
+    );
     expect(JSON.stringify(progress)).not.toContain('<score-partwise');
   });
 
@@ -501,7 +535,9 @@ describe('generateApplyVerifiedPatch', () => {
     expect(result.ok).toBe(true);
     expect(result.verification).toMatchObject({ attempts: 2, llmCalls: 2 });
     expect(prompts[1]).toContain(badCandidate);
-    expect(prompts[1]).toContain('Patch op 1 failed: XPath "/score-partwise/part[@id=\"P9\"]" matched 0 nodes.');
+    expect(prompts[1]).toContain(
+      'Patch op 1 failed: XPath "/score-partwise/part[@id=\"P9\"]" matched 0 nodes.',
+    );
   });
 
   it('repairs malformed JSON and preserves annotations from the successful candidate', async () => {
@@ -529,10 +565,16 @@ describe('generateApplyVerifiedPatch', () => {
 
   it('returns a bounded 422 after the configured candidate attempts', async () => {
     process.env.MUSIC_PATCH_MAX_ATTEMPTS = '2';
-    const requestText = vi.fn(async (args: Parameters<NonNullable<Parameters<typeof generateApplyVerifiedPatch>[0]['requestText']>>[0]) => {
-      args.onRequest?.();
-      return 'not json';
-    });
+    const requestText = vi.fn(
+      async (
+        args: Parameters<
+          NonNullable<Parameters<typeof generateApplyVerifiedPatch>[0]['requestText']>
+        >[0],
+      ) => {
+        args.onRequest?.();
+        return 'not json';
+      },
+    );
     const result = await generateApplyVerifiedPatch({
       provider: 'openai',
       apiKey: 'sk-test',
@@ -581,14 +623,20 @@ describe('generateApplyVerifiedPatch', () => {
 
   it('does not retry a typed non-retryable provider error', async () => {
     process.env.MUSIC_PATCH_TRANSPORT_RETRIES = '3';
-    const requestText = vi.fn(async (args: Parameters<NonNullable<Parameters<typeof generateApplyVerifiedPatch>[0]['requestText']>>[0]) => {
-      args.onRequest?.();
-      throw new AiProviderRequestError('invalid credentials', {
-        requestStarted: true,
-        retryable: false,
-        status: 401,
-      });
-    });
+    const requestText = vi.fn(
+      async (
+        args: Parameters<
+          NonNullable<Parameters<typeof generateApplyVerifiedPatch>[0]['requestText']>
+        >[0],
+      ) => {
+        args.onRequest?.();
+        throw new AiProviderRequestError('invalid credentials', {
+          requestStarted: true,
+          retryable: false,
+          status: 401,
+        });
+      },
+    );
 
     const result = await generateApplyVerifiedPatch({
       provider: 'openai',
@@ -621,10 +669,13 @@ describe('generateApplyVerifiedPatch', () => {
       baseXml: BASE_XML,
       promptText: 'Fix the duration.',
       maxTokens: null,
-      requestText: (args) => new Promise((_, reject) => {
-        args.onRequest?.();
-        args.signal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
-      }),
+      requestText: (args) =>
+        new Promise((_, reject) => {
+          args.onRequest?.();
+          args.signal?.addEventListener('abort', () => reject(new Error('aborted')), {
+            once: true,
+          });
+        }),
     });
 
     expect(result).toMatchObject({
@@ -635,10 +686,16 @@ describe('generateApplyVerifiedPatch', () => {
   });
 
   it('forwards image and PDF attachments to the provider request', async () => {
-    const requestText = vi.fn(async (args: Parameters<NonNullable<Parameters<typeof generateApplyVerifiedPatch>[0]['requestText']>>[0]) => {
-      args.onRequest?.();
-      return validPatchText();
-    });
+    const requestText = vi.fn(
+      async (
+        args: Parameters<
+          NonNullable<Parameters<typeof generateApplyVerifiedPatch>[0]['requestText']>
+        >[0],
+      ) => {
+        args.onRequest?.();
+        return validPatchText();
+      },
+    );
     await generateApplyVerifiedPatch({
       provider: 'openai',
       apiKey: 'sk-test',
@@ -651,11 +708,13 @@ describe('generateApplyVerifiedPatch', () => {
       requestText,
     });
 
-    expect(requestText).toHaveBeenCalledWith(expect.objectContaining({
-      image: { mediaType: 'image/png', base64: 'aW1hZ2U=' },
-      pdf: { mediaType: 'application/pdf', base64: 'cGRm', filename: 'score.pdf' },
-      signal: expect.any(AbortSignal),
-    }));
+    expect(requestText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        image: { mediaType: 'image/png', base64: 'aW1hZ2U=' },
+        pdf: { mediaType: 'application/pdf', base64: 'cGRm', filename: 'score.pdf' },
+        signal: expect.any(AbortSignal),
+      }),
+    );
   });
 });
 
@@ -666,23 +725,37 @@ describe('requestAiTextDirect error metadata', () => {
 
   it('preserves both Responses and Chat fallback rejection details', async () => {
     vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify({
-        error: { message: 'This model requires a different input shape.' },
-      }), { status: 400 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({
-        error: { message: 'This model is unavailable on Chat Completions.' },
-      }), { status: 404 }));
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: { message: 'This model requires a different input shape.' },
+          }),
+          { status: 400 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: { message: 'This model is unavailable on Chat Completions.' },
+          }),
+          { status: 404 },
+        ),
+      );
 
-    await expect(requestAiTextDirect({
-      provider: 'openai',
-      apiKey: 'sk-test',
-      model: 'gpt-4.1',
-      promptText: 'test',
-      systemPrompt: 'test',
-      maxTokens: null,
-    })).rejects.toMatchObject({
+    await expect(
+      requestAiTextDirect({
+        provider: 'openai',
+        apiKey: 'sk-test',
+        model: 'gpt-4.1',
+        promptText: 'test',
+        systemPrompt: 'test',
+        maxTokens: null,
+      }),
+    ).rejects.toMatchObject({
       status: 404,
-      message: expect.stringContaining('Responses API HTTP 400: This model requires a different input shape.'),
+      message: expect.stringContaining(
+        'Responses API HTTP 400: This model requires a different input shape.',
+      ),
     });
   });
 
@@ -709,7 +782,9 @@ describe('requestAiTextDirect error metadata', () => {
 
   it('marks retryable provider responses after a request starts', async () => {
     const onRequest = vi.fn();
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('busy', { status: 503 }));
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      async () => new Response('busy', { status: 503 }),
+    );
     let caught: unknown;
     try {
       await requestAiTextDirect({
@@ -741,12 +816,14 @@ describe('applyMusicXmlPatch', () => {
     for (const op of ['setText', 'setAttr', 'delete'] as const) {
       const result = await applyMusicXmlPatch(multiNoteXml, {
         format: 'musicxml-patch@1',
-        ops: [{
-          op,
-          path: '/score-partwise/part[@id="P1"]/measure[@number="1"]/note',
-          ...(op === 'setText' ? { value: 'changed' } : {}),
-          ...(op === 'setAttr' ? { name: 'color', value: '#000000' } : {}),
-        }],
+        ops: [
+          {
+            op,
+            path: '/score-partwise/part[@id="P1"]/measure[@number="1"]/note',
+            ...(op === 'setText' ? { value: 'changed' } : {}),
+            ...(op === 'setAttr' ? { name: 'color', value: '#000000' } : {}),
+          },
+        ],
       });
 
       expect(result.xml).toBe('');
@@ -811,7 +888,8 @@ describe('parseMusicXmlPatch', () => {
         {
           op: 'replace',
           path: '/score-partwise/part[@id="P1"]/measure[@number="1"]/note[1]',
-          value: '<note><pitch><step>C</step><octave>4</octave></pitch></note><backup><duration>1</duration></backup>',
+          value:
+            '<note><pitch><step>C</step><octave>4</octave></pitch></note><backup><duration>1</duration></backup>',
         },
       ],
     });

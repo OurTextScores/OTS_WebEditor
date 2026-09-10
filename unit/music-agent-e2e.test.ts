@@ -20,10 +20,7 @@ import { runMusicAgentRouter } from '../lib/music-agents/router';
 
 const HAS_E2E = Boolean(process.env.RUN_E2E && process.env.OPENAI_API_KEY);
 
-const SCALE_XML = readFileSync(
-  resolve(__dirname, 'fixtures/c-major-scale.musicxml'),
-  'utf-8',
-);
+const SCALE_XML = readFileSync(resolve(__dirname, 'fixtures/c-major-scale.musicxml'), 'utf-8');
 
 describe.skipIf(!HAS_E2E)('music agent router (E2E)', () => {
   const priorOpenAiKey = process.env.OPENAI_API_KEY;

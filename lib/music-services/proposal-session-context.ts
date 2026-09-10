@@ -62,7 +62,12 @@ const DEFAULT_CONSTRAINT_TEXT_MAX_CHARS = 300;
 const HARD_CONSTRAINTS_INPUT_MAX = 500;
 const DEFAULT_CONTEXT_TOTAL_MAX_CHARS = 120_000;
 
-const readClampedEnvInteger = (name: string, fallback: number, minimum: number, maximum: number) => {
+const readClampedEnvInteger = (
+  name: string,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+) => {
   const value = Number(process.env[name]);
   if (!Number.isFinite(value)) {
     return fallback;
@@ -70,17 +75,15 @@ const readClampedEnvInteger = (name: string, fallback: number, minimum: number, 
   return Math.min(maximum, Math.max(minimum, Math.floor(value)));
 };
 
-const sanitizeText = (value: string, maxChars: number) => (
+const sanitizeText = (value: string, maxChars: number) =>
   value
-    .replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, " ")
+    .replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
-    .slice(0, maxChars)
-);
+    .slice(0, maxChars);
 
-const readOptionalHash = (value: unknown, pattern: RegExp): string | null => (
-  typeof value === 'string' && pattern.test(value.trim()) ? value.trim() : null
-);
+const readOptionalHash = (value: unknown, pattern: RegExp): string | null =>
+  typeof value === 'string' && pattern.test(value.trim()) ? value.trim() : null;
 
 export type ParseProposalSessionContextResult =
   | { context: null; flags: ProposalContextFlags }
@@ -124,17 +127,23 @@ export function createProposalContinuityToken(args: {
   proposedContentHash: string;
 }): string {
   const digest = createHmac('sha256', continuityKey())
-    .update(`pct-v1|${args.proposalSessionId}|${args.cycle}|${args.baseContentHash}|${args.proposedContentHash}`, 'utf8')
+    .update(
+      `pct-v1|${args.proposalSessionId}|${args.cycle}|${args.baseContentHash}|${args.proposedContentHash}`,
+      'utf8',
+    )
     .digest('hex');
   return `pct-v1:${digest}`;
 }
 
-export function verifyProposalContinuityToken(token: string | null, args: {
-  proposalSessionId: string;
-  cycle: number;
-  baseContentHash: string;
-  proposedContentHash: string;
-}): boolean {
+export function verifyProposalContinuityToken(
+  token: string | null,
+  args: {
+    proposalSessionId: string;
+    cycle: number;
+    baseContentHash: string;
+    proposedContentHash: string;
+  },
+): boolean {
   if (!token || !CONTINUITY_TOKEN_PATTERN.test(token)) {
     return false;
   }
@@ -180,7 +189,8 @@ export function parseProposalSessionContext(
     100,
     100_000,
   );
-  const rawInstruction = typeof record.originalInstruction === 'string' ? record.originalInstruction : '';
+  const rawInstruction =
+    typeof record.originalInstruction === 'string' ? record.originalInstruction : '';
   const originalInstruction = sanitizeText(rawInstruction, instructionMaxChars);
   if (sanitizeText(rawInstruction, Number.MAX_SAFE_INTEGER).length > originalInstruction.length) {
     truncated.add('originalInstruction');
@@ -199,7 +209,9 @@ export function parseProposalSessionContext(
     const baseContentHash = readOptionalHash(prev.baseContentHash, RAW_HASH_PATTERN);
     const proposedContentHash = readOptionalHash(prev.proposedContentHash, RAW_HASH_PATTERN);
     if (!baseContentHash || !proposedContentHash) {
-      return { error: 'proposalSession.previousCycle requires valid base and proposed content hashes.' };
+      return {
+        error: 'proposalSession.previousCycle requires valid base and proposed content hashes.',
+      };
     }
 
     const previousPatchMaxChars = readClampedEnvInteger(
@@ -212,9 +224,9 @@ export function parseProposalSessionContext(
     if (prev.patch != null) {
       const patchRecord = asRecord(prev.patch);
       if (
-        !patchRecord
-        || patchRecord.format !== 'musicxml-patch@1'
-        || !Array.isArray(patchRecord.ops)
+        !patchRecord ||
+        patchRecord.format !== 'musicxml-patch@1' ||
+        !Array.isArray(patchRecord.ops)
       ) {
         return { error: 'proposalSession.previousCycle.patch must be a musicxml-patch@1 object.' };
       }
@@ -250,8 +262,14 @@ export function parseProposalSessionContext(
       baseIdentityHash: readOptionalHash(prev.baseIdentityHash, IDENTITY_HASH_PATTERN),
       proposedContentHash,
       proposedIdentityHash: readOptionalHash(prev.proposedIdentityHash, IDENTITY_HASH_PATTERN),
-      expectedCurrentContentHash: readOptionalHash(prev.expectedCurrentContentHash, RAW_HASH_PATTERN),
-      expectedCurrentIdentityHash: readOptionalHash(prev.expectedCurrentIdentityHash, IDENTITY_HASH_PATTERN),
+      expectedCurrentContentHash: readOptionalHash(
+        prev.expectedCurrentContentHash,
+        RAW_HASH_PATTERN,
+      ),
+      expectedCurrentIdentityHash: readOptionalHash(
+        prev.expectedCurrentIdentityHash,
+        IDENTITY_HASH_PATTERN,
+      ),
       continuityToken: readOptionalHash(prev.continuityToken, CONTINUITY_TOKEN_PATTERN),
       patchJson,
       annotations,
@@ -264,7 +282,9 @@ export function parseProposalSessionContext(
       return { error: 'proposalSession.constraints must be an array.' };
     }
     if (record.constraints.length > HARD_CONSTRAINTS_INPUT_MAX) {
-      return { error: `proposalSession.constraints exceeds ${HARD_CONSTRAINTS_INPUT_MAX} entries.` };
+      return {
+        error: `proposalSession.constraints exceeds ${HARD_CONSTRAINTS_INPUT_MAX} entries.`,
+      };
     }
     const constraintTextMaxChars = readClampedEnvInteger(
       'MUSIC_FEEDBACK_CONSTRAINT_TEXT_MAX_CHARS',
@@ -286,11 +306,12 @@ export function parseProposalSessionContext(
         return { error: `proposalSession.constraints[${i}].kind is invalid.` };
       }
       const partIndexValue = Number(entry.partIndex);
-      const partIndex = Number.isInteger(partIndexValue) && partIndexValue >= 0 ? partIndexValue : null;
-      const measureRange = typeof entry.measureRange === 'string'
-        ? sanitizeText(entry.measureRange, 128)
-        : '';
-      const text = typeof entry.text === 'string' ? sanitizeText(entry.text, constraintTextMaxChars) : '';
+      const partIndex =
+        Number.isInteger(partIndexValue) && partIndexValue >= 0 ? partIndexValue : null;
+      const measureRange =
+        typeof entry.measureRange === 'string' ? sanitizeText(entry.measureRange, 128) : '';
+      const text =
+        typeof entry.text === 'string' ? sanitizeText(entry.text, constraintTextMaxChars) : '';
       if (!text && !measureRange) {
         continue;
       }
@@ -325,12 +346,20 @@ export function parseProposalSessionContext(
     10_000,
     5_000_000,
   );
-  const contextSize = () => (
-    originalInstruction.length
-    + (previousCycle ? previousCycle.patchJson.length : 0)
-    + (previousCycle ? previousCycle.annotations.reduce((sum, annotation) => sum + annotation.comment.length + 24, 0) : 0)
-    + constraints.reduce((sum, constraint) => sum + constraint.text.length + (constraint.measureRange?.length ?? 0) + 24, 0)
-  );
+  const contextSize = () =>
+    originalInstruction.length +
+    (previousCycle ? previousCycle.patchJson.length : 0) +
+    (previousCycle
+      ? previousCycle.annotations.reduce(
+          (sum, annotation) => sum + annotation.comment.length + 24,
+          0,
+        )
+      : 0) +
+    constraints.reduce(
+      (sum, constraint) =>
+        sum + constraint.text.length + (constraint.measureRange?.length ?? 0) + 24,
+      0,
+    );
   while (contextSize() > totalBudgetChars && constraints.length) {
     constraints.shift();
     truncated.add('constraints');
@@ -357,9 +386,8 @@ export function parseProposalSessionContext(
   };
 }
 
-const matchesAny = (value: string, candidates: Array<string | null>) => (
-  candidates.some((candidate) => candidate !== null && candidate === value)
-);
+const matchesAny = (value: string, candidates: Array<string | null>) =>
+  candidates.some((candidate) => candidate !== null && candidate === value);
 
 /**
  * Lineage check for the previous cycle against the authoritative current XML.
@@ -385,19 +413,23 @@ export function evaluateProposalLineage(
   if (!previousCycle) {
     return { lineage: 'none', continuity: 'none' };
   }
-  const continuity: ProposalContinuity = session && verifyProposalContinuityToken(previousCycle.continuityToken, {
-    proposalSessionId: session.proposalSessionId,
-    cycle: session.cycle,
-    baseContentHash: previousCycle.baseContentHash,
-    proposedContentHash: previousCycle.proposedContentHash,
-  }) ? 'server' : 'client';
+  const continuity: ProposalContinuity =
+    session &&
+    verifyProposalContinuityToken(previousCycle.continuityToken, {
+      proposalSessionId: session.proposalSessionId,
+      cycle: session.cycle,
+      baseContentHash: previousCycle.baseContentHash,
+      proposedContentHash: previousCycle.proposedContentHash,
+    })
+      ? 'server'
+      : 'client';
 
   const currentRawHash = computeScoreHash(currentXml);
   let currentIdentityHash: string | null = null;
   const identityCandidatesPresent = Boolean(
-    previousCycle.baseIdentityHash
-    || previousCycle.proposedIdentityHash
-    || previousCycle.expectedCurrentIdentityHash,
+    previousCycle.baseIdentityHash ||
+    previousCycle.proposedIdentityHash ||
+    previousCycle.expectedCurrentIdentityHash,
   );
   if (identityCandidatesPresent) {
     try {
@@ -407,15 +439,23 @@ export function evaluateProposalLineage(
     }
   }
 
-  const matchesAttested = matchesAny(currentRawHash, [previousCycle.baseContentHash, previousCycle.proposedContentHash])
-    || (currentIdentityHash !== null
-      && matchesAny(currentIdentityHash, [previousCycle.baseIdentityHash, previousCycle.proposedIdentityHash]));
+  const matchesAttested =
+    matchesAny(currentRawHash, [
+      previousCycle.baseContentHash,
+      previousCycle.proposedContentHash,
+    ]) ||
+    (currentIdentityHash !== null &&
+      matchesAny(currentIdentityHash, [
+        previousCycle.baseIdentityHash,
+        previousCycle.proposedIdentityHash,
+      ]));
   if (matchesAttested) {
     return { lineage: continuity === 'server' ? 'verified' : 'client_attested', continuity };
   }
-  const matchesExpectation = matchesAny(currentRawHash, [previousCycle.expectedCurrentContentHash])
-    || (currentIdentityHash !== null
-      && matchesAny(currentIdentityHash, [previousCycle.expectedCurrentIdentityHash]));
+  const matchesExpectation =
+    matchesAny(currentRawHash, [previousCycle.expectedCurrentContentHash]) ||
+    (currentIdentityHash !== null &&
+      matchesAny(currentIdentityHash, [previousCycle.expectedCurrentIdentityHash]));
   if (matchesExpectation) {
     return { lineage: 'client_attested', continuity };
   }

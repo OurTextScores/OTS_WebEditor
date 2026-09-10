@@ -57,10 +57,12 @@ describe('POST /api/music/diff/feedback', () => {
       },
     });
 
-    const response = await POST(new Request('http://localhost/api/music/diff/feedback', {
-      method: 'POST',
-      body: JSON.stringify({ scoreSessionId: 'sess_1', baseRevision: 1, blocks: [] }),
-    }));
+    const response = await POST(
+      new Request('http://localhost/api/music/diff/feedback', {
+        method: 'POST',
+        body: JSON.stringify({ scoreSessionId: 'sess_1', baseRevision: 1, blocks: [] }),
+      }),
+    );
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
@@ -78,10 +80,12 @@ describe('POST /api/music/diff/feedback', () => {
       body: { error: 'blocks must be an array.' },
     });
 
-    const response = await POST(new Request('http://localhost/api/music/diff/feedback', {
-      method: 'POST',
-      body: JSON.stringify({}),
-    }));
+    const response = await POST(
+      new Request('http://localhost/api/music/diff/feedback', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      }),
+    );
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
@@ -95,11 +99,13 @@ describe('POST /api/music/diff/feedback', () => {
       options?.onProgress?.({ phase: 'feedback.prepared', message: 'Feedback context prepared' });
       return { status: 422, body: { error: 'No revised proposal.' } };
     });
-    const response = await POST(new Request('http://localhost/api/music/diff/feedback', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
-      body: JSON.stringify({ apiKey: 'sk-test', content: '<score-partwise/>', blocks: [{}] }),
-    }));
+    const response = await POST(
+      new Request('http://localhost/api/music/diff/feedback', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
+        body: JSON.stringify({ apiKey: 'sk-test', content: '<score-partwise/>', blocks: [{}] }),
+      }),
+    );
     const progress: Array<Record<string, unknown>> = [];
 
     const result = await readAiEditServiceResponse(response, (event) => progress.push(event));
@@ -109,16 +115,21 @@ describe('POST /api/music/diff/feedback', () => {
     expect(progress.map((event) => event.phase)).toEqual(['request.accepted', 'feedback.prepared']);
     expect(mocked.runDiffFeedbackService).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ signal: expect.any(AbortSignal), onProgress: expect.any(Function) }),
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+        onProgress: expect.any(Function),
+      }),
     );
   });
   it('refuses to spend a server key before the service is ever reached', async () => {
     process.env.OPENAI_API_KEY = 'server-key';
 
-    const response = await POST(new Request('http://localhost/api/music/diff/feedback', {
-      method: 'POST',
-      body: JSON.stringify({ scoreSessionId: 'sess_1', baseRevision: 1, blocks: [] }),
-    }));
+    const response = await POST(
+      new Request('http://localhost/api/music/diff/feedback', {
+        method: 'POST',
+        body: JSON.stringify({ scoreSessionId: 'sess_1', baseRevision: 1, blocks: [] }),
+      }),
+    );
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toMatchObject({

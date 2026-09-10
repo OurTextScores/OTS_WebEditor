@@ -9,12 +9,14 @@ The easiest way to create a release is to push a version tag. GitHub Actions wil
 ### Steps
 
 1. **Update version in package.json**:
+
    ```bash
    npm version patch  # or minor, or major
    # This creates a commit and tag
    ```
 
 2. **Push the tag**:
+
    ```bash
    git push origin main --tags
    ```
@@ -56,13 +58,16 @@ npm run package:release
 > **Soundfont:** `build:embed` defaults to `https://cdn.ourtextscores.com/soundfonts/default.sf2` as the
 > soundfont CDN URL (baked in at build time via `NEXT_PUBLIC_SOUNDFONT_CDN_URL`). To use a different
 > soundfont, override it before building:
+>
 > ```bash
 > NEXT_PUBLIC_SOUNDFONT_CDN_URL=https://your-cdn.com/soundfonts/custom.sf2 npm run build:embed
 > ```
+>
 > Omitting this variable (or building without the default in the script) results in "No default soundfont
 > found" at runtime.
 
 This creates the following files in `release/`:
+
 - `score-editor-v0.1.0.tar.gz` - Tarball archive
 - `score-editor-v0.1.0.zip` - Zip archive
 - `score-editor-v0.1.0-README.md` - Instructions for users
@@ -83,6 +88,7 @@ gh release create v0.1.0 \
 ```
 
 Or manually via GitHub web interface:
+
 1. Go to https://github.com/your-username/your-repo/releases
 2. Click "Draft a new release"
 3. Create a new tag (e.g., `v0.1.0`)
@@ -105,6 +111,7 @@ We follow [Semantic Versioning](https://semver.org/):
 - **Major** (`X.0.0`): Breaking changes
 
 Use npm version commands:
+
 ```bash
 npm version patch  # 0.1.0 -> 0.1.1
 npm version minor  # 0.1.0 -> 0.2.0
@@ -154,11 +161,13 @@ python3 -m http.server 8080
 ### OOM Error During Build
 
 Move soundfonts out:
+
 ```bash
 mv public/soundfonts ~/soundfonts.backup
 ```
 
 Or increase Node heap size:
+
 ```bash
 NODE_OPTIONS="--max-old-space-size=8192" npm run build:embed
 ```
@@ -166,6 +175,7 @@ NODE_OPTIONS="--max-old-space-size=8192" npm run build:embed
 ### Missing WASM Files
 
 Ensure WASM artifacts are present:
+
 ```bash
 npm run sync:wasm
 ```
@@ -173,11 +183,13 @@ npm run sync:wasm
 ### Release Script Fails
 
 Check required tools are installed:
+
 - `tar` (for creating `.tar.gz`)
 - `zip` (for creating `.zip`)
 - `sha256sum` (for checksums)
 
 On macOS, you may need to install GNU tar:
+
 ```bash
 brew install gnu-tar
 ```
@@ -196,4 +208,5 @@ npm run package:release
 ```
 
 ## Questions?
+
 - Open an issue for questions or problems

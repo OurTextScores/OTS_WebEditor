@@ -2,7 +2,8 @@ import type { MusicToolContract } from './types';
 
 export const MUSIC_CONTEXT_TOOL_CONTRACT: MusicToolContract = {
   name: 'music.context',
-  description: 'Extract bounded MusicXML context snippets (selection/range/search) for reasoning models.',
+  description:
+    'Extract bounded MusicXML context snippets (selection/range/search) for reasoning models.',
   inputSchema: {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
     type: 'object',
@@ -69,4 +70,3 @@ export const MUSIC_CONTEXT_TOOL_CONTRACT: MusicToolContract = {
     ],
   },
 };
-

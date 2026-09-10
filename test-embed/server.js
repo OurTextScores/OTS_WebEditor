@@ -32,10 +32,21 @@ const path = require('path');
 const PORT = Number(process.env.PORT || 8080);
 const ANTHROPIC_VERSION = '2023-06-01';
 const DEFAULT_MAX_TOKENS = 2048;
-const TEST_EMBED_EDITOR_API_ORIGIN = (process.env.TEST_EMBED_EDITOR_API_ORIGIN || '').replace(/\/+$/, '');
+const TEST_EMBED_EDITOR_API_ORIGIN = (process.env.TEST_EMBED_EDITOR_API_ORIGIN || '').replace(
+  /\/+$/,
+  '',
+);
 // --- Analytics stub (in-memory event store) ---
 const analyticsEvents = [];
-const TRACE_HEADERS = ['x-request-id', 'traceparent', 'x-trace-id', 'x-session-id', 'x-client-session-id', 'tracestate', 'baggage'];
+const TRACE_HEADERS = [
+  'x-request-id',
+  'traceparent',
+  'x-trace-id',
+  'x-session-id',
+  'x-client-session-id',
+  'tracestate',
+  'baggage',
+];
 
 const OPENAI_COMPATIBLE_LLMS = {
   grok: {
@@ -92,39 +103,39 @@ const sendJson = (res, status, payload) => {
   res.end(JSON.stringify(payload));
 };
 
-const readJsonBody = (req) => new Promise((resolve, reject) => {
-  let raw = '';
-  req.on('data', (chunk) => {
-    raw += chunk;
+const readJsonBody = (req) =>
+  new Promise((resolve, reject) => {
+    let raw = '';
+    req.on('data', (chunk) => {
+      raw += chunk;
+    });
+    req.on('end', () => {
+      if (!raw.trim()) {
+        resolve({});
+        return;
+      }
+      try {
+        resolve(JSON.parse(raw));
+      } catch (error) {
+        reject(error);
+      }
+    });
+    req.on('error', reject);
   });
-  req.on('end', () => {
-    if (!raw.trim()) {
-      resolve({});
-      return;
-    }
-    try {
-      resolve(JSON.parse(raw));
-    } catch (error) {
-      reject(error);
-    }
-  });
-  req.on('error', reject);
-});
 
-const readRawBody = (req) => new Promise((resolve, reject) => {
-  const chunks = [];
-  req.on('data', (chunk) => {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+const readRawBody = (req) =>
+  new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', (chunk) => {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
   });
-  req.on('end', () => resolve(Buffer.concat(chunks)));
-  req.on('error', reject);
-});
 
 const parseAnthropicText = (data) => {
   const content = Array.isArray(data?.content) ? data.content : [];
-  return content
-    .map((part) => (part?.type === 'text' ? part?.text || '' : ''))
-    .join('');
+  return content.map((part) => (part?.type === 'text' ? part?.text || '' : '')).join('');
 };
 
 const parseGeminiText = (data) => {
@@ -197,21 +208,27 @@ const handleAnthropicRequest = async (req, res) => {
     const model = String(body?.model || '').trim();
     const prompt = String(body?.prompt || '').trim();
     const promptText = typeof body?.promptText === 'string' ? body.promptText.trim() : '';
-    const systemPromptInput = typeof body?.systemPrompt === 'string' ? body.systemPrompt.trim() : '';
+    const systemPromptInput =
+      typeof body?.systemPrompt === 'string' ? body.systemPrompt.trim() : '';
     const imageBase64 = typeof body?.imageBase64 === 'string' ? body.imageBase64.trim() : '';
-    const imageMediaType = typeof body?.imageMediaType === 'string' ? body.imageMediaType.trim() : 'image/png';
+    const imageMediaType =
+      typeof body?.imageMediaType === 'string' ? body.imageMediaType.trim() : 'image/png';
     const pdfBase64 = typeof body?.pdfBase64 === 'string' ? body.pdfBase64.trim() : '';
-    const pdfMediaType = typeof body?.pdfMediaType === 'string' ? body.pdfMediaType.trim() : 'application/pdf';
+    const pdfMediaType =
+      typeof body?.pdfMediaType === 'string' ? body.pdfMediaType.trim() : 'application/pdf';
     const maxTokensRaw = body?.maxTokens;
     const maxTokensValue = Number(maxTokensRaw);
-    const maxTokens = Number.isFinite(maxTokensValue) && maxTokensValue > 0 ? maxTokensValue : DEFAULT_MAX_TOKENS;
+    const maxTokens =
+      Number.isFinite(maxTokensValue) && maxTokensValue > 0 ? maxTokensValue : DEFAULT_MAX_TOKENS;
 
     if (!apiKey || !model || (!promptText && !prompt)) {
       sendJson(res, 400, { error: 'Missing apiKey, model, or prompt/promptText.' });
       return;
     }
 
-    const systemPrompt = systemPromptInput || 'You are a MusicXML editor. Return only a JSON patch payload (musicxml-patch@1), no markdown or commentary.';
+    const systemPrompt =
+      systemPromptInput ||
+      'You are a MusicXML editor. Return only a JSON patch payload (musicxml-patch@1), no markdown or commentary.';
     const userPrompt = promptText || prompt;
     const userContent = [{ type: 'text', text: userPrompt }];
 
@@ -313,12 +330,15 @@ const handleGeminiRequest = async (req, res) => {
     const model = String(body?.model || '').trim();
     const prompt = String(body?.prompt || '').trim();
     const promptText = typeof body?.promptText === 'string' ? body.promptText.trim() : '';
-    const systemPromptInput = typeof body?.systemPrompt === 'string' ? body.systemPrompt.trim() : '';
+    const systemPromptInput =
+      typeof body?.systemPrompt === 'string' ? body.systemPrompt.trim() : '';
     const xml = typeof body?.xml === 'string' ? body.xml : '';
     const imageBase64 = typeof body?.imageBase64 === 'string' ? body.imageBase64.trim() : '';
-    const imageMediaType = typeof body?.imageMediaType === 'string' ? body.imageMediaType.trim() : 'image/png';
+    const imageMediaType =
+      typeof body?.imageMediaType === 'string' ? body.imageMediaType.trim() : 'image/png';
     const pdfBase64 = typeof body?.pdfBase64 === 'string' ? body.pdfBase64.trim() : '';
-    const pdfMediaType = typeof body?.pdfMediaType === 'string' ? body.pdfMediaType.trim() : 'application/pdf';
+    const pdfMediaType =
+      typeof body?.pdfMediaType === 'string' ? body.pdfMediaType.trim() : 'application/pdf';
     const maxTokensRaw = body?.maxTokens;
     const maxTokensValue = Number(maxTokensRaw);
     const maxTokens = Number.isFinite(maxTokensValue) && maxTokensValue > 0 ? maxTokensValue : null;
@@ -328,7 +348,9 @@ const handleGeminiRequest = async (req, res) => {
       return;
     }
 
-    const systemPrompt = systemPromptInput || 'You are a MusicXML editor. Return only a JSON patch payload (musicxml-patch@1), no markdown or commentary.';
+    const systemPrompt =
+      systemPromptInput ||
+      'You are a MusicXML editor. Return only a JSON patch payload (musicxml-patch@1), no markdown or commentary.';
     const userPrompt = promptText || prompt || xml;
     const normalizedModel = normalizeGeminiModel(model);
     if (!normalizedModel) {
@@ -359,25 +381,28 @@ const handleGeminiRequest = async (req, res) => {
       ...(maxTokens ? { maxOutputTokens: maxTokens } : {}),
     };
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${normalizedModel}:generateContent`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
-      },
-      body: JSON.stringify({
-        systemInstruction: {
-          parts: [{ text: systemPrompt }],
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/${normalizedModel}:generateContent`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
         },
-        contents: [
-          {
-            role: 'user',
-            parts,
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: systemPrompt }],
           },
-        ],
-        generationConfig,
-      }),
-    });
+          contents: [
+            {
+              role: 'user',
+              parts,
+            },
+          ],
+          generationConfig,
+        }),
+      },
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -420,7 +445,9 @@ const handleOpenAiCompatibleModels = async (req, res, provider) => {
     const models = Array.isArray(data?.data)
       ? data.data.map((item) => item?.id).filter((id) => typeof id === 'string')
       : Array.isArray(data?.models)
-        ? data.models.map((item) => (typeof item === 'string' ? item : item?.id)).filter((id) => typeof id === 'string')
+        ? data.models
+            .map((item) => (typeof item === 'string' ? item : item?.id))
+            .filter((id) => typeof id === 'string')
         : [];
     sendJson(res, 200, { models });
   } catch (err) {
@@ -438,9 +465,11 @@ const handleOpenAiCompatibleRequest = async (req, res, provider) => {
     const model = String(body?.model || '').trim();
     const prompt = String(body?.prompt || '').trim();
     const promptText = typeof body?.promptText === 'string' ? body.promptText.trim() : '';
-    const systemPromptInput = typeof body?.systemPrompt === 'string' ? body.systemPrompt.trim() : '';
+    const systemPromptInput =
+      typeof body?.systemPrompt === 'string' ? body.systemPrompt.trim() : '';
     const imageBase64 = typeof body?.imageBase64 === 'string' ? body.imageBase64.trim() : '';
-    const imageMediaType = typeof body?.imageMediaType === 'string' ? body.imageMediaType.trim() : 'image/png';
+    const imageMediaType =
+      typeof body?.imageMediaType === 'string' ? body.imageMediaType.trim() : 'image/png';
     const pdfBase64 = typeof body?.pdfBase64 === 'string' ? body.pdfBase64.trim() : '';
     const maxTokensRaw = body?.maxTokens;
     const maxTokensValue = Number(maxTokensRaw);
@@ -455,18 +484,20 @@ const handleOpenAiCompatibleRequest = async (req, res, provider) => {
       return;
     }
 
-    const systemPrompt = systemPromptInput || 'You are a MusicXML editor. Return only a JSON patch payload (musicxml-patch@1), no markdown or commentary.';
+    const systemPrompt =
+      systemPromptInput ||
+      'You are a MusicXML editor. Return only a JSON patch payload (musicxml-patch@1), no markdown or commentary.';
     const userPrompt = promptText || prompt;
     const userMessageContent = imageBase64
       ? [
-        { type: 'text', text: userPrompt },
-        {
-          type: 'image_url',
-          image_url: {
-            url: `data:${imageMediaType};base64,${imageBase64}`,
+          { type: 'text', text: userPrompt },
+          {
+            type: 'image_url',
+            image_url: {
+              url: `data:${imageMediaType};base64,${imageBase64}`,
+            },
           },
-        },
-      ]
+        ]
       : userPrompt;
 
     const payload = {
@@ -505,7 +536,8 @@ const handleOpenAiCompatibleRequest = async (req, res, provider) => {
 const analyticsHeaders = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type, X-Request-ID, Traceparent, X-Trace-ID, X-Session-ID, X-Client-Session-ID, Tracestate, Baggage',
+  'Access-Control-Allow-Headers':
+    'Content-Type, X-Request-ID, Traceparent, X-Trace-ID, X-Session-ID, X-Client-Session-ID, Tracestate, Baggage',
   'Access-Control-Allow-Methods': 'POST, GET, DELETE, OPTIONS',
 };
 
@@ -766,7 +798,8 @@ const tryHandleScoreEditorApiProxy = async (req, res, requestUrl, pathname) => {
     }
     if (!TEST_EMBED_EDITOR_API_ORIGIN) {
       sendJson(res, 501, {
-        error: 'No test music proxy configured. Set TEST_EMBED_EDITOR_API_ORIGIN (e.g. http://localhost:3000) to forward /api/score-editor/music/*.',
+        error:
+          'No test music proxy configured. Set TEST_EMBED_EDITOR_API_ORIGIN (e.g. http://localhost:3000) to forward /api/score-editor/music/*.',
       });
       return true;
     }
@@ -844,11 +877,19 @@ server.listen(PORT, () => {
   console.log(`  - http://localhost:${PORT}/api/llm/grok* -> local Grok proxy`);
   console.log(`  - http://localhost:${PORT}/api/llm/deepseek* -> local DeepSeek proxy`);
   console.log(`  - http://localhost:${PORT}/api/llm/kimi* -> local Kimi proxy`);
-  console.log(`  - http://localhost:${PORT}/api/analytics/events (POST) -> analytics stub (captures events)`);
-  console.log(`  - http://localhost:${PORT}/api/analytics/__test-log (GET/DELETE) -> view/clear captured events`);
+  console.log(
+    `  - http://localhost:${PORT}/api/analytics/events (POST) -> analytics stub (captures events)`,
+  );
+  console.log(
+    `  - http://localhost:${PORT}/api/analytics/__test-log (GET/DELETE) -> view/clear captured events`,
+  );
   console.log(`  - http://localhost:${PORT}/api/score-editor/llm* -> alias to local LLM proxies`);
-  console.log(`  - http://localhost:${PORT}/api/score-editor/music* -> proxy via TEST_EMBED_EDITOR_API_ORIGIN${TEST_EMBED_EDITOR_API_ORIGIN ? ` (${TEST_EMBED_EDITOR_API_ORIGIN})` : ' (not configured)'}`);
-  console.log(`  - http://localhost:${PORT}/api/score-editor/music/__proxy-health -> test proxy health check`);
+  console.log(
+    `  - http://localhost:${PORT}/api/score-editor/music* -> proxy via TEST_EMBED_EDITOR_API_ORIGIN${TEST_EMBED_EDITOR_API_ORIGIN ? ` (${TEST_EMBED_EDITOR_API_ORIGIN})` : ' (not configured)'}`,
+  );
+  console.log(
+    `  - http://localhost:${PORT}/api/score-editor/music/__proxy-health -> test proxy health check`,
+  );
   console.log(`\n  Trace headers forwarded: ${TRACE_HEADERS.join(', ')}`);
   console.log('\nPress Ctrl+C to stop\n');
 });

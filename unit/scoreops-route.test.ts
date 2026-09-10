@@ -20,10 +20,12 @@ describe('scoreops routes', () => {
       body: { ok: true, scoreSessionId: 'sess_1' },
     });
 
-    const response = await openPOST(new Request('http://localhost/api/music/scoreops/session/open', {
-      method: 'POST',
-      body: JSON.stringify({ content: '<score-partwise />' }),
-    }));
+    const response = await openPOST(
+      new Request('http://localhost/api/music/scoreops/session/open', {
+        method: 'POST',
+        body: JSON.stringify({ content: '<score-partwise />' }),
+      }),
+    );
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ ok: true, scoreSessionId: 'sess_1' });
@@ -39,10 +41,12 @@ describe('scoreops routes', () => {
       body: { ok: true, revision: 1 },
     });
 
-    const response = await inspectPOST(new Request('http://localhost/api/music/scoreops/inspect', {
-      method: 'POST',
-      body: JSON.stringify({ scoreSessionId: 'sess_1' }),
-    }));
+    const response = await inspectPOST(
+      new Request('http://localhost/api/music/scoreops/inspect', {
+        method: 'POST',
+        body: JSON.stringify({ scoreSessionId: 'sess_1' }),
+      }),
+    );
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ ok: true, revision: 1 });
@@ -58,10 +62,12 @@ describe('scoreops routes', () => {
       body: { ok: false, error: { code: 'execution_failure' } },
     });
 
-    const response = await applyPOST(new Request('http://localhost/api/music/scoreops/apply', {
-      method: 'POST',
-      body: JSON.stringify({ scoreSessionId: 'sess_1', ops: [] }),
-    }));
+    const response = await applyPOST(
+      new Request('http://localhost/api/music/scoreops/apply', {
+        method: 'POST',
+        body: JSON.stringify({ scoreSessionId: 'sess_1', ops: [] }),
+      }),
+    );
 
     expect(response.status).toBe(422);
     await expect(response.json()).resolves.toMatchObject({ ok: false });
@@ -77,10 +83,12 @@ describe('scoreops routes', () => {
       body: { ok: true, newRevision: 2 },
     });
 
-    const response = await syncPOST(new Request('http://localhost/api/music/scoreops/sync', {
-      method: 'POST',
-      body: JSON.stringify({ scoreSessionId: 'sess_1', content: '<score-partwise />' }),
-    }));
+    const response = await syncPOST(
+      new Request('http://localhost/api/music/scoreops/sync', {
+        method: 'POST',
+        body: JSON.stringify({ scoreSessionId: 'sess_1', content: '<score-partwise />' }),
+      }),
+    );
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ ok: true, newRevision: 2 });

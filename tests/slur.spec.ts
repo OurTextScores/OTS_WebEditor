@@ -2,7 +2,9 @@ import { expect, test } from 'playwright/test';
 
 const loadThreeNotes = async (page: import('@playwright/test').Page) => {
   await page.goto('/');
-  await page.getByTestId('open-score-input').setInputFiles('public/test_scores/three_notes_cde.musicxml');
+  await page
+    .getByTestId('open-score-input')
+    .setInputFiles('public/test_scores/three_notes_cde.musicxml');
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
   await expect(page.getByTestId('btn-note-input')).toBeEnabled({ timeout: 60_000 });
 };
@@ -11,11 +13,16 @@ const selectFirstThroughThirdNotes = async (page: import('@playwright/test').Pag
   const notes = page.locator('svg .Note');
   await notes.nth(0).click();
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
-  const rightmost = await notes.evaluateAll(elements => elements.reduce((best, element) => {
-    const rect = element.getBoundingClientRect();
-    const point = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-    return !best || point.x > best.x ? point : best;
-  }, null as { x: number; y: number } | null));
+  const rightmost = await notes.evaluateAll((elements) =>
+    elements.reduce(
+      (best, element) => {
+        const rect = element.getBoundingClientRect();
+        const point = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        return !best || point.x > best.x ? point : best;
+      },
+      null as { x: number; y: number } | null,
+    ),
+  );
   expect(rightmost).not.toBeNull();
   await page.keyboard.down('Control');
   await page.mouse.click(rightmost!.x, rightmost!.y);

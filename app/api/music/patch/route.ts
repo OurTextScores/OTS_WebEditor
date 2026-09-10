@@ -10,9 +10,8 @@ import {
 
 export const runtime = 'nodejs';
 
-const asRecord = (value: unknown): Record<string, unknown> | null => (
-  value && typeof value === 'object' ? value as Record<string, unknown> : null
-);
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
 
 export async function POST(request: Request) {
   const startedAt = Date.now();
@@ -32,31 +31,40 @@ export async function POST(request: Request) {
       verificationLevel: typeof verification?.level === 'string' ? verification.level : null,
       attempts: typeof verification?.attempts === 'number' ? verification.attempts : null,
       llmCalls: typeof verification?.llmCalls === 'number' ? verification.llmCalls : null,
-      verificationElapsedMs: typeof verification?.elapsedMs === 'number' ? verification.elapsedMs : null,
+      verificationElapsedMs:
+        typeof verification?.elapsedMs === 'number' ? verification.elapsedMs : null,
       editEffort: typeof verification?.effort === 'string' ? verification.effort : null,
       requestBudgetMs: typeof budget?.budgetMs === 'number' ? budget.budgetMs : null,
-      serverModelDescriptorSource: typeof authorizedModelDescriptor?.source === 'string'
-        ? authorizedModelDescriptor.source
-        : null,
-      errorCategory: typeof lastFailure?.category === 'string'
-        ? lastFailure.category
-        : status === 200 ? null
-          : status === 413 ? 'resource_limit'
-            : status === 504 ? 'timeout'
-              : status === 502 ? 'provider'
-                : status === 422 ? 'verification'
-                  : 'request',
+      serverModelDescriptorSource:
+        typeof authorizedModelDescriptor?.source === 'string'
+          ? authorizedModelDescriptor.source
+          : null,
+      errorCategory:
+        typeof lastFailure?.category === 'string'
+          ? lastFailure.category
+          : status === 200
+            ? null
+            : status === 413
+              ? 'resource_limit'
+              : status === 504
+                ? 'timeout'
+                : status === 502
+                  ? 'provider'
+                  : status === 422
+                    ? 'verification'
+                    : 'request',
     };
   };
-  const logSummary = () => logApiRouteSummary({
-    event: 'music.patch.summary',
-    route: '/api/music/patch',
-    method: 'POST',
-    status,
-    startedAt,
-    trace,
-    extra: summaryExtra,
-  });
+  const logSummary = () =>
+    logApiRouteSummary({
+      event: 'music.patch.summary',
+      route: '/api/music/patch',
+      method: 'POST',
+      status,
+      startedAt,
+      trace,
+      extra: summaryExtra,
+    });
   try {
     const access = requireSensitiveApiAccess({
       request,
@@ -83,16 +91,21 @@ export async function POST(request: Request) {
     summaryExtra = {
       provider: typeof data?.provider === 'string' ? data.provider.slice(0, 32) : null,
       model: typeof data?.model === 'string' ? data.model.slice(0, 128) : null,
-      clientModelDescriptorId: typeof clientModelDescriptor?.id === 'string'
-        ? clientModelDescriptor.id.slice(0, 128)
-        : null,
-      clientModelDescriptorSource: typeof clientModelDescriptor?.source === 'string'
-        ? clientModelDescriptor.source.slice(0, 32)
-        : null,
+      clientModelDescriptorId:
+        typeof clientModelDescriptor?.id === 'string'
+          ? clientModelDescriptor.id.slice(0, 128)
+          : null,
+      clientModelDescriptorSource:
+        typeof clientModelDescriptor?.source === 'string'
+          ? clientModelDescriptor.source.slice(0, 32)
+          : null,
     };
     if (typeof data?.content !== 'string' || !data.content.trim()) {
       status = 400;
-      const response = NextResponse.json({ error: 'Base MusicXML content is required.' }, { status });
+      const response = NextResponse.json(
+        { error: 'Base MusicXML content is required.' },
+        { status },
+      );
       applyTraceHeaders(response.headers, trace);
       return response;
     }
@@ -104,7 +117,11 @@ export async function POST(request: Request) {
         startedAt,
         parentSignal: request.signal,
         run: async (onProgress, signal) => {
-          const result = await runMusicPatchService(body, { traceContext: trace, signal, onProgress });
+          const result = await runMusicPatchService(body, {
+            traceContext: trace,
+            signal,
+            onProgress,
+          });
           recordResultSummary(result);
           return result;
         },
@@ -114,7 +131,10 @@ export async function POST(request: Request) {
       return response;
     }
 
-    const result = await runMusicPatchService(body, { traceContext: trace, signal: request.signal });
+    const result = await runMusicPatchService(body, {
+      traceContext: trace,
+      signal: request.signal,
+    });
     recordResultSummary(result);
     const response = NextResponse.json(result.body, { status });
     applyTraceHeaders(response.headers, trace);

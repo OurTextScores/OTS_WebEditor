@@ -21,7 +21,9 @@ test('drag selection marquee selects multiple notes for transpose', async ({ pag
     });
   };
 
-  await expect.poll(async () => await readPitches(), { timeout: 20_000 }).toEqual(['C4', 'D4', 'E4']);
+  await expect
+    .poll(async () => await readPitches(), { timeout: 20_000 })
+    .toEqual(['C4', 'D4', 'E4']);
 
   const notes = page.locator('svg .Note');
   await notes.nth(0).scrollIntoViewIfNeeded();
@@ -56,5 +58,7 @@ test('drag selection marquee selects multiple notes for transpose', async ({ pag
   await page.getByTestId('selection-overlay-0').waitFor({ timeout: 10_000 });
   await page.getByTestId('btn-transpose-12').click();
 
-  await expect.poll(async () => await readPitches(), { timeout: 20_000 }).toEqual(['C5', 'D5', 'E5']);
+  await expect
+    .poll(async () => await readPitches(), { timeout: 20_000 })
+    .toEqual(['C5', 'D5', 'E5']);
 });

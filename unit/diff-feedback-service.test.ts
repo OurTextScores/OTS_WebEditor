@@ -20,13 +20,18 @@ vi.mock('../lib/music-services/patch-service', () => ({
   applyMusicXmlPatch: mocked.applyMusicXmlPatch,
 }));
 
-import { buildFeedbackPrompt, runDiffFeedbackService } from '../lib/music-services/diff-feedback-service';
+import {
+  buildFeedbackPrompt,
+  runDiffFeedbackService,
+} from '../lib/music-services/diff-feedback-service';
 import { createProposalContinuityToken } from '../lib/music-services/proposal-session-context';
 import { computeScoreHash } from '../lib/music-services/scoreops-session-store';
 import { computeMusicXmlIdentityHashServer } from '../lib/musicxml-identity-server';
 
-const SESSION_BASE_XML = '<score-partwise version="4.0"><part-list/><part id="P1"><measure number="1"/></part></score-partwise>';
-const SESSION_PROPOSED_XML = '<score-partwise version="4.0"><part-list/><part id="P1"><measure number="1"><note/></measure></part></score-partwise>';
+const SESSION_BASE_XML =
+  '<score-partwise version="4.0"><part-list/><part id="P1"><measure number="1"/></part></score-partwise>';
+const SESSION_PROPOSED_XML =
+  '<score-partwise version="4.0"><part-list/><part id="P1"><measure number="1"><note/></measure></part></score-partwise>';
 
 type DiffFeedbackAuditView = {
   proposalContext: {
@@ -88,7 +93,12 @@ describe('diff-feedback-service', () => {
       blocks: [
         { partIndex: 0, measureRange: '3-4', status: 'accepted' },
         { partIndex: 1, measureRange: '6-6', status: 'rejected' },
-        { partIndex: 0, measureRange: '8-9', status: 'comment', comment: 'Keep rhythm, make legato' },
+        {
+          partIndex: 0,
+          measureRange: '8-9',
+          status: 'comment',
+          comment: 'Keep rhythm, make legato',
+        },
         { partIndex: 0, measureRange: '10-11', status: 'pending' },
       ],
       globalComment: 'Dynamics are too strong',
@@ -109,11 +119,13 @@ describe('diff-feedback-service', () => {
     const prompt = buildFeedbackPrompt({
       iteration: 1,
       blocks: [],
-      userEdits: [{
-        side: 'proposal',
-        label: 'Assistant proposal',
-        diff: '@@ -1 +1 @@\n-<rest/>\n+<note/>',
-      }],
+      userEdits: [
+        {
+          side: 'proposal',
+          label: 'Assistant proposal',
+          diff: '@@ -1 +1 @@\n-<rest/>\n+<note/>',
+        },
+      ],
     });
 
     expect(prompt).toContain('MANUAL COMPARE-PANE EDITS');
@@ -133,11 +145,13 @@ describe('diff-feedback-service', () => {
       model: 'gpt-5.5',
       apiKey: 'sk-test',
       blocks: [],
-      userEdits: [{
-        side: 'current',
-        label: 'Current score',
-        diff: '@@ -1 +1 @@\n-<measure/>\n+<measure><note/></measure>',
-      }],
+      userEdits: [
+        {
+          side: 'current',
+          label: 'Current score',
+          diff: '@@ -1 +1 @@\n-<measure/>\n+<measure><note/></measure>',
+        },
+      ],
     });
 
     expect(result.status).toBe(200);
@@ -162,11 +176,13 @@ describe('diff-feedback-service', () => {
       body: {
         patch: {
           format: 'musicxml-patch@1',
-          ops: [{
-            op: 'setText',
-            path: '/score-partwise/part[@id="P1"]/measure[@number="1"]/attributes/key/fifths',
-            value: '1',
-          }],
+          ops: [
+            {
+              op: 'setText',
+              path: '/score-partwise/part[@id="P1"]/measure[@number="1"]/attributes/key/fifths',
+              value: '1',
+            },
+          ],
         },
         model: 'gpt-5.5',
         proposedXml: '<score-partwise version="4.0"><part-list/></score-partwise>',
@@ -188,21 +204,24 @@ describe('diff-feedback-service', () => {
       },
     });
 
-    const result = await runDiffFeedbackService({
-      content: '<score-partwise version="4.0"></score-partwise>',
-      iteration: 2,
-      provider: 'openai',
-      model: 'gpt-5.5',
-      apiKey: 'sk-test',
-      editEffort: 'thorough',
-      maxTokens: 8192,
-      temperature: 0.4,
-      blocks: [
-        { partIndex: 0, measureRange: '3-4', status: 'accepted' },
-        { partIndex: 0, measureRange: '5-6', status: 'pending' },
-      ],
-      globalComment: 'Keep dynamics gentle',
-    }, { onProgress });
+    const result = await runDiffFeedbackService(
+      {
+        content: '<score-partwise version="4.0"></score-partwise>',
+        iteration: 2,
+        provider: 'openai',
+        model: 'gpt-5.5',
+        apiKey: 'sk-test',
+        editEffort: 'thorough',
+        maxTokens: 8192,
+        temperature: 0.4,
+        blocks: [
+          { partIndex: 0, measureRange: '3-4', status: 'accepted' },
+          { partIndex: 0, measureRange: '5-6', status: 'pending' },
+        ],
+        globalComment: 'Keep dynamics gentle',
+      },
+      { onProgress },
+    );
 
     expect(mocked.runMusicPatchService).toHaveBeenCalledTimes(1);
     expect(mocked.runMusicPatchService.mock.calls[0][0]).toMatchObject({
@@ -216,10 +235,12 @@ describe('diff-feedback-service', () => {
     });
     expect(String(mocked.runMusicPatchService.mock.calls[0][0].prompt)).toContain('ACCEPTED');
     expect(mocked.runMusicPatchService.mock.calls[0][1]).toMatchObject({ onProgress });
-    expect(onProgress).toHaveBeenCalledWith(expect.objectContaining({
-      phase: 'feedback.prepared',
-      message: 'Feedback context prepared',
-    }));
+    expect(onProgress).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: 'feedback.prepared',
+        message: 'Feedback context prepared',
+      }),
+    );
     expect(result.status).toBe(200);
     expect(result.body).toMatchObject({
       iteration: 3,
@@ -249,7 +270,9 @@ describe('diff-feedback-service', () => {
       provider: 'openai',
       model: 'gpt-5.5',
       apiKey: 'sk-test',
-      blocks: [{ partIndex: 0, measureRange: '1-1', status: 'comment', comment: 'Use quarter notes.' }],
+      blocks: [
+        { partIndex: 0, measureRange: '1-1', status: 'comment', comment: 'Use quarter notes.' },
+      ],
       proposalSession: proposalSessionInput(SESSION_BASE_XML),
     });
 
@@ -285,7 +308,8 @@ describe('diff-feedback-service', () => {
 
   it('accepts a partial-apply current state via the expected-current hash', async () => {
     mocked.runMusicPatchService.mockResolvedValue(successPatchBody());
-    const partialXml = '<score-partwise version="4.0"><part-list/><part id="P1"><measure number="1"><note/><note/></measure></part></score-partwise>';
+    const partialXml =
+      '<score-partwise version="4.0"><part-list/><part id="P1"><measure number="1"><note/><note/></measure></part></score-partwise>';
 
     const result = await runDiffFeedbackService({
       content: partialXml,
@@ -318,12 +342,13 @@ describe('diff-feedback-service', () => {
       },
     });
     const context = proposalSessionInput(SESSION_BASE_XML);
-    (context.previousCycle as Record<string, unknown>).continuityToken = createProposalContinuityToken({
-      proposalSessionId: context.id,
-      cycle: 1,
-      baseContentHash: computeScoreHash(SESSION_BASE_XML),
-      proposedContentHash: computeScoreHash(SESSION_PROPOSED_XML),
-    });
+    (context.previousCycle as Record<string, unknown>).continuityToken =
+      createProposalContinuityToken({
+        proposalSessionId: context.id,
+        cycle: 1,
+        baseContentHash: computeScoreHash(SESSION_BASE_XML),
+        proposedContentHash: computeScoreHash(SESSION_PROPOSED_XML),
+      });
 
     const result = await runDiffFeedbackService({
       content: SESSION_BASE_XML,
@@ -344,10 +369,13 @@ describe('diff-feedback-service', () => {
 
   it('drops the previous cycle but keeps instruction and constraints on a lineage mismatch', async () => {
     mocked.runMusicPatchService.mockResolvedValue(successPatchBody());
-    const unrelatedXml = '<score-partwise version="4.0"><part-list/><part id="P1"><measure number="9"/></part></score-partwise>';
+    const unrelatedXml =
+      '<score-partwise version="4.0"><part-list/><part id="P1"><measure number="9"/></part></score-partwise>';
     const context = proposalSessionInput(SESSION_BASE_XML);
-    (context.previousCycle as Record<string, unknown>).expectedCurrentContentHash = computeScoreHash(SESSION_BASE_XML);
-    (context.previousCycle as Record<string, unknown>).expectedCurrentIdentityHash = computeMusicXmlIdentityHashServer(SESSION_BASE_XML);
+    (context.previousCycle as Record<string, unknown>).expectedCurrentContentHash =
+      computeScoreHash(SESSION_BASE_XML);
+    (context.previousCycle as Record<string, unknown>).expectedCurrentIdentityHash =
+      computeMusicXmlIdentityHashServer(SESSION_BASE_XML);
 
     const result = await runDiffFeedbackService({
       content: unrelatedXml,
@@ -545,5 +573,4 @@ describe('diff-feedback-service', () => {
       expect(prompt).not.toContain('\u001b');
     });
   });
-
 });

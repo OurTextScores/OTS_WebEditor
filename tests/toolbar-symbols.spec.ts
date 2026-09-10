@@ -7,8 +7,8 @@ test('clef and grace-note menus use spaced Leland symbol rows', async ({ page })
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
 
   await page.getByTestId('dropdown-clef').click();
-  const commonClefs = [0, 20, 10, 11].map(value => page.getByTestId(`btn-clef-${value}`));
-  const clefBoxes = await Promise.all(commonClefs.map(item => item.boundingBox()));
+  const commonClefs = [0, 20, 10, 11].map((value) => page.getByTestId(`btn-clef-${value}`));
+  const clefBoxes = await Promise.all(commonClefs.map((item) => item.boundingBox()));
   for (let index = 0; index < clefBoxes.length; index += 1) {
     const box = clefBoxes[index];
     expect(box?.height).toBeGreaterThanOrEqual(48);

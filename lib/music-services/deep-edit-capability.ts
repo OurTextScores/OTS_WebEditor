@@ -51,8 +51,7 @@ export type DeepEditCounters = {
 };
 
 export type DeepEditChargeResult =
-  | { ok: true }
-  | { ok: false; reason: 'llm_calls' | 'tool_calls' | 'renders' | 'deadline' };
+  { ok: true } | { ok: false; reason: 'llm_calls' | 'tool_calls' | 'renders' | 'deadline' };
 
 export type DeepEditMintResult =
   | { ok: true; candidate: DeepEditCandidate }
@@ -89,7 +88,10 @@ export class DeepEditCapability {
    * candidates are not blamed for a missing runtime and the gate does not demand a level
    * this deployment cannot produce.
    */
-  readonly environment: { engine: 'unknown' | 'available' | 'unavailable'; render: 'unknown' | 'available' | 'unavailable' } = {
+  readonly environment: {
+    engine: 'unknown' | 'available' | 'unavailable';
+    render: 'unknown' | 'available' | 'unavailable';
+  } = {
     engine: 'unknown',
     render: 'unknown',
   };
@@ -253,7 +255,11 @@ export class DeepEditCapability {
     return { ok: true, candidate };
   }
 
-  recordVerification(candidateId: string, level: DeepEditVerificationLevel, engineError?: string): void {
+  recordVerification(
+    candidateId: string,
+    level: DeepEditVerificationLevel,
+    engineError?: string,
+  ): void {
     const candidate = this.candidates.get(candidateId);
     if (!candidate) {
       return;
@@ -337,7 +343,9 @@ export class DeepEditCapability {
     }
   }
 
-  private denied(reason: 'llm_calls' | 'tool_calls' | 'renders' | 'deadline'): DeepEditChargeResult {
+  private denied(
+    reason: 'llm_calls' | 'tool_calls' | 'renders' | 'deadline',
+  ): DeepEditChargeResult {
     this.budgetDenials.add(reason);
     return { ok: false, reason };
   }

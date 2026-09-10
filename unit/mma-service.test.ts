@@ -142,11 +142,13 @@ describe('mma services', () => {
         musicxml: { id: 'xml-1', format: 'musicxml' },
       },
     });
-    expect(mocked.convertMusicNotation).toHaveBeenCalledWith(expect.objectContaining({
-      inputFormat: 'midi',
-      outputFormat: 'musicxml',
-      contentEncoding: 'base64',
-    }));
+    expect(mocked.convertMusicNotation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inputFormat: 'midi',
+        outputFormat: 'musicxml',
+        contentEncoding: 'base64',
+      }),
+    );
     expect(mocked.createScoreArtifact).toHaveBeenCalledTimes(3);
   });
 

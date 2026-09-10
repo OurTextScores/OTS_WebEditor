@@ -51,16 +51,20 @@ const post = (
   body: unknown,
   headers: Record<string, string> = {},
 ) =>
-  handler(new Request(`http://localhost${route}`, {
-    method: 'POST',
-    headers: { 'x-forwarded-for': '10.1.0.1', ...headers },
-    body: JSON.stringify(body),
-  }));
+  handler(
+    new Request(`http://localhost${route}`, {
+      method: 'POST',
+      headers: { 'x-forwarded-for': '10.1.0.1', ...headers },
+      body: JSON.stringify(body),
+    }),
+  );
 
 describe('server-credential gating: /api/music/generate (NotaGen space)', () => {
   it('gates the space backend when a server space token is configured and no request token is supplied', async () => {
     process.env.MUSIC_NOTAGEN_SPACE_TOKEN = 'hf-server-token';
-    const response = await post(generatePost, '/api/music/generate', { backend: 'huggingface-space' });
+    const response = await post(generatePost, '/api/music/generate', {
+      backend: 'huggingface-space',
+    });
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toMatchObject({ code: 'server_credentials_disabled' });
     expect(mocked.runMusicGenerateService).not.toHaveBeenCalled();
@@ -87,7 +91,9 @@ describe('server-credential gating: /api/music/generate (NotaGen space)', () => 
 
   it('does not gate the space backend when no server space token is configured', async () => {
     mocked.runMusicGenerateService.mockResolvedValue({ status: 200, body: { ok: true } });
-    const response = await post(generatePost, '/api/music/generate', { backend: 'huggingface-space' });
+    const response = await post(generatePost, '/api/music/generate', {
+      backend: 'huggingface-space',
+    });
     expect(response.status).toBe(200);
     expect(mocked.runMusicGenerateService).toHaveBeenCalledTimes(1);
   });

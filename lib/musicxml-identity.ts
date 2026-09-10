@@ -40,20 +40,19 @@ const appendChild = (children: CanonicalChild[], child: CanonicalChild) => {
 
 type ExpandedPathSegment = { local: string; uri: string };
 
-const compareStrings = (left: string, right: string) => (
-  left < right ? -1 : left > right ? 1 : 0
-);
+const compareStrings = (left: string, right: string) => (left < right ? -1 : left > right ? 1 : 0);
 
-const isVolatileEncodingDate = (path: ExpandedPathSegment[]) => (
-  path.length === 4
-  && (path[0].local === 'score-partwise' || path[0].local === 'score-timewise')
-  && path[1].local === 'identification'
-  && path[2].local === 'encoding'
-  && path[3].local === 'encoding-date'
-  && path.every((segment) => segment.uri === path[0].uri)
-);
+const isVolatileEncodingDate = (path: ExpandedPathSegment[]) =>
+  path.length === 4 &&
+  (path[0].local === 'score-partwise' || path[0].local === 'score-timewise') &&
+  path[1].local === 'identification' &&
+  path[2].local === 'encoding' &&
+  path[3].local === 'encoding-date' &&
+  path.every((segment) => segment.uri === path[0].uri);
 
-const canonicalAttributes = (tag: SaxesTagNS): {
+const canonicalAttributes = (
+  tag: SaxesTagNS,
+): {
   attributes: CanonicalAttribute[];
   xmlSpace: 'preserve' | 'default' | null;
 } => {
@@ -68,16 +67,16 @@ const canonicalAttributes = (tag: SaxesTagNS): {
       }
       return [expandedName(attribute.uri, attribute.local), attribute.value];
     })
-    .sort(([leftName, leftValue], [rightName, rightValue]) => (
-      compareStrings(leftName, rightName) || compareStrings(leftValue, rightValue)
-    ));
+    .sort(
+      ([leftName, leftValue], [rightName, rightValue]) =>
+        compareStrings(leftName, rightName) || compareStrings(leftValue, rightValue),
+    );
   return { attributes, xmlSpace };
 };
 
 const closeFrame = (frame: ElementFrame): CanonicalElement => {
-  const ignoreFormattingWhitespace = frame.hasStructuralChild
-    && !frame.hasNonWhitespaceText
-    && !frame.preserveSpace;
+  const ignoreFormattingWhitespace =
+    frame.hasStructuralChild && !frame.hasNonWhitespaceText && !frame.preserveSpace;
   const children = ignoreFormattingWhitespace
     ? frame.children.filter((child) => child[0] !== 'text' || child[1].trim().length > 0)
     : frame.children;
@@ -111,11 +110,8 @@ export function canonicalizeMusicXmlIdentity(xml: string): string {
 
     const { attributes, xmlSpace } = canonicalAttributes(tag);
     const inheritedPreserveSpace = frames.at(-1)?.preserveSpace ?? false;
-    const preserveSpace = xmlSpace === 'preserve'
-      ? true
-      : xmlSpace === 'default'
-        ? false
-        : inheritedPreserveSpace;
+    const preserveSpace =
+      xmlSpace === 'preserve' ? true : xmlSpace === 'default' ? false : inheritedPreserveSpace;
     frames.push({
       name: expandedName(tag.uri, tag.local),
       attributes,
@@ -197,10 +193,12 @@ export async function computeMusicXmlIdentityHash(xml: string): Promise<string> 
     throw new Error('This browser cannot compute a MusicXML identity hash.');
   }
   const canonical = canonicalizeMusicXmlIdentity(xml);
-  const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
-  const hex = Array.from(
-    new Uint8Array(digest),
-    (byte) => byte.toString(16).padStart(2, '0'),
-  ).join('');
+  const digest = await globalThis.crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(canonical),
+  );
+  const hex = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join(
+    '',
+  );
   return `${MUSICXML_IDENTITY_VERSION}:${hex}`;
 }

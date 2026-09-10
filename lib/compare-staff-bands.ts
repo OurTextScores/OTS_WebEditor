@@ -17,22 +17,22 @@ import type { Score, StaffSystemBand } from '@/lib/webmscore-loader';
  */
 
 export type StaffBands = {
-    /** Empty when the engine build predates the export, which forces the even-split fallback. */
-    bands: StaffSystemBand[];
+  /** Empty when the engine build predates the export, which forces the even-split fallback. */
+  bands: StaffSystemBand[];
 };
 
 export const EMPTY_STAFF_BANDS: StaffBands = { bands: [] };
 
 export async function loadStaffBands(score: Score | null): Promise<StaffBands> {
-    if (!score || typeof score.staffSystemBands !== 'function') {
-        return EMPTY_STAFF_BANDS;
-    }
-    try {
-        const bands = await score.staffSystemBands();
-        return { bands: Array.isArray(bands) ? bands : [] };
-    } catch {
-        return EMPTY_STAFF_BANDS;
-    }
+  if (!score || typeof score.staffSystemBands !== 'function') {
+    return EMPTY_STAFF_BANDS;
+  }
+  try {
+    const bands = await score.staffSystemBands();
+    return { bands: Array.isArray(bands) ? bands : [] };
+  } catch {
+    return EMPTY_STAFF_BANDS;
+  }
 }
 
 /**
@@ -44,28 +44,28 @@ export async function loadStaffBands(score: Score | null): Promise<StaffBands> {
  * zoom afterwards, exactly as they do for the measure box itself.
  */
 export function resolvePartBand(
-    staffBands: StaffBands,
-    page: number,
-    measureTop: number,
-    measureHeight: number,
-    partIndex: number,
+  staffBands: StaffBands,
+  page: number,
+  measureTop: number,
+  measureHeight: number,
+  partIndex: number,
 ): StaffSystemBand | undefined {
-    if (!staffBands.bands.length) {
-        return undefined;
-    }
-    const measureBottom = measureTop + measureHeight;
-    let best: StaffSystemBand | undefined;
-    let bestOverlap = 0;
+  if (!staffBands.bands.length) {
+    return undefined;
+  }
+  const measureBottom = measureTop + measureHeight;
+  let best: StaffSystemBand | undefined;
+  let bestOverlap = 0;
 
-    for (const band of staffBands.bands) {
-        if (band.page !== page || band.partIndex !== partIndex) {
-            continue;
-        }
-        const overlap = Math.min(measureBottom, band.y + band.height) - Math.max(measureTop, band.y);
-        if (overlap > bestOverlap) {
-            bestOverlap = overlap;
-            best = band;
-        }
+  for (const band of staffBands.bands) {
+    if (band.page !== page || band.partIndex !== partIndex) {
+      continue;
     }
-    return best;
+    const overlap = Math.min(measureBottom, band.y + band.height) - Math.max(measureTop, band.y);
+    if (overlap > bestOverlap) {
+      bestOverlap = overlap;
+      best = band;
+    }
+  }
+  return best;
 }

@@ -17,9 +17,9 @@ export type { CompareScoreRole } from '@/lib/compare-user-edit-diff';
 export type CompareSide = 'left' | 'middle' | 'right';
 
 export type CompareTransportState = {
-    isPlaying: boolean;
-    isPaused: boolean;
-    isBusy: boolean;
+  isPlaying: boolean;
+  isPaused: boolean;
+  isBusy: boolean;
 };
 
 /**
@@ -28,136 +28,137 @@ export type CompareTransportState = {
  * same shapes instead of re-declaring structural approximations that drift.
  */
 export type CompareBlockComment = {
-    comment: string;
-    leftIndices: number[];
-    rightIndices: number[];
+  comment: string;
+  leftIndices: number[];
+  rightIndices: number[];
 };
 
 export type ChangeReviewDetail = {
-    reviewId: string;
-    viewerUserId: string;
-    workId: string;
-    sourceId: string;
-    status: 'draft' | 'open' | 'closed' | 'withdrawn';
-    permissions: {
-        canRead: boolean;
-        canEditDraft: boolean;
-        canAddThread: boolean;
-        canSubmit: boolean;
-        canClose: boolean;
-        canWithdraw: boolean;
-        canReply: boolean;
-        canResolve: boolean;
-    };
+  reviewId: string;
+  viewerUserId: string;
+  workId: string;
+  sourceId: string;
+  status: 'draft' | 'open' | 'closed' | 'withdrawn';
+  permissions: {
+    canRead: boolean;
+    canEditDraft: boolean;
+    canAddThread: boolean;
+    canSubmit: boolean;
+    canClose: boolean;
+    canWithdraw: boolean;
+    canReply: boolean;
+    canResolve: boolean;
+  };
 };
 
 export type ChangeReviewComment = {
-    commentId: string;
-    userId: string;
-    username?: string;
-    content: string;
-    createdAt: string;
-    editedAt?: string;
+  commentId: string;
+  userId: string;
+  username?: string;
+  content: string;
+  createdAt: string;
+  editedAt?: string;
 };
 
 export type ChangeReviewThread = {
-    threadId: string;
-    status: 'open' | 'resolved';
-    diffAnchor: {
-        anchorId: string;
-        lineText: string;
-    };
-    comments: ChangeReviewComment[];
+  threadId: string;
+  status: 'open' | 'resolved';
+  diffAnchor: {
+    anchorId: string;
+    lineText: string;
+  };
+  comments: ChangeReviewComment[];
 };
 
 export type ChangeReviewScoreRegion = {
-    anchorId: string;
-    partId: string;
-    partIndex: number;
-    partName?: string;
-    side: 'base' | 'head';
-    changeType: 'added' | 'removed' | 'modified';
-    baseMeasureIndex?: number;
-    headMeasureIndex?: number;
-    baseMeasureNumber?: string;
-    headMeasureNumber?: string;
-    label: string;
-    summary: string;
-    commentable: boolean;
-    regionHash: string;
+  anchorId: string;
+  partId: string;
+  partIndex: number;
+  partName?: string;
+  side: 'base' | 'head';
+  changeType: 'added' | 'removed' | 'modified';
+  baseMeasureIndex?: number;
+  headMeasureIndex?: number;
+  baseMeasureNumber?: string;
+  headMeasureNumber?: string;
+  label: string;
+  summary: string;
+  commentable: boolean;
+  regionHash: string;
 };
 
 export type ChangeReviewDiff = {
-    reviewId: string;
-    fileKind: 'canonical';
-    patchsetNumber?: number;
-    baseRevisionId: string;
-    headRevisionId: string;
-    scoreRegions: ChangeReviewScoreRegion[];
-    bars: ChangeReviewBar[];
-    hunks: Array<{
-        hunkId: string;
-        header: string;
-        lines: Array<{
-            anchorId: string;
-            type: 'context' | 'add' | 'del';
-            oldLineNumber?: number;
-            newLineNumber?: number;
-            content: string;
-            commentable: boolean;
-            lineHash: string;
-            hunkHeader: string;
-        }>;
+  reviewId: string;
+  fileKind: 'canonical';
+  patchsetNumber?: number;
+  baseRevisionId: string;
+  headRevisionId: string;
+  scoreRegions: ChangeReviewScoreRegion[];
+  bars: ChangeReviewBar[];
+  hunks: Array<{
+    hunkId: string;
+    header: string;
+    lines: Array<{
+      anchorId: string;
+      type: 'context' | 'add' | 'del';
+      oldLineNumber?: number;
+      newLineNumber?: number;
+      content: string;
+      commentable: boolean;
+      lineHash: string;
+      hunkHeader: string;
     }>;
-    threads: ChangeReviewThread[];
+  }>;
+  threads: ChangeReviewThread[];
 };
 
 export type ChangeReviewBar = {
-    kind: 'score_bar';
-    anchorId: string;
-    patchsetNumber?: number;
-    revisionId: string;
-    side: 'base' | 'head';
-    partId: string;
-    partIndex: number;
-    partName?: string;
-    measureIndex: number;
-    measureNumber: string;
-    measureHash: string;
-    label: string;
-    changeAnchorId?: string;
-    changeType?: 'added' | 'modified';
-    summary?: string;
-    threadAnchorId?: string;
-    hasThread?: boolean;
-    commentable: boolean;
+  kind: 'score_bar';
+  anchorId: string;
+  patchsetNumber?: number;
+  revisionId: string;
+  side: 'base' | 'head';
+  partId: string;
+  partIndex: number;
+  partName?: string;
+  measureIndex: number;
+  measureNumber: string;
+  measureHash: string;
+  label: string;
+  changeAnchorId?: string;
+  changeType?: 'added' | 'modified';
+  summary?: string;
+  threadAnchorId?: string;
+  hasThread?: boolean;
+  commentable: boolean;
 };
 
 export type ChangeReviewScoreView = {
-    reviewId: string;
-    patchsetNumber?: number;
-    baseRevisionId: string;
-    headRevisionId: string;
-    bars: ChangeReviewBar[];
-    removedRegions: ChangeReviewScoreRegion[];
-    threads: ChangeReviewThread[];
+  reviewId: string;
+  patchsetNumber?: number;
+  baseRevisionId: string;
+  headRevisionId: string;
+  bars: ChangeReviewBar[];
+  removedRegions: ChangeReviewScoreRegion[];
+  threads: ChangeReviewThread[];
 };
 
 export type BlockReviewStatus = 'pending' | 'accepted' | 'rejected' | 'comment';
 
 export type BlockReview = {
-    partIndex: number;
-    blockIndex: number;
-    blockKey: string;
-    measureRange: string;
-    // Ties the review to the measure content it was made against, so a regenerated
-    // proposal with a different change in the same measures cannot inherit the decision.
-    contentSignature?: string;
-    status: BlockReviewStatus;
-    comment: string;
-    commentCommitted: boolean;
+  partIndex: number;
+  blockIndex: number;
+  blockKey: string;
+  measureRange: string;
+  // Ties the review to the measure content it was made against, so a regenerated
+  // proposal with a different change in the same measures cannot inherit the decision.
+  contentSignature?: string;
+  status: BlockReviewStatus;
+  comment: string;
+  commentCommitted: boolean;
 };
 
-
-
-export type AiDiffBlockRef = Pick<BlockReview, 'partIndex' | 'blockIndex' | 'blockKey' | 'measureRange' | 'contentSignature'>;
+export type AiDiffBlockRef = Pick<
+  BlockReview,
+  'partIndex' | 'blockIndex' | 'blockKey' | 'measureRange' | 'contentSignature'
+>;

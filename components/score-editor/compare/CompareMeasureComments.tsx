@@ -7,145 +7,149 @@
  * identity and a side-independent key.
  */
 export type AiThreadComment = {
-    id: string;
-    author: 'you' | 'assistant';
-    text: string;
-    createdAt: string;
+  id: string;
+  author: 'you' | 'assistant';
+  text: string;
+  createdAt: string;
 };
 
 export type AiMeasureAnchor = {
-    key: string;
-    partIndex: number;
-    measureNumber: number;
-    leftIndex: number | null;
-    rightIndex: number | null;
+  key: string;
+  partIndex: number;
+  measureNumber: number;
+  leftIndex: number | null;
+  rightIndex: number | null;
 };
 
 export type AiMeasureThread = AiMeasureAnchor & {
-    comments: AiThreadComment[];
+  comments: AiThreadComment[];
 };
 
 export type CompareMeasureCommentsModel = {
-    threads: Record<string, AiMeasureThread>;
-    focusedAnchor: AiMeasureAnchor | null;
-    draft: string;
+  threads: Record<string, AiMeasureThread>;
+  focusedAnchor: AiMeasureAnchor | null;
+  draft: string;
 };
 
 export type CompareMeasureCommentsActions = {
-    focusAnchor: (anchor: AiMeasureAnchor | null) => void;
-    changeDraft: (draft: string) => void;
-    addComment: () => void;
-    removeComment: (anchorKey: string, commentId: string) => void;
+  focusAnchor: (anchor: AiMeasureAnchor | null) => void;
+  changeDraft: (draft: string) => void;
+  addComment: () => void;
+  removeComment: (anchorKey: string, commentId: string) => void;
 };
 
 type CompareMeasureCommentsProps = {
-    model: CompareMeasureCommentsModel;
-    actions: CompareMeasureCommentsActions;
+  model: CompareMeasureCommentsModel;
+  actions: CompareMeasureCommentsActions;
 };
 
 export function CompareMeasureComments({
-    model: { threads, focusedAnchor, draft },
-    actions,
+  model: { threads, focusedAnchor, draft },
+  actions,
 }: CompareMeasureCommentsProps) {
-    const threadList = Object.values(threads);
-    if (!focusedAnchor && threadList.length === 0) {
-        return null;
-    }
+  const threadList = Object.values(threads);
+  if (!focusedAnchor && threadList.length === 0) {
+    return null;
+  }
 
-    return (
-        <div className="flex-none rounded border border-sky-200 bg-sky-50 p-2 text-[10px] text-gray-600">
-            <div className="mb-1 flex items-center justify-between">
-                <span className="font-semibold text-sky-700">Measure comments</span>
-                {focusedAnchor && (
-                    <button
-                        type="button"
-                        className="text-sky-600 hover:underline"
-                        onClick={() => {
-                            actions.focusAnchor(null);
-                            actions.changeDraft('');
-                        }}
-                    >
-                        Close
-                    </button>
-                )}
+  return (
+    <div className="flex-none rounded border border-sky-200 bg-sky-50 p-2 text-[10px] text-gray-600">
+      <div className="mb-1 flex items-center justify-between">
+        <span className="font-semibold text-sky-700">Measure comments</span>
+        {focusedAnchor && (
+          <button
+            type="button"
+            className="text-sky-600 hover:underline"
+            onClick={() => {
+              actions.focusAnchor(null);
+              actions.changeDraft('');
+            }}
+          >
+            Close
+          </button>
+        )}
+      </div>
+      {focusedAnchor ? (
+        <div className="space-y-1">
+          <div className="text-[10px] text-gray-500">
+            Part {focusedAnchor.partIndex + 1} · Measure {focusedAnchor.measureNumber}
+          </div>
+          {(threads[focusedAnchor.key]?.comments ?? []).map((entry) => (
+            <div key={entry.id} className="rounded border border-gray-200 bg-white px-2 py-1">
+              <div className="flex items-center justify-between text-[9px] text-gray-400">
+                <span
+                  className={entry.author === 'assistant' ? 'text-emerald-600' : 'text-sky-600'}
+                >
+                  {entry.author === 'assistant' ? 'Assistant' : 'You'}
+                </span>
+                <button
+                  type="button"
+                  className="text-gray-400 hover:text-rose-500"
+                  onClick={() => actions.removeComment(focusedAnchor.key, entry.id)}
+                  aria-label="Remove comment"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="whitespace-pre-wrap text-[10px] text-gray-700">{entry.text}</div>
             </div>
-            {focusedAnchor ? (
-                <div className="space-y-1">
-                    <div className="text-[10px] text-gray-500">
-                        Part {focusedAnchor.partIndex + 1} · Measure {focusedAnchor.measureNumber}
-                    </div>
-                    {(threads[focusedAnchor.key]?.comments ?? []).map((entry) => (
-                        <div key={entry.id} className="rounded border border-gray-200 bg-white px-2 py-1">
-                            <div className="flex items-center justify-between text-[9px] text-gray-400">
-                                <span className={entry.author === 'assistant' ? 'text-emerald-600' : 'text-sky-600'}>
-                                    {entry.author === 'assistant' ? 'Assistant' : 'You'}
-                                </span>
-                                <button
-                                    type="button"
-                                    className="text-gray-400 hover:text-rose-500"
-                                    onClick={() => actions.removeComment(focusedAnchor.key, entry.id)}
-                                    aria-label="Remove comment"
-                                >
-                                    ×
-                                </button>
-                            </div>
-                            <div className="whitespace-pre-wrap text-[10px] text-gray-700">{entry.text}</div>
-                        </div>
-                    ))}
-                    <textarea
-                        value={draft}
-                        onChange={(event) => actions.changeDraft(event.target.value)}
-                        onKeyDown={(event) => {
-                            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
-                                event.preventDefault();
-                                actions.addComment();
-                            }
-                        }}
-                        placeholder="Add a comment for this measure…"
-                        className="w-full rounded border border-gray-200 px-2 py-1 text-[10px]"
-                        rows={2}
-                    />
-                    <button
-                        type="button"
-                        disabled={!draft.trim()}
-                        onClick={actions.addComment}
-                        className="w-full rounded border border-sky-300 bg-white px-2 py-1 text-[10px] text-sky-700 hover:bg-sky-100 disabled:opacity-50"
-                    >
-                        Add comment
-                    </button>
-                </div>
-            ) : (
-                <div className="text-[10px] text-gray-500">Click a measure in either pane to add a comment.</div>
-            )}
-            {threadList.length > 0 && (
-                <div className="mt-2 border-t border-sky-200 pt-1">
-                    <div className="mb-1 text-[9px] uppercase tracking-wide text-gray-400">Threads</div>
-                    <div className="flex flex-wrap gap-1">
-                        {threadList
-                            .slice()
-                            .sort((a, b) => a.measureNumber - b.measureNumber)
-                            .map((thread) => (
-                                <button
-                                    key={thread.key}
-                                    type="button"
-                                    onClick={() => {
-                                        actions.focusAnchor({
-                                            key: thread.key,
-                                            partIndex: thread.partIndex,
-                                            measureNumber: thread.measureNumber,
-                                            leftIndex: thread.leftIndex,
-                                            rightIndex: thread.rightIndex,
-                                        });
-                                        actions.changeDraft('');
-                                    }}
-                                    className={`rounded border px-1 py-0.5 text-[9px] ${focusedAnchor?.key === thread.key ? 'border-sky-400 bg-sky-100 text-sky-700' : 'border-gray-200 bg-white text-gray-600'}`}
-                                >
-                                    m{thread.measureNumber} · {thread.comments.length}
-                                </button>
-                            ))}
-                    </div>
-                </div>
-            )}
+          ))}
+          <textarea
+            value={draft}
+            onChange={(event) => actions.changeDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                event.preventDefault();
+                actions.addComment();
+              }
+            }}
+            placeholder="Add a comment for this measure…"
+            className="w-full rounded border border-gray-200 px-2 py-1 text-[10px]"
+            rows={2}
+          />
+          <button
+            type="button"
+            disabled={!draft.trim()}
+            onClick={actions.addComment}
+            className="w-full rounded border border-sky-300 bg-white px-2 py-1 text-[10px] text-sky-700 hover:bg-sky-100 disabled:opacity-50"
+          >
+            Add comment
+          </button>
         </div>
-    );
+      ) : (
+        <div className="text-[10px] text-gray-500">
+          Click a measure in either pane to add a comment.
+        </div>
+      )}
+      {threadList.length > 0 && (
+        <div className="mt-2 border-t border-sky-200 pt-1">
+          <div className="mb-1 text-[9px] uppercase tracking-wide text-gray-400">Threads</div>
+          <div className="flex flex-wrap gap-1">
+            {threadList
+              .slice()
+              .sort((a, b) => a.measureNumber - b.measureNumber)
+              .map((thread) => (
+                <button
+                  key={thread.key}
+                  type="button"
+                  onClick={() => {
+                    actions.focusAnchor({
+                      key: thread.key,
+                      partIndex: thread.partIndex,
+                      measureNumber: thread.measureNumber,
+                      leftIndex: thread.leftIndex,
+                      rightIndex: thread.rightIndex,
+                    });
+                    actions.changeDraft('');
+                  }}
+                  className={`rounded border px-1 py-0.5 text-[9px] ${focusedAnchor?.key === thread.key ? 'border-sky-400 bg-sky-100 text-sky-700' : 'border-gray-200 bg-white text-gray-600'}`}
+                >
+                  m{thread.measureNumber} · {thread.comments.length}
+                </button>
+              ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

@@ -7,7 +7,15 @@ test('sidebar tabs reflow instead of extending offscreen', async ({ page }) => {
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
   await page.getByTestId('expand-panel-ai-tools').click();
 
-  const tabIds = ['tab-ai', 'tab-notagen', 'tab-transcoda', 'tab-multitrack-vae', 'tab-harmony', 'tab-functional-harmony', 'tab-mma'];
+  const tabIds = [
+    'tab-ai',
+    'tab-notagen',
+    'tab-transcoda',
+    'tab-multitrack-vae',
+    'tab-harmony',
+    'tab-functional-harmony',
+    'tab-mma',
+  ];
   const viewportWidth = page.viewportSize()?.width ?? 0;
   const tops = new Set<number>();
   for (const id of tabIds) {

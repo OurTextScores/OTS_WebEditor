@@ -4,7 +4,11 @@ vi.mock('../lib/score-editor-api-client', () => ({
   resolveScoreEditorApiPath: (path: string) => `/proxy${path}`,
 }));
 
-import { callMusicContext, callMusicGenerate, MusicSpecialistsTool } from '../lib/music-specialists-tool';
+import {
+  callMusicContext,
+  callMusicGenerate,
+  MusicSpecialistsTool,
+} from '../lib/music-specialists-tool';
 
 describe('music-specialists-tool client helpers', () => {
   beforeEach(() => {
@@ -94,4 +98,3 @@ describe('music-specialists-tool client helpers', () => {
     ).rejects.toThrow('Request failed: 500');
   });
 });
-

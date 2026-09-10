@@ -44,7 +44,13 @@ describe('runMusicConvertService', () => {
       if (normalized === 'abc') return 'abc';
       if (normalized === 'musicxml' || normalized === 'xml') return 'musicxml';
       if (normalized === 'midi' || normalized === 'mid') return 'midi';
-      if (normalized === 'kern' || normalized === 'krn' || normalized === '**kern' || normalized === 'humdrum') return 'kern';
+      if (
+        normalized === 'kern' ||
+        normalized === 'krn' ||
+        normalized === '**kern' ||
+        normalized === 'humdrum'
+      )
+        return 'kern';
       return null;
     });
     mocked.ensureKernMusicXmlConversionToolsAvailable.mockResolvedValue({

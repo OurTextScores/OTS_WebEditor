@@ -5,7 +5,11 @@ test('transpose octave up/down updates exported pitch', async ({ page }) => {
   await page.goto('/?score=/test_scores/single_note_c4.musicxml');
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
 
-  const readPitch = async (): Promise<{ step: string | null; alter: number; octave: number | null }> => {
+  const readPitch = async (): Promise<{
+    step: string | null;
+    alter: number;
+    octave: number | null;
+  }> => {
     return page.evaluate(async () => {
       const score = (window as BrowserScoreWindow).__webmscore;
       if (!score?.saveXml) {

@@ -7,12 +7,7 @@ import { Toolbar } from '../components/Toolbar';
 describe('Toolbar', () => {
   it('shows Load Score button label', () => {
     render(
-      <Toolbar
-        onFileUpload={() => {}}
-        onZoomIn={() => {}}
-        onZoomOut={() => {}}
-        zoomLevel={1}
-      />,
+      <Toolbar onFileUpload={() => {}} onZoomIn={() => {}} onZoomOut={() => {}} zoomLevel={1} />,
     );
 
     expect(screen.getByText('Load Score')).toBeInTheDocument();
@@ -48,7 +43,9 @@ describe('Toolbar', () => {
       />,
     );
 
-    const file = new File([new Uint8Array([1, 2, 3])], 'score.mscz', { type: 'application/octet-stream' });
+    const file = new File([new Uint8Array([1, 2, 3])], 'score.mscz', {
+      type: 'application/octet-stream',
+    });
     await user.upload(screen.getByTestId('open-score-input'), file);
 
     expect(onFileUpload).toHaveBeenCalledTimes(1);
@@ -116,7 +113,9 @@ describe('Toolbar', () => {
       />,
     );
 
-    const sf = new File([new Uint8Array([9, 9, 9])], 'default.sf3', { type: 'application/octet-stream' });
+    const sf = new File([new Uint8Array([9, 9, 9])], 'default.sf3', {
+      type: 'application/octet-stream',
+    });
     await user.upload(screen.getByTestId('soundfont-input'), sf);
     expect(onSoundFontUpload).toHaveBeenCalledWith(sf);
 
@@ -312,7 +311,9 @@ describe('Toolbar', () => {
 
     await user.click(screen.getByRole('button', { name: 'Hairpins' }));
     expect(screen.getByTestId('btn-hairpin-cresc')).toHaveTextContent(/^\uE53E$/);
-    expect(screen.getByTestId('btn-hairpin-cresc').firstElementChild?.className).toContain('hairpinSymbol');
+    expect(screen.getByTestId('btn-hairpin-cresc').firstElementChild?.className).toContain(
+      'hairpinSymbol',
+    );
     await user.click(screen.getByTestId('btn-hairpin-cresc'));
     await user.click(screen.getByRole('button', { name: 'Hairpins' }));
     expect(screen.getByTestId('btn-hairpin-decresc')).toHaveTextContent(/^\uE53F$/);
@@ -559,7 +560,7 @@ describe('Toolbar', () => {
         zoomLevel={1}
         mutationsEnabled
         selectionActive
-        selectionFilterMask={0xFFFFFF}
+        selectionFilterMask={0xffffff}
         onSetNoteheadGroup={onSetNoteheadGroup}
         onOpenPalette={onOpenPalette}
         onSetBeamMode={onSetBeamMode}
@@ -582,12 +583,7 @@ describe('Toolbar', () => {
     const user = userEvent.setup();
 
     render(
-      <Toolbar
-        onFileUpload={() => {}}
-        onZoomIn={() => {}}
-        onZoomOut={() => {}}
-        zoomLevel={1}
-      />,
+      <Toolbar onFileUpload={() => {}} onZoomIn={() => {}} onZoomOut={() => {}} zoomLevel={1} />,
     );
 
     await user.click(screen.getByRole('button', { name: 'Shortcuts' }));
@@ -834,7 +830,9 @@ describe('Toolbar', () => {
 
     await user.click(screen.getByTestId('btn-remove-containing-measures'));
     expect(onRemoveContainingMeasures).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('btn-remove-trailing-empty')).toHaveTextContent(/Trailing Empty Bars/i);
+    expect(screen.getByTestId('btn-remove-trailing-empty')).toHaveTextContent(
+      /Trailing Empty Bars/i,
+    );
   });
 
   it('renders Add Pickup button in Measures section', () => {
@@ -883,5 +881,4 @@ describe('Toolbar', () => {
 
     expect(screen.queryByTestId('btn-add-note-top')).not.toBeInTheDocument();
   });
-
 });

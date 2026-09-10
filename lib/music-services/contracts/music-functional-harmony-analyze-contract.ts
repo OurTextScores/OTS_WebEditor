@@ -2,7 +2,8 @@ import type { MusicToolContract } from './types';
 
 export const MUSIC_FUNCTIONAL_HARMONY_ANALYZE_TOOL_CONTRACT: MusicToolContract = {
   name: 'music.functional_harmony_analyze',
-  description: 'Analyze MusicXML for Roman numerals, local keys, and functional-harmony summaries without modifying the score by default.',
+  description:
+    'Analyze MusicXML for Roman numerals, local keys, and functional-harmony summaries without modifying the score by default.',
   inputSchema: {
     type: 'object',
     properties: {

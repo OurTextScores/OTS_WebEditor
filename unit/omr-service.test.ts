@@ -49,9 +49,18 @@ describe('runMusicOmrTranscribeService', () => {
       provenance: { engine: 'notagen', durationMs: 1 },
     });
     mocked.createScoreArtifact
-      .mockResolvedValueOnce({ id: 'image-1', format: 'png', content: 'iVBORw0KGgo=', encoding: 'base64' })
+      .mockResolvedValueOnce({
+        id: 'image-1',
+        format: 'png',
+        content: 'iVBORw0KGgo=',
+        encoding: 'base64',
+      })
       .mockResolvedValueOnce({ id: 'kern-1', format: 'kern', content: '**kern\n4c\n*-\n' })
-      .mockResolvedValueOnce({ id: 'xml-1', format: 'musicxml', content: '<score-partwise version="3.1"></score-partwise>' });
+      .mockResolvedValueOnce({
+        id: 'xml-1',
+        format: 'musicxml',
+        content: '<score-partwise version="3.1"></score-partwise>',
+      });
   });
 
   it('transcribes a PNG through Transcoda and converts kern to MusicXML', async () => {
@@ -74,11 +83,13 @@ describe('runMusicOmrTranscribeService', () => {
       3,
       1.1,
     ]);
-    expect(mocked.convertMusicNotation).toHaveBeenCalledWith(expect.objectContaining({
-      inputFormat: 'kern',
-      outputFormat: 'musicxml',
-      content: '**kern\n*M4/4\n=1\n4c\n*-',
-    }));
+    expect(mocked.convertMusicNotation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inputFormat: 'kern',
+        outputFormat: 'musicxml',
+        content: '**kern\n*M4/4\n=1\n4c\n*-',
+      }),
+    );
     expect(result.body).toMatchObject({
       ok: true,
       inputArtifactId: 'image-1',
@@ -105,9 +116,18 @@ describe('runMusicOmrTranscribeService', () => {
   it('serves repeated Transcoda requests from the in-process cache', async () => {
     mocked.createScoreArtifact.mockReset();
     mocked.createScoreArtifact
-      .mockResolvedValueOnce({ id: 'image-cache', format: 'png', content: 'iVBORw0KGgo=', encoding: 'base64' })
+      .mockResolvedValueOnce({
+        id: 'image-cache',
+        format: 'png',
+        content: 'iVBORw0KGgo=',
+        encoding: 'base64',
+      })
       .mockResolvedValueOnce({ id: 'kern-cache', format: 'kern', content: '**kern\n4c\n*-\n' })
-      .mockResolvedValueOnce({ id: 'xml-cache', format: 'musicxml', content: '<score-partwise version="3.1"></score-partwise>' });
+      .mockResolvedValueOnce({
+        id: 'xml-cache',
+        format: 'musicxml',
+        content: '<score-partwise version="3.1"></score-partwise>',
+      });
 
     const request = {
       imageBase64: Buffer.from('cache-png-bytes').toString('base64'),
@@ -136,9 +156,16 @@ describe('runMusicOmrTranscribeService', () => {
   it('returns kern output when Transcoda kern cannot be converted to MusicXML', async () => {
     mocked.createScoreArtifact.mockReset();
     mocked.createScoreArtifact
-      .mockResolvedValueOnce({ id: 'image-1', format: 'png', content: 'iVBORw0KGgo=', encoding: 'base64' })
+      .mockResolvedValueOnce({
+        id: 'image-1',
+        format: 'png',
+        content: 'iVBORw0KGgo=',
+        encoding: 'base64',
+      })
       .mockResolvedValueOnce({ id: 'kern-1', format: 'kern', content: '**kern\ninvalid\n*-\n' });
-    mocked.convertMusicNotation.mockRejectedValueOnce(new Error('kern-to-musicxml failed: Could not determine spineType for spine with id 0'));
+    mocked.convertMusicNotation.mockRejectedValueOnce(
+      new Error('kern-to-musicxml failed: Could not determine spineType for spine with id 0'),
+    );
 
     const result = await runMusicOmrTranscribeService({
       imageBase64: Buffer.from('png-bytes').toString('base64'),

@@ -24,8 +24,10 @@ test('native timeline expands pickup, repeats, endings, and tempo changes', asyn
   expect(timeline?.renderDurationMs).toBe(20_000);
   expect(timeline?.occurrences.map((occurrence) => occurrence.measureIndex)).toEqual([
     0, // one-beat pickup; not repeated
-    1, 2, // first pass and first ending
-    1, 3, // repeated body and second ending
+    1,
+    2, // first pass and first ending
+    1,
+    3, // repeated body and second ending
     4,
   ]);
   expect(timeline?.occurrences.map(({ startMs, endMs }) => [startMs, endMs])).toEqual([
@@ -53,7 +55,8 @@ test('native float WAV compatibility audio decodes through Web Audio', async ({ 
       throw new Error('Compatibility audio exports are unavailable');
     }
     const soundFontResponse = await fetch('/soundfonts/default.sf3');
-    if (!soundFontResponse.ok) throw new Error(`Soundfont fetch failed (${soundFontResponse.status})`);
+    if (!soundFontResponse.ok)
+      throw new Error(`Soundfont fetch failed (${soundFontResponse.status})`);
     await score.setSoundFont(new Uint8Array(await soundFontResponse.arrayBuffer()));
     const wav = await score.saveAudio('wav');
     const context = new AudioContext({ sampleRate: 44_100 });

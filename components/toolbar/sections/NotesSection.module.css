@@ -1,67 +1,67 @@
 @font-face {
-    font-family: "LelandNotesToolbar";
-    src: url("../../../webmscore-fork/fonts/leland/Leland.woff2") format("woff2");
-    font-display: swap;
+  font-family: 'LelandNotesToolbar';
+  src: url('../../../webmscore-fork/fonts/leland/Leland.woff2') format('woff2');
+  font-display: swap;
 }
 
 /* Fallback for SMuFL glyphs Leland lacks (e.g. glissando/arpeggio symbols). */
 @font-face {
-    font-family: "BravuraFallback";
-    src: url("../../../webmscore-fork/fonts/bravura/Bravura.woff2") format("woff2");
-    font-display: swap;
+  font-family: 'BravuraFallback';
+  src: url('../../../webmscore-fork/fonts/bravura/Bravura.woff2') format('woff2');
+  font-display: swap;
 }
 
 .graceNoteSymbol {
-    display: inline-flex;
-    min-width: 2rem;
-    justify-content: center;
-    font-family: "LelandNotesToolbar", "BravuraFallback", serif;
-    font-size: 1.65rem;
-    font-style: normal;
-    font-weight: 400;
-    line-height: 1.1;
-    color: #0f172a;
+  display: inline-flex;
+  min-width: 2rem;
+  justify-content: center;
+  font-family: 'LelandNotesToolbar', 'BravuraFallback', serif;
+  font-size: 1.65rem;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1.1;
+  color: #0f172a;
 }
 
 .noteheadSymbol {
-    display: inline-flex;
-    min-width: 1.5rem;
-    justify-content: center;
-    font-family: "LelandNotesToolbar", "BravuraFallback", serif;
-    font-size: 1.55rem;
-    font-style: normal;
-    font-weight: 400;
-    line-height: 1;
-    color: #0f172a;
+  display: inline-flex;
+  min-width: 1.5rem;
+  justify-content: center;
+  font-family: 'LelandNotesToolbar', 'BravuraFallback', serif;
+  font-size: 1.55rem;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1;
+  color: #0f172a;
 }
 
 .lineSymbol {
-    display: inline-flex;
-    min-width: 2.5rem;
-    justify-content: center;
-    font-family: "LelandNotesToolbar", "BravuraFallback", serif;
-    font-size: 1.55rem;
-    font-style: normal;
-    font-weight: 400;
-    line-height: 1.15;
-    color: #0f172a;
+  display: inline-flex;
+  min-width: 2.5rem;
+  justify-content: center;
+  font-family: 'LelandNotesToolbar', 'BravuraFallback', serif;
+  font-size: 1.55rem;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1.15;
+  color: #0f172a;
 }
 
 .chordTriggerSymbol,
 .chordSymbol {
-    display: inline-flex;
-    min-width: 2rem;
-    justify-content: center;
-    font-family: "LelandNotesToolbar", "BravuraFallback", serif;
-    font-size: 1.55rem;
-    font-style: normal;
-    font-weight: 400;
-    line-height: 1;
-    color: #0f172a;
+  display: inline-flex;
+  min-width: 2rem;
+  justify-content: center;
+  font-family: 'LelandNotesToolbar', 'BravuraFallback', serif;
+  font-size: 1.55rem;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1;
+  color: #0f172a;
 }
 
 .chordTriggerSymbol {
-    min-width: auto;
-    margin-right: 0.4rem;
-    font-size: 1.25rem;
+  min-width: auto;
+  margin-right: 0.4rem;
+  font-size: 1.25rem;
 }

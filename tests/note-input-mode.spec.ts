@@ -15,7 +15,12 @@ const countPitches = async (page: Page): Promise<number> => {
   });
 };
 
-type ExportedNote = { step: string | null; alter: number; octave: number | null; type: string | null };
+type ExportedNote = {
+  step: string | null;
+  alter: number;
+  octave: number | null;
+  type: string | null;
+};
 
 const readPitchedNotes = async (page: Page): Promise<ExportedNote[]> => {
   return page.evaluate(async () => {
@@ -25,18 +30,20 @@ const readPitchedNotes = async (page: Page): Promise<ExportedNote[]> => {
       throw new Error('window.__webmscore.saveXml is not available');
     }
     const documentXml = new DOMParser().parseFromString(xml, 'application/xml');
-    return Array.from(documentXml.querySelectorAll('note')).flatMap(note => {
+    return Array.from(documentXml.querySelectorAll('note')).flatMap((note) => {
       const pitch = note.querySelector('pitch');
       if (!pitch) {
         return [];
       }
       const octaveValue = Number(pitch.querySelector('octave')?.textContent ?? Number.NaN);
-      return [{
-        step: pitch.querySelector('step')?.textContent ?? null,
-        alter: Number(pitch.querySelector('alter')?.textContent ?? 0),
-        octave: Number.isFinite(octaveValue) ? octaveValue : null,
-        type: note.querySelector('type')?.textContent ?? null,
-      }];
+      return [
+        {
+          step: pitch.querySelector('step')?.textContent ?? null,
+          alter: Number(pitch.querySelector('alter')?.textContent ?? 0),
+          octave: Number.isFinite(octaveValue) ? octaveValue : null,
+          type: note.querySelector('type')?.textContent ?? null,
+        },
+      ];
     });
   });
 };
@@ -49,12 +56,13 @@ const readPitchedStepsByPartAndMeasure = async (page: Page): Promise<string[][][
       throw new Error('window.__webmscore.saveXml is not available');
     }
     const documentXml = new DOMParser().parseFromString(xml, 'application/xml');
-    return Array.from(documentXml.querySelectorAll('part')).map(part => (
-      Array.from(part.querySelectorAll(':scope > measure')).map(measure => (
-        Array.from(measure.querySelectorAll(':scope > note > pitch > step'))
-          .map(step => step.textContent ?? '')
-      ))
-    ));
+    return Array.from(documentXml.querySelectorAll('part')).map((part) =>
+      Array.from(part.querySelectorAll(':scope > measure')).map((measure) =>
+        Array.from(measure.querySelectorAll(':scope > note > pitch > step')).map(
+          (step) => step.textContent ?? '',
+        ),
+      ),
+    );
   });
 };
 
@@ -115,10 +123,17 @@ test('note input mode places a note on click and exits with Escape', async ({ pa
 
   await expect.poll(async () => await countPitches(page), { timeout: 20_000 }).toBe(2);
   await expect(page.getByTestId('note-input-cursor')).toBeVisible();
-  await expect.poll(async () => {
-    const notes = await readPitchedNotes(page);
-    return notes.some(note => note.step === 'E' && note.octave === 4 && note.type === 'quarter');
-  }, { timeout: 20_000 }).toBe(true);
+  await expect
+    .poll(
+      async () => {
+        const notes = await readPitchedNotes(page);
+        return notes.some(
+          (note) => note.step === 'E' && note.octave === 4 && note.type === 'quarter',
+        );
+      },
+      { timeout: 20_000 },
+    )
+    .toBe(true);
 
   // Escape leaves input mode; a subsequent click selects instead of placing.
   await page.keyboard.press('Escape');
@@ -130,7 +145,9 @@ test('note input mode places a note on click and exits with Escape', async ({ pa
   await expect.poll(async () => await countPitches(page), { timeout: 10_000 }).toBe(2);
 });
 
-test('N resolves a logical start and advances the input cursor without a prior click', async ({ page }) => {
+test('N resolves a logical start and advances the input cursor without a prior click', async ({
+  page,
+}) => {
   await page.goto('/?score=/test_scores/single_note_c4.musicxml');
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
 
@@ -144,19 +161,25 @@ test('N resolves a logical start and advances the input cursor without a prior c
   }
 
   await page.keyboard.press('d');
-  await expect.poll(async () => (await cursor.boundingBox())?.x ?? 0, {
-    timeout: 20_000,
-  }).toBeGreaterThan(startBox.x);
+  await expect
+    .poll(async () => (await cursor.boundingBox())?.x ?? 0, {
+      timeout: 20_000,
+    })
+    .toBeGreaterThan(startBox.x);
   const afterFirstNoteBox = await cursor.boundingBox();
   if (!afterFirstNoteBox) {
     throw new Error('Could not measure the advanced note input cursor.');
   }
 
   await page.keyboard.press('e');
-  await expect.poll(async () => (await cursor.boundingBox())?.x ?? 0, {
-    timeout: 20_000,
-  }).toBeGreaterThan(afterFirstNoteBox.x);
-  await expect.poll(async () => (await readPitchedNotes(page)).map(note => note.step)).toEqual(['D', 'E']);
+  await expect
+    .poll(async () => (await cursor.boundingBox())?.x ?? 0, {
+      timeout: 20_000,
+    })
+    .toBeGreaterThan(afterFirstNoteBox.x);
+  await expect
+    .poll(async () => (await readPitchedNotes(page)).map((note) => note.step))
+    .toEqual(['D', 'E']);
   await expect(page.getByTestId('selection-overlay')).toBeVisible();
 });
 
@@ -172,10 +195,7 @@ test('burst note entry follows the engine cursor on the selected staff', async (
   if (!noteBox) {
     throw new Error('Could not measure the first note on the second staff.');
   }
-  await page.mouse.click(
-    noteBox.x + noteBox.width / 2,
-    noteBox.y + noteBox.height / 2,
-  );
+  await page.mouse.click(noteBox.x + noteBox.width / 2, noteBox.y + noteBox.height / 2);
   await expect(page.getByTestId('selection-overlay')).toBeVisible();
 
   await page.keyboard.press('n');
@@ -185,14 +205,16 @@ test('burst note entry follows the engine cursor on the selected staff', async (
   // No pacing between keypresses: the engine cursor, rather than SVG order or
   // the previously selected note, owns the three insertion positions.
   await page.keyboard.type('def');
-  await expect.poll(
-    async () => (await readPitchedStepsByPartAndMeasure(page))[1]?.slice(0, 4),
-    { timeout: 30_000 },
-  ).toEqual([['D'], ['E'], ['F'], ['E']]);
-  await expect.poll(
-    async () => (await readPitchedStepsByPartAndMeasure(page))[0]?.slice(0, 4),
-    { timeout: 30_000 },
-  ).toEqual([['F'], ['A'], ['C'], ['E']]);
+  await expect
+    .poll(async () => (await readPitchedStepsByPartAndMeasure(page))[1]?.slice(0, 4), {
+      timeout: 30_000,
+    })
+    .toEqual([['D'], ['E'], ['F'], ['E']]);
+  await expect
+    .poll(async () => (await readPitchedStepsByPartAndMeasure(page))[0]?.slice(0, 4), {
+      timeout: 30_000,
+    })
+    .toEqual([['F'], ['A'], ['C'], ['E']]);
 });
 
 test('toolbar button toggles note input mode', async ({ page }) => {
@@ -229,7 +251,9 @@ test('entering input mode from a rest places a note, not another rest', async ({
   await expect.poll(async () => await countPitches(page), { timeout: 20_000 }).toBe(before + 1);
 });
 
-test('toolbar duration and accidental configure the next note without editing the selection', async ({ page }) => {
+test('toolbar duration and accidental configure the next note without editing the selection', async ({
+  page,
+}) => {
   await page.goto('/?score=/test_scores/single_note_c4.musicxml');
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
   const note = page.locator('svg .Note').first();
@@ -242,15 +266,20 @@ test('toolbar duration and accidental configure the next note without editing th
   await page.getByTestId('btn-acc-3').click();
 
   // Input controls must not mutate the selected C4 before a placement click.
-  await expect.poll(async () => await readPitchedNotes(page)).toEqual([
-    { step: 'C', alter: 0, octave: 4, type: 'quarter' },
-  ]);
+  await expect
+    .poll(async () => await readPitchedNotes(page))
+    .toEqual([{ step: 'C', alter: 0, octave: 4, type: 'quarter' }]);
 
   expect(await putOneSpatiumAboveFirstNote(page)).toBe(true);
-  await expect.poll(async () => {
-    const notes = await readPitchedNotes(page);
-    return notes.some(placed => placed.alter === 1 && placed.type === 'half');
-  }, { timeout: 20_000 }).toBe(true);
+  await expect
+    .poll(
+      async () => {
+        const notes = await readPitchedNotes(page);
+        return notes.some((placed) => placed.alter === 1 && placed.type === 'half');
+      },
+      { timeout: 20_000 },
+    )
+    .toBe(true);
 });
 
 test('note input method selector exposes repitch, rhythm, and timewise modes', async ({ page }) => {

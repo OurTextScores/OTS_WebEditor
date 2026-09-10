@@ -21,7 +21,8 @@ vi.mock('../lib/score-artifacts', () => ({
 
 // Keep the real MultitrackVaeInputError class but stub the engine call.
 vi.mock('../lib/music-services/multitrack-vae-engine', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../lib/music-services/multitrack-vae-engine')>();
+  const actual =
+    await importOriginal<typeof import('../lib/music-services/multitrack-vae-engine')>();
   return {
     ...actual,
     runMultitrackVaeGenerate: mocked.runMultitrackVaeGenerate,
@@ -34,11 +35,13 @@ import { MultitrackVaeInputError } from '../lib/music-services/multitrack-vae-en
 describe('runMusicMultitrackVaeService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocked.createScoreArtifact.mockImplementation(async (input: { format: string; filename: string }) => ({
-      id: `artifact-${input.format}`,
-      format: input.format,
-      filename: input.filename,
-    }));
+    mocked.createScoreArtifact.mockImplementation(
+      async (input: { format: string; filename: string }) => ({
+        id: `artifact-${input.format}`,
+        format: input.format,
+        filename: input.filename,
+      }),
+    );
     mocked.runMultitrackVaeGenerate.mockResolvedValue({
       midiBase64: 'TVRoZAAAAAY=',
       numMeasures: 4,
@@ -92,12 +95,19 @@ describe('runMusicMultitrackVaeService', () => {
       expect.objectContaining({ mode: 'chord_progression', chords: ['C', 'Am', 'F', 'G'] }),
     );
     expect(mocked.convertMusicNotation).toHaveBeenCalledWith(
-      expect.objectContaining({ inputFormat: 'midi', outputFormat: 'musicxml', contentEncoding: 'base64' }),
+      expect.objectContaining({
+        inputFormat: 'midi',
+        outputFormat: 'musicxml',
+        contentEncoding: 'base64',
+      }),
     );
   });
 
   it('accepts comma-separated chords and maps chordProgression alias', async () => {
-    const result = await runMusicMultitrackVaeService({ mode: 'chord_progression', chordProgression: 'Dm, F, Am, G' });
+    const result = await runMusicMultitrackVaeService({
+      mode: 'chord_progression',
+      chordProgression: 'Dm, F, Am, G',
+    });
     expect(result.status).toBe(200);
     expect(mocked.runMultitrackVaeGenerate).toHaveBeenCalledWith(
       expect.objectContaining({ chords: ['Dm', 'F', 'Am', 'G'] }),
@@ -112,14 +122,21 @@ describe('runMusicMultitrackVaeService', () => {
   });
 
   it('surfaces engine input errors as 400', async () => {
-    mocked.runMultitrackVaeGenerate.mockRejectedValueOnce(new MultitrackVaeInputError('Unsupported chord "Xyz".'));
-    const result = await runMusicMultitrackVaeService({ mode: 'chord_progression', chords: ['Xyz'] });
+    mocked.runMultitrackVaeGenerate.mockRejectedValueOnce(
+      new MultitrackVaeInputError('Unsupported chord "Xyz".'),
+    );
+    const result = await runMusicMultitrackVaeService({
+      mode: 'chord_progression',
+      chords: ['Xyz'],
+    });
     expect(result.status).toBe(400);
     expect(String(result.body.error)).toMatch(/Unsupported chord/);
   });
 
   it('surfaces service/runtime failures as 503', async () => {
-    mocked.runMultitrackVaeGenerate.mockRejectedValueOnce(new Error('Multitrack MusicVAE service connection failed (http://localhost:7860)'));
+    mocked.runMultitrackVaeGenerate.mockRejectedValueOnce(
+      new Error('Multitrack MusicVAE service connection failed (http://localhost:7860)'),
+    );
     const result = await runMusicMultitrackVaeService({ mode: 'sample' });
     expect(result.status).toBe(503);
   });

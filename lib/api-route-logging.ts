@@ -11,16 +11,18 @@ type ApiRouteSummaryInput = {
 };
 
 export const logApiRouteSummary = (input: ApiRouteSummaryInput) => {
-  console.info(JSON.stringify({
-    event: input.event,
-    route: input.route,
-    method: input.method,
-    status: input.status,
-    durationMs: Date.now() - input.startedAt,
-    requestId: input.trace.requestId,
-    traceId: input.trace.traceId,
-    sessionId: input.trace.sessionId || null,
-    clientSessionId: input.trace.clientSessionId || null,
-    ...(input.extra || {}),
-  }));
+  console.info(
+    JSON.stringify({
+      event: input.event,
+      route: input.route,
+      method: input.method,
+      status: input.status,
+      durationMs: Date.now() - input.startedAt,
+      requestId: input.trace.requestId,
+      traceId: input.trace.traceId,
+      sessionId: input.trace.sessionId || null,
+      clientSessionId: input.trace.clientSessionId || null,
+      ...(input.extra || {}),
+    }),
+  );
 };

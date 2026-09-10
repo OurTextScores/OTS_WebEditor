@@ -2,7 +2,8 @@ import type { MusicToolContract } from './types';
 
 export const MUSIC_OMR_TRANSCRIBE_TOOL_CONTRACT: MusicToolContract = {
   name: 'music.omr_transcribe',
-  description: 'Transcribe a rendered score page image with Transcoda, returning **kern and optionally converted MusicXML artifacts.',
+  description:
+    'Transcribe a rendered score page image with Transcoda, returning **kern and optionally converted MusicXML artifacts.',
   inputSchema: {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
     type: 'object',

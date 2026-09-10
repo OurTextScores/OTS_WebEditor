@@ -10,4 +10,3 @@ const ok = checkWasmArtifacts();
 if (!ok) {
   process.exit(1);
 }
-
