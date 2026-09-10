@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocked = vi.hoisted(() => ({
   runDiffFeedbackService: vi.fn(),
@@ -12,8 +12,31 @@ import { POST } from '../app/api/music/diff/feedback/route';
 import { readAiEditServiceResponse } from '../lib/ai-edit-progress-client';
 
 describe('POST /api/music/diff/feedback', () => {
+  /*
+      A request that would spend a server key is gated on app-token access and
+      answers 403 before the service runs — see the dedicated case below. The
+      cases that exercise the service must therefore say which world they are
+      in rather than inheriting the developer's exported keys, or they pass on
+      CI and fail on any machine that has one.
+  */
+  const priorKeys = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'ALLOW_SERVER_LLM_KEYS'].map(
+    (name) => [name, process.env[name]] as const,
+  );
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    for (const [name] of priorKeys) delete process.env[name];
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
+    for (const [name, prior] of priorKeys) {
+      if (prior === undefined) {
+        delete process.env[name];
+      } else {
+        process.env[name] = prior;
+      }
+    }
   });
 
   it('returns service response body and status', async () => {
@@ -88,5 +111,19 @@ describe('POST /api/music/diff/feedback', () => {
       expect.anything(),
       expect.objectContaining({ signal: expect.any(AbortSignal), onProgress: expect.any(Function) }),
     );
+  });
+  it('refuses to spend a server key before the service is ever reached', async () => {
+    process.env.OPENAI_API_KEY = 'server-key';
+
+    const response = await POST(new Request('http://localhost/api/music/diff/feedback', {
+      method: 'POST',
+      body: JSON.stringify({ scoreSessionId: 'sess_1', baseRevision: 1, blocks: [] }),
+    }));
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'server_credentials_disabled',
+    });
+    expect(mocked.runDiffFeedbackService).not.toHaveBeenCalled();
   });
 });
