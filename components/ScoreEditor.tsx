@@ -17754,9 +17754,17 @@ ${partsBodyXml}
            * can size the frame. `clip` is the one value that leaves
            * the other axis alone.
            */
+          /*
+           * Hidden under the rows, rather than merely covered by them.
+           *
+           * It holds a whole engraved page, and in rows mode the compare view
+           * is an ordinary block, so anything left in flow here goes on
+           * deciding the document's height and with it the frame's. The rows
+           * cover it completely either way, so this costs nothing to look at.
+           */
           className={`relative z-0 flex-1 bg-gray-50 p-8 ${
             isSystemRowsMode ? 'overflow-x-clip overflow-y-visible' : 'overflow-auto'
-          }`}
+          } ${isSystemRowsMode && compareView ? 'hidden' : ''}`}
         >
           {loading && (
             <div className="flex items-center justify-center h-full">
@@ -18740,16 +18748,41 @@ ${partsBodyXml}
         )}
 
         {compareView && (
+          /*
+                        A modal everywhere but rows mode, where it is the page.
+
+                        `fixed inset-0` takes this out of flow, so it adds
+                        nothing to `document.body.scrollHeight` -- and that is
+                        the height reported to the host. The frame was therefore
+                        sized to whatever was left in flow behind it: the
+                        ordinary editor canvas, holding a whole engraved page at
+                        the current zoom. Measured at 4314px of frame around
+                        390px of rows, and the mismatch runs the other way just
+                        as easily, where `inset-0` plus `overflow-hidden` clips
+                        the rows to a frame too short for them with nothing able
+                        to scroll to the rest.
+
+                        In rows mode it is an ordinary block instead: its height
+                        is its content, the content's height is the document's,
+                        and the host sizes the frame to that -- which is what
+                        the growable chain above was built for.
+                    */
           <div
-            className="fixed inset-0 flex items-start justify-center overflow-hidden bg-gray-50"
+            className={
+              isSystemRowsMode
+                ? 'relative w-full bg-gray-50'
+                : 'fixed inset-0 flex items-start justify-center overflow-hidden bg-gray-50'
+            }
             style={{ zIndex: 110 }}
             data-testid="checkpoint-compare-modal"
           >
             <div
               className={
-                isEmbedMode
-                  ? 'flex min-h-0 w-full h-full flex-col gap-4 overflow-hidden bg-white'
-                  : 'flex min-h-0 w-full h-full flex-col gap-4 overflow-hidden bg-white p-4'
+                isSystemRowsMode
+                  ? 'flex w-full flex-col gap-4 bg-white'
+                  : isEmbedMode
+                    ? 'flex min-h-0 w-full h-full flex-col gap-4 overflow-hidden bg-white'
+                    : 'flex min-h-0 w-full h-full flex-col gap-4 overflow-hidden bg-white p-4'
               }
             >
               {!isEmbedMode && (

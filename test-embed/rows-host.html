@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Scanner rows embed host</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: system-ui, sans-serif;
+      }
+      .bar {
+        padding: 12px;
+        background: #eee;
+      }
+      iframe {
+        display: block;
+        min-height: 30rem;
+        width: 100%;
+        border: 0;
+        background: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      Stands in for OurTextScores' compare page: it sizes the frame to the
+      height the embed reports and puts a bar underneath, so a frame taller
+      than its content shows up as a gap the test can measure.
+    -->
+    <div class="bar" id="top">top</div>
+    <iframe id="frame" title="Scanner rows embed"></iframe>
+    <div class="bar" id="bottom">bottom</div>
+    <script>
+      const params = new URLSearchParams(location.search);
+      const editor = new URLSearchParams({
+        compareLeft: '/score-editor/sample-left.xml',
+        compareRight: '/score-editor/sample-right.xml',
+        compareRegions: '/scanner-rows/regions',
+        leftLabel: 'Left',
+        rightLabel: 'Right',
+        compareMode: 'rows',
+        compareBlock: params.get('compareBlock') || '0',
+      });
+      document.getElementById('frame').src = '/score-editor/index.html?' + editor.toString();
+      window.__heightReports = [];
+      window.addEventListener('message', (event) => {
+        const value = event.data;
+        if (!value || value.type !== 'ots-compare-height') return;
+        if (typeof value.height !== 'number' || !Number.isFinite(value.height)) return;
+        window.__heightReports.push(value.height);
+        document.getElementById('frame').style.height =
+          Math.max(480, Math.ceil(value.height)) + 'px';
+      });
+    </script>
+  </body>
+</html>

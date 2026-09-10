@@ -2,7 +2,7 @@ import { defineConfig } from 'playwright/test';
 
 export default defineConfig({
   testDir: './tests',
-  testMatch: 'embed-integration.spec.ts',
+  testMatch: /(embed-integration|scanner-rows-embed-height)\.spec\.ts/,
   workers: 1,
   timeout: 60 * 1000,
   expect: {

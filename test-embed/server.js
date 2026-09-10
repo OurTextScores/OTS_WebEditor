@@ -541,6 +541,51 @@ const analyticsHeaders = {
   'Access-Control-Allow-Methods': 'POST, GET, DELETE, OPTIONS',
 };
 
+/*
+ * A scanner rows-mode comparison, for the embed's height contract.
+ *
+ * The rows view does not scroll itself: it reports its document height and the
+ * host sizes the frame to it. That contract has broken twice -- once as a
+ * ratchet that grew the frame a few hundred pixels a second, once because the
+ * compare view was `position: fixed` and so reported the height of the editor
+ * canvas behind it instead of its own. Neither is visible to jsdom, which has
+ * no layout, so it is checked here.
+ */
+const SCANNER_ROWS_REGIONS = {
+  version: 'scanner-compare-regions-v1',
+  analysisStatus: 'succeeded',
+  status: 'ready',
+  statusVersion: 1,
+  left: { engineId: 'test-left', displayName: 'Left' },
+  right: { engineId: 'test-right', displayName: 'Right' },
+  merged: null,
+  systems: [
+    { systemIndex: 0, leftMeasureIndexes: [0, 1, 2], rightMeasureIndexes: [0, 1, 2] },
+    { systemIndex: 1, leftMeasureIndexes: [3, 4, 5], rightMeasureIndexes: [3, 4, 5] },
+  ],
+  regions: [
+    {
+      blockIndex: 0,
+      leftMeasureIndexes: [1],
+      rightMeasureIndexes: [1],
+      differenceClasses: ['notation'],
+      grounded: true,
+      contentSignature: 'scanner-block-content-v2:a',
+      componentDifferences: [],
+    },
+  ],
+  warnings: [],
+  refusalReasons: [],
+};
+
+const tryHandleScannerRows = async (req, res, pathname) => {
+  if (pathname !== '/scanner-rows/regions') {
+    return false;
+  }
+  sendJson(res, 200, SCANNER_ROWS_REGIONS);
+  return true;
+};
+
 const tryHandleAnalytics = async (req, res, pathname) => {
   if (!pathname.startsWith('/api/analytics/')) {
     return false;
@@ -815,6 +860,10 @@ const tryHandleScoreEditorApiProxy = async (req, res, requestUrl, pathname) => {
 const server = http.createServer(async (req, res) => {
   const requestUrl = new URL(req.url || '/', `http://${req.headers.host || `localhost:${PORT}`}`);
   const pathname = requestUrl.pathname;
+
+  if (await tryHandleScannerRows(req, res, pathname)) {
+    return;
+  }
 
   if (await tryHandleAnalytics(req, res, pathname)) {
     return;
