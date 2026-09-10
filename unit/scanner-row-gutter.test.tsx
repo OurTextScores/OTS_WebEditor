@@ -749,6 +749,18 @@ describe('the difference navigator', () => {
 
         const firstTake = screen.getByTestId('btn-take-down-0');
         fireEvent.mouseEnter(firstTake);
+        // Across shows the scan once, above all three lanes, so the description
+        // it carries appears once as well.
+        expect(
+            screen
+                .getAllByTestId('difference-description')
+                .map((description) => description.dataset.position),
+        ).toEqual(['scan-to-left']);
+
+        // Stacked repeats the scan under the second reading, and the
+        // description repeats with it.
+        await userEvent.click(screen.getByTestId('btn-layout-vertical'));
+        fireEvent.mouseEnter(screen.getByTestId('btn-take-down-0'));
         const descriptions = screen.getAllByTestId('difference-description');
         expect(descriptions).toHaveLength(2);
         expect(descriptions.map((description) => description.dataset.position)).toEqual([
@@ -826,13 +838,97 @@ describe('the difference navigator', () => {
             onlyBlockIndex: 0,
         });
 
-        // Once above the first reading and once below the second, so each
-        // reading has the page it was read from next to it.
         expect(screen.queryAllByTestId('scan-difference-box')).toHaveLength(0);
         fireEvent.mouseEnter(await screen.findByTestId('btn-take-down-0'));
+        // Across draws the scan once, above all three lanes.
+        const across = await screen.findAllByTestId('scan-difference-box');
+        expect(across).toHaveLength(1);
+        expect(across[0]).toHaveStyle({ left: '25%', width: '50%' });
+
+        // Stacked draws it once above the first reading and once below the
+        // second, so each reading has the page it was read from next to it.
+        await userEvent.click(screen.getByTestId('btn-layout-vertical'));
+        fireEvent.mouseEnter(screen.getByTestId('btn-take-down-0'));
         const boxes = await screen.findAllByTestId('scan-difference-box');
         expect(boxes).toHaveLength(2);
         expect(boxes[0]).toHaveStyle({ left: '25%', width: '50%' });
+    });
+
+    it('sizes the scan from the padded bitmap, not the semantic system bounds', async () => {
+        // The crop endpoint pads the system region before extracting the
+        // bitmap. Laying the image out against the unpadded `region` clipped
+        // the padding off the bottom and moved every overlay with it.
+        const calls: FetchCall[] = [];
+        renderRows([grounded], calls, {
+            systems: [
+                {
+                    systemIndex: 0,
+                    leftMeasureIndexes: [0],
+                    rightMeasureIndexes: [0],
+                    cropUrl: 'systems/0/crop',
+                    region: [0, 0, 659, 361],
+                    cropRegion: [0, 0, 683, 385],
+                },
+            ],
+        });
+
+        const scan = await screen.findByAltText('Scan of system 1');
+        expect(scan).toHaveAttribute('width', '683');
+        expect(scan).toHaveAttribute('height', '385');
+        // And never enlarged past its own pixels.
+        expect(scan.parentElement).toHaveStyle({
+            aspectRatio: String(683 / 385),
+            width: 'min(100%, 683px)',
+        });
+    });
+
+    it('falls back to the system region when a response predates cropRegion', async () => {
+        const calls: FetchCall[] = [];
+        renderRows([grounded], calls, {
+            systems: [
+                {
+                    systemIndex: 0,
+                    leftMeasureIndexes: [0],
+                    rightMeasureIndexes: [0],
+                    cropUrl: 'systems/0/crop',
+                    region: [0, 0, 659, 361],
+                },
+            ],
+        });
+
+        const scan = await screen.findByAltText('Scan of system 1');
+        expect(scan).toHaveAttribute('width', '659');
+        expect(scan).toHaveAttribute('height', '361');
+    });
+
+    it('collapses each pane on its own', async () => {
+        // Four readings stacked in one row is more than a laptop shows at once.
+        // Hiding the ones a given judgement does not rest on is what makes the
+        // rest legible, so each hides independently of the others.
+        const calls: FetchCall[] = [];
+        renderRows([grounded], calls, { systems: [croppedSystems[0]] });
+
+        await screen.findByAltText('Scan of system 1');
+        // Base, merged, candidate.
+        await waitFor(() => expect(screen.getAllByTestId('pane-measures')).toHaveLength(3));
+
+        await userEvent.click(screen.getByTestId('btn-toggle-pane-scan'));
+        expect(screen.queryByAltText('Scan of system 1')).not.toBeInTheDocument();
+        // Hiding the scan leaves the three score panes alone.
+        expect(screen.getAllByTestId('pane-measures')).toHaveLength(3);
+
+        await userEvent.click(screen.getByTestId('btn-toggle-pane-left'));
+        await waitFor(() => expect(screen.getAllByTestId('pane-measures')).toHaveLength(2));
+
+        // And each toggle says which state it is in, and comes back.
+        expect(screen.getByTestId('btn-toggle-pane-scan')).toHaveAttribute(
+            'aria-pressed',
+            'false',
+        );
+        await userEvent.click(screen.getByTestId('btn-toggle-pane-scan'));
+        expect(await screen.findByAltText('Scan of system 1')).toBeInTheDocument();
+        // The scan coming back does not bring the base reading back with it.
+        expect(screen.getAllByTestId('pane-measures')).toHaveLength(2);
     });
 
     it('moves the scan box to the conflict whose Take control is highlighted', async () => {
@@ -956,8 +1052,14 @@ describe('the row gutter', () => {
         const calls: FetchCall[] = [];
         renderRows([grounded], calls, { sourceEngineId: 'transcoda' });
 
-        // Down from the reading above, up from the reading below.
-        expect((await screen.findByTestId('btn-take-down-0')).textContent).toContain('↓');
+        // Across: right from the reading on the left, left from the one on the
+        // right.
+        expect((await screen.findByTestId('btn-take-down-0')).textContent).toContain('→');
+        expect(screen.getByTestId('btn-take-up-0').textContent).toContain('←');
+
+        // Stacked: down from the reading above, up from the reading below.
+        await userEvent.click(screen.getByTestId('btn-layout-vertical'));
+        expect(screen.getByTestId('btn-take-down-0').textContent).toContain('↓');
         expect(screen.getByTestId('btn-take-up-0').textContent).toContain('↑');
     });
 
