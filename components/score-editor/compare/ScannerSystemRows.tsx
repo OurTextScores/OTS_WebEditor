@@ -2354,16 +2354,33 @@ export function ScannerSystemRows({
               }),
             )
           : [];
-        const renderDifferenceDescription = (position: 'scan-to-left' | 'right-to-scan') =>
+        /*
+                    Below the readings, never above them.
+
+                    Hovering a Take control is what fills this in, and it used
+                    to sit above the row: its height varies with the number of
+                    conflicts on the line and with how the prose wraps, and it
+                    was absent entirely until the first hover. So every hover
+                    resized a block above the controls and pushed them down --
+                    far enough, in Across, that a neighbouring button slid under
+                    a stationary cursor, fired its own preview, and moved the
+                    row again. Rendered after the panes, its height changes
+                    disturb nothing a pointer is aiming at.
+
+                    Once, not once per reading: a single stable block below the
+                    controls is close enough to both readings to be worth less
+                    than the duplication cost.
+                */
+        const renderDifferenceDescription = () =>
           differenceDescriptions.length > 0 ? (
             <div
-              className={`${position === 'scan-to-left' ? 'mb-2 ' : ''}rounded-md border border-amber-300 bg-amber-50 px-3 py-1 text-center text-sm font-bold text-amber-950`}
+              className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-1 text-center text-sm font-bold text-amber-950"
               data-testid="difference-description"
-              data-position={position}
+              data-position="below-row"
             >
               {differenceDescriptions.map((entry, index) => (
                 <div
-                  key={`${position}-${entry.blockIndex}-${index}`}
+                  key={`${entry.blockIndex}-${index}`}
                   className={index > 0 ? 'mt-1 border-t border-amber-200 pt-1' : ''}
                 >
                   {differences.length > 1 && <span>Conflict {entry.blockIndex + 1}: </span>}
@@ -2666,8 +2683,6 @@ export function ScannerSystemRows({
             {!collapsedPanes.scan &&
               scanCrop(system, systemPosition, 'above', staffRow, activeRegion)}
 
-            {renderDifferenceDescription('scan-to-left')}
-
             {/*
                             Reading, merge, reading, with a gutter between each
                             pane and the merged score — so "take from above" and
@@ -2861,22 +2876,28 @@ export function ScannerSystemRows({
                     />
                   </div>
                 )}
-                {rowLayout === 'vertical' && renderDifferenceDescription('right-to-scan')}
-                {/*
-                                The scan again, under the second reading.
-
-                                One copy at the top of the row put the scan
-                                beside the first reading and three panes away
-                                from the second, so comparing the lower reading
-                                against the page meant carrying a line of music
-                                in your head past two other staves. It is the
-                                same image, and images are cheap next to that.
-                            */}
-                {rowLayout === 'vertical' &&
-                  !collapsedPanes.scan &&
-                  scanCrop(system, systemPosition, 'below', staffRow, activeRegion)}
               </div>
             </div>
+
+            {renderDifferenceDescription()}
+
+            {/*
+                            The scan again, under the second reading.
+
+                            One copy at the top of the row put the scan beside
+                            the first reading and three panes away from the
+                            second, so comparing the lower reading against the
+                            page meant carrying a line of music in your head
+                            past two other staves. It is the same image, and
+                            images are cheap next to that.
+
+                            Outside the row rather than the last item in it, so
+                            the description above can sit between the readings
+                            and their page.
+                        */}
+            {rowLayout === 'vertical' &&
+              !collapsedPanes.scan &&
+              scanCrop(system, systemPosition, 'below', staffRow, activeRegion)}
           </div>
         );
       })}

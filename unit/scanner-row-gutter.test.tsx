@@ -732,24 +732,17 @@ describe('the difference navigator', () => {
 
     const firstTake = screen.getByTestId('btn-take-down-0');
     fireEvent.mouseEnter(firstTake);
-    // Across shows the scan once, above all three lanes, so the description
-    // it carries appears once as well.
+    // One block, below the readings, in either layout.
     expect(
       screen
         .getAllByTestId('difference-description')
         .map((description) => description.dataset.position),
-    ).toEqual(['scan-to-left']);
+    ).toEqual(['below-row']);
 
-    // Stacked repeats the scan under the second reading, and the
-    // description repeats with it.
     await userEvent.click(screen.getByTestId('btn-layout-vertical'));
     fireEvent.mouseEnter(screen.getByTestId('btn-take-down-0'));
     const descriptions = screen.getAllByTestId('difference-description');
-    expect(descriptions).toHaveLength(2);
-    expect(descriptions.map((description) => description.dataset.position)).toEqual([
-      'scan-to-left',
-      'right-to-scan',
-    ]);
+    expect(descriptions).toHaveLength(1);
     for (const description of descriptions) {
       expect(description).toHaveTextContent('notes or rhythm');
       expect(description).toHaveTextContent('HOMR only: E4 at quarter 2');
@@ -910,6 +903,42 @@ describe('the difference navigator', () => {
     expect(await screen.findByAltText('Scan of system 1')).toBeInTheDocument();
     // The scan coming back does not bring the base reading back with it.
     expect(screen.getAllByTestId('pane-measures')).toHaveLength(2);
+  });
+
+  it('keeps the hover description below the controls that summon it', async () => {
+    /*
+        The description's height varies -- with the number of conflicts on the
+        line, with how the prose wraps, and with whether there is one at all --
+        and hovering a Take control is what fills it in. Above the row that was
+        a feedback loop: the block appeared, everything below it moved, a
+        neighbouring button slid under the stationary cursor and fired its own
+        preview. Document order is the fix, so assert document order rather
+        than any particular height.
+    */
+    for (const layout of ['horizontal', 'vertical'] as const) {
+      const calls: FetchCall[] = [];
+      const view = renderRows(twoDifferences, calls, {
+        systems: croppedSystems,
+        onlyBlockIndex: 0,
+      });
+
+      const take = await screen.findByTestId('btn-take-down-0');
+      await userEvent.click(screen.getByTestId(`btn-layout-${layout}`));
+      fireEvent.mouseEnter(screen.getByTestId('btn-take-down-0'));
+
+      const description = screen.getByTestId('difference-description');
+      const controls = screen.getAllByTestId(/^btn-take-(down|up)-/);
+      // Otherwise the loop below asserts nothing.
+      expect(controls.length, layout).toBeGreaterThan(1);
+      for (const control of controls) {
+        expect(
+          control.compareDocumentPosition(description) & Node.DOCUMENT_POSITION_FOLLOWING,
+          `${layout}: ${control.dataset.testid ?? control.textContent}`,
+        ).toBeTruthy();
+      }
+      expect(take).toBeTruthy();
+      view.unmount();
+    }
   });
 
   it('moves the scan box to the conflict whose Take control is highlighted', async () => {
