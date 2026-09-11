@@ -77,3 +77,44 @@ describe('groupFindingsByKind', () => {
     expect(groupFindingsByKind([])).toEqual([]);
   });
 });
+
+/**
+ * The two levels exist for different reasons and must not be conflated: the outer steps
+ * between questions, the inner between the places raising the same question. Eleven
+ * layout deviations are one decision and eleven things to look at.
+ */
+describe('examples within a kind', () => {
+  it('keeps every occurrence, so each can be looked at in turn', () => {
+    const groups = groupFindingsByKind(
+      Array.from({ length: 11 }, (_, i) => finding('profile_layout_deviation', i)),
+    );
+    expect(groups).toHaveLength(1);
+    expect(groups[0].findings).toHaveLength(11);
+    expect(groups[0].findings.map((f) => f.system)).toEqual([
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+    ]);
+  });
+
+  it('keeps examples that name different parts distinguishable', () => {
+    // A decision is recorded against a kind *and part*. One kind can raise the same
+    // question about several parts, so the example -- not the kind -- carries the part
+    // the host decides about.
+    const groups = groupFindingsByKind([
+      finding('clef_profile_mismatch', 0, 'cello'),
+      finding('clef_profile_mismatch', 1, 'viola'),
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].findings.map((f) => f.part)).toEqual(['cello', 'viola']);
+  });
+
+  it('keeps two occurrences on one system as two examples', () => {
+    // Deduplicated for strips, not for stepping: two slurs on one system are two things
+    // to look at even though they share a picture.
+    const groups = groupFindingsByKind([
+      finding('dangling_slur_start', 2),
+      finding('dangling_slur_start', 2),
+    ]);
+    expect(groups[0].findings).toHaveLength(2);
+    expect(groups[0].systems).toEqual([2]);
+  });
+});

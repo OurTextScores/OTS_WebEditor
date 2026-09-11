@@ -176,7 +176,24 @@ export function ScannerFindingRows({
 }) {
   const groups = useMemo(() => groupFindingsByKind(findings), [findings]);
   const [index, setIndex] = useState(0);
+  /**
+   * Which example of this kind is on screen.
+   *
+   * Two levels, because "eleven places" is eleven things to look at even though it is
+   * one thing to decide. The outer level steps between questions; the inner steps
+   * between the places that raise the same question. Showing all eleven at once made the
+   * page seven thousand pixels tall and asked the reviewer to find the relevant one.
+   */
+  const [exampleIndex, setExampleIndex] = useState(0);
   const current = groups[Math.min(index, Math.max(0, groups.length - 1))];
+  const examples = current?.findings ?? [];
+  const example = examples[Math.min(exampleIndex, Math.max(0, examples.length - 1))];
+
+  // A new question starts at its first example rather than wherever the last one left
+  // off, which would land on an arbitrary place in a different part of the page.
+  useEffect(() => {
+    setExampleIndex(0);
+  }, [index]);
 
   const [rendered, setRendered] = useState<Rendered | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
@@ -188,8 +205,10 @@ export function ScannerFindingRows({
     prepare: (persisted) => ({ xml: persisted ?? xml, baselineMeasures: 0 }),
     sourceEngineId: engineId,
     // Every bar edited here is attributed to the finding being answered, not to a
-    // disagreement between engines.
-    finding: current ? { kind: current.kind, part: current.findings[0]?.part } : null,
+    // disagreement between engines. The example's own part, not the kind's first: one
+    // kind can raise the same question about several parts, and an edit made while
+    // looking at the viola must not be filed against the cello.
+    finding: current ? { kind: current.kind, part: example?.part } : null,
   });
 
   useEffect(() => {
@@ -213,34 +232,38 @@ export function ScannerFindingRows({
       {
         type: 'ots-finding-issue',
         kind: current.kind,
-        part: current.findings[0]?.part ?? null,
+        // The example's part and words, not the kind's first. A decision is recorded
+        // against a kind *and part*, so a host showing controls for the wrong part would
+        // record the wrong decision.
+        part: example?.part ?? null,
         // The host derives the profile amendment from this, so it travels too. Without
         // it the "widen the profile" control could never appear.
-        message: current.findings[0]?.message ?? '',
+        message: example?.message ?? '',
         index,
         total: groups.length,
         places: current.findings.length,
+        exampleIndex: Math.min(exampleIndex, Math.max(0, examples.length - 1)),
       },
       '*',
     );
-  }, [current, groups.length, index]);
+  }, [current, example, examples.length, exampleIndex, groups.length, index]);
 
   // Reflow onto the systems this kind actually touches. A reviewer who stepped to an
   // issue is not asking about the lines it does not fall on.
+  const shownSystem = useMemo(() => {
+    if (!Number.isInteger(example?.system)) return undefined;
+    return systems.find((system) => system.systemIndex === example?.system);
+  }, [example, systems]);
+
   const starts = useMemo(() => {
     // `ScannerSystem` is two-sided down to its type, because it was built for the diff.
     // With one reading the host fills the left side and leaves the right empty, so this
     // reads `leftMeasureIndexes` -- a naming inheritance, not a claim that there is a
     // second reading somewhere.
     const firstMeasure = (system: ScannerSystem) => system.leftMeasureIndexes?.[0] ?? 0;
-    if (!current || current.systems.length === 0) {
-      return systems.map(firstMeasure);
-    }
-    return current.systems
-      .map((systemIndex) => systems.find((s) => s.systemIndex === systemIndex))
-      .filter((system): system is ScannerSystem => Boolean(system))
-      .map(firstMeasure);
-  }, [current, systems]);
+    if (!shownSystem) return systems.map(firstMeasure);
+    return [firstMeasure(shownSystem)];
+  }, [shownSystem, systems]);
 
   useEffect(() => {
     const token = ++renderToken.current;
@@ -267,10 +290,6 @@ export function ScannerFindingRows({
 
   if (groups.length === 0) return null;
 
-  const shownSystems = (current?.systems ?? [])
-    .map((systemIndex) => systems.find((system) => system.systemIndex === systemIndex))
-    .filter((system): system is ScannerSystem => Boolean(system));
-
   return (
     <section data-testid="finding-rows" className="flex flex-col gap-3 p-4">
       <header className="flex flex-wrap items-center gap-3">
@@ -287,7 +306,7 @@ export function ScannerFindingRows({
               {current.findings.length}{' '}
               {current.findings.length === 1 ? 'place' : 'places'}
             </span>
-            {current.findings[0]?.part ? ` · ${current.findings[0].part}` : ''}
+            {example?.part ? ` · ${example.part}` : ''}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -312,20 +331,49 @@ export function ScannerFindingRows({
         </div>
       </header>
 
+      {examples.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-2">
+          <span className="text-xs text-gray-500" data-testid="finding-rows-example-position">
+            Example {Math.min(exampleIndex, examples.length - 1) + 1} of {examples.length}
+          </span>
+          <button
+            type="button"
+            data-testid="finding-rows-example-prev"
+            disabled={exampleIndex === 0}
+            onClick={() => setExampleIndex((value) => Math.max(0, value - 1))}
+            className="rounded border border-gray-300 px-2 py-0.5 text-xs disabled:opacity-40"
+          >
+            ← Previous example
+          </button>
+          <button
+            type="button"
+            data-testid="finding-rows-example-next"
+            disabled={exampleIndex >= examples.length - 1}
+            onClick={() =>
+              setExampleIndex((value) => Math.min(examples.length - 1, value + 1))
+            }
+            className="rounded border border-gray-300 px-2 py-0.5 text-xs disabled:opacity-40"
+          >
+            Next example →
+          </button>
+        </div>
+      )}
+
       <p className="text-xs text-gray-600" data-testid="finding-rows-message">
-        {current.findings[0]?.message}
+        {example?.message}
       </p>
 
-      {shownSystems.length === 0 ? (
-        // Page-level findings name no system. They are real and worth showing, but there
-        // is no strip to show, and inventing one would point at the wrong place.
+      {!shownSystem ? (
+        // A finding with no system is about the page, not a place on it. It is real and
+        // worth showing, but there is no strip, and inventing one would point somewhere
+        // wrong.
         <p className="text-xs text-gray-500" data-testid="finding-rows-no-location">
           This one is about the page as a whole, not a particular system.
         </p>
       ) : (
-        shownSystems.map((system) => (
-          <ScanStrip key={system.systemIndex} system={system} resolveUrl={resolveUrl} />
-        ))
+        // One strip, for the example on screen. Eleven at once made the page seven
+        // thousand pixels tall and left the reviewer to find the relevant one.
+        <ScanStrip system={shownSystem} resolveUrl={resolveUrl} />
       )}
 
       <div className="rounded border border-gray-200 bg-white">
