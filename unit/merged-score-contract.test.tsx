@@ -101,7 +101,10 @@ describe('the merged score contract', () => {
     );
   };
 
-  const render = (initial: MergedScoreState) =>
+  const render = (
+    initial: MergedScoreState,
+    finding?: { kind: string; part?: string } | null,
+  ) =>
     renderHook(() =>
       useMergedScoreDocument({
         state: initial,
@@ -111,6 +114,7 @@ describe('the merged score contract', () => {
           baselineMeasures: 1,
         }),
         sourceEngineId: 'homr',
+        finding,
       }),
     );
 
@@ -650,5 +654,81 @@ describe('the merged score contract', () => {
     expect(result.current.error).toMatch(/cannot be taken/);
     // The merged score is untouched, so nothing has to be undone.
     expect(result.current.state?.revision).toBe(1);
+  });
+
+  it('attributes every bar to the finding when opened from one', async () => {
+    // The claim this carries: one engine flagged its own reading and a human agreed.
+    // Without it the backend files the edit as a comparison edit, asserting that two
+    // independent readings disagreed -- on a job where only one reading exists.
+    mocked.loadWebMscore.mockResolvedValue({
+      ready: Promise.resolve(),
+      load: vi.fn(async () => fakeScore()),
+    } as never);
+    stubFetch(() => new Response(JSON.stringify({ ok: true }), { status: 200 }));
+
+    const { result } = render(
+      state({ editedMeasures: [{ measureIndex: 2, stablePartKey: 'P1' }] }),
+      { kind: 'clef_profile_mismatch', part: 'cello' },
+    );
+    await act(async () => {
+      await result.current.load();
+    });
+    await act(async () => {
+      await result.current.save();
+    });
+
+    const query = new URL(calls.find((call) => call.method === 'PUT')!.url).searchParams;
+    expect(JSON.parse(query.get('editedMeasures')!)).toEqual([
+      { measureIndex: 2, stablePartKey: 'P1', source: 'finding' },
+    ]);
+    expect(query.get('findingKind')).toBe('clef_profile_mismatch');
+    expect(query.get('findingPart')).toBe('cello');
+  });
+
+  it('sends no finding attribution for an ordinary merge save', async () => {
+    // Absent means comparison, which is what every stored record already means.
+    mocked.loadWebMscore.mockResolvedValue({
+      ready: Promise.resolve(),
+      load: vi.fn(async () => fakeScore()),
+    } as never);
+    stubFetch(() => new Response(JSON.stringify({ ok: true }), { status: 200 }));
+
+    const { result } = render(
+      state({ editedMeasures: [{ measureIndex: 2, stablePartKey: 'P1' }] }),
+    );
+    await act(async () => {
+      await result.current.load();
+    });
+    await act(async () => {
+      await result.current.save();
+    });
+
+    const query = new URL(calls.find((call) => call.method === 'PUT')!.url).searchParams;
+    expect(JSON.parse(query.get('editedMeasures')!)).toEqual([
+      { measureIndex: 2, stablePartKey: 'P1' },
+    ]);
+    expect(query.get('findingKind')).toBeNull();
+    expect(query.get('findingPart')).toBeNull();
+  });
+
+  it('omits the part when the finding named none', async () => {
+    // Six of the seventeen findings on the real job carried no part at all.
+    mocked.loadWebMscore.mockResolvedValue({
+      ready: Promise.resolve(),
+      load: vi.fn(async () => fakeScore()),
+    } as never);
+    stubFetch(() => new Response(JSON.stringify({ ok: true }), { status: 200 }));
+
+    const { result } = render(state(), { kind: 'dangling_slur_start' });
+    await act(async () => {
+      await result.current.load();
+    });
+    await act(async () => {
+      await result.current.save();
+    });
+
+    const query = new URL(calls.find((call) => call.method === 'PUT')!.url).searchParams;
+    expect(query.get('findingKind')).toBe('dangling_slur_start');
+    expect(query.get('findingPart')).toBeNull();
   });
 });

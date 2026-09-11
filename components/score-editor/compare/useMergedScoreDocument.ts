@@ -36,7 +36,12 @@ export type MergedScoreState = {
     flagged?: boolean;
     measureIndexes?: number[];
   }>;
-  editedMeasures?: Array<{ measureIndex: number; stablePartKey?: string }>;
+  editedMeasures?: Array<{
+    measureIndex: number;
+    stablePartKey?: string;
+    /** Absent means `comparison`, the meaning every record had before findings. */
+    source?: 'comparison' | 'finding';
+  }>;
   /**
    * Where each merged bar came from, by position.
    *
@@ -149,6 +154,7 @@ export function useMergedScoreDocument({
   resolveUrl,
   prepare,
   sourceEngineId,
+  finding,
 }: {
   state: MergedScoreState | null;
   resolveUrl: (relative: string) => string;
@@ -160,6 +166,14 @@ export function useMergedScoreDocument({
    */
   prepare: (persistedXml: string | null, state: MergedScoreState | null) => LoadInput | null;
   sourceEngineId: string;
+  /**
+   * Set when the editor was opened to answer a cross-staff finding.
+   *
+   * Every bar edited in this session is then attributed to that finding rather than to
+   * a disagreement between engines. One engine flagged its own reading and a human
+   * agreed; no second reading was consulted, and on a single-engine job none exists.
+   */
+  finding?: { kind: string; part?: string } | null;
 }) {
   const [score, setScore] = useState<Score | null>(null);
   const [loading, setLoading] = useState(false);
@@ -354,12 +368,20 @@ export function useMergedScoreDocument({
           sourceEngineId,
           basisSignature: current.basisSignature,
           revision: String(current.revision),
-          // Hand work is recorded on the artifact because an edited
-          // bar means *both* engines were wrong there, and phase E
-          // must never file that as an engine win.
+          // Hand work is recorded on the artifact because no engine should be
+          // credited for a bar a human rewrote, whatever prompted the rewrite.
+          // `source` on each entry says which claim it supports: a comparison edit
+          // means both engines were wrong there, a finding edit means one engine
+          // flagged itself and a human agreed.
           edited: String(dirty || current.edited),
-          editedMeasures: JSON.stringify(editedMeasuresRef.current),
+          editedMeasures: JSON.stringify(
+            finding
+              ? editedMeasuresRef.current.map((entry) => ({ ...entry, source: 'finding' }))
+              : editedMeasuresRef.current,
+          ),
           acceptStale: String(Boolean(options?.acceptStale)),
+          ...(finding ? { findingKind: finding.kind } : {}),
+          ...(finding?.part ? { findingPart: finding.part } : {}),
         });
         const response = await fetch(`${resolveUrl(current.url)}?${query}`, {
           method: 'PUT',

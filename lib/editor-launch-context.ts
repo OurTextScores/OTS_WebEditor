@@ -10,6 +10,15 @@ export type EditorLaunchContext = {
   composer?: string;
   imslpUrl?: string;
   canonicalXmlUrl?: string;
+  /**
+   * The cross-staff finding this editor was opened to answer, when it was.
+   *
+   * Carried so a save can say *why* a bar changed. Without it the backend files every
+   * hand edit as a comparison edit, which asserts that two independent readings
+   * disagreed -- and findings arrive on single-engine jobs, where only one exists.
+   */
+  findingKind?: string;
+  findingPart?: string;
 };
 
 const FIELD_LIMITS: Record<keyof EditorLaunchContext, number> = {
@@ -24,6 +33,10 @@ const FIELD_LIMITS: Record<keyof EditorLaunchContext, number> = {
   composer: 256,
   imslpUrl: 2048,
   canonicalXmlUrl: 4096,
+  // This map is the allowlist: `sanitizeEditorLaunchContext` iterates its keys, so a
+  // field absent here is dropped in silence however carefully the caller sends it.
+  findingKind: 64,
+  findingPart: 128,
 };
 
 const asRecord = (value: unknown): Record<string, unknown> | null =>
