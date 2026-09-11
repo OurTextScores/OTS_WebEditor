@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 
-import { loadWebMscore, type Score } from '@/lib/webmscore-loader';
+import { type Score } from '@/lib/webmscore-loader';
 import {
-  withForcedSystemBreaks,
-  withSystemSpacing,
+  renderSide,
+  type RenderedSide,
   type ScannerSystem,
 } from './ScannerSystemRows';
 import {
@@ -44,10 +44,6 @@ export type FindingRowsFinding = {
   part?: string;
 };
 
-const RENDER_WIDTH = 1400;
-
-type Rendered = { svg: string; width: number; height: number };
-
 /** A kind, its findings, and the systems they point at. */
 type IssueGroup = {
   kind: string;
@@ -74,29 +70,43 @@ export function groupFindingsByKind(findings: FindingRowsFinding[]): IssueGroup[
   }));
 }
 
-async function renderScoped(xml: string, startIndexes: number[]): Promise<Rendered | null> {
-  const WebMscore = await loadWebMscore();
-  const reflowed = withSystemSpacing(withForcedSystemBreaks(xml, startIndexes));
-  let score: Score | null = null;
-  try {
-    score = await WebMscore.load('xml', new TextEncoder().encode(reflowed));
-    if (!score) return null;
-    // `true` for selection highlighting: MuseScore colours the selection itself and the
-    // colour comes back in the SVG. Without it a click selects correctly and draws a
-    // score with no visible selection, which reads as a dead control.
-    const svg = await score.saveSvg(0, true, true);
-    const positions = await score.measurePositions();
-    const pageWidth = positions?.pageSize?.width || RENDER_WIDTH;
-    const pageHeight = positions?.pageSize?.height || 0;
-    const scale = RENDER_WIDTH / Math.max(1, pageWidth);
-    return { svg, width: RENDER_WIDTH, height: pageHeight * scale };
-  } finally {
-    try {
-      score?.destroy();
-    } catch {
-      // A score that will not close is not a reason to lose the view.
-    }
-  }
+/**
+ * The window onto one system, in the drawing's own pixels.
+ *
+ * The engraving is drawn whole and then a band of it is shown, exactly as the comparison
+ * rows do: scaled so the system fills the pane, translated so it starts at the origin,
+ * and clipped. Showing the page entire was the alternative, and at a 2,977px drawing in
+ * a 1,000px box it made every note too small to read.
+ */
+function systemWindow(
+  rendered: RenderedSide | null,
+  measureIndexes: readonly number[],
+): { left: number; top: number; width: number; height: number } | null {
+  if (!rendered || measureIndexes.length === 0) return null;
+  const boxes = measureIndexes
+    .map((index) => rendered.measures[index])
+    .filter((box): box is NonNullable<typeof box> => Boolean(box));
+  if (boxes.length === 0) return null;
+  const left = Math.min(...boxes.map((box) => box.left));
+  const top = Math.min(...boxes.map((box) => box.top));
+  const right = Math.max(...boxes.map((box) => box.left + box.width));
+  const bottom = Math.max(...boxes.map((box) => box.top + box.height));
+  /*
+   * Generous vertical air, because a measure box is only the staff.
+   *
+   * Everything that decides a reading -- beams above, ledger lines, slurs, the dynamics
+   * under the system -- sits outside the staff lines, and a box hugging them showed a
+   * 72px slot with nothing recognisable in it. A staff's height again on each side is
+   * roughly what the comparison panes show for one system.
+   */
+  const staffHeight = Math.max(1, bottom - top);
+  const pad = Math.max(40, staffHeight);
+  return {
+    left,
+    top: Math.max(0, top - pad),
+    width: Math.max(1, right - left),
+    height: Math.max(1, bottom - top + pad * 2),
+  };
 }
 
 /**
@@ -195,7 +205,10 @@ export function ScannerFindingRows({
     setExampleIndex(0);
   }, [index]);
 
-  const [rendered, setRendered] = useState<Rendered | null>(null);
+  const [rendered, setRendered] = useState<RenderedSide | null>(null);
+  /** The box the drawing has to fit, measured rather than assumed. */
+  const [paneWidth, setPaneWidth] = useState(0);
+  const paneRef = useRef<HTMLDivElement | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
   const renderToken = useRef(0);
 
@@ -214,6 +227,16 @@ export function ScannerFindingRows({
   useEffect(() => {
     onMergedScoreChange?.(document.score);
   }, [document.score, onMergedScoreChange]);
+
+  useEffect(() => {
+    const node = paneRef.current;
+    if (!node || typeof ResizeObserver === 'undefined') return;
+    const measure = () => setPaneWidth(node.clientWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   /**
    * Tell the host which issue is on screen.
@@ -255,15 +278,25 @@ export function ScannerFindingRows({
     return systems.find((system) => system.systemIndex === example?.system);
   }, [example, systems]);
 
-  const starts = useMemo(() => {
-    // `ScannerSystem` is two-sided down to its type, because it was built for the diff.
-    // With one reading the host fills the left side and leaves the right empty, so this
-    // reads `leftMeasureIndexes` -- a naming inheritance, not a claim that there is a
-    // second reading somewhere.
-    const firstMeasure = (system: ScannerSystem) => system.leftMeasureIndexes?.[0] ?? 0;
-    if (!shownSystem) return systems.map(firstMeasure);
-    return [firstMeasure(shownSystem)];
-  }, [shownSystem, systems]);
+  /**
+   * Every system's first bar, so the engraving breaks where the scan breaks.
+   *
+   * Not just the example's: a single break leaves the rest of the page to flow however
+   * MuseScore likes, so the bars this example covers end up sharing an engraved line
+   * with bars from the next system, and the window onto them frames the wrong music.
+   * The comparison rows pass every start for the same reason.
+   *
+   * `ScannerSystem` is two-sided down to its type because it was built for the diff;
+   * with one reading the host fills the left side. That is a naming inheritance, not a
+   * claim that a second reading exists.
+   */
+  const starts = useMemo(
+    () =>
+      systems
+        .map((system) => system.leftMeasureIndexes?.[0])
+        .filter((value): value is number => Number.isInteger(value)),
+    [systems],
+  );
 
   useEffect(() => {
     const token = ++renderToken.current;
@@ -272,7 +305,7 @@ export function ScannerFindingRows({
       try {
         const xmlToDraw = source ?? (await document.exportXml());
         if (!xmlToDraw) return;
-        const next = await renderScoped(xmlToDraw, starts);
+        const next = await renderSide(xmlToDraw, starts);
         if (renderToken.current === token) {
           setRendered(next);
           setRenderError(null);
@@ -290,8 +323,16 @@ export function ScannerFindingRows({
 
   if (groups.length === 0) return null;
 
+  // The band this example falls in, and how much to scale it so it fills the pane.
+  // Without a window -- a page-level finding, or a document whose measures could not be
+  // counted -- the whole drawing is shown, fitted rather than cropped.
+  const band = systemWindow(rendered, shownSystem?.leftMeasureIndexes ?? []);
+  const fitWidth = band?.width ?? rendered?.width ?? 1;
+  const scale = paneWidth && fitWidth ? paneWidth / fitWidth : 1;
+
+
   return (
-    <section data-testid="finding-rows" className="flex flex-col gap-3 p-4">
+    <section ref={paneRef} data-testid="finding-rows" className="flex flex-col gap-3 p-4">
       <header className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-gray-900">
@@ -377,28 +418,35 @@ export function ScannerFindingRows({
       )}
 
       <div className="rounded border border-gray-200 bg-white">
-        <div className="flex items-center justify-between border-b border-gray-200 px-3 py-1.5">
-          <span className="text-xs font-medium text-gray-700">{label}</span>
-          <span className="text-xs text-gray-500" data-testid="finding-rows-status">
-            {document.saving
-              ? 'Saving…'
-              : document.dirty
-                ? 'Unsaved changes'
-                : document.loading
-                  ? 'Loading…'
-                  : 'Saved'}
-          </span>
-        </div>
+        {/*
+          No label or save state here.
+          
+          The label said "This reading" beside the only reading on screen, and the state
+          said "Saved" about a document nobody had edited. Both spent a row of the page
+          restating what the reviewer could already see. Saving state is worth showing
+          once there is an edit to lose; until then it is noise where the music should be.
+        */}
         {renderError ? (
           <p role="alert" className="p-3 text-xs text-red-700">
             {renderError}
           </p>
         ) : rendered ? (
           <div
-            data-testid="finding-rows-score"
-            className="w-full"
-            dangerouslySetInnerHTML={{ __html: rendered.svg }}
-          />
+            className="w-full overflow-clip"
+            style={{ height: Math.max(1, (band?.height ?? rendered.pageHeight) * scale) }}
+          >
+            <div
+              data-testid="finding-rows-score"
+              className="origin-top-left"
+              style={{
+                width: rendered.width,
+                transform: band
+                  ? `scale(${scale}) translate(${-band.left}px, ${-band.top}px)`
+                  : `scale(${scale})`,
+              }}
+              dangerouslySetInnerHTML={{ __html: rendered.svg }}
+            />
+          </div>
         ) : (
           <p className="p-3 text-xs text-gray-500">Drawing the reading…</p>
         )}

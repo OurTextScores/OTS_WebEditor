@@ -228,7 +228,7 @@ export function withForcedSystemBreaks(xml: string, startMeasureIndexes: number[
   return new XMLSerializer().serializeToString(doc);
 }
 
-type MeasureBox = {
+export type MeasureBox = {
   left: number;
   width: number;
   top: number;
@@ -236,7 +236,7 @@ type MeasureBox = {
   page?: number;
 };
 
-type RenderedSide = {
+export type RenderedSide = {
   svg: string;
   /** Pixel bounds per measure index, at RENDER_WIDTH. */
   measures: Array<MeasureBox | undefined>;
@@ -636,7 +636,7 @@ async function renderScoreSide(
 }
 
 /** Draw an engine reading. Its score is transient: engine panes are evidence. */
-async function renderSide(xml: string, startIndexes: number[]): Promise<RenderedSide | null> {
+export async function renderSide(xml: string, startIndexes: number[]): Promise<RenderedSide | null> {
   const WebMscore = await loadWebMscore();
   const reflowed = withSystemSpacing(withForcedSystemBreaks(xml, startIndexes));
   let score: Score | null = null;
