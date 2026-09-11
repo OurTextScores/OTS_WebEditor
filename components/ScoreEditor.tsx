@@ -18803,7 +18803,10 @@ ${partsBodyXml}
                     */
           <div
             className={
-              isSystemRowsMode
+              // Both row views grow with their content and let the host scroll. Left on
+              // `isSystemRowsMode`, the findings view fell into the fixed, clipped branch
+              // and reported a viewport-sized height for a 7,000px document.
+              isAnyRowsMode
                 ? 'relative w-full bg-gray-50'
                 : 'fixed inset-0 flex items-start justify-center overflow-hidden bg-gray-50'
             }
@@ -18812,7 +18815,7 @@ ${partsBodyXml}
           >
             <div
               className={
-                isSystemRowsMode
+                isAnyRowsMode
                   ? 'flex w-full flex-col gap-4 bg-white'
                   : isEmbedMode
                     ? 'flex min-h-0 w-full h-full flex-col gap-4 overflow-hidden bg-white'
@@ -18850,7 +18853,7 @@ ${partsBodyXml}
               )}
               <div
                 className={
-                  isSystemRowsMode
+                  isAnyRowsMode
                     ? 'flex flex-1 flex-col gap-4'
                     : isEmbedMode
                       ? 'flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4'
