@@ -144,6 +144,10 @@ import {
 } from './score-editor/compare/CompareMeasureComments';
 import { CompareDiffGutter } from './score-editor/compare/CompareDiffGutter';
 import {
+  ScannerFindingRows,
+  type FindingRowsFinding
+} from './score-editor/compare/ScannerFindingRows';
+import {
   buildAlignmentGaps,
   buildCompareSystemGeometry,
   buildCompareReflowPlan,
@@ -1076,12 +1080,29 @@ export default function ScoreEditor() {
    * gutter is the index (§5), so the rows do not also have to be one.
    */
   const compareBlockIndex = searchParams.get('compareBlock')?.trim() || '';
+  /**
+   * Cross-staff findings for one page, reviewed one issue at a time.
+   *
+   * A findings review has one reading, not two: findings are an engine's own consistency
+   * check and arrive on single-engine jobs, where no second engine read the page. So this
+   * mode needs `compareLeft` and the regions document, and deliberately does *not* accept
+   * `compareRight` -- a second reading here would mean the caller wanted the comparison
+   * view and built the wrong URL.
+   */
+  const findingsUrl = searchParams.get('findings')?.trim() || '';
+  const isFindingsRowsMode = Boolean(
+    compareLeftUrl && !compareRightUrl && compareRegionsUrl && findingsUrl,
+  );
   const isCompareEmbedMode = Boolean(compareLeftUrl && compareRightUrl);
-  const isSuppliedRegionsMode = isCompareEmbedMode && Boolean(compareRegionsUrl);
+  const isSuppliedRegionsMode =
+    (isCompareEmbedMode || isFindingsRowsMode) && Boolean(compareRegionsUrl);
   // Row-per-scanned-system layout. Opt-in, because it only makes sense when a
   // caller can say where the scan's systems are.
   const compareMode = searchParams.get('compareMode')?.trim() || '';
-  const isSystemRowsMode = isSuppliedRegionsMode && compareMode === 'rows';
+  const isSystemRowsMode =
+    isSuppliedRegionsMode && compareMode === 'rows' && !isFindingsRowsMode;
+  /** Both row views size the frame to their content; the host scrolls, not the iframe. */
+  const isAnyRowsMode = isSystemRowsMode || isFindingsRowsMode;
 
   /*
    * Report the document's height to whoever embedded it.
@@ -1093,7 +1114,7 @@ export default function ScoreEditor() {
    * Ignored by any host that is not listening, which is every other embed.
    */
   useEffect(() => {
-    if (!isSystemRowsMode || typeof ResizeObserver === 'undefined') return;
+    if (!isAnyRowsMode || typeof ResizeObserver === 'undefined') return;
     if (window.parent === window) return;
 
     /*
@@ -1152,9 +1173,33 @@ export default function ScoreEditor() {
       document.body.style.overflow = restore.bodyOverflow;
       if (wrapper instanceof HTMLElement) wrapper.style.minHeight = restore.wrapperMinHeight;
     };
-  }, [isSystemRowsMode]);
+  }, [isAnyRowsMode]);
+
+  const [suppliedFindings, setSuppliedFindings] = useState<FindingRowsFinding[]>([]);
+  useEffect(() => {
+    if (!isFindingsRowsMode) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch(findingsUrl, { cache: 'no-store' });
+        if (!response.ok) return;
+        const body = await response.json();
+        // Read defensively: a findings document that has moved on should leave the view
+        // empty rather than render a guess at its contents.
+        const rows = Array.isArray(body?.findings) ? body.findings : [];
+        if (!cancelled) setSuppliedFindings(rows as FindingRowsFinding[]);
+      } catch {
+        // A findings list that cannot be read is not a reason to lose the reading.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [findingsUrl, isFindingsRowsMode]);
+
   const isChangeReviewSingleScoreMode = Boolean(reviewScoreUrl && changeReviewId);
-  const isEmbedMode = isCompareEmbedMode || isChangeReviewSingleScoreMode;
+  const isEmbedMode =
+    isCompareEmbedMode || isChangeReviewSingleScoreMode || isFindingsRowsMode;
   const isChangeReviewCompareMode = isCompareEmbedMode && Boolean(changeReviewId);
   const isChangeReviewMode = isChangeReviewCompareMode || isChangeReviewSingleScoreMode;
   const launchContext = useMemo(
@@ -17462,7 +17507,7 @@ ${partsBodyXml}
             of two viewports. So in rows mode the chain grows to its content and
             the host sizes the frame to match.
         */
-    <div className={isSystemRowsMode ? 'flex flex-col overflow-x-clip' : 'flex flex-col h-screen'}>
+    <div className={isAnyRowsMode ? 'flex flex-col overflow-x-clip' : 'flex flex-col h-screen'}>
       {!isEmbedMode && (
         <div className="relative" style={{ zIndex: 100 }} ref={toolbarRef}>
           <Toolbar
@@ -17656,7 +17701,7 @@ ${partsBodyXml}
         />
       )}
 
-      <div className={isSystemRowsMode ? 'flex' : 'flex flex-1 min-h-0'}>
+      <div className={isAnyRowsMode ? 'flex' : 'flex flex-1 min-h-0'}>
         <LeftSidebar
           hidden={isEmbedMode || !panelsVisible}
           collapsed={checkpointsCollapsed}
@@ -17763,8 +17808,8 @@ ${partsBodyXml}
            * cover it completely either way, so this costs nothing to look at.
            */
           className={`relative z-0 flex-1 bg-gray-50 p-8 ${
-            isSystemRowsMode ? 'overflow-x-clip overflow-y-visible' : 'overflow-auto'
-          } ${isSystemRowsMode && compareView ? 'hidden' : ''}`}
+            isAnyRowsMode ? 'overflow-x-clip overflow-y-visible' : 'overflow-auto'
+          } ${isAnyRowsMode && compareView ? 'hidden' : ''}`}
         >
           {loading && (
             <div className="flex items-center justify-center h-full">
@@ -18823,7 +18868,20 @@ ${partsBodyXml}
                       : 'flex min-h-0 flex-1 flex-col gap-4 overflow-auto'
                 }
               >
-                {isSystemRowsMode ? (
+                {isFindingsRowsMode ? (
+                  <ScannerFindingRows
+                    systems={suppliedSystems}
+                    findings={suppliedFindings}
+                    xml={compareLeftXml}
+                    label={compareLeftLabel}
+                    engineId={suppliedCompareLeftEngineId || ''}
+                    merged={suppliedMerged}
+                    onMergedScoreChange={setScannerMergedScore}
+                    resolveUrl={(relative) =>
+                      new URL(relative, new URL(compareRegionsUrl, window.location.href)).toString()
+                    }
+                  />
+                ) : isSystemRowsMode ? (
                   <ScannerSystemRows
                     systems={suppliedSystems}
                     regions={suppliedRegions || []}
