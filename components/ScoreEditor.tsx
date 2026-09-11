@@ -2800,7 +2800,11 @@ export default function ScoreEditor() {
 
   // Load external XML files in embed mode
   useEffect(() => {
-    if (!compareLeftUrl || !compareRightUrl) return;
+    // A findings review has one reading. Requiring both here is what left the embed
+    // showing "No score loaded": the mode turned on, the regions arrived, and nothing
+    // ever fetched the score they describe.
+    if (!compareLeftUrl) return;
+    if (!compareRightUrl && !isFindingsRowsMode) return;
 
     const loadExternalCompare = async () => {
       setCheckpointBusy(true);
@@ -2808,31 +2812,33 @@ export default function ScoreEditor() {
         // Load both files in parallel
         const [leftResponse, rightResponse] = await Promise.all([
           fetch(compareLeftUrl),
-          fetch(compareRightUrl),
+          compareRightUrl ? fetch(compareRightUrl) : Promise.resolve(null),
         ]);
 
-        if (!leftResponse.ok || !rightResponse.ok) {
+        if (!leftResponse.ok || (rightResponse && !rightResponse.ok)) {
           throw new Error('Failed to fetch files');
         }
 
         const leftXml = await leftResponse.text();
-        const rightXml = await rightResponse.text();
+        const rightXml = rightResponse ? await rightResponse.text() : '';
 
-        // Load right file as main score
-        const rightBlob = new Blob([rightXml], { type: 'application/xml' });
-        const rightFile = new File([rightBlob], 'right.xml');
-        await handleFileUpload(rightFile, {
+        // The score the editor works on. With two readings that is the right-hand one,
+        // which the reviewer merges into; with one it is the only one there is.
+        const mainXml = rightResponse ? rightXml : leftXml;
+        const mainBlob = new Blob([mainXml], { type: 'application/xml' });
+        const mainFile = new File([mainBlob], rightResponse ? 'right.xml' : 'reading.xml');
+        await handleFileUpload(mainFile, {
           preserveScoreId: false,
           updateUrl: false,
-          telemetrySource: 'compare_load_right',
+          telemetrySource: rightResponse ? 'compare_load_right' : 'findings_load_reading',
         });
 
         // Set up compare view
         setCompareView({
           title: leftLabel,
-          currentXml: rightXml,
+          currentXml: mainXml,
           checkpointXml: leftXml,
-          currentLabel: rightLabel,
+          currentLabel: rightResponse ? rightLabel : leftLabel,
           checkpointLabel: leftLabel,
         });
       } catch (err) {
