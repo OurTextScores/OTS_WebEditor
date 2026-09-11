@@ -81,6 +81,8 @@ export function groupFindingsByKind(findings: FindingRowsFinding[]): IssueGroup[
 function systemWindow(
   rendered: RenderedSide | null,
   measureIndexes: readonly number[],
+  /** Every other system's bars, so the air added below cannot reach into one. */
+  otherSystems: ReadonlyArray<readonly number[]> = [],
 ): { left: number; top: number; width: number; height: number } | null {
   if (!rendered || measureIndexes.length === 0) return null;
   const boxes = measureIndexes
@@ -94,18 +96,47 @@ function systemWindow(
   /*
    * Generous vertical air, because a measure box is only the staff.
    *
-   * Everything that decides a reading -- beams above, ledger lines, slurs, the dynamics
-   * under the system -- sits outside the staff lines, and a box hugging them showed a
-   * 72px slot with nothing recognisable in it. A staff's height again on each side is
-   * roughly what the comparison panes show for one system.
+   * Everything that decides a reading sits outside the staff lines: beams and ledger
+   * lines above, slurs, the dynamics below. A box hugging the staff showed a 72px slot
+   * with nothing recognisable in it; a staff's height on each side still clipped ledger
+   * lines on a system that ranges high. Two staff heights is what it takes for the notes
+   * that caused the finding to be inside the picture.
+   *
+   * Bounded below so a thin system still gets usable air, and the clamp to the page
+   * keeps it from scrolling into the system above.
    */
   const staffHeight = Math.max(1, bottom - top);
-  const pad = Math.max(40, staffHeight);
+  const pad = Math.max(56, staffHeight * 2);
+
+  /*
+   * Air, but never into the neighbouring system.
+   *
+   * Two staff heights is what ledger lines need, and on a closely engraved page it is
+   * also enough to pull in the system below -- which puts a second line of music in a
+   * view whose whole point is to show one. So the band is clamped to the gap between
+   * this system's neighbours: generous where there is room, tight where there is not.
+   */
+  const gap = Math.max(4, staffHeight * 0.15);
+  let ceiling = 0;
+  let floor = Number.POSITIVE_INFINITY;
+  for (const other of otherSystems) {
+    const otherBoxes = other
+      .map((index) => rendered.measures[index])
+      .filter((box): box is NonNullable<typeof box> => Boolean(box));
+    if (otherBoxes.length === 0) continue;
+    const otherTop = Math.min(...otherBoxes.map((box) => box.top));
+    const otherBottom = Math.max(...otherBoxes.map((box) => box.top + box.height));
+    if (otherBottom <= top) ceiling = Math.max(ceiling, otherBottom + gap);
+    if (otherTop >= bottom) floor = Math.min(floor, otherTop - gap);
+  }
+
+  const windowTop = Math.max(ceiling, top - pad);
+  const windowBottom = Math.min(floor, bottom + pad);
   return {
     left,
-    top: Math.max(0, top - pad),
+    top: Math.max(0, windowTop),
     width: Math.max(1, right - left),
-    height: Math.max(1, bottom - top + pad * 2),
+    height: Math.max(1, windowBottom - windowTop),
   };
 }
 
@@ -232,15 +263,28 @@ export function ScannerFindingRows({
     const node = paneRef.current;
     if (!node || typeof ResizeObserver === 'undefined') return;
     /*
-     * Ignore sub-pixel width changes.
+     * Measured from the viewport, not from the element.
      *
      * This width decides the scale, the scale decides the drawn height, the height is
-     * reported to the host, and the host resizes the frame -- which can nudge this width
-     * back by a fraction when a scrollbar comes and goes. Rounding stops that settling
-     * into a standing oscillation between two nearly-equal widths.
+     * reported to the host, and the host resizes the frame. So anything that changes
+     * this width as a *consequence* of the height closes a loop -- and a scrollbar does
+     * exactly that: when the content does not yet fit, `ScoreEditor` drops the clip, a
+     * scrollbar appears, and in every browser whose scrollbars take width the element
+     * narrows by ~15px. Scale changes, height changes, the frame resizes, the scrollbar
+     * goes, the width returns. It damps out, but it visibly churns first.
+     *
+     * `window.innerWidth` includes the scrollbar, so it is the same number whether or
+     * not one is showing. Subtracting this section's own horizontal padding gives the
+     * drawable width without ever asking the layout a question whose answer depends on
+     * the height.
+     *
+     * Not reproducible in headless Chromium, which uses overlay scrollbars of zero
+     * width -- which is why the earlier measurements all read as stable.
      */
+    const HORIZONTAL_PADDING = 32;
     const measure = () => {
-      const next = Math.round(node.clientWidth);
+      const viewport = node.ownerDocument.defaultView?.innerWidth ?? node.clientWidth;
+      const next = Math.max(1, Math.round(viewport) - HORIZONTAL_PADDING);
       setPaneWidth((current) => (Math.abs(current - next) >= 1 ? next : current));
     };
     measure();
@@ -352,7 +396,13 @@ export function ScannerFindingRows({
   // The band this example falls in, and how much to scale it so it fills the pane.
   // Without a window -- a page-level finding, or a document whose measures could not be
   // counted -- the whole drawing is shown, fitted rather than cropped.
-  const band = systemWindow(rendered, shownSystem?.leftMeasureIndexes ?? []);
+  const band = systemWindow(
+    rendered,
+    shownSystem?.leftMeasureIndexes ?? [],
+    systems
+      .filter((system) => system.systemIndex !== shownSystem?.systemIndex)
+      .map((system) => system.leftMeasureIndexes ?? []),
+  );
   const fitWidth = band?.width ?? rendered?.width ?? 1;
   const scale = paneWidth && fitWidth ? paneWidth / fitWidth : 1;
 
