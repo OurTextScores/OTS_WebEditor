@@ -382,7 +382,7 @@ export function ScannerFindingRows({
             data-testid="finding-rows-prev"
             disabled={index === 0}
             onClick={() => setIndex((value) => Math.max(0, value - 1))}
-            className="rounded border border-gray-300 px-2 py-1 text-xs disabled:opacity-40"
+            className="rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             ← Previous issue
           </button>
@@ -391,7 +391,7 @@ export function ScannerFindingRows({
             data-testid="finding-rows-next"
             disabled={index >= groups.length - 1}
             onClick={() => setIndex((value) => Math.min(groups.length - 1, value + 1))}
-            className="rounded border border-gray-300 px-2 py-1 text-xs disabled:opacity-40"
+            className="rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Next issue →
           </button>
@@ -408,7 +408,7 @@ export function ScannerFindingRows({
             data-testid="finding-rows-example-prev"
             disabled={exampleIndex === 0}
             onClick={() => setExampleIndex((value) => Math.max(0, value - 1))}
-            className="rounded border border-gray-300 px-2 py-0.5 text-xs disabled:opacity-40"
+            className="rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             ← Previous example
           </button>
@@ -419,7 +419,7 @@ export function ScannerFindingRows({
             onClick={() =>
               setExampleIndex((value) => Math.min(examples.length - 1, value + 1))
             }
-            className="rounded border border-gray-300 px-2 py-0.5 text-xs disabled:opacity-40"
+            className="rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Next example →
           </button>
