@@ -231,7 +231,18 @@ export function ScannerFindingRows({
   useEffect(() => {
     const node = paneRef.current;
     if (!node || typeof ResizeObserver === 'undefined') return;
-    const measure = () => setPaneWidth(node.clientWidth);
+    /*
+     * Ignore sub-pixel width changes.
+     *
+     * This width decides the scale, the scale decides the drawn height, the height is
+     * reported to the host, and the host resizes the frame -- which can nudge this width
+     * back by a fraction when a scrollbar comes and goes. Rounding stops that settling
+     * into a standing oscillation between two nearly-equal widths.
+     */
+    const measure = () => {
+      const next = Math.round(node.clientWidth);
+      setPaneWidth((current) => (Math.abs(current - next) >= 1 ? next : current));
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(node);
@@ -298,12 +309,29 @@ export function ScannerFindingRows({
     [systems],
   );
 
+  /**
+   * The document object itself is never a dependency.
+   *
+   * `useMergedScoreDocument` returns a fresh object literal on every render, so naming
+   * it here made the effect run after every render it had itself caused: draw, set
+   * state, re-render, new object, draw again. Each turn of that loop loaded WebMscore
+   * and engraved a whole score, which ate the machine and eventually took the page down.
+   *
+   * A ref carries the live document in without joining the dependency list; what the
+   * effect actually keys on is the revision, which is what `useMergedScoreDocument`
+   * raises on every render-affecting change, and whether a score exists yet.
+   */
+  const documentRef = useRef(document);
+  documentRef.current = document;
+  const revision = document.revision;
+  const hasScore = Boolean(document.score);
+
   useEffect(() => {
     const token = ++renderToken.current;
-    const source = document.score ? null : xml;
     const draw = async () => {
       try {
-        const xmlToDraw = source ?? (await document.exportXml());
+        const live = documentRef.current;
+        const xmlToDraw = live.score ? await live.exportXml() : xml;
         if (!xmlToDraw) return;
         const next = await renderSide(xmlToDraw, starts);
         if (renderToken.current === token) {
@@ -317,9 +345,7 @@ export function ScannerFindingRows({
       }
     };
     void draw();
-    // `revision` rises on every render-affecting change, which is what makes an edit
-    // show up without re-fetching the document.
-  }, [document, starts, xml, document.revision]);
+  }, [starts, xml, revision, hasScore]);
 
   if (groups.length === 0) return null;
 
