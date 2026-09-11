@@ -1089,10 +1089,9 @@ export default function ScoreEditor() {
    * `compareRight` -- a second reading here would mean the caller wanted the comparison
    * view and built the wrong URL.
    */
-  const findingsUrl = searchParams.get('findings')?.trim() || '';
-  const isFindingsRowsMode = Boolean(
-    compareLeftUrl && !compareRightUrl && compareRegionsUrl && findingsUrl,
-  );
+  const isFindingsRowsMode =
+    Boolean(compareLeftUrl && !compareRightUrl && compareRegionsUrl) &&
+    searchParams.get('compareMode')?.trim() === 'findings';
   const isCompareEmbedMode = Boolean(compareLeftUrl && compareRightUrl);
   const isSuppliedRegionsMode =
     (isCompareEmbedMode || isFindingsRowsMode) && Boolean(compareRegionsUrl);
@@ -1176,26 +1175,6 @@ export default function ScoreEditor() {
   }, [isAnyRowsMode]);
 
   const [suppliedFindings, setSuppliedFindings] = useState<FindingRowsFinding[]>([]);
-  useEffect(() => {
-    if (!isFindingsRowsMode) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const response = await fetch(findingsUrl, { cache: 'no-store' });
-        if (!response.ok) return;
-        const body = await response.json();
-        // Read defensively: a findings document that has moved on should leave the view
-        // empty rather than render a guess at its contents.
-        const rows = Array.isArray(body?.findings) ? body.findings : [];
-        if (!cancelled) setSuppliedFindings(rows as FindingRowsFinding[]);
-      } catch {
-        // A findings list that cannot be read is not a reason to lose the reading.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [findingsUrl, isFindingsRowsMode]);
 
   const isChangeReviewSingleScoreMode = Boolean(reviewScoreUrl && changeReviewId);
   const isEmbedMode =
@@ -2801,6 +2780,10 @@ export default function ScoreEditor() {
         setSuppliedMerged(body?.merged ?? null);
         setSuppliedCompareLeftEngineId(String(body?.left?.engineId || ''));
         setSuppliedCompareRightEngineId(String(body?.right?.engineId || ''));
+        // In the same document as the systems they point at, deliberately. Two
+        // documents could disagree about `statusVersion`, and a finding pointing at a
+        // system from a different revision of the page points somewhere wrong.
+        setSuppliedFindings(Array.isArray(body?.findings) ? body.findings : []);
       })
       .catch((err) => {
         if (cancelled || controller.signal.aborted) return;

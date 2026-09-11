@@ -196,6 +196,35 @@ export function ScannerFindingRows({
     onMergedScoreChange?.(document.score);
   }, [document.score, onMergedScoreChange]);
 
+  /**
+   * Tell the host which issue is on screen.
+   *
+   * The decision controls live in the host, because a disposition is a scanner concept
+   * with a scanner API behind it, and this embed reaches that process only through the
+   * host's proxy. So the host has to know what the reviewer is looking at, or its
+   * controls would answer a different question from the one being shown -- which is the
+   * failure the original buttons had, in a new place.
+   *
+   * Same `ots-` envelope and same wildcard target as the height message beside it.
+   */
+  useEffect(() => {
+    if (!current || typeof window === 'undefined' || window.parent === window) return;
+    window.parent.postMessage(
+      {
+        type: 'ots-finding-issue',
+        kind: current.kind,
+        part: current.findings[0]?.part ?? null,
+        // The host derives the profile amendment from this, so it travels too. Without
+        // it the "widen the profile" control could never appear.
+        message: current.findings[0]?.message ?? '',
+        index,
+        total: groups.length,
+        places: current.findings.length,
+      },
+      '*',
+    );
+  }, [current, groups.length, index]);
+
   // Reflow onto the systems this kind actually touches. A reviewer who stepped to an
   // issue is not asking about the lines it does not fall on.
   const starts = useMemo(() => {
