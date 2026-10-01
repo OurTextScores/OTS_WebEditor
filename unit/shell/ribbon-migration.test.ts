@@ -10,7 +10,7 @@ import { isCommandFamily, type AnyCommand, type CommandFamily } from '../../lib/
 import { allEditorCommands } from '../helpers/all-commands';
 
 /** The last rollout phase (§10) that has shipped; entries up to it must be live. */
-const SHIPPED_PHASE = 1;
+const SHIPPED_PHASE = 2;
 
 /**
  * P7: nothing disappears silently. Every `data-testid` the legacy ribbon renders has a
@@ -29,9 +29,9 @@ const SECTIONS_DIR = resolve(REPO, 'components/toolbar/sections');
  * keep, or remove. `source` is where each lives today, so a stale entry fails too.
  */
 const CHROME_TEST_IDS: readonly { id: string; prefix?: boolean; source: string }[] = [
-  { id: 'page-select', source: 'components/ScoreEditor.tsx' },
-  { id: 'page-indicator', source: 'components/ScoreEditor.tsx' },
-  { id: 'interaction-preparing-banner', source: 'components/ScoreEditor.tsx' },
+  { id: 'page-select', source: 'components/shell/StatusBar.tsx' },
+  { id: 'page-indicator', source: 'components/shell/StatusBar.tsx' },
+  { id: 'interaction-preparing-banner', source: 'components/shell/StatusBar.tsx' },
   { id: 'collapsed-panel-strip', source: 'components/ScoreEditor.tsx' },
   { id: 'expand-panel-', prefix: true, source: 'components/ScoreEditor.tsx' },
   { id: 'btn-xml-toggle', source: 'components/ScoreEditor.tsx' },

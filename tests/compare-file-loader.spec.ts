@@ -1,9 +1,11 @@
 import { expect, test } from '@playwright/test';
+import { runCommand } from './helpers/commands';
 
 test('loads two local score files into the compare workspace', async ({ page }) => {
   await page.goto('/');
 
-  await page.getByRole('button', { name: 'Load scores to compare' }).click();
+  // File ▸ Compare Scores: the ribbon button moved into the menu under the v2 shell.
+  await runCommand(page, 'compare.load');
   const loader = page.getByTestId('compare-score-loader-modal');
   await expect(loader).toBeVisible();
   await expect(loader.getByRole('button', { name: 'Compare' })).toBeDisabled();

@@ -27,6 +27,9 @@ function setup(over: Partial<ShellEditorBindings> = {}, ctx: Partial<CommandCont
     copy: vi.fn(),
     paste: vi.fn(),
     openScore: vi.fn(),
+    setCheckpointsCollapsed: vi.fn(),
+    setLeftSidebarTab: vi.fn(),
+    toggleProgressive: vi.fn(),
   };
   const bindings: ShellEditorBindings = {
     score: null,
@@ -49,6 +52,17 @@ function setup(over: Partial<ShellEditorBindings> = {}, ctx: Partial<CommandCont
     pasteSelection: calls.paste,
     scoreSummaries: [{ scoreId: 'a', title: 'A', lastUpdated: 1, count: 1 }],
     openScoreFromSummary: calls.openScore,
+    setCheckpointsCollapsed: calls.setCheckpointsCollapsed,
+    setLeftSidebarTab: calls.setLeftSidebarTab,
+    zoom: 1,
+    isPlaying: false,
+    isPaused: false,
+    interactionPreparing: false,
+    dirty: false,
+    checkpointCount: 0,
+    pageCountIsFloor: false,
+    progressiveLoadEnabled: true,
+    toggleProgressiveLoad: calls.toggleProgressive,
     ...over,
   };
   const context: CommandContext = {
@@ -145,6 +159,24 @@ describe('ai.open.*', () => {
       functional: 'functional',
       mma: 'mma',
     });
+  });
+});
+
+describe('History and progressive load', () => {
+  it('opens the History panel on the checkpoint list, bringing hidden panels back', async () => {
+    const { registry, calls } = setup();
+    await registry.run('view.panel.history');
+    expect(calls.setPanelsVisible).toHaveBeenCalledWith(true);
+    expect(calls.setLeftSidebarTab).toHaveBeenCalledWith('checkpoints');
+    expect(calls.setCheckpointsCollapsed).toHaveBeenCalledWith(false);
+  });
+
+  it('toggles progressive load and reports its state as checked', async () => {
+    const { registry, calls } = setup({ progressiveLoadEnabled: false });
+    await registry.run('view.progressiveLoad');
+    expect(calls.toggleProgressive).toHaveBeenCalledOnce();
+    const entry = registry.get('view.progressiveLoad') as unknown as { checked: () => boolean };
+    expect(entry.checked()).toBe(false);
   });
 });
 

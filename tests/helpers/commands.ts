@@ -73,9 +73,12 @@ export async function runCommand(
       commandId,
     );
     throw new Error(
-      known
-        ? `Command "${commandId}" is registered but was not enabled within ${timeout}ms.`
-        : `Command "${commandId}" was not registered within ${timeout}ms ` +
+      known?.enabled
+        ? // The command is available now: the page was too busy to answer within the timeout.
+          `Command "${commandId}" is enabled, but the page did not report it within ${timeout}ms.`
+        : known
+          ? `Command "${commandId}" is registered but was not enabled within ${timeout}ms.`
+          : `Command "${commandId}" was not registered within ${timeout}ms ` +
             '(is window.__otsCommands available? It is absent in production builds).',
     );
   }

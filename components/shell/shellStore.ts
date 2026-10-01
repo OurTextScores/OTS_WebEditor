@@ -16,12 +16,60 @@ export interface RecentScore {
   readonly lastUpdated: number;
 }
 
+/**
+ * What the status bar and header transport show: view state that lives in `ScoreEditor` and
+ * is published here by `useShellCommands`, so the shell components need no editor props.
+ */
+export interface ShellView {
+  readonly zoom: number;
+  readonly currentPage: number;
+  readonly pageCount: number;
+  /** More pages are still being laid out (progressive paging), so the count is a floor. */
+  readonly pageCountIsFloor: boolean;
+  readonly progressiveLoadEnabled: boolean;
+  /** The interactive layout is still being finalised; editing unlocks when it finishes. */
+  readonly preparing: boolean;
+  readonly checkpointCount: number;
+  readonly dirty: boolean;
+  readonly isPlaying: boolean;
+  readonly isPaused: boolean;
+  readonly hasScore: boolean;
+}
+
+export const EMPTY_SHELL_VIEW: ShellView = {
+  zoom: 1,
+  currentPage: 0,
+  pageCount: 1,
+  pageCountIsFloor: false,
+  progressiveLoadEnabled: true,
+  preparing: false,
+  checkpointCount: 0,
+  dirty: false,
+  isPlaying: false,
+  isPaused: false,
+  hasScore: false,
+};
+
 export interface ShellUiState {
   readonly palette: { readonly open: boolean; readonly mode: PaletteMode };
   readonly shortcutsOpen: boolean;
   /** The command whose argument form is showing, if any. */
   readonly form: CommandId | null;
   readonly recentScores: readonly RecentScore[];
+  readonly view: ShellView;
+  /** Whether the status bar is pinned; when not, it peeks while the pointer is at the edge. */
+  readonly statusBarPinned: boolean;
+}
+
+const STATUS_BAR_KEY = 'ots.shell.statusBar';
+
+/** localStorage can be absent or blocked; the status bar is pinned unless told otherwise. */
+function readStatusBarPinned(): boolean {
+  try {
+    return window.localStorage.getItem(STATUS_BAR_KEY) !== 'hidden';
+  } catch {
+    return true;
+  }
 }
 
 const initial: ShellUiState = {
@@ -29,6 +77,8 @@ const initial: ShellUiState = {
   shortcutsOpen: false,
   form: null,
   recentScores: [],
+  view: EMPTY_SHELL_VIEW,
+  statusBarPinned: readStatusBarPinned(),
 };
 
 let state: ShellUiState = initial;
@@ -76,6 +126,24 @@ export function setRecentScores(scores: readonly RecentScore[]): void {
         entry.lastUpdated === scores[index].lastUpdated,
     );
   if (!same) update({ recentScores: scores });
+}
+
+/** Replaces the view only when a field changed, so a re-render of the editor does not notify. */
+export function setShellView(view: ShellView): void {
+  const previous = state.view;
+  if ((Object.keys(view) as (keyof ShellView)[]).every((key) => previous[key] === view[key]))
+    return;
+  update({ view });
+}
+
+export function setStatusBarPinned(pinned: boolean): void {
+  if (state.statusBarPinned === pinned) return;
+  try {
+    window.localStorage.setItem(STATUS_BAR_KEY, pinned ? 'shown' : 'hidden');
+  } catch {
+    // Remembering the choice is not worth failing the toggle.
+  }
+  update({ statusBarPinned: pinned });
 }
 
 export function resetShellUiForTests(): void {

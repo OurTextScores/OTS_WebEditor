@@ -1,7 +1,7 @@
 import { useLayoutEffect, useMemo } from 'react';
 import { useRegisterCommands } from '../../lib/commands';
 import { useLatestCallbackFacade } from '../../lib/use-latest-callback-facade';
-import { setRecentScores } from '../shell/shellStore';
+import { setRecentScores, setShellView } from '../shell/shellStore';
 import { buildShellEditorCommands, type ShellEditorBindings } from './shellCommands';
 
 /**
@@ -18,6 +18,48 @@ export function useShellCommands(bindings: ShellEditorBindings): void {
 
   const commands = useMemo(() => buildShellEditorCommands(getBindings), [getBindings]);
   useRegisterCommands('global', commands);
+
+  // Everything the status bar and header transport show, published as one value.
+  const {
+    score,
+    zoom,
+    currentPage,
+    pageCount,
+    pageCountIsFloor,
+    progressiveLoadEnabled,
+    interactionPreparing,
+    checkpointCount,
+    dirty,
+    isPlaying,
+    isPaused,
+  } = bindings;
+  useLayoutEffect(() => {
+    setShellView({
+      zoom,
+      currentPage,
+      pageCount,
+      pageCountIsFloor,
+      progressiveLoadEnabled,
+      preparing: interactionPreparing,
+      checkpointCount,
+      dirty,
+      isPlaying,
+      isPaused,
+      hasScore: Boolean(score),
+    });
+  }, [
+    score,
+    zoom,
+    currentPage,
+    pageCount,
+    pageCountIsFloor,
+    progressiveLoadEnabled,
+    interactionPreparing,
+    checkpointCount,
+    dirty,
+    isPlaying,
+    isPaused,
+  ]);
 
   const { scoreSummaries } = bindings;
   useLayoutEffect(() => {

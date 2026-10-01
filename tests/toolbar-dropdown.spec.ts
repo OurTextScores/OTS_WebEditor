@@ -1,7 +1,10 @@
 import { expect, test } from 'playwright/test';
 
+// These exercise the ribbon's own File and Help dropdowns, which the v2 shell replaces with
+// menus, so they run against `?shell=legacy` until the ribbon is deleted (Phase 5).
+
 test('toolbar dropdown renders above the score', async ({ page }) => {
-  await page.goto('/?score=/test_scores/bach_orig.mscz');
+  await page.goto('/?shell=legacy&score=/test_scores/bach_orig.mscz');
   await page.waitForSelector('svg .Clef', { timeout: 60_000 });
 
   const dropdown = page.getByTestId('dropdown-export');
@@ -27,7 +30,7 @@ test('toolbar dropdown renders above the score', async ({ page }) => {
 });
 
 test('dropdowns open/close and break buttons show disabled tooltips', async ({ page }) => {
-  await page.goto('/?score=/test_scores/single_note_c4.musicxml');
+  await page.goto('/?shell=legacy&score=/test_scores/single_note_c4.musicxml');
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
 
   const tooltipText = 'Select a note or rest to split the bar.';
@@ -53,7 +56,7 @@ test('dropdowns open/close and break buttons show disabled tooltips', async ({ p
 });
 
 test('shortcuts dropdown lists hotkeys', async ({ page }) => {
-  await page.goto('/?score=/test_scores/single_note_c4.musicxml');
+  await page.goto('/?shell=legacy&score=/test_scores/single_note_c4.musicxml');
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
 
   const dropdown = page.getByTestId('dropdown-shortcuts');

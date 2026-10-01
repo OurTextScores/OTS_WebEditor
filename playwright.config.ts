@@ -7,10 +7,15 @@ const PLAYWRIGHT_DIST_DIR = `.next-dev-playwright-${PLAYWRIGHT_PORT}`;
 export default defineConfig({
   testDir: './tests',
   // These suites have dedicated execution contracts and are intentionally not part of
-  // the credential-free editor matrix. The embed suite needs its static-build server
-  // (playwright.config.embed.ts); the music API smoke suite needs external tooling and
+  // the credential-free editor matrix. The embed suite (embed-integration and the scanner
+  // rows height spec) needs its static-build server and host page (playwright.config.embed.ts,
+  // npm run test:embed:integration); the music API smoke suite needs external tooling and
   // provider dependencies (npm run test:e2e:music).
-  testIgnore: ['embed-integration.spec.ts', 'music-api-smoke.spec.ts'],
+  testIgnore: [
+    'embed-integration.spec.ts',
+    'scanner-rows-embed-height.spec.ts',
+    'music-api-smoke.spec.ts',
+  ],
   workers: 1,
   timeout: 2 * 60 * 1000,
   expect: {

@@ -43,6 +43,9 @@ import { copySelectionToClipboard, pasteClipboardPayload } from '../lib/selectio
 import { Toolbar, type MeasureInsertTarget, type HeaderTextTarget } from './Toolbar';
 import { notify } from './shell/notices';
 import { ShellHeader } from './shell/ShellHeader';
+import { StatusBar } from './shell/StatusBar';
+import { LegacyCanvasChrome } from './shell/LegacyCanvasChrome';
+import { resolveShellVersion, V2_HIDDEN_RIBBON_SECTIONS } from './shell/shellVersion';
 import { useShellCommands } from './score-editor/useShellCommands';
 import { InspectorPanel } from './InspectorPanel';
 import { FloatingPalettes } from './FloatingPalettes';
@@ -1420,6 +1423,9 @@ export default function ScoreEditor() {
   const soundFontManagerRef = useRef<SoundFontManager<Score> | null>(null);
   if (!soundFontManagerRef.current) soundFontManagerRef.current = new SoundFontManager<Score>();
   const [scoreTitle, setScoreTitle] = useState('');
+  const [shellV2] = useState(
+    () => resolveShellVersion(typeof window === 'undefined' ? '' : window.location.search) === 'v2',
+  );
   const [scoreSubtitle, setScoreSubtitle] = useState('');
   const [scoreComposer, setScoreComposer] = useState('');
   const [scoreLyricist, setScoreLyricist] = useState('');
@@ -17444,6 +17450,11 @@ ${partsBodyXml}
     setAiToolsOpen: (open) => setXmlSidebarMode(open ? 'open' : 'closed'),
     saveCheckpoint: handleSaveCheckpoint, copySelection: handleCopySelection,
     pasteSelection: handlePasteSelection, scoreSummaries, openScoreFromSummary: handleOpenScoreFromSummary,
+    zoom, isPlaying, isPaused, interactionPreparing, dirty: scoreDirtySinceCheckpoint,
+    checkpointCount: checkpoints.length, progressiveLoadEnabled,
+    pageCountIsFloor: progressivePagingActive && progressiveHasMorePages,
+    toggleProgressiveLoad: () => setProgressiveLoadEnabled((prev) => !prev),
+    setCheckpointsCollapsed, setLeftSidebarTab,
   });
   const aiApplyDisabled = xmlControlsDisabled || !aiPatchedXml.trim() || Boolean(aiPatchError);
   const patchEditorHeight = '35vh';
@@ -17510,10 +17521,11 @@ ${partsBodyXml}
             the host sizes the frame to match.
         */
     <div className={isAnyRowsMode ? 'flex flex-col overflow-x-clip' : 'flex flex-col h-screen'}>
-      {!isEmbedMode && <ShellHeader title={scoreTitle} dirty={scoreDirtySinceCheckpoint} />}
+      {!isEmbedMode && <ShellHeader title={scoreTitle} dirty={scoreDirtySinceCheckpoint} v2={shellV2} />}
       {!isEmbedMode && (
         <div className="relative" style={{ zIndex: 100 }} ref={toolbarRef}>
           <Toolbar
+            hiddenSections={shellV2 ? V2_HIDDEN_RIBBON_SECTIONS : undefined}
             onNewScore={handleOpenNewScoreDialog}
             onFileUpload={handleLoadScoreUpload}
             onLoadScoresToCompare={handleOpenCompareScoreLoader}
@@ -17812,68 +17824,20 @@ ${partsBodyXml}
 
           {!loading && score && (
             <>
-              {interactionPreparing && (
-                <div
-                  data-testid="interaction-preparing-banner"
-                  className="mb-3 flex items-center justify-between gap-3 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
-                >
-                  <div>
-                    <div className="font-medium">Finalizing interactive layout...</div>
-                    <div className="text-xs text-amber-800">
-                      Viewing and page playback are available. Note selection, note editing, and
-                      selection playback will unlock when relayout finishes.
-                    </div>
-                  </div>
-                  <div className="shrink-0 text-xs font-semibold uppercase tracking-wide text-amber-700">
-                    Preparing
-                  </div>
-                </div>
+              {!shellV2 && (
+                <LegacyCanvasChrome
+                  interactionPreparing={interactionPreparing}
+                  progressiveLoadEnabled={progressiveLoadEnabled}
+                  onToggleProgressiveLoad={() => setProgressiveLoadEnabled((prev) => !prev)}
+                  currentPage={currentPage}
+                  pageCount={pageCount}
+                  pageCountIsFloor={progressivePagingActive && progressiveHasMorePages}
+                  onPageSelect={handlePageSelect}
+                  onPrevPage={handlePrevPage}
+                  onNextPage={handleNextPage}
+                  canAdvancePastEnd={progressivePagingActive && progressiveHasMorePages}
+                />
               )}
-              <div className="mb-3 flex items-center justify-end gap-2 text-sm text-gray-600">
-                <button
-                  type="button"
-                  onClick={() => setProgressiveLoadEnabled((prev) => !prev)}
-                  className="px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50"
-                  title="Applies to future score loads"
-                >
-                  Progressive load: {progressiveLoadEnabled ? 'On' : 'Off'}
-                </button>
-                <span data-testid="page-indicator">
-                  Page {currentPage + 1} of{' '}
-                  {progressivePagingActive && progressiveHasMorePages ? `${pageCount}+` : pageCount}
-                </span>
-                <select
-                  className="px-2 py-1 border border-gray-300 rounded bg-white text-sm"
-                  onChange={handlePageSelect}
-                  value={currentPage}
-                  data-testid="page-select"
-                >
-                  {Array.from({ length: pageCount }, (_, index) => (
-                    <option key={index} value={index}>
-                      Page {index + 1}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => handlePrevPage()}
-                  disabled={currentPage <= 0}
-                  className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Prev
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleNextPage()}
-                  disabled={
-                    currentPage >= pageCount - 1 &&
-                    !(progressivePagingActive && progressiveHasMorePages)
-                  }
-                  className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
-              </div>
             </>
           )}
 
@@ -19203,6 +19167,7 @@ ${partsBodyXml}
           </div>
         )}
       </div>
+      {!isEmbedMode && shellV2 && <StatusBar />}
     </div>
   );
 }

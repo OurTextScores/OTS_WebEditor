@@ -1,4 +1,25 @@
-import { expect, test } from 'playwright/test';
+import { expect, test, type Page } from 'playwright/test';
+
+/**
+ * The first staff's box. The engine draws each staff line as its own zero-height polyline,
+ * so `.first().boundingBox()` is only the top line: its midpoint sits on a line rather than
+ * in the empty bar space a click needs, and a band built from it has no height.
+ */
+const firstStaffBox = async (page: Page) => {
+  const lines = await page.locator('svg .StaffLines').evaluateAll((els) =>
+    els.slice(0, 5).map((el) => {
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, width: r.width, height: r.height };
+    }),
+  );
+  if (lines.length < 5) throw new Error('no .StaffLines found');
+  return {
+    x: lines[0].x,
+    y: lines[0].y,
+    width: lines[0].width,
+    height: lines[4].y + lines[4].height - lines[0].y,
+  };
+};
 
 /**
  * Bar (range) selection geometry and keyboard extension.
@@ -422,8 +443,7 @@ test('a bar stays selectable, with its rectangle, after a note click in a dense 
   // staff. Click at the staff's own mid-height instead, and only ever pick notes
   // that fall within that staff line's vertical band, so leftover notes from other
   // systems can't sneak into the ordering.
-  const staffBox = await page.locator('svg .StaffLines').first().boundingBox();
-  if (!staffBox) throw new Error('no .StaffLines found');
+  const staffBox = await firstStaffBox(page);
   const staffMidY = staffBox.y + staffBox.height / 2;
 
   const notesOnStaff = async () => {
@@ -502,8 +522,7 @@ test('a range spanning multiple systems draws one rectangle per system', async (
   await page.goto('/?score=/test_scores/bach_orig.mscz');
   await page.waitForSelector('svg .Note', { timeout: 90_000 });
 
-  const staffBox = await page.locator('svg .StaffLines').first().boundingBox();
-  if (!staffBox) throw new Error('no .StaffLines found');
+  const staffBox = await firstStaffBox(page);
   const staffMidY = staffBox.y + staffBox.height / 2;
 
   const notesOnFirstStaff = async () => {

@@ -1,5 +1,11 @@
 import { defineCommand, type AnyCommand } from '../../lib/commands/types';
-import { closePalette, getShellUiState, openPalette, setShortcutsOpen } from './shellStore';
+import {
+  closePalette,
+  getShellUiState,
+  openPalette,
+  setShortcutsOpen,
+  setStatusBarPinned,
+} from './shellStore';
 
 /**
  * The commands the shell itself owns: they open shell UI and need nothing from the
@@ -32,6 +38,19 @@ export function buildShellOwnCommands(): AnyCommand[] {
       label: 'Keyboard Shortcuts',
       keywords: ['keys', 'hotkeys', 'help'],
       run: () => setShortcutsOpen(true),
+    }),
+  ];
+}
+
+/** Registered by the status bar itself: with `?shell=legacy` there is no bar to toggle. */
+export function buildStatusBarCommands(): AnyCommand[] {
+  return [
+    defineCommand({
+      id: 'view.statusBar',
+      label: 'Status Bar',
+      keywords: ['page', 'zoom', 'show', 'hide'],
+      checked: () => getShellUiState().statusBarPinned,
+      run: () => setStatusBarPinned(!getShellUiState().statusBarPinned),
     }),
   ];
 }

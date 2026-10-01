@@ -40,6 +40,7 @@ import {
   type CommandVariant,
 } from '../../lib/commands/types';
 import { confirmDialog } from '../shell/notices';
+import { openFilePicker } from '../shell/filePickers';
 
 /**
  * Every ribbon action as a command (SHELL_REDESIGN_DESIGN Phase 0).
@@ -207,6 +208,9 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       opensDialog: true,
       keywords: ['load', 'import'],
       run: async (_ctx, file) => {
+        // With no file, open the shell's own input: its change event runs this command again
+        // with the file, so there is one place a score gets chosen.
+        if (!file && openFilePicker('score')) return;
         const chosen = file ?? (await pickFile('.mscz,.mscx,.mxl,.xml,.musicxml'));
         if (chosen) p().onFileUpload(chosen);
       },
@@ -263,6 +267,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       keywords: ['sf2', 'sf3'],
       enabled: () => has('onSoundFontUpload'),
       run: async (_ctx, file) => {
+        if (!file && openFilePicker('soundfont')) return;
         const chosen = file ?? (await pickFile('.sf2,.sf3'));
         if (chosen) p().onSoundFontUpload?.(chosen);
       },

@@ -51,7 +51,10 @@ export interface PartSummary {
   isVisible: boolean;
 }
 
-export type ToolbarProps = ToolbarSectionProps;
+export type ToolbarProps = ToolbarSectionProps & {
+  /** Sections the shell has taken over (the v2 shell hides File, View, Playback, Tempo, Help). */
+  hiddenSections?: readonly ToolbarSectionId[];
+};
 
 const SECTION_COMPONENTS: Record<
   ToolbarSectionId,
@@ -145,7 +148,7 @@ export const Toolbar: React.FC<ToolbarProps> = (props) => {
         >
           {orderedIds.map((id) => {
             const section = SECTION_COMPONENTS[id];
-            if (!section) return null;
+            if (!section || props.hiddenSections?.includes(id)) return null;
             return (
               <ToolbarSection
                 key={id}

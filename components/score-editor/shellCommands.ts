@@ -26,6 +26,19 @@ export interface ShellEditorBindings {
   readonly setAiTool: (tool: AiToolsTab) => void;
   /** Panels can all be hidden at once; opening one has to bring them back. */
   readonly setPanelsVisible: (visible: boolean) => void;
+  /** Left sidebar (History): the checkpoint list the status bar's checkpoint dot opens. */
+  readonly setCheckpointsCollapsed: (collapsed: boolean) => void;
+  readonly setLeftSidebarTab: (tab: 'checkpoints') => void;
+  /** View state the status bar and header transport show; see `ShellView`. */
+  readonly zoom: number;
+  readonly isPlaying: boolean;
+  readonly isPaused: boolean;
+  readonly interactionPreparing: boolean;
+  readonly dirty: boolean;
+  readonly checkpointCount: number;
+  readonly pageCountIsFloor: boolean;
+  readonly progressiveLoadEnabled: boolean;
+  readonly toggleProgressiveLoad: () => void;
   readonly saveCheckpoint: () => Promise<void> | void;
   readonly copySelection: () => Promise<unknown> | unknown;
   readonly pasteSelection: () => Promise<unknown> | unknown;
@@ -155,6 +168,24 @@ export function buildShellEditorCommands(getBindings: GetBindings): AnyCommand[]
         },
       }),
     ),
+
+    defineCommand({
+      id: 'view.panel.history',
+      label: 'History',
+      keywords: ['checkpoints', 'versions', 'panel'],
+      run: () => {
+        b().setPanelsVisible(true);
+        b().setLeftSidebarTab('checkpoints');
+        b().setCheckpointsCollapsed(false);
+      },
+    }),
+    defineCommand({
+      id: 'view.progressiveLoad',
+      label: 'Progressive Load',
+      keywords: ['large scores', 'paging'],
+      checked: () => b().progressiveLoadEnabled,
+      run: () => b().toggleProgressiveLoad(),
+    }),
 
     // ── Checkpoints, recent scores, clipboard ───────────────────────────────────────
     defineCommand({

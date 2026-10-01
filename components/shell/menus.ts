@@ -133,7 +133,10 @@ export const MENUS: readonly MenuDefinition[] = [
       item('view.panel.properties'),
       item('view.panel.aiTools'),
       item('view.panel.scoreSource'),
+      item('view.panel.history'),
       item('view.panels.toggle'),
+      item('view.statusBar'),
+      item('view.progressiveLoad'),
       family('view.palette.open'),
       separator,
       submenu(

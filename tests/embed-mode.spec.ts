@@ -67,6 +67,7 @@ test.describe('Embed Mode - External XML Comparison', () => {
     // Toolbar should not be visible in embed mode
     const toolbar = page.locator('div').filter({ has: page.getByText('New Score') });
     await expect(toolbar).not.toBeVisible();
+    await expect(page.getByTestId('shell-header')).toHaveCount(0);
   });
 
   test('should hide checkpoint sidebar in embed mode', async ({ page }) => {
@@ -182,9 +183,9 @@ test.describe('Embed Mode - External XML Comparison', () => {
     await page.goto(`/?compareLeft=${encodeURIComponent(leftXmlUrl)}`);
     await page.waitForTimeout(1000);
 
-    // Assert on the control itself rather than on an ancestor div: every enclosing
-    // div also "has" the text, so the old locator matched seven nested elements.
-    await expect(page.getByText('New Score', { exact: true })).toBeVisible();
+    // The full editor shows the shell header (the ribbon's New Score button moved into the
+    // File menu), and no embed surface does.
+    await expect(page.getByTestId('shell-header')).toBeVisible();
 
     // Compare modal should not be visible
     const compareModal = page.getByTestId('checkpoint-compare-modal');
@@ -744,7 +745,7 @@ test.describe('Embed Mode - External XML Comparison', () => {
     await expect(compareModal).toBeVisible();
 
     // New tab should show full editor
-    await expect(newPage.getByText('New Score', { exact: true })).toBeVisible();
+    await expect(newPage.getByTestId('shell-header')).toBeVisible();
 
     // Sidebar should be visible in new tab
     await expect(newPage.getByTestId('checkpoint-sidebar')).toBeVisible();
@@ -782,7 +783,7 @@ test.describe('Embed Mode - External XML Comparison', () => {
     await expect(compareModal).toBeVisible();
 
     // New tab should show full editor
-    await expect(newPage.getByText('New Score', { exact: true })).toBeVisible();
+    await expect(newPage.getByTestId('shell-header')).toBeVisible();
 
     // Sidebar should be visible in new tab
     await expect(newPage.getByTestId('checkpoint-sidebar')).toBeVisible();

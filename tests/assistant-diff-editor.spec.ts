@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { AI_EDIT_EFFORT_PROFILES, type AiEditEffort } from '../lib/ai-edit-effort';
 import { computeMusicXmlIdentityHashServer } from '../lib/musicxml-identity-server';
+import { runCommand } from './helpers/commands';
 import { applyMusicXmlPatch, type MusicXmlPatch } from '../lib/music-services/patch-service';
 
 const OPENAI_MODELS_RESPONSE = {
@@ -1190,7 +1191,8 @@ test.describe('Assistant diff editor flow', () => {
     });
 
     await page.goto('/');
-    await page.getByRole('button', { name: 'New Score' }).click();
+    // File ▸ New Score: the ribbon button moved into the menu under the v2 shell.
+    await runCommand(page, 'file.new');
     await page.getByTestId('new-score-modal').waitFor();
     await page.getByRole('button', { name: 'Create Score' }).click();
     await page.waitForSelector('svg .Rest', { timeout: 60_000 });
