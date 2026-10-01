@@ -1,5 +1,6 @@
 import { expect, test } from 'playwright/test';
 import type { BrowserScoreWindow } from './browser-score-types';
+import { runCommand } from './helpers/commands';
 
 test('staccato button toggles articulation on selected note', async ({ page }) => {
   await page.goto('/?score=/test_scores/single_note_c4.musicxml');
@@ -25,11 +26,9 @@ test('staccato button toggles articulation on selected note', async ({ page }) =
   await page.locator('svg .Note').first().click();
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
 
-  await page.getByTestId('dropdown-articulations').click();
-  await page.getByTestId('btn-artic-articStaccatoAbove').click();
+  await runCommand(page, 'btn-artic-articStaccatoAbove');
   await expect.poll(async () => await hasStaccato(), { timeout: 20_000 }).toBe(true);
 
-  await page.getByTestId('dropdown-articulations').click();
-  await page.getByTestId('btn-artic-articStaccatoAbove').click();
+  await runCommand(page, 'btn-artic-articStaccatoAbove');
   await expect.poll(async () => await hasStaccato(), { timeout: 20_000 }).toBe(false);
 });

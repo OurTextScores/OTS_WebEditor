@@ -1,5 +1,6 @@
 import { expect, test } from 'playwright/test';
 import type { BrowserScoreWindow } from './browser-score-types';
+import { runCommand } from './helpers/commands';
 
 /**
  * The input/button pair this suite used to drive (input-title, input-subtitle,
@@ -20,8 +21,7 @@ test('the subtitle prompt is pre-filled from metadata', async ({ page }) => {
     promptDefault = dialog.defaultValue();
     return dialog.dismiss();
   });
-  await page.getByTestId('dropdown-text').click();
-  await page.getByTestId('btn-text-subtitle').click();
+  await runCommand(page, 'btn-text-subtitle');
 
   await expect.poll(() => promptDefault, { timeout: 20_000 }).toContain('Bach: Cello Suite');
 });
@@ -65,12 +65,10 @@ test('title and subtitle persist after save and reload', async ({ page }) => {
   const newSubtitle = 'OTS Subtitle Reload';
 
   page.once('dialog', (dialog) => dialog.accept(newTitle));
-  await page.getByTestId('dropdown-text').click();
-  await page.getByTestId('btn-text-title').click();
+  await runCommand(page, 'btn-text-title');
 
   page.once('dialog', (dialog) => dialog.accept(newSubtitle));
-  await page.getByTestId('dropdown-text').click();
-  await page.getByTestId('btn-text-subtitle').click();
+  await runCommand(page, 'btn-text-subtitle');
 
   await expect.poll(async () => (await readHeader()).title, { timeout: 20_000 }).toBe(newTitle);
   await expect

@@ -10,6 +10,9 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* Shell chrome (SHELL_REDESIGN_DESIGN §12). Interim values; W3 may change them but not the names. */
+  --shell-header-h: 44px;
 }
 
 @theme inline {

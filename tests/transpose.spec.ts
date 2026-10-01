@@ -1,5 +1,6 @@
 import { expect, test } from 'playwright/test';
 import type { BrowserScoreWindow } from './browser-score-types';
+import { runCommand } from './helpers/commands';
 
 test('transpose octave up/down updates exported pitch', async ({ page }) => {
   await page.goto('/?score=/test_scores/single_note_c4.musicxml');
@@ -29,9 +30,9 @@ test('transpose octave up/down updates exported pitch', async ({ page }) => {
   await page.locator('svg .Note').first().click();
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
 
-  await page.getByTestId('btn-transpose-12').click();
+  await runCommand(page, 'btn-transpose-12');
   await expect.poll(async () => (await readPitch()).octave, { timeout: 20_000 }).toBe(5);
 
-  await page.getByTestId('btn-transpose--12').click();
+  await runCommand(page, 'btn-transpose--12');
   await expect.poll(async () => (await readPitch()).octave, { timeout: 20_000 }).toBe(4);
 });

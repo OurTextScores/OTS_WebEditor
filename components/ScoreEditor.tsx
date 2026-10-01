@@ -42,6 +42,8 @@ import { fetchJsonOrThrow } from '../lib/fetch-json';
 import { copySelectionToClipboard, pasteClipboardPayload } from '../lib/selection-clipboard';
 import { Toolbar, type MeasureInsertTarget, type HeaderTextTarget } from './Toolbar';
 import { notify } from './shell/notices';
+import { ShellHeader } from './shell/ShellHeader';
+import { useShellCommands } from './score-editor/useShellCommands';
 import { InspectorPanel } from './InspectorPanel';
 import { FloatingPalettes } from './FloatingPalettes';
 import {
@@ -17433,6 +17435,16 @@ ${partsBodyXml}
     }
     return null;
   }, [aiModel, aiProvider]);
+
+  useShellCommands({
+    score, aiEnabled, pageCount, currentPage, goToPage,
+    goToNextPage: handleNextPage, goToPreviousPage: handlePrevPage,
+    inspectorOpen, setInspectorOpen, musicXmlOpen, setMusicXmlOpen,
+    aiToolsOpen: aiToolsSidebarOpen, setAiTool: setXmlSidebarTab, setPanelsVisible,
+    setAiToolsOpen: (open) => setXmlSidebarMode(open ? 'open' : 'closed'),
+    saveCheckpoint: handleSaveCheckpoint, copySelection: handleCopySelection,
+    pasteSelection: handlePasteSelection, scoreSummaries, openScoreFromSummary: handleOpenScoreFromSummary,
+  });
   const aiApplyDisabled = xmlControlsDisabled || !aiPatchedXml.trim() || Boolean(aiPatchError);
   const patchEditorHeight = '35vh';
   const patchEditorMaxHeight = '45vh';
@@ -17498,6 +17510,7 @@ ${partsBodyXml}
             the host sizes the frame to match.
         */
     <div className={isAnyRowsMode ? 'flex flex-col overflow-x-clip' : 'flex flex-col h-screen'}>
+      {!isEmbedMode && <ShellHeader title={scoreTitle} dirty={scoreDirtySinceCheckpoint} />}
       {!isEmbedMode && (
         <div className="relative" style={{ zIndex: 100 }} ref={toolbarRef}>
           <Toolbar
@@ -17505,19 +17518,6 @@ ${partsBodyXml}
             onFileUpload={handleLoadScoreUpload}
             onLoadScoresToCompare={handleOpenCompareScoreLoader}
             onSoundFontUpload={handleSoundFontUpload}
-            scoreTitle={scoreTitle}
-            scoreSubtitle={scoreSubtitle}
-            scoreComposer={scoreComposer}
-            scoreLyricist={scoreLyricist}
-            onScoreTitleChange={setScoreTitle}
-            onScoreSubtitleChange={setScoreSubtitle}
-            onScoreComposerChange={setScoreComposer}
-            onScoreLyricistChange={setScoreLyricist}
-            onSetTitleText={handleSetTitleText}
-            onSetSubtitleText={handleSetSubtitleText}
-            onSetComposerText={handleSetComposerText}
-            onSetLyricistText={score?.setLyricistText ? handleSetLyricistText : undefined}
-            headerTextAvailable={Boolean(score?.setTitleText && score?.setComposerText)}
             onOpenHeaderEditor={score?.setTitleText ? handleOpenHeaderEditor : undefined}
             onZoomIn={handleZoomIn}
             onZoomOut={handleZoomOut}
@@ -17622,7 +17622,6 @@ ${partsBodyXml}
             onAddVolta={handleAddVolta}
             onAddMarker={handleAddMarker}
             onAddJump={handleAddJump}
-            onSetNoteheadGroup={handleSetNoteheadGroup}
             onSetBeamMode={handleSetBeamMode}
             onAddFretDiagram={handleAddFretDiagram}
             onAddAmbitus={handleAddAmbitus}
@@ -17662,8 +17661,6 @@ ${partsBodyXml}
             onRemovePart={handleRemovePart}
             onTogglePartVisible={handleTogglePartVisible}
             selectedTextActive={textSelectionActive}
-            selectedTextValue={selectedTextValue}
-            onSelectedTextChange={handleSelectedTextChange}
             onApplySelectedText={handleApplySelectedText}
             selectedTextDisabled={selectedTextControlDisabled}
           />

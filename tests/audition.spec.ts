@@ -1,4 +1,5 @@
 import { expect, test, Page } from '@playwright/test';
+import { runCommand } from './helpers/commands';
 
 const SCORE_URL = '/?score=/test_scores/single_note_c4.musicxml';
 const MULTI_SCORE_URL = '/?score=/test_scores/three_notes_cde.musicxml';
@@ -127,7 +128,7 @@ test('mutation requests audition preview stream', async ({ page }) => {
   await page.evaluate(() => {
     (window as AuditionWindow).__auditionPreviewCalls = [];
   });
-  await page.getByTestId('btn-pitch-up').click();
+  await runCommand(page, 'btn-pitch-up');
 
   await expect
     .poll(

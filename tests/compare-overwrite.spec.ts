@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { BrowserScoreWindow } from './browser-score-types';
+import { runCommand } from './helpers/commands';
 
 test('compare overwrite applies left measure to right', async ({ page }) => {
   await page.goto('/?score=/test_scores/three_notes_cde.musicxml');
@@ -33,7 +34,7 @@ test('compare overwrite applies left measure to right', async ({ page }) => {
   const firstNote = page.locator('svg .Note').first();
   await firstNote.click();
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
-  await page.getByTestId('btn-pitch-up').click();
+  await runCommand(page, 'btn-pitch-up');
 
   // Wait for the mutation to reach the engine before opening compare. Without this the
   // workspace can snapshot currentXml while the pitch-up is still in flight, leaving the
@@ -41,7 +42,9 @@ test('compare overwrite applies left measure to right', async ({ page }) => {
   // out. That was the flake: it reproduced under load and passed otherwise.
   await expect.poll(readFirstPitch, { timeout: 20_000 }).not.toBe(pitchBeforeEdit);
 
-  await checkpointCard.getByRole('button', { name: 'Compare' }).click();
+  // By test id: the outermost div that holds the label also holds the ribbon's "Load scores to
+  // compare" button, which a role-and-name match on "Compare" finds as well.
+  await page.locator('[data-testid^="btn-checkpoint-compare-"]').last().click();
   await page.getByTestId('checkpoint-compare-modal').waitFor({ timeout: 20_000 });
 
   await expect

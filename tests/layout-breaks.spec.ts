@@ -1,5 +1,6 @@
 import { expect, test } from 'playwright/test';
 import type { BrowserScoreWindow } from './browser-score-types';
+import { runCommand } from './helpers/commands';
 
 test('new line/page buttons toggle layout breaks on selection', async ({ page }) => {
   await page.goto('/?score=/test_scores/single_note_c4.musicxml');
@@ -29,25 +30,25 @@ test('new line/page buttons toggle layout breaks on selection', async ({ page })
   await page.locator('svg .Note').first().click();
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
 
-  await page.getByTestId('btn-new-line').click();
+  await runCommand(page, 'btn-new-line');
 
   await expect
     .poll(async () => countSubtype(await readMscx(), 'line'), { timeout: 20_000 })
     .toBe(lineBefore + 1);
 
-  await page.getByTestId('btn-new-line').click();
+  await runCommand(page, 'btn-new-line');
 
   await expect
     .poll(async () => countSubtype(await readMscx(), 'line'), { timeout: 20_000 })
     .toBe(lineBefore);
 
-  await page.getByTestId('btn-new-page').click();
+  await runCommand(page, 'btn-new-page');
 
   await expect
     .poll(async () => countSubtype(await readMscx(), 'page'), { timeout: 20_000 })
     .toBe(pageBefore + 1);
 
-  await page.getByTestId('btn-new-page').click();
+  await runCommand(page, 'btn-new-page');
 
   await expect
     .poll(async () => countSubtype(await readMscx(), 'page'), { timeout: 20_000 })

@@ -1,4 +1,5 @@
 import { expect, test } from 'playwright/test';
+import { runCommand } from './helpers/commands';
 
 const loadThreeNotes = async (page: import('@playwright/test').Page) => {
   await page.goto('/');
@@ -40,8 +41,7 @@ test('slur button adds a slur spanning multi-selection', async ({ page }) => {
 
   await selectFirstThroughThirdNotes(page);
 
-  await page.getByTestId('dropdown-slur-tie').click();
-  await page.getByTestId('btn-slur').click();
+  await runCommand(page, 'btn-slur');
   await expectRenderedSlur(page);
 });
 

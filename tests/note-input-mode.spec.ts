@@ -1,4 +1,5 @@
 import { expect, test, type Page } from 'playwright/test';
+import { runCommand } from './helpers/commands';
 
 // Large viewport so staff geometry is comfortably clickable at fit-zoom.
 test.use({ viewport: { width: 2400, height: 1600 } });
@@ -260,10 +261,11 @@ test('toolbar duration and accidental configure the next note without editing th
   await note.click();
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
   await page.keyboard.press('n');
-  await page.getByTestId('dropdown-rhythm').click();
-  await page.getByTestId('btn-duration-2').click();
-  await page.getByTestId('dropdown-accidental').click();
-  await page.getByTestId('btn-acc-3').click();
+  // The commands choose their handler from the editor's note-input state, so wait for the
+  // 'n' to land first; a ribbon click used to take long enough that this was implicit.
+  await expect(page.getByTestId('btn-note-input')).toHaveAttribute('aria-pressed', 'true');
+  await runCommand(page, 'btn-duration-2');
+  await runCommand(page, 'btn-acc-3');
 
   // Input controls must not mutate the selected C4 before a placement click.
   await expect
@@ -290,15 +292,12 @@ test('note input method selector exposes repitch, rhythm, and timewise modes', a
   await page.keyboard.press('n');
 
   const method = page.getByTestId('dropdown-note-input-method');
-  await method.click();
-  await page.getByTestId('btn-note-input-method-2').click();
+  await runCommand(page, 'btn-note-input-method-2');
   await expect(method).toHaveText('Repitch');
 
-  await method.click();
-  await page.getByTestId('btn-note-input-method-3').click();
+  await runCommand(page, 'btn-note-input-method-3');
   await expect(method).toHaveText('Rhythm');
 
-  await method.click();
-  await page.getByTestId('btn-note-input-method-6').click();
+  await runCommand(page, 'btn-note-input-method-6');
   await expect(method).toHaveText('Timewise');
 });

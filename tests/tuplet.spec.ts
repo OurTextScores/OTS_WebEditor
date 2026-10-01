@@ -1,5 +1,6 @@
 import { expect, test } from 'playwright/test';
 import type { BrowserScoreWindow } from './browser-score-types';
+import { runCommand } from './helpers/commands';
 
 test('tuplet adds a tuplet entry at selection', async ({ page }) => {
   await page.goto('/?score=/test_scores/single_note_c4.musicxml');
@@ -22,8 +23,7 @@ test('tuplet adds a tuplet entry at selection', async ({ page }) => {
   await page.locator('svg .Note').first().click();
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
 
-  await page.getByTestId('dropdown-rhythm').click();
-  await page.getByTestId('btn-tuplet-3').click();
+  await runCommand(page, 'btn-tuplet-3');
 
   await expect.poll(readTupletCount, { timeout: 20_000 }).toBeGreaterThan(before);
 });

@@ -101,10 +101,7 @@ describe('the merged score contract', () => {
     );
   };
 
-  const render = (
-    initial: MergedScoreState,
-    finding?: { kind: string; part?: string } | null,
-  ) =>
+  const render = (initial: MergedScoreState, finding?: { kind: string; part?: string } | null) =>
     renderHook(() =>
       useMergedScoreDocument({
         state: initial,

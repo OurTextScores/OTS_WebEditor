@@ -1,5 +1,6 @@
 import { expect, test } from 'playwright/test';
 import type { BrowserScoreWindow } from './browser-score-types';
+import { runCommand } from './helpers/commands';
 
 test('acciaccatura adds a grace note to the selected note', async ({ page }) => {
   await page.goto('/?score=/test_scores/single_note_c4.musicxml');
@@ -22,8 +23,7 @@ test('acciaccatura adds a grace note to the selected note', async ({ page }) => 
   await page.locator('svg .Note').first().click();
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
 
-  await page.getByTestId('dropdown-grace-notes').click();
-  await page.getByTestId('btn-grace-acciaccatura').click();
+  await runCommand(page, 'btn-grace-acciaccatura');
 
   await expect.poll(graceCount, { timeout: 20_000 }).toBeGreaterThan(before);
 });

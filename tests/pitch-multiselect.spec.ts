@@ -1,5 +1,6 @@
 import { expect, test } from 'playwright/test';
 import type { BrowserScoreWindow } from './browser-score-types';
+import { runCommand } from './helpers/commands';
 
 test('pitch up preserves multi-selection across repeated edits', async ({ page }) => {
   await page.goto('/?score=/test_scores/three_notes_cde.musicxml');
@@ -43,12 +44,12 @@ test('pitch up preserves multi-selection across repeated edits', async ({ page }
   await page.mouse.click(rightmost!.x, rightmost!.y);
   await page.keyboard.up('Control');
 
-  await page.getByTestId('btn-pitch-up').click();
+  await runCommand(page, 'btn-pitch-up');
   await expect
     .poll(async () => await readPitches(), { timeout: 20_000 })
     .toEqual(['C14', 'D4', 'F4']);
 
-  await page.getByTestId('btn-pitch-up').click();
+  await runCommand(page, 'btn-pitch-up');
   await expect
     .poll(async () => await readPitches(), { timeout: 20_000 })
     .toEqual(['D4', 'D4', 'F14']);

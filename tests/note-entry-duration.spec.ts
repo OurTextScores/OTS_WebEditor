@@ -1,4 +1,5 @@
 import { expect, test } from 'playwright/test';
+import { runCommand } from './helpers/commands';
 
 type NoteEntryWindow = typeof window & {
   __webmscore?: { saveXml?: () => Promise<Uint8Array> };
@@ -58,7 +59,7 @@ const startNoteInput = async (page: import('playwright/test').Page) => {
   }
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await page.getByTestId('selection-overlay').waitFor({ timeout: 20_000 });
-  await page.getByTestId('btn-note-input').click();
+  await runCommand(page, 'btn-note-input');
   await expect(page.getByTestId('btn-note-input')).toHaveAttribute('aria-pressed', 'true');
 };
 

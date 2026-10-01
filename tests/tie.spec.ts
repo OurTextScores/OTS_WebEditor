@@ -1,5 +1,6 @@
 import { expect, test } from 'playwright/test';
 import type { BrowserScoreWindow } from './browser-score-types';
+import { runCommand } from './helpers/commands';
 
 test('tie button adds a tie to the next same-pitch note', async ({ page }) => {
   await page.goto('/?score=/test_scores/two_notes_cc.musicxml');
@@ -24,8 +25,7 @@ test('tie button adds a tie to the next same-pitch note', async ({ page }) => {
   await notes.nth(0).click();
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
 
-  await page.getByTestId('dropdown-slur-tie').click();
-  await page.getByTestId('btn-tie').click();
+  await runCommand(page, 'btn-tie');
 
   await expect
     .poll(

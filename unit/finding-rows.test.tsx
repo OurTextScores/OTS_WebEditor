@@ -90,9 +90,7 @@ describe('examples within a kind', () => {
     );
     expect(groups).toHaveLength(1);
     expect(groups[0].findings).toHaveLength(11);
-    expect(groups[0].findings.map((f) => f.system)).toEqual([
-      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-    ]);
+    expect(groups[0].findings.map((f) => f.system)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
   });
 
   it('keeps examples that name different parts distinguishable', () => {

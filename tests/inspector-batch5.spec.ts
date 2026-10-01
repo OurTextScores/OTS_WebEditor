@@ -1,4 +1,5 @@
 import { expect, test, type Page } from 'playwright/test';
+import { runCommand } from './helpers/commands';
 
 test.use({ viewport: { width: 2400, height: 1600 } });
 
@@ -178,8 +179,7 @@ test('edits line style on a selected range line', async ({ page }) => {
   await page.goto('/?score=/test_scores/two_notes_cc.musicxml');
   await page.locator('svg .Note').first().waitFor({ timeout: 60_000 });
   await page.keyboard.press('Control+a');
-  await page.getByTestId('dropdown-lines').click();
-  await page.getByTestId('btn-ottava-0').click();
+  await runCommand(page, 'btn-ottava-0');
   const ottava = page.locator('svg .OttavaSegment').first();
   await ottava.waitFor({ timeout: 20_000 });
   await ottava.click();

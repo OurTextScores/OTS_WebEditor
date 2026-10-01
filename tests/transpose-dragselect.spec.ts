@@ -1,5 +1,6 @@
 import { expect, test } from 'playwright/test';
 import type { BrowserScoreWindow } from './browser-score-types';
+import { runCommand } from './helpers/commands';
 
 test('drag selection marquee selects multiple notes for transpose', async ({ page }) => {
   await page.goto('/?score=/test_scores/three_notes_cde.musicxml');
@@ -56,7 +57,7 @@ test('drag selection marquee selects multiple notes for transpose', async ({ pag
 
   // A lasso is represented by one overlay per selected element.
   await page.getByTestId('selection-overlay-0').waitFor({ timeout: 10_000 });
-  await page.getByTestId('btn-transpose-12').click();
+  await runCommand(page, 'btn-transpose-12');
 
   await expect
     .poll(async () => await readPitches(), { timeout: 20_000 })

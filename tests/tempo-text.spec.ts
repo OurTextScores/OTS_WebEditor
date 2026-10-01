@@ -1,5 +1,6 @@
 import { expect, test } from 'playwright/test';
 import type { BrowserScoreWindow } from './browser-score-types';
+import { runCommand } from './helpers/commands';
 
 test('tempo button inserts visible tempo at start', async ({ page }) => {
   await page.goto('/?score=/test_scores/bach_orig.mscz');
@@ -19,8 +20,7 @@ test('tempo button inserts visible tempo at start', async ({ page }) => {
 
   expect(await hasTempo120()).toBe(false);
 
-  await page.getByTestId('input-tempo-bpm').fill('120');
-  await page.getByTestId('btn-tempo-apply').click();
+  await runCommand(page, 'add.text.tempo', { bpm: 120 });
 
   await expect.poll(async () => await hasTempo120(), { timeout: 20_000 }).toBe(true);
 });

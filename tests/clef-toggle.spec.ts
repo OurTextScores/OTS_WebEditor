@@ -1,5 +1,6 @@
 import { expect, test } from 'playwright/test';
 import type { BrowserScoreWindow } from './browser-score-types';
+import { runCommand } from './helpers/commands';
 
 test('clef can toggle and revert', async ({ page }) => {
   await page.goto('/?score=/test_scores/bach_orig.mscz');
@@ -26,14 +27,12 @@ test('clef can toggle and revert', async ({ page }) => {
   await page.locator('svg .Note').nth(5).click();
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
 
-  await page.getByTestId('dropdown-clef').click();
-  await page.getByTestId('btn-clef-0').click();
+  await runCommand(page, 'btn-clef-0');
   await expect
     .poll(async () => await readConcertClefTypes(), { timeout: 20_000 })
     .toEqual([initial[0], 'G']);
 
-  await page.getByTestId('dropdown-clef').click();
-  await page.getByTestId('btn-clef-20').click();
+  await runCommand(page, 'btn-clef-20');
   await expect
     .poll(async () => await readConcertClefTypes(), { timeout: 20_000 })
     .toEqual([initial[0], initial[0]]);

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from 'playwright/test';
+import { runCommand } from './helpers/commands';
 
 test.use({ viewport: { width: 2400, height: 1600 } });
 
@@ -33,8 +34,6 @@ const loadFourMeasures = async (page: Page) => {
   await expect(page.locator('svg .Note')).toHaveCount(4, { timeout: 20_000 });
 };
 
-const openNavigation = (page: Page) => page.getByTestId('dropdown-navigation').click();
-
 const selectWholeNote = async (page: Page, index: number) => {
   const note = page.locator('svg .Note').nth(index);
   await expect(note).toBeVisible({ timeout: 20_000 });
@@ -61,9 +60,8 @@ test('adds semantic double-segno navigation and expands the repeat playback list
   expect(await playbackMeasureIds(page)).toEqual([0, 1, 2, 3]);
 
   await selectWholeNote(page, 0);
-  await openNavigation(page);
   // "Serpent segno" (varsegno) now lives in the Markers palette rather than the dropdown.
-  await page.getByTestId('btn-open-markers-palette').click();
+  await runCommand(page, 'btn-open-markers-palette');
   await page.getByTestId('palette-item-marker-1').click();
   await page.keyboard.press('Escape');
   await expect
@@ -73,9 +71,8 @@ test('adds semantic double-segno navigation and expands the repeat playback list
     .toBe(true);
 
   await selectWholeNote(page, 3);
-  await openNavigation(page);
   // "Dal Segno Segno" (DSS) now lives in the Jumps palette.
-  await page.getByTestId('btn-open-jumps-palette').click();
+  await runCommand(page, 'btn-open-jumps-palette');
   await page.getByTestId('palette-item-jump-8').click();
   await page.keyboard.press('Escape');
   await expect
@@ -105,11 +102,9 @@ test('uses MuseScore playback targets for D.C. al Fine', async ({ page }) => {
   await loadFourMeasures(page);
 
   await selectWholeNote(page, 2);
-  await openNavigation(page);
-  await page.getByTestId('btn-marker-5').click();
+  await runCommand(page, 'btn-marker-5');
   await selectWholeNote(page, 3);
-  await openNavigation(page);
-  await page.getByTestId('btn-jump-1').click();
+  await runCommand(page, 'btn-jump-1');
 
   await expect
     .poll(async () => /<Marker>[\s\S]*?<label>fine<\/label>/.test(await readMscx(page)), {

@@ -55,7 +55,8 @@ describe('finding context survives the launch allowlist', () => {
   });
 
   it('drops a non-string rather than coercing it', () => {
-    expect(sanitizeEditorLaunchContext({ findingKind: 42, source: 'scanner' }))
-      .not.toHaveProperty('findingKind');
+    expect(sanitizeEditorLaunchContext({ findingKind: 42, source: 'scanner' })).not.toHaveProperty(
+      'findingKind',
+    );
   });
 });

@@ -73,19 +73,6 @@ export interface ToolbarSectionProps {
   onExportToGoogleDrive?: () => void;
   onCreateShareableLink?: () => void;
   onSoundFontUpload?: (file: File) => void;
-  scoreTitle?: string;
-  scoreSubtitle?: string;
-  scoreComposer?: string;
-  scoreLyricist?: string;
-  onScoreTitleChange?: (value: string) => void;
-  onScoreSubtitleChange?: (value: string) => void;
-  onScoreComposerChange?: (value: string) => void;
-  onScoreLyricistChange?: (value: string) => void;
-  onSetTitleText?: () => void;
-  onSetSubtitleText?: () => void;
-  onSetComposerText?: () => void;
-  onSetLyricistText?: () => void;
-  headerTextAvailable?: boolean;
   exportsEnabled?: boolean;
   pngAvailable?: boolean;
   audioAvailable?: boolean;
@@ -161,7 +148,6 @@ export interface ToolbarSectionProps {
   onAddVolta?: (endingNumber: number) => void;
   onAddMarker?: (markerType: number) => void;
   onAddJump?: (jumpType: number) => void;
-  onSetNoteheadGroup?: (noteheadGroup: number) => void;
   onSetBeamMode?: (beamMode: number) => void;
   onAddFretDiagram?: (pattern: string) => void;
   onAddAmbitus?: () => void;
@@ -190,8 +176,6 @@ export interface ToolbarSectionProps {
   onRemovePart?: (partIndex: number) => void;
   onTogglePartVisible?: (partIndex: number, visible: boolean) => void;
   selectedTextActive?: boolean;
-  selectedTextValue?: string;
-  onSelectedTextChange?: (value: string) => void;
   onApplySelectedText?: () => void;
   selectedTextDisabled?: boolean;
   onOpenHeaderEditor?: (target: HeaderTextTarget, point?: HeaderEditorPoint) => void;

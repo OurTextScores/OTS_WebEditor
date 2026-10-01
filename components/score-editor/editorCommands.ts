@@ -134,8 +134,8 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       label,
       ...extra,
       enabled: (ctx) => gate(ctx) && has(key),
-      run: () => {
-        (p()[key] as (() => void) | undefined)?.();
+      run: async () => {
+        await (p()[key] as (() => unknown) | undefined)?.();
       },
     });
 
@@ -157,8 +157,8 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
         testId: testId(item),
       })),
       enabled: (ctx) => gate(ctx) && has(key),
-      run: (_ctx, arg) => {
-        (p()[key] as ((value: number) => void) | undefined)?.(arg);
+      run: async (_ctx, arg) => {
+        await (p()[key] as ((value: number) => unknown) | undefined)?.(arg);
       },
     });
 
@@ -175,8 +175,8 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       testId,
       keywords: ['export', 'download', 'save'],
       enabled: (ctx) => ctx.hasScore && has(key) && extraGate(),
-      run: () => {
-        (p()[key] as (() => void) | undefined)?.();
+      run: async () => {
+        await (p()[key] as (() => unknown) | undefined)?.();
       },
     });
 
@@ -187,8 +187,8 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       testId: `btn-text-${target}`,
       opensDialog: true,
       enabled: (ctx) => ctx.isMutable && has('onOpenHeaderEditor'),
-      run: (_ctx, args) => {
-        p().onOpenHeaderEditor?.(target, args?.point ?? centre());
+      run: async (_ctx, args) => {
+        await p().onOpenHeaderEditor?.(target, args?.point ?? centre());
       },
     });
 
@@ -375,9 +375,9 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       })),
       enabled: (ctx) => ctx.isMutable && has('onSetSelectionFilterBit'),
       checked: (_ctx, bit) => Boolean((p().selectionFilterMask ?? 0xffffff) & bit),
-      run: (_ctx, bit) => {
+      run: async (_ctx, bit) => {
         const checked = Boolean((p().selectionFilterMask ?? 0xffffff) & bit);
-        p().onSetSelectionFilterBit?.(bit, !checked);
+        await p().onSetSelectionFilterBit?.(bit, !checked);
       },
     }),
     action('edit.pitch.up', 'Pitch Up', 'onPitchUp', withSelectionOutsideInput, {
@@ -745,7 +745,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
             'A custom time signature needs a positive numerator and denominator.',
           );
         }
-        p().onSetTimeSignature?.(numerator, denominator);
+        return p().onSetTimeSignature?.(numerator, denominator);
       },
     }),
     numberFamily(
@@ -877,7 +877,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       enabled: (ctx) => ctx.isMutable && ctx.hasScore && has('onAddPart'),
       run: (_ctx, args) => {
         if (!args?.instrumentId) throw new RangeError('Add Instrument needs an instrumentId.');
-        p().onAddPart?.(args.instrumentId);
+        return p().onAddPart?.(args.instrumentId);
       },
     }),
     defineCommand<{ index: number }>({
@@ -887,7 +887,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       run: (_ctx, args) => {
         const part = p().parts?.find((entry) => entry.index === args?.index);
         if (!part) throw new RangeError(`No part with index ${String(args?.index)}.`);
-        p().onTogglePartVisible?.(part.index, !part.isVisible);
+        return p().onTogglePartVisible?.(part.index, !part.isVisible);
       },
     }),
     defineCommand<{ index: number }>({
@@ -905,7 +905,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
           confirmLabel: 'Remove',
           destructive: true,
         });
-        if (confirmed) p().onRemovePart?.(part.index);
+        if (confirmed) await p().onRemovePart?.(part.index);
       },
     }),
 

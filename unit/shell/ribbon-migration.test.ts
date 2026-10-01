@@ -1,13 +1,16 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { buildEditorCommands } from '../../components/score-editor/editorCommands';
 import {
   RIBBON_MIGRATION,
   resolveLegacyTestId,
   type MigrationEntry,
 } from '../../components/shell/ribbonMigration';
 import { isCommandFamily, type AnyCommand, type CommandFamily } from '../../lib/commands/types';
+import { allEditorCommands } from '../helpers/all-commands';
+
+/** The last rollout phase (§10) that has shipped; entries up to it must be live. */
+const SHIPPED_PHASE = 1;
 
 /**
  * P7: nothing disappears silently. Every `data-testid` the legacy ribbon renders has a
@@ -90,7 +93,7 @@ const covered = (id: string, prefix: boolean): boolean =>
   );
 
 function editorCommandEntries(): AnyCommand[] {
-  return buildEditorCommands(() => ({}) as never);
+  return allEditorCommands();
 }
 
 describe('ribbon migration manifest', () => {
@@ -162,10 +165,12 @@ describe('ribbon migration manifest', () => {
   describe('commands', () => {
     const registered = new Map(editorCommandEntries().map((entry) => [entry.id, entry]));
 
-    it('registers every command id the manifest names for this phase', () => {
+    it('registers every command id the manifest names for a shipped phase', () => {
       const missing = RIBBON_MIGRATION.filter(
         (entry) =>
-          (entry.phase ?? 0) === 0 && entry.kind !== 'container' && entry.kind !== 'decoration',
+          (entry.phase ?? 0) <= SHIPPED_PHASE &&
+          entry.kind !== 'container' &&
+          entry.kind !== 'decoration',
       )
         .filter((entry) => entry.kind !== 'chrome' || entry.commandId)
         .filter((entry) => !entry.commandId || !registered.has(entry.commandId))

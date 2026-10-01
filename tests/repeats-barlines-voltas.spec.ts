@@ -1,4 +1,5 @@
 import { expect, test, Page } from 'playwright/test';
+import { runCommand } from './helpers/commands';
 import type { BrowserScoreWindow } from './browser-score-types';
 
 const loadSingleNoteScore = async (page: Page) => {
@@ -19,13 +20,6 @@ const readMscx = async (page: Page): Promise<string> => {
   });
 };
 
-const openRepeatsDropdown = async (page: Page) => {
-  const dropdown = page.getByTestId('dropdown-repeats');
-  await dropdown.click();
-  await page.getByTestId('btn-repeat-start').waitFor({ state: 'visible' });
-  return page;
-};
-
 const countMatches = (value: string, pattern: RegExp): number => {
   return (value.match(pattern) || []).length;
 };
@@ -35,8 +29,7 @@ test('repeat start adds startRepeat', async ({ page }) => {
   const before = await readMscx(page);
   const startRepeatBefore = countMatches(before, /<startRepeat\/>/g);
 
-  const dropdown = await openRepeatsDropdown(page);
-  await dropdown.getByTestId('btn-repeat-start').click();
+  await runCommand(page, 'btn-repeat-start');
 
   await expect
     .poll(async () => countMatches(await readMscx(page), /<startRepeat\/>/g), { timeout: 20_000 })
@@ -46,8 +39,7 @@ test('repeat start adds startRepeat', async ({ page }) => {
 test('repeat count sets endRepeat', async ({ page }) => {
   await loadSingleNoteScore(page);
 
-  const dropdown = await openRepeatsDropdown(page);
-  await dropdown.getByTestId('btn-repeat-count-3').click();
+  await runCommand(page, 'btn-repeat-count-3');
 
   await expect
     .poll(async () => (await readMscx(page)).includes('<endRepeat>3</endRepeat>'), {
@@ -61,8 +53,7 @@ test('barline double applies subtype', async ({ page }) => {
   const before = await readMscx(page);
   const doubleBarBefore = countMatches(before, /<subtype>double<\/subtype>/g);
 
-  const dropdown = await openRepeatsDropdown(page);
-  await dropdown.getByTestId('btn-barline-2').click();
+  await runCommand(page, 'btn-barline-2');
 
   await expect
     .poll(async () => countMatches(await readMscx(page), /<subtype>double<\/subtype>/g), {
@@ -76,8 +67,7 @@ test('volta 1 adds volta spanner', async ({ page }) => {
   const before = await readMscx(page);
   const voltaBefore = countMatches(before, /<Volta\b/g);
 
-  const dropdown = await openRepeatsDropdown(page);
-  await dropdown.getByTestId('btn-volta-1').click();
+  await runCommand(page, 'btn-volta-1');
 
   await expect
     .poll(async () => countMatches(await readMscx(page), /<Volta\b/g), { timeout: 20_000 })

@@ -459,3 +459,49 @@ describe('argument handling', () => {
     expect(noteInput.checked(deriveRibbonCommandContext(open.props))).toBe(false);
   });
 });
+
+describe('completion', () => {
+  /**
+   * A command's promise must settle when the editor's work does: `runCommand` is how tests
+   * and the palette wait for an edit, and a command that returned early made a spec read the
+   * score before the mutation had landed.
+   */
+  it.each([
+    ['edit.undo', undefined, 'onUndo'],
+    ['add.line.hairpin', 0, 'onAddHairpin'],
+    ['add.line.slur', undefined, 'onAddSlur'],
+    ['file.export.pdf', undefined, 'onExportPdf'],
+    ['edit.selectionFilter', 1, 'onSetSelectionFilterBit'],
+    ['add.text.title', undefined, 'onOpenHeaderEditor'],
+    ['add.timeSig', { numerator: 3, denominator: 4 }, 'onSetTimeSignature'],
+    ['add.timeSig.custom', { numerator: 3, denominator: 4 }, 'onSetTimeSignature'],
+    ['instruments.part.toggleVisible', { index: 0 }, 'onTogglePartVisible'],
+    ['instruments.add', { instrumentId: 'piano' }, 'onAddPart'],
+    ['add.text.tempo', { bpm: 90 }, 'onAddTempoText'],
+    ['view.zoom.in', undefined, 'onZoomIn'],
+  ] as const)('%s settles only after %s does', async (id, args, handler) => {
+    let finish: () => void = () => {};
+    const gate = new Promise<void>((resolve) => (finish = resolve));
+    const { props } = liveProps({ [handler]: vi.fn(() => gate) } as Partial<ToolbarSectionProps>);
+
+    let settled = false;
+    const running = run(props, id, args).then((status) => {
+      settled = true;
+      return status;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(settled, `${id} resolved before ${handler} finished`).toBe(false);
+
+    finish();
+    await expect(running).resolves.toBe('ran');
+  });
+
+  it('reports a failure from the handler instead of resolving', async () => {
+    const { props } = liveProps({
+      onAddSlur: vi.fn(async () => {
+        throw new Error('engine said no');
+      }),
+    });
+    await expect(run(props, 'add.line.slur')).rejects.toThrow('engine said no');
+  });
+});

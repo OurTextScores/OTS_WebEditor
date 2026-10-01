@@ -1,5 +1,6 @@
 import { expect, test } from 'playwright/test';
 import type { BrowserScoreWindow } from './browser-score-types';
+import { runCommand } from './helpers/commands';
 
 test('cmd/ctrl click extends selection for transpose', async ({ page }) => {
   await page.goto('/?score=/test_scores/three_notes_cde.musicxml');
@@ -43,7 +44,7 @@ test('cmd/ctrl click extends selection for transpose', async ({ page }) => {
   await page.keyboard.down('Control');
   await page.mouse.click(rightmost!.x, rightmost!.y);
   await page.keyboard.up('Control');
-  await page.getByTestId('btn-transpose-12').click();
+  await runCommand(page, 'btn-transpose-12');
 
   await expect
     .poll(async () => await readPitches(), { timeout: 20_000 })

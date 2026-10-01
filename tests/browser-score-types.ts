@@ -11,6 +11,7 @@ export type BrowserScoreHandle = {
   metadata?: () => Promise<BrowserScoreMetadata>;
   subtitle?: () => Promise<string>;
   getKeySignature?: () => Promise<number> | number;
+  measurePositions?: () => Promise<{ elements: Array<{ page: number }> }>;
   addNoteFromRest?: (...args: unknown[]) => Promise<unknown>;
   listInstrumentTemplates?: (...args: unknown[]) => Promise<unknown>;
   setSoundFont?: (bytes: Uint8Array) => Promise<void> | void;

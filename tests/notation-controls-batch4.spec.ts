@@ -1,4 +1,5 @@
 import { expect, test, type Page } from 'playwright/test';
+import { runCommand } from './helpers/commands';
 
 test.use({ viewport: { width: 2400, height: 1600 } });
 
@@ -102,7 +103,7 @@ test('applies typed notehead and beam properties with undo and redo', async ({ p
 
   await page.locator('svg .Note').nth(0).click();
   // Noteheads now live entirely in the floating palette.
-  await page.getByTestId('btn-toggle-palettes').click();
+  await runCommand(page, 'btn-toggle-palettes');
   await page.getByTestId('palette-item-notehead-1').click();
   await page.keyboard.press('Escape');
   await expect
@@ -110,8 +111,7 @@ test('applies typed notehead and beam properties with undo and redo', async ({ p
     .toBe(true);
 
   await page.locator('svg .Note').nth(1).click();
-  await page.getByTestId('dropdown-beams').click();
-  await page.getByTestId('btn-beam-2').click();
+  await runCommand(page, 'btn-beam-2');
   await expect
     .poll(async () => (await readMscx(page)).includes('<BeamMode>begin</BeamMode>'), {
       timeout: 20_000,
@@ -136,8 +136,7 @@ test('persists the notes/rests selection filter and applies it in the engine', a
   await loadBatch4Score(page);
   await page.keyboard.press('Control+a');
 
-  await page.getByTestId('dropdown-selection-filter').click();
-  await page.getByTestId(`selection-filter-${1 << 23}`).click();
+  await runCommand(page, `selection-filter-${1 << 23}`);
   await expect
     .poll(() => page.evaluate(() => window.localStorage.getItem('ots_editor_selection_filter_v1')))
     .toBe(String(0x7fffff));
@@ -152,8 +151,7 @@ test('persists the notes/rests selection filter and applies it in the engine', a
   expect(await selectAllDirect(page)).toBe(false);
   expect(await setNoteheadDirect(page, 1)).toBe(false);
 
-  await page.getByTestId('dropdown-selection-filter').click();
-  await page.getByTestId(`selection-filter-${1 << 23}`).click();
+  await runCommand(page, `selection-filter-${1 << 23}`);
   await page.keyboard.press('Escape');
   await expect
     .poll(() => page.evaluate(() => window.localStorage.getItem('ots_editor_selection_filter_v1')))

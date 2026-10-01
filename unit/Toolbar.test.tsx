@@ -547,7 +547,6 @@ describe('Toolbar', () => {
 
   it('renders and wires Batch 4 notation and filter controls', async () => {
     const user = userEvent.setup();
-    const onSetNoteheadGroup = vi.fn();
     const onSetBeamMode = vi.fn();
     const onOpenPalette = vi.fn();
     const onSetSelectionFilterBit = vi.fn();
@@ -561,7 +560,6 @@ describe('Toolbar', () => {
         mutationsEnabled
         selectionActive
         selectionFilterMask={0xffffff}
-        onSetNoteheadGroup={onSetNoteheadGroup}
         onOpenPalette={onOpenPalette}
         onSetBeamMode={onSetBeamMode}
         onSetSelectionFilterBit={onSetSelectionFilterBit}

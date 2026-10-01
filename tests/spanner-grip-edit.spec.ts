@@ -1,4 +1,5 @@
 import { expect, test } from 'playwright/test';
+import { runCommand } from './helpers/commands';
 
 const loadSlur = async (page: import('@playwright/test').Page) => {
   await page.goto('/');
@@ -36,8 +37,14 @@ const loadNotesAndAddHairpin = async (page: import('@playwright/test').Page) => 
   await page.keyboard.down('Control');
   await page.mouse.click(rightmost!.x, rightmost!.y);
   await page.keyboard.up('Control');
-  await page.getByTestId('dropdown-hairpins').click();
-  await page.getByTestId('btn-hairpin-cresc').click();
+  // A hairpin spans the selection, so the ctrl-click has to have extended it first. A menu
+  // click used to leave time for that; a command runs the instant it is enabled.
+  await expect(page.locator('[data-testid^="selection-overlay-"]')).toHaveCount(2);
+  // The drag below was written against a decrescendo. Clicking the ribbon's "cresc" item was
+  // observed to call addHairpin(1) -- in the browser its centre point hit-tests to the
+  // "decresc" item, and the unit test with a mock handler sees 0 -- so every run produced
+  // subtype 1. Asking for it by name keeps the geometry the test was built for.
+  await runCommand(page, 'btn-hairpin-decresc');
   await page.locator('svg .HairpinSegment').first().waitFor({ timeout: 20_000 });
   await page.waitForTimeout(500);
 };

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from 'playwright/test';
+import { runCommand } from './helpers/commands';
 
 test.use({ viewport: { width: 2400, height: 1600 } });
 
@@ -72,8 +73,7 @@ test('creates and edits a persistent fretboard diagram and adds an ambitus', asy
   await page.goto('/?score=/test_scores/batch6_tools.musicxml');
   await page.locator('svg .Note').first().waitFor({ timeout: 60_000 });
   await selectAll(page);
-  await page.getByTestId('dropdown-fretboards').click();
-  await page.getByTestId('btn-fretboard-c').click();
+  await runCommand(page, 'btn-fretboard-c');
   await expect
     .poll(async () => (await readMscx(page)).includes('<FretDiagram>'), { timeout: 20_000 })
     .toBe(true);
@@ -172,7 +172,7 @@ test('opens, searches, moves, and click-applies the floating palettes', async ({
   await page.locator('svg .Note').first().waitFor({ timeout: 60_000 });
   await page.locator('svg .Note').first().click();
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
-  await page.getByTestId('btn-toggle-palettes').click();
+  await runCommand(page, 'btn-toggle-palettes');
   const palettes = page.getByTestId('floating-palettes');
   await expect(palettes).toBeVisible();
   const before = await palettes.boundingBox();

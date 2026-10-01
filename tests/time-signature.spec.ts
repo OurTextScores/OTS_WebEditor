@@ -1,5 +1,6 @@
 import { expect, test } from 'playwright/test';
 import type { BrowserScoreWindow } from './browser-score-types';
+import { runCommand } from './helpers/commands';
 
 test('time signature change starts at selected note', async ({ page }) => {
   await page.goto('/?score=/test_scores/bach_orig.mscz');
@@ -37,8 +38,7 @@ test('time signature change starts at selected note', async ({ page }) => {
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
 
   const [num, den] = targetSig.split('/').map(Number);
-  await page.getByTestId('dropdown-signature').click();
-  await page.getByTestId(`btn-timesig-${num}-${den}`).click();
+  await runCommand(page, `btn-timesig-${num}-${den}`);
 
   // Start time signature should remain unchanged (change is inserted later in the score).
   await expect.poll(async () => (await readTimeSigs())[0], { timeout: 20_000 }).toBe(startSig);
@@ -77,11 +77,7 @@ test('custom time signature applies at selection', async ({ page }) => {
   await notes.nth(noteCount - 1).click();
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
 
-  await page.getByTestId('input-timesig-numerator').fill('5', { force: true });
-  await page.getByTestId('input-timesig-denominator').fill('8', { force: true });
-  const applyButton = page.getByTestId('btn-timesig-custom');
-  await expect(applyButton).toBeEnabled();
-  await applyButton.click();
+  await runCommand(page, 'add.timeSig.custom', { numerator: 5, denominator: 8 });
 
   await expect
     .poll(async () => (await readTimeSigs()).includes('5/8'), { timeout: 20_000 })

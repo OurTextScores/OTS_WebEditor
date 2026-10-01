@@ -102,7 +102,10 @@ export async function openMenuPath(page: Page, path: readonly string[]): Promise
   const [menu, ...items] = path;
   await page.getByTestId(`menu-${menu.toLowerCase()}`).click();
   for (const [index, name] of items.entries()) {
-    const item = page.getByRole('menuitem', { name, exact: false }).first();
+    // The label, then end of name or whitespace: a menu appends "…" for dialogs and the
+    // shortcut after a space, and a short label ("D") must not match "Dynamics".
+    const label = new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}…?(\\s|$)`);
+    const item = page.getByRole('menuitem', { name: label }).first();
     if (index < items.length - 1) await item.hover();
     else await item.click();
   }

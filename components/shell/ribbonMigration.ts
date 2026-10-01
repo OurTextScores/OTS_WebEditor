@@ -40,9 +40,10 @@ export interface MigrationEntry {
   readonly newHome: string; // 'File ▸ Export ▸ PDF'
   readonly alsoIn?: readonly string[]; // ['Palette', 'Mod+P']
   /**
-   * The rollout phase (§10) in which `commandId` is registered. Defaults to 0, meaning it
-   * already is, and the coverage test enforces that. Chrome that belongs to later phases
-   * names the command it will become without pretending it exists yet.
+   * The rollout phase (§10) by which `commandId` is registered and `newHome` exists. Defaults
+   * to 0, and the coverage test enforces registration for every phase already shipped.
+   * Chrome that belongs to later phases names the command it will become without
+   * pretending it exists yet.
    */
   readonly phase?: number;
 }
@@ -769,15 +770,15 @@ export const RIBBON_MIGRATION: readonly MigrationEntry[] = [
   ),
   chrome('expand-panel-inspector', 'Collapsed panel strip', 'View ▸ Properties (F8)', {
     commandId: 'view.panel.properties',
-    phase: 3,
+    phase: 1,
   }),
   chrome('expand-panel-musicxml', 'Collapsed panel strip', 'View ▸ Score Source', {
     commandId: 'view.panel.scoreSource',
-    phase: 3,
+    phase: 1,
   }),
   chrome('expand-panel-ai-tools', 'Collapsed panel strip', 'View ▸ AI Tools', {
     commandId: 'view.panel.aiTools',
-    phase: 3,
+    phase: 1,
   }),
   chrome('expand-panel-history', 'Collapsed panel strip', 'Activity bar ▸ History', {
     commandId: 'shell.activity.history',
@@ -795,7 +796,7 @@ export const RIBBON_MIGRATION: readonly MigrationEntry[] = [
     'AI Tools panel close button (test id kept); View ▸ AI Tools',
     {
       commandId: 'view.panel.aiTools',
-      phase: 3,
+      phase: 1,
     },
   ),
   chrome(
@@ -824,7 +825,7 @@ export const RIBBON_MIGRATION: readonly MigrationEntry[] = [
       `AI Tools panel ▸ tool picker ▸ ${label}; Tools ▸ AI ▸ ${label}`,
       {
         commandId: `ai.open.${tool}`,
-        phase: 3,
+        phase: 1,
       },
     ),
   ),

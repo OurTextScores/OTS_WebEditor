@@ -1,4 +1,5 @@
 import { expect, test, type Page } from 'playwright/test';
+import { runCommand } from './helpers/commands';
 
 test.use({ viewport: { width: 2400, height: 1600 } });
 
@@ -24,8 +25,7 @@ test('adds non-default fermata and caesura variants with undo and redo', async (
   await page.locator('svg .Note').first().waitFor({ timeout: 60_000 });
   await page.locator('svg .Note').first().click();
 
-  await page.getByTestId('dropdown-articulations').click();
-  await page.getByTestId('btn-open-fermata-palette').click();
+  await runCommand(page, 'btn-open-fermata-palette');
   await page.getByTestId('palette-item-fermata-4').click();
   await page.keyboard.press('Escape');
   await expect
@@ -36,8 +36,7 @@ test('adds non-default fermata and caesura variants with undo and redo', async (
     )
     .toBe(true);
 
-  await page.getByTestId('dropdown-articulations').click();
-  await page.getByTestId('btn-open-breath-palette').click();
+  await runCommand(page, 'btn-open-breath-palette');
   await page.getByTestId('palette-item-breath-7').click();
   await page.keyboard.press('Escape');
   await expect
@@ -59,8 +58,7 @@ test('adds non-default fermata and caesura variants with undo and redo', async (
 test('adds and serializes a bracket arpeggio on each selected chord', async ({ page }) => {
   await loadTwoChords(page);
   await page.keyboard.press('Control+a');
-  await page.getByTestId('dropdown-chord').click();
-  await page.getByTestId('btn-arpeggio-3').click();
+  await runCommand(page, 'btn-arpeggio-3');
 
   await expect
     .poll(async () => (await readMscx(page)).match(/<Arpeggio>/g)?.length ?? 0, { timeout: 20_000 })
@@ -79,8 +77,7 @@ test('adds and serializes a bracket arpeggio on each selected chord', async ({ p
 test('adds single-note and compatible two-note tremolos', async ({ page }) => {
   await loadTwoChords(page);
   await page.keyboard.press('Control+a');
-  await page.getByTestId('dropdown-chord').click();
-  await page.getByTestId('btn-tremolo-2').click();
+  await runCommand(page, 'btn-tremolo-2');
   await expect
     .poll(
       async () =>
@@ -91,8 +88,7 @@ test('adds single-note and compatible two-note tremolos', async ({ page }) => {
 
   await page.keyboard.press('Control+z');
   await page.keyboard.press('Control+a');
-  await page.getByTestId('dropdown-chord').click();
-  await page.getByTestId('btn-open-tremolo-palette').click();
+  await runCommand(page, 'btn-open-tremolo-palette');
   await page.getByTestId('palette-item-tremolo-7').click();
   await page.keyboard.press('Escape');
   await expect

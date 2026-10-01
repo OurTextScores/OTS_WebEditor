@@ -1,4 +1,5 @@
 import { expect, test, type Page } from 'playwright/test';
+import { runCommand } from './helpers/commands';
 
 test.use({ viewport: { width: 2400, height: 1600 } });
 
@@ -44,8 +45,6 @@ const selectAllNotes = async (page: Page) => {
   await expect(page.getByTestId('dropdown-lines')).toBeEnabled({ timeout: 20_000 });
 };
 
-const openLines = (page: Page) => page.getByTestId('dropdown-lines').click();
-
 const doubleClickGeometry = async (page: Page, selector: string) => {
   const geometry = page.locator(selector).first();
   const point = await geometry.evaluate((element: SVGGeometryElement) => {
@@ -66,9 +65,7 @@ const doubleClickGeometry = async (page: Page, selector: string) => {
 test('adds an undoable 8va line that supports native grip editing', async ({ page }) => {
   await loadTwoNotes(page);
   await selectAllNotes(page);
-
-  await openLines(page);
-  await page.getByTestId('btn-ottava-0').click();
+  await runCommand(page, 'btn-ottava-0');
   await expect(page.locator('svg .OttavaSegment').first()).toBeVisible({ timeout: 20_000 });
   await expect
     .poll(async () => (await readMscx(page)).includes('<Ottava>'), { timeout: 20_000 })
@@ -89,9 +86,7 @@ test('adds an undoable 8va line that supports native grip editing', async ({ pag
 test('adds and serializes a non-default trill line', async ({ page }) => {
   await loadTwoNotes(page);
   await selectAllNotes(page);
-
-  await openLines(page);
-  await page.getByTestId('btn-trill-3').click();
+  await runCommand(page, 'btn-trill-3');
   await expect(page.locator('svg .TrillSegment').first()).toBeVisible({ timeout: 20_000 });
   await expect
     .poll(async () => /<Trill>[\s\S]*?<subtype>prallprall<\/subtype>/.test(await readMscx(page)), {
@@ -109,9 +104,7 @@ test('adds and serializes a non-default trill line', async ({ page }) => {
 test('adds a wavy glissando between exactly two selected notes', async ({ page }) => {
   await loadTwoNotes(page);
   await selectAllNotes(page);
-
-  await openLines(page);
-  await page.getByTestId('btn-glissando-1').click();
+  await runCommand(page, 'btn-glissando-1');
   await expect(page.locator('svg .GlissandoSegment').first()).toBeVisible({ timeout: 20_000 });
   await expect
     .poll(async () => /<Glissando>[\s\S]*?<subtype>1<\/subtype>/.test(await readMscx(page)), {
