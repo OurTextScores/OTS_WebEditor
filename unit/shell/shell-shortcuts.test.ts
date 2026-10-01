@@ -25,8 +25,7 @@ describe('shell shortcut assignments', () => {
 
   it('binds only commands that exist, except those a later phase registers', () => {
     const ids = new Set(allEditorCommands().map((c) => c.id));
-    const later = new Set(['view.panel.instruments']); // Phase 3
-    const unknown = SHELL_SHORTCUTS.filter((s) => !ids.has(s.commandId) && !later.has(s.commandId));
+    const unknown = SHELL_SHORTCUTS.filter((s) => !ids.has(s.commandId));
     expect(unknown).toEqual([]);
   });
 

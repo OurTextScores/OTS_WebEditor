@@ -170,6 +170,8 @@ export interface ToolbarSectionProps {
   onRemoveContainingMeasures?: () => void;
   onRemoveTrailingEmptyMeasures?: () => void;
   insertMeasuresDisabled?: boolean;
+  /** The v2 shell lists instruments in the left dock, so the ribbon omits its Instruments menu. */
+  instrumentsInDock?: boolean;
   parts?: PartSummary[];
   instrumentGroups?: InstrumentTemplateGroup[];
   onAddPart?: (instrumentId: string) => void;

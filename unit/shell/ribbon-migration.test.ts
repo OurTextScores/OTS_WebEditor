@@ -10,7 +10,7 @@ import { isCommandFamily, type AnyCommand, type CommandFamily } from '../../lib/
 import { allEditorCommands } from '../helpers/all-commands';
 
 /** The last rollout phase (§10) that has shipped; entries up to it must be live. */
-const SHIPPED_PHASE = 2;
+const SHIPPED_PHASE = 3;
 
 /**
  * P7: nothing disappears silently. Every `data-testid` the legacy ribbon renders has a

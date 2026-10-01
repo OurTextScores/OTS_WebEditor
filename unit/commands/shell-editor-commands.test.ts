@@ -39,6 +39,7 @@ function setup(over: Partial<ShellEditorBindings> = {}, ctx: Partial<CommandCont
     goToPage: calls.goToPage,
     goToNextPage: calls.next,
     goToPreviousPage: calls.previous,
+    dock: null,
     inspectorOpen: false,
     setInspectorOpen: calls.setInspectorOpen,
     musicXmlOpen: false,
@@ -343,5 +344,66 @@ describe('rehearsal mark navigation', () => {
     await registry.run('view.goto.rehearsal', 'Z');
     expect(calls.goToPage).not.toHaveBeenCalled();
     expect(getNoticeSnapshot().notices.at(-1)?.title).toBe('Could not find rehearsal mark Z.');
+  });
+});
+
+describe('left dock commands', () => {
+  const dockOf = (over: Record<string, unknown> = {}) => ({
+    isShowing: vi.fn((tab: string) => tab === 'palettes'),
+    toggle: vi.fn(),
+    show: vi.fn(),
+    ...over,
+  });
+
+  it('Properties toggles the dock tab, and brings hidden panels back when it opens', async () => {
+    const dock = dockOf();
+    const { registry, calls } = setup({ dock: dock as never });
+    await registry.run('view.panel.properties');
+    expect(dock.toggle).toHaveBeenCalledWith('properties');
+    expect(calls.setPanelsVisible).toHaveBeenCalledWith(true);
+    // Not the legacy sidebar's state.
+    expect(calls.setInspectorOpen).not.toHaveBeenCalled();
+  });
+
+  it('Properties does not reveal panels when it is closing the tab', async () => {
+    const dock = dockOf({ isShowing: vi.fn((tab: string) => tab === 'properties') });
+    const { registry, calls } = setup({ dock: dock as never });
+    await registry.run('view.panel.properties');
+    expect(dock.toggle).toHaveBeenCalledWith('properties');
+    expect(calls.setPanelsVisible).not.toHaveBeenCalled();
+  });
+
+  it('Properties falls back to the legacy inspector sidebar without a dock', async () => {
+    const { registry, calls } = setup({ dock: null, inspectorOpen: false });
+    await registry.run('view.panel.properties');
+    expect(calls.setInspectorOpen).toHaveBeenCalledWith(true);
+    expect(calls.setPanelsVisible).toHaveBeenCalledWith(true);
+  });
+
+  it('reports Properties checked from the dock, or from the legacy sidebar', () => {
+    const entry = (b: Partial<ShellEditorBindings>) =>
+      setup(b).registry.get('view.panel.properties') as unknown as { checked: () => boolean };
+    expect(entry({ dock: dockOf({ isShowing: () => true }) as never }).checked()).toBe(true);
+    expect(entry({ dock: dockOf({ isShowing: () => false }) as never }).checked()).toBe(false);
+    expect(entry({ dock: null, inspectorOpen: true }).checked()).toBe(true);
+  });
+
+  it('Instruments toggles its tab and is only available with the dock', async () => {
+    const dock = dockOf();
+    const withDock = setup({ dock: dock as never });
+    expect(await withDock.registry.run('view.panel.instruments')).toBe('ran');
+    expect(dock.toggle).toHaveBeenCalledWith('instruments');
+    expect(withDock.calls.setPanelsVisible).toHaveBeenCalledWith(true);
+
+    const legacy = setup({ dock: null });
+    expect(await legacy.registry.run('view.panel.instruments')).toBe('disabled');
+  });
+
+  it('shows F7 and F8 for the panels', () => {
+    const { registry } = setup();
+    const shortcut = (id: string) =>
+      (registry.get(id) as unknown as { shortcut?: string }).shortcut;
+    expect(shortcut('view.panel.instruments')).toBe('F7');
+    expect(shortcut('view.panel.properties')).toBe('F8');
   });
 });

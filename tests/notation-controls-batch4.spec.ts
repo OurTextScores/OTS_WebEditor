@@ -102,8 +102,7 @@ test('applies typed notehead and beam properties with undo and redo', async ({ p
   await loadBatch4Score(page);
 
   await page.locator('svg .Note').nth(0).click();
-  // Noteheads now live entirely in the floating palette.
-  await runCommand(page, 'btn-toggle-palettes');
+  // Noteheads live entirely in the palettes, which are docked in the side panel by default.
   await page.getByTestId('palette-item-notehead-1').click();
   await page.keyboard.press('Escape');
   await expect

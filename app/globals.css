@@ -13,6 +13,17 @@
 
   /* Shell chrome (SHELL_REDESIGN_DESIGN §12). Interim values; W3 may change them but not the names. */
   --shell-header-h: 44px;
+  --shell-status-h: 32px;
+  --shell-panel-radius: 8px;
+  /* Mirrored in components/shell/vendor/viritura/shellMetrics.ts: the layout math needs them in JS. */
+  --shell-panel-inset: 12px;
+  --shell-panel-gap: 10px;
+  --shell-surface: #f8fafc;
+  --shell-surface-raised: #ffffff;
+  --shell-border: #e2e8f0;
+  --shell-text: #0f172a;
+  --shell-text-muted: #64748b;
+  --shell-accent: #2563eb;
 }
 
 @theme inline {

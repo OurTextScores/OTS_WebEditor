@@ -1,0 +1,41 @@
+.shell {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  background: var(--shell-surface, #f8fafc);
+}
+
+/* The underlay fills the dock; the canvas inside decides how it scrolls. */
+.canvasLayer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+}
+
+/* Recovery affordance: a slim strip on the left edge while every panel is hidden. */
+.panelHandle {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  z-index: 3;
+  width: 12px;
+  height: 64px;
+  transform: translateY(-50%);
+  border: 1px solid var(--shell-border, #e2e8f0);
+  border-left: 0;
+  border-radius: 0 8px 8px 0;
+  background: var(--shell-surface-raised, #ffffff);
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.12);
+}
+
+.panelHandle:hover {
+  background: #eff6ff;
+}
+
+.panelHandle:focus-visible {
+  outline: 2px solid var(--shell-accent, #2563eb);
+  outline-offset: 2px;
+}

@@ -94,7 +94,7 @@ describe('ShellHeader', () => {
     const dialog = await screen.findByTestId('shortcuts-dialog');
     expect(dialog).toHaveTextContent('Slur: S');
     expect(dialog).toHaveTextContent(/Command palette/);
-    expect(dialog).not.toHaveTextContent('Instruments panel');
+    expect(dialog).toHaveTextContent('Instruments panel');
   });
 
   it('runs a menu command through the registry', async () => {

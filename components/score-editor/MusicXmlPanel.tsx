@@ -46,9 +46,12 @@ export type MusicXmlPanelProps = {
     refresh: () => void;
     close: () => void;
   };
+  /** Content only, for the v2 shell's docked Panel, which supplies the chrome. */
+  embedded?: boolean;
 };
 
 export function MusicXmlPanel({
+  embedded = false,
   text,
   setText,
   setDirty,
@@ -78,6 +81,87 @@ export function MusicXmlPanel({
   const handleApplyXmlEdits = actions.apply;
   const handleRefreshXml = actions.refresh;
 
+  const body = (
+    <div className="flex flex-1 flex-col overflow-y-auto px-4 pb-4">
+      <div className="flex items-center justify-end pb-2">
+        <label className="flex items-center gap-2">
+          <span className="text-[11px] uppercase tracking-wide text-gray-500">Theme</span>
+          <select
+            value={codeEditorTheme}
+            onChange={(event) => setCodeEditorTheme(event.target.value as CodeEditorThemeMode)}
+            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700"
+            data-testid="select-musicxml-theme"
+          >
+            {CODE_EDITOR_THEME_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          data-testid="btn-xml-apply"
+          onClick={handleApplyXmlEdits}
+          disabled={xmlApplyDisabled}
+          title="Applying edits will auto-checkpoint if the score has unsaved changes."
+          className={`flex-1 rounded border px-3 py-1 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
+            xmlApplyEnabled
+              ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
+              : 'border-gray-300 bg-white text-gray-700'
+          }`}
+        >
+          Apply edits
+        </button>
+        <button
+          type="button"
+          data-testid="btn-xml-reload"
+          onClick={handleRefreshXml}
+          disabled={!xmlReloadEnabled}
+          title={
+            xmlReloadEnabled
+              ? 'The score has changed, reload to update XML. Any XML changes will be lost on update.'
+              : undefined
+          }
+          className={`flex-1 rounded border px-3 py-1 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
+            xmlReloadEnabled
+              ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
+              : 'border-gray-300 bg-white text-gray-700'
+          }`}
+        >
+          Reload
+        </button>
+      </div>
+      <div className="mt-2">
+        <CodeMirrorEditor
+          testId="xml-editor"
+          value={xmlText}
+          onChange={(nextValue) => {
+            setXmlText(nextValue);
+            setXmlDirty(true);
+          }}
+          readOnly={xmlControlsDisabled}
+          placeholderText={score ? 'MusicXML will appear here.' : 'Load a score to view MusicXML.'}
+          language="xml"
+          height={xmlEditorHeight}
+          maxHeight={xmlEditorMaxHeight}
+          themeMode={codeEditorTheme}
+        />
+      </div>
+    </div>
+  );
+
+  // Docked in the v2 shell the Panel supplies the chrome, title and close button.
+  if (embedded) {
+    return (
+      <div data-testid="musicxml-sidebar" className="flex min-h-0 flex-1 flex-col pt-3">
+        {body}
+      </div>
+    );
+  }
+
   return (
     <aside
       style={{ width: 384 }}
@@ -101,81 +185,7 @@ export function MusicXmlPanel({
             <PanelRightClose size={16} />
           </button>
         </div>
-        {
-          <div className="flex flex-1 flex-col overflow-y-auto px-4 pb-4">
-            <div className="flex items-center justify-end pb-2">
-              <label className="flex items-center gap-2">
-                <span className="text-[11px] uppercase tracking-wide text-gray-500">Theme</span>
-                <select
-                  value={codeEditorTheme}
-                  onChange={(event) =>
-                    setCodeEditorTheme(event.target.value as CodeEditorThemeMode)
-                  }
-                  className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700"
-                  data-testid="select-musicxml-theme"
-                >
-                  {CODE_EDITOR_THEME_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                data-testid="btn-xml-apply"
-                onClick={handleApplyXmlEdits}
-                disabled={xmlApplyDisabled}
-                title="Applying edits will auto-checkpoint if the score has unsaved changes."
-                className={`flex-1 rounded border px-3 py-1 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
-                  xmlApplyEnabled
-                    ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
-                    : 'border-gray-300 bg-white text-gray-700'
-                }`}
-              >
-                Apply edits
-              </button>
-              <button
-                type="button"
-                data-testid="btn-xml-reload"
-                onClick={handleRefreshXml}
-                disabled={!xmlReloadEnabled}
-                title={
-                  xmlReloadEnabled
-                    ? 'The score has changed, reload to update XML. Any XML changes will be lost on update.'
-                    : undefined
-                }
-                className={`flex-1 rounded border px-3 py-1 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
-                  xmlReloadEnabled
-                    ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
-                    : 'border-gray-300 bg-white text-gray-700'
-                }`}
-              >
-                Reload
-              </button>
-            </div>
-            <div className="mt-2">
-              <CodeMirrorEditor
-                testId="xml-editor"
-                value={xmlText}
-                onChange={(nextValue) => {
-                  setXmlText(nextValue);
-                  setXmlDirty(true);
-                }}
-                readOnly={xmlControlsDisabled}
-                placeholderText={
-                  score ? 'MusicXML will appear here.' : 'Load a score to view MusicXML.'
-                }
-                language="xml"
-                height={xmlEditorHeight}
-                maxHeight={xmlEditorMaxHeight}
-                themeMode={codeEditorTheme}
-              />
-            </div>
-          </div>
-        }
+        {body}
       </div>
     </aside>
   );

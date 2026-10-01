@@ -71,7 +71,7 @@ const reloadCurrentMscz = async (page: Page) => {
 
 test('edits validated note properties through the selection-aware Inspector', async ({ page }) => {
   await loadFixture(page);
-  await page.getByTestId('expand-panel-inspector').click();
+  await runCommand(page, 'view.panel.properties');
   await expect(page.getByTestId('inspector-panel')).toBeVisible();
   await page.locator('svg .Note').first().click();
 
@@ -184,7 +184,7 @@ test('edits line style on a selected range line', async ({ page }) => {
   await ottava.waitFor({ timeout: 20_000 });
   await ottava.click();
 
-  await page.getByTestId('expand-panel-inspector').click();
+  await runCommand(page, 'view.panel.properties');
   await expect(page.getByTestId('inspector-lineStyle')).toBeVisible({ timeout: 20_000 });
   await page.getByTestId('inspector-lineStyle').selectOption('solid');
   await expect
@@ -239,7 +239,7 @@ test('edits plain text in place on the score and commits one undo step', async (
     .poll(async () => (await readMscx(page)).includes('Edited in place'), { timeout: 20_000 })
     .toBe(true);
 
-  await page.getByTestId('expand-panel-inspector').click();
+  await runCommand(page, 'view.panel.properties');
   await expect(page.getByTestId('inspector-placement')).toBeVisible({ timeout: 20_000 });
   await page.getByTestId('inspector-placement').selectOption('below');
   await expect

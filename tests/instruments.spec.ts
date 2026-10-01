@@ -1,8 +1,10 @@
+// Exercises the ribbon's Instruments menu, which the v2 shell replaces with the left dock's
+// Instruments tab (see shell-panels.spec.ts); runs on `?shell=legacy` until the ribbon goes.
 import { expect, test } from 'playwright/test';
 import type { BrowserScoreWindow } from './browser-score-types';
 
 test('instruments can be added, hidden, and removed', async ({ page }) => {
-  await page.goto('/?score=/test_scores/bach_orig.mscz');
+  await page.goto('/?shell=legacy&score=/test_scores/bach_orig.mscz');
   await page.waitForSelector('svg .Clef', { timeout: 60_000 });
 
   const hasInstrumentApi = await page.evaluate(() => {

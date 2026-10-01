@@ -18,6 +18,8 @@ interface InspectorPanelProps {
   onFretDiagramChange?: (data: FretDiagramData) => void;
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
+  /** Content only, for the v2 shell's dock tab, which supplies the chrome and the toggle. */
+  embedded?: boolean;
 }
 
 const selectOptions: Partial<
@@ -70,37 +72,45 @@ export function InspectorPanel({
   onFretDiagramChange,
   collapsed = false,
   onToggleCollapsed,
+  embedded = false,
 }: InspectorPanelProps) {
+  const Wrapper = embedded ? 'div' : 'aside';
   const properties = data?.properties ?? {};
   const available = propertyOrder.filter((name) => properties[name]);
 
   // When collapsed, the panel renders nothing; its tab lives in the shared
   // collapsed-panel strip (see ScoreEditor) so all rails share one column.
-  if (collapsed) {
+  if (collapsed && !embedded) {
     return null;
   }
 
   return (
-    <aside
+    <Wrapper
       data-testid="inspector-panel"
-      className="w-72 shrink-0 overflow-y-auto border-l border-slate-200 bg-white"
+      className={
+        embedded
+          ? 'min-h-0 flex-1 overflow-y-auto bg-white'
+          : 'w-72 shrink-0 overflow-y-auto border-l border-slate-200 bg-white'
+      }
     >
       <div className="sticky top-0 z-10 border-b border-slate-200 bg-white p-4">
         <div className="flex items-center justify-between">
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-700">
             Inspector
           </div>
-          <button
-            type="button"
-            data-testid="inspector-toggle"
-            onClick={onToggleCollapsed}
-            title="Collapse Inspector"
-            aria-label="Collapse Inspector"
-            aria-expanded
-            className="rounded p-1 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-          >
-            <PanelRightClose size={16} />
-          </button>
+          {!embedded && (
+            <button
+              type="button"
+              data-testid="inspector-toggle"
+              onClick={onToggleCollapsed}
+              title="Collapse Inspector"
+              aria-label="Collapse Inspector"
+              aria-expanded
+              className="rounded p-1 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+            >
+              <PanelRightClose size={16} />
+            </button>
+          )}
         </div>
         <div
           data-testid="inspector-selection-type"
@@ -218,6 +228,6 @@ export function InspectorPanel({
       {fretDiagram && onFretDiagramChange && (
         <FretboardEditor data={fretDiagram} disabled={disabled} onChange={onFretDiagramChange} />
       )}
-    </aside>
+    </Wrapper>
   );
 }

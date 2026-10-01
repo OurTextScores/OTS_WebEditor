@@ -33,10 +33,7 @@ export function ShortcutsDialog() {
     () => getShellUiState().shortcutsOpen,
     () => getShellUiState().shortcutsOpen,
   );
-  const shell = SHELL_SHORTCUTS.filter(
-    // F7 is listed once the Instruments panel exists.
-    (shortcut) => shortcut.commandId !== 'view.panel.instruments',
-  );
+  const shell = SHELL_SHORTCUTS;
 
   return (
     <Dialog open={open} onOpenChange={setShortcutsOpen}>

@@ -45,6 +45,11 @@ import { notify } from './shell/notices';
 import { ShellHeader } from './shell/ShellHeader';
 import { StatusBar } from './shell/StatusBar';
 import { LegacyCanvasChrome } from './shell/LegacyCanvasChrome';
+import type { LeftDockProps } from './shell/LeftDock';
+import { WriteWorkspace } from './shell/WriteWorkspace';
+import { useShellPanels } from './shell/useShellPanels';
+import { useWorkspaceDock } from './shell/useWorkspaceDock';
+import { NO_INSETS, type WorkspaceInsets } from './shell/vendor/viritura';
 import { resolveShellVersion, V2_HIDDEN_RIBBON_SECTIONS } from './shell/shellVersion';
 import { useShellCommands } from './score-editor/useShellCommands';
 import { InspectorPanel } from './InspectorPanel';
@@ -175,7 +180,11 @@ import { CompareScoreLoaderDialog } from './score-editor/CompareScoreLoaderDialo
 import { loadCompareScoreMusicXml } from '../lib/compare-score-file';
 import { GoogleDriveExportDialog } from './score-editor/GoogleDriveExportDialog';
 import { ShareLinkDialog } from './score-editor/ShareLinkDialog';
-import { MusicXmlPanel, CODE_EDITOR_THEME_OPTIONS } from './score-editor/MusicXmlPanel';
+import {
+  MusicXmlPanel,
+  CODE_EDITOR_THEME_OPTIONS,
+  type MusicXmlPanelProps,
+} from './score-editor/MusicXmlPanel';
 import { AiToolsTabStrip, type AiToolsTab } from './score-editor/ai-tools/AiToolsTabStrip';
 import { resolveComparePaneStatus } from './score-editor/compare/compare-pane-status';
 import { CompareScorePane } from './score-editor/compare/CompareScorePane';
@@ -1343,10 +1352,6 @@ export default function ScoreEditor() {
   const [paletteDropActive, setPaletteDropActive] = useState(false);
   const [palettesOpen, setPalettesOpen] = useState(false);
   const [paletteCategory, setPaletteCategory] = useState<PaletteCategory | null>(null);
-  const openPaletteCategory = (category: string) => {
-    setPaletteCategory(category as PaletteCategory);
-    setPalettesOpen(true);
-  };
   const [selectionFilterMask, setSelectionFilterMask] = useState(() => {
     if (typeof window === 'undefined') return DEFAULT_SELECTION_FILTER_MASK;
     const storedValue = window.localStorage.getItem(SELECTION_FILTER_STORAGE_KEY);
@@ -2740,14 +2745,13 @@ export default function ScoreEditor() {
       return;
     }
     if (
-      xmlSidebarTab !== 'xml' &&
       xmlSidebarTab !== 'transcoda' &&
       xmlSidebarTab !== 'multitrack' &&
       xmlSidebarTab !== 'mma' &&
       xmlSidebarTab !== 'harmony' &&
       xmlSidebarTab !== 'functional'
     ) {
-      setXmlSidebarTab('xml');
+      setXmlSidebarTab('transcoda');
     }
   }, [aiEnabled, xmlSidebarTab]);
 
@@ -4823,6 +4827,13 @@ ${partsBodyXml}
       setXmlLoading(false);
     }
   }, [score, getScoreXmlData]);
+
+  /** After an AI tool applies its output: show the resulting MusicXML in the Score Source panel. */
+  const revealScoreSource = () => {
+    setPanelsVisible(true);
+    setMusicXmlOpen(true);
+    void loadXmlFromScore();
+  };
 
   const getScoreMscxText = useCallback(
     async (targetScore: Score) => {
@@ -11596,7 +11607,7 @@ ${partsBodyXml}
       } else {
         await applyXmlToScore(musicNotaGenGeneratedXml, { telemetrySource: 'notagen_output' });
       }
-      setXmlSidebarTab('xml');
+      revealScoreSource();
     } catch (err) {
       console.error('Failed to apply NotaGen output XML', err);
       alert('Failed to apply generated MusicXML. See console for details.');
@@ -11739,7 +11750,7 @@ ${partsBodyXml}
           inputFormat: 'musicxml',
         });
       }
-      setXmlSidebarTab('xml');
+      revealScoreSource();
     } catch (err) {
       console.error('Failed to apply Transcoda output XML', err);
       alert('Failed to apply Transcoda MusicXML. See console for details.');
@@ -11935,7 +11946,7 @@ ${partsBodyXml}
           inputFormat: 'musicxml',
         });
       }
-      setXmlSidebarTab('xml');
+      revealScoreSource();
     } catch (err) {
       console.error('Failed to apply MMA output MusicXML', err);
       alert('Failed to apply generated MMA MusicXML. See console for details.');
@@ -12005,7 +12016,7 @@ ${partsBodyXml}
             inputFormat: 'musicxml',
             enforceJazzHarmonyStyle: true,
           });
-          setXmlSidebarTab('xml');
+          revealScoreSource();
         } finally {
           setXmlLoading(false);
         }
@@ -12031,7 +12042,7 @@ ${partsBodyXml}
         inputFormat: 'musicxml',
         enforceJazzHarmonyStyle: true,
       });
-      setXmlSidebarTab('xml');
+      revealScoreSource();
     } catch (err) {
       console.error('Failed to apply harmony-tagged MusicXML', err);
       alert('Failed to apply harmony-tagged MusicXML. See console for details.');
@@ -12152,7 +12163,7 @@ ${partsBodyXml}
         telemetrySource: 'functional_harmony_apply',
         inputFormat: 'musicxml',
       });
-      setXmlSidebarTab('xml');
+      revealScoreSource();
     } catch (err) {
       console.error('Failed to apply harmony-annotated MusicXML', err);
       alert('Failed to apply harmony-annotated MusicXML. See console for details.');
@@ -17442,7 +17453,16 @@ ${partsBodyXml}
     return null;
   }, [aiModel, aiProvider]);
 
+  const panels = useShellPanels();
+  const dock = useWorkspaceDock({
+    enabled: shellV2 && !isEmbedMode,
+    compareView: Boolean(compareView),
+    floatingOpen: palettesOpen,
+    setFloatingOpen: setPalettesOpen,
+    setCategory: setPaletteCategory,
+  });
   useShellCommands({
+    dock: shellV2 && !isEmbedMode ? dock : null,
     score, aiEnabled, pageCount, currentPage, goToPage,
     goToNextPage: handleNextPage, goToPreviousPage: handlePrevPage,
     inspectorOpen, setInspectorOpen, musicXmlOpen, setMusicXmlOpen,
@@ -17509,270 +17529,7 @@ ${partsBodyXml}
       compareRightNoteInputCursor.page === getCompareTargetPage(compareRightScoreDisplay)),
   );
 
-  return (
-    /*
-            Rows mode grows; every other mode fills the window.
-
-            The editor is built for a fixed viewport — `h-screen` with
-            `overflow-auto` at each level — which is right when it owns the
-            window. Embedded in a page it is not: a scrollable box inside a
-            fixed-height frame gives the reader two scrollbars and the shorter
-            of two viewports. So in rows mode the chain grows to its content and
-            the host sizes the frame to match.
-        */
-    <div className={isAnyRowsMode ? 'flex flex-col overflow-x-clip' : 'flex flex-col h-screen'}>
-      {!isEmbedMode && <ShellHeader title={scoreTitle} dirty={scoreDirtySinceCheckpoint} v2={shellV2} />}
-      {!isEmbedMode && (
-        <div className="relative" style={{ zIndex: 100 }} ref={toolbarRef}>
-          <Toolbar
-            hiddenSections={shellV2 ? V2_HIDDEN_RIBBON_SECTIONS : undefined}
-            onNewScore={handleOpenNewScoreDialog}
-            onFileUpload={handleLoadScoreUpload}
-            onLoadScoresToCompare={handleOpenCompareScoreLoader}
-            onSoundFontUpload={handleSoundFontUpload}
-            onOpenHeaderEditor={score?.setTitleText ? handleOpenHeaderEditor : undefined}
-            onZoomIn={handleZoomIn}
-            onZoomOut={handleZoomOut}
-            zoomLevel={zoom}
-            onFitWidth={handleFitWidth}
-            onFitHeight={handleFitHeight}
-            onSetZoom={handleSetZoom}
-            onDeleteSelection={handleDeleteSelection}
-            onSelectAll={handleSelectAll}
-            onUndo={handleUndo}
-            onRedo={handleRedo}
-            onPitchUp={handlePitchUp}
-            onPitchDown={handlePitchDown}
-            onTranspose={handleTranspose}
-            onTransposeEx={handleTransposeEx}
-            onSetAccidental={noteInputActive ? handleSetInputAccidental : handleSetAccidental}
-            onDurationLonger={handleDurationLonger}
-            onDurationShorter={handleDurationShorter}
-            mutationsEnabled={interactiveMutationEnabled}
-            selectionActive={
-              Boolean(selectedElement) || selectionBoxes.length > 0 || Boolean(selectedPoint)
-            }
-            onExportSvg={handleExportSvg}
-            onExportPdf={handleExportPdf}
-            onExportPng={handleExportPng}
-            onExportMxl={handleExportMxl}
-            onExportMscz={handleExportMscz}
-            onExportMscx={handleExportMscx}
-            onExportMusicXml={handleExportMusicXml}
-            onExportAbc={handleExportAbc}
-            onExportMidi={handleExportMidi}
-            onExportAudio={handleExportAudio}
-            onExportCurrentPageAudio={
-              score?.saveAudioForMeasureRange ? handleExportCurrentPageAudio : undefined
-            }
-            onExportToGoogleDrive={handleExportToGoogleDrive}
-            onCreateShareableLink={handleOpenShareLinkDialog}
-            onTogglePlayPause={() => {
-              void handleTogglePlayPause();
-            }}
-            onStopAudio={() => {
-              void stopAudio({ awaitCancel: true });
-            }}
-            onPlayFromSelectionAudio={interactionReady ? handlePlayFromSelectionAudio : undefined}
-            isPlaying={isPlaying}
-            isPaused={isPaused}
-            audioBusy={audioBusy}
-            exportsEnabled={Boolean(score)}
-            pngAvailable={Boolean(score?.savePng)}
-            audioAvailable={Boolean(score?.saveAudio)}
-            onSetTimeSignature={handleSetTimeSignature}
-            onSetKeySignature={handleSetKeySignature}
-            onSetClef={handleSetClef}
-            paletteDropEnabled={Boolean(score?.applyDropAtPoint)}
-            onToggleDot={noteInputActive ? handleToggleInputDotState : handleToggleDot}
-            onToggleDoubleDot={noteInputActive ? undefined : handleToggleDoubleDot}
-            onSetDurationType={noteInputActive ? handleSetInputDuration : handleSetDurationType}
-            onToggleLineBreak={handleToggleLineBreak}
-            onTogglePageBreak={handleTogglePageBreak}
-            onSetVoice={noteInputActive ? handleSetInputVoice : handleSetVoice}
-            onAddDynamic={handleAddDynamic}
-            onAddHairpin={handleAddHairpin}
-            onAddOttava={handleAddOttava}
-            onAddTrill={handleAddTrill}
-            onAddGlissando={handleAddGlissando}
-            onAddFermata={handleAddFermata}
-            onAddBreath={handleAddBreath}
-            onAddArpeggio={handleAddArpeggio}
-            onAddTremolo={handleAddTremolo}
-            onAddPedal={handleAddPedal}
-            onAddSostenutoPedal={handleAddSostenutoPedal}
-            onAddUnaCorda={handleAddUnaCorda}
-            onSplitPedal={handleSplitPedal}
-            onAddTempoText={handleAddTempoText}
-            onAddStaffText={handleAddStaffText}
-            onAddSystemText={handleAddSystemText}
-            onAddExpressionText={handleAddExpressionText}
-            onAddLyricText={handleAddLyricText}
-            onAddHarmonyText={handleAddHarmonyText}
-            onAddFingeringText={handleAddFingeringText}
-            onAddLeftHandGuitarFingeringText={handleAddLeftHandGuitarFingeringText}
-            onAddRightHandGuitarFingeringText={handleAddRightHandGuitarFingeringText}
-            onAddStringNumberText={handleAddStringNumberText}
-            onAddInstrumentChangeText={handleAddInstrumentChangeText}
-            onAddStickingText={handleAddStickingText}
-            onAddFiguredBassText={handleAddFiguredBassText}
-            onAddArticulation={handleAddArticulation}
-            onAddSlur={handleAddSlur}
-            onFlipStem={handleFlipStem}
-            onAddTie={handleAddTie}
-            onAddGraceNote={handleAddGraceNote}
-            onToggleNoteInput={toggleNoteInputMode}
-            noteInputActive={noteInputActive}
-            noteInputMethod={noteInputMethod}
-            onSetNoteInputMethod={handleSetNoteInputMethod}
-            onAddTuplet={handleAddTuplet}
-            onAddNoteFromRest={handleAddNoteFromRest}
-            onToggleRepeatStart={handleToggleRepeatStart}
-            onToggleRepeatEnd={handleToggleRepeatEnd}
-            onSetRepeatCount={handleSetRepeatCount}
-            onSetBarLineType={handleSetBarLineType}
-            onAddVolta={handleAddVolta}
-            onAddMarker={handleAddMarker}
-            onAddJump={handleAddJump}
-            onSetBeamMode={handleSetBeamMode}
-            onAddFretDiagram={handleAddFretDiagram}
-            onAddAmbitus={handleAddAmbitus}
-            onExplodeSelection={() => {
-              void runRangeTool('explode selection', 'explodeSelection');
-            }}
-            onImplodeSelection={() => {
-              void runRangeTool('implode selection', 'implodeSelection');
-            }}
-            onRegroupSelection={() => {
-              void runRangeTool('regroup rhythms', 'regroupSelection');
-            }}
-            onResequenceRehearsalMarks={() => {
-              void runRangeTool('resequence rehearsal marks', 'resequenceRehearsalMarks');
-            }}
-            onTogglePalettes={() => {
-              setPaletteCategory(null);
-              setPalettesOpen((open) => !open);
-            }}
-            onOpenPalette={openPaletteCategory}
-            palettesOpen={palettesOpen}
-            onTogglePanels={() => setPanelsVisible((visible) => !visible)}
-            panelsVisible={panelsVisible}
-            selectionFilterMask={selectionFilterMask}
-            onSetSelectionFilterBit={handleSetSelectionFilterBit}
-            onAddMeasureRepeat={handleAddMeasureRepeat}
-            multiMeasureRestsEnabled={multiMeasureRestsEnabled}
-            onSetMultiMeasureRests={handleSetMultiMeasureRests}
-            onInsertMeasures={handleInsertMeasures}
-            onAddPickup={handleAddPickup}
-            onRemoveContainingMeasures={handleRemoveContainingMeasures}
-            onRemoveTrailingEmptyMeasures={handleRemoveTrailingEmptyMeasures}
-            insertMeasuresDisabled={!score?.insertMeasures}
-            parts={scoreParts}
-            instrumentGroups={instrumentGroups}
-            onAddPart={handleAddPart}
-            onRemovePart={handleRemovePart}
-            onTogglePartVisible={handleTogglePartVisible}
-            selectedTextActive={textSelectionActive}
-            onApplySelectedText={handleApplySelectedText}
-            selectedTextDisabled={selectedTextControlDisabled}
-          />
-        </div>
-      )}
-
-      {palettesOpen && (!isEmbedMode || Boolean(compareView)) && (
-        <FloatingPalettes
-          disabled={
-            compareView
-              ? !compareActiveScore ||
-                !compareActiveRole ||
-                !compareHasSelectionByRole[compareActiveRole]
-              : !interactiveMutationEnabled ||
-                (!selectedElement && selectionBoxes.length === 0 && !selectedPoint)
-          }
-          dragEnabled={Boolean(
-            !compareView && interactiveMutationEnabled && score?.applyDropAtPoint,
-          )}
-          onApply={
-            compareView ? handleCompareApplyFloatingPaletteItem : handleApplyFloatingPaletteItem
-          }
-          onClose={() => setPalettesOpen(false)}
-          category={paletteCategory}
-        />
-      )}
-
-      <div className={isAnyRowsMode ? 'flex' : 'flex flex-1 min-h-0'}>
-        <LeftSidebar
-          hidden={isEmbedMode || !panelsVisible}
-          collapsed={checkpointsCollapsed}
-          onToggleCollapsed={() => setCheckpointsCollapsed((prev) => !prev)}
-          onRefresh={() => {
-            if (otsSourceContext && leftSidebarTab === 'versions') {
-              void refreshSourceHistory();
-              return;
-            }
-            void loadCheckpointList();
-          }}
-          checkpointControlsDisabled={checkpointControlsDisabled}
-          leftSidebarTab={leftSidebarTab}
-          onTabChange={setLeftSidebarTab}
-          showVersionsTab={Boolean(otsSourceContext)}
-          versionsLoading={versionsLoading}
-          versionsError={versionsError}
-          versionsBranchName={versionsBranchName}
-          versionsBranches={sourceHistory?.branches || []}
-          versionsSelectedBranch={sourceHistory?.selectedBranch || null}
-          versionsRevisions={sourceHistory?.revisions || []}
-          versionsCanCreateBranch={Boolean(sourceHistory?.viewer?.canCreateBranch)}
-          versionsCanCommit={Boolean(sourceHistory?.viewer?.canCommitToSelectedBranch)}
-          versionsActionBusy={versionsActionBusy}
-          versionsActionError={versionsActionError}
-          versionsActionNotice={versionsActionNotice}
-          versionsStatusMode={scoreDirtySinceCheckpoint ? 'detached' : 'tracking'}
-          versionsStatusMessage={versionsStatusMessage}
-          versionsSelectedBaseRevisionId={versionsSelectedBaseRevisionId}
-          versionsLoadBranchLabel={versionsLoadBranchLabel}
-          versionsCommitMessage={versionsCommitMessage}
-          onVersionsCommitMessageChange={setVersionsCommitMessage}
-          onVersionsCommitCurrent={() => void handleVersionsCommitCurrent()}
-          versionsCreateBranchName={versionsCreateBranchName}
-          onVersionsCreateBranchNameChange={setVersionsCreateBranchName}
-          versionsCreateBranchPolicy={versionsCreateBranchPolicy}
-          onVersionsCreateBranchPolicyChange={setVersionsCreateBranchPolicy}
-          onVersionsCreateBranch={() => void handleVersionsCreateBranch()}
-          onVersionsBranchChange={setVersionsBranchName}
-          onVersionsRefresh={() => void refreshSourceHistory()}
-          onVersionsOpenRevision={(revision) => void handleVersionsOpenRevision(revision)}
-          onVersionsDiffRevision={(revision) => void handleVersionsDiffRevision(revision)}
-          onVersionsSelectBaseRevision={(revision) =>
-            setVersionsSelectedBaseRevisionId(revision?.revisionId || null)
-          }
-          onVersionsDiffAgainstBase={(revision) => void handleVersionsDiffAgainstBase(revision)}
-          onVersionsLoadBranchHead={() => void handleVersionsLoadBranchHead()}
-          onVersionsOpenChangeReview={(revision) => void handleVersionsOpenChangeReview(revision)}
-          checkpointLabel={checkpointLabel}
-          onCheckpointLabelChange={setCheckpointLabel}
-          onSaveCheckpoint={() => void handleSaveCheckpoint()}
-          checkpointSaveDisabled={checkpointSaveDisabled}
-          scoreLoaded={Boolean(score)}
-          checkpointError={checkpointError}
-          checkpointLoading={checkpointLoading}
-          checkpoints={checkpoints}
-          checkpointCompareDisabled={checkpointCompareDisabled}
-          onRestoreCheckpoint={(checkpoint) => void handleRestoreCheckpoint(checkpoint)}
-          onCompareCheckpoint={(checkpoint) => void handleCompareCheckpoint(checkpoint)}
-          onRenameCheckpoint={(checkpoint) => void handleRenameCheckpoint(checkpoint)}
-          onDeleteCheckpoint={(checkpoint) => void handleDeleteCheckpoint(checkpoint)}
-          scoreDirtySinceCheckpoint={scoreDirtySinceCheckpoint}
-          scoreSummariesError={scoreSummariesError}
-          scoreSummariesLoading={scoreSummariesLoading}
-          scoreSummaries={scoreSummaries}
-          currentScoreId={scoreId}
-          onOpenScoreFromSummary={handleOpenScoreFromSummary}
-          formatTimestamp={formatTimestamp}
-          formatBytes={formatBytes}
-          summarizeScoreId={summarizeScoreId}
-        />
-
+  const renderCanvas = (insets: WorkspaceInsets) => (
         <div
           ref={scrollContainerRef}
           onScroll={(event) => {
@@ -17809,6 +17566,14 @@ ${partsBodyXml}
           className={`relative z-0 flex-1 bg-gray-50 p-8 ${
             isAnyRowsMode ? 'overflow-x-clip overflow-y-visible' : 'overflow-auto'
           } ${isAnyRowsMode && compareView ? 'hidden' : ''}`}
+          style={
+            insets.left || insets.right
+              ? {
+                  paddingLeft: `calc(2rem + ${insets.left}px)`,
+                  paddingRight: `calc(2rem + ${insets.right}px)`,
+                }
+              : undefined
+          }
         >
           {loading && (
             <div className="flex items-center justify-center h-full">
@@ -18169,146 +17934,10 @@ ${partsBodyXml}
             )}
           </div>
         </div>
+  );
 
-        {isChangeReviewSingleScoreMode && (
-          <ChangeReviewScorePanel
-            review={{
-              detail: changeReviewDetail,
-              barBoxes: changeReviewGutterBars,
-              threadsByAnchor: changeReviewThreadsByAnchor,
-              focusedAnchorId: changeReviewFocusedAnchorId,
-              newThreadAnchorId: changeReviewNewThreadAnchorId,
-              newThreadContent: changeReviewNewThreadContent,
-              loading: changeReviewLoading,
-              error: changeReviewError,
-              actionBusy: changeReviewActionBusy,
-              actionError: changeReviewActionError,
-              measurePositions: changeReviewMeasurePositions,
-              scoreView: changeReviewScoreView,
-              renderThread: renderChangeReviewThread,
-              createThread: createChangeReviewThread,
-              setFocusedAnchorId: setChangeReviewFocusedAnchorId,
-              setNewThreadAnchorId: setChangeReviewNewThreadAnchorId,
-              setNewThreadContent: setChangeReviewNewThreadContent,
-            }}
-            gutterRef={changeReviewGutterRef}
-            reviewLabel={reviewLabel}
-            zoom={zoom}
-          />
-        )}
-
-        {!isEmbedMode && panelsVisible && (
-          <InspectorPanel
-            data={inspectorData}
-            loading={inspectorLoading}
-            disabled={!interactiveMutationEnabled || !score?.setSelectedElementProperty}
-            onChange={(property, value) => {
-              void handleSetInspectorProperty(property, value);
-            }}
-            fretDiagram={fretDiagramData}
-            onFretDiagramChange={(diagram) => {
-              void handleSetFretDiagram(diagram);
-            }}
-            collapsed={!inspectorOpen}
-            onToggleCollapsed={() => setInspectorOpen((open) => !open)}
-          />
-        )}
-
-        {!isEmbedMode && panelsVisible && musicXmlOpen && (
-          <MusicXmlPanel
-            text={xmlText}
-            setText={setXmlText}
-            setDirty={setXmlDirty}
-            scoreLoaded={Boolean(score)}
-            layout={{
-              editorHeight: xmlEditorHeight,
-              editorMaxHeight: xmlEditorMaxHeight,
-            }}
-            permissions={{
-              applyEnabled: xmlApplyEnabled,
-              applyDisabled: xmlApplyDisabled,
-              reloadEnabled: xmlReloadEnabled,
-              controlsDisabled: xmlControlsDisabled,
-            }}
-            theme={{
-              mode: codeEditorTheme,
-              setMode: setCodeEditorTheme,
-            }}
-            actions={{
-              apply: () => void handleApplyXmlEdits(),
-              refresh: () => void handleRefreshXml(),
-              close: () => setMusicXmlOpen(false),
-            }}
-          />
-        )}
-
-        {!isEmbedMode && panelsVisible && aiToolsSidebarOpen && (
-          <aside
-            className="flex shrink-0 border-l bg-white text-sm"
-            style={{ width: `${xmlSidebarWidth}px` }}
-            data-testid="xml-sidebar"
-          >
-            {/* Resize Handle Container */}
-            {xmlSidebarMode === 'open' && (
-              <div
-                className="shrink-0 cursor-ew-resize bg-slate-300 hover:bg-blue-500 transition-colors border-r border-slate-400 hover:border-blue-700 flex items-center justify-center"
-                style={{ width: '24px' }}
-                onMouseDown={handleSidebarResizeStart}
-                title="Drag to resize sidebar"
-                data-testid="sidebar-resize-handle"
-              >
-                {/* Vertical grip icon (three vertical bars with rounded ends) */}
-                <svg
-                  width="14"
-                  height="24"
-                  viewBox="0 0 14 24"
-                  fill="none"
-                  className="pointer-events-none"
-                >
-                  {/* Left bar */}
-                  <rect x="2" y="2" width="3" height="20" rx="1.5" fill="#475569" />
-                  {/* Middle bar */}
-                  <rect x="5.5" y="2" width="3" height="20" rx="1.5" fill="#475569" />
-                  {/* Right bar */}
-                  <rect x="9" y="2" width="3" height="20" rx="1.5" fill="#475569" />
-                </svg>
-              </div>
-            )}
-            {/* Sidebar Content */}
-            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-              <div className="sticky top-0 z-10 bg-white">
-                <div className="flex items-center justify-between p-4">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    AI Tools
-                  </span>
-                  <button
-                    type="button"
-                    data-testid="btn-xml-toggle"
-                    aria-expanded
-                    aria-controls="xml-sidebar-content"
-                    aria-label="Close AI Tools sidebar"
-                    title="Close AI Tools sidebar"
-                    onClick={() => setXmlSidebarMode('closed')}
-                    className="rounded p-1 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                  >
-                    <PanelRightClose size={16} />
-                  </button>
-                </div>
-                {aiToolsSidebarOpen && (
-                  <AiToolsTabStrip
-                    activeTab={xmlSidebarTab}
-                    setActiveTab={setXmlSidebarTab}
-                    aiEnabled={aiEnabled}
-                    status={{
-                      checkpointCount: checkpoints.length,
-                      dirtySinceCheckpoint: scoreDirtySinceCheckpoint,
-                      loading: xmlLoading,
-                    }}
-                  />
-                )}
-              </div>
-              {aiToolsSidebarOpen && (
-                <div id="xml-sidebar-content" className="flex-1 overflow-y-auto pb-4 px-4">
+  const renderAiToolsBody = () => (
+    <>
                   {xmlSidebarTab === 'assistant' && aiEnabled && (
                     <AiAssistantPanel
                       controller={aiAssistantController}
@@ -18476,7 +18105,7 @@ ${partsBodyXml}
                               inputFormat: 'musicxml',
                             });
                           }
-                          setXmlSidebarTab('xml');
+                          revealScoreSource();
                         } finally {
                           setXmlLoading(false);
                         }
@@ -18592,6 +18221,459 @@ ${partsBodyXml}
                     />
                   )}
                   {xmlError && <div className="mt-2 text-xs text-red-600">{xmlError}</div>}
+    </>
+  );
+
+  const inspectorProps: LeftDockProps['inspector'] = {
+    data: inspectorData,
+    loading: inspectorLoading,
+    disabled: !interactiveMutationEnabled || !score?.setSelectedElementProperty,
+    onChange: (property, value) => {
+      void handleSetInspectorProperty(property, value);
+    },
+    fretDiagram: fretDiagramData,
+    onFretDiagramChange: (diagram) => {
+      void handleSetFretDiagram(diagram);
+    },
+  };
+
+  const musicXmlPanelProps: MusicXmlPanelProps = {
+    text: xmlText,
+    setText: setXmlText,
+    setDirty: setXmlDirty,
+    scoreLoaded: Boolean(score),
+    layout: {
+      editorHeight: xmlEditorHeight,
+      editorMaxHeight: xmlEditorMaxHeight,
+    },
+    permissions: {
+      applyEnabled: xmlApplyEnabled,
+      applyDisabled: xmlApplyDisabled,
+      reloadEnabled: xmlReloadEnabled,
+      controlsDisabled: xmlControlsDisabled,
+    },
+    theme: {
+      mode: codeEditorTheme,
+      setMode: setCodeEditorTheme,
+    },
+    actions: {
+      apply: () => void handleApplyXmlEdits(),
+      refresh: () => void handleRefreshXml(),
+      close: () => setMusicXmlOpen(false),
+    },
+  };
+
+  const shellOn = shellV2 && !isEmbedMode;
+
+  return (
+    /*
+            Rows mode grows; every other mode fills the window.
+
+            The editor is built for a fixed viewport — `h-screen` with
+            `overflow-auto` at each level — which is right when it owns the
+            window. Embedded in a page it is not: a scrollable box inside a
+            fixed-height frame gives the reader two scrollbars and the shorter
+            of two viewports. So in rows mode the chain grows to its content and
+            the host sizes the frame to match.
+        */
+    <div className={isAnyRowsMode ? 'flex flex-col overflow-x-clip' : 'flex flex-col h-screen'}>
+      {!isEmbedMode && <ShellHeader title={scoreTitle} dirty={scoreDirtySinceCheckpoint} v2={shellV2} />}
+      {!isEmbedMode && (
+        <div className="relative" style={{ zIndex: 100 }} ref={toolbarRef}>
+          <Toolbar
+            hiddenSections={shellV2 ? V2_HIDDEN_RIBBON_SECTIONS : undefined}
+            onNewScore={handleOpenNewScoreDialog}
+            onFileUpload={handleLoadScoreUpload}
+            onLoadScoresToCompare={handleOpenCompareScoreLoader}
+            onSoundFontUpload={handleSoundFontUpload}
+            onOpenHeaderEditor={score?.setTitleText ? handleOpenHeaderEditor : undefined}
+            onZoomIn={handleZoomIn}
+            onZoomOut={handleZoomOut}
+            zoomLevel={zoom}
+            onFitWidth={handleFitWidth}
+            onFitHeight={handleFitHeight}
+            onSetZoom={handleSetZoom}
+            onDeleteSelection={handleDeleteSelection}
+            onSelectAll={handleSelectAll}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
+            onPitchUp={handlePitchUp}
+            onPitchDown={handlePitchDown}
+            onTranspose={handleTranspose}
+            onTransposeEx={handleTransposeEx}
+            onSetAccidental={noteInputActive ? handleSetInputAccidental : handleSetAccidental}
+            onDurationLonger={handleDurationLonger}
+            onDurationShorter={handleDurationShorter}
+            mutationsEnabled={interactiveMutationEnabled}
+            selectionActive={
+              Boolean(selectedElement) || selectionBoxes.length > 0 || Boolean(selectedPoint)
+            }
+            onExportSvg={handleExportSvg}
+            onExportPdf={handleExportPdf}
+            onExportPng={handleExportPng}
+            onExportMxl={handleExportMxl}
+            onExportMscz={handleExportMscz}
+            onExportMscx={handleExportMscx}
+            onExportMusicXml={handleExportMusicXml}
+            onExportAbc={handleExportAbc}
+            onExportMidi={handleExportMidi}
+            onExportAudio={handleExportAudio}
+            onExportCurrentPageAudio={
+              score?.saveAudioForMeasureRange ? handleExportCurrentPageAudio : undefined
+            }
+            onExportToGoogleDrive={handleExportToGoogleDrive}
+            onCreateShareableLink={handleOpenShareLinkDialog}
+            onTogglePlayPause={() => {
+              void handleTogglePlayPause();
+            }}
+            onStopAudio={() => {
+              void stopAudio({ awaitCancel: true });
+            }}
+            onPlayFromSelectionAudio={interactionReady ? handlePlayFromSelectionAudio : undefined}
+            isPlaying={isPlaying}
+            isPaused={isPaused}
+            audioBusy={audioBusy}
+            exportsEnabled={Boolean(score)}
+            pngAvailable={Boolean(score?.savePng)}
+            audioAvailable={Boolean(score?.saveAudio)}
+            onSetTimeSignature={handleSetTimeSignature}
+            onSetKeySignature={handleSetKeySignature}
+            onSetClef={handleSetClef}
+            paletteDropEnabled={Boolean(score?.applyDropAtPoint)}
+            onToggleDot={noteInputActive ? handleToggleInputDotState : handleToggleDot}
+            onToggleDoubleDot={noteInputActive ? undefined : handleToggleDoubleDot}
+            onSetDurationType={noteInputActive ? handleSetInputDuration : handleSetDurationType}
+            onToggleLineBreak={handleToggleLineBreak}
+            onTogglePageBreak={handleTogglePageBreak}
+            onSetVoice={noteInputActive ? handleSetInputVoice : handleSetVoice}
+            onAddDynamic={handleAddDynamic}
+            onAddHairpin={handleAddHairpin}
+            onAddOttava={handleAddOttava}
+            onAddTrill={handleAddTrill}
+            onAddGlissando={handleAddGlissando}
+            onAddFermata={handleAddFermata}
+            onAddBreath={handleAddBreath}
+            onAddArpeggio={handleAddArpeggio}
+            onAddTremolo={handleAddTremolo}
+            onAddPedal={handleAddPedal}
+            onAddSostenutoPedal={handleAddSostenutoPedal}
+            onAddUnaCorda={handleAddUnaCorda}
+            onSplitPedal={handleSplitPedal}
+            onAddTempoText={handleAddTempoText}
+            onAddStaffText={handleAddStaffText}
+            onAddSystemText={handleAddSystemText}
+            onAddExpressionText={handleAddExpressionText}
+            onAddLyricText={handleAddLyricText}
+            onAddHarmonyText={handleAddHarmonyText}
+            onAddFingeringText={handleAddFingeringText}
+            onAddLeftHandGuitarFingeringText={handleAddLeftHandGuitarFingeringText}
+            onAddRightHandGuitarFingeringText={handleAddRightHandGuitarFingeringText}
+            onAddStringNumberText={handleAddStringNumberText}
+            onAddInstrumentChangeText={handleAddInstrumentChangeText}
+            onAddStickingText={handleAddStickingText}
+            onAddFiguredBassText={handleAddFiguredBassText}
+            onAddArticulation={handleAddArticulation}
+            onAddSlur={handleAddSlur}
+            onFlipStem={handleFlipStem}
+            onAddTie={handleAddTie}
+            onAddGraceNote={handleAddGraceNote}
+            onToggleNoteInput={toggleNoteInputMode}
+            noteInputActive={noteInputActive}
+            noteInputMethod={noteInputMethod}
+            onSetNoteInputMethod={handleSetNoteInputMethod}
+            onAddTuplet={handleAddTuplet}
+            onAddNoteFromRest={handleAddNoteFromRest}
+            onToggleRepeatStart={handleToggleRepeatStart}
+            onToggleRepeatEnd={handleToggleRepeatEnd}
+            onSetRepeatCount={handleSetRepeatCount}
+            onSetBarLineType={handleSetBarLineType}
+            onAddVolta={handleAddVolta}
+            onAddMarker={handleAddMarker}
+            onAddJump={handleAddJump}
+            onSetBeamMode={handleSetBeamMode}
+            onAddFretDiagram={handleAddFretDiagram}
+            onAddAmbitus={handleAddAmbitus}
+            onExplodeSelection={() => {
+              void runRangeTool('explode selection', 'explodeSelection');
+            }}
+            onImplodeSelection={() => {
+              void runRangeTool('implode selection', 'implodeSelection');
+            }}
+            onRegroupSelection={() => {
+              void runRangeTool('regroup rhythms', 'regroupSelection');
+            }}
+            onResequenceRehearsalMarks={() => {
+              void runRangeTool('resequence rehearsal marks', 'resequenceRehearsalMarks');
+            }}
+            onTogglePalettes={dock.togglePalettes}
+            onOpenPalette={dock.openPalette}
+            palettesOpen={dock.palettesVisible}
+            instrumentsInDock={shellV2}
+            onTogglePanels={() => setPanelsVisible((visible) => !visible)}
+            panelsVisible={panelsVisible}
+            selectionFilterMask={selectionFilterMask}
+            onSetSelectionFilterBit={handleSetSelectionFilterBit}
+            onAddMeasureRepeat={handleAddMeasureRepeat}
+            multiMeasureRestsEnabled={multiMeasureRestsEnabled}
+            onSetMultiMeasureRests={handleSetMultiMeasureRests}
+            onInsertMeasures={handleInsertMeasures}
+            onAddPickup={handleAddPickup}
+            onRemoveContainingMeasures={handleRemoveContainingMeasures}
+            onRemoveTrailingEmptyMeasures={handleRemoveTrailingEmptyMeasures}
+            insertMeasuresDisabled={!score?.insertMeasures}
+            parts={scoreParts}
+            instrumentGroups={instrumentGroups}
+            onAddPart={handleAddPart}
+            onRemovePart={handleRemovePart}
+            onTogglePartVisible={handleTogglePartVisible}
+            selectedTextActive={textSelectionActive}
+            onApplySelectedText={handleApplySelectedText}
+            selectedTextDisabled={selectedTextControlDisabled}
+          />
+        </div>
+      )}
+
+      {palettesOpen && (!isEmbedMode || Boolean(compareView)) && (
+        <FloatingPalettes
+          disabled={
+            compareView
+              ? !compareActiveScore ||
+                !compareActiveRole ||
+                !compareHasSelectionByRole[compareActiveRole]
+              : !interactiveMutationEnabled ||
+                (!selectedElement && selectionBoxes.length === 0 && !selectedPoint)
+          }
+          dragEnabled={Boolean(
+            !compareView && interactiveMutationEnabled && score?.applyDropAtPoint,
+          )}
+          onApply={
+            compareView ? handleCompareApplyFloatingPaletteItem : handleApplyFloatingPaletteItem
+          }
+          onClose={() => setPalettesOpen(false)}
+          onDock={shellV2 && !compareView ? () => dock.setPoppedOut(false) : undefined}
+          category={paletteCategory}
+        />
+      )}
+
+      <div className={isAnyRowsMode ? 'flex' : 'flex flex-1 min-h-0'}>
+        <LeftSidebar
+          hidden={isEmbedMode || !panelsVisible}
+          collapsed={checkpointsCollapsed}
+          onToggleCollapsed={() => setCheckpointsCollapsed((prev) => !prev)}
+          onRefresh={() => {
+            if (otsSourceContext && leftSidebarTab === 'versions') {
+              void refreshSourceHistory();
+              return;
+            }
+            void loadCheckpointList();
+          }}
+          checkpointControlsDisabled={checkpointControlsDisabled}
+          leftSidebarTab={leftSidebarTab}
+          onTabChange={setLeftSidebarTab}
+          showVersionsTab={Boolean(otsSourceContext)}
+          versionsLoading={versionsLoading}
+          versionsError={versionsError}
+          versionsBranchName={versionsBranchName}
+          versionsBranches={sourceHistory?.branches || []}
+          versionsSelectedBranch={sourceHistory?.selectedBranch || null}
+          versionsRevisions={sourceHistory?.revisions || []}
+          versionsCanCreateBranch={Boolean(sourceHistory?.viewer?.canCreateBranch)}
+          versionsCanCommit={Boolean(sourceHistory?.viewer?.canCommitToSelectedBranch)}
+          versionsActionBusy={versionsActionBusy}
+          versionsActionError={versionsActionError}
+          versionsActionNotice={versionsActionNotice}
+          versionsStatusMode={scoreDirtySinceCheckpoint ? 'detached' : 'tracking'}
+          versionsStatusMessage={versionsStatusMessage}
+          versionsSelectedBaseRevisionId={versionsSelectedBaseRevisionId}
+          versionsLoadBranchLabel={versionsLoadBranchLabel}
+          versionsCommitMessage={versionsCommitMessage}
+          onVersionsCommitMessageChange={setVersionsCommitMessage}
+          onVersionsCommitCurrent={() => void handleVersionsCommitCurrent()}
+          versionsCreateBranchName={versionsCreateBranchName}
+          onVersionsCreateBranchNameChange={setVersionsCreateBranchName}
+          versionsCreateBranchPolicy={versionsCreateBranchPolicy}
+          onVersionsCreateBranchPolicyChange={setVersionsCreateBranchPolicy}
+          onVersionsCreateBranch={() => void handleVersionsCreateBranch()}
+          onVersionsBranchChange={setVersionsBranchName}
+          onVersionsRefresh={() => void refreshSourceHistory()}
+          onVersionsOpenRevision={(revision) => void handleVersionsOpenRevision(revision)}
+          onVersionsDiffRevision={(revision) => void handleVersionsDiffRevision(revision)}
+          onVersionsSelectBaseRevision={(revision) =>
+            setVersionsSelectedBaseRevisionId(revision?.revisionId || null)
+          }
+          onVersionsDiffAgainstBase={(revision) => void handleVersionsDiffAgainstBase(revision)}
+          onVersionsLoadBranchHead={() => void handleVersionsLoadBranchHead()}
+          onVersionsOpenChangeReview={(revision) => void handleVersionsOpenChangeReview(revision)}
+          checkpointLabel={checkpointLabel}
+          onCheckpointLabelChange={setCheckpointLabel}
+          onSaveCheckpoint={() => void handleSaveCheckpoint()}
+          checkpointSaveDisabled={checkpointSaveDisabled}
+          scoreLoaded={Boolean(score)}
+          checkpointError={checkpointError}
+          checkpointLoading={checkpointLoading}
+          checkpoints={checkpoints}
+          checkpointCompareDisabled={checkpointCompareDisabled}
+          onRestoreCheckpoint={(checkpoint) => void handleRestoreCheckpoint(checkpoint)}
+          onCompareCheckpoint={(checkpoint) => void handleCompareCheckpoint(checkpoint)}
+          onRenameCheckpoint={(checkpoint) => void handleRenameCheckpoint(checkpoint)}
+          onDeleteCheckpoint={(checkpoint) => void handleDeleteCheckpoint(checkpoint)}
+          scoreDirtySinceCheckpoint={scoreDirtySinceCheckpoint}
+          scoreSummariesError={scoreSummariesError}
+          scoreSummariesLoading={scoreSummariesLoading}
+          scoreSummaries={scoreSummaries}
+          currentScoreId={scoreId}
+          onOpenScoreFromSummary={handleOpenScoreFromSummary}
+          formatTimestamp={formatTimestamp}
+          formatBytes={formatBytes}
+          summarizeScoreId={summarizeScoreId}
+        />
+
+        {shellOn ? (
+          <WriteWorkspace
+            canvas={renderCanvas}
+            panelsVisible={panelsVisible}
+            onShowPanels={() => setPanelsVisible(true)}
+            dock={dock}
+            widths={panels}
+            left={{
+              palettes: {
+                disabled:
+                  !interactiveMutationEnabled ||
+                  (!selectedElement && selectionBoxes.length === 0 && !selectedPoint),
+                dragEnabled: Boolean(interactiveMutationEnabled && score?.applyDropAtPoint),
+                onApply: handleApplyFloatingPaletteItem,
+                category: paletteCategory,
+                onShowAll: () => setPaletteCategory(null),
+              },
+              instruments: { parts: scoreParts, groups: instrumentGroups },
+              inspector: inspectorProps,
+            }}
+            ai={{
+              open: aiToolsSidebarOpen,
+              tool: xmlSidebarTab,
+              onToolChange: setXmlSidebarTab,
+              aiEnabled,
+              loading: xmlLoading,
+              onClose: () => setXmlSidebarMode('closed'),
+              body: renderAiToolsBody(),
+            }}
+            source={{
+              open: musicXmlOpen,
+              onClose: () => setMusicXmlOpen(false),
+              content: <MusicXmlPanel embedded {...musicXmlPanelProps} />,
+            }}
+          />
+        ) : (
+          <>
+            {renderCanvas(NO_INSETS)}
+
+        {isChangeReviewSingleScoreMode && (
+          <ChangeReviewScorePanel
+            review={{
+              detail: changeReviewDetail,
+              barBoxes: changeReviewGutterBars,
+              threadsByAnchor: changeReviewThreadsByAnchor,
+              focusedAnchorId: changeReviewFocusedAnchorId,
+              newThreadAnchorId: changeReviewNewThreadAnchorId,
+              newThreadContent: changeReviewNewThreadContent,
+              loading: changeReviewLoading,
+              error: changeReviewError,
+              actionBusy: changeReviewActionBusy,
+              actionError: changeReviewActionError,
+              measurePositions: changeReviewMeasurePositions,
+              scoreView: changeReviewScoreView,
+              renderThread: renderChangeReviewThread,
+              createThread: createChangeReviewThread,
+              setFocusedAnchorId: setChangeReviewFocusedAnchorId,
+              setNewThreadAnchorId: setChangeReviewNewThreadAnchorId,
+              setNewThreadContent: setChangeReviewNewThreadContent,
+            }}
+            gutterRef={changeReviewGutterRef}
+            reviewLabel={reviewLabel}
+            zoom={zoom}
+          />
+        )}
+
+        {!isEmbedMode && panelsVisible && (
+          <InspectorPanel
+            {...inspectorProps}
+            collapsed={!inspectorOpen}
+            onToggleCollapsed={() => setInspectorOpen((open) => !open)}
+          />
+        )}
+
+        {!isEmbedMode && panelsVisible && musicXmlOpen && (
+          <MusicXmlPanel {...musicXmlPanelProps} />
+        )}
+
+        {!isEmbedMode && panelsVisible && aiToolsSidebarOpen && (
+          <aside
+            className="flex shrink-0 border-l bg-white text-sm"
+            style={{ width: `${xmlSidebarWidth}px` }}
+            data-testid="xml-sidebar"
+          >
+            {/* Resize Handle Container */}
+            {xmlSidebarMode === 'open' && (
+              <div
+                className="shrink-0 cursor-ew-resize bg-slate-300 hover:bg-blue-500 transition-colors border-r border-slate-400 hover:border-blue-700 flex items-center justify-center"
+                style={{ width: '24px' }}
+                onMouseDown={handleSidebarResizeStart}
+                title="Drag to resize sidebar"
+                data-testid="sidebar-resize-handle"
+              >
+                {/* Vertical grip icon (three vertical bars with rounded ends) */}
+                <svg
+                  width="14"
+                  height="24"
+                  viewBox="0 0 14 24"
+                  fill="none"
+                  className="pointer-events-none"
+                >
+                  {/* Left bar */}
+                  <rect x="2" y="2" width="3" height="20" rx="1.5" fill="#475569" />
+                  {/* Middle bar */}
+                  <rect x="5.5" y="2" width="3" height="20" rx="1.5" fill="#475569" />
+                  {/* Right bar */}
+                  <rect x="9" y="2" width="3" height="20" rx="1.5" fill="#475569" />
+                </svg>
+              </div>
+            )}
+            {/* Sidebar Content */}
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+              <div className="sticky top-0 z-10 bg-white">
+                <div className="flex items-center justify-between p-4">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    AI Tools
+                  </span>
+                  <button
+                    type="button"
+                    data-testid="btn-xml-toggle"
+                    aria-expanded
+                    aria-controls="xml-sidebar-content"
+                    aria-label="Close AI Tools sidebar"
+                    title="Close AI Tools sidebar"
+                    onClick={() => setXmlSidebarMode('closed')}
+                    className="rounded p-1 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                  >
+                    <PanelRightClose size={16} />
+                  </button>
+                </div>
+                {aiToolsSidebarOpen && (
+                  <AiToolsTabStrip
+                    activeTab={xmlSidebarTab}
+                    setActiveTab={setXmlSidebarTab}
+                    aiEnabled={aiEnabled}
+                    status={{
+                      checkpointCount: checkpoints.length,
+                      dirtySinceCheckpoint: scoreDirtySinceCheckpoint,
+                      loading: xmlLoading,
+                    }}
+                  />
+                )}
+              </div>
+              {aiToolsSidebarOpen && (
+                <div id="xml-sidebar-content" className="flex-1 overflow-y-auto pb-4 px-4">
+                  {renderAiToolsBody()}
                 </div>
               )}
             </div>
@@ -18653,6 +18735,8 @@ ${partsBodyXml}
               </div>
             );
           })()}
+          </>
+        )}
 
         {pngExportDialogOpen && (
           <PngExportDialog

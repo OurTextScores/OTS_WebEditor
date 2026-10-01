@@ -15,6 +15,7 @@ const bindings = (over: Partial<ShellEditorBindings> = {}): ShellEditorBindings 
   goToPage: vi.fn(async () => {}),
   goToNextPage: vi.fn(),
   goToPreviousPage: vi.fn(),
+  dock: null,
   inspectorOpen: false,
   setInspectorOpen: vi.fn(),
   musicXmlOpen: false,

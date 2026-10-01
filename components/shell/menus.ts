@@ -232,7 +232,7 @@ export const MENUS: readonly MenuDefinition[] = [
         family('add.jump', 'Jumps'),
       ),
       item('add.ambitus'),
-      // Instruments… (F7) arrives with the Instruments panel in Phase 3.
+      item('view.panel.instruments', 'Instruments…'),
     ],
   },
   {

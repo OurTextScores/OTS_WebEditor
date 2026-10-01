@@ -80,7 +80,7 @@ test('creates and edits a persistent fretboard diagram and adds an ambitus', asy
 
   const diagram = page.locator('svg .FretDiagram').first();
   await diagram.waitFor({ timeout: 20_000, state: 'attached' });
-  await page.getByTestId('expand-panel-inspector').click();
+  await runCommand(page, 'view.panel.properties');
   await expect(page.getByTestId('fretboard-editor')).toBeVisible({ timeout: 20_000 });
   await page.getByTestId('fretboard-cell-5-4').click();
   await expect
@@ -172,7 +172,8 @@ test('opens, searches, moves, and click-applies the floating palettes', async ({
   await page.locator('svg .Note').first().waitFor({ timeout: 60_000 });
   await page.locator('svg .Note').first().click();
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
-  await runCommand(page, 'btn-toggle-palettes');
+  // The palettes dock in the side panel by default; this exercises the floating form.
+  await page.getByTestId('btn-palettes-pop-out').click();
   const palettes = page.getByTestId('floating-palettes');
   await expect(palettes).toBeVisible();
   const before = await palettes.boundingBox();

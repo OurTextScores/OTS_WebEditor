@@ -6,7 +6,7 @@
  * it back so the two cannot drift.
  */
 export type AiToolsTab =
-  'xml' | 'assistant' | 'notagen' | 'transcoda' | 'multitrack' | 'harmony' | 'functional' | 'mma';
+  'assistant' | 'notagen' | 'transcoda' | 'multitrack' | 'harmony' | 'functional' | 'mma';
 
 export type AiToolsTabStripProps = {
   activeTab: AiToolsTab;

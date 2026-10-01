@@ -304,25 +304,29 @@ export const RIBBON_MIGRATION: readonly MigrationEntry[] = [
   variant('btn-keysig-', `${SIGS} › Key`, 'add.keySig', 'Add ▸ Signatures ▸ Key ▸'),
 
   // ── Score ─────────────────────────────────────────────────────────────────────────
-  container('dropdown-instruments', SCORE, 'View ▸ Instruments (F7)'),
+  container(
+    'dropdown-instruments',
+    SCORE,
+    'Add ▸ Instruments… (F7): the left dock’s Instruments tab',
+  ),
   input(
     'select-instrument-add',
     `${SCORE} › Instruments`,
     'instruments.add',
-    'Instruments panel ▸ Add',
+    'Left dock ▸ Instruments tab ▸ Add',
   ),
   variant(
     'btn-part-visible-',
     `${SCORE} › Instruments`,
     'instruments.part.toggleVisible',
-    'Instruments panel ▸ part ▸ Show/Hide',
+    'Left dock ▸ Instruments tab ▸ part ▸ Show/Hide',
     (suffix) => ({ index: Number(suffix) }),
   ),
   variant(
     'btn-part-remove-',
     `${SCORE} › Instruments`,
     'instruments.part.remove',
-    'Instruments panel ▸ part ▸ Remove',
+    'Left dock ▸ Instruments tab ▸ part ▸ Remove',
     (suffix) => ({ index: Number(suffix) }),
   ),
   container('dropdown-clef', SCORE, 'Add ▸ Signatures ▸ Clef ▸'),
@@ -382,7 +386,7 @@ export const RIBBON_MIGRATION: readonly MigrationEntry[] = [
       testId,
       `${SCORE} › ${category} menu footer`,
       'view.palette.open',
-      `Palettes panel ▸ ${category}`,
+      `Left dock ▸ Palettes tab ▸ ${category} (scoped)`,
       {
         arg: category,
         alsoIn: ['F9'],
@@ -768,10 +772,15 @@ export const RIBBON_MIGRATION: readonly MigrationEntry[] = [
       phase: 3,
     },
   ),
-  chrome('expand-panel-inspector', 'Collapsed panel strip', 'View ▸ Properties (F8)', {
-    commandId: 'view.panel.properties',
-    phase: 1,
-  }),
+  chrome(
+    'expand-panel-inspector',
+    'Collapsed panel strip',
+    'Left dock ▸ Properties tab (F8); View ▸ Properties',
+    {
+      commandId: 'view.panel.properties',
+      phase: 1,
+    },
+  ),
   chrome('expand-panel-musicxml', 'Collapsed panel strip', 'View ▸ Score Source', {
     commandId: 'view.panel.scoreSource',
     phase: 1,

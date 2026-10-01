@@ -141,6 +141,15 @@ describe('Toolbar hiddenSections', () => {
     expect(screen.getByTestId('dropdown-clef')).toBeInTheDocument();
   });
 
+  it('omits the ribbon Instruments menu when the dock has the tab', () => {
+    const { rerender } = render(<Toolbar {...base} exportsEnabled />);
+    expect(screen.getByTestId('dropdown-instruments')).toBeInTheDocument();
+    rerender(<Toolbar {...base} exportsEnabled instrumentsInDock />);
+    expect(screen.queryByTestId('dropdown-instruments')).toBeNull();
+    // The rest of the Score section is untouched.
+    expect(screen.getByTestId('dropdown-clef')).toBeInTheDocument();
+  });
+
   it('keeps the hidden sections’ commands registered', () => {
     render(<Toolbar {...base} hiddenSections={['file', 'view', 'playback', 'tempo', 'help']} />);
     for (const id of [

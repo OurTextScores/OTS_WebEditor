@@ -1,0 +1,133 @@
+/* Opaque docked panel on the shell tokens (SHELL_REDESIGN_DESIGN §12): no glass or blur. */
+.panel {
+  position: relative;
+  z-index: 1;
+}
+
+.chrome {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--shell-panel-radius, 8px);
+  border: 1px solid var(--shell-border, #e2e8f0);
+  background: var(--shell-surface-raised, #ffffff);
+  color: var(--shell-text, #0f172a);
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / 0.06),
+    0 6px 18px rgb(15 23 42 / 0.1);
+}
+
+.header {
+  flex: none;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--shell-border, #e2e8f0);
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--shell-text-muted, #64748b);
+}
+
+.headerActions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+}
+
+.closeButton {
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  padding: 2px 6px;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--shell-text-muted, #64748b);
+  cursor: pointer;
+}
+
+.closeButton:hover {
+  background: #f1f5f9;
+  color: var(--shell-text, #0f172a);
+}
+
+.closeButton:focus-visible {
+  outline: 2px solid var(--shell-accent, #2563eb);
+  outline-offset: 2px;
+}
+
+.subtitle {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--shell-text-muted, #64748b);
+}
+
+.body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.bodyScroll {
+  overflow-y: auto;
+}
+
+.footer {
+  flex: none;
+  border-top: 1px solid var(--shell-border, #e2e8f0);
+  padding: 8px 12px;
+}
+
+/* The drag strip straddles the inboard edge, half outside the card, so it is easy to grab. */
+.resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  cursor: ew-resize;
+  touch-action: none;
+  z-index: 1;
+}
+
+.resize[data-side='right'] {
+  right: -5px;
+}
+
+.resize[data-side='left'] {
+  left: -5px;
+}
+
+.resize:hover,
+.resize:active {
+  background: linear-gradient(
+    to right,
+    transparent 4px,
+    var(--shell-accent, #2563eb) 4px,
+    var(--shell-accent, #2563eb) 6px,
+    transparent 6px
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel,
+  .chrome {
+    transition: none;
+  }
+}

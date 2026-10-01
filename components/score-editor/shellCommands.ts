@@ -2,6 +2,7 @@ import { defineCommand, type AnyCommand, type CommandContext } from '../../lib/c
 import type { ScoreSummary } from '../../lib/checkpoints';
 import { decodeScoreXml, type Score } from '../../lib/webmscore-loader';
 import { notify } from '../shell/notices';
+import type { WorkspaceDock } from '../shell/useWorkspaceDock';
 import type { AiToolsTab } from './ai-tools/AiToolsTabStrip';
 
 /**
@@ -17,6 +18,8 @@ export interface ShellEditorBindings {
   readonly goToPage: (page: number) => Promise<void>;
   readonly goToNextPage: () => void;
   readonly goToPreviousPage: () => void;
+  /** The v2 shell's left dock; null under `?shell=legacy`, where the old sidebars are in charge. */
+  readonly dock: WorkspaceDock | null;
   readonly inspectorOpen: boolean;
   readonly setInspectorOpen: (open: boolean) => void;
   readonly musicXmlOpen: boolean;
@@ -52,16 +55,36 @@ export const AI_TOOLS: readonly {
   tool: AiToolsTab;
   id: string;
   label: string;
+  /** The legacy tab button's test id; the v2 tool picker's options keep it. */
+  testId: string;
   /** Needs the AI proxy; the other tools run without it. */
   needsAi: boolean;
 }[] = [
-  { tool: 'assistant', id: 'assistant', label: 'AI Assistant', needsAi: true },
-  { tool: 'notagen', id: 'notagen', label: 'NotaGen', needsAi: true },
-  { tool: 'transcoda', id: 'transcoda', label: 'Transcoda OMR', needsAi: false },
-  { tool: 'multitrack', id: 'multitrack', label: 'Multitrack', needsAi: false },
-  { tool: 'harmony', id: 'harmony', label: 'Harmony', needsAi: false },
-  { tool: 'functional', id: 'functional', label: 'Functional Harmony', needsAi: false },
-  { tool: 'mma', id: 'mma', label: 'Accompaniment (MMA)', needsAi: false },
+  { tool: 'assistant', id: 'assistant', label: 'AI Assistant', testId: 'tab-ai', needsAi: true },
+  { tool: 'notagen', id: 'notagen', label: 'NotaGen', testId: 'tab-notagen', needsAi: true },
+  {
+    tool: 'transcoda',
+    id: 'transcoda',
+    label: 'Transcoda OMR',
+    testId: 'tab-transcoda',
+    needsAi: false,
+  },
+  {
+    tool: 'multitrack',
+    id: 'multitrack',
+    label: 'Multitrack',
+    testId: 'tab-multitrack-vae',
+    needsAi: false,
+  },
+  { tool: 'harmony', id: 'harmony', label: 'Harmony', testId: 'tab-harmony', needsAi: false },
+  {
+    tool: 'functional',
+    id: 'functional',
+    label: 'Functional Harmony',
+    testId: 'tab-functional-harmony',
+    needsAi: false,
+  },
+  { tool: 'mma', id: 'mma', label: 'Accompaniment (MMA)', testId: 'tab-mma', needsAi: false },
 ];
 
 /**
@@ -134,13 +157,37 @@ export function buildShellEditorCommands(getBindings: GetBindings): AnyCommand[]
 
   return [
     // ── Panels ──────────────────────────────────────────────────────────────────────
-    togglePanel(
-      'view.panel.properties',
-      'Properties',
-      'F8',
-      () => b().inspectorOpen,
-      (open) => b().setInspectorOpen(open),
-    ),
+    defineCommand({
+      id: 'view.panel.properties',
+      label: 'Properties',
+      shortcut: 'F8',
+      keywords: ['inspector', 'panel', 'toggle'],
+      checked: () => (b().dock ? b().dock!.isShowing('properties') : b().inspectorOpen),
+      run: () => {
+        const { dock } = b();
+        if (!dock) {
+          if (!b().inspectorOpen) b().setPanelsVisible(true);
+          b().setInspectorOpen(!b().inspectorOpen);
+          return;
+        }
+        if (!dock.isShowing('properties')) b().setPanelsVisible(true);
+        dock.toggle('properties');
+      },
+    }),
+    defineCommand({
+      id: 'view.panel.instruments',
+      label: 'Instruments',
+      shortcut: 'F7',
+      keywords: ['parts', 'staves', 'add instrument', 'panel', 'toggle'],
+      enabled: () => b().dock !== null,
+      checked: () => Boolean(b().dock?.isShowing('instruments')),
+      run: () => {
+        const dock = b().dock;
+        if (!dock) return;
+        if (!dock.isShowing('instruments')) b().setPanelsVisible(true);
+        dock.toggle('instruments');
+      },
+    }),
     togglePanel(
       'view.panel.aiTools',
       'AI Tools',
