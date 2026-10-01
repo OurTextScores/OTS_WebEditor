@@ -18,6 +18,8 @@ import { LayoutSection } from './toolbar/sections/LayoutSection';
 import { PitchSection } from './toolbar/sections/PitchSection';
 import { DurationSection } from './toolbar/sections/DurationSection';
 import { HelpSection } from './toolbar/sections/HelpSection';
+import { TransposeDialog } from './toolbar/TransposeDialog';
+import { useEditorCommands } from './score-editor/useEditorCommands';
 import { RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
 
 export type MeasureInsertTarget = 'beginning' | 'after-selection' | 'end';
@@ -75,6 +77,13 @@ export const Toolbar: React.FC<ToolbarProps> = (props) => {
   const [toolbarCollapsed, setToolbarCollapsed] = useState(
     () => typeof window !== 'undefined' && window.innerWidth < 1024,
   );
+  const [transposeDialogOpen, setTransposeDialogOpen] = useState(false);
+  const sectionProps: ToolbarSectionProps = {
+    ...props,
+    onOpenTransposeDialog: () => setTransposeDialogOpen(true),
+  };
+  // Commands see the same props the sections do, including the dialog opener above.
+  useEditorCommands(sectionProps);
 
   const {
     orderedIds,
@@ -152,12 +161,19 @@ export const Toolbar: React.FC<ToolbarProps> = (props) => {
                 onDragEnd={handleDragEnd}
                 onToggleSnap={toggleSnap}
               >
-                <section.Component {...props} />
+                <section.Component {...sectionProps} />
               </ToolbarSection>
             );
           })}
         </CollapsibleContent>
       </div>
+      {props.onTransposeEx && (
+        <TransposeDialog
+          open={transposeDialogOpen}
+          onOpenChange={setTransposeDialogOpen}
+          onTranspose={props.onTransposeEx}
+        />
+      )}
     </Collapsible>
   );
 };

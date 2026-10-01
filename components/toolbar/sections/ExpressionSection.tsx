@@ -9,7 +9,14 @@ import {
 } from '../../ui/DropdownMenu';
 import { ToolbarSectionProps } from '../types';
 import { PaletteLink } from '../PaletteLink';
-import { dynamicOptions, hairpinOptions, pedalOptions, articulationOptions } from '../constants';
+import {
+  dynamicOptions,
+  hairpinOptions,
+  pedalOptions,
+  articulationOptions,
+  fermataOptions,
+  breathOptions,
+} from '../constants';
 import {
   articulationScorePaletteItem,
   dynamicScorePaletteItem,
@@ -61,26 +68,6 @@ const articulationGlyphs: Record<string, string> = {
   articMarcatoAbove: '\uE4AC',
   articAccentAbove: '\uE4A0',
 };
-
-const fermataOptions = [
-  { label: 'Fermata', value: 0, symbol: '\uE4C0', common: true },
-  { label: 'Short fermata', value: 1, symbol: '\uE4C4', common: true },
-  { label: 'Long fermata', value: 2, symbol: '\uE4C6', common: true },
-  { label: 'Very short fermata', value: 3, symbol: '\uE4C2', common: false },
-  { label: 'Very long fermata', value: 4, symbol: '\uE4C8', common: false },
-] as const;
-
-const breathOptions = [
-  { label: 'Breath mark', value: 0, symbol: '\uE4CE', common: true },
-  { label: 'Caesura', value: 5, symbol: '\uE4D1', common: true },
-  { label: 'Tick breath mark', value: 1, symbol: '\uE4CF', common: false },
-  { label: 'Salzedo breath mark', value: 2, symbol: '\uE4D5', common: false },
-  { label: 'Upbow breath mark', value: 3, symbol: '\uE4D0', common: false },
-  { label: 'Curved caesura', value: 4, symbol: '\uE4D4', common: false },
-  { label: 'Short caesura', value: 6, symbol: '\uE4D3', common: false },
-  { label: 'Thick caesura', value: 7, symbol: '\uE4D2', common: false },
-  { label: 'Chant caesura', value: 8, symbol: '\uE8F8', common: false },
-] as const;
 
 const renderDynamicOption = (
   opt: (typeof dynamicOptions)[number],

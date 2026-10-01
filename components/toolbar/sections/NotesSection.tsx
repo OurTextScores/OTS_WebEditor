@@ -10,7 +10,17 @@ import {
 import { ToolbarSectionProps } from '../types';
 import { PaletteLink } from '../PaletteLink';
 import { BeamIcon } from '../BeamIcon';
-import { graceNoteOptions } from '../constants';
+import {
+  graceNoteOptions,
+  ottavaOptions,
+  trillOptions,
+  glissandoOptions,
+  arpeggioOptions,
+  tremoloOptions,
+  beamOptions,
+  fretDiagramOptions,
+  noteInputMethodOptions,
+} from '../constants';
 import { Music2, PenLine, Speech, Spline, Waves, Layers, FlipVertical2 } from 'lucide-react';
 import styles from './NotesSection.module.css';
 
@@ -23,67 +33,6 @@ const graceNoteGlyphs: Record<number, string> = {
   64: '\uE1D9',
   128: '\uE1DB',
 };
-
-const ottavaOptions = [
-  { label: '8va', value: 0, symbol: '\uE511', common: true },
-  { label: '8vb', value: 1, symbol: '\uE51C', common: true },
-  { label: '15ma', value: 2, symbol: '\uE515', common: true },
-  { label: '15mb', value: 3, symbol: '\uE51D', common: true },
-  { label: '22ma', value: 4, symbol: '\uE518', common: false },
-  { label: '22mb', value: 5, symbol: '\uE51E', common: false },
-] as const;
-
-const trillOptions = [
-  { label: 'Trill line', value: 0 },
-  { label: 'Up-prall line', value: 1 },
-  { label: 'Down-prall line', value: 2 },
-  { label: 'Prall-prall line', value: 3 },
-] as const;
-
-const glissandoOptions = [
-  { label: 'Straight glissando', value: 0, symbol: '\uE585' },
-  { label: 'Wavy glissando', value: 1, symbol: '\uEAAF' },
-] as const;
-
-const arpeggioOptions = [
-  { label: 'Arpeggio', value: 0, symbol: '\uE63C' },
-  { label: 'Arpeggio up', value: 1, symbol: '\uE634' },
-  { label: 'Arpeggio down', value: 2, symbol: '\uE635' },
-  { label: 'Arpeggio bracket', value: 3, symbol: '\uE002' },
-] as const;
-
-const tremoloOptions = [
-  { label: 'Eighth-note tremolo', value: 0, symbol: '\uE220', common: true },
-  { label: '16th-note tremolo', value: 1, symbol: '\uE221', common: true },
-  { label: '32nd-note tremolo', value: 2, symbol: '\uE222', common: true },
-  { label: '64th-note tremolo', value: 3, symbol: '\uE223', common: false },
-  { label: 'Buzz roll', value: 4, symbol: '\uE22A', common: false },
-  { label: 'Two-note eighth tremolo', value: 5, symbol: '\uE220', common: false },
-  { label: 'Two-note 16th tremolo', value: 6, symbol: '\uE221', common: false },
-  { label: 'Two-note 32nd tremolo', value: 7, symbol: '\uE222', common: false },
-  { label: 'Two-note 64th tremolo', value: 8, symbol: '\uE223', common: false },
-] as const;
-
-const beamOptions = [
-  { label: 'Auto beam', value: 0 },
-  { label: 'Begin beam / break left', value: 2 },
-  { label: 'Join beams', value: 6 },
-  { label: 'No beam', value: 1 },
-  { label: 'Break secondary beam at eighth', value: 3 },
-  { label: 'Break secondary beam at 16th', value: 4 },
-] as const;
-
-const fretDiagramOptions = [
-  { label: 'Blank', pattern: '......' },
-  { label: 'C', pattern: 'X32010' },
-  { label: 'G', pattern: '320003' },
-  { label: 'D', pattern: 'XX0232' },
-  { label: 'A', pattern: 'X02220' },
-  { label: 'E', pattern: '022100' },
-  { label: 'Am', pattern: 'X02210' },
-  { label: 'Em', pattern: '022000' },
-  { label: 'Dm', pattern: 'XX0231' },
-] as const;
 
 export const NotesSection: React.FC<ToolbarSectionProps> = ({
   onAddGraceNote,
@@ -145,12 +94,7 @@ export const NotesSection: React.FC<ToolbarSectionProps> = ({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
-          {[
-            { label: 'Step-time', value: 1 },
-            { label: 'Repitch', value: 2 },
-            { label: 'Rhythm', value: 3 },
-            { label: 'Timewise (insert)', value: 6 },
-          ].map((option) => (
+          {noteInputMethodOptions.map((option) => (
             <DropdownMenuItem
               key={option.value}
               data-testid={`btn-note-input-method-${option.value}`}

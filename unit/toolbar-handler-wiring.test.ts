@@ -30,7 +30,12 @@ const SECTIONS_DIR = resolve(REPO, 'components/toolbar/sections');
  * Handler props a section may reference without ScoreEditor supplying one.
  * Add here only with a reason -- an entry is an admission that a control is dead.
  */
-const ALLOWED_UNWIRED = new Map<string, string>([]);
+const ALLOWED_UNWIRED = new Map<string, string>([
+  [
+    'onOpenTransposeDialog',
+    'Supplied by Toolbar itself, which owns TransposeDialog so a command can open it too.',
+  ],
+]);
 
 function toolbarCallSiteProps(): Set<string> {
   const source = readFileSync(resolve(REPO, 'components/ScoreEditor.tsx'), 'utf8');

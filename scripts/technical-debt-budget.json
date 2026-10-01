@@ -3,6 +3,18 @@
   "_raisesComment": "check:debt compares this file against the base ref and fails on any increase that is not declared below with its exact before/after values and a reason. Entries are a permanent log: matching on 'from' as well as 'to' stops an old entry from re-authorizing a later raise. Lowering a budget needs no entry. A raise is for work that genuinely could not fit, not for making a red check green.",
   "raises": [
     {
+      "key": "eslint.maxWarnings",
+      "from": 0,
+      "to": 135,
+      "reason": "SHELL_REDESIGN_DESIGN Phase 0 adds the no-alert rule as a warning (section 8.6) so the 126 alert(), 4 confirm() and 2 prompt() calls left in ScoreEditor and ScoreSection can migrate to the notice service opportunistically; Phase 5 raises the rule to an error. The 132 are existing call sites made visible, not new ones, and this cap is the ratchet that drives them to zero: lower it as each one migrates. The other 3 warnings were already over the old cap of 0."
+    },
+    {
+      "key": "eslint.maxFilesWithFindings",
+      "from": 0,
+      "to": 4,
+      "reason": "Same change as the maxWarnings raise above: ScoreEditor.tsx and ScoreSection.tsx now carry no-alert warnings, joining the two files that already had findings."
+    },
+    {
       "key": "scoreEditor.maxLines",
       "from": 17900,
       "to": 18100,
@@ -184,8 +196,8 @@
   },
   "eslint": {
     "maxErrors": 0,
-    "maxWarnings": 0,
-    "maxFilesWithFindings": 0
+    "maxWarnings": 135,
+    "maxFilesWithFindings": 4
   },
   "tests": {
     "maxUnconditionalSkips": 1

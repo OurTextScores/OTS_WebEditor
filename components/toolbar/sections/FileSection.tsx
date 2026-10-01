@@ -45,6 +45,7 @@ export const FileSection: React.FC<ToolbarSectionProps> = ({
   return (
     <>
       <Button
+        data-testid="btn-new-score"
         onClick={onNewScore}
         variant="primary"
         size="sm"

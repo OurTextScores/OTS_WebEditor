@@ -41,6 +41,7 @@ import { findAiEditProposal, type AiEditProposal } from '../lib/ai-edit-proposal
 import { fetchJsonOrThrow } from '../lib/fetch-json';
 import { copySelectionToClipboard, pasteClipboardPayload } from '../lib/selection-clipboard';
 import { Toolbar, type MeasureInsertTarget, type HeaderTextTarget } from './Toolbar';
+import { notify } from './shell/notices';
 import { InspectorPanel } from './InspectorPanel';
 import { FloatingPalettes } from './FloatingPalettes';
 import {
@@ -12789,7 +12790,7 @@ ${partsBodyXml}
       }
     } catch (err) {
       console.error(`Mutation "${label}" failed:`, err);
-      alert(`Unable to ${label}. Check the console for details.`);
+      notify({ kind: 'error', title: `Unable to ${label}`, detail: 'See the console.' });
     }
   };
 

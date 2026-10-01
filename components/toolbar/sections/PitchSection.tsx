@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Button } from '../../ui/Button';
 import {
   DropdownMenuItem,
@@ -9,7 +9,6 @@ import {
 import { ToolbarSectionProps } from '../types';
 import { accidentalOptions } from '../constants';
 import { ArrowDown, ArrowUp, ChevronsDown, ChevronsUp, Hash, ArrowUpDown } from 'lucide-react';
-import { TransposeDialog } from '../TransposeDialog';
 import styles from './PitchSection.module.css';
 
 export const PitchSection: React.FC<ToolbarSectionProps> = ({
@@ -17,13 +16,13 @@ export const PitchSection: React.FC<ToolbarSectionProps> = ({
   onPitchUp,
   onTranspose,
   onTransposeEx,
+  onOpenTransposeDialog,
   onSetAccidental,
   mutationsEnabled,
   selectionActive,
   noteInputActive,
 }) => {
   const mutationDisabled = !mutationsEnabled;
-  const [transposeDialogOpen, setTransposeDialogOpen] = useState(false);
 
   return (
     <>
@@ -81,8 +80,8 @@ export const PitchSection: React.FC<ToolbarSectionProps> = ({
         data-testid="btn-transpose-dialog"
         title="Transpose... (full options)"
         aria-label="Transpose"
-        onClick={() => setTransposeDialogOpen(true)}
-        disabled={mutationDisabled || !onTransposeEx || noteInputActive}
+        onClick={onOpenTransposeDialog}
+        disabled={mutationDisabled || !onTransposeEx || !onOpenTransposeDialog || noteInputActive}
         variant="outline"
         size="sm"
         className="shadow-sm"
@@ -90,13 +89,6 @@ export const PitchSection: React.FC<ToolbarSectionProps> = ({
         <ArrowUpDown size={14} className="mr-1" />
         Transpose...
       </Button>
-      {onTransposeEx && (
-        <TransposeDialog
-          open={transposeDialogOpen}
-          onOpenChange={setTransposeDialogOpen}
-          onTranspose={onTransposeEx}
-        />
-      )}
       <div className="h-3 w-px bg-slate-200"></div>
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>

@@ -9,20 +9,8 @@ import {
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
 import { ToolbarSectionProps } from '../types';
+import { selectionFilterOptions } from '../constants';
 import { Trash2, Undo2, Redo2, CheckSquare, ListFilter } from 'lucide-react';
-
-const selectionFilterOptions = [
-  { label: 'Voice 1', bit: 1, group: 'Voices' },
-  { label: 'Voice 2', bit: 2, group: 'Voices' },
-  { label: 'Voice 3', bit: 4, group: 'Voices' },
-  { label: 'Voice 4', bit: 8, group: 'Voices' },
-  { label: 'Notes and rests', bit: 1 << 23, group: 'Elements' },
-  { label: 'Articulations', bit: 1 << 10, group: 'Elements' },
-  { label: 'Dynamics', bit: 1 << 4, group: 'Elements' },
-  { label: 'Text', bit: 1 << 9, group: 'Elements' },
-  { label: 'Lyrics', bit: 1 << 7, group: 'Elements' },
-  { label: 'Chord symbols', bit: 1 << 8, group: 'Elements' },
-] as const;
 
 export const EditSection: React.FC<ToolbarSectionProps> = ({
   onDeleteSelection,

@@ -49,6 +49,11 @@ export interface ToolbarSectionProps {
     trChordNames: boolean,
     useDoubleSharpsFlats: boolean,
   ) => void;
+  /**
+   * Opens the transpose dialog. Supplied by `Toolbar` itself, which owns the dialog so a
+   * command can open it as well as the ribbon button.
+   */
+  onOpenTransposeDialog?: () => void;
   onSelectAll?: () => void;
   onSetAccidental?: (accidentalType: number) => void;
   mutationsEnabled?: boolean;

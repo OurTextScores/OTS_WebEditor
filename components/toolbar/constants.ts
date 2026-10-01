@@ -198,3 +198,159 @@ export const shortcutEntries = [
   { label: 'Copy: Ctrl/Cmd + C', title: 'Shortcut: Ctrl/Cmd + C' },
   { label: 'Paste: Ctrl/Cmd + V', title: 'Shortcut: Ctrl/Cmd + V' },
 ];
+
+export const markerOptions = [
+  { label: 'Segno', value: 0, symbol: '\uE047', common: true },
+  { label: 'Coda', value: 2, symbol: '\uE048', common: true },
+  { label: 'Fine', value: 5, symbol: 'Fine', common: true },
+  { label: 'To Coda', value: 6, symbol: '\uE048', common: true },
+  { label: 'Serpent segno', value: 1, symbol: '\uE04A', common: false },
+  { label: 'Square coda', value: 3, symbol: '\uE049', common: false },
+  { label: 'To Coda symbol', value: 7, symbol: '\uE048', common: false },
+] as const;
+
+export const jumpOptions = [
+  { label: 'D.C.', value: 0, common: true },
+  { label: 'D.C. al Fine', value: 1, common: true },
+  { label: 'D.C. al Coda', value: 2, common: true },
+  { label: 'D.S. al Coda', value: 3, common: true },
+  { label: 'D.S. al Fine', value: 4, common: true },
+  { label: 'D.S.', value: 5, common: true },
+  { label: 'D.C. al Double Coda', value: 6, common: false },
+  { label: 'D.S. al Double Coda', value: 7, common: false },
+  { label: 'Dal Segno Segno', value: 8, common: false },
+  { label: 'D.S.S. al Coda', value: 9, common: false },
+  { label: 'D.S.S. al Double Coda', value: 10, common: false },
+  { label: 'D.S.S. al Fine', value: 11, common: false },
+  { label: 'Da Coda', value: 12, common: false },
+  { label: 'Da Double Coda', value: 13, common: false },
+] as const;
+
+export const ottavaOptions = [
+  { label: '8va', value: 0, symbol: '\uE511', common: true },
+  { label: '8vb', value: 1, symbol: '\uE51C', common: true },
+  { label: '15ma', value: 2, symbol: '\uE515', common: true },
+  { label: '15mb', value: 3, symbol: '\uE51D', common: true },
+  { label: '22ma', value: 4, symbol: '\uE518', common: false },
+  { label: '22mb', value: 5, symbol: '\uE51E', common: false },
+] as const;
+
+export const trillOptions = [
+  { label: 'Trill line', value: 0 },
+  { label: 'Up-prall line', value: 1 },
+  { label: 'Down-prall line', value: 2 },
+  { label: 'Prall-prall line', value: 3 },
+] as const;
+
+export const glissandoOptions = [
+  { label: 'Straight glissando', value: 0, symbol: '\uE585' },
+  { label: 'Wavy glissando', value: 1, symbol: '\uEAAF' },
+] as const;
+
+export const arpeggioOptions = [
+  { label: 'Arpeggio', value: 0, symbol: '\uE63C' },
+  { label: 'Arpeggio up', value: 1, symbol: '\uE634' },
+  { label: 'Arpeggio down', value: 2, symbol: '\uE635' },
+  { label: 'Arpeggio bracket', value: 3, symbol: '\uE002' },
+] as const;
+
+export const tremoloOptions = [
+  { label: 'Eighth-note tremolo', value: 0, symbol: '\uE220', common: true },
+  { label: '16th-note tremolo', value: 1, symbol: '\uE221', common: true },
+  { label: '32nd-note tremolo', value: 2, symbol: '\uE222', common: true },
+  { label: '64th-note tremolo', value: 3, symbol: '\uE223', common: false },
+  { label: 'Buzz roll', value: 4, symbol: '\uE22A', common: false },
+  { label: 'Two-note eighth tremolo', value: 5, symbol: '\uE220', common: false },
+  { label: 'Two-note 16th tremolo', value: 6, symbol: '\uE221', common: false },
+  { label: 'Two-note 32nd tremolo', value: 7, symbol: '\uE222', common: false },
+  { label: 'Two-note 64th tremolo', value: 8, symbol: '\uE223', common: false },
+] as const;
+
+export const beamOptions = [
+  { label: 'Auto beam', value: 0 },
+  { label: 'Begin beam / break left', value: 2 },
+  { label: 'Join beams', value: 6 },
+  { label: 'No beam', value: 1 },
+  { label: 'Break secondary beam at eighth', value: 3 },
+  { label: 'Break secondary beam at 16th', value: 4 },
+] as const;
+
+export const fretDiagramOptions = [
+  { label: 'Blank', pattern: '......' },
+  { label: 'C', pattern: 'X32010' },
+  { label: 'G', pattern: '320003' },
+  { label: 'D', pattern: 'XX0232' },
+  { label: 'A', pattern: 'X02220' },
+  { label: 'E', pattern: '022100' },
+  { label: 'Am', pattern: 'X02210' },
+  { label: 'Em', pattern: '022000' },
+  { label: 'Dm', pattern: 'XX0231' },
+] as const;
+
+export const fermataOptions = [
+  { label: 'Fermata', value: 0, symbol: '\uE4C0', common: true },
+  { label: 'Short fermata', value: 1, symbol: '\uE4C4', common: true },
+  { label: 'Long fermata', value: 2, symbol: '\uE4C6', common: true },
+  { label: 'Very short fermata', value: 3, symbol: '\uE4C2', common: false },
+  { label: 'Very long fermata', value: 4, symbol: '\uE4C8', common: false },
+] as const;
+
+export const breathOptions = [
+  { label: 'Breath mark', value: 0, symbol: '\uE4CE', common: true },
+  { label: 'Caesura', value: 5, symbol: '\uE4D1', common: true },
+  { label: 'Tick breath mark', value: 1, symbol: '\uE4CF', common: false },
+  { label: 'Salzedo breath mark', value: 2, symbol: '\uE4D5', common: false },
+  { label: 'Upbow breath mark', value: 3, symbol: '\uE4D0', common: false },
+  { label: 'Curved caesura', value: 4, symbol: '\uE4D4', common: false },
+  { label: 'Short caesura', value: 6, symbol: '\uE4D3', common: false },
+  { label: 'Thick caesura', value: 7, symbol: '\uE4D2', common: false },
+  { label: 'Chant caesura', value: 8, symbol: '\uE8F8', common: false },
+] as const;
+
+export const selectionFilterOptions = [
+  { label: 'Voice 1', bit: 1, group: 'Voices' },
+  { label: 'Voice 2', bit: 2, group: 'Voices' },
+  { label: 'Voice 3', bit: 4, group: 'Voices' },
+  { label: 'Voice 4', bit: 8, group: 'Voices' },
+  { label: 'Notes and rests', bit: 1 << 23, group: 'Elements' },
+  { label: 'Articulations', bit: 1 << 10, group: 'Elements' },
+  { label: 'Dynamics', bit: 1 << 4, group: 'Elements' },
+  { label: 'Text', bit: 1 << 9, group: 'Elements' },
+  { label: 'Lyrics', bit: 1 << 7, group: 'Elements' },
+  { label: 'Chord symbols', bit: 1 << 8, group: 'Elements' },
+] as const;
+
+/** Note input methods, keyed by the engine's NoteInputMethod value. */
+export const noteInputMethodOptions = [
+  { label: 'Step-time', value: 1 },
+  { label: 'Repitch', value: 2 },
+  { label: 'Rhythm', value: 3 },
+  { label: 'Timewise (insert)', value: 6 },
+] as const;
+
+/** Palette categories the ribbon's "Open … Palette" links open, with their legacy test ids. */
+export const paletteLinkOptions = [
+  { category: 'Clefs', label: 'Clef Palette', testId: 'btn-open-clef-palette' },
+  { category: 'Markers', label: 'Markers Palette', testId: 'btn-open-markers-palette' },
+  { category: 'Jumps', label: 'Jumps Palette', testId: 'btn-open-jumps-palette' },
+  { category: 'Dynamics', label: 'Dynamics Palette', testId: 'btn-open-dynamics-palette' },
+  { category: 'Ottavas', label: 'Ottava Palette', testId: 'btn-open-ottava-palette' },
+  { category: 'Tremolos', label: 'Tremolo Palette', testId: 'btn-open-tremolo-palette' },
+  { category: 'Fermatas', label: 'Fermata Palette', testId: 'btn-open-fermata-palette' },
+  { category: 'Breaths', label: 'Breath Palette', testId: 'btn-open-breath-palette' },
+] as const;
+
+/** Zoom levels offered as presets, as fractions of 100%. */
+export const zoomPresets = [0.25, 0.5, 0.75, 1];
+
+/**
+ * Where the editor help page lives.
+ *
+ * The embed build is a static export (output: 'export', no trailingSlash) under basePath
+ * /score-editor, so the page lands at /score-editor/help.html -- the host serves the .html
+ * file directly and 404s the extensionless route. A raw <a href> is also not
+ * basePath-prefixed by Next (only <Link>/router are). The normal server build serves the
+ * App Router route at /help.
+ */
+export const getHelpHref = (): string =>
+  process.env.NEXT_PUBLIC_BUILD_MODE === 'embed' ? '/score-editor/help.html' : '/help';

@@ -22,6 +22,8 @@ import {
   barlineOptions,
   repeatCountOptions,
   voltaOptions,
+  markerOptions,
+  jumpOptions,
 } from '../constants';
 import { clefScorePaletteItem, barlineGlyph, SCORE_PALETTE_DRAG_MIME } from '../palette';
 import { PaletteLink } from '../PaletteLink';
@@ -30,33 +32,6 @@ import { Guitar, Repeat, Signpost } from 'lucide-react';
 import styles from './ScoreSection.module.css';
 
 const commonClefValues = new Set([0, 20, 10, 11]);
-
-const markerOptions = [
-  { label: 'Segno', value: 0, symbol: '\uE047', common: true },
-  { label: 'Coda', value: 2, symbol: '\uE048', common: true },
-  { label: 'Fine', value: 5, symbol: 'Fine', common: true },
-  { label: 'To Coda', value: 6, symbol: '\uE048', common: true },
-  { label: 'Serpent segno', value: 1, symbol: '\uE04A', common: false },
-  { label: 'Square coda', value: 3, symbol: '\uE049', common: false },
-  { label: 'To Coda symbol', value: 7, symbol: '\uE048', common: false },
-] as const;
-
-const jumpOptions = [
-  { label: 'D.C.', value: 0, common: true },
-  { label: 'D.C. al Fine', value: 1, common: true },
-  { label: 'D.C. al Coda', value: 2, common: true },
-  { label: 'D.S. al Coda', value: 3, common: true },
-  { label: 'D.S. al Fine', value: 4, common: true },
-  { label: 'D.S.', value: 5, common: true },
-  { label: 'D.C. al Double Coda', value: 6, common: false },
-  { label: 'D.S. al Double Coda', value: 7, common: false },
-  { label: 'Dal Segno Segno', value: 8, common: false },
-  { label: 'D.S.S. al Coda', value: 9, common: false },
-  { label: 'D.S.S. al Double Coda', value: 10, common: false },
-  { label: 'D.S.S. al Fine', value: 11, common: false },
-  { label: 'Da Coda', value: 12, common: false },
-  { label: 'Da Double Coda', value: 13, common: false },
-] as const;
 
 const clefSymbol = (clefType: number): string => {
   const exactGlyphs: Record<number, string> = {

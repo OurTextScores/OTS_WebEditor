@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
 import { ToolbarSectionProps } from '../types';
+import { zoomPresets } from '../constants';
 import {
   LayoutGrid,
   MoveHorizontal,
@@ -16,8 +17,6 @@ import {
   ZoomOut,
   PanelRight,
 } from 'lucide-react';
-
-const zoomPresets = [0.25, 0.5, 0.75, 1];
 
 export const ViewSection: React.FC<ToolbarSectionProps> = ({
   onFitWidth,
