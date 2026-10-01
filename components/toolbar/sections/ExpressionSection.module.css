@@ -11,6 +11,7 @@
 }
 
 .dynamicSymbol {
+  pointer-events: none;
   font-family: 'LelandToolbar', serif;
   font-size: 1.75rem;
   font-style: normal;
@@ -19,6 +20,12 @@
 }
 
 .hairpinSymbol {
+  /*
+   * The glyph is tall for its line box, so its text fragment reaches into the neighbouring
+   * item and wins the hit test there: clicking "Crescendo" landed on "Decrescendo". The span
+   * is decorative (aria-hidden); let the click fall through to its menu item.
+   */
+  pointer-events: none;
   font-family: 'LelandToolbar', serif;
   font-size: 2rem;
   font-style: normal;
@@ -36,6 +43,7 @@
 }
 
 .articulationSymbol {
+  pointer-events: none;
   display: inline-flex;
   min-width: 1.75rem;
   justify-content: center;

@@ -12,6 +12,7 @@
 }
 
 .graceNoteSymbol {
+  pointer-events: none;
   display: inline-flex;
   min-width: 2rem;
   justify-content: center;
@@ -36,6 +37,7 @@
 }
 
 .lineSymbol {
+  pointer-events: none;
   display: inline-flex;
   min-width: 2.5rem;
   justify-content: center;
@@ -49,6 +51,7 @@
 
 .chordTriggerSymbol,
 .chordSymbol {
+  pointer-events: none;
   display: inline-flex;
   min-width: 2rem;
   justify-content: center;

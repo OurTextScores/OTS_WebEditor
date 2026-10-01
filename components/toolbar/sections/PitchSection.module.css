@@ -5,6 +5,7 @@
 }
 
 .accidentalSymbol {
+  pointer-events: none;
   display: inline-flex;
   min-width: 1.5rem;
   justify-content: center;

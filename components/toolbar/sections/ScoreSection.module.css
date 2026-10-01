@@ -24,6 +24,7 @@
 }
 
 .clefSymbol {
+  pointer-events: none;
   display: inline-flex;
   min-width: 2rem;
   justify-content: center;
@@ -36,6 +37,7 @@
 }
 
 .markerSymbol {
+  pointer-events: none;
   display: inline-flex;
   min-width: 2rem;
   justify-content: center;

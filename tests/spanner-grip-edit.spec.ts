@@ -40,10 +40,9 @@ const loadNotesAndAddHairpin = async (page: import('@playwright/test').Page) => 
   // A hairpin spans the selection, so the ctrl-click has to have extended it first. A menu
   // click used to leave time for that; a command runs the instant it is enabled.
   await expect(page.locator('[data-testid^="selection-overlay-"]')).toHaveCount(2);
-  // The drag below was written against a decrescendo. Clicking the ribbon's "cresc" item was
-  // observed to call addHairpin(1) -- in the browser its centre point hit-tests to the
-  // "decresc" item, and the unit test with a mock handler sees 0 -- so every run produced
-  // subtype 1. Asking for it by name keeps the geometry the test was built for.
+  // The drag below was built around the decrescendo's geometry. Until the ribbon's glyph
+  // overflow was fixed, clicking its "cresc" item silently added a decrescendo, so this is
+  // what every run of the old test actually exercised.
   await runCommand(page, 'btn-hairpin-decresc');
   await page.locator('svg .HairpinSegment').first().waitFor({ timeout: 20_000 });
   await page.waitForTimeout(500);
