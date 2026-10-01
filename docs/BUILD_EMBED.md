@@ -99,6 +99,7 @@ Optional player parameters are:
 
 - `start=<seconds>` for a finite start position, clamped to the performance duration;
 - `follow=0` to disable score following initially;
+- `highlight=note` to start with note-level tracking instead of the default measure highlighting;
 - `theme=auto|light|dark`;
 - `playerId=<bounded-id>` to identify host messages;
 - `parentOrigin=<exact-origin>` to enable cross-origin host messaging.
@@ -112,7 +113,7 @@ iframe.contentWindow.postMessage(
     type: 'ots-player:command',
     version: 1,
     playerId: 'example-player',
-    command: 'play', // play, pause, toggle, stop, seek, set-volume, set-follow
+    command: 'play', // play, pause, toggle, stop, seek, set-volume, set-follow, set-highlight
   },
   'https://example.org',
 );
@@ -120,7 +121,8 @@ iframe.contentWindow.postMessage(
 
 The player responds to the same exact origin with `ots-player:event` messages for `ready`,
 `statechange`, `timeupdate`, `pagechange`, `ended`, and `error`. Seek values are milliseconds;
-volume is between 0 and 1; follow is boolean. If `parentOrigin` is omitted, messaging defaults to
+volume is between 0 and 1; follow is boolean; `set-highlight` takes `'note'` or `'measure'`.
+If `parentOrigin` is omitted, messaging defaults to
 same-origin hosts. In-frame controls remain fully functional without the message API.
 
 ### Guardrail: Prevent Large Soundfont Files in `out/`

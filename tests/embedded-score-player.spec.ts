@@ -84,6 +84,28 @@ test.describe('embedded score player', () => {
     await expect(page.getByTestId('embedded-score-player')).toBeVisible();
   });
 
+  test('switches between measure and note highlighting', async ({ page }) => {
+    await page.goto('/?score=%2Ftest_scores%2Fplayback_timeline.musicxml&embed=player');
+    await expect(page.getByTestId('active-measure-highlight')).toBeVisible({ timeout: 30_000 });
+
+    const toggle = page.getByRole('button', { name: 'Note highlighting' }).first();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await toggle.click();
+    await expect(page.getByTestId('active-note-highlight')).toBeVisible();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+
+    await toggle.click();
+    await expect(page.getByTestId('active-measure-highlight')).toBeVisible();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  test('starts in note mode from the highlight query parameter', async ({ page }) => {
+    await page.goto(
+      '/?score=%2Ftest_scores%2Fplayback_timeline.musicxml&embed=player&highlight=note',
+    );
+    await expect(page.getByTestId('active-note-highlight')).toBeVisible({ timeout: 30_000 });
+  });
+
   test('exchanges versioned messages only with the configured parent origin', async ({ page }) => {
     await page.route('**/player-host.html', (route) =>
       route.fulfill({

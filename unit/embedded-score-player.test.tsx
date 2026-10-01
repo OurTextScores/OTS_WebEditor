@@ -413,4 +413,51 @@ describe('EmbeddedScorePlayer progressive pages', () => {
     );
     await waitFor(() => expect(screen.getByTestId('active-note-highlight')).toBeInTheDocument());
   });
+
+  it('switches highlight modes from host commands', async () => {
+    mocks.search = new URLSearchParams({
+      score: '/score.musicxml',
+      follow: '0',
+      playerId: 'highlight-player',
+      parentOrigin: window.location.origin,
+    });
+    render(<EmbeddedScorePlayer />);
+    await screen.findByTestId('player-svg');
+    await waitFor(() => expect(screen.getByTestId('active-measure-highlight')).toBeInTheDocument());
+
+    const loaded = await mocks.loadScoreFromUrl.mock.results[0].value;
+    const sendHighlight = (value: unknown) => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'ots-player:command',
+            version: 1,
+            playerId: 'highlight-player',
+            command: 'set-highlight',
+            value,
+          },
+          origin: window.location.origin,
+          source: window,
+        }),
+      );
+    };
+
+    sendHighlight('note');
+    await waitFor(() =>
+      expect(loaded.loadedScore.segmentPositions).toHaveBeenCalledTimes(1),
+    );
+    await waitFor(() => expect(screen.getByTestId('active-note-highlight')).toBeInTheDocument());
+
+    sendHighlight('measure');
+    await waitFor(() =>
+      expect(screen.getByTestId('active-measure-highlight')).toBeInTheDocument(),
+    );
+    expect(screen.queryByTestId('active-note-highlight')).not.toBeInTheDocument();
+
+    sendHighlight('chord');
+    await waitFor(() =>
+      expect(screen.getByTestId('active-measure-highlight')).toBeInTheDocument(),
+    );
+    expect(loaded.loadedScore.segmentPositions).toHaveBeenCalledTimes(1);
+  });
 });

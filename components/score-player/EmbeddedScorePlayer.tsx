@@ -22,10 +22,23 @@ import {
   PLAYER_MESSAGE_VERSION,
   resolveParentOrigin,
   resolvePlayerId,
+  type HighlightMode,
 } from '@/lib/playback/player-message-api';
 import PlayerControls from './PlayerControls';
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+/**
+ * Minimum highlight/click width for a note box, in score units.
+ *
+ * The engine reports a segment's width from its glyph bboxes, which can be
+ * zero when no track element exposes a valid bbox. A zero-width rect is
+ * invisible and unclickable, so note geometry gets a sliver floor while the
+ * leading cursor line keeps marking the exact segment x. Measure boxes keep
+ * their engine widths untouched.
+ */
+const NOTE_MIN_WIDTH = 12;
+const noteBoxWidth = (box: { width?: number; sx: number }) =>
+  Math.max(box.width ?? box.sx ?? 0, NOTE_MIN_WIDTH);
 const pageCountBucket = (count: number) => (count <= 1 ? '1' : count <= 5 ? '2_to_5' : '6_plus');
 const durationBucket = (durationMs: number) =>
   durationMs < 30_000
@@ -180,19 +193,25 @@ export default function EmbeddedScorePlayer() {
     }
   }, []);
 
+  const setHighlightPreference = useCallback(
+    (next: HighlightMode) => {
+      if (highlightModeRef.current === next && (next === 'measure' || segments)) return;
+      setHighlightMode(next);
+      if (next === 'note') {
+        const activeScore = scoreRef.current;
+        if (activeScore && !segments) {
+          void fetchSegments(activeScore).then((ok) => {
+            if (!ok) setHighlightMode('measure');
+          });
+        }
+      }
+    },
+    [fetchSegments, segments, setHighlightMode],
+  );
+
   const toggleHighlightMode = useCallback(() => {
-    if (highlightModeRef.current === 'note') {
-      setHighlightMode('measure');
-      return;
-    }
-    setHighlightMode('note');
-    const activeScore = scoreRef.current;
-    if (activeScore && !segments) {
-      void fetchSegments(activeScore).then((ok) => {
-        if (!ok) setHighlightMode('measure');
-      });
-    }
-  }, [fetchSegments, segments, setHighlightMode]);
+    setHighlightPreference(highlightModeRef.current === 'note' ? 'measure' : 'note');
+  }, [setHighlightPreference]);
 
   const suspendFollowTemporarily = useCallback(() => {
     if (!followRef.current && !followResumeTimerRef.current) return;
@@ -610,6 +629,9 @@ export default function EmbeddedScorePlayer() {
         case 'set-follow':
           setFollowPreference(command.value as boolean);
           break;
+        case 'set-highlight':
+          setHighlightPreference(command.value as HighlightMode);
+          break;
       }
     };
     window.addEventListener('message', onMessage);
@@ -619,6 +641,7 @@ export default function EmbeddedScorePlayer() {
     parentOrigin,
     playerId,
     setFollowPreference,
+    setHighlightPreference,
     stopAt,
     timeline?.durationMs,
     togglePlayPause,
@@ -874,35 +897,41 @@ export default function EmbeddedScorePlayer() {
                   aria-hidden="true"
                 >
                   {(highlightMode === 'note' && segments ? visibleSegments : visibleMeasures).map(
-                    (box) => (
-                      <rect
-                        key={box.id}
-                        x={box.x}
-                        y={box.y}
-                        width={box.width ?? box.sx}
-                        height={box.height ?? box.sy}
-                        fill="transparent"
-                        pointerEvents="all"
-                        className="cursor-pointer"
-                        onClick={() => {
-                          if (highlightMode === 'note' && segments) {
-                            const targetMs = segmentTimeForId(
-                              segmentEvents,
+                    (box) => {
+                      const isNote = highlightMode === 'note' && segments !== null;
+                      const boxWidth = isNote
+                        ? noteBoxWidth(box)
+                        : (box.width ?? box.sx);
+                      return (
+                        <rect
+                          key={box.id}
+                          x={box.x}
+                          y={box.y}
+                          width={boxWidth}
+                          height={box.height ?? box.sy}
+                          fill="transparent"
+                          pointerEvents="all"
+                          className="cursor-pointer"
+                          onClick={() => {
+                            if (isNote) {
+                              const targetMs = segmentTimeForId(
+                                segmentEvents,
+                                box.id,
+                                positionRef.current,
+                              );
+                              if (targetMs !== null) handleSeek(targetMs);
+                              return;
+                            }
+                            const occurrence = occurrenceForMeasure(
+                              timeline,
                               box.id,
                               positionRef.current,
                             );
-                            if (targetMs !== null) handleSeek(targetMs);
-                            return;
-                          }
-                          const occurrence = occurrenceForMeasure(
-                            timeline,
-                            box.id,
-                            positionRef.current,
-                          );
-                          if (occurrence) handleSeek(occurrence.startMs);
-                        }}
-                      />
-                    ),
+                            if (occurrence) handleSeek(occurrence.startMs);
+                          }}
+                        />
+                      );
+                    },
                   )}
                   {highlightBox?.page === currentPage && (
                     <g pointerEvents="none">
@@ -911,7 +940,11 @@ export default function EmbeddedScorePlayer() {
                         ref={activeMeasureRef}
                         x={highlightBox.x}
                         y={highlightBox.y}
-                        width={highlightBox.width ?? highlightBox.sx}
+                        width={
+                          highlightMode === 'note' && activeSegmentBox
+                            ? noteBoxWidth(highlightBox)
+                            : (highlightBox.width ?? highlightBox.sx)
+                        }
                         height={highlightBox.height ?? highlightBox.sy}
                         fill="rgb(8 145 178 / 0.13)"
                         stroke="rgb(8 145 178 / 0.8)"

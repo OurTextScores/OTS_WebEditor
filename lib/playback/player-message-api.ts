@@ -1,14 +1,23 @@
 export const PLAYER_MESSAGE_VERSION = 1 as const;
 
 export type PlayerCommandName =
-  'play' | 'pause' | 'toggle' | 'stop' | 'seek' | 'set-volume' | 'set-follow';
+  | 'play'
+  | 'pause'
+  | 'toggle'
+  | 'stop'
+  | 'seek'
+  | 'set-volume'
+  | 'set-follow'
+  | 'set-highlight';
+
+export type HighlightMode = 'measure' | 'note';
 
 export type PlayerCommand = {
   type: 'ots-player:command';
   version: typeof PLAYER_MESSAGE_VERSION;
   playerId: string;
   command: PlayerCommandName;
-  value?: number | boolean;
+  value?: number | boolean | HighlightMode;
 };
 
 const PLAYER_ID_PATTERN = /^[A-Za-z0-9._:-]{1,64}$/;
@@ -68,6 +77,11 @@ export function parsePlayerCommand(
   }
   if (command === 'set-follow') {
     return typeof candidate.value === 'boolean' ? (candidate as PlayerCommand) : null;
+  }
+  if (command === 'set-highlight') {
+    return candidate.value === 'measure' || candidate.value === 'note'
+      ? (candidate as PlayerCommand)
+      : null;
   }
   return null;
 }
