@@ -52,7 +52,7 @@ export type CompareDiffGutterProps = {
   mode: {
     isAiCompareMode: boolean;
     isChangeReviewCompareMode: boolean;
-    isEmbedMode: boolean;
+    hosted: boolean;
   };
   /** Keyed by visual side. Build this once; never pass the halves separately. */
   panes: { left: PaneModel; right: PaneModel };
@@ -151,7 +151,7 @@ export function CompareDiffGutter({
   // Single explicit mapping column. The JSX below is moved verbatim from ScoreEditor,
   // so this block is the only place a name can be bound to the wrong value -- keep it
   // aligned and readable rather than inlining these into the markup.
-  const { isAiCompareMode, isChangeReviewCompareMode, isEmbedMode } = mode;
+  const { isAiCompareMode, isChangeReviewCompareMode, hosted } = mode;
 
   const compareLeftBounds = panes.left.bounds;
   const compareLeftMeasurePositions = panes.left.measurePositions;
@@ -640,7 +640,7 @@ export function CompareDiffGutter({
                               {rightLabel}
                             </span>
                           </div>
-                          {!isEmbedMode && isAiCompareMode && (
+                          {!hosted && isAiCompareMode && (
                             <AiDiffBlockReview
                               review={{
                                 status: reviewStatus,
@@ -680,7 +680,7 @@ export function CompareDiffGutter({
                               resizeTextarea={handleAiDiffCommentResize}
                             />
                           )}
-                          {!isEmbedMode && canOverwrite && !isAiCompareMode && (
+                          {!hosted && canOverwrite && !isAiCompareMode && (
                             <div className="mt-1 flex items-center justify-between gap-2">
                               <button
                                 type="button"

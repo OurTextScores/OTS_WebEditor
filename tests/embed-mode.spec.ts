@@ -747,7 +747,9 @@ test.describe('Embed Mode - External XML Comparison', () => {
     // New tab should show full editor
     await expect(newPage.getByTestId('shell-header')).toBeVisible();
 
-    // Sidebar should be visible in new tab
+    // The full editor has an activity bar; History is where the checkpoint sidebar lives.
+    await expect(newPage.getByTestId('activity-bar')).toBeVisible();
+    await newPage.getByTestId('activity-history').click();
     await expect(newPage.getByTestId('checkpoint-sidebar')).toBeVisible();
 
     // Score should be loaded in new tab
@@ -785,7 +787,9 @@ test.describe('Embed Mode - External XML Comparison', () => {
     // New tab should show full editor
     await expect(newPage.getByTestId('shell-header')).toBeVisible();
 
-    // Sidebar should be visible in new tab
+    // The full editor has an activity bar; History is where the checkpoint sidebar lives.
+    await expect(newPage.getByTestId('activity-bar')).toBeVisible();
+    await newPage.getByTestId('activity-history').click();
     await expect(newPage.getByTestId('checkpoint-sidebar')).toBeVisible();
 
     // Score should be loaded in new tab

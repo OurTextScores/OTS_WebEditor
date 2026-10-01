@@ -7,7 +7,9 @@ import {
   MusicXmlPanel,
   type MusicXmlPanelProps,
 } from '../../components/score-editor/MusicXmlPanel';
-import { WriteWorkspace } from '../../components/shell/WriteWorkspace';
+import { DockShell } from '../../components/shell/DockShell';
+import { writeDock, type WriteDockProps } from '../../components/shell/WriteWorkspace';
+import type { WorkspaceInsets } from '../../components/shell/vendor/viritura';
 import { AiToolsPanel, ScoreSourcePanel } from '../../components/shell/RightPanels';
 import {
   flattenInstrumentGroups,
@@ -175,6 +177,15 @@ describe('right panels', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 });
+
+/** Write mode's dock as the builder composes it: a DockShell around writeDock's panels. */
+function WriteWorkspace({
+  canvas,
+  ...props
+}: WriteDockProps & { canvas: (insets: WorkspaceInsets) => React.ReactNode }) {
+  const { shell, panels } = writeDock(props);
+  return <DockShell canvas={canvas} panels={panels} {...shell} />;
+}
 
 describe('WriteWorkspace', () => {
   const dock = (over: Record<string, unknown> = {}) =>

@@ -3,6 +3,8 @@ import type { ScoreSummary } from '../../lib/checkpoints';
 import { decodeScoreXml, type Score } from '../../lib/webmscore-loader';
 import { notify } from '../shell/notices';
 import type { WorkspaceDock } from '../shell/useWorkspaceDock';
+import type { OtsActivity } from '../shell/workspaceMode';
+import { runCommand } from '../../lib/commands/registry';
 import type { AiToolsTab } from './ai-tools/AiToolsTabStrip';
 
 /**
@@ -20,6 +22,11 @@ export interface ShellEditorBindings {
   readonly goToPreviousPage: () => void;
   /** The v2 shell's left dock; null under `?shell=legacy`, where the old sidebars are in charge. */
   readonly dock: WorkspaceDock | null;
+  /** The user-selected activity, and whether a compare session is open (it takes over). */
+  readonly activity: OtsActivity;
+  readonly setActivity: (activity: OtsActivity) => void;
+  readonly compareOpen: boolean;
+  readonly closeCompare: () => void;
   readonly inspectorOpen: boolean;
   readonly setInspectorOpen: (open: boolean) => void;
   readonly musicXmlOpen: boolean;
@@ -221,9 +228,46 @@ export function buildShellEditorCommands(getBindings: GetBindings): AnyCommand[]
       label: 'History',
       keywords: ['checkpoints', 'versions', 'panel'],
       run: () => {
+        // The v2 shell has a History activity; the legacy one has the sidebar.
+        if (b().dock) {
+          b().closeCompare();
+          b().setActivity('history');
+          return;
+        }
         b().setPanelsVisible(true);
         b().setLeftSidebarTab('checkpoints');
         b().setCheckpointsCollapsed(false);
+      },
+    }),
+    ...(
+      [
+        ['write', 'Write', 'edit the score'],
+        ['history', 'History', 'checkpoints versions restore'],
+      ] as const
+    ).map(([id, label, words]) =>
+      defineCommand({
+        id: `shell.activity.${id}`,
+        label,
+        keywords: ['activity', 'mode', ...words.split(' ')],
+        enabled: () => b().dock !== null,
+        checked: () => !b().compareOpen && b().activity === id,
+        run: () => {
+          // Leaving a compare session returns to the activity chosen here.
+          b().closeCompare();
+          b().setActivity(id);
+        },
+      }),
+    ),
+    defineCommand({
+      id: 'shell.activity.compare',
+      label: 'Compare',
+      keywords: ['activity', 'mode', 'diff', 'scores'],
+      enabled: () => b().dock !== null,
+      checked: () => b().compareOpen,
+      // A session is entered by state (a checkpoint, a proposal, loaded scores); with none open
+      // this starts one by asking which scores to compare.
+      run: async () => {
+        if (!b().compareOpen) await runCommand('compare.load');
       },
     }),
     defineCommand({

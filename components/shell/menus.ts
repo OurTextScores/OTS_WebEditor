@@ -119,6 +119,13 @@ export const MENUS: readonly MenuDefinition[] = [
     id: 'view',
     label: 'View',
     children: [
+      submenu(
+        'Activity',
+        item('shell.activity.write'),
+        item('shell.activity.compare'),
+        item('shell.activity.history'),
+      ),
+      separator,
       item('view.zoom.in'),
       item('view.zoom.out'),
       item('view.zoom.preset', 'Zoom to 100%', 1),

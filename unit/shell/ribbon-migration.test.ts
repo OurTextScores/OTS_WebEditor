@@ -10,7 +10,7 @@ import { isCommandFamily, type AnyCommand, type CommandFamily } from '../../lib/
 import { allEditorCommands } from '../helpers/all-commands';
 
 /** The last rollout phase (§10) that has shipped; entries up to it must be live. */
-const SHIPPED_PHASE = 3;
+const SHIPPED_PHASE = 4;
 
 /**
  * P7: nothing disappears silently. Every `data-testid` the legacy ribbon renders has a
@@ -32,11 +32,11 @@ const CHROME_TEST_IDS: readonly { id: string; prefix?: boolean; source: string }
   { id: 'page-select', source: 'components/shell/StatusBar.tsx' },
   { id: 'page-indicator', source: 'components/shell/StatusBar.tsx' },
   { id: 'interaction-preparing-banner', source: 'components/shell/StatusBar.tsx' },
-  { id: 'collapsed-panel-strip', source: 'components/ScoreEditor.tsx' },
-  { id: 'expand-panel-', prefix: true, source: 'components/ScoreEditor.tsx' },
-  { id: 'btn-xml-toggle', source: 'components/ScoreEditor.tsx' },
-  { id: 'sidebar-resize-handle', source: 'components/ScoreEditor.tsx' },
-  { id: 'xml-sidebar', source: 'components/ScoreEditor.tsx' },
+  { id: 'collapsed-panel-strip', source: 'components/score-editor/LegacySidePanels.tsx' },
+  { id: 'expand-panel-', prefix: true, source: 'components/score-editor/LegacySidePanels.tsx' },
+  { id: 'btn-xml-toggle', source: 'components/score-editor/LegacySidePanels.tsx' },
+  { id: 'sidebar-resize-handle', source: 'components/score-editor/LegacySidePanels.tsx' },
+  { id: 'xml-sidebar', source: 'components/score-editor/LegacySidePanels.tsx' },
   { id: 'checkpoint-sidebar', source: 'components/score-editor/LeftSidebar.tsx' },
   { id: 'input-checkpoint-label', source: 'components/score-editor/LeftSidebar.tsx' },
   { id: 'checkpoint-compare-modal', source: 'components/ScoreEditor.tsx' },

@@ -5,7 +5,7 @@ import { LeftDock, type LeftDockProps } from './LeftDock';
 import { AiToolsPanel, ScoreSourcePanel } from './RightPanels';
 import { PANEL_LIMITS, type useShellPanels } from './useShellPanels';
 import type { WorkspaceDock } from './useWorkspaceDock';
-import { WorkspaceShell, type WorkspaceInsets } from './vendor/viritura';
+import type { DockShellProps } from './DockShell';
 import type { AiToolsTab } from '../score-editor/ai-tools/AiToolsTabStrip';
 
 /**
@@ -13,8 +13,9 @@ import type { AiToolsTab } from '../score-editor/ai-tools/AiToolsTabStrip';
  * (Palettes, Instruments, Properties) and, on the right, the AI Tools panel and the Score
  * Source panel floated over its edges. The canvas receives the space they cover.
  */
-export function WriteWorkspace({
-  canvas,
+export type WriteDockProps = Parameters<typeof writeDock>[0];
+
+export function writeDock({
   panelsVisible,
   onShowPanels,
   dock,
@@ -23,7 +24,6 @@ export function WriteWorkspace({
   ai,
   source,
 }: {
-  canvas: (insets: WorkspaceInsets) => ReactNode;
   panelsVisible: boolean;
   onShowPanels: () => void;
   dock: WorkspaceDock;
@@ -39,21 +39,23 @@ export function WriteWorkspace({
     body: ReactNode;
   };
   source: { open: boolean; onClose: () => void; content: ReactNode };
-}) {
-  return (
-    <WorkspaceShell
-      canvas={canvas}
-      showPanelHandle={!panelsVisible}
-      onTogglePanels={onShowPanels}
-      onOverlayDismiss={() => {
+}): { shell: DockShellProps; panels: ReactNode[] } {
+  return {
+    shell: {
+      showPanelHandle: !panelsVisible,
+      onTogglePanels: onShowPanels,
+      onOverlayDismiss: () => {
         // Too narrow to dock: the panels float over the score and give way when it is pressed.
         if (dock.open) dock.close();
         if (ai.open) ai.onClose();
         if (source.open) source.onClose();
-      }}
-    >
-      {panelsVisible && dock.open && (
+      },
+    },
+    // An array, not a fragment: the WorkspaceShell positions its direct children.
+    panels: [
+      panelsVisible && dock.open && (
         <LeftDock
+          key="left"
           side="left"
           width={widths.left.width}
           min={PANEL_LIMITS.left.min}
@@ -61,9 +63,10 @@ export function WriteWorkspace({
           dock={dock}
           {...left}
         />
-      )}
-      {panelsVisible && ai.open && (
+      ),
+      panelsVisible && ai.open && (
         <AiToolsPanel
+          key="ai"
           side="right"
           width={widths.ai.width}
           min={PANEL_LIMITS.ai.min}
@@ -76,9 +79,10 @@ export function WriteWorkspace({
         >
           {ai.body}
         </AiToolsPanel>
-      )}
-      {panelsVisible && source.open && (
+      ),
+      panelsVisible && source.open && (
         <ScoreSourcePanel
+          key="source"
           side="right"
           width={widths.source.width}
           min={PANEL_LIMITS.source.min}
@@ -87,7 +91,7 @@ export function WriteWorkspace({
         >
           {source.content}
         </ScoreSourcePanel>
-      )}
-    </WorkspaceShell>
-  );
+      ),
+    ],
+  };
 }

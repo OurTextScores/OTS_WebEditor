@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { runCommand } from './helpers/commands';
 
 // Each compare panel shows a different Score instance (one live, one
 // checkpoint) with its own independent play/pause/stop transport. Starting
@@ -12,6 +13,8 @@ test('compare panels have independent play/pause/stop with mutual exclusion', as
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
 
   const checkpointLabel = 'Audio Controls Test';
+  // The checkpoint list lives in the History activity.
+  await runCommand(page, 'shell.activity.history');
   await page.getByTestId('input-checkpoint-label').fill(checkpointLabel);
   await page.getByTestId('btn-checkpoint-save').click();
 

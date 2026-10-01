@@ -16,6 +16,8 @@ type ScoreIdSummary = {
 
 type LeftSidebarProps = {
   hidden?: boolean;
+  /** Content only, for the History activity's panel, which supplies the chrome. */
+  embedded?: boolean;
   collapsed: boolean;
   onToggleCollapsed: () => void;
   onRefresh: () => void;
@@ -578,6 +580,7 @@ function ScoresTabPanel(
 export function LeftSidebar(props: LeftSidebarProps) {
   const {
     hidden = false,
+    embedded = false,
     collapsed,
     onToggleCollapsed,
     onRefresh,
@@ -586,6 +589,120 @@ export function LeftSidebar(props: LeftSidebarProps) {
     onTabChange,
     showVersionsTab = false,
   } = props;
+
+  const content = (
+    <div id="checkpoint-sidebar-content" className="px-4 pb-4">
+      <div className="mt-3 flex gap-2 text-xs font-medium text-gray-600">
+        {showVersionsTab && (
+          <button
+            type="button"
+            data-testid="tab-versions"
+            onClick={() => onTabChange('versions')}
+            className={`rounded border px-2 py-1 ${
+              leftSidebarTab === 'versions'
+                ? 'border-gray-400 bg-gray-100 text-gray-900'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            OTS Revisions
+          </button>
+        )}
+        <button
+          type="button"
+          data-testid="tab-checkpoints"
+          onClick={() => onTabChange('checkpoints')}
+          className={`rounded border px-2 py-1 ${
+            leftSidebarTab === 'checkpoints'
+              ? 'border-gray-400 bg-gray-100 text-gray-900'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Local Checkpoints
+        </button>
+        <button
+          type="button"
+          data-testid="tab-scores"
+          onClick={() => onTabChange('scores')}
+          className={`rounded border px-2 py-1 ${
+            leftSidebarTab === 'scores'
+              ? 'border-gray-400 bg-gray-100 text-gray-900'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Scores
+        </button>
+      </div>
+      {leftSidebarTab === 'versions' ? (
+        <VersionsTabPanel
+          versionsLoading={props.versionsLoading}
+          versionsError={props.versionsError}
+          versionsBranchName={props.versionsBranchName}
+          versionsBranches={props.versionsBranches}
+          versionsSelectedBranch={props.versionsSelectedBranch}
+          versionsRevisions={props.versionsRevisions}
+          versionsCanCreateBranch={props.versionsCanCreateBranch}
+          versionsCanCommit={props.versionsCanCommit}
+          versionsActionBusy={props.versionsActionBusy}
+          versionsActionError={props.versionsActionError}
+          versionsActionNotice={props.versionsActionNotice}
+          versionsStatusMode={props.versionsStatusMode}
+          versionsStatusMessage={props.versionsStatusMessage}
+          versionsSelectedBaseRevisionId={props.versionsSelectedBaseRevisionId}
+          versionsLoadBranchLabel={props.versionsLoadBranchLabel}
+          versionsCommitMessage={props.versionsCommitMessage}
+          onVersionsCommitMessageChange={props.onVersionsCommitMessageChange}
+          onVersionsCommitCurrent={props.onVersionsCommitCurrent}
+          versionsCreateBranchName={props.versionsCreateBranchName}
+          onVersionsCreateBranchNameChange={props.onVersionsCreateBranchNameChange}
+          versionsCreateBranchPolicy={props.versionsCreateBranchPolicy}
+          onVersionsCreateBranchPolicyChange={props.onVersionsCreateBranchPolicyChange}
+          onVersionsCreateBranch={props.onVersionsCreateBranch}
+          onVersionsBranchChange={props.onVersionsBranchChange}
+          onVersionsRefresh={props.onVersionsRefresh}
+          onVersionsOpenRevision={props.onVersionsOpenRevision}
+          onVersionsDiffRevision={props.onVersionsDiffRevision}
+          onVersionsSelectBaseRevision={props.onVersionsSelectBaseRevision}
+          onVersionsDiffAgainstBase={props.onVersionsDiffAgainstBase}
+          onVersionsLoadBranchHead={props.onVersionsLoadBranchHead}
+          onVersionsOpenChangeReview={props.onVersionsOpenChangeReview}
+        />
+      ) : leftSidebarTab === 'checkpoints' ? (
+        <CheckpointsTabPanel {...props} />
+      ) : (
+        <ScoresTabPanel
+          scoreSummariesError={props.scoreSummariesError}
+          scoreSummariesLoading={props.scoreSummariesLoading}
+          scoreSummaries={props.scoreSummaries}
+          currentScoreId={props.currentScoreId}
+          onOpenScoreFromSummary={props.onOpenScoreFromSummary}
+          formatTimestamp={props.formatTimestamp}
+          summarizeScoreId={props.summarizeScoreId}
+        />
+      )}
+    </div>
+  );
+
+  if (embedded) {
+    return (
+      <div
+        data-testid="checkpoint-sidebar"
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+      >
+        <div className="flex justify-end px-4 pt-3">
+          <button
+            type="button"
+            data-testid="btn-checkpoint-refresh"
+            onClick={onRefresh}
+            disabled={checkpointControlsDisabled}
+            className="text-xs font-medium text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Refresh
+          </button>
+        </div>
+        {content}
+      </div>
+    );
+  }
 
   if (hidden || collapsed) {
     // When collapsed, the History tab lives in the shared collapsed-panel strip.
@@ -644,97 +761,7 @@ export function LeftSidebar(props: LeftSidebarProps) {
           )}
         </div>
       </div>
-      {!collapsed && (
-        <div id="checkpoint-sidebar-content" className="px-4 pb-4">
-          <div className="mt-3 flex gap-2 text-xs font-medium text-gray-600">
-            {showVersionsTab && (
-              <button
-                type="button"
-                data-testid="tab-versions"
-                onClick={() => onTabChange('versions')}
-                className={`rounded border px-2 py-1 ${
-                  leftSidebarTab === 'versions'
-                    ? 'border-gray-400 bg-gray-100 text-gray-900'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                OTS Revisions
-              </button>
-            )}
-            <button
-              type="button"
-              data-testid="tab-checkpoints"
-              onClick={() => onTabChange('checkpoints')}
-              className={`rounded border px-2 py-1 ${
-                leftSidebarTab === 'checkpoints'
-                  ? 'border-gray-400 bg-gray-100 text-gray-900'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Local Checkpoints
-            </button>
-            <button
-              type="button"
-              data-testid="tab-scores"
-              onClick={() => onTabChange('scores')}
-              className={`rounded border px-2 py-1 ${
-                leftSidebarTab === 'scores'
-                  ? 'border-gray-400 bg-gray-100 text-gray-900'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Scores
-            </button>
-          </div>
-          {leftSidebarTab === 'versions' ? (
-            <VersionsTabPanel
-              versionsLoading={props.versionsLoading}
-              versionsError={props.versionsError}
-              versionsBranchName={props.versionsBranchName}
-              versionsBranches={props.versionsBranches}
-              versionsSelectedBranch={props.versionsSelectedBranch}
-              versionsRevisions={props.versionsRevisions}
-              versionsCanCreateBranch={props.versionsCanCreateBranch}
-              versionsCanCommit={props.versionsCanCommit}
-              versionsActionBusy={props.versionsActionBusy}
-              versionsActionError={props.versionsActionError}
-              versionsActionNotice={props.versionsActionNotice}
-              versionsStatusMode={props.versionsStatusMode}
-              versionsStatusMessage={props.versionsStatusMessage}
-              versionsSelectedBaseRevisionId={props.versionsSelectedBaseRevisionId}
-              versionsLoadBranchLabel={props.versionsLoadBranchLabel}
-              versionsCommitMessage={props.versionsCommitMessage}
-              onVersionsCommitMessageChange={props.onVersionsCommitMessageChange}
-              onVersionsCommitCurrent={props.onVersionsCommitCurrent}
-              versionsCreateBranchName={props.versionsCreateBranchName}
-              onVersionsCreateBranchNameChange={props.onVersionsCreateBranchNameChange}
-              versionsCreateBranchPolicy={props.versionsCreateBranchPolicy}
-              onVersionsCreateBranchPolicyChange={props.onVersionsCreateBranchPolicyChange}
-              onVersionsCreateBranch={props.onVersionsCreateBranch}
-              onVersionsBranchChange={props.onVersionsBranchChange}
-              onVersionsRefresh={props.onVersionsRefresh}
-              onVersionsOpenRevision={props.onVersionsOpenRevision}
-              onVersionsDiffRevision={props.onVersionsDiffRevision}
-              onVersionsSelectBaseRevision={props.onVersionsSelectBaseRevision}
-              onVersionsDiffAgainstBase={props.onVersionsDiffAgainstBase}
-              onVersionsLoadBranchHead={props.onVersionsLoadBranchHead}
-              onVersionsOpenChangeReview={props.onVersionsOpenChangeReview}
-            />
-          ) : leftSidebarTab === 'checkpoints' ? (
-            <CheckpointsTabPanel {...props} />
-          ) : (
-            <ScoresTabPanel
-              scoreSummariesError={props.scoreSummariesError}
-              scoreSummariesLoading={props.scoreSummariesLoading}
-              scoreSummaries={props.scoreSummaries}
-              currentScoreId={props.currentScoreId}
-              onOpenScoreFromSummary={props.onOpenScoreFromSummary}
-              formatTimestamp={props.formatTimestamp}
-              summarizeScoreId={props.summarizeScoreId}
-            />
-          )}
-        </div>
-      )}
+      {!collapsed && content}
     </aside>
   );
 }

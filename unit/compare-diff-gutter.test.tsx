@@ -59,7 +59,7 @@ const props = (
     canAddThread?: boolean;
   } = {},
 ): CompareDiffGutterProps => ({
-  mode: { isAiCompareMode: false, isChangeReviewCompareMode: true, isEmbedMode: false },
+  mode: { isAiCompareMode: false, isChangeReviewCompareMode: true, hosted: false },
   panes: {
     left: { bounds, measurePositions: positions, parts: [{ name: 'Piano' }], score: null },
     right: { bounds, measurePositions: positions, parts: [{ name: 'Piano' }], score: null },

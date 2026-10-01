@@ -7,6 +7,8 @@ test('compare overwrite applies left measure to right', async ({ page }) => {
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
 
   const checkpointLabel = 'Overwrite Test';
+  // The checkpoint list lives in the History activity; editing happens in Write.
+  await runCommand(page, 'shell.activity.history');
   await page.getByTestId('input-checkpoint-label').fill(checkpointLabel);
   await page.getByTestId('btn-checkpoint-save').click();
 
@@ -29,6 +31,7 @@ test('compare overwrite applies left measure to right', async ({ page }) => {
       return `${step}${alter}/${octave}`;
     });
 
+  await runCommand(page, 'shell.activity.write');
   const pitchBeforeEdit = await readFirstPitch();
 
   const firstNote = page.locator('svg .Note').first();
@@ -42,6 +45,7 @@ test('compare overwrite applies left measure to right', async ({ page }) => {
   // out. That was the flake: it reproduced under load and passed otherwise.
   await expect.poll(readFirstPitch, { timeout: 20_000 }).not.toBe(pitchBeforeEdit);
 
+  await runCommand(page, 'shell.activity.history');
   // By test id: the outermost div that holds the label also holds the ribbon's "Load scores to
   // compare" button, which a role-and-name match on "Compare" finds as well.
   await page.locator('[data-testid^="btn-checkpoint-compare-"]').last().click();

@@ -285,6 +285,9 @@ test.describe('canvas insets', () => {
         }
 
         // The first note is where a click lands on the score, not on a panel.
+        // Fit width now has the whole row (History no longer takes a column), so the first note
+        // can sit below the fold; bring it into view before asking what is on top of it.
+        await page.locator('svg .Note').first().scrollIntoViewIfNeeded();
         const note = await page.locator('svg .Note').first().boundingBox();
         expect(note).not.toBeNull();
         const hit = await page.evaluate(

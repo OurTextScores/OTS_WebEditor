@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { runCommand } from './helpers/commands';
 
 /**
  * Real-WASM coverage for closing the compare workspace while a pane is actively
@@ -36,6 +37,8 @@ test('closing compare while a pane is streaming tears down without a worker erro
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
 
   const checkpointLabel = 'Close During Playback';
+  // The checkpoint list lives in the History activity.
+  await runCommand(page, 'shell.activity.history');
   await page.getByTestId('input-checkpoint-label').fill(checkpointLabel);
   await page.getByTestId('btn-checkpoint-save').click();
 

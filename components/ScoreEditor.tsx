@@ -2,7 +2,6 @@
 
 import React, { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { PanelRightOpen, PanelRightClose } from 'lucide-react';
 import {
   loadWebMscore,
   Score,
@@ -46,13 +45,17 @@ import { ShellHeader } from './shell/ShellHeader';
 import { StatusBar } from './shell/StatusBar';
 import { LegacyCanvasChrome } from './shell/LegacyCanvasChrome';
 import type { LeftDockProps } from './shell/LeftDock';
-import { WriteWorkspace } from './shell/WriteWorkspace';
+import { EditorWorkspace } from './shell/EditorWorkspace';
+import { selectWorkspaceMode } from './shell/selectWorkspaceMode';
+import { usePersistedActivity } from './shell/usePersistedActivity';
+import { MODE_TRAITS } from './shell/workspaceMode';
+import { buildWorkspaceMode, type CompareRenderOptions } from './modes';
 import { useShellPanels } from './shell/useShellPanels';
 import { useWorkspaceDock } from './shell/useWorkspaceDock';
-import { NO_INSETS, type WorkspaceInsets } from './shell/vendor/viritura';
+import type { WorkspaceInsets } from './shell/vendor/viritura';
 import { resolveShellVersion, V2_HIDDEN_RIBBON_SECTIONS } from './shell/shellVersion';
 import { useShellCommands } from './score-editor/useShellCommands';
-import { InspectorPanel } from './InspectorPanel';
+import { LegacySidePanels } from './score-editor/LegacySidePanels';
 import { FloatingPalettes } from './FloatingPalettes';
 import {
   SCORE_PALETTE_DRAG_MIME,
@@ -185,7 +188,7 @@ import {
   CODE_EDITOR_THEME_OPTIONS,
   type MusicXmlPanelProps,
 } from './score-editor/MusicXmlPanel';
-import { AiToolsTabStrip, type AiToolsTab } from './score-editor/ai-tools/AiToolsTabStrip';
+import type { AiToolsTab } from './score-editor/ai-tools/AiToolsTabStrip';
 import { resolveComparePaneStatus } from './score-editor/compare/compare-pane-status';
 import { CompareScorePane } from './score-editor/compare/CompareScorePane';
 import { ScannerSystemRows, type ScannerSystem } from './score-editor/compare/ScannerSystemRows';
@@ -1104,19 +1107,14 @@ export default function ScoreEditor() {
    * `compareRight` -- a second reading here would mean the caller wanted the comparison
    * view and built the wrong URL.
    */
-  const isFindingsRowsMode =
-    Boolean(compareLeftUrl && !compareRightUrl && compareRegionsUrl) &&
-    searchParams.get('compareMode')?.trim() === 'findings';
-  const isCompareEmbedMode = Boolean(compareLeftUrl && compareRightUrl);
+  // Which surface the URL asks for. `selectWorkspaceMode` is the one place that decides it
+  // (the precedence among findings, rows, change review and compare lives there, with the
+  // reasoning above); the rest of the editor reads the kind or its traits.
+  const hostKind = selectWorkspaceMode(searchParams, { compareViewActive: false, activity: 'write' });
+  const hostTraits = MODE_TRAITS[hostKind];
   const isSuppliedRegionsMode =
-    (isCompareEmbedMode || isFindingsRowsMode) && Boolean(compareRegionsUrl);
-  // Row-per-scanned-system layout. Opt-in, because it only makes sense when a
-  // caller can say where the scan's systems are.
-  const compareMode = searchParams.get('compareMode')?.trim() || '';
-  const isSystemRowsMode =
-    isSuppliedRegionsMode && compareMode === 'rows' && !isFindingsRowsMode;
-  /** Both row views size the frame to their content; the host scrolls, not the iframe. */
-  const isAnyRowsMode = isSystemRowsMode || isFindingsRowsMode;
+    (Boolean(compareLeftUrl && compareRightUrl) || hostKind === 'host-scanner-findings') &&
+    Boolean(compareRegionsUrl);
 
   /*
    * Report the document's height to whoever embedded it.
@@ -1128,7 +1126,7 @@ export default function ScoreEditor() {
    * Ignored by any host that is not listening, which is every other embed.
    */
   useEffect(() => {
-    if (!isAnyRowsMode || typeof ResizeObserver === 'undefined') return;
+    if (hostTraits.layout !== 'content' || typeof ResizeObserver === 'undefined') return;
     if (window.parent === window) return;
 
     /*
@@ -1187,15 +1185,12 @@ export default function ScoreEditor() {
       document.body.style.overflow = restore.bodyOverflow;
       if (wrapper instanceof HTMLElement) wrapper.style.minHeight = restore.wrapperMinHeight;
     };
-  }, [isAnyRowsMode]);
+  }, [hostTraits.layout]);
 
   const [suppliedFindings, setSuppliedFindings] = useState<FindingRowsFinding[]>([]);
 
-  const isChangeReviewSingleScoreMode = Boolean(reviewScoreUrl && changeReviewId);
-  const isEmbedMode =
-    isCompareEmbedMode || isChangeReviewSingleScoreMode || isFindingsRowsMode;
-  const isChangeReviewCompareMode = isCompareEmbedMode && Boolean(changeReviewId);
-  const isChangeReviewMode = isChangeReviewCompareMode || isChangeReviewSingleScoreMode;
+  const isChangeReviewCompareMode = hostKind === 'host-compare' && Boolean(changeReviewId);
+  const isChangeReviewMode = isChangeReviewCompareMode || hostKind === 'host-change-review';
   const launchContext = useMemo(
     () => parseEditorLaunchContextParam(searchParams.get('launchContext')),
     [searchParams],
@@ -1418,7 +1413,6 @@ export default function ScoreEditor() {
   const [mutationEnabled, setMutationEnabled] = useState(false);
   const [interactionReady, setInteractionReady] = useState(false);
   const [interactionPreparing, setInteractionPreparing] = useState(false);
-  const interactiveMutationEnabled = mutationEnabled && interactionReady;
   const interactionReadyRef = useRef(interactionReady);
   const interactionPreparingRef = useRef(interactionPreparing);
   const [soundFontLoaded, setSoundFontLoaded] = useState(false);
@@ -1442,6 +1436,17 @@ export default function ScoreEditor() {
   const [checkpointLoading, setCheckpointLoading] = useState(false);
   const [checkpointError, setCheckpointError] = useState<string | null>(null);
   const [compareView, setCompareView] = useState<CompareViewState | null>(null);
+  const [activity, setActivity] = usePersistedActivity();
+  // The mode on screen: a host surface from the URL, else compare while a session is open,
+  // else the selected activity (always Write under ?shell=legacy, which has no activities).
+  const kind = selectWorkspaceMode(searchParams, {
+    compareViewActive: Boolean(compareView),
+    activity: shellV2 ? activity : 'write',
+  });
+  const traits = MODE_TRAITS[kind];
+  // What the mode lets the user do to the score: History and the scanner views only look.
+  const interactiveMutationEnabled =
+    mutationEnabled && interactionReady && traits.interaction === 'edit';
   const [compareSwapped, setCompareSwapped] = useState(false);
   const aiProposalController = useAiProposalController();
   const captureAiProposal = aiProposalController.capture;
@@ -2817,7 +2822,7 @@ export default function ScoreEditor() {
     // showing "No score loaded": the mode turned on, the regions arrived, and nothing
     // ever fetched the score they describe.
     if (!compareLeftUrl) return;
-    if (!compareRightUrl && !isFindingsRowsMode) return;
+    if (!compareRightUrl && hostKind !== 'host-scanner-findings') return;
 
     const loadExternalCompare = async () => {
       setCheckpointBusy(true);
@@ -3212,14 +3217,14 @@ export default function ScoreEditor() {
   const compareRightScoreDisplay = compareSwapped ? compareRightScore : score;
   const compareLeftParts = compareSwapped ? scoreParts : compareRightParts;
   const compareRightPartsDisplay = compareSwapped ? compareRightParts : scoreParts;
-  const compareLeftLabel = isEmbedMode
+  const compareLeftLabel = hostTraits.labelsFromUrl
     ? compareSwapped
       ? rightLabel
       : leftLabel
     : compareSwapped
       ? compareCurrentTitle
       : compareCheckpointTitle;
-  const compareRightLabel = isEmbedMode
+  const compareRightLabel = hostTraits.labelsFromUrl
     ? compareSwapped
       ? leftLabel
       : rightLabel
@@ -3353,7 +3358,7 @@ export default function ScoreEditor() {
         fetchJsonOrThrow<ChangeReviewDetail>(
           `/api/proxy/change-reviews/${encodeURIComponent(changeReviewId)}`,
         ),
-        isChangeReviewSingleScoreMode
+        hostKind === 'host-change-review'
           ? fetchJsonOrThrow<ChangeReviewScoreView>(
               `/api/proxy/change-reviews/${encodeURIComponent(changeReviewId)}/score-view${changeReviewPatchset ? `?patchset=${encodeURIComponent(changeReviewPatchset)}` : ''}`,
             )
@@ -3362,7 +3367,7 @@ export default function ScoreEditor() {
             ),
       ]);
       setChangeReviewDetail(detail);
-      if (isChangeReviewSingleScoreMode) {
+      if (hostKind === 'host-change-review') {
         setChangeReviewScoreView(reviewData as ChangeReviewScoreView);
         setChangeReviewDiff(null);
       } else {
@@ -3374,7 +3379,7 @@ export default function ScoreEditor() {
     } finally {
       setChangeReviewLoading(false);
     }
-  }, [changeReviewId, changeReviewPatchset, isChangeReviewSingleScoreMode]);
+  }, [changeReviewId, changeReviewPatchset, hostKind]);
   const notifyParentChangeReviewUpdated = useCallback(() => {
     if (typeof window === 'undefined' || !changeReviewId || window.parent === window) {
       return;
@@ -4484,12 +4489,12 @@ export default function ScoreEditor() {
     compareEffectiveZoom,
   ]);
   useEffect(() => {
-    if (!isChangeReviewSingleScoreMode || !score) {
+    if (hostKind !== 'host-change-review' || !score) {
       setChangeReviewMeasurePositions(null);
       return;
     }
     void refreshMeasurePositions(score, setChangeReviewMeasurePositions);
-  }, [currentPage, isChangeReviewSingleScoreMode, refreshMeasurePositions, score, scoreRevision]);
+  }, [currentPage, hostKind, refreshMeasurePositions, score, scoreRevision]);
   const changeReviewBarBoxes = useMemo(() => {
     if (!changeReviewMeasurePositions?.elements.length || !changeReviewScoreView) {
       return [];
@@ -17455,14 +17460,15 @@ ${partsBodyXml}
 
   const panels = useShellPanels();
   const dock = useWorkspaceDock({
-    enabled: shellV2 && !isEmbedMode,
+    enabled: shellV2 && traits.chrome === 'full',
     compareView: Boolean(compareView),
     floatingOpen: palettesOpen,
     setFloatingOpen: setPalettesOpen,
     setCategory: setPaletteCategory,
   });
   useShellCommands({
-    dock: shellV2 && !isEmbedMode ? dock : null,
+    dock: shellV2 && traits.chrome === 'full' ? dock : null,
+    activity, setActivity, compareOpen: Boolean(compareView), closeCompare: handleCloseCompareView,
     score, aiEnabled, pageCount, currentPage, goToPage,
     goToNextPage: handleNextPage, goToPreviousPage: handlePrevPage,
     inspectorOpen, setInspectorOpen, musicXmlOpen, setMusicXmlOpen,
@@ -17529,11 +17535,16 @@ ${partsBodyXml}
       compareRightNoteInputCursor.page === getCompareTargetPage(compareRightScoreDisplay)),
   );
 
+  // The mode's interaction policy decides what the canvas does with the pointer: `edit` has it
+  // all, `review` hands clicks to the review gutter, `readonly` keeps selection only.
+  const canEditScore = traits.interaction === 'edit';
+  const reviewsScore = traits.interaction === 'review';
+  const growsToContent = traits.layout === 'content';
   const renderCanvas = (insets: WorkspaceInsets) => (
         <div
           ref={scrollContainerRef}
           onScroll={(event) => {
-            if (isChangeReviewSingleScoreMode && changeReviewGutterRef.current) {
+            if (reviewsScore && changeReviewGutterRef.current) {
               changeReviewGutterRef.current.scrollTop = event.currentTarget.scrollTop;
             }
           }}
@@ -17564,8 +17575,8 @@ ${partsBodyXml}
            * cover it completely either way, so this costs nothing to look at.
            */
           className={`relative z-0 flex-1 bg-gray-50 p-8 ${
-            isAnyRowsMode ? 'overflow-x-clip overflow-y-visible' : 'overflow-auto'
-          } ${isAnyRowsMode && compareView ? 'hidden' : ''}`}
+            growsToContent ? 'overflow-x-clip overflow-y-visible' : 'overflow-auto'
+          } ${growsToContent && compareView ? 'hidden' : ''}`}
           style={
             insets.left || insets.right
               ? {
@@ -17617,7 +17628,7 @@ ${partsBodyXml}
               cursor: noteInputActive ? 'crosshair' : undefined,
             }}
             onClick={
-              isChangeReviewSingleScoreMode
+              reviewsScore
                 ? () => {
                     setChangeReviewFocusedAnchorId(null);
                     setChangeReviewNewThreadAnchorId(null);
@@ -17625,13 +17636,13 @@ ${partsBodyXml}
                   }
                 : handleScoreClick
             }
-            onDoubleClick={isChangeReviewSingleScoreMode ? undefined : handleScoreDoubleClick}
-            onPointerDown={isChangeReviewSingleScoreMode ? undefined : handleScorePointerDown}
-            onPointerMove={isChangeReviewSingleScoreMode ? undefined : handleScorePointerMove}
-            onPointerUp={isChangeReviewSingleScoreMode ? undefined : handleScorePointerUp}
-            onPointerCancel={isChangeReviewSingleScoreMode ? undefined : handleScorePointerCancel}
+            onDoubleClick={canEditScore ? handleScoreDoubleClick : undefined}
+            onPointerDown={canEditScore ? handleScorePointerDown : undefined}
+            onPointerMove={canEditScore ? handleScorePointerMove : undefined}
+            onPointerUp={canEditScore ? handleScorePointerUp : undefined}
+            onPointerCancel={canEditScore ? handleScorePointerCancel : undefined}
             onPointerLeave={
-              isChangeReviewSingleScoreMode
+              !canEditScore
                 ? undefined
                 : () => {
                     if (noteInputActiveRef.current && dragPointerIdRef.current === null) {
@@ -17639,17 +17650,17 @@ ${partsBodyXml}
                     }
                   }
             }
-            onMouseDown={isChangeReviewSingleScoreMode ? undefined : handleScoreMouseDown}
-            onMouseMove={isChangeReviewSingleScoreMode ? undefined : handleScoreMouseMove}
-            onMouseUp={isChangeReviewSingleScoreMode ? undefined : handleScoreMouseUp}
-            onContextMenu={isChangeReviewSingleScoreMode ? undefined : handleScoreContextMenu}
-            onDragOver={isChangeReviewSingleScoreMode ? undefined : handlePaletteDragOver}
-            onDragLeave={isChangeReviewSingleScoreMode ? undefined : handlePaletteDragLeave}
-            onDrop={isChangeReviewSingleScoreMode ? undefined : handlePaletteDrop}
+            onMouseDown={canEditScore ? handleScoreMouseDown : undefined}
+            onMouseMove={canEditScore ? handleScoreMouseMove : undefined}
+            onMouseUp={canEditScore ? handleScoreMouseUp : undefined}
+            onContextMenu={canEditScore ? handleScoreContextMenu : undefined}
+            onDragOver={canEditScore ? handlePaletteDragOver : undefined}
+            onDragLeave={canEditScore ? handlePaletteDragLeave : undefined}
+            onDrop={canEditScore ? handlePaletteDrop : undefined}
           >
             <div ref={containerRef} data-testid="svg-container" />
 
-            {isChangeReviewSingleScoreMode &&
+            {reviewsScore &&
               changeReviewBarBoxes.map(({ bar, left, top, width, height }) => {
                 const selected = changeReviewFocusedAnchorId === bar.anchorId;
                 const hasThread = bar.hasThread || changeReviewThreadsByAnchor.has(bar.anchorId);
@@ -18263,22 +18274,509 @@ ${partsBodyXml}
     },
   };
 
-  const shellOn = shellV2 && !isEmbedMode;
+  const renderHistory = (embedded: boolean) => (
+    <LeftSidebar
+          hidden={!embedded && !panelsVisible}
+          embedded={embedded}
+          collapsed={checkpointsCollapsed}
+          onToggleCollapsed={() => setCheckpointsCollapsed((prev) => !prev)}
+          onRefresh={() => {
+            if (otsSourceContext && leftSidebarTab === 'versions') {
+              void refreshSourceHistory();
+              return;
+            }
+            void loadCheckpointList();
+          }}
+          checkpointControlsDisabled={checkpointControlsDisabled}
+          leftSidebarTab={leftSidebarTab}
+          onTabChange={setLeftSidebarTab}
+          showVersionsTab={Boolean(otsSourceContext)}
+          versionsLoading={versionsLoading}
+          versionsError={versionsError}
+          versionsBranchName={versionsBranchName}
+          versionsBranches={sourceHistory?.branches || []}
+          versionsSelectedBranch={sourceHistory?.selectedBranch || null}
+          versionsRevisions={sourceHistory?.revisions || []}
+          versionsCanCreateBranch={Boolean(sourceHistory?.viewer?.canCreateBranch)}
+          versionsCanCommit={Boolean(sourceHistory?.viewer?.canCommitToSelectedBranch)}
+          versionsActionBusy={versionsActionBusy}
+          versionsActionError={versionsActionError}
+          versionsActionNotice={versionsActionNotice}
+          versionsStatusMode={scoreDirtySinceCheckpoint ? 'detached' : 'tracking'}
+          versionsStatusMessage={versionsStatusMessage}
+          versionsSelectedBaseRevisionId={versionsSelectedBaseRevisionId}
+          versionsLoadBranchLabel={versionsLoadBranchLabel}
+          versionsCommitMessage={versionsCommitMessage}
+          onVersionsCommitMessageChange={setVersionsCommitMessage}
+          onVersionsCommitCurrent={() => void handleVersionsCommitCurrent()}
+          versionsCreateBranchName={versionsCreateBranchName}
+          onVersionsCreateBranchNameChange={setVersionsCreateBranchName}
+          versionsCreateBranchPolicy={versionsCreateBranchPolicy}
+          onVersionsCreateBranchPolicyChange={setVersionsCreateBranchPolicy}
+          onVersionsCreateBranch={() => void handleVersionsCreateBranch()}
+          onVersionsBranchChange={setVersionsBranchName}
+          onVersionsRefresh={() => void refreshSourceHistory()}
+          onVersionsOpenRevision={(revision) => void handleVersionsOpenRevision(revision)}
+          onVersionsDiffRevision={(revision) => void handleVersionsDiffRevision(revision)}
+          onVersionsSelectBaseRevision={(revision) =>
+            setVersionsSelectedBaseRevisionId(revision?.revisionId || null)
+          }
+          onVersionsDiffAgainstBase={(revision) => void handleVersionsDiffAgainstBase(revision)}
+          onVersionsLoadBranchHead={() => void handleVersionsLoadBranchHead()}
+          onVersionsOpenChangeReview={(revision) => void handleVersionsOpenChangeReview(revision)}
+          checkpointLabel={checkpointLabel}
+          onCheckpointLabelChange={setCheckpointLabel}
+          onSaveCheckpoint={() => void handleSaveCheckpoint()}
+          checkpointSaveDisabled={checkpointSaveDisabled}
+          scoreLoaded={Boolean(score)}
+          checkpointError={checkpointError}
+          checkpointLoading={checkpointLoading}
+          checkpoints={checkpoints}
+          checkpointCompareDisabled={checkpointCompareDisabled}
+          onRestoreCheckpoint={(checkpoint) => void handleRestoreCheckpoint(checkpoint)}
+          onCompareCheckpoint={(checkpoint) => void handleCompareCheckpoint(checkpoint)}
+          onRenameCheckpoint={(checkpoint) => void handleRenameCheckpoint(checkpoint)}
+          onDeleteCheckpoint={(checkpoint) => void handleDeleteCheckpoint(checkpoint)}
+          scoreDirtySinceCheckpoint={scoreDirtySinceCheckpoint}
+          scoreSummariesError={scoreSummariesError}
+          scoreSummariesLoading={scoreSummariesLoading}
+          scoreSummaries={scoreSummaries}
+          currentScoreId={scoreId}
+          onOpenScoreFromSummary={handleOpenScoreFromSummary}
+          formatTimestamp={formatTimestamp}
+          formatBytes={formatBytes}
+          summarizeScoreId={summarizeScoreId}
+        />
+  );
 
-  return (
-    /*
-            Rows mode grows; every other mode fills the window.
+  const renderCompare = ({ variant, placement, hosted, grows }: CompareRenderOptions) => (
+    <>
+        {compareView && (
+          /*
+                        A modal everywhere but rows mode, where it is the page.
 
-            The editor is built for a fixed viewport — `h-screen` with
-            `overflow-auto` at each level — which is right when it owns the
-            window. Embedded in a page it is not: a scrollable box inside a
-            fixed-height frame gives the reader two scrollbars and the shorter
-            of two viewports. So in rows mode the chain grows to its content and
-            the host sizes the frame to match.
-        */
-    <div className={isAnyRowsMode ? 'flex flex-col overflow-x-clip' : 'flex flex-col h-screen'}>
-      {!isEmbedMode && <ShellHeader title={scoreTitle} dirty={scoreDirtySinceCheckpoint} v2={shellV2} />}
-      {!isEmbedMode && (
+                        `fixed inset-0` takes this out of flow, so it adds
+                        nothing to `document.body.scrollHeight` -- and that is
+                        the height reported to the host. The frame was therefore
+                        sized to whatever was left in flow behind it: the
+                        ordinary editor canvas, holding a whole engraved page at
+                        the current zoom. Measured at 4314px of frame around
+                        390px of rows, and the mismatch runs the other way just
+                        as easily, where `inset-0` plus `overflow-hidden` clips
+                        the rows to a frame too short for them with nothing able
+                        to scroll to the rest.
+
+                        In rows mode it is an ordinary block instead: its height
+                        is its content, the content's height is the document's,
+                        and the host sizes the frame to that -- which is what
+                        the growable chain above was built for.
+                    */
+          <div
+            className={
+              // Both row views grow with their content and let the host scroll. Left on
+              // `(variant === 'rows')`, the findings view fell into the fixed, clipped branch
+              // and reported a viewport-sized height for a 7,000px document.
+              grows
+                ? 'relative w-full bg-gray-50'
+                : placement === 'inline'
+                  ? 'absolute bottom-0 right-0 top-0 flex items-start justify-center overflow-hidden bg-gray-50'
+                  : 'fixed inset-0 flex items-start justify-center overflow-hidden bg-gray-50'
+            }
+            style={
+              placement === 'inline'
+                ? { left: 'var(--shell-activity-w, 44px)', zIndex: 20 }
+                : { zIndex: 110 }
+            }
+            data-testid="checkpoint-compare-modal"
+          >
+            <div
+              className={
+                grows
+                  ? 'flex w-full flex-col gap-4 bg-white'
+                  : hosted
+                    ? 'flex min-h-0 w-full h-full flex-col gap-4 overflow-hidden bg-white'
+                    : 'flex min-h-0 w-full h-full flex-col gap-4 overflow-hidden bg-white p-4'
+              }
+            >
+              {!hosted && (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="text-sm font-semibold text-gray-800">Compare Scores</div>
+                    <div className="text-xs text-gray-500">
+                      {compareLeftLabel} vs {compareRightLabel}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {compareView.title === 'Assistant Proposal' && (
+                      <AiCompareWorkspaceActions
+                        applyBusy={compareSwapBusy || compareEditBusy}
+                        feedbackBusy={aiDiffFeedbackBusy}
+                        canSendFeedback={canSendDiffFeedback}
+                        feedbackLabel={diffFeedbackButtonLabel}
+                        onApplyAll={() => void handleAcceptAllAiChanges()}
+                        onSendFeedback={() => void handleSendDiffFeedback()}
+                      />
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleCloseCompareView}
+                      className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                    >
+                      {isAiCompareMode ? 'Done - Close' : 'Close'}
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div
+                className={
+                  grows
+                    ? 'flex flex-1 flex-col gap-4'
+                    : hosted
+                      ? 'flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4'
+                      : 'flex min-h-0 flex-1 flex-col gap-4 overflow-auto'
+                }
+              >
+                {(variant === 'findings') ? (
+                  <ScannerFindingRows
+                    systems={suppliedSystems}
+                    findings={suppliedFindings}
+                    xml={compareLeftXml}
+                    label={compareLeftLabel}
+                    engineId={suppliedCompareLeftEngineId || ''}
+                    merged={suppliedMerged}
+                    onMergedScoreChange={setScannerMergedScore}
+                    resolveUrl={(relative) =>
+                      new URL(relative, new URL(compareRegionsUrl, window.location.href)).toString()
+                    }
+                  />
+                ) : (variant === 'rows') ? (
+                  <ScannerSystemRows
+                    systems={suppliedSystems}
+                    regions={suppliedRegions || []}
+                    leftXml={compareLeftXml}
+                    rightXml={compareRightXml}
+                    leftLabel={compareLeftLabel}
+                    rightLabel={compareRightLabel}
+                    leftEngineId={suppliedCompareLeftEngineId}
+                    rightEngineId={suppliedCompareRightEngineId}
+                    merged={suppliedMerged}
+                    onlyBlockIndex={
+                      compareBlockIndex === '' ? undefined : Number(compareBlockIndex)
+                    }
+                    transport={compareTransport}
+                    onMergedScoreChange={setScannerMergedScore}
+                    resolveUrl={(relative) =>
+                      new URL(relative, new URL(compareRegionsUrl, window.location.href)).toString()
+                    }
+                  />
+                ) : (
+                  <>
+                    {isAiCompareMode && (
+                      <AiCompareWorkspace
+                        proposalController={aiProposalController}
+                        embedded={hosted}
+                        feedbackBusy={aiDiffFeedbackBusy}
+                        globalComment={aiDiffGlobalComment}
+                        iteration={aiDiffIteration}
+                        feedbackError={aiDiffFeedbackError}
+                        onGlobalCommentChange={setAiDiffGlobalComment}
+                        onRebase={() => void rebaseAiProposalOntoLive()}
+                        rebaseBusy={compareSwapBusy || compareEditBusy}
+                      />
+                    )}
+                    <div
+                      className="flex min-w-0 flex-none overflow-x-hidden"
+                      style={{ height: '100dvh' }}
+                    >
+                      <div className="flex min-h-0 min-w-0 flex-1 gap-4">
+                        <CompareScorePane
+                          model={{
+                            side: 'left',
+                            label: compareLeftLabel,
+                            isCurrent: compareLeftIsCurrent,
+                            isActive: compareActiveSide === 'left',
+                            embedded: hosted,
+                            scoreAvailable: Boolean(compareLeftScore),
+                            editorBusy:
+                              compareEditBusy ||
+                              compareSwapBusy ||
+                              aiDiffFeedbackBusy ||
+                              !compareLeftScore,
+                            noteInputActive: compareLeftRole
+                              ? compareNoteInputByRole[compareLeftRole]
+                              : false,
+                            zoom: compareEffectiveZoom,
+                            wrapperStyle: compareZoomStyle,
+                            transport: compareTransport.left,
+                            checkpoint: hosted
+                              ? null
+                              : { label: compareLeftCheckpointLabel, busy: checkpointBusy },
+                            viewportStatus: comparePaneStatus.left,
+                            diffHighlights: compareLeftHighlights,
+                            positiveDiffStatus: 'new-diff',
+                            negativeDiffStatus: null,
+                            commentedHighlights: compareCommentedLeftHighlights,
+                            threadedHighlights: compareThreadedLeftHighlights,
+                            selectionRects: compareLeftSelectionBoxes,
+                            noteInputCursor:
+                              compareLeftNoteInputCursorVisible && compareLeftNoteInputCursor
+                                ? {
+                                    rect: compareLeftNoteInputCursor,
+                                    color: compareLeftNoteInputCursorColor,
+                                  }
+                                : null,
+                            focusedHighlight: compareFocusedHighlights.left ?? null,
+                            measureHitAreaAvailable: Boolean(compareLeftMeasurePositions),
+                          }}
+                          actions={{
+                            activate: () => setCompareActiveSide('left'),
+                            openInEditor: hosted
+                              ? () => handleOpenScoreInEditor('left')
+                              : null,
+                            togglePlayPause: () => void toggleCompareSidePlayPause('left'),
+                            stop: () => void stopCompareSideAudio('left', { awaitCancel: true }),
+                            setCheckpointLabel: setCompareLeftCheckpointLabel,
+                            saveCheckpoint: () => void handleSaveCompareCheckpoint('left'),
+                            zoomOut: () =>
+                              setCompareZoom((value) =>
+                                Math.max(0.2, (value ?? compareEffectiveZoom) - 0.1),
+                              ),
+                            zoomIn: () =>
+                              setCompareZoom((value) =>
+                                Math.min(1.5, (value ?? compareEffectiveZoom) + 0.1),
+                              ),
+                            addBar: () => handleCompareAddBar('left'),
+                            toggleNoteInput: () => {
+                              setCompareActiveSide('left');
+                              toggleCompareNoteInputMode('left');
+                            },
+                            openPalettes: () => {
+                              setCompareActiveSide('left');
+                              setPaletteCategory(null);
+                              setPalettesOpen(true);
+                            },
+                            clickScore: (event) => handleComparePaneClick(event, 'left'),
+                          }}
+                          paneRefs={{
+                            scroll: compareLeftScrollRef,
+                            wrapper: compareLeftWrapperRef,
+                            container: compareLeftContainerRef,
+                          }}
+                        />
+                        <div
+                          className={`flex min-h-0 flex-none flex-col items-stretch gap-2 ${isAiCompareMode || isChangeReviewCompareMode ? '' : 'w-44'}`}
+                          style={
+                            isAiCompareMode || isChangeReviewCompareMode
+                              ? { width: `${aiDiffGutterWidth}px` }
+                              : undefined
+                          }
+                        >
+                          {isAiCompareMode && (
+                            <CompareMeasureComments
+                              model={{
+                                threads: aiMeasureThreads,
+                                focusedAnchor: aiFocusedMeasureAnchor,
+                                draft: aiMeasureThreadDraft,
+                              }}
+                              actions={{
+                                focusAnchor: setAiFocusedMeasureAnchor,
+                                changeDraft: setAiMeasureThreadDraft,
+                                addComment: handleAddAiMeasureComment,
+                                removeComment: handleRemoveAiMeasureComment,
+                              }}
+                            />
+                          )}
+                          <div
+                            ref={compareGutterScrollRef}
+                            className="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-x-visible overflow-y-auto rounded border border-gray-200 bg-gray-50 p-2 text-[10px] text-gray-500"
+                          >
+                            {isChangeReviewCompareMode && changeReviewLoading && (
+                              <div className="rounded border border-dashed border-gray-200 bg-white px-2 py-2 text-center text-[10px] text-gray-400">
+                                Loading review threads...
+                              </div>
+                            )}
+                            {isChangeReviewCompareMode && changeReviewError && (
+                              <div className="rounded border border-rose-200 bg-rose-50 px-2 py-2 text-[10px] text-rose-700">
+                                {changeReviewError}
+                              </div>
+                            )}
+                            {isChangeReviewCompareMode && changeReviewActionError && (
+                              <div className="rounded border border-rose-200 bg-rose-50 px-2 py-2 text-[10px] text-rose-700">
+                                {changeReviewActionError}
+                              </div>
+                            )}
+                            {compareAlignmentLoading && (
+                              <div className="rounded border border-dashed border-gray-200 bg-white px-2 py-2 text-center text-[10px] text-gray-400">
+                                Aligning measures...
+                              </div>
+                            )}
+                            <CompareDiffGutter
+                              mode={{ isAiCompareMode, isChangeReviewCompareMode, hosted }}
+                              panes={{
+                                left: {
+                                  bounds: compareLeftBounds,
+                                  measurePositions: compareLeftMeasurePositions,
+                                  parts: compareLeftParts,
+                                  score: compareLeftScore,
+                                },
+                                right: {
+                                  bounds: compareRightBounds,
+                                  measurePositions: compareRightMeasurePositions,
+                                  parts: compareRightPartsDisplay,
+                                  score: compareRightScoreDisplay,
+                                },
+                              }}
+                              layout={{
+                                partCount: comparePartCount,
+                                rowHeight: compareGutterRowHeight,
+                                trackHeight: compareGutterTrackHeight,
+                                headerSpacerHeight: compareHeaderSpacerHeight,
+                                regionRefs: compareGutterRegionRefs,
+                                alignmentByPart: compareAlignmentByPart,
+                                alignmentLoading: compareAlignmentLoading,
+                                signatures: compareSignatures,
+                                resolvePartBounds: compareResolvePartBounds,
+                              }}
+                              diff={{
+                                blockContentSignature: aiDiffBlockContentSignature,
+                                blockErrors: aiDiffBlockErrors,
+                                feedbackBusy: aiDiffFeedbackBusy,
+                                bindCommentTextarea: bindAiDiffCommentTextarea,
+                                clearBlockError: clearAiDiffBlockError,
+                                commitBlockComment: commitAiDiffBlockComment,
+                                editBlockComment: editAiDiffBlockComment,
+                                onAcceptBlock: handleAcceptAiDiffBlock,
+                                onBlockCommentInput: handleAiDiffBlockCommentInput,
+                                onCommentResize: handleAiDiffCommentResize,
+                                resolveReview: resolveAiDiffReview,
+                                setBlockStatus: setAiDiffBlockStatus,
+                              }}
+                              review={{
+                                actionBusy: changeReviewActionBusy,
+                                barsForGutter: changeReviewCompareBarsForGutter,
+                                detail: changeReviewDetail,
+                                focusedAnchorId: changeReviewFocusedAnchorId,
+                                loading: changeReviewLoading,
+                                newThreadAnchorId: changeReviewNewThreadAnchorId,
+                                newThreadContent: changeReviewNewThreadContent,
+                                regionsInMeasureOrder: changeReviewRegionsInMeasureOrder,
+                                threadsByAnchor: changeReviewThreadsByAnchor,
+                                renderThread: renderChangeReviewThread,
+                                createThread: createChangeReviewThread,
+                                setFocusedAnchorId: setChangeReviewFocusedAnchorId,
+                                setNewThreadAnchorId: setChangeReviewNewThreadAnchorId,
+                                setNewThreadContent: setChangeReviewNewThreadContent,
+                              }}
+                              blocks={{
+                                buildMismatchBlocks,
+                                comments: compareBlockComments,
+                                setComments: setCompareBlockComments,
+                                focusedKey: compareFocusedBlockKey,
+                                setFocusedKey: setCompareFocusedBlockKey,
+                                editBusy: compareEditBusy,
+                                swapBusy: compareSwapBusy,
+                                rightError: compareRightError,
+                                onOverwrite: handleCompareOverwriteBlock,
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <CompareScorePane
+                          model={{
+                            side: 'right',
+                            label: compareRightLabel,
+                            isCurrent: compareRightIsCurrent,
+                            isActive: compareActiveSide === 'right',
+                            embedded: hosted,
+                            scoreAvailable: Boolean(compareRightScoreDisplay),
+                            editorBusy:
+                              compareEditBusy ||
+                              compareSwapBusy ||
+                              aiDiffFeedbackBusy ||
+                              !compareRightScoreDisplay,
+                            noteInputActive: compareRightRole
+                              ? compareNoteInputByRole[compareRightRole]
+                              : false,
+                            zoom: compareEffectiveZoom,
+                            wrapperStyle: compareRightZoomStyle,
+                            transport: compareTransport.right,
+                            checkpoint: hosted
+                              ? null
+                              : { label: compareRightCheckpointLabel, busy: checkpointBusy },
+                            viewportStatus: comparePaneStatus.right,
+                            diffHighlights: compareRightHighlights,
+                            positiveDiffStatus: 'new-diff',
+                            negativeDiffStatus: 'old-diff',
+                            commentedHighlights: compareCommentedRightHighlights,
+                            threadedHighlights: compareThreadedRightHighlights,
+                            selectionRects: compareRightSelectionBoxes,
+                            noteInputCursor:
+                              compareRightNoteInputCursorVisible && compareRightNoteInputCursor
+                                ? {
+                                    rect: compareRightNoteInputCursor,
+                                    color: compareRightNoteInputCursorColor,
+                                  }
+                                : null,
+                            focusedHighlight: compareFocusedHighlights.right ?? null,
+                            measureHitAreaAvailable: Boolean(compareRightMeasurePositions),
+                          }}
+                          actions={{
+                            activate: () => setCompareActiveSide('right'),
+                            openInEditor: hosted
+                              ? () => handleOpenScoreInEditor('right')
+                              : null,
+                            togglePlayPause: () => void toggleCompareSidePlayPause('right'),
+                            stop: () => void stopCompareSideAudio('right', { awaitCancel: true }),
+                            setCheckpointLabel: setCompareRightCheckpointLabel,
+                            saveCheckpoint: () => void handleSaveCompareCheckpoint('right'),
+                            zoomOut: () =>
+                              setCompareZoom((value) =>
+                                Math.max(0.2, (value ?? compareEffectiveZoom) - 0.1),
+                              ),
+                            zoomIn: () =>
+                              setCompareZoom((value) =>
+                                Math.min(1.5, (value ?? compareEffectiveZoom) + 0.1),
+                              ),
+                            addBar: () => handleCompareAddBar('right'),
+                            toggleNoteInput: () => {
+                              setCompareActiveSide('right');
+                              toggleCompareNoteInputMode('right');
+                            },
+                            openPalettes: () => {
+                              setCompareActiveSide('right');
+                              setPaletteCategory(null);
+                              setPalettesOpen(true);
+                            },
+                            clickScore: (event) => handleComparePaneClick(event, 'right'),
+                          }}
+                          paneRefs={{
+                            scroll: compareRightScrollRef,
+                            wrapper: compareRightWrapperRef,
+                            container: compareRightContainerRef,
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <XmlDiffView
+                      leftLabel={compareLeftLabel}
+                      rightLabel={compareRightLabel}
+                      leftXml={compareLeftXml}
+                      rightXml={compareRightXml}
+                    />
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+    </>
+  );
+
+  const mode = buildWorkspaceMode(kind, {
+    legacy: !shellV2,
+    nodes: {
+      header: <ShellHeader title={scoreTitle} dirty={scoreDirtySinceCheckpoint} v2={shellV2} />,
+      ribbon: (
         <div className="relative" style={{ zIndex: 100 }} ref={toolbarRef}>
           <Toolbar
             hiddenSections={shellV2 ? V2_HIDDEN_RIBBON_SECTIONS : undefined}
@@ -18431,9 +18929,8 @@ ${partsBodyXml}
             selectedTextDisabled={selectedTextControlDisabled}
           />
         </div>
-      )}
-
-      {palettesOpen && (!isEmbedMode || Boolean(compareView)) && (
+      ),
+      floatingPalettes: palettesOpen ? (
         <FloatingPalettes
           disabled={
             compareView
@@ -18453,121 +18950,10 @@ ${partsBodyXml}
           onDock={shellV2 && !compareView ? () => dock.setPoppedOut(false) : undefined}
           category={paletteCategory}
         />
-      )}
-
-      <div className={isAnyRowsMode ? 'flex' : 'flex flex-1 min-h-0'}>
-        <LeftSidebar
-          hidden={isEmbedMode || !panelsVisible}
-          collapsed={checkpointsCollapsed}
-          onToggleCollapsed={() => setCheckpointsCollapsed((prev) => !prev)}
-          onRefresh={() => {
-            if (otsSourceContext && leftSidebarTab === 'versions') {
-              void refreshSourceHistory();
-              return;
-            }
-            void loadCheckpointList();
-          }}
-          checkpointControlsDisabled={checkpointControlsDisabled}
-          leftSidebarTab={leftSidebarTab}
-          onTabChange={setLeftSidebarTab}
-          showVersionsTab={Boolean(otsSourceContext)}
-          versionsLoading={versionsLoading}
-          versionsError={versionsError}
-          versionsBranchName={versionsBranchName}
-          versionsBranches={sourceHistory?.branches || []}
-          versionsSelectedBranch={sourceHistory?.selectedBranch || null}
-          versionsRevisions={sourceHistory?.revisions || []}
-          versionsCanCreateBranch={Boolean(sourceHistory?.viewer?.canCreateBranch)}
-          versionsCanCommit={Boolean(sourceHistory?.viewer?.canCommitToSelectedBranch)}
-          versionsActionBusy={versionsActionBusy}
-          versionsActionError={versionsActionError}
-          versionsActionNotice={versionsActionNotice}
-          versionsStatusMode={scoreDirtySinceCheckpoint ? 'detached' : 'tracking'}
-          versionsStatusMessage={versionsStatusMessage}
-          versionsSelectedBaseRevisionId={versionsSelectedBaseRevisionId}
-          versionsLoadBranchLabel={versionsLoadBranchLabel}
-          versionsCommitMessage={versionsCommitMessage}
-          onVersionsCommitMessageChange={setVersionsCommitMessage}
-          onVersionsCommitCurrent={() => void handleVersionsCommitCurrent()}
-          versionsCreateBranchName={versionsCreateBranchName}
-          onVersionsCreateBranchNameChange={setVersionsCreateBranchName}
-          versionsCreateBranchPolicy={versionsCreateBranchPolicy}
-          onVersionsCreateBranchPolicyChange={setVersionsCreateBranchPolicy}
-          onVersionsCreateBranch={() => void handleVersionsCreateBranch()}
-          onVersionsBranchChange={setVersionsBranchName}
-          onVersionsRefresh={() => void refreshSourceHistory()}
-          onVersionsOpenRevision={(revision) => void handleVersionsOpenRevision(revision)}
-          onVersionsDiffRevision={(revision) => void handleVersionsDiffRevision(revision)}
-          onVersionsSelectBaseRevision={(revision) =>
-            setVersionsSelectedBaseRevisionId(revision?.revisionId || null)
-          }
-          onVersionsDiffAgainstBase={(revision) => void handleVersionsDiffAgainstBase(revision)}
-          onVersionsLoadBranchHead={() => void handleVersionsLoadBranchHead()}
-          onVersionsOpenChangeReview={(revision) => void handleVersionsOpenChangeReview(revision)}
-          checkpointLabel={checkpointLabel}
-          onCheckpointLabelChange={setCheckpointLabel}
-          onSaveCheckpoint={() => void handleSaveCheckpoint()}
-          checkpointSaveDisabled={checkpointSaveDisabled}
-          scoreLoaded={Boolean(score)}
-          checkpointError={checkpointError}
-          checkpointLoading={checkpointLoading}
-          checkpoints={checkpoints}
-          checkpointCompareDisabled={checkpointCompareDisabled}
-          onRestoreCheckpoint={(checkpoint) => void handleRestoreCheckpoint(checkpoint)}
-          onCompareCheckpoint={(checkpoint) => void handleCompareCheckpoint(checkpoint)}
-          onRenameCheckpoint={(checkpoint) => void handleRenameCheckpoint(checkpoint)}
-          onDeleteCheckpoint={(checkpoint) => void handleDeleteCheckpoint(checkpoint)}
-          scoreDirtySinceCheckpoint={scoreDirtySinceCheckpoint}
-          scoreSummariesError={scoreSummariesError}
-          scoreSummariesLoading={scoreSummariesLoading}
-          scoreSummaries={scoreSummaries}
-          currentScoreId={scoreId}
-          onOpenScoreFromSummary={handleOpenScoreFromSummary}
-          formatTimestamp={formatTimestamp}
-          formatBytes={formatBytes}
-          summarizeScoreId={summarizeScoreId}
-        />
-
-        {shellOn ? (
-          <WriteWorkspace
-            canvas={renderCanvas}
-            panelsVisible={panelsVisible}
-            onShowPanels={() => setPanelsVisible(true)}
-            dock={dock}
-            widths={panels}
-            left={{
-              palettes: {
-                disabled:
-                  !interactiveMutationEnabled ||
-                  (!selectedElement && selectionBoxes.length === 0 && !selectedPoint),
-                dragEnabled: Boolean(interactiveMutationEnabled && score?.applyDropAtPoint),
-                onApply: handleApplyFloatingPaletteItem,
-                category: paletteCategory,
-                onShowAll: () => setPaletteCategory(null),
-              },
-              instruments: { parts: scoreParts, groups: instrumentGroups },
-              inspector: inspectorProps,
-            }}
-            ai={{
-              open: aiToolsSidebarOpen,
-              tool: xmlSidebarTab,
-              onToolChange: setXmlSidebarTab,
-              aiEnabled,
-              loading: xmlLoading,
-              onClose: () => setXmlSidebarMode('closed'),
-              body: renderAiToolsBody(),
-            }}
-            source={{
-              open: musicXmlOpen,
-              onClose: () => setMusicXmlOpen(false),
-              content: <MusicXmlPanel embedded {...musicXmlPanelProps} />,
-            }}
-          />
-        ) : (
-          <>
-            {renderCanvas(NO_INSETS)}
-
-        {isChangeReviewSingleScoreMode && (
+      ) : null,
+      statusBar: <StatusBar />,
+      canvas: renderCanvas,
+      changeReviewPanel: (
           <ChangeReviewScorePanel
             review={{
               detail: changeReviewDetail,
@@ -18592,152 +18978,73 @@ ${partsBodyXml}
             reviewLabel={reviewLabel}
             zoom={zoom}
           />
-        )}
 
-        {!isEmbedMode && panelsVisible && (
-          <InspectorPanel
-            {...inspectorProps}
-            collapsed={!inspectorOpen}
-            onToggleCollapsed={() => setInspectorOpen((open) => !open)}
-          />
-        )}
-
-        {!isEmbedMode && panelsVisible && musicXmlOpen && (
-          <MusicXmlPanel {...musicXmlPanelProps} />
-        )}
-
-        {!isEmbedMode && panelsVisible && aiToolsSidebarOpen && (
-          <aside
-            className="flex shrink-0 border-l bg-white text-sm"
-            style={{ width: `${xmlSidebarWidth}px` }}
-            data-testid="xml-sidebar"
-          >
-            {/* Resize Handle Container */}
-            {xmlSidebarMode === 'open' && (
-              <div
-                className="shrink-0 cursor-ew-resize bg-slate-300 hover:bg-blue-500 transition-colors border-r border-slate-400 hover:border-blue-700 flex items-center justify-center"
-                style={{ width: '24px' }}
-                onMouseDown={handleSidebarResizeStart}
-                title="Drag to resize sidebar"
-                data-testid="sidebar-resize-handle"
-              >
-                {/* Vertical grip icon (three vertical bars with rounded ends) */}
-                <svg
-                  width="14"
-                  height="24"
-                  viewBox="0 0 14 24"
-                  fill="none"
-                  className="pointer-events-none"
-                >
-                  {/* Left bar */}
-                  <rect x="2" y="2" width="3" height="20" rx="1.5" fill="#475569" />
-                  {/* Middle bar */}
-                  <rect x="5.5" y="2" width="3" height="20" rx="1.5" fill="#475569" />
-                  {/* Right bar */}
-                  <rect x="9" y="2" width="3" height="20" rx="1.5" fill="#475569" />
-                </svg>
-              </div>
-            )}
-            {/* Sidebar Content */}
-            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-              <div className="sticky top-0 z-10 bg-white">
-                <div className="flex items-center justify-between p-4">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    AI Tools
-                  </span>
-                  <button
-                    type="button"
-                    data-testid="btn-xml-toggle"
-                    aria-expanded
-                    aria-controls="xml-sidebar-content"
-                    aria-label="Close AI Tools sidebar"
-                    title="Close AI Tools sidebar"
-                    onClick={() => setXmlSidebarMode('closed')}
-                    className="rounded p-1 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                  >
-                    <PanelRightClose size={16} />
-                  </button>
-                </div>
-                {aiToolsSidebarOpen && (
-                  <AiToolsTabStrip
-                    activeTab={xmlSidebarTab}
-                    setActiveTab={setXmlSidebarTab}
-                    aiEnabled={aiEnabled}
-                    status={{
-                      checkpointCount: checkpoints.length,
-                      dirtySinceCheckpoint: scoreDirtySinceCheckpoint,
-                      loading: xmlLoading,
-                    }}
-                  />
-                )}
-              </div>
-              {aiToolsSidebarOpen && (
-                <div id="xml-sidebar-content" className="flex-1 overflow-y-auto pb-4 px-4">
-                  {renderAiToolsBody()}
-                </div>
-              )}
-            </div>
-          </aside>
-        )}
-
-        {!isEmbedMode &&
-          panelsVisible &&
-          (() => {
-            const tabs = [
-              !inspectorOpen && {
-                key: 'inspector',
-                label: 'Inspector',
-                onOpen: () => setInspectorOpen(true),
-              },
-              !musicXmlOpen && {
-                key: 'musicxml',
-                label: 'MusicXML',
-                onOpen: () => setMusicXmlOpen(true),
-              },
-              xmlSidebarMode === 'closed' && {
-                key: 'ai-tools',
-                label: 'AI Tools',
-                onOpen: () => setXmlSidebarMode('open'),
-              },
-              checkpointsCollapsed && {
-                key: 'history',
-                label: 'History',
-                onOpen: () => setCheckpointsCollapsed(false),
-              },
-            ].filter(Boolean) as Array<{ key: string; label: string; onOpen: () => void }>;
-            if (tabs.length === 0) {
-              return null;
-            }
-            return (
-              <div
-                style={{ order: 4 }}
-                className="flex w-8 shrink-0 flex-col items-stretch gap-2 border-l border-slate-200 bg-slate-50 py-3"
-                data-testid="collapsed-panel-strip"
-              >
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    data-testid={`expand-panel-${tab.key}`}
-                    onClick={tab.onOpen}
-                    title={`Open ${tab.label}`}
-                    className="flex flex-col items-center gap-1 rounded-l-md border border-r-0 border-slate-200 bg-white py-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                  >
-                    <PanelRightOpen size={14} />
-                    <span
-                      className="text-[10px] font-semibold uppercase tracking-wide"
-                      style={{ writingMode: 'vertical-rl' }}
-                    >
-                      {tab.label}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            );
-          })()}
-          </>
-        )}
-
+      ),
+      legacyHistorySidebar: renderHistory(false),
+      legacyPanels: (
+        <LegacySidePanels
+          panelsVisible={panelsVisible}
+          inspector={inspectorProps}
+          inspectorOpen={inspectorOpen}
+          onInspectorOpenChange={setInspectorOpen}
+          musicXml={musicXmlPanelProps}
+          musicXmlOpen={musicXmlOpen}
+          onMusicXmlOpenChange={setMusicXmlOpen}
+          aiOpen={aiToolsSidebarOpen}
+          xmlMode={xmlSidebarMode}
+          onXmlModeChange={setXmlSidebarMode}
+          xmlTab={xmlSidebarTab}
+          onXmlTabChange={setXmlSidebarTab}
+          xmlWidth={xmlSidebarWidth}
+          onResizeStart={handleSidebarResizeStart}
+          aiEnabled={aiEnabled}
+          aiStatus={{
+            checkpointCount: checkpoints.length,
+            dirtySinceCheckpoint: scoreDirtySinceCheckpoint,
+            loading: xmlLoading,
+          }}
+          aiBody={renderAiToolsBody()}
+          historyCollapsed={checkpointsCollapsed}
+          onHistoryCollapsedChange={setCheckpointsCollapsed}
+        />
+      ),
+      write: {
+        dock,
+        widths: panels,
+        panelsVisible,
+        onShowPanels: () => setPanelsVisible(true),
+        left: {
+          palettes: {
+            disabled:
+              !interactiveMutationEnabled ||
+              (!selectedElement && selectionBoxes.length === 0 && !selectedPoint),
+            dragEnabled: Boolean(interactiveMutationEnabled && score?.applyDropAtPoint),
+            onApply: handleApplyFloatingPaletteItem,
+            category: paletteCategory,
+            onShowAll: () => setPaletteCategory(null),
+          },
+          instruments: { parts: scoreParts, groups: instrumentGroups },
+          inspector: inspectorProps,
+        },
+        ai: {
+          open: aiToolsSidebarOpen,
+          tool: xmlSidebarTab,
+          onToolChange: setXmlSidebarTab,
+          aiEnabled,
+          loading: xmlLoading,
+          onClose: () => setXmlSidebarMode('closed'),
+          body: renderAiToolsBody(),
+        },
+        source: {
+          open: musicXmlOpen,
+          onClose: () => setMusicXmlOpen(false),
+          content: <MusicXmlPanel embedded {...musicXmlPanelProps} />,
+        },
+      },
+      historyContent: renderHistory(true),
+      historyWidth: panels.history,
+      dialogs: (
+        <>
         {pngExportDialogOpen && (
           <PngExportDialog
             pageCount={pageCount}
@@ -18827,419 +19134,12 @@ ${partsBodyXml}
           />
         )}
 
-        {compareView && (
-          /*
-                        A modal everywhere but rows mode, where it is the page.
-
-                        `fixed inset-0` takes this out of flow, so it adds
-                        nothing to `document.body.scrollHeight` -- and that is
-                        the height reported to the host. The frame was therefore
-                        sized to whatever was left in flow behind it: the
-                        ordinary editor canvas, holding a whole engraved page at
-                        the current zoom. Measured at 4314px of frame around
-                        390px of rows, and the mismatch runs the other way just
-                        as easily, where `inset-0` plus `overflow-hidden` clips
-                        the rows to a frame too short for them with nothing able
-                        to scroll to the rest.
-
-                        In rows mode it is an ordinary block instead: its height
-                        is its content, the content's height is the document's,
-                        and the host sizes the frame to that -- which is what
-                        the growable chain above was built for.
-                    */
-          <div
-            className={
-              // Both row views grow with their content and let the host scroll. Left on
-              // `isSystemRowsMode`, the findings view fell into the fixed, clipped branch
-              // and reported a viewport-sized height for a 7,000px document.
-              isAnyRowsMode
-                ? 'relative w-full bg-gray-50'
-                : 'fixed inset-0 flex items-start justify-center overflow-hidden bg-gray-50'
-            }
-            style={{ zIndex: 110 }}
-            data-testid="checkpoint-compare-modal"
-          >
-            <div
-              className={
-                isAnyRowsMode
-                  ? 'flex w-full flex-col gap-4 bg-white'
-                  : isEmbedMode
-                    ? 'flex min-h-0 w-full h-full flex-col gap-4 overflow-hidden bg-white'
-                    : 'flex min-h-0 w-full h-full flex-col gap-4 overflow-hidden bg-white p-4'
-              }
-            >
-              {!isEmbedMode && (
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="space-y-1">
-                    <div className="text-sm font-semibold text-gray-800">Compare Scores</div>
-                    <div className="text-xs text-gray-500">
-                      {compareLeftLabel} vs {compareRightLabel}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {compareView.title === 'Assistant Proposal' && (
-                      <AiCompareWorkspaceActions
-                        applyBusy={compareSwapBusy || compareEditBusy}
-                        feedbackBusy={aiDiffFeedbackBusy}
-                        canSendFeedback={canSendDiffFeedback}
-                        feedbackLabel={diffFeedbackButtonLabel}
-                        onApplyAll={() => void handleAcceptAllAiChanges()}
-                        onSendFeedback={() => void handleSendDiffFeedback()}
-                      />
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleCloseCompareView}
-                      className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
-                    >
-                      {isAiCompareMode ? 'Done - Close' : 'Close'}
-                    </button>
-                  </div>
-                </div>
-              )}
-              <div
-                className={
-                  isAnyRowsMode
-                    ? 'flex flex-1 flex-col gap-4'
-                    : isEmbedMode
-                      ? 'flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4'
-                      : 'flex min-h-0 flex-1 flex-col gap-4 overflow-auto'
-                }
-              >
-                {isFindingsRowsMode ? (
-                  <ScannerFindingRows
-                    systems={suppliedSystems}
-                    findings={suppliedFindings}
-                    xml={compareLeftXml}
-                    label={compareLeftLabel}
-                    engineId={suppliedCompareLeftEngineId || ''}
-                    merged={suppliedMerged}
-                    onMergedScoreChange={setScannerMergedScore}
-                    resolveUrl={(relative) =>
-                      new URL(relative, new URL(compareRegionsUrl, window.location.href)).toString()
-                    }
-                  />
-                ) : isSystemRowsMode ? (
-                  <ScannerSystemRows
-                    systems={suppliedSystems}
-                    regions={suppliedRegions || []}
-                    leftXml={compareLeftXml}
-                    rightXml={compareRightXml}
-                    leftLabel={compareLeftLabel}
-                    rightLabel={compareRightLabel}
-                    leftEngineId={suppliedCompareLeftEngineId}
-                    rightEngineId={suppliedCompareRightEngineId}
-                    merged={suppliedMerged}
-                    onlyBlockIndex={
-                      compareBlockIndex === '' ? undefined : Number(compareBlockIndex)
-                    }
-                    transport={compareTransport}
-                    onMergedScoreChange={setScannerMergedScore}
-                    resolveUrl={(relative) =>
-                      new URL(relative, new URL(compareRegionsUrl, window.location.href)).toString()
-                    }
-                  />
-                ) : (
-                  <>
-                    {isAiCompareMode && (
-                      <AiCompareWorkspace
-                        proposalController={aiProposalController}
-                        embedded={isEmbedMode}
-                        feedbackBusy={aiDiffFeedbackBusy}
-                        globalComment={aiDiffGlobalComment}
-                        iteration={aiDiffIteration}
-                        feedbackError={aiDiffFeedbackError}
-                        onGlobalCommentChange={setAiDiffGlobalComment}
-                        onRebase={() => void rebaseAiProposalOntoLive()}
-                        rebaseBusy={compareSwapBusy || compareEditBusy}
-                      />
-                    )}
-                    <div
-                      className="flex min-w-0 flex-none overflow-x-hidden"
-                      style={{ height: '100dvh' }}
-                    >
-                      <div className="flex min-h-0 min-w-0 flex-1 gap-4">
-                        <CompareScorePane
-                          model={{
-                            side: 'left',
-                            label: compareLeftLabel,
-                            isCurrent: compareLeftIsCurrent,
-                            isActive: compareActiveSide === 'left',
-                            embedded: isEmbedMode,
-                            scoreAvailable: Boolean(compareLeftScore),
-                            editorBusy:
-                              compareEditBusy ||
-                              compareSwapBusy ||
-                              aiDiffFeedbackBusy ||
-                              !compareLeftScore,
-                            noteInputActive: compareLeftRole
-                              ? compareNoteInputByRole[compareLeftRole]
-                              : false,
-                            zoom: compareEffectiveZoom,
-                            wrapperStyle: compareZoomStyle,
-                            transport: compareTransport.left,
-                            checkpoint: isEmbedMode
-                              ? null
-                              : { label: compareLeftCheckpointLabel, busy: checkpointBusy },
-                            viewportStatus: comparePaneStatus.left,
-                            diffHighlights: compareLeftHighlights,
-                            positiveDiffStatus: 'new-diff',
-                            negativeDiffStatus: null,
-                            commentedHighlights: compareCommentedLeftHighlights,
-                            threadedHighlights: compareThreadedLeftHighlights,
-                            selectionRects: compareLeftSelectionBoxes,
-                            noteInputCursor:
-                              compareLeftNoteInputCursorVisible && compareLeftNoteInputCursor
-                                ? {
-                                    rect: compareLeftNoteInputCursor,
-                                    color: compareLeftNoteInputCursorColor,
-                                  }
-                                : null,
-                            focusedHighlight: compareFocusedHighlights.left ?? null,
-                            measureHitAreaAvailable: Boolean(compareLeftMeasurePositions),
-                          }}
-                          actions={{
-                            activate: () => setCompareActiveSide('left'),
-                            openInEditor: isEmbedMode
-                              ? () => handleOpenScoreInEditor('left')
-                              : null,
-                            togglePlayPause: () => void toggleCompareSidePlayPause('left'),
-                            stop: () => void stopCompareSideAudio('left', { awaitCancel: true }),
-                            setCheckpointLabel: setCompareLeftCheckpointLabel,
-                            saveCheckpoint: () => void handleSaveCompareCheckpoint('left'),
-                            zoomOut: () =>
-                              setCompareZoom((value) =>
-                                Math.max(0.2, (value ?? compareEffectiveZoom) - 0.1),
-                              ),
-                            zoomIn: () =>
-                              setCompareZoom((value) =>
-                                Math.min(1.5, (value ?? compareEffectiveZoom) + 0.1),
-                              ),
-                            addBar: () => handleCompareAddBar('left'),
-                            toggleNoteInput: () => {
-                              setCompareActiveSide('left');
-                              toggleCompareNoteInputMode('left');
-                            },
-                            openPalettes: () => {
-                              setCompareActiveSide('left');
-                              setPaletteCategory(null);
-                              setPalettesOpen(true);
-                            },
-                            clickScore: (event) => handleComparePaneClick(event, 'left'),
-                          }}
-                          paneRefs={{
-                            scroll: compareLeftScrollRef,
-                            wrapper: compareLeftWrapperRef,
-                            container: compareLeftContainerRef,
-                          }}
-                        />
-                        <div
-                          className={`flex min-h-0 flex-none flex-col items-stretch gap-2 ${isAiCompareMode || isChangeReviewCompareMode ? '' : 'w-44'}`}
-                          style={
-                            isAiCompareMode || isChangeReviewCompareMode
-                              ? { width: `${aiDiffGutterWidth}px` }
-                              : undefined
-                          }
-                        >
-                          {isAiCompareMode && (
-                            <CompareMeasureComments
-                              model={{
-                                threads: aiMeasureThreads,
-                                focusedAnchor: aiFocusedMeasureAnchor,
-                                draft: aiMeasureThreadDraft,
-                              }}
-                              actions={{
-                                focusAnchor: setAiFocusedMeasureAnchor,
-                                changeDraft: setAiMeasureThreadDraft,
-                                addComment: handleAddAiMeasureComment,
-                                removeComment: handleRemoveAiMeasureComment,
-                              }}
-                            />
-                          )}
-                          <div
-                            ref={compareGutterScrollRef}
-                            className="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-x-visible overflow-y-auto rounded border border-gray-200 bg-gray-50 p-2 text-[10px] text-gray-500"
-                          >
-                            {isChangeReviewCompareMode && changeReviewLoading && (
-                              <div className="rounded border border-dashed border-gray-200 bg-white px-2 py-2 text-center text-[10px] text-gray-400">
-                                Loading review threads...
-                              </div>
-                            )}
-                            {isChangeReviewCompareMode && changeReviewError && (
-                              <div className="rounded border border-rose-200 bg-rose-50 px-2 py-2 text-[10px] text-rose-700">
-                                {changeReviewError}
-                              </div>
-                            )}
-                            {isChangeReviewCompareMode && changeReviewActionError && (
-                              <div className="rounded border border-rose-200 bg-rose-50 px-2 py-2 text-[10px] text-rose-700">
-                                {changeReviewActionError}
-                              </div>
-                            )}
-                            {compareAlignmentLoading && (
-                              <div className="rounded border border-dashed border-gray-200 bg-white px-2 py-2 text-center text-[10px] text-gray-400">
-                                Aligning measures...
-                              </div>
-                            )}
-                            <CompareDiffGutter
-                              mode={{ isAiCompareMode, isChangeReviewCompareMode, isEmbedMode }}
-                              panes={{
-                                left: {
-                                  bounds: compareLeftBounds,
-                                  measurePositions: compareLeftMeasurePositions,
-                                  parts: compareLeftParts,
-                                  score: compareLeftScore,
-                                },
-                                right: {
-                                  bounds: compareRightBounds,
-                                  measurePositions: compareRightMeasurePositions,
-                                  parts: compareRightPartsDisplay,
-                                  score: compareRightScoreDisplay,
-                                },
-                              }}
-                              layout={{
-                                partCount: comparePartCount,
-                                rowHeight: compareGutterRowHeight,
-                                trackHeight: compareGutterTrackHeight,
-                                headerSpacerHeight: compareHeaderSpacerHeight,
-                                regionRefs: compareGutterRegionRefs,
-                                alignmentByPart: compareAlignmentByPart,
-                                alignmentLoading: compareAlignmentLoading,
-                                signatures: compareSignatures,
-                                resolvePartBounds: compareResolvePartBounds,
-                              }}
-                              diff={{
-                                blockContentSignature: aiDiffBlockContentSignature,
-                                blockErrors: aiDiffBlockErrors,
-                                feedbackBusy: aiDiffFeedbackBusy,
-                                bindCommentTextarea: bindAiDiffCommentTextarea,
-                                clearBlockError: clearAiDiffBlockError,
-                                commitBlockComment: commitAiDiffBlockComment,
-                                editBlockComment: editAiDiffBlockComment,
-                                onAcceptBlock: handleAcceptAiDiffBlock,
-                                onBlockCommentInput: handleAiDiffBlockCommentInput,
-                                onCommentResize: handleAiDiffCommentResize,
-                                resolveReview: resolveAiDiffReview,
-                                setBlockStatus: setAiDiffBlockStatus,
-                              }}
-                              review={{
-                                actionBusy: changeReviewActionBusy,
-                                barsForGutter: changeReviewCompareBarsForGutter,
-                                detail: changeReviewDetail,
-                                focusedAnchorId: changeReviewFocusedAnchorId,
-                                loading: changeReviewLoading,
-                                newThreadAnchorId: changeReviewNewThreadAnchorId,
-                                newThreadContent: changeReviewNewThreadContent,
-                                regionsInMeasureOrder: changeReviewRegionsInMeasureOrder,
-                                threadsByAnchor: changeReviewThreadsByAnchor,
-                                renderThread: renderChangeReviewThread,
-                                createThread: createChangeReviewThread,
-                                setFocusedAnchorId: setChangeReviewFocusedAnchorId,
-                                setNewThreadAnchorId: setChangeReviewNewThreadAnchorId,
-                                setNewThreadContent: setChangeReviewNewThreadContent,
-                              }}
-                              blocks={{
-                                buildMismatchBlocks,
-                                comments: compareBlockComments,
-                                setComments: setCompareBlockComments,
-                                focusedKey: compareFocusedBlockKey,
-                                setFocusedKey: setCompareFocusedBlockKey,
-                                editBusy: compareEditBusy,
-                                swapBusy: compareSwapBusy,
-                                rightError: compareRightError,
-                                onOverwrite: handleCompareOverwriteBlock,
-                              }}
-                            />
-                          </div>
-                        </div>
-                        <CompareScorePane
-                          model={{
-                            side: 'right',
-                            label: compareRightLabel,
-                            isCurrent: compareRightIsCurrent,
-                            isActive: compareActiveSide === 'right',
-                            embedded: isEmbedMode,
-                            scoreAvailable: Boolean(compareRightScoreDisplay),
-                            editorBusy:
-                              compareEditBusy ||
-                              compareSwapBusy ||
-                              aiDiffFeedbackBusy ||
-                              !compareRightScoreDisplay,
-                            noteInputActive: compareRightRole
-                              ? compareNoteInputByRole[compareRightRole]
-                              : false,
-                            zoom: compareEffectiveZoom,
-                            wrapperStyle: compareRightZoomStyle,
-                            transport: compareTransport.right,
-                            checkpoint: isEmbedMode
-                              ? null
-                              : { label: compareRightCheckpointLabel, busy: checkpointBusy },
-                            viewportStatus: comparePaneStatus.right,
-                            diffHighlights: compareRightHighlights,
-                            positiveDiffStatus: 'new-diff',
-                            negativeDiffStatus: 'old-diff',
-                            commentedHighlights: compareCommentedRightHighlights,
-                            threadedHighlights: compareThreadedRightHighlights,
-                            selectionRects: compareRightSelectionBoxes,
-                            noteInputCursor:
-                              compareRightNoteInputCursorVisible && compareRightNoteInputCursor
-                                ? {
-                                    rect: compareRightNoteInputCursor,
-                                    color: compareRightNoteInputCursorColor,
-                                  }
-                                : null,
-                            focusedHighlight: compareFocusedHighlights.right ?? null,
-                            measureHitAreaAvailable: Boolean(compareRightMeasurePositions),
-                          }}
-                          actions={{
-                            activate: () => setCompareActiveSide('right'),
-                            openInEditor: isEmbedMode
-                              ? () => handleOpenScoreInEditor('right')
-                              : null,
-                            togglePlayPause: () => void toggleCompareSidePlayPause('right'),
-                            stop: () => void stopCompareSideAudio('right', { awaitCancel: true }),
-                            setCheckpointLabel: setCompareRightCheckpointLabel,
-                            saveCheckpoint: () => void handleSaveCompareCheckpoint('right'),
-                            zoomOut: () =>
-                              setCompareZoom((value) =>
-                                Math.max(0.2, (value ?? compareEffectiveZoom) - 0.1),
-                              ),
-                            zoomIn: () =>
-                              setCompareZoom((value) =>
-                                Math.min(1.5, (value ?? compareEffectiveZoom) + 0.1),
-                              ),
-                            addBar: () => handleCompareAddBar('right'),
-                            toggleNoteInput: () => {
-                              setCompareActiveSide('right');
-                              toggleCompareNoteInputMode('right');
-                            },
-                            openPalettes: () => {
-                              setCompareActiveSide('right');
-                              setPaletteCategory(null);
-                              setPalettesOpen(true);
-                            },
-                            clickScore: (event) => handleComparePaneClick(event, 'right'),
-                          }}
-                          paneRefs={{
-                            scroll: compareRightScrollRef,
-                            wrapper: compareRightWrapperRef,
-                            container: compareRightContainerRef,
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <XmlDiffView
-                      leftLabel={compareLeftLabel}
-                      rightLabel={compareRightLabel}
-                      leftXml={compareLeftXml}
-                      rightXml={compareRightXml}
-                    />
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-        {isEmbedMode && checkpointBusy && (
+        </>
+      ),
+      compare: renderCompare,
+      hostBusy: (
+        <>
+        {checkpointBusy && (
           <div
             className="fixed inset-0 flex items-center justify-center bg-white"
             style={{ zIndex: 120 }}
@@ -19250,8 +19150,10 @@ ${partsBodyXml}
             </div>
           </div>
         )}
-      </div>
-      {!isEmbedMode && shellV2 && <StatusBar />}
-    </div>
-  );
+        </>
+      ),
+    },
+  });
+
+  return <EditorWorkspace mode={mode} />;
 }

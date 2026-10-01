@@ -30,6 +30,8 @@ function setup(over: Partial<ShellEditorBindings> = {}, ctx: Partial<CommandCont
     setCheckpointsCollapsed: vi.fn(),
     setLeftSidebarTab: vi.fn(),
     toggleProgressive: vi.fn(),
+    setActivity: vi.fn(),
+    closeCompare: vi.fn(),
   };
   const bindings: ShellEditorBindings = {
     score: null,
@@ -40,6 +42,10 @@ function setup(over: Partial<ShellEditorBindings> = {}, ctx: Partial<CommandCont
     goToNextPage: calls.next,
     goToPreviousPage: calls.previous,
     dock: null,
+    activity: 'write',
+    setActivity: calls.setActivity,
+    compareOpen: false,
+    closeCompare: calls.closeCompare,
     inspectorOpen: false,
     setInspectorOpen: calls.setInspectorOpen,
     musicXmlOpen: false,
@@ -163,8 +169,48 @@ describe('ai.open.*', () => {
   });
 });
 
+describe('activities', () => {
+  const dock = {} as unknown as NonNullable<ShellEditorBindings['dock']>;
+  const checked = (registry: CommandRegistry, id: string) =>
+    (registry.get(id) as unknown as { checked: () => boolean }).checked();
+
+  it('switches the activity, leaving any compare session first', async () => {
+    const { registry, calls } = setup({ dock, compareOpen: true });
+    await registry.run('shell.activity.history');
+    expect(calls.closeCompare).toHaveBeenCalledOnce();
+    expect(calls.setActivity).toHaveBeenCalledWith('history');
+    await registry.run('shell.activity.write');
+    expect(calls.setActivity).toHaveBeenLastCalledWith('write');
+  });
+
+  it('is available only where the shell has activities (the v2 shell)', () => {
+    const { registry } = setup({ dock: null });
+    for (const id of ['write', 'compare', 'history']) {
+      expect(registry.isEnabled(`shell.activity.${id}`, DEFAULT_COMMAND_CONTEXT)).toBe(false);
+    }
+  });
+
+  it('checks the current activity, and Compare instead of it while a session is open', () => {
+    const idle = setup({ dock, activity: 'history' });
+    expect(checked(idle.registry, 'shell.activity.history')).toBe(true);
+    expect(checked(idle.registry, 'shell.activity.write')).toBe(false);
+    expect(checked(idle.registry, 'shell.activity.compare')).toBe(false);
+
+    const comparing = setup({ dock, activity: 'history', compareOpen: true });
+    expect(checked(comparing.registry, 'shell.activity.compare')).toBe(true);
+    expect(checked(comparing.registry, 'shell.activity.history')).toBe(false);
+  });
+
+  it('opens History as an activity in the v2 shell, not as a sidebar', async () => {
+    const { registry, calls } = setup({ dock });
+    await registry.run('view.panel.history');
+    expect(calls.setActivity).toHaveBeenCalledWith('history');
+    expect(calls.setLeftSidebarTab).not.toHaveBeenCalled();
+  });
+});
+
 describe('History and progressive load', () => {
-  it('opens the History panel on the checkpoint list, bringing hidden panels back', async () => {
+  it('opens the legacy History sidebar on the checkpoint list, bringing hidden panels back', async () => {
     const { registry, calls } = setup();
     await registry.run('view.panel.history');
     expect(calls.setPanelsVisible).toHaveBeenCalledWith(true);

@@ -84,13 +84,16 @@ test.describe('shell menus and palette @smoke', () => {
     await page.keyboard.press('F8');
     await expect(page.getByTestId('inspector-panel')).toHaveCount(0);
 
-    await expect(page.getByTestId('checkpoint-sidebar')).toBeVisible();
+    // The same key closes the tab it shows, and the dock with it.
+    await expect(page.getByTestId('left-dock')).toHaveCount(0);
+    await page.keyboard.press('F9');
+    await expect(page.getByTestId('left-dock')).toBeVisible();
     await page.keyboard.press('Control+\\');
-    await expect(page.getByTestId('checkpoint-sidebar')).toBeHidden();
+    await expect(page.getByTestId('left-dock')).toHaveCount(0);
     // Opening a panel while all are hidden brings them back.
     await page.keyboard.press('F8');
     await expect(page.getByTestId('inspector-panel')).toBeVisible();
-    await expect(page.getByTestId('checkpoint-sidebar')).toBeVisible();
+    await expect(page.getByTestId('left-dock')).toBeVisible();
   });
 
   test('Mod+S saves a checkpoint, and Open Recent lists the score', async ({ page }) => {
@@ -98,6 +101,7 @@ test.describe('shell menus and palette @smoke', () => {
     await page.waitForSelector('svg .Note', { timeout: 60_000 });
     page.on('dialog', (dialog) => void dialog.dismiss());
 
+    await page.getByTestId('activity-history').click();
     await page.getByTestId('input-checkpoint-label').fill('Shell smoke');
     await page.keyboard.press('Escape'); // leave the field; Mod+S must work from the canvas
     await page.locator('svg .Note').first().click();
