@@ -4,16 +4,62 @@
   font-display: swap;
 }
 
-/* Notation glyphs (durations, accidentals) from the engraving font. */
+/* Text in toolbar controls: the UI face the app already loads (Geist), not the page's Arial,
+   at a size and weight that read as labels rather than body copy. */
+.root {
+  font-family:
+    var(--font-sans),
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  font-feature-settings: 'tnum', 'cv11';
+  -webkit-font-smoothing: antialiased;
+}
+
+.root button {
+  min-height: 32px;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  line-height: 1;
+}
+
+/* A square cell that holds one notation glyph, centred in it. */
+.glyphButton {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
+
+/*
+ * Leland puts its baseline at the middle of a line box (ascent and descent are equal), and a
+ * glyph is drawn upward from it, so a stemmed note sits with its notehead at the cell's
+ * midpoint and its stem overflowing the top. `--lift` is the height of the glyph's ink centre
+ * above the baseline, in em (read from the font's outlines); moving the glyph down by it puts
+ * the middle of the drawing in the middle of the cell. Heads-only glyphs have a lift of 0.
+ */
 .glyph {
   pointer-events: none;
   display: inline-flex;
-  min-width: 1.25rem;
+  align-items: center;
   justify-content: center;
   font-family: 'LelandWriteToolbar', serif;
-  font-size: 1.35rem;
+  font-size: 1.1rem;
   font-style: normal;
   font-weight: 400;
   line-height: 1;
   color: #0f172a;
+  transform: translateY(calc(var(--lift, 0) * 1em));
+}
+
+/* Spacing between a note and its augmentation dots, matching the engraving. */
+.dots {
+  letter-spacing: 1px;
+}
+
+/* In a menu row the glyph gets a fixed cell so the labels line up whatever the dot count. */
+.menuGlyph {
+  min-width: 2rem;
+  justify-content: flex-start;
 }

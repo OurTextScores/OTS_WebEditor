@@ -1,7 +1,7 @@
 'use client';
 
 import { Hash, PenLine, Redo2, Undo2 } from 'lucide-react';
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { defaultCommandRegistry, type CommandRegistry } from '../../../lib/commands/registry';
 import { Button } from '../../ui/Button';
 import {
@@ -17,6 +17,7 @@ import {
   noteInputMethodOptions,
   tupletOptions,
 } from '../../toolbar/constants';
+import { Popover, PopoverAnchor, PopoverContent, PopoverPortal } from '../../ui/Popover';
 import styles from './WriteToolbar.module.css';
 import { useToolbarCommands } from './useToolbarCommands';
 
@@ -29,6 +30,29 @@ const DURATION_GLYPHS: Record<number, string> = {
   6: '', // 16th
   7: '', // 32nd
 };
+
+/**
+ * Height of each glyph's ink centre above its baseline, in em, read from Leland's outlines
+ * (see WriteToolbar.module.css). The glyph is moved down by this much to centre it.
+ */
+const GLYPH_LIFT: Record<string, number> = {
+  '\uE1D2': 0, // whole
+  '\uE1D3': 0.372, // half
+  '\uE1D5': 0.372, // quarter
+  '\uE1D7': 0.378, // eighth
+  '\uE1D9': 0.377, // 16th
+  '\uE1DB': 0.466, // 32nd
+  '\uE260': 0.139, // flat
+  '\uE261': 0, // natural
+  '\uE262': 0, // sharp
+};
+
+const glyphStyle = (glyph: string): React.CSSProperties =>
+  ({ '--lift': GLYPH_LIFT[glyph] ?? 0 }) as React.CSSProperties;
+
+const QUARTER = '\uE1D5';
+const AUGMENTATION_DOT = '\uE1E7';
+const LONG_PRESS_MS = 450;
 
 // The three accidentals worth a button; the rest (double, clear) stay in the dropdown.
 const QUICK_ACCIDENTALS = [1, 2, 3] as const;
@@ -62,7 +86,7 @@ export function WriteToolbar({
       role="toolbar"
       aria-label="Write"
       data-testid="write-toolbar"
-      className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-slate-200 bg-white px-3 py-1"
+      className={`${styles.root} flex shrink-0 items-center gap-1 overflow-x-auto border-b border-slate-200 bg-white px-3 py-1`}
     >
       <Button
         data-testid="btn-note-input"
@@ -110,6 +134,7 @@ export function WriteToolbar({
           data-testid={option.testId}
           variant="outline"
           size="xs"
+          className={styles.glyphButton}
           aria-label={option.label}
           title={`${option.label} (${option.shortcut})`}
           disabled={!enabled('edit.duration.set')}
@@ -118,34 +143,20 @@ export function WriteToolbar({
           <span
             data-testid={`duration-symbol-${option.value}`}
             className={styles.glyph}
+            style={glyphStyle(DURATION_GLYPHS[option.value])}
             aria-hidden="true"
           >
             {DURATION_GLYPHS[option.value]}
           </span>
         </Button>
       ))}
-      <Button
-        data-testid="btn-dot"
-        variant="outline"
-        size="xs"
-        aria-label="Dot"
-        title="Dot"
-        disabled={!enabled('edit.duration.dot')}
-        onClick={run('edit.duration.dot')}
-      >
-        ·
-      </Button>
-      <Button
-        data-testid="btn-double-dot"
-        variant="outline"
-        size="xs"
-        aria-label="Double dot"
-        title="Double dot"
-        disabled={!enabled('edit.duration.doubleDot')}
-        onClick={run('edit.duration.doubleDot')}
-      >
-        ··
-      </Button>
+      <DotButton
+        enabled={{
+          single: enabled('edit.duration.dot'),
+          double: enabled('edit.duration.doubleDot'),
+        }}
+        run={{ single: run('edit.duration.dot'), double: run('edit.duration.doubleDot') }}
+      />
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button
@@ -182,12 +193,18 @@ export function WriteToolbar({
             data-testid={`btn-acc-${value}`}
             variant="outline"
             size="xs"
+            className={styles.glyphButton}
             aria-label={option.name}
             title={option.name}
             disabled={!enabled('add.accidental') || !hasTarget}
             onClick={run('add.accidental', value)}
           >
-            <span data-testid={`acc-symbol-${value}`} className={styles.glyph} aria-hidden="true">
+            <span
+              data-testid={`acc-symbol-${value}`}
+              className={styles.glyph}
+              style={glyphStyle(option.symbol)}
+              aria-hidden="true"
+            >
               {option.symbol}
             </span>
           </Button>
@@ -217,7 +234,11 @@ export function WriteToolbar({
                 onSelect={run('add.accidental', option.value)}
               >
                 {option.symbol ? (
-                  <span className={styles.glyph} aria-hidden="true">
+                  <span
+                    className={styles.glyph}
+                    style={glyphStyle(option.symbol)}
+                    aria-hidden="true"
+                  >
                     {option.symbol}
                   </span>
                 ) : (
@@ -293,5 +314,108 @@ export function WriteToolbar({
         <Redo2 size={14} aria-hidden="true" />
       </Button>
     </div>
+  );
+}
+
+/**
+ * The augmentation dot, after Viritura's: a quarter note with its dots, so the button shows
+ * what it adds. A click applies the chosen number of dots (toggling, as the commands do); a
+ * right-click or a long press chooses between one and two dots, and the glyph follows.
+ * `btn-dot` and `btn-double-dot` stay the test ids of the two choices.
+ */
+function DotButton({
+  enabled,
+  run,
+}: {
+  enabled: { single: boolean; double: boolean };
+  run: { single: () => void; double: () => void };
+}) {
+  const [dots, setDots] = useState<1 | 2>(1);
+  const [open, setOpen] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+  const pressed = useRef(false);
+  const cancelPress = () => window.clearTimeout(timer.current);
+  const current = dots === 1 ? 'single' : 'double';
+  const choose = (count: 1 | 2) => {
+    setDots(count);
+    setOpen(false);
+    (count === 1 ? run.single : run.double)();
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverAnchor asChild>
+        <span className="inline-flex">
+          <Button
+            data-testid="toolbar-dot"
+            variant="outline"
+            size="xs"
+            className={styles.glyphButton}
+            aria-label={dots === 1 ? 'Dot' : 'Double dot'}
+            aria-haspopup="menu"
+            title={`${dots === 1 ? 'Dot' : 'Double dot'}: click to apply, right-click or hold for more`}
+            disabled={!enabled[current]}
+            onPointerDown={() => {
+              pressed.current = false;
+              timer.current = window.setTimeout(() => {
+                pressed.current = true;
+                setOpen(true);
+              }, LONG_PRESS_MS);
+            }}
+            onPointerUp={cancelPress}
+            onPointerLeave={cancelPress}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              cancelPress();
+              setOpen(true);
+            }}
+            onClick={() => {
+              // The long press that opened the menu must not also apply a dot.
+              if (pressed.current) return;
+              run[current]();
+            }}
+          >
+            <span className={styles.glyph} style={glyphStyle(QUARTER)} aria-hidden="true">
+              {QUARTER}
+              <span className={styles.dots}>{AUGMENTATION_DOT.repeat(dots)}</span>
+            </span>
+          </Button>
+        </span>
+      </PopoverAnchor>
+      <PopoverPortal>
+        <PopoverContent
+          role="menu"
+          align="start"
+          className="relative z-[400] flex w-40 flex-col gap-0.5 p-1"
+        >
+          {(
+            [
+              [1, 'btn-dot', 'Dot', 'single'],
+              [2, 'btn-double-dot', 'Double dot', 'double'],
+            ] as const
+          ).map(([count, testId, label, key]) => (
+            <button
+              key={testId}
+              type="button"
+              role="menuitem"
+              data-testid={testId}
+              disabled={!enabled[key]}
+              onClick={() => choose(count)}
+              className="flex items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-slate-800 hover:bg-slate-100 disabled:opacity-40"
+            >
+              <span
+                className={`${styles.glyph} ${styles.menuGlyph}`}
+                style={glyphStyle(QUARTER)}
+                aria-hidden="true"
+              >
+                {QUARTER}
+                <span className={styles.dots}>{AUGMENTATION_DOT.repeat(count)}</span>
+              </span>
+              {label}
+            </button>
+          ))}
+        </PopoverContent>
+      </PopoverPortal>
+    </Popover>
   );
 }
