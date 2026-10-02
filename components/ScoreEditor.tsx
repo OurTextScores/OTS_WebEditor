@@ -58,11 +58,8 @@ import { useWorkspaceDock } from './shell/useWorkspaceDock';
 import type { WorkspaceInsets } from './shell/vendor/viritura';
 import { useShellCommands } from './score-editor/useShellCommands';
 import { useEditorCommands } from './score-editor/useEditorCommands';
-import {
-  ESCAPE_PRIORITY,
-  pushEscapeLayer,
-  useEscapeLayer,
-} from './shell/keyboard/escapeLayers';
+import { ESCAPE_PRIORITY, pushEscapeLayer } from './shell/keyboard/escapeLayers';
+import { useEscapeLayer } from './shell/keyboard/useEscapeLayer';
 import { FloatingPalettes } from './FloatingPalettes';
 import {
   SCORE_PALETTE_DRAG_MIME,

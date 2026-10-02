@@ -1,6 +1,7 @@
 'use client';
 
-import { ESCAPE_PRIORITY, useEscapeLayer } from './shell/keyboard/escapeLayers';
+import { ESCAPE_PRIORITY } from './shell/keyboard/escapeLayers';
+import { useEscapeLayer } from './shell/keyboard/useEscapeLayer';
 import React, { useRef, useState } from 'react';
 import { GripHorizontal, PanelLeftOpen, X } from 'lucide-react';
 import { PaletteBrowser } from './PaletteBrowser';

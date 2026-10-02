@@ -1,5 +1,3 @@
-import { useEffect, useRef } from 'react';
-
 /**
  * Escape cancels the innermost transient thing, and the order is written down here rather
  * than falling out of which listener happened to mount last
@@ -54,16 +52,4 @@ export function closeTopEscapeLayer(): boolean {
 export function resetEscapeLayersForTests(): void {
   layers = [];
   counter = 0;
-}
-
-/** Registers a layer while `active`. The handler may change every render. */
-export function useEscapeLayer(active: boolean, priority: number, onEscape: () => void): void {
-  const latest = useRef(onEscape);
-  useEffect(() => {
-    latest.current = onEscape;
-  });
-  useEffect(() => {
-    if (!active) return;
-    return pushEscapeLayer(priority, () => latest.current());
-  }, [active, priority]);
 }
