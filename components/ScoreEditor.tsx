@@ -18666,6 +18666,27 @@ ${partsBodyXml}
     </>
   );
 
+  // The kind of selection, for command gates. `selectionBoxes` cannot say: a range draws one
+  // rectangle per system, so one box is a single note or a one-system range. Ask the engine.
+  const [selectionKind, setSelectionKind] = useState<'single' | 'list' | 'range'>('single');
+  const hasSelection = Boolean(selectedElement) || selectionBoxes.length > 0 || Boolean(selectedPoint);
+  useEffect(() => {
+    if (!hasSelection) return;
+    let cancelled = false;
+    void (async () => {
+      let kind: 'single' | 'list' | 'range' = selectionBoxes.length > 1 ? 'list' : 'single';
+      try {
+        if (score?.isSelectionRange && (await score.isSelectionRange())) kind = 'range';
+      } catch {
+        // A build without the export keeps the box-count guess.
+      }
+      if (!cancelled) setSelectionKind(kind);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [hasSelection, score, scoreRevision, selectedElement, selectedPoint, selectionBoxes]);
+
   useEditorCommands({
     onNewScore: handleOpenNewScoreDialog,
     onFileUpload: handleLoadScoreUpload,
@@ -18690,9 +18711,8 @@ ${partsBodyXml}
     onDurationLonger: handleDurationLonger,
     onDurationShorter: handleDurationShorter,
     mutationsEnabled: interactiveMutationEnabled,
-    selectionActive: 
-      Boolean(selectedElement) || selectionBoxes.length > 0 || Boolean(selectedPoint)
-    ,
+    selectionActive: hasSelection,
+    selectionKind,
     onExportSvg: handleExportSvg,
     onExportPdf: handleExportPdf,
     onExportPng: handleExportPng,

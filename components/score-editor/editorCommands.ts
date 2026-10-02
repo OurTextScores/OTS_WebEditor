@@ -1,6 +1,16 @@
 import type { MeasureInsertTarget } from './editorProps';
 import type { EditorCommandProps } from './editorProps';
 import {
+  always,
+  mutable,
+  needsBarTarget,
+  needsRange,
+  needsSelection,
+  needsSelectionOutsideInput,
+  needsTarget,
+  type Gate,
+} from '../../lib/commands/selectionGates';
+import {
   accidentalOptions,
   arpeggioOptions,
   articulationOptions,
@@ -69,15 +79,6 @@ type NumberActionKey = {
       : never
     : never;
 }[keyof Props];
-
-// Gates, mirroring the ribbon's `disabled` expressions.
-type Gate = (ctx: CommandContext) => boolean;
-const always: Gate = () => true;
-const mutable: Gate = (ctx) => ctx.isMutable;
-const withSelection: Gate = (ctx) => ctx.isMutable && ctx.selection !== 'none';
-const withTarget: Gate = (ctx) => ctx.isMutable && (ctx.noteInput || ctx.selection !== 'none');
-const withSelectionOutsideInput: Gate = (ctx) =>
-  ctx.isMutable && ctx.selection !== 'none' && !ctx.noteInput;
 
 const variants = <Source, Arg>(
   source: readonly Source[],
@@ -367,7 +368,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
     // ── Edit ────────────────────────────────────────────────────────────────────────
     action('edit.undo', 'Undo', 'onUndo', mutable, { testId: 'btn-undo' }),
     action('edit.redo', 'Redo', 'onRedo', mutable, { testId: 'btn-redo' }),
-    action('edit.delete', 'Delete', 'onDeleteSelection', withSelection, { testId: 'btn-delete' }),
+    action('edit.delete', 'Delete', 'onDeleteSelection', needsSelection, { testId: 'btn-delete' }),
     action('edit.selectAll', 'Select All', 'onSelectAll', mutable, { testId: 'btn-select-all' }),
     defineFamily<number>({
       id: 'edit.selectionFilter',
@@ -384,38 +385,38 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
         await p().onSetSelectionFilterBit?.(bit, !checked);
       },
     }),
-    action('edit.pitch.up', 'Pitch Up', 'onPitchUp', withSelectionOutsideInput, {
+    action('edit.pitch.up', 'Pitch Up', 'onPitchUp', needsSelectionOutsideInput, {
       testId: 'btn-pitch-up',
     }),
-    action('edit.pitch.down', 'Pitch Down', 'onPitchDown', withSelectionOutsideInput, {
+    action('edit.pitch.down', 'Pitch Down', 'onPitchDown', needsSelectionOutsideInput, {
       testId: 'btn-pitch-down',
     }),
     defineCommand({
       id: 'edit.pitch.octaveUp',
       label: 'Up an Octave',
       testId: 'btn-transpose-12',
-      enabled: (ctx) => withSelectionOutsideInput(ctx) && has('onTranspose'),
+      enabled: (ctx) => needsSelectionOutsideInput(ctx) && has('onTranspose'),
       run: () => p().onTranspose?.(12),
     }),
     defineCommand({
       id: 'edit.pitch.octaveDown',
       label: 'Down an Octave',
       testId: 'btn-transpose--12',
-      enabled: (ctx) => withSelectionOutsideInput(ctx) && has('onTranspose'),
+      enabled: (ctx) => needsSelectionOutsideInput(ctx) && has('onTranspose'),
       run: () => p().onTranspose?.(-12),
     }),
-    action('edit.duration.shorter', 'Shorter', 'onDurationShorter', withSelectionOutsideInput, {
+    action('edit.duration.shorter', 'Shorter', 'onDurationShorter', needsSelectionOutsideInput, {
       testId: 'btn-duration-shorter',
     }),
-    action('edit.duration.longer', 'Longer', 'onDurationLonger', withSelectionOutsideInput, {
+    action('edit.duration.longer', 'Longer', 'onDurationLonger', needsSelectionOutsideInput, {
       testId: 'btn-duration-longer',
     }),
-    action('edit.duration.dot', 'Dot', 'onToggleDot', withTarget, { testId: 'btn-dot' }),
+    action('edit.duration.dot', 'Dot', 'onToggleDot', needsTarget, { testId: 'btn-dot' }),
     action(
       'edit.duration.doubleDot',
       'Double Dot',
       'onToggleDoubleDot',
-      withSelectionOutsideInput,
+      needsSelectionOutsideInput,
       {
         testId: 'btn-double-dot',
       },
@@ -428,7 +429,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
         label: option.label,
         testId: option.testId,
       })),
-      enabled: (ctx) => withTarget(ctx) && has('onSetDurationType'),
+      enabled: (ctx) => needsTarget(ctx) && has('onSetDurationType'),
       run: (_ctx, durationType) => p().onSetDurationType?.(durationType),
     }),
 
@@ -459,14 +460,14 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
         label: option.name,
         testId: `btn-acc-${option.value}`,
       })),
-      enabled: (ctx) => withTarget(ctx) && has('onSetAccidental'),
+      enabled: (ctx) => needsTarget(ctx) && has('onSetAccidental'),
       run: (_ctx, accidentalType) => p().onSetAccidental?.(accidentalType),
     }),
     numberFamily(
       'add.tuplet',
       'Tuplet',
       'onAddTuplet',
-      withSelection,
+      needsSelection,
       tupletOptions.map((option) => ({ value: option.count, label: option.label })),
       (option) => `btn-tuplet-${option.value}`,
     ),
@@ -474,7 +475,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       'add.grace',
       'Grace Note',
       'onAddGraceNote',
-      withSelection,
+      needsSelection,
       graceNoteOptions,
       (option) => option.testId,
     ),
@@ -486,14 +487,14 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
         label: option.label,
         testId: `btn-fretboard-${option.label.toLowerCase()}`,
       })),
-      enabled: (ctx) => withSelection(ctx) && has('onAddFretDiagram'),
+      enabled: (ctx) => needsSelection(ctx) && has('onAddFretDiagram'),
       run: (_ctx, pattern) => p().onAddFretDiagram?.(pattern),
     }),
     numberFamily(
       'format.beam',
       'Beam',
       'onSetBeamMode',
-      withSelection,
+      needsSelection,
       beamOptions,
       (option) => `btn-beam-${option.value}`,
     ),
@@ -509,12 +510,12 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       enabled: (ctx) => ctx.isMutable && has('onSetVoice'),
       run: (_ctx, voiceIndex) => p().onSetVoice?.(voiceIndex),
     }),
-    action('add.line.slur', 'Slur', 'onAddSlur', withSelection, {
+    action('add.line.slur', 'Slur', 'onAddSlur', needsSelection, {
       testId: 'btn-slur',
       shortcut: 'S',
     }),
-    action('add.line.tie', 'Tie', 'onAddTie', withSelection, { testId: 'btn-tie' }),
-    action('format.flip', 'Flip Direction', 'onFlipStem', withSelection, {
+    action('add.line.tie', 'Tie', 'onAddTie', needsSelection, { testId: 'btn-tie' }),
+    action('format.flip', 'Flip Direction', 'onFlipStem', needsSelection, {
       testId: 'btn-flip-stem',
       keywords: ['flip stem'],
     }),
@@ -524,7 +525,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       'add.line.ottava',
       'Ottava',
       'onAddOttava',
-      withSelection,
+      needsSelection,
       ottavaOptions,
       (option) => `btn-ottava-${option.value}`,
     ),
@@ -532,7 +533,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       'add.line.trill',
       'Trill Line',
       'onAddTrill',
-      withSelection,
+      needsSelection,
       trillOptions,
       (option) => `btn-trill-${option.value}`,
     ),
@@ -540,7 +541,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       'add.line.glissando',
       'Glissando',
       'onAddGlissando',
-      withSelection,
+      needsSelection,
       glissandoOptions,
       (option) => `btn-glissando-${option.value}`,
     ),
@@ -548,7 +549,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       'add.line.hairpin',
       'Hairpin',
       'onAddHairpin',
-      withSelection,
+      needsSelection,
       hairpinOptions,
       (option) => option.testId,
     ),
@@ -556,17 +557,17 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       'add.line.pedal',
       'Pedal',
       'onAddPedal',
-      withSelection,
+      needsSelection,
       pedalOptions,
       (option) => option.testId,
     ),
-    action('add.line.pedal.sostenuto', 'Sostenuto Pedal', 'onAddSostenutoPedal', withSelection, {
+    action('add.line.pedal.sostenuto', 'Sostenuto Pedal', 'onAddSostenutoPedal', needsSelection, {
       testId: 'btn-pedal-sostenuto',
     }),
-    action('add.line.pedal.unaCorda', 'Una Corda', 'onAddUnaCorda', withSelection, {
+    action('add.line.pedal.unaCorda', 'Una Corda', 'onAddUnaCorda', needsSelection, {
       testId: 'btn-pedal-una-corda',
     }),
-    action('add.line.pedal.split', 'Pedal Change', 'onSplitPedal', withSelection, {
+    action('add.line.pedal.split', 'Pedal Change', 'onSplitPedal', needsSelection, {
       testId: 'btn-pedal-split',
     }),
     defineFamily<number>({
@@ -577,7 +578,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
         label: option.label,
         testId: `btn-dynamic-${option.value}`,
       })),
-      enabled: (ctx) => withSelection(ctx) && has('onAddDynamic'),
+      enabled: (ctx) => needsSelection(ctx) && has('onAddDynamic'),
       run: (_ctx, dynamicType) => p().onAddDynamic?.(dynamicType),
     }),
     defineFamily<string>({
@@ -588,14 +589,14 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
         label: option.label,
         testId: `btn-artic-${option.symbol}`,
       })),
-      enabled: (ctx) => withSelection(ctx) && has('onAddArticulation'),
+      enabled: (ctx) => needsSelection(ctx) && has('onAddArticulation'),
       run: (_ctx, symbol) => p().onAddArticulation?.(symbol),
     }),
     numberFamily(
       'add.mark.fermata',
       'Fermata',
       'onAddFermata',
-      withSelection,
+      needsSelection,
       fermataOptions,
       (option) => `btn-fermata-${option.value}`,
     ),
@@ -603,7 +604,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       'add.mark.breath',
       'Breath or Caesura',
       'onAddBreath',
-      withSelection,
+      needsSelection,
       breathOptions,
       (option) => `btn-breath-${option.value}`,
     ),
@@ -611,7 +612,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       'add.mark.arpeggio',
       'Arpeggio',
       'onAddArpeggio',
-      withSelection,
+      needsSelection,
       arpeggioOptions,
       (option) => `btn-arpeggio-${option.value}`,
     ),
@@ -619,7 +620,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       'add.mark.tremolo',
       'Tremolo',
       'onAddTremolo',
-      withSelection,
+      needsSelection,
       tremoloOptions,
       (option) => `btn-tremolo-${option.value}`,
     ),
@@ -629,16 +630,16 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
     headerText('subtitle', 'Subtitle'),
     headerText('composer', 'Composer'),
     headerText('lyricist', 'Lyricist'),
-    action('add.text.staff', 'Staff Text', 'onAddStaffText', withSelection, {
+    action('add.text.staff', 'Staff Text', 'onAddStaffText', needsSelection, {
       testId: 'btn-text-staff',
     }),
-    action('add.text.system', 'System Text', 'onAddSystemText', withSelection, {
+    action('add.text.system', 'System Text', 'onAddSystemText', needsSelection, {
       testId: 'btn-text-system',
     }),
-    action('add.text.expression', 'Expression Text', 'onAddExpressionText', withSelection, {
+    action('add.text.expression', 'Expression Text', 'onAddExpressionText', needsSelection, {
       testId: 'btn-text-expression',
     }),
-    action('add.text.lyrics', 'Lyrics', 'onAddLyricText', withSelection, {
+    action('add.text.lyrics', 'Lyrics', 'onAddLyricText', needsSelection, {
       testId: 'btn-text-lyrics',
     }),
     defineFamily<0 | 1 | 2>({
@@ -649,40 +650,40 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
         { arg: 1, label: 'Roman Numeral', testId: 'btn-text-harmony-roman' },
         { arg: 2, label: 'Nashville Number', testId: 'btn-text-harmony-nashville' },
       ],
-      enabled: (ctx) => withSelection(ctx) && has('onAddHarmonyText'),
+      enabled: (ctx) => needsSelection(ctx) && has('onAddHarmonyText'),
       run: (_ctx, variant) => p().onAddHarmonyText?.(variant),
     }),
-    action('add.text.figuredBass', 'Figured Bass', 'onAddFiguredBassText', withSelection, {
+    action('add.text.figuredBass', 'Figured Bass', 'onAddFiguredBassText', needsSelection, {
       testId: 'btn-text-figured-bass',
     }),
-    action('add.text.fingering', 'Fingering', 'onAddFingeringText', withSelection, {
+    action('add.text.fingering', 'Fingering', 'onAddFingeringText', needsSelection, {
       testId: 'btn-text-fingering',
     }),
     action(
       'add.text.fingering.lh',
       'LH Guitar Fingering',
       'onAddLeftHandGuitarFingeringText',
-      withSelection,
+      needsSelection,
       { testId: 'btn-text-fingering-lh' },
     ),
     action(
       'add.text.fingering.rh',
       'RH Guitar Fingering',
       'onAddRightHandGuitarFingeringText',
-      withSelection,
+      needsSelection,
       { testId: 'btn-text-fingering-rh' },
     ),
-    action('add.text.stringNumber', 'String Number', 'onAddStringNumberText', withSelection, {
+    action('add.text.stringNumber', 'String Number', 'onAddStringNumberText', needsSelection, {
       testId: 'btn-text-string-number',
     }),
-    action('add.text.sticking', 'Sticking', 'onAddStickingText', withSelection, {
+    action('add.text.sticking', 'Sticking', 'onAddStickingText', needsSelection, {
       testId: 'btn-text-sticking',
     }),
     action(
       'add.text.instrumentChange',
       'Instrument Change',
       'onAddInstrumentChangeText',
-      withSelection,
+      needsSelection,
       { testId: 'btn-text-instrument-change' },
     ),
     defineCommand<{ bpm?: number } | undefined>({
@@ -773,17 +774,17 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
     ),
 
     // ── Add: repeats and navigation ─────────────────────────────────────────────────
-    action('add.repeat.start', 'Start Repeat', 'onToggleRepeatStart', withSelection, {
+    action('add.repeat.start', 'Start Repeat', 'onToggleRepeatStart', needsSelection, {
       testId: 'btn-repeat-start',
     }),
-    action('add.repeat.end', 'End Repeat', 'onToggleRepeatEnd', withSelection, {
+    action('add.repeat.end', 'End Repeat', 'onToggleRepeatEnd', needsSelection, {
       testId: 'btn-repeat-end',
     }),
     numberFamily(
       'add.repeat.count',
       'Repeat Count',
       'onSetRepeatCount',
-      withSelection,
+      needsSelection,
       repeatCountOptions.map((option) => ({ value: option.count, label: option.label })),
       (option) => `btn-repeat-count-${option.value}`,
     ),
@@ -791,7 +792,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       'add.barline',
       'Barline',
       'onSetBarLineType',
-      withSelection,
+      needsSelection,
       barlineOptions,
       (option) => `btn-barline-${option.value}`,
     ),
@@ -799,7 +800,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       'add.volta',
       'Volta',
       'onAddVolta',
-      withSelection,
+      needsSelection,
       voltaOptions.map((option) => ({ value: option.ending, label: option.label })),
       (option) => `btn-volta-${option.value}`,
     ),
@@ -807,7 +808,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       'add.marker',
       'Marker',
       'onAddMarker',
-      withSelection,
+      needsSelection,
       markerOptions,
       (option) => `btn-marker-${option.value}`,
     ),
@@ -815,18 +816,18 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       'add.jump',
       'Jump',
       'onAddJump',
-      withSelection,
+      needsSelection,
       jumpOptions,
       (option) => `btn-jump-${option.value}`,
     ),
-    action('add.ambitus', 'Ambitus', 'onAddAmbitus', withSelection, { testId: 'btn-add-ambitus' }),
+    action('add.ambitus', 'Ambitus', 'onAddAmbitus', needsSelection, { testId: 'btn-add-ambitus' }),
 
     // ── Format ──────────────────────────────────────────────────────────────────────
-    action('format.break.line', 'Line Break', 'onToggleLineBreak', withSelection, {
+    action('format.break.line', 'Line Break', 'onToggleLineBreak', needsSelection, {
       testId: 'btn-new-line',
       keywords: ['new line', 'system break'],
     }),
-    action('format.break.page', 'Page Break', 'onTogglePageBreak', withSelection, {
+    action('format.break.page', 'Page Break', 'onTogglePageBreak', needsSelection, {
       testId: 'btn-new-page',
       keywords: ['new page'],
     }),
@@ -841,27 +842,27 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
         ctx.isMutable && !ctx.noteInput && has('onTransposeEx') && has('onOpenTransposeDialog'),
       run: () => p().onOpenTransposeDialog?.(),
     }),
-    action('tools.explode', 'Explode', 'onExplodeSelection', withSelection, {
+    action('tools.explode', 'Explode', 'onExplodeSelection', needsRange, {
       testId: 'btn-explode-selection',
     }),
-    action('tools.implode', 'Implode', 'onImplodeSelection', withSelection, {
+    action('tools.implode', 'Implode', 'onImplodeSelection', needsRange, {
       testId: 'btn-implode-selection',
     }),
-    action('tools.regroup', 'Regroup Rhythms', 'onRegroupSelection', withSelection, {
+    action('tools.regroup', 'Regroup Rhythms', 'onRegroupSelection', needsRange, {
       testId: 'btn-regroup-selection',
     }),
     action(
       'tools.resequence',
       'Resequence Rehearsal Marks',
       'onResequenceRehearsalMarks',
-      withSelection,
+      needsRange,
       { testId: 'btn-resequence-rehearsal' },
     ),
     action(
       'tools.measures.removeSelected',
       'Remove Selected Measures',
       'onRemoveContainingMeasures',
-      withSelection,
+      needsBarTarget,
       { testId: 'btn-remove-containing-measures', keywords: ['delete bars'] },
     ),
     action(
@@ -937,7 +938,7 @@ export function deriveRibbonCommandContext(props: Props): CommandContext {
   return {
     mode: 'write',
     hasScore: Boolean(props.exportsEnabled),
-    selection: props.selectionActive ? 'single' : 'none',
+    selection: props.selectionActive ? (props.selectionKind ?? 'single') : 'none',
     noteInput: Boolean(props.noteInputActive),
     canUndo: isMutable && Boolean(props.onUndo),
     canRedo: isMutable && Boolean(props.onRedo),

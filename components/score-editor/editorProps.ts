@@ -69,6 +69,11 @@ export interface EditorCommandProps {
   onSetAccidental?: (accidentalType: number) => void;
   mutationsEnabled?: boolean;
   selectionActive?: boolean;
+  /**
+   * What kind of selection is active, when one is: `range` for Select All, a bar click or a
+   * Shift-extended selection; `list` for several separate elements; `single` otherwise.
+   */
+  selectionKind?: 'single' | 'list' | 'range';
   onExportSvg?: () => void;
   onExportPdf?: () => void;
   onExportPng?: () => void;
