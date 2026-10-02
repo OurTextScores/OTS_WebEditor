@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { primaryShortcut } from '../../lib/commands/bindings';
 import {
   AI_TOOLS,
   buildShellEditorCommands,
@@ -449,11 +450,8 @@ describe('left dock commands', () => {
     expect(await legacy.registry.run('view.panel.instruments')).toBe('disabled');
   });
 
-  it('shows F7 and F8 for the panels', () => {
-    const { registry } = setup();
-    const shortcut = (id: string) =>
-      (registry.get(id) as unknown as { shortcut?: string }).shortcut;
-    expect(shortcut('view.panel.instruments')).toBe('F7');
-    expect(shortcut('view.panel.properties')).toBe('F8');
+  it('shows F7 and F8 for the panels, from the binding table', () => {
+    expect(primaryShortcut('view.panel.instruments')).toBe('F7');
+    expect(primaryShortcut('view.panel.properties')).toBe('F8');
   });
 });

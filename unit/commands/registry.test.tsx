@@ -166,7 +166,6 @@ describe('CommandRegistry', () => {
         id: 'add.noteInput',
         label: 'Note Input',
         testId: 'btn-note-input',
-        shortcut: 'N',
         checked: (c) => c.noteInput,
         run: () => {},
       }),

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { shortcutEntries } from '../../components/toolbar/constants';
+import { formatShortcutGeneric } from '../../components/shell/shortcutDisplay';
+import { buildShortcutSections } from '../../components/shell/shortcutList';
 
 export const metadata: Metadata = {
   title: 'Help · OurTextScores Editor',
@@ -249,25 +250,17 @@ const tocEntries = [
   { id: 'community', title: 'Community & contributing' },
 ];
 
-function renderKbd(label: string) {
-  // Split "Undo: Ctrl/Cmd + Z" into a term and its key chips.
-  const [term, keys] = label.includes(':')
-    ? [label.slice(0, label.indexOf(':')), label.slice(label.indexOf(':') + 1)]
-    : [label, ''];
-  const chips = keys
-    .split(/\s*\+\s*/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+function renderKbd(label: string, keys: readonly string[]) {
   return (
     <div className="flex flex-col gap-1.5 rounded-lg border border-slate-200 bg-white p-3">
-      <span className="text-sm font-medium text-slate-800">{term}</span>
+      <span className="text-sm font-medium text-slate-800">{label}</span>
       <span className="flex flex-wrap gap-1">
-        {chips.map((chip, i) => (
+        {keys.map((chord) => (
           <kbd
-            key={i}
+            key={chord}
             className="rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600 shadow-sm"
           >
-            {chip}
+            {formatShortcutGeneric(chord)}
           </kbd>
         ))}
       </span>
@@ -361,14 +354,16 @@ export default function HelpPage() {
               <h2 className="text-xl font-semibold text-slate-900">Keyboard shortcuts</h2>
             </div>
             <p className="mb-5 text-sm leading-6 text-slate-600">
-              Also available under the toolbar’s Shortcuts button.
+              Also under Help ▸ Keyboard Shortcuts in the editor.
             </p>
             <div className="grid gap-2.5 sm:grid-cols-2">
-              {shortcutEntries.map((entry) => (
-                <div key={entry.label} title={entry.title}>
-                  {renderKbd(entry.label)}
-                </div>
-              ))}
+              {buildShortcutSections().flatMap((section) =>
+                section.rows.map((row) => (
+                  <div key={`${section.title}:${row.label}`} title={section.title}>
+                    {renderKbd(row.label, row.keys)}
+                  </div>
+                )),
+              )}
             </div>
           </section>
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { primaryShortcut } from '../../lib/commands/bindings';
 import * as Menubar from '@radix-ui/react-menubar';
 import { Menu as MenuIcon } from 'lucide-react';
 import React, { useSyncExternalStore } from 'react';
@@ -169,6 +170,7 @@ function NodeView({ node, render }: { node: MenuNode; render: RenderContext }) {
           onSelect={() => void invokeCommand(node.id, node.arg, render.registry)}
         >
           <span>{node.label ?? variant?.label ?? family.label}</span>
+          <Shortcut value={primaryShortcut(node.id, node.arg)} />
         </Menubar.Item>
       );
     }
@@ -194,7 +196,7 @@ function NodeView({ node, render }: { node: MenuNode; render: RenderContext }) {
       >
         <span>{display(command, node.kind === 'item' ? node.label : undefined)}</span>
         <span className="flex items-center gap-2">
-          <Shortcut value={command.shortcut} />
+          <Shortcut value={primaryShortcut(command.id)} />
           <Menubar.ItemIndicator>✓</Menubar.ItemIndicator>
         </span>
       </Menubar.CheckboxItem>
@@ -208,7 +210,7 @@ function NodeView({ node, render }: { node: MenuNode; render: RenderContext }) {
       onSelect={() => void invokeCommand(command.id, undefined, render.registry)}
     >
       <span>{display(command, node.kind === 'item' ? node.label : undefined)}</span>
-      <Shortcut value={command.shortcut} />
+      <Shortcut value={primaryShortcut(command.id)} />
     </Menubar.Item>
   );
 }

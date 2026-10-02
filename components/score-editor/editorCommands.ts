@@ -125,7 +125,6 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
     gate: Gate,
     extra: {
       testId?: string;
-      shortcut?: string;
       keywords?: readonly string[];
       opensDialog?: boolean;
     } = {},
@@ -369,6 +368,9 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
     action('edit.undo', 'Undo', 'onUndo', mutable, { testId: 'btn-undo' }),
     action('edit.redo', 'Redo', 'onRedo', mutable, { testId: 'btn-redo' }),
     action('edit.delete', 'Delete', 'onDeleteSelection', needsSelection, { testId: 'btn-delete' }),
+    action('edit.deselect', 'Deselect', 'onClearSelection', needsSelection, {
+      keywords: ['clear selection', 'escape'],
+    }),
     action('edit.selectAll', 'Select All', 'onSelectAll', mutable, { testId: 'btn-select-all' }),
     action(
       'edit.select.nextChord',
@@ -508,7 +510,6 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       id: 'add.noteInput',
       label: 'Note Input',
       testId: 'btn-note-input',
-      shortcut: 'N',
       keywords: ['enter notes'],
       enabled: (ctx) => ctx.isMutable && has('onToggleNoteInput'),
       checked: (ctx) => ctx.noteInput,
@@ -582,7 +583,6 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
     }),
     action('add.line.slur', 'Slur', 'onAddSlur', needsSelection, {
       testId: 'btn-slur',
-      shortcut: 'S',
     }),
     action('add.line.tie', 'Tie', 'onAddTie', needsSelection, { testId: 'btn-tie' }),
     action('format.flip', 'Flip Direction', 'onFlipStem', needsSelection, {
@@ -989,7 +989,6 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       id: 'help.open',
       label: 'Editor Help',
       testId: 'link-help',
-      shortcut: 'F1',
       run: () => {
         window.open(getHelpHref(), '_blank', 'noopener,noreferrer');
       },
@@ -1006,7 +1005,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
 export function deriveRibbonCommandContext(props: Props): CommandContext {
   const isMutable = Boolean(props.mutationsEnabled);
   return {
-    mode: 'write',
+    mode: props.workspaceKind ?? 'write',
     hasScore: Boolean(props.exportsEnabled),
     selection: props.selectionActive ? (props.selectionKind ?? 'single') : 'none',
     noteInput: Boolean(props.noteInputActive),

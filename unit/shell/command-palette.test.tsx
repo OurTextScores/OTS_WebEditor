@@ -60,7 +60,6 @@ function setup(context: Partial<CommandContext> = {}) {
     defineCommand({
       id: 'edit.undo',
       label: 'Undo',
-      shortcut: 'Mod+Z',
       enabled: (c) => c.canUndo,
       run: run.undo,
     }),

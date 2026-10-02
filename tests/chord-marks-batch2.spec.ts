@@ -27,7 +27,6 @@ test('adds non-default fermata and caesura variants with undo and redo', async (
 
   await runCommand(page, 'btn-open-fermata-palette');
   await page.getByTestId('palette-item-fermata-4').click();
-  await page.keyboard.press('Escape');
   await expect
     .poll(
       async () =>
@@ -38,7 +37,6 @@ test('adds non-default fermata and caesura variants with undo and redo', async (
 
   await runCommand(page, 'btn-open-breath-palette');
   await page.getByTestId('palette-item-breath-7').click();
-  await page.keyboard.press('Escape');
   await expect
     .poll(async () => /<Breath>[\s\S]*?<symbol>caesuraThick<\/symbol>/.test(await readMscx(page)), {
       timeout: 20_000,

@@ -1,24 +1,10 @@
-import { buildEditorCommands } from '../../components/score-editor/editorCommands';
-import { buildShellEditorCommands } from '../../components/score-editor/shellCommands';
-import {
-  buildShellOwnCommands,
-  buildStatusBarCommands,
-} from '../../components/shell/shellCommands';
+import { buildCommandCatalog } from '../../components/score-editor/commandCatalog';
 import { CommandRegistry } from '../../lib/commands/registry';
 import type { AnyCommand } from '../../lib/commands/types';
 
-/**
- * Every command the editor registers at runtime, built with inert props and bindings:
- * the ribbon adapters, the shell's own commands, and the ones backed by `ScoreEditor`.
- * For tests that care what exists, not what it does.
- */
+/** Every command the editor registers at runtime, with inert props and bindings. */
 export function allEditorCommands(): AnyCommand[] {
-  return [
-    ...buildEditorCommands(() => ({}) as never),
-    ...buildShellEditorCommands(() => ({}) as never),
-    ...buildShellOwnCommands(),
-    ...buildStatusBarCommands(),
-  ];
+  return buildCommandCatalog();
 }
 
 export function allCommandsRegistry(): CommandRegistry {

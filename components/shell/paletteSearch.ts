@@ -1,3 +1,4 @@
+import { primaryShortcut } from '../../lib/commands/bindings';
 import type { CommandRegistry } from '../../lib/commands/registry';
 import {
   isCommandFamily,
@@ -59,6 +60,7 @@ export function buildPaletteRows(
           // A variant given its own menu entry ("Zoom to 100%") reports that location.
           path: paths.get(variantPathKey(id, variant.arg)) ?? familyPath,
           keywords: [],
+          shortcut: primaryShortcut(id, variant.arg),
           enabled,
         });
       }
@@ -72,7 +74,7 @@ export function buildPaletteRows(
       title: command.label,
       path: paths.get(id) ?? '',
       keywords: command.keywords ?? [],
-      shortcut: command.shortcut,
+      shortcut: primaryShortcut(id),
       enabled,
     });
   }

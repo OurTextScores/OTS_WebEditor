@@ -136,14 +136,12 @@ export function buildShellEditorCommands(getBindings: GetBindings): AnyCommand[]
   const togglePanel = (
     id: string,
     label: string,
-    shortcut: string | undefined,
     isOpen: () => boolean,
     set: (open: boolean) => void,
   ) =>
     defineCommand({
       id,
       label,
-      shortcut,
       keywords: ['panel', 'toggle', 'show', 'hide'],
       checked: () => isOpen(),
       run: () => {
@@ -166,7 +164,6 @@ export function buildShellEditorCommands(getBindings: GetBindings): AnyCommand[]
     defineCommand({
       id: 'view.panel.properties',
       label: 'Properties',
-      shortcut: 'F8',
       keywords: ['inspector', 'panel', 'toggle'],
       checked: () => (b().dock ? b().dock!.isShowing('properties') : b().inspectorOpen),
       run: () => {
@@ -183,7 +180,6 @@ export function buildShellEditorCommands(getBindings: GetBindings): AnyCommand[]
     defineCommand({
       id: 'view.panel.instruments',
       label: 'Instruments',
-      shortcut: 'F7',
       keywords: ['parts', 'staves', 'add instrument', 'panel', 'toggle'],
       enabled: () => b().dock !== null,
       checked: () => Boolean(b().dock?.isShowing('instruments')),
@@ -197,14 +193,12 @@ export function buildShellEditorCommands(getBindings: GetBindings): AnyCommand[]
     togglePanel(
       'view.panel.aiTools',
       'AI Tools',
-      undefined,
       () => b().aiToolsOpen,
       (open) => b().setAiToolsOpen(open),
     ),
     togglePanel(
       'view.panel.scoreSource',
       'Score Source',
-      undefined,
       () => b().musicXmlOpen,
       (open) => b().setMusicXmlOpen(open),
     ),
@@ -275,7 +269,6 @@ export function buildShellEditorCommands(getBindings: GetBindings): AnyCommand[]
     defineCommand({
       id: 'checkpoint.save',
       label: 'Save Checkpoint',
-      shortcut: 'Mod+S',
       keywords: ['snapshot', 'history', 'version'],
       enabled: hasScore,
       run: () => b().saveCheckpoint(),
@@ -292,7 +285,6 @@ export function buildShellEditorCommands(getBindings: GetBindings): AnyCommand[]
     defineCommand({
       id: 'edit.copy',
       label: 'Copy',
-      shortcut: 'Mod+C',
       enabled: (ctx) => ctx.hasScore && ctx.selection !== 'none',
       run: async () => {
         await b().copySelection();
@@ -301,7 +293,6 @@ export function buildShellEditorCommands(getBindings: GetBindings): AnyCommand[]
     defineCommand({
       id: 'edit.paste',
       label: 'Paste',
-      shortcut: 'Mod+V',
       enabled: (ctx) => ctx.isMutable && ctx.selection !== 'none',
       run: async () => {
         await b().pasteSelection();

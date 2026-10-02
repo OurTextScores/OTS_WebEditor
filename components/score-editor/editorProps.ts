@@ -1,3 +1,5 @@
+import type { OtsModeKind } from '../shell/workspaceMode';
+
 /**
  * What the editor hands the command layer: every handler and flag an editor command may need.
  * `useEditorCommands` turns this into registered commands; menus, toolbars, the palette and
@@ -69,6 +71,8 @@ export interface EditorCommandProps {
   onSetAccidental?: (accidentalType: number) => void;
   mutationsEnabled?: boolean;
   selectionActive?: boolean;
+  /** The workspace mode on screen, so commands and keys can tell a compare session from the score. */
+  workspaceKind?: OtsModeKind;
   /**
    * What kind of selection is active, when one is: `range` for Select All, a bar click or a
    * Shift-extended selection; `list` for several separate elements; `single` otherwise.
@@ -152,6 +156,8 @@ export interface EditorCommandProps {
   onAddGraceNote?: (graceType: number) => void;
   onAddTuplet?: (tupletCount: number) => void;
   onToggleNoteInput?: () => void;
+  /** Clears the selection (Escape, with nothing else to cancel). */
+  onClearSelection?: () => void;
   /** Enters or changes a note by letter (0 = C … 6 = B); `addToChord` stacks it on the current chord. */
   onAddPitchByStep?: (step: number, addToChord: boolean) => unknown;
   onEnterRest?: () => unknown;

@@ -34,6 +34,7 @@ describe('menu tree', () => {
     'instruments.add': 'the Instruments panel',
     'instruments.part.toggleVisible': 'the Instruments panel',
     'instruments.part.remove': 'the Instruments panel',
+    'shell.escape': 'a key only: Escape closes the innermost open item, then clears the selection',
     'view.goto.page': 'reached through the palette (p3) and the Go to prompt',
     'view.goto.bar': 'reached through the palette (m125) and the Go to prompt',
     'view.goto.rehearsal': 'reached through the palette (rA) and the Go to prompt',

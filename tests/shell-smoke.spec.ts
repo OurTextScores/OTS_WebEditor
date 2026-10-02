@@ -119,8 +119,8 @@ test.describe('shell menus and palette @smoke', () => {
     await page.waitForSelector('svg .Note', { timeout: 60_000 });
     await openMenuPath(page, ['Help', 'Keyboard Shortcuts']);
     const dialog = page.getByTestId('shortcuts-dialog');
-    await expect(dialog).toContainText('Command palette');
-    await expect(dialog).toContainText('Slur: S');
+    await expect(dialog).toContainText('Command Palette');
+    await expect(dialog).toContainText('Slur');
   });
 
   test('a menu item shows its availability: undo is off until something changed', async ({

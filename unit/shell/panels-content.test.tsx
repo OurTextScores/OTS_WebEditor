@@ -7,6 +7,7 @@ import {
   MusicXmlPanel,
   type MusicXmlPanelProps,
 } from '../../components/score-editor/MusicXmlPanel';
+import { closeTopEscapeLayer } from '../../components/shell/keyboard/escapeLayers';
 import { DockShell } from '../../components/shell/DockShell';
 import { writeDock, type WriteDockProps } from '../../components/shell/WriteWorkspace';
 import type { WorkspaceInsets } from '../../components/shell/vendor/viritura';
@@ -65,7 +66,8 @@ describe('FloatingPalettes', () => {
   it('still closes on Escape', () => {
     const onClose = vi.fn();
     render(<FloatingPalettes onApply={() => {}} onClose={onClose} />);
-    fireEvent.keyDown(window, { key: 'Escape' });
+    // Escape reaches it through the escape layers, which the keyboard router drives.
+    expect(closeTopEscapeLayer()).toBe(true);
     expect(onClose).toHaveBeenCalledOnce();
   });
 });

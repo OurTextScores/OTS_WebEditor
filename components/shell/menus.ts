@@ -95,6 +95,7 @@ export const MENUS: readonly MenuDefinition[] = [
       item('edit.delete'),
       separator,
       item('edit.selectAll'),
+      item('edit.deselect'),
       submenu(
         'Move Selection',
         item('edit.select.nextChord'),

@@ -25,7 +25,6 @@ export interface Command<Args = void> {
   readonly menuLabel?: string; // optional longer form for menus
   readonly keywords?: readonly string[]; // palette search
   readonly icon?: React.ComponentType<{ size?: number }> | string; // lucide or SMuFL glyph id
-  readonly shortcut?: string; // display + binding string, grammar per W2 ('Mod+Shift+P')
   readonly testId?: string; // preserved legacy data-testid (§9)
   readonly opensDialog?: boolean; // menus may show '…' by convention; label itself stays clean
   readonly visible?: (ctx: CommandContext) => boolean;

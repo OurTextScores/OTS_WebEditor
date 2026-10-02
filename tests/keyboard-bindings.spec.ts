@@ -37,6 +37,8 @@ const WATCHED = [
   'setInputAccidentalType',
   'undo',
   'redo',
+  'synthAudioBatch',
+  'saveAudio',
 ] as const;
 
 type Call = [string, unknown[]];
@@ -190,4 +192,72 @@ test('keys typed into a text field are not editing keys', async ({ page }) => {
   await page.keyboard.type('5s');
   await page.waitForTimeout(500);
   expect(await calls(page)).toEqual([]);
+});
+
+test.describe('Escape', () => {
+  test('closes note input first, then clears the selection', async ({ page }) => {
+    await load(page, true);
+    await page.keyboard.press('n');
+    await expect(page.getByTestId('btn-note-input')).toHaveAttribute('aria-pressed', 'true');
+
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('btn-note-input')).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByTestId('selection-overlay')).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('selection-overlay')).toHaveCount(0);
+  });
+
+  test('closes the floating palettes before it touches the selection', async ({ page }) => {
+    await load(page, true);
+    await page.getByTestId('btn-palettes-pop-out').click();
+    await expect(page.getByTestId('floating-palettes')).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('floating-palettes')).toHaveCount(0);
+    await expect(page.getByTestId('selection-overlay')).toBeVisible();
+  });
+
+  test('does nothing, and leaves the key to the browser, with nothing to cancel', async ({
+    page,
+  }) => {
+    await load(page, false);
+    const prevented = await page.evaluate(
+      () =>
+        new Promise<boolean>((resolve) => {
+          window.addEventListener('keydown', (event) => resolve(event.defaultPrevented), {
+            once: true,
+          });
+          document.body.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+          );
+        }),
+    );
+    expect(prevented).toBe(false);
+  });
+});
+
+test('Space starts playback from the canvas', async ({ page }) => {
+  await load(page, false);
+  await page.waitForFunction(
+    () =>
+      (
+        window as unknown as { __otsCommands: { list(): { id: string; enabled: boolean }[] } }
+      ).__otsCommands
+        .list()
+        .some((c) => c.id === 'playback.playPause' && c.enabled),
+    undefined,
+    { timeout: 60_000 },
+  );
+  await clear(page);
+  await page.keyboard.press('Space');
+  await expect
+    .poll(
+      async () =>
+        (await calls(page)).some(([name]) => name === 'synthAudioBatch' || name === 'saveAudio'),
+      {
+        timeout: 20_000,
+      },
+    )
+    .toBe(true);
 });

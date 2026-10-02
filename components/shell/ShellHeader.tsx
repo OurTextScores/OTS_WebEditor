@@ -14,7 +14,7 @@ import { ShortcutsDialog } from './ShortcutsDialog';
 import { formatShortcut } from './shortcutDisplay';
 import { openPalette } from './shellStore';
 import { buildShellOwnCommands } from './shellCommands';
-import { useShellShortcuts } from './useShellShortcuts';
+import { useKeyboardRouter } from './keyboard/useKeyboardRouter';
 
 const COMPACT_QUERY = '(max-width: 719px)';
 
@@ -52,7 +52,7 @@ export function ShellHeader({
 }) {
   const ownCommands = useMemo(() => buildShellOwnCommands(), []);
   useRegisterCommands('global', ownCommands, registry);
-  useShellShortcuts(registry);
+  useKeyboardRouter(registry);
   const compact = useCompact();
   const scoreInput = useRef<HTMLInputElement>(null);
   const soundFontInput = useRef<HTMLInputElement>(null);

@@ -1,4 +1,6 @@
+import { defaultCommandRegistry } from '../../lib/commands/registry';
 import { defineCommand, type AnyCommand } from '../../lib/commands/types';
+import { closeTopEscapeLayer, hasEscapeLayer } from './keyboard/escapeLayers';
 import {
   closePalette,
   getShellUiState,
@@ -17,7 +19,6 @@ export function buildShellOwnCommands(): AnyCommand[] {
     defineCommand({
       id: 'shell.palette',
       label: 'Command Palette',
-      shortcut: 'Mod+Shift+P',
       keywords: ['search', 'commands', 'find'],
       run: () => {
         // The same key closes it, as in VS Code.
@@ -28,10 +29,20 @@ export function buildShellOwnCommands(): AnyCommand[] {
     defineCommand({
       id: 'view.goto.prompt',
       label: 'Bar or Rehearsal Mark',
-      shortcut: 'Mod+F',
       opensDialog: true,
       keywords: ['go to', 'jump', 'bar', 'measure', 'rehearsal', 'page'],
       run: () => openPalette('goto'),
+    }),
+    defineCommand({
+      // Escape: close the innermost open thing; with nothing open, clear the selection.
+      id: 'shell.escape',
+      label: 'Cancel',
+      visible: () => false,
+      enabled: (ctx) => hasEscapeLayer() || ctx.selection !== 'none',
+      run: async () => {
+        if (closeTopEscapeLayer()) return;
+        await defaultCommandRegistry.run('edit.deselect');
+      },
     }),
     defineCommand({
       id: 'help.shortcuts',

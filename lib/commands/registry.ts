@@ -1,3 +1,4 @@
+import { primaryShortcut } from './bindings';
 import {
   isCommandFamily,
   type AnyCommand,
@@ -186,7 +187,7 @@ function describe(entry: AnyCommand, scope: CommandScope, ctx: CommandContext): 
     kind: 'command',
     scope,
     label: command.label,
-    ...(command.shortcut ? { shortcut: command.shortcut } : {}),
+    ...(primaryShortcut(command.id) ? { shortcut: primaryShortcut(command.id) } : {}),
     ...(command.testId ? { testId: command.testId } : {}),
     enabled,
     ...(command.checked ? { checked: command.checked(ctx) } : {}),

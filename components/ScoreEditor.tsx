@@ -58,6 +58,11 @@ import { useWorkspaceDock } from './shell/useWorkspaceDock';
 import type { WorkspaceInsets } from './shell/vendor/viritura';
 import { useShellCommands } from './score-editor/useShellCommands';
 import { useEditorCommands } from './score-editor/useEditorCommands';
+import {
+  ESCAPE_PRIORITY,
+  pushEscapeLayer,
+  useEscapeLayer,
+} from './shell/keyboard/escapeLayers';
 import { FloatingPalettes } from './FloatingPalettes';
 import {
   SCORE_PALETTE_DRAG_MIME,
@@ -13527,6 +13532,14 @@ ${partsBodyXml}
       { skipWasmReselect: true },
     );
 
+  // Delete on a selected line or page break removes the break, as it does in MuseScore.
+  const handleDeleteOrBreak = () =>
+    selectedLayoutBreakSubtype === 'line'
+      ? handleToggleLineBreak()
+      : selectedLayoutBreakSubtype === 'page'
+        ? handleTogglePageBreak()
+        : handleDeleteSelection();
+
   const handleSetVoice = (voiceIndex: number) => {
     const hasSelection = Boolean(selectedElement) || selectionBoxes.length > 0;
     if (!hasSelection) {
@@ -14424,259 +14437,13 @@ ${partsBodyXml}
     );
   };
 
+  // Editing keys in the main score go through the keyboard router (components/shell/keyboard).
+  // Only a compare session still has its own table, until it moves onto the same commands.
   keyboardShortcutHandlerRef.current = (event: KeyboardEvent) => {
-    if (event.defaultPrevented || !score) {
+    if (event.defaultPrevented || !score || !compareView || isEditableTarget(event.target)) {
       return;
     }
-    if (isEditableTarget(event.target)) {
-      return;
-    }
-    if (compareView) {
-      handleCompareKeyboardShortcut(event);
-      return;
-    }
-
-    const rawKey = event.key;
-    const key = rawKey.toLowerCase();
-    const isMod = event.ctrlKey || event.metaKey;
-
-    if (isMod) {
-      if (key === 'z') {
-        event.preventDefault();
-        if (event.shiftKey) {
-          handleRedo();
-        } else {
-          handleUndo();
-        }
-        return;
-      }
-      if (key === 'y') {
-        event.preventDefault();
-        handleRedo();
-        return;
-      }
-      if (key === 'a') {
-        event.preventDefault();
-        handleSelectAll();
-        return;
-      }
-      if (key === 'c') {
-        event.preventDefault();
-        handleCopySelection();
-        return;
-      }
-      if (key === 'v') {
-        event.preventDefault();
-        handlePasteSelection();
-        return;
-      }
-    }
-
-    if (key === 'escape' && noteInputActiveRef.current) {
-      event.preventDefault();
-      void setNoteInputMode(false);
-      return;
-    }
-
-    if (!isMod) {
-      if (key === 'n' && !event.altKey && !event.shiftKey && interactiveMutationEnabled) {
-        event.preventDefault();
-        toggleNoteInputMode();
-        return;
-      }
-
-      const noteMap: Record<string, number> = {
-        c: 0,
-        d: 1,
-        e: 2,
-        f: 3,
-        g: 4,
-        a: 5,
-        b: 6,
-      };
-      const durationMap: Record<string, number> = {
-        '1': 8, // DurationType::V_64TH
-        '2': 7, // DurationType::V_32ND
-        '3': 6, // DurationType::V_16TH
-        '4': 5, // DurationType::V_EIGHTH
-        '5': 4, // DurationType::V_QUARTER
-        '6': 3, // DurationType::V_HALF
-        '7': 2, // DurationType::V_WHOLE
-        '8': 1, // DurationType::V_BREVE
-      };
-      const hasSelection = Boolean(selectedElement) || selectionBoxes.length > 0;
-
-      // In note-input mode the duration/dot keys set the input state for the
-      // next placed note rather than mutating the selection.
-      if (interactiveMutationEnabled && noteInputActiveRef.current) {
-        if (rawKey in durationMap) {
-          event.preventDefault();
-          void handleSetInputDuration(durationMap[rawKey]);
-          return;
-        }
-        if (rawKey === '.') {
-          event.preventDefault();
-          void handleToggleInputDotState();
-          return;
-        }
-        if (rawKey === '+' || rawKey === '-' || rawKey === '=') {
-          event.preventDefault();
-          const accidentalType = rawKey === '+' ? 3 : rawKey === '-' ? 1 : 2;
-          void handleSetInputAccidental(accidentalType);
-          return;
-        }
-        if (rawKey === '0') {
-          event.preventDefault();
-          handleEnterRest();
-          return;
-        }
-        if (!event.altKey && key in noteMap) {
-          event.preventDefault();
-          handleAddPitchByStep(noteMap[key], event.shiftKey);
-          return;
-        }
-      }
-
-      if (interactiveMutationEnabled && hasSelection) {
-        if (key === 's' && !event.altKey && !event.shiftKey && !noteInputActiveRef.current) {
-          event.preventDefault();
-          handleAddSlur();
-          return;
-        }
-
-        if (rawKey in durationMap) {
-          event.preventDefault();
-          handleSetDurationType(durationMap[rawKey]);
-          return;
-        }
-
-        if (rawKey === '0') {
-          event.preventDefault();
-          handleEnterRest();
-          return;
-        }
-
-        if (rawKey === '.') {
-          event.preventDefault();
-          handleToggleDot();
-          return;
-        }
-
-        if (rawKey === '+') {
-          event.preventDefault();
-          handleSetAccidental(3);
-          return;
-        }
-
-        if (rawKey === '-') {
-          event.preventDefault();
-          handleSetAccidental(1);
-          return;
-        }
-
-        if (rawKey === '=') {
-          event.preventDefault();
-          handleSetAccidental(2);
-          return;
-        }
-
-        // Desktop MuseScore: plain T (shortcuts.xml tie=T). This used to test the capital letter,
-        // which only Shift+T produces.
-        if (key === 't' && !event.shiftKey && !event.altKey) {
-          event.preventDefault();
-          handleAddTie();
-          return;
-        }
-
-        if (!event.altKey && key in noteMap) {
-          event.preventDefault();
-          handleAddPitchByStep(noteMap[key], event.shiftKey);
-          return;
-        }
-      }
-    }
-
-    if (key === 'arrowup' || key === 'arrowdown') {
-      if (noteInputActiveRef.current) {
-        event.preventDefault();
-        return;
-      }
-      if (!interactiveMutationEnabled) {
-        return;
-      }
-      const hasSelection = Boolean(selectedElement) || selectionBoxes.length > 0;
-      if (!hasSelection) {
-        return;
-      }
-      event.preventDefault();
-      if (isMod) {
-        handleTranspose(key === 'arrowup' ? 12 : -12);
-      } else if (event.shiftKey) {
-        // Desktop MuseScore: Shift+Up/Down extends the range to the staff
-        // above/below. This must be checked before the pitch handlers --
-        // Shift previously fell through to them and transposed instead.
-        if (key === 'arrowup') {
-          handleExtendSelectionStaffAbove();
-        } else {
-          handleExtendSelectionStaffBelow();
-        }
-      } else if (key === 'arrowup') {
-        handlePitchUp();
-      } else {
-        handlePitchDown();
-      }
-      return;
-    }
-
-    if (key === 'arrowleft' || key === 'arrowright') {
-      if (!interactiveMutationEnabled) {
-        return;
-      }
-      const hasSelection = Boolean(selectedElement) || selectionBoxes.length > 0;
-      if (!hasSelection) {
-        return;
-      }
-      event.preventDefault();
-      if (event.shiftKey) {
-        // Matches desktop MuseScore: Shift+Arrow extends by chord,
-        // Ctrl+Shift+Arrow by whole measure.
-        const byMeasure = event.ctrlKey || event.metaKey;
-        if (key === 'arrowright') {
-          if (byMeasure) {
-            handleExtendSelectionNextMeasure();
-          } else {
-            handleExtendSelectionNextChord();
-          }
-        } else if (byMeasure) {
-          handleExtendSelectionPrevMeasure();
-        } else {
-          handleExtendSelectionPrevChord();
-        }
-      } else {
-        // Arrow alone moves selection
-        if (key === 'arrowright') {
-          handleSelectNextChord();
-        } else {
-          handleSelectPrevChord();
-        }
-      }
-      return;
-    }
-
-    if (key === 'delete' || key === 'backspace') {
-      if (interactiveMutationEnabled && (selectedElement || selectionBoxes.length > 0)) {
-        event.preventDefault();
-        if (selectedLayoutBreakSubtype === 'line') {
-          handleToggleLineBreak();
-          return;
-        }
-        if (selectedLayoutBreakSubtype === 'page') {
-          handleTogglePageBreak();
-          return;
-        }
-        handleDeleteSelection();
-      }
-    }
+    handleCompareKeyboardShortcut(event);
   };
 
   useEffect(() => {
@@ -15695,20 +15462,7 @@ ${partsBodyXml}
     [score],
   );
 
-  useEffect(() => {
-    if (!gripEdit) {
-      return;
-    }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') {
-        return;
-      }
-      closeGripEdit(false);
-      event.preventDefault();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [closeGripEdit, gripEdit]);
+  useEscapeLayer(Boolean(gripEdit), ESCAPE_PRIORITY.gripEdit, () => closeGripEdit(false));
 
   const beginGripEditAtPoint = async (pageIndex: number, x: number, y: number) => {
     if (!interactiveMutationEnabled || noteInputActiveRef.current || !score?.beginGripEdit) {
@@ -15828,26 +15582,22 @@ ${partsBodyXml}
     const onCancel = (cancelEvent: PointerEvent) => {
       void finish(cancelEvent, false);
     };
-    const onKeyDown = (keyEvent: KeyboardEvent) => {
-      if (keyEvent.key !== 'Escape') {
-        return;
-      }
+    // Escape cancels the drag: it is the innermost layer until the pointer is released.
+    const popEscape = pushEscapeLayer(ESCAPE_PRIORITY.gesture, () => {
       gripDragCleanupRef.current?.();
       gripDragCleanupRef.current = null;
       setGripEdit(null);
       void Promise.resolve(score.endGripEdit?.(false)).catch(() => {});
-      keyEvent.preventDefault();
-    };
+    });
 
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onCancel);
-    window.addEventListener('keydown', onKeyDown);
     gripDragCleanupRef.current = () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onCancel);
-      window.removeEventListener('keydown', onKeyDown);
+      popEscape();
     };
   };
 
@@ -16424,10 +16174,7 @@ ${partsBodyXml}
 
     // Escape aborts the gesture without committing (roadmap §2.1). No engine call is
     // needed: the WASM drag only begins on release.
-    const onKeyDown = (ev: KeyboardEvent) => {
-      if (ev.key !== 'Escape') {
-        return;
-      }
+    const popEscape = pushEscapeLayer(ESCAPE_PRIORITY.gesture, () => {
       noteDragCleanupRef.current?.();
       noteDragCleanupRef.current = null;
       const noteDrag = noteDragRef.current;
@@ -16437,22 +16184,20 @@ ${partsBodyXml}
       if (wasActive) {
         // Swallow the click fired when the still-held pointer is released.
         ignoreNextClickRef.current = true;
-        ev.preventDefault();
       }
       if (wasActive && noteDrag) {
         void finishNoteDrag(noteDrag, 0, 0, false);
       }
-    };
+    });
 
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onCancel);
-    window.addEventListener('keydown', onKeyDown);
     noteDragCleanupRef.current = () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onCancel);
-      window.removeEventListener('keydown', onKeyDown);
+      popEscape();
     };
   };
 
@@ -16820,6 +16565,34 @@ ${partsBodyXml}
     await refreshSelectionFromSvg(fallback);
   };
 
+  useEscapeLayer(noteInputActive, ESCAPE_PRIORITY.noteInput, () => void setNoteInputMode(false));
+
+  /** Clears the selection in the UI and the engine (a click on nothing, or Escape). */
+  const clearEditorSelection = () => {
+    if (!score) return;
+    setSelectedElement(null);
+    setSelectionBoxes([]);
+    setSelectedPoint(null);
+    setSelectedIndex(null);
+    setSelectedElementClasses('');
+    setSelectedLayoutBreakSubtype(null);
+    setHasBackendHighlighting(false);
+    const refreshAfterClear = () => renderScore(score, currentPage, false);
+    blockOverlayRefreshRef.current = true;
+    selectionOverlayGenerationRef.current += 1;
+    setOverlaySuppressed(true);
+    if (score.clearSelection) {
+      Promise.resolve(score.clearSelection())
+        .then(refreshAfterClear)
+        .catch((err: unknown) => {
+          console.warn('clearSelection not available or failed:', err);
+          refreshAfterClear();
+        });
+    } else {
+      refreshAfterClear();
+    }
+  };
+
   const handleScoreClick = (e: React.MouseEvent) => {
     if (!interactionReady) {
       return;
@@ -16851,29 +16624,7 @@ ${partsBodyXml}
       return;
     }
 
-    const clearSelectionState = () => {
-      setSelectedElement(null);
-      setSelectionBoxes([]);
-      setSelectedPoint(null);
-      setSelectedIndex(null);
-      setSelectedElementClasses('');
-      setSelectedLayoutBreakSubtype(null);
-      setHasBackendHighlighting(false);
-      const refreshAfterClear = () => renderScore(score, currentPage, false);
-      blockOverlayRefreshRef.current = true;
-      selectionOverlayGenerationRef.current += 1;
-      setOverlaySuppressed(true);
-      if (score.clearSelection) {
-        Promise.resolve(score.clearSelection())
-          .then(refreshAfterClear)
-          .catch((err: unknown) => {
-            console.warn('clearSelection not available or failed:', err);
-            refreshAfterClear();
-          });
-      } else {
-        refreshAfterClear();
-      }
-    };
+    const clearSelectionState = clearEditorSelection;
 
     const additiveSelection = e.metaKey || e.ctrlKey || e.shiftKey;
     const isShiftClick = e.shiftKey && !e.metaKey && !e.ctrlKey;
@@ -18699,7 +18450,8 @@ ${partsBodyXml}
     onFitWidth: handleFitWidth,
     onFitHeight: handleFitHeight,
     onSetZoom: handleSetZoom,
-    onDeleteSelection: handleDeleteSelection,
+    onDeleteSelection: handleDeleteOrBreak,
+    onClearSelection: clearEditorSelection,
     onSelectAll: handleSelectAll,
     onUndo: handleUndo,
     onRedo: handleRedo,
@@ -18713,6 +18465,7 @@ ${partsBodyXml}
     mutationsEnabled: interactiveMutationEnabled,
     selectionActive: hasSelection,
     selectionKind,
+    workspaceKind: kind,
     onExportSvg: handleExportSvg,
     onExportPdf: handleExportPdf,
     onExportPng: handleExportPng,

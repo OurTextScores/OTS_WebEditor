@@ -178,27 +178,6 @@ export const accidentalOptions = [
   { name: 'Clear', symbol: '', value: 0 }, // AccidentalType::NONE
 ];
 
-export const shortcutEntries = [
-  { label: 'Delete: Delete / Backspace', title: 'Shortcut: Delete / Backspace' },
-  { label: 'Undo: Ctrl/Cmd + Z', title: 'Shortcut: Ctrl/Cmd + Z' },
-  { label: 'Redo: Ctrl + Y, Cmd + Shift + Z', title: 'Shortcut: Ctrl + Y, Cmd + Shift + Z' },
-  { label: 'Pitch: Arrow Up/Down', title: 'Shortcut: Arrow Up/Down' },
-  { label: 'Octave: Ctrl/Cmd + Arrow Up/Down', title: 'Shortcut: Ctrl/Cmd + Arrow Up/Down' },
-  {
-    label: 'Duration numbers: 1=64th, 2=32nd, 3=16th, 4=8th, 5=Quarter, 6=Half, 7=Whole, 8=Breve',
-    title: "Shortcut: Press 1-8 to respell the selected note's duration",
-  },
-  {
-    label: 'Pitch letters: A-G (Shift to add to chord)',
-    title: 'Shortcut: Press A-G to respell pitch, hold Shift to add another pitch to the chord',
-  },
-  { label: 'Rest: 0 (insert rest)', title: 'Shortcut: Press 0 to insert a rest instead of a note' },
-  { label: 'Slur: S', title: 'Shortcut: Press S to add a slur across the selected notes' },
-  { label: 'Select All: Ctrl/Cmd + A', title: 'Shortcut: Ctrl/Cmd + A' },
-  { label: 'Copy: Ctrl/Cmd + C', title: 'Shortcut: Ctrl/Cmd + C' },
-  { label: 'Paste: Ctrl/Cmd + V', title: 'Shortcut: Ctrl/Cmd + V' },
-];
-
 export const markerOptions = [
   { label: 'Segno', value: 0, symbol: '\uE047', common: true },
   { label: 'Coda', value: 2, symbol: '\uE048', common: true },

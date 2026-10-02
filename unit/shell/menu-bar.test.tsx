@@ -53,7 +53,6 @@ function setup(menus: readonly MenuDefinition[], context = ctx()) {
     defineCommand({
       id: 'edit.undo',
       label: 'Undo',
-      shortcut: 'Mod+Z',
       enabled: (c) => c.isMutable,
       run: run.undo,
     }),

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import { ESCAPE_PRIORITY, useEscapeLayer } from './shell/keyboard/escapeLayers';
+import React, { useRef, useState } from 'react';
 import { GripHorizontal, PanelLeftOpen, X } from 'lucide-react';
 import { PaletteBrowser } from './PaletteBrowser';
 import type { PaletteCategory, ScorePaletteItem } from './toolbar/palette';
@@ -42,17 +43,8 @@ export function FloatingPalettes({
 }: FloatingPalettesProps) {
   const [position, setPosition] = useState(readPosition);
   const dragRef = useRef<{ dx: number; dy: number } | null>(null);
-  // Escape closes the palette.
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.stopPropagation();
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
+  // Escape closes the palette (it is a layer under any gesture or grip edit in progress).
+  useEscapeLayer(true, ESCAPE_PRIORITY.palettes, onClose);
 
   const startMove = (event: React.PointerEvent) => {
     if ((event.target as Element).closest('button')) return;
