@@ -120,7 +120,7 @@ export function CompareScorePane({
         <div className="flex items-center gap-2">
           <span>{model.label}</span>
           {!model.isCurrent && (
-            <span className="rounded bg-blue-100 px-2 py-0.5 text-[10px] font-normal text-blue-700">
+            <span className="rounded bg-blue-100 px-2 py-0.5 text-caption font-normal text-blue-700">
               Checkpoint
             </span>
           )}
@@ -128,7 +128,7 @@ export function CompareScorePane({
             <button
               type="button"
               onClick={actions.openInEditor}
-              className="rounded border border-blue-500 bg-blue-50 px-2 py-0.5 text-[10px] font-normal text-blue-700 hover:bg-blue-100"
+              className="rounded border border-blue-500 bg-blue-50 px-2 py-0.5 text-caption font-normal text-blue-700 hover:bg-blue-100"
               title="Open this score in the full editor"
             >
               📝 Open in Editor
@@ -168,13 +168,13 @@ export function CompareScorePane({
               value={model.checkpoint.label}
               onChange={(event) => actions.setCheckpointLabel(event.target.value)}
               placeholder="Label (optional)"
-              className="w-32 rounded border border-slate-300 bg-white px-2 py-0.5 text-[10px] text-slate-700 placeholder-slate-400"
+              className="w-32 rounded border border-slate-300 bg-white px-2 py-0.5 text-caption text-slate-700 placeholder-slate-400"
             />
             <button
               type="button"
               onClick={actions.saveCheckpoint}
               disabled={model.checkpoint.busy}
-              className="rounded border border-slate-300 bg-white px-2 py-0.5 text-[10px] font-normal text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              className="rounded border border-slate-300 bg-white px-2 py-0.5 text-caption font-normal text-slate-600 hover:bg-slate-50 disabled:opacity-50"
               title={model.isCurrent ? 'Save current score as checkpoint' : 'Save this checkpoint'}
             >
               💾 Save checkpoint

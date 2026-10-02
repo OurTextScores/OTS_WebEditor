@@ -235,7 +235,7 @@ export function CompareDiffGutter({
               key={`compare-gutter-${index}`}
               className="flex flex-col gap-2 rounded border border-dashed border-slate-200 bg-white px-2 py-2"
             >
-              <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              <div className="flex items-center justify-between text-caption font-semibold uppercase tracking-wide text-slate-400">
                 <span>{partName}</span>
                 {isChangeReviewCompareMode && (
                   <span>
@@ -246,19 +246,19 @@ export function CompareDiffGutter({
               </div>
               <div className="grid gap-2">
                 {rows.length === 0 && (
-                  <div className="rounded border border-dashed border-slate-200 bg-slate-50 px-2 py-2 text-center text-[10px] text-slate-400">
+                  <div className="rounded border border-dashed border-slate-200 bg-slate-50 px-2 py-2 text-center text-caption text-slate-400">
                     No measures
                   </div>
                 )}
                 {!isChangeReviewCompareMode && blocks.length === 0 && rows.length > 0 && (
-                  <div className="text-center text-[10px] text-slate-400">No changes</div>
+                  <div className="text-center text-caption text-slate-400">No changes</div>
                 )}
                 {isChangeReviewCompareMode &&
                   !changeReviewLoading &&
                   rows.length > 0 &&
                   changeReviewRegions.length === 0 &&
                   changeReviewCompareBarsForGutter.length === 0 && (
-                    <div className="text-center text-[10px] text-slate-400">
+                    <div className="text-center text-caption text-slate-400">
                       No commentable diff lines
                     </div>
                   )}
@@ -332,7 +332,7 @@ export function CompareDiffGutter({
                               setChangeReviewFocusedAnchorId(region.anchorId);
                             }}
                           >
-                            <div className="flex items-center justify-between gap-2 text-[9px] text-slate-400">
+                            <div className="flex items-center justify-between gap-2 text-caption text-slate-400">
                               <span
                                 className={`rounded px-1 py-0.5 ${leftDiff ? 'bg-rose-100 text-rose-600' : ''}`}
                               >
@@ -344,10 +344,10 @@ export function CompareDiffGutter({
                                 {rightIndex !== null ? `R${rightIndex + 1}` : 'R–'}
                               </span>
                             </div>
-                            <div className="mt-1 text-[10px] font-semibold text-slate-800">
+                            <div className="mt-1 text-caption font-semibold text-slate-800">
                               {region.label}
                             </div>
-                            <div className="mt-1 text-[10px] text-slate-600">{region.summary}</div>
+                            <div className="mt-1 text-caption text-slate-600">{region.summary}</div>
                             {!thread &&
                               region.commentable &&
                               changeReviewDetail?.permissions.canAddThread && (
@@ -361,14 +361,14 @@ export function CompareDiffGutter({
                                         }
                                         rows={3}
                                         placeholder="Write a review comment on this diff line"
-                                        className="min-h-[72px] w-full rounded border border-sky-300 bg-white px-2 py-1 text-[10px] text-slate-900 placeholder-slate-400"
+                                        className="min-h-[72px] w-full rounded border border-sky-300 bg-white px-2 py-1 text-caption text-slate-900 placeholder-slate-400"
                                         disabled={changeReviewActionBusy}
                                       />
                                       <div className="flex justify-end gap-2">
                                         <button
                                           type="button"
                                           disabled={changeReviewActionBusy}
-                                          className="rounded border border-slate-300 bg-white px-2 py-1 text-[10px] text-slate-700 disabled:opacity-50"
+                                          className="rounded border border-slate-300 bg-white px-2 py-1 text-caption text-slate-700 disabled:opacity-50"
                                           onClick={() => {
                                             setChangeReviewNewThreadAnchorId(null);
                                             setChangeReviewNewThreadContent('');
@@ -382,7 +382,7 @@ export function CompareDiffGutter({
                                             changeReviewActionBusy ||
                                             !changeReviewNewThreadContent.trim()
                                           }
-                                          className="rounded border border-slate-300 bg-white px-2 py-1 text-[10px] text-slate-700 disabled:opacity-50"
+                                          className="rounded border border-slate-300 bg-white px-2 py-1 text-caption text-slate-700 disabled:opacity-50"
                                           onClick={() =>
                                             void createChangeReviewThread(
                                               region.anchorId,
@@ -399,7 +399,7 @@ export function CompareDiffGutter({
                                       <button
                                         type="button"
                                         disabled={changeReviewActionBusy}
-                                        className="rounded border border-slate-300 bg-white px-2 py-1 text-[10px] text-slate-700 disabled:opacity-50"
+                                        className="rounded border border-slate-300 bg-white px-2 py-1 text-caption text-slate-700 disabled:opacity-50"
                                         onClick={() => {
                                           setChangeReviewNewThreadAnchorId(region.anchorId);
                                           setChangeReviewNewThreadContent('');
@@ -448,14 +448,14 @@ export function CompareDiffGutter({
                               setChangeReviewFocusedAnchorId(bar.anchorId);
                             }}
                           >
-                            <div className="flex items-center justify-between gap-2 text-[9px] text-slate-500">
+                            <div className="flex items-center justify-between gap-2 text-caption text-slate-500">
                               <span className="rounded bg-emerald-100 px-1 py-0.5 text-emerald-700">
                                 {bar.side === 'base' ? 'L' : 'R'}
                                 {bar.measureIndex + 1}
                               </span>
                               <span>{bar.partName || `Part ${bar.partIndex + 1}`}</span>
                             </div>
-                            <div className="mt-1 text-[10px] font-semibold text-slate-800">
+                            <div className="mt-1 text-caption font-semibold text-slate-800">
                               {bar.label}
                             </div>
                             {!thread &&
@@ -470,14 +470,14 @@ export function CompareDiffGutter({
                                     rows={3}
                                     autoFocus
                                     placeholder="Write a comment on this bar"
-                                    className="min-h-[72px] w-full rounded border border-sky-300 bg-white px-2 py-1 text-[10px] text-slate-900 placeholder-slate-600"
+                                    className="min-h-[72px] w-full rounded border border-sky-300 bg-white px-2 py-1 text-caption text-slate-900 placeholder-slate-600"
                                     disabled={changeReviewActionBusy}
                                   />
                                   <div className="flex justify-end gap-2">
                                     <button
                                       type="button"
                                       disabled={changeReviewActionBusy}
-                                      className="rounded border border-slate-300 bg-white px-2 py-1 text-[10px] text-slate-700 disabled:opacity-50"
+                                      className="rounded border border-slate-300 bg-white px-2 py-1 text-caption text-slate-700 disabled:opacity-50"
                                       onClick={() => {
                                         setChangeReviewNewThreadAnchorId(null);
                                         setChangeReviewNewThreadContent('');
@@ -491,7 +491,7 @@ export function CompareDiffGutter({
                                         changeReviewActionBusy ||
                                         !changeReviewNewThreadContent.trim()
                                       }
-                                      className="rounded border border-slate-300 bg-white px-2 py-1 text-[10px] text-slate-700 disabled:opacity-50"
+                                      className="rounded border border-slate-300 bg-white px-2 py-1 text-caption text-slate-700 disabled:opacity-50"
                                       onClick={() =>
                                         void createChangeReviewThread(
                                           bar.anchorId,
@@ -624,7 +624,7 @@ export function CompareDiffGutter({
                             minHeight: `${blockHeight}px`,
                           }}
                         >
-                          <div className="flex items-center justify-between text-[9px] text-slate-400">
+                          <div className="flex items-center justify-between text-caption text-slate-400">
                             <span
                               className={`rounded px-1 py-0.5 ${leftDiff ? 'bg-rose-100 text-rose-600' : ''}`}
                             >
@@ -690,7 +690,7 @@ export function CompareDiffGutter({
                                   !compareLeftScore ||
                                   !compareRightScoreDisplay
                                 }
-                                className="flex h-6 w-10 items-center justify-center rounded border border-slate-200 bg-slate-100 text-[10px] text-slate-500 disabled:opacity-50"
+                                className="flex h-6 w-10 items-center justify-center rounded border border-slate-200 bg-slate-100 text-caption text-slate-500 disabled:opacity-50"
                                 aria-label={`Overwrite right with ${leftLabel}`}
                                 onClick={() =>
                                   handleCompareOverwriteBlock(
@@ -711,7 +711,7 @@ export function CompareDiffGutter({
                                   !compareLeftScore ||
                                   !compareRightScoreDisplay
                                 }
-                                className="flex h-6 w-10 items-center justify-center rounded border border-slate-200 bg-slate-100 text-[10px] text-slate-500 disabled:opacity-50"
+                                className="flex h-6 w-10 items-center justify-center rounded border border-slate-200 bg-slate-100 text-caption text-slate-500 disabled:opacity-50"
                                 aria-label={`Overwrite left with ${rightLabel}`}
                                 onClick={() =>
                                   handleCompareOverwriteBlock(
@@ -734,24 +734,24 @@ export function CompareDiffGutter({
                               {hasComment && !isCommentFocused ? (
                                 <div className="grid gap-1 rounded border border-amber-200 bg-amber-50 px-2 py-1">
                                   <div className="flex items-center justify-between gap-2">
-                                    <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-700">
+                                    <span className="text-caption font-semibold uppercase tracking-wide text-amber-700">
                                       Note
                                     </span>
                                     <button
                                       type="button"
-                                      className="text-[9px] text-amber-600 hover:text-amber-800"
+                                      className="text-caption text-amber-600 hover:text-amber-800"
                                       onClick={() => setCompareFocusedBlockKey(blockKey)}
                                     >
                                       Edit
                                     </button>
                                   </div>
-                                  <div className="whitespace-pre-wrap text-[10px] text-amber-900">
+                                  <div className="whitespace-pre-wrap text-caption text-amber-900">
                                     {blockComment.comment}
                                   </div>
                                   <div className="flex justify-end">
                                     <button
                                       type="button"
-                                      className="text-[9px] text-slate-400 hover:text-rose-600"
+                                      className="text-caption text-slate-400 hover:text-rose-600"
                                       onClick={() =>
                                         setCompareBlockComments((prev) => {
                                           const next = { ...prev };
@@ -771,7 +771,7 @@ export function CompareDiffGutter({
                                     defaultValue={blockComment?.comment ?? ''}
                                     placeholder="Add a note about this difference…"
                                     rows={3}
-                                    className="min-h-[60px] w-full rounded border border-amber-300 bg-white px-2 py-1 text-[10px] text-slate-900 placeholder-slate-400"
+                                    className="min-h-[60px] w-full rounded border border-amber-300 bg-white px-2 py-1 text-caption text-slate-900 placeholder-slate-400"
                                     onKeyDown={(e) => {
                                       if (e.key === 'Escape') setCompareFocusedBlockKey(null);
                                     }}
@@ -790,7 +790,7 @@ export function CompareDiffGutter({
                                   <div className="flex justify-end gap-2">
                                     <button
                                       type="button"
-                                      className="rounded border border-slate-300 bg-white px-2 py-1 text-[10px] text-slate-700"
+                                      className="rounded border border-slate-300 bg-white px-2 py-1 text-caption text-slate-700"
                                       onClick={() => setCompareFocusedBlockKey(null)}
                                     >
                                       Done
@@ -801,7 +801,7 @@ export function CompareDiffGutter({
                                 <div className="flex justify-end">
                                   <button
                                     type="button"
-                                    className="rounded border border-slate-200 bg-white px-2 py-0.5 text-[10px] text-slate-500 hover:border-amber-300 hover:text-amber-700"
+                                    className="rounded border border-slate-200 bg-white px-2 py-0.5 text-caption text-slate-500 hover:border-amber-300 hover:text-amber-700"
                                     onClick={() => setCompareFocusedBlockKey(blockKey)}
                                   >
                                     + Note

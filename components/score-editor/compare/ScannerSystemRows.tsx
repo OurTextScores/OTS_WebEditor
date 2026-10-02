@@ -988,7 +988,7 @@ function SystemPane({
             }}
             disabled={transport?.isBusy}
             aria-label={`${playing ? 'Pause' : 'Play'} ${label}`}
-            className="rounded border border-slate-400 bg-white px-1.5 py-0.5 text-[11px] leading-none text-slate-800 hover:bg-slate-50 disabled:opacity-50"
+            className="rounded border border-slate-400 bg-white px-1.5 py-0.5 text-caption leading-none text-slate-800 hover:bg-slate-50 disabled:opacity-50"
           >
             {transport?.isBusy ? '…' : playing ? '❚❚' : '▶'}
           </button>
@@ -1006,7 +1006,7 @@ function SystemPane({
                 onStop();
               }}
               aria-label={`Stop ${label}`}
-              className="rounded border border-slate-400 bg-white px-1.5 py-0.5 text-[11px] leading-none text-slate-800 hover:bg-slate-50"
+              className="rounded border border-slate-400 bg-white px-1.5 py-0.5 text-caption leading-none text-slate-800 hover:bg-slate-50"
             >
               ■
             </button>
@@ -1170,7 +1170,7 @@ function Gutter({
   if (regions.length === 0 || !engineId) return null;
   return (
     <div
-      className={`flex gap-1 py-0.5 text-[11px] text-slate-700 ${
+      className={`flex gap-1 py-0.5 text-caption text-slate-700 ${
         layout === 'horizontal'
           ? 'w-40 shrink-0 flex-col items-stretch justify-center'
           : 'flex-wrap items-center'
@@ -2057,7 +2057,7 @@ export function ScannerSystemRows({
                 */
         <p
           role="alert"
-          className={`rounded border border-amber-400 bg-amber-50 px-2 py-1 text-[11px] text-amber-900 ${
+          className={`rounded border border-amber-400 bg-amber-50 px-2 py-1 text-caption text-amber-900 ${
             position === 'above' ? 'mb-2' : 'mt-2'
           }`}
         >
@@ -2679,7 +2679,7 @@ export function ScannerSystemRows({
             </div>
 
             {barStateEntries.length > 0 && (
-              <div className="mb-2 flex flex-wrap items-center gap-1 text-[11px]">
+              <div className="mb-2 flex flex-wrap items-center gap-1 text-caption">
                 {barStateEntries.map((bar, index) => (
                   <span
                     key={`state-${bar.blockIndex ?? 'row'}-${bar.stablePartKey || ''}-${bar.measureIndex}-${index}`}
@@ -2744,7 +2744,7 @@ export function ScannerSystemRows({
                       rowLayout === 'horizontal' ? { width: HORIZONTAL_PANE_WIDTH } : undefined
                     }
                   >
-                    <div className="mb-1 text-[11px] uppercase tracking-wide text-slate-500">
+                    <div className="mb-1 text-caption uppercase tracking-wide text-slate-500">
                       {leftLabel}
                     </div>
                     <SystemPane
@@ -2781,7 +2781,7 @@ export function ScannerSystemRows({
                       rowLayout === 'horizontal' ? { width: HORIZONTAL_PANE_WIDTH } : undefined
                     }
                   >
-                    <div className="mb-1 flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wide text-cyan-800">
+                    <div className="mb-1 flex flex-wrap items-center gap-2 text-caption uppercase tracking-wide text-cyan-800">
                       <span className="font-semibold">Merged</span>
                       <span
                         className="flex items-center gap-1 normal-case tracking-normal"
@@ -2900,7 +2900,7 @@ export function ScannerSystemRows({
                       rowLayout === 'horizontal' ? { width: HORIZONTAL_PANE_WIDTH } : undefined
                     }
                   >
-                    <div className="mb-1 text-[11px] uppercase tracking-wide text-slate-500">
+                    <div className="mb-1 text-caption uppercase tracking-wide text-slate-500">
                       {rightLabel}
                     </div>
                     <SystemPane

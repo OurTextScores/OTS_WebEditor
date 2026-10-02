@@ -22,7 +22,7 @@ export const IconInspection = () => {
   const iconStyle =
     'flex flex-col items-center justify-center p-4 border border-slate-300 rounded bg-white shadow-raised gap-2 text-slate-900';
   // Darkened the label for better readability
-  const labelStyle = 'text-[10px] font-mono text-slate-800 font-bold uppercase';
+  const labelStyle = 'text-caption font-mono text-slate-800 font-bold uppercase';
 
   return (
     <div className="p-8 bg-slate-200 min-h-screen">

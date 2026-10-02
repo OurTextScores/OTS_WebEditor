@@ -258,7 +258,7 @@ function renderKbd(label: string, keys: readonly string[]) {
         {keys.map((chord) => (
           <kbd
             key={chord}
-            className="rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600"
+            className="rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 text-caption font-semibold text-slate-600"
           >
             {formatShortcutGeneric(chord)}
           </kbd>

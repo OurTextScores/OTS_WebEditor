@@ -66,7 +66,7 @@ function NoticeList() {
           {unreadCount > 0 && (
             <span
               data-testid="status-notices-count"
-              className="ml-1 rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-4 text-white"
+              className="ml-1 rounded-full bg-red-500 px-1 text-caption font-semibold leading-4 text-white"
             >
               {unreadCount}
             </span>
@@ -211,7 +211,7 @@ export function StatusBar({ registry = defaultCommandRegistry }: { registry?: Co
             type="button"
             data-testid="zoom-preset-trigger"
             title="Set zoom level (remembered per score)"
-            className="min-w-[2.75rem] rounded px-1.5 py-0.5 text-center text-[11px] font-bold text-slate-700 hover:bg-slate-100"
+            className="min-w-[2.75rem] rounded px-1.5 py-0.5 text-center text-caption font-bold text-slate-700 hover:bg-slate-100"
           >
             {(view.zoom * 100).toFixed(0)}%
           </button>

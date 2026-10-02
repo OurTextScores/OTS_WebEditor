@@ -242,7 +242,7 @@ export function MultitrackVaePanel({
     <div className="mt-3 space-y-3 text-sm text-slate-700">
       <div className="rounded border border-slate-200 bg-slate-50/70 p-3 space-y-3">
         <div className="flex items-center justify-between">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <div className="text-caption font-semibold uppercase tracking-wide text-slate-500">
             Multitrack MusicVAE
           </div>
           <a
@@ -275,7 +275,7 @@ export function MultitrackVaePanel({
                 </option>
               ))}
             </select>
-            <span className="text-[11px] leading-snug text-slate-500">{MODE_HELP[mode]}</span>
+            <span className="text-caption leading-snug text-slate-500">{MODE_HELP[mode]}</span>
           </label>
 
           <label className="flex flex-col gap-1">
@@ -290,7 +290,7 @@ export function MultitrackVaePanel({
               <option value="unconditioned">Unconditioned</option>
             </select>
             {chordModeForced && model !== 'chords' && (
-              <span className="text-[11px] leading-snug text-amber-600">
+              <span className="text-caption leading-snug text-amber-600">
                 Chord input provided — the chord-conditioned model will be used.
               </span>
             )}
@@ -321,7 +321,7 @@ export function MultitrackVaePanel({
                 className={fieldClass}
                 aria-label="Chord progression"
               />
-              <span className="text-[11px] leading-snug text-slate-500">
+              <span className="text-caption leading-snug text-slate-500">
                 Triads only, comma-separated (C, Cm, Caug, Am, F, G).
               </span>
             </label>
@@ -403,7 +403,7 @@ export function MultitrackVaePanel({
                 />
               </div>
               {inputMidiLabel && (
-                <span className="truncate text-[11px] text-slate-500">
+                <span className="truncate text-caption text-slate-500">
                   Source: {inputMidiLabel}
                 </span>
               )}
@@ -483,7 +483,7 @@ export function MultitrackVaePanel({
 
       {(generatedMidiBase64 || generatedXml) && (
         <div className="rounded border border-slate-200 bg-white p-3 space-y-2">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <div className="text-caption font-semibold uppercase tracking-wide text-slate-500">
             Result
             {numMeasures !== null ? ` · ${numMeasures} bar${numMeasures === 1 ? '' : 's'}` : ''}
           </div>
@@ -514,7 +514,7 @@ export function MultitrackVaePanel({
             </button>
           </div>
           {!generatedXml && generatedMidiBase64 && (
-            <p className="text-[11px] text-slate-500">
+            <p className="text-caption text-slate-500">
               MusicXML unavailable — download the MIDI instead.
             </p>
           )}

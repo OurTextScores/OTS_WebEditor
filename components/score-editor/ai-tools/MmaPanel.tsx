@@ -80,7 +80,7 @@ export function MmaPanel({ config, status, result, actions }: MmaPanelProps) {
     <div className="mt-3 space-y-3 text-sm text-slate-700">
       <div className="rounded border border-slate-200 bg-slate-50/70 p-3 space-y-3">
         <div className="flex items-center justify-between">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <div className="text-caption font-semibold uppercase tracking-wide text-slate-500">
             MMA (Accompaniment)
           </div>
           <a
@@ -256,7 +256,7 @@ export function MmaPanel({ config, status, result, actions }: MmaPanelProps) {
       {mmaSanitizedStderr && (
         <div className="space-y-1">
           <div className="text-xs text-slate-500">MMA diagnostics (sanitized)</div>
-          <pre className="max-h-40 overflow-auto rounded border border-slate-200 bg-slate-50 p-2 text-[11px] leading-relaxed text-slate-700 whitespace-pre-wrap">
+          <pre className="max-h-40 overflow-auto rounded border border-slate-200 bg-slate-50 p-2 text-caption leading-relaxed text-slate-700 whitespace-pre-wrap">
             {mmaSanitizedStderr}
           </pre>
         </div>
@@ -325,7 +325,7 @@ export function MmaPanel({ config, status, result, actions }: MmaPanelProps) {
           <summary className="cursor-pointer text-xs font-medium text-slate-700">
             MMA Response
           </summary>
-          <pre className="mt-2 max-h-64 overflow-auto text-[11px] leading-relaxed text-slate-700 whitespace-pre-wrap">
+          <pre className="mt-2 max-h-64 overflow-auto text-caption leading-relaxed text-slate-700 whitespace-pre-wrap">
             {JSON.stringify(mmaResultPayload, null, 2)}
           </pre>
         </details>

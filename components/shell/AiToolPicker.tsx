@@ -25,7 +25,7 @@ export function AiToolPicker({
       <SelectTrigger
         data-testid="ai-tool-picker"
         aria-label="AI tool"
-        className="h-6 min-w-[8.5rem] gap-1 text-[11px]"
+        className="h-6 min-w-[8.5rem] gap-1 text-caption"
       >
         <SelectValue />
       </SelectTrigger>

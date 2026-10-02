@@ -184,7 +184,7 @@ function PaletteBody({ registry, mode }: { registry: CommandRegistry; mode: 'com
                   <span className="min-w-0">
                     <span className="block truncate">{entry.row.title}</span>
                     {entry.row.path && (
-                      <span className="block truncate text-[11px] text-slate-400">
+                      <span className="block truncate text-caption text-slate-400">
                         {entry.row.path}
                       </span>
                     )}

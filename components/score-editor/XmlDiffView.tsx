@@ -58,7 +58,7 @@ function XmlDiffBody({ leftXml, rightXml }: { leftXml: string; rightXml: string 
   }
   return (
     <div className="mt-2 flex min-h-0 flex-col gap-2">
-      <div className="text-[11px] text-slate-500">
+      <div className="text-caption text-slate-500">
         <span className="text-emerald-700">+{added}</span>
         {' / '}
         <span className="text-rose-700">-{removed}</span>
@@ -66,7 +66,7 @@ function XmlDiffBody({ leftXml, rightXml }: { leftXml: string; rightXml: string 
       </div>
       <div
         data-testid="xml-diff-view"
-        className="max-h-[60vh] overflow-auto rounded border border-slate-200 bg-white font-mono text-[11px] leading-4"
+        className="max-h-[60vh] overflow-auto rounded border border-slate-200 bg-white font-mono text-caption leading-4"
       >
         {rows.map((row, index) =>
           row.kind === 'collapsed' ? (

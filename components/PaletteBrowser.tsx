@@ -67,7 +67,7 @@ export function PaletteBrowser({
               data-testid={`palette-category-${category.toLowerCase()}`}
               className="mb-4 last:mb-0"
             >
-              <h3 className="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              <h3 className="mb-1 text-caption font-bold uppercase tracking-wider text-slate-500">
                 {category}
               </h3>
               <div className="grid grid-cols-4 gap-1">
@@ -105,7 +105,7 @@ export function PaletteBrowser({
                       ) : item.symbol ? (
                         <span className={styles.glyph}>{item.symbol}</span>
                       ) : (
-                        <span className="px-0.5 text-center text-[10px] font-medium leading-tight text-slate-700">
+                        <span className="px-0.5 text-center text-caption font-medium leading-tight text-slate-700">
                           {item.label}
                         </span>
                       )}

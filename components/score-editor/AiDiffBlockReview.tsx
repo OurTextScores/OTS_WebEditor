@@ -46,7 +46,7 @@ export function AiDiffBlockReview({
         <button
           type="button"
           disabled={disabled.apply}
-          className={`h-6 rounded border text-[10px] ${
+          className={`h-6 rounded border text-caption ${
             status === 'accepted'
               ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
               : 'border-slate-200 bg-slate-100 text-slate-600'
@@ -58,7 +58,7 @@ export function AiDiffBlockReview({
         <button
           type="button"
           disabled={disabled.feedback}
-          className={`h-6 rounded border text-[10px] ${
+          className={`h-6 rounded border text-caption ${
             status === 'rejected'
               ? 'border-rose-400 bg-rose-50 text-rose-700'
               : 'border-slate-200 bg-slate-100 text-slate-600'
@@ -70,7 +70,7 @@ export function AiDiffBlockReview({
         <button
           type="button"
           disabled={disabled.feedback}
-          className={`h-6 rounded border text-[10px] ${
+          className={`h-6 rounded border text-caption ${
             status === 'comment'
               ? 'border-sky-400 bg-sky-50 text-sky-700'
               : 'border-slate-200 bg-slate-100 text-slate-600'
@@ -93,14 +93,14 @@ export function AiDiffBlockReview({
                 onMouseUp={(event) => resizeTextarea(event.currentTarget)}
                 onMouseMove={resizeWhileDragging}
                 placeholder="Describe the revision needed..."
-                className="min-h-[84px] min-w-[220px] w-full max-w-none resize rounded border border-sky-300 bg-white px-2 py-1 text-[10px] text-slate-900 placeholder-slate-400"
+                className="min-h-[84px] min-w-[220px] w-full max-w-none resize rounded border border-sky-300 bg-white px-2 py-1 text-caption text-slate-900 placeholder-slate-400"
                 disabled={disabled.feedback}
               />
               <div className="flex justify-end">
                 <button
                   type="button"
                   disabled={disabled.feedback}
-                  className="h-6 rounded border border-sky-300 bg-sky-50 px-2 text-[10px] text-sky-700 disabled:opacity-50"
+                  className="h-6 rounded border border-sky-300 bg-sky-50 px-2 text-caption text-sky-700 disabled:opacity-50"
                   onClick={actions.commitComment}
                 >
                   Enter
@@ -110,15 +110,15 @@ export function AiDiffBlockReview({
           )}
           {commentCommitted && (
             <div className="grid gap-1 rounded border border-sky-200 bg-sky-50 px-2 py-1">
-              <div className="text-[9px] font-semibold uppercase tracking-wide text-sky-700">
+              <div className="text-caption font-semibold uppercase tracking-wide text-sky-700">
                 Comment attached
               </div>
-              <div className="whitespace-pre-wrap text-[10px] text-sky-900">{comment}</div>
+              <div className="whitespace-pre-wrap text-caption text-sky-900">{comment}</div>
               <div className="flex justify-end">
                 <button
                   type="button"
                   disabled={disabled.feedback}
-                  className="h-6 rounded border border-sky-300 bg-white px-2 text-[10px] text-sky-700 disabled:opacity-50"
+                  className="h-6 rounded border border-sky-300 bg-white px-2 text-caption text-sky-700 disabled:opacity-50"
                   onClick={actions.editComment}
                 >
                   Edit
@@ -128,7 +128,7 @@ export function AiDiffBlockReview({
           )}
         </>
       )}
-      {error && <div className="text-[9px] text-rose-600">{error}</div>}
+      {error && <div className="text-caption text-rose-600">{error}</div>}
     </div>
   );
 }

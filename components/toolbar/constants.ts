@@ -4,7 +4,7 @@ export const toolbarInputBaseClass =
 export const dropdownTextClass = 'px-2 py-1 text-xs font-medium leading-4 text-slate-800';
 
 export const toolbarSectionLabelClass =
-  'text-[10px] font-bold uppercase tracking-wider text-slate-800 mr-2 flex items-center cursor-grab active:cursor-grabbing';
+  'text-caption font-bold uppercase tracking-wider text-slate-800 mr-2 flex items-center cursor-grab active:cursor-grabbing';
 
 export const toolbarSectionInnerClass = 'flex flex-wrap items-center gap-2 rounded px-2 py-0.5';
 

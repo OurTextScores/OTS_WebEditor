@@ -127,7 +127,7 @@ export function FretboardEditor({ data, disabled = false, onChange }: FretboardE
                   onClick={() => cycleMarker(string)}
                   title="Cycle open, muted, and unmarked"
                   style={{ width: CELL, height: CELL }}
-                  className="flex shrink-0 items-center justify-center rounded border border-slate-300 bg-white text-[15px] font-semibold leading-none text-slate-800 hover:bg-blue-50"
+                  className="flex shrink-0 items-center justify-center rounded border border-slate-300 bg-white text-sm font-semibold leading-none text-slate-800 hover:bg-blue-50"
                 >
                   {marker === 1 ? '○' : marker === 2 ? '✕' : ''}
                 </button>
@@ -139,7 +139,7 @@ export function FretboardEditor({ data, disabled = false, onChange }: FretboardE
             <div key={`fret-${fret}`} className="mt-1 flex gap-1">
               <span
                 style={{ width: LABEL, height: CELL }}
-                className="flex shrink-0 items-center justify-center text-[10px] text-slate-500"
+                className="flex shrink-0 items-center justify-center text-caption text-slate-500"
               >
                 {fret + data.fretOffset}
               </span>
@@ -167,7 +167,7 @@ export function FretboardEditor({ data, disabled = false, onChange }: FretboardE
           ))}
         </div>
       </div>
-      <p className="mt-2 text-[10px] text-slate-500">
+      <p className="mt-2 text-caption text-slate-500">
         Top row cycles unmarked → open → muted. Click a fret cell to toggle a dot.
       </p>
     </section>

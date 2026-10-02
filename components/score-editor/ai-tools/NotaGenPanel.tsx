@@ -87,7 +87,7 @@ export function NotaGenPanel({
     <div className="mt-3 space-y-3 text-sm text-slate-700">
       <div className="rounded border border-slate-200 bg-slate-50/70 p-3 space-y-3">
         <div className="flex items-center justify-between">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <div className="text-caption font-semibold uppercase tracking-wide text-slate-500">
             NotaGen (Generate)
           </div>
           <a
@@ -158,7 +158,7 @@ export function NotaGenPanel({
             ))}
           </select>
           {musicNotaGenSpaceOptionsError && (
-            <div className="mt-1 text-[11px] text-red-600">{musicNotaGenSpaceOptionsError}</div>
+            <div className="mt-1 text-caption text-red-600">{musicNotaGenSpaceOptionsError}</div>
           )}
         </div>
         <div className="flex gap-2">
@@ -188,7 +188,7 @@ export function NotaGenPanel({
           )}
           <pre
             ref={progressRef}
-            className="max-h-40 overflow-auto rounded border border-slate-200 bg-slate-50 p-2 text-[11px] leading-relaxed text-slate-700 whitespace-pre-wrap"
+            className="max-h-40 overflow-auto rounded border border-slate-200 bg-slate-50 p-2 text-caption leading-relaxed text-slate-700 whitespace-pre-wrap"
           >
             {musicNotaGenProgressLog || 'Waiting for generation output...'}
           </pre>
@@ -215,7 +215,7 @@ export function NotaGenPanel({
       {musicNotaGenGeneratedAbc && (
         <div className="space-y-1">
           <div className="text-xs text-slate-500">Generated ABC</div>
-          <pre className="max-h-48 overflow-auto rounded border border-slate-200 bg-slate-50 p-2 text-[11px] leading-relaxed text-slate-700 whitespace-pre-wrap">
+          <pre className="max-h-48 overflow-auto rounded border border-slate-200 bg-slate-50 p-2 text-caption leading-relaxed text-slate-700 whitespace-pre-wrap">
             {musicNotaGenGeneratedAbc}
           </pre>
         </div>
@@ -223,7 +223,7 @@ export function NotaGenPanel({
       {musicNotaGenResult && (
         <div className="space-y-1">
           <div className="text-xs text-slate-500">NotaGen Response</div>
-          <pre className="max-h-64 overflow-auto rounded border border-slate-200 bg-slate-50 p-2 text-[11px] leading-relaxed text-slate-700 whitespace-pre-wrap">
+          <pre className="max-h-64 overflow-auto rounded border border-slate-200 bg-slate-50 p-2 text-caption leading-relaxed text-slate-700 whitespace-pre-wrap">
             {JSON.stringify(musicNotaGenResult, null, 2)}
           </pre>
         </div>

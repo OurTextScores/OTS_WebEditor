@@ -43,7 +43,7 @@ export function InstrumentsPanel({
   return (
     <div data-testid="instruments-panel" className="flex min-h-0 flex-1 flex-col overflow-y-auto">
       <section className="border-b border-slate-200 p-3">
-        <h3 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Add</h3>
+        <h3 className="mb-2 text-caption font-bold uppercase tracking-wider text-slate-500">Add</h3>
         {options.length === 0 ? (
           <p className="text-sm text-slate-600">Instrument list unavailable.</p>
         ) : (
@@ -88,7 +88,7 @@ export function InstrumentsPanel({
         )}
       </section>
       <section className="p-3">
-        <h3 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+        <h3 className="mb-2 text-caption font-bold uppercase tracking-wider text-slate-500">
           On Score
         </h3>
         {parts.length === 0 ? (

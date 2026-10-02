@@ -67,4 +67,9 @@ describe('palette guard', () => {
     }
     expect(over).toEqual([]);
   });
+
+  it('uses the type roles, not arbitrary pixel font sizes', () => {
+    // text-caption (11px) is the smallest role; the rest are Tailwind's text-xs/sm/base/xl.
+    expect(offenders(/\btext-\[\d+(\.\d+)?px\]/)).toEqual([]);
+  });
 });

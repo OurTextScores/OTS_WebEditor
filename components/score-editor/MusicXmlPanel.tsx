@@ -85,7 +85,7 @@ export function MusicXmlPanel({
     <div className="flex flex-1 flex-col overflow-y-auto px-4 pb-4">
       <div className="flex items-center justify-end pb-2">
         <label className="flex items-center gap-2">
-          <span className="text-[11px] uppercase tracking-wide text-slate-500">Theme</span>
+          <span className="text-caption uppercase tracking-wide text-slate-500">Theme</span>
           <select
             value={codeEditorTheme}
             onChange={(event) => setCodeEditorTheme(event.target.value as CodeEditorThemeMode)}

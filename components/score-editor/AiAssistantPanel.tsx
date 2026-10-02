@@ -143,7 +143,7 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
           <LoaderCircle className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
           <div className="min-w-0 flex-1">
             <div className="text-xs font-medium">{aiEditWork.message}</div>
-            <div className="mt-0.5 text-[11px] text-blue-700">
+            <div className="mt-0.5 text-caption text-blue-700">
               {AI_EDIT_EFFORT_PROFILES[aiEditEffort].label}
               {' · '}
               {formatAiEditBudgetDuration(aiEditElapsedMs)} elapsed
@@ -220,17 +220,17 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
               />
             )}
             {aiModelsLoading && (
-              <div className="mt-1 text-[11px] text-slate-500">Loading models...</div>
+              <div className="mt-1 text-caption text-slate-500">Loading models...</div>
             )}
             {!aiModelsLoading && !aiModels.length && !aiModelsError && (
-              <div className="mt-1 text-[11px] text-slate-500">
+              <div className="mt-1 text-caption text-slate-500">
                 {aiApiKey.trim()
                   ? 'No models loaded. Enter a model name manually.'
                   : 'Enter your API key to load available models.'}
               </div>
             )}
             {aiModelsError && <div className="mt-1 text-xs text-red-600">{aiModelsError}</div>}
-            {aiModelHint && <div className="mt-1 text-[11px] text-amber-600">{aiModelHint}</div>}
+            {aiModelHint && <div className="mt-1 text-caption text-amber-600">{aiModelHint}</div>}
           </div>
           <form onSubmit={(e) => e.preventDefault()}>
             <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -244,13 +244,13 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
               placeholder="Paste your key"
               autoComplete="off"
             />
-            <div className="mt-1 text-[11px] text-slate-500">
+            <div className="mt-1 text-caption text-slate-500">
               Saved in this browser tab and sent through our server to{' '}
               {AI_PROVIDER_LABELS[aiProvider]} with each request. We never store it on our servers;
               it clears when you close the tab.
             </div>
             {AI_PROVIDER_CONFIGS[aiProvider].apiKeyUrl && (
-              <div className="mt-1 text-[11px]">
+              <div className="mt-1 text-caption">
                 <a
                   href={AI_PROVIDER_CONFIGS[aiProvider].apiKeyUrl}
                   target="_blank"
@@ -359,7 +359,7 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
           className="rounded border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs text-slate-600"
           open
         >
-          <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <summary className="cursor-pointer text-caption font-semibold uppercase tracking-wide text-slate-500">
             Context
           </summary>
           <div className="mt-3 space-y-2">
@@ -416,23 +416,23 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
               </label>
             </div>
             {aiIncludeRenderedImage && !scoreCanSavePng && (
-              <div className="text-[11px] text-amber-600">
+              <div className="text-caption text-amber-600">
                 PNG capture is not available in this build. The request will continue without image
                 context.
               </div>
             )}
             {!aiSupportsImageContext && (
-              <div className="text-[11px] text-slate-500">
+              <div className="text-caption text-slate-500">
                 Image input is not confirmed for {selectedAiModelDescriptor.id || 'this model'}.
               </div>
             )}
             {!aiSupportsPdfContext && (
-              <div className="text-[11px] text-slate-500">
+              <div className="text-caption text-slate-500">
                 PDF input is not confirmed for {selectedAiModelDescriptor.id || 'this model'}.
               </div>
             )}
             {aiIncludePdf && (
-              <div className="text-[11px] text-slate-500">
+              <div className="text-caption text-slate-500">
                 PDF context is generated from the current score and attached when available.
               </div>
             )}
@@ -530,7 +530,7 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
                       key={`${message.role}-${index}-${message.text.slice(0, 12)}`}
                       className={`rounded px-2 py-1 text-xs ${message.role === 'assistant' ? 'bg-blue-50 text-blue-900' : 'bg-white text-slate-800'}`}
                     >
-                      <span className="mb-1 block text-[10px] uppercase tracking-wide text-slate-500">
+                      <span className="mb-1 block text-caption uppercase tracking-wide text-slate-500">
                         {message.role === 'assistant' ? 'Assistant' : 'You'}
                       </span>
                       <div className="leading-relaxed">
@@ -550,13 +550,13 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
                               const isBlock = languageClass.includes('language-');
                               if (isBlock) {
                                 return (
-                                  <code className="block overflow-x-auto rounded bg-black/10 px-2 py-1 font-mono text-[11px]">
+                                  <code className="block overflow-x-auto rounded bg-black/10 px-2 py-1 font-mono text-caption">
                                     {children}
                                   </code>
                                 );
                               }
                               return (
-                                <code className="rounded bg-black/10 px-1 py-0.5 font-mono text-[11px]">
+                                <code className="rounded bg-black/10 px-1 py-0.5 font-mono text-caption">
                                   {children}
                                 </code>
                               );
@@ -573,7 +573,7 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
                         </ReactMarkdown>
                       </div>
                       {message.role === 'assistant' && message.sourceRag?.enabled && (
-                        <div className="mt-2 rounded border border-blue-100 bg-white/70 p-2 text-[10px] text-slate-600">
+                        <div className="mt-2 rounded border border-blue-100 bg-white/70 p-2 text-caption text-slate-600">
                           <div className="font-semibold uppercase tracking-wide text-slate-500">
                             External Sources
                           </div>
@@ -613,7 +613,7 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
               )}
             </div>
             {!aiChatSourceRagHintDismissed && (
-              <div className="flex items-start justify-between gap-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+              <div className="flex items-start justify-between gap-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-caption text-amber-900">
                 <div>
                   External-source lookup is on-demand. Ask for source history, background,
                   citations, or explicitly mention IMSLP/Wikipedia/web search to use it.
@@ -621,7 +621,7 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
                 <button
                   type="button"
                   onClick={() => setAiChatSourceRagHintDismissed(true)}
-                  className="shrink-0 rounded border border-amber-300 bg-white/80 px-2 py-0.5 text-[10px] font-medium text-amber-900 hover:bg-white"
+                  className="shrink-0 rounded border border-amber-300 bg-white/80 px-2 py-0.5 text-caption font-medium text-amber-900 hover:bg-white"
                   aria-label="Dismiss external-source lookup hint"
                 >
                   Dismiss

@@ -282,7 +282,7 @@ export default function PlayerControls(props: Props) {
                 aria-label="Follow score"
                 aria-pressed={props.follow}
               >
-                <span className="text-[10px] font-semibold">Follow</span>
+                <span className="text-caption font-semibold">Follow</span>
               </button>
             </div>
           </div>

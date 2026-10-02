@@ -301,7 +301,7 @@ function VersionsTabPanel(
             <div className="flex items-center justify-between gap-2">
               <div className="text-sm font-medium text-slate-800">#{revision.sequenceNumber}</div>
               {revision.isBranchHead && (
-                <span className="text-[10px] font-semibold uppercase text-blue-700">Head</span>
+                <span className="text-caption font-semibold uppercase text-blue-700">Head</span>
               )}
             </div>
             <div className="text-xs text-slate-500">
@@ -545,7 +545,9 @@ function ScoresTabPanel(
               <div className="flex items-center justify-between gap-2">
                 <div className="text-sm font-medium text-slate-800">{info.title}</div>
                 {isCurrent && (
-                  <span className="text-[10px] font-semibold uppercase text-blue-700">Current</span>
+                  <span className="text-caption font-semibold uppercase text-blue-700">
+                    Current
+                  </span>
                 )}
               </div>
               {info.detail && <div className="text-xs text-slate-500 break-all">{info.detail}</div>}

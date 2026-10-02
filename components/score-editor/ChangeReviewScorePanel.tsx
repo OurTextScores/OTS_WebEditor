@@ -87,12 +87,12 @@ export function ChangeReviewScorePanel({
         <div className="text-xs font-semibold uppercase tracking-wide text-slate-700">
           {reviewLabel}
         </div>
-        <div className="mt-1 text-[10px] text-slate-500">Select any bar to leave a comment.</div>
+        <div className="mt-1 text-caption text-slate-500">Select any bar to leave a comment.</div>
         {changeReviewLoading && (
-          <div className="mt-1 text-[10px] text-slate-500">Loading review...</div>
+          <div className="mt-1 text-caption text-slate-500">Loading review...</div>
         )}
         {(changeReviewError || changeReviewActionError) && (
-          <div className="mt-1 text-[10px] text-rose-700">
+          <div className="mt-1 text-caption text-rose-700">
             {changeReviewError || changeReviewActionError}
           </div>
         )}
@@ -117,14 +117,14 @@ export function ChangeReviewScorePanel({
                 <span className="font-semibold text-slate-800">{bar.label}</span>
                 {bar.changeType && (
                   <span
-                    className={`rounded px-1 py-0.5 text-[9px] uppercase ${bar.changeType === 'added' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}
+                    className={`rounded px-1 py-0.5 text-caption uppercase ${bar.changeType === 'added' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}
                   >
                     {bar.changeType}
                   </span>
                 )}
               </div>
               {selected && bar.summary && (
-                <div className="mt-1 text-[10px] text-slate-500">{bar.summary}</div>
+                <div className="mt-1 text-caption text-slate-500">{bar.summary}</div>
               )}
               {!thread && selected && changeReviewDetail?.permissions.canAddThread && (
                 <div className="mt-2 grid gap-2">
@@ -191,7 +191,7 @@ export function ChangeReviewScorePanel({
               )}
               {thread && (selected || thread.status === 'open') && renderChangeReviewThread(thread)}
               {thread && !selected && thread.status === 'resolved' && (
-                <div className="mt-1 text-[10px] text-emerald-700">
+                <div className="mt-1 text-caption text-emerald-700">
                   Resolved · {thread.comments.length} comment
                   {thread.comments.length === 1 ? '' : 's'}
                 </div>
@@ -208,7 +208,7 @@ export function ChangeReviewScorePanel({
               style={{ transform: `translateY(${-index * 52}px)` }}
             >
               <div className="font-semibold">{region.label}</div>
-              <div className="text-[10px]">Removed from the head score</div>
+              <div className="text-caption">Removed from the head score</div>
               {thread && renderChangeReviewThread(thread)}
             </div>
           );

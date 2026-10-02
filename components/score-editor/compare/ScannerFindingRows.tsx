@@ -155,7 +155,7 @@ function ScanStrip({
     return (
       <p
         role="alert"
-        className="mb-2 rounded border border-amber-400 bg-amber-50 px-2 py-1 text-[11px] text-amber-900"
+        className="mb-2 rounded border border-amber-400 bg-amber-50 px-2 py-1 text-caption text-amber-900"
       >
         This scan crop is no longer current. Reload the page to see the scan as it stands now.
       </p>

@@ -250,7 +250,7 @@ export function NewScoreDialog({ details, signature, instruments, actions }: New
                           <button
                             type="button"
                             onClick={() => handleRemoveNewScoreInstrument(index)}
-                            className="rounded border border-slate-300 bg-white px-2 py-0.5 text-[11px] text-slate-700 hover:bg-slate-100"
+                            className="rounded border border-slate-300 bg-white px-2 py-0.5 text-caption text-slate-700 hover:bg-slate-100"
                           >
                             Remove
                           </button>

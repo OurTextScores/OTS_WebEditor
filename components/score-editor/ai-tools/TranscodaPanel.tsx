@@ -105,7 +105,7 @@ export function TranscodaPanel({
     <div className="mt-3 space-y-3 text-sm text-slate-700">
       <div className="rounded border border-slate-200 bg-slate-50/70 p-3 space-y-3">
         <div className="flex items-center justify-between">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <div className="text-caption font-semibold uppercase tracking-wide text-slate-500">
             Transcoda OMR
           </div>
           <a
@@ -255,7 +255,7 @@ export function TranscodaPanel({
                 style={{ width: musicTranscodaPhase === 'uploading' ? '33%' : '78%' }}
               />
             </div>
-            <div className="flex items-center justify-between text-[11px] text-slate-500">
+            <div className="flex items-center justify-between text-caption text-slate-500">
               <span>
                 {musicTranscodaPhase === 'uploading'
                   ? 'Preparing image for upload'
@@ -292,7 +292,7 @@ export function TranscodaPanel({
         {musicTranscodaGeneratedKern && (
           <div className="space-y-1">
             <div className="text-xs text-slate-500">Generated **kern</div>
-            <pre className="max-h-48 overflow-auto rounded border border-slate-200 bg-slate-50 p-2 text-[11px] leading-relaxed text-slate-700 whitespace-pre-wrap">
+            <pre className="max-h-48 overflow-auto rounded border border-slate-200 bg-slate-50 p-2 text-caption leading-relaxed text-slate-700 whitespace-pre-wrap">
               {musicTranscodaGeneratedKern}
             </pre>
           </div>
@@ -330,7 +330,7 @@ export function TranscodaPanel({
         {musicTranscodaResult && (
           <div className="space-y-1">
             <div className="text-xs text-slate-500">Transcoda Response</div>
-            <pre className="max-h-64 overflow-auto rounded border border-slate-200 bg-slate-50 p-2 text-[11px] leading-relaxed text-slate-700 whitespace-pre-wrap">
+            <pre className="max-h-64 overflow-auto rounded border border-slate-200 bg-slate-50 p-2 text-caption leading-relaxed text-slate-700 whitespace-pre-wrap">
               {JSON.stringify(musicTranscodaResult, null, 2)}
             </pre>
           </div>

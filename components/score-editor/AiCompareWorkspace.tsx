@@ -147,7 +147,7 @@ export function AiCompareWorkspace({
       {audit && (
         <div
           data-testid="ai-proposal-audit"
-          className="rounded border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] text-slate-600"
+          className="rounded border border-slate-200 bg-slate-50 px-3 py-1.5 text-caption text-slate-600"
         >
           <span>{statusParts.join(' · ')}</span>
           {contextWarning && <span className="ml-2 text-amber-700">{contextWarning}</span>}
@@ -164,7 +164,7 @@ export function AiCompareWorkspace({
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-900">
             Global Feedback for Next AI Iteration
           </div>
-          <div className="mt-1 text-[11px] text-slate-700">
+          <div className="mt-1 text-caption text-slate-700">
             Optional. Use this for overall guidance that applies across multiple diff blocks.
           </div>
           <textarea
@@ -174,9 +174,9 @@ export function AiCompareWorkspace({
             className="mt-2 min-h-[56px] w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900 placeholder-slate-500"
             disabled={feedbackBusy}
           />
-          <div className="mt-2 text-[11px] text-slate-700">Iteration {iteration + 1} review</div>
+          <div className="mt-2 text-caption text-slate-700">Iteration {iteration + 1} review</div>
           {feedbackError && (
-            <div className="mt-2 rounded border border-rose-300 bg-rose-50 px-2 py-1 text-[11px] text-rose-700">
+            <div className="mt-2 rounded border border-rose-300 bg-rose-50 px-2 py-1 text-caption text-rose-700">
               Last feedback request failed: {feedbackError}
             </div>
           )}

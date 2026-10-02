@@ -12,7 +12,7 @@ export const SelectLabel = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SelectPrimitive.Label
     ref={ref}
-    className={cn('px-2 py-1 text-[10px] uppercase tracking-wide text-slate-500', className)}
+    className={cn('px-2 py-1 text-caption uppercase tracking-wide text-slate-500', className)}
     {...props}
   />
 ));
@@ -31,7 +31,7 @@ export const SelectTrigger = React.forwardRef<
     {...props}
   >
     {children}
-    <SelectPrimitive.Icon className="ml-2 text-[10px] text-slate-400">v</SelectPrimitive.Icon>
+    <SelectPrimitive.Icon className="ml-2 text-caption text-slate-400">v</SelectPrimitive.Icon>
   </SelectPrimitive.Trigger>
 ));
 SelectTrigger.displayName = SelectPrimitive.Trigger.displayName;

@@ -201,7 +201,7 @@ export const TransposeDialog: React.FC<TransposeDialogProps> = ({
             {chromaticSub === 'toKey' && (
               <div className="space-y-3 rounded border border-slate-200 bg-slate-50/50 p-3">
                 <div>
-                  <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                  <label className="mb-1 block text-caption font-medium uppercase tracking-wide text-slate-500">
                     Key
                   </label>
                   <Select value={String(targetKey)} onValueChange={(v) => setTargetKey(Number(v))}>
@@ -218,7 +218,7 @@ export const TransposeDialog: React.FC<TransposeDialogProps> = ({
                   </Select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                  <label className="mb-1 block text-caption font-medium uppercase tracking-wide text-slate-500">
                     Direction
                   </label>
                   <div className="flex gap-3">
@@ -251,7 +251,7 @@ export const TransposeDialog: React.FC<TransposeDialogProps> = ({
             {chromaticSub === 'byInterval' && (
               <div className="space-y-3 rounded border border-slate-200 bg-slate-50/50 p-3">
                 <div>
-                  <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                  <label className="mb-1 block text-caption font-medium uppercase tracking-wide text-slate-500">
                     Interval
                   </label>
                   <Select
@@ -271,7 +271,7 @@ export const TransposeDialog: React.FC<TransposeDialogProps> = ({
                   </Select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                  <label className="mb-1 block text-caption font-medium uppercase tracking-wide text-slate-500">
                     Direction
                   </label>
                   <div className="flex gap-3">
@@ -305,7 +305,7 @@ export const TransposeDialog: React.FC<TransposeDialogProps> = ({
         {mainMode === 'diatonic' && (
           <div className="space-y-3 rounded border border-slate-200 bg-slate-50/50 p-3">
             <div>
-              <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+              <label className="mb-1 block text-caption font-medium uppercase tracking-wide text-slate-500">
                 Degree
               </label>
               <Select
@@ -325,7 +325,7 @@ export const TransposeDialog: React.FC<TransposeDialogProps> = ({
               </Select>
             </div>
             <div>
-              <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+              <label className="mb-1 block text-caption font-medium uppercase tracking-wide text-slate-500">
                 Direction
               </label>
               <div className="flex gap-3">

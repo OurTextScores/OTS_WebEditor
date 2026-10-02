@@ -58,7 +58,7 @@ export function Transport({ registry = defaultCommandRegistry }: { registry?: Co
         onClick={run('playback.playFromSelection')}
       >
         <Play size={14} aria-hidden="true" />
-        <span className="ml-1 hidden text-[11px] lg:inline">Selection</span>
+        <span className="ml-1 hidden text-caption lg:inline">Selection</span>
       </Button>
     </div>
   );

@@ -3453,10 +3453,10 @@ export default function ScoreEditor() {
   }, [isChangeReviewMode, refreshChangeReview]);
   const renderChangeReviewThread = useCallback(
     (thread: ChangeReviewThread) => (
-      <div className="mt-2 grid gap-2 rounded border border-slate-200 bg-slate-50 px-2 py-2 text-[10px] text-slate-700">
+      <div className="mt-2 grid gap-2 rounded border border-slate-200 bg-slate-50 px-2 py-2 text-caption text-slate-700">
         <div className="flex items-center justify-between gap-2">
           <span
-            className={`rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${
+            className={`rounded px-1 py-0.5 text-caption font-semibold uppercase tracking-wide ${
               thread.status === 'open'
                 ? 'bg-amber-100 text-amber-800'
                 : 'bg-emerald-100 text-emerald-800'
@@ -3468,7 +3468,7 @@ export default function ScoreEditor() {
             <button
               type="button"
               disabled={changeReviewActionBusy}
-              className="rounded border border-slate-300 bg-white px-2 py-1 text-[10px] text-slate-700 disabled:opacity-50"
+              className="rounded border border-slate-300 bg-white px-2 py-1 text-caption text-slate-700 disabled:opacity-50"
               onClick={() =>
                 void runChangeReviewAction(async () => {
                   await fetchJsonOrThrow(
@@ -3494,7 +3494,7 @@ export default function ScoreEditor() {
               className="rounded border border-slate-200 bg-white px-2 py-2"
             >
               <div className="flex items-start justify-between gap-2">
-                <div className="text-[9px] text-slate-500">
+                <div className="text-caption text-slate-500">
                   {comment.username || comment.userId} ·{' '}
                   {new Date(comment.createdAt).toLocaleString()}
                   {comment.editedAt ? ' · edited' : ''}
@@ -3503,7 +3503,7 @@ export default function ScoreEditor() {
                   <button
                     type="button"
                     disabled={changeReviewActionBusy}
-                    className="rounded border border-slate-300 bg-white px-2 py-0.5 text-[9px] text-slate-700 disabled:opacity-50"
+                    className="rounded border border-slate-300 bg-white px-2 py-0.5 text-caption text-slate-700 disabled:opacity-50"
                     onClick={() =>
                       void runChangeReviewAction(async () => {
                         await fetchJsonOrThrow(
@@ -3519,7 +3519,7 @@ export default function ScoreEditor() {
                   </button>
                 )}
               </div>
-              <div className="mt-1 whitespace-pre-wrap text-[10px] text-slate-800">
+              <div className="mt-1 whitespace-pre-wrap text-caption text-slate-800">
                 {comment.content}
               </div>
             </div>
@@ -3534,14 +3534,14 @@ export default function ScoreEditor() {
                   onChange={(event) => setChangeReviewReplyContent(event.target.value)}
                   rows={3}
                   placeholder="Write a reply"
-                  className="min-h-[72px] w-full rounded border border-slate-300 bg-white px-2 py-1 text-[10px] text-slate-900 placeholder-slate-400"
+                  className="min-h-[72px] w-full rounded border border-slate-300 bg-white px-2 py-1 text-caption text-slate-900 placeholder-slate-400"
                   disabled={changeReviewActionBusy}
                 />
                 <div className="flex justify-end gap-2">
                   <button
                     type="button"
                     disabled={changeReviewActionBusy}
-                    className="rounded border border-slate-300 bg-white px-2 py-1 text-[10px] text-slate-700 disabled:opacity-50"
+                    className="rounded border border-slate-300 bg-white px-2 py-1 text-caption text-slate-700 disabled:opacity-50"
                     onClick={() => {
                       setChangeReviewReplyThreadId(null);
                       setChangeReviewReplyContent('');
@@ -3552,7 +3552,7 @@ export default function ScoreEditor() {
                   <button
                     type="button"
                     disabled={changeReviewActionBusy}
-                    className="rounded border border-sky-300 bg-sky-50 px-2 py-1 text-[10px] text-sky-700 disabled:opacity-50"
+                    className="rounded border border-sky-300 bg-sky-50 px-2 py-1 text-caption text-sky-700 disabled:opacity-50"
                     onClick={() =>
                       void runChangeReviewAction(async () => {
                         await fetchJsonOrThrow(
@@ -3576,7 +3576,7 @@ export default function ScoreEditor() {
                 <button
                   type="button"
                   disabled={changeReviewActionBusy}
-                  className="rounded border border-slate-300 bg-white px-2 py-1 text-[10px] text-slate-700 disabled:opacity-50"
+                  className="rounded border border-slate-300 bg-white px-2 py-1 text-caption text-slate-700 disabled:opacity-50"
                   onClick={() => {
                     setChangeReviewReplyThreadId(thread.threadId);
                     setChangeReviewReplyContent('');
@@ -17491,7 +17491,7 @@ ${partsBodyXml}
               >
                 <div className="h-full w-full rounded-full border-2 border-blue-600 bg-blue-400/40" />
                 {noteDragGhost.steps !== 0 && (
-                  <div className="absolute left-full top-1/2 -translate-y-1/2 ml-1 rounded bg-blue-600 px-1 text-[10px] leading-tight text-white whitespace-nowrap">
+                  <div className="absolute left-full top-1/2 -translate-y-1/2 ml-1 rounded bg-blue-600 px-1 text-caption leading-tight text-white whitespace-nowrap">
                     {noteDragGhost.steps < 0
                       ? `▲ ${-noteDragGhost.steps}`
                       : `▼ ${noteDragGhost.steps}`}
@@ -18311,25 +18311,25 @@ ${partsBodyXml}
                           )}
                           <div
                             ref={compareGutterScrollRef}
-                            className="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-x-visible overflow-y-auto rounded border border-slate-200 bg-slate-50 p-2 text-[10px] text-slate-500"
+                            className="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-x-visible overflow-y-auto rounded border border-slate-200 bg-slate-50 p-2 text-caption text-slate-500"
                           >
                             {isChangeReviewCompareMode && changeReviewLoading && (
-                              <div className="rounded border border-dashed border-slate-200 bg-white px-2 py-2 text-center text-[10px] text-slate-400">
+                              <div className="rounded border border-dashed border-slate-200 bg-white px-2 py-2 text-center text-caption text-slate-400">
                                 Loading review threads...
                               </div>
                             )}
                             {isChangeReviewCompareMode && changeReviewError && (
-                              <div className="rounded border border-rose-200 bg-rose-50 px-2 py-2 text-[10px] text-rose-700">
+                              <div className="rounded border border-rose-200 bg-rose-50 px-2 py-2 text-caption text-rose-700">
                                 {changeReviewError}
                               </div>
                             )}
                             {isChangeReviewCompareMode && changeReviewActionError && (
-                              <div className="rounded border border-rose-200 bg-rose-50 px-2 py-2 text-[10px] text-rose-700">
+                              <div className="rounded border border-rose-200 bg-rose-50 px-2 py-2 text-caption text-rose-700">
                                 {changeReviewActionError}
                               </div>
                             )}
                             {compareAlignmentLoading && (
-                              <div className="rounded border border-dashed border-slate-200 bg-white px-2 py-2 text-center text-[10px] text-slate-400">
+                              <div className="rounded border border-dashed border-slate-200 bg-white px-2 py-2 text-center text-caption text-slate-400">
                                 Aligning measures...
                               </div>
                             )}
