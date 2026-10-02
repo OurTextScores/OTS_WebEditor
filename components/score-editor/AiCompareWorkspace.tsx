@@ -39,7 +39,7 @@ export function AiCompareWorkspaceActions({
         type="button"
         onClick={onApplyAll}
         disabled={applyBusy || feedbackBusy}
-        className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+        className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50"
       >
         Apply All AI Changes
       </button>
@@ -47,7 +47,7 @@ export function AiCompareWorkspaceActions({
         type="button"
         onClick={onSendFeedback}
         disabled={!canSendFeedback}
-        className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+        className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50"
       >
         {feedbackBusy ? 'Sending...' : feedbackLabel}
       </button>
@@ -147,34 +147,34 @@ export function AiCompareWorkspace({
       {audit && (
         <div
           data-testid="ai-proposal-audit"
-          className="rounded border border-gray-200 bg-gray-50 px-3 py-1.5 text-[11px] text-gray-600"
+          className="rounded border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] text-slate-600"
         >
           <span>{statusParts.join(' · ')}</span>
           {contextWarning && <span className="ml-2 text-amber-700">{contextWarning}</span>}
           {deepRationale && (
             <details className="mt-1">
-              <summary className="cursor-pointer text-gray-500">Deep Edit rationale</summary>
-              <div className="mt-1 whitespace-pre-wrap text-gray-600">{deepRationale}</div>
+              <summary className="cursor-pointer text-slate-500">Deep Edit rationale</summary>
+              <div className="mt-1 whitespace-pre-wrap text-slate-600">{deepRationale}</div>
             </details>
           )}
         </div>
       )}
       {!embedded && (
-        <div className="rounded border border-gray-300 bg-gray-100 p-3">
-          <div className="text-xs font-semibold uppercase tracking-wide text-gray-900">
+        <div className="rounded border border-slate-300 bg-slate-100 p-3">
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-900">
             Global Feedback for Next AI Iteration
           </div>
-          <div className="mt-1 text-[11px] text-gray-700">
+          <div className="mt-1 text-[11px] text-slate-700">
             Optional. Use this for overall guidance that applies across multiple diff blocks.
           </div>
           <textarea
             value={globalComment}
             onChange={(event) => onGlobalCommentChange(event.target.value)}
             placeholder="Overall feedback for the next revision..."
-            className="mt-2 min-h-[56px] w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 placeholder-gray-500"
+            className="mt-2 min-h-[56px] w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900 placeholder-slate-500"
             disabled={feedbackBusy}
           />
-          <div className="mt-2 text-[11px] text-gray-700">Iteration {iteration + 1} review</div>
+          <div className="mt-2 text-[11px] text-slate-700">Iteration {iteration + 1} review</div>
           {feedbackError && (
             <div className="mt-2 rounded border border-rose-300 bg-rose-50 px-2 py-1 text-[11px] text-rose-700">
               Last feedback request failed: {feedbackError}

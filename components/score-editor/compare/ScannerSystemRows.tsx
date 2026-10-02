@@ -747,7 +747,7 @@ function SystemPane({
 
   if (measureIndexes.length === 0) {
     return (
-      <div className="flex min-h-16 items-center rounded border border-dashed border-gray-300 px-3 text-xs text-gray-500">
+      <div className="flex min-h-16 items-center rounded border border-dashed border-slate-300 px-3 text-xs text-slate-500">
         {label} has no measure here.
       </div>
     );
@@ -769,7 +769,7 @@ function SystemPane({
     .filter((box): box is MeasureBox => Boolean(box));
   if (!rendered || boxes.length === 0) {
     return (
-      <div className="flex min-h-16 items-center rounded border border-dashed border-gray-300 px-3 text-xs text-gray-500">
+      <div className="flex min-h-16 items-center rounded border border-dashed border-slate-300 px-3 text-xs text-slate-500">
         {label} could not be laid out for this system.
       </div>
     );
@@ -876,7 +876,7 @@ function SystemPane({
        * and without contributing, which is what was meant both times.
        */
       className={`relative w-full overflow-clip rounded border bg-white ${
-        tone === 'merged' ? 'border-cyan-300 ring-1 ring-cyan-200' : 'border-gray-200'
+        tone === 'merged' ? 'border-cyan-300 ring-1 ring-cyan-200' : 'border-slate-200'
       } ${onPointMutate && noteInput ? 'cursor-crosshair' : ''}`}
       style={{ height: Math.max(1, (bottom - top) * scale) }}
       onClick={
@@ -956,7 +956,7 @@ function SystemPane({
             <div
               key={`${box.left}-${box.top}-${index}`}
               data-testid="symbol-highlight"
-              className="absolute rounded-sm bg-amber-300/40 ring-1 ring-amber-500/70"
+              className="absolute rounded bg-amber-300/40 ring-1 ring-amber-500/70"
               style={{
                 left: box.left - 2,
                 top: box.top - 2,
@@ -988,7 +988,7 @@ function SystemPane({
             }}
             disabled={transport?.isBusy}
             aria-label={`${playing ? 'Pause' : 'Play'} ${label}`}
-            className="rounded border border-gray-400 bg-white px-1.5 py-0.5 text-[11px] leading-none text-gray-800 shadow-sm hover:bg-gray-50 disabled:opacity-50"
+            className="rounded border border-slate-400 bg-white px-1.5 py-0.5 text-[11px] leading-none text-slate-800 hover:bg-slate-50 disabled:opacity-50"
           >
             {transport?.isBusy ? '…' : playing ? '❚❚' : '▶'}
           </button>
@@ -1006,7 +1006,7 @@ function SystemPane({
                 onStop();
               }}
               aria-label={`Stop ${label}`}
-              className="rounded border border-gray-400 bg-white px-1.5 py-0.5 text-[11px] leading-none text-gray-800 shadow-sm hover:bg-gray-50"
+              className="rounded border border-slate-400 bg-white px-1.5 py-0.5 text-[11px] leading-none text-slate-800 hover:bg-slate-50"
             >
               ■
             </button>
@@ -1170,14 +1170,14 @@ function Gutter({
   if (regions.length === 0 || !engineId) return null;
   return (
     <div
-      className={`flex gap-1 py-0.5 text-[11px] text-gray-700 ${
+      className={`flex gap-1 py-0.5 text-[11px] text-slate-700 ${
         layout === 'horizontal'
           ? 'w-40 shrink-0 flex-col items-stretch justify-center'
           : 'flex-wrap items-center'
       }`}
     >
       <span
-        className={`${layout === 'horizontal' ? 'text-center' : 'mr-1'} uppercase tracking-wide text-gray-500`}
+        className={`${layout === 'horizontal' ? 'text-center' : 'mr-1'} uppercase tracking-wide text-slate-500`}
       >
         take from {label}
       </span>
@@ -1224,7 +1224,7 @@ function Gutter({
             key={region.blockIndex}
             className={`flex gap-0.5 ${
               layout === 'horizontal'
-                ? 'flex-wrap items-center justify-center rounded border border-gray-200 bg-gray-50 p-1'
+                ? 'flex-wrap items-center justify-center rounded border border-slate-200 bg-slate-50 p-1'
                 : 'items-center'
             }`}
             onMouseEnter={() => onPreview(region)}
@@ -1242,7 +1242,7 @@ function Gutter({
                     } from ${label}. Take it from the other reading to change it.`
               }
               onClick={() => onTake(region, engineId)}
-              className="rounded border border-cyan-600 bg-white px-1.5 py-0.5 font-semibold text-cyan-800 shadow-sm hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-600 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-50 disabled:font-normal disabled:text-gray-400 disabled:shadow-none"
+              className="rounded border border-cyan-600 bg-white px-1.5 py-0.5 font-semibold text-cyan-800 hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-600 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-50 disabled:font-normal disabled:text-slate-400 disabled:shadow-none"
             >
               {arrow} {region.blockIndex + 1}
               {bars === 0 ? ' (remove)' : bars > 1 ? ` (${bars} bars)` : ''}
@@ -1260,7 +1260,7 @@ function Gutter({
                 disabled={busy}
                 title={`Take only the dynamics of difference ${region.blockIndex + 1} from ${label}, leaving the notes`}
                 onClick={() => onTake(region, engineId, 'dynamics')}
-                className="rounded border border-cyan-300 bg-white px-1 py-0.5 text-cyan-800 hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-600 disabled:border-gray-300 disabled:bg-gray-50 disabled:text-gray-400"
+                className="rounded border border-cyan-300 bg-white px-1 py-0.5 text-cyan-800 hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-600 disabled:border-slate-300 disabled:bg-slate-50 disabled:text-slate-400"
               >
                 {arrow} dynamics
               </button>
@@ -1272,7 +1272,7 @@ function Gutter({
                 disabled={busy}
                 title={`Take only the lyrics of difference ${region.blockIndex + 1} from ${label}, leaving the notes`}
                 onClick={() => onTake(region, engineId, 'lyrics')}
-                className="rounded border border-cyan-300 bg-white px-1 py-0.5 text-cyan-800 hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-600 disabled:border-gray-300 disabled:bg-gray-50 disabled:text-gray-400"
+                className="rounded border border-cyan-300 bg-white px-1 py-0.5 text-cyan-800 hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-600 disabled:border-slate-300 disabled:bg-slate-50 disabled:text-slate-400"
               >
                 {arrow} lyrics
               </button>
@@ -1281,7 +1281,7 @@ function Gutter({
               outcome.blockIndex === region.blockIndex &&
               outcome.engineId === engineId && (
                 <span
-                  className="ml-1 inline-flex flex-wrap items-center gap-1 text-gray-700"
+                  className="ml-1 inline-flex flex-wrap items-center gap-1 text-slate-700"
                   data-testid="take-outcome"
                   role="status"
                 >
@@ -2089,7 +2089,7 @@ export function ScannerSystemRows({
     const systemAspect = cropRegion ? cropWidth / cropHeight : undefined;
     return (
       <div
-        className={`relative overflow-hidden rounded border border-gray-200 bg-white ${
+        className={`relative overflow-hidden rounded border border-slate-200 bg-white ${
           position === 'above' ? 'mb-2' : 'mt-2'
         }`}
         style={
@@ -2137,7 +2137,7 @@ export function ScannerSystemRows({
               key={`${box.left}-${boxIndex}`}
               data-testid="scan-difference-box"
               data-block-index={highlightRegion?.blockIndex}
-              className="pointer-events-none absolute rounded-sm border-2 border-amber-500 bg-amber-300/15"
+              className="pointer-events-none absolute rounded border-2 border-amber-500 bg-amber-300/15"
               style={{
                 left: `${((box.left - window.left) / window.width) * 100}%`,
                 top: `${((box.top - window.top) / window.height) * 100}%`,
@@ -2162,7 +2162,7 @@ export function ScannerSystemRows({
         */
     <div ref={paneRef} className="flex flex-col gap-3 p-4">
       {(selectedBlockIndex === undefined || busy || merged.loading || error || merged.error) && (
-        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-600">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
           {selectedBlockIndex === undefined && (
             <span>
               {`${systems.length} system${systems.length === 1 ? '' : 's'} from the scan${
@@ -2181,7 +2181,7 @@ export function ScannerSystemRows({
 
       <div className="flex flex-col gap-2 rounded-lg border border-cyan-200 bg-cyan-50/50 px-3 py-2 text-xs">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-medium text-gray-700">Merged score starts from</span>
+          <span className="font-medium text-slate-700">Merged score starts from</span>
           {(['left', 'right'] as const).map((side) => (
             <button
               key={side}
@@ -2197,14 +2197,14 @@ export function ScannerSystemRows({
               }
               className={`rounded border px-2 py-1 ${
                 mergeSource === side
-                  ? 'border-cyan-700 bg-cyan-600 font-semibold text-white shadow-sm'
-                  : 'border-gray-400 bg-white text-gray-800 hover:bg-gray-50 disabled:opacity-50'
+                  ? 'border-cyan-700 bg-cyan-600 font-semibold text-white'
+                  : 'border-slate-400 bg-white text-slate-800 hover:bg-slate-50 disabled:opacity-50'
               }`}
             >
               {side === 'left' ? leftLabel : rightLabel}
             </button>
           ))}
-          <span className="text-gray-600">
+          <span className="text-slate-600">
             Neither engine is the score. Only the merged pane can be edited; the engine panes are
             the evidence it is judged against.
           </span>
@@ -2224,7 +2224,7 @@ export function ScannerSystemRows({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-medium text-gray-700">Rows</span>
+          <span className="font-medium text-slate-700">Rows</span>
           {(['system', 'staff'] as const).map((mode) => (
             <button
               key={mode}
@@ -2236,7 +2236,7 @@ export function ScannerSystemRows({
               className={`rounded border px-2 py-1 disabled:opacity-50 ${
                 rowGranularity === mode
                   ? 'border-cyan-700 bg-cyan-600 font-semibold text-white'
-                  : 'border-gray-400 bg-white text-gray-800 hover:bg-gray-50'
+                  : 'border-slate-400 bg-white text-slate-800 hover:bg-slate-50'
               }`}
             >
               by {mode}
@@ -2267,7 +2267,7 @@ export function ScannerSystemRows({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-medium text-gray-700">View</span>
+          <span className="font-medium text-slate-700">View</span>
           {(['horizontal', 'vertical'] as const).map((layout) => (
             <button
               key={layout}
@@ -2278,13 +2278,13 @@ export function ScannerSystemRows({
               className={`rounded border px-2 py-1 ${
                 rowLayout === layout
                   ? 'border-cyan-700 bg-cyan-600 font-semibold text-white'
-                  : 'border-gray-400 bg-white text-gray-800 hover:bg-gray-50'
+                  : 'border-slate-400 bg-white text-slate-800 hover:bg-slate-50'
               }`}
             >
               {layout === 'horizontal' ? 'Across' : 'Stacked'}
             </button>
           ))}
-          <span className="ml-1 font-medium text-gray-700">Panes</span>
+          <span className="ml-1 font-medium text-slate-700">Panes</span>
           {(
             [
               ['scan', 'Scan'],
@@ -2302,7 +2302,7 @@ export function ScannerSystemRows({
               data-testid={`btn-toggle-pane-${pane}`}
               className={`rounded border px-2 py-1 ${
                 collapsedPanes[pane]
-                  ? 'border-gray-300 bg-gray-100 text-gray-500'
+                  ? 'border-slate-300 bg-slate-100 text-slate-500'
                   : 'border-cyan-500 bg-white text-cyan-900'
               }`}
             >
@@ -2318,7 +2318,7 @@ export function ScannerSystemRows({
                         nothing a reviewer would do here that should not be
                         kept — see the autosave in `useMergedScoreDocument`.
                     */}
-          <span className="text-gray-600" data-testid="merged-status">
+          <span className="text-slate-600" data-testid="merged-status">
             {merged.saving
               ? 'Saving…'
               : merged.dirty
@@ -2349,11 +2349,11 @@ export function ScannerSystemRows({
           </div>
         )}
 
-        {notice && <div className="text-gray-700">{notice}</div>}
+        {notice && <div className="text-slate-700">{notice}</div>}
       </div>
 
       {onlyBlockIndex !== undefined && visibleRows.length === 0 && (
-        <p className="rounded border border-dashed border-gray-300 px-3 py-2 text-xs text-gray-500">
+        <p className="rounded border border-dashed border-slate-300 px-3 py-2 text-xs text-slate-500">
           This difference has no verified place on the scan, so there is no line to show it on.
         </p>
       )}
@@ -2607,8 +2607,8 @@ export function ScannerSystemRows({
                         */
             className={`rounded-lg border p-3 ${
               differences.length > 0
-                ? 'border-gray-200 border-l-4 border-l-amber-400'
-                : 'border-gray-200'
+                ? 'border-slate-200 border-l-4 border-l-amber-400'
+                : 'border-slate-200'
             }`}
           >
             <div
@@ -2617,7 +2617,7 @@ export function ScannerSystemRows({
             >
               <span className="flex flex-wrap items-center gap-2">
                 <span
-                  className="font-medium text-gray-700"
+                  className="font-medium text-slate-700"
                   data-testid={selectedRowIndex === rowIndex ? 'difference-title' : undefined}
                 >
                   {selectedRowIndex === rowIndex
@@ -2634,7 +2634,7 @@ export function ScannerSystemRows({
                       disabled={isFirstConflictLine}
                       onClick={() => goToLine(selectedPosition - 1)}
                       data-testid="btn-previous-difference"
-                      className="rounded border border-gray-400 bg-white px-2 py-0.5 text-gray-800 hover:bg-gray-50 disabled:border-gray-300 disabled:text-gray-400"
+                      className="rounded border border-slate-400 bg-white px-2 py-0.5 text-slate-800 hover:bg-slate-50 disabled:border-slate-300 disabled:text-slate-400"
                     >
                       ← previous line
                     </button>
@@ -2643,7 +2643,7 @@ export function ScannerSystemRows({
                       disabled={isLastConflictLine}
                       onClick={() => goToLine(selectedPosition + 1)}
                       data-testid="btn-next-difference"
-                      className="rounded border border-gray-400 bg-white px-2 py-0.5 text-gray-800 hover:bg-gray-50 disabled:border-gray-300 disabled:text-gray-400"
+                      className="rounded border border-slate-400 bg-white px-2 py-0.5 text-slate-800 hover:bg-slate-50 disabled:border-slate-300 disabled:text-slate-400"
                     >
                       next line →
                     </button>
@@ -2651,7 +2651,7 @@ export function ScannerSystemRows({
                 )}
               </span>
               {staffRow && differences.length > 0 && (
-                <span className="flex flex-wrap items-center gap-1 text-gray-600">
+                <span className="flex flex-wrap items-center gap-1 text-slate-600">
                   {staffRow && differences.length > 0 && leftEngineId && (
                     <button
                       type="button"
@@ -2694,7 +2694,7 @@ export function ScannerSystemRows({
                             ? 'border-cyan-400 bg-cyan-50 text-cyan-900'
                             : bar.state === 'markings-merged'
                               ? 'border-emerald-400 bg-emerald-50 text-emerald-900'
-                              : 'border-gray-300 bg-gray-50 text-gray-600'
+                              : 'border-slate-300 bg-slate-50 text-slate-600'
                     }`}
                   >
                     {bar.partIndex !== undefined ? `part ${bar.partIndex + 1}, ` : ''}
@@ -2744,7 +2744,7 @@ export function ScannerSystemRows({
                       rowLayout === 'horizontal' ? { width: HORIZONTAL_PANE_WIDTH } : undefined
                     }
                   >
-                    <div className="mb-1 text-[11px] uppercase tracking-wide text-gray-500">
+                    <div className="mb-1 text-[11px] uppercase tracking-wide text-slate-500">
                       {leftLabel}
                     </div>
                     <SystemPane
@@ -2795,8 +2795,8 @@ export function ScannerSystemRows({
                           data-testid="btn-merged-note-input"
                           className={`rounded border px-2 py-0.5 disabled:opacity-50 ${
                             noteInput
-                              ? 'border-cyan-700 bg-cyan-600 font-semibold text-white shadow-sm'
-                              : 'border-gray-400 bg-white text-gray-800 hover:bg-gray-50'
+                              ? 'border-cyan-700 bg-cyan-600 font-semibold text-white'
+                              : 'border-slate-400 bg-white text-slate-800 hover:bg-slate-50'
                           }`}
                         >
                           {noteInput ? 'Note input on' : 'Note input'}
@@ -2811,7 +2811,7 @@ export function ScannerSystemRows({
                               ? 'Open score palettes'
                               : 'Select something in the merged score first'
                           }
-                          className="rounded border border-gray-400 bg-white px-2 py-0.5 text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+                          className="rounded border border-slate-400 bg-white px-2 py-0.5 text-slate-800 hover:bg-slate-50 disabled:opacity-50"
                         >
                           Palettes
                         </button>
@@ -2849,14 +2849,14 @@ export function ScannerSystemRows({
                       )}
                       {droppedFromLine > 0 && (
                         <span
-                          className="normal-case tracking-normal text-gray-500"
+                          className="normal-case tracking-normal text-slate-500"
                           data-testid="merged-line-trimmed"
                         >
                           not showing {droppedFromLine} bar
                           {droppedFromLine === 1 ? '' : 's'} that did not fit on one system
                         </span>
                       )}
-                      <span className="normal-case tracking-normal text-gray-500">
+                      <span className="normal-case tracking-normal text-slate-500">
                         {merged.dirty
                           ? `started from ${mergedLabel}, edited here`
                           : `every bar inherited from ${mergedLabel}`}
@@ -2900,7 +2900,7 @@ export function ScannerSystemRows({
                       rowLayout === 'horizontal' ? { width: HORIZONTAL_PANE_WIDTH } : undefined
                     }
                   >
-                    <div className="mb-1 text-[11px] uppercase tracking-wide text-gray-500">
+                    <div className="mb-1 text-[11px] uppercase tracking-wide text-slate-500">
                       {rightLabel}
                     </div>
                     <SystemPane

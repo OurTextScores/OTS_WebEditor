@@ -62,24 +62,24 @@ export function HarmonyPanel({ config, status, result, actions, editorTheme }: H
   const codeEditorTheme = editorTheme;
 
   return (
-    <div className="mt-3 space-y-3 text-sm text-gray-700">
-      <div className="rounded border border-gray-200 bg-gray-50/70 p-3 space-y-3">
-        <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+    <div className="mt-3 space-y-3 text-sm text-slate-700">
+      <div className="rounded border border-slate-200 bg-slate-50/70 p-3 space-y-3">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
           Chordify
         </div>
-        <div className="text-xs text-gray-600">
+        <div className="text-xs text-slate-600">
           Generates MusicXML <code>{'<harmony>'}</code> tags using a music21-based analyzer. This
           improves MMA templates and can be used as a standalone chord-symbol enrichment pass.
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Harmonic Rhythm
             </span>
             <select
               value={harmonyRhythmMode}
               onChange={(event) => setHarmonyRhythmMode(event.target.value as HarmonyRhythmMode)}
-              className="rounded border border-gray-300 px-2 py-1 text-sm"
+              className="rounded border border-slate-300 px-2 py-1 text-sm"
               data-testid="select-harmony-rhythm"
             >
               <option value="auto">Auto (strong beats only)</option>
@@ -88,7 +88,7 @@ export function HarmonyPanel({ config, status, result, actions, editorTheme }: H
             </select>
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Max Changes / Measure
             </span>
             <input
@@ -103,7 +103,7 @@ export function HarmonyPanel({ config, status, result, actions, editorTheme }: H
                   Number.isFinite(next) ? Math.min(8, Math.max(1, next)) : 2,
                 );
               }}
-              className="rounded border border-gray-300 px-2 py-1 text-sm"
+              className="rounded border border-slate-300 px-2 py-1 text-sm"
               data-testid="input-harmony-max-changes"
             />
           </label>
@@ -113,7 +113,7 @@ export function HarmonyPanel({ config, status, result, actions, editorTheme }: H
             type="button"
             onClick={actions.analyze}
             disabled={harmonyBusy}
-            className="flex-1 rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid="btn-harmony-analyze"
           >
             {harmonyBusy ? 'Analyzing...' : 'Chordify Score'}
@@ -183,11 +183,11 @@ export function HarmonyPanel({ config, status, result, actions, editorTheme }: H
               ),
             ],
           ].map(([label, value]) => (
-            <div key={label} className="rounded border border-gray-200 bg-gray-50 px-3 py-2">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+            <div key={label} className="rounded border border-slate-200 bg-slate-50 px-3 py-2">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 {label}
               </div>
-              <div className="mt-1 text-sm text-gray-800">{value}</div>
+              <div className="mt-1 text-sm text-slate-800">{value}</div>
             </div>
           ))}
         </div>
@@ -199,7 +199,7 @@ export function HarmonyPanel({ config, status, result, actions, editorTheme }: H
               type="button"
               onClick={handleDownloadHarmonyXml}
               disabled={!harmonyGeneratedXml.trim()}
-              className="rounded border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
               data-testid="btn-harmony-download-xml"
             >
               Download Tagged XML
@@ -215,7 +215,7 @@ export function HarmonyPanel({ config, status, result, actions, editorTheme }: H
             </button>
           </div>
           <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs text-gray-500">
+            <div className="flex items-center justify-between text-xs text-slate-500">
               <span>Tagged MusicXML</span>
               <span>Review before applying</span>
             </div>
@@ -234,11 +234,11 @@ export function HarmonyPanel({ config, status, result, actions, editorTheme }: H
         </>
       )}
       {harmonyResultPayload && (
-        <details className="rounded border border-gray-200 bg-gray-50 px-3 py-2">
-          <summary className="cursor-pointer text-xs font-medium text-gray-700">
+        <details className="rounded border border-slate-200 bg-slate-50 px-3 py-2">
+          <summary className="cursor-pointer text-xs font-medium text-slate-700">
             Chordify Response
           </summary>
-          <pre className="mt-2 max-h-64 overflow-auto text-[11px] leading-relaxed text-gray-700 whitespace-pre-wrap">
+          <pre className="mt-2 max-h-64 overflow-auto text-[11px] leading-relaxed text-slate-700 whitespace-pre-wrap">
             {JSON.stringify(harmonyResultPayload, null, 2)}
           </pre>
         </details>

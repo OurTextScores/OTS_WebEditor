@@ -167,7 +167,7 @@ function ScanStrip({
   const width = crop ? Math.max(1, crop[2] - crop[0]) : 1400;
   const height = crop ? Math.max(1, crop[3] - crop[1]) : 400;
   return (
-    <div className="mb-2 overflow-hidden rounded border border-gray-200 bg-white">
+    <div className="mb-2 overflow-hidden rounded border border-slate-200 bg-white">
       <Image
         src={resolveUrl(system.cropUrl)}
         alt={`Scan of system ${system.systemIndex + 1}`}
@@ -405,10 +405,10 @@ export function ScannerFindingRows({
     <section ref={paneRef} data-testid="finding-rows" className="flex flex-col gap-3 p-4">
       <header className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-gray-900">
+          <p className="text-sm font-semibold text-slate-900">
             {titleFor ? titleFor(current.kind) : current.kind.replace(/_/g, ' ')}
           </p>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-slate-500">
             <span data-testid="finding-rows-position">
               Issue {index + 1} of {groups.length}
             </span>
@@ -425,7 +425,7 @@ export function ScannerFindingRows({
             data-testid="finding-rows-prev"
             disabled={index === 0}
             onClick={() => selectQuestion((value) => Math.max(0, value - 1))}
-            className="rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-md border border-slate-300 px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             ← Previous issue
           </button>
@@ -434,7 +434,7 @@ export function ScannerFindingRows({
             data-testid="finding-rows-next"
             disabled={index >= groups.length - 1}
             onClick={() => selectQuestion((value) => Math.min(groups.length - 1, value + 1))}
-            className="rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-md border border-slate-300 px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Next issue →
           </button>
@@ -442,8 +442,8 @@ export function ScannerFindingRows({
       </header>
 
       {examples.length > 1 && (
-        <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-2">
-          <span className="text-xs text-gray-500" data-testid="finding-rows-example-position">
+        <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-2">
+          <span className="text-xs text-slate-500" data-testid="finding-rows-example-position">
             Example {Math.min(exampleIndex, examples.length - 1) + 1} of {examples.length}
           </span>
           <button
@@ -451,7 +451,7 @@ export function ScannerFindingRows({
             data-testid="finding-rows-example-prev"
             disabled={exampleIndex === 0}
             onClick={() => setExampleIndex((value) => Math.max(0, value - 1))}
-            className="rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-md border border-slate-300 px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             ← Previous example
           </button>
@@ -460,14 +460,14 @@ export function ScannerFindingRows({
             data-testid="finding-rows-example-next"
             disabled={exampleIndex >= examples.length - 1}
             onClick={() => setExampleIndex((value) => Math.min(examples.length - 1, value + 1))}
-            className="rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-md border border-slate-300 px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Next example →
           </button>
         </div>
       )}
 
-      <p className="text-xs text-gray-600" data-testid="finding-rows-message">
+      <p className="text-xs text-slate-600" data-testid="finding-rows-message">
         {example?.message}
       </p>
 
@@ -475,7 +475,7 @@ export function ScannerFindingRows({
         // A finding with no system is about the page, not a place on it. It is real and
         // worth showing, but there is no strip, and inventing one would point somewhere
         // wrong.
-        <p className="text-xs text-gray-500" data-testid="finding-rows-no-location">
+        <p className="text-xs text-slate-500" data-testid="finding-rows-no-location">
           This one is about the page as a whole, not a particular system.
         </p>
       ) : (
@@ -484,7 +484,7 @@ export function ScannerFindingRows({
         <ScanStrip system={shownSystem} resolveUrl={resolveUrl} />
       )}
 
-      <div className="rounded border border-gray-200 bg-white">
+      <div className="rounded border border-slate-200 bg-white">
         {/*
           No label or save state here.
           
@@ -515,7 +515,7 @@ export function ScannerFindingRows({
             />
           </div>
         ) : (
-          <p className="p-3 text-xs text-gray-500">Drawing the reading…</p>
+          <p className="p-3 text-xs text-slate-500">Drawing the reading…</p>
         )}
       </div>
 

@@ -82,8 +82,10 @@ describe('design tokens: structure', () => {
       'toolbar',
       'activity',
       'header',
-      'menu',
+      'float',
       'toast',
+      'menu',
+      'palette',
     ].map((name) => Number(css.match(new RegExp(`--ots-z-${name}:\\s*(\\d+)`))?.[1]));
     expect(layers.every((value) => Number.isFinite(value))).toBe(true);
     expect([...layers].sort((a, b) => a - b)).toEqual(layers);

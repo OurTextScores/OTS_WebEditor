@@ -53,7 +53,7 @@ export function CompareMeasureComments({
   }
 
   return (
-    <div className="flex-none rounded border border-sky-200 bg-sky-50 p-2 text-[10px] text-gray-600">
+    <div className="flex-none rounded border border-sky-200 bg-sky-50 p-2 text-[10px] text-slate-600">
       <div className="mb-1 flex items-center justify-between">
         <span className="font-semibold text-sky-700">Measure comments</span>
         {focusedAnchor && (
@@ -71,12 +71,12 @@ export function CompareMeasureComments({
       </div>
       {focusedAnchor ? (
         <div className="space-y-1">
-          <div className="text-[10px] text-gray-500">
+          <div className="text-[10px] text-slate-500">
             Part {focusedAnchor.partIndex + 1} · Measure {focusedAnchor.measureNumber}
           </div>
           {(threads[focusedAnchor.key]?.comments ?? []).map((entry) => (
-            <div key={entry.id} className="rounded border border-gray-200 bg-white px-2 py-1">
-              <div className="flex items-center justify-between text-[9px] text-gray-400">
+            <div key={entry.id} className="rounded border border-slate-200 bg-white px-2 py-1">
+              <div className="flex items-center justify-between text-[9px] text-slate-400">
                 <span
                   className={entry.author === 'assistant' ? 'text-emerald-600' : 'text-sky-600'}
                 >
@@ -84,14 +84,14 @@ export function CompareMeasureComments({
                 </span>
                 <button
                   type="button"
-                  className="text-gray-400 hover:text-rose-500"
+                  className="text-slate-400 hover:text-rose-500"
                   onClick={() => actions.removeComment(focusedAnchor.key, entry.id)}
                   aria-label="Remove comment"
                 >
                   ×
                 </button>
               </div>
-              <div className="whitespace-pre-wrap text-[10px] text-gray-700">{entry.text}</div>
+              <div className="whitespace-pre-wrap text-[10px] text-slate-700">{entry.text}</div>
             </div>
           ))}
           <textarea
@@ -104,7 +104,7 @@ export function CompareMeasureComments({
               }
             }}
             placeholder="Add a comment for this measure…"
-            className="w-full rounded border border-gray-200 px-2 py-1 text-[10px]"
+            className="w-full rounded border border-slate-200 px-2 py-1 text-[10px]"
             rows={2}
           />
           <button
@@ -117,13 +117,13 @@ export function CompareMeasureComments({
           </button>
         </div>
       ) : (
-        <div className="text-[10px] text-gray-500">
+        <div className="text-[10px] text-slate-500">
           Click a measure in either pane to add a comment.
         </div>
       )}
       {threadList.length > 0 && (
         <div className="mt-2 border-t border-sky-200 pt-1">
-          <div className="mb-1 text-[9px] uppercase tracking-wide text-gray-400">Threads</div>
+          <div className="mb-1 text-[9px] uppercase tracking-wide text-slate-400">Threads</div>
           <div className="flex flex-wrap gap-1">
             {threadList
               .slice()
@@ -142,7 +142,7 @@ export function CompareMeasureComments({
                     });
                     actions.changeDraft('');
                   }}
-                  className={`rounded border px-1 py-0.5 text-[9px] ${focusedAnchor?.key === thread.key ? 'border-sky-400 bg-sky-100 text-sky-700' : 'border-gray-200 bg-white text-gray-600'}`}
+                  className={`rounded border px-1 py-0.5 text-[9px] ${focusedAnchor?.key === thread.key ? 'border-sky-400 bg-sky-100 text-sky-700' : 'border-slate-200 bg-white text-slate-600'}`}
                 >
                   m{thread.measureNumber} · {thread.comments.length}
                 </button>

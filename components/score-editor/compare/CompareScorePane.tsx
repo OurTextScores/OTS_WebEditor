@@ -116,7 +116,7 @@ export function CompareScorePane({
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 basis-0 flex-col gap-3">
-      <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500">
+      <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
         <div className="flex items-center gap-2">
           <span>{model.label}</span>
           {!model.isCurrent && (
@@ -140,7 +140,7 @@ export function CompareScorePane({
               data-testid={`btn-compare-play-${side}`}
               onClick={actions.togglePlayPause}
               disabled={!model.scoreAvailable || (transport.isBusy && !transportActive)}
-              className="rounded border border-gray-300 bg-white p-1 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+              className="rounded border border-slate-300 bg-white p-1 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
               title={playTitle}
             >
               {transport.isPlaying && !transport.isPaused ? (
@@ -154,7 +154,7 @@ export function CompareScorePane({
               data-testid={`btn-compare-stop-${side}`}
               onClick={actions.stop}
               disabled={!transportActive}
-              className="rounded border border-gray-300 bg-white p-1 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+              className="rounded border border-slate-300 bg-white p-1 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
               title="Stop"
             >
               <Square size={12} />
@@ -168,13 +168,13 @@ export function CompareScorePane({
               value={model.checkpoint.label}
               onChange={(event) => actions.setCheckpointLabel(event.target.value)}
               placeholder="Label (optional)"
-              className="w-32 rounded border border-gray-300 bg-white px-2 py-0.5 text-[10px] text-gray-700 placeholder-gray-400"
+              className="w-32 rounded border border-slate-300 bg-white px-2 py-0.5 text-[10px] text-slate-700 placeholder-slate-400"
             />
             <button
               type="button"
               onClick={actions.saveCheckpoint}
               disabled={model.checkpoint.busy}
-              className="rounded border border-gray-300 bg-white px-2 py-0.5 text-[10px] font-normal text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+              className="rounded border border-slate-300 bg-white px-2 py-0.5 text-[10px] font-normal text-slate-600 hover:bg-slate-50 disabled:opacity-50"
               title={model.isCurrent ? 'Save current score as checkpoint' : 'Save this checkpoint'}
             >
               💾 Save checkpoint
@@ -198,7 +198,7 @@ export function CompareScorePane({
       <div className="flex min-h-0 flex-1 flex-col gap-3">
         <div
           ref={scrollRef}
-          className={`relative min-h-0 min-w-0 flex-1 overflow-auto rounded border bg-white ${model.isActive ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200'}`}
+          className={`relative min-h-0 min-w-0 flex-1 overflow-auto rounded border bg-white ${model.isActive ? 'border-blue-500 ring-2 ring-blue-200' : 'border-slate-200'}`}
           data-testid={`compare-pane-${side}`}
           onPointerDown={actions.activate}
         >
@@ -206,8 +206,8 @@ export function CompareScorePane({
             <div
               className={
                 model.viewportStatus.overlay
-                  ? 'absolute inset-0 flex items-center justify-center bg-white/80 p-3 text-xs text-gray-500'
-                  : 'p-3 text-xs text-gray-500'
+                  ? 'absolute inset-0 flex items-center justify-center bg-white/80 p-3 text-xs text-slate-500'
+                  : 'p-3 text-xs text-slate-500'
               }
             >
               {model.viewportStatus.message}
@@ -231,7 +231,7 @@ export function CompareScorePane({
                     data-testid={`compare-${side}-highlight`}
                     data-geometry={highlight.geometry ?? 'even'}
                     data-highlight-id={String(highlight.id)}
-                    className="absolute rounded-sm border-2"
+                    className="absolute rounded border-2"
                     style={{
                       ...rectStyle(highlight),
                       backgroundColor: positive
@@ -245,7 +245,7 @@ export function CompareScorePane({
               {model.commentedHighlights.map((highlight) => (
                 <div
                   key={`compare-${side}-comment-${highlight.id}`}
-                  className="absolute rounded-sm border-2"
+                  className="absolute rounded border-2"
                   style={{
                     ...rectStyle(highlight),
                     backgroundColor: 'rgba(245, 158, 11, 0.25)',
@@ -257,7 +257,7 @@ export function CompareScorePane({
                 <div
                   key={`compare-${side}-thread-${highlight.id}`}
                   data-testid={`compare-${side}-thread-highlight`}
-                  className="absolute rounded-sm border-2"
+                  className="absolute rounded border-2"
                   style={{
                     ...rectStyle(highlight),
                     backgroundColor: 'rgba(16, 185, 129, 0.35)',
@@ -293,7 +293,7 @@ export function CompareScorePane({
               )}
               {model.focusedHighlight && (
                 <div
-                  className="absolute rounded-sm border-2 border-blue-500 ring-2 ring-blue-300/50"
+                  className="absolute rounded border-2 border-blue-500 ring-2 ring-blue-300/50"
                   style={rectStyle(model.focusedHighlight)}
                 />
               )}

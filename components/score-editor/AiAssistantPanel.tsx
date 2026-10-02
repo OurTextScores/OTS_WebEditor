@@ -130,7 +130,7 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
   } = actions;
 
   return (
-    <div className="mt-3 flex min-h-full flex-col gap-3 text-sm text-gray-700">
+    <div className="mt-3 flex min-h-full flex-col gap-3 text-sm text-slate-700">
       {aiEditWork && (
         <div
           data-testid={
@@ -168,19 +168,19 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
           Diff feedback failed: {aiDiffFeedbackError}
         </div>
       )}
-      <details className="rounded border border-gray-200 bg-gray-50/70 px-3 py-2" open>
-        <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-gray-500">
+      <details className="rounded border border-slate-200 bg-slate-50/70 px-3 py-2" open>
+        <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-slate-500">
           Model &amp; Access
         </summary>
         <div className="mt-3 space-y-3">
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Provider
             </label>
             <select
               value={aiProvider}
               onChange={(event) => setAiProvider(event.target.value as AiProvider)}
-              className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+              className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
             >
               {(Object.keys(AI_PROVIDER_LABELS) as AiProvider[]).map((provider) => (
                 <option key={provider} value={provider}>
@@ -190,14 +190,14 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
             </select>
           </div>
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Model
             </label>
             {aiModels.length > 0 ? (
               <select
                 value={aiModels.includes(aiModel) ? aiModel : ''}
                 onChange={(event) => setAiModel(event.target.value)}
-                className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
               >
                 {!aiModels.includes(aiModel) && (
                   <option value="" disabled>
@@ -215,15 +215,15 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
               <input
                 value={aiModel}
                 onChange={(event) => setAiModel(event.target.value)}
-                className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
                 placeholder="Enter model name"
               />
             )}
             {aiModelsLoading && (
-              <div className="mt-1 text-[11px] text-gray-500">Loading models...</div>
+              <div className="mt-1 text-[11px] text-slate-500">Loading models...</div>
             )}
             {!aiModelsLoading && !aiModels.length && !aiModelsError && (
-              <div className="mt-1 text-[11px] text-gray-500">
+              <div className="mt-1 text-[11px] text-slate-500">
                 {aiApiKey.trim()
                   ? 'No models loaded. Enter a model name manually.'
                   : 'Enter your API key to load available models.'}
@@ -233,18 +233,18 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
             {aiModelHint && <div className="mt-1 text-[11px] text-amber-600">{aiModelHint}</div>}
           </div>
           <form onSubmit={(e) => e.preventDefault()}>
-            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               API Key ({AI_PROVIDER_LABELS[aiProvider]})
             </label>
             <input
               type="password"
               value={aiApiKey}
               onChange={(event) => setAiApiKey(event.target.value)}
-              className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+              className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
               placeholder="Paste your key"
               autoComplete="off"
             />
-            <div className="mt-1 text-[11px] text-gray-500">
+            <div className="mt-1 text-[11px] text-slate-500">
               Saved in this browser tab and sent through our server to{' '}
               {AI_PROVIDER_LABELS[aiProvider]} with each request. We never store it on our servers;
               it clears when you close the tab.
@@ -269,25 +269,25 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
           <button
             type="button"
             onClick={() => setAiMode('patch')}
-            className={`rounded border px-2 py-1 ${aiMode === 'patch' ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+            className={`rounded border px-2 py-1 ${aiMode === 'patch' ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
           >
             Patch
           </button>
           <button
             type="button"
             onClick={() => setAiMode('chat')}
-            className={`rounded border px-2 py-1 ${aiMode === 'chat' ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+            className={`rounded border px-2 py-1 ${aiMode === 'chat' ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
           >
             Chat
           </button>
-          <div className="ml-auto flex flex-wrap items-center justify-end gap-2 text-xs text-gray-600">
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2 text-xs text-slate-600">
             <span>Effort</span>
             <select
               data-testid="ai-edit-effort"
               value={aiEditEffort}
               onChange={(event) => setAiEditEffort(event.target.value as AiEditEffort)}
               disabled={aiBusy || aiDiffFeedbackBusy}
-              className="rounded border border-gray-300 px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded border border-slate-300 px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50"
               title={AI_EDIT_EFFORT_PROFILES[aiEditEffort].description}
             >
               {AI_EDIT_EFFORTS.map((effort) => (
@@ -300,7 +300,7 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
             <select
               value={aiMaxTokensMode}
               onChange={(event) => setAiMaxTokensMode(event.target.value as 'auto' | 'custom')}
-              className="rounded border border-gray-300 px-2 py-1 text-xs"
+              className="rounded border border-slate-300 px-2 py-1 text-xs"
               title={
                 aiSupportsCustomMaxTokens
                   ? 'Configure maximum output tokens'
@@ -322,14 +322,14 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
                 }
                 value={aiMaxTokens}
                 onChange={(event) => setAiMaxTokens(Number(event.target.value) || 0)}
-                className="w-20 rounded border border-gray-300 px-2 py-1 text-xs"
+                className="w-20 rounded border border-slate-300 px-2 py-1 text-xs"
               />
             )}
             <span>Temperature</span>
             <select
               value={aiTemperatureMode}
               onChange={(event) => setAiTemperatureMode(event.target.value as 'auto' | 'custom')}
-              className="rounded border border-gray-300 px-2 py-1 text-xs"
+              className="rounded border border-slate-300 px-2 py-1 text-xs"
               title={
                 aiSupportsTemperature
                   ? 'Configure sampling temperature'
@@ -349,17 +349,17 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
                 max={selectedAiModelDescriptor.parameters.temperature.max}
                 value={aiTemperature}
                 onChange={(event) => setAiTemperature(Number(event.target.value))}
-                className="w-20 rounded border border-gray-300 px-2 py-1 text-xs"
+                className="w-20 rounded border border-slate-300 px-2 py-1 text-xs"
                 aria-label="Temperature"
               />
             )}
           </div>
         </div>
         <details
-          className="rounded border border-gray-200 bg-gray-50/70 px-3 py-2 text-xs text-gray-600"
+          className="rounded border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs text-slate-600"
           open
         >
-          <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+          <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-slate-500">
             Context
           </summary>
           <div className="mt-3 space-y-2">
@@ -422,17 +422,17 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
               </div>
             )}
             {!aiSupportsImageContext && (
-              <div className="text-[11px] text-gray-500">
+              <div className="text-[11px] text-slate-500">
                 Image input is not confirmed for {selectedAiModelDescriptor.id || 'this model'}.
               </div>
             )}
             {!aiSupportsPdfContext && (
-              <div className="text-[11px] text-gray-500">
+              <div className="text-[11px] text-slate-500">
                 PDF input is not confirmed for {selectedAiModelDescriptor.id || 'this model'}.
               </div>
             )}
             {aiIncludePdf && (
-              <div className="text-[11px] text-gray-500">
+              <div className="text-[11px] text-slate-500">
                 PDF context is generated from the current score and attached when available.
               </div>
             )}
@@ -441,18 +441,18 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
         {aiMode === 'patch' && (
           <div className="space-y-2">
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Instruction
               </label>
               <textarea
                 value={aiPrompt}
                 onChange={(event) => setAiPrompt(event.target.value)}
                 rows={4}
-                className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
                 placeholder="Describe the change you want in the MusicXML."
               />
             </div>
-            <label className="flex items-center gap-2 text-xs text-gray-700">
+            <label className="flex items-center gap-2 text-xs text-slate-700">
               <input
                 type="checkbox"
                 data-testid="ai-deep-edit-toggle"
@@ -466,16 +466,16 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
               type="button"
               onClick={handleAiRequest}
               disabled={aiBusy || aiDiffFeedbackBusy}
-              className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {aiBusy ? 'Working...' : aiDeepEdit ? 'Deep Edit' : 'Generate Patch'}
             </button>
             {aiOutput && (
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs text-gray-500">
+                <div className="flex items-center justify-between text-xs text-slate-500">
                   <span>AI Patch</span>
                   {aiOutputValidation.message && (
-                    <span className={aiOutputValidation.valid ? 'text-gray-500' : 'text-red-600'}>
+                    <span className={aiOutputValidation.valid ? 'text-slate-500' : 'text-red-600'}>
                       {aiOutputValidation.message}
                     </span>
                   )}
@@ -486,7 +486,7 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
                   disabled={aiApplyDisabled}
                   title="Review AI changes in the diff editor before applying."
                   data-testid="btn-ai-review-diff"
-                  className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Review in Diff Editor
                 </button>
@@ -508,19 +508,19 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
         )}
         {aiMode === 'chat' && (
           <div className="flex min-h-0 flex-1 flex-col gap-2">
-            <div className="flex items-center justify-between text-xs text-gray-500">
+            <div className="flex items-center justify-between text-xs text-slate-500">
               <span>Open Chat</span>
               <button
                 type="button"
                 onClick={() => setAiChatMessages([])}
                 disabled={aiBusy || !aiChatMessages.length}
-                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Clear
               </button>
             </div>
             <div
-              className="min-h-[260px] flex-1 overflow-y-auto rounded border border-gray-200 bg-gray-50 p-2"
+              className="min-h-[260px] flex-1 overflow-y-auto rounded border border-slate-200 bg-slate-50 p-2"
               style={{ resize: 'vertical' }}
             >
               {aiChatMessages.length ? (
@@ -528,9 +528,9 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
                   {aiChatMessages.map((message, index) => (
                     <div
                       key={`${message.role}-${index}-${message.text.slice(0, 12)}`}
-                      className={`rounded px-2 py-1 text-xs ${message.role === 'assistant' ? 'bg-blue-50 text-blue-900' : 'bg-white text-gray-800'}`}
+                      className={`rounded px-2 py-1 text-xs ${message.role === 'assistant' ? 'bg-blue-50 text-blue-900' : 'bg-white text-slate-800'}`}
                     >
-                      <span className="mb-1 block text-[10px] uppercase tracking-wide text-gray-500">
+                      <span className="mb-1 block text-[10px] uppercase tracking-wide text-slate-500">
                         {message.role === 'assistant' ? 'Assistant' : 'You'}
                       </span>
                       <div className="leading-relaxed">
@@ -566,15 +566,15 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
                                 {children}
                               </pre>
                             ),
-                            hr: () => <hr className="my-2 border-gray-300/70" />,
+                            hr: () => <hr className="my-2 border-slate-300/70" />,
                           }}
                         >
                           {message.text}
                         </ReactMarkdown>
                       </div>
                       {message.role === 'assistant' && message.sourceRag?.enabled && (
-                        <div className="mt-2 rounded border border-blue-100 bg-white/70 p-2 text-[10px] text-gray-600">
-                          <div className="font-semibold uppercase tracking-wide text-gray-500">
+                        <div className="mt-2 rounded border border-blue-100 bg-white/70 p-2 text-[10px] text-slate-600">
+                          <div className="font-semibold uppercase tracking-wide text-slate-500">
                             External Sources
                           </div>
                           {message.sourceRag.used && message.sourceRag.sources?.length ? (
@@ -589,12 +589,12 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
                                   >
                                     {source.label}
                                   </a>
-                                  <span className="ml-1 text-gray-500">[{source.tier}]</span>
+                                  <span className="ml-1 text-slate-500">[{source.tier}]</span>
                                 </div>
                               ))}
                             </div>
                           ) : (
-                            <div className="mt-1 text-gray-500">
+                            <div className="mt-1 text-slate-500">
                               Retrieval not used
                               {message.sourceRag.reason ? `: ${message.sourceRag.reason}` : '.'}
                             </div>
@@ -605,7 +605,7 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
                   ))}
                 </div>
               ) : (
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-slate-500">
                   Start a conversation about this score. You can include this chat when generating
                   patches. Ask for source history, background, or “look this up on IMSLP/Wikipedia”
                   to trigger external-source retrieval.
@@ -632,14 +632,14 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
               value={aiChatInput}
               onChange={(event) => setAiChatInput(event.target.value)}
               rows={3}
-              className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+              className="w-full rounded border border-slate-300 px-2 py-1 text-sm"
               placeholder="Ask a question or request guidance. Mention source history, IMSLP, Wikipedia, or citations to use external lookup."
             />
             <button
               type="button"
               onClick={handleAiChatSend}
               disabled={aiBusy}
-              className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {aiBusy ? 'Working...' : 'Send Message'}
             </button>

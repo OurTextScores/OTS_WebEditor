@@ -33,7 +33,7 @@ export function ActivityBar({
       aria-label="Activities"
       data-testid="activity-bar"
       className="flex shrink-0 flex-col items-center gap-1 border-r border-slate-200 bg-white py-2"
-      style={{ width: 'var(--shell-activity-w, 44px)', zIndex: 105 }}
+      style={{ width: 'var(--shell-activity-w, 44px)', zIndex: 'var(--ots-z-activity)' }}
     >
       {ACTIVITIES.map(({ id, label, icon: Icon, commandId }, index) => {
         const pressed = active === id;

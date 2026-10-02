@@ -29,7 +29,7 @@ export function AiToolPicker({
       >
         <SelectValue />
       </SelectTrigger>
-      <SelectContent className="relative z-[400]">
+      <SelectContent className="relative z-menu">
         {tools.map((tool) => (
           <SelectItem key={tool.tool} value={tool.tool} data-testid={tool.testId}>
             {tool.label}

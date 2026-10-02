@@ -84,10 +84,10 @@ export function NotaGenPanel({
   const codeEditorTheme = editorTheme;
 
   return (
-    <div className="mt-3 space-y-3 text-sm text-gray-700">
-      <div className="rounded border border-gray-200 bg-gray-50/70 p-3 space-y-3">
+    <div className="mt-3 space-y-3 text-sm text-slate-700">
+      <div className="rounded border border-slate-200 bg-slate-50/70 p-3 space-y-3">
         <div className="flex items-center justify-between">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
             NotaGen (Generate)
           </div>
           <a
@@ -96,19 +96,19 @@ export function NotaGenPanel({
             rel="noreferrer"
             title="NotaGen project on GitHub"
             aria-label="Open NotaGen project on GitHub"
-            className="text-sm leading-none text-gray-500 hover:text-gray-700"
+            className="text-sm leading-none text-slate-500 hover:text-slate-700"
           >
             ⓘ
           </a>
         </div>
         <div>
-          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             Period
           </label>
           <select
             value={musicNotaGenSpacePeriod}
             onChange={(event) => handleNotaGenPeriodChange(event.target.value)}
-            className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+            className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
           >
             {(musicNotaGenSpacePeriods.length > 0
               ? musicNotaGenSpacePeriods
@@ -121,13 +121,13 @@ export function NotaGenPanel({
           </select>
         </div>
         <div>
-          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             Composer
           </label>
           <select
             value={musicNotaGenSpaceComposer}
             onChange={(event) => handleNotaGenComposerChange(event.target.value)}
-            className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+            className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
           >
             {(musicNotaGenSpaceComposers.length > 0
               ? musicNotaGenSpaceComposers
@@ -140,13 +140,13 @@ export function NotaGenPanel({
           </select>
         </div>
         <div>
-          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             Instrumentation
           </label>
           <select
             value={musicNotaGenSpaceInstrumentation}
             onChange={(event) => setMusicNotaGenSpaceInstrumentation(event.target.value)}
-            className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+            className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
           >
             {(musicNotaGenSpaceInstrumentations.length > 0
               ? musicNotaGenSpaceInstrumentations
@@ -166,7 +166,7 @@ export function NotaGenPanel({
             type="button"
             onClick={handleMusicNotaGenRun}
             disabled={musicNotaGenBusy}
-            className="flex-1 rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {musicNotaGenBusy ? 'Working...' : 'Run NotaGen Space'}
           </button>
@@ -174,7 +174,7 @@ export function NotaGenPanel({
             type="button"
             onClick={handleApplyMusicNotaGenOutput}
             disabled={musicNotaGenBusy || !musicNotaGenGeneratedXml.trim()}
-            className="rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Apply Output
           </button>
@@ -184,11 +184,11 @@ export function NotaGenPanel({
       {(musicNotaGenStatusText || musicNotaGenProgressLog) && (
         <div className="space-y-1">
           {musicNotaGenStatusText && (
-            <div className="text-xs text-gray-500">{musicNotaGenStatusText}</div>
+            <div className="text-xs text-slate-500">{musicNotaGenStatusText}</div>
           )}
           <pre
             ref={progressRef}
-            className="max-h-40 overflow-auto rounded border border-gray-200 bg-gray-50 p-2 text-[11px] leading-relaxed text-gray-700 whitespace-pre-wrap"
+            className="max-h-40 overflow-auto rounded border border-slate-200 bg-slate-50 p-2 text-[11px] leading-relaxed text-slate-700 whitespace-pre-wrap"
           >
             {musicNotaGenProgressLog || 'Waiting for generation output...'}
           </pre>
@@ -196,7 +196,7 @@ export function NotaGenPanel({
       )}
       {musicNotaGenGeneratedXml && (
         <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs text-gray-500">
+          <div className="flex items-center justify-between text-xs text-slate-500">
             <span>Generated MusicXML</span>
             <span>Review before applying</span>
           </div>
@@ -214,16 +214,16 @@ export function NotaGenPanel({
       )}
       {musicNotaGenGeneratedAbc && (
         <div className="space-y-1">
-          <div className="text-xs text-gray-500">Generated ABC</div>
-          <pre className="max-h-48 overflow-auto rounded border border-gray-200 bg-gray-50 p-2 text-[11px] leading-relaxed text-gray-700 whitespace-pre-wrap">
+          <div className="text-xs text-slate-500">Generated ABC</div>
+          <pre className="max-h-48 overflow-auto rounded border border-slate-200 bg-slate-50 p-2 text-[11px] leading-relaxed text-slate-700 whitespace-pre-wrap">
             {musicNotaGenGeneratedAbc}
           </pre>
         </div>
       )}
       {musicNotaGenResult && (
         <div className="space-y-1">
-          <div className="text-xs text-gray-500">NotaGen Response</div>
-          <pre className="max-h-64 overflow-auto rounded border border-gray-200 bg-gray-50 p-2 text-[11px] leading-relaxed text-gray-700 whitespace-pre-wrap">
+          <div className="text-xs text-slate-500">NotaGen Response</div>
+          <pre className="max-h-64 overflow-auto rounded border border-slate-200 bg-slate-50 p-2 text-[11px] leading-relaxed text-slate-700 whitespace-pre-wrap">
             {JSON.stringify(musicNotaGenResult, null, 2)}
           </pre>
         </div>

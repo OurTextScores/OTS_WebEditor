@@ -137,18 +137,18 @@ export function NewScoreDialog({ details, signature, instruments, actions }: New
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
       data-testid="new-score-modal"
     >
-      <div className="w-full max-w-xl rounded bg-white p-4 shadow-lg">
+      <div className="w-full max-w-xl rounded bg-white p-4 shadow-modal">
         <div className="flex items-center justify-between">
-          <div className="text-sm font-semibold text-gray-800">New Score</div>
+          <div className="text-sm font-semibold text-slate-800">New Score</div>
           <button
             type="button"
             onClick={actions.close}
-            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+            className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
           >
             Close
           </button>
         </div>
-        <div className="mt-4 grid gap-3 text-sm text-gray-700">
+        <div className="mt-4 grid gap-3 text-sm text-slate-700">
           <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
             Creating a new score will replace the current score and switch to a new checkpoint set.
             Export your score if you want a copy; you can return to the previous URL to access older
@@ -165,31 +165,31 @@ export function NewScoreDialog({ details, signature, instruments, actions }: New
             </div>
           )}
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Title
             </span>
             <input
               type="text"
               value={newScoreTitle}
               onChange={(event) => setNewScoreTitle(event.target.value)}
-              className="rounded border border-gray-300 px-2 py-1 text-sm"
+              className="rounded border border-slate-300 px-2 py-1 text-sm"
               placeholder="Untitled score"
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Composer
             </span>
             <input
               type="text"
               value={newScoreComposer}
               onChange={(event) => setNewScoreComposer(event.target.value)}
-              className="rounded border border-gray-300 px-2 py-1 text-sm"
+              className="rounded border border-slate-300 px-2 py-1 text-sm"
               placeholder="Composer"
             />
           </label>
           <div className="flex flex-col gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Instruments
             </span>
             {newScoreInstrumentOptions.length > 0 ? (
@@ -198,7 +198,7 @@ export function NewScoreDialog({ details, signature, instruments, actions }: New
                   <select
                     value={newScoreInstrumentToAdd}
                     onChange={(event) => setNewScoreInstrumentToAdd(event.target.value)}
-                    className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="flex-1 rounded border border-slate-300 px-2 py-1 text-sm"
                   >
                     {newScoreCommonInstruments.length > 0 && (
                       <optgroup label="Common">
@@ -232,12 +232,12 @@ export function NewScoreDialog({ details, signature, instruments, actions }: New
                     type="button"
                     onClick={handleAddNewScoreInstrument}
                     disabled={!newScoreInstrumentToAdd}
-                    className="rounded border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded border border-slate-300 bg-white px-3 py-1 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Add
                   </button>
                 </div>
-                <div className="space-y-1 rounded border border-gray-200 bg-gray-50 p-2 text-xs text-gray-700">
+                <div className="space-y-1 rounded border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">
                   {newScoreInstrumentIds.length > 0 ? (
                     newScoreInstrumentIds.map((instrumentId, index) => {
                       const option = newScoreInstrumentOptions.find(
@@ -250,7 +250,7 @@ export function NewScoreDialog({ details, signature, instruments, actions }: New
                           <button
                             type="button"
                             onClick={() => handleRemoveNewScoreInstrument(index)}
-                            className="rounded border border-gray-300 bg-white px-2 py-0.5 text-[11px] text-gray-700 hover:bg-gray-100"
+                            className="rounded border border-slate-300 bg-white px-2 py-0.5 text-[11px] text-slate-700 hover:bg-slate-100"
                           >
                             Remove
                           </button>
@@ -258,19 +258,19 @@ export function NewScoreDialog({ details, signature, instruments, actions }: New
                       );
                     })
                   ) : (
-                    <div className="text-gray-500">No instruments selected.</div>
+                    <div className="text-slate-500">No instruments selected.</div>
                   )}
                 </div>
               </>
             ) : (
-              <div className="rounded border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-500">
+              <div className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-500">
                 Instrument list unavailable.
               </div>
             )}
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1">
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Measures
               </span>
               <input
@@ -278,17 +278,17 @@ export function NewScoreDialog({ details, signature, instruments, actions }: New
                 min={1}
                 value={newScoreMeasures}
                 onChange={(event) => setNewScoreMeasures(Number(event.target.value) || 1)}
-                className="rounded border border-gray-300 px-2 py-1 text-sm"
+                className="rounded border border-slate-300 px-2 py-1 text-sm"
               />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Key Signature
               </span>
               <select
                 value={String(newScoreKeyFifths)}
                 onChange={(event) => setNewScoreKeyFifths(Number(event.target.value))}
-                className="rounded border border-gray-300 px-2 py-1 text-sm"
+                className="rounded border border-slate-300 px-2 py-1 text-sm"
               >
                 {newScoreKeyOptions.map((option) => (
                   <option key={option.fifths} value={option.fifths}>
@@ -299,7 +299,7 @@ export function NewScoreDialog({ details, signature, instruments, actions }: New
             </label>
           </div>
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Time Signature
             </span>
             <select
@@ -313,7 +313,7 @@ export function NewScoreDialog({ details, signature, instruments, actions }: New
                   setNewScoreTimeDenominator(denominator);
                 }
               }}
-              className="rounded border border-gray-300 px-2 py-1 text-sm"
+              className="rounded border border-slate-300 px-2 py-1 text-sm"
             >
               {newScoreTimeOptions.map((option) => (
                 <option key={option.label} value={`${option.numerator}/${option.denominator}`}>
@@ -328,14 +328,14 @@ export function NewScoreDialog({ details, signature, instruments, actions }: New
               type="checkbox"
               checked={newScoreWithPickup}
               onChange={(event) => setNewScoreWithPickup(event.target.checked)}
-              className="rounded border-gray-300"
+              className="rounded border-slate-300"
             />
-            <span className="text-sm text-gray-700">Include pickup measure</span>
+            <span className="text-sm text-slate-700">Include pickup measure</span>
           </label>
           {newScoreWithPickup && (
             <div className="grid gap-3 sm:grid-cols-2 mt-2">
               <label className="flex flex-col gap-1">
-                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Pickup Numerator
                 </span>
                 <input
@@ -344,18 +344,18 @@ export function NewScoreDialog({ details, signature, instruments, actions }: New
                   min={1}
                   value={newScorePickupNumerator}
                   onChange={(event) => setNewScorePickupNumerator(Number(event.target.value) || 1)}
-                  className="rounded border border-gray-300 px-2 py-1 text-sm"
+                  className="rounded border border-slate-300 px-2 py-1 text-sm"
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Pickup Denominator
                 </span>
                 <select
                   data-testid="new-score-pickup-denominator"
                   value={String(newScorePickupDenominator)}
                   onChange={(event) => setNewScorePickupDenominator(Number(event.target.value))}
-                  className="rounded border border-gray-300 px-2 py-1 text-sm"
+                  className="rounded border border-slate-300 px-2 py-1 text-sm"
                 >
                   <option value="1">1</option>
                   <option value="2">2</option>
@@ -372,14 +372,14 @@ export function NewScoreDialog({ details, signature, instruments, actions }: New
           <button
             type="button"
             onClick={handleCreateNewScore}
-            className="flex-1 rounded border border-gray-300 bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="flex-1 rounded border border-slate-300 bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
             Create Score
           </button>
           <button
             type="button"
             onClick={actions.close}
-            className="flex-1 rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="flex-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             Cancel
           </button>

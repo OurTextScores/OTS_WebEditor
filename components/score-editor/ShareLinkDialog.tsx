@@ -48,26 +48,26 @@ export function ShareLinkDialog({
       <div className="flex min-h-full items-center justify-center p-6">
         <form
           onSubmit={handleGenerateShareLink}
-          className="w-full max-w-xl rounded-lg bg-white p-6 shadow-xl"
+          className="w-full max-w-xl rounded-lg bg-white p-6 shadow-modal"
         >
           <div className="flex items-center justify-between gap-4">
-            <div className="text-base font-semibold text-gray-900">
+            <div className="text-base font-semibold text-slate-900">
               Create Shareable Editor Link
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100"
+              className="rounded border border-slate-300 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100"
             >
               Close
             </button>
           </div>
-          <p className="mt-3 text-sm text-gray-600">
+          <p className="mt-3 text-sm text-slate-600">
             Paste the public Google Drive file link. The generated URL opens this editor and loads
             that score.
           </p>
           <label className="mt-4 flex flex-col gap-1.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Google Drive share link
             </span>
             <input
@@ -81,7 +81,7 @@ export function ShareLinkDialog({
                 setShareLinkCopied(false);
               }}
               placeholder="https://drive.google.com/file/d/.../view?usp=sharing"
-              className="rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+              className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
               autoFocus
             />
           </label>
@@ -94,9 +94,9 @@ export function ShareLinkDialog({
             Generate Link
           </button>
           {generatedShareUrl && (
-            <div className="mt-5 rounded-md border border-green-200 bg-green-50 p-4">
+            <div className="mt-5 rounded-md border border-emerald-200 bg-emerald-50 p-4">
               <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-semibold uppercase tracking-wide text-green-800">
+                <span className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
                   Shareable editor link
                 </span>
                 <input
@@ -104,7 +104,7 @@ export function ShareLinkDialog({
                   readOnly
                   value={generatedShareUrl}
                   onFocus={(event) => event.currentTarget.select()}
-                  className="rounded border border-green-300 bg-white px-3 py-2 text-sm text-gray-900"
+                  className="rounded border border-emerald-300 bg-white px-3 py-2 text-sm text-slate-900"
                 />
               </label>
               <button
@@ -113,7 +113,7 @@ export function ShareLinkDialog({
                 onClick={() => {
                   void handleCopyShareLink();
                 }}
-                className="mt-3 rounded border border-green-700 bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800"
+                className="mt-3 rounded border border-emerald-700 bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800"
               >
                 {shareLinkCopied ? 'Copied' : 'Copy Link'}
               </button>

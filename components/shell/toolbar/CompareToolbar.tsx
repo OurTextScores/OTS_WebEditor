@@ -29,8 +29,8 @@ export function CompareToolbar({
       className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-3 py-1"
     >
       <div className="min-w-0">
-        <span className="text-sm font-semibold text-gray-800">Compare Scores</span>
-        <span className="ml-3 truncate text-xs text-gray-500">
+        <span className="text-sm font-semibold text-slate-800">Compare Scores</span>
+        <span className="ml-3 truncate text-xs text-slate-500">
           {leftLabel} vs {rightLabel}
         </span>
       </div>
@@ -40,7 +40,7 @@ export function CompareToolbar({
           type="button"
           data-testid="compare-close"
           onClick={onClose}
-          className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+          className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
         >
           {closeLabel}
         </button>

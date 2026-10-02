@@ -470,7 +470,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     <div
       ref={containerRef}
       data-testid={testId}
-      className={`w-full rounded border border-gray-300 ${className ?? ''}`}
+      className={`w-full rounded border border-slate-300 ${className ?? ''}`}
       style={
         {
           '--cm-height': cssLength(height),

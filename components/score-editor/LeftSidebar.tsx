@@ -150,8 +150,8 @@ function VersionsTabPanel(
     : null;
   const versionsStatusStyle =
     versionsStatusMode === 'detached'
-      ? { borderColor: '#b45309', backgroundColor: '#fde68a', color: '#451a03' }
-      : { borderColor: '#047857', backgroundColor: '#bbf7d0', color: '#052e16' };
+      ? { borderColor: 'var(--ots-warning)', backgroundColor: '#fde68a', color: '#451a03' }
+      : { borderColor: 'var(--ots-success)', backgroundColor: '#bbf7d0', color: '#052e16' };
 
   return (
     <>
@@ -159,7 +159,7 @@ function VersionsTabPanel(
         <select
           value={versionsBranchName}
           onChange={(event) => onVersionsBranchChange?.(event.target.value)}
-          className="flex-1 rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900"
+          className="flex-1 rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900"
         >
           {versionsBranches.map((branch) => (
             <option key={branch.name} value={branch.name}>
@@ -170,14 +170,14 @@ function VersionsTabPanel(
         <button
           type="button"
           onClick={onVersionsRefresh}
-          className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+          className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
         >
           Refresh
         </button>
       </div>
       {versionsSelectedBranch && (
-        <div className="mt-2 rounded border border-gray-200 bg-gray-50 px-2 py-2 text-xs text-gray-600">
-          <div className="font-medium text-gray-800">
+        <div className="mt-2 rounded border border-slate-200 bg-slate-50 px-2 py-2 text-xs text-slate-600">
+          <div className="font-medium text-slate-800">
             {versionsSelectedBranch.policy === 'owner_approval'
               ? 'Owner approval required'
               : 'Open branch'}
@@ -197,7 +197,7 @@ function VersionsTabPanel(
             type="button"
             onClick={onVersionsLoadBranchHead}
             disabled={versionsActionBusy}
-            className="mt-2 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+            className="mt-2 rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
           >
             {versionsActionBusy ? 'Working...' : versionsLoadBranchLabel}
           </button>
@@ -205,7 +205,7 @@ function VersionsTabPanel(
       )}
       {versionsStatusMessage && (
         <div
-          className="mt-3 rounded border px-2 py-2 text-sm font-semibold shadow-sm"
+          className="mt-3 rounded border px-2 py-2 text-sm font-semibold"
           style={versionsStatusStyle}
         >
           {versionsStatusMessage}
@@ -219,8 +219,8 @@ function VersionsTabPanel(
             : versionsSelectedBaseRevisionId}
         </div>
       )}
-      <div className="mt-3 rounded border border-gray-200 p-2">
-        <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+      <div className="mt-3 rounded border border-slate-200 p-2">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           Commit Current Score
         </div>
         <textarea
@@ -228,26 +228,26 @@ function VersionsTabPanel(
           onChange={(event) => onVersionsCommitMessageChange?.(event.target.value)}
           placeholder="Commit message"
           rows={3}
-          className="mt-2 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none"
+          className="mt-2 w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
         />
         <button
           type="button"
           onClick={onVersionsCommitCurrent}
           disabled={versionsActionBusy || !versionsCanCommit}
-          className="mt-2 w-full rounded border border-blue-600 bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-200 disabled:text-gray-500"
+          className="mt-2 w-full rounded border border-blue-600 bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-200 disabled:text-slate-500"
         >
           {versionsActionBusy ? 'Working...' : 'Commit current score'}
         </button>
         {!versionsCanCommit && (
-          <div className="mt-2 text-xs text-gray-500">
+          <div className="mt-2 text-xs text-slate-500">
             {versionsSelectedBranch?.lifecycle === 'closed'
               ? 'This branch is closed while its change review is closed. Reopen the CR to commit again.'
               : 'Sign in with commit access to create a server revision.'}
           </div>
         )}
       </div>
-      <div className="mt-3 rounded border border-gray-200 p-2">
-        <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+      <div className="mt-3 rounded border border-slate-200 p-2">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           Create Branch
         </div>
         <input
@@ -255,14 +255,14 @@ function VersionsTabPanel(
           value={versionsCreateBranchName}
           onChange={(event) => onVersionsCreateBranchNameChange?.(event.target.value)}
           placeholder="new-branch"
-          className="mt-2 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none"
+          className="mt-2 w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
         />
         <select
           value={versionsCreateBranchPolicy}
           onChange={(event) =>
             onVersionsCreateBranchPolicyChange?.(event.target.value as 'public' | 'owner_approval')
           }
-          className="mt-2 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900"
+          className="mt-2 w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900"
         >
           <option value="public">Open</option>
           <option value="owner_approval">Owner approval required</option>
@@ -273,12 +273,12 @@ function VersionsTabPanel(
           disabled={
             versionsActionBusy || !versionsCanCreateBranch || !versionsCreateBranchName.trim()
           }
-          className="mt-2 w-full rounded border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+          className="mt-2 w-full rounded border border-slate-300 bg-white px-3 py-1 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
         >
           {versionsActionBusy ? 'Working...' : 'Create branch'}
         </button>
         {!versionsCanCreateBranch && (
-          <div className="mt-2 text-xs text-gray-500">Sign in to create a branch.</div>
+          <div className="mt-2 text-xs text-slate-500">Sign in to create a branch.</div>
         )}
       </div>
       {versionsError && <div className="mt-3 text-xs text-red-600">{versionsError}</div>}
@@ -286,28 +286,28 @@ function VersionsTabPanel(
         <div className="mt-3 text-xs text-red-600">{versionsActionError}</div>
       )}
       {versionsActionNotice && (
-        <div className="mt-3 text-xs text-green-700">{versionsActionNotice}</div>
+        <div className="mt-3 text-xs text-emerald-700">{versionsActionNotice}</div>
       )}
-      {versionsLoading && <div className="mt-3 text-xs text-gray-400">Loading versions...</div>}
+      {versionsLoading && <div className="mt-3 text-xs text-slate-400">Loading versions...</div>}
       {!versionsLoading && versionsRevisions.length === 0 && (
-        <div className="mt-3 text-xs text-gray-400">No revisions on this branch yet.</div>
+        <div className="mt-3 text-xs text-slate-400">No revisions on this branch yet.</div>
       )}
       <div className="mt-3 space-y-3">
         {versionsRevisions.map((revision) => (
           <div
             key={revision.revisionId}
-            className={`rounded border p-2 ${versionsSelectedBaseRevisionId === revision.revisionId ? 'border-blue-300 bg-blue-50' : 'border-gray-200'}`}
+            className={`rounded border p-2 ${versionsSelectedBaseRevisionId === revision.revisionId ? 'border-blue-300 bg-blue-50' : 'border-slate-200'}`}
           >
             <div className="flex items-center justify-between gap-2">
-              <div className="text-sm font-medium text-gray-800">#{revision.sequenceNumber}</div>
+              <div className="text-sm font-medium text-slate-800">#{revision.sequenceNumber}</div>
               {revision.isBranchHead && (
                 <span className="text-[10px] font-semibold uppercase text-blue-700">Head</span>
               )}
             </div>
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-slate-500">
               {revision.changeSummary || 'No change summary'}
             </div>
-            <div className="mt-1 text-xs text-gray-500">
+            <div className="mt-1 text-xs text-slate-500">
               {new Date(revision.createdAt).toLocaleString()}
               {revision.createdByUsername ? ` · ${revision.createdByUsername}` : ''}
             </div>
@@ -315,14 +315,14 @@ function VersionsTabPanel(
               <button
                 type="button"
                 onClick={() => onVersionsOpenRevision?.(revision)}
-                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
               >
                 Open
               </button>
               <button
                 type="button"
                 onClick={() => onVersionsDiffRevision?.(revision)}
-                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
               >
                 Diff vs current
               </button>
@@ -333,7 +333,7 @@ function VersionsTabPanel(
                     versionsSelectedBaseRevisionId === revision.revisionId ? null : revision,
                   )
                 }
-                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
               >
                 {versionsSelectedBaseRevisionId === revision.revisionId ? 'Clear base' : 'Set base'}
               </button>
@@ -342,7 +342,7 @@ function VersionsTabPanel(
                   <button
                     type="button"
                     onClick={() => onVersionsDiffAgainstBase?.(revision)}
-                    className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                    className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
                   >
                     Diff vs base
                   </button>
@@ -354,7 +354,7 @@ function VersionsTabPanel(
                 <button
                   type="button"
                   onClick={() => onVersionsOpenChangeReview?.(revision)}
-                  className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                  className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
                 >
                   Open CR
                 </button>
@@ -410,7 +410,7 @@ function CheckpointsTabPanel(
           value={checkpointLabel}
           onChange={(event) => onCheckpointLabelChange(event.target.value)}
           placeholder="Checkpoint label"
-          className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none"
+          className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
         />
         <button
           type="button"
@@ -420,32 +420,32 @@ function CheckpointsTabPanel(
           className={`w-full rounded border px-3 py-1 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
             !checkpointSaveDisabled && scoreDirtySinceCheckpoint
               ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
-              : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+              : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
           }`}
         >
           Save Checkpoint
         </button>
         {!scoreLoaded && (
-          <span className="text-xs text-gray-400">Load a score to enable checkpoints.</span>
+          <span className="text-xs text-slate-400">Load a score to enable checkpoints.</span>
         )}
       </div>
       {checkpointError && <div className="mt-3 text-xs text-red-600">{checkpointError}</div>}
       {checkpointLoading && (
-        <div className="mt-3 text-xs text-gray-400">Loading checkpoints...</div>
+        <div className="mt-3 text-xs text-slate-400">Loading checkpoints...</div>
       )}
       {!checkpointLoading && checkpoints.length === 0 && (
-        <div className="mt-3 text-xs text-gray-400">No checkpoints yet.</div>
+        <div className="mt-3 text-xs text-slate-400">No checkpoints yet.</div>
       )}
       <div className="mt-3 space-y-3">
         {checkpoints.map((checkpoint) => (
-          <div key={checkpoint.id} className="rounded border border-gray-200 p-2">
-            <div className="text-sm font-medium text-gray-800">{checkpoint.title}</div>
-            <div className="text-xs text-gray-500">
+          <div key={checkpoint.id} className="rounded border border-slate-200 p-2">
+            <div className="text-sm font-medium text-slate-800">{checkpoint.title}</div>
+            <div className="text-xs text-slate-500">
               {formatTimestamp(checkpoint.createdAt)}
               {checkpoint.size ? ` · ${formatBytes(checkpoint.size)}` : ''}
             </div>
             {(checkpoint.branchName || checkpoint.upstreamRevisionId || checkpoint.sourceId) && (
-              <div className="mt-1 text-xs text-gray-500">
+              <div className="mt-1 text-xs text-slate-500">
                 {checkpoint.branchName ? `Branch ${checkpoint.branchName}` : ''}
                 {checkpoint.branchName && checkpoint.upstreamRevisionId ? ' · ' : ''}
                 {checkpoint.upstreamRevisionId ? `Revision ${checkpoint.upstreamRevisionId}` : ''}
@@ -461,7 +461,7 @@ function CheckpointsTabPanel(
                 data-testid={`btn-checkpoint-restore-${checkpoint.id}`}
                 onClick={() => onRestoreCheckpoint(checkpoint)}
                 disabled={checkpointControlsDisabled}
-                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Restore
               </button>
@@ -470,7 +470,7 @@ function CheckpointsTabPanel(
                 data-testid={`btn-checkpoint-compare-${checkpoint.id}`}
                 onClick={() => onCompareCheckpoint(checkpoint)}
                 disabled={checkpointCompareDisabled}
-                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Compare
               </button>
@@ -479,7 +479,7 @@ function CheckpointsTabPanel(
                 data-testid={`btn-checkpoint-rename-${checkpoint.id}`}
                 onClick={() => onRenameCheckpoint(checkpoint)}
                 disabled={checkpointControlsDisabled}
-                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Rename
               </button>
@@ -488,7 +488,7 @@ function CheckpointsTabPanel(
                 data-testid={`btn-checkpoint-delete-${checkpoint.id}`}
                 onClick={() => onDeleteCheckpoint(checkpoint)}
                 disabled={checkpointControlsDisabled}
-                className="rounded border border-gray-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded border border-slate-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Delete
               </button>
@@ -527,9 +527,11 @@ function ScoresTabPanel(
       {scoreSummariesError && (
         <div className="mt-3 text-xs text-red-600">{scoreSummariesError}</div>
       )}
-      {scoreSummariesLoading && <div className="mt-3 text-xs text-gray-400">Loading scores...</div>}
+      {scoreSummariesLoading && (
+        <div className="mt-3 text-xs text-slate-400">Loading scores...</div>
+      )}
       {!scoreSummariesLoading && scoreSummaries.length === 0 && (
-        <div className="mt-3 text-xs text-gray-400">No saved scores yet.</div>
+        <div className="mt-3 text-xs text-slate-400">No saved scores yet.</div>
       )}
       <div className="mt-3 space-y-3">
         {scoreSummaries.map((summary) => {
@@ -538,16 +540,16 @@ function ScoresTabPanel(
           return (
             <div
               key={summary.scoreId}
-              className={`rounded border p-2 ${isCurrent ? 'border-blue-300 bg-blue-50' : 'border-gray-200'}`}
+              className={`rounded border p-2 ${isCurrent ? 'border-blue-300 bg-blue-50' : 'border-slate-200'}`}
             >
               <div className="flex items-center justify-between gap-2">
-                <div className="text-sm font-medium text-gray-800">{info.title}</div>
+                <div className="text-sm font-medium text-slate-800">{info.title}</div>
                 {isCurrent && (
                   <span className="text-[10px] font-semibold uppercase text-blue-700">Current</span>
                 )}
               </div>
-              {info.detail && <div className="text-xs text-gray-500 break-all">{info.detail}</div>}
-              <div className="mt-1 text-xs text-gray-500">
+              {info.detail && <div className="text-xs text-slate-500 break-all">{info.detail}</div>}
+              <div className="mt-1 text-xs text-slate-500">
                 {summary.count} checkpoint{summary.count === 1 ? '' : 's'}
                 {summary.lastUpdated ? ` · ${formatTimestamp(summary.lastUpdated)}` : ''}
               </div>
@@ -555,7 +557,7 @@ function ScoresTabPanel(
                 <button
                   type="button"
                   onClick={() => onOpenScoreFromSummary(summary)}
-                  className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                  className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
                 >
                   Open score
                 </button>
@@ -580,7 +582,7 @@ export function LeftSidebar(props: LeftSidebarProps) {
 
   const content = (
     <div id="checkpoint-sidebar-content" className="px-4 pb-4">
-      <div className="mt-3 flex gap-2 text-xs font-medium text-gray-600">
+      <div className="mt-3 flex gap-2 text-xs font-medium text-slate-600">
         {showVersionsTab && (
           <button
             type="button"
@@ -588,8 +590,8 @@ export function LeftSidebar(props: LeftSidebarProps) {
             onClick={() => onTabChange('versions')}
             className={`rounded border px-2 py-1 ${
               leftSidebarTab === 'versions'
-                ? 'border-gray-400 bg-gray-100 text-gray-900'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-slate-400 bg-slate-100 text-slate-900'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
             OTS Revisions
@@ -601,8 +603,8 @@ export function LeftSidebar(props: LeftSidebarProps) {
           onClick={() => onTabChange('checkpoints')}
           className={`rounded border px-2 py-1 ${
             leftSidebarTab === 'checkpoints'
-              ? 'border-gray-400 bg-gray-100 text-gray-900'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
+              ? 'border-slate-400 bg-slate-100 text-slate-900'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
           }`}
         >
           Local Checkpoints
@@ -613,8 +615,8 @@ export function LeftSidebar(props: LeftSidebarProps) {
           onClick={() => onTabChange('scores')}
           className={`rounded border px-2 py-1 ${
             leftSidebarTab === 'scores'
-              ? 'border-gray-400 bg-gray-100 text-gray-900'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
+              ? 'border-slate-400 bg-slate-100 text-slate-900'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
           }`}
         >
           Scores
@@ -678,7 +680,7 @@ export function LeftSidebar(props: LeftSidebarProps) {
           data-testid="btn-checkpoint-refresh"
           onClick={onRefresh}
           disabled={checkpointControlsDisabled}
-          className="text-xs font-medium text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="text-xs font-medium text-slate-600 hover:text-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Refresh
         </button>

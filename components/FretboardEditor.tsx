@@ -154,7 +154,7 @@ export function FretboardEditor({ data, disabled = false, onChange }: FretboardE
                     aria-pressed={active}
                     onClick={() => toggleDot(string, fret)}
                     style={{ width: CELL, height: CELL }}
-                    className={`flex shrink-0 items-center justify-center rounded-sm border leading-none ${active ? 'border-blue-700 bg-blue-600' : 'border-slate-300 bg-slate-50 hover:bg-blue-50'}`}
+                    className={`flex shrink-0 items-center justify-center rounded border leading-none ${active ? 'border-blue-700 bg-blue-600' : 'border-slate-300 bg-slate-50 hover:bg-blue-50'}`}
                   >
                     <span
                       style={{ width: 14, height: 14 }}

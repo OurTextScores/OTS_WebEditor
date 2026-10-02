@@ -65,8 +65,10 @@
   --ots-z-toolbar: 100;
   --ots-z-activity: 105;
   --ots-z-header: 110;
+  --ots-z-float: 120;
+  --ots-z-toast: 300;
   --ots-z-menu: 400;
-  --ots-z-toast: 450;
+  --ots-z-palette: 450;
 
   /* Shell chrome (SHELL_REDESIGN_DESIGN §12): sizes, and aliases for the names the shell used. */
   --shell-header-h: 44px;
@@ -118,7 +120,7 @@
   --shadow-modal: var(--ots-shadow-modal);
 }
 
-/* Layers as utilities: z-menu, z-toast, ... */
+/* Layers as utilities: z-menu, z-toast, ... Local stacking inside a component (z-10, z-20) is not a layer. */
 @utility z-canvas {
   z-index: var(--ots-z-canvas);
 }
@@ -137,11 +139,17 @@
 @utility z-header {
   z-index: var(--ots-z-header);
 }
-@utility z-menu {
-  z-index: var(--ots-z-menu);
+@utility z-float {
+  z-index: var(--ots-z-float);
 }
 @utility z-toast {
   z-index: var(--ots-z-toast);
+}
+@utility z-menu {
+  z-index: var(--ots-z-menu);
+}
+@utility z-palette {
+  z-index: var(--ots-z-palette);
 }
 
 /* Anything that animates honours the system setting. */

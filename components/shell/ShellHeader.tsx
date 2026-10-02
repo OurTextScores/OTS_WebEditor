@@ -80,7 +80,7 @@ export function ShellHeader({
         role="banner"
         data-testid="shell-header"
         className="relative flex shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-3"
-        style={{ height: 'var(--shell-header-h, 44px)', zIndex: 110 }}
+        style={{ height: 'var(--shell-header-h, 44px)', zIndex: 'var(--ots-z-header)' }}
       >
         <div className="flex min-w-0 max-w-[16rem] items-center gap-1.5" data-testid="shell-title">
           <span className="truncate text-sm font-semibold text-slate-900">

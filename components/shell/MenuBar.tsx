@@ -22,7 +22,7 @@ import { getShellUiState, subscribeToShellUi } from './shellStore';
 // and a browser reports `auto` for z-index on an element that is not positioned, which would
 // leave the menu underneath the toolbar.
 const contentClass =
-  'relative z-[400] min-w-[14rem] max-h-[var(--radix-menubar-content-available-height)] overflow-y-auto rounded border border-slate-200 bg-white p-1 text-xs text-slate-800 shadow-lg';
+  'relative z-menu min-w-[14rem] max-h-[var(--radix-menubar-content-available-height)] overflow-y-auto rounded border border-slate-200 bg-white p-1 text-xs text-slate-800 shadow-raised';
 const itemClass =
   'flex cursor-pointer select-none items-center justify-between gap-6 rounded px-3 py-1 outline-none data-[highlighted]:bg-blue-50 data-[disabled]:pointer-events-none data-[disabled]:text-slate-400';
 const triggerClass =

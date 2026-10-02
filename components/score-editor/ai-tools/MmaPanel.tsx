@@ -77,10 +77,10 @@ export function MmaPanel({ config, status, result, actions }: MmaPanelProps) {
   const handleApplyMmaOutput = actions.applyOutput;
 
   return (
-    <div className="mt-3 space-y-3 text-sm text-gray-700">
-      <div className="rounded border border-gray-200 bg-gray-50/70 p-3 space-y-3">
+    <div className="mt-3 space-y-3 text-sm text-slate-700">
+      <div className="rounded border border-slate-200 bg-slate-50/70 p-3 space-y-3">
         <div className="flex items-center justify-between">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
             MMA (Accompaniment)
           </div>
           <a
@@ -89,14 +89,14 @@ export function MmaPanel({ config, status, result, actions }: MmaPanelProps) {
             rel="noreferrer"
             title="MMA project documentation"
             aria-label="Open MMA project documentation"
-            className="text-sm leading-none text-gray-500 hover:text-gray-700"
+            className="text-sm leading-none text-slate-500 hover:text-slate-700"
           >
             ⓘ
           </a>
         </div>
         <div className="grid gap-2 sm:grid-cols-3">
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Starter
             </span>
             <select
@@ -104,7 +104,7 @@ export function MmaPanel({ config, status, result, actions }: MmaPanelProps) {
               onChange={(event) =>
                 handleMmaStarterPresetChange(event.target.value as MmaStarterPreset)
               }
-              className="rounded border border-gray-300 px-2 py-1 text-sm"
+              className="rounded border border-slate-300 px-2 py-1 text-sm"
               data-testid="select-mma-starter"
             >
               <option value="blank">Blank</option>
@@ -113,7 +113,7 @@ export function MmaPanel({ config, status, result, actions }: MmaPanelProps) {
             </select>
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Arrangement
             </span>
             <select
@@ -121,7 +121,7 @@ export function MmaPanel({ config, status, result, actions }: MmaPanelProps) {
               onChange={(event) =>
                 setMmaArrangementPreset(event.target.value as MmaArrangementPreset)
               }
-              className="rounded border border-gray-300 px-2 py-1 text-sm"
+              className="rounded border border-slate-300 px-2 py-1 text-sm"
               data-testid="select-mma-arrangement"
             >
               {MMA_ARRANGEMENT_PRESETS.map((preset) => (
@@ -132,13 +132,13 @@ export function MmaPanel({ config, status, result, actions }: MmaPanelProps) {
             </select>
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Groove
             </span>
             <select
               value={mmaGroove}
               onChange={(event) => setMmaGroove(event.target.value)}
-              className="rounded border border-gray-300 px-2 py-1 text-sm"
+              className="rounded border border-slate-300 px-2 py-1 text-sm"
               data-testid="select-mma-groove"
             >
               {MMA_GROOVE_OPTION_GROUPS.map((group) => (
@@ -154,11 +154,11 @@ export function MmaPanel({ config, status, result, actions }: MmaPanelProps) {
           </label>
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
-          <div className="rounded border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600">
+          <div className="rounded border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
             {MMA_ARRANGEMENT_PRESETS.find((preset) => preset.id === mmaArrangementPreset)
               ?.description || 'Use the groove as-is with its default accompaniment layers.'}
           </div>
-          <div className="rounded border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600">
+          <div className="rounded border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
             {findMmaGrooveOption(mmaGroove)?.description ||
               'Curated MMA groove from the local installed groove library.'}
           </div>
@@ -169,7 +169,7 @@ export function MmaPanel({ config, status, result, actions }: MmaPanelProps) {
               type="button"
               onClick={handleMmaGenerateTemplate}
               disabled={mmaBusy}
-              className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
               data-testid="btn-mma-generate-template"
             >
               {mmaBusy ? 'Working...' : 'Generate from Score'}
@@ -200,7 +200,7 @@ export function MmaPanel({ config, status, result, actions }: MmaPanelProps) {
           </button>
         </div>
         <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs text-gray-500">
+          <div className="flex items-center justify-between text-xs text-slate-500">
             <span>MMA Script</span>
             <span>{mmaScript.trim() ? `${mmaScript.length} chars` : 'No script'}</span>
           </div>
@@ -221,7 +221,7 @@ export function MmaPanel({ config, status, result, actions }: MmaPanelProps) {
             type="button"
             onClick={() => void handleMmaRender(false)}
             disabled={mmaBusy || !mmaScript.trim()}
-            className="flex-1 rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid="btn-mma-render-midi"
           >
             {mmaBusy ? 'Rendering...' : 'Render MIDI'}
@@ -255,8 +255,8 @@ export function MmaPanel({ config, status, result, actions }: MmaPanelProps) {
       )}
       {mmaSanitizedStderr && (
         <div className="space-y-1">
-          <div className="text-xs text-gray-500">MMA diagnostics (sanitized)</div>
-          <pre className="max-h-40 overflow-auto rounded border border-gray-200 bg-gray-50 p-2 text-[11px] leading-relaxed text-gray-700 whitespace-pre-wrap">
+          <div className="text-xs text-slate-500">MMA diagnostics (sanitized)</div>
+          <pre className="max-h-40 overflow-auto rounded border border-slate-200 bg-slate-50 p-2 text-[11px] leading-relaxed text-slate-700 whitespace-pre-wrap">
             {mmaSanitizedStderr}
           </pre>
         </div>
@@ -267,7 +267,7 @@ export function MmaPanel({ config, status, result, actions }: MmaPanelProps) {
             type="button"
             onClick={() => handleMmaDownload('mma')}
             disabled={!mmaScript.trim()}
-            className="rounded border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="rounded border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid="btn-mma-download-script"
           >
             Download .mma
@@ -276,7 +276,7 @@ export function MmaPanel({ config, status, result, actions }: MmaPanelProps) {
             type="button"
             onClick={() => handleMmaDownload('midi')}
             disabled={!mmaMidiBase64.trim()}
-            className="rounded border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="rounded border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid="btn-mma-download-midi"
           >
             Download .mid
@@ -285,7 +285,7 @@ export function MmaPanel({ config, status, result, actions }: MmaPanelProps) {
             type="button"
             onClick={() => handleMmaDownload('musicxml')}
             disabled={!mmaGeneratedXml.trim()}
-            className="rounded border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="rounded border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid="btn-mma-download-xml"
           >
             Download .musicxml
@@ -303,7 +303,7 @@ export function MmaPanel({ config, status, result, actions }: MmaPanelProps) {
       )}
       {mmaGeneratedXml && (
         <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs text-gray-500">
+          <div className="flex items-center justify-between text-xs text-slate-500">
             <span>Generated MusicXML</span>
             <span>Review before applying</span>
           </div>
@@ -321,11 +321,11 @@ export function MmaPanel({ config, status, result, actions }: MmaPanelProps) {
         </div>
       )}
       {mmaResultPayload && (
-        <details className="rounded border border-gray-200 bg-gray-50 px-3 py-2">
-          <summary className="cursor-pointer text-xs font-medium text-gray-700">
+        <details className="rounded border border-slate-200 bg-slate-50 px-3 py-2">
+          <summary className="cursor-pointer text-xs font-medium text-slate-700">
             MMA Response
           </summary>
-          <pre className="mt-2 max-h-64 overflow-auto text-[11px] leading-relaxed text-gray-700 whitespace-pre-wrap">
+          <pre className="mt-2 max-h-64 overflow-auto text-[11px] leading-relaxed text-slate-700 whitespace-pre-wrap">
             {JSON.stringify(mmaResultPayload, null, 2)}
           </pre>
         </details>

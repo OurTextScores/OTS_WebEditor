@@ -34,7 +34,7 @@ const kindDot: Record<Notice['kind'], string> = {
   error: 'bg-red-500',
   warning: 'bg-amber-500',
   info: 'bg-slate-400',
-  success: 'bg-green-500',
+  success: 'bg-emerald-500',
 };
 
 function NoticeList() {
@@ -77,7 +77,7 @@ function NoticeList() {
         side="top"
         align="end"
         data-testid="notice-list"
-        className="relative z-[400] max-h-72 w-80 overflow-y-auto p-1"
+        className="relative z-menu max-h-72 w-80 overflow-y-auto p-1"
       >
         {notices.length === 0 ? (
           <div className="px-3 py-4 text-center text-xs text-slate-500">No notifications.</div>
@@ -129,7 +129,7 @@ export function StatusBar({ registry = defaultCommandRegistry }: { registry?: Co
       className="flex shrink-0 items-center gap-1 border-t border-slate-200 bg-white px-3 text-xs text-slate-600"
       // Below the ribbon (z 100): its dropdowns render inline, inside that stacking context, so
       // a status bar above it would sit on top of the end of any tall menu.
-      style={{ height: 'var(--shell-status-h, 32px)', zIndex: 90 }}
+      style={{ height: 'var(--shell-status-h, 32px)', zIndex: 'var(--ots-z-status)' }}
     >
       <button
         type="button"
@@ -216,7 +216,7 @@ export function StatusBar({ registry = defaultCommandRegistry }: { registry?: Co
             {(view.zoom * 100).toFixed(0)}%
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent side="top" align="center" className="relative z-[400]">
+        <DropdownMenuContent side="top" align="center" className="relative z-menu">
           {zoomPresets.map((preset) => (
             <DropdownMenuItem
               key={preset}
@@ -293,7 +293,7 @@ export function StatusBar({ registry = defaultCommandRegistry }: { registry?: Co
         >
           <span
             aria-hidden="true"
-            className={`mr-1.5 h-2 w-2 rounded-full ${view.dirty ? 'bg-amber-500' : 'bg-green-500'}`}
+            className={`mr-1.5 h-2 w-2 rounded-full ${view.dirty ? 'bg-amber-500' : 'bg-emerald-500'}`}
           />
           {view.dirty
             ? 'Unsaved changes'

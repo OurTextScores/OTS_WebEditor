@@ -386,7 +386,7 @@ function DotButton({
         <PopoverContent
           role="menu"
           align="start"
-          className="relative z-[400] flex w-40 flex-col gap-0.5 p-1"
+          className="relative z-menu flex w-40 flex-col gap-0.5 p-1"
         >
           {(
             [

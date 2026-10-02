@@ -28,37 +28,37 @@ export function CompareScoreLoaderDialog({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
       data-testid="compare-score-loader-modal"
     >
-      <div className="w-full max-w-lg rounded bg-white p-4 shadow-lg">
+      <div className="w-full max-w-lg rounded bg-white p-4 shadow-modal">
         <div className="flex items-center justify-between gap-3">
-          <div id="compare-score-loader-title" className="text-sm font-semibold text-gray-800">
+          <div id="compare-score-loader-title" className="text-sm font-semibold text-slate-800">
             Compare scores
           </div>
           <button
             type="button"
             onClick={onClose}
             disabled={busy}
-            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Close
           </button>
         </div>
 
-        <div className="mt-4 grid gap-3 text-sm text-gray-700">
+        <div className="mt-4 grid gap-3 text-sm text-slate-700">
           <div className="rounded border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
             The left score is the reference. The right score replaces the current score and remains
             editable in the comparison.
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded border border-gray-200 p-3">
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <div className="rounded border border-slate-200 p-3">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Left score
               </div>
               <button
                 type="button"
                 onClick={() => leftInputRef.current?.click()}
                 disabled={busy}
-                className="inline-flex items-center rounded border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Load left score
               </button>
@@ -71,20 +71,20 @@ export function CompareScoreLoaderDialog({
                 disabled={busy}
                 className="hidden"
               />
-              <div className="mt-2 truncate text-xs text-gray-500" title={leftFile?.name}>
+              <div className="mt-2 truncate text-xs text-slate-500" title={leftFile?.name}>
                 {leftFile?.name || 'No score selected'}
               </div>
             </div>
 
-            <div className="rounded border border-gray-200 p-3">
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <div className="rounded border border-slate-200 p-3">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Right score
               </div>
               <button
                 type="button"
                 onClick={() => rightInputRef.current?.click()}
                 disabled={busy}
-                className="inline-flex items-center rounded border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Load right score
               </button>
@@ -97,7 +97,7 @@ export function CompareScoreLoaderDialog({
                 disabled={busy}
                 className="hidden"
               />
-              <div className="mt-2 truncate text-xs text-gray-500" title={rightFile?.name}>
+              <div className="mt-2 truncate text-xs text-slate-500" title={rightFile?.name}>
                 {rightFile?.name || 'No score selected'}
               </div>
             </div>

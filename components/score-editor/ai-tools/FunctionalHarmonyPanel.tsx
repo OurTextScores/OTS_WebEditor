@@ -59,12 +59,12 @@ export function FunctionalHarmonyPanel({
   const codeEditorTheme = editorTheme;
 
   return (
-    <div className="mt-3 space-y-3 text-sm text-gray-700">
-      <div className="rounded border border-gray-200 bg-gray-50/70 p-3 space-y-3">
-        <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+    <div className="mt-3 space-y-3 text-sm text-slate-700">
+      <div className="rounded border border-slate-200 bg-slate-50/70 p-3 space-y-3">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
           Harmony
         </div>
-        <div className="text-xs text-gray-600">
+        <div className="text-xs text-slate-600">
           Roman-numeral and local-key analysis for theory-oriented review. This workflow does not
           modify the score in Phase 1.
         </div>
@@ -82,7 +82,7 @@ export function FunctionalHarmonyPanel({
             type="button"
             onClick={() => handleDownloadFunctionalHarmony('json')}
             disabled={!functionalHarmonyJsonExport.trim()}
-            className="rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid="btn-functional-harmony-download-json"
           >
             Download JSON
@@ -91,7 +91,7 @@ export function FunctionalHarmonyPanel({
             type="button"
             onClick={() => handleDownloadFunctionalHarmony('rntxt')}
             disabled={!functionalHarmonyRntxtExport.trim()}
-            className="rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid="btn-functional-harmony-download-rntxt"
           >
             Download RN Text
@@ -100,7 +100,7 @@ export function FunctionalHarmonyPanel({
             type="button"
             onClick={handleDownloadFunctionalHarmonyXml}
             disabled={!functionalHarmonyAnnotatedXml.trim()}
-            className="rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid="btn-functional-harmony-download-xml"
           >
             Download Annotated XML
@@ -161,24 +161,24 @@ export function FunctionalHarmonyPanel({
             ],
             ['Backend', String(asRecord(functionalHarmonyResult.analysis)?.engine ?? 'n/a')],
           ].map(([label, value]) => (
-            <div key={label} className="rounded border border-gray-200 bg-gray-50 px-3 py-2">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+            <div key={label} className="rounded border border-slate-200 bg-slate-50 px-3 py-2">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 {label}
               </div>
-              <div className="mt-1 text-sm text-gray-800">{value}</div>
+              <div className="mt-1 text-sm text-slate-800">{value}</div>
             </div>
           ))}
         </div>
       )}
       {functionalHarmonySegments.length > 0 && (
         <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs text-gray-500">
+          <div className="flex items-center justify-between text-xs text-slate-500">
             <span>Segments</span>
             <span>{functionalHarmonySegments.length} segment(s)</span>
           </div>
-          <div className="max-h-64 overflow-auto rounded border border-gray-200 bg-gray-50">
+          <div className="max-h-64 overflow-auto rounded border border-slate-200 bg-slate-50">
             <table className="min-w-full text-left text-xs">
-              <thead className="sticky top-0 bg-gray-100 text-gray-600">
+              <thead className="sticky top-0 bg-slate-100 text-slate-600">
                 <tr>
                   <th className="px-3 py-2 font-semibold">Measure</th>
                   <th className="px-3 py-2 font-semibold">RN</th>
@@ -192,22 +192,22 @@ export function FunctionalHarmonyPanel({
                 {functionalHarmonySegments.slice(0, 200).map((segment, index) => (
                   <tr
                     key={`functional-harmony-segment-${index}`}
-                    className="border-t border-gray-200"
+                    className="border-t border-slate-200"
                   >
-                    <td className="px-3 py-2 text-gray-700">
+                    <td className="px-3 py-2 text-slate-700">
                       {String(segment.measureNumber ?? segment.measureIndex ?? '')}
                     </td>
-                    <td className="px-3 py-2 font-mono text-gray-900">
+                    <td className="px-3 py-2 font-mono text-slate-900">
                       {String(segment.romanNumeral ?? '')}
                     </td>
-                    <td className="px-3 py-2 text-gray-700">{String(segment.key ?? '')}</td>
-                    <td className="px-3 py-2 text-gray-700">
+                    <td className="px-3 py-2 text-slate-700">{String(segment.key ?? '')}</td>
+                    <td className="px-3 py-2 text-slate-700">
                       {String(segment.functionLabel ?? '')}
                     </td>
-                    <td className="px-3 py-2 text-gray-700">
+                    <td className="px-3 py-2 text-slate-700">
                       {String(segment.cadenceLabel ?? '')}
                     </td>
-                    <td className="px-3 py-2 text-gray-700">
+                    <td className="px-3 py-2 text-slate-700">
                       {segment.confidence === undefined || segment.confidence === null
                         ? ''
                         : String(segment.confidence)}
@@ -221,7 +221,7 @@ export function FunctionalHarmonyPanel({
       )}
       {functionalHarmonyRntxtExport && (
         <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs text-gray-500">
+          <div className="flex items-center justify-between text-xs text-slate-500">
             <span>RN Text Export</span>
             <span>Review before download</span>
           </div>
@@ -240,7 +240,7 @@ export function FunctionalHarmonyPanel({
       )}
       {functionalHarmonyAnnotatedXml && (
         <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs text-gray-500">
+          <div className="flex items-center justify-between text-xs text-slate-500">
             <span>Annotated MusicXML</span>
             <span>Review before applying</span>
           </div>
@@ -258,11 +258,11 @@ export function FunctionalHarmonyPanel({
         </div>
       )}
       {functionalHarmonyResult && (
-        <details className="rounded border border-gray-200 bg-gray-50 px-3 py-2">
-          <summary className="cursor-pointer text-xs font-medium text-gray-700">
+        <details className="rounded border border-slate-200 bg-slate-50 px-3 py-2">
+          <summary className="cursor-pointer text-xs font-medium text-slate-700">
             Harmony Response
           </summary>
-          <pre className="mt-2 max-h-64 overflow-auto text-[11px] leading-relaxed text-gray-700 whitespace-pre-wrap">
+          <pre className="mt-2 max-h-64 overflow-auto text-[11px] leading-relaxed text-slate-700 whitespace-pre-wrap">
             {JSON.stringify(functionalHarmonyResult, null, 2)}
           </pre>
         </details>

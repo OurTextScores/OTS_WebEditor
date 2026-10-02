@@ -56,7 +56,7 @@ export function FloatingPalettes({
   return (
     <aside
       data-testid="floating-palettes"
-      className="fixed z-[120] flex w-80 flex-col overflow-hidden rounded-lg border border-slate-300 bg-white shadow-2xl"
+      className="fixed z-float flex w-80 flex-col overflow-hidden rounded-lg border border-slate-300 bg-white shadow-raised"
       style={{ left: position.x, top: position.y, maxHeight: '70vh' }}
     >
       <div

@@ -85,11 +85,11 @@ export function MusicXmlPanel({
     <div className="flex flex-1 flex-col overflow-y-auto px-4 pb-4">
       <div className="flex items-center justify-end pb-2">
         <label className="flex items-center gap-2">
-          <span className="text-[11px] uppercase tracking-wide text-gray-500">Theme</span>
+          <span className="text-[11px] uppercase tracking-wide text-slate-500">Theme</span>
           <select
             value={codeEditorTheme}
             onChange={(event) => setCodeEditorTheme(event.target.value as CodeEditorThemeMode)}
-            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700"
+            className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700"
             data-testid="select-musicxml-theme"
           >
             {CODE_EDITOR_THEME_OPTIONS.map((option) => (
@@ -110,7 +110,7 @@ export function MusicXmlPanel({
           className={`flex-1 rounded border px-3 py-1 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
             xmlApplyEnabled
               ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
-              : 'border-gray-300 bg-white text-gray-700'
+              : 'border-slate-300 bg-white text-slate-700'
           }`}
         >
           Apply edits
@@ -128,7 +128,7 @@ export function MusicXmlPanel({
           className={`flex-1 rounded border px-3 py-1 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
             xmlReloadEnabled
               ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
-              : 'border-gray-300 bg-white text-gray-700'
+              : 'border-slate-300 bg-white text-slate-700'
           }`}
         >
           Reload
@@ -170,7 +170,7 @@ export function MusicXmlPanel({
     >
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <div className="flex items-center justify-between p-4">
-          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             MusicXML
           </span>
           <button

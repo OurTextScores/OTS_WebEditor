@@ -39,7 +39,7 @@ type Props = {
 };
 
 const controlClass =
-  'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--player-border)] bg-[var(--player-control)] text-[var(--player-text)] shadow-sm transition hover:bg-[var(--player-control-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 disabled:cursor-not-allowed disabled:opacity-40';
+  'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--player-border)] bg-[var(--player-control)] text-[var(--player-text)] transition hover:bg-[var(--player-control-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 disabled:cursor-not-allowed disabled:opacity-40';
 
 export default function PlayerControls(props: Props) {
   const [scrubbing, setScrubbing] = useState(false);
@@ -231,7 +231,7 @@ export default function PlayerControls(props: Props) {
           >
             <span className="text-xs font-semibold">More</span>
           </summary>
-          <div className="absolute bottom-12 right-0 z-30 flex w-64 flex-col gap-3 rounded-xl border border-[var(--player-border)] bg-[var(--player-panel)] p-3 text-[var(--player-text)] shadow-xl">
+          <div className="absolute bottom-12 right-0 z-30 flex w-64 flex-col gap-3 rounded-lg border border-[var(--player-border)] bg-[var(--player-panel)] p-3 text-[var(--player-text)] shadow-raised">
             <label className="flex min-h-11 items-center gap-2" title="Volume">
               <Volume2 size={18} aria-hidden="true" />
               <span>Volume</span>

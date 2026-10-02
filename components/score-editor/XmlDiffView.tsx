@@ -51,14 +51,14 @@ function XmlDiffBody({ leftXml, rightXml }: { leftXml: string; rightXml: string 
   );
   if (added === 0 && removed === 0) {
     return (
-      <div className="mt-2 rounded border border-dashed border-gray-200 bg-white px-3 py-2 text-xs text-gray-500">
+      <div className="mt-2 rounded border border-dashed border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
         The two scores have identical MusicXML.
       </div>
     );
   }
   return (
     <div className="mt-2 flex min-h-0 flex-col gap-2">
-      <div className="text-[11px] text-gray-500">
+      <div className="text-[11px] text-slate-500">
         <span className="text-emerald-700">+{added}</span>
         {' / '}
         <span className="text-rose-700">-{removed}</span>
@@ -66,13 +66,13 @@ function XmlDiffBody({ leftXml, rightXml }: { leftXml: string; rightXml: string 
       </div>
       <div
         data-testid="xml-diff-view"
-        className="max-h-[60vh] overflow-auto rounded border border-gray-200 bg-white font-mono text-[11px] leading-4"
+        className="max-h-[60vh] overflow-auto rounded border border-slate-200 bg-white font-mono text-[11px] leading-4"
       >
         {rows.map((row, index) =>
           row.kind === 'collapsed' ? (
             <div
               key={`diff-row-${index}`}
-              className="border-y border-gray-100 bg-gray-50 px-2 py-0.5 text-center text-gray-400"
+              className="border-y border-slate-100 bg-slate-50 px-2 py-0.5 text-center text-slate-400"
             >
               … {row.count} unchanged line{row.count === 1 ? '' : 's'} …
             </div>
@@ -84,7 +84,7 @@ function XmlDiffBody({ leftXml, rightXml }: { leftXml: string; rightXml: string 
                   ? 'bg-emerald-50 text-emerald-800'
                   : row.kind === 'removed'
                     ? 'bg-rose-50 text-rose-800'
-                    : 'text-gray-600'
+                    : 'text-slate-600'
               }`}
             >
               {`${row.kind === 'added' ? '+' : row.kind === 'removed' ? '-' : ' '} ${row.text}`}
@@ -110,10 +110,10 @@ export function XmlDiffView({
   const [open, setOpen] = useState(false);
   return (
     <details
-      className="rounded border border-gray-200 bg-gray-50 px-3 py-2"
+      className="rounded border border-slate-200 bg-slate-50 px-3 py-2"
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
-      <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-gray-500">
+      <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-slate-500">
         MusicXML Diff ({leftLabel} → {rightLabel})
       </summary>
       {open && <XmlDiffBody leftXml={leftXml} rightXml={rightXml} />}

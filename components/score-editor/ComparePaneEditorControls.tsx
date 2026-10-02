@@ -28,7 +28,7 @@ export function ComparePaneEditorControls({
   onOpenPalettes: () => void;
 }) {
   const buttonClass =
-    'rounded border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] font-normal normal-case tracking-normal text-gray-700 hover:bg-gray-50 disabled:opacity-50';
+    'rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-normal normal-case tracking-normal text-slate-700 hover:bg-slate-50 disabled:opacity-50';
   return (
     <div
       className="flex flex-wrap items-center gap-1"
@@ -55,7 +55,7 @@ export function ComparePaneEditorControls({
       </button>
       <span
         data-testid={`compare-zoom-value-${side}`}
-        className="min-w-9 text-center text-[10px] font-normal normal-case tracking-normal text-gray-500"
+        className="min-w-9 text-center text-[10px] font-normal normal-case tracking-normal text-slate-500"
       >
         {Math.round(zoom * 100)}%
       </span>

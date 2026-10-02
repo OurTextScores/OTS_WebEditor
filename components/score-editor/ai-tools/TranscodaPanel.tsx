@@ -102,10 +102,10 @@ export function TranscodaPanel({
   const score = apply.canAppend;
 
   return (
-    <div className="mt-3 space-y-3 text-sm text-gray-700">
-      <div className="rounded border border-gray-200 bg-gray-50/70 p-3 space-y-3">
+    <div className="mt-3 space-y-3 text-sm text-slate-700">
+      <div className="rounded border border-slate-200 bg-slate-50/70 p-3 space-y-3">
         <div className="flex items-center justify-between">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
             Transcoda OMR
           </div>
           <a
@@ -114,53 +114,53 @@ export function TranscodaPanel({
             rel="noreferrer"
             title="Transcoda model on Hugging Face"
             aria-label="Open Transcoda model on Hugging Face"
-            className="text-sm leading-none text-gray-500 hover:text-gray-700"
+            className="text-sm leading-none text-slate-500 hover:text-slate-700"
           >
             ⓘ
           </a>
         </div>
         <div className="grid gap-2">
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Space
             </span>
             <input
               value={MUSIC_SPECIALISTS_DEFAULT_TRANSCODA_SPACE_ID}
               readOnly
-              className="rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700"
+              className="rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700"
               aria-label="Transcoda Space ID"
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Model
             </span>
             <input
               value={MUSIC_SPECIALISTS_DEFAULT_TRANSCODA_MODEL}
               readOnly
-              className="rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700"
+              className="rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700"
               aria-label="Transcoda model ID"
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Revision
             </span>
             <input
               value={MUSIC_SPECIALISTS_DEFAULT_TRANSCODA_REVISION}
               readOnly
-              className="rounded border border-gray-300 bg-white px-2 py-1 font-mono text-xs text-gray-700"
+              className="rounded border border-slate-300 bg-white px-2 py-1 font-mono text-xs text-slate-700"
               aria-label="Transcoda model revision"
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Decoding
             </span>
             <select
               value={musicTranscodaDecoding}
               onChange={(e) => setMusicTranscodaDecoding(e.target.value as 'greedy' | 'beam')}
-              className="rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700"
+              className="rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700"
               aria-label="Decoding strategy"
             >
               <option value="greedy">Greedy</option>
@@ -168,7 +168,7 @@ export function TranscodaPanel({
             </select>
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Max length
             </span>
             <input
@@ -180,13 +180,13 @@ export function TranscodaPanel({
                 const v = Math.max(1, Math.floor(Number(e.target.value)));
                 if (Number.isFinite(v)) setMusicTranscodaMaxLength(v);
               }}
-              className="rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700"
+              className="rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700"
               aria-label="Max length"
             />
           </label>
           {musicTranscodaDecoding === 'beam' && (
             <label className="flex flex-col gap-1">
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Beam count
               </span>
               <input
@@ -198,13 +198,13 @@ export function TranscodaPanel({
                   const v = Math.max(1, Math.floor(Number(e.target.value)));
                   if (Number.isFinite(v)) setMusicTranscodaNumBeams(v);
                 }}
-                className="rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700"
+                className="rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700"
                 aria-label="Beam count"
               />
             </label>
           )}
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Repetition penalty
             </span>
             <input
@@ -216,16 +216,16 @@ export function TranscodaPanel({
                 const v = Number(e.target.value);
                 if (Number.isFinite(v) && v >= 0) setMusicTranscodaRepetitionPenalty(v);
               }}
-              className="rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700"
+              className="rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700"
               aria-label="Repetition penalty"
             />
           </label>
         </div>
-        <div className="rounded border border-gray-200 bg-white px-3 py-2 text-xs leading-relaxed text-gray-600">
+        <div className="rounded border border-slate-200 bg-white px-3 py-2 text-xs leading-relaxed text-slate-600">
           Upload a single score page image to send to the Transcoda Space.
         </div>
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             Page Image
           </span>
           <input
@@ -233,29 +233,29 @@ export function TranscodaPanel({
             type="file"
             accept="image/png,image/jpeg,image/webp,image/tiff,image/bmp,image/*"
             onChange={handleTranscodaImageUpload}
-            className="rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700"
+            className="rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700"
           />
         </label>
         {musicTranscodaImageFile && (
-          <div className="rounded border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600">
+          <div className="rounded border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
             Selected: {musicTranscodaImageFile.name}
           </div>
         )}
         {musicTranscodaPhase !== 'idle' && (
-          <div className="space-y-2 rounded border border-gray-200 bg-white px-3 py-2">
-            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-gray-500">
-              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-gray-300 border-t-gray-700" />
+          <div className="space-y-2 rounded border border-slate-200 bg-white px-3 py-2">
+            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" />
               <span>
                 {musicTranscodaPhase === 'uploading' ? 'Uploading image' : 'Transcribing image'}
               </span>
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
               <div
-                className="h-full bg-gray-800 transition-all duration-200"
+                className="h-full bg-slate-800 transition-all duration-200"
                 style={{ width: musicTranscodaPhase === 'uploading' ? '33%' : '78%' }}
               />
             </div>
-            <div className="flex items-center justify-between text-[11px] text-gray-500">
+            <div className="flex items-center justify-between text-[11px] text-slate-500">
               <span>
                 {musicTranscodaPhase === 'uploading'
                   ? 'Preparing image for upload'
@@ -279,7 +279,7 @@ export function TranscodaPanel({
           type="button"
           disabled={musicTranscodaBusy || !musicTranscodaImageFile}
           onClick={() => void handleTranscodaTranscribeImage()}
-          className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
           data-testid="btn-transcoda-transcribe"
           title={
             musicTranscodaImageFile
@@ -291,8 +291,8 @@ export function TranscodaPanel({
         </button>
         {musicTranscodaGeneratedKern && (
           <div className="space-y-1">
-            <div className="text-xs text-gray-500">Generated **kern</div>
-            <pre className="max-h-48 overflow-auto rounded border border-gray-200 bg-gray-50 p-2 text-[11px] leading-relaxed text-gray-700 whitespace-pre-wrap">
+            <div className="text-xs text-slate-500">Generated **kern</div>
+            <pre className="max-h-48 overflow-auto rounded border border-slate-200 bg-slate-50 p-2 text-[11px] leading-relaxed text-slate-700 whitespace-pre-wrap">
               {musicTranscodaGeneratedKern}
             </pre>
           </div>
@@ -303,7 +303,7 @@ export function TranscodaPanel({
               type="button"
               onClick={() => void handleApplyTranscodaOutput('overwrite')}
               disabled={xmlLoading}
-              className="flex-1 rounded border border-gray-300 bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex-1 rounded border border-slate-300 bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               data-testid="btn-transcoda-apply-overwrite"
             >
               Overwrite
@@ -312,7 +312,7 @@ export function TranscodaPanel({
               type="button"
               onClick={() => void handleApplyTranscodaOutput('append')}
               disabled={xmlLoading || !score}
-              className="flex-1 rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               data-testid="btn-transcoda-apply-append"
             >
               Append
@@ -320,7 +320,7 @@ export function TranscodaPanel({
             <button
               type="button"
               onClick={actions.downloadXml}
-              className="flex-1 rounded border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="flex-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
               data-testid="btn-transcoda-download-xml"
             >
               Download
@@ -329,8 +329,8 @@ export function TranscodaPanel({
         )}
         {musicTranscodaResult && (
           <div className="space-y-1">
-            <div className="text-xs text-gray-500">Transcoda Response</div>
-            <pre className="max-h-64 overflow-auto rounded border border-gray-200 bg-gray-50 p-2 text-[11px] leading-relaxed text-gray-700 whitespace-pre-wrap">
+            <div className="text-xs text-slate-500">Transcoda Response</div>
+            <pre className="max-h-64 overflow-auto rounded border border-slate-200 bg-slate-50 p-2 text-[11px] leading-relaxed text-slate-700 whitespace-pre-wrap">
               {JSON.stringify(musicTranscodaResult, null, 2)}
             </pre>
           </div>

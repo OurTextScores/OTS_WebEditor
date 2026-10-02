@@ -23,7 +23,7 @@ const kindClasses: Record<Notice['kind'], string> = {
   error: 'border-red-300 bg-red-50 text-red-900',
   warning: 'border-amber-300 bg-amber-50 text-amber-900',
   info: 'border-slate-300 bg-white text-slate-900',
-  success: 'border-green-300 bg-green-50 text-green-900',
+  success: 'border-emerald-300 bg-emerald-50 text-emerald-900',
 };
 
 function Toast({ notice }: { notice: Notice }) {
@@ -37,7 +37,7 @@ function Toast({ notice }: { notice: Notice }) {
       // Errors interrupt (alert); everything else waits its turn (status).
       role={notice.kind === 'error' ? 'alert' : 'status'}
       data-testid={`notice-${notice.kind}`}
-      className={`pointer-events-auto flex items-start gap-3 rounded border px-3 py-2 text-sm shadow-lg ${kindClasses[notice.kind]}`}
+      className={`pointer-events-auto flex items-start gap-3 rounded border px-3 py-2 text-sm shadow-raised ${kindClasses[notice.kind]}`}
     >
       <div className="min-w-0 flex-1">
         <div className="font-semibold">{notice.title}</div>
@@ -149,7 +149,7 @@ export function NoticeHost() {
     <>
       <div
         aria-label="Notifications"
-        className="pointer-events-none fixed right-4 top-14 z-[300] flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2"
+        className="pointer-events-none fixed right-4 top-14 z-toast flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2"
       >
         {toasts.map((notice) => (
           <Toast key={notice.id} notice={notice} />

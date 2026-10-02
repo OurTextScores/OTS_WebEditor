@@ -109,7 +109,7 @@ export function ChangeReviewScorePanel({
           return (
             <div
               key={`gutter-${bar.anchorId}`}
-              className={`absolute left-2 right-2 rounded border bg-white p-2 text-xs shadow-sm ${selected ? 'z-50 border-sky-400 ring-2 ring-sky-300' : 'z-10 border-slate-300'}`}
+              className={`absolute left-2 right-2 rounded border bg-white p-2 text-xs ${selected ? 'z-50 border-sky-400 ring-2 ring-sky-300' : 'z-10 border-slate-300'}`}
               style={{ top: `${64 + top * zoom}px` }}
               onClick={() => setChangeReviewFocusedAnchorId(bar.anchorId)}
             >

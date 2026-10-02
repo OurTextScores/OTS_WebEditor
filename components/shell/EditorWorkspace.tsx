@@ -21,7 +21,7 @@ export function EditorWorkspace({ mode }: { mode: OtsWorkspaceMode }) {
       {mode.header}
       {/* Above the activity bar and the panels: a toolbar's dropdowns open downward over both. */}
       {mode.toolbar && (
-        <div className="relative" style={{ zIndex: 100 }}>
+        <div className="relative" style={{ zIndex: 'var(--ots-z-toolbar)' }}>
           {mode.toolbar}
         </div>
       )}

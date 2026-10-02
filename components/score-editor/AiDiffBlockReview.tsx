@@ -49,7 +49,7 @@ export function AiDiffBlockReview({
           className={`h-6 rounded border text-[10px] ${
             status === 'accepted'
               ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
-              : 'border-gray-200 bg-gray-100 text-gray-600'
+              : 'border-slate-200 bg-slate-100 text-slate-600'
           } disabled:opacity-50`}
           onClick={actions.apply}
         >
@@ -61,7 +61,7 @@ export function AiDiffBlockReview({
           className={`h-6 rounded border text-[10px] ${
             status === 'rejected'
               ? 'border-rose-400 bg-rose-50 text-rose-700'
-              : 'border-gray-200 bg-gray-100 text-gray-600'
+              : 'border-slate-200 bg-slate-100 text-slate-600'
           } disabled:opacity-50`}
           onClick={actions.reject}
         >
@@ -73,7 +73,7 @@ export function AiDiffBlockReview({
           className={`h-6 rounded border text-[10px] ${
             status === 'comment'
               ? 'border-sky-400 bg-sky-50 text-sky-700'
-              : 'border-gray-200 bg-gray-100 text-gray-600'
+              : 'border-slate-200 bg-slate-100 text-slate-600'
           } disabled:opacity-50`}
           onClick={actions.comment}
         >
@@ -93,7 +93,7 @@ export function AiDiffBlockReview({
                 onMouseUp={(event) => resizeTextarea(event.currentTarget)}
                 onMouseMove={resizeWhileDragging}
                 placeholder="Describe the revision needed..."
-                className="min-h-[84px] min-w-[220px] w-full max-w-none resize rounded border border-sky-300 bg-white px-2 py-1 text-[10px] text-gray-900 placeholder-gray-400"
+                className="min-h-[84px] min-w-[220px] w-full max-w-none resize rounded border border-sky-300 bg-white px-2 py-1 text-[10px] text-slate-900 placeholder-slate-400"
                 disabled={disabled.feedback}
               />
               <div className="flex justify-end">

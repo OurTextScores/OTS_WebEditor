@@ -9,8 +9,8 @@ import { NoticeHost } from '@/components/shell/notices';
 const ScoreEditor = dynamic(() => import('@/components/ScoreEditor'), {
   ssr: false,
   loading: () => (
-    <div className="flex items-center justify-center h-screen bg-gray-50">
-      <div className="text-xl text-gray-500">Loading Editor...</div>
+    <div className="flex items-center justify-center h-screen bg-slate-50">
+      <div className="text-xl text-slate-500">Loading Editor...</div>
     </div>
   ),
 });

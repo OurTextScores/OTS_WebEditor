@@ -235,14 +235,14 @@ export function MultitrackVaePanel({
     }
   };
 
-  const labelClass = 'text-xs font-semibold uppercase tracking-wide text-gray-500';
-  const fieldClass = 'rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700';
+  const labelClass = 'text-xs font-semibold uppercase tracking-wide text-slate-500';
+  const fieldClass = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700';
 
   return (
-    <div className="mt-3 space-y-3 text-sm text-gray-700">
-      <div className="rounded border border-gray-200 bg-gray-50/70 p-3 space-y-3">
+    <div className="mt-3 space-y-3 text-sm text-slate-700">
+      <div className="rounded border border-slate-200 bg-slate-50/70 p-3 space-y-3">
         <div className="flex items-center justify-between">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
             Multitrack MusicVAE
           </div>
           <a
@@ -251,7 +251,7 @@ export function MultitrackVaePanel({
             rel="noreferrer"
             title="Multitrack MusicVAE"
             aria-label="About Multitrack MusicVAE"
-            className="text-sm leading-none text-gray-500 hover:text-gray-700"
+            className="text-sm leading-none text-slate-500 hover:text-slate-700"
           >
             ⓘ
           </a>
@@ -275,7 +275,7 @@ export function MultitrackVaePanel({
                 </option>
               ))}
             </select>
-            <span className="text-[11px] leading-snug text-gray-500">{MODE_HELP[mode]}</span>
+            <span className="text-[11px] leading-snug text-slate-500">{MODE_HELP[mode]}</span>
           </label>
 
           <label className="flex flex-col gap-1">
@@ -321,7 +321,7 @@ export function MultitrackVaePanel({
                 className={fieldClass}
                 aria-label="Chord progression"
               />
-              <span className="text-[11px] leading-snug text-gray-500">
+              <span className="text-[11px] leading-snug text-slate-500">
                 Triads only, comma-separated (C, Cm, Caug, Am, F, G).
               </span>
             </label>
@@ -375,14 +375,14 @@ export function MultitrackVaePanel({
           )}
 
           {usesInputMidi(mode) && (
-            <div className="flex flex-col gap-2 rounded border border-dashed border-gray-300 p-2">
+            <div className="flex flex-col gap-2 rounded border border-dashed border-slate-300 p-2">
               <span className={labelClass}>Input MIDI</span>
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={handleUseCurrentScore}
                   disabled={!hasScore || busy}
-                  className="rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                  className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
                 >
                   Use current score
                 </button>
@@ -390,7 +390,7 @@ export function MultitrackVaePanel({
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={busy}
-                  className="rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                  className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
                 >
                   Upload MIDI…
                 </button>
@@ -403,7 +403,9 @@ export function MultitrackVaePanel({
                 />
               </div>
               {inputMidiLabel && (
-                <span className="truncate text-[11px] text-gray-500">Source: {inputMidiLabel}</span>
+                <span className="truncate text-[11px] text-slate-500">
+                  Source: {inputMidiLabel}
+                </span>
               )}
               <div className="flex flex-wrap gap-2">
                 {mode === 'reconstruct' && (
@@ -460,7 +462,7 @@ export function MultitrackVaePanel({
           type="button"
           onClick={handleGenerate}
           disabled={busy}
-          className="w-full rounded bg-gray-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-gray-700 disabled:opacity-50"
+          className="w-full rounded bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
         >
           {busy ? 'Generating…' : 'Generate'}
         </button>
@@ -480,8 +482,8 @@ export function MultitrackVaePanel({
       </div>
 
       {(generatedMidiBase64 || generatedXml) && (
-        <div className="rounded border border-gray-200 bg-white p-3 space-y-2">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+        <div className="rounded border border-slate-200 bg-white p-3 space-y-2">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
             Result
             {numMeasures !== null ? ` · ${numMeasures} bar${numMeasures === 1 ? '' : 's'}` : ''}
           </div>
@@ -490,7 +492,7 @@ export function MultitrackVaePanel({
               type="button"
               onClick={handleDownloadMidi}
               disabled={!generatedMidiBase64}
-              className="rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+              className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
             >
               Download MIDI
             </button>
@@ -498,7 +500,7 @@ export function MultitrackVaePanel({
               type="button"
               onClick={() => handleApply('overwrite')}
               disabled={!generatedXml || applying}
-              className="rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+              className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
             >
               {hasScore ? 'Replace score' : 'Open as score'}
             </button>
@@ -506,13 +508,13 @@ export function MultitrackVaePanel({
               type="button"
               onClick={() => handleApply('append')}
               disabled={!generatedXml || applying || !hasScore}
-              className="rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+              className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
             >
               Append to score
             </button>
           </div>
           {!generatedXml && generatedMidiBase64 && (
-            <p className="text-[11px] text-gray-500">
+            <p className="text-[11px] text-slate-500">
               MusicXML unavailable — download the MIDI instead.
             </p>
           )}

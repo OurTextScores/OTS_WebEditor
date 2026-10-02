@@ -17349,7 +17349,7 @@ ${partsBodyXml}
            * deciding the document's height and with it the frame's. The rows
            * cover it completely either way, so this costs nothing to look at.
            */
-          className={`relative z-0 flex-1 bg-gray-50 p-8 ${
+          className={`relative z-0 flex-1 bg-slate-50 p-8 ${
             growsToContent ? 'overflow-x-clip overflow-y-visible' : 'overflow-auto'
           } ${growsToContent && compareView ? 'hidden' : ''}`}
           style={
@@ -17363,19 +17363,19 @@ ${partsBodyXml}
         >
           {loading && (
             <div className="flex items-center justify-center h-full">
-              <div className="text-xl text-gray-500">Loading score...</div>
+              <div className="text-xl text-slate-500">Loading score...</div>
             </div>
           )}
 
           {!loading && !score && (
             <div className="flex items-center justify-center h-full">
-              <div className="text-xl text-gray-400">No score loaded. Open a file to begin.</div>
+              <div className="text-xl text-slate-400">No score loaded. Open a file to begin.</div>
             </div>
           )}
 
           <div
             ref={scoreWrapperRef}
-            className={`relative origin-top-left transition-transform duration-200 ease-out bg-white shadow-lg mx-auto ${paletteDropActive ? 'ring-4 ring-blue-400 ring-offset-2' : ''}`}
+            className={`relative origin-top-left transition-transform duration-200 ease-out bg-white shadow-raised mx-auto ${paletteDropActive ? 'ring-4 ring-blue-400 ring-offset-2' : ''}`}
             data-testid="score-wrapper"
             data-palette-drop-active={paletteDropActive ? 'true' : 'false'}
             style={{
@@ -17542,7 +17542,7 @@ ${partsBodyXml}
                     data-testid={`spanner-grip-${grip.index}`}
                     aria-label={`Spanner grip ${grip.index + 1}`}
                     disabled={!grip.draggable}
-                    className={`absolute z-30 h-4 w-4 border-2 shadow-md ring-1 ring-white ${
+                    className={`absolute z-30 h-4 w-4 border-2 shadow-raised ring-1 ring-white ${
                       grip.draggable
                         ? 'cursor-move border-slate-950 bg-cyan-300 hover:bg-cyan-100'
                         : 'cursor-not-allowed border-slate-700 bg-slate-300 opacity-90'
@@ -17638,7 +17638,7 @@ ${partsBodyXml}
             {textEditorRect && (
               <div
                 data-testid="inline-text-editor"
-                className="absolute z-50 flex flex-col gap-1 rounded border-2 border-blue-600 bg-white p-1 shadow-lg"
+                className="absolute z-50 flex flex-col gap-1 rounded border-2 border-blue-600 bg-white p-1 shadow-raised"
                 style={{
                   left: textEditorRect.x,
                   top: textEditorRect.y,
@@ -17692,7 +17692,7 @@ ${partsBodyXml}
                   <button
                     type="button"
                     onClick={closeTextEditor}
-                    className="rounded border border-gray-300 px-2 py-0.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                    className="rounded border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
                   >
                     Cancel
                   </button>
@@ -18129,15 +18129,15 @@ ${partsBodyXml}
               // `(variant === 'rows')`, the findings view fell into the fixed, clipped branch
               // and reported a viewport-sized height for a 7,000px document.
               grows
-                ? 'relative w-full bg-gray-50'
+                ? 'relative w-full bg-slate-50'
                 : placement === 'inline'
-                  ? 'absolute bottom-0 right-0 top-0 flex items-start justify-center overflow-hidden bg-gray-50'
-                  : 'fixed inset-0 flex items-start justify-center overflow-hidden bg-gray-50'
+                  ? 'absolute bottom-0 right-0 top-0 flex items-start justify-center overflow-hidden bg-slate-50'
+                  : 'fixed inset-0 flex items-start justify-center overflow-hidden bg-slate-50'
             }
             style={
               placement === 'inline'
-                ? { left: 'var(--shell-activity-w, 44px)', zIndex: 20 }
-                : { zIndex: 110 }
+                ? { left: 'var(--shell-activity-w, 44px)', zIndex: 'var(--ots-z-panel)' }
+                : { zIndex: 'var(--ots-z-header)' }
             }
             data-testid="checkpoint-compare-modal"
           >
@@ -18311,10 +18311,10 @@ ${partsBodyXml}
                           )}
                           <div
                             ref={compareGutterScrollRef}
-                            className="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-x-visible overflow-y-auto rounded border border-gray-200 bg-gray-50 p-2 text-[10px] text-gray-500"
+                            className="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-x-visible overflow-y-auto rounded border border-slate-200 bg-slate-50 p-2 text-[10px] text-slate-500"
                           >
                             {isChangeReviewCompareMode && changeReviewLoading && (
-                              <div className="rounded border border-dashed border-gray-200 bg-white px-2 py-2 text-center text-[10px] text-gray-400">
+                              <div className="rounded border border-dashed border-slate-200 bg-white px-2 py-2 text-center text-[10px] text-slate-400">
                                 Loading review threads...
                               </div>
                             )}
@@ -18329,7 +18329,7 @@ ${partsBodyXml}
                               </div>
                             )}
                             {compareAlignmentLoading && (
-                              <div className="rounded border border-dashed border-gray-200 bg-white px-2 py-2 text-center text-[10px] text-gray-400">
+                              <div className="rounded border border-dashed border-slate-200 bg-white px-2 py-2 text-center text-[10px] text-slate-400">
                                 Aligning measures...
                               </div>
                             )}
@@ -18893,11 +18893,11 @@ ${partsBodyXml}
         {checkpointBusy && (
           <div
             className="fixed inset-0 flex items-center justify-center bg-white"
-            style={{ zIndex: 120 }}
+            style={{ zIndex: 'var(--ots-z-float)' }}
           >
             <div className="text-center">
-              <div className="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600"></div>
-              <p className="text-sm text-gray-600">Loading comparison...</p>
+              <div className="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600"></div>
+              <p className="text-sm text-slate-600">Loading comparison...</p>
             </div>
           </div>
         )}

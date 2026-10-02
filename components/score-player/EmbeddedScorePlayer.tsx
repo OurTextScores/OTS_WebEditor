@@ -743,7 +743,7 @@ export default function EmbeddedScorePlayer() {
             className="mx-auto origin-top"
             style={{ width: `${zoom * 100}%`, maxWidth: zoom <= 1 ? '100%' : 'none' }}
           >
-            <div className="relative mx-auto w-full overflow-hidden bg-white shadow-lg">
+            <div className="relative mx-auto w-full overflow-hidden bg-white shadow-raised">
               <div
                 className="[&_svg]:block [&_svg]:h-auto [&_svg]:w-full"
                 data-testid="player-svg"

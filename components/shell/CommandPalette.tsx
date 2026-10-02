@@ -221,10 +221,10 @@ export function CommandPalette({
   return (
     <DialogPrimitive.Root open={palette.open} onOpenChange={(open) => !open && closePalette()}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-[450] bg-black/30" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-palette bg-black/30" />
         <DialogPrimitive.Content
           data-testid="command-palette"
-          className="fixed left-1/2 top-[12vh] z-[450] w-[36rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl outline-none"
+          className="fixed left-1/2 top-[12vh] z-palette w-[36rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-modal outline-none"
         >
           {/* Keyed by mode so reopening in the other mode starts clean. */}
           <PaletteBody key={palette.mode} registry={registry} mode={palette.mode} />

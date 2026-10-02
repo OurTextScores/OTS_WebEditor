@@ -20,7 +20,7 @@ import { ClefIcon, KeySignatureIcon } from './CustomIcons';
 export const IconInspection = () => {
   // Added text-slate-900 to ensure icons are dark
   const iconStyle =
-    'flex flex-col items-center justify-center p-4 border border-slate-300 rounded bg-white shadow-md gap-2 text-slate-900';
+    'flex flex-col items-center justify-center p-4 border border-slate-300 rounded bg-white shadow-raised gap-2 text-slate-900';
   // Darkened the label for better readability
   const labelStyle = 'text-[10px] font-mono text-slate-800 font-bold uppercase';
 
@@ -104,7 +104,7 @@ export const IconInspection = () => {
         </div>
       </div>
 
-      <div className="mt-12 p-6 bg-white border-l-4 border-blue-600 rounded shadow-sm text-base text-slate-900">
+      <div className="mt-12 p-6 bg-white border-l-4 border-blue-600 rounded text-base text-slate-900">
         <p className="font-bold mb-2">Analysis:</p>
         <ul className="list-disc ml-5 space-y-1">
           <li>
