@@ -38,7 +38,8 @@
     "package:release": "node scripts/package-release.js",
     "release:prepare": "npm run build:embed && npm run package:release",
     "test:embed": "node test-embed/server.js",
-    "test:embed:integration": "npx playwright test --config playwright.config.embed.ts"
+    "test:embed:integration": "npx playwright test --config playwright.config.embed.ts",
+    "test:perf": "npx playwright test --config playwright.config.perf.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.53",

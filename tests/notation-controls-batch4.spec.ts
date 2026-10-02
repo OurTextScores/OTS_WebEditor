@@ -104,7 +104,6 @@ test('applies typed notehead and beam properties with undo and redo', async ({ p
   await page.locator('svg .Note').nth(0).click();
   // Noteheads live entirely in the palettes, which are docked in the side panel by default.
   await page.getByTestId('palette-item-notehead-1').click();
-  await page.keyboard.press('Escape');
   await expect
     .poll(async () => (await readMscx(page)).includes('<head>cross</head>'), { timeout: 20_000 })
     .toBe(true);

@@ -40,6 +40,8 @@ import { findAiEditProposal, type AiEditProposal } from '../lib/ai-edit-proposal
 import { fetchJsonOrThrow } from '../lib/fetch-json';
 import { copySelectionToClipboard, pasteClipboardPayload } from '../lib/selection-clipboard';
 import type { MeasureInsertTarget, HeaderTextTarget } from './score-editor/editorProps';
+import { layoutOracleEnabled, verifyFullLayout } from '../lib/layout-oracle';
+import { noPerf, startPerf, type PerfHandle } from '../lib/perf-trace';
 import { confirmDialog, notify, notifyError, notifyWarning, promptDialog } from './shell/notices';
 import { ShellHeader } from './shell/ShellHeader';
 import { StatusBar } from './shell/StatusBar';
@@ -542,6 +544,7 @@ type RenderScore = (
   currentScore: Score,
   pageIndex?: number,
   highlightSelection?: boolean,
+  perf?: PerfHandle,
 ) => Promise<boolean>;
 type EnsureSoundFontLoaded = (
   targetScore?: Score,
@@ -7022,7 +7025,12 @@ ${partsBodyXml}
     }
   };
 
-  renderScoreRef.current = async (currentScore, pageIndex, highlightSelection = true) => {
+  renderScoreRef.current = async (
+    currentScore,
+    pageIndex,
+    highlightSelection = true,
+    perf: PerfHandle = noPerf,
+  ) => {
     if (!currentScore || !containerRef.current) return false;
 
     try {
@@ -7031,16 +7039,23 @@ ${partsBodyXml}
         largeScoreSessionRef.current && progressivePagingActive
           ? LARGE_PROGRESSIVE_PAGE_RENDER_TIMEOUT_MS
           : DEFAULT_PAGE_RENDER_TIMEOUT_MS;
-      const svgData = await runWithTimeout(
-        runSerializedScoreOperation(
-          () => currentScore.saveSvg(targetPage, true, highlightSelection),
-          `saveSvg(page=${targetPage + 1})`,
+      // The round trip includes the worker's layout-free SVG write, the byte transfer and the
+      // UTF-8 decode on this thread.
+      const svgData = await perf.time('saveSvg', () =>
+        runWithTimeout(
+          runSerializedScoreOperation(
+            () => currentScore.saveSvg(targetPage, true, highlightSelection),
+            `saveSvg(page=${targetPage + 1})`,
+          ),
+          timeoutMs,
+          `Render page ${targetPage + 1}`,
         ),
-        timeoutMs,
-        `Render page ${targetPage + 1}`,
       );
       if (svgData) {
-        containerRef.current.innerHTML = sanitizeEngineSvg(svgData);
+        const clean = await perf.time('sanitize', () => sanitizeEngineSvg(svgData));
+        await perf.time('innerHTML', () => {
+          containerRef.current!.innerHTML = clean;
+        });
         return true;
       }
       return false;
@@ -12643,6 +12658,13 @@ ${partsBodyXml}
       skipWasmReselect?: boolean;
       skipSelectionFallback?: boolean;
       skipRelayout?: boolean;
+      /**
+       * The engine call ends in `endCmd`, whose incremental layout is complete for this edit: the
+       * layout oracle found no difference from a full relayout, across a sweep of fixtures and
+       * selections. Only these edits skip the full relayout (~1.4 s on a 30-page score); every
+       * other one still pays it. Add a label here only after the oracle has checked it.
+       */
+      incrementalLayout?: boolean;
       advanceSelection?: boolean;
       advanceSelectionStep?: number;
       playSelectionPreview?: boolean;
@@ -12679,9 +12701,12 @@ ${partsBodyXml}
     const allowSelectionFallback = !options?.skipSelectionFallback;
     const shouldPlaySelectionPreview = Boolean(options?.playSelectionPreview);
 
+    const perf = startPerf(label);
+    // Layout oracle (dev): skip the full relayout, then check afterwards whether it was needed.
+    const oracle = layoutOracleEnabled() && !options?.skipRelayout;
     try {
       console.debug(`Mutation "${label}" start`);
-      const result = await action();
+      const result = await perf.time('mutation', action);
       console.debug(`Mutation "${label}" result:`, result);
       const mutated = result !== false;
       if (!mutated) {
@@ -12711,17 +12736,29 @@ ${partsBodyXml}
       setScoreDirtySinceCheckpoint(true);
       setScoreDirtySinceXml(true);
 
-      if (!options?.skipRelayout && score.relayout) {
+      if (!options?.skipRelayout && !options?.incrementalLayout && !oracle && score.relayout) {
         try {
-          await score.relayout();
+          await perf.time('relayout', () => score.relayout!());
         } catch (relayoutErr) {
           console.warn('Relayout after mutation failed:', relayoutErr);
         }
       }
-      const refreshedPage = await refreshPageCount(score, currentPageRef.current);
-      await renderScore(score, refreshedPage);
+      const refreshedPage = await perf.time('pageCount', () =>
+        refreshPageCount(score, currentPageRef.current),
+      );
+      await renderScore(score, refreshedPage, true, perf);
       if (noteInputActiveRef.current) {
-        await refreshNoteInputCursor(score);
+        await perf.time('noteInputCursor', () => refreshNoteInputCursor(score));
+      }
+      perf.end();
+      if (oracle) {
+        await verifyFullLayout(
+          score,
+          label,
+          refreshedPage,
+          (operation) => runSerializedScoreOperation(operation, 'layout-oracle'),
+          () => renderScore(score, refreshedPage),
+        );
       }
 
       // Re-establish selection inside WASM if we had a previously known point.
@@ -12804,6 +12841,8 @@ ${partsBodyXml}
     } catch (err) {
       console.error(`Mutation "${label}" failed:`, err);
       notify({ kind: 'error', title: `Unable to ${label}`, detail: 'See the console.' });
+    } finally {
+      perf.end();
     }
   };
 
@@ -12965,7 +13004,7 @@ ${partsBodyXml}
         if (!fn) return;
         return fn();
       },
-      { skipWasmReselect: true, playSelectionPreview: true },
+      { skipWasmReselect: true, playSelectionPreview: true, incrementalLayout: true },
     );
   const handlePitchDown = () =>
     performMutation(
@@ -12976,7 +13015,7 @@ ${partsBodyXml}
         if (!fn) return;
         return fn();
       },
-      { skipWasmReselect: true, playSelectionPreview: true },
+      { skipWasmReselect: true, playSelectionPreview: true, incrementalLayout: true },
     );
   const handleTranspose = (semitones: number) =>
     performMutation(
@@ -13011,7 +13050,7 @@ ${partsBodyXml}
         const direction = semitones > 0 ? 0 : 1;
         return fn(1, direction, 0, idx, true, true, true);
       },
-      { skipWasmReselect: true, playSelectionPreview: true },
+      { skipWasmReselect: true, playSelectionPreview: true, incrementalLayout: true },
     );
   const handleTransposeEx = (
     mode: number,
@@ -13265,7 +13304,7 @@ ${partsBodyXml}
         if (!fn) return;
         return fn(accidentalType);
       },
-      { playSelectionPreview: true },
+      { playSelectionPreview: true, incrementalLayout: true },
     );
   };
   const handleDurationLonger = () =>
@@ -13573,7 +13612,9 @@ ${partsBodyXml}
       const fn = requireMutation('addDynamic');
       if (!fn) return;
       return fn(dynamicType);
-    });
+    },
+      { incrementalLayout: true },
+    );
 
   const handleAddHairpin = (hairpinType: number) =>
     performMutation('add hairpin', async () => {
@@ -13581,7 +13622,9 @@ ${partsBodyXml}
       const fn = requireMutation('addHairpin');
       if (!fn) return;
       return fn(hairpinType);
-    });
+    },
+      { incrementalLayout: true },
+    );
 
   const handleAddFermata = (fermataVariant: number) =>
     performMutation('add fermata', async () => {
@@ -13589,7 +13632,9 @@ ${partsBodyXml}
       const fn = requireMutation('addFermata');
       if (!fn) return false;
       return fn(fermataVariant);
-    });
+    },
+      { incrementalLayout: true },
+    );
 
   const handleAddBreath = (breathType: number) =>
     performMutation('add breath or caesura', async () => {
@@ -13597,7 +13642,9 @@ ${partsBodyXml}
       const fn = requireMutation('addBreath');
       if (!fn) return false;
       return fn(breathType);
-    });
+    },
+      { incrementalLayout: true },
+    );
 
   const handleAddArpeggio = (arpeggioType: number) =>
     performMutation('add arpeggio', async () => {
@@ -13605,7 +13652,9 @@ ${partsBodyXml}
       const fn = requireMutation('addArpeggio');
       if (!fn) return false;
       return fn(arpeggioType);
-    });
+    },
+      { incrementalLayout: true },
+    );
 
   const handleAddTremolo = (tremoloType: number) =>
     performMutation('add tremolo', async () => {
@@ -13613,7 +13662,9 @@ ${partsBodyXml}
       const fn = requireMutation('addTremolo');
       if (!fn) return false;
       return fn(tremoloType);
-    });
+    },
+      { incrementalLayout: true },
+    );
 
   const handleAddOttava = (ottavaType: number) =>
     performMutation('add ottava', async () => {
@@ -13621,7 +13672,9 @@ ${partsBodyXml}
       const fn = requireMutation('addOttava');
       if (!fn) return false;
       return fn(ottavaType);
-    });
+    },
+      { incrementalLayout: true },
+    );
 
   const handleAddTrill = (trillType: number) =>
     performMutation('add trill line', async () => {
@@ -13629,7 +13682,9 @@ ${partsBodyXml}
       const fn = requireMutation('addTrill');
       if (!fn) return false;
       return fn(trillType);
-    });
+    },
+      { incrementalLayout: true },
+    );
 
   const handleAddGlissando = (glissandoType: number) =>
     performMutation('add glissando', async () => {
@@ -13645,7 +13700,9 @@ ${partsBodyXml}
       const fn = requireMutation('addPedal');
       if (!fn) return;
       return fn(pedalVariant);
-    });
+    },
+      { incrementalLayout: true },
+    );
 
   const handleAddSostenutoPedal = () =>
     performMutation('add sostenuto pedal', async () => {
@@ -13653,7 +13710,9 @@ ${partsBodyXml}
       const fn = requireMutation('addSostenutoPedal');
       if (!fn) return;
       return fn();
-    });
+    },
+      { incrementalLayout: true },
+    );
 
   const handleAddUnaCorda = () =>
     performMutation('add una corda', async () => {
@@ -13661,7 +13720,9 @@ ${partsBodyXml}
       const fn = requireMutation('addUnaCorda');
       if (!fn) return;
       return fn();
-    });
+    },
+      { incrementalLayout: true },
+    );
 
   const handleSplitPedal = () =>
     performMutation('split pedal', async () => {
@@ -13680,7 +13741,7 @@ ${partsBodyXml}
         if (!fn) return;
         return fn(bpm);
       },
-      hadSelection ? undefined : { clearSelection: true },
+      hadSelection ? { incrementalLayout: true } : { clearSelection: true, incrementalLayout: true },
     );
   };
 
@@ -13690,7 +13751,9 @@ ${partsBodyXml}
       const fn = requireMutation('addArticulation');
       if (!fn) return;
       return fn(articulationSymbolName);
-    });
+    },
+      { incrementalLayout: true },
+    );
 
   const handleAddFretDiagram = async (pattern: string) => {
     await performMutation(
@@ -13701,7 +13764,7 @@ ${partsBodyXml}
         if (!fn) return false;
         return fn(pattern);
       },
-      { skipWasmReselect: true, skipSelectionFallback: true },
+      { skipWasmReselect: true, skipSelectionFallback: true, incrementalLayout: true },
     );
     await refreshInspector();
   };
@@ -13715,7 +13778,7 @@ ${partsBodyXml}
         if (!fn) return false;
         return fn();
       },
-      { skipWasmReselect: true, skipSelectionFallback: true },
+      { skipWasmReselect: true, skipSelectionFallback: true, incrementalLayout: true },
     );
 
   const runRangeTool = (
@@ -13797,7 +13860,9 @@ ${partsBodyXml}
       const fn = requireMutation('addSlur');
       if (!fn) return;
       return fn();
-    });
+    },
+      { incrementalLayout: true },
+    );
 
   const handleFlipStem = () =>
     performMutation('flip stem', async () => {
@@ -13805,7 +13870,9 @@ ${partsBodyXml}
       const fn = requireMutation('flipStem');
       if (!fn) return false;
       return fn();
-    });
+    },
+      { incrementalLayout: true },
+    );
 
   const handleAddTie = () =>
     performMutation('add tie', async () => {
@@ -13813,7 +13880,9 @@ ${partsBodyXml}
       const fn = requireMutation('addTie');
       if (!fn) return;
       return fn();
-    });
+    },
+      { incrementalLayout: true },
+    );
 
   const handleAddGraceNote = (graceType: number) =>
     performMutation(`add grace note ${graceType}`, async () => {
@@ -13821,7 +13890,9 @@ ${partsBodyXml}
       const fn = requireMutation('addGraceNote');
       if (!fn) return;
       return fn(graceType);
-    });
+    },
+      { incrementalLayout: true },
+    );
 
   const handleAddTuplet = (tupletCount: number) =>
     performMutation(`add tuplet ${tupletCount}`, async () => {
@@ -14012,7 +14083,9 @@ ${partsBodyXml}
       const fn = requireMutation('toggleRepeatStart');
       if (!fn) return;
       return fn();
-    });
+    },
+      { incrementalLayout: true },
+    );
 
   const handleToggleRepeatEnd = () =>
     performMutation('toggle repeat end', async () => {
@@ -14020,7 +14093,9 @@ ${partsBodyXml}
       const fn = requireMutation('toggleRepeatEnd');
       if (!fn) return;
       return fn();
-    });
+    },
+      { incrementalLayout: true },
+    );
 
   const handleSetRepeatCount = (count: number) =>
     performMutation(`set repeat count ${count}`, async () => {
@@ -14028,7 +14103,9 @@ ${partsBodyXml}
       const fn = requireMutation('setRepeatCount');
       if (!fn) return;
       return fn(count);
-    });
+    },
+      { incrementalLayout: true },
+    );
 
   const handleSetBarLineType = (barLineType: number) =>
     performMutation(`set barline type ${barLineType}`, async () => {
@@ -14036,7 +14113,9 @@ ${partsBodyXml}
       const fn = requireMutation('setBarLineType');
       if (!fn) return;
       return fn(barLineType);
-    });
+    },
+      { incrementalLayout: true },
+    );
 
   const handleAddVolta = (endingNumber: number) =>
     performMutation(`add volta ${endingNumber}`, async () => {
@@ -14052,7 +14131,9 @@ ${partsBodyXml}
       const fn = requireMutation('addMarker');
       if (!fn) return false;
       return fn(markerType);
-    });
+    },
+      { incrementalLayout: true },
+    );
 
   const handleAddJump = (jumpType: number) =>
     performMutation('add playback jump', async () => {
@@ -14060,7 +14141,9 @@ ${partsBodyXml}
       const fn = requireMutation('addJump');
       if (!fn) return false;
       return fn(jumpType);
-    });
+    },
+      { incrementalLayout: true },
+    );
 
   const handleAddMeasureRepeat = (numMeasures: number) =>
     performMutation(
@@ -15966,29 +16049,27 @@ ${partsBodyXml}
         return;
       }
 
+      const perf = startPerf('drag step');
       const task = (async () => {
-        const began = await ensureLiveNoteDragStarted(pending.drag);
+        const began = await perf.time('dragBegin', () => ensureLiveNoteDragStarted(pending.drag));
         if (!began || noteDragFinishingRef.current) {
           return;
         }
         const targetY = pending.drag.startY + pending.steps * pending.drag.halfStep;
         // Y-only mode keeps the gesture in Note::verticalDrag pitch semantics.
-        await score.updateElementDrag!(
-          pending.drag.page,
-          pending.drag.startX,
-          targetY,
-          pending.modifiers,
-          2,
+        await perf.time('drag', () =>
+          score.updateElementDrag!(pending.drag.page, pending.drag.startX, targetY, pending.modifiers, 2),
         );
         noteDragRenderedStepsRef.current = pending.steps;
         // Render only the active page. Pointer tracking stays on window while
         // the SVG DOM is replaced, so the gesture remains uninterrupted.
-        await renderScore(score, pending.drag.page);
+        await renderScore(score, pending.drag.page, true, perf);
       })()
         .catch((err) => {
           console.warn('Live note drag update failed:', err);
         })
         .finally(() => {
+          perf.end();
           noteDragLiveInFlightRef.current = null;
           const latest = noteDragLiveUpdateRef.current;
           if (latest && !noteDragFinishingRef.current) {
@@ -18449,6 +18530,7 @@ ${partsBodyXml}
     onSetZoom: handleSetZoom,
     onDeleteSelection: handleDeleteOrBreak,
     onClearSelection: clearEditorSelection,
+    onRelayoutScore: () => performMutation('relayout score', async () => true, { skipWasmReselect: true }),
     onSelectAll: handleSelectAll,
     onUndo: handleUndo,
     onRedo: handleRedo,

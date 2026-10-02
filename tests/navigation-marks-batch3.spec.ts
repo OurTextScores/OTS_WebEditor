@@ -63,7 +63,6 @@ test('adds semantic double-segno navigation and expands the repeat playback list
   // "Serpent segno" (varsegno) now lives in the Markers palette rather than the dropdown.
   await runCommand(page, 'btn-open-markers-palette');
   await page.getByTestId('palette-item-marker-1').click();
-  await page.keyboard.press('Escape');
   await expect
     .poll(async () => /<Marker>[\s\S]*?<label>varsegno<\/label>/.test(await readMscx(page)), {
       timeout: 20_000,
@@ -74,7 +73,6 @@ test('adds semantic double-segno navigation and expands the repeat playback list
   // "Dal Segno Segno" (DSS) now lives in the Jumps palette.
   await runCommand(page, 'btn-open-jumps-palette');
   await page.getByTestId('palette-item-jump-8').click();
-  await page.keyboard.press('Escape');
   await expect
     .poll(
       async () => {

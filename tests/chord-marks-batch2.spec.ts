@@ -88,7 +88,6 @@ test('adds single-note and compatible two-note tremolos', async ({ page }) => {
   await page.keyboard.press('Control+a');
   await runCommand(page, 'btn-open-tremolo-palette');
   await page.getByTestId('palette-item-tremolo-7').click();
-  await page.keyboard.press('Escape');
   await expect
     .poll(async () => /<Tremolo>[\s\S]*?<subtype>c32<\/subtype>/.test(await readMscx(page)), {
       timeout: 20_000,

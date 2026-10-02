@@ -106,6 +106,57 @@ describe('ScoreEditor: toolbar mutations, note input and keyboard shortcuts', ()
     await waitFor(() => expect(testGlobals.URL.createObjectURL).toHaveBeenCalled());
   }, 15000);
 
+  // Layout oracle sweep (docs/private/VIRITURA_OTS_CROSS_POLLINATION.md §W7.1): an edit the
+  // oracle verified skips the ~1.4 s full relayout, and every other edit still runs it.
+  it('skips the full relayout only for edits whose incremental layout was verified', async () => {
+    const user = userEvent.setup();
+    const score = {
+      destroy: vi.fn(),
+      saveSvg: vi.fn(async () => '<svg><g class="Note"></g></svg>'),
+      setSoundFont: vi.fn(async () => {}),
+      metadata: vi.fn(async () => ({})),
+      measurePositions: vi.fn(async () => ({})),
+      segmentPositions: vi.fn(async () => ({})),
+      relayout: vi.fn(async () => true),
+      selectElementAtPoint: vi.fn(async () => true),
+      pitchUp: vi.fn(async () => true),
+      addDynamic: vi.fn(async () => true),
+      deleteSelection: vi.fn(async () => true),
+      setDurationType: vi.fn(async () => true),
+    };
+    mocked.loadWebMscore.mockResolvedValue({
+      ready: Promise.resolve(),
+      load: vi.fn(async () => score),
+    });
+    testGlobals.fetch = vi.fn(async () => ({
+      ok: false,
+      arrayBuffer: async () => new ArrayBuffer(0),
+    }));
+
+    render(<ScoreEditor />);
+    await user.upload(
+      screen.getByTestId('open-score-input'),
+      new File([new Uint8Array([1])], 'demo.mscz', { type: 'application/octet-stream' }),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy(),
+    );
+    fireEvent.click(screen.getByTestId('svg-container').querySelector('.Note')!);
+    await screen.findByTestId('selection-overlay');
+    score.relayout.mockClear();
+
+    await runEditorCommand('btn-pitch-up');
+    await waitFor(() => expect(score.pitchUp).toHaveBeenCalled());
+    await runEditorCommand('btn-dynamic-6');
+    await waitFor(() => expect(score.addDynamic).toHaveBeenCalled());
+    await waitFor(() => expect(score.saveSvg.mock.calls.length).toBeGreaterThan(2));
+    expect(score.relayout).not.toHaveBeenCalled();
+
+    await runEditorCommand('btn-duration-4');
+    await waitFor(() => expect(score.setDurationType).toHaveBeenCalled());
+    await waitFor(() => expect(score.relayout).toHaveBeenCalledTimes(1));
+  });
+
   it('adds tempo text at the start of the score without requiring a selection', async () => {
     const user = userEvent.setup();
 

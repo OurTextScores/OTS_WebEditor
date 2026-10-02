@@ -276,6 +276,8 @@ export const MENUS: readonly MenuDefinition[] = [
       item('tools.implode'),
       item('tools.regroup'),
       item('tools.resequence'),
+      separator,
+      item('tools.relayout'),
       submenu(
         'Measures',
         item('tools.measures.removeSelected'),

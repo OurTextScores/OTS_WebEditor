@@ -915,6 +915,9 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
     action('tools.explode', 'Explode', 'onExplodeSelection', needsRange, {
       testId: 'btn-explode-selection',
     }),
+    action('tools.relayout', 'Relayout Score', 'onRelayoutScore', mutable, {
+      keywords: ['layout', 'refresh', 'redraw', 'spacing'],
+    }),
     action('tools.implode', 'Implode', 'onImplodeSelection', needsRange, {
       testId: 'btn-implode-selection',
     }),

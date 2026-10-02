@@ -158,6 +158,8 @@ export interface EditorCommandProps {
   onToggleNoteInput?: () => void;
   /** Clears the selection (Escape, with nothing else to cancel). */
   onClearSelection?: () => void;
+  /** Runs a full-score layout and redraws: the way out of a stale layout. */
+  onRelayoutScore?: () => unknown;
   /** Enters or changes a note by letter (0 = C … 6 = B); `addToChord` stacks it on the current chord. */
   onAddPitchByStep?: (step: number, addToChord: boolean) => unknown;
   onEnterRest?: () => unknown;
