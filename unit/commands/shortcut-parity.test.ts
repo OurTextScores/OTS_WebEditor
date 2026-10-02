@@ -1,7 +1,13 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { BINDINGS, RESERVED_SHORTCUTS, parseKeys, slotOf } from '../../lib/commands/bindings';
+import {
+  BINDINGS,
+  BROWSER_OWNED_UNBOUND,
+  RESERVED_SHORTCUTS,
+  parseKeys,
+  slotOf,
+} from '../../lib/commands/bindings';
 
 /**
  * Desktop parity (docs/private/COMMAND_REGISTRY_DESIGN_2026-10-02.md §4.4): which of
@@ -61,6 +67,7 @@ const toGrammar = (seq: string) =>
     .replace(/\bPgDown\b/g, 'PageDown');
 
 const reservedSlots = new Set(RESERVED_SHORTCUTS.map((keys) => slotOf(parseKeys(keys))));
+const ownedSlots = new Set(BROWSER_OWNED_UNBOUND.map((keys) => slotOf(parseKeys(keys))));
 
 function classify(entry: Desktop): string {
   if (entry.action.startsWith('nav-') || entry.section.startsWith('NOTE special context'))
@@ -77,6 +84,8 @@ function classify(entry: Desktop): string {
   });
   if (slots.length > 0 && slots.every((slot) => reservedSlots.has(slot)))
     return 'browser-reserved: palette and menu only';
+  if (slots.length > 0 && slots.every((slot) => ownedSlots.has(slot)))
+    return 'browser-owned in some engines: left unbound, palette and menu only';
   return 'unbound';
 }
 

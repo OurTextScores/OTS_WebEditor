@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BINDINGS,
+  BROWSER_OWNED_UNBOUND,
   RESERVED_SHORTCUTS,
   comboMatches,
   contextsOverlap,
@@ -31,6 +32,20 @@ describe('the binding table', () => {
     expect(
       BINDINGS.filter((b) => reserved.has(slotOf(parseKeys(b.keys)))).map((b) => b.keys),
     ).toEqual([]);
+  });
+
+  it('leaves the browser-owned desktop defaults unbound', () => {
+    const owned = new Set(BROWSER_OWNED_UNBOUND.map((keys) => slotOf(parseKeys(keys))));
+    expect(BINDINGS.filter((b) => owned.has(slotOf(parseKeys(b.keys)))).map((b) => b.keys)).toEqual(
+      [],
+    );
+  });
+
+  it('keeps Ctrl+1..9 free: tab switching cannot be intercepted', () => {
+    const slots = new Set(BINDINGS.map((b) => slotOf(parseKeys(b.keys))));
+    for (let digit = 1; digit <= 9; digit += 1) {
+      expect(slots.has(slotOf(parseKeys(`Mod+${digit}`))), `Mod+${digit}`).toBe(false);
+    }
   });
 
   it('binds only commands that exist', () => {

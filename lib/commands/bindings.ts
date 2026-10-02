@@ -171,6 +171,25 @@ export const RESERVED_SHORTCUTS: readonly string[] = [
   'Ctrl+Tab',
   'Mod+PageUp',
   'Mod+PageDown',
+  // Ctrl/Cmd+1..9 switch tabs and cannot be intercepted (desktop uses Ctrl+2..9 for tuplets).
+  ...Array.from({ length: 9 }, (_, index) => `Mod+${index + 1}`),
+];
+
+/**
+ * Desktop defaults a browser or the OS acts on (focus the address bar, bookmark, reload, find
+ * next …). Some engines let a page capture them and some do not, and a page cannot tell which
+ * until a user loses a bookmark dialog. They stay unbound, palette and menu only, until each
+ * is verified in the browsers OTS supports.
+ */
+export const BROWSER_OWNED_UNBOUND: readonly string[] = [
+  'Mod+D',
+  'Mod+E',
+  'Mod+G',
+  'Mod+J',
+  'Mod+K',
+  'Mod+L',
+  'Mod+Q',
+  'Mod+R',
 ];
 
 /** Two bindings that one keypress could both reach. Empty means the table is sound. */
@@ -280,8 +299,38 @@ export const BINDINGS: readonly Binding[] = [
   key('Delete', 'edit.delete', 'edit', { desktop: 'action://delete' }),
   key('Backspace', 'edit.delete', 'edit', { desktop: 'action://delete' }),
 
+  // Articulations, hairpins and layout (desktop: add-staccato, add-hairpin, system-break, …).
+  key('Shift+S', 'add.mark.articulation', 'edit', {
+    arg: 'articStaccatoAbove',
+    desktop: 'add-staccato',
+  }),
+  key('Shift+N', 'add.mark.articulation', 'edit', {
+    arg: 'articTenutoAbove',
+    desktop: 'add-tenuto',
+  }),
+  key('Shift+O', 'add.mark.articulation', 'edit', {
+    arg: 'articMarcatoAbove',
+    desktop: 'add-marcato',
+  }),
+  key('Shift+,', 'add.line.hairpin', 'edit', { arg: 0, desktop: 'add-hairpin' }),
+  key('Shift+.', 'add.line.hairpin', 'edit', { arg: 1, desktop: 'add-hairpin-reverse' }),
+  ...[0, 1, 2, 3].map((voice) =>
+    key(`Mod+Alt+${voice + 1}`, 'tools.voice', 'edit', {
+      arg: voice,
+      desktop: `voice-${voice + 1}`,
+    }),
+  ),
+  key('Mod+B', 'add.measures', 'edit', {
+    arg: { count: 1, target: 'end' },
+    desktop: 'append-measure',
+  }),
+
   // ── Normal mode only ──────────────────────────────────────────────────────────────
   key('S', 'add.line.slur', 'normal', { desktop: 'add-slur' }),
+  key('W', 'edit.duration.longer', 'normal', { desktop: 'double-duration' }),
+  key('Q', 'edit.duration.shorter', 'normal', { desktop: 'half-duration' }),
+  key('Enter', 'format.break.line', 'normal', { desktop: 'system-break' }),
+  key('Mod+Enter', 'format.break.page', 'normal', { desktop: 'page-break' }),
   key('ArrowUp', 'edit.pitch.up', 'normal', { desktop: 'pitch-up' }),
   key('ArrowDown', 'edit.pitch.down', 'normal', { desktop: 'pitch-down' }),
   key('Mod+ArrowUp', 'edit.pitch.octaveUp', 'normal', { desktop: 'pitch-up-octave' }),
