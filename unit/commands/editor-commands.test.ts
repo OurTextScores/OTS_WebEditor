@@ -518,3 +518,45 @@ describe('completion', () => {
     await expect(run(props, 'add.line.slur')).rejects.toThrow('engine said no');
   });
 });
+
+describe('commands for what used to be key-only actions', () => {
+  it('enters a note by letter, optionally onto the chord', async () => {
+    const { props, handlers } = liveProps();
+    expect(await run(props, 'add.note.step', { step: 2, chord: false })).toBe('ran');
+    expect(handlers.onAddPitchByStep).toHaveBeenLastCalledWith(2, false);
+    await run(props, 'add.note.step', { step: 6, chord: true });
+    expect(handlers.onAddPitchByStep).toHaveBeenLastCalledWith(6, true);
+  });
+
+  it('enters a rest, from a selection or from note input', async () => {
+    const { props, handlers } = liveProps();
+    expect(await run(props, 'add.rest')).toBe('ran');
+    expect(handlers.onEnterRest).toHaveBeenCalledOnce();
+  });
+
+  it('needs something to act on', async () => {
+    const { props } = liveProps({ selectionActive: false, noteInputActive: false });
+    expect(await run(props, 'add.rest')).toBe('disabled');
+    expect(await run(props, 'add.note.step', { step: 0, chord: false })).toBe('disabled');
+    expect(await run(props, 'edit.select.nextChord')).toBe('disabled');
+  });
+
+  it('moves and extends the selection, but not while note input has the arrows', async () => {
+    const { props, handlers } = liveProps({ noteInputActive: false });
+    for (const [id, handler] of [
+      ['edit.select.nextChord', 'onSelectNextChord'],
+      ['edit.select.prevChord', 'onSelectPrevChord'],
+      ['edit.select.extendNextChord', 'onExtendSelectionNextChord'],
+      ['edit.select.extendPrevChord', 'onExtendSelectionPrevChord'],
+      ['edit.select.extendNextMeasure', 'onExtendSelectionNextMeasure'],
+      ['edit.select.extendPrevMeasure', 'onExtendSelectionPrevMeasure'],
+      ['edit.select.extendStaffAbove', 'onExtendSelectionStaffAbove'],
+      ['edit.select.extendStaffBelow', 'onExtendSelectionStaffBelow'],
+    ] as const) {
+      expect(await run(props, id), id).toBe('ran');
+      expect(handlers[handler], handler).toHaveBeenCalledOnce();
+    }
+    const input = liveProps({ noteInputActive: true });
+    expect(await run(input.props, 'edit.select.nextChord')).toBe('disabled');
+  });
+});

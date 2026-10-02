@@ -152,6 +152,17 @@ export interface EditorCommandProps {
   onAddGraceNote?: (graceType: number) => void;
   onAddTuplet?: (tupletCount: number) => void;
   onToggleNoteInput?: () => void;
+  /** Enters or changes a note by letter (0 = C … 6 = B); `addToChord` stacks it on the current chord. */
+  onAddPitchByStep?: (step: number, addToChord: boolean) => unknown;
+  onEnterRest?: () => unknown;
+  onSelectNextChord?: () => unknown;
+  onSelectPrevChord?: () => unknown;
+  onExtendSelectionNextChord?: () => unknown;
+  onExtendSelectionPrevChord?: () => unknown;
+  onExtendSelectionNextMeasure?: () => unknown;
+  onExtendSelectionPrevMeasure?: () => unknown;
+  onExtendSelectionStaffAbove?: () => unknown;
+  onExtendSelectionStaffBelow?: () => unknown;
   noteInputActive?: boolean;
   noteInputMethod?: number;
   onSetNoteInputMethod?: (method: number) => void;

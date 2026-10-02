@@ -370,6 +370,62 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
     action('edit.redo', 'Redo', 'onRedo', mutable, { testId: 'btn-redo' }),
     action('edit.delete', 'Delete', 'onDeleteSelection', needsSelection, { testId: 'btn-delete' }),
     action('edit.selectAll', 'Select All', 'onSelectAll', mutable, { testId: 'btn-select-all' }),
+    action(
+      'edit.select.nextChord',
+      'Select Next Chord',
+      'onSelectNextChord',
+      needsSelectionOutsideInput,
+      { keywords: ['selection', 'move'] },
+    ),
+    action(
+      'edit.select.prevChord',
+      'Select Previous Chord',
+      'onSelectPrevChord',
+      needsSelectionOutsideInput,
+      { keywords: ['selection', 'move'] },
+    ),
+    action(
+      'edit.select.extendNextChord',
+      'Extend Selection to Next Chord',
+      'onExtendSelectionNextChord',
+      needsSelectionOutsideInput,
+      { keywords: ['selection', 'move'] },
+    ),
+    action(
+      'edit.select.extendPrevChord',
+      'Extend Selection to Previous Chord',
+      'onExtendSelectionPrevChord',
+      needsSelectionOutsideInput,
+      { keywords: ['selection', 'move'] },
+    ),
+    action(
+      'edit.select.extendNextMeasure',
+      'Extend Selection to Next Measure',
+      'onExtendSelectionNextMeasure',
+      needsSelectionOutsideInput,
+      { keywords: ['selection', 'move'] },
+    ),
+    action(
+      'edit.select.extendPrevMeasure',
+      'Extend Selection to Previous Measure',
+      'onExtendSelectionPrevMeasure',
+      needsSelectionOutsideInput,
+      { keywords: ['selection', 'move'] },
+    ),
+    action(
+      'edit.select.extendStaffAbove',
+      'Extend Selection to Staff Above',
+      'onExtendSelectionStaffAbove',
+      needsSelectionOutsideInput,
+      { keywords: ['selection', 'move'] },
+    ),
+    action(
+      'edit.select.extendStaffBelow',
+      'Extend Selection to Staff Below',
+      'onExtendSelectionStaffBelow',
+      needsSelectionOutsideInput,
+      { keywords: ['selection', 'move'] },
+    ),
     defineFamily<number>({
       id: 'edit.selectionFilter',
       label: 'Selection Filter',
@@ -434,6 +490,20 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
     }),
 
     // ── Add: notes ──────────────────────────────────────────────────────────────────
+    defineFamily<{ step: number; chord: boolean }>({
+      id: 'add.note.step',
+      label: 'Note by Letter',
+      variants: ['C', 'D', 'E', 'F', 'G', 'A', 'B'].flatMap((letter, step) => [
+        { arg: { step, chord: false }, label: `Note ${letter}` },
+        { arg: { step, chord: true }, label: `Add ${letter} to chord` },
+      ]),
+      // In note input the cursor is the target; otherwise the selected note is respelled.
+      enabled: (ctx) => needsTarget(ctx) && has('onAddPitchByStep'),
+      run: async (_ctx, { step, chord }) => {
+        await p().onAddPitchByStep?.(step, chord);
+      },
+    }),
+    action('add.rest', 'Rest', 'onEnterRest', needsTarget, { keywords: ['enter rest', 'silence'] }),
     defineCommand({
       id: 'add.noteInput',
       label: 'Note Input',
