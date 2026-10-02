@@ -115,7 +115,7 @@ describe('routeKeydown', () => {
     expect(spies['edit.pitch.up']).toHaveBeenCalledOnce();
   });
 
-  it('ignores editing keys in a compare session, but not the shell keys', async () => {
+  it('leaves editing keys to the compare panes, but not the shell keys', async () => {
     const { registry, spies } = setup({ mode: 'compare' });
     expect(routeKeydown(keydown('5'), registry)).toBe(false);
     expect(routeKeydown(keydown('z', { ctrlKey: true }), registry)).toBe(false);

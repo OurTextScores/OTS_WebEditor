@@ -1,3 +1,10 @@
+import {
+  BINDINGS,
+  comboMatches,
+  eventToCombo,
+  parseKeys,
+  type KeyContext,
+} from '../../../lib/commands/bindings';
 import type { CompareScoreRole } from './compare-types';
 
 export type CompareKeyboardMutationMethod =
@@ -46,25 +53,109 @@ export type CompareKeyboardShortcutContext = {
   setHasSelection: (role: CompareScoreRole, selected: boolean) => void;
 };
 
-const durationTypeByKey: Record<string, number> = {
-  '1': 8,
-  '2': 7,
-  '3': 6,
-  '4': 5,
-  '5': 4,
-  '6': 3,
-  '7': 2,
-  '8': 1,
-};
+/**
+ * A compare pane edits a score that is not *the* score, so the main editor's commands cannot
+ * run on it. The keys are not a second table, though: the key -> command mapping is the
+ * binding table's (`lib/commands/bindings.ts`), the same one the keyboard router reads for the
+ * main score. What this file owns is the other half, command -> "which engine method on the
+ * pane's score", for the commands a pane supports.
+ *
+ * A key whose command has no adapter here is not handled in a pane (articulations, flips,
+ * and the rest of the main editor's keys), exactly as before.
+ */
+type Gate = 'always' | 'target' | 'selection';
 
-const noteStepByKey: Record<string, number> = {
-  c: 0,
-  d: 1,
-  e: 2,
-  f: 3,
-  g: 4,
-  a: 5,
-  b: 6,
+interface Adapter {
+  readonly gate: Gate;
+  readonly run: (context: CompareKeyboardShortcutContext, arg: unknown) => void;
+}
+
+const mutate =
+  (label: string, method: CompareKeyboardMutationMethod, args: unknown[] = [], skip = false) =>
+  (context: CompareKeyboardShortcutContext) =>
+    context.mutate(label, method, args, skip);
+
+const move = (method: CompareKeyboardMutationMethod): Adapter => ({
+  gate: 'selection',
+  run: mutate('move compare selection', method, [], true),
+});
+
+const ADAPTERS: Readonly<Record<string, Adapter>> = {
+  'edit.undo': { gate: 'always', run: mutate('undo', 'undo') },
+  'edit.redo': { gate: 'always', run: mutate('redo', 'redo') },
+  'edit.selectAll': {
+    gate: 'always',
+    run: (context) => {
+      context.mutate('select all', 'selectAll', [], true);
+      if (context.activeRole) context.setHasSelection(context.activeRole, true);
+    },
+  },
+  'edit.copy': { gate: 'always', run: (context) => context.copySelection() },
+  'edit.paste': { gate: 'always', run: (context) => context.pasteSelection() },
+  'add.noteInput': { gate: 'always', run: (context) => context.toggleNoteInput() },
+  'add.note.step': {
+    gate: 'target',
+    run: (context, arg) => {
+      const { step, chord } = arg as { step: number; chord: boolean };
+      context.mutate('add a pitch', 'addPitchByStep', [step, chord, false]);
+    },
+  },
+  'add.rest': { gate: 'target', run: mutate('enter a rest', 'enterRest') },
+  // In note input these set the state for the next note; otherwise they change the selection.
+  'edit.duration.set': {
+    gate: 'target',
+    run: (context, arg) =>
+      context.noteMode
+        ? context.updateInputState('setInputDurationType', [arg])
+        : context.mutate('set duration', 'setDurationType', [arg]),
+  },
+  'edit.duration.dot': {
+    gate: 'target',
+    run: (context) =>
+      context.noteMode
+        ? context.updateInputState('toggleInputDot')
+        : context.mutate('toggle dot', 'toggleDot'),
+  },
+  'add.accidental': {
+    gate: 'target',
+    run: (context, arg) =>
+      context.noteMode
+        ? context.updateInputState('setInputAccidentalType', [arg])
+        : context.mutate('set accidental', 'setAccidental', [arg]),
+  },
+  'add.line.tie': { gate: 'selection', run: mutate('add a tie', 'addTie') },
+  'add.line.slur': { gate: 'selection', run: mutate('add a slur', 'addSlur') },
+  'edit.pitch.up': { gate: 'selection', run: mutate('raise pitch', 'pitchUp') },
+  'edit.pitch.down': { gate: 'selection', run: mutate('lower pitch', 'pitchDown') },
+  'edit.pitch.octaveUp': {
+    gate: 'selection',
+    run: mutate('transpose an octave', 'transpose', [12]),
+  },
+  'edit.pitch.octaveDown': {
+    gate: 'selection',
+    run: mutate('transpose an octave', 'transpose', [-12]),
+  },
+  'edit.select.nextChord': move('selectNextChord'),
+  'edit.select.prevChord': move('selectPrevChord'),
+  'edit.select.extendNextChord': move('extendSelectionNextChord'),
+  'edit.select.extendPrevChord': move('extendSelectionPrevChord'),
+  'edit.select.extendNextMeasure': move('extendSelectionNextMeasure'),
+  'edit.select.extendPrevMeasure': move('extendSelectionPrevMeasure'),
+  'edit.select.extendStaffAbove': {
+    gate: 'selection',
+    run: mutate('extend selection up', 'extendSelectionStaffAbove', [], true),
+  },
+  'edit.select.extendStaffBelow': {
+    gate: 'selection',
+    run: mutate('extend selection down', 'extendSelectionStaffBelow', [], true),
+  },
+  'edit.delete': {
+    gate: 'selection',
+    run: (context) => {
+      context.mutate('delete selection', 'deleteSelection');
+      if (context.activeRole) context.setHasSelection(context.activeRole, false);
+    },
+  },
 };
 
 export function routeCompareKeyboardShortcut(
@@ -74,156 +165,33 @@ export function routeCompareKeyboardShortcut(
   if (!context.active || !context.activeRole) {
     return false;
   }
-  const rawKey = event.key;
-  const key = rawKey.toLowerCase();
-  const isMod = event.ctrlKey || event.metaKey;
-
-  if (isMod) {
-    if (key === 'z') {
-      event.preventDefault();
-      context.mutate(event.shiftKey ? 'redo' : 'undo', event.shiftKey ? 'redo' : 'undo');
-      return true;
-    }
-    if (key === 'y') {
-      event.preventDefault();
-      context.mutate('redo', 'redo');
-      return true;
-    }
-    if (key === 'a') {
-      event.preventDefault();
-      context.mutate('select all', 'selectAll', [], true);
-      context.setHasSelection(context.activeRole, true);
-      return true;
-    }
-    if (key === 'c') {
-      event.preventDefault();
-      context.copySelection();
-      return true;
-    }
-    if (key === 'v') {
-      event.preventDefault();
-      context.pasteSelection();
-      return true;
-    }
-  }
-
-  if (key === 'escape' && context.noteMode) {
+  // Escape leaves a pane's note input; anything else it would cancel belongs to the main editor.
+  if (event.key === 'Escape' && context.noteMode) {
     event.preventDefault();
     context.disableNoteInput();
     return true;
   }
-  if (!isMod && key === 'n' && !event.altKey && !event.shiftKey) {
-    event.preventDefault();
-    context.toggleNoteInput();
-    return true;
-  }
-  if (context.noteMode && rawKey in durationTypeByKey) {
-    event.preventDefault();
-    context.updateInputState('setInputDurationType', [durationTypeByKey[rawKey]]);
-    return true;
-  }
-  if (context.noteMode && rawKey === '.') {
-    event.preventDefault();
-    context.updateInputState('toggleInputDot');
-    return true;
-  }
-  if (context.noteMode && (rawKey === '+' || rawKey === '-' || rawKey === '=')) {
-    event.preventDefault();
-    context.updateInputState('setInputAccidentalType', [
-      rawKey === '+' ? 3 : rawKey === '-' ? 1 : 2,
-    ]);
-    return true;
-  }
-  if (context.noteMode && rawKey === '0') {
-    event.preventDefault();
-    context.mutate('enter a rest', 'enterRest');
-    return true;
-  }
-  if (context.noteMode && !isMod && !event.altKey && key in noteStepByKey) {
-    event.preventDefault();
-    context.mutate('add a pitch', 'addPitchByStep', [noteStepByKey[key], event.shiftKey, false]);
-    return true;
-  }
-  if (!context.hasSelection) {
-    return false;
-  }
-  if (rawKey in durationTypeByKey) {
-    event.preventDefault();
-    context.mutate('set duration', 'setDurationType', [durationTypeByKey[rawKey]]);
-    return true;
-  }
-  if (rawKey === '0') {
-    event.preventDefault();
-    context.mutate('enter a rest', 'enterRest');
-    return true;
-  }
-  if (rawKey === '.') {
-    event.preventDefault();
-    context.mutate('toggle dot', 'toggleDot');
-    return true;
-  }
-  if (rawKey === '+' || rawKey === '-' || rawKey === '=') {
-    event.preventDefault();
-    context.mutate('set accidental', 'setAccidental', [
-      rawKey === '+' ? 3 : rawKey === '-' ? 1 : 2,
-    ]);
-    return true;
-  }
-  if (rawKey === 'T') {
-    event.preventDefault();
-    context.mutate('add a tie', 'addTie');
-    return true;
-  }
-  if (!event.altKey && key === 's' && !event.shiftKey && !context.noteMode) {
-    event.preventDefault();
-    context.mutate('add a slur', 'addSlur');
-    return true;
-  }
-  if (!isMod && !event.altKey && key in noteStepByKey) {
-    event.preventDefault();
-    context.mutate('add a pitch', 'addPitchByStep', [noteStepByKey[key], event.shiftKey, false]);
-    return true;
-  }
-  if (key === 'arrowup' || key === 'arrowdown') {
-    event.preventDefault();
-    if (event.shiftKey) {
-      context.mutate(
-        `extend selection ${key === 'arrowup' ? 'up' : 'down'}`,
-        key === 'arrowup' ? 'extendSelectionStaffAbove' : 'extendSelectionStaffBelow',
-        [],
-        true,
-      );
-    } else if (isMod) {
-      context.mutate('transpose an octave', 'transpose', [key === 'arrowup' ? 12 : -12]);
-    } else {
-      context.mutate(
-        key === 'arrowup' ? 'raise pitch' : 'lower pitch',
-        key === 'arrowup' ? 'pitchUp' : 'pitchDown',
-      );
+
+  const pressed = eventToCombo(event);
+  const active: KeyContext[] = [context.noteMode ? 'noteInput' : 'normal', 'edit'];
+  for (const binding of BINDINGS) {
+    if (!active.includes(binding.context) || !comboMatches(parseKeys(binding.keys), pressed)) {
+      continue;
     }
-    return true;
-  }
-  if (key === 'arrowleft' || key === 'arrowright') {
+    // Keys the main editor keeps from the page in note input (the up/down arrows).
+    if (binding.swallow) {
+      event.preventDefault();
+      return true;
+    }
+    const adapter = binding.commandId ? ADAPTERS[binding.commandId] : undefined;
+    if (!adapter) continue;
+    const allowed =
+      adapter.gate === 'always' ||
+      (adapter.gate === 'target' && (context.noteMode || context.hasSelection)) ||
+      (adapter.gate === 'selection' && context.hasSelection);
+    if (!allowed) continue;
     event.preventDefault();
-    const forward = key === 'arrowright';
-    const methodName = event.shiftKey
-      ? isMod
-        ? forward
-          ? 'extendSelectionNextMeasure'
-          : 'extendSelectionPrevMeasure'
-        : forward
-          ? 'extendSelectionNextChord'
-          : 'extendSelectionPrevChord'
-      : forward
-        ? 'selectNextChord'
-        : 'selectPrevChord';
-    context.mutate('move compare selection', methodName, [], true);
-    return true;
-  }
-  if (key === 'delete' || key === 'backspace') {
-    event.preventDefault();
-    context.mutate('delete selection', 'deleteSelection');
-    context.setHasSelection(context.activeRole, false);
+    adapter.run(context, binding.arg);
     return true;
   }
   return false;

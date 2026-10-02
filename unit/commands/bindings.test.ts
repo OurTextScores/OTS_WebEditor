@@ -98,7 +98,7 @@ describe('conflict detection', () => {
 
   it('allows the same key in contexts that never coexist', () => {
     expect(findConflicts([b('S', 'normal'), b('S', 'noteInput')])).toEqual([]);
-    expect(findConflicts([b('S', 'edit'), b('S', 'compare')])).toEqual([]);
+    expect(findConflicts([b('S', 'normal'), b('S', 'noteInput'), b('S', 'edit')])).toHaveLength(2);
   });
 
   it('treats a modifier as part of the key', () => {
@@ -108,8 +108,7 @@ describe('conflict detection', () => {
   it('has the overlap rule it describes', () => {
     expect(contextsOverlap('edit', 'normal')).toBe(true);
     expect(contextsOverlap('normal', 'noteInput')).toBe(false);
-    expect(contextsOverlap('compare', 'edit')).toBe(false);
-    expect(contextsOverlap('global', 'compare')).toBe(true);
+    expect(contextsOverlap('global', 'noteInput')).toBe(true);
   });
 });
 

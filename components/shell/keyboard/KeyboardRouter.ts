@@ -43,7 +43,8 @@ const overlayOpen = (): boolean =>
 
 /** Contexts to try, most specific first, for the editor's current state. */
 export function activeContexts(mode: string, noteInput: boolean): KeyContext[] {
-  if (mode === 'compare') return ['compare', 'global'];
+  // A compare pane's editing keys are the compare policy's (see compare-keyboard-policy.ts).
+  if (mode === 'compare') return ['global'];
   return [noteInput ? 'noteInput' : 'normal', 'edit', 'global'];
 }
 

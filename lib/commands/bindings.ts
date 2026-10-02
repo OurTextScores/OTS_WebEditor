@@ -19,10 +19,13 @@ import type { CommandId } from './types';
  * Where a binding is live. The router activates, most specific first:
  * - `noteInput` / `normal`: the main score, with or without note input on;
  * - `edit`: both of those (editing keys that mean the same either way);
- * - `compare`: a compare session (own bindings arrive with W2.5);
- * - `global`: everywhere the shell is, including compare.
+ * - `global`: everywhere the shell is, including a compare session.
+ *
+ * A compare session has no context of its own: its panes use the editing contexts, with their
+ * commands run against the pane's score (`compare-keyboard-policy.ts`), so there is one key
+ * table.
  */
-export type KeyContext = 'global' | 'edit' | 'normal' | 'noteInput' | 'compare';
+export type KeyContext = 'global' | 'edit' | 'normal' | 'noteInput';
 
 export interface Binding {
   readonly keys: string;

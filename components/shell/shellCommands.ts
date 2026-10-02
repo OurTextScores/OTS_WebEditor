@@ -38,7 +38,8 @@ export function buildShellOwnCommands(): AnyCommand[] {
       id: 'shell.escape',
       label: 'Cancel',
       visible: () => false,
-      enabled: (ctx) => hasEscapeLayer() || ctx.selection !== 'none',
+      // In a compare session Escape belongs to the pane (it leaves the pane's note input).
+      enabled: (ctx) => hasEscapeLayer() || (ctx.mode !== 'compare' && ctx.selection !== 'none'),
       run: async () => {
         if (closeTopEscapeLayer()) return;
         await defaultCommandRegistry.run('edit.deselect');
