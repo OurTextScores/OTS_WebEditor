@@ -37,21 +37,17 @@ function useCompact(): boolean {
 
 /**
  * The header (SHELL_REDESIGN_DESIGN §4.1): score title with a dot when it has changed since
- * the last checkpoint, the complete menu bar, and the palette button. Also mounts what the
+ * the last checkpoint, the complete menu bar, the transport, and the palette button. Also mounts what the
  * menus and palette open: the palette, argument forms and the shortcuts list.
  *
- * Transport joins the header in Phase 2.
  */
 export function ShellHeader({
   title,
   dirty,
-  v2 = false,
   registry = defaultCommandRegistry,
 }: {
   title: string;
   dirty: boolean;
-  /** The v2 shell: transport joins the header and the hidden file inputs live here. */
-  v2?: boolean;
   registry?: CommandRegistry;
 }) {
   const ownCommands = useMemo(() => buildShellOwnCommands(), []);
@@ -63,14 +59,13 @@ export function ShellHeader({
 
   // The inputs a spec drives with setInputFiles and File ▸ Open drives with click().
   useEffect(() => {
-    if (!v2) return;
     const removeScore = registerFilePicker('score', () => scoreInput.current?.click());
     const removeFont = registerFilePicker('soundfont', () => soundFontInput.current?.click());
     return () => {
       removeScore();
       removeFont();
     };
-  }, [v2]);
+  }, []);
 
   const onPicked = (id: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -102,27 +97,23 @@ export function ShellHeader({
           )}
         </div>
         <MenuBar registry={registry} compact={compact} />
-        {v2 && (
-          <>
-            <Transport registry={registry} />
-            <input
-              ref={scoreInput}
-              data-testid="open-score-input"
-              type="file"
-              accept=".mscz,.mscx,.mxl,.xml,.musicxml"
-              className="hidden"
-              onChange={onPicked('file.open')}
-            />
-            <input
-              ref={soundFontInput}
-              data-testid="soundfont-input"
-              type="file"
-              accept=".sf2,.sf3"
-              className="hidden"
-              onChange={onPicked('playback.soundfont')}
-            />
-          </>
-        )}
+        <Transport registry={registry} />
+        <input
+          ref={scoreInput}
+          data-testid="open-score-input"
+          type="file"
+          accept=".mscz,.mscx,.mxl,.xml,.musicxml"
+          className="hidden"
+          onChange={onPicked('file.open')}
+        />
+        <input
+          ref={soundFontInput}
+          data-testid="soundfont-input"
+          type="file"
+          accept=".sf2,.sf3"
+          className="hidden"
+          onChange={onPicked('playback.soundfont')}
+        />
         <div className="ml-auto flex items-center">
           <button
             type="button"

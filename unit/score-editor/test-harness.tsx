@@ -1,4 +1,8 @@
-import { afterEach, beforeAll, beforeEach, vi, type Mock } from 'vitest';
+import { act, waitFor } from '@testing-library/react';
+import { afterEach, beforeAll, beforeEach, expect, vi, type Mock } from 'vitest';
+import { clearNotices, getNoticeSnapshot } from '../../components/shell/notices';
+import { defaultCommandRegistry } from '../../lib/commands';
+import { resolveCommandReference } from '../../tests/helpers/commands';
 
 /**
  * Shared setup for the ScoreEditor component suites.
@@ -25,6 +29,24 @@ export type ScoreEditorTestGlobals = {
 };
 
 export const testGlobals = globalThis as unknown as ScoreEditorTestGlobals;
+
+/**
+ * Runs an editor command the way a menu or toolbar would, once the editor has made it
+ * available. Takes a command id or a legacy ribbon test id (`btn-pitch-up`), like the
+ * Playwright helper, so these suites read the same as the specs.
+ */
+export async function runEditorCommand(idOrLegacyTestId: string, args?: unknown) {
+  const { commandId, args: resolved } = resolveCommandReference(idOrLegacyTestId, args);
+  // The ribbon waited implicitly: a disabled button could not be clicked. A command runs the
+  // instant it is asked, so wait for the editor to enable it first.
+  await waitFor(() => expect(defaultCommandRegistry.isEnabled(commandId)).toBe(true));
+  await act(async () => {
+    await defaultCommandRegistry.run(commandId, resolved);
+  });
+}
+
+/** What the user was told: the title of each notice, oldest first (replaces `alert` spies). */
+export const noticeTitles = () => getNoticeSnapshot().notices.map((notice) => notice.title);
 
 /** Typed against how the harness uses them, not against `any`. */
 export type EditorLoaderMocks = {
@@ -103,6 +125,7 @@ export function setupScoreEditorTest(
       .spyOn(Element.prototype, 'getBoundingClientRect')
       .mockReturnValue(boundingRect);
     testGlobals.alert = vi.fn();
+    clearNotices();
   });
 
   afterEach(() => {

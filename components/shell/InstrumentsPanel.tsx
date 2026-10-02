@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { defaultCommandRegistry, type CommandRegistry } from '../../lib/commands/registry';
 import { useCommandContext } from '../../lib/commands/useRegisterCommands';
-import type { InstrumentTemplateGroup, PartSummary } from '../Toolbar';
+import type { InstrumentTemplateGroup, PartSummary } from '../score-editor/editorProps';
 import { flattenInstrumentGroups, pickCommonInstruments } from '../toolbar/instrumentChoices';
 import { Button } from '../ui/Button';
 import {

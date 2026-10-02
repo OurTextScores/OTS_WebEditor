@@ -5,6 +5,8 @@ export {
   getNoticeSnapshot,
   markAllNoticesRead,
   notify,
+  notifyError,
+  notifyWarning,
   subscribeToNotices,
   type Notice,
   type NoticeAction,

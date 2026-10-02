@@ -1,28 +1,39 @@
-import {
-  HeaderTextTarget,
-  HeaderEditorPoint,
-  MeasureInsertTarget,
-  PartSummary,
-  InstrumentTemplateGroup,
-} from '../Toolbar';
+/**
+ * What the editor hands the command layer: every handler and flag an editor command may need.
+ * `useEditorCommands` turns this into registered commands; menus, toolbars, the palette and
+ * the specs' `runCommand` all reach the editor through them, never through these props.
+ */
 
-export type ToolbarSectionId =
-  | 'file'
-  | 'view'
-  | 'playback'
-  | 'tempo'
-  | 'measures'
-  | 'signatures'
-  | 'score'
-  | 'notes'
-  | 'expression'
-  | 'edit'
-  | 'layout'
-  | 'pitch'
-  | 'duration'
-  | 'help';
+export type MeasureInsertTarget = 'beginning' | 'after-selection' | 'end';
+export type HeaderTextTarget = 'title' | 'subtitle' | 'composer' | 'lyricist';
+export type HeaderEditorPoint = { clientX: number; clientY: number };
 
-export interface ToolbarSectionProps {
+export interface InstrumentTemplate {
+  id: string;
+  name: string;
+  groupId?: string;
+  groupName?: string;
+  familyId?: string;
+  familyName?: string;
+  staffCount?: number;
+  isExtended?: boolean;
+}
+
+export interface InstrumentTemplateGroup {
+  id: string;
+  name: string;
+  instruments: InstrumentTemplate[];
+}
+
+export interface PartSummary {
+  index: number;
+  name: string;
+  instrumentName: string;
+  instrumentId: string;
+  isVisible: boolean;
+}
+
+export interface EditorCommandProps {
   onNewScore?: () => void;
   onFileUpload: (file: File) => void;
   onLoadScoresToCompare?: () => void;
@@ -57,7 +68,6 @@ export interface ToolbarSectionProps {
   onSelectAll?: () => void;
   onSetAccidental?: (accidentalType: number) => void;
   mutationsEnabled?: boolean;
-  paletteDropEnabled?: boolean;
   selectionActive?: boolean;
   onExportSvg?: () => void;
   onExportPdf?: () => void;
@@ -170,8 +180,6 @@ export interface ToolbarSectionProps {
   onRemoveContainingMeasures?: () => void;
   onRemoveTrailingEmptyMeasures?: () => void;
   insertMeasuresDisabled?: boolean;
-  /** The v2 shell lists instruments in the left dock, so the ribbon omits its Instruments menu. */
-  instrumentsInDock?: boolean;
   parts?: PartSummary[];
   instrumentGroups?: InstrumentTemplateGroup[];
   onAddPart?: (instrumentId: string) => void;

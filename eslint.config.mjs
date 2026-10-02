@@ -16,9 +16,9 @@ const eslintConfig = defineConfig([
   ]),
   {
     // SHELL_REDESIGN_DESIGN §8.6: feedback goes through the notice service, and
-    // confirm()/prompt() become confirmDialog()/promptDialog(). Warn while the remaining
-    // call sites migrate; Phase 5 raises this to 'error'.
-    rules: { 'no-alert': 'warn' },
+    // confirm()/prompt() become confirmDialog()/promptDialog(). Every call site has migrated
+    // (Phase 5), so this is an error.
+    rules: { 'no-alert': 'error' },
   },
 ]);
 

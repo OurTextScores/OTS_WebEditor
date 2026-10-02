@@ -19,7 +19,7 @@ import { getShellUiState, subscribeToShellUi } from './shellStore';
 
 // `relative` matters: Radix copies the content's computed z-index onto its positioning wrapper,
 // and a browser reports `auto` for z-index on an element that is not positioned, which would
-// leave the menu underneath the ribbon.
+// leave the menu underneath the toolbar.
 const contentClass =
   'relative z-[400] min-w-[14rem] max-h-[var(--radix-menubar-content-available-height)] overflow-y-auto rounded border border-slate-200 bg-white p-1 text-xs text-slate-800 shadow-lg';
 const itemClass =

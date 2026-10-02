@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
@@ -8,35 +8,43 @@ import {
 } from '../../components/shell/ribbonMigration';
 import { isCommandFamily, type AnyCommand, type CommandFamily } from '../../lib/commands/types';
 import { allEditorCommands } from '../helpers/all-commands';
+import {
+  LEGACY_RIBBON_EXACT_TEST_IDS,
+  LEGACY_RIBBON_TEST_ID_PREFIXES,
+} from './legacy-ribbon-test-ids';
 
 /** The last rollout phase (§10) that has shipped; entries up to it must be live. */
-const SHIPPED_PHASE = 4;
+const SHIPPED_PHASE = 5;
 
 /**
  * P7: nothing disappears silently. Every `data-testid` the legacy ribbon renders has a
  * manifest entry naming its new home, and every command a manifest entry names exists.
  *
- * While the ribbon exists the ids are read from its source, so adding a control without an
- * entry fails here. After Phase 5 deletes the sections this reads `LEGACY_RIBBON_TEST_IDS`
- * instead -- a frozen copy of what the scan finds today.
+ * The ribbon is gone (Phase 5), so the ids come from `LEGACY_RIBBON_*_TEST_IDS`: a frozen copy
+ * of what scanning its sections found the commit before they were deleted.
  */
 
 const REPO = resolve(__dirname, '../..');
-const SECTIONS_DIR = resolve(REPO, 'components/toolbar/sections');
 
 /**
  * Chrome test ids outside the ribbon that SHELL_REDESIGN_DESIGN §2.3, §8.3 and §9 move,
  * keep, or remove. `source` is where each lives today, so a stale entry fails too.
  */
-const CHROME_TEST_IDS: readonly { id: string; prefix?: boolean; source: string }[] = [
+const CHROME_TEST_IDS: readonly {
+  id: string;
+  prefix?: boolean;
+  source: string;
+  /** Deleted with the collapsed-panel strip; the manifest records where each went. */
+  removed?: boolean;
+}[] = [
+  { id: 'collapsed-panel-strip', source: '', removed: true },
+  { id: 'expand-panel-', prefix: true, source: '', removed: true },
   { id: 'page-select', source: 'components/shell/StatusBar.tsx' },
   { id: 'page-indicator', source: 'components/shell/StatusBar.tsx' },
   { id: 'interaction-preparing-banner', source: 'components/shell/StatusBar.tsx' },
-  { id: 'collapsed-panel-strip', source: 'components/score-editor/LegacySidePanels.tsx' },
-  { id: 'expand-panel-', prefix: true, source: 'components/score-editor/LegacySidePanels.tsx' },
-  { id: 'btn-xml-toggle', source: 'components/score-editor/LegacySidePanels.tsx' },
-  { id: 'sidebar-resize-handle', source: 'components/score-editor/LegacySidePanels.tsx' },
-  { id: 'xml-sidebar', source: 'components/score-editor/LegacySidePanels.tsx' },
+  { id: 'btn-xml-toggle', source: 'components/shell/RightPanels.tsx' },
+  { id: 'sidebar-resize-handle', source: 'components/shell/RightPanels.tsx' },
+  { id: 'xml-sidebar', source: 'components/shell/RightPanels.tsx' },
   { id: 'checkpoint-sidebar', source: 'components/score-editor/LeftSidebar.tsx' },
   { id: 'input-checkpoint-label', source: 'components/score-editor/LeftSidebar.tsx' },
   { id: 'checkpoint-compare-modal', source: 'components/ScoreEditor.tsx' },
@@ -49,7 +57,7 @@ const CHROME_TEST_IDS: readonly { id: string; prefix?: boolean; source: string }
     'tab-harmony',
     'tab-functional-harmony',
     'tab-mma',
-  ].map((id) => ({ id, source: 'components/score-editor/ai-tools/AiToolsTabStrip.tsx' })),
+  ].map((id) => ({ id, source: 'components/score-editor/shellCommands.ts' })),
   ...['tab-versions', 'tab-checkpoints', 'tab-scores'].map((id) => ({
     id,
     source: 'components/score-editor/LeftSidebar.tsx',
@@ -61,28 +69,11 @@ interface LegacyIds {
   prefixes: Set<string>;
 }
 
-function scanRibbonSource(): LegacyIds {
-  const exact = new Set<string>();
-  const prefixes = new Set<string>();
-  const files = [
-    ...readdirSync(SECTIONS_DIR)
-      .filter((name) => name.endsWith('.tsx'))
-      .map((name) => resolve(SECTIONS_DIR, name)),
-    resolve(REPO, 'components/toolbar/constants.ts'),
-    resolve(REPO, 'components/toolbar/PaletteLink.tsx'),
-  ];
-  for (const file of files) {
-    const source = readFileSync(file, 'utf8');
-    // data-testid="literal" and testId="literal" / testId: 'literal'
-    for (const match of source.matchAll(/(?:data-testid|testId)(?:=|:\s*)["']([^"']+)["']/g)) {
-      exact.add(match[1]);
-    }
-    // data-testid={`prefix-${...}`}: the literal part before the first interpolation.
-    for (const match of source.matchAll(/data-testid=\{`([^`$]*)\$\{/g)) {
-      prefixes.add(match[1]);
-    }
-  }
-  return { exact, prefixes };
+function legacyRibbonIds(): LegacyIds {
+  return {
+    exact: new Set(LEGACY_RIBBON_EXACT_TEST_IDS),
+    prefixes: new Set(LEGACY_RIBBON_TEST_ID_PREFIXES),
+  };
 }
 
 const covered = (id: string, prefix: boolean): boolean =>
@@ -97,7 +88,7 @@ function editorCommandEntries(): AnyCommand[] {
 }
 
 describe('ribbon migration manifest', () => {
-  const legacy = scanRibbonSource();
+  const legacy = legacyRibbonIds();
 
   it('finds the ribbon test ids it is meant to audit', () => {
     // A scan that silently matched nothing would make every assertion below vacuous.
@@ -124,7 +115,7 @@ describe('ribbon migration manifest', () => {
   });
 
   it('lists chrome test ids that still exist in the source', () => {
-    const stale = CHROME_TEST_IDS.filter((chrome) => {
+    const stale = CHROME_TEST_IDS.filter((chrome) => !chrome.removed).filter((chrome) => {
       const source = readFileSync(resolve(REPO, chrome.source), 'utf8');
       return !source.includes(chrome.id);
     });

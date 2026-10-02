@@ -2,13 +2,13 @@
 
 import React from 'react';
 import { AI_TOOLS } from '../score-editor/shellCommands';
-import type { AiToolsTab } from '../score-editor/ai-tools/AiToolsTabStrip';
+import type { AiToolsTab } from '../score-editor/ai-tools/aiToolsTab';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/Select';
 
 /**
  * The AI Tools panel's tool picker (SHELL_REDESIGN_DESIGN §8.3): one select over the seven
- * tools in place of the legacy tab strip. Tools that need the AI proxy are left out while it
- * is off, as the tab strip hid them. Options keep the legacy tab test ids.
+ * tools. Tools that need the AI proxy are left out while it is off. Options keep the test
+ * ids the old tab strip's tabs had (`tab-ai`, `tab-notagen`, ...).
  */
 export function AiToolPicker({
   value,

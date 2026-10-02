@@ -5,7 +5,7 @@ import { notify } from '../shell/notices';
 import type { WorkspaceDock } from '../shell/useWorkspaceDock';
 import type { OtsActivity } from '../shell/workspaceMode';
 import { runCommand } from '../../lib/commands/registry';
-import type { AiToolsTab } from './ai-tools/AiToolsTabStrip';
+import type { AiToolsTab } from './ai-tools/aiToolsTab';
 
 /**
  * What the shell's commands need from `ScoreEditor`: the panel and page state it owns and
@@ -20,7 +20,7 @@ export interface ShellEditorBindings {
   readonly goToPage: (page: number) => Promise<void>;
   readonly goToNextPage: () => void;
   readonly goToPreviousPage: () => void;
-  /** The v2 shell's left dock; null under `?shell=legacy`, where the old sidebars are in charge. */
+  /** The left dock; null on host surfaces, which have no chrome. */
   readonly dock: WorkspaceDock | null;
   /** The user-selected activity, and whether a compare session is open (it takes over). */
   readonly activity: OtsActivity;
@@ -37,12 +37,11 @@ export interface ShellEditorBindings {
   /** Panels can all be hidden at once; opening one has to bring them back. */
   readonly setPanelsVisible: (visible: boolean) => void;
   /** Left sidebar (History): the checkpoint list the status bar's checkpoint dot opens. */
-  readonly setCheckpointsCollapsed: (collapsed: boolean) => void;
-  readonly setLeftSidebarTab: (tab: 'checkpoints') => void;
   /** View state the status bar and header transport show; see `ShellView`. */
   readonly zoom: number;
   readonly isPlaying: boolean;
   readonly isPaused: boolean;
+  readonly audioBusy: boolean;
   readonly interactionPreparing: boolean;
   readonly dirty: boolean;
   readonly checkpointCount: number;
@@ -227,16 +226,10 @@ export function buildShellEditorCommands(getBindings: GetBindings): AnyCommand[]
       id: 'view.panel.history',
       label: 'History',
       keywords: ['checkpoints', 'versions', 'panel'],
+      enabled: () => b().dock !== null,
       run: () => {
-        // The v2 shell has a History activity; the legacy one has the sidebar.
-        if (b().dock) {
-          b().closeCompare();
-          b().setActivity('history');
-          return;
-        }
-        b().setPanelsVisible(true);
-        b().setLeftSidebarTab('checkpoints');
-        b().setCheckpointsCollapsed(false);
+        b().closeCompare();
+        b().setActivity('history');
       },
     }),
     ...(
@@ -320,7 +313,8 @@ export function buildShellEditorCommands(getBindings: GetBindings): AnyCommand[]
       id: 'view.goto.nextPage',
       label: 'Next Page',
       keywords: ['go to'],
-      enabled: (ctx) => ctx.hasScore && b().pageCount > 1,
+      // A progressively laid out score knows only the pages so far: "1+" can still go forward.
+      enabled: (ctx) => ctx.hasScore && (b().pageCount > 1 || b().pageCountIsFloor),
       run: () => b().goToNextPage(),
     }),
     defineCommand({

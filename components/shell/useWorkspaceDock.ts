@@ -33,7 +33,7 @@ export function readDockState(): DockState {
 }
 
 export interface DockOptions {
-  /** The v2 shell. Without it nothing here applies and the legacy sidebars stay in charge. */
+  /** Full-chrome modes only: host surfaces have no dock. */
   enabled: boolean;
   /** In compare, palettes stay a floating overlay: the dock is a Write-mode panel. */
   compareView: boolean;

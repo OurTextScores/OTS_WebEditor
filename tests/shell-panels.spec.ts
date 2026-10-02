@@ -1,5 +1,5 @@
 import { expect, test, type Page } from 'playwright/test';
-import { runCommand } from './helpers/commands';
+import { runCommand, waitForCommandEnabled } from './helpers/commands';
 
 /**
  * The Phase 3 panels (SHELL_REDESIGN_DESIGN §8.3): the left dock (Palettes, Instruments,
@@ -118,7 +118,7 @@ test.describe('palettes: dock and pop-out', () => {
   for (const form of ['docked', 'floating'] as const) {
     test(`dragging a palette item onto the score applies it (${form})`, async ({ page }) => {
       await load(page, SINGLE_NOTE);
-      await expect(page.getByTestId('dropdown-markings')).toBeEnabled({ timeout: 20_000 });
+      await waitForCommandEnabled(page, 'edit.undo');
       if (form === 'floating') {
         await page.getByTestId('btn-palettes-pop-out').click();
         await expect(page.getByTestId('floating-palettes')).toBeVisible();
@@ -308,18 +308,4 @@ test.describe('canvas insets', () => {
       });
     }
   }
-});
-
-test.describe('legacy shell', () => {
-  test('?shell=legacy keeps the old sidebars, the panel strip and the ribbon Instruments menu', async ({
-    page,
-  }) => {
-    await page.goto('/?shell=legacy&score=/test_scores/three_notes_cde.musicxml');
-    await page.waitForSelector('svg .Note', { timeout: 90_000 });
-    await expect(page.getByTestId('left-dock')).toHaveCount(0);
-    await expect(page.getByTestId('collapsed-panel-strip')).toBeVisible();
-    await expect(page.getByTestId('dropdown-instruments')).toBeVisible();
-    await page.getByTestId('expand-panel-inspector').click();
-    await expect(page.getByTestId('inspector-panel')).toBeVisible();
-  });
 });

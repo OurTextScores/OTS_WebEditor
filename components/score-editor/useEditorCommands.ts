@@ -1,20 +1,17 @@
 import { useLayoutEffect, useMemo } from 'react';
 import { useProvideCommandContext, useRegisterCommands } from '../../lib/commands';
 import { useLatestCallbackFacade } from '../../lib/use-latest-callback-facade';
-import type { ToolbarSectionProps } from '../toolbar/types';
+import type { EditorCommandProps } from './editorProps';
 import { buildEditorCommands, deriveRibbonCommandContext } from './editorCommands';
 
 /**
- * Registers every ribbon action as a command and supplies the context they evaluate
+ * Registers every editor action as a command and supplies the context they evaluate
  * against. The command list is built once; each command reads the latest props through a
  * stable facade when it runs, so handlers that change identity every render need no
  * re-registration.
- *
- * Phase 0 calls this from `Toolbar`, which already receives every handler. Phase 1 moves
- * the call to `ScoreEditor` and the ribbon starts reading the registry instead.
  */
-export function useEditorCommands(props: ToolbarSectionProps): void {
-  const [getProps, propsRef] = useLatestCallbackFacade<() => ToolbarSectionProps>(() => props);
+export function useEditorCommands(props: EditorCommandProps): void {
+  const [getProps, propsRef] = useLatestCallbackFacade<() => EditorCommandProps>(() => props);
   useLayoutEffect(() => {
     propsRef.current = () => props;
   });

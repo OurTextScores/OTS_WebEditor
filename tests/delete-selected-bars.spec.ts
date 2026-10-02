@@ -1,5 +1,6 @@
 import { expect, test } from 'playwright/test';
 import type { BrowserScoreWindow } from './browser-score-types';
+import { runCommand, waitForCommandEnabled } from './helpers/commands';
 
 /**
  * Regression: "Delete Selected Bars" was wired in dd15d189 and silently lost one day
@@ -33,10 +34,19 @@ test('selecting a bar enables Delete Selected Bars and removes that bar', async 
     .poll(async () => await readPitches(page), { timeout: 20_000 })
     .toEqual(['F4', 'A4', 'C5', 'E5']);
 
-  const deleteBars = page.getByTestId('btn-remove-containing-measures');
-
   // With nothing selected the action has nothing to act on.
-  await expect(deleteBars).toBeDisabled();
+  const isEnabled = () =>
+    page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            __otsCommands: { list(): { id: string; enabled: boolean }[] };
+          }
+        ).__otsCommands
+          .list()
+          .find((c) => c.id === 'tools.measures.removeSelected')?.enabled,
+    );
+  expect(await isEnabled()).toBe(false);
 
   // Click empty space inside bar 2 -- to the right of its note, before bar 3's note.
   const notes = page.locator('svg .Note');
@@ -53,9 +63,9 @@ test('selecting a bar enables Delete Selected Bars and removes that bar', async 
 
   // Selecting a bar must make the action reachable. This is the assertion that
   // fails when the handler is not wired through.
-  await expect(deleteBars).toBeEnabled({ timeout: 10_000 });
+  await waitForCommandEnabled(page, 'btn-remove-containing-measures', { timeout: 10_000 });
 
-  await deleteBars.click();
+  await runCommand(page, 'btn-remove-containing-measures');
 
   // Bar 2 (A4) is gone; the others survive in order.
   await expect

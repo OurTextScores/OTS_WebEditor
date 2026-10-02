@@ -28,12 +28,12 @@ describe('menu tree', () => {
    * Commands deliberately not in a menu, each with the reason.
    */
   const NOT_IN_MENUS: Record<string, string> = {
-    'playback.playPause': 'header transport arrives in Phase 2',
-    'playback.stop': 'header transport arrives in Phase 2',
-    'playback.playFromSelection': 'header transport arrives in Phase 2',
-    'instruments.add': 'the Instruments panel arrives in Phase 3',
-    'instruments.part.toggleVisible': 'the Instruments panel arrives in Phase 3',
-    'instruments.part.remove': 'the Instruments panel arrives in Phase 3',
+    'playback.playPause': 'header transport',
+    'playback.stop': 'header transport',
+    'playback.playFromSelection': 'header transport',
+    'instruments.add': 'the Instruments panel',
+    'instruments.part.toggleVisible': 'the Instruments panel',
+    'instruments.part.remove': 'the Instruments panel',
     'view.goto.page': 'reached through the palette (p3) and the Go to prompt',
     'view.goto.bar': 'reached through the palette (m125) and the Go to prompt',
     'view.goto.rehearsal': 'reached through the palette (rA) and the Go to prompt',

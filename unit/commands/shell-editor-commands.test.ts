@@ -27,8 +27,6 @@ function setup(over: Partial<ShellEditorBindings> = {}, ctx: Partial<CommandCont
     copy: vi.fn(),
     paste: vi.fn(),
     openScore: vi.fn(),
-    setCheckpointsCollapsed: vi.fn(),
-    setLeftSidebarTab: vi.fn(),
     toggleProgressive: vi.fn(),
     setActivity: vi.fn(),
     closeCompare: vi.fn(),
@@ -59,11 +57,10 @@ function setup(over: Partial<ShellEditorBindings> = {}, ctx: Partial<CommandCont
     pasteSelection: calls.paste,
     scoreSummaries: [{ scoreId: 'a', title: 'A', lastUpdated: 1, count: 1 }],
     openScoreFromSummary: calls.openScore,
-    setCheckpointsCollapsed: calls.setCheckpointsCollapsed,
-    setLeftSidebarTab: calls.setLeftSidebarTab,
     zoom: 1,
     isPlaying: false,
     isPaused: false,
+    audioBusy: false,
     interactionPreparing: false,
     dirty: false,
     checkpointCount: 0,
@@ -183,7 +180,7 @@ describe('activities', () => {
     expect(calls.setActivity).toHaveBeenLastCalledWith('write');
   });
 
-  it('is available only where the shell has activities (the v2 shell)', () => {
+  it('is available only where the shell has activities (not on host surfaces)', () => {
     const { registry } = setup({ dock: null });
     for (const id of ['write', 'compare', 'history']) {
       expect(registry.isEnabled(`shell.activity.${id}`, DEFAULT_COMMAND_CONTEXT)).toBe(false);
@@ -201,23 +198,30 @@ describe('activities', () => {
     expect(checked(comparing.registry, 'shell.activity.history')).toBe(false);
   });
 
-  it('opens History as an activity in the v2 shell, not as a sidebar', async () => {
+  it('opens History as an activity', async () => {
     const { registry, calls } = setup({ dock });
     await registry.run('view.panel.history');
     expect(calls.setActivity).toHaveBeenCalledWith('history');
-    expect(calls.setLeftSidebarTab).not.toHaveBeenCalled();
   });
 });
 
-describe('History and progressive load', () => {
-  it('opens the legacy History sidebar on the checkpoint list, bringing hidden panels back', async () => {
-    const { registry, calls } = setup();
-    await registry.run('view.panel.history');
-    expect(calls.setPanelsVisible).toHaveBeenCalledWith(true);
-    expect(calls.setLeftSidebarTab).toHaveBeenCalledWith('checkpoints');
-    expect(calls.setCheckpointsCollapsed).toHaveBeenCalledWith(false);
+describe('next page', () => {
+  it('is available from page 1 of a progressively laid out score that has more to come', () => {
+    const { registry } = setup({ pageCount: 1, pageCountIsFloor: true });
+    expect(registry.isEnabled('view.goto.nextPage', DEFAULT_COMMAND_CONTEXT)).toBe(false);
+    const withScore = { ...DEFAULT_COMMAND_CONTEXT, hasScore: true };
+    expect(registry.isEnabled('view.goto.nextPage', withScore)).toBe(true);
   });
 
+  it('is off on a one-page score whose length is known', () => {
+    const { registry } = setup({ pageCount: 1, pageCountIsFloor: false });
+    expect(
+      registry.isEnabled('view.goto.nextPage', { ...DEFAULT_COMMAND_CONTEXT, hasScore: true }),
+    ).toBe(false);
+  });
+});
+
+describe('progressive load', () => {
   it('toggles progressive load and reports its state as checked', async () => {
     const { registry, calls } = setup({ progressiveLoadEnabled: false });
     await registry.run('view.progressiveLoad');

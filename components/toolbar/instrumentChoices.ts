@@ -1,4 +1,4 @@
-import type { InstrumentTemplate, InstrumentTemplateGroup } from '../Toolbar';
+import type { InstrumentTemplate, InstrumentTemplateGroup } from '../score-editor/editorProps';
 
 /** Instruments offered first in an add-instrument picker, by template id (first match wins). */
 const COMMON_INSTRUMENT_PREFERENCES: readonly { ids: readonly string[]; label?: string }[] = [

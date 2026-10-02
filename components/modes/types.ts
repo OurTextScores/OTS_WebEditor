@@ -23,18 +23,16 @@ export interface CompareRenderOptions {
  */
 export interface ModeNodes {
   header: ReactNode;
-  /** The ribbon (until Phase 5 replaces it with per-mode toolbars). */
-  ribbon: ReactNode;
+  /** One toolbar per full-chrome mode (SHELL_REDESIGN_DESIGN §8.2). */
+  writeToolbar: ReactNode;
+  historyToolbar: ReactNode;
+  compareToolbar: ReactNode;
   floatingPalettes: ReactNode;
   statusBar: ReactNode;
   /** The score canvas: the scroll container the engine draws into. */
   canvas: (insets: WorkspaceInsets) => ReactNode;
   /** The review gutter beside the canvas in a single-score change review. */
   changeReviewPanel: ReactNode;
-  /** The History sidebar of the legacy shell. */
-  legacyHistorySidebar: ReactNode;
-  /** The legacy shell's right-hand sidebars and collapsed-panel strip. */
-  legacyPanels: ReactNode;
   /** Write mode's dock: palettes, instruments, properties, AI Tools, Score Source. */
   write: WriteDockProps;
   /** The History panel's content (checkpoints, versions, scores) and its width. */
@@ -47,7 +45,5 @@ export interface ModeNodes {
 }
 
 export interface BuildContext {
-  /** `?shell=legacy`: the ribbon-and-sidebars layout, no activity bar or status bar. */
-  legacy: boolean;
   nodes: ModeNodes;
 }

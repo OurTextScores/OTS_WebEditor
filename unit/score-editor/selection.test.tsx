@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { boundingRect, setupScoreEditorTest, testGlobals } from './test-harness';
+import { boundingRect, runEditorCommand, setupScoreEditorTest, testGlobals } from './test-harness';
 
 const mocked = vi.hoisted(() => ({
   loadWebMscore: vi.fn(),
@@ -226,7 +226,7 @@ describe('ScoreEditor: selection geometry and overlay refresh', () => {
 
     expect(screen.getByTestId('selection-overlay')).toHaveStyle({ left: '0px', top: '0px' });
 
-    await user.click(screen.getByTestId('btn-pitch-up'));
+    await runEditorCommand('btn-pitch-up');
 
     await waitFor(() =>
       expect(screen.getByTestId('selection-overlay')).toHaveStyle({ left: '20px', top: '30px' }),

@@ -32,6 +32,7 @@ export function useShellCommands(bindings: ShellEditorBindings): void {
     dirty,
     isPlaying,
     isPaused,
+    audioBusy,
   } = bindings;
   useLayoutEffect(() => {
     setShellView({
@@ -45,6 +46,7 @@ export function useShellCommands(bindings: ShellEditorBindings): void {
       dirty,
       isPlaying,
       isPaused,
+      audioBusy,
       hasScore: Boolean(score),
     });
   }, [
@@ -59,6 +61,7 @@ export function useShellCommands(bindings: ShellEditorBindings): void {
     dirty,
     isPlaying,
     isPaused,
+    audioBusy,
   ]);
 
   const { scoreSummaries } = bindings;

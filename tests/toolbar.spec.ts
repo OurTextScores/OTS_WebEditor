@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { runCommand, waitForCommandEnabled } from './helpers/commands';
 
 type ToolbarScoreWindow = typeof window & {
   __webmscore?: {
@@ -7,53 +8,21 @@ type ToolbarScoreWindow = typeof window & {
   };
 };
 
-test('toolbar shows enabled add-measures apply button', async ({ page }) => {
-  page.on('console', (msg) => {
-    console.log('PAGE LOG:', msg.type(), msg.text());
-  });
-  page.on('requestfailed', (request) => {
-    console.log('REQUEST FAILED:', request.url(), request.failure()?.errorText);
-  });
-  page.on('response', (response) => {
-    if (response.status() === 404) {
-      console.log('RESPONSE 404:', response.url());
-    }
-  });
-  page.on('pageerror', (err) => {
-    console.log('PAGE ERROR:', err.message);
-  });
+// The ribbon's bar controls became commands (Add ▸ Measures ▸ ..., Edit ▸ ...); these keep
+// the engine-level behaviour they covered.
+
+test('the bar commands are enabled once a score is loaded', async ({ page }) => {
   await page.goto('/?score=/test_scores/single_note_c4.musicxml', { waitUntil: 'networkidle' });
   await page.waitForSelector('svg', { timeout: 20000 });
-  await page.waitForFunction(() => Boolean((window as ToolbarScoreWindow).__webmscore), {
-    timeout: 20000,
-  });
   await page.waitForFunction(
     () => Boolean((window as ToolbarScoreWindow).__webmscore?.insertMeasures),
     { timeout: 20000 },
   );
-  const hasInsert = await page.evaluate(() =>
-    Boolean((window as ToolbarScoreWindow).__webmscore?.insertMeasures),
-  );
-  const scoreProps = await page.evaluate(() => {
-    const score = (window as ToolbarScoreWindow).__webmscore;
-    if (!score) {
-      return { own: [], proto: [], hasInsert: false };
-    }
-    const proto = Object.getPrototypeOf(score);
-    return {
-      hasInsert: Boolean(score.insertMeasures),
-      own: Object.getOwnPropertyNames(score),
-      proto: proto ? Object.getOwnPropertyNames(proto) : [],
-    };
-  });
-  console.log('PAGE LOG: score properties', JSON.stringify(scoreProps));
-  console.log('PAGE LOG: has insertMeasures', hasInsert);
-  const applyButton = page.getByTestId('btn-insert-measures');
-  await expect(applyButton).toBeVisible();
-  await expect(applyButton).toBeEnabled();
+  await waitForCommandEnabled(page, 'add.measures');
+  await waitForCommandEnabled(page, 'add.pickup');
 });
 
-test('remove trailing empty measures button works', async ({ page }) => {
+test('remove trailing empty measures works', async ({ page }) => {
   await page.goto('/?score=/test_scores/three_notes_cde.musicxml');
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
 
@@ -74,18 +43,14 @@ test('remove trailing empty measures button works', async ({ page }) => {
   const initialMeasures = countMeasures(await readMscx());
 
   // Add 3 empty measures at the end
-  await page.getByTestId('select-measure-target').click();
-  await page.getByRole('option', { name: 'End', exact: true }).click();
-  await page.getByTestId('input-measure-count').fill('3');
-  await page.getByTestId('btn-insert-measures').click();
+  await runCommand(page, 'add.measures', { count: 3, target: 'end' });
 
   // Wait for measures to be added
   await expect
     .poll(async () => countMeasures(await readMscx()), { timeout: 20_000 })
     .toBe(initialMeasures + 3);
 
-  // Click "Remove Trailing Empty" button
-  await page.getByTestId('btn-remove-trailing-empty').click();
+  await runCommand(page, 'btn-remove-trailing-empty');
 
   // Verify the empty measures were removed
   await expect
@@ -105,18 +70,10 @@ test('remove trailing empty measures button works', async ({ page }) => {
     .toBe(initialMeasures);
 });
 
-test('Add Pickup button is visible in Bars section', async ({ page }) => {
+test('Add Note button is absent from the Write toolbar', async ({ page }) => {
   await page.goto('/?score=/test_scores/single_note_c4.musicxml', { waitUntil: 'networkidle' });
   await page.waitForSelector('svg', { timeout: 20000 });
 
-  const addPickupButton = page.getByTestId('btn-add-pickup');
-  await expect(addPickupButton).toBeVisible();
-  await expect(addPickupButton).toHaveText(/Add Pickup/);
-});
-
-test('Add Note button is absent from toolbar', async ({ page }) => {
-  await page.goto('/?score=/test_scores/single_note_c4.musicxml', { waitUntil: 'networkidle' });
-  await page.waitForSelector('svg', { timeout: 20000 });
-
+  await expect(page.getByTestId('write-toolbar')).toBeVisible();
   await expect(page.getByTestId('btn-add-note-top')).not.toBeVisible();
 });

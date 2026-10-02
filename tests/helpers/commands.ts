@@ -93,6 +93,51 @@ export async function runCommand(
 }
 
 /**
+ * Runs a command that asks for text (the Text menu entries, the header text editor) and
+ * answers its prompt. A prompt is a dialog the command awaits, so the run cannot be awaited
+ * until the dialog is answered. Returns the text the prompt was pre-filled with; `null`
+ * cancels it.
+ */
+export async function runCommandAnsweringPrompt(
+  page: Page,
+  idOrLegacyTestId: string,
+  answer: string | null,
+  args?: unknown,
+): Promise<string> {
+  const run = runCommand(page, idOrLegacyTestId, args);
+  const input = page.getByTestId('prompt-dialog-input');
+  await input.waitFor({ timeout: 10_000 });
+  const prefilled = await input.inputValue();
+  if (answer === null) {
+    await page.getByTestId('prompt-dialog').getByRole('button', { name: 'Cancel' }).click();
+  } else {
+    await input.fill(answer);
+    await page.getByTestId('dialog-confirm').click();
+  }
+  await run;
+  return prefilled;
+}
+
+/**
+ * Waits until a command is enabled, without running it. For specs that used a ribbon
+ * control's enabled state as the signal that a selection had reached the engine.
+ */
+export async function waitForCommandEnabled(
+  page: Page,
+  idOrLegacyTestId: string,
+  { timeout = 20_000 }: RunCommandOptions = {},
+): Promise<void> {
+  const { commandId } = resolveCommandReference(idOrLegacyTestId);
+  await page.waitForFunction(
+    (id) =>
+      (window as CommandsWindow).__otsCommands?.list().some((c) => c.id === id && c.enabled) ??
+      false,
+    commandId,
+    { timeout },
+  );
+}
+
+/**
  * Opens a menu path through the UI, for specs that must exercise the menu itself rather
  * than the command: `openMenuPath(page, ['File', 'Export', 'PDF'])`.
  *

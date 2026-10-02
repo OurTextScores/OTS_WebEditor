@@ -42,7 +42,7 @@ export function buildShellOwnCommands(): AnyCommand[] {
   ];
 }
 
-/** Registered by the status bar itself: with `?shell=legacy` there is no bar to toggle. */
+/** Registered by the status bar itself, which is the only thing that can pin or unpin it. */
 export function buildStatusBarCommands(): AnyCommand[] {
   return [
     defineCommand({

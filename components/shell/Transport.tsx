@@ -28,7 +28,11 @@ export function Transport({ registry = defaultCommandRegistry }: { registry?: Co
         size="sm"
         title={label}
         aria-label={label}
-        disabled={!registry.isEnabled('playback.playPause', ctx)}
+        // `audioBusy` is not in the command context, so the header watches it itself.
+        disabled={
+          !registry.isEnabled('playback.playPause', ctx) ||
+          (view.audioBusy && !view.isPlaying && !view.isPaused)
+        }
         onClick={run('playback.playPause')}
       >
         {showPause ? <Pause size={14} aria-hidden="true" /> : <Play size={14} aria-hidden="true" />}

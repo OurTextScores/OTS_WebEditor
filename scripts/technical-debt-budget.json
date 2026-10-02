@@ -125,10 +125,6 @@
       "maxLines": 900,
       "maxBytes": 36000
     },
-    "components/score-editor/ai-tools/AiToolsTabStrip.tsx": {
-      "maxLines": 900,
-      "maxBytes": 36000
-    },
     "components/score-editor/ai-tools/FunctionalHarmonyPanel.tsx": {
       "maxLines": 900,
       "maxBytes": 36000
@@ -196,8 +192,8 @@
   },
   "eslint": {
     "maxErrors": 0,
-    "maxWarnings": 135,
-    "maxFilesWithFindings": 4
+    "maxWarnings": 0,
+    "maxFilesWithFindings": 0
   },
   "tests": {
     "maxUnconditionalSkips": 1

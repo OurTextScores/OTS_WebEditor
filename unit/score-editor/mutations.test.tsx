@@ -1,7 +1,13 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { boundingRect, setupScoreEditorTest, testGlobals } from './test-harness';
+import {
+  boundingRect,
+  noticeTitles,
+  runEditorCommand,
+  setupScoreEditorTest,
+  testGlobals,
+} from './test-harness';
 
 const mocked = vi.hoisted(() => ({
   loadWebMscore: vi.fn(),
@@ -73,21 +79,15 @@ describe('ScoreEditor: toolbar mutations, note input and keyboard shortcuts', ()
     fireEvent.click(note!);
     await screen.findByTestId('selection-overlay');
 
-    await user.click(screen.getByTestId('btn-pitch-up'));
-    await user.click(screen.getByTestId('btn-transpose-12'));
-    await user.click(screen.getByTestId('btn-duration-longer'));
-    await user.click(screen.getByTestId('dropdown-rhythm'));
-    await user.click(await screen.findByTestId('btn-dot'));
-    await user.click(screen.getByTestId('dropdown-voice'));
-    await user.click(await screen.findByTestId('btn-voice-2'));
-    await user.click(screen.getByTestId('dropdown-accidental'));
-    await user.click(await screen.findByTestId('btn-acc-3'));
-    await user.click(screen.getByTestId('dropdown-markings'));
-    await user.click(await screen.findByTestId('btn-dynamic-6'));
-    await user.click(screen.getByTestId('dropdown-signature'));
-    await user.click(await screen.findByTestId('btn-timesig-4-4'));
-    await user.click(screen.getByTestId('dropdown-key'));
-    await user.click(await screen.findByTestId('btn-keysig-0'));
+    await runEditorCommand('btn-pitch-up');
+    await runEditorCommand('btn-transpose-12');
+    await runEditorCommand('btn-duration-longer');
+    await runEditorCommand('btn-dot');
+    await runEditorCommand('btn-voice-2');
+    await runEditorCommand('btn-acc-3');
+    await runEditorCommand('btn-dynamic-6');
+    await runEditorCommand('btn-timesig-4-4');
+    await runEditorCommand('btn-keysig-0');
 
     await waitFor(() => expect(score.pitchUp).toHaveBeenCalled());
     await waitFor(() =>
@@ -101,8 +101,7 @@ describe('ScoreEditor: toolbar mutations, note input and keyboard shortcuts', ()
     await waitFor(() => expect(score.setTimeSignature).toHaveBeenCalledWith(4, 4));
     await waitFor(() => expect(score.setKeySignature).toHaveBeenCalledWith(0));
 
-    await user.click(screen.getByTestId('dropdown-export'));
-    await user.click(await screen.findByTestId('btn-export-svg'));
+    await runEditorCommand('btn-export-svg');
     await waitFor(() => expect(score.saveSvg).toHaveBeenCalled());
     await waitFor(() => expect(testGlobals.URL.createObjectURL).toHaveBeenCalled());
   }, 15000);
@@ -141,10 +140,7 @@ describe('ScoreEditor: toolbar mutations, note input and keyboard shortcuts', ()
     );
     expect(screen.queryByTestId('selection-overlay')).not.toBeInTheDocument();
 
-    const tempoInput = screen.getByTestId('input-tempo-bpm');
-    await user.clear(tempoInput);
-    await user.type(tempoInput, '96');
-    await user.click(screen.getByTestId('btn-tempo-apply'));
+    await runEditorCommand('add.text.tempo', { bpm: 96 });
 
     await waitFor(() => expect(score.addTempoText).toHaveBeenCalledWith(96));
   });
@@ -411,11 +407,8 @@ describe('ScoreEditor: toolbar mutations, note input and keyboard shortcuts', ()
     fireEvent.click(note!);
     await screen.findByTestId('selection-overlay');
 
-    await user.click(screen.getByTestId('dropdown-rhythm'));
-    await user.click(await screen.findByTestId('btn-double-dot'));
-    expect(testGlobals.alert).toHaveBeenCalledWith(
-      'This build of webmscore does not expose "toggleDoubleDot".',
-    );
+    await runEditorCommand('btn-double-dot');
+    expect(noticeTitles()).toContain('This build of webmscore does not expose "toggleDoubleDot".');
   });
 
   it('clears selection on delete even when the binding is missing', async () => {
@@ -456,10 +449,8 @@ describe('ScoreEditor: toolbar mutations, note input and keyboard shortcuts', ()
     fireEvent.click(note!);
     await screen.findByTestId('selection-overlay');
 
-    await user.click(screen.getByTestId('btn-delete'));
+    await runEditorCommand('edit.delete');
     await waitFor(() => expect(screen.queryByTestId('selection-overlay')).not.toBeInTheDocument());
-    expect(testGlobals.alert).toHaveBeenCalledWith(
-      'This build of webmscore does not expose "deleteSelection".',
-    );
+    expect(noticeTitles()).toContain('This build of webmscore does not expose "deleteSelection".');
   });
 });

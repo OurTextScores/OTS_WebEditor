@@ -6,8 +6,8 @@ import type { BuildContext } from './types';
 
 /**
  * The History activity: the current score, read-only, beside the checkpoint, version and score
- * lists. The ribbon stays mounted, though everything that edits is disabled, so File ▸ Export
- * and the rest of the registry keep working while the user looks back.
+ * lists. Everything that edits is
+ * disabled, while File ▸ Export and the rest of the registry keep working.
  */
 export function buildHistoryMode({ nodes }: BuildContext): OtsWorkspaceMode {
   return {
@@ -15,7 +15,7 @@ export function buildHistoryMode({ nodes }: BuildContext): OtsWorkspaceMode {
     ...MODE_TRAITS.history,
     activity: 'history',
     header: nodes.header,
-    toolbar: nodes.ribbon,
+    toolbar: nodes.historyToolbar,
     overlays: nodes.floatingPalettes,
     body: (
       <DockShell

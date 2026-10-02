@@ -68,9 +68,9 @@ test.describe('shell menus and palette @smoke', () => {
 
     await openMenuPath(page, ['Add', 'Measures', 'Insert Measures']);
     await expect(page.getByTestId('command-form')).toBeVisible();
-    await page.getByTestId('command-form-count').fill('2');
-    await page.getByTestId('command-form-target').selectOption('end');
-    await page.getByTestId('command-form-submit').click();
+    await page.getByTestId('input-measure-count').fill('2');
+    await page.getByTestId('select-measure-target').selectOption('end');
+    await page.getByTestId('btn-insert-measures').click();
     await expect.poll(measureCount, { timeout: 20_000 }).toBe(before + 2);
   });
 

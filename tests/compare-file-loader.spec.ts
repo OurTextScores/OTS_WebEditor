@@ -23,7 +23,8 @@ test('loads two local score files into the compare workspace', async ({ page }) 
 
   const compareWorkspace = page.getByTestId('checkpoint-compare-modal');
   await expect(compareWorkspace).toBeVisible({ timeout: 60_000 });
-  await expect(compareWorkspace).toContainText(
+  // The Compare toolbar names the two scores.
+  await expect(page.getByTestId('compare-toolbar')).toContainText(
     'two_staves_four_bars.musicxml vs two_staves_four_bars_inserted.musicxml',
   );
   await expect(page.getByTestId('compare-pane-left').locator('svg')).toBeVisible({

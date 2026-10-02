@@ -1,5 +1,4 @@
 import React from 'react';
-import { PanelRightClose } from 'lucide-react';
 import type { CheckpointSummary, ScoreSummary } from '../../lib/checkpoints';
 import type {
   SourceHistoryBranch,
@@ -15,11 +14,6 @@ type ScoreIdSummary = {
 };
 
 type LeftSidebarProps = {
-  hidden?: boolean;
-  /** Content only, for the History activity's panel, which supplies the chrome. */
-  embedded?: boolean;
-  collapsed: boolean;
-  onToggleCollapsed: () => void;
   onRefresh: () => void;
   checkpointControlsDisabled: boolean;
   leftSidebarTab: LeftSidebarTab;
@@ -376,9 +370,6 @@ function VersionsTabPanel(
 function CheckpointsTabPanel(
   props: Omit<
     LeftSidebarProps,
-    | 'hidden'
-    | 'collapsed'
-    | 'onToggleCollapsed'
     | 'onRefresh'
     | 'leftSidebarTab'
     | 'onTabChange'
@@ -577,12 +568,9 @@ function ScoresTabPanel(
   );
 }
 
+/** The History panel's content: tabs for OTS revisions, local checkpoints and scores. */
 export function LeftSidebar(props: LeftSidebarProps) {
   const {
-    hidden = false,
-    embedded = false,
-    collapsed,
-    onToggleCollapsed,
     onRefresh,
     checkpointControlsDisabled,
     leftSidebarTab,
@@ -682,86 +670,20 @@ export function LeftSidebar(props: LeftSidebarProps) {
     </div>
   );
 
-  if (embedded) {
-    return (
-      <div
-        data-testid="checkpoint-sidebar"
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto"
-      >
-        <div className="flex justify-end px-4 pt-3">
-          <button
-            type="button"
-            data-testid="btn-checkpoint-refresh"
-            onClick={onRefresh}
-            disabled={checkpointControlsDisabled}
-            className="text-xs font-medium text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Refresh
-          </button>
-        </div>
-        {content}
-      </div>
-    );
-  }
-
-  if (hidden || collapsed) {
-    // When collapsed, the History tab lives in the shared collapsed-panel strip.
-    return null;
-  }
-
   return (
-    <aside
-      style={{ order: 3 }}
-      className={`shrink-0 border-l bg-white text-sm ${collapsed ? 'w-12' : 'w-72 overflow-y-auto'}`}
-      data-testid="checkpoint-sidebar"
-    >
-      <div
-        className={
-          collapsed
-            ? 'flex flex-col items-center gap-2 p-2'
-            : 'flex items-center justify-between p-4'
-        }
-      >
-        {!collapsed && (
-          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-            History
-          </span>
-        )}
-        <div className={collapsed ? 'flex flex-col items-center gap-2' : 'flex items-center gap-2'}>
-          {!collapsed && (
-            <button
-              type="button"
-              data-testid="btn-checkpoint-refresh"
-              onClick={onRefresh}
-              disabled={checkpointControlsDisabled}
-              className="text-xs font-medium text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Refresh
-            </button>
-          )}
-          <button
-            type="button"
-            data-testid="btn-checkpoint-toggle"
-            aria-expanded={!collapsed}
-            aria-controls="checkpoint-sidebar-content"
-            aria-label={collapsed ? 'Show history' : 'Hide history'}
-            title={collapsed ? 'Show history' : 'Hide history'}
-            onClick={onToggleCollapsed}
-            className="rounded p-1 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-          >
-            <PanelRightClose size={16} />
-          </button>
-          {collapsed && (
-            <span
-              className="text-[10px] font-semibold uppercase tracking-wide text-slate-600"
-              style={{ writingMode: 'vertical-rl' }}
-            >
-              History
-            </span>
-          )}
-        </div>
+    <div data-testid="checkpoint-sidebar" className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <div className="flex justify-end px-4 pt-3">
+        <button
+          type="button"
+          data-testid="btn-checkpoint-refresh"
+          onClick={onRefresh}
+          disabled={checkpointControlsDisabled}
+          className="text-xs font-medium text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Refresh
+        </button>
       </div>
-      {!collapsed && content}
-    </aside>
+      {content}
+    </div>
   );
 }

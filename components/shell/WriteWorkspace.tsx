@@ -6,7 +6,7 @@ import { AiToolsPanel, ScoreSourcePanel } from './RightPanels';
 import { PANEL_LIMITS, type useShellPanels } from './useShellPanels';
 import type { WorkspaceDock } from './useWorkspaceDock';
 import type { DockShellProps } from './DockShell';
-import type { AiToolsTab } from '../score-editor/ai-tools/AiToolsTabStrip';
+import type { AiToolsTab } from '../score-editor/ai-tools/aiToolsTab';
 
 /**
  * The Write mode's dock (SHELL_REDESIGN_DESIGN §4.1): the score canvas with the left dock

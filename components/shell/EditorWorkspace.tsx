@@ -19,7 +19,12 @@ export function EditorWorkspace({ mode }: { mode: OtsWorkspaceMode }) {
   return (
     <div className={content ? 'flex flex-col overflow-x-clip' : 'flex flex-col h-screen'}>
       {mode.header}
-      {mode.toolbar}
+      {/* Above the activity bar and the panels: a toolbar's dropdowns open downward over both. */}
+      {mode.toolbar && (
+        <div className="relative" style={{ zIndex: 100 }}>
+          {mode.toolbar}
+        </div>
+      )}
       {mode.overlays}
       {/* `relative`: an inline compare view covers the body row, beside the activity bar. */}
       <div

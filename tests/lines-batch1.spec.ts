@@ -1,5 +1,5 @@
 import { expect, test, type Page } from 'playwright/test';
-import { runCommand } from './helpers/commands';
+import { runCommand, waitForCommandEnabled } from './helpers/commands';
 
 test.use({ viewport: { width: 2400, height: 1600 } });
 
@@ -42,7 +42,7 @@ const loadTwoNotes = async (page: Page) => {
 
 const selectAllNotes = async (page: Page) => {
   await page.keyboard.press('Control+a');
-  await expect(page.getByTestId('dropdown-lines')).toBeEnabled({ timeout: 20_000 });
+  await waitForCommandEnabled(page, 'btn-trill-3');
 };
 
 const doubleClickGeometry = async (page: Page, selector: string) => {

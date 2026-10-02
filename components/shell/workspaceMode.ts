@@ -95,7 +95,7 @@ export interface OtsWorkspaceMode extends ModeTraits {
   readonly overlays?: React.ReactNode;
   /**
    * What fills the row between the activity bar and the status bar: a dock of canvas and
-   * panels, or the legacy sidebars around the canvas, as the builder composed it.
+   * panels, as the builder composed it.
    */
   readonly body: React.ReactNode;
   /** Dialogs and overlays that live inside the body row, after the body. */

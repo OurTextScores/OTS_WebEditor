@@ -4,7 +4,6 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { FretboardEditor } from '../components/FretboardEditor';
 import { FloatingPalettes } from '../components/FloatingPalettes';
-import { Toolbar } from '../components/Toolbar';
 
 describe('Batch 6 UI', () => {
   it('edits fretboard dimensions, markers, and dots', async () => {
@@ -79,42 +78,5 @@ describe('Batch 6 UI', () => {
       'application/x-ots-score-palette+json',
       expect.any(String),
     );
-  });
-
-  it('wires fretboard, bulk-tool, and palette controls', async () => {
-    const user = userEvent.setup();
-    const onAddFretDiagram = vi.fn();
-    const onAddAmbitus = vi.fn();
-    const onExplodeSelection = vi.fn();
-    const onTogglePalettes = vi.fn();
-    render(
-      <Toolbar
-        onFileUpload={() => {}}
-        onZoomIn={() => {}}
-        onZoomOut={() => {}}
-        zoomLevel={1}
-        mutationsEnabled
-        selectionActive
-        onAddFretDiagram={onAddFretDiagram}
-        onAddAmbitus={onAddAmbitus}
-        onExplodeSelection={onExplodeSelection}
-        onTogglePalettes={onTogglePalettes}
-      />,
-    );
-
-    await user.click(screen.getByTestId('dropdown-fretboards'));
-    await user.click(screen.getByTestId('btn-fretboard-c'));
-    expect(onAddFretDiagram).toHaveBeenCalledWith('X32010');
-
-    await user.click(screen.getByTestId('dropdown-bulk-tools'));
-    await user.click(screen.getByTestId('btn-add-ambitus'));
-    expect(onAddAmbitus).toHaveBeenCalledTimes(1);
-
-    await user.click(screen.getByTestId('dropdown-bulk-tools'));
-    await user.click(screen.getByTestId('btn-explode-selection'));
-    expect(onExplodeSelection).toHaveBeenCalledTimes(1);
-
-    await user.click(screen.getByTestId('btn-toggle-palettes'));
-    expect(onTogglePalettes).toHaveBeenCalledTimes(1);
   });
 });

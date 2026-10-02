@@ -33,6 +33,8 @@ export interface ShellView {
   readonly dirty: boolean;
   readonly isPlaying: boolean;
   readonly isPaused: boolean;
+  /** A playback is starting (audio rendering or loading); it cannot be started again yet. */
+  readonly audioBusy: boolean;
   readonly hasScore: boolean;
 }
 
@@ -47,6 +49,7 @@ export const EMPTY_SHELL_VIEW: ShellView = {
   dirty: false,
   isPlaying: false,
   isPaused: false,
+  audioBusy: false,
   hasScore: false,
 };
 

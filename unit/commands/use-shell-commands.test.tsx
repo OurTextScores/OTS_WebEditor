@@ -28,11 +28,10 @@ const bindings = (over: Partial<ShellEditorBindings> = {}): ShellEditorBindings 
   setAiToolsOpen: vi.fn(),
   setAiTool: vi.fn(),
   setPanelsVisible: vi.fn(),
-  setCheckpointsCollapsed: vi.fn(),
-  setLeftSidebarTab: vi.fn(),
   zoom: 1,
   isPlaying: false,
   isPaused: false,
+  audioBusy: false,
   interactionPreparing: false,
   dirty: false,
   checkpointCount: 0,
@@ -90,6 +89,7 @@ describe('useShellCommands', () => {
       dirty: true,
       isPlaying: true,
       isPaused: false,
+      audioBusy: false,
       hasScore: true,
     });
   });

@@ -1,11 +1,11 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildEditorCommands,
   deriveRibbonCommandContext,
 } from '../../components/score-editor/editorCommands';
-import type { ToolbarSectionProps } from '../../components/toolbar/types';
+import type { EditorCommandProps } from '../../components/score-editor/editorProps';
 import {
   CommandRegistry,
   isCommandFamily,
@@ -20,8 +20,8 @@ vi.mock('../../components/shell/notices', () => ({ confirmDialog }));
 type Handlers = Record<string, ReturnType<typeof vi.fn>>;
 
 /** Props where every `on*` handler is a spy and every capability flag is on. */
-function liveProps(overrides: Partial<ToolbarSectionProps> = {}): {
-  props: ToolbarSectionProps;
+function liveProps(overrides: Partial<EditorCommandProps> = {}): {
+  props: EditorCommandProps;
   handlers: Handlers;
 } {
   const handlers: Handlers = {};
@@ -45,11 +45,11 @@ function liveProps(overrides: Partial<ToolbarSectionProps> = {}): {
       if (/^on[A-Z]/.test(key)) return (handlers[key] ??= vi.fn());
       return undefined;
     },
-  }) as unknown as ToolbarSectionProps;
+  }) as unknown as EditorCommandProps;
   return { props, handlers };
 }
 
-const idle = (props: ToolbarSectionProps) => buildEditorCommands(() => props);
+const idle = (props: EditorCommandProps) => buildEditorCommands(() => props);
 
 const find = (commands: AnyCommand[], id: string) => {
   const entry = commands.find((command) => command.id === id);
@@ -58,7 +58,7 @@ const find = (commands: AnyCommand[], id: string) => {
 };
 
 /** Runs a command the way the registry does, honouring `enabled`. */
-async function run(props: ToolbarSectionProps, id: string, args?: unknown) {
+async function run(props: EditorCommandProps, id: string, args?: unknown) {
   const registry = new CommandRegistry();
   registry.register('global', idle(props));
   registry.setContextSource(() => deriveRibbonCommandContext(props));
@@ -143,26 +143,39 @@ describe('every ribbon handler is reachable from a command', () => {
    * opens TransposeDialog, which calls `onTransposeEx` with the user's choices.
    */
   const CALLED_BY_DIALOG = new Set(['onTransposeEx']);
+  /**
+   * Supplied by ScoreEditor but consumed by nothing, before the redesign as well as after: no
+   * ribbon section ever rendered a control for them. They are features with no UI (measure
+   * repeats, multi-measure rests, note-from-rest, applying edited text), listed so that the
+   * gap is visible rather than silently ignored. Remove an entry by giving it a command.
+   */
+  const NO_UI_SINCE_BEFORE_THE_REDESIGN = new Set([
+    'onAddNoteFromRest',
+    'onAddMeasureRepeat',
+    'onSetMultiMeasureRests',
+    'onApplySelectedText',
+  ]);
 
+  /** Every handler `EditorCommandProps` declares: each must be reachable from some command. */
   function referencedHandlers(): Set<string> {
-    const dir = resolve(__dirname, '../../components/toolbar/sections');
+    const source = readFileSync(
+      resolve(__dirname, '../../components/score-editor/editorProps.ts'),
+      'utf8',
+    );
     const names = new Set<string>();
-    for (const file of readdirSync(dir).filter((name) => name.endsWith('.tsx'))) {
-      for (const match of readFileSync(resolve(dir, file), 'utf8').matchAll(
-        /\bon[A-Z][A-Za-z0-9]*\b/g,
-      )) {
-        if (
-          !NOT_TOOLBAR_PROPS.has(match[0]) &&
-          !LEGACY_FALLBACKS.has(match[0]) &&
-          !CALLED_BY_DIALOG.has(match[0])
-        )
-          names.add(match[0]);
-      }
+    for (const match of source.matchAll(/^ {2}(on[A-Z][A-Za-z0-9]*)\??:/gm)) {
+      if (
+        !NOT_TOOLBAR_PROPS.has(match[1]) &&
+        !LEGACY_FALLBACKS.has(match[1]) &&
+        !CALLED_BY_DIALOG.has(match[1]) &&
+        !NO_UI_SINCE_BEFORE_THE_REDESIGN.has(match[1])
+      )
+        names.add(match[1]);
     }
     return names;
   }
 
-  it('invokes each handler a ribbon section uses', async () => {
+  it('invokes each handler the editor supplies', async () => {
     const { props, handlers } = liveProps();
     const ctx = deriveRibbonCommandContext(props);
     const sampleArgs: Record<string, unknown> = {
@@ -194,7 +207,7 @@ describe('every ribbon handler is reachable from a command', () => {
     const orphaned = [...referencedHandlers()].filter((name) => !called.has(name));
     expect(
       orphaned,
-      'These ribbon handlers have no command, so the menu and palette cannot reach them.',
+      'These editor handlers have no command, so the menus, toolbars and palette cannot reach them.',
     ).toEqual([]);
   });
 });
@@ -219,7 +232,7 @@ describe('gating mirrors the ribbon', () => {
     const { props } = liveProps();
     const sparse = new Proxy({ ...props } as object, {
       get: (target, key) => (key === 'onAddSlur' ? undefined : Reflect.get(props, key)),
-    }) as ToolbarSectionProps;
+    }) as EditorCommandProps;
     expect(await run(sparse, 'add.line.slur')).toBe('disabled');
     expect(await run(sparse, 'add.line.tie')).toBe('ran');
   });
@@ -279,7 +292,7 @@ describe('gating mirrors the ribbon', () => {
       isMutable: true,
     });
     expect(
-      deriveRibbonCommandContext({ selectionActive: false } as ToolbarSectionProps),
+      deriveRibbonCommandContext({ selectionActive: false } as EditorCommandProps),
     ).toMatchObject({
       hasScore: false,
       selection: 'none',
@@ -390,7 +403,7 @@ describe('argument handling', () => {
     // Without the opener (no Toolbar around the commands) it is not offered.
     const bare = new Proxy({ ...props } as object, {
       get: (_t, key) => (key === 'onOpenTransposeDialog' ? undefined : Reflect.get(props, key)),
-    }) as ToolbarSectionProps;
+    }) as EditorCommandProps;
     expect(await run(bare, 'tools.transpose')).toBe('disabled');
   });
 
@@ -440,7 +453,7 @@ describe('argument handling', () => {
     const { props } = liveProps();
     const onFileUpload = vi.fn();
     const file = new File(['x'], 'score.mscz');
-    await run({ ...props, onFileUpload } as ToolbarSectionProps, 'file.open', file);
+    await run({ ...props, onFileUpload } as EditorCommandProps, 'file.open', file);
     expect(onFileUpload).toHaveBeenCalledWith(file);
   });
 
@@ -482,7 +495,7 @@ describe('completion', () => {
   ] as const)('%s settles only after %s does', async (id, args, handler) => {
     let finish: () => void = () => {};
     const gate = new Promise<void>((resolve) => (finish = resolve));
-    const { props } = liveProps({ [handler]: vi.fn(() => gate) } as Partial<ToolbarSectionProps>);
+    const { props } = liveProps({ [handler]: vi.fn(() => gate) } as Partial<EditorCommandProps>);
 
     let settled = false;
     const running = run(props, id, args).then((status) => {

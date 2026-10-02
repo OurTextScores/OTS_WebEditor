@@ -39,11 +39,14 @@ import { asRecord } from '../lib/as-record';
 import { findAiEditProposal, type AiEditProposal } from '../lib/ai-edit-proposal';
 import { fetchJsonOrThrow } from '../lib/fetch-json';
 import { copySelectionToClipboard, pasteClipboardPayload } from '../lib/selection-clipboard';
-import { Toolbar, type MeasureInsertTarget, type HeaderTextTarget } from './Toolbar';
-import { notify } from './shell/notices';
+import type { MeasureInsertTarget, HeaderTextTarget } from './score-editor/editorProps';
+import { confirmDialog, notify, notifyError, notifyWarning, promptDialog } from './shell/notices';
 import { ShellHeader } from './shell/ShellHeader';
 import { StatusBar } from './shell/StatusBar';
-import { LegacyCanvasChrome } from './shell/LegacyCanvasChrome';
+import { WriteToolbar } from './shell/toolbar/WriteToolbar';
+import { HistoryToolbar } from './shell/toolbar/HistoryToolbar';
+import { CompareToolbar } from './shell/toolbar/CompareToolbar';
+import { TransposeDialog } from './toolbar/TransposeDialog';
 import type { LeftDockProps } from './shell/LeftDock';
 import { EditorWorkspace } from './shell/EditorWorkspace';
 import { selectWorkspaceMode } from './shell/selectWorkspaceMode';
@@ -53,9 +56,8 @@ import { buildWorkspaceMode, type CompareRenderOptions } from './modes';
 import { useShellPanels } from './shell/useShellPanels';
 import { useWorkspaceDock } from './shell/useWorkspaceDock';
 import type { WorkspaceInsets } from './shell/vendor/viritura';
-import { resolveShellVersion, V2_HIDDEN_RIBBON_SECTIONS } from './shell/shellVersion';
 import { useShellCommands } from './score-editor/useShellCommands';
-import { LegacySidePanels } from './score-editor/LegacySidePanels';
+import { useEditorCommands } from './score-editor/useEditorCommands';
 import { FloatingPalettes } from './FloatingPalettes';
 import {
   SCORE_PALETTE_DRAG_MIME,
@@ -188,7 +190,7 @@ import {
   CODE_EDITOR_THEME_OPTIONS,
   type MusicXmlPanelProps,
 } from './score-editor/MusicXmlPanel';
-import type { AiToolsTab } from './score-editor/ai-tools/AiToolsTabStrip';
+import type { AiToolsTab } from './score-editor/ai-tools/aiToolsTab';
 import { resolveComparePaneStatus } from './score-editor/compare/compare-pane-status';
 import { CompareScorePane } from './score-editor/compare/CompareScorePane';
 import { ScannerSystemRows, type ScannerSystem } from './score-editor/compare/ScannerSystemRows';
@@ -1422,9 +1424,7 @@ export default function ScoreEditor() {
   const soundFontManagerRef = useRef<SoundFontManager<Score> | null>(null);
   if (!soundFontManagerRef.current) soundFontManagerRef.current = new SoundFontManager<Score>();
   const [scoreTitle, setScoreTitle] = useState('');
-  const [shellV2] = useState(
-    () => resolveShellVersion(typeof window === 'undefined' ? '' : window.location.search) === 'v2',
-  );
+  const [transposeDialogOpen, setTransposeDialogOpen] = useState(false);
   const [scoreSubtitle, setScoreSubtitle] = useState('');
   const [scoreComposer, setScoreComposer] = useState('');
   const [scoreLyricist, setScoreLyricist] = useState('');
@@ -1441,7 +1441,7 @@ export default function ScoreEditor() {
   // else the selected activity (always Write under ?shell=legacy, which has no activities).
   const kind = selectWorkspaceMode(searchParams, {
     compareViewActive: Boolean(compareView),
-    activity: shellV2 ? activity : 'write',
+    activity,
   });
   const traits = MODE_TRAITS[kind];
   // What the mode lets the user do to the score: History and the scanner views only look.
@@ -1611,7 +1611,6 @@ export default function ScoreEditor() {
   const compareScrollSyncRef = useRef(false);
   const compareRightRenderInFlightRef = useRef(false);
   const musicNotaGenProgressPreRef = useRef<HTMLPreElement | null>(null);
-  const [checkpointsCollapsed, setCheckpointsCollapsed] = useState(false);
   const [leftSidebarTab, setLeftSidebarTab] = useState<LeftSidebarTab>('checkpoints');
   const [versionsBranchName, setVersionsBranchName] = useState('trunk');
   const [sourceHistory, setSourceHistory] = useState<SourceHistoryResponse | null>(null);
@@ -1636,10 +1635,6 @@ export default function ScoreEditor() {
   const [xmlSidebarMode, setXmlSidebarMode] = useState<'closed' | 'open'>('closed');
   // The MusicXML editor is its own right-side sidebar, separate from the AI tools.
   const [musicXmlOpen, setMusicXmlOpen] = useState(false);
-  const [xmlSidebarWidth, setXmlSidebarWidth] = useState<number>(384); // default 'open' width (w-96)
-  const [isResizingSidebar, setIsResizingSidebar] = useState(false);
-  const sidebarResizeStartXRef = useRef<number>(0);
-  const sidebarResizeStartWidthRef = useRef<number>(0);
   const [xmlSidebarTab, setXmlSidebarTab] = useState<AiToolsTab>('assistant');
   const [codeEditorTheme, setCodeEditorTheme] = useState<CodeEditorThemeMode>('light');
   const [xmlText, setXmlText] = useState('');
@@ -1852,7 +1847,6 @@ export default function ScoreEditor() {
     InstrumentTemplateGroup[]
   >([]);
   const [instrumentFallbackError, setInstrumentFallbackError] = useState<string | null>(null);
-  const toolbarRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   // Paused is a distinct state from stopped: the stream, its scheduled sources and
@@ -1991,7 +1985,7 @@ export default function ScoreEditor() {
   );
 
   const reportClipboardUnsupported = useCallback(() => {
-    alert('This build of webmscore does not expose selection copy.');
+    notifyError('This build of webmscore does not expose selection copy.');
   }, []);
   const compareClipboard = useCompareClipboard({
     runSerialized: runSerializedScoreOperation,
@@ -2862,7 +2856,7 @@ export default function ScoreEditor() {
       } catch (err) {
         console.error('Failed to load comparison:', err);
         const message = err instanceof Error ? err.message : 'Unknown error';
-        alert(`Failed to load files:\n${message}`);
+        notifyError(`Failed to load files:\n${message}`);
       } finally {
         setCheckpointBusy(false);
       }
@@ -4800,7 +4794,7 @@ ${partsBodyXml}
   const getScoreXmlData = useCallback(async () => {
     const activeScore = scoreRef.current ?? score;
     if (!activeScore?.saveXml) {
-      alert('This build of webmscore does not expose "saveXml".');
+      notifyError('This build of webmscore does not expose "saveXml".');
       return null;
     }
     const data = await runSerializedScoreOperation(() => activeScore.saveXml!(), 'saveXml');
@@ -5292,12 +5286,12 @@ ${partsBodyXml}
 
   const ensureCheckpointBeforeApply = async () => {
     if (!isIndexedDbAvailable()) {
-      alert('IndexedDB is not available; cannot verify checkpoint status.');
+      notifyWarning('IndexedDB is not available; cannot verify checkpoint status.');
       return { ok: false, currentXml: '' };
     }
     const currentData = await getScoreXmlData();
     if (!currentData) {
-      alert('Unable to read MusicXML for checkpointing.');
+      notifyError('Unable to read MusicXML for checkpointing.');
       return { ok: false, currentXml: '' };
     }
     const activeScoreId = ensureScoreId('score');
@@ -5332,11 +5326,11 @@ ${partsBodyXml}
 
   const applyXmlToScore: ApplyXmlToScore = async (sourceXml, options) => {
     if (!score) {
-      alert('Load a score before applying XML edits.');
+      notifyWarning('Load a score before applying XML edits.');
       return false;
     }
     if (!sourceXml.trim()) {
-      alert('XML content is empty.');
+      notifyWarning('XML content is empty.');
       return false;
     }
     const checkpointState = await ensureCheckpointBeforeApply();
@@ -6659,7 +6653,7 @@ ${partsBodyXml}
     } catch (err) {
       console.error('Error auto-loading file:', err);
       if (!signal?.aborted) {
-        alert(scoreLoadErrorMessage(err));
+        notifyError(scoreLoadErrorMessage(err));
       }
       setInteractionState({ preparing: false, ready: false });
       telemetryCountersRef.current.documentLoadFailures += 1;
@@ -6855,7 +6849,7 @@ ${partsBodyXml}
       return true;
     } catch (err) {
       console.error('Error loading file:', err);
-      alert(scoreLoadErrorMessage(err));
+      notifyError(scoreLoadErrorMessage(err));
       setInteractionState({ preparing: false, ready: false });
       telemetryCountersRef.current.documentLoadFailures += 1;
       emitEditorTelemetry('score_editor_document_load_failed', {
@@ -7393,7 +7387,7 @@ ${partsBodyXml}
   );
   const reportCompareMutationError = useCallback((label: string, error: unknown) => {
     console.error(`Compare mutation "${label}" failed:`, error);
-    alert(`Unable to ${label} in the compare score. Check the console for details.`);
+    notifyError(`Unable to ${label} in the compare score. Check the console for details.`);
   }, []);
   const performCompareMutation = useCompareMutationController({
     view: compareView,
@@ -7514,7 +7508,7 @@ ${partsBodyXml}
         'add a bar',
         async (targetScore) => {
           if (!targetScore.insertMeasures) {
-            alert('This build of webmscore does not expose "insertMeasures".');
+            notifyError('This build of webmscore does not expose "insertMeasures".');
             return false;
           }
           return targetScore.insertMeasures(1, measureInsertTargetMap.end);
@@ -7536,7 +7530,7 @@ ${partsBodyXml}
       void performCompareMutation(`apply ${item.label}`, (targetScore) => {
         const fn = (targetScore as unknown as Record<string, unknown>)[methodName];
         if (typeof fn !== 'function') {
-          alert(`This build of webmscore does not expose "${methodName}".`);
+          notifyError(`This build of webmscore does not expose "${methodName}".`);
           return false;
         }
         return (fn as (...values: unknown[]) => unknown).apply(targetScore, args);
@@ -7597,7 +7591,7 @@ ${partsBodyXml}
           'place a note',
           async (activeScore) => {
             if (!activeScore.putNote) {
-              alert('This build of webmscore does not expose "putNote".');
+              notifyError('This build of webmscore does not expose "putNote".');
               return false;
             }
             const result = await activeScore.putNote(page, x, y);
@@ -8241,11 +8235,11 @@ ${partsBodyXml}
       return;
     }
     if (!aiApiKey.trim()) {
-      alert(`Enter your ${AI_PROVIDER_LABELS[aiProvider]} API key.`);
+      notifyWarning(`Enter your ${AI_PROVIDER_LABELS[aiProvider]} API key.`);
       return;
     }
     if (!aiModel.trim()) {
-      alert('Select a model.');
+      notifyWarning('Select a model.');
       return;
     }
 
@@ -8698,7 +8692,7 @@ ${partsBodyXml}
 
   const handleSoundFontUpload = async (file: File) => {
     if (!score || !score.setSoundFont) {
-      alert('SoundFont loading is not available in this build.');
+      notifyError('SoundFont loading is not available in this build.');
       return;
     }
     try {
@@ -8721,7 +8715,7 @@ ${partsBodyXml}
       setTriedSoundFont(true);
     } catch (err) {
       console.error('Failed to load soundfont', err);
-      alert(`Failed to load soundfont: ${err instanceof Error ? err.message : String(err)}`);
+      notifyError(`Failed to load soundfont: ${err instanceof Error ? err.message : String(err)}`);
     }
   };
 
@@ -8757,7 +8751,7 @@ ${partsBodyXml}
         ? newScoreInstrumentIds
         : newScoreInstrumentOptions.slice(0, 1).map((option) => option.id);
     if (instrumentIds.length === 0) {
-      alert('Select at least one instrument.');
+      notifyWarning('Select at least one instrument.');
       return;
     }
     const instruments = instrumentIds.map((id) => {
@@ -8879,7 +8873,7 @@ ${partsBodyXml}
       });
     } catch (err) {
       console.error('Failed to open source revision', err);
-      alert('Failed to open version. See console for details.');
+      notifyError('Failed to open version. See console for details.');
     } finally {
       setLoading(false);
     }
@@ -8888,7 +8882,7 @@ ${partsBodyXml}
   const handleVersionsDiffRevision = useCallback(
     async (revision: SourceHistoryRevision) => {
       if (!otsSourceContext || !score) {
-        alert('Load a score before opening a version diff.');
+        notifyWarning('Load a score before opening a version diff.');
         return;
       }
       setVersionsActionBusy(true);
@@ -9071,7 +9065,7 @@ ${partsBodyXml}
     }
     const branchName = versionsCreateBranchName.trim();
     if (!branchName) {
-      alert('Enter a branch name first.');
+      notifyWarning('Enter a branch name first.');
       return;
     }
     setVersionsActionBusy(true);
@@ -9111,7 +9105,7 @@ ${partsBodyXml}
       return;
     }
     if (!score) {
-      alert('Load a score before creating a version.');
+      notifyWarning('Load a score before creating a version.');
       return;
     }
     setVersionsActionBusy(true);
@@ -9215,11 +9209,11 @@ ${partsBodyXml}
 
   const handleSaveCheckpoint = async () => {
     if (!score) {
-      alert('Load a score before saving a checkpoint.');
+      notifyWarning('Load a score before saving a checkpoint.');
       return;
     }
     if (!isIndexedDbAvailable()) {
-      alert('IndexedDB is not available in this browser.');
+      notifyWarning('IndexedDB is not available in this browser.');
       return;
     }
     setCheckpointBusy(true);
@@ -9245,7 +9239,7 @@ ${partsBodyXml}
       await loadCheckpointList();
     } catch (err) {
       console.error('Failed to save checkpoint', err);
-      alert('Failed to save checkpoint. See console for details.');
+      notifyError('Failed to save checkpoint. See console for details.');
     } finally {
       setCheckpointBusy(false);
     }
@@ -9257,7 +9251,7 @@ ${partsBodyXml}
         return;
       }
       if (!isIndexedDbAvailable()) {
-        alert('IndexedDB is not available in this browser.');
+        notifyWarning('IndexedDB is not available in this browser.');
         return;
       }
 
@@ -9274,7 +9268,7 @@ ${partsBodyXml}
           // Saving the current score - get its XML directly
           const currentXmlData = await getScoreXmlData();
           if (!currentXmlData) {
-            alert('Unable to read current score MusicXML.');
+            notifyError('Unable to read current score MusicXML.');
             return;
           }
           xmlData = currentXmlData;
@@ -9282,7 +9276,7 @@ ${partsBodyXml}
           // Saving a checkpoint - get its XML
           const xml = await getScoreMusicXmlText(compareRightScore, compareView.checkpointXml);
           if (!xml) {
-            alert('Unable to read checkpoint MusicXML.');
+            notifyError('Unable to read checkpoint MusicXML.');
             return;
           }
           xmlData = new TextEncoder().encode(xml);
@@ -9310,7 +9304,7 @@ ${partsBodyXml}
         }
       } catch (err) {
         console.error('Failed to save compare checkpoint', err);
-        alert('Failed to save compare checkpoint. See console for details.');
+        notifyError('Failed to save compare checkpoint. See console for details.');
       } finally {
         setCheckpointBusy(false);
       }
@@ -9336,22 +9330,23 @@ ${partsBodyXml}
 
   const handleRestoreCheckpoint = async (checkpoint: CheckpointSummary) => {
     if (!isIndexedDbAvailable()) {
-      alert('IndexedDB is not available in this browser.');
+      notifyWarning('IndexedDB is not available in this browser.');
       return;
     }
-    if (typeof window !== 'undefined') {
-      const ok = window.confirm(
-        `Restore checkpoint "${checkpoint.title}"? Unsaved changes will be lost.`,
-      );
-      if (!ok) {
-        return;
-      }
+    const ok = await confirmDialog({
+      title: `Restore checkpoint "${checkpoint.title}"?`,
+      message: 'Unsaved changes will be lost.',
+      confirmLabel: 'Restore',
+      destructive: true,
+    });
+    if (!ok) {
+      return;
     }
     setCheckpointBusy(true);
     try {
       const record = await getCheckpoint(checkpoint.id);
       if (!record) {
-        alert('Checkpoint not found.');
+        notifyError('Checkpoint not found.');
         return;
       }
       const filename = `${toSafeFilename(checkpoint.title)}.musicxml`;
@@ -9363,7 +9358,7 @@ ${partsBodyXml}
       });
     } catch (err) {
       console.error('Failed to restore checkpoint', err);
-      alert('Failed to restore checkpoint. See console for details.');
+      notifyError('Failed to restore checkpoint. See console for details.');
     } finally {
       setCheckpointBusy(false);
     }
@@ -9371,18 +9366,18 @@ ${partsBodyXml}
 
   const handleCompareCheckpoint = async (checkpoint: CheckpointSummary) => {
     if (!score) {
-      alert('Load a score before comparing checkpoints.');
+      notifyWarning('Load a score before comparing checkpoints.');
       return;
     }
     if (!isIndexedDbAvailable()) {
-      alert('IndexedDB is not available in this browser.');
+      notifyWarning('IndexedDB is not available in this browser.');
       return;
     }
     setCheckpointBusy(true);
     try {
       const record = await getCheckpoint(checkpoint.id);
       if (!record) {
-        alert('Checkpoint not found.');
+        notifyError('Checkpoint not found.');
         return;
       }
       const currentData = await getScoreXmlData();
@@ -9401,7 +9396,7 @@ ${partsBodyXml}
       });
     } catch (err) {
       console.error('Failed to compare checkpoint', err);
-      alert('Failed to compare checkpoint. See console for details.');
+      notifyError('Failed to compare checkpoint. See console for details.');
     } finally {
       setCheckpointBusy(false);
     }
@@ -10454,11 +10449,15 @@ ${partsBodyXml}
 
   const handleRefreshXml = async () => {
     if (!score) {
-      alert('Load a score before refreshing MusicXML.');
+      notifyWarning('Load a score before refreshing MusicXML.');
       return;
     }
-    if (xmlDirty && typeof window !== 'undefined') {
-      const ok = window.confirm('Discard local MusicXML edits and reload from the score?');
+    if (xmlDirty) {
+      const ok = await confirmDialog({
+        title: 'Discard local MusicXML edits and reload from the score?',
+        confirmLabel: 'Discard',
+        destructive: true,
+      });
       if (!ok) {
         return;
       }
@@ -10473,7 +10472,7 @@ ${partsBodyXml}
       await applyXmlToScore(xmlText, { telemetrySource: 'manual_xml' });
     } catch (err) {
       console.error('Failed to apply MusicXML edits', err);
-      alert('Failed to apply MusicXML edits. See console for details.');
+      notifyError('Failed to apply MusicXML edits. See console for details.');
     } finally {
       setXmlLoading(false);
     }
@@ -10481,14 +10480,16 @@ ${partsBodyXml}
 
   const handleDeleteCheckpoint = async (checkpoint: CheckpointSummary) => {
     if (!isIndexedDbAvailable()) {
-      alert('IndexedDB is not available in this browser.');
+      notifyWarning('IndexedDB is not available in this browser.');
       return;
     }
-    if (typeof window !== 'undefined') {
-      const ok = window.confirm(`Delete checkpoint "${checkpoint.title}"?`);
-      if (!ok) {
-        return;
-      }
+    const ok = await confirmDialog({
+      title: `Delete checkpoint "${checkpoint.title}"?`,
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!ok) {
+      return;
     }
     setCheckpointBusy(true);
     try {
@@ -10496,7 +10497,7 @@ ${partsBodyXml}
       await loadCheckpointList();
     } catch (err) {
       console.error('Failed to delete checkpoint', err);
-      alert('Failed to delete checkpoint. See console for details.');
+      notifyError('Failed to delete checkpoint. See console for details.');
     } finally {
       setCheckpointBusy(false);
     }
@@ -10504,13 +10505,12 @@ ${partsBodyXml}
 
   const handleRenameCheckpoint = async (checkpoint: CheckpointSummary) => {
     if (!isIndexedDbAvailable()) {
-      alert('IndexedDB is not available in this browser.');
+      notifyWarning('IndexedDB is not available in this browser.');
       return;
     }
-    if (typeof window === 'undefined') {
-      return;
-    }
-    const nextTitle = window.prompt('Rename checkpoint', checkpoint.title)?.trim();
+    const nextTitle = (
+      await promptDialog({ title: 'Rename checkpoint', defaultValue: checkpoint.title })
+    )?.trim();
     if (!nextTitle || nextTitle === checkpoint.title) {
       return;
     }
@@ -10520,7 +10520,7 @@ ${partsBodyXml}
       await loadCheckpointList();
     } catch (err) {
       console.error('Failed to rename checkpoint', err);
-      alert('Failed to rename checkpoint. See console for details.');
+      notifyError('Failed to rename checkpoint. See console for details.');
     } finally {
       setCheckpointBusy(false);
     }
@@ -10798,26 +10798,26 @@ ${partsBodyXml}
 
   const handleAiRequest = async () => {
     if (!aiEnabled) {
-      alert('AI features are disabled.');
+      notifyWarning('AI features are disabled.');
       return;
     }
     if (aiBusy || aiDiffFeedbackBusy) {
       return;
     }
     if (!aiApiKey.trim()) {
-      alert(`Enter your ${AI_PROVIDER_LABELS[aiProvider]} API key.`);
+      notifyWarning(`Enter your ${AI_PROVIDER_LABELS[aiProvider]} API key.`);
       return;
     }
     if (!aiPrompt.trim()) {
-      alert('Enter an instruction for the assistant.');
+      notifyWarning('Enter an instruction for the assistant.');
       return;
     }
     if (!aiModel.trim()) {
-      alert('Select a model.');
+      notifyWarning('Select a model.');
       return;
     }
     if (aiMaxTokensMode === 'custom' && aiMaxTokens <= 0) {
-      alert('Enter a max output token limit.');
+      notifyWarning('Enter a max output token limit.');
       return;
     }
     const editRequest = beginAiEdit(
@@ -10849,7 +10849,7 @@ ${partsBodyXml}
       }
       const xmlContext = aiIncludeXml ? baseXml : '';
       if (aiIncludeXml && !xmlContext.trim()) {
-        alert('Unable to load MusicXML for context.');
+        notifyError('Unable to load MusicXML for context.');
         return;
       }
       if (aiIncludeXml && xmlContext.trim()) {
@@ -11073,23 +11073,23 @@ ${partsBodyXml}
 
   const handleAiChatSend = async () => {
     if (!aiEnabled) {
-      alert('AI features are disabled.');
+      notifyWarning('AI features are disabled.');
       return;
     }
     if (!aiApiKey.trim()) {
-      alert(`Enter your ${AI_PROVIDER_LABELS[aiProvider]} API key.`);
+      notifyWarning(`Enter your ${AI_PROVIDER_LABELS[aiProvider]} API key.`);
       return;
     }
     if (!aiModel.trim()) {
-      alert('Select a model.');
+      notifyWarning('Select a model.');
       return;
     }
     if (!aiChatInput.trim()) {
-      alert('Enter a chat message.');
+      notifyWarning('Enter a chat message.');
       return;
     }
     if (aiMaxTokensMode === 'custom' && aiMaxTokens <= 0) {
-      alert('Enter a max output token limit.');
+      notifyWarning('Enter a max output token limit.');
       return;
     }
 
@@ -11107,7 +11107,7 @@ ${partsBodyXml}
       const promptSections: AiPromptSection[] = [];
       const xmlContext = aiIncludeXml ? await aiScoreBridge.getContextXml() : '';
       if (aiIncludeXml && !xmlContext.trim()) {
-        alert('Unable to load MusicXML for context.');
+        notifyError('Unable to load MusicXML for context.');
         return;
       }
       if (aiIncludeXml && xmlContext.trim()) {
@@ -11345,7 +11345,7 @@ ${partsBodyXml}
       !musicNotaGenSpaceComposer.trim() ||
       !musicNotaGenSpaceInstrumentation.trim()
     ) {
-      alert('Enter a period, composer, and instrumentation for the NotaGen Space.');
+      notifyWarning('Enter a period, composer, and instrumentation for the NotaGen Space.');
       return;
     }
     setMusicNotaGenBusy(true);
@@ -11591,7 +11591,7 @@ ${partsBodyXml}
 
   const handleApplyMusicNotaGenOutput = async () => {
     if (!musicNotaGenGeneratedXml.trim()) {
-      alert('No generated MusicXML is available yet.');
+      notifyWarning('No generated MusicXML is available yet.');
       return;
     }
     setXmlLoading(true);
@@ -11615,7 +11615,7 @@ ${partsBodyXml}
       revealScoreSource();
     } catch (err) {
       console.error('Failed to apply NotaGen output XML', err);
-      alert('Failed to apply generated MusicXML. See console for details.');
+      notifyError('Failed to apply generated MusicXML. See console for details.');
     } finally {
       setXmlLoading(false);
     }
@@ -11649,7 +11649,7 @@ ${partsBodyXml}
 
   const handleTranscodaTranscribeImage = async () => {
     if (!musicTranscodaImageFile) {
-      alert('Choose a page image before running Transcoda.');
+      notifyWarning('Choose a page image before running Transcoda.');
       return;
     }
     setMusicTranscodaPhase('uploading');
@@ -11716,11 +11716,11 @@ ${partsBodyXml}
 
   const handleApplyTranscodaOutput = async (mode: 'overwrite' | 'append') => {
     if (!musicTranscodaGeneratedXml.trim()) {
-      alert('No Transcoda MusicXML is available yet.');
+      notifyWarning('No Transcoda MusicXML is available yet.');
       return;
     }
     if (mode === 'append' && !score) {
-      alert('Load a target score before appending Transcoda output.');
+      notifyWarning('Load a target score before appending Transcoda output.');
       return;
     }
     setXmlLoading(true);
@@ -11758,7 +11758,7 @@ ${partsBodyXml}
       revealScoreSource();
     } catch (err) {
       console.error('Failed to apply Transcoda output XML', err);
-      alert('Failed to apply Transcoda MusicXML. See console for details.');
+      notifyError('Failed to apply Transcoda MusicXML. See console for details.');
     } finally {
       setXmlLoading(false);
     }
@@ -11822,7 +11822,7 @@ ${partsBodyXml}
     try {
       const xml = await resolveXmlContext();
       if (!xml.trim()) {
-        alert('Load a score before generating an MMA starter from MusicXML.');
+        notifyWarning('Load a score before generating an MMA starter from MusicXML.');
         return;
       }
       await generateMmaTemplateFromXml(xml);
@@ -11837,7 +11837,7 @@ ${partsBodyXml}
   const handleMmaRender = async (includeMusicXml: boolean) => {
     const script = mmaScript.trim();
     if (!script) {
-      alert('Enter an MMA script before rendering.');
+      notifyWarning('Enter an MMA script before rendering.');
       return;
     }
     setMmaBusy(true);
@@ -11877,7 +11877,7 @@ ${partsBodyXml}
   const handleMmaDownload = (format: 'mma' | 'midi' | 'musicxml') => {
     if (format === 'mma') {
       if (!mmaScript.trim()) {
-        alert('No MMA script is available to download.');
+        notifyWarning('No MMA script is available to download.');
         return;
       }
       downloadBlob(`${mmaScript.trimEnd()}\n`, 'accompaniment.mma', 'text/plain;charset=utf-8');
@@ -11886,7 +11886,7 @@ ${partsBodyXml}
 
     if (format === 'midi') {
       if (!mmaMidiBase64.trim()) {
-        alert('No rendered MIDI output is available yet.');
+        notifyWarning('No rendered MIDI output is available yet.');
         return;
       }
       try {
@@ -11897,13 +11897,13 @@ ${partsBodyXml}
         downloadBlob(midiBytes, 'accompaniment.mid', 'audio/midi');
       } catch (err) {
         console.error('Failed to decode/render MIDI download payload', err);
-        alert('Unable to decode rendered MIDI for download.');
+        notifyError('Unable to decode rendered MIDI for download.');
       }
       return;
     }
 
     if (!mmaGeneratedXml.trim()) {
-      alert('No generated MusicXML is available to download.');
+      notifyWarning('No generated MusicXML is available to download.');
       return;
     }
     downloadBlob(
@@ -11915,7 +11915,7 @@ ${partsBodyXml}
 
   const handleApplyMmaOutput = async () => {
     if (!mmaGeneratedXml.trim()) {
-      alert('No generated MusicXML is available yet.');
+      notifyWarning('No generated MusicXML is available yet.');
       return;
     }
     setXmlLoading(true);
@@ -11954,7 +11954,7 @@ ${partsBodyXml}
       revealScoreSource();
     } catch (err) {
       console.error('Failed to apply MMA output MusicXML', err);
-      alert('Failed to apply generated MMA MusicXML. See console for details.');
+      notifyError('Failed to apply generated MMA MusicXML. See console for details.');
     } finally {
       setXmlLoading(false);
     }
@@ -11970,7 +11970,7 @@ ${partsBodyXml}
     try {
       const xml = await resolveXmlContext();
       if (!xml.trim()) {
-        alert('Load a score before running harmony analysis.');
+        notifyWarning('Load a score before running harmony analysis.');
         return;
       }
       const payload = await postScoreEditorJson('/api/music/harmony/analyze', {
@@ -12036,7 +12036,7 @@ ${partsBodyXml}
 
   const handleApplyHarmonyOutput = async () => {
     if (!harmonyGeneratedXml.trim()) {
-      alert('No tagged MusicXML is available yet.');
+      notifyWarning('No tagged MusicXML is available yet.');
       return;
     }
     setXmlLoading(true);
@@ -12050,7 +12050,7 @@ ${partsBodyXml}
       revealScoreSource();
     } catch (err) {
       console.error('Failed to apply harmony-tagged MusicXML', err);
-      alert('Failed to apply harmony-tagged MusicXML. See console for details.');
+      notifyError('Failed to apply harmony-tagged MusicXML. See console for details.');
     } finally {
       setXmlLoading(false);
     }
@@ -12058,7 +12058,7 @@ ${partsBodyXml}
 
   const handleDownloadHarmonyXml = () => {
     if (!harmonyGeneratedXml.trim()) {
-      alert('No tagged MusicXML is available to download.');
+      notifyWarning('No tagged MusicXML is available to download.');
       return;
     }
     const filenameBase = scoreTitle ? `harmony-${toSafeFilename(scoreTitle)}` : 'harmony-tagged';
@@ -12075,7 +12075,7 @@ ${partsBodyXml}
     try {
       const xml = await resolveXmlContext();
       if (!xml.trim()) {
-        alert('Load a score before running harmony analysis.');
+        notifyWarning('Load a score before running harmony analysis.');
         return;
       }
       const payload = await postScoreEditorJson('/api/music/functional-harmony/analyze', {
@@ -12122,7 +12122,7 @@ ${partsBodyXml}
   const handleDownloadFunctionalHarmony = (format: 'json' | 'rntxt') => {
     if (format === 'json') {
       if (!functionalHarmonyJsonExport.trim()) {
-        alert('No harmony JSON export is available yet.');
+        notifyWarning('No harmony JSON export is available yet.');
         return;
       }
       const filenameBase = scoreTitle
@@ -12132,7 +12132,7 @@ ${partsBodyXml}
       return;
     }
     if (!functionalHarmonyRntxtExport.trim()) {
-      alert('No harmony text export is available yet.');
+      notifyWarning('No harmony text export is available yet.');
       return;
     }
     const filenameBase = scoreTitle
@@ -12143,7 +12143,7 @@ ${partsBodyXml}
 
   const handleDownloadFunctionalHarmonyXml = () => {
     if (!functionalHarmonyAnnotatedXml.trim()) {
-      alert('No annotated harmony MusicXML is available yet.');
+      notifyWarning('No annotated harmony MusicXML is available yet.');
       return;
     }
     const filenameBase = scoreTitle
@@ -12158,7 +12158,7 @@ ${partsBodyXml}
 
   const handleApplyFunctionalHarmonyOutput = async () => {
     if (!functionalHarmonyAnnotatedXml.trim()) {
-      alert('No annotated harmony MusicXML is available yet.');
+      notifyWarning('No annotated harmony MusicXML is available yet.');
       return;
     }
     setXmlLoading(true);
@@ -12171,7 +12171,7 @@ ${partsBodyXml}
       revealScoreSource();
     } catch (err) {
       console.error('Failed to apply harmony-annotated MusicXML', err);
-      alert('Failed to apply harmony-annotated MusicXML. See console for details.');
+      notifyError('Failed to apply harmony-annotated MusicXML. See console for details.');
     } finally {
       setXmlLoading(false);
     }
@@ -12179,17 +12179,17 @@ ${partsBodyXml}
 
   const handleApplyAiOutput = async () => {
     if (!aiPatchedXml.trim()) {
-      alert(aiPatchError || 'AI patch has not produced valid MusicXML.');
+      notifyError(aiPatchError || 'AI patch has not produced valid MusicXML.');
       return;
     }
     const baseXml = aiBaseXml.trim() || (await aiScoreBridge.getContextXml()).trim();
     if (!baseXml) {
-      alert('Unable to load MusicXML for diff review.');
+      notifyError('Unable to load MusicXML for diff review.');
       return;
     }
     const opened = openAiProposalCompare(baseXml, aiPatchedXml);
     if (!opened) {
-      alert('Unable to open compare view for AI proposal.');
+      notifyError('Unable to open compare view for AI proposal.');
       return;
     }
     // openAiProposalCompare resets threads; seed the last patch's annotations after it.
@@ -12576,20 +12576,12 @@ ${partsBodyXml}
     void goToPage(currentPage + 1);
   };
 
-  const handlePageSelect = (event: ChangeEvent<HTMLSelectElement>) => {
-    const value = Number(event.target.value);
-    if (Number.isNaN(value)) {
-      return;
-    }
-    void goToPage(value);
-  };
-
   const requireMutation = (methodName: keyof MutationMethods) => {
     const activeScore = scoreRef.current ?? score;
     const fn = activeScore && (activeScore as MutationMethods)[methodName];
     if (typeof fn !== 'function') {
       console.warn(`Mutation binding "${methodName}" is missing on Score instance.`);
-      alert(`This build of webmscore does not expose "${methodName}".`);
+      notifyError(`This build of webmscore does not expose "${methodName}".`);
       return null;
     }
     return (...args: unknown[]) => Reflect.apply(fn, activeScore, args);
@@ -12638,13 +12630,8 @@ ${partsBodyXml}
     }
   };
 
-  const promptForText = (label: string, defaultValue?: string) => {
-    if (typeof window === 'undefined') {
-      return null;
-    }
-    const response = window.prompt(label, defaultValue ?? '');
-    return response === null ? null : response;
-  };
+  const promptForText = (label: string, defaultValue?: string) =>
+    promptDialog({ title: label.replace(/:$/, ''), defaultValue });
 
   const performMutation = async (
     label: string,
@@ -13543,7 +13530,7 @@ ${partsBodyXml}
   const handleSetVoice = (voiceIndex: number) => {
     const hasSelection = Boolean(selectedElement) || selectionBoxes.length > 0;
     if (!hasSelection) {
-      alert('Select notes or rests to move them to another voice.');
+      notifyWarning('Select notes or rests to move them to another voice.');
       return;
     }
     return performMutation(`change voice ${voiceIndex + 1}`, async () => {
@@ -13834,8 +13821,8 @@ ${partsBodyXml}
       return fn(tupletCount);
     });
 
-  const handleAddStaffText = () => {
-    const text = promptForText('Staff text:');
+  const handleAddStaffText = async () => {
+    const text = await promptForText('Staff text:');
     if (text === null) {
       return;
     }
@@ -13847,8 +13834,8 @@ ${partsBodyXml}
     });
   };
 
-  const handleAddSystemText = () => {
-    const text = promptForText('System text:');
+  const handleAddSystemText = async () => {
+    const text = await promptForText('System text:');
     if (text === null) {
       return;
     }
@@ -13860,8 +13847,8 @@ ${partsBodyXml}
     });
   };
 
-  const handleAddExpressionText = () => {
-    const text = promptForText('Expression text:');
+  const handleAddExpressionText = async () => {
+    const text = await promptForText('Expression text:');
     if (text === null) {
       return;
     }
@@ -13873,8 +13860,8 @@ ${partsBodyXml}
     });
   };
 
-  const handleAddLyricText = () => {
-    const text = promptForText('Lyrics text:');
+  const handleAddLyricText = async () => {
+    const text = await promptForText('Lyrics text:');
     if (text === null) {
       return;
     }
@@ -13892,9 +13879,9 @@ ${partsBodyXml}
     2: 'Nashville number',
   };
 
-  const handleAddHarmonyText = (variant: HarmonyVariant) => {
+  const handleAddHarmonyText = async (variant: HarmonyVariant) => {
     const label = harmonyLabels[variant];
-    const text = promptForText(`${label} text:`);
+    const text = await promptForText(`${label} text:`);
     if (text === null) {
       return;
     }
@@ -13906,8 +13893,8 @@ ${partsBodyXml}
     });
   };
 
-  const handleAddFingeringText = () => {
-    const text = promptForText('Fingering text:');
+  const handleAddFingeringText = async () => {
+    const text = await promptForText('Fingering text:');
     if (text === null) {
       return;
     }
@@ -13919,8 +13906,8 @@ ${partsBodyXml}
     });
   };
 
-  const handleAddLeftHandGuitarFingeringText = () => {
-    const text = promptForText('Left-hand guitar fingering text:');
+  const handleAddLeftHandGuitarFingeringText = async () => {
+    const text = await promptForText('Left-hand guitar fingering text:');
     if (text === null) {
       return;
     }
@@ -13932,8 +13919,8 @@ ${partsBodyXml}
     });
   };
 
-  const handleAddRightHandGuitarFingeringText = () => {
-    const text = promptForText('Right-hand guitar fingering text:');
+  const handleAddRightHandGuitarFingeringText = async () => {
+    const text = await promptForText('Right-hand guitar fingering text:');
     if (text === null) {
       return;
     }
@@ -13945,8 +13932,8 @@ ${partsBodyXml}
     });
   };
 
-  const handleAddStringNumberText = () => {
-    const text = promptForText('String number text:');
+  const handleAddStringNumberText = async () => {
+    const text = await promptForText('String number text:');
     if (text === null) {
       return;
     }
@@ -13958,8 +13945,8 @@ ${partsBodyXml}
     });
   };
 
-  const handleAddInstrumentChangeText = () => {
-    const text = promptForText('Instrument change text:');
+  const handleAddInstrumentChangeText = async () => {
+    const text = await promptForText('Instrument change text:');
     if (text === null) {
       return;
     }
@@ -13971,8 +13958,8 @@ ${partsBodyXml}
     });
   };
 
-  const handleAddStickingText = () => {
-    const text = promptForText('Sticking text:');
+  const handleAddStickingText = async () => {
+    const text = await promptForText('Sticking text:');
     if (text === null) {
       return;
     }
@@ -13984,8 +13971,8 @@ ${partsBodyXml}
     });
   };
 
-  const handleAddFiguredBassText = () => {
-    const text = promptForText('Figured bass text:');
+  const handleAddFiguredBassText = async () => {
+    const text = await promptForText('Figured bass text:');
     if (text === null) {
       return;
     }
@@ -14169,7 +14156,7 @@ ${partsBodyXml}
    * et al., via promptForText), and header text has no associated selection or
    * on-page element to anchor an inline editor to in the general case.
    */
-  const handleOpenHeaderEditor = (target: HeaderTextTarget) => {
+  const handleOpenHeaderEditor = async (target: HeaderTextTarget) => {
     const config: Record<
       HeaderTextTarget,
       {
@@ -14205,7 +14192,7 @@ ${partsBodyXml}
       },
     };
     const { label, value, setValue, apply } = config[target];
-    const text = promptForText(label, value);
+    const text = await promptForText(label, value);
     if (text === null) {
       return;
     }
@@ -14293,7 +14280,7 @@ ${partsBodyXml}
       selectionProjectionNeeded: selectionProjectionNeededRef.current,
       ensureSelection: ensureSelectionInWasm,
       paste: fn as ((mimeType: string, data: Uint8Array) => Promise<unknown> | unknown) | null,
-      onEmpty: () => alert('Nothing copied yet.'),
+      onEmpty: () => notifyWarning('Nothing copied yet.'),
     });
     return performMutation('paste selection', () => pastePromise, { skipWasmReselect: true });
   };
@@ -14312,7 +14299,7 @@ ${partsBodyXml}
             (targetScore) => {
               const fn = (targetScore as MutationMethods)[methodName];
               if (typeof fn !== 'function') {
-                alert(`This build of webmscore does not expose "${String(methodName)}".`);
+                notifyError(`This build of webmscore does not expose "${String(methodName)}".`);
                 return false;
               }
               return (fn as (...values: unknown[]) => unknown).apply(targetScore, args);
@@ -14370,14 +14357,14 @@ ${partsBodyXml}
             // a rapid Copy, Paste sequence sees the bytes captured by Copy.
             const clip = clipboardRef.current;
             if (!clip) {
-              alert('Nothing copied yet.');
+              notifyWarning('Nothing copied yet.');
               return false;
             }
             return performCompareMutation(
               'paste selection',
               (targetScore) => {
                 if (!targetScore.pasteSelection) {
-                  alert('This build of webmscore does not expose "pasteSelection".');
+                  notifyError('This build of webmscore does not expose "pasteSelection".');
                   return false;
                 }
                 return targetScore.pasteSelection(clip.mimeType, clip.data);
@@ -14722,7 +14709,7 @@ ${partsBodyXml}
       );
     } catch (err) {
       console.error('Failed to set time signature', err);
-      alert('Unable to set time signature. See console for details.');
+      notifyError('Unable to set time signature. See console for details.');
     } finally {
       setAudioBusy(false);
     }
@@ -14747,7 +14734,7 @@ ${partsBodyXml}
       );
     } catch (err) {
       console.error('Failed to set key signature', err);
-      alert('Unable to set key signature. See console for details.');
+      notifyError('Unable to set key signature. See console for details.');
     } finally {
       setAudioBusy(false);
     }
@@ -14772,7 +14759,7 @@ ${partsBodyXml}
       );
     } catch (err) {
       console.error('Failed to set clef', err);
-      alert('Unable to set clef. See console for details.');
+      notifyError('Unable to set clef. See console for details.');
     } finally {
       setAudioBusy(false);
     }
@@ -14799,7 +14786,7 @@ ${partsBodyXml}
       downloadBlob(svg, 'score.svg', 'image/svg+xml');
     } catch (err) {
       console.error('Failed to export SVG', err);
-      alert('Unable to export SVG. See console for details.');
+      notifyError('Unable to export SVG. See console for details.');
     }
   };
 
@@ -14810,13 +14797,13 @@ ${partsBodyXml}
       downloadBlob(pdf, 'score.pdf', 'application/pdf');
     } catch (err) {
       console.error('Failed to export PDF', err);
-      alert('Unable to export PDF. See console for details.');
+      notifyError('Unable to export PDF. See console for details.');
     }
   };
 
   const handleExportPng = async () => {
     if (!score || !score.savePng) {
-      alert('PNG export is not available in this build.');
+      notifyError('PNG export is not available in this build.');
       return;
     }
     const defaultPage = Math.max(
@@ -14830,12 +14817,12 @@ ${partsBodyXml}
   const handleConfirmExportPng = async (event?: React.FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
     if (!score || !score.savePng) {
-      alert('PNG export is not available in this build.');
+      notifyError('PNG export is not available in this build.');
       return;
     }
     const requestedPage = Number(pngExportPageInput);
     if (!Number.isFinite(requestedPage)) {
-      alert('Enter a valid page number.');
+      notifyWarning('Enter a valid page number.');
       return;
     }
     const maxPage = Math.max(1, pageCount);
@@ -14857,7 +14844,7 @@ ${partsBodyXml}
       setPngExportDialogOpen(false);
     } catch (err) {
       console.error('Failed to export PNG', err);
-      alert(err instanceof Error ? err.message : 'Unable to export PNG. See console for details.');
+      notifyError(err instanceof Error ? err.message : 'Unable to export PNG. See console for details.');
     } finally {
       setPngExportBusy(false);
     }
@@ -14865,7 +14852,7 @@ ${partsBodyXml}
 
   const handleExportMxl = async () => {
     if (!score || !score.saveMxl) {
-      alert('MXL export is not available in this build.');
+      notifyError('MXL export is not available in this build.');
       return;
     }
     try {
@@ -14873,13 +14860,13 @@ ${partsBodyXml}
       downloadBlob(mxl, 'score.mxl', 'application/vnd.recordare.musicxml');
     } catch (err) {
       console.error('Failed to export MXL', err);
-      alert('Unable to export MXL. See console for details.');
+      notifyError('Unable to export MXL. See console for details.');
     }
   };
 
   const handleExportMscz = async () => {
     if (!score || !score.saveMsc) {
-      alert('MSCZ export is not available in this build.');
+      notifyError('MSCZ export is not available in this build.');
       return;
     }
     try {
@@ -14887,13 +14874,13 @@ ${partsBodyXml}
       downloadBlob(mscz, 'score.mscz', 'application/vnd.musescore.mscz');
     } catch (err) {
       console.error('Failed to export MSCZ', err);
-      alert('Unable to export MSCZ. See console for details.');
+      notifyError('Unable to export MSCZ. See console for details.');
     }
   };
 
   const handleExportToGoogleDrive = async () => {
     if (!score || !score.saveMsc) {
-      alert('MSCZ export is not available in this build.');
+      notifyError('MSCZ export is not available in this build.');
       return;
     }
     try {
@@ -14902,7 +14889,7 @@ ${partsBodyXml}
       setGoogleDriveExportDialogOpen(true);
     } catch (err) {
       console.error('Failed to export score for Google Drive', err);
-      alert('Unable to export the score. See console for details.');
+      notifyError('Unable to export the score. See console for details.');
     }
   };
 
@@ -14954,7 +14941,7 @@ ${partsBodyXml}
 
   const handleExportMscx = async () => {
     if (!score || !score.saveMsc) {
-      alert('MSCX export is not available in this build.');
+      notifyError('MSCX export is not available in this build.');
       return;
     }
     try {
@@ -14962,13 +14949,13 @@ ${partsBodyXml}
       downloadBlob(mscx, 'score.mscx', 'application/xml');
     } catch (err) {
       console.error('Failed to export MSCX', err);
-      alert('Unable to export MSCX. See console for details.');
+      notifyError('Unable to export MSCX. See console for details.');
     }
   };
 
   const handleExportMusicXml = async () => {
     if (!score || !score.saveXml) {
-      alert('MusicXML export is not available in this build.');
+      notifyError('MusicXML export is not available in this build.');
       return;
     }
     try {
@@ -14976,13 +14963,13 @@ ${partsBodyXml}
       downloadBlob(xml, 'score.musicxml', 'application/vnd.recordare.musicxml+xml');
     } catch (err) {
       console.error('Failed to export MusicXML', err);
-      alert('Unable to export MusicXML. See console for details.');
+      notifyError('Unable to export MusicXML. See console for details.');
     }
   };
 
   const handleExportAbc = async () => {
     if (!score || !score.saveXml) {
-      alert('ABC export is not available in this build.');
+      notifyError('ABC export is not available in this build.');
       return;
     }
     try {
@@ -15010,13 +14997,13 @@ ${partsBodyXml}
       downloadBlob(`${abc}\n`, 'score.abc', 'text/plain;charset=utf-8');
     } catch (err) {
       console.error('Failed to export ABC', err);
-      alert('Unable to export ABC. See console for details.');
+      notifyError('Unable to export ABC. See console for details.');
     }
   };
 
   const handleExportMidi = async () => {
     if (!score || !score.saveMidi) {
-      alert('MIDI export is not available in this build.');
+      notifyError('MIDI export is not available in this build.');
       return;
     }
     try {
@@ -15024,20 +15011,20 @@ ${partsBodyXml}
       downloadBlob(midi, 'score.mid', 'audio/midi');
     } catch (err) {
       console.error('Failed to export MIDI', err);
-      alert('Unable to export MIDI. See console for details.');
+      notifyError('Unable to export MIDI. See console for details.');
     }
   };
 
   const handleExportAudio = async () => {
     if (!score || !score.saveAudio) {
-      alert('Audio export is not available in this build.');
+      notifyError('Audio export is not available in this build.');
       return;
     }
     try {
       setAudioBusy(true);
       const ok = await ensureSoundFontLoaded(undefined, { forceRetry: true });
       if (!ok) {
-        alert(
+        notifyError(
           'No default soundfont found. Configure NEXT_PUBLIC_SOUNDFONT_CDN_URL or provide /public/soundfonts/default.sf3 (or .sf2).',
         );
         return;
@@ -15046,7 +15033,7 @@ ${partsBodyXml}
       downloadBlob(wav, 'score.wav', 'audio/wav');
     } catch (err) {
       console.error('Failed to export audio', err);
-      alert('Unable to export audio. See console for details.');
+      notifyError('Unable to export audio. See console for details.');
     } finally {
       setAudioBusy(false);
     }
@@ -15070,14 +15057,14 @@ ${partsBodyXml}
 
   const handleExportCurrentPageAudio = async () => {
     if (!score || !score.saveAudioForMeasureRange) {
-      alert('Current-page audio export is not available in this build.');
+      notifyError('Current-page audio export is not available in this build.');
       return;
     }
     try {
       setAudioBusy(true);
       const ok = await ensureSoundFontLoaded(undefined, { forceRetry: true });
       if (!ok) {
-        alert(
+        notifyError(
           'No default soundfont found. Configure NEXT_PUBLIC_SOUNDFONT_CDN_URL or provide /public/soundfonts/default.sf3 (or .sf2).',
         );
         return;
@@ -15090,7 +15077,7 @@ ${partsBodyXml}
       downloadBlob(wav, `score-page-${Math.max(0, currentPageRef.current) + 1}.wav`, 'audio/wav');
     } catch (err) {
       console.error('Failed to export current-page audio', err);
-      alert(
+      notifyError(
         err instanceof Error
           ? err.message
           : 'Unable to export current-page audio. See console for details.',
@@ -15247,14 +15234,14 @@ ${partsBodyXml}
 
   const playTransportAudio = async (fromSelection: boolean) => {
     if (!score || !score.saveAudio) {
-      alert('Audio playback is not available in this build.');
+      notifyError('Audio playback is not available in this build.');
       return;
     }
     try {
       setAudioBusy(true);
       const ok = await ensureSoundFontLoaded(undefined, { forceRetry: true });
       if (!ok) {
-        alert(
+        notifyError(
           'No default soundfont found. Configure NEXT_PUBLIC_SOUNDFONT_CDN_URL or provide /public/soundfonts/default.sf3 (or .sf2).',
         );
         return;
@@ -15305,15 +15292,15 @@ ${partsBodyXml}
         if (fromSelection) {
           const hasSelectionStreamingApi = typeof score.synthAudioBatchFromSelection === 'function';
           if (!hasSelectionStreamingApi) {
-            alert(
+            notifyError(
               'Play from selection is not available in this running build. Rebuild webmscore JS glue (`cd webmscore-fork/web-public && npm run bundle`) and restart `npm run dev`.',
             );
           } else if (streamFailure) {
             const streamMessage =
               streamFailure instanceof Error ? streamFailure.message : String(streamFailure);
-            alert(`Play from selection failed: ${streamMessage}`);
+            notifyError(`Play from selection failed: ${streamMessage}`);
           } else {
-            alert('Play from selection is not available in this build.');
+            notifyError('Play from selection is not available in this build.');
           }
           return;
         }
@@ -15332,7 +15319,7 @@ ${partsBodyXml}
       // Say what went wrong here rather than deferring to a console the
       // reader may not be able to open: in an embed this runs inside an
       // iframe, where the browser can refuse DevTools outright.
-      alert(`Unable to play audio: ${err instanceof Error ? err.message : String(err)}`);
+      notifyError(`Unable to play audio: ${err instanceof Error ? err.message : String(err)}`);
       await stopAudio({ awaitCancel: true });
     } finally {
       setAudioBusy(false);
@@ -15367,7 +15354,7 @@ ${partsBodyXml}
         debugLabel: target.debugLabel,
         renderWindow: DEFAULT_RENDER_WINDOW,
       }),
-    reportUnavailable: () => alert('Audio playback is not available for this score.'),
+    reportUnavailable: () => notifyError('Audio playback is not available for this score.'),
     reportRangedSynthUnavailable: (error: unknown) => {
       // Not an alert: playback still happens, from the top of the score
       // instead of from this row. Saying so once in the console is the
@@ -15378,12 +15365,12 @@ ${partsBodyXml}
       );
     },
     reportMissingSoundFont: () =>
-      alert(
+      notifyError(
         'No default soundfont found. Configure NEXT_PUBLIC_SOUNDFONT_CDN_URL or provide /public/soundfonts/default.sf3 (or .sf2).',
       ),
     reportPlaybackError: (side, error) => {
       console.error(`Failed to play ${side} compare audio`, error);
-      alert('Unable to play audio. See console for details.');
+      notifyError('Unable to play audio. See console for details.');
     },
     trackOperation: trackCompareOperation,
   });
@@ -17397,48 +17384,6 @@ ${partsBodyXml}
   const xmlEditorHeight = '45vh';
   const xmlEditorMaxHeight = '55vh';
 
-  const MIN_SIDEBAR_WIDTH = 280; // minimum resizable width
-  const MAX_SIDEBAR_WIDTH = 800; // maximum resizable width
-
-  const handleSidebarResizeStart = useCallback(
-    (e: React.MouseEvent) => {
-      if (xmlSidebarMode !== 'open') return;
-      e.preventDefault();
-      setIsResizingSidebar(true);
-      sidebarResizeStartXRef.current = e.clientX;
-      sidebarResizeStartWidthRef.current = xmlSidebarWidth;
-    },
-    [xmlSidebarMode, xmlSidebarWidth],
-  );
-
-  useEffect(() => {
-    if (!isResizingSidebar) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const delta = sidebarResizeStartXRef.current - e.clientX;
-      const newWidth = Math.max(
-        MIN_SIDEBAR_WIDTH,
-        Math.min(MAX_SIDEBAR_WIDTH, sidebarResizeStartWidthRef.current + delta),
-      );
-      setXmlSidebarWidth(newWidth);
-    };
-
-    const handleMouseUp = () => {
-      setIsResizingSidebar(false);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-  }, [isResizingSidebar]);
   const aiOutputValidation = aiOutput.trim()
     ? aiPatchError
       ? { valid: false, message: aiPatchError }
@@ -17460,14 +17405,14 @@ ${partsBodyXml}
 
   const panels = useShellPanels();
   const dock = useWorkspaceDock({
-    enabled: shellV2 && traits.chrome === 'full',
+    enabled: traits.chrome === 'full',
     compareView: Boolean(compareView),
     floatingOpen: palettesOpen,
     setFloatingOpen: setPalettesOpen,
     setCategory: setPaletteCategory,
   });
   useShellCommands({
-    dock: shellV2 && traits.chrome === 'full' ? dock : null,
+    dock: traits.chrome === 'full' ? dock : null,
     activity, setActivity, compareOpen: Boolean(compareView), closeCompare: handleCloseCompareView,
     score, aiEnabled, pageCount, currentPage, goToPage,
     goToNextPage: handleNextPage, goToPreviousPage: handlePrevPage,
@@ -17476,11 +17421,10 @@ ${partsBodyXml}
     setAiToolsOpen: (open) => setXmlSidebarMode(open ? 'open' : 'closed'),
     saveCheckpoint: handleSaveCheckpoint, copySelection: handleCopySelection,
     pasteSelection: handlePasteSelection, scoreSummaries, openScoreFromSummary: handleOpenScoreFromSummary,
-    zoom, isPlaying, isPaused, interactionPreparing, dirty: scoreDirtySinceCheckpoint,
+    zoom, isPlaying, isPaused, audioBusy, interactionPreparing, dirty: scoreDirtySinceCheckpoint,
     checkpointCount: checkpoints.length, progressiveLoadEnabled,
     pageCountIsFloor: progressivePagingActive && progressiveHasMorePages,
     toggleProgressiveLoad: () => setProgressiveLoadEnabled((prev) => !prev),
-    setCheckpointsCollapsed, setLeftSidebarTab,
   });
   const aiApplyDisabled = xmlControlsDisabled || !aiPatchedXml.trim() || Boolean(aiPatchError);
   const patchEditorHeight = '35vh';
@@ -17596,25 +17540,6 @@ ${partsBodyXml}
             <div className="flex items-center justify-center h-full">
               <div className="text-xl text-gray-400">No score loaded. Open a file to begin.</div>
             </div>
-          )}
-
-          {!loading && score && (
-            <>
-              {!shellV2 && (
-                <LegacyCanvasChrome
-                  interactionPreparing={interactionPreparing}
-                  progressiveLoadEnabled={progressiveLoadEnabled}
-                  onToggleProgressiveLoad={() => setProgressiveLoadEnabled((prev) => !prev)}
-                  currentPage={currentPage}
-                  pageCount={pageCount}
-                  pageCountIsFloor={progressivePagingActive && progressiveHasMorePages}
-                  onPageSelect={handlePageSelect}
-                  onPrevPage={handlePrevPage}
-                  onNextPage={handleNextPage}
-                  canAdvancePastEnd={progressivePagingActive && progressiveHasMorePages}
-                />
-              )}
-            </>
           )}
 
           <div
@@ -18274,12 +18199,8 @@ ${partsBodyXml}
     },
   };
 
-  const renderHistory = (embedded: boolean) => (
+  const renderHistory = () => (
     <LeftSidebar
-          hidden={!embedded && !panelsVisible}
-          embedded={embedded}
-          collapsed={checkpointsCollapsed}
-          onToggleCollapsed={() => setCheckpointsCollapsed((prev) => !prev)}
           onRefresh={() => {
             if (otsSourceContext && leftSidebarTab === 'versions') {
               void refreshSourceHistory();
@@ -18398,35 +18319,6 @@ ${partsBodyXml}
                     : 'flex min-h-0 w-full h-full flex-col gap-4 overflow-hidden bg-white p-4'
               }
             >
-              {!hosted && (
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="space-y-1">
-                    <div className="text-sm font-semibold text-gray-800">Compare Scores</div>
-                    <div className="text-xs text-gray-500">
-                      {compareLeftLabel} vs {compareRightLabel}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {compareView.title === 'Assistant Proposal' && (
-                      <AiCompareWorkspaceActions
-                        applyBusy={compareSwapBusy || compareEditBusy}
-                        feedbackBusy={aiDiffFeedbackBusy}
-                        canSendFeedback={canSendDiffFeedback}
-                        feedbackLabel={diffFeedbackButtonLabel}
-                        onApplyAll={() => void handleAcceptAllAiChanges()}
-                        onSendFeedback={() => void handleSendDiffFeedback()}
-                      />
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleCloseCompareView}
-                      className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
-                    >
-                      {isAiCompareMode ? 'Done - Close' : 'Close'}
-                    </button>
-                  </div>
-                </div>
-              )}
               <div
                 className={
                   grows
@@ -18772,164 +18664,180 @@ ${partsBodyXml}
     </>
   );
 
+  useEditorCommands({
+    onNewScore: handleOpenNewScoreDialog,
+    onFileUpload: handleLoadScoreUpload,
+    onLoadScoresToCompare: handleOpenCompareScoreLoader,
+    onSoundFontUpload: handleSoundFontUpload,
+    onOpenHeaderEditor: score?.setTitleText ? handleOpenHeaderEditor : undefined,
+    onZoomIn: handleZoomIn,
+    onZoomOut: handleZoomOut,
+    zoomLevel: zoom,
+    onFitWidth: handleFitWidth,
+    onFitHeight: handleFitHeight,
+    onSetZoom: handleSetZoom,
+    onDeleteSelection: handleDeleteSelection,
+    onSelectAll: handleSelectAll,
+    onUndo: handleUndo,
+    onRedo: handleRedo,
+    onPitchUp: handlePitchUp,
+    onPitchDown: handlePitchDown,
+    onTranspose: handleTranspose,
+    onTransposeEx: handleTransposeEx,
+    onSetAccidental: noteInputActive ? handleSetInputAccidental : handleSetAccidental,
+    onDurationLonger: handleDurationLonger,
+    onDurationShorter: handleDurationShorter,
+    mutationsEnabled: interactiveMutationEnabled,
+    selectionActive: 
+      Boolean(selectedElement) || selectionBoxes.length > 0 || Boolean(selectedPoint)
+    ,
+    onExportSvg: handleExportSvg,
+    onExportPdf: handleExportPdf,
+    onExportPng: handleExportPng,
+    onExportMxl: handleExportMxl,
+    onExportMscz: handleExportMscz,
+    onExportMscx: handleExportMscx,
+    onExportMusicXml: handleExportMusicXml,
+    onExportAbc: handleExportAbc,
+    onExportMidi: handleExportMidi,
+    onExportAudio: handleExportAudio,
+    onExportCurrentPageAudio: 
+      score?.saveAudioForMeasureRange ? handleExportCurrentPageAudio : undefined
+    ,
+    onExportToGoogleDrive: handleExportToGoogleDrive,
+    onCreateShareableLink: handleOpenShareLinkDialog,
+    onTogglePlayPause: () => {
+      void handleTogglePlayPause();
+    },
+    onStopAudio: () => {
+      void stopAudio({ awaitCancel: true });
+    },
+    onPlayFromSelectionAudio: interactionReady ? handlePlayFromSelectionAudio : undefined,
+    isPlaying,
+    isPaused,
+    audioBusy,
+    exportsEnabled: Boolean(score),
+    pngAvailable: Boolean(score?.savePng),
+    audioAvailable: Boolean(score?.saveAudio),
+    onSetTimeSignature: handleSetTimeSignature,
+    onSetKeySignature: handleSetKeySignature,
+    onSetClef: handleSetClef,
+    onToggleDot: noteInputActive ? handleToggleInputDotState : handleToggleDot,
+    onToggleDoubleDot: noteInputActive ? undefined : handleToggleDoubleDot,
+    onSetDurationType: noteInputActive ? handleSetInputDuration : handleSetDurationType,
+    onToggleLineBreak: handleToggleLineBreak,
+    onTogglePageBreak: handleTogglePageBreak,
+    onSetVoice: noteInputActive ? handleSetInputVoice : handleSetVoice,
+    onAddDynamic: handleAddDynamic,
+    onAddHairpin: handleAddHairpin,
+    onAddOttava: handleAddOttava,
+    onAddTrill: handleAddTrill,
+    onAddGlissando: handleAddGlissando,
+    onAddFermata: handleAddFermata,
+    onAddBreath: handleAddBreath,
+    onAddArpeggio: handleAddArpeggio,
+    onAddTremolo: handleAddTremolo,
+    onAddPedal: handleAddPedal,
+    onAddSostenutoPedal: handleAddSostenutoPedal,
+    onAddUnaCorda: handleAddUnaCorda,
+    onSplitPedal: handleSplitPedal,
+    onAddTempoText: handleAddTempoText,
+    onAddStaffText: handleAddStaffText,
+    onAddSystemText: handleAddSystemText,
+    onAddExpressionText: handleAddExpressionText,
+    onAddLyricText: handleAddLyricText,
+    onAddHarmonyText: handleAddHarmonyText,
+    onAddFingeringText: handleAddFingeringText,
+    onAddLeftHandGuitarFingeringText: handleAddLeftHandGuitarFingeringText,
+    onAddRightHandGuitarFingeringText: handleAddRightHandGuitarFingeringText,
+    onAddStringNumberText: handleAddStringNumberText,
+    onAddInstrumentChangeText: handleAddInstrumentChangeText,
+    onAddStickingText: handleAddStickingText,
+    onAddFiguredBassText: handleAddFiguredBassText,
+    onAddArticulation: handleAddArticulation,
+    onAddSlur: handleAddSlur,
+    onFlipStem: handleFlipStem,
+    onAddTie: handleAddTie,
+    onAddGraceNote: handleAddGraceNote,
+    onToggleNoteInput: toggleNoteInputMode,
+    noteInputActive,
+    noteInputMethod,
+    onSetNoteInputMethod: handleSetNoteInputMethod,
+    onAddTuplet: handleAddTuplet,
+    onAddNoteFromRest: handleAddNoteFromRest,
+    onToggleRepeatStart: handleToggleRepeatStart,
+    onToggleRepeatEnd: handleToggleRepeatEnd,
+    onSetRepeatCount: handleSetRepeatCount,
+    onSetBarLineType: handleSetBarLineType,
+    onAddVolta: handleAddVolta,
+    onAddMarker: handleAddMarker,
+    onAddJump: handleAddJump,
+    onSetBeamMode: handleSetBeamMode,
+    onAddFretDiagram: handleAddFretDiagram,
+    onAddAmbitus: handleAddAmbitus,
+    onExplodeSelection: () => {
+      void runRangeTool('explode selection', 'explodeSelection');
+    },
+    onImplodeSelection: () => {
+      void runRangeTool('implode selection', 'implodeSelection');
+    },
+    onRegroupSelection: () => {
+      void runRangeTool('regroup rhythms', 'regroupSelection');
+    },
+    onResequenceRehearsalMarks: () => {
+      void runRangeTool('resequence rehearsal marks', 'resequenceRehearsalMarks');
+    },
+    onTogglePalettes: dock.togglePalettes,
+    onOpenPalette: dock.openPalette,
+    palettesOpen: dock.palettesVisible,
+    onTogglePanels: () => setPanelsVisible((visible) => !visible),
+    panelsVisible,
+    selectionFilterMask,
+    onSetSelectionFilterBit: handleSetSelectionFilterBit,
+    onAddMeasureRepeat: handleAddMeasureRepeat,
+    multiMeasureRestsEnabled,
+    onSetMultiMeasureRests: handleSetMultiMeasureRests,
+    onInsertMeasures: handleInsertMeasures,
+    onAddPickup: handleAddPickup,
+    onRemoveContainingMeasures: handleRemoveContainingMeasures,
+    onRemoveTrailingEmptyMeasures: handleRemoveTrailingEmptyMeasures,
+    insertMeasuresDisabled: !score?.insertMeasures,
+    parts: scoreParts,
+    instrumentGroups,
+    onAddPart: handleAddPart,
+    onRemovePart: handleRemovePart,
+    onTogglePartVisible: handleTogglePartVisible,
+    selectedTextActive: textSelectionActive,
+    onApplySelectedText: handleApplySelectedText,
+    selectedTextDisabled: selectedTextControlDisabled,
+    onOpenTransposeDialog: () => setTransposeDialogOpen(true),
+  });
+
   const mode = buildWorkspaceMode(kind, {
-    legacy: !shellV2,
     nodes: {
-      header: <ShellHeader title={scoreTitle} dirty={scoreDirtySinceCheckpoint} v2={shellV2} />,
-      ribbon: (
-        <div className="relative" style={{ zIndex: 100 }} ref={toolbarRef}>
-          <Toolbar
-            hiddenSections={shellV2 ? V2_HIDDEN_RIBBON_SECTIONS : undefined}
-            onNewScore={handleOpenNewScoreDialog}
-            onFileUpload={handleLoadScoreUpload}
-            onLoadScoresToCompare={handleOpenCompareScoreLoader}
-            onSoundFontUpload={handleSoundFontUpload}
-            onOpenHeaderEditor={score?.setTitleText ? handleOpenHeaderEditor : undefined}
-            onZoomIn={handleZoomIn}
-            onZoomOut={handleZoomOut}
-            zoomLevel={zoom}
-            onFitWidth={handleFitWidth}
-            onFitHeight={handleFitHeight}
-            onSetZoom={handleSetZoom}
-            onDeleteSelection={handleDeleteSelection}
-            onSelectAll={handleSelectAll}
-            onUndo={handleUndo}
-            onRedo={handleRedo}
-            onPitchUp={handlePitchUp}
-            onPitchDown={handlePitchDown}
-            onTranspose={handleTranspose}
-            onTransposeEx={handleTransposeEx}
-            onSetAccidental={noteInputActive ? handleSetInputAccidental : handleSetAccidental}
-            onDurationLonger={handleDurationLonger}
-            onDurationShorter={handleDurationShorter}
-            mutationsEnabled={interactiveMutationEnabled}
-            selectionActive={
-              Boolean(selectedElement) || selectionBoxes.length > 0 || Boolean(selectedPoint)
-            }
-            onExportSvg={handleExportSvg}
-            onExportPdf={handleExportPdf}
-            onExportPng={handleExportPng}
-            onExportMxl={handleExportMxl}
-            onExportMscz={handleExportMscz}
-            onExportMscx={handleExportMscx}
-            onExportMusicXml={handleExportMusicXml}
-            onExportAbc={handleExportAbc}
-            onExportMidi={handleExportMidi}
-            onExportAudio={handleExportAudio}
-            onExportCurrentPageAudio={
-              score?.saveAudioForMeasureRange ? handleExportCurrentPageAudio : undefined
-            }
-            onExportToGoogleDrive={handleExportToGoogleDrive}
-            onCreateShareableLink={handleOpenShareLinkDialog}
-            onTogglePlayPause={() => {
-              void handleTogglePlayPause();
-            }}
-            onStopAudio={() => {
-              void stopAudio({ awaitCancel: true });
-            }}
-            onPlayFromSelectionAudio={interactionReady ? handlePlayFromSelectionAudio : undefined}
-            isPlaying={isPlaying}
-            isPaused={isPaused}
-            audioBusy={audioBusy}
-            exportsEnabled={Boolean(score)}
-            pngAvailable={Boolean(score?.savePng)}
-            audioAvailable={Boolean(score?.saveAudio)}
-            onSetTimeSignature={handleSetTimeSignature}
-            onSetKeySignature={handleSetKeySignature}
-            onSetClef={handleSetClef}
-            paletteDropEnabled={Boolean(score?.applyDropAtPoint)}
-            onToggleDot={noteInputActive ? handleToggleInputDotState : handleToggleDot}
-            onToggleDoubleDot={noteInputActive ? undefined : handleToggleDoubleDot}
-            onSetDurationType={noteInputActive ? handleSetInputDuration : handleSetDurationType}
-            onToggleLineBreak={handleToggleLineBreak}
-            onTogglePageBreak={handleTogglePageBreak}
-            onSetVoice={noteInputActive ? handleSetInputVoice : handleSetVoice}
-            onAddDynamic={handleAddDynamic}
-            onAddHairpin={handleAddHairpin}
-            onAddOttava={handleAddOttava}
-            onAddTrill={handleAddTrill}
-            onAddGlissando={handleAddGlissando}
-            onAddFermata={handleAddFermata}
-            onAddBreath={handleAddBreath}
-            onAddArpeggio={handleAddArpeggio}
-            onAddTremolo={handleAddTremolo}
-            onAddPedal={handleAddPedal}
-            onAddSostenutoPedal={handleAddSostenutoPedal}
-            onAddUnaCorda={handleAddUnaCorda}
-            onSplitPedal={handleSplitPedal}
-            onAddTempoText={handleAddTempoText}
-            onAddStaffText={handleAddStaffText}
-            onAddSystemText={handleAddSystemText}
-            onAddExpressionText={handleAddExpressionText}
-            onAddLyricText={handleAddLyricText}
-            onAddHarmonyText={handleAddHarmonyText}
-            onAddFingeringText={handleAddFingeringText}
-            onAddLeftHandGuitarFingeringText={handleAddLeftHandGuitarFingeringText}
-            onAddRightHandGuitarFingeringText={handleAddRightHandGuitarFingeringText}
-            onAddStringNumberText={handleAddStringNumberText}
-            onAddInstrumentChangeText={handleAddInstrumentChangeText}
-            onAddStickingText={handleAddStickingText}
-            onAddFiguredBassText={handleAddFiguredBassText}
-            onAddArticulation={handleAddArticulation}
-            onAddSlur={handleAddSlur}
-            onFlipStem={handleFlipStem}
-            onAddTie={handleAddTie}
-            onAddGraceNote={handleAddGraceNote}
-            onToggleNoteInput={toggleNoteInputMode}
-            noteInputActive={noteInputActive}
-            noteInputMethod={noteInputMethod}
-            onSetNoteInputMethod={handleSetNoteInputMethod}
-            onAddTuplet={handleAddTuplet}
-            onAddNoteFromRest={handleAddNoteFromRest}
-            onToggleRepeatStart={handleToggleRepeatStart}
-            onToggleRepeatEnd={handleToggleRepeatEnd}
-            onSetRepeatCount={handleSetRepeatCount}
-            onSetBarLineType={handleSetBarLineType}
-            onAddVolta={handleAddVolta}
-            onAddMarker={handleAddMarker}
-            onAddJump={handleAddJump}
-            onSetBeamMode={handleSetBeamMode}
-            onAddFretDiagram={handleAddFretDiagram}
-            onAddAmbitus={handleAddAmbitus}
-            onExplodeSelection={() => {
-              void runRangeTool('explode selection', 'explodeSelection');
-            }}
-            onImplodeSelection={() => {
-              void runRangeTool('implode selection', 'implodeSelection');
-            }}
-            onRegroupSelection={() => {
-              void runRangeTool('regroup rhythms', 'regroupSelection');
-            }}
-            onResequenceRehearsalMarks={() => {
-              void runRangeTool('resequence rehearsal marks', 'resequenceRehearsalMarks');
-            }}
-            onTogglePalettes={dock.togglePalettes}
-            onOpenPalette={dock.openPalette}
-            palettesOpen={dock.palettesVisible}
-            instrumentsInDock={shellV2}
-            onTogglePanels={() => setPanelsVisible((visible) => !visible)}
-            panelsVisible={panelsVisible}
-            selectionFilterMask={selectionFilterMask}
-            onSetSelectionFilterBit={handleSetSelectionFilterBit}
-            onAddMeasureRepeat={handleAddMeasureRepeat}
-            multiMeasureRestsEnabled={multiMeasureRestsEnabled}
-            onSetMultiMeasureRests={handleSetMultiMeasureRests}
-            onInsertMeasures={handleInsertMeasures}
-            onAddPickup={handleAddPickup}
-            onRemoveContainingMeasures={handleRemoveContainingMeasures}
-            onRemoveTrailingEmptyMeasures={handleRemoveTrailingEmptyMeasures}
-            insertMeasuresDisabled={!score?.insertMeasures}
-            parts={scoreParts}
-            instrumentGroups={instrumentGroups}
-            onAddPart={handleAddPart}
-            onRemovePart={handleRemovePart}
-            onTogglePartVisible={handleTogglePartVisible}
-            selectedTextActive={textSelectionActive}
-            onApplySelectedText={handleApplySelectedText}
-            selectedTextDisabled={selectedTextControlDisabled}
-          />
-        </div>
-      ),
+      header: <ShellHeader title={scoreTitle} dirty={scoreDirtySinceCheckpoint} />,
+      writeToolbar: <WriteToolbar noteInputMethod={noteInputMethod} />,
+      historyToolbar: <HistoryToolbar />,
+      compareToolbar: compareView ? (
+        <CompareToolbar
+          leftLabel={compareLeftLabel}
+          rightLabel={compareRightLabel}
+          actions={
+            compareView.title === 'Assistant Proposal' ? (
+              <AiCompareWorkspaceActions
+                applyBusy={compareSwapBusy || compareEditBusy}
+                feedbackBusy={aiDiffFeedbackBusy}
+                canSendFeedback={canSendDiffFeedback}
+                feedbackLabel={diffFeedbackButtonLabel}
+                onApplyAll={() => void handleAcceptAllAiChanges()}
+                onSendFeedback={() => void handleSendDiffFeedback()}
+              />
+            ) : null
+          }
+          closeLabel={isAiCompareMode ? 'Done - Close' : 'Close'}
+          onClose={handleCloseCompareView}
+        />
+      ) : null,
       floatingPalettes: palettesOpen ? (
         <FloatingPalettes
           disabled={
@@ -18947,7 +18855,7 @@ ${partsBodyXml}
             compareView ? handleCompareApplyFloatingPaletteItem : handleApplyFloatingPaletteItem
           }
           onClose={() => setPalettesOpen(false)}
-          onDock={shellV2 && !compareView ? () => dock.setPoppedOut(false) : undefined}
+          onDock={!compareView ? () => dock.setPoppedOut(false) : undefined}
           category={paletteCategory}
         />
       ) : null,
@@ -18979,34 +18887,6 @@ ${partsBodyXml}
             zoom={zoom}
           />
 
-      ),
-      legacyHistorySidebar: renderHistory(false),
-      legacyPanels: (
-        <LegacySidePanels
-          panelsVisible={panelsVisible}
-          inspector={inspectorProps}
-          inspectorOpen={inspectorOpen}
-          onInspectorOpenChange={setInspectorOpen}
-          musicXml={musicXmlPanelProps}
-          musicXmlOpen={musicXmlOpen}
-          onMusicXmlOpenChange={setMusicXmlOpen}
-          aiOpen={aiToolsSidebarOpen}
-          xmlMode={xmlSidebarMode}
-          onXmlModeChange={setXmlSidebarMode}
-          xmlTab={xmlSidebarTab}
-          onXmlTabChange={setXmlSidebarTab}
-          xmlWidth={xmlSidebarWidth}
-          onResizeStart={handleSidebarResizeStart}
-          aiEnabled={aiEnabled}
-          aiStatus={{
-            checkpointCount: checkpoints.length,
-            dirtySinceCheckpoint: scoreDirtySinceCheckpoint,
-            loading: xmlLoading,
-          }}
-          aiBody={renderAiToolsBody()}
-          historyCollapsed={checkpointsCollapsed}
-          onHistoryCollapsedChange={setCheckpointsCollapsed}
-        />
       ),
       write: {
         dock,
@@ -19041,10 +18921,17 @@ ${partsBodyXml}
           content: <MusicXmlPanel embedded {...musicXmlPanelProps} />,
         },
       },
-      historyContent: renderHistory(true),
+      historyContent: renderHistory(),
       historyWidth: panels.history,
       dialogs: (
         <>
+        {handleTransposeEx && (
+          <TransposeDialog
+            open={transposeDialogOpen}
+            onOpenChange={setTransposeDialogOpen}
+            onTranspose={handleTransposeEx}
+          />
+        )}
         {pngExportDialogOpen && (
           <PngExportDialog
             pageCount={pageCount}

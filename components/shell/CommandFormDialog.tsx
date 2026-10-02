@@ -77,7 +77,7 @@ function FormBody({
         <Button type="button" variant="outline" size="md" onClick={closeCommandForm}>
           Cancel
         </Button>
-        <Button type="submit" size="md" variant="primary" data-testid="command-form-submit">
+        <Button type="submit" size="md" variant="primary" data-testid={form.submitTestId}>
           {form.submitLabel}
         </Button>
       </div>

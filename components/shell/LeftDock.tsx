@@ -5,7 +5,7 @@ import React, { type CSSProperties } from 'react';
 import type { SelectedElementProperties } from '../../lib/webmscore-loader';
 import { InspectorPanel } from '../InspectorPanel';
 import { PaletteBrowser } from '../PaletteBrowser';
-import type { InstrumentTemplateGroup, PartSummary } from '../Toolbar';
+import type { InstrumentTemplateGroup, PartSummary } from '../score-editor/editorProps';
 import type { PaletteCategory, ScorePaletteItem } from '../toolbar/palette';
 import { InstrumentsPanel } from './InstrumentsPanel';
 import { PANEL_LIMITS } from './useShellPanels';

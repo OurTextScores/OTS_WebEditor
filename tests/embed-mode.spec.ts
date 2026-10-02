@@ -167,16 +167,13 @@ test.describe('Embed Mode - External XML Comparison', () => {
       await route.fulfill({ status: 200, contentType: 'application/xml', body: testXmlRight });
     });
 
-    // Listen for alert dialogs
-    page.on('dialog', async (dialog) => {
-      expect(dialog.message()).toContain('Failed to load files');
-      await dialog.accept();
-    });
-
     await page.goto(
       '/?compareLeft=https://example.com/left.xml&compareRight=https://example.com/right.xml',
     );
-    await page.waitForTimeout(2000);
+    // The failure reaches the reader as a notice, not a modal alert.
+    await expect(page.getByTestId('notice-error').first()).toContainText('Failed to load files', {
+      timeout: 15_000,
+    });
   });
 
   test('should not activate embed mode with only one URL parameter', async ({ page }) => {

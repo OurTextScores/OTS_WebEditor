@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { setupScoreEditorTest, testGlobals } from './test-harness';
+import { noticeTitles, runEditorCommand, setupScoreEditorTest, testGlobals } from './test-harness';
 
 const mocked = vi.hoisted(() => ({
   loadWebMscore: vi.fn(),
@@ -65,8 +65,7 @@ describe('ScoreEditor: loading, format detection and progressive layout', () => 
 
     await screen.findByTestId('selection-overlay');
 
-    await user.click(screen.getByTestId('dropdown-clef'));
-    await user.click(await screen.findByTestId('btn-clef-0'));
+    await runEditorCommand('btn-clef-0');
 
     await waitFor(() => expect(score.setClef).toHaveBeenCalledWith(0));
     expect(score.relayout).toHaveBeenCalled();
@@ -261,19 +260,18 @@ describe('ScoreEditor: loading, format detection and progressive layout', () => 
     );
     await waitFor(() => expect(score.layoutUntilPage).toHaveBeenCalledWith(0));
     await waitFor(() =>
-      expect(screen.getByTestId('page-indicator').textContent).toContain('Page 1 of 1+'),
+      expect(screen.getByTestId('page-indicator').textContent).toContain('of 1+'),
     );
 
-    await user.click(screen.getByText('Next'));
+    await user.click(screen.getByRole('button', { name: 'Next page' }));
 
     await waitFor(() => expect(score.layoutUntilPage).toHaveBeenCalledWith(1));
     await waitFor(() =>
-      expect(screen.getByTestId('page-indicator').textContent).toContain('Page 2 of 2+'),
+      expect(screen.getByTestId('page-indicator').textContent).toContain('of 2+'),
     );
     await waitFor(() => expect(score.saveSvg).toHaveBeenCalledWith(1, true, true));
 
-    await user.click(screen.getByTestId('dropdown-export'));
-    await user.click(await screen.findByTestId('btn-export-png'));
+    await runEditorCommand('btn-export-png');
     await expect(screen.findByTestId('png-export-page-input')).resolves.toHaveValue(2);
     await user.click(await screen.findByTestId('btn-confirm-export-png'));
     await waitFor(() => expect(score.savePng).toHaveBeenCalledWith(1, true, true));
@@ -301,9 +299,7 @@ describe('ScoreEditor: loading, format detection and progressive layout', () => 
     await user.upload(screen.getByTestId('open-score-input'), file);
 
     await waitFor(() =>
-      expect(testGlobals.alert).toHaveBeenCalledWith(
-        'Failed to load score. See console for details.',
-      ),
+      expect(noticeTitles()).toContain('Failed to load score. See console for details.'),
     );
   });
 

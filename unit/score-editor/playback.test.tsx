@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { setupScoreEditorTest, testGlobals } from './test-harness';
+import { defaultCommandRegistry } from '../../lib/commands';
 
 const mocked = vi.hoisted(() => ({
   loadWebMscore: vi.fn(),
@@ -53,8 +54,7 @@ describe('ScoreEditor: soundfont loading, playback and preview audio', () => {
     await user.upload(screen.getByTestId('open-score-input'), file);
 
     await waitFor(() => expect(score.setSoundFont).toHaveBeenCalled());
-    await user.click(screen.getByTestId('dropdown-export'));
-    await waitFor(() => expect(screen.getByTestId('btn-export-audio')).toBeEnabled());
+    await waitFor(() => expect(defaultCommandRegistry.isEnabled('file.export.audio')).toBe(true));
   });
 
   it('plays audio from WAV once and replays from cached URL', async () => {
@@ -121,18 +121,24 @@ describe('ScoreEditor: soundfont loading, playback and preview audio', () => {
 
     saveAudioDeferred.resolve?.(new Uint8Array([0]));
 
-    await waitFor(() => expect(screen.getByTestId('btn-play')).toHaveTextContent('Pause'));
+    await waitFor(() =>
+      expect(screen.getByTestId('btn-play')).toHaveAttribute('aria-label', 'Pause'),
+    );
     expect(saveAudio).toHaveBeenCalledTimes(1);
     expect(createdAudios.length).toBeGreaterThanOrEqual(1);
 
     // Stop resets the transport and leaves the rendered WAV cached.
     await user.click(screen.getByTestId('btn-stop'));
-    await waitFor(() => expect(screen.getByTestId('btn-play')).toHaveTextContent('Play'));
+    await waitFor(() =>
+      expect(screen.getByTestId('btn-play')).toHaveAttribute('aria-label', 'Play'),
+    );
     expect(createdAudios.at(-1)?.pause).toHaveBeenCalled();
 
     // Replaying reuses the cached object URL instead of re-rendering audio.
     await user.click(screen.getByTestId('btn-play'));
-    await waitFor(() => expect(screen.getByTestId('btn-play')).toHaveTextContent('Pause'));
+    await waitFor(() =>
+      expect(screen.getByTestId('btn-play')).toHaveAttribute('aria-label', 'Pause'),
+    );
     expect(saveAudio).toHaveBeenCalledTimes(1);
     expect(testGlobals.URL.createObjectURL).toHaveBeenCalledTimes(1);
   });
@@ -239,7 +245,9 @@ describe('ScoreEditor: soundfont loading, playback and preview audio', () => {
     // the button being re-enabled.
     await waitFor(() => expect(screen.getByTestId('btn-stop')).toBeEnabled());
     await user.click(screen.getByTestId('btn-stop'));
-    await waitFor(() => expect(screen.getByTestId('btn-play')).toHaveTextContent('Play'));
+    await waitFor(() =>
+      expect(screen.getByTestId('btn-play')).toHaveAttribute('aria-label', 'Play'),
+    );
     expect(batchFn).toHaveBeenCalledWith(true);
     expect(createdSources[0].stop).toHaveBeenCalled();
   });

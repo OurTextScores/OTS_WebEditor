@@ -1,6 +1,6 @@
 import { expect, test } from 'playwright/test';
 import type { BrowserScoreWindow } from './browser-score-types';
-import { runCommand } from './helpers/commands';
+import { runCommandAnsweringPrompt } from './helpers/commands';
 
 /**
  * The input/button pair this suite used to drive (input-title, input-subtitle,
@@ -16,14 +16,9 @@ test('the subtitle prompt is pre-filled from metadata', async ({ page }) => {
   await page.goto('/?score=/test_scores/bach_orig.mscz');
   await page.waitForSelector('svg .Clef', { timeout: 60_000 });
 
-  let promptDefault = '';
-  page.once('dialog', (dialog) => {
-    promptDefault = dialog.defaultValue();
-    return dialog.dismiss();
-  });
-  await runCommand(page, 'btn-text-subtitle');
-
-  await expect.poll(() => promptDefault, { timeout: 20_000 }).toContain('Bach: Cello Suite');
+  // Cancelling leaves the score alone; what matters is what the prompt offered.
+  const prefilled = await runCommandAnsweringPrompt(page, 'btn-text-subtitle', null);
+  expect(prefilled).toContain('Bach: Cello Suite');
 });
 
 test('title and subtitle persist after save and reload', async ({ page }) => {
@@ -64,11 +59,9 @@ test('title and subtitle persist after save and reload', async ({ page }) => {
   const newTitle = 'OTS Title Reload';
   const newSubtitle = 'OTS Subtitle Reload';
 
-  page.once('dialog', (dialog) => dialog.accept(newTitle));
-  await runCommand(page, 'btn-text-title');
+  await runCommandAnsweringPrompt(page, 'btn-text-title', newTitle);
 
-  page.once('dialog', (dialog) => dialog.accept(newSubtitle));
-  await runCommand(page, 'btn-text-subtitle');
+  await runCommandAnsweringPrompt(page, 'btn-text-subtitle', newSubtitle);
 
   await expect.poll(async () => (await readHeader()).title, { timeout: 20_000 }).toBe(newTitle);
   await expect

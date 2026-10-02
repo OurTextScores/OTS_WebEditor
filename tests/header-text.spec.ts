@@ -1,6 +1,6 @@
 import { expect, test } from 'playwright/test';
 import type { BrowserScoreWindow } from './browser-score-types';
-import { runCommand } from './helpers/commands';
+import { runCommandAnsweringPrompt } from './helpers/commands';
 
 /**
  * The input/button pair this test used to drive (input-title, btn-set-title,
@@ -32,12 +32,10 @@ test('title and composer text can be edited', async ({ page }) => {
   const newTitle = 'OTS Title Test';
   const newComposer = 'OTS Composer Test';
 
-  page.once('dialog', (dialog) => dialog.accept(newTitle));
-  await runCommand(page, 'btn-text-title');
+  await runCommandAnsweringPrompt(page, 'btn-text-title', newTitle);
   await expect.poll(async () => (await readHeader()).title, { timeout: 20_000 }).toBe(newTitle);
 
-  page.once('dialog', (dialog) => dialog.accept(newComposer));
-  await runCommand(page, 'btn-text-composer');
+  await runCommandAnsweringPrompt(page, 'btn-text-composer', newComposer);
   await expect
     .poll(async () => (await readHeader()).composer, { timeout: 20_000 })
     .toBe(newComposer);

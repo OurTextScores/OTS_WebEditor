@@ -1,7 +1,8 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Toolbar } from '../../components/Toolbar';
+import type { EditorCommandProps } from '../../components/score-editor/editorProps';
+import { useEditorCommands } from '../../components/score-editor/useEditorCommands';
 import { ShellHeader } from '../../components/shell/ShellHeader';
 import { openFilePicker, registerFilePicker } from '../../components/shell/filePickers';
 import { resetShellUiForTests } from '../../components/shell/shellStore';
@@ -22,14 +23,9 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-describe('ShellHeader in the v2 shell', () => {
-  it('adds the transport and the hidden file inputs, which the legacy shell does not', () => {
-    const legacy = render(<ShellHeader title="T" dirty={false} registry={new CommandRegistry()} />);
-    expect(screen.queryByTestId('btn-play')).toBeNull();
-    expect(screen.queryByTestId('open-score-input')).toBeNull();
-    legacy.unmount();
-
-    render(<ShellHeader title="T" dirty={false} v2 registry={new CommandRegistry()} />);
+describe('ShellHeader', () => {
+  it('carries the transport and the hidden file inputs', () => {
+    render(<ShellHeader title="T" dirty={false} registry={new CommandRegistry()} />);
     expect(screen.getByRole('group', { name: 'Playback' })).toBeInTheDocument();
     expect(screen.getByTestId('open-score-input')).toHaveAttribute('type', 'file');
     expect(screen.getByTestId('soundfont-input')).toHaveAttribute('accept', '.sf2,.sf3');
@@ -39,7 +35,7 @@ describe('ShellHeader in the v2 shell', () => {
     const registry = new CommandRegistry();
     const run = vi.fn();
     registry.register('global', [defineCommand<File>({ id: 'file.open', label: 'Open', run })]);
-    render(<ShellHeader title="T" dirty={false} v2 registry={registry} />);
+    render(<ShellHeader title="T" dirty={false} registry={registry} />);
     const file = new File(['x'], 'a.mscz');
     fireEvent.change(screen.getByTestId('open-score-input'), { target: { files: [file] } });
     expect(run).toHaveBeenCalledWith(expect.anything(), file);
@@ -49,7 +45,7 @@ describe('ShellHeader in the v2 shell', () => {
     const registry = new CommandRegistry();
     const run = vi.fn();
     registry.register('global', [defineCommand<File>({ id: 'file.open', label: 'Open', run })]);
-    render(<ShellHeader title="T" dirty={false} v2 registry={registry} />);
+    render(<ShellHeader title="T" dirty={false} registry={registry} />);
     fireEvent.change(screen.getByTestId('open-score-input'), { target: { files: [] } });
     expect(run).not.toHaveBeenCalled();
   });
@@ -60,16 +56,14 @@ describe('ShellHeader in the v2 shell', () => {
     registry.register('global', [
       defineCommand<File>({ id: 'playback.soundfont', label: 'Load SoundFont', run }),
     ]);
-    render(<ShellHeader title="T" dirty={false} v2 registry={registry} />);
+    render(<ShellHeader title="T" dirty={false} registry={registry} />);
     const file = new File(['x'], 'a.sf2');
     fireEvent.change(screen.getByTestId('soundfont-input'), { target: { files: [file] } });
     expect(run).toHaveBeenCalledWith(expect.anything(), file);
   });
 
   it('registers its pickers while mounted, so File ▸ Open clicks the input', () => {
-    const view = render(
-      <ShellHeader title="T" dirty={false} v2 registry={new CommandRegistry()} />,
-    );
+    const view = render(<ShellHeader title="T" dirty={false} registry={new CommandRegistry()} />);
     const click = vi.spyOn(screen.getByTestId('open-score-input'), 'click');
     expect(openFilePicker('score')).toBe(true);
     expect(click).toHaveBeenCalledOnce();
@@ -78,11 +72,17 @@ describe('ShellHeader in the v2 shell', () => {
   });
 });
 
+/** Stands in for ScoreEditor, which registers the editor's commands. */
+function EditorCommands(props: EditorCommandProps) {
+  useEditorCommands(props);
+  return null;
+}
+
 describe('file.open with the header’s input', () => {
   it('opens the shell’s input instead of making its own', async () => {
     const onFileUpload = vi.fn();
     render(
-      <Toolbar
+      <EditorCommands
         onFileUpload={onFileUpload}
         onZoomIn={() => {}}
         onZoomOut={() => {}}
@@ -100,7 +100,7 @@ describe('file.open with the header’s input', () => {
   it('still takes a file argument directly', async () => {
     const onFileUpload = vi.fn();
     render(
-      <Toolbar
+      <EditorCommands
         onFileUpload={onFileUpload}
         onZoomIn={() => {}}
         onZoomOut={() => {}}
@@ -113,53 +113,5 @@ describe('file.open with the header’s input', () => {
     });
     expect(onFileUpload).toHaveBeenCalledWith(file);
     expect(defaultCommandRegistry.has('file.open')).toBe(true);
-  });
-});
-
-describe('Toolbar hiddenSections', () => {
-  const base = { onFileUpload: () => {}, onZoomIn: () => {}, onZoomOut: () => {}, zoomLevel: 1 };
-
-  it('shows every section by default', () => {
-    render(<Toolbar {...base} />);
-    expect(screen.getByTestId('btn-play')).toBeInTheDocument();
-    expect(screen.getByTestId('btn-zoom-in')).toBeInTheDocument();
-    expect(screen.getByTestId('open-score-input')).toBeInTheDocument();
-  });
-
-  it('drops the sections the shell took over, and keeps the rest', () => {
-    render(<Toolbar {...base} hiddenSections={['file', 'view', 'playback', 'tempo', 'help']} />);
-    for (const id of [
-      'btn-play',
-      'btn-zoom-in',
-      'open-score-input',
-      'input-tempo-bpm',
-      'link-help',
-    ]) {
-      expect(screen.queryByTestId(id), id).toBeNull();
-    }
-    expect(screen.getByTestId('btn-undo')).toBeInTheDocument();
-    expect(screen.getByTestId('dropdown-clef')).toBeInTheDocument();
-  });
-
-  it('omits the ribbon Instruments menu when the dock has the tab', () => {
-    const { rerender } = render(<Toolbar {...base} exportsEnabled />);
-    expect(screen.getByTestId('dropdown-instruments')).toBeInTheDocument();
-    rerender(<Toolbar {...base} exportsEnabled instrumentsInDock />);
-    expect(screen.queryByTestId('dropdown-instruments')).toBeNull();
-    // The rest of the Score section is untouched.
-    expect(screen.getByTestId('dropdown-clef')).toBeInTheDocument();
-  });
-
-  it('keeps the hidden sections’ commands registered', () => {
-    render(<Toolbar {...base} hiddenSections={['file', 'view', 'playback', 'tempo', 'help']} />);
-    for (const id of [
-      'playback.playPause',
-      'view.zoom.in',
-      'file.export.pdf',
-      'add.text.tempo',
-      'help.open',
-    ]) {
-      expect(defaultCommandRegistry.has(id), id).toBe(true);
-    }
   });
 });

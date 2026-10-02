@@ -410,7 +410,7 @@ export function useMergedScoreDocument({
         setSaving(false);
       }
     },
-    [acceptEditedMeasures, current, dirty, exportXml, resolveUrl, sourceEngineId],
+    [acceptEditedMeasures, current, dirty, exportXml, finding, resolveUrl, sourceEngineId],
   );
 
   /**

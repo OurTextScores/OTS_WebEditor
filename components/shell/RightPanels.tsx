@@ -1,7 +1,7 @@
 'use client';
 
 import React, { type CSSProperties, type ReactNode } from 'react';
-import type { AiToolsTab } from '../score-editor/ai-tools/AiToolsTabStrip';
+import type { AiToolsTab } from '../score-editor/ai-tools/aiToolsTab';
 import { AiToolPicker } from './AiToolPicker';
 import { Panel } from './vendor/viritura';
 import { PANEL_LIMITS } from './useShellPanels';
@@ -20,7 +20,7 @@ interface DockedPanelProps {
 
 /**
  * The AI Tools panel: the tool picker in its header and the chosen tool's body below. It keeps
- * the legacy sidebar's test ids (`xml-sidebar`, `btn-xml-toggle`, `sidebar-resize-handle`).
+ * the old sidebar's test ids (`xml-sidebar`, `btn-xml-toggle`, `sidebar-resize-handle`).
  */
 export function AiToolsPanel({
   tool,

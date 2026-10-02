@@ -3,15 +3,11 @@ import type { CommandId } from '../../lib/commands/types';
 /**
  * Commands whose arguments a user has to supply, and the small form that asks for them.
  *
- * Field test ids are `command-form-<name>`, not the ribbon inputs' legacy ids: the ribbon is
- * still on screen, and two elements with one test id break every locator for it. The legacy
- * ids move here when the ribbon is deleted (Phase 5); until then specs reach these
- * commands through `runCommand(page, 'add.measures', { count: 2 })`.
- *
  * The ribbon kept these as inline inputs (bar count, tempo, pickup, custom time signature).
  * A menu item or palette row has no room for an input, so selecting one of these opens a
  * form; the command itself still takes plain arguments, which is what tests and any
- * future caller pass directly.
+ * future caller pass directly. The fields and the submit button keep the ribbon inputs' test
+ * ids (`input-measure-count`, `btn-insert-measures`, ...), which moved here with the ribbon.
  */
 export type FormField =
   | {
@@ -34,6 +30,7 @@ export type FormField =
 export interface CommandForm {
   readonly title: string;
   readonly submitLabel: string;
+  readonly submitTestId: string;
   readonly fields: readonly FormField[];
   /** Turns the entered values into the command's argument. */
   readonly toArgs: (values: Readonly<Record<string, string>>) => unknown;
@@ -50,6 +47,7 @@ export const COMMAND_FORMS: Readonly<Record<CommandId, CommandForm>> = {
   'add.text.tempo': {
     title: 'Tempo',
     submitLabel: 'Apply',
+    submitTestId: 'btn-tempo-apply',
     fields: [
       {
         name: 'bpm',
@@ -57,7 +55,7 @@ export const COMMAND_FORMS: Readonly<Record<CommandId, CommandForm>> = {
         type: 'number',
         min: 1,
         defaultValue: 120,
-        testId: 'command-form-bpm',
+        testId: 'input-tempo-bpm',
       },
     ],
     toArgs: (values) => ({ bpm: whole(values.bpm, 120) }),
@@ -65,6 +63,7 @@ export const COMMAND_FORMS: Readonly<Record<CommandId, CommandForm>> = {
   'add.measures': {
     title: 'Insert Measures',
     submitLabel: 'Insert',
+    submitTestId: 'btn-insert-measures',
     fields: [
       {
         name: 'count',
@@ -72,7 +71,7 @@ export const COMMAND_FORMS: Readonly<Record<CommandId, CommandForm>> = {
         type: 'number',
         min: 1,
         defaultValue: 1,
-        testId: 'command-form-count',
+        testId: 'input-measure-count',
       },
       {
         name: 'target',
@@ -84,7 +83,7 @@ export const COMMAND_FORMS: Readonly<Record<CommandId, CommandForm>> = {
           { value: 'after-selection', label: 'After Selection' },
           { value: 'end', label: 'End' },
         ],
-        testId: 'command-form-target',
+        testId: 'select-measure-target',
       },
     ],
     toArgs: (values) => ({ count: whole(values.count, 1), target: values.target }),
@@ -92,6 +91,7 @@ export const COMMAND_FORMS: Readonly<Record<CommandId, CommandForm>> = {
   'add.pickup': {
     title: 'Add Pickup',
     submitLabel: 'Add',
+    submitTestId: 'btn-add-pickup',
     fields: [
       {
         name: 'numerator',
@@ -99,7 +99,7 @@ export const COMMAND_FORMS: Readonly<Record<CommandId, CommandForm>> = {
         type: 'number',
         min: 1,
         defaultValue: 1,
-        testId: 'command-form-numerator',
+        testId: 'input-pickup-numerator',
       },
       {
         name: 'denominator',
@@ -107,7 +107,7 @@ export const COMMAND_FORMS: Readonly<Record<CommandId, CommandForm>> = {
         type: 'select',
         defaultValue: '4',
         options: ['1', '2', '4', '8', '16', '32'].map((value) => ({ value, label: value })),
-        testId: 'command-form-denominator',
+        testId: 'select-pickup-denominator',
       },
     ],
     toArgs: (values) => ({
@@ -118,6 +118,7 @@ export const COMMAND_FORMS: Readonly<Record<CommandId, CommandForm>> = {
   'add.timeSig.custom': {
     title: 'Custom Time Signature',
     submitLabel: 'Apply',
+    submitTestId: 'btn-timesig-custom',
     fields: [
       {
         name: 'numerator',
@@ -125,7 +126,7 @@ export const COMMAND_FORMS: Readonly<Record<CommandId, CommandForm>> = {
         type: 'number',
         min: 1,
         defaultValue: 4,
-        testId: 'command-form-numerator',
+        testId: 'input-timesig-numerator',
       },
       {
         name: 'denominator',
@@ -133,7 +134,7 @@ export const COMMAND_FORMS: Readonly<Record<CommandId, CommandForm>> = {
         type: 'number',
         min: 1,
         defaultValue: 4,
-        testId: 'command-form-denominator',
+        testId: 'input-timesig-denominator',
       },
     ],
     toArgs: (values) => ({

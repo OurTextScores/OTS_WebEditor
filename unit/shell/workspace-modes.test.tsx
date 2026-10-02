@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildWorkspaceMode, type ModeNodes } from '../../components/modes';
@@ -31,13 +31,13 @@ function Canvas() {
 
 const nodes = (): ModeNodes => ({
   header: <header data-testid="header" />,
-  ribbon: <div data-testid="ribbon" />,
+  writeToolbar: <div data-testid="write-toolbar" />,
+  historyToolbar: <div data-testid="history-toolbar" />,
+  compareToolbar: <div data-testid="compare-toolbar" />,
   floatingPalettes: <div data-testid="palettes" />,
   statusBar: <footer data-testid="status" />,
   canvas: () => <Canvas />,
   changeReviewPanel: <div data-testid="review-gutter" />,
-  legacyHistorySidebar: <aside data-testid="legacy-history" />,
-  legacyPanels: <div data-testid="legacy-panels" />,
   write: {
     panelsVisible: true,
     onShowPanels: () => {},
@@ -66,8 +66,7 @@ const nodes = (): ModeNodes => ({
   hostBusy: <div data-testid="busy" />,
 });
 
-const build = (kind: OtsModeKind, legacy = false): OtsWorkspaceMode =>
-  buildWorkspaceMode(kind, { legacy, nodes: nodes() });
+const build = (kind: OtsModeKind): OtsWorkspaceMode => buildWorkspaceMode(kind, { nodes: nodes() });
 
 describe('mode traits', () => {
   it('give every kind a policy, and only the full-chrome modes can edit', () => {
@@ -115,24 +114,27 @@ describe('builders', () => {
     }
   });
 
-  it('light the matching activity, and none under the legacy flag', () => {
+  it('light the matching activity', () => {
     expect(build('write').activity).toBe('write');
     expect(build('history').activity).toBe('history');
     expect(build('compare').activity).toBe('compare');
-    expect(build('write', true).activity).toBeUndefined();
-    expect(build('compare', true).activity).toBeUndefined();
-    expect(build('write', true).statusBar).toBeUndefined();
   });
 
-  it('place the compare view over the workspace in v2 and over the window when legacy', () => {
-    const placementOf = (legacy: boolean) => {
-      render(<EditorWorkspace mode={build('compare', legacy)} />);
-      const placement = screen.getByTestId('compare').getAttribute('data-placement');
-      document.body.innerHTML = '';
-      return placement;
-    };
-    expect(placementOf(false)).toBe('inline');
-    expect(placementOf(true)).toBe('overlay');
+  it('give each full-chrome mode its own toolbar', () => {
+    for (const [kind, id] of [
+      ['write', 'write-toolbar'],
+      ['history', 'history-toolbar'],
+      ['compare', 'compare-toolbar'],
+    ] as const) {
+      const view = render(<EditorWorkspace mode={build(kind)} />);
+      expect(screen.getByTestId(id)).toBeInTheDocument();
+      view.unmount();
+    }
+  });
+
+  it('place the compare view over the workspace body', () => {
+    render(<EditorWorkspace mode={build('compare')} />);
+    expect(screen.getByTestId('compare')).toHaveAttribute('data-placement', 'inline');
   });
 
   it('hand each scanner view its own compare variant, hosted and growing', () => {
@@ -167,8 +169,6 @@ describe('EditorWorkspace', () => {
   it('shows the activity bar only when the mode has an activity', () => {
     const { rerender } = render(<EditorWorkspace mode={build('write')} />);
     expect(screen.getByTestId('activity-bar')).toBeInTheDocument();
-    rerender(<EditorWorkspace mode={build('write', true)} />);
-    expect(screen.queryByTestId('activity-bar')).toBeNull();
     rerender(<EditorWorkspace mode={build('host-compare')} />);
     expect(screen.queryByTestId('activity-bar')).toBeNull();
   });
@@ -188,13 +188,6 @@ describe('EditorWorkspace', () => {
     expect(screen.queryByTestId('history-content')).toBeNull();
 
     rerender(<EditorWorkspace mode={build('write')} />);
-    expect(screen.getByTestId('canvas')).toBe(canvas);
-  });
-
-  it('keeps the legacy canvas across a compare session too', () => {
-    const { rerender } = render(<EditorWorkspace mode={build('write', true)} />);
-    const canvas = screen.getByTestId('canvas');
-    act(() => rerender(<EditorWorkspace mode={build('compare', true)} />));
     expect(screen.getByTestId('canvas')).toBe(canvas);
   });
 });

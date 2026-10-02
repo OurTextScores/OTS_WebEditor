@@ -1,7 +1,7 @@
 /**
  * The hidden file inputs the header owns, so File ▸ Open and Load SoundFont open the same
  * input a spec drives with `setInputFiles`. A command that finds none registered (the
- * legacy ribbon has its own inputs) falls back to a throwaway input.
+ * host surfaces have no header) falls back to a throwaway input.
  */
 export type FilePickerKind = 'score' | 'soundfont';
 

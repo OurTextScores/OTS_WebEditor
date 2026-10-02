@@ -1,5 +1,5 @@
 import { expect, test, type Page } from 'playwright/test';
-import { runCommand } from './helpers/commands';
+import { runCommand, waitForCommandEnabled } from './helpers/commands';
 
 test.use({ viewport: { width: 2400, height: 1600 } });
 
@@ -50,7 +50,7 @@ const selectWholeNote = async (page: Page, index: number) => {
   if (!box) throw new Error(`Note ${index} has no bounding box`);
   // Whole-note centers are transparent, so click the solid left rim.
   await page.mouse.click(box.x + 3, box.y + box.height / 2);
-  await expect(page.getByTestId('dropdown-repeats')).toBeEnabled({ timeout: 20_000 });
+  await waitForCommandEnabled(page, 'btn-marker-5');
 };
 
 test('adds semantic double-segno navigation and expands the repeat playback list', async ({

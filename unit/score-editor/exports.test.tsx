@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { setupScoreEditorTest, testGlobals } from './test-harness';
+import { noticeTitles, runEditorCommand, setupScoreEditorTest, testGlobals } from './test-harness';
 
 const mocked = vi.hoisted(() => ({
   loadWebMscore: vi.fn(),
@@ -97,24 +97,16 @@ describe('ScoreEditor: zoom and export bindings', () => {
       expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy(),
     );
 
-    await user.click(screen.getByTestId('dropdown-export'));
-    await user.click(await screen.findByTestId('btn-export-pdf'));
-    await user.click(screen.getByTestId('dropdown-export'));
-    await user.click(await screen.findByTestId('btn-export-png'));
+    await runEditorCommand('btn-export-pdf');
+    await runEditorCommand('btn-export-png');
     await expect(screen.findByTestId('png-export-page-input')).resolves.toHaveValue(1);
     await user.click(await screen.findByTestId('btn-confirm-export-png'));
-    await user.click(screen.getByTestId('dropdown-export'));
-    await user.click(await screen.findByTestId('btn-export-mxl'));
-    await user.click(screen.getByTestId('dropdown-export'));
-    await user.click(await screen.findByTestId('btn-export-mscz'));
-    await user.click(screen.getByTestId('dropdown-export'));
-    await user.click(await screen.findByTestId('btn-export-mscx'));
-    await user.click(screen.getByTestId('dropdown-export'));
-    await user.click(await screen.findByTestId('btn-export-musicxml'));
-    await user.click(screen.getByTestId('dropdown-export'));
-    await user.click(await screen.findByTestId('btn-export-abc'));
-    await user.click(screen.getByTestId('dropdown-export'));
-    await user.click(await screen.findByTestId('btn-export-midi'));
+    await runEditorCommand('btn-export-mxl');
+    await runEditorCommand('btn-export-mscz');
+    await runEditorCommand('btn-export-mscx');
+    await runEditorCommand('btn-export-musicxml');
+    await runEditorCommand('btn-export-abc');
+    await runEditorCommand('btn-export-midi');
 
     await waitFor(() => expect(score.savePdf).toHaveBeenCalled());
     await waitFor(() => expect(score.savePng).toHaveBeenCalledWith(0, true, true));
@@ -164,31 +156,23 @@ describe('ScoreEditor: zoom and export bindings', () => {
       expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy(),
     );
 
-    await user.click(screen.getByTestId('dropdown-export'));
-    await user.click(await screen.findByTestId('btn-export-mxl'));
-    expect(testGlobals.alert).toHaveBeenCalledWith('MXL export is not available in this build.');
+    await runEditorCommand('btn-export-mxl');
+    expect(noticeTitles()).toContain('MXL export is not available in this build.');
 
-    await user.click(screen.getByTestId('dropdown-export'));
-    await user.click(await screen.findByTestId('btn-export-mscz'));
-    expect(testGlobals.alert).toHaveBeenCalledWith('MSCZ export is not available in this build.');
+    await runEditorCommand('btn-export-mscz');
+    expect(noticeTitles()).toContain('MSCZ export is not available in this build.');
 
-    await user.click(screen.getByTestId('dropdown-export'));
-    await user.click(await screen.findByTestId('btn-export-mscx'));
-    expect(testGlobals.alert).toHaveBeenCalledWith('MSCX export is not available in this build.');
+    await runEditorCommand('btn-export-mscx');
+    expect(noticeTitles()).toContain('MSCX export is not available in this build.');
 
-    await user.click(screen.getByTestId('dropdown-export'));
-    await user.click(await screen.findByTestId('btn-export-musicxml'));
-    expect(testGlobals.alert).toHaveBeenCalledWith(
-      'MusicXML export is not available in this build.',
-    );
+    await runEditorCommand('btn-export-musicxml');
+    expect(noticeTitles()).toContain('MusicXML export is not available in this build.');
 
-    await user.click(screen.getByTestId('dropdown-export'));
-    await user.click(await screen.findByTestId('btn-export-abc'));
-    expect(testGlobals.alert).toHaveBeenCalledWith('ABC export is not available in this build.');
+    await runEditorCommand('btn-export-abc');
+    expect(noticeTitles()).toContain('ABC export is not available in this build.');
 
-    await user.click(screen.getByTestId('dropdown-export'));
-    await user.click(await screen.findByTestId('btn-export-midi'));
-    expect(testGlobals.alert).toHaveBeenCalledWith('MIDI export is not available in this build.');
+    await runEditorCommand('btn-export-midi');
+    expect(noticeTitles()).toContain('MIDI export is not available in this build.');
   });
 
   // TD-04: this and the two cases below were skipped because they asserted a retired

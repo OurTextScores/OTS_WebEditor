@@ -1,5 +1,5 @@
-import type { MeasureInsertTarget } from '../Toolbar';
-import type { ToolbarSectionProps } from '../toolbar/types';
+import type { MeasureInsertTarget } from './editorProps';
+import type { EditorCommandProps } from './editorProps';
 import {
   accidentalOptions,
   arpeggioOptions,
@@ -43,18 +43,17 @@ import { confirmDialog } from '../shell/notices';
 import { openFilePicker } from '../shell/filePickers';
 
 /**
- * Every ribbon action as a command (SHELL_REDESIGN_DESIGN Phase 0).
+ * Every editor action as a command (SHELL_REDESIGN_DESIGN Phase 0).
  *
- * These are thin adapters over the handlers `ScoreEditor` already passes the ribbon:
- * `run` calls the same function the ribbon button's `onClick` does, and `enabled` repeats
- * the ribbon's `disabled` rule, so a command can never do something its button would not.
- * Phase 1 moves the handler plumbing here from the `<Toolbar>` prop block; the command ids,
- * labels and legacy test ids are the contract that survives that move.
+ * These are thin adapters over the handlers `ScoreEditor` supplies (`EditorCommandProps`):
+ * `run` calls the handler, and `enabled` is the gate the ribbon's `disabled` rule used to be,
+ * so a command can never do something its menu item or toolbar button would not. The command
+ * ids, labels and legacy test ids are the contract the menus, toolbars and specs share.
  *
  * `getProps` is read when a command runs or is evaluated, never captured, so a command
  * registered once always sees the latest handlers.
  */
-type Props = ToolbarSectionProps;
+type Props = EditorCommandProps;
 type GetProps = () => Props;
 
 /** Props that are a plain `() => void` action. */
@@ -928,7 +927,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
 }
 
 /**
- * The context the ribbon implies. `ToolbarSectionProps` knows only whether *something* is
+ * The context the ribbon implies. `EditorCommandProps` knows only whether *something* is
  * selected, so `selection` is `'none'` or `'single'`; the ribbon's rules never ask which
  * kind. Undo and redo are enabled whenever mutation is, as in the ribbon. Phase 1 supplies
  * the real selection kind and undo depth from `ScoreEditor`.

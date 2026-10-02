@@ -1,58 +1,47 @@
 import { expect, test } from 'playwright/test';
+import { openMenuPath } from './helpers/commands';
 
 /**
  * A ribbon menu item must be what the pointer hits at its own centre. The hairpin menu's
  * glyphs once overflowed into the next item, so clicking "Crescendo" added a decrescendo;
  * nothing else noticed because both items exist and both do something.
  */
-test('ribbon menu items hit-test to themselves', async ({ page }) => {
+/**
+ * A toolbar control must be what the pointer hits at its own centre. The notation glyphs
+ * inside the duration and accidental buttons are text boxes that can overflow into the
+ * neighbouring button (they carry `pointer-events: none` for exactly that reason), so a
+ * click on "Quarter" once landed on "Half".
+ */
+test('Write toolbar controls hit-test to themselves', async ({ page }) => {
   await page.goto('/?score=/test_scores/three_notes_cde.musicxml');
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
   await page.locator('svg .Note').first().click();
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
 
-  const triggers = await page
-    .locator('[data-testid^="dropdown-"]')
-    .evaluateAll((els) => els.map((el) => el.getAttribute('data-testid') as string));
-  expect(triggers.length).toBeGreaterThan(10);
-
-  const wrong: string[] = [];
-  let checked = 0;
-  for (const trigger of triggers) {
-    const button = page.getByTestId(trigger);
-    if (!(await button.isEnabled())) continue;
-    await button.click();
-    await page.waitForTimeout(250); // let the menu finish opening
-    const result = await page.evaluate(() => {
-      const bad: string[] = [];
-      let seen = 0;
-      for (const item of document.querySelectorAll<HTMLElement>('[role="menuitem"][data-testid]')) {
-        const rect = item.getBoundingClientRect();
-        const x = rect.left + rect.width / 2;
-        const y = rect.top + rect.height / 2;
-        // Items scrolled out of a tall menu cannot be hit-tested.
-        if (rect.height === 0 || y < 0 || y > innerHeight || x < 0 || x > innerWidth) continue;
-        seen += 1;
-        const hit = document.elementFromPoint(x, y);
-        if (!item.contains(hit)) {
-          bad.push(
-            `${item.dataset.testid} -> ${hit?.closest('[data-testid]')?.getAttribute('data-testid')}`,
-          );
-        }
+  const result = await page.evaluate(() => {
+    const bad: string[] = [];
+    let seen = 0;
+    for (const control of document.querySelectorAll<HTMLElement>(
+      '[data-testid="write-toolbar"] button',
+    )) {
+      const rect = control.getBoundingClientRect();
+      // Scrolled out of the toolbar's row: cannot be hit-tested.
+      if (rect.width === 0 || rect.right > innerWidth) continue;
+      seen += 1;
+      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      if (!control.contains(hit)) {
+        bad.push(
+          `${control.dataset.testid} -> ${hit?.closest('[data-testid]')?.getAttribute('data-testid')}`,
+        );
       }
-      return { bad, seen };
-    });
-    checked += result.seen;
-    wrong.push(...result.bad.map((entry) => `${trigger}: ${entry}`));
-    await page.keyboard.press('Escape');
-    await expect(page.getByRole('menu')).toHaveCount(0);
-  }
-
-  expect(checked).toBeGreaterThan(50);
-  expect(wrong).toEqual([]);
+    }
+    return { bad, seen };
+  });
+  expect(result.seen).toBeGreaterThan(15);
+  expect(result.bad).toEqual([]);
 });
 
-test('the hairpin menu adds the hairpin it names', async ({ page }) => {
+test('the Hairpins menu adds the hairpin it names', async ({ page }) => {
   await page.goto('/?score=/test_scores/three_notes_cde.musicxml');
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
   await page.locator('svg .Note').first().click();
@@ -70,12 +59,11 @@ test('the hairpin menu adds the hairpin it names', async ({ page }) => {
     };
   });
 
-  for (const [testId, type] of [
-    ['btn-hairpin-cresc', 0],
-    ['btn-hairpin-decresc', 1],
+  for (const [label, type] of [
+    ['Crescendo', 0],
+    ['Decrescendo', 1],
   ] as const) {
-    await page.getByTestId('dropdown-hairpins').click();
-    await page.getByTestId(testId).click();
+    await openMenuPath(page, ['Add', 'Lines', 'Hairpins', label]);
     await expect
       .poll(() =>
         page.evaluate(() =>

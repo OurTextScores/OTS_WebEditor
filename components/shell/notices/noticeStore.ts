@@ -66,6 +66,19 @@ export function notify(input: NoticeInput): number {
   return notice.id;
 }
 
+/**
+ * `alert(message)` without the modal: the first line is the title, any further lines the
+ * detail. For the many call sites that already build a single message string.
+ */
+const fromMessage = (kind: NoticeKind, message: string): number => {
+  const [title, ...rest] = message.split('\n');
+  const detail = rest.join('\n').trim();
+  return notify({ kind, title: title.trim(), ...(detail ? { detail } : {}) });
+};
+
+export const notifyError = (message: string): number => fromMessage('error', message);
+export const notifyWarning = (message: string): number => fromMessage('warning', message);
+
 /** Hides the toast but keeps the notice in the retained list. */
 export function dismissToast(id: number): void {
   if (!notices.some((notice) => notice.id === id && notice.toast)) return;

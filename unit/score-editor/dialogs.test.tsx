@@ -1,7 +1,7 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { setupScoreEditorTest } from './test-harness';
+import { runEditorCommand, setupScoreEditorTest } from './test-harness';
 
 const mocked = vi.hoisted(() => ({
   loadWebMscore: vi.fn(),
@@ -43,8 +43,7 @@ describe('ScoreEditor: dialogs rendered by the editor', () => {
     render(<ScoreEditor />);
 
     // Open new score dialog
-    const newScoreButton = screen.getByText('New Score');
-    await user.click(newScoreButton);
+    await runEditorCommand('file.new');
 
     await waitFor(() => expect(screen.getByTestId('new-score-modal')).toBeInTheDocument());
 
@@ -95,14 +94,18 @@ describe('ScoreEditor: dialogs rendered by the editor', () => {
     mocked.loadWebMscore.mockResolvedValue(webmscore);
 
     render(<ScoreEditor />);
-    await user.click(screen.getByRole('button', { name: 'Load scores to compare' }));
+    await runEditorCommand('compare.load');
     expect(screen.getByTestId('compare-score-loader-modal')).toBeInTheDocument();
 
     const leftFile = new File([leftXml], 'reference.musicxml', { type: 'application/xml' });
     const rightFile = new File([rightXml], 'revision.musicxml', { type: 'application/xml' });
     await user.upload(screen.getByTestId('compare-left-score-input'), leftFile);
     await user.upload(screen.getByTestId('compare-right-score-input'), rightFile);
-    await user.click(screen.getByRole('button', { name: 'Compare' }));
+    await user.click(
+      within(screen.getByTestId('compare-score-loader-modal')).getByRole('button', {
+        name: 'Compare',
+      }),
+    );
 
     await waitFor(() => expect(screen.getByTestId('checkpoint-compare-modal')).toBeInTheDocument());
     expect(screen.getByText('reference.musicxml vs revision.musicxml')).toBeInTheDocument();

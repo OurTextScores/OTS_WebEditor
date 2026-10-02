@@ -1,18 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 
 import { type Score } from '@/lib/webmscore-loader';
-import {
-  renderSide,
-  type RenderedSide,
-  type ScannerSystem,
-} from './ScannerSystemRows';
-import {
-  useMergedScoreDocument,
-  type MergedScoreState,
-} from './useMergedScoreDocument';
+import { renderSide, type RenderedSide, type ScannerSystem } from './ScannerSystemRows';
+import { useMergedScoreDocument, type MergedScoreState } from './useMergedScoreDocument';
 
 /**
  * One cross-staff finding at a time, with the scan beside the reading.
@@ -164,8 +157,7 @@ function ScanStrip({
         role="alert"
         className="mb-2 rounded border border-amber-400 bg-amber-50 px-2 py-1 text-[11px] text-amber-900"
       >
-        This scan crop is no longer current. Reload the page to see the scan as it stands
-        now.
+        This scan crop is no longer current. Reload the page to see the scan as it stands now.
       </p>
     );
   }
@@ -193,7 +185,6 @@ export function ScannerFindingRows({
   systems,
   findings,
   xml,
-  label,
   engineId,
   merged,
   resolveUrl,
@@ -232,9 +223,10 @@ export function ScannerFindingRows({
 
   // A new question starts at its first example rather than wherever the last one left
   // off, which would land on an arbitrary place in a different part of the page.
-  useEffect(() => {
+  const selectQuestion = (next: (value: number) => number) => {
+    setIndex(next);
     setExampleIndex(0);
-  }, [index]);
+  };
 
   const [rendered, setRendered] = useState<RenderedSide | null>(null);
   /** The box the drawing has to fit, measured rather than assumed. */
@@ -366,7 +358,10 @@ export function ScannerFindingRows({
    * raises on every render-affecting change, and whether a score exists yet.
    */
   const documentRef = useRef(document);
-  documentRef.current = document;
+  // Before the effect below reads it (layout effects run first), and not during render.
+  useLayoutEffect(() => {
+    documentRef.current = document;
+  });
   const revision = document.revision;
   const hasScore = Boolean(document.score);
 
@@ -406,7 +401,6 @@ export function ScannerFindingRows({
   const fitWidth = band?.width ?? rendered?.width ?? 1;
   const scale = paneWidth && fitWidth ? paneWidth / fitWidth : 1;
 
-
   return (
     <section ref={paneRef} data-testid="finding-rows" className="flex flex-col gap-3 p-4">
       <header className="flex flex-wrap items-center gap-3">
@@ -420,8 +414,7 @@ export function ScannerFindingRows({
             </span>
             {' · '}
             <span data-testid="finding-rows-count">
-              {current.findings.length}{' '}
-              {current.findings.length === 1 ? 'place' : 'places'}
+              {current.findings.length} {current.findings.length === 1 ? 'place' : 'places'}
             </span>
             {example?.part ? ` · ${example.part}` : ''}
           </p>
@@ -431,7 +424,7 @@ export function ScannerFindingRows({
             type="button"
             data-testid="finding-rows-prev"
             disabled={index === 0}
-            onClick={() => setIndex((value) => Math.max(0, value - 1))}
+            onClick={() => selectQuestion((value) => Math.max(0, value - 1))}
             className="rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             ← Previous issue
@@ -440,7 +433,7 @@ export function ScannerFindingRows({
             type="button"
             data-testid="finding-rows-next"
             disabled={index >= groups.length - 1}
-            onClick={() => setIndex((value) => Math.min(groups.length - 1, value + 1))}
+            onClick={() => selectQuestion((value) => Math.min(groups.length - 1, value + 1))}
             className="rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Next issue →
@@ -466,9 +459,7 @@ export function ScannerFindingRows({
             type="button"
             data-testid="finding-rows-example-next"
             disabled={exampleIndex >= examples.length - 1}
-            onClick={() =>
-              setExampleIndex((value) => Math.min(examples.length - 1, value + 1))
-            }
+            onClick={() => setExampleIndex((value) => Math.min(examples.length - 1, value + 1))}
             className="rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Next example →

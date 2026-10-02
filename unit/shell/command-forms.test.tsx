@@ -62,9 +62,26 @@ describe('COMMAND_FORMS', () => {
     expect(COMMAND_FORMS['add.text.tempo'].toArgs({ bpm: '0' })).toEqual({ bpm: 1 });
   });
 
-  it('use test ids that cannot collide with the ribbon’s inputs', () => {
-    const ids = Object.values(COMMAND_FORMS).flatMap((form) => form.fields.map((f) => f.testId));
-    expect(ids.every((id) => id.startsWith('command-form-'))).toBe(true);
+  it('keep the test ids the ribbon inputs had', () => {
+    const ids = Object.values(COMMAND_FORMS).flatMap((form) => [
+      form.submitTestId,
+      ...form.fields.map((f) => f.testId),
+    ]);
+    expect(ids.sort()).toEqual(
+      [
+        'btn-add-pickup',
+        'btn-insert-measures',
+        'btn-tempo-apply',
+        'btn-timesig-custom',
+        'input-measure-count',
+        'input-pickup-numerator',
+        'input-tempo-bpm',
+        'input-timesig-denominator',
+        'input-timesig-numerator',
+        'select-measure-target',
+        'select-pickup-denominator',
+      ].sort(),
+    );
     // A form's own fields must be distinct from each other.
     for (const form of Object.values(COMMAND_FORMS)) {
       const own = form.fields.map((f) => f.testId);
@@ -131,14 +148,14 @@ describe('CommandFormDialog', () => {
 
     act(() => void invokeCommand('add.measures', undefined, registry));
     expect(await screen.findByRole('dialog')).toHaveTextContent('Insert Measures');
-    const count = screen.getByTestId('command-form-count');
+    const count = screen.getByTestId('input-measure-count');
     expect(count).toHaveValue(1);
-    expect(screen.getByTestId('command-form-target')).toHaveValue('after-selection');
+    expect(screen.getByTestId('select-measure-target')).toHaveValue('after-selection');
 
     await user.clear(count);
     await user.type(count, '4');
-    await user.selectOptions(screen.getByTestId('command-form-target'), 'end');
-    await user.click(screen.getByTestId('command-form-submit'));
+    await user.selectOptions(screen.getByTestId('select-measure-target'), 'end');
+    await user.click(screen.getByTestId('btn-insert-measures'));
 
     expect(spies['add.measures']).toHaveBeenCalledWith(expect.anything(), {
       count: 4,
@@ -152,7 +169,7 @@ describe('CommandFormDialog', () => {
     const { registry, spies } = withCommands('add.text.tempo');
     render(<CommandFormDialog registry={registry} />);
     act(() => void invokeCommand('add.text.tempo', undefined, registry));
-    const bpm = await screen.findByTestId('command-form-bpm');
+    const bpm = await screen.findByTestId('input-tempo-bpm');
     await user.clear(bpm);
     await user.type(bpm, '88{Enter}');
     expect(spies['add.text.tempo']).toHaveBeenCalledWith(expect.anything(), { bpm: 88 });
@@ -173,12 +190,12 @@ describe('CommandFormDialog', () => {
     const { registry } = withCommands('add.text.tempo');
     render(<CommandFormDialog registry={registry} />);
     act(() => void invokeCommand('add.text.tempo', undefined, registry));
-    const bpm = await screen.findByTestId('command-form-bpm');
+    const bpm = await screen.findByTestId('input-tempo-bpm');
     await user.clear(bpm);
     await user.type(bpm, '60');
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     act(() => void invokeCommand('add.text.tempo', undefined, registry));
-    expect(await screen.findByTestId('command-form-bpm')).toHaveValue(120);
+    expect(await screen.findByTestId('input-tempo-bpm')).toHaveValue(120);
   });
 
   it('surfaces a failure from the submitted command as a notice', async () => {
@@ -200,7 +217,7 @@ describe('CommandFormDialog', () => {
       </>,
     );
     act(() => void invokeCommand('add.timeSig.custom', undefined, registry));
-    await user.click(await screen.findByTestId('command-form-submit'));
+    await user.click(await screen.findByTestId('btn-timesig-custom'));
     expect(await screen.findByRole('alert')).toHaveTextContent('bad signature');
   });
 });
