@@ -297,7 +297,7 @@ export default function HelpPage() {
         {/* Sticky sidebar TOC */}
         <aside className="hidden shrink-0 lg:block" style={{ width: 208 }}>
           <nav aria-label="Contents" className="sticky top-8">
-            <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
               On this page
             </div>
             <ul className="space-y-1 border-l border-slate-200">
@@ -430,7 +430,7 @@ export default function HelpPage() {
             </div>
           </section>
 
-          <footer className="border-t border-slate-200 pt-6 text-xs text-slate-400">
+          <footer className="border-t border-slate-200 pt-6 text-xs text-slate-500">
             OurTextScores editor · built on the MuseScore 4 engine.
           </footer>
         </main>

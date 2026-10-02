@@ -3,9 +3,10 @@ import { Slot } from '@radix-ui/react-slot';
 import { cn } from '../../lib/ui';
 
 /**
- * `primary` is the one place a button wears the accent (DESIGN_LANGUAGE §4.2): the main action of
- * a surface. Everything else is neutral. `outline`, `secondary` and `ghost` are older names that
- * used to be blue; they now look like `neutral` and `quiet`, so existing call sites keep working.
+ * The accent (blue) marks a button's weight: `primary` is solid, `outline` (the default) is the
+ * blue-outlined secondary action, `ghost` is blue text. `neutral` and `quiet` are the grey
+ * options for panel-internal actions and chrome. Decision 2026-10-02: the default stays blue, so a
+ * dialog's Cancel is still distinct from a neutral surface.
  */
 export type ButtonVariant =
   | 'primary'
@@ -27,24 +28,24 @@ const baseClasses =
 const solidDisabled = 'disabled:bg-slate-200 disabled:text-slate-700 disabled:border-slate-300';
 const solidFocus = 'focus-visible:ring-offset-2';
 
-// A secondary action in a panel: outlined, neutral, no accent.
+// An action inside a panel that should not compete with the blue ones: outlined, grey.
 const neutral =
-  'border-line-control bg-surface text-ink hover:bg-surface-hover disabled:border-line disabled:bg-surface-sunken disabled:text-slate-400';
-// Chrome that should not draw attention: neutral text, a wash on hover, no border.
+  'border-line-control bg-surface text-ink hover:bg-surface-hover disabled:border-line disabled:bg-surface-sunken disabled:text-slate-500';
+// Chrome that should not draw attention: dark text, a wash on hover, no border.
 const quiet =
-  'border-transparent bg-transparent text-ink-muted hover:bg-surface-hover disabled:text-slate-300 disabled:hover:bg-transparent';
+  'border-transparent bg-transparent text-ink hover:bg-surface-hover disabled:text-slate-500 disabled:hover:bg-transparent';
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary: `bg-accent text-on-accent border-accent hover:bg-accent-hover ${solidFocus} ${solidDisabled}`,
   danger: `bg-danger text-on-accent border-danger hover:bg-danger-hover ${solidFocus} ${solidDisabled}`,
   neutral,
-  outline: neutral,
-  secondary: neutral,
-  destructive: `border-line-control bg-surface text-danger hover:bg-danger-soft disabled:border-line disabled:bg-surface-sunken disabled:text-slate-400`,
+  secondary: `bg-accent text-on-accent border-accent hover:bg-accent-hover ${solidFocus} ${solidDisabled}`,
+  outline: `bg-surface text-accent border-accent hover:bg-accent-soft ${solidFocus} ${solidDisabled}`,
+  ghost: `bg-transparent text-accent border-transparent hover:bg-accent-soft ${solidFocus} ${solidDisabled}`,
+  destructive: `border-line-control bg-surface text-danger hover:bg-danger-soft disabled:border-line disabled:bg-surface-sunken disabled:text-slate-500`,
   quiet,
-  ghost: quiet,
   // Reads as text inside a sentence.
-  link: 'border-transparent bg-transparent text-accent underline hover:text-accent-hover disabled:text-slate-400',
+  link: 'border-transparent bg-transparent text-accent underline hover:text-accent-hover disabled:text-slate-500',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {

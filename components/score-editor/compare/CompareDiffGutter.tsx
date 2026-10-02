@@ -235,7 +235,7 @@ export function CompareDiffGutter({
               key={`compare-gutter-${index}`}
               className="flex flex-col gap-2 rounded border border-dashed border-slate-200 bg-white px-2 py-2"
             >
-              <div className="flex items-center justify-between text-caption font-semibold uppercase tracking-wide text-slate-400">
+              <div className="flex items-center justify-between text-caption font-semibold uppercase tracking-wide text-slate-500">
                 <span>{partName}</span>
                 {isChangeReviewCompareMode && (
                   <span>
@@ -246,19 +246,19 @@ export function CompareDiffGutter({
               </div>
               <div className="grid gap-2">
                 {rows.length === 0 && (
-                  <div className="rounded border border-dashed border-slate-200 bg-slate-50 px-2 py-2 text-center text-caption text-slate-400">
+                  <div className="rounded border border-dashed border-slate-200 bg-slate-50 px-2 py-2 text-center text-caption text-slate-500">
                     No measures
                   </div>
                 )}
                 {!isChangeReviewCompareMode && blocks.length === 0 && rows.length > 0 && (
-                  <div className="text-center text-caption text-slate-400">No changes</div>
+                  <div className="text-center text-caption text-slate-500">No changes</div>
                 )}
                 {isChangeReviewCompareMode &&
                   !changeReviewLoading &&
                   rows.length > 0 &&
                   changeReviewRegions.length === 0 &&
                   changeReviewCompareBarsForGutter.length === 0 && (
-                    <div className="text-center text-caption text-slate-400">
+                    <div className="text-center text-caption text-slate-500">
                       No commentable diff lines
                     </div>
                   )}
@@ -332,7 +332,7 @@ export function CompareDiffGutter({
                               setChangeReviewFocusedAnchorId(region.anchorId);
                             }}
                           >
-                            <div className="flex items-center justify-between gap-2 text-caption text-slate-400">
+                            <div className="flex items-center justify-between gap-2 text-caption text-slate-500">
                               <span
                                 className={`rounded px-1 py-0.5 ${leftDiff ? 'bg-rose-100 text-rose-600' : ''}`}
                               >
@@ -624,7 +624,7 @@ export function CompareDiffGutter({
                             minHeight: `${blockHeight}px`,
                           }}
                         >
-                          <div className="flex items-center justify-between text-caption text-slate-400">
+                          <div className="flex items-center justify-between text-caption text-slate-500">
                             <span
                               className={`rounded px-1 py-0.5 ${leftDiff ? 'bg-rose-100 text-rose-600' : ''}`}
                             >
@@ -751,7 +751,7 @@ export function CompareDiffGutter({
                                   <div className="flex justify-end">
                                     <button
                                       type="button"
-                                      className="text-caption text-slate-400 hover:text-rose-600"
+                                      className="text-caption text-slate-500 hover:text-rose-600"
                                       onClick={() =>
                                         setCompareBlockComments((prev) => {
                                           const next = { ...prev };

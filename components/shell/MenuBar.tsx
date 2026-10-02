@@ -39,7 +39,7 @@ const display = (command: Command, override?: string) =>
   `${override ?? command.label}${command.opensDialog ? '…' : ''}`;
 
 function Shortcut({ value }: { value: string | undefined }) {
-  return value ? <span className="text-slate-400">{formatShortcut(value)}</span> : null;
+  return value ? <span className="text-slate-500">{formatShortcut(value)}</span> : null;
 }
 
 function FamilyItems({
@@ -94,7 +94,7 @@ function SubMenu({ label, children }: { label: string; children: React.ReactNode
     <Menubar.Sub>
       <Menubar.SubTrigger className={itemClass} data-testid={`menu-sub-${slug(label)}`}>
         <span>{label}</span>
-        <span aria-hidden="true" className="text-slate-400">
+        <span aria-hidden="true" className="text-slate-500">
           ▸
         </span>
       </Menubar.SubTrigger>

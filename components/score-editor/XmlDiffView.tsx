@@ -72,7 +72,7 @@ function XmlDiffBody({ leftXml, rightXml }: { leftXml: string; rightXml: string 
           row.kind === 'collapsed' ? (
             <div
               key={`diff-row-${index}`}
-              className="border-y border-slate-100 bg-slate-50 px-2 py-0.5 text-center text-slate-400"
+              className="border-y border-slate-100 bg-slate-50 px-2 py-0.5 text-center text-slate-500"
             >
               … {row.count} unchanged line{row.count === 1 ? '' : 's'} …
             </div>

@@ -124,7 +124,7 @@ export function ShellHeader({
           >
             <Search size={13} aria-hidden="true" />
             <span className="hidden sm:inline">Search commands</span>
-            <kbd className="hidden text-caption text-slate-400 sm:inline">
+            <kbd className="hidden text-caption text-slate-500 sm:inline">
               {formatShortcut('Mod+Shift+P')}
             </kbd>
           </button>

@@ -9357,7 +9357,6 @@ ${partsBodyXml}
       title: `Restore checkpoint "${checkpoint.title}"?`,
       message: 'Unsaved changes will be lost.',
       confirmLabel: 'Restore',
-      destructive: true,
     });
     if (!ok) {
       return;
@@ -17369,7 +17368,7 @@ ${partsBodyXml}
 
           {!loading && !score && (
             <div className="flex items-center justify-center h-full">
-              <div className="text-xl text-slate-400">No score loaded. Open a file to begin.</div>
+              <div className="text-xl text-slate-500">No score loaded. Open a file to begin.</div>
             </div>
           )}
 
@@ -18314,7 +18313,7 @@ ${partsBodyXml}
                             className="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-x-visible overflow-y-auto rounded border border-slate-200 bg-slate-50 p-2 text-caption text-slate-500"
                           >
                             {isChangeReviewCompareMode && changeReviewLoading && (
-                              <div className="rounded border border-dashed border-slate-200 bg-white px-2 py-2 text-center text-caption text-slate-400">
+                              <div className="rounded border border-dashed border-slate-200 bg-white px-2 py-2 text-center text-caption text-slate-500">
                                 Loading review threads...
                               </div>
                             )}
@@ -18329,7 +18328,7 @@ ${partsBodyXml}
                               </div>
                             )}
                             {compareAlignmentLoading && (
-                              <div className="rounded border border-dashed border-slate-200 bg-white px-2 py-2 text-center text-caption text-slate-400">
+                              <div className="rounded border border-dashed border-slate-200 bg-white px-2 py-2 text-center text-caption text-slate-500">
                                 Aligning measures...
                               </div>
                             )}

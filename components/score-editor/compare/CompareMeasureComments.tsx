@@ -76,7 +76,7 @@ export function CompareMeasureComments({
           </div>
           {(threads[focusedAnchor.key]?.comments ?? []).map((entry) => (
             <div key={entry.id} className="rounded border border-slate-200 bg-white px-2 py-1">
-              <div className="flex items-center justify-between text-caption text-slate-400">
+              <div className="flex items-center justify-between text-caption text-slate-500">
                 <span
                   className={entry.author === 'assistant' ? 'text-emerald-600' : 'text-sky-600'}
                 >
@@ -84,7 +84,7 @@ export function CompareMeasureComments({
                 </span>
                 <button
                   type="button"
-                  className="text-slate-400 hover:text-rose-500"
+                  className="text-slate-500 hover:text-rose-500"
                   onClick={() => actions.removeComment(focusedAnchor.key, entry.id)}
                   aria-label="Remove comment"
                 >
@@ -123,7 +123,7 @@ export function CompareMeasureComments({
       )}
       {threadList.length > 0 && (
         <div className="mt-2 border-t border-sky-200 pt-1">
-          <div className="mb-1 text-caption uppercase tracking-wide text-slate-400">Threads</div>
+          <div className="mb-1 text-caption uppercase tracking-wide text-slate-500">Threads</div>
           <div className="flex flex-wrap gap-1">
             {threadList
               .slice()

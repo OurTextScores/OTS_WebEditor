@@ -31,7 +31,7 @@ export const SelectTrigger = React.forwardRef<
     {...props}
   >
     {children}
-    <SelectPrimitive.Icon className="ml-2 text-caption text-slate-400">v</SelectPrimitive.Icon>
+    <SelectPrimitive.Icon className="ml-2 text-caption text-slate-500">v</SelectPrimitive.Icon>
   </SelectPrimitive.Trigger>
 ));
 SelectTrigger.displayName = SelectPrimitive.Trigger.displayName;

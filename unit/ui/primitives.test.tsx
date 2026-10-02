@@ -11,6 +11,25 @@ import { Input, Textarea } from '../../components/ui/Input';
 afterEach(cleanup);
 
 describe('Button', () => {
+  it('is blue by default and a grey neutral stays distinct from it', () => {
+    // A dialog's Cancel (the default) must not look like a neutral panel button, and primary must
+    // not look like Cancel.
+    render(
+      <>
+        <Button>Default</Button>
+        <Button variant="neutral">Neutral</Button>
+        <Button variant="primary">Primary</Button>
+      </>,
+    );
+    const classes = (name: string) => screen.getByRole('button', { name }).className;
+    expect(classes('Default')).toContain('text-accent');
+    expect(classes('Default')).toContain('border-accent');
+    for (const accentClass of ['text-accent', 'border-accent', 'bg-accent']) {
+      expect(classes('Neutral')).not.toMatch(new RegExp(`(^|\\s)${accentClass}(\\s|$)`));
+    }
+    expect(classes('Primary')).toContain('bg-accent');
+  });
+
   it('is a type=button so it never submits a form by accident', () => {
     render(<Button>Save</Button>);
     expect(screen.getByRole('button', { name: 'Save' })).toHaveProperty('type', 'button');

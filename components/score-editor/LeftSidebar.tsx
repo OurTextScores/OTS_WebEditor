@@ -288,9 +288,9 @@ function VersionsTabPanel(
       {versionsActionNotice && (
         <div className="mt-3 text-xs text-emerald-700">{versionsActionNotice}</div>
       )}
-      {versionsLoading && <div className="mt-3 text-xs text-slate-400">Loading versions...</div>}
+      {versionsLoading && <div className="mt-3 text-xs text-slate-500">Loading versions...</div>}
       {!versionsLoading && versionsRevisions.length === 0 && (
-        <div className="mt-3 text-xs text-slate-400">No revisions on this branch yet.</div>
+        <div className="mt-3 text-xs text-slate-500">No revisions on this branch yet.</div>
       )}
       <div className="mt-3 space-y-3">
         {versionsRevisions.map((revision) => (
@@ -421,15 +421,15 @@ function CheckpointsTabPanel(
           Save Checkpoint
         </Button>
         {!scoreLoaded && (
-          <span className="text-xs text-slate-400">Load a score to enable checkpoints.</span>
+          <span className="text-xs text-slate-500">Load a score to enable checkpoints.</span>
         )}
       </div>
       {checkpointError && <div className="mt-3 text-xs text-red-600">{checkpointError}</div>}
       {checkpointLoading && (
-        <div className="mt-3 text-xs text-slate-400">Loading checkpoints...</div>
+        <div className="mt-3 text-xs text-slate-500">Loading checkpoints...</div>
       )}
       {!checkpointLoading && checkpoints.length === 0 && (
-        <div className="mt-3 text-xs text-slate-400">No checkpoints yet.</div>
+        <div className="mt-3 text-xs text-slate-500">No checkpoints yet.</div>
       )}
       <div className="mt-3 space-y-3">
         {checkpoints.map((checkpoint) => (
@@ -523,10 +523,10 @@ function ScoresTabPanel(
         <div className="mt-3 text-xs text-red-600">{scoreSummariesError}</div>
       )}
       {scoreSummariesLoading && (
-        <div className="mt-3 text-xs text-slate-400">Loading scores...</div>
+        <div className="mt-3 text-xs text-slate-500">Loading scores...</div>
       )}
       {!scoreSummariesLoading && scoreSummaries.length === 0 && (
-        <div className="mt-3 text-xs text-slate-400">No saved scores yet.</div>
+        <div className="mt-3 text-xs text-slate-500">No saved scores yet.</div>
       )}
       <div className="mt-3 space-y-3">
         {scoreSummaries.map((summary) => {

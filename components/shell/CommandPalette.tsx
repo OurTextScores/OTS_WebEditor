@@ -175,7 +175,7 @@ function PaletteBody({ registry, mode }: { registry: CommandRegistry; mode: 'com
               onClick={() => choose(entry)}
               className={`flex cursor-pointer items-center justify-between gap-4 rounded px-3 py-1.5 text-sm ${
                 selected ? 'bg-accent-soft' : ''
-              } ${disabled ? 'cursor-default text-slate-400' : 'text-slate-900'}`}
+              } ${disabled ? 'cursor-default text-slate-500' : 'text-slate-900'}`}
             >
               {entry.kind === 'navigate' ? (
                 <span>{describeNavigationTarget(entry.target)}</span>
@@ -184,12 +184,12 @@ function PaletteBody({ registry, mode }: { registry: CommandRegistry; mode: 'com
                   <span className="min-w-0">
                     <span className="block truncate">{entry.row.title}</span>
                     {entry.row.path && (
-                      <span className="block truncate text-caption text-slate-400">
+                      <span className="block truncate text-caption text-slate-500">
                         {entry.row.path}
                       </span>
                     )}
                   </span>
-                  <span className="shrink-0 text-xs text-slate-400">
+                  <span className="shrink-0 text-xs text-slate-500">
                     {disabled ? 'Unavailable' : formatShortcut(entry.row.shortcut)}
                   </span>
                 </>
