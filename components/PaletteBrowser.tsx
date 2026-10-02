@@ -47,7 +47,7 @@ export function PaletteBrowser({
 
   return (
     <>
-      <label className="m-3 flex items-center gap-2 rounded border border-slate-300 px-2 py-1.5">
+      <label className="m-3 flex items-center gap-2 rounded border border-slate-300 px-2 py-1.5 focus-within:ring-2 focus-within:ring-accent">
         <Search size={14} className="text-slate-500" aria-hidden="true" />
         <input
           data-testid="palette-search"

@@ -115,10 +115,11 @@ export async function verifyFullLayout(
   score: OracleScore,
   label: string,
   page: number,
-  run: <T>(operation: () => Promise<T>) => Promise<T>,
+  runSerialized: <T>(operation: () => Promise<T>, label: string) => Promise<T>,
   rerender: () => Promise<unknown>,
 ): Promise<void> {
   if (!score.relayout) return;
+  const run = <T>(operation: () => Promise<T>) => runSerialized(operation, 'layout-oracle');
   try {
     const pagesBefore = await run(async () => (await score.npages?.()) ?? 1);
     const incremental = await run(async () => score.saveSvg(page, true, false));

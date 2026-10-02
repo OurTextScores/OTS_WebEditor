@@ -1,5 +1,6 @@
 import React from 'react';
 import { Button } from '../ui/Button';
+import { Input, Textarea } from '../ui/Input';
 import type { CheckpointSummary, ScoreSummary } from '../../lib/checkpoints';
 import type {
   SourceHistoryBranch,
@@ -221,12 +222,12 @@ function VersionsTabPanel(
         <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           Commit Current Score
         </div>
-        <textarea
+        <Textarea
           value={versionsCommitMessage}
           onChange={(event) => onVersionsCommitMessageChange?.(event.target.value)}
           placeholder="Commit message"
           rows={3}
-          className="mt-2 w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
+          className="mt-2"
         />
         <Button
           variant="primary"
@@ -249,12 +250,11 @@ function VersionsTabPanel(
         <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           Create Branch
         </div>
-        <input
-          type="text"
+        <Input
           value={versionsCreateBranchName}
           onChange={(event) => onVersionsCreateBranchNameChange?.(event.target.value)}
           placeholder="new-branch"
-          className="mt-2 w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
+          className="mt-2"
         />
         <select
           value={versionsCreateBranchPolicy}
@@ -404,13 +404,11 @@ function CheckpointsTabPanel(
   return (
     <>
       <div className="mt-3 flex flex-col gap-2">
-        <input
+        <Input
           data-testid="input-checkpoint-label"
-          type="text"
           value={checkpointLabel}
           onChange={(event) => onCheckpointLabelChange(event.target.value)}
           placeholder="Checkpoint label"
-          className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
         />
         <Button
           variant={!checkpointSaveDisabled && scoreDirtySinceCheckpoint ? 'primary' : 'neutral'}

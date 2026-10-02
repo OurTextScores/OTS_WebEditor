@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
+import { Announcer } from '@/components/shell/announcer';
 import { NoticeHost } from '@/components/shell/notices';
 
 // Dynamically import ScoreEditor to avoid SSR issues with WASM/window
@@ -39,6 +40,7 @@ function AppContent() {
     <main className="min-h-screen bg-white">
       {showPlayer ? <EmbeddedScorePlayer /> : <ScoreEditor />}
       <NoticeHost />
+      <Announcer />
     </main>
   );
 }

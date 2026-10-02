@@ -144,7 +144,7 @@ function PaletteBody({ registry, mode }: { registry: CommandRegistry; mode: 'com
             ? 'Go to bar (m125), rehearsal mark (rA) or page (p3)…'
             : 'Type a command, or m125 / rA / p3 to jump…'
         }
-        className="w-full border-b border-slate-200 bg-transparent px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400"
+        className="w-full border-b border-slate-200 bg-transparent px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-accent"
       />
       <div
         id="command-palette-list"

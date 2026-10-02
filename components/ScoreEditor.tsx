@@ -45,6 +45,7 @@ import { noPerf, startPerf, type PerfHandle } from '../lib/perf-trace';
 import { confirmDialog, notify, notifyError, notifyWarning, promptDialog } from './shell/notices';
 import { ShellHeader } from './shell/ShellHeader';
 import { StatusBar } from './shell/StatusBar';
+import { announce, describeEdit, useSelectionAnnouncer } from './shell/announcer';
 import { WriteToolbar } from './shell/toolbar/WriteToolbar';
 import { HistoryToolbar } from './shell/toolbar/HistoryToolbar';
 import { CompareToolbar } from './shell/toolbar/CompareToolbar';
@@ -3095,6 +3096,8 @@ export default function ScoreEditor() {
     selectedPoint,
     selectionBoxes.length,
   ]);
+
+  useSelectionAnnouncer(inspectorData);
 
   const ensureScoreId = useCallback(
     (fallbackPrefix: string) => {
@@ -12751,13 +12754,10 @@ ${partsBodyXml}
         await perf.time('noteInputCursor', () => refreshNoteInputCursor(score));
       }
       perf.end();
+      announce(describeEdit(label));
       if (oracle) {
-        await verifyFullLayout(
-          score,
-          label,
-          refreshedPage,
-          (operation) => runSerializedScoreOperation(operation, 'layout-oracle'),
-          () => renderScore(score, refreshedPage),
+        await verifyFullLayout(score, label, refreshedPage, runSerializedScoreOperation, () =>
+          renderScore(score, refreshedPage),
         );
       }
 

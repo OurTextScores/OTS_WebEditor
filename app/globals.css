@@ -156,6 +156,17 @@
   z-index: var(--ots-z-palette);
 }
 
+/*
+ * One keyboard-focus indicator for everything that does not draw its own. It is in the base layer
+ * so a component's own ring (focus-visible:ring-2 ...) or `outline-none` still wins.
+ */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--ots-focus-ring);
+    outline-offset: 2px;
+  }
+}
+
 /* Anything that animates honours the system setting. */
 @media (prefers-reduced-motion: reduce) {
   *,
