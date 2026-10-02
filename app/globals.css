@@ -8,22 +8,80 @@
 }
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: var(--ots-surface);
+  --foreground: var(--ots-text);
 
-  /* Shell chrome (SHELL_REDESIGN_DESIGN §12). Interim values; W3 may change them but not the names. */
+  /*
+   * The OTS design language (docs/private/DESIGN_LANGUAGE.md). Names are the contract; values
+   * may change. A component names a token, never an inline colour, size, radius or layer.
+   * Contrast of every text/surface pair is checked by unit/design-tokens.test.ts.
+   */
+
+  /* Colour roles: neutrals are slate. */
+  --ots-surface: #ffffff;
+  --ots-surface-sunken: #f8fafc;
+  --ots-surface-hover: #f1f5f9;
+  --ots-border: #e2e8f0; /* hairlines: decorative, no contrast requirement */
+  --ots-border-strong: #cbd5e1; /* dividers that should be seen: decorative */
+  --ots-border-control: #7c8aa0; /* the edge of an input or checkbox: 3:1 against the surface */
+  --ots-text: #0f172a;
+  --ots-text-muted: #475569;
+  --ots-text-faint: #64748b; /* placeholders and hints: still 4.5:1; disabled text is exempt */
+
+  /* The one accent: selection, focus, the active activity, a surface's primary action. */
+  --ots-accent: #1d4ed8;
+  --ots-accent-hover: #1e40af;
+  --ots-accent-soft: #eff6ff;
+  --ots-on-accent: #ffffff;
+
+  /* Status only. `-soft` is the wash behind `-text`. */
+  --ots-success: #047857;
+  --ots-success-soft: #ecfdf5;
+  --ots-warning: #b45309;
+  --ots-warning-soft: #fffbeb;
+  --ots-danger: #b91c1c;
+  --ots-danger-soft: #fef2f2;
+
+  --ots-focus-ring: var(--ots-accent);
+
+  /* Shape. */
+  --ots-radius-sm: 4px;
+  --ots-radius-md: 6px;
+  --ots-radius-lg: 8px;
+
+  /* Elevation: flat has no shadow. */
+  --ots-shadow-raised: 0 4px 12px rgb(15 23 42 / 0.12);
+  --ots-shadow-modal: 0 12px 32px rgb(15 23 42 / 0.18);
+
+  /* Motion. */
+  --ots-motion-fast: 120ms;
+  --ots-motion: 200ms;
+  --ots-ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Layers, lowest first. The shell's overlap bugs were all one of these in the wrong order. */
+  --ots-z-canvas: 0;
+  --ots-z-panel: 20;
+  --ots-z-status: 90;
+  --ots-z-toolbar: 100;
+  --ots-z-activity: 105;
+  --ots-z-header: 110;
+  --ots-z-menu: 400;
+  --ots-z-toast: 450;
+
+  /* Shell chrome (SHELL_REDESIGN_DESIGN §12): sizes, and aliases for the names the shell used. */
   --shell-header-h: 44px;
+  --shell-activity-w: 44px;
   --shell-status-h: 32px;
-  --shell-panel-radius: 8px;
+  --shell-panel-radius: var(--ots-radius-lg);
   /* Mirrored in components/shell/vendor/viritura/shellMetrics.ts: the layout math needs them in JS. */
   --shell-panel-inset: 12px;
   --shell-panel-gap: 10px;
-  --shell-surface: #f8fafc;
-  --shell-surface-raised: #ffffff;
-  --shell-border: #e2e8f0;
-  --shell-text: #0f172a;
-  --shell-text-muted: #64748b;
-  --shell-accent: #2563eb;
+  --shell-surface: var(--ots-surface-sunken);
+  --shell-surface-raised: var(--ots-surface);
+  --shell-border: var(--ots-border);
+  --shell-text: var(--ots-text);
+  --shell-text-muted: var(--ots-text-muted);
+  --shell-accent: var(--ots-accent);
 }
 
 @theme inline {
@@ -31,14 +89,75 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Utilities: bg-surface, text-ink, border-line, ring-accent, ... */
+  --color-surface: var(--ots-surface);
+  --color-surface-sunken: var(--ots-surface-sunken);
+  --color-surface-hover: var(--ots-surface-hover);
+  --color-line: var(--ots-border);
+  --color-line-strong: var(--ots-border-strong);
+  --color-line-control: var(--ots-border-control);
+  --color-ink: var(--ots-text);
+  --color-ink-muted: var(--ots-text-muted);
+  --color-ink-faint: var(--ots-text-faint);
+  --color-accent: var(--ots-accent);
+  --color-accent-hover: var(--ots-accent-hover);
+  --color-accent-soft: var(--ots-accent-soft);
+  --color-on-accent: var(--ots-on-accent);
+  --color-success: var(--ots-success);
+  --color-success-soft: var(--ots-success-soft);
+  --color-warning: var(--ots-warning);
+  --color-warning-soft: var(--ots-warning-soft);
+  --color-danger: var(--ots-danger);
+  --color-danger-soft: var(--ots-danger-soft);
+
+  --radius-ots-sm: var(--ots-radius-sm);
+  --radius-ots-md: var(--ots-radius-md);
+  --radius-ots-lg: var(--ots-radius-lg);
+  --shadow-raised: var(--ots-shadow-raised);
+  --shadow-modal: var(--ots-shadow-modal);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Layers as utilities: z-menu, z-toast, ... */
+@utility z-canvas {
+  z-index: var(--ots-z-canvas);
+}
+@utility z-panel {
+  z-index: var(--ots-z-panel);
+}
+@utility z-status {
+  z-index: var(--ots-z-status);
+}
+@utility z-toolbar {
+  z-index: var(--ots-z-toolbar);
+}
+@utility z-activity {
+  z-index: var(--ots-z-activity);
+}
+@utility z-header {
+  z-index: var(--ots-z-header);
+}
+@utility z-menu {
+  z-index: var(--ots-z-menu);
+}
+@utility z-toast {
+  z-index: var(--ots-z-toast);
+}
+
+/* Anything that animates honours the system setting. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
+
+/* No dark chrome yet (docs/private/DESIGN_LANGUAGE.md §7): the page follows the light tokens, so a
+   dark system setting no longer leaves white panels on a near-black page. */
 
 body {
   background: var(--background);
