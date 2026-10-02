@@ -92,7 +92,7 @@ export function ShellHeader({
               role="img"
               aria-label="Changes since the last checkpoint"
               title="Changes since the last checkpoint"
-              className="h-2 w-2 shrink-0 rounded-full bg-amber-500"
+              className="h-2 w-2 shrink-0 rounded-full bg-warning"
             />
           )}
         </div>

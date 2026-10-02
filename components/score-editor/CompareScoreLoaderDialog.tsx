@@ -44,7 +44,7 @@ export function CompareScoreLoaderDialog({
         </div>
 
         <div className="mt-4 grid gap-3 text-sm text-slate-700">
-          <div className="rounded border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+          <div className="rounded border border-line bg-surface-sunken px-3 py-2 text-xs text-ink">
             The left score is the reference. The right score replaces the current score and remains
             editable in the comparison.
           </div>
@@ -121,7 +121,7 @@ export function CompareScoreLoaderDialog({
                 }
               }}
               disabled={!leftFile || !rightFile || busy}
-              className="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? 'Loading…' : 'Compare'}
             </button>

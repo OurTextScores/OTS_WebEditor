@@ -30,10 +30,10 @@ import { getShellUiState, subscribeToShellUi } from './shellStore';
 const divider = <span aria-hidden="true" className="mx-1 h-4 w-px bg-slate-200" />;
 
 const kindDot: Record<Notice['kind'], string> = {
-  error: 'bg-red-500',
-  warning: 'bg-amber-500',
-  info: 'bg-slate-400',
-  success: 'bg-emerald-500',
+  error: 'bg-danger',
+  warning: 'bg-warning',
+  info: 'bg-ink-faint',
+  success: 'bg-success',
 };
 
 function NoticeList() {
@@ -63,7 +63,7 @@ function NoticeList() {
           {unreadCount > 0 && (
             <span
               data-testid="status-notices-count"
-              className="ml-1 rounded-full bg-red-500 px-1 text-caption font-semibold leading-4 text-white"
+              className="ml-1 rounded-full bg-danger px-1 text-caption font-semibold leading-4 text-white"
             >
               {unreadCount}
             </span>
@@ -233,7 +233,7 @@ export function StatusBar({ registry = defaultCommandRegistry }: { registry?: Co
             data-testid="interaction-preparing-banner"
             role="status"
             title="Viewing and page playback are available. Note selection, editing and selection playback unlock when relayout finishes."
-            className="rounded bg-amber-50 px-2 py-0.5 text-amber-800"
+            className="rounded bg-warning-soft px-2 py-0.5 text-warning"
           >
             Finalizing layout…
           </span>
@@ -265,7 +265,7 @@ export function StatusBar({ registry = defaultCommandRegistry }: { registry?: Co
         >
           <span
             aria-hidden="true"
-            className={`mr-1.5 h-2 w-2 rounded-full ${view.dirty ? 'bg-amber-500' : 'bg-emerald-500'}`}
+            className={`mr-1.5 h-2 w-2 rounded-full ${view.dirty ? 'bg-warning' : 'bg-success'}`}
           />
           {view.dirty
             ? 'Unsaved changes'

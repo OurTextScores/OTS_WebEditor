@@ -303,7 +303,7 @@ export function TranscodaPanel({
               type="button"
               onClick={() => void handleApplyTranscodaOutput('overwrite')}
               disabled={xmlLoading}
-              className="flex-1 rounded border border-slate-300 bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex-1 rounded border border-slate-300 bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
               data-testid="btn-transcoda-apply-overwrite"
             >
               Overwrite

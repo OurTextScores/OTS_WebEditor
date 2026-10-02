@@ -89,7 +89,7 @@ export function ShareLinkDialog({
           <button
             type="submit"
             data-testid="btn-generate-share-link"
-            className="mt-4 rounded border border-blue-600 bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="mt-4 rounded border border-accent bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover"
           >
             Generate Link
           </button>

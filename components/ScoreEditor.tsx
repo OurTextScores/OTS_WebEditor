@@ -17375,7 +17375,7 @@ ${partsBodyXml}
 
           <div
             ref={scoreWrapperRef}
-            className={`relative origin-top-left transition-transform duration-200 ease-out bg-white shadow-raised mx-auto ${paletteDropActive ? 'ring-4 ring-blue-400 ring-offset-2' : ''}`}
+            className={`relative origin-top-left transition-transform duration-200 ease-out bg-white shadow-raised mx-auto ${paletteDropActive ? 'ring-4 ring-accent/60 ring-offset-2' : ''}`}
             data-testid="score-wrapper"
             data-palette-drop-active={paletteDropActive ? 'true' : 'false'}
             style={{
@@ -17468,7 +17468,7 @@ ${partsBodyXml}
             {dragSelectionRect && (
               <div
                 data-testid="drag-selection-rect"
-                className="absolute border border-blue-600 bg-blue-200 bg-opacity-20 pointer-events-none"
+                className="absolute border border-accent bg-accent/20 pointer-events-none"
                 style={{
                   left: dragSelectionRect.x,
                   top: dragSelectionRect.y,
@@ -17489,9 +17489,9 @@ ${partsBodyXml}
                   height: noteDragGhost.h,
                 }}
               >
-                <div className="h-full w-full rounded-full border-2 border-blue-600 bg-blue-400/40" />
+                <div className="h-full w-full rounded-full border-2 border-accent bg-accent/40" />
                 {noteDragGhost.steps !== 0 && (
-                  <div className="absolute left-full top-1/2 -translate-y-1/2 ml-1 rounded bg-blue-600 px-1 text-caption leading-tight text-white whitespace-nowrap">
+                  <div className="absolute left-full top-1/2 -translate-y-1/2 ml-1 rounded bg-accent px-1 text-caption leading-tight text-white whitespace-nowrap">
                     {noteDragGhost.steps < 0
                       ? `▲ ${-noteDragGhost.steps}`
                       : `▼ ${noteDragGhost.steps}`}
@@ -17591,7 +17591,7 @@ ${partsBodyXml}
                 <div
                   key={index}
                   data-testid="selection-overlay"
-                  className="absolute pointer-events-none border-2 border-blue-600"
+                  className="absolute pointer-events-none border-2 border-accent"
                   style={{
                     left: box.x,
                     top: box.y,
@@ -17606,7 +17606,7 @@ ${partsBodyXml}
               !hasBackendHighlighting && (
                 <div
                   data-testid="selection-overlay"
-                  className="absolute pointer-events-none border-2 border-blue-600"
+                  className="absolute pointer-events-none border-2 border-accent"
                   style={{
                     left: primarySelectionRect.x,
                     top: primarySelectionRect.y,
@@ -17624,8 +17624,8 @@ ${partsBodyXml}
                   data-testid={`selection-overlay-${index}`}
                   className={`absolute pointer-events-none ${
                     box.isMeasureBbox
-                      ? 'border border-blue-400/50'
-                      : 'bg-blue-200/40 border border-blue-400/60'
+                      ? 'border border-accent/60'
+                      : 'bg-accent/25 border border-accent/60'
                   }`}
                   style={{
                     left: box.x,
@@ -17638,7 +17638,7 @@ ${partsBodyXml}
             {textEditorRect && (
               <div
                 data-testid="inline-text-editor"
-                className="absolute z-50 flex flex-col gap-1 rounded border-2 border-blue-600 bg-white p-1 shadow-raised"
+                className="absolute z-50 flex flex-col gap-1 rounded border-2 border-accent bg-white p-1 shadow-raised"
                 style={{
                   left: textEditorRect.x,
                   top: textEditorRect.y,
@@ -17685,7 +17685,7 @@ ${partsBodyXml}
                       );
                       closeTextEditor();
                     }}
-                    className="rounded bg-blue-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-blue-700"
+                    className="rounded bg-accent px-2 py-0.5 text-xs font-medium text-white hover:bg-accent-hover"
                   >
                     Save
                   </button>
@@ -18896,7 +18896,7 @@ ${partsBodyXml}
             style={{ zIndex: 'var(--ots-z-float)' }}
           >
             <div className="text-center">
-              <div className="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600"></div>
+              <div className="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-ink-muted"></div>
               <p className="text-sm text-slate-600">Loading comparison...</p>
             </div>
           </div>

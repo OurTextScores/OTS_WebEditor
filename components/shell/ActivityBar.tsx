@@ -51,8 +51,8 @@ export function ActivityBar({
             disabled={!registry.has(commandId)}
             onClick={() => void invokeCommand(commandId, undefined, registry)}
             onKeyDown={(event) => onKeyDown(event, index)}
-            className={`flex h-9 w-9 items-center justify-center rounded text-slate-600 outline-none hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-blue-500 ${
-              pressed ? 'bg-blue-50 text-blue-700' : ''
+            className={`flex h-9 w-9 items-center justify-center rounded text-slate-600 outline-none hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-accent ${
+              pressed ? 'bg-accent-soft text-accent' : ''
             }`}
           >
             <Icon size={18} aria-hidden="true" />

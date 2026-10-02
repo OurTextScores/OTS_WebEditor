@@ -24,9 +24,9 @@ import { getShellUiState, subscribeToShellUi } from './shellStore';
 const contentClass =
   'relative z-menu min-w-[14rem] max-h-[var(--radix-menubar-content-available-height)] overflow-y-auto rounded border border-slate-200 bg-white p-1 text-xs text-slate-800 shadow-raised';
 const itemClass =
-  'flex cursor-pointer select-none items-center justify-between gap-6 rounded px-3 py-1 outline-none data-[highlighted]:bg-blue-50 data-[disabled]:pointer-events-none data-[disabled]:text-slate-400';
+  'flex cursor-pointer select-none items-center justify-between gap-6 rounded px-3 py-1 outline-none data-[highlighted]:bg-accent-soft data-[disabled]:pointer-events-none data-[disabled]:text-slate-400';
 const triggerClass =
-  'rounded px-2.5 py-1 text-sm text-slate-800 outline-none hover:bg-slate-100 data-[state=open]:bg-slate-100 focus-visible:ring-2 focus-visible:ring-blue-500';
+  'rounded px-2.5 py-1 text-sm text-slate-800 outline-none hover:bg-slate-100 data-[state=open]:bg-slate-100 focus-visible:ring-2 focus-visible:ring-accent';
 
 const slug = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 

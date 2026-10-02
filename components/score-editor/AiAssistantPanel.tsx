@@ -138,12 +138,12 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
           }
           role="status"
           aria-live="polite"
-          className="flex items-center gap-2 rounded border border-blue-200 bg-blue-50 px-3 py-2 text-blue-900"
+          className="flex items-center gap-2 rounded border border-line bg-surface-sunken px-3 py-2 text-ink"
         >
           <LoaderCircle className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
           <div className="min-w-0 flex-1">
             <div className="text-xs font-medium">{aiEditWork.message}</div>
-            <div className="mt-0.5 text-caption text-blue-700">
+            <div className="mt-0.5 text-caption text-ink-muted">
               {AI_EDIT_EFFORT_PROFILES[aiEditEffort].label}
               {' · '}
               {formatAiEditBudgetDuration(aiEditElapsedMs)} elapsed
@@ -156,7 +156,7 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
             onClick={cancelAiEditRequest}
             title="Cancel AI edit"
             aria-label="Cancel AI edit"
-            className="flex shrink-0 items-center gap-1 rounded border border-blue-300 bg-white px-2 py-1 text-xs font-medium text-blue-800 hover:bg-blue-100"
+            className="flex shrink-0 items-center gap-1 rounded border border-line-control bg-surface px-2 py-1 text-xs font-medium text-ink hover:bg-surface-hover"
           >
             <Square className="h-3 w-3 fill-current" aria-hidden="true" />
             <span>Cancel</span>
@@ -255,7 +255,7 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
                   href={AI_PROVIDER_CONFIGS[aiProvider].apiKeyUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-blue-600 hover:text-blue-700 hover:underline"
+                  className="text-accent hover:text-accent-hover hover:underline"
                 >
                   Create {AI_PROVIDER_LABELS[aiProvider]} API key
                 </a>
@@ -269,14 +269,14 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
           <button
             type="button"
             onClick={() => setAiMode('patch')}
-            className={`rounded border px-2 py-1 ${aiMode === 'patch' ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+            className={`rounded border px-2 py-1 ${aiMode === 'patch' ? 'border-accent/60 bg-accent-soft text-accent' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
           >
             Patch
           </button>
           <button
             type="button"
             onClick={() => setAiMode('chat')}
-            className={`rounded border px-2 py-1 ${aiMode === 'chat' ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+            className={`rounded border px-2 py-1 ${aiMode === 'chat' ? 'border-accent/60 bg-accent-soft text-accent' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
           >
             Chat
           </button>
@@ -528,7 +528,7 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
                   {aiChatMessages.map((message, index) => (
                     <div
                       key={`${message.role}-${index}-${message.text.slice(0, 12)}`}
-                      className={`rounded px-2 py-1 text-xs ${message.role === 'assistant' ? 'bg-blue-50 text-blue-900' : 'bg-white text-slate-800'}`}
+                      className={`rounded px-2 py-1 text-xs ${message.role === 'assistant' ? 'bg-surface-hover text-ink' : 'bg-white text-slate-800'}`}
                     >
                       <span className="mb-1 block text-caption uppercase tracking-wide text-slate-500">
                         {message.role === 'assistant' ? 'Assistant' : 'You'}
@@ -573,7 +573,7 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
                         </ReactMarkdown>
                       </div>
                       {message.role === 'assistant' && message.sourceRag?.enabled && (
-                        <div className="mt-2 rounded border border-blue-100 bg-white/70 p-2 text-caption text-slate-600">
+                        <div className="mt-2 rounded border border-line bg-white/70 p-2 text-caption text-slate-600">
                           <div className="font-semibold uppercase tracking-wide text-slate-500">
                             External Sources
                           </div>
@@ -585,7 +585,7 @@ export function AiAssistantPanel({ controller, presentation, actions }: AiAssist
                                     href={source.url}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="font-medium text-blue-700 hover:underline"
+                                    className="font-medium text-accent hover:underline"
                                   >
                                     {source.label}
                                   </a>

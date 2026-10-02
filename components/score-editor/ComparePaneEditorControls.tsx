@@ -39,7 +39,7 @@ export function ComparePaneEditorControls({
         data-testid={`btn-compare-activate-${side}`}
         aria-pressed={active}
         onClick={onActivate}
-        className={`${buttonClass} ${active ? 'border-blue-500 bg-blue-50 text-blue-700' : ''}`}
+        className={`${buttonClass} ${active ? 'border-accent bg-accent-soft text-accent' : ''}`}
         title="Make this score the target for keyboard shortcuts and palettes"
       >
         {active ? 'Active score' : 'Edit'}
@@ -85,7 +85,7 @@ export function ComparePaneEditorControls({
         aria-label={`${noteInputActive ? 'Disable' : 'Enable'} note input for ${side} compare score`}
         disabled={busy}
         onClick={onToggleNoteInput}
-        className={`${buttonClass} ${noteInputActive ? 'border-blue-500 bg-blue-50 text-blue-700' : ''}`}
+        className={`${buttonClass} ${noteInputActive ? 'border-accent bg-accent-soft text-accent' : ''}`}
         title="Toggle note input for this score (N)"
       >
         {noteInputActive ? 'Stop input' : 'Note input'}

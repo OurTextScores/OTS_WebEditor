@@ -109,7 +109,7 @@ export function MusicXmlPanel({
           title="Applying edits will auto-checkpoint if the score has unsaved changes."
           className={`flex-1 rounded border px-3 py-1 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
             xmlApplyEnabled
-              ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
+              ? 'border-accent bg-accent text-white hover:bg-accent-hover'
               : 'border-slate-300 bg-white text-slate-700'
           }`}
         >
@@ -127,7 +127,7 @@ export function MusicXmlPanel({
           }
           className={`flex-1 rounded border px-3 py-1 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
             xmlReloadEnabled
-              ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
+              ? 'border-accent bg-accent text-white hover:bg-accent-hover'
               : 'border-slate-300 bg-white text-slate-700'
           }`}
         >

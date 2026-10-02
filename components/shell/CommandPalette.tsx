@@ -174,7 +174,7 @@ function PaletteBody({ registry, mode }: { registry: CommandRegistry; mode: 'com
               onMouseMove={() => setActive(index)}
               onClick={() => choose(entry)}
               className={`flex cursor-pointer items-center justify-between gap-4 rounded px-3 py-1.5 text-sm ${
-                selected ? 'bg-blue-50' : ''
+                selected ? 'bg-accent-soft' : ''
               } ${disabled ? 'cursor-default text-slate-400' : 'text-slate-900'}`}
             >
               {entry.kind === 'navigate' ? (

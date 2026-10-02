@@ -72,4 +72,22 @@ describe('palette guard', () => {
     // text-caption (11px) is the smallest role; the rest are Tailwind's text-xs/sm/base/xl.
     expect(offenders(/\btext-\[\d+(\.\d+)?px\]/)).toEqual([]);
   });
+
+  it('uses the accent token, not Tailwind blue or indigo', () => {
+    // The accent is one token (DESIGN_LANGUAGE §4.2); a blue that is not the accent is a bug.
+    expect(
+      offenders(
+        /\b(?:bg|text|border|ring|outline|accent|fill|stroke|divide|from|to|via)-(?:blue|indigo)-\d/,
+      ),
+    ).toEqual([]);
+  });
+
+  it('uses the status tokens for status colours in the shell', () => {
+    // Success, warning and danger are tokens (§4.3). The compare view's amber and emerald are
+    // domain colours (§4.4) and live outside components/shell.
+    const shell = offenders(/\b(?:bg|text|border|ring)-(?:red|amber|emerald|green)-\d/).filter(
+      (path) => path.startsWith('components/shell/'),
+    );
+    expect(shell).toEqual([]);
+  });
 });

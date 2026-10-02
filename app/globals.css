@@ -40,6 +40,7 @@
   --ots-warning: #b45309;
   --ots-warning-soft: #fffbeb;
   --ots-danger: #b91c1c;
+  --ots-danger-hover: #991b1b;
   --ots-danger-soft: #fef2f2;
 
   --ots-focus-ring: var(--ots-accent);
@@ -115,6 +116,7 @@
   --color-warning: var(--ots-warning);
   --color-warning-soft: var(--ots-warning-soft);
   --color-danger: var(--ots-danger);
+  --color-danger-hover: var(--ots-danger-hover);
   --color-danger-soft: var(--ots-danger-soft);
 
   --radius-ots-sm: var(--ots-radius-sm);

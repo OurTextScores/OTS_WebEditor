@@ -92,7 +92,7 @@ export function LeftDock({
                 onClick={() => dock.show(tab)}
                 className={`rounded-t px-2.5 py-1.5 text-xs font-medium ${
                   selected
-                    ? 'border-b-2 border-blue-600 text-slate-900'
+                    ? 'border-b-2 border-accent text-slate-900'
                     : 'text-slate-500 hover:text-slate-800'
                 }`}
               >

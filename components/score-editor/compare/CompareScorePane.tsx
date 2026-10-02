@@ -120,7 +120,7 @@ export function CompareScorePane({
         <div className="flex items-center gap-2">
           <span>{model.label}</span>
           {!model.isCurrent && (
-            <span className="rounded bg-blue-100 px-2 py-0.5 text-caption font-normal text-blue-700">
+            <span className="rounded bg-accent-soft px-2 py-0.5 text-caption font-normal text-accent">
               Checkpoint
             </span>
           )}
@@ -128,7 +128,7 @@ export function CompareScorePane({
             <button
               type="button"
               onClick={actions.openInEditor}
-              className="rounded border border-blue-500 bg-blue-50 px-2 py-0.5 text-caption font-normal text-blue-700 hover:bg-blue-100"
+              className="rounded border border-accent bg-accent-soft px-2 py-0.5 text-caption font-normal text-accent hover:bg-accent-soft"
               title="Open this score in the full editor"
             >
               📝 Open in Editor
@@ -198,7 +198,7 @@ export function CompareScorePane({
       <div className="flex min-h-0 flex-1 flex-col gap-3">
         <div
           ref={scrollRef}
-          className={`relative min-h-0 min-w-0 flex-1 overflow-auto rounded border bg-white ${model.isActive ? 'border-blue-500 ring-2 ring-blue-200' : 'border-slate-200'}`}
+          className={`relative min-h-0 min-w-0 flex-1 overflow-auto rounded border bg-white ${model.isActive ? 'border-accent ring-2 ring-accent/25' : 'border-slate-200'}`}
           data-testid={`compare-pane-${side}`}
           onPointerDown={actions.activate}
         >
@@ -271,7 +271,7 @@ export function CompareScorePane({
                     key={`compare-${side}-selection-${index}`}
                     data-testid={`compare-selection-overlay-${side}`}
                     aria-hidden="true"
-                    className="absolute border-2 border-blue-600"
+                    className="absolute border-2 border-accent"
                     style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }}
                   />
                 ))}
@@ -293,7 +293,7 @@ export function CompareScorePane({
               )}
               {model.focusedHighlight && (
                 <div
-                  className="absolute rounded border-2 border-blue-500 ring-2 ring-blue-300/50"
+                  className="absolute rounded border-2 border-accent ring-2 ring-accent/20"
                   style={rectStyle(model.focusedHighlight)}
                 />
               )}

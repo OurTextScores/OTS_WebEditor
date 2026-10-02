@@ -73,7 +73,7 @@ export function FunctionalHarmonyPanel({
             type="button"
             onClick={() => void handleFunctionalHarmonyAnalyze()}
             disabled={functionalHarmonyBusy}
-            className="flex-1 rounded border border-blue-600 bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 rounded border border-accent bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid="btn-functional-harmony-analyze"
           >
             {functionalHarmonyBusy ? 'Analyzing...' : 'Analyze Harmony'}
@@ -109,7 +109,7 @@ export function FunctionalHarmonyPanel({
             type="button"
             onClick={() => void handleApplyFunctionalHarmonyOutput()}
             disabled={functionalHarmonyBusy || !functionalHarmonyAnnotatedXml.trim()}
-            className="rounded border border-blue-600 bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="rounded border border-accent bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid="btn-functional-harmony-apply-xml"
           >
             Apply Roman Numerals

@@ -93,7 +93,7 @@ export function PaletteBrowser({
                         event.dataTransfer.setData(SCORE_PALETTE_DRAG_MIME, JSON.stringify(item));
                         event.dataTransfer.setData('text/plain', item.label);
                       }}
-                      className="flex items-center justify-center overflow-hidden rounded border border-slate-200 bg-slate-50 hover:border-blue-400 hover:bg-blue-50 disabled:opacity-50"
+                      className="flex items-center justify-center overflow-hidden rounded border border-slate-200 bg-slate-50 hover:border-line-control hover:bg-surface-hover disabled:opacity-50"
                       style={{ height: '3.25rem' }}
                     >
                       {item.kind === 'beam' ? (

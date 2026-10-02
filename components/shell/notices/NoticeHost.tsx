@@ -20,10 +20,10 @@ import {
 } from './noticeStore';
 
 const kindClasses: Record<Notice['kind'], string> = {
-  error: 'border-red-300 bg-red-50 text-red-900',
-  warning: 'border-amber-300 bg-amber-50 text-amber-900',
-  info: 'border-slate-300 bg-white text-slate-900',
-  success: 'border-emerald-300 bg-emerald-50 text-emerald-900',
+  error: 'border-danger/40 bg-danger-soft text-danger',
+  warning: 'border-warning/40 bg-warning-soft text-warning',
+  info: 'border-line-control bg-surface text-ink',
+  success: 'border-success/40 bg-success-soft text-success',
 };
 
 function Toast({ notice }: { notice: Notice }) {

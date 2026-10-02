@@ -1,5 +1,5 @@
 export const toolbarInputBaseClass =
-  'rounded border-0 bg-white px-2 py-0.5 text-xs font-medium leading-4 text-slate-800 shadow-sm ring-1 ring-slate-200 transition focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:cursor-not-allowed disabled:ring-slate-100 disabled:bg-slate-50 disabled:text-slate-500';
+  'rounded border-0 bg-white px-2 py-0.5 text-xs font-medium leading-4 text-slate-800 shadow-sm ring-1 ring-slate-200 transition focus:outline-none focus:ring-2 focus:ring-accent/60 disabled:cursor-not-allowed disabled:ring-slate-100 disabled:bg-slate-50 disabled:text-slate-500';
 
 export const dropdownTextClass = 'px-2 py-1 text-xs font-medium leading-4 text-slate-800';
 

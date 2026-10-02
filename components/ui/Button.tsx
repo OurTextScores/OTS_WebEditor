@@ -2,6 +2,11 @@ import * as React from 'react';
 import { Slot } from '@radix-ui/react-slot';
 import { cn } from '../../lib/ui';
 
+/**
+ * `primary` is the one place a button wears the accent (DESIGN_LANGUAGE §4.2): the main action of
+ * a surface. Everything else is neutral. `outline`, `secondary` and `ghost` are older names that
+ * used to be blue; they now look like `neutral` and `quiet`, so existing call sites keep working.
+ */
 export type ButtonVariant =
   | 'primary'
   | 'secondary'
@@ -17,26 +22,29 @@ export type ButtonSize = 'xs' | 'sm' | 'md' | 'bar' | 'text';
 // Disabled and focus-offset looks live in the variants, not here: two utilities that set the same
 // property are resolved by the order Tailwind emits them in, not by the order in the class string.
 const baseClasses =
-  'inline-flex items-center justify-center rounded border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed';
+  'inline-flex items-center justify-center rounded border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed';
 
 const solidDisabled = 'disabled:bg-slate-200 disabled:text-slate-700 disabled:border-slate-300';
 const solidFocus = 'focus-visible:ring-offset-2';
 
+// A secondary action in a panel: outlined, neutral, no accent.
+const neutral =
+  'border-line-control bg-surface text-ink hover:bg-surface-hover disabled:border-line disabled:bg-surface-sunken disabled:text-slate-400';
+// Chrome that should not draw attention: neutral text, a wash on hover, no border.
+const quiet =
+  'border-transparent bg-transparent text-ink-muted hover:bg-surface-hover disabled:text-slate-300 disabled:hover:bg-transparent';
+
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: `bg-blue-600 text-white border-blue-600 hover:bg-blue-700 ${solidFocus} ${solidDisabled}`,
-  secondary: `bg-blue-600 text-white border-blue-600 hover:bg-blue-700 ${solidFocus} ${solidDisabled}`,
-  outline: `bg-white text-blue-700 border-blue-600 hover:bg-blue-50 ${solidFocus} ${solidDisabled}`,
-  ghost: `bg-transparent text-blue-700 border-transparent hover:bg-blue-50 ${solidFocus} ${solidDisabled}`,
-  danger: `bg-red-600 text-white border-red-600 hover:bg-red-700 ${solidFocus} ${solidDisabled}`,
-  // A secondary action in a panel: outlined, neutral, no accent.
-  neutral: `border-line-control bg-surface text-ink hover:bg-surface-hover disabled:border-line disabled:bg-surface-sunken disabled:text-slate-400`,
-  // The same, for an action that deletes something.
+  primary: `bg-accent text-on-accent border-accent hover:bg-accent-hover ${solidFocus} ${solidDisabled}`,
+  danger: `bg-danger text-on-accent border-danger hover:bg-danger-hover ${solidFocus} ${solidDisabled}`,
+  neutral,
+  outline: neutral,
+  secondary: neutral,
   destructive: `border-line-control bg-surface text-danger hover:bg-danger-soft disabled:border-line disabled:bg-surface-sunken disabled:text-slate-400`,
+  quiet,
+  ghost: quiet,
   // Reads as text inside a sentence.
   link: 'border-transparent bg-transparent text-accent underline hover:text-accent-hover disabled:text-slate-400',
-  // Chrome that should not draw attention: neutral text, a wash on hover, no border.
-  quiet:
-    'border-transparent bg-transparent text-ink-muted hover:bg-surface-hover disabled:text-slate-300 disabled:hover:bg-transparent',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {

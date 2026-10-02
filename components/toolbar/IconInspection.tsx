@@ -94,17 +94,17 @@ export const IconInspection = () => {
         </div>
 
         {/* Custom Icons */}
-        <div className={`${iconStyle} border-blue-400 bg-blue-100`}>
+        <div className={`${iconStyle} border-accent/60 bg-accent-soft`}>
           <ClefIcon size={32} strokeWidth={2.5} />
           <span className={labelStyle}>Custom Clef</span>
         </div>
-        <div className={`${iconStyle} border-blue-400 bg-blue-100`}>
+        <div className={`${iconStyle} border-accent/60 bg-accent-soft`}>
           <KeySignatureIcon size={32} strokeWidth={2.5} />
           <span className={labelStyle}>Custom KeySig</span>
         </div>
       </div>
 
-      <div className="mt-12 p-6 bg-white border-l-4 border-blue-600 rounded text-base text-slate-900">
+      <div className="mt-12 p-6 bg-white border-l-4 border-accent rounded text-base text-slate-900">
         <p className="font-bold mb-2">Analysis:</p>
         <ul className="list-disc ml-5 space-y-1">
           <li>

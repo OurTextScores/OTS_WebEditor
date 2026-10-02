@@ -156,7 +156,7 @@ export const TransposeDialog: React.FC<TransposeDialogProps> = ({
               name="mainMode"
               checked={mainMode === 'chromatic'}
               onChange={() => setMainMode('chromatic')}
-              className="accent-blue-600"
+              className="accent-accent"
             />
             Chromatic
           </label>
@@ -166,7 +166,7 @@ export const TransposeDialog: React.FC<TransposeDialogProps> = ({
               name="mainMode"
               checked={mainMode === 'diatonic'}
               onChange={() => setMainMode('diatonic')}
-              className="accent-blue-600"
+              className="accent-accent"
             />
             Diatonic
           </label>
@@ -182,7 +182,7 @@ export const TransposeDialog: React.FC<TransposeDialogProps> = ({
                   name="chromaticSub"
                   checked={chromaticSub === 'toKey'}
                   onChange={() => setChromaticSub('toKey')}
-                  className="accent-blue-600"
+                  className="accent-accent"
                 />
                 To Key
               </label>
@@ -192,7 +192,7 @@ export const TransposeDialog: React.FC<TransposeDialogProps> = ({
                   name="chromaticSub"
                   checked={chromaticSub === 'byInterval'}
                   onChange={() => setChromaticSub('byInterval')}
-                  className="accent-blue-600"
+                  className="accent-accent"
                 />
                 By Interval
               </label>
@@ -238,7 +238,7 @@ export const TransposeDialog: React.FC<TransposeDialogProps> = ({
                           name="toKeyDir"
                           checked={toKeyDirection === val}
                           onChange={() => setToKeyDirection(val)}
-                          className="accent-blue-600"
+                          className="accent-accent"
                         />
                         {lbl}
                       </label>
@@ -290,7 +290,7 @@ export const TransposeDialog: React.FC<TransposeDialogProps> = ({
                           name="intervalDir"
                           checked={intervalDirection === val}
                           onChange={() => setIntervalDirection(val)}
-                          className="accent-blue-600"
+                          className="accent-accent"
                         />
                         {lbl}
                       </label>
@@ -344,7 +344,7 @@ export const TransposeDialog: React.FC<TransposeDialogProps> = ({
                       name="diatonicDir"
                       checked={diatonicDirection === val}
                       onChange={() => setDiatonicDirection(val)}
-                      className="accent-blue-600"
+                      className="accent-accent"
                     />
                     {lbl}
                   </label>

@@ -211,7 +211,7 @@ function VersionsTabPanel(
         </div>
       )}
       {versionsSelectedBaseRevisionId && (
-        <div className="mt-3 rounded border border-blue-200 bg-blue-50 px-2 py-2 text-xs text-blue-900">
+        <div className="mt-3 rounded border border-line bg-surface-sunken px-2 py-2 text-xs text-ink">
           Base revision selected for diff:{' '}
           {selectedBaseRevision
             ? `#${selectedBaseRevision.sequenceNumber}`
@@ -296,12 +296,12 @@ function VersionsTabPanel(
         {versionsRevisions.map((revision) => (
           <div
             key={revision.revisionId}
-            className={`rounded border p-2 ${versionsSelectedBaseRevisionId === revision.revisionId ? 'border-blue-300 bg-blue-50' : 'border-slate-200'}`}
+            className={`rounded border p-2 ${versionsSelectedBaseRevisionId === revision.revisionId ? 'border-accent/40 bg-accent-soft' : 'border-slate-200'}`}
           >
             <div className="flex items-center justify-between gap-2">
               <div className="text-sm font-medium text-slate-800">#{revision.sequenceNumber}</div>
               {revision.isBranchHead && (
-                <span className="text-caption font-semibold uppercase text-blue-700">Head</span>
+                <span className="text-caption font-semibold uppercase text-ink-muted">Head</span>
               )}
             </div>
             <div className="text-xs text-slate-500">
@@ -535,12 +535,12 @@ function ScoresTabPanel(
           return (
             <div
               key={summary.scoreId}
-              className={`rounded border p-2 ${isCurrent ? 'border-blue-300 bg-blue-50' : 'border-slate-200'}`}
+              className={`rounded border p-2 ${isCurrent ? 'border-accent/40 bg-accent-soft' : 'border-slate-200'}`}
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="text-sm font-medium text-slate-800">{info.title}</div>
                 {isCurrent && (
-                  <span className="text-caption font-semibold uppercase text-blue-700">
+                  <span className="text-caption font-semibold uppercase text-ink-muted">
                     Current
                   </span>
                 )}

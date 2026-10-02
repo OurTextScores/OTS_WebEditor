@@ -321,7 +321,7 @@ export function CompareDiffGutter({
                               if (el) compareGutterRegionRefs.current.set(region.anchorId, el);
                               else compareGutterRegionRefs.current.delete(region.anchorId);
                             }}
-                            className={`absolute left-0 right-0 cursor-pointer rounded border bg-white px-2 py-2 transition-opacity duration-150 ${regionColorClasses}${isDimmed ? ' opacity-40' : ''}${isFocused ? ' ring-2 ring-blue-400 shadow-raised' : ''}`}
+                            className={`absolute left-0 right-0 cursor-pointer rounded border bg-white px-2 py-2 transition-opacity duration-150 ${regionColorClasses}${isDimmed ? ' opacity-40' : ''}${isFocused ? ' ring-2 ring-accent/60 shadow-raised' : ''}`}
                             style={{
                               top: `${blockTop}px`,
                               minHeight: `${blockHeight}px`,
@@ -441,7 +441,7 @@ export function CompareDiffGutter({
                               if (el) compareGutterRegionRefs.current.set(bar.anchorId, el);
                               else compareGutterRegionRefs.current.delete(bar.anchorId);
                             }}
-                            className={`absolute left-0 right-0 cursor-pointer rounded border border-emerald-400 bg-white px-2 py-2 ${isFocused ? 'z-50 ring-2 ring-blue-400 shadow-raised' : 'z-20'}`}
+                            className={`absolute left-0 right-0 cursor-pointer rounded border border-emerald-400 bg-white px-2 py-2 ${isFocused ? 'z-50 ring-2 ring-accent/60 shadow-raised' : 'z-20'}`}
                             style={{ top: `${blockTop}px`, minHeight: `${partHeight}px` }}
                             onClick={(event) => {
                               event.stopPropagation();

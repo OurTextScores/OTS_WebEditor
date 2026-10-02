@@ -372,7 +372,7 @@ export function NewScoreDialog({ details, signature, instruments, actions }: New
           <button
             type="button"
             onClick={handleCreateNewScore}
-            className="flex-1 rounded border border-slate-300 bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="flex-1 rounded border border-slate-300 bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover"
           >
             Create Score
           </button>

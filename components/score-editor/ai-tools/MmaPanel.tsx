@@ -230,7 +230,7 @@ export function MmaPanel({ config, status, result, actions }: MmaPanelProps) {
             type="button"
             onClick={() => void handleMmaRender(true)}
             disabled={mmaBusy || !mmaScript.trim()}
-            className="flex-1 rounded border border-blue-600 bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 rounded border border-accent bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid="btn-mma-render-xml"
           >
             {mmaBusy ? 'Rendering...' : 'Render + Convert to XML'}
@@ -294,7 +294,7 @@ export function MmaPanel({ config, status, result, actions }: MmaPanelProps) {
             type="button"
             onClick={handleApplyMmaOutput}
             disabled={mmaBusy || !mmaGeneratedXml.trim()}
-            className="rounded border border-blue-600 bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="rounded border border-accent bg-accent px-3 py-1 text-xs font-medium text-white hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid="btn-mma-apply-xml"
           >
             Append Parts to Score

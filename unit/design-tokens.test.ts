@@ -49,6 +49,12 @@ describe('design tokens: contrast', () => {
     }
   }
 
+  it('text on the danger button is at least 4.5:1', () => {
+    for (const name of ['--ots-danger', '--ots-danger-hover']) {
+      expect(contrast(token('--ots-on-accent'), token(name)), name).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
   it('text on the accent is at least 4.5:1', () => {
     expect(contrast(token('--ots-on-accent'), token('--ots-accent'))).toBeGreaterThanOrEqual(4.5);
     expect(contrast(token('--ots-on-accent'), token('--ots-accent-hover'))).toBeGreaterThanOrEqual(
