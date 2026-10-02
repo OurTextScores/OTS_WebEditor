@@ -1,4 +1,5 @@
 import React from 'react';
+import { Button } from '../ui/Button';
 import type { CheckpointSummary, ScoreSummary } from '../../lib/checkpoints';
 import type {
   SourceHistoryBranch,
@@ -167,13 +168,9 @@ function VersionsTabPanel(
             </option>
           ))}
         </select>
-        <button
-          type="button"
-          onClick={onVersionsRefresh}
-          className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
-        >
+        <Button variant="neutral" size="sm" onClick={onVersionsRefresh}>
           Refresh
-        </button>
+        </Button>
       </div>
       {versionsSelectedBranch && (
         <div className="mt-2 rounded border border-slate-200 bg-slate-50 px-2 py-2 text-xs text-slate-600">
@@ -193,14 +190,15 @@ function VersionsTabPanel(
           {versionsSelectedBranch.empty && versionsSelectedBranch.baseRevisionId && (
             <div>Based on {versionsSelectedBranch.baseRevisionId}</div>
           )}
-          <button
-            type="button"
+          <Button
+            variant="neutral"
+            size="sm"
             onClick={onVersionsLoadBranchHead}
             disabled={versionsActionBusy}
-            className="mt-2 rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+            className="mt-2"
           >
             {versionsActionBusy ? 'Working...' : versionsLoadBranchLabel}
-          </button>
+          </Button>
         </div>
       )}
       {versionsStatusMessage && (
@@ -230,14 +228,15 @@ function VersionsTabPanel(
           rows={3}
           className="mt-2 w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
         />
-        <button
-          type="button"
+        <Button
+          variant="primary"
+          size="md"
           onClick={onVersionsCommitCurrent}
           disabled={versionsActionBusy || !versionsCanCommit}
-          className="mt-2 w-full rounded border border-blue-600 bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-200 disabled:text-slate-500"
+          className="mt-2 w-full"
         >
           {versionsActionBusy ? 'Working...' : 'Commit current score'}
-        </button>
+        </Button>
         {!versionsCanCommit && (
           <div className="mt-2 text-xs text-slate-500">
             {versionsSelectedBranch?.lifecycle === 'closed'
@@ -267,16 +266,17 @@ function VersionsTabPanel(
           <option value="public">Open</option>
           <option value="owner_approval">Owner approval required</option>
         </select>
-        <button
-          type="button"
+        <Button
+          variant="neutral"
+          size="md"
           onClick={onVersionsCreateBranch}
           disabled={
             versionsActionBusy || !versionsCanCreateBranch || !versionsCreateBranchName.trim()
           }
-          className="mt-2 w-full rounded border border-slate-300 bg-white px-3 py-1 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+          className="mt-2 w-full"
         >
           {versionsActionBusy ? 'Working...' : 'Create branch'}
-        </button>
+        </Button>
         {!versionsCanCreateBranch && (
           <div className="mt-2 text-xs text-slate-500">Sign in to create a branch.</div>
         )}
@@ -312,52 +312,52 @@ function VersionsTabPanel(
               {revision.createdByUsername ? ` · ${revision.createdByUsername}` : ''}
             </div>
             <div className="mt-2 flex flex-wrap gap-2">
-              <button
-                type="button"
+              <Button
+                variant="neutral"
+                size="sm"
                 onClick={() => onVersionsOpenRevision?.(revision)}
-                className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
               >
                 Open
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="neutral"
+                size="sm"
                 onClick={() => onVersionsDiffRevision?.(revision)}
-                className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
               >
                 Diff vs current
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="neutral"
+                size="sm"
                 onClick={() =>
                   onVersionsSelectBaseRevision?.(
                     versionsSelectedBaseRevisionId === revision.revisionId ? null : revision,
                   )
                 }
-                className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
               >
                 {versionsSelectedBaseRevisionId === revision.revisionId ? 'Clear base' : 'Set base'}
-              </button>
+              </Button>
               {versionsSelectedBaseRevisionId &&
                 versionsSelectedBaseRevisionId !== revision.revisionId && (
-                  <button
-                    type="button"
+                  <Button
+                    variant="neutral"
+                    size="sm"
                     onClick={() => onVersionsDiffAgainstBase?.(revision)}
-                    className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
                   >
                     Diff vs base
-                  </button>
+                  </Button>
                 )}
               {versionsBranches.find(
                 (branch) =>
                   branch.name === (revision.branchName || revision.fossilBranch || 'trunk'),
               )?.policy !== 'owner_approval' && (
-                <button
-                  type="button"
+                <Button
+                  variant="neutral"
+                  size="sm"
                   onClick={() => onVersionsOpenChangeReview?.(revision)}
-                  className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
                 >
                   Open CR
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -412,19 +412,16 @@ function CheckpointsTabPanel(
           placeholder="Checkpoint label"
           className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
         />
-        <button
-          type="button"
+        <Button
+          variant={!checkpointSaveDisabled && scoreDirtySinceCheckpoint ? 'primary' : 'neutral'}
+          size="md"
           data-testid="btn-checkpoint-save"
           onClick={onSaveCheckpoint}
           disabled={checkpointSaveDisabled}
-          className={`w-full rounded border px-3 py-1 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
-            !checkpointSaveDisabled && scoreDirtySinceCheckpoint
-              ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
-              : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
-          }`}
+          className="w-full"
         >
           Save Checkpoint
-        </button>
+        </Button>
         {!scoreLoaded && (
           <span className="text-xs text-slate-400">Load a score to enable checkpoints.</span>
         )}
@@ -456,42 +453,42 @@ function CheckpointsTabPanel(
               </div>
             )}
             <div className="mt-2 flex flex-wrap gap-2">
-              <button
-                type="button"
+              <Button
+                variant="neutral"
+                size="sm"
                 data-testid={`btn-checkpoint-restore-${checkpoint.id}`}
                 onClick={() => onRestoreCheckpoint(checkpoint)}
                 disabled={checkpointControlsDisabled}
-                className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Restore
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="neutral"
+                size="sm"
                 data-testid={`btn-checkpoint-compare-${checkpoint.id}`}
                 onClick={() => onCompareCheckpoint(checkpoint)}
                 disabled={checkpointCompareDisabled}
-                className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Compare
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="neutral"
+                size="sm"
                 data-testid={`btn-checkpoint-rename-${checkpoint.id}`}
                 onClick={() => onRenameCheckpoint(checkpoint)}
                 disabled={checkpointControlsDisabled}
-                className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Rename
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
                 data-testid={`btn-checkpoint-delete-${checkpoint.id}`}
                 onClick={() => onDeleteCheckpoint(checkpoint)}
                 disabled={checkpointControlsDisabled}
-                className="rounded border border-slate-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Delete
-              </button>
+              </Button>
             </div>
           </div>
         ))}
@@ -556,13 +553,9 @@ function ScoresTabPanel(
                 {summary.lastUpdated ? ` · ${formatTimestamp(summary.lastUpdated)}` : ''}
               </div>
               <div className="mt-2 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => onOpenScoreFromSummary(summary)}
-                  className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
-                >
+                <Button variant="neutral" size="sm" onClick={() => onOpenScoreFromSummary(summary)}>
                   Open score
-                </button>
+                </Button>
               </div>
             </div>
           );
@@ -586,43 +579,28 @@ export function LeftSidebar(props: LeftSidebarProps) {
     <div id="checkpoint-sidebar-content" className="px-4 pb-4">
       <div className="mt-3 flex gap-2 text-xs font-medium text-slate-600">
         {showVersionsTab && (
-          <button
-            type="button"
+          <Button
+            variant={leftSidebarTab === 'versions' ? 'neutral' : 'quiet'}
             data-testid="tab-versions"
             onClick={() => onTabChange('versions')}
-            className={`rounded border px-2 py-1 ${
-              leftSidebarTab === 'versions'
-                ? 'border-slate-400 bg-slate-100 text-slate-900'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
           >
             OTS Revisions
-          </button>
+          </Button>
         )}
-        <button
-          type="button"
+        <Button
+          variant={leftSidebarTab === 'checkpoints' ? 'neutral' : 'quiet'}
           data-testid="tab-checkpoints"
           onClick={() => onTabChange('checkpoints')}
-          className={`rounded border px-2 py-1 ${
-            leftSidebarTab === 'checkpoints'
-              ? 'border-slate-400 bg-slate-100 text-slate-900'
-              : 'border-transparent text-slate-500 hover:text-slate-700'
-          }`}
         >
           Local Checkpoints
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant={leftSidebarTab === 'scores' ? 'neutral' : 'quiet'}
           data-testid="tab-scores"
           onClick={() => onTabChange('scores')}
-          className={`rounded border px-2 py-1 ${
-            leftSidebarTab === 'scores'
-              ? 'border-slate-400 bg-slate-100 text-slate-900'
-              : 'border-transparent text-slate-500 hover:text-slate-700'
-          }`}
         >
           Scores
-        </button>
+        </Button>
       </div>
       {leftSidebarTab === 'versions' ? (
         <VersionsTabPanel
@@ -677,15 +655,14 @@ export function LeftSidebar(props: LeftSidebarProps) {
   return (
     <div data-testid="checkpoint-sidebar" className="flex min-h-0 flex-1 flex-col overflow-y-auto">
       <div className="flex justify-end px-4 pt-3">
-        <button
-          type="button"
+        <Button
+          variant="quiet"
           data-testid="btn-checkpoint-refresh"
           onClick={onRefresh}
           disabled={checkpointControlsDisabled}
-          className="text-xs font-medium text-slate-600 hover:text-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Refresh
-        </button>
+        </Button>
       </div>
       {content}
     </div>

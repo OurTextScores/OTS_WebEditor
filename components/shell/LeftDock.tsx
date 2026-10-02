@@ -11,6 +11,8 @@ import { InstrumentsPanel } from './InstrumentsPanel';
 import { PANEL_LIMITS } from './useShellPanels';
 import { Panel } from './vendor/viritura';
 import type { DockTab, WorkspaceDock } from './useWorkspaceDock';
+import { Button } from '../ui/Button';
+import { IconButton } from '../ui/IconButton';
 
 const TABS: readonly { tab: DockTab; label: string; shortcut: string }[] = [
   { tab: 'palettes', label: 'Palettes', shortcut: 'F9' },
@@ -99,16 +101,9 @@ export function LeftDock({
             );
           })}
         </div>
-        <button
-          type="button"
-          data-testid="btn-dock-close"
-          aria-label="Close side panel"
-          title="Close side panel"
-          onClick={dock.close}
-          className="rounded px-1.5 py-1 text-xs text-slate-500 hover:bg-slate-100"
-        >
+        <IconButton label="Close side panel" data-testid="btn-dock-close" onClick={dock.close}>
           ✕
-        </button>
+        </IconButton>
       </div>
 
       <div
@@ -120,14 +115,14 @@ export function LeftDock({
         {dock.tab === 'palettes' && dock.poppedOut && (
           <div className="p-4 text-sm text-slate-600">
             <p>The palettes are in a floating window.</p>
-            <button
-              type="button"
+            <Button
+              variant="neutral"
               data-testid="btn-palettes-dock-here"
               onClick={() => dock.setPoppedOut(false)}
-              className="mt-2 rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50"
+              className="mt-2"
             >
               Dock them here
-            </button>
+            </Button>
           </div>
         )}
         {dock.tab === 'palettes' && !dock.poppedOut && (
@@ -137,30 +132,31 @@ export function LeftDock({
                 {palettes.category ? (
                   <>
                     {palettes.category}{' '}
-                    <button
-                      type="button"
+                    <Button
+                      variant="link"
+                      size="text"
                       data-testid="btn-palettes-show-all"
                       onClick={palettes.onShowAll}
-                      className="text-blue-700 underline"
                     >
                       Show all
-                    </button>
+                    </Button>
                   </>
                 ) : (
                   'All palettes'
                 )}
               </span>
-              <button
-                type="button"
+              <Button
+                variant="quiet"
+                size="bar"
                 data-testid="btn-palettes-pop-out"
                 onClick={() => dock.setPoppedOut(true)}
                 title="Pop out into a floating window"
                 aria-label="Pop out palettes"
-                className="flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-slate-100"
+                className="gap-1"
               >
                 <PanelTopOpen size={13} aria-hidden="true" />
                 Pop out
-              </button>
+              </Button>
             </div>
             <PaletteBrowser
               disabled={palettes.disabled}

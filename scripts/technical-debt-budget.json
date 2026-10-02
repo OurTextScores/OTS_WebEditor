@@ -85,6 +85,18 @@
       "from": 881893,
       "to": 882785,
       "reason": "Same change as the maxLines raise above: createChangeReviewThread and the comment stating why the gutter does not own it."
+    },
+    {
+      "key": "eslint.maxWarnings",
+      "from": 0,
+      "to": 158,
+      "reason": "DESIGN_LANGUAGE W3.3 adds the raw-<button> rule as a warning: controls should come from components/ui (Button, IconButton). The 158 are existing call sites made visible (heaviest: ScannerSystemRows 21, PlayerControls 12, CompareDiffGutter 11, ScoreEditor 9), not new ones. This cap is the ratchet that drives them to zero: lower it as each file migrates."
+    },
+    {
+      "key": "eslint.maxFilesWithFindings",
+      "from": 0,
+      "to": 37,
+      "reason": "Same change as the maxWarnings raise above: the 37 files that still contain a raw <button>."
     }
   ],
   "_scoreEditorComment": "Headroom is intentional. These were pinned to the exact current size, and the result was that a 41-line bug fix breached the cap and pressure went into deleting explanatory comments to get back under -- the ratchet making the code worse. Lines are a poor proxy: a comment costs the same as debt. The caps now sit roughly 1% and 1.5% above actual, so routine work passes and a whole slice of drift still trips them. The goal worth chasing is bytes, not lines: Babel deoptimises code generation above 500000 bytes, which this file still exceeds, and that is an observable cost rather than a chosen number.",
@@ -192,8 +204,8 @@
   },
   "eslint": {
     "maxErrors": 0,
-    "maxWarnings": 0,
-    "maxFilesWithFindings": 0
+    "maxWarnings": 158,
+    "maxFilesWithFindings": 37
   },
   "tests": {
     "maxUnconditionalSkips": 1

@@ -19,14 +19,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../ui/DropdownMenu';
+import { Button } from '../ui/Button';
+import { IconButton } from '../ui/IconButton';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/Popover';
 import { invokeCommand } from './invokeCommand';
 import { buildStatusBarCommands } from './shellCommands';
 import { getNoticeSnapshot, markAllNoticesRead, subscribeToNotices, type Notice } from './notices';
 import { getShellUiState, subscribeToShellUi } from './shellStore';
-
-const buttonClass =
-  'inline-flex h-6 min-w-6 items-center justify-center rounded px-1.5 text-xs text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500';
 
 const divider = <span aria-hidden="true" className="mx-1 h-4 w-px bg-slate-200" />;
 
@@ -55,11 +54,9 @@ function NoticeList() {
       }}
     >
       <PopoverTrigger asChild>
-        <button
-          type="button"
+        <IconButton
+          label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
           data-testid="status-notices"
-          className={buttonClass}
-          aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
           title="Notifications"
         >
           <Bell size={13} aria-hidden="true" />
@@ -71,7 +68,7 @@ function NoticeList() {
               {unreadCount}
             </span>
           )}
-        </button>
+        </IconButton>
       </PopoverTrigger>
       <PopoverContent
         side="top"
@@ -131,16 +128,13 @@ export function StatusBar({ registry = defaultCommandRegistry }: { registry?: Co
       // a status bar above it would sit on top of the end of any tall menu.
       style={{ height: 'var(--shell-status-h, 32px)', zIndex: 'var(--ots-z-status)' }}
     >
-      <button
-        type="button"
-        className={buttonClass}
-        aria-label="Previous page"
-        title="Previous page"
+      <IconButton
+        label="Previous page"
         disabled={!hasPages || view.currentPage <= 0 || !enabled('view.goto.prevPage')}
         onClick={run('view.goto.prevPage')}
       >
         <ChevronLeft size={14} aria-hidden="true" />
-      </button>
+      </IconButton>
       <select
         aria-label="Page"
         data-testid="page-select"
@@ -160,61 +154,46 @@ export function StatusBar({ registry = defaultCommandRegistry }: { registry?: Co
       <span data-testid="page-indicator" className="tabular-nums">
         of {view.pageCountIsFloor ? `${view.pageCount}+` : view.pageCount}
       </span>
-      <button
-        type="button"
-        className={buttonClass}
-        aria-label="Next page"
-        title="Next page"
+      <IconButton
+        label="Next page"
         disabled={!hasPages || atEnd || !enabled('view.goto.nextPage')}
         onClick={run('view.goto.nextPage')}
       >
         <ChevronRight size={14} aria-hidden="true" />
-      </button>
+      </IconButton>
 
       {divider}
 
-      <button
-        type="button"
+      <IconButton
+        label="Fit width"
         data-testid="btn-fit-width"
-        className={buttonClass}
-        aria-label="Fit width"
-        title="Fit width"
         disabled={!enabled('view.zoom.fitWidth')}
         onClick={run('view.zoom.fitWidth')}
       >
         <MoveHorizontal size={14} aria-hidden="true" />
-      </button>
-      <button
-        type="button"
+      </IconButton>
+      <IconButton
+        label="Fit height"
         data-testid="btn-fit-height"
-        className={buttonClass}
-        aria-label="Fit height"
-        title="Fit height"
         disabled={!enabled('view.zoom.fitHeight')}
         onClick={run('view.zoom.fitHeight')}
       >
         <MoveVertical size={14} aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        data-testid="btn-zoom-out"
-        className={buttonClass}
-        aria-label="Zoom out"
-        title="Zoom out"
-        onClick={run('view.zoom.out')}
-      >
+      </IconButton>
+      <IconButton label="Zoom out" data-testid="btn-zoom-out" onClick={run('view.zoom.out')}>
         <ZoomOut size={14} aria-hidden="true" />
-      </button>
+      </IconButton>
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
-          <button
-            type="button"
+          <Button
+            variant="quiet"
+            size="bar"
             data-testid="zoom-preset-trigger"
             title="Set zoom level (remembered per score)"
-            className="min-w-[2.75rem] rounded px-1.5 py-0.5 text-center text-caption font-bold text-slate-700 hover:bg-slate-100"
+            className="min-w-[2.75rem] text-caption font-bold"
           >
             {(view.zoom * 100).toFixed(0)}%
-          </button>
+          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent side="top" align="center" className="relative z-menu">
           {zoomPresets.map((preset) => (
@@ -243,16 +222,9 @@ export function StatusBar({ registry = defaultCommandRegistry }: { registry?: Co
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <button
-        type="button"
-        data-testid="btn-zoom-in"
-        className={buttonClass}
-        aria-label="Zoom in"
-        title="Zoom in"
-        onClick={run('view.zoom.in')}
-      >
+      <IconButton label="Zoom in" data-testid="btn-zoom-in" onClick={run('view.zoom.in')}>
         <ZoomIn size={14} aria-hidden="true" />
-      </button>
+      </IconButton>
 
       {view.preparing && (
         <>
@@ -269,21 +241,21 @@ export function StatusBar({ registry = defaultCommandRegistry }: { registry?: Co
       )}
 
       <div className="ml-auto flex items-center gap-1">
-        <button
-          type="button"
+        <Button
+          variant="quiet"
+          size="bar"
           data-testid="status-progressive-load"
-          className={buttonClass}
           aria-pressed={view.progressiveLoadEnabled}
           title="Progressive load applies to future score loads"
           onClick={run('view.progressiveLoad')}
         >
           Progressive load: {view.progressiveLoadEnabled ? 'On' : 'Off'}
-        </button>
+        </Button>
         {divider}
-        <button
-          type="button"
+        <Button
+          variant="quiet"
+          size="bar"
           data-testid="status-checkpoint"
-          className={buttonClass}
           title={
             view.dirty
               ? 'Changes since the last checkpoint. Open History.'
@@ -300,7 +272,7 @@ export function StatusBar({ registry = defaultCommandRegistry }: { registry?: Co
             : view.checkpointCount === 0
               ? 'No checkpoint'
               : 'Checkpointed'}
-        </button>
+        </Button>
         <NoticeList />
       </div>
     </footer>
