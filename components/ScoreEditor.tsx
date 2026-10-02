@@ -14580,7 +14580,9 @@ ${partsBodyXml}
           return;
         }
 
-        if (rawKey === 'T') {
+        // Desktop MuseScore: plain T (shortcuts.xml tie=T). This used to test the capital letter,
+        // which only Shift+T produces.
+        if (key === 't' && !event.shiftKey && !event.altKey) {
           event.preventDefault();
           handleAddTie();
           return;
