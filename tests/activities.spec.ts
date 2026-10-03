@@ -26,6 +26,48 @@ test.describe('activities', () => {
     await expect(page.getByTestId('left-dock')).toBeVisible();
   });
 
+  test('the AI Tools and Score source buttons open and close their panels, and show when each is open', async ({
+    page,
+  }) => {
+    const ai = page.getByTestId('panel-ai-tools');
+    const source = page.getByTestId('panel-score-source');
+    await expect(ai).toHaveAttribute('aria-pressed', 'false');
+    await expect(source).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByTestId('xml-sidebar')).toHaveCount(0);
+
+    await ai.click();
+    await expect(page.getByTestId('xml-sidebar')).toBeVisible();
+    await expect(ai).toHaveAttribute('aria-pressed', 'true');
+    await expect(source).toHaveAttribute('aria-pressed', 'false');
+
+    await source.click();
+    await expect(page.getByTestId('musicxml-sidebar')).toBeVisible();
+    await expect(source).toHaveAttribute('aria-pressed', 'true');
+    // Independent of the activity: Write is still the pressed activity.
+    await expect(page.getByTestId('activity-write')).toHaveAttribute('aria-pressed', 'true');
+
+    await ai.click();
+    await expect(page.getByTestId('xml-sidebar')).toHaveCount(0);
+    await expect(ai).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByTestId('musicxml-sidebar')).toBeVisible();
+  });
+
+  test('closing a panel with its own X un-presses its button', async ({ page }) => {
+    await page.getByTestId('panel-ai-tools').click();
+    await page.getByTestId('panel-score-source').click();
+    await expect(page.getByTestId('panel-ai-tools')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('panel-score-source')).toHaveAttribute('aria-pressed', 'true');
+
+    await page.getByRole('button', { name: 'Close AI Tools' }).click();
+    await expect(page.getByTestId('xml-sidebar')).toHaveCount(0);
+    await expect(page.getByTestId('panel-ai-tools')).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByTestId('panel-score-source')).toHaveAttribute('aria-pressed', 'true');
+
+    await page.getByRole('button', { name: 'Close Score Source' }).click();
+    await expect(page.getByTestId('musicxml-sidebar')).toHaveCount(0);
+    await expect(page.getByTestId('panel-score-source')).toHaveAttribute('aria-pressed', 'false');
+  });
+
   test('History is read-only: a click selects but editing is off', async ({ page }) => {
     await runCommand(page, 'shell.activity.history');
     await page.locator('svg .Note').first().click();

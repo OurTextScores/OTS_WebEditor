@@ -36,6 +36,9 @@ export interface ShellView {
   /** A playback is starting (audio rendering or loading); it cannot be started again yet. */
   readonly audioBusy: boolean;
   readonly hasScore: boolean;
+  /** The AI Tools and Score source panels beside the score are open (the activity bar shows them pressed). */
+  readonly aiToolsOpen: boolean;
+  readonly musicXmlOpen: boolean;
 }
 
 export const EMPTY_SHELL_VIEW: ShellView = {
@@ -51,6 +54,8 @@ export const EMPTY_SHELL_VIEW: ShellView = {
   isPaused: false,
   audioBusy: false,
   hasScore: false,
+  aiToolsOpen: false,
+  musicXmlOpen: false,
 };
 
 export interface ShellUiState {

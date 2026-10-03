@@ -91,7 +91,16 @@ describe('useShellCommands', () => {
       isPaused: false,
       audioBusy: false,
       hasScore: true,
+      aiToolsOpen: false,
+      musicXmlOpen: false,
     });
+  });
+
+  it('publishes whether the AI Tools and Score source panels are open, and follows them closing', () => {
+    const view = render(<Host value={bindings({ aiToolsOpen: true, musicXmlOpen: false })} />);
+    expect(getShellUiState().view).toMatchObject({ aiToolsOpen: true, musicXmlOpen: false });
+    view.rerender(<Host value={bindings({ aiToolsOpen: false, musicXmlOpen: true })} />);
+    expect(getShellUiState().view).toMatchObject({ aiToolsOpen: false, musicXmlOpen: true });
   });
 
   it('follows the editor as it changes', () => {
