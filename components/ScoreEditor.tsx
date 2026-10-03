@@ -1,6 +1,6 @@
 'use client';
 
-import React, { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   loadWebMscore,
@@ -109,7 +109,7 @@ import {
   type SourceHistoryResponse,
   type SourceHistoryRevision,
 } from '../lib/ourtextscores-api-client';
-import { appendMusicXmlMeasures, appendMusicXmlParts } from '../lib/musicxml-append-parts';
+import { appendMusicXmlMeasures } from '../lib/musicxml-append-parts';
 import { sanitizeEngineSvg } from '../lib/sanitize-svg';
 import { DEFAULT_RENDER_WINDOW, type RenderWindow } from '../lib/playback-window';
 import {
@@ -140,8 +140,6 @@ import {
   isGoogleDriveScoreUrl,
   resolvePublicScoreUrl,
 } from '../lib/public-score-url';
-import { type MmaArrangementPreset } from '../lib/music-mma-presets';
-import { DEFAULT_MMA_GROOVE } from '../lib/music-mma-grooves';
 import {
   advanceClientProposalSession,
   buildProposalSessionRequestPayload,
@@ -176,10 +174,10 @@ import {
   type MeasureGap,
 } from './score-editor/compare/compare-reflow-plan';
 import { createCompareScrollSync } from './score-editor/compare/compare-scroll-sync';
-import { MmaPanel, type MmaStarterPreset } from './score-editor/ai-tools/MmaPanel';
+import { MmaPanel } from './score-editor/ai-tools/MmaPanel';
 import { TranscodaPanel } from './score-editor/ai-tools/TranscodaPanel';
 import { FunctionalHarmonyPanel } from './score-editor/ai-tools/FunctionalHarmonyPanel';
-import { HarmonyPanel, type HarmonyRhythmMode } from './score-editor/ai-tools/HarmonyPanel';
+import { HarmonyPanel } from './score-editor/ai-tools/HarmonyPanel';
 import { NotaGenPanel } from './score-editor/ai-tools/NotaGenPanel';
 import { NewScoreDialog } from './score-editor/NewScoreDialog';
 import { ChangeReviewScorePanel } from './score-editor/ChangeReviewScorePanel';
@@ -240,19 +238,18 @@ import { type NoteInputCursorRect, type SelectionBox, type SelectionFallback, ty
 import { type ApplyXmlToScore, type EditorTelemetryCounters, type EditorTraceContext, type EnsureSoundFontLoaded, type HandleFileUpload, type HandleUrlLoad, type InstrumentTemplateGroup, type PartSummary, type RefreshPageCount, type RenderScore, type StopCompareSideAudio, type SynthBatchIterator } from './score-editor/editor-types';
 import { type MutationMethods, hasMutationApi } from './score-editor/mutation-api';
 import { type CompareAppliedSpacer, type CompareViewState, type PartAlignment } from './score-editor/compare/compare-types';
-import { type AiPromptSection, type HarmonyVariant, type NotaGenSpaceCombinations } from './score-editor/ai-assistant-types';
+import { type AiPromptSection, type HarmonyVariant } from './score-editor/ai-assistant-types';
 import { PREVIEW_DURATION_MS, PREVIEW_SYNTH_BATCH_SIZE, SELECTION_STREAM_MIN_STARTUP_BATCHES, SELECTION_STREAM_STARTUP_BUFFER_SECONDS, SELECTION_SYNTH_BATCH_SIZE, SELECTION_SYNTH_START_PREROLL_SECONDS, SYNTH_START_PREROLL_SECONDS, TRANSPORT_SYNTH_BATCH_SIZE } from './score-editor/playback-constants';
 import { DEFAULT_PAGE_RENDER_TIMEOUT_MS, ENGINE_OPERATION_STALL_RELEASE_MS, LARGE_PROGRESSIVE_PAGE_RENDER_TIMEOUT_MS, LARGE_SCORE_BACKGROUND_TASK_DELAY_MS, LARGE_SCORE_BACKGROUND_TASK_MAX_RETRIES, LARGE_SCORE_BACKGROUND_TASK_RETRY_DELAY_MS, LARGE_SCORE_INTERACTION_PRIME_DELAY_MS, LAYOUT_MODES, PROGRESSIVE_PAGE_LAYOUT_CONFIRM_TIMEOUT_MS, PROGRESSIVE_PAGE_LAYOUT_EXPAND_TIMEOUT_MS, PROGRESSIVE_PAGE_LAYOUT_TIMEOUT_MS, measureInsertTargetMap } from './score-editor/layout-constants';
 import { DEFAULT_SELECTION_FILTER_MASK, ELEMENT_SELECTION_SELECTOR, NOTE_INPUT_VOICE_COLORS, SELECTION_FILTER_STORAGE_KEY, hasSelectableClass, hasTextElementClass, isSvgTextElement, normalizeElementClasses, resolveTextElement } from './score-editor/selection-classes';
-import { AI_CHAT_SOURCE_RAG_HINT_DISMISSED_STORAGE_KEY, AI_CHAT_SYSTEM_PROMPT, AI_DIFF_COMMENT_GUTTER_PADDING, AI_DIFF_GUTTER_DEFAULT_WIDTH, AI_DIFF_GUTTER_MAX_WIDTH, AI_DIFF_GUTTER_MIN_WIDTH, AI_PAGE_SVG_CONTEXT_MAX_CHARS, AI_PATCH_SYSTEM_PROMPT, AI_PDF_ATTACHMENT_MAX_BYTES, AI_SELECTION_BOX_CONTEXT_LIMIT, AI_SELECTION_CONTEXT_MAX_CHARS, ANTHROPIC_EMBED_PROXY_ERROR, MMA_BLUES_DEMO_TEMPLATE, MMA_TEMPLATE_MAX_MEASURES, isMissingProxyStatus } from './score-editor/ai-constants';
-import { CODE_EDITOR_THEME_STORAGE_KEY, CODE_EDITOR_THEME_VALUES, MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_BACKEND, MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_MODEL, MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_REVISION, MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_COMPOSER, MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_ID, MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_INSTRUMENTATION, MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_PERIOD, MUSIC_SPECIALISTS_DEFAULT_TRANSCODA_MODEL, MUSIC_SPECIALISTS_DEFAULT_TRANSCODA_REVISION, MUSIC_SPECIALISTS_DEFAULT_TRANSCODA_SPACE_ID, MUSIC_SPECIALISTS_NOTAGEN_BACKEND_STORAGE_KEY, MUSIC_SPECIALISTS_NOTAGEN_MODEL_STORAGE_KEY, MUSIC_SPECIALISTS_NOTAGEN_REVISION_STORAGE_KEY, MUSIC_SPECIALISTS_NOTAGEN_SPACE_COMPOSER_STORAGE_KEY, MUSIC_SPECIALISTS_NOTAGEN_SPACE_ID_STORAGE_KEY, MUSIC_SPECIALISTS_NOTAGEN_SPACE_INSTRUMENTATION_STORAGE_KEY, MUSIC_SPECIALISTS_NOTAGEN_SPACE_PERIOD_STORAGE_KEY } from './score-editor/music-specialists-constants';
+import { AI_CHAT_SOURCE_RAG_HINT_DISMISSED_STORAGE_KEY, AI_CHAT_SYSTEM_PROMPT, AI_DIFF_COMMENT_GUTTER_PADDING, AI_DIFF_GUTTER_DEFAULT_WIDTH, AI_DIFF_GUTTER_MAX_WIDTH, AI_DIFF_GUTTER_MIN_WIDTH, AI_PAGE_SVG_CONTEXT_MAX_CHARS, AI_PATCH_SYSTEM_PROMPT, AI_PDF_ATTACHMENT_MAX_BYTES, AI_SELECTION_BOX_CONTEXT_LIMIT, AI_SELECTION_CONTEXT_MAX_CHARS, ANTHROPIC_EMBED_PROXY_ERROR, isMissingProxyStatus } from './score-editor/ai-constants';
+import { CODE_EDITOR_THEME_STORAGE_KEY, CODE_EDITOR_THEME_VALUES } from './score-editor/music-specialists-constants';
 import { aiDiffBlockContentSignature, buildAiChatTranscript, buildAiPrompt, buildPromptWithSections, formatAiDiffFeedbackError, shouldEnableSourceRagForPrompt, truncateAiContext } from './score-editor/ai-prompts';
-import { decodeBase64ToBytes, encodeBase64, toOwnedArrayBuffer, toOwnedBytes } from './score-editor/byte-encoding';
+import { encodeBase64, toOwnedArrayBuffer, toOwnedBytes } from './score-editor/byte-encoding';
 import { buildCheckpointTitle, formatBytes, formatTimestamp, toSafeFilename } from './score-editor/checkpoint-labels';
 import { buildOtsScoreId, updateUrlScoreId } from './score-editor/score-url';
 import { getSvgNaturalSize } from './score-editor/svg-size';
 import { errorMessage, scoreLoadErrorMessage } from './score-editor/error-messages';
-import { estimateHarmonyTimeoutMs, estimateMusicXmlMeasureCount } from './score-editor/harmony-estimates';
 import { clefCodeMap, escapeXml, newScoreCommonInstrumentPreferences, pickupDurationToRestType } from './score-editor/new-score';
 import { buildIndexAlignment, buildLcsAlignment, buildMismatchBlocks, buildMismatchBreaks } from './score-editor/alignment';
 import { getReviewStatusForFeedback } from './score-editor/block-review-status';
@@ -260,10 +257,12 @@ import { applyMeasureLineBreaks, buildMeasureBounds, fetchMeasureLineBreaks, fet
 import { applyMusicXmlPatch, decodeXmlData, extractMeasureSignaturesFromXml, getScoreMscxText, normalizeXmlData, parseMusicXmlPatch, replaceMeasuresInMusicXml } from './score-editor/musicxml';
 import { runWithTimeout } from './score-editor/async-timeout';
 import { parsePartsFromMetadata } from './score-editor/part-metadata';
-import { fileToBase64 } from './score-editor/file-base64';
 import { downloadBlob } from './score-editor/download-blob';
 import { isEditableTarget } from './score-editor/editable-target';
 import { summarizeScoreId } from './score-editor/score-id';
+import { useNotaGenTool } from './score-editor/ai-tools/useNotaGenTool';
+import { useTranscodaTool } from './score-editor/ai-tools/useTranscodaTool';
+import { useChordTools } from './score-editor/ai-tools/useChordTools';
 
 
 export default function ScoreEditor() {
@@ -810,8 +809,7 @@ export default function ScoreEditor() {
   const compareGutterScrollRef = useRef<HTMLDivElement>(null);
   const compareScrollSyncRef = useRef(false);
   const compareRightRenderInFlightRef = useRef(false);
-  const musicNotaGenProgressPreRef = useRef<HTMLPreElement | null>(null);
-  const [leftSidebarTab, setLeftSidebarTab] = useState<LeftSidebarTab>('checkpoints');
+    const [leftSidebarTab, setLeftSidebarTab] = useState<LeftSidebarTab>('checkpoints');
   const [versionsBranchName, setVersionsBranchName] = useState('trunk');
   const [sourceHistory, setSourceHistory] = useState<SourceHistoryResponse | null>(null);
   const [versionsLoading, setVersionsLoading] = useState(false);
@@ -841,41 +839,7 @@ export default function ScoreEditor() {
   const [xmlDirty, setXmlDirty] = useState(false);
   const [xmlLoading, setXmlLoading] = useState(false);
   const [xmlError, setXmlError] = useState<string | null>(null);
-  const [mmaStarterPreset, setMmaStarterPreset] = useState<MmaStarterPreset>('lead-sheet');
-  const [mmaArrangementPreset, setMmaArrangementPreset] =
-    useState<MmaArrangementPreset>('full-groove');
-  const [mmaGroove, setMmaGroove] = useState(DEFAULT_MMA_GROOVE);
-  const [mmaScript, setMmaScript] = useState('');
-  const [mmaBusy, setMmaBusy] = useState(false);
-  const [mmaError, setMmaError] = useState<string | null>(null);
-  const [mmaWarnings, setMmaWarnings] = useState<string[]>([]);
-  const [mmaSanitizedStderr, setMmaSanitizedStderr] = useState('');
-  const [mmaMidiBase64, setMmaMidiBase64] = useState('');
-  const [mmaGeneratedXml, setMmaGeneratedXml] = useState('');
-  const [mmaResultPayload, setMmaResultPayload] = useState<Record<string, unknown> | null>(null);
-  const [harmonyBusy, setHarmonyBusy] = useState(false);
-  const [harmonyError, setHarmonyError] = useState<string | null>(null);
-  const [harmonyWarnings, setHarmonyWarnings] = useState<string[]>([]);
-  const [harmonyGeneratedXml, setHarmonyGeneratedXml] = useState('');
-  const [harmonyResultPayload, setHarmonyResultPayload] = useState<Record<string, unknown> | null>(
-    null,
-  );
-  const [harmonyRhythmMode, setHarmonyRhythmMode] = useState<HarmonyRhythmMode>('auto');
-  const [harmonyMaxChangesPerMeasure, setHarmonyMaxChangesPerMeasure] = useState(2);
-  const [functionalHarmonyBusy, setFunctionalHarmonyBusy] = useState(false);
-  const [functionalHarmonyError, setFunctionalHarmonyError] = useState<string | null>(null);
-  const [functionalHarmonyWarnings, setFunctionalHarmonyWarnings] = useState<string[]>([]);
-  const [functionalHarmonyResult, setFunctionalHarmonyResult] = useState<Record<
-    string,
-    unknown
-  > | null>(null);
-  const [functionalHarmonySegments, setFunctionalHarmonySegments] = useState<
-    Record<string, unknown>[]
-  >([]);
-  const [functionalHarmonyAnnotatedXml, setFunctionalHarmonyAnnotatedXml] = useState('');
-  const [functionalHarmonyJsonExport, setFunctionalHarmonyJsonExport] = useState('');
-  const [functionalHarmonyRntxtExport, setFunctionalHarmonyRntxtExport] = useState('');
-  const aiAssistantController = useAiAssistantController();
+                                                      const aiAssistantController = useAiAssistantController();
   const {
     aiProvider,
     aiModel,
@@ -924,62 +888,7 @@ export default function ScoreEditor() {
     setAiModelsLoading,
     setAiModelsError,
   } = aiAssistantController;
-  const [musicNotaGenBackend, setMusicNotaGenBackend] = useState<
-    'huggingface' | 'huggingface-space'
-  >(MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_BACKEND);
-  const [musicNotaGenModelId, setMusicNotaGenModelId] = useState(
-    MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_MODEL,
-  );
-  const [musicNotaGenRevision, setMusicNotaGenRevision] = useState(
-    MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_REVISION,
-  );
-  const [musicNotaGenSpaceId, setMusicNotaGenSpaceId] = useState(
-    MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_ID,
-  );
-  const [musicNotaGenSpacePeriod, setMusicNotaGenSpacePeriod] = useState(
-    MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_PERIOD,
-  );
-  const [musicNotaGenSpaceComposer, setMusicNotaGenSpaceComposer] = useState(
-    MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_COMPOSER,
-  );
-  const [musicNotaGenSpaceInstrumentation, setMusicNotaGenSpaceInstrumentation] = useState(
-    MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_INSTRUMENTATION,
-  );
-  const [musicNotaGenDryRun] = useState(false);
-  const [musicNotaGenBusy, setMusicNotaGenBusy] = useState(false);
-  const [musicNotaGenError, setMusicNotaGenError] = useState<string | null>(null);
-  const [musicNotaGenResult, setMusicNotaGenResult] = useState<Record<string, unknown> | null>(
-    null,
-  );
-  const [musicNotaGenGeneratedXml, setMusicNotaGenGeneratedXml] = useState('');
-  const [musicNotaGenGeneratedAbc, setMusicNotaGenGeneratedAbc] = useState('');
-  const [musicNotaGenProgressLog, setMusicNotaGenProgressLog] = useState('');
-  const [musicNotaGenStatusText, setMusicNotaGenStatusText] = useState('');
-  const [musicNotaGenSpaceCombinations, setMusicNotaGenSpaceCombinations] =
-    useState<NotaGenSpaceCombinations | null>(null);
-  const [musicNotaGenSpaceOptionsLoading, setMusicNotaGenSpaceOptionsLoading] = useState(false);
-  const [musicNotaGenSpaceOptionsError, setMusicNotaGenSpaceOptionsError] = useState<string | null>(
-    null,
-  );
-  const [musicTranscodaBusy, setMusicTranscodaBusy] = useState(false);
-  const [musicTranscodaError, setMusicTranscodaError] = useState<string | null>(null);
-  const [musicTranscodaWarning, setMusicTranscodaWarning] = useState<string | null>(null);
-  const [musicTranscodaResult, setMusicTranscodaResult] = useState<Record<string, unknown> | null>(
-    null,
-  );
-  const [musicTranscodaGeneratedKern, setMusicTranscodaGeneratedKern] = useState('');
-  const [musicTranscodaGeneratedXml, setMusicTranscodaGeneratedXml] = useState('');
-  const [musicTranscodaImageFile, setMusicTranscodaImageFile] = useState<File | null>(null);
-  const [musicTranscodaElapsedMs, setMusicTranscodaElapsedMs] = useState(0);
-  const [musicTranscodaPhase, setMusicTranscodaPhase] = useState<
-    'idle' | 'uploading' | 'transcribing'
-  >('idle');
-  const musicTranscodaStartedAtRef = useRef<number | null>(null);
-  const [musicTranscodaDecoding, setMusicTranscodaDecoding] = useState<'greedy' | 'beam'>('greedy');
-  const [musicTranscodaMaxLength, setMusicTranscodaMaxLength] = useState(2048);
-  const [musicTranscodaNumBeams, setMusicTranscodaNumBeams] = useState(3);
-  const [musicTranscodaRepetitionPenalty, setMusicTranscodaRepetitionPenalty] = useState(1.1);
-  const [aiChatBusy, setAiChatBusy] = useState(false);
+                                                                  const [aiChatBusy, setAiChatBusy] = useState(false);
   const aiUnsupportedParametersRef = useRef<Map<string, Set<OptionalAiRequestParameter>>>(
     new Map(),
   );
@@ -1363,81 +1272,7 @@ export default function ScoreEditor() {
     }
   }, [aiChatSourceRagHintDismissed]);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    if (!aiEnabled) {
-      return;
-    }
-    setMusicNotaGenBackend(
-      window.localStorage.getItem(MUSIC_SPECIALISTS_NOTAGEN_BACKEND_STORAGE_KEY) ===
-        'huggingface-space'
-        ? 'huggingface-space'
-        : 'huggingface',
-    );
-    setMusicNotaGenModelId(
-      window.localStorage.getItem(MUSIC_SPECIALISTS_NOTAGEN_MODEL_STORAGE_KEY) ??
-        MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_MODEL,
-    );
-    setMusicNotaGenRevision(
-      window.localStorage.getItem(MUSIC_SPECIALISTS_NOTAGEN_REVISION_STORAGE_KEY) ??
-        MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_REVISION,
-    );
-    setMusicNotaGenSpaceId(
-      window.localStorage.getItem(MUSIC_SPECIALISTS_NOTAGEN_SPACE_ID_STORAGE_KEY) ??
-        MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_ID,
-    );
-    setMusicNotaGenSpacePeriod(
-      window.localStorage.getItem(MUSIC_SPECIALISTS_NOTAGEN_SPACE_PERIOD_STORAGE_KEY) ??
-        MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_PERIOD,
-    );
-    setMusicNotaGenSpaceComposer(
-      window.localStorage.getItem(MUSIC_SPECIALISTS_NOTAGEN_SPACE_COMPOSER_STORAGE_KEY) ??
-        MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_COMPOSER,
-    );
-    setMusicNotaGenSpaceInstrumentation(
-      window.localStorage.getItem(MUSIC_SPECIALISTS_NOTAGEN_SPACE_INSTRUMENTATION_STORAGE_KEY) ??
-        MUSIC_SPECIALISTS_DEFAULT_NOTAGEN_SPACE_INSTRUMENTATION,
-    );
-  }, [aiEnabled]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    if (!aiEnabled) {
-      return;
-    }
-    const persistValue = (key: string, value: string) => {
-      if (value.trim()) {
-        window.localStorage.setItem(key, value);
-      } else {
-        window.localStorage.removeItem(key);
-      }
-    };
-    persistValue(MUSIC_SPECIALISTS_NOTAGEN_BACKEND_STORAGE_KEY, musicNotaGenBackend);
-    persistValue(MUSIC_SPECIALISTS_NOTAGEN_MODEL_STORAGE_KEY, musicNotaGenModelId);
-    persistValue(MUSIC_SPECIALISTS_NOTAGEN_REVISION_STORAGE_KEY, musicNotaGenRevision);
-    persistValue(MUSIC_SPECIALISTS_NOTAGEN_SPACE_ID_STORAGE_KEY, musicNotaGenSpaceId);
-    persistValue(MUSIC_SPECIALISTS_NOTAGEN_SPACE_PERIOD_STORAGE_KEY, musicNotaGenSpacePeriod);
-    persistValue(MUSIC_SPECIALISTS_NOTAGEN_SPACE_COMPOSER_STORAGE_KEY, musicNotaGenSpaceComposer);
-    persistValue(
-      MUSIC_SPECIALISTS_NOTAGEN_SPACE_INSTRUMENTATION_STORAGE_KEY,
-      musicNotaGenSpaceInstrumentation,
-    );
-  }, [
-    aiEnabled,
-    musicNotaGenBackend,
-    musicNotaGenModelId,
-    musicNotaGenRevision,
-    musicNotaGenSpaceId,
-    musicNotaGenSpacePeriod,
-    musicNotaGenSpaceComposer,
-    musicNotaGenSpaceInstrumentation,
-  ]);
-
-  useEffect(() => {
+      useEffect(() => {
     if (typeof window === 'undefined') {
       return;
     }
@@ -1457,57 +1292,7 @@ export default function ScoreEditor() {
     window.localStorage.setItem(CODE_EDITOR_THEME_STORAGE_KEY, codeEditorTheme);
   }, [codeEditorTheme]);
 
-  const musicNotaGenSpacePeriods = useMemo(
-    () => (musicNotaGenSpaceCombinations ? Object.keys(musicNotaGenSpaceCombinations).sort() : []),
-    [musicNotaGenSpaceCombinations],
-  );
-  const musicNotaGenSpaceComposers = useMemo(
-    () =>
-      Object.keys(
-        (musicNotaGenSpaceCombinations && musicNotaGenSpaceCombinations[musicNotaGenSpacePeriod]) ||
-          {},
-      ).sort(),
-    [musicNotaGenSpaceCombinations, musicNotaGenSpacePeriod],
-  );
-  const musicNotaGenSpaceInstrumentations = useMemo(
-    () =>
-      musicNotaGenSpaceCombinations &&
-      musicNotaGenSpaceCombinations[musicNotaGenSpacePeriod] &&
-      musicNotaGenSpaceCombinations[musicNotaGenSpacePeriod][musicNotaGenSpaceComposer]
-        ? [
-            ...musicNotaGenSpaceCombinations[musicNotaGenSpacePeriod][musicNotaGenSpaceComposer],
-          ].sort()
-        : [],
-    [musicNotaGenSpaceCombinations, musicNotaGenSpacePeriod, musicNotaGenSpaceComposer],
-  );
-
-  useEffect(() => {
-    if (musicNotaGenSpaceComposers.length === 0) {
-      return;
-    }
-    if (!musicNotaGenSpaceComposers.includes(musicNotaGenSpaceComposer)) {
-      setMusicNotaGenSpaceComposer(musicNotaGenSpaceComposers[0] || '');
-    }
-  }, [musicNotaGenSpaceComposers, musicNotaGenSpaceComposer]);
-
-  useEffect(() => {
-    if (musicNotaGenSpaceInstrumentations.length === 0) {
-      return;
-    }
-    if (!musicNotaGenSpaceInstrumentations.includes(musicNotaGenSpaceInstrumentation)) {
-      setMusicNotaGenSpaceInstrumentation(musicNotaGenSpaceInstrumentations[0] || '');
-    }
-  }, [musicNotaGenSpaceInstrumentations, musicNotaGenSpaceInstrumentation]);
-
-  useEffect(() => {
-    const el = musicNotaGenProgressPreRef.current;
-    if (!el) {
-      return;
-    }
-    el.scrollTop = el.scrollHeight;
-  }, [musicNotaGenProgressLog, musicNotaGenStatusText]);
-
-  useEffect(() => {
+              useEffect(() => {
     if (aiEnabled) {
       return;
     }
@@ -9413,926 +9198,7 @@ ${partsBodyXml}
     [captureApiTraceContext],
   );
 
-  const loadNotaGenSpaceOptions = useCallback(
-    async (spaceIdOverride?: string) => {
-      const targetSpaceId =
-        (spaceIdOverride ?? musicNotaGenSpaceId).trim() || 'ElectricAlexis/NotaGen';
-      setMusicNotaGenSpaceOptionsLoading(true);
-      setMusicNotaGenSpaceOptionsError(null);
-      try {
-        const parsed = await postScoreEditorJson('/api/music/notagen-space/options', {
-          spaceId: targetSpaceId,
-        });
-        const combinations = asRecord(parsed?.combinations) as NotaGenSpaceCombinations | null;
-        setMusicNotaGenSpaceCombinations(combinations);
-
-        const periods = Array.isArray(parsed?.periods)
-          ? parsed?.periods.filter((value): value is string => typeof value === 'string')
-          : [];
-        const nextPeriod = periods.includes(musicNotaGenSpacePeriod)
-          ? musicNotaGenSpacePeriod
-          : periods[0] || musicNotaGenSpacePeriod;
-        if (nextPeriod !== musicNotaGenSpacePeriod) {
-          setMusicNotaGenSpacePeriod(nextPeriod);
-        }
-
-        const composersForPeriod = Object.keys(
-          (combinations && combinations[nextPeriod]) || {},
-        ).sort();
-        const nextComposer = composersForPeriod.includes(musicNotaGenSpaceComposer)
-          ? musicNotaGenSpaceComposer
-          : composersForPeriod[0] || musicNotaGenSpaceComposer;
-        if (nextComposer !== musicNotaGenSpaceComposer) {
-          setMusicNotaGenSpaceComposer(nextComposer);
-        }
-
-        const instrumentsForComposer = (
-          (combinations && combinations[nextPeriod] && combinations[nextPeriod][nextComposer]) ||
-          []
-        )
-          .slice()
-          .sort();
-        const nextInstrumentation = instrumentsForComposer.includes(
-          musicNotaGenSpaceInstrumentation,
-        )
-          ? musicNotaGenSpaceInstrumentation
-          : instrumentsForComposer[0] || musicNotaGenSpaceInstrumentation;
-        if (nextInstrumentation !== musicNotaGenSpaceInstrumentation) {
-          setMusicNotaGenSpaceInstrumentation(nextInstrumentation);
-        }
-      } catch (err) {
-        console.error('Failed to load NotaGen Space options', err);
-        setMusicNotaGenSpaceOptionsError(
-          errorMessage(err) || 'Failed to load NotaGen Space options.',
-        );
-      } finally {
-        setMusicNotaGenSpaceOptionsLoading(false);
-      }
-    },
-    [
-      musicNotaGenSpaceComposer,
-      musicNotaGenSpaceId,
-      musicNotaGenSpaceInstrumentation,
-      musicNotaGenSpacePeriod,
-      postScoreEditorJson,
-    ],
-  );
-
-  useEffect(() => {
-    if (!aiEnabled || xmlSidebarTab !== 'notagen') {
-      return;
-    }
-    if (musicNotaGenSpaceCombinations || musicNotaGenSpaceOptionsLoading) {
-      return;
-    }
-    void loadNotaGenSpaceOptions();
-  }, [
-    aiEnabled,
-    loadNotaGenSpaceOptions,
-    musicNotaGenSpaceCombinations,
-    musicNotaGenSpaceOptionsLoading,
-    xmlSidebarTab,
-  ]);
-
-  const handleMusicNotaGenRun = async () => {
-    if (
-      !musicNotaGenSpacePeriod.trim() ||
-      !musicNotaGenSpaceComposer.trim() ||
-      !musicNotaGenSpaceInstrumentation.trim()
-    ) {
-      notifyWarning('Enter a period, composer, and instrumentation for the NotaGen Space.');
-      return;
-    }
-    setMusicNotaGenBusy(true);
-    setMusicNotaGenError(null);
-    setMusicNotaGenResult(null);
-    setMusicNotaGenGeneratedXml('');
-    setMusicNotaGenGeneratedAbc('');
-    setMusicNotaGenProgressLog('');
-    setMusicNotaGenStatusText('');
-    const requestStartedAt = Date.now();
-    let requestIssued = false;
-    let outcome: 'success' | 'failure' = 'failure';
-    let failureReason = '';
-    try {
-      if (!musicNotaGenDryRun) {
-        requestIssued = true;
-        telemetryCountersRef.current.aiRequests += 1;
-        const response = await fetch(resolveScoreEditorApiPath('/api/music/generate/stream'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            backend: 'huggingface-space',
-            spaceId: musicNotaGenSpaceId || undefined,
-            period: musicNotaGenSpacePeriod,
-            composer: musicNotaGenSpaceComposer,
-            instrumentation: musicNotaGenSpaceInstrumentation,
-            timeoutMs: 300000,
-            includeAbc: true,
-            includeContent: true,
-          }),
-        });
-        captureApiTraceContext(response.headers);
-        if (!response.ok || !response.body) {
-          const payload = await response.json().catch(() => ({}));
-          const message =
-            typeof asRecord(payload)?.error === 'string'
-              ? String(asRecord(payload)?.error)
-              : `Request failed: ${response.status}`;
-          failureReason = message;
-          throw new Error(message);
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-        let finalResult: Record<string, unknown> | null = null;
-        let streamError: string | null = null;
-
-        const handleSseEvent = (eventName: string, payloadText: string) => {
-          let payloadValue: unknown = null;
-          try {
-            payloadValue = payloadText ? JSON.parse(payloadText) : null;
-          } catch {
-            payloadValue = { raw: payloadText };
-          }
-          const payload = asRecord(payloadValue);
-          if (eventName === 'status') {
-            const stage = typeof payload?.stage === 'string' ? payload.stage : '';
-            const message = typeof payload?.message === 'string' ? payload.message : '';
-            setMusicNotaGenStatusText(
-              [stage, message].filter(Boolean).join(': ') || stage || message,
-            );
-            return;
-          }
-          if (eventName === 'log') {
-            const message = typeof payload?.message === 'string' ? payload.message : '';
-            if (message) {
-              setMusicNotaGenProgressLog((prev) => {
-                const next = prev ? `${prev}\n${message}` : message;
-                return next.slice(-20000);
-              });
-            }
-            return;
-          }
-          if (eventName === 'progress') {
-            if (typeof payload?.processOutput === 'string') {
-              setMusicNotaGenProgressLog(payload.processOutput.slice(-20000));
-            }
-            if (typeof payload?.abc === 'string') {
-              setMusicNotaGenGeneratedAbc(payload.abc);
-            }
-            return;
-          }
-          if (eventName === 'result') {
-            finalResult = asRecord(payload);
-            streamError = null;
-            return;
-          }
-          if (eventName === 'error') {
-            if (!finalResult) {
-              streamError =
-                typeof payload?.error === 'string'
-                  ? payload.error
-                  : 'NotaGen Space streaming request failed.';
-            }
-          }
-        };
-
-        while (true) {
-          const { value, done } = await reader.read();
-          buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
-
-          let sepIndex = buffer.indexOf('\n\n');
-          while (sepIndex >= 0) {
-            const block = buffer.slice(0, sepIndex);
-            buffer = buffer.slice(sepIndex + 2);
-
-            let eventName = 'message';
-            const dataLines: string[] = [];
-            for (const line of block.split('\n')) {
-              if (line.startsWith('event:')) {
-                eventName = line.slice(6).trim();
-              } else if (line.startsWith('data:')) {
-                dataLines.push(line.slice(5).trimStart());
-              }
-            }
-            if (dataLines.length > 0) {
-              handleSseEvent(eventName, dataLines.join('\n'));
-            }
-            if (streamError && !finalResult) {
-              failureReason = streamError;
-              throw new Error(streamError);
-            }
-            sepIndex = buffer.indexOf('\n\n');
-          }
-
-          if (done) {
-            break;
-          }
-        }
-
-        if (!finalResult) {
-          failureReason = streamError || 'NotaGen Space stream ended without a final result.';
-          throw new Error(failureReason);
-        }
-
-        const resultRecord = finalResult as Record<string, unknown>;
-        setMusicNotaGenResult(resultRecord);
-        const content = asRecord(resultRecord.content);
-        const abc =
-          typeof resultRecord.abc === 'string'
-            ? resultRecord.abc
-            : typeof content?.abc === 'string'
-              ? content.abc
-              : '';
-        const musicxml = typeof content?.musicxml === 'string' ? content.musicxml : '';
-        setMusicNotaGenGeneratedAbc(abc);
-        setMusicNotaGenGeneratedXml(musicxml);
-        outcome = 'success';
-        return;
-      }
-
-      requestIssued = true;
-      telemetryCountersRef.current.aiRequests += 1;
-      const payload = await postScoreEditorJson('/api/music/generate', {
-        backend: 'huggingface-space',
-        spaceId: musicNotaGenSpaceId || undefined,
-        period: musicNotaGenSpacePeriod,
-        composer: musicNotaGenSpaceComposer,
-        instrumentation: musicNotaGenSpaceInstrumentation,
-        dryRun: musicNotaGenDryRun,
-        timeoutMs: 300000,
-        includePrompt: true,
-        includeAbc: true,
-        includeContent: true,
-      });
-      setMusicNotaGenResult(payload);
-      const content = asRecord(payload.content);
-      const abc =
-        typeof payload.abc === 'string'
-          ? payload.abc
-          : typeof content?.abc === 'string'
-            ? content.abc
-            : '';
-      const musicxml = typeof content?.musicxml === 'string' ? content.musicxml : '';
-      setMusicNotaGenGeneratedAbc(abc);
-      setMusicNotaGenGeneratedXml(musicxml);
-      outcome = 'success';
-    } catch (err) {
-      console.error('NotaGen request failed', err);
-      failureReason = errorMessage(err) || 'NotaGen request failed.';
-      setMusicNotaGenError(failureReason);
-    } finally {
-      setMusicNotaGenBusy(false);
-      if (requestIssued) {
-        if (outcome === 'failure') {
-          telemetryCountersRef.current.aiFailures += 1;
-        }
-        emitEditorTelemetry('score_editor_ai_request', {
-          channel: 'notagen',
-          backend: 'huggingface-space',
-          model: musicNotaGenModelId.trim() || undefined,
-          space_id: musicNotaGenSpaceId.trim() || undefined,
-          period: musicNotaGenSpacePeriod,
-          composer: musicNotaGenSpaceComposer,
-          instrumentation: musicNotaGenSpaceInstrumentation,
-          outcome,
-          duration_ms: Math.max(0, Date.now() - requestStartedAt),
-          error: outcome === 'failure' ? failureReason || undefined : undefined,
-        });
-      }
-    }
-  };
-
-  const handleNotaGenPeriodChange = useCallback(
-    (nextPeriod: string) => {
-      setMusicNotaGenSpacePeriod(nextPeriod);
-      const composerMap =
-        (musicNotaGenSpaceCombinations && musicNotaGenSpaceCombinations[nextPeriod]) || {};
-      const composers = Object.keys(composerMap).sort();
-      const nextComposer = composers.includes(musicNotaGenSpaceComposer)
-        ? musicNotaGenSpaceComposer
-        : composers[0] || '';
-      setMusicNotaGenSpaceComposer(nextComposer);
-
-      const instruments = nextComposer ? [...(composerMap[nextComposer] || [])].sort() : [];
-      const nextInstrumentation = instruments.includes(musicNotaGenSpaceInstrumentation)
-        ? musicNotaGenSpaceInstrumentation
-        : instruments[0] || '';
-      setMusicNotaGenSpaceInstrumentation(nextInstrumentation);
-    },
-    [musicNotaGenSpaceCombinations, musicNotaGenSpaceComposer, musicNotaGenSpaceInstrumentation],
-  );
-
-  const handleNotaGenComposerChange = useCallback(
-    (nextComposer: string) => {
-      setMusicNotaGenSpaceComposer(nextComposer);
-      const instruments =
-        musicNotaGenSpaceCombinations &&
-        musicNotaGenSpaceCombinations[musicNotaGenSpacePeriod] &&
-        musicNotaGenSpaceCombinations[musicNotaGenSpacePeriod][nextComposer]
-          ? [...musicNotaGenSpaceCombinations[musicNotaGenSpacePeriod][nextComposer]].sort()
-          : [];
-      const nextInstrumentation = instruments.includes(musicNotaGenSpaceInstrumentation)
-        ? musicNotaGenSpaceInstrumentation
-        : instruments[0] || '';
-      setMusicNotaGenSpaceInstrumentation(nextInstrumentation);
-    },
-    [musicNotaGenSpaceCombinations, musicNotaGenSpacePeriod, musicNotaGenSpaceInstrumentation],
-  );
-
-  const handleApplyMusicNotaGenOutput = async () => {
-    if (!musicNotaGenGeneratedXml.trim()) {
-      notifyWarning('No generated MusicXML is available yet.');
-      return;
-    }
-    setXmlLoading(true);
-    setXmlError(null);
-    try {
-      if (!score) {
-        const encoder = new TextEncoder();
-        const encoded = encoder.encode(musicNotaGenGeneratedXml);
-        const filenameBase = musicNotaGenSpaceComposer
-          ? `notagen-${toSafeFilename(musicNotaGenSpaceComposer)}`
-          : 'notagen-output';
-        const file = new File([encoded], `${filenameBase}.musicxml`, { type: 'application/xml' });
-        await handleFileUpload(file, {
-          preserveScoreId: false,
-          updateUrl: false,
-          telemetrySource: 'notagen_output',
-        });
-      } else {
-        await applyXmlToScore(musicNotaGenGeneratedXml, { telemetrySource: 'notagen_output' });
-      }
-      revealScoreSource();
-    } catch (err) {
-      console.error('Failed to apply NotaGen output XML', err);
-      notifyError('Failed to apply generated MusicXML. See console for details.');
-    } finally {
-      setXmlLoading(false);
-    }
-  };
-
-  const handleTranscodaImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] || null;
-    setMusicTranscodaImageFile(file);
-    setMusicTranscodaError(null);
-    setMusicTranscodaWarning(null);
-    setMusicTranscodaResult(null);
-    setMusicTranscodaGeneratedKern('');
-    setMusicTranscodaGeneratedXml('');
-  };
-
-  useEffect(() => {
-    if (musicTranscodaPhase === 'idle') {
-      musicTranscodaStartedAtRef.current = null;
-      setMusicTranscodaElapsedMs(0);
-      return;
-    }
-    if (musicTranscodaStartedAtRef.current === null) {
-      musicTranscodaStartedAtRef.current = Date.now();
-    }
-    const timer = window.setInterval(() => {
-      const startedAt = musicTranscodaStartedAtRef.current || Date.now();
-      setMusicTranscodaElapsedMs(Math.max(0, Date.now() - startedAt));
-    }, 250);
-    return () => window.clearInterval(timer);
-  }, [musicTranscodaPhase]);
-
-  const handleTranscodaTranscribeImage = async () => {
-    if (!musicTranscodaImageFile) {
-      notifyWarning('Choose a page image before running Transcoda.');
-      return;
-    }
-    setMusicTranscodaPhase('uploading');
-    musicTranscodaStartedAtRef.current = null;
-    setMusicTranscodaBusy(true);
-    setMusicTranscodaError(null);
-    setMusicTranscodaWarning(null);
-    setMusicTranscodaResult(null);
-    setMusicTranscodaGeneratedKern('');
-    setMusicTranscodaGeneratedXml('');
-    const requestStartedAt = Date.now();
-    let outcome: 'success' | 'failure' = 'failure';
-    let failureReason = '';
-    try {
-      const imageDataUrl = await fileToBase64(musicTranscodaImageFile);
-      setMusicTranscodaPhase('transcribing');
-      musicTranscodaStartedAtRef.current = null;
-      const payload = await postScoreEditorJson('/api/music/omr/transcribe', {
-        imageDataUrl,
-        mimeType: musicTranscodaImageFile.type || 'image/png',
-        spaceId: MUSIC_SPECIALISTS_DEFAULT_TRANSCODA_SPACE_ID,
-        decoding: musicTranscodaDecoding,
-        maxLength: musicTranscodaMaxLength,
-        numBeams: musicTranscodaNumBeams,
-        repetitionPenalty: musicTranscodaRepetitionPenalty,
-        convertToMusicXml: true,
-        includeContent: true,
-        timeoutMs: 300000,
-      });
-      setMusicTranscodaResult(payload);
-      const content = asRecord(payload.content);
-      const kern = typeof content?.kern === 'string' ? content.kern : '';
-      const musicxml = typeof content?.musicxml === 'string' ? content.musicxml : '';
-      setMusicTranscodaGeneratedKern(kern);
-      setMusicTranscodaGeneratedXml(musicxml);
-      const conversionError = asRecord(payload.conversionError);
-      const conversionErrorMessage =
-        typeof conversionError?.message === 'string' ? conversionError.message : '';
-      if (!musicxml.trim() && conversionErrorMessage.trim()) {
-        setMusicTranscodaWarning(
-          `Transcoda returned kern text, but MusicXML conversion failed: ${conversionErrorMessage}`,
-        );
-      }
-      outcome = 'success';
-    } catch (err) {
-      console.error('Transcoda request failed', err);
-      failureReason = errorMessage(err) || 'Transcoda request failed.';
-      setMusicTranscodaError(failureReason);
-    } finally {
-      setMusicTranscodaPhase('idle');
-      setMusicTranscodaBusy(false);
-      emitEditorTelemetry('score_editor_ai_request', {
-        channel: 'transcoda',
-        backend: 'huggingface-space',
-        model: MUSIC_SPECIALISTS_DEFAULT_TRANSCODA_MODEL,
-        space_id: MUSIC_SPECIALISTS_DEFAULT_TRANSCODA_SPACE_ID,
-        image_name: musicTranscodaImageFile.name,
-        outcome,
-        duration_ms: Math.max(0, Date.now() - requestStartedAt),
-        error: outcome === 'failure' ? failureReason || undefined : undefined,
-      });
-    }
-  };
-
-  const handleApplyTranscodaOutput = async (mode: 'overwrite' | 'append') => {
-    if (!musicTranscodaGeneratedXml.trim()) {
-      notifyWarning('No Transcoda MusicXML is available yet.');
-      return;
-    }
-    if (mode === 'append' && !score) {
-      notifyWarning('Load a target score before appending Transcoda output.');
-      return;
-    }
-    setXmlLoading(true);
-    setXmlError(null);
-    try {
-      if (!score || mode === 'overwrite') {
-        const encoder = new TextEncoder();
-        const encoded = encoder.encode(musicTranscodaGeneratedXml);
-        const file = new File([encoded], 'transcoda-output.musicxml', { type: 'application/xml' });
-        if (!score) {
-          await handleFileUpload(file, {
-            preserveScoreId: false,
-            updateUrl: false,
-            telemetrySource: 'transcoda_output',
-          });
-        } else {
-          await applyXmlToScore(musicTranscodaGeneratedXml, {
-            telemetrySource: 'transcoda_output_overwrite',
-          });
-        }
-      } else {
-        const currentXml = await resolveXmlContext();
-        if (!currentXml.trim()) {
-          throw new Error('Unable to load current score MusicXML for Transcoda append.');
-        }
-        const appendResult = appendMusicXmlMeasures(currentXml, musicTranscodaGeneratedXml);
-        if (appendResult.appendedMeasureCount <= 0) {
-          throw new Error('Transcoda MusicXML did not contain appendable measures.');
-        }
-        await applyXmlToScore(appendResult.xml, {
-          telemetrySource: 'transcoda_output_append',
-          inputFormat: 'musicxml',
-        });
-      }
-      revealScoreSource();
-    } catch (err) {
-      console.error('Failed to apply Transcoda output XML', err);
-      notifyError('Failed to apply Transcoda MusicXML. See console for details.');
-    } finally {
-      setXmlLoading(false);
-    }
-  };
-
-  const handleMmaStarterPresetChange = useCallback((preset: MmaStarterPreset) => {
-    setMmaStarterPreset(preset);
-    setMmaError(null);
-    if (preset === 'blank') {
-      setMmaScript('');
-      setMmaWarnings([]);
-      setMmaSanitizedStderr('');
-      setMmaResultPayload(null);
-      return;
-    }
-    if (preset === 'blues') {
-      setMmaScript(MMA_BLUES_DEMO_TEMPLATE);
-      setMmaWarnings([]);
-      setMmaSanitizedStderr('');
-      setMmaResultPayload(null);
-    }
-  }, []);
-
-  const generateMmaTemplateFromXml = useCallback(
-    async (xml: string, options?: { switchToMmaTab?: boolean }) => {
-      const estimatedMeasures = estimateMusicXmlMeasureCount(xml);
-      const payload = await postScoreEditorJson('/api/music/mma/template', {
-        content: xml,
-        maxMeasures: Math.min(
-          MMA_TEMPLATE_MAX_MEASURES,
-          Math.max(1, estimatedMeasures || MMA_TEMPLATE_MAX_MEASURES),
-        ),
-        arrangementPreset: mmaArrangementPreset,
-        defaultGroove: mmaGroove,
-      });
-      const template = typeof payload.template === 'string' ? payload.template : '';
-      if (!template.trim()) {
-        throw new Error('MMA template response did not include a script.');
-      }
-      setMmaScript(template);
-      setMmaStarterPreset('lead-sheet');
-      const warnings = Array.isArray(payload.warnings)
-        ? payload.warnings.filter(
-            (value): value is string => typeof value === 'string' && value.trim().length > 0,
-          )
-        : [];
-      setMmaWarnings(warnings);
-      setMmaSanitizedStderr('');
-      setMmaResultPayload(payload);
-      if (options?.switchToMmaTab) {
-        setXmlSidebarTab('mma');
-      }
-      return payload;
-    },
-    [mmaArrangementPreset, mmaGroove, postScoreEditorJson],
-  );
-
-  const handleMmaGenerateTemplate = async () => {
-    setMmaBusy(true);
-    setMmaError(null);
-    try {
-      const xml = await resolveXmlContext();
-      if (!xml.trim()) {
-        notifyWarning('Load a score before generating an MMA starter from MusicXML.');
-        return;
-      }
-      await generateMmaTemplateFromXml(xml);
-    } catch (err) {
-      console.error('Failed to generate MMA template', err);
-      setMmaError(errorMessage(err) || 'Failed to generate MMA starter template.');
-    } finally {
-      setMmaBusy(false);
-    }
-  };
-
-  const handleMmaRender = async (includeMusicXml: boolean) => {
-    const script = mmaScript.trim();
-    if (!script) {
-      notifyWarning('Enter an MMA script before rendering.');
-      return;
-    }
-    setMmaBusy(true);
-    setMmaError(null);
-    try {
-      const payload = await postScoreEditorJson('/api/music/mma/render', {
-        script: mmaScript,
-        includeMidi: true,
-        includeMusicXml,
-        persistArtifacts: true,
-      });
-      const midiBase64 = typeof payload.midiBase64 === 'string' ? payload.midiBase64 : '';
-      const musicxml = typeof payload.musicxml === 'string' ? payload.musicxml : '';
-      const warnings = Array.isArray(payload.warnings)
-        ? payload.warnings.filter(
-            (value): value is string => typeof value === 'string' && value.trim().length > 0,
-          )
-        : [];
-      const provenance = asRecord(payload.provenance);
-      const stderr = typeof provenance?.stderr === 'string' ? provenance.stderr : '';
-
-      setMmaWarnings(warnings);
-      setMmaSanitizedStderr(stderr);
-      setMmaMidiBase64(midiBase64);
-      if (includeMusicXml) {
-        setMmaGeneratedXml(musicxml);
-      }
-      setMmaResultPayload(payload);
-    } catch (err) {
-      console.error('Failed to render MMA script', err);
-      setMmaError(errorMessage(err) || 'Failed to render MMA script.');
-    } finally {
-      setMmaBusy(false);
-    }
-  };
-
-  const handleMmaDownload = (format: 'mma' | 'midi' | 'musicxml') => {
-    if (format === 'mma') {
-      if (!mmaScript.trim()) {
-        notifyWarning('No MMA script is available to download.');
-        return;
-      }
-      downloadBlob(`${mmaScript.trimEnd()}\n`, 'accompaniment.mma', 'text/plain;charset=utf-8');
-      return;
-    }
-
-    if (format === 'midi') {
-      if (!mmaMidiBase64.trim()) {
-        notifyWarning('No rendered MIDI output is available yet.');
-        return;
-      }
-      try {
-        const midiBytes = decodeBase64ToBytes(mmaMidiBase64);
-        if (!midiBytes.length) {
-          throw new Error('Rendered MIDI payload was empty.');
-        }
-        downloadBlob(midiBytes, 'accompaniment.mid', 'audio/midi');
-      } catch (err) {
-        console.error('Failed to decode/render MIDI download payload', err);
-        notifyError('Unable to decode rendered MIDI for download.');
-      }
-      return;
-    }
-
-    if (!mmaGeneratedXml.trim()) {
-      notifyWarning('No generated MusicXML is available to download.');
-      return;
-    }
-    downloadBlob(
-      mmaGeneratedXml,
-      'accompaniment.musicxml',
-      'application/vnd.recordare.musicxml+xml',
-    );
-  };
-
-  const handleApplyMmaOutput = async () => {
-    if (!mmaGeneratedXml.trim()) {
-      notifyWarning('No generated MusicXML is available yet.');
-      return;
-    }
-    setXmlLoading(true);
-    setXmlError(null);
-    try {
-      if (!score) {
-        const encoder = new TextEncoder();
-        const encoded = encoder.encode(mmaGeneratedXml);
-        const filenameBase = scoreTitle ? `mma-${toSafeFilename(scoreTitle)}` : 'mma-output';
-        const file = new File([encoded], `${filenameBase}.musicxml`, { type: 'application/xml' });
-        await handleFileUpload(file, {
-          preserveScoreId: false,
-          updateUrl: false,
-          telemetrySource: 'mma_output',
-        });
-      } else {
-        const currentXml = await resolveXmlContext();
-        if (!currentXml.trim()) {
-          throw new Error('Unable to load current score MusicXML for MMA part append.');
-        }
-        const appendResult = appendMusicXmlParts(currentXml, mmaGeneratedXml);
-        if (appendResult.appendedPartCount <= 0) {
-          throw new Error('Generated MMA MusicXML did not contain appendable parts.');
-        }
-        setMmaWarnings((prev) => {
-          const next = [...prev];
-          next.push(`Appended ${appendResult.appendedPartCount} part(s) into the current score.`);
-          appendResult.warnings.forEach((warning) => next.push(warning));
-          return Array.from(new Set(next));
-        });
-        await applyXmlToScore(appendResult.xml, {
-          telemetrySource: 'mma_output_append',
-          inputFormat: 'musicxml',
-        });
-      }
-      revealScoreSource();
-    } catch (err) {
-      console.error('Failed to apply MMA output MusicXML', err);
-      notifyError('Failed to apply generated MMA MusicXML. See console for details.');
-    } finally {
-      setXmlLoading(false);
-    }
-  };
-
-  const handleHarmonyAnalyze = async (options?: {
-    applyImmediately?: boolean;
-    persistArtifacts?: boolean;
-    generateMmaTemplate?: boolean;
-  }) => {
-    setHarmonyBusy(true);
-    setHarmonyError(null);
-    try {
-      const xml = await resolveXmlContext();
-      if (!xml.trim()) {
-        notifyWarning('Load a score before running harmony analysis.');
-        return;
-      }
-      const payload = await postScoreEditorJson('/api/music/harmony/analyze', {
-        content: xml,
-        insertHarmony: true,
-        includeContent: true,
-        persistArtifacts: options?.persistArtifacts ?? true,
-        preferLocalKey: true,
-        includeRomanNumerals: false,
-        simplifyForMma: true,
-        existingHarmonyMode: 'fill-missing',
-        harmonicRhythm: harmonyRhythmMode,
-        maxChangesPerMeasure: Math.min(
-          8,
-          Math.max(1, Math.trunc(harmonyMaxChangesPerMeasure || 1)),
-        ),
-        timeoutMs: estimateHarmonyTimeoutMs(xml),
-      });
-      const warnings = Array.isArray(payload.warnings)
-        ? payload.warnings.filter(
-            (value): value is string => typeof value === 'string' && value.trim().length > 0,
-          )
-        : [];
-      const content = asRecord(payload.content);
-      const musicxml = typeof content?.musicxml === 'string' ? content.musicxml : '';
-      if (!musicxml.trim()) {
-        throw new Error('Harmony analysis did not return tagged MusicXML.');
-      }
-      setHarmonyWarnings(warnings);
-      setHarmonyGeneratedXml(musicxml);
-      setHarmonyResultPayload(payload);
-
-      if (options?.generateMmaTemplate) {
-        setMmaBusy(true);
-        setMmaError(null);
-        try {
-          await generateMmaTemplateFromXml(musicxml, { switchToMmaTab: true });
-        } finally {
-          setMmaBusy(false);
-        }
-      }
-
-      if (options?.applyImmediately) {
-        setXmlLoading(true);
-        try {
-          await applyXmlToScore(musicxml, {
-            telemetrySource: 'harmony_analysis_apply',
-            inputFormat: 'musicxml',
-            enforceJazzHarmonyStyle: true,
-          });
-          revealScoreSource();
-        } finally {
-          setXmlLoading(false);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to analyze harmony', err);
-      setHarmonyError(errorMessage(err) || 'Failed to analyze harmony.');
-    } finally {
-      setHarmonyBusy(false);
-    }
-  };
-
-  const handleApplyHarmonyOutput = async () => {
-    if (!harmonyGeneratedXml.trim()) {
-      notifyWarning('No tagged MusicXML is available yet.');
-      return;
-    }
-    setXmlLoading(true);
-    setXmlError(null);
-    try {
-      await applyXmlToScore(harmonyGeneratedXml, {
-        telemetrySource: 'harmony_analysis_apply',
-        inputFormat: 'musicxml',
-        enforceJazzHarmonyStyle: true,
-      });
-      revealScoreSource();
-    } catch (err) {
-      console.error('Failed to apply harmony-tagged MusicXML', err);
-      notifyError('Failed to apply harmony-tagged MusicXML. See console for details.');
-    } finally {
-      setXmlLoading(false);
-    }
-  };
-
-  const handleDownloadHarmonyXml = () => {
-    if (!harmonyGeneratedXml.trim()) {
-      notifyWarning('No tagged MusicXML is available to download.');
-      return;
-    }
-    const filenameBase = scoreTitle ? `harmony-${toSafeFilename(scoreTitle)}` : 'harmony-tagged';
-    downloadBlob(
-      harmonyGeneratedXml,
-      `${filenameBase}.musicxml`,
-      'application/vnd.recordare.musicxml+xml',
-    );
-  };
-
-  const handleFunctionalHarmonyAnalyze = async () => {
-    setFunctionalHarmonyBusy(true);
-    setFunctionalHarmonyError(null);
-    try {
-      const xml = await resolveXmlContext();
-      if (!xml.trim()) {
-        notifyWarning('Load a score before running harmony analysis.');
-        return;
-      }
-      const payload = await postScoreEditorJson('/api/music/functional-harmony/analyze', {
-        content: xml,
-        backend: 'music21-roman',
-        includeSegments: true,
-        includeTextExport: true,
-        includeAnnotatedContent: true,
-        persistArtifacts: true,
-      });
-      setFunctionalHarmonyResult(payload);
-      setFunctionalHarmonyWarnings(
-        Array.isArray(payload.warnings)
-          ? payload.warnings.filter(
-              (value): value is string => typeof value === 'string' && value.trim().length > 0,
-            )
-          : [],
-      );
-      setFunctionalHarmonySegments(
-        Array.isArray(payload.segments)
-          ? payload.segments.filter((value): value is Record<string, unknown> =>
-              Boolean(asRecord(value)),
-            )
-          : [],
-      );
-      const exportsRecord = asRecord(payload.exports);
-      setFunctionalHarmonyAnnotatedXml(
-        typeof payload.annotatedXml === 'string' ? payload.annotatedXml : '',
-      );
-      setFunctionalHarmonyJsonExport(
-        typeof exportsRecord?.json === 'string' ? exportsRecord.json : '',
-      );
-      setFunctionalHarmonyRntxtExport(
-        typeof exportsRecord?.rntxt === 'string' ? exportsRecord.rntxt : '',
-      );
-    } catch (err) {
-      console.error('Failed to analyze harmony', err);
-      setFunctionalHarmonyError(errorMessage(err) || 'Failed to analyze harmony.');
-    } finally {
-      setFunctionalHarmonyBusy(false);
-    }
-  };
-
-  const handleDownloadFunctionalHarmony = (format: 'json' | 'rntxt') => {
-    if (format === 'json') {
-      if (!functionalHarmonyJsonExport.trim()) {
-        notifyWarning('No harmony JSON export is available yet.');
-        return;
-      }
-      const filenameBase = scoreTitle
-        ? `functional-harmony-${toSafeFilename(scoreTitle)}`
-        : 'functional-harmony';
-      downloadBlob(functionalHarmonyJsonExport, `${filenameBase}.json`, 'application/json');
-      return;
-    }
-    if (!functionalHarmonyRntxtExport.trim()) {
-      notifyWarning('No harmony text export is available yet.');
-      return;
-    }
-    const filenameBase = scoreTitle
-      ? `functional-harmony-${toSafeFilename(scoreTitle)}`
-      : 'functional-harmony';
-    downloadBlob(functionalHarmonyRntxtExport, `${filenameBase}.rntxt`, 'text/plain;charset=utf-8');
-  };
-
-  const handleDownloadFunctionalHarmonyXml = () => {
-    if (!functionalHarmonyAnnotatedXml.trim()) {
-      notifyWarning('No annotated harmony MusicXML is available yet.');
-      return;
-    }
-    const filenameBase = scoreTitle
-      ? `functional-harmony-${toSafeFilename(scoreTitle)}`
-      : 'functional-harmony';
-    downloadBlob(
-      functionalHarmonyAnnotatedXml,
-      `${filenameBase}.musicxml`,
-      'application/vnd.recordare.musicxml+xml',
-    );
-  };
-
-  const handleApplyFunctionalHarmonyOutput = async () => {
-    if (!functionalHarmonyAnnotatedXml.trim()) {
-      notifyWarning('No annotated harmony MusicXML is available yet.');
-      return;
-    }
-    setXmlLoading(true);
-    setXmlError(null);
-    try {
-      await applyXmlToScore(functionalHarmonyAnnotatedXml, {
-        telemetrySource: 'functional_harmony_apply',
-        inputFormat: 'musicxml',
-      });
-      revealScoreSource();
-    } catch (err) {
-      console.error('Failed to apply harmony-annotated MusicXML', err);
-      notifyError('Failed to apply harmony-annotated MusicXML. See console for details.');
-    } finally {
-      setXmlLoading(false);
-    }
-  };
-
-  const handleApplyAiOutput = async () => {
+                                                const handleApplyAiOutput = async () => {
     if (!aiPatchedXml.trim()) {
       notifyError(aiPatchError || 'AI patch has not produced valid MusicXML.');
       return;
@@ -15798,6 +14664,49 @@ ${partsBodyXml}
         </div>
   );
 
+  const notaGen = useNotaGenTool({
+    postScoreEditorJson,
+    telemetryCountersRef,
+    captureApiTraceContext,
+    emitEditorTelemetry,
+    setXmlLoading,
+    setXmlError,
+    score,
+    handleFileUpload,
+    applyXmlToScore,
+    revealScoreSource,
+    aiEnabled,
+    xmlSidebarTab,
+    codeEditorTheme,
+  });
+
+  const transcoda = useTranscodaTool({
+    postScoreEditorJson,
+    emitEditorTelemetry,
+    score,
+    setXmlLoading,
+    setXmlError,
+    handleFileUpload,
+    applyXmlToScore,
+    resolveXmlContext,
+    revealScoreSource,
+    xmlLoading,
+  });
+
+  const chordTools = useChordTools({
+    postScoreEditorJson,
+    setXmlSidebarTab,
+    resolveXmlContext,
+    setXmlLoading,
+    setXmlError,
+    score,
+    scoreTitle,
+    handleFileUpload,
+    applyXmlToScore,
+    revealScoreSource,
+    codeEditorTheme,
+  });
+
   const renderAiToolsBody = () => (
     <>
                   {xmlSidebarTab === 'assistant' && aiEnabled && (
@@ -15833,86 +14742,11 @@ ${partsBodyXml}
                     />
                   )}
                   {xmlSidebarTab === 'notagen' && aiEnabled && (
-                    <NotaGenPanel
-                      space={{
-                        period: musicNotaGenSpacePeriod,
-                        composer: musicNotaGenSpaceComposer,
-                        instrumentation: musicNotaGenSpaceInstrumentation,
-                        periods: musicNotaGenSpacePeriods,
-                        composers: musicNotaGenSpaceComposers,
-                        instrumentations: musicNotaGenSpaceInstrumentations,
-                        optionsError: musicNotaGenSpaceOptionsError,
-                        setPeriod: handleNotaGenPeriodChange,
-                        setComposer: handleNotaGenComposerChange,
-                        setInstrumentation: setMusicNotaGenSpaceInstrumentation,
-                      }}
-                      status={{
-                        busy: musicNotaGenBusy,
-                        statusText: musicNotaGenStatusText,
-                        error: musicNotaGenError,
-                        progressLog: musicNotaGenProgressLog,
-                      }}
-                      result={{
-                        generatedAbc: musicNotaGenGeneratedAbc,
-                        generatedXml: musicNotaGenGeneratedXml,
-                        payload: musicNotaGenResult,
-                        setGeneratedXml: setMusicNotaGenGeneratedXml,
-                      }}
-                      actions={{
-                        run: () => void handleMusicNotaGenRun(),
-                        applyOutput: () => void handleApplyMusicNotaGenOutput(),
-                      }}
-                      progressRef={musicNotaGenProgressPreRef}
-                      editorTheme={codeEditorTheme}
+                    <NotaGenPanel {...notaGen.panel}
                     />
                   )}
                   {xmlSidebarTab === 'transcoda' && (
-                    <TranscodaPanel
-                      input={{
-                        imageFile: musicTranscodaImageFile,
-                        onImageUpload: handleTranscodaImageUpload,
-                      }}
-                      decoding={{
-                        mode: musicTranscodaDecoding,
-                        numBeams: musicTranscodaNumBeams,
-                        maxLength: musicTranscodaMaxLength,
-                        repetitionPenalty: musicTranscodaRepetitionPenalty,
-                        setMode: setMusicTranscodaDecoding,
-                        setNumBeams: setMusicTranscodaNumBeams,
-                        setMaxLength: setMusicTranscodaMaxLength,
-                        setRepetitionPenalty: setMusicTranscodaRepetitionPenalty,
-                      }}
-                      status={{
-                        busy: musicTranscodaBusy,
-                        phase: musicTranscodaPhase,
-                        elapsedMs: musicTranscodaElapsedMs,
-                        error: musicTranscodaError,
-                        warning: musicTranscodaWarning,
-                      }}
-                      result={{
-                        generatedXml: musicTranscodaGeneratedXml,
-                        generatedKern: musicTranscodaGeneratedKern,
-                        payload: musicTranscodaResult,
-                      }}
-                      actions={{
-                        transcribe: () => void handleTranscodaTranscribeImage(),
-                        applyOutput: (mode) => void handleApplyTranscodaOutput(mode),
-                        downloadXml: () =>
-                          downloadBlob(
-                            musicTranscodaGeneratedXml,
-                            'transcoda-output.musicxml',
-                            'application/vnd.recordare.musicxml+xml',
-                          ),
-                      }}
-                      service={{
-                        spaceId: MUSIC_SPECIALISTS_DEFAULT_TRANSCODA_SPACE_ID,
-                        model: MUSIC_SPECIALISTS_DEFAULT_TRANSCODA_MODEL,
-                        revision: MUSIC_SPECIALISTS_DEFAULT_TRANSCODA_REVISION,
-                      }}
-                      apply={{
-                        busy: xmlLoading,
-                        canAppend: Boolean(score),
-                      }}
+                    <TranscodaPanel {...transcoda.panel}
                     />
                   )}
                   {xmlSidebarTab === 'multitrack' && (
@@ -15975,111 +14809,15 @@ ${partsBodyXml}
                     />
                   )}
                   {xmlSidebarTab === 'mma' && (
-                    <MmaPanel
-                      config={{
-                        starterPreset: mmaStarterPreset,
-                        arrangementPreset: mmaArrangementPreset,
-                        groove: mmaGroove,
-                        script: mmaScript,
-                        setStarterPreset: handleMmaStarterPresetChange,
-                        setArrangementPreset: setMmaArrangementPreset,
-                        setGroove: setMmaGroove,
-                        setScript: setMmaScript,
-                        editorTheme: codeEditorTheme,
-                      }}
-                      status={{
-                        busy: mmaBusy,
-                        harmonyBusy,
-                        error: mmaError,
-                      }}
-                      result={{
-                        generatedXml: mmaGeneratedXml,
-                        midiBase64: mmaMidiBase64,
-                        warnings: mmaWarnings,
-                        sanitizedStderr: mmaSanitizedStderr,
-                        payload: mmaResultPayload,
-                        setGeneratedXml: setMmaGeneratedXml,
-                      }}
-                      actions={{
-                        generateTemplate: handleMmaGenerateTemplate,
-                        chordifyAndGenerate: () =>
-                          void handleHarmonyAnalyze({
-                            applyImmediately: false,
-                            persistArtifacts: true,
-                            generateMmaTemplate: true,
-                          }),
-                        render: (includeMusicXml) => void handleMmaRender(includeMusicXml),
-                        download: handleMmaDownload,
-                        applyOutput: handleApplyMmaOutput,
-                        openChordify: () => setXmlSidebarTab('harmony'),
-                      }}
+                    <MmaPanel {...chordTools.mmaPanel}
                     />
                   )}
                   {xmlSidebarTab === 'harmony' && (
-                    <HarmonyPanel
-                      config={{
-                        rhythmMode: harmonyRhythmMode,
-                        maxChangesPerMeasure: harmonyMaxChangesPerMeasure,
-                        setRhythmMode: setHarmonyRhythmMode,
-                        setMaxChangesPerMeasure: setHarmonyMaxChangesPerMeasure,
-                      }}
-                      status={{
-                        busy: harmonyBusy,
-                        mmaBusy,
-                        error: harmonyError,
-                      }}
-                      result={{
-                        generatedXml: harmonyGeneratedXml,
-                        warnings: harmonyWarnings,
-                        payload: harmonyResultPayload,
-                        setGeneratedXml: setHarmonyGeneratedXml,
-                      }}
-                      actions={{
-                        analyze: () =>
-                          void handleHarmonyAnalyze({
-                            applyImmediately: false,
-                            persistArtifacts: true,
-                          }),
-                        analyzeAndApply: () =>
-                          void handleHarmonyAnalyze({
-                            applyImmediately: true,
-                            persistArtifacts: true,
-                          }),
-                        analyzeAndGenerateMma: () =>
-                          void handleHarmonyAnalyze({
-                            applyImmediately: false,
-                            persistArtifacts: true,
-                            generateMmaTemplate: true,
-                          }),
-                        applyOutput: () => void handleApplyHarmonyOutput(),
-                        downloadXml: handleDownloadHarmonyXml,
-                      }}
-                      editorTheme={codeEditorTheme}
+                    <HarmonyPanel {...chordTools.harmonyPanel}
                     />
                   )}
                   {xmlSidebarTab === 'functional' && (
-                    <FunctionalHarmonyPanel
-                      status={{
-                        busy: functionalHarmonyBusy,
-                        error: functionalHarmonyError,
-                      }}
-                      result={{
-                        payload: functionalHarmonyResult,
-                        segments: functionalHarmonySegments,
-                        warnings: functionalHarmonyWarnings,
-                        annotatedXml: functionalHarmonyAnnotatedXml,
-                        jsonExport: functionalHarmonyJsonExport,
-                        rntxtExport: functionalHarmonyRntxtExport,
-                        setAnnotatedXml: setFunctionalHarmonyAnnotatedXml,
-                        setRntxtExport: setFunctionalHarmonyRntxtExport,
-                      }}
-                      actions={{
-                        analyze: () => void handleFunctionalHarmonyAnalyze(),
-                        applyOutput: () => void handleApplyFunctionalHarmonyOutput(),
-                        download: handleDownloadFunctionalHarmony,
-                        downloadXml: handleDownloadFunctionalHarmonyXml,
-                      }}
-                      editorTheme={codeEditorTheme}
+                    <FunctionalHarmonyPanel {...chordTools.functionalHarmonyPanel}
                     />
                   )}
                   {xmlError && <div className="mt-2 text-xs text-red-600">{xmlError}</div>}

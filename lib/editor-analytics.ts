@@ -5,7 +5,7 @@ type TrackOptions = {
   beacon?: boolean;
 };
 
-type TraceContext = {
+export type TraceContext = {
   requestId?: string;
   traceId?: string;
 };
