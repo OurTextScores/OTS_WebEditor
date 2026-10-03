@@ -42,6 +42,81 @@ import type { MeasureInsertTarget, HeaderTextTarget } from './score-editor/edito
 import { noPerf, startPerf, type PerfHandle } from '../lib/perf-trace';
 import { confirmDialog, notifyError, notifyWarning, promptDialog } from './shell/notices';
 import { ShellHeader } from './shell/ShellHeader';
+import {
+  addAmbitus,
+  addArpeggio,
+  addArticulation,
+  addBreath,
+  addDynamic,
+  addExpressionText,
+  addFermata,
+  addFiguredBassText,
+  addFingeringText,
+  addGlissando,
+  addGraceNote,
+  addHairpin,
+  addInstrumentChangeText,
+  addJump,
+  addLeftHandGuitarFingeringText,
+  addLyricText,
+  addMarker,
+  addMeasureRepeat,
+  addNoteFromRest,
+  addOttava,
+  addPedal,
+  addPickup,
+  addPitchByStep,
+  addRightHandGuitarFingeringText,
+  addSlur,
+  addSostenutoPedal,
+  addStaffText,
+  addStickingText,
+  addStringNumberText,
+  addSystemText,
+  addTempoText,
+  addTie,
+  addTremolo,
+  addTrill,
+  addTuplet,
+  addUnaCorda,
+  addVolta,
+  applySelectedText,
+  deleteSelection,
+  durationLonger,
+  durationShorter,
+  enterRest,
+  exportMidi,
+  exportMscx,
+  exportMscz,
+  exportMusicXml,
+  exportMxl,
+  exportPdf,
+  exportSvg,
+  flipStem,
+  insertMeasures,
+  removeContainingMeasures,
+  removeTrailingEmptyMeasures,
+  runRangeToolOnSelection,
+  setAccidental,
+  setBarLineType,
+  setBeamMode,
+  setDurationType,
+  setInputAccidental,
+  setInputDuration,
+  setNoteheadGroup,
+  setRepeatCount,
+  setVoice,
+  splitPedal,
+  toggleDot,
+  toggleDoubleDot,
+  toggleInputDotState,
+  toggleLineBreak,
+  togglePageBreak,
+  toggleRepeatEnd,
+  toggleRepeatStart,
+  transpose,
+  transposeEx,
+} from './score-editor/commands';
 import { StatusBar } from './shell/StatusBar';
 import { useSelectionAnnouncer } from './shell/announcer';
 import { WriteToolbar } from './shell/toolbar/WriteToolbar';
@@ -246,6 +321,7 @@ import { requestAiTextImpl } from './score-editor/ai-text-request';
 import { sendAiChatMessage } from './score-editor/ai-chat';
 import { requestAiPatch } from './score-editor/ai-patch-request';
 import { useEditorCore, type EditorCoreLateInputs } from './score-editor/core';
+import { promptForText } from './score-editor/prompt-for-text';
 
 
 export default function ScoreEditor() {
@@ -525,6 +601,11 @@ export default function ScoreEditor() {
     playSelectionPreview: async () => undefined as never,
     refreshNoteInputCursor: async () => undefined as never,
   });
+  const core = useEditorCore({
+    refreshPageCount,
+    renderScore,
+    lateInputs,
+  });
   const {
     blockOverlayRefreshRef,
     clientToEngravingPoint,
@@ -567,11 +648,7 @@ export default function ScoreEditor() {
     setZoom,
     textEditorPosition,
     zoom,
-  } = useEditorCore({
-    refreshPageCount,
-    renderScore,
-    lateInputs,
-  });
+  } = core;
 
   useEffect(() => {
     noteInputActiveRef.current = false;
@@ -8825,10 +8902,7 @@ ${partsBodyXml}
     }
   };
 
-  const promptForText = (label: string, defaultValue?: string) =>
-    promptDialog({ title: label.replace(/:$/, ''), defaultValue });
-
-    const scheduleSelectionOverlayRefresh = (
+      const scheduleSelectionOverlayRefresh = (
     fallbackIndex?: number | null,
     fallbackPoint?: { page: number; x: number; y: number } | null,
     generation?: number,
@@ -8896,31 +8970,11 @@ ${partsBodyXml}
     }
   };
 
-  const handleDeleteSelection = () =>
-    performMutation(
-      'delete selection',
-      async () => {
-        await ensureSelectionInWasm();
-        const del = requireMutation('deleteSelection');
-        if (!del) {
-          return false;
-        }
-        return await del();
-      },
-      { clearSelection: true },
-    );
+  const handleDeleteSelection = () => deleteSelection(core);
   const handleSelectedTextChange = (value: string) => {
     setSelectedTextValue(value);
   };
-  const applySelectedTextValue = (value: string) =>
-    performMutation('set selected text', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('setSelectedText');
-      if (!fn) {
-        return false;
-      }
-      return fn(value);
-    });
+  const applySelectedTextValue = (value: string) => applySelectedText(core, value);
   const handleApplySelectedText = () => applySelectedTextValue(selectedTextValue);
   const handleSetInspectorProperty = async (
     propertyName: InspectorPropertyName,
@@ -8999,59 +9053,8 @@ ${partsBodyXml}
       },
       { skipWasmReselect: true, playSelectionPreview: true, incrementalLayout: true },
     );
-  const handleTranspose = (semitones: number) =>
-    performMutation(
-      `transpose ${semitones} semitones`,
-      async () => {
-        const fn = requireMutation('transpose');
-        if (!fn) return;
-        // Use BY_INTERVAL mode with the closest standard interval for octave shortcuts
-        // For octave up/down (±12), use Perfect Octave (index 25)
-        const absSemitones = Math.abs(semitones);
-        if (absSemitones === 12) {
-          const direction = semitones > 0 ? 0 : 1; // UP=0, DOWN=1
-          return fn(1, direction, 0, 25, true, true, true); // BY_INTERVAL, Perfect Octave
-        }
-        // For other semitone values, use BY_INTERVAL with lookup
-        // Simple mapping: semitones to interval index (common ones)
-        const semitonesToInterval: Record<number, number> = {
-          1: 3,
-          2: 4,
-          3: 7,
-          4: 8,
-          5: 11,
-          6: 12,
-          7: 14,
-          8: 17,
-          9: 18,
-          10: 21,
-          11: 22,
-          12: 25,
-        };
-        const idx = semitonesToInterval[absSemitones] ?? 0;
-        const direction = semitones > 0 ? 0 : 1;
-        return fn(1, direction, 0, idx, true, true, true);
-      },
-      { skipWasmReselect: true, playSelectionPreview: true, incrementalLayout: true },
-    );
-  const handleTransposeEx = (
-    mode: number,
-    direction: number,
-    key: number,
-    interval: number,
-    trKeys: boolean,
-    trChordNames: boolean,
-    useDoubleSharpsFlats: boolean,
-  ) =>
-    performMutation(
-      'transpose',
-      async () => {
-        const fn = requireMutation('transpose');
-        if (!fn) return;
-        return fn(mode, direction, key, interval, trKeys, trChordNames, useDoubleSharpsFlats);
-      },
-      { skipWasmReselect: true, playSelectionPreview: true },
-    );
+  const handleTranspose = (semitones: number) => transpose(core, semitones);
+  const handleTransposeEx = (mode: number, direction: number, key: number, interval: number, trKeys: boolean, trChordNames: boolean, useDoubleSharpsFlats: boolean) => transposeEx(core, mode, direction, key, interval, trKeys, trChordNames, useDoubleSharpsFlats);
   const handleSelectAll = async () => {
     if (!score) return;
     const fn = requireMutation('selectAll');
@@ -9081,46 +9084,13 @@ ${partsBodyXml}
       }
     }
   };
-  const handleInsertMeasures = (count: number, target: MeasureInsertTarget) =>
-    performMutation('insert measures', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('insertMeasures');
-      if (!fn) return false;
-      const sanitized = Math.max(1, Math.floor(count));
-      const targetValue =
-        measureInsertTargetMap[target] ?? measureInsertTargetMap['after-selection'];
-      return fn(sanitized, targetValue);
-    });
-  const handleAddPickup = (numerator: number, denominator: number) =>
-    performMutation('add pickup measure', async () => {
-      const fn = requireMutation('addPickupMeasure');
-      if (!fn) return false;
-      return fn(numerator, denominator);
-    });
+  const handleInsertMeasures = (count: number, target: MeasureInsertTarget) => insertMeasures(core, count, target);
+  const handleAddPickup = (numerator: number, denominator: number) => addPickup(core, numerator, denominator);
   // Deletes the measures the current selection sits in. ensureSelectionInWasm is
   // required because the engine resolves the measure range from its own selection
   // state, which a UI-side selection has not necessarily reached yet.
-  const handleRemoveContainingMeasures = () =>
-    performMutation(
-      'remove containing measures',
-      async () => {
-        await ensureSelectionInWasm();
-        const fn = requireMutation('removeSelectedMeasures');
-        if (!fn) return false;
-        return fn();
-      },
-      { clearSelection: true, skipWasmReselect: true },
-    );
-  const handleRemoveTrailingEmptyMeasures = () =>
-    performMutation(
-      'remove trailing empty measures',
-      async () => {
-        const fn = requireMutation('removeTrailingEmptyMeasures');
-        if (!fn) return false;
-        return fn();
-      },
-      { clearSelection: true, skipWasmReselect: true },
-    );
+  const handleRemoveContainingMeasures = () => removeContainingMeasures(core);
+  const handleRemoveTrailingEmptyMeasures = () => removeTrailingEmptyMeasures(core);
   const handleSelectNextChord = async () => {
     if (!score) return;
     await projectSelectionInWasmIfNeeded();
@@ -9277,118 +9247,19 @@ ${partsBodyXml}
     extendSelectionBy('extendSelectionStaffAbove', 'first');
   const handleExtendSelectionStaffBelow = () =>
     extendSelectionBy('extendSelectionStaffBelow', 'last');
-  const handleSetAccidental = (accidentalType: number) => {
-    return performMutation(
-      `set accidental ${accidentalType}`,
-      async () => {
-        await ensureSelectionInWasm();
-        const fn = requireMutation('setAccidental');
-        if (!fn) return;
-        return fn(accidentalType);
-      },
-      { playSelectionPreview: true, incrementalLayout: true },
-    );
-  };
-  const handleDurationLonger = () =>
-    performMutation(
-      'lengthen duration',
-      async () => {
-        await ensureSelectionInWasm();
-        const fn = requireMutation('doubleDuration');
-        if (!fn) return;
-        return fn();
-      },
-      { playSelectionPreview: true },
-    );
-  const handleDurationShorter = () =>
-    performMutation(
-      'shorten duration',
-      async () => {
-        await ensureSelectionInWasm();
-        const fn = requireMutation('halfDuration');
-        if (!fn) return;
-        return fn();
-      },
-      { playSelectionPreview: true },
-    );
+  const handleSetAccidental = (accidentalType: number) => setAccidental(core, accidentalType);
+  const handleDurationLonger = () => durationLonger(core);
+  const handleDurationShorter = () => durationShorter(core);
 
-  const handleToggleDot = () =>
-    performMutation(
-      'toggle dot',
-      async () => {
-        await ensureSelectionInWasm();
-        const fn = requireMutation('toggleDot');
-        if (!fn) return;
-        return fn();
-      },
-      { playSelectionPreview: true },
-    );
+  const handleToggleDot = () => toggleDot(core);
 
-  const handleToggleDoubleDot = () =>
-    performMutation(
-      'toggle double dot',
-      async () => {
-        await ensureSelectionInWasm();
-        const fn = requireMutation('toggleDoubleDot');
-        if (!fn) return;
-        return fn();
-      },
-      { playSelectionPreview: true },
-    );
+  const handleToggleDoubleDot = () => toggleDoubleDot(core);
 
-  const handleSetDurationType = (durationType: number) =>
-    performMutation(
-      'set duration',
-      async () => {
-        await ensureSelectionInWasm();
-        const fn = requireMutation('setDurationType');
-        if (!fn) return;
-        return fn(durationType);
-      },
-      { playSelectionPreview: true },
-    );
+  const handleSetDurationType = (durationType: number) => setDurationType(core, durationType);
 
-  const handleAddPitchByStep = (noteIndex: number, addToChord: boolean) => {
-    const enteringNotes = noteInputActiveRef.current;
-    const shouldAdvanceSelection = !enteringNotes && !addToChord;
-    return performMutation(
-      'add pitch',
-      async () => {
-        if (!enteringNotes) {
-          await ensureSelectionInWasm();
-        }
-        const fn = requireMutation('addPitchByStep');
-        if (!fn) return;
-        return fn(noteIndex, addToChord, false);
-      },
-      {
-        skipWasmReselect: true,
-        skipSelectionFallback: enteringNotes || shouldAdvanceSelection,
-        advanceSelection: shouldAdvanceSelection,
-        playSelectionPreview: true,
-      },
-    );
-  };
+  const handleAddPitchByStep = (noteIndex: number, addToChord: boolean) => addPitchByStep(core, noteIndex, addToChord);
 
-  const handleEnterRest = () => {
-    const enteringNotes = noteInputActiveRef.current;
-    return performMutation(
-      'enter rest',
-      async () => {
-        if (!enteringNotes) {
-          await ensureSelectionInWasm();
-        }
-        const fn = requireMutation('enterRest');
-        if (!fn) return;
-        return fn();
-      },
-      {
-        skipWasmReselect: true,
-        skipSelectionFallback: true,
-        advanceSelection: !enteringNotes,
-      },
-    );
-  };
+  const handleEnterRest = () => enterRest(core);
 
   const setNoteInputMode = async (enabled: boolean) => {
     const targetScore = score;
@@ -9441,41 +9312,11 @@ ${partsBodyXml}
   };
 
   // Input-state setters only touch the engine InputState — no relayout needed.
-  const handleSetInputDuration = async (durationType: number) => {
-    const fn = score?.setInputDurationType;
-    if (!fn) {
-      return;
-    }
-    try {
-      await Promise.resolve(fn.call(score, durationType));
-    } catch (err) {
-      console.warn('setInputDurationType failed:', err);
-    }
-  };
+  const handleSetInputDuration = (durationType: number) => setInputDuration(core, durationType);
 
-  const handleToggleInputDotState = async () => {
-    const fn = score?.toggleInputDot;
-    if (!fn) {
-      return;
-    }
-    try {
-      await Promise.resolve(fn.call(score));
-    } catch (err) {
-      console.warn('toggleInputDot failed:', err);
-    }
-  };
+  const handleToggleInputDotState = () => toggleInputDotState(core);
 
-  const handleSetInputAccidental = async (accidentalType: number) => {
-    const fn = score?.setInputAccidentalType;
-    if (!fn) {
-      return;
-    }
-    try {
-      await Promise.resolve(fn.call(score, accidentalType));
-    } catch (err) {
-      console.warn('setInputAccidentalType failed:', err);
-    }
-  };
+  const handleSetInputAccidental = (accidentalType: number) => setInputAccidental(core, accidentalType);
 
   const handleSetInputVoice = async (voiceIndex: number) => {
     const fn = score?.setVoice;
@@ -9526,29 +9367,9 @@ ${partsBodyXml}
     }
   };
 
-  const handleToggleLineBreak = () =>
-    performMutation(
-      'toggle line break',
-      async () => {
-        await ensureSelectionInWasm();
-        const fn = requireMutation('toggleLineBreak');
-        if (!fn) return;
-        return fn();
-      },
-      { skipWasmReselect: true },
-    );
+  const handleToggleLineBreak = () => toggleLineBreak(core);
 
-  const handleTogglePageBreak = () =>
-    performMutation(
-      'toggle page break',
-      async () => {
-        await ensureSelectionInWasm();
-        const fn = requireMutation('togglePageBreak');
-        if (!fn) return;
-        return fn();
-      },
-      { skipWasmReselect: true },
-    );
+  const handleTogglePageBreak = () => togglePageBreak(core);
 
   // Delete on a selected line or page break removes the break, as it does in MuseScore.
   const handleDeleteOrBreak = () =>
@@ -9558,184 +9379,41 @@ ${partsBodyXml}
         ? handleTogglePageBreak()
         : handleDeleteSelection();
 
-  const handleSetVoice = (voiceIndex: number) => {
-    const hasSelection = Boolean(selectedElement) || selectionBoxes.length > 0;
-    if (!hasSelection) {
-      notifyWarning('Select notes or rests to move them to another voice.');
-      return;
-    }
-    return performMutation(`change voice ${voiceIndex + 1}`, async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('changeSelectedElementsVoice');
-      if (!fn) return;
-      return fn(voiceIndex);
-    });
-  };
+  const handleSetVoice = (voiceIndex: number) => setVoice(core, voiceIndex);
 
-  const handleSetNoteheadGroup = (noteheadGroup: number) =>
-    performMutation('set notehead group', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('setNoteheadGroup');
-      if (!fn) return false;
-      return fn(noteheadGroup);
-    });
+  const handleSetNoteheadGroup = (noteheadGroup: number) => setNoteheadGroup(core, noteheadGroup);
 
-  const handleSetBeamMode = (beamMode: number) =>
-    performMutation('set beam mode', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('setBeamMode');
-      if (!fn) return false;
-      return fn(beamMode);
-    });
+  const handleSetBeamMode = (beamMode: number) => setBeamMode(core, beamMode);
 
-  const handleAddDynamic = (dynamicType: number) =>
-    performMutation('add dynamic', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addDynamic');
-      if (!fn) return;
-      return fn(dynamicType);
-    },
-      { incrementalLayout: true },
-    );
+  const handleAddDynamic = (dynamicType: number) => addDynamic(core, dynamicType);
 
-  const handleAddHairpin = (hairpinType: number) =>
-    performMutation('add hairpin', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addHairpin');
-      if (!fn) return;
-      return fn(hairpinType);
-    },
-      { incrementalLayout: true },
-    );
+  const handleAddHairpin = (hairpinType: number) => addHairpin(core, hairpinType);
 
-  const handleAddFermata = (fermataVariant: number) =>
-    performMutation('add fermata', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addFermata');
-      if (!fn) return false;
-      return fn(fermataVariant);
-    },
-      { incrementalLayout: true },
-    );
+  const handleAddFermata = (fermataVariant: number) => addFermata(core, fermataVariant);
 
-  const handleAddBreath = (breathType: number) =>
-    performMutation('add breath or caesura', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addBreath');
-      if (!fn) return false;
-      return fn(breathType);
-    },
-      { incrementalLayout: true },
-    );
+  const handleAddBreath = (breathType: number) => addBreath(core, breathType);
 
-  const handleAddArpeggio = (arpeggioType: number) =>
-    performMutation('add arpeggio', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addArpeggio');
-      if (!fn) return false;
-      return fn(arpeggioType);
-    },
-      { incrementalLayout: true },
-    );
+  const handleAddArpeggio = (arpeggioType: number) => addArpeggio(core, arpeggioType);
 
-  const handleAddTremolo = (tremoloType: number) =>
-    performMutation('add tremolo', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addTremolo');
-      if (!fn) return false;
-      return fn(tremoloType);
-    },
-      { incrementalLayout: true },
-    );
+  const handleAddTremolo = (tremoloType: number) => addTremolo(core, tremoloType);
 
-  const handleAddOttava = (ottavaType: number) =>
-    performMutation('add ottava', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addOttava');
-      if (!fn) return false;
-      return fn(ottavaType);
-    },
-      { incrementalLayout: true },
-    );
+  const handleAddOttava = (ottavaType: number) => addOttava(core, ottavaType);
 
-  const handleAddTrill = (trillType: number) =>
-    performMutation('add trill line', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addTrill');
-      if (!fn) return false;
-      return fn(trillType);
-    },
-      { incrementalLayout: true },
-    );
+  const handleAddTrill = (trillType: number) => addTrill(core, trillType);
 
-  const handleAddGlissando = (glissandoType: number) =>
-    performMutation('add glissando', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addGlissando');
-      if (!fn) return false;
-      return fn(glissandoType);
-    });
+  const handleAddGlissando = (glissandoType: number) => addGlissando(core, glissandoType);
 
-  const handleAddPedal = (pedalVariant: number) =>
-    performMutation('add pedal', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addPedal');
-      if (!fn) return;
-      return fn(pedalVariant);
-    },
-      { incrementalLayout: true },
-    );
+  const handleAddPedal = (pedalVariant: number) => addPedal(core, pedalVariant);
 
-  const handleAddSostenutoPedal = () =>
-    performMutation('add sostenuto pedal', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addSostenutoPedal');
-      if (!fn) return;
-      return fn();
-    },
-      { incrementalLayout: true },
-    );
+  const handleAddSostenutoPedal = () => addSostenutoPedal(core);
 
-  const handleAddUnaCorda = () =>
-    performMutation('add una corda', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addUnaCorda');
-      if (!fn) return;
-      return fn();
-    },
-      { incrementalLayout: true },
-    );
+  const handleAddUnaCorda = () => addUnaCorda(core);
 
-  const handleSplitPedal = () =>
-    performMutation('split pedal', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('splitPedal');
-      if (!fn) return;
-      return fn();
-    });
+  const handleSplitPedal = () => splitPedal(core);
 
-  const handleAddTempoText = (bpm: number) => {
-    const hadSelection = Boolean(selectedElement);
-    return performMutation(
-      'add tempo text',
-      async () => {
-        const fn = requireMutation('addTempoText');
-        if (!fn) return;
-        return fn(bpm);
-      },
-      hadSelection ? { incrementalLayout: true } : { clearSelection: true, incrementalLayout: true },
-    );
-  };
+  const handleAddTempoText = (bpm: number) => addTempoText(core, bpm);
 
-  const handleAddArticulation = (articulationSymbolName: string) =>
-    performMutation(`add articulation ${articulationSymbolName}`, async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addArticulation');
-      if (!fn) return;
-      return fn(articulationSymbolName);
-    },
-      { incrementalLayout: true },
-    );
+  const handleAddArticulation = (articulationSymbolName: string) => addArticulation(core, articulationSymbolName);
 
   const handleAddFretDiagram = async (pattern: string) => {
     await performMutation(
@@ -9751,29 +9429,10 @@ ${partsBodyXml}
     await refreshInspector();
   };
 
-  const handleAddAmbitus = () =>
-    performMutation(
-      'add ambitus',
-      async () => {
-        await ensureSelectionInWasm();
-        const fn = requireMutation('addAmbitus');
-        if (!fn) return false;
-        return fn();
-      },
-      { skipWasmReselect: true, skipSelectionFallback: true, incrementalLayout: true },
-    );
+  const handleAddAmbitus = () => addAmbitus(core);
 
-  const runRangeTool = (
-    label: string,
-    method:
-      'explodeSelection' | 'implodeSelection' | 'regroupSelection' | 'resequenceRehearsalMarks',
-  ) =>
-    performMutation(label, async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation(method);
-      if (!fn) return false;
-      return fn();
-    });
+  const runRangeTool = (label: string, method:
+      'explodeSelection' | 'implodeSelection' | 'regroupSelection' | 'resequenceRehearsalMarks') => runRangeToolOnSelection(core, label, method);
 
   const handleApplyFloatingPaletteItem = (item: ScorePaletteItem) => {
     switch (item.kind) {
@@ -9836,105 +9495,23 @@ ${partsBodyXml}
     }
   };
 
-  const handleAddSlur = () =>
-    performMutation('add slur', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addSlur');
-      if (!fn) return;
-      return fn();
-    },
-      { incrementalLayout: true },
-    );
+  const handleAddSlur = () => addSlur(core);
 
-  const handleFlipStem = () =>
-    performMutation('flip stem', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('flipStem');
-      if (!fn) return false;
-      return fn();
-    },
-      { incrementalLayout: true },
-    );
+  const handleFlipStem = () => flipStem(core);
 
-  const handleAddTie = () =>
-    performMutation('add tie', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addTie');
-      if (!fn) return;
-      return fn();
-    },
-      { incrementalLayout: true },
-    );
+  const handleAddTie = () => addTie(core);
 
-  const handleAddGraceNote = (graceType: number) =>
-    performMutation(`add grace note ${graceType}`, async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addGraceNote');
-      if (!fn) return;
-      return fn(graceType);
-    },
-      { incrementalLayout: true },
-    );
+  const handleAddGraceNote = (graceType: number) => addGraceNote(core, graceType);
 
-  const handleAddTuplet = (tupletCount: number) =>
-    performMutation(`add tuplet ${tupletCount}`, async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addTuplet');
-      if (!fn) return;
-      return fn(tupletCount);
-    });
+  const handleAddTuplet = (tupletCount: number) => addTuplet(core, tupletCount);
 
-  const handleAddStaffText = async () => {
-    const text = await promptForText('Staff text:');
-    if (text === null) {
-      return;
-    }
-    return performMutation('add staff text', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addStaffText');
-      if (!fn) return;
-      return fn(text);
-    });
-  };
+  const handleAddStaffText = () => addStaffText(core);
 
-  const handleAddSystemText = async () => {
-    const text = await promptForText('System text:');
-    if (text === null) {
-      return;
-    }
-    return performMutation('add system text', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addSystemText');
-      if (!fn) return;
-      return fn(text);
-    });
-  };
+  const handleAddSystemText = () => addSystemText(core);
 
-  const handleAddExpressionText = async () => {
-    const text = await promptForText('Expression text:');
-    if (text === null) {
-      return;
-    }
-    return performMutation('add expression text', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addExpressionText');
-      if (!fn) return;
-      return fn(text);
-    });
-  };
+  const handleAddExpressionText = () => addExpressionText(core);
 
-  const handleAddLyricText = async () => {
-    const text = await promptForText('Lyrics text:');
-    if (text === null) {
-      return;
-    }
-    return performMutation('add lyric text', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addLyricText');
-      if (!fn) return;
-      return fn(text);
-    });
-  };
+  const handleAddLyricText = () => addLyricText(core);
 
   const harmonyLabels: Record<HarmonyVariant, string> = {
     0: 'Chord symbol',
@@ -9956,188 +9533,37 @@ ${partsBodyXml}
     });
   };
 
-  const handleAddFingeringText = async () => {
-    const text = await promptForText('Fingering text:');
-    if (text === null) {
-      return;
-    }
-    return performMutation('add fingering text', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addFingeringText');
-      if (!fn) return;
-      return fn(text);
-    });
-  };
+  const handleAddFingeringText = () => addFingeringText(core);
 
-  const handleAddLeftHandGuitarFingeringText = async () => {
-    const text = await promptForText('Left-hand guitar fingering text:');
-    if (text === null) {
-      return;
-    }
-    return performMutation('add left-hand guitar fingering text', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addLeftHandGuitarFingeringText');
-      if (!fn) return;
-      return fn(text);
-    });
-  };
+  const handleAddLeftHandGuitarFingeringText = () => addLeftHandGuitarFingeringText(core);
 
-  const handleAddRightHandGuitarFingeringText = async () => {
-    const text = await promptForText('Right-hand guitar fingering text:');
-    if (text === null) {
-      return;
-    }
-    return performMutation('add right-hand guitar fingering text', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addRightHandGuitarFingeringText');
-      if (!fn) return;
-      return fn(text);
-    });
-  };
+  const handleAddRightHandGuitarFingeringText = () => addRightHandGuitarFingeringText(core);
 
-  const handleAddStringNumberText = async () => {
-    const text = await promptForText('String number text:');
-    if (text === null) {
-      return;
-    }
-    return performMutation('add string number text', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addStringNumberText');
-      if (!fn) return;
-      return fn(text);
-    });
-  };
+  const handleAddStringNumberText = () => addStringNumberText(core);
 
-  const handleAddInstrumentChangeText = async () => {
-    const text = await promptForText('Instrument change text:');
-    if (text === null) {
-      return;
-    }
-    return performMutation('add instrument change text', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addInstrumentChangeText');
-      if (!fn) return;
-      return fn(text);
-    });
-  };
+  const handleAddInstrumentChangeText = () => addInstrumentChangeText(core);
 
-  const handleAddStickingText = async () => {
-    const text = await promptForText('Sticking text:');
-    if (text === null) {
-      return;
-    }
-    return performMutation('add sticking text', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addStickingText');
-      if (!fn) return;
-      return fn(text);
-    });
-  };
+  const handleAddStickingText = () => addStickingText(core);
 
-  const handleAddFiguredBassText = async () => {
-    const text = await promptForText('Figured bass text:');
-    if (text === null) {
-      return;
-    }
-    return performMutation('add figured bass text', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addFiguredBassText');
-      if (!fn) return;
-      return fn(text);
-    });
-  };
+  const handleAddFiguredBassText = () => addFiguredBassText(core);
 
-  const handleAddNoteFromRest = () =>
-    performMutation(
-      'add note',
-      async () => {
-        await ensureSelectionInWasm();
-        const fn = requireMutation('addNoteFromRest');
-        if (!fn) return;
-        return fn();
-      },
-      { playSelectionPreview: true },
-    );
+  const handleAddNoteFromRest = () => addNoteFromRest(core);
 
-  const handleToggleRepeatStart = () =>
-    performMutation('toggle repeat start', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('toggleRepeatStart');
-      if (!fn) return;
-      return fn();
-    },
-      { incrementalLayout: true },
-    );
+  const handleToggleRepeatStart = () => toggleRepeatStart(core);
 
-  const handleToggleRepeatEnd = () =>
-    performMutation('toggle repeat end', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('toggleRepeatEnd');
-      if (!fn) return;
-      return fn();
-    },
-      { incrementalLayout: true },
-    );
+  const handleToggleRepeatEnd = () => toggleRepeatEnd(core);
 
-  const handleSetRepeatCount = (count: number) =>
-    performMutation(`set repeat count ${count}`, async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('setRepeatCount');
-      if (!fn) return;
-      return fn(count);
-    },
-      { incrementalLayout: true },
-    );
+  const handleSetRepeatCount = (count: number) => setRepeatCount(core, count);
 
-  const handleSetBarLineType = (barLineType: number) =>
-    performMutation(`set barline type ${barLineType}`, async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('setBarLineType');
-      if (!fn) return;
-      return fn(barLineType);
-    },
-      { incrementalLayout: true },
-    );
+  const handleSetBarLineType = (barLineType: number) => setBarLineType(core, barLineType);
 
-  const handleAddVolta = (endingNumber: number) =>
-    performMutation(`add volta ${endingNumber}`, async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addVolta');
-      if (!fn) return;
-      return fn(endingNumber);
-    });
+  const handleAddVolta = (endingNumber: number) => addVolta(core, endingNumber);
 
-  const handleAddMarker = (markerType: number) =>
-    performMutation('add navigation marker', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addMarker');
-      if (!fn) return false;
-      return fn(markerType);
-    },
-      { incrementalLayout: true },
-    );
+  const handleAddMarker = (markerType: number) => addMarker(core, markerType);
 
-  const handleAddJump = (jumpType: number) =>
-    performMutation('add playback jump', async () => {
-      await ensureSelectionInWasm();
-      const fn = requireMutation('addJump');
-      if (!fn) return false;
-      return fn(jumpType);
-    },
-      { incrementalLayout: true },
-    );
+  const handleAddJump = (jumpType: number) => addJump(core, jumpType);
 
-  const handleAddMeasureRepeat = (numMeasures: number) =>
-    performMutation(
-      'add measure repeat',
-      async () => {
-        await ensureSelectionInWasm();
-        const fn = requireMutation('addMeasureRepeat');
-        if (!fn) return false;
-        return fn(numMeasures);
-      },
-      { skipWasmReselect: true, skipSelectionFallback: true },
-    );
+  const handleAddMeasureRepeat = (numMeasures: number) => addMeasureRepeat(core, numMeasures);
 
   const handleSetMultiMeasureRests = (enabled: boolean) =>
     performMutation(
@@ -10583,30 +10009,9 @@ ${partsBodyXml}
     }
   };
 
-    const handleExportSvg = async () => {
-    if (!score) return;
-    try {
-      const svg = await runSerializedScoreOperation(
-        () => score.saveSvg(0, true),
-        'saveSvg(export)',
-      );
-      downloadBlob(svg, 'score.svg', 'image/svg+xml');
-    } catch (err) {
-      console.error('Failed to export SVG', err);
-      notifyError('Unable to export SVG. See console for details.');
-    }
-  };
+    const handleExportSvg = () => exportSvg(core);
 
-  const handleExportPdf = async () => {
-    if (!score) return;
-    try {
-      const pdf = await score.savePdf();
-      downloadBlob(pdf, 'score.pdf', 'application/pdf');
-    } catch (err) {
-      console.error('Failed to export PDF', err);
-      notifyError('Unable to export PDF. See console for details.');
-    }
-  };
+  const handleExportPdf = () => exportPdf(core);
 
   const handleExportPng = async () => {
     if (!score || !score.savePng) {
@@ -10657,33 +10062,9 @@ ${partsBodyXml}
     }
   };
 
-  const handleExportMxl = async () => {
-    if (!score || !score.saveMxl) {
-      notifyError('MXL export is not available in this build.');
-      return;
-    }
-    try {
-      const mxl = await score.saveMxl();
-      downloadBlob(mxl, 'score.mxl', 'application/vnd.recordare.musicxml');
-    } catch (err) {
-      console.error('Failed to export MXL', err);
-      notifyError('Unable to export MXL. See console for details.');
-    }
-  };
+  const handleExportMxl = () => exportMxl(core);
 
-  const handleExportMscz = async () => {
-    if (!score || !score.saveMsc) {
-      notifyError('MSCZ export is not available in this build.');
-      return;
-    }
-    try {
-      const mscz = await score.saveMsc('mscz');
-      downloadBlob(mscz, 'score.mscz', 'application/vnd.musescore.mscz');
-    } catch (err) {
-      console.error('Failed to export MSCZ', err);
-      notifyError('Unable to export MSCZ. See console for details.');
-    }
-  };
+  const handleExportMscz = () => exportMscz(core);
 
   const handleExportToGoogleDrive = async () => {
     if (!score || !score.saveMsc) {
@@ -10746,33 +10127,9 @@ ${partsBodyXml}
     }
   };
 
-  const handleExportMscx = async () => {
-    if (!score || !score.saveMsc) {
-      notifyError('MSCX export is not available in this build.');
-      return;
-    }
-    try {
-      const mscx = await score.saveMsc('mscx');
-      downloadBlob(mscx, 'score.mscx', 'application/xml');
-    } catch (err) {
-      console.error('Failed to export MSCX', err);
-      notifyError('Unable to export MSCX. See console for details.');
-    }
-  };
+  const handleExportMscx = () => exportMscx(core);
 
-  const handleExportMusicXml = async () => {
-    if (!score || !score.saveXml) {
-      notifyError('MusicXML export is not available in this build.');
-      return;
-    }
-    try {
-      const xml = await runSerializedScoreOperation(() => score.saveXml!(), 'saveXml(export)');
-      downloadBlob(xml, 'score.musicxml', 'application/vnd.recordare.musicxml+xml');
-    } catch (err) {
-      console.error('Failed to export MusicXML', err);
-      notifyError('Unable to export MusicXML. See console for details.');
-    }
-  };
+  const handleExportMusicXml = () => exportMusicXml(core);
 
   const handleExportAbc = async () => {
     if (!score || !score.saveXml) {
@@ -10808,19 +10165,7 @@ ${partsBodyXml}
     }
   };
 
-  const handleExportMidi = async () => {
-    if (!score || !score.saveMidi) {
-      notifyError('MIDI export is not available in this build.');
-      return;
-    }
-    try {
-      const midi = await score.saveMidi(true, true);
-      downloadBlob(midi, 'score.mid', 'audio/midi');
-    } catch (err) {
-      console.error('Failed to export MIDI', err);
-      notifyError('Unable to export MIDI. See console for details.');
-    }
-  };
+  const handleExportMidi = () => exportMidi(core);
 
   const handleExportAudio = async () => {
     if (!score || !score.saveAudio) {

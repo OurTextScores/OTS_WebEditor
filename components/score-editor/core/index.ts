@@ -1,1 +1,6 @@
-export { useEditorCore, type EditorCoreContext, type EditorCoreLateInputs } from './useEditorCore';
+export {
+  useEditorCore,
+  type EditorCore,
+  type EditorCoreContext,
+  type EditorCoreLateInputs,
+} from './useEditorCore';

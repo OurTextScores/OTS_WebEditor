@@ -715,3 +715,6 @@ export function useEditorCore(ctx: EditorCoreContext) {
     zoom,
   };
 }
+
+/** What the editor core returns: the one object that command modules take. */
+export type EditorCore = ReturnType<typeof useEditorCore>;
