@@ -11,6 +11,7 @@ import {
   resetShellUiForTests,
 } from '../../components/shell/shellStore';
 import { CommandRegistry, DEFAULT_COMMAND_CONTEXT } from '../../lib/commands/registry';
+import { needsRange } from '../../lib/commands/selectionGates';
 import { defineCommand, defineFamily, type CommandContext } from '../../lib/commands/types';
 
 beforeEach(() => {
@@ -243,5 +244,51 @@ describe('CommandPalette', () => {
       await open('goto');
       expect(screen.getByTestId('palette-empty')).toHaveTextContent('Type a bar');
     });
+  });
+});
+
+describe('CommandPalette: why a command is unavailable', () => {
+  function setupGated(selection: CommandContext['selection']) {
+    const registry = new CommandRegistry();
+    const full: CommandContext = {
+      ...DEFAULT_COMMAND_CONTEXT,
+      hasScore: true,
+      isMutable: true,
+      selection,
+    };
+    registry.setContextSource(() => full);
+    registry.register('global', [
+      defineCommand({ id: 'tools.explode', label: 'Explode', enabled: needsRange, run: vi.fn() }),
+      defineCommand({ id: 'edit.undo', label: 'Undo', enabled: (c) => c.canUndo, run: vi.fn() }),
+    ]);
+    render(<CommandPalette registry={registry} />);
+  }
+  const rowFor = (title: string) =>
+    screen.getAllByTestId('palette-row').find((row) => row.textContent?.includes(title))!;
+
+  it('shows the gate\u2019s reason in place of "Unavailable"', async () => {
+    setupGated('none');
+    await open();
+    const row = rowFor('Explode');
+    expect(row).toHaveAttribute('aria-disabled', 'true');
+    expect(within(row).getByTestId('palette-row-reason')).toHaveTextContent(
+      'Select a range of bars or notes',
+    );
+    expect(row).not.toHaveTextContent('Unavailable');
+  });
+
+  it('says "Unavailable" when a command gives no reason', async () => {
+    setupGated('none');
+    await open();
+    expect(within(rowFor('Undo')).getByTestId('palette-row-reason')).toHaveTextContent(
+      'Unavailable',
+    );
+  });
+
+  it('shows no reason once the command is available', async () => {
+    setupGated('range');
+    await open();
+    expect(rowFor('Explode')).not.toHaveAttribute('aria-disabled');
+    expect(within(rowFor('Explode')).queryByTestId('palette-row-reason')).toBeNull();
   });
 });

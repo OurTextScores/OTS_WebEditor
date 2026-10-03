@@ -2,12 +2,16 @@ import type { MeasureInsertTarget } from './editorProps';
 import type { EditorCommandProps } from './editorProps';
 import {
   always,
+  inNoteInput,
   mutable,
   needsBarTarget,
   needsRange,
   needsSelection,
   needsSelectionOutsideInput,
+  needsSingle,
+  needsSingleOrInput,
   needsTarget,
+  withCheck,
   type Gate,
 } from '../../lib/commands/selectionGates';
 import {
@@ -51,6 +55,7 @@ import {
 } from '../../lib/commands/types';
 import { confirmDialog } from '../shell/notices';
 import { openFilePicker } from '../shell/filePickers';
+import { pickFile } from './file-picker';
 
 /**
  * Every editor action as a command (SHELL_REDESIGN_DESIGN Phase 0).
@@ -90,18 +95,6 @@ const centre = () =>
     ? { clientX: 0, clientY: 0 }
     : { clientX: window.innerWidth / 2, clientY: window.innerHeight / 2 };
 
-/** Opens the system file picker; resolves with the chosen file, or null if dismissed. */
-function pickFile(accept: string): Promise<File | null> {
-  return new Promise((resolve) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = accept;
-    input.addEventListener('change', () => resolve(input.files?.[0] ?? null), { once: true });
-    input.addEventListener('cancel', () => resolve(null), { once: true });
-    input.click();
-  });
-}
-
 const integer = (value: unknown, fallback: number, minimum = 1): number => {
   const parsed = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(parsed) ? Math.max(minimum, Math.floor(parsed)) : fallback;
@@ -116,6 +109,7 @@ export interface TimeSignatureArgs {
 export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
   const p = getProps;
   const has = (key: keyof Props) => Boolean(p()[key]);
+  const gated = (gate: Gate, key: keyof Props) => withCheck(gate, () => has(key));
 
   /** A command that calls one no-argument handler. */
   const action = (
@@ -133,7 +127,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       id,
       label,
       ...extra,
-      enabled: (ctx) => gate(ctx) && has(key),
+      enabled: gated(gate, key),
       run: async () => {
         await (p()[key] as (() => unknown) | undefined)?.();
       },
@@ -156,7 +150,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
         label: item.label,
         testId: testId(item),
       })),
-      enabled: (ctx) => gate(ctx) && has(key),
+      enabled: gated(gate, key),
       run: async (_ctx, arg) => {
         await (p()[key] as ((value: number) => unknown) | undefined)?.(arg);
       },
@@ -186,7 +180,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       label,
       testId: `btn-text-${target}`,
       opensDialog: true,
-      enabled: (ctx) => ctx.isMutable && has('onOpenHeaderEditor'),
+      enabled: gated(mutable, 'onOpenHeaderEditor'),
       run: async (_ctx, args) => {
         await p().onOpenHeaderEditor?.(target, args?.point ?? centre());
       },
@@ -436,7 +430,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
         label: option.label,
         testId: `selection-filter-${option.bit}`,
       })),
-      enabled: (ctx) => ctx.isMutable && has('onSetSelectionFilterBit'),
+      enabled: gated(mutable, 'onSetSelectionFilterBit'),
       checked: (_ctx, bit) => Boolean((p().selectionFilterMask ?? 0xffffff) & bit),
       run: async (_ctx, bit) => {
         const checked = Boolean((p().selectionFilterMask ?? 0xffffff) & bit);
@@ -453,14 +447,14 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       id: 'edit.pitch.octaveUp',
       label: 'Up an Octave',
       testId: 'btn-transpose-12',
-      enabled: (ctx) => needsSelectionOutsideInput(ctx) && has('onTranspose'),
+      enabled: gated(needsSelectionOutsideInput, 'onTranspose'),
       run: () => p().onTranspose?.(12),
     }),
     defineCommand({
       id: 'edit.pitch.octaveDown',
       label: 'Down an Octave',
       testId: 'btn-transpose--12',
-      enabled: (ctx) => needsSelectionOutsideInput(ctx) && has('onTranspose'),
+      enabled: gated(needsSelectionOutsideInput, 'onTranspose'),
       run: () => p().onTranspose?.(-12),
     }),
     action('edit.duration.shorter', 'Shorter', 'onDurationShorter', needsSelectionOutsideInput, {
@@ -469,7 +463,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
     action('edit.duration.longer', 'Longer', 'onDurationLonger', needsSelectionOutsideInput, {
       testId: 'btn-duration-longer',
     }),
-    action('edit.duration.dot', 'Dot', 'onToggleDot', needsTarget, { testId: 'btn-dot' }),
+    action('edit.duration.dot', 'Dot', 'onToggleDot', needsSingleOrInput, { testId: 'btn-dot' }),
     action(
       'edit.duration.doubleDot',
       'Double Dot',
@@ -487,7 +481,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
         label: option.label,
         testId: option.testId,
       })),
-      enabled: (ctx) => needsTarget(ctx) && has('onSetDurationType'),
+      enabled: gated(needsSingleOrInput, 'onSetDurationType'),
       run: (_ctx, durationType) => p().onSetDurationType?.(durationType),
     }),
 
@@ -500,7 +494,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
         { arg: { step, chord: true }, label: `Add ${letter} to chord` },
       ]),
       // In note input the cursor is the target; otherwise the selected note is respelled.
-      enabled: (ctx) => needsTarget(ctx) && has('onAddPitchByStep'),
+      enabled: gated(needsTarget, 'onAddPitchByStep'),
       run: async (_ctx, { step, chord }) => {
         await p().onAddPitchByStep?.(step, chord);
       },
@@ -511,7 +505,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       label: 'Note Input',
       testId: 'btn-note-input',
       keywords: ['enter notes'],
-      enabled: (ctx) => ctx.isMutable && has('onToggleNoteInput'),
+      enabled: gated(mutable, 'onToggleNoteInput'),
       checked: (ctx) => ctx.noteInput,
       run: () => p().onToggleNoteInput?.(),
     }),
@@ -519,7 +513,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       'add.inputMethod',
       'Note Input Method',
       'onSetNoteInputMethod',
-      (ctx) => ctx.isMutable && ctx.noteInput,
+      inNoteInput,
       noteInputMethodOptions,
       (option) => `btn-note-input-method-${option.value}`,
     ),
@@ -531,7 +525,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
         label: option.name,
         testId: `btn-acc-${option.value}`,
       })),
-      enabled: (ctx) => needsTarget(ctx) && has('onSetAccidental'),
+      enabled: gated(needsTarget, 'onSetAccidental'),
       run: (_ctx, accidentalType) => p().onSetAccidental?.(accidentalType),
     }),
     numberFamily(
@@ -558,7 +552,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
         label: option.label,
         testId: `btn-fretboard-${option.label.toLowerCase()}`,
       })),
-      enabled: (ctx) => needsSelection(ctx) && has('onAddFretDiagram'),
+      enabled: gated(needsSelection, 'onAddFretDiagram'),
       run: (_ctx, pattern) => p().onAddFretDiagram?.(pattern),
     }),
     numberFamily(
@@ -578,7 +572,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
         label: `Voice ${voice}`,
         testId: `btn-voice-${voice}`,
       })),
-      enabled: (ctx) => ctx.isMutable && has('onSetVoice'),
+      enabled: gated(mutable, 'onSetVoice'),
       run: (_ctx, voiceIndex) => p().onSetVoice?.(voiceIndex),
     }),
     action('add.line.slur', 'Slur', 'onAddSlur', needsSelection, {
@@ -648,7 +642,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
         label: option.label,
         testId: `btn-dynamic-${option.value}`,
       })),
-      enabled: (ctx) => needsSelection(ctx) && has('onAddDynamic'),
+      enabled: gated(needsSingle, 'onAddDynamic'),
       run: (_ctx, dynamicType) => p().onAddDynamic?.(dynamicType),
     }),
     defineFamily<string>({
@@ -659,7 +653,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
         label: option.label,
         testId: `btn-artic-${option.symbol}`,
       })),
-      enabled: (ctx) => needsSelection(ctx) && has('onAddArticulation'),
+      enabled: gated(needsSelection, 'onAddArticulation'),
       run: (_ctx, symbol) => p().onAddArticulation?.(symbol),
     }),
     numberFamily(
@@ -700,7 +694,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
     headerText('subtitle', 'Subtitle'),
     headerText('composer', 'Composer'),
     headerText('lyricist', 'Lyricist'),
-    action('add.text.staff', 'Staff Text', 'onAddStaffText', needsSelection, {
+    action('add.text.staff', 'Staff Text', 'onAddStaffText', needsSingle, {
       testId: 'btn-text-staff',
     }),
     action('add.text.system', 'System Text', 'onAddSystemText', needsSelection, {
@@ -720,7 +714,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
         { arg: 1, label: 'Roman Numeral', testId: 'btn-text-harmony-roman' },
         { arg: 2, label: 'Nashville Number', testId: 'btn-text-harmony-nashville' },
       ],
-      enabled: (ctx) => needsSelection(ctx) && has('onAddHarmonyText'),
+      enabled: gated(needsSelection, 'onAddHarmonyText'),
       run: (_ctx, variant) => p().onAddHarmonyText?.(variant),
     }),
     action('add.text.figuredBass', 'Figured Bass', 'onAddFiguredBassText', needsSelection, {
@@ -761,7 +755,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       label: 'Tempo',
       testId: 'btn-tempo-apply',
       keywords: ['bpm', 'metronome'],
-      enabled: (ctx) => ctx.isMutable && has('onAddTempoText'),
+      enabled: gated(mutable, 'onAddTempoText'),
       // Same sanitising as the ribbon's Apply: whole BPM, at least 1, 120 when unparseable.
       run: (_ctx, args) => p().onAddTempoText?.(integer(args?.bpm, 120)),
     }),
@@ -782,7 +776,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       label: 'Add Pickup',
       testId: 'btn-add-pickup',
       opensDialog: true,
-      enabled: (ctx) => ctx.isMutable && has('onAddPickup'),
+      enabled: gated(mutable, 'onAddPickup'),
       run: (_ctx, args) =>
         p().onAddPickup?.(integer(args?.numerator, 1), integer(args?.denominator, 4)),
     }),
@@ -799,7 +793,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
         testId: `btn-timesig-${option.numerator}-${option.denominator}`,
       })),
       // Any numerator and denominator is accepted, not just the listed presets.
-      enabled: (ctx) => ctx.isMutable && has('onSetTimeSignature'),
+      enabled: gated(mutable, 'onSetTimeSignature'),
       run: (_ctx, sig) => p().onSetTimeSignature?.(sig.numerator, sig.denominator, sig.timeSigType),
     }),
     defineCommand<{ numerator: number; denominator: number }>({
@@ -807,7 +801,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       label: 'Custom Time Signature',
       testId: 'btn-timesig-custom',
       opensDialog: true,
-      enabled: (ctx) => ctx.isMutable && has('onSetTimeSignature'),
+      enabled: gated(mutable, 'onSetTimeSignature'),
       run: (_ctx, args) => {
         const { numerator, denominator } = args ?? {};
         if (
@@ -961,7 +955,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
     defineCommand<{ index: number }>({
       id: 'instruments.part.toggleVisible',
       label: 'Show or Hide Instrument',
-      enabled: (ctx) => ctx.isMutable && has('onTogglePartVisible'),
+      enabled: gated(mutable, 'onTogglePartVisible'),
       run: (_ctx, args) => {
         const part = p().parts?.find((entry) => entry.index === args?.index);
         if (!part) throw new RangeError(`No part with index ${String(args?.index)}.`);
@@ -972,7 +966,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       id: 'instruments.part.remove',
       label: 'Remove Instrument',
       keywords: ['delete part'],
-      enabled: (ctx) => ctx.isMutable && has('onRemovePart'),
+      enabled: gated(mutable, 'onRemovePart'),
       run: async (_ctx, args) => {
         const part = p().parts?.find((entry) => entry.index === args?.index);
         if (!part) throw new RangeError(`No part with index ${String(args?.index)}.`);

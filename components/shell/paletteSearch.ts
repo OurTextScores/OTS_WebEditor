@@ -6,6 +6,7 @@ import {
   type CommandContext,
   type CommandFamily,
   type CommandId,
+  unmetReason,
 } from '../../lib/commands/types';
 import { variantPathKey } from './menus';
 
@@ -21,6 +22,8 @@ export interface PaletteRow {
   readonly keywords: readonly string[];
   readonly shortcut?: string;
   readonly enabled: boolean;
+  /** Why it is unavailable right now, when the command says. */
+  readonly disabledReason?: string;
 }
 
 /** Commands that need arguments the palette has no form for; they are reached from panels. */
@@ -47,6 +50,8 @@ export function buildPaletteRows(
     const entry = registry.get(id);
     if (!entry) continue;
     const enabled = entry.enabled ? entry.enabled(ctx) : true;
+    const reason = unmetReason(entry.enabled, ctx);
+    const why = reason ? { disabledReason: reason } : {};
 
     if (isCommandFamily(entry)) {
       const family = entry as unknown as CommandFamily<unknown>;
@@ -62,6 +67,7 @@ export function buildPaletteRows(
           keywords: [],
           shortcut: primaryShortcut(id, variant.arg),
           enabled,
+          ...why,
         });
       }
       continue;
@@ -76,6 +82,7 @@ export function buildPaletteRows(
       keywords: command.keywords ?? [],
       shortcut: primaryShortcut(id),
       enabled,
+      ...why,
     });
   }
   return rows;

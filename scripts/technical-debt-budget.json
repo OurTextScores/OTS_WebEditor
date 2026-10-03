@@ -204,8 +204,8 @@
       "maxBytes": 123024
     },
     "components/score-editor/editorCommands.ts": {
-      "maxLines": 1020,
-      "maxBytes": 36657
+      "maxLines": 1014,
+      "maxBytes": 36038
     },
     "lib/music-agents/router.ts": {
       "maxLines": 1716,

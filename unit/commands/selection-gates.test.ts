@@ -5,8 +5,13 @@ import {
   needsBarTarget,
   needsRange,
   needsSelection,
+  inNoteInput,
   needsSelectionOutsideInput,
+  needsSingle,
+  needsSingleOrInput,
   needsTarget,
+  READ_ONLY_REASON,
+  withCheck,
 } from '../../lib/commands/selectionGates';
 import { deriveRibbonCommandContext } from '../../components/score-editor/editorCommands';
 import { DEFAULT_COMMAND_CONTEXT } from '../../lib/commands/registry';
@@ -31,6 +36,9 @@ describe('selection gates', () => {
     ['needsBarTarget', needsBarTarget, [false, true, false, true]],
     ['needsSelectionOutsideInput', needsSelectionOutsideInput, [false, true, true, true]],
     ['needsTarget', needsTarget, [false, true, true, true]],
+    // The bridge applies these to one element only; desktop applies them to every chord and rest.
+    ['needsSingle', needsSingle, [false, true, false, false]],
+    ['needsSingleOrInput', needsSingleOrInput, [false, true, false, false]],
   ];
 
   it.each(table)('%s by kind', (_name, gate, expected) => {
@@ -51,6 +59,74 @@ describe('selection gates', () => {
     expect(needsTarget(ctx({ selection: 'none', noteInput: true }))).toBe(true);
     expect(needsSelectionOutsideInput(ctx({ selection: 'single', noteInput: true }))).toBe(false);
     expect(needsSelection(ctx({ selection: 'none', noteInput: true }))).toBe(false);
+  });
+});
+
+describe('gate reasons (`unmet`)', () => {
+  const reasons = (gate: { unmet: (c: CommandContext) => string | undefined }) =>
+    KINDS.map((kind) => gate.unmet(ctx({ selection: kind })));
+
+  it('says nothing when the gate is met', () => {
+    expect(needsSelection.unmet(ctx({ selection: 'single' }))).toBeUndefined();
+    expect(always.unmet(ctx({ isMutable: false }))).toBeUndefined();
+  });
+
+  it('tells the user what to select, in words that match the gate', () => {
+    expect(reasons(needsSelection)).toEqual([
+      'Select something first',
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    expect(reasons(needsRange)).toEqual(
+      Array(3).fill('Select a range of bars or notes').concat(undefined),
+    );
+    expect(reasons(needsBarTarget)).toEqual([
+      'Select a bar or a range of bars',
+      undefined,
+      'Select one bar, or a range of bars',
+      undefined,
+    ]);
+    expect(reasons(needsSingle)).toEqual([
+      'Select a note or rest first',
+      undefined,
+      'Select a single note or rest',
+      'Select a single note or rest',
+    ]);
+  });
+
+  it('puts "read-only" first in a read-only surface, whatever else is missing', () => {
+    for (const gate of [
+      mutable,
+      needsSelection,
+      needsRange,
+      needsBarTarget,
+      needsSingle,
+      needsTarget,
+    ]) {
+      expect(gate.unmet(ctx({ isMutable: false, selection: 'single' }))).toBe(READ_ONLY_REASON);
+    }
+  });
+
+  it('explains note input in both directions', () => {
+    expect(needsSelectionOutsideInput.unmet(ctx({ selection: 'single', noteInput: true }))).toBe(
+      'Not available during note input',
+    );
+    expect(inNoteInput.unmet(ctx({ noteInput: false }))).toBe('Start note input first');
+    expect(needsTarget.unmet(ctx({ selection: 'none' }))).toBe(
+      'Select something, or start note input',
+    );
+  });
+
+  it('withCheck keeps the gate\u2019s reason, then names the missing capability', () => {
+    let present = true;
+    const check = withCheck(needsSelection, () => present, 'No handler');
+    expect(check(ctx({ selection: 'single' }))).toBe(true);
+    expect(check.unmet?.(ctx({ selection: 'single' }))).toBeUndefined();
+    expect(check.unmet?.(ctx({ selection: 'none' }))).toBe('Select something first');
+    present = false;
+    expect(check(ctx({ selection: 'single' }))).toBe(false);
+    expect(check.unmet?.(ctx({ selection: 'single' }))).toBe('No handler');
   });
 });
 

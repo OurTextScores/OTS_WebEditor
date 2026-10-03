@@ -9,6 +9,7 @@ import {
   type CommandId,
   type CommandScope,
   type RunStatus,
+  unmetReason,
 } from './types';
 
 export const DEFAULT_COMMAND_CONTEXT: CommandContext = {
@@ -166,6 +167,8 @@ export class CommandRegistry {
 
 function describe(entry: AnyCommand, scope: CommandScope, ctx: CommandContext): CommandDescriptor {
   const enabled = entry.enabled ? entry.enabled(ctx) : true;
+  const reason = unmetReason(entry.enabled, ctx);
+  const why = reason ? { disabledReason: reason } : {};
   if (isCommandFamily(entry)) {
     const family = entry as unknown as CommandFamily<unknown>;
     return {
@@ -174,6 +177,7 @@ function describe(entry: AnyCommand, scope: CommandScope, ctx: CommandContext): 
       scope,
       label: family.label,
       enabled,
+      ...why,
       variants: family.variants.map((variant) => ({
         arg: variant.arg,
         label: variant.label,
@@ -190,6 +194,7 @@ function describe(entry: AnyCommand, scope: CommandScope, ctx: CommandContext): 
     ...(primaryShortcut(command.id) ? { shortcut: primaryShortcut(command.id) } : {}),
     ...(command.testId ? { testId: command.testId } : {}),
     enabled,
+    ...why,
     ...(command.checked ? { checked: command.checked(ctx) } : {}),
   };
 }

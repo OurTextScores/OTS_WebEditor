@@ -189,8 +189,13 @@ function PaletteBody({ registry, mode }: { registry: CommandRegistry; mode: 'com
                       </span>
                     )}
                   </span>
-                  <span className="shrink-0 text-xs text-slate-500">
-                    {disabled ? 'Unavailable' : formatShortcut(entry.row.shortcut)}
+                  <span
+                    className="shrink-0 text-xs text-slate-500"
+                    data-testid={disabled ? 'palette-row-reason' : undefined}
+                  >
+                    {disabled
+                      ? (entry.row.disabledReason ?? 'Unavailable')
+                      : formatShortcut(entry.row.shortcut)}
                   </span>
                 </>
               )}

@@ -19,6 +19,20 @@ export interface CommandContext {
   readonly isMutable: boolean; // false in read-only/review surfaces
 }
 
+/**
+ * An availability test. It may carry `unmet`: why the command is unavailable right now, in words a
+ * user can act on ("Select a bar or a range of bars"). Surfaces show it instead of a bare "unavailable".
+ */
+export type Enabled = ((ctx: CommandContext) => boolean) & {
+  readonly unmet?: (ctx: CommandContext) => string | undefined;
+};
+
+/** Why `enabled` is false for this context, if it says. Undefined when the command is available. */
+export const unmetReason = (
+  enabled: Enabled | undefined,
+  ctx: CommandContext,
+): string | undefined => (enabled && !enabled(ctx) ? enabled.unmet?.(ctx) : undefined);
+
 export interface Command<Args = void> {
   readonly id: CommandId;
   readonly label: string; // action copy: no trailing '…'
@@ -28,7 +42,7 @@ export interface Command<Args = void> {
   readonly testId?: string; // preserved legacy data-testid (§9)
   readonly opensDialog?: boolean; // menus may show '…' by convention; label itself stays clean
   readonly visible?: (ctx: CommandContext) => boolean;
-  readonly enabled?: (ctx: CommandContext) => boolean;
+  readonly enabled?: Enabled;
   readonly checked?: (ctx: CommandContext) => boolean; // toggles (panels, filters, voices)
   readonly run: (ctx: CommandContext, args: Args) => void | Promise<void>;
 }
@@ -45,7 +59,7 @@ export interface CommandFamily<Arg> {
   readonly id: CommandId; // 'add.clef'
   readonly label: string; // 'Clef'
   readonly variants: readonly CommandVariant<Arg>[];
-  readonly enabled?: (ctx: CommandContext) => boolean;
+  readonly enabled?: Enabled;
   /** Toggle families (selection filter bits): whether one variant is currently on. */
   readonly checked?: (ctx: CommandContext, arg: Arg) => boolean;
   readonly run: (ctx: CommandContext, arg: Arg) => void | Promise<void>;
@@ -74,6 +88,8 @@ export interface CommandDescriptor {
   readonly shortcut?: string;
   readonly testId?: string;
   readonly enabled: boolean;
+  /** Why it is unavailable, when it is and the gate says. */
+  readonly disabledReason?: string;
   readonly checked?: boolean;
   readonly variants?: readonly { arg: unknown; label: string; testId?: string }[];
 }
