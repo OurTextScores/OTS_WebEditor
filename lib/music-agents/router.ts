@@ -39,7 +39,10 @@ import {
   MUSIC_RENDER_TOOL_CONTRACT,
   MUSIC_MULTITRACK_VAE_TOOL_CONTRACT,
 } from '../music-services/contracts';
-import { normalizeScoreSessionId, type ResolvedScoreSnapshot } from '../music-services/common';
+import {
+  normalizeScoreSessionId,
+  type ResolvedScoreSnapshot,
+} from '../music-services/score-request';
 
 type MusicAgentToolName =
   | 'music.context'

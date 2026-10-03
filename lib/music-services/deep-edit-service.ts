@@ -8,7 +8,12 @@ import { z } from 'zod';
 import { renderMusicSnapshot } from '../music-conversion';
 import { loadWebMscoreInProcess, type Score } from '../webmscore-loader';
 import { buildAiEditProposal, type AiEditProposal } from './ai-edit-proposal';
-import { asRecord, looksLikeMusicXml, resolvedScoreSnapshot, resolveScoreContent } from './common';
+import {
+  asRecord,
+  looksLikeMusicXml,
+  resolvedScoreSnapshot,
+  resolveScoreContent,
+} from './score-request';
 import {
   DEEP_EDIT_BASE_ID,
   DEEP_EDIT_LEVEL_RANK,

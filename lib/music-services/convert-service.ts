@@ -14,7 +14,7 @@ import {
   normalizeInputArtifactId,
   readBoolean,
   resolveScoreContent,
-} from './common';
+} from './score-request';
 import { type TraceContext } from '../trace-http';
 
 const MAX_CONVERT_INPUT_BYTES = Number(

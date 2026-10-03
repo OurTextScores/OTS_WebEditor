@@ -2,7 +2,7 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { extractPatchAnnotations, type PatchAnnotation } from '../patch-annotations';
 import { computeMusicXmlIdentityHashServer } from '../musicxml-identity-server';
 import { computeScoreHash } from './scoreops-session-store';
-import { asRecord } from './common';
+import { asRecord } from './score-request';
 
 // Client-owned continuity context for one proposal session (design §6). The client is the
 // continuity owner; this module only validates shape, applies deterministic bounds, and

@@ -97,6 +97,18 @@
       "from": 0,
       "to": 37,
       "reason": "Same change as the maxWarnings raise above: the 37 files that still contain a raw <button>."
+    },
+    {
+      "key": "eslint.maxWarnings",
+      "from": 0,
+      "to": 210,
+      "reason": "DESIGN_LANGUAGE W3.3 added the raw-<button> rule as a warning (158 existing sites) and W4 S0 adds max-lines-per-function at 200 code lines as a warning (52 existing functions in 32 files: ScoreEditor's component and its largest nested handlers, ScannerSystemRows, editorCommands, scoreops-service, ...). Both are existing code made visible, not new code. This cap is the ratchet that drives them down as buttons migrate and ScoreEditor is decomposed (docs/private/SCOREEDITOR_DECOMPOSITION_PLAN_2026-10-02.md). Measured against origin/main, so the two changes read as one raise."
+    },
+    {
+      "key": "eslint.maxFilesWithFindings",
+      "from": 0,
+      "to": 55,
+      "reason": "Same change as the maxWarnings raise above: the 55 files that contain a raw <button> or a function over 200 lines."
     }
   ],
   "_scoreEditorComment": "Headroom is intentional. These were pinned to the exact current size, and the result was that a 41-line bug fix breached the cap and pressure went into deleting explanatory comments to get back under -- the ratchet making the code worse. Lines are a poor proxy: a comment costs the same as debt. The caps now sit roughly 1% and 1.5% above actual, so routine work passes and a whole slice of drift still trips them. The goal worth chasing is bytes, not lines: Babel deoptimises code generation above 500000 bytes, which this file still exceeds, and that is an observable cost rather than a chosen number.",
@@ -200,17 +212,54 @@
     "components/score-editor/compare/useCompareTransport.ts": {
       "maxLines": 900,
       "maxBytes": 36000
+    },
+    "app/api/llm/_lib/source-rag.ts": {
+      "maxLines": 1258,
+      "maxBytes": 35017
+    },
+    "components/score-editor/compare/ScannerSystemRows.tsx": {
+      "maxLines": 2954,
+      "maxBytes": 123024
+    },
+    "components/score-editor/editorCommands.ts": {
+      "maxLines": 1020,
+      "maxBytes": 36657
+    },
+    "lib/music-agents/router.ts": {
+      "maxLines": 1713,
+      "maxBytes": 66933
+    },
+    "lib/music-conversion.ts": {
+      "maxLines": 2312,
+      "maxBytes": 70413
+    },
+    "lib/music-services/deep-edit-service.ts": {
+      "maxLines": 1222,
+      "maxBytes": 45618
+    },
+    "lib/music-services/generate-service.ts": {
+      "maxLines": 1053,
+      "maxBytes": 34526
+    },
+    "lib/music-services/patch-service.ts": {
+      "maxLines": 1432,
+      "maxBytes": 46350
+    },
+    "lib/music-services/scoreops-service.ts": {
+      "maxLines": 4326,
+      "maxBytes": 135800
     }
   },
   "eslint": {
     "maxErrors": 0,
-    "maxWarnings": 158,
-    "maxFilesWithFindings": 37
+    "maxWarnings": 210,
+    "maxFilesWithFindings": 55
   },
   "tests": {
     "maxUnconditionalSkips": 1
   },
   "suppressions": {
     "maxLocalDirectives": 3
-  }
+  },
+  "unlistedModuleMaxLines": 900
 }

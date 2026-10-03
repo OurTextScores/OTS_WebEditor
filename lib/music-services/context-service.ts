@@ -1,7 +1,7 @@
 import { createScoreArtifact, summarizeScoreArtifact } from '../score-artifacts';
 import { convertMusicNotation } from '../music-conversion';
 import { sanitizeEditorLaunchContext, type EditorLaunchContext } from '../editor-launch-context';
-import { asRecord, readBoolean, resolveScoreContent } from './common';
+import { asRecord, readBoolean, resolveScoreContent } from './score-request';
 
 type ContextServiceResult = {
   status: number;

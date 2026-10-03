@@ -21,6 +21,16 @@ const eslintConfig = defineConfig([
     rules: { 'no-alert': 'error' },
   },
   {
+    // docs/private/SCOREEDITOR_DECOMPOSITION_PLAN §6 (Viritura's max-lines-per-function). A
+    // warning with a count budget, like the raw-<button> rule below: the existing long functions
+    // are made visible, and eslint.maxWarnings is the ratchet that drives them down as
+    // ScoreEditor is decomposed. Tests are exempt: a long `describe` is fixture, not logic.
+    files: ['app/**/*.{ts,tsx}', 'components/**/*.{ts,tsx}', 'lib/**/*.{ts,tsx}'],
+    rules: {
+      'max-lines-per-function': ['warn', { max: 200, skipBlankLines: true, skipComments: true }],
+    },
+  },
+  {
     // docs/private/DESIGN_LANGUAGE.md §5.2: controls come from components/ui (Button, IconButton),
     // so hover, focus and disabled look the same everywhere. A warning, not an error: the
     // remaining raw buttons migrate as their files are touched, and the debt budget

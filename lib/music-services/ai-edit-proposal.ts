@@ -1,6 +1,6 @@
 import { computeMusicXmlIdentityHashServer } from '../musicxml-identity-server';
 import { computeScoreHash } from './scoreops-session-store';
-import type { ResolvedScoreSnapshot } from './common';
+import type { ResolvedScoreSnapshot } from './score-request';
 
 export type AiEditProposal = {
   sourceTool: string;

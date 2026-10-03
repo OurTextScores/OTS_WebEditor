@@ -1,6 +1,6 @@
 import { renderMusicSnapshot } from '../music-conversion';
 import { summarizeScoreArtifact } from '../score-artifacts';
-import { asRecord, resolveScoreContent } from './common';
+import { asRecord, resolveScoreContent } from './score-request';
 
 type RenderServiceResult = {
   status: number;

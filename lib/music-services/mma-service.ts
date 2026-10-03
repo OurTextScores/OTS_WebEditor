@@ -3,7 +3,7 @@ import { isMmaArrangementPreset } from '../music-mma-presets';
 import { convertMusicNotation } from '../music-conversion';
 import { createScoreArtifact, summarizeScoreArtifact } from '../score-artifacts';
 import { type TraceContext } from '../trace-http';
-import { asRecord, readBoolean, readContent, resolveScoreContent } from './common';
+import { asRecord, readBoolean, readContent, resolveScoreContent } from './score-request';
 
 type MmaServiceResult = {
   status: number;

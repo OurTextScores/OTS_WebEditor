@@ -13,7 +13,7 @@ import {
   resolveScoreContent,
   type ResolvedScoreSnapshot,
   type ServiceResult,
-} from './common';
+} from './score-request';
 
 type FunctionalHarmonyServiceOptions = {
   traceContext?: TraceContext;

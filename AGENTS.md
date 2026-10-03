@@ -43,6 +43,31 @@ Test score for manual verification:
 
 Embed/static builds: see `docs/BUILD_EMBED.md` (soundfonts come from a CDN; `npm run build:embed` defaults `NEXT_PUBLIC_SOUNDFONT_CDN_URL` to the OSUOSL MuseScore_General mirror).
 
+## Module structure
+
+`components/ScoreEditor.tsx` is one 18,900-line function that is being decomposed (plan: `docs/private/SCOREEDITOR_DECOMPOSITION_PLAN_2026-10-02.md`). **New editor behaviour goes in a module, never in `ScoreEditor.tsx`.** The rules below are Viritura's (its `AGENTS.md` has the originals), adapted. The ones with a check say which.
+
+1. **A feature is a folder** with one public surface, its `index.ts` barrel. Outside the folder, import from the barrel; anything not re-exported is private. (New folders only; the existing ones gain barrels as they are touched.)
+2. **Name files by the concept they hold, never by kind.** Good: `musicXmlPatch.ts`, `measureAlignment.ts`, `selectionModel.ts`. Bad: `utils.ts`, `helpers.ts`, `shared.ts`, `internal.ts`, `misc.ts`, `common.ts`, or a `utils/` folder. If you cannot name the file in three words around one concept, the split is wrong. Checked by `unit/module-structure.test.ts`.
+3. **Size limits prompt a question, not a slice.** Is there a sub-concept here that deserves its own name? If not, the file is fine. A source file over 900 lines must have an entry in `scripts/technical-debt-budget.json` (`modules`); budgets only go down, and a raise needs a logged reason (`check:debt`). `max-lines-per-function` (200 code lines) is a warning with a count budget.
+4. **A `.tsx` file exports components only.** Hooks, types, constants and helpers go in `.ts` siblings in the same folder.
+5. **Every lint or type suppression says why**: `// eslint-disable-next-line rule -- reason`. No reason, no suppression. Checked by `unit/module-structure.test.ts`; the debt audit also caps their number.
+6. **Do not weaken a test, widen a type to `any`, or add a suppression to make a move compile.**
+
+### Extraction playbook (cheapest to most invasive)
+
+Work down the list and stop when the file is under its limit.
+
+1. **Types** to a `types.ts` sibling. **Constants** to a `constants.ts` sibling.
+2. **Pure helpers** (no state, no refs) to a module named for what they do.
+3. **An effect with 30+ lines and a non-trivial cleanup is a custom hook.** Call the new hook where the effect used to be: effect order is behaviour.
+4. **A `useCallback` or handler body** to `xImpl(args)` in a sibling `.ts` with an explicit args interface. When three or more handlers share a dependency surface, name it as a `*Ctx` interface (the editor's is `EditorCore`, introduced in step S4 of the plan) instead of passing props one by one.
+5. **`if`/`else` ladders on a string kind** become a `switch` over a discriminated union or a `Record<Kind, Handler>`.
+
+Anti-patterns: a reducer for its own sake when independent `useState` calls would do; container/presenter splits that remove no complexity; a view model with dozens of fields (a component with 40 props has two jobs).
+
+Each extraction is behaviour-preserving, one concept per commit, with a test that fails if the move breaks it written first when the code had none.
+
 ## WASM extension workflow
 
 Use this for any `webmscore` extension, not just score mutations. An authoritative example is commit `ed2ef1e` (`fix(harmony): force jazz chord symbol rendering after tag apply`), which touched the native export, JS bridge, worker RPC layer, TypeScript loader, app consumer, and generated artifacts.

@@ -4,7 +4,7 @@ import {
   normalizeScoreSessionId,
   resolveScoreContent,
   type ServiceResult,
-} from './common';
+} from './score-request';
 import { resolveProvider, runMusicPatchService } from './patch-service';
 import {
   createProposalContinuityToken,

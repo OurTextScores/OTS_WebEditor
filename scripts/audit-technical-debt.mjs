@@ -135,6 +135,20 @@ const modules = Object.keys(moduleBudgets).map((modulePath) => {
   };
 });
 
+// A source file over this size must carry an explicit module budget (docs/private/
+// SCOREEDITOR_DECOMPOSITION_PLAN_2026-10-02.md §6), so a new large file is a decision in review,
+// not an accident. The budgets only go down; ScoreEditor has its own entry above.
+const unlistedModuleMaxLines = budget.unlistedModuleMaxLines ?? 900;
+const unbudgetedLargeFiles = ownedFiles
+  .map((file) => relative(root, file))
+  .filter((file) => /^(?:app|components|lib)\//.test(file))
+  .filter((file) => file !== 'components/ScoreEditor.tsx' && !(file in moduleBudgets))
+  .map((file) => ({
+    path: file,
+    lines: (readFileSync(resolve(root, file), 'utf8').match(/\n/g) || []).length,
+  }))
+  .filter((entry) => entry.lines > unlistedModuleMaxLines);
+
 const report = {
   baseCommit,
   runtime: {
@@ -142,6 +156,7 @@ const report = {
   },
   scoreEditor,
   modules,
+  unbudgetedLargeFiles,
   eslint: {
     filesScanned: eslintRows.length,
     filesWithFindings,
@@ -174,6 +189,11 @@ const checks = [
     report.suppressions.localDirectives,
     budget.suppressions.maxLocalDirectives,
   ],
+  ...report.unbudgetedLargeFiles.map((entry) => [
+    `${entry.path} lines (over ${unlistedModuleMaxLines} with no module budget)`,
+    entry.lines,
+    unlistedModuleMaxLines,
+  ]),
   ...report.modules.flatMap((entry) => [
     [`${entry.path} lines`, entry.lines, moduleBudgets[entry.path].maxLines],
     [`${entry.path} bytes`, entry.bytes, moduleBudgets[entry.path].maxBytes],

@@ -25,7 +25,12 @@ import {
 } from '../patch-annotations';
 import { summarizeScoreArtifact } from '../score-artifacts';
 import { type TraceContext } from '../trace-http';
-import { asRecord, looksLikeMusicXml, resolvedScoreSnapshot, resolveScoreContent } from './common';
+import {
+  asRecord,
+  looksLikeMusicXml,
+  resolvedScoreSnapshot,
+  resolveScoreContent,
+} from './score-request';
 import { buildAiEditProposal } from './ai-edit-proposal';
 import { createProposalContinuityToken } from './proposal-session-context';
 import {

@@ -6,7 +6,7 @@ import {
 } from '../score-artifacts';
 import { loadWebMscoreInProcess, type Score } from '../webmscore-loader';
 import { computeMusicXmlIdentityHashServer } from '../musicxml-identity-server';
-import { asRecord, errorResult, resolveScoreContent, type ServiceResult } from './common';
+import { asRecord, errorResult, resolveScoreContent, type ServiceResult } from './score-request';
 import { sanitizeEditorLaunchContext } from '../editor-launch-context';
 import {
   clearScoreOpsSessions,
