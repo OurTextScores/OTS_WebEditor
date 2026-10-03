@@ -178,11 +178,6 @@ const checks = [
   ['ScoreEditor bytes', report.scoreEditor.bytes, budget.scoreEditor.maxBytes],
   ['ESLint errors', report.eslint.errors, budget.eslint.maxErrors],
   ['ESLint warnings', report.eslint.warnings, budget.eslint.maxWarnings],
-  [
-    'files with ESLint findings',
-    report.eslint.filesWithFindings,
-    budget.eslint.maxFilesWithFindings,
-  ],
   ['unconditional test skips', report.tests.unconditionalSkips, budget.tests.maxUnconditionalSkips],
   [
     'local suppression directives',

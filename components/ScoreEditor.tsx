@@ -194,6 +194,13 @@ import { useCompareReflow } from './score-editor/compare/useCompareReflow';
 import { useCompareAlignment } from './score-editor/compare/useCompareAlignment';
 import { useCompareRightScoreLoading } from './score-editor/compare/useCompareRightScoreLoading';
 import { useAiModelList } from './score-editor/ai-tools/useAiModelList';
+import { ScoreCanvas } from './score-editor/canvas/ScoreCanvas';
+import { ChangeReviewBarOverlay } from './score-editor/canvas/ChangeReviewBarOverlay';
+import { DragFeedbackOverlays } from './score-editor/canvas/DragFeedbackOverlays';
+import { NoteInputOverlays } from './score-editor/canvas/NoteInputOverlays';
+import { GripHandles } from './score-editor/canvas/GripHandles';
+import { SelectionOverlays } from './score-editor/canvas/SelectionOverlays';
+import { InlineTextEditor } from './score-editor/canvas/InlineTextEditor';
 import { CompareDiffGutter } from './score-editor/compare/CompareDiffGutter';
 import {
   ScannerFindingRows,
@@ -8535,391 +8542,106 @@ export default function ScoreEditor() {
   const reviewsScore = traits.interaction === 'review';
   const growsToContent = traits.layout === 'content';
   const renderCanvas = (insets: WorkspaceInsets) => (
-        <div
-          ref={scrollContainerRef}
-          onScroll={(event) => {
-            if (reviewsScore && changeReviewGutterRef.current) {
-              changeReviewGutterRef.current.scrollTop = event.currentTarget.scrollTop;
+    <ScoreCanvas
+      scrollContainerRef={scrollContainerRef}
+      scoreWrapperRef={scoreWrapperRef}
+      containerRef={containerRef}
+      onScrollTop={
+        reviewsScore
+          ? (scrollTop) => {
+              if (changeReviewGutterRef.current) {
+                changeReviewGutterRef.current.scrollTop = scrollTop;
+              }
             }
-          }}
-          /*
-           * The scanner's row view is a vertical stack of clipped
-           * bands; nothing in it is meant to scroll sideways. Each
-           * band holds a whole page scaled up so that one system
-           * fills the box, and the browser counts that clipped
-           * drawing toward this container's scroll area — so a
-           * horizontal scrollbar ran the width of the editor,
-           * dragged 1441px, and revealed nothing, because there was
-           * nothing there. Every other mode still scrolls a score
-           * that really is wider than the window.
-           *
-           * `clip`, not `hidden`. `overflow-x: hidden` with a visible
-           * y computes y to `auto`, which makes this a scroll
-           * container again — and a scroll container cannot grow to
-           * its content, which is what rows mode needs so the host
-           * can size the frame. `clip` is the one value that leaves
-           * the other axis alone.
-           */
-          /*
-           * Hidden under the rows, rather than merely covered by them.
-           *
-           * It holds a whole engraved page, and in rows mode the compare view
-           * is an ordinary block, so anything left in flow here goes on
-           * deciding the document's height and with it the frame's. The rows
-           * cover it completely either way, so this costs nothing to look at.
-           */
-          className={`relative z-0 flex-1 bg-slate-50 p-8 ${
-            growsToContent ? 'overflow-x-clip overflow-y-visible' : 'overflow-auto'
-          } ${growsToContent && compareView ? 'hidden' : ''}`}
-          style={
-            insets.left || insets.right
-              ? {
-                  paddingLeft: `calc(2rem + ${insets.left}px)`,
-                  paddingRight: `calc(2rem + ${insets.right}px)`,
+          : null
+      }
+      insets={insets}
+      growsToContent={growsToContent}
+      hiddenUnderRows={growsToContent && Boolean(compareView)}
+      loading={loading}
+      hasScore={Boolean(score)}
+      zoom={zoom}
+      noteInputActive={noteInputActive}
+      paletteDropActive={paletteDropActive}
+      onWrapperClick={
+        reviewsScore
+          ? () => {
+              setChangeReviewFocusedAnchorId(null);
+              setChangeReviewNewThreadAnchorId(null);
+              setChangeReviewNewThreadContent('');
+            }
+          : handleScoreClick
+      }
+      editing={
+        canEditScore
+          ? {
+              onDoubleClick: handleScoreDoubleClick,
+              onPointerDown: handleScorePointerDown,
+              onPointerMove: handleScorePointerMove,
+              onPointerUp: handleScorePointerUp,
+              onPointerCancel: handleScorePointerCancel,
+              onPointerLeave: () => {
+                if (noteInputActiveRef.current && dragPointerIdRef.current === null) {
+                  setNoteInputShadow(null);
                 }
-              : undefined
-          }
-        >
-          {loading && (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-xl text-slate-500">Loading score...</div>
-            </div>
-          )}
-
-          {!loading && !score && (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-xl text-slate-500">No score loaded. Open a file to begin.</div>
-            </div>
-          )}
-
-          <div
-            ref={scoreWrapperRef}
-            className={`relative origin-top-left transition-transform duration-200 ease-out bg-white shadow-raised mx-auto ${paletteDropActive ? 'ring-4 ring-accent/60 ring-offset-2' : ''}`}
-            data-testid="score-wrapper"
-            data-palette-drop-active={paletteDropActive ? 'true' : 'false'}
-            style={{
-              transform: `scale(${zoom})`,
-              width: 'fit-content',
-              cursor: noteInputActive ? 'crosshair' : undefined,
-            }}
-            onClick={
-              reviewsScore
-                ? () => {
-                    setChangeReviewFocusedAnchorId(null);
-                    setChangeReviewNewThreadAnchorId(null);
-                    setChangeReviewNewThreadContent('');
-                  }
-                : handleScoreClick
+              },
+              onMouseDown: handleScoreMouseDown,
+              onMouseMove: handleScoreMouseMove,
+              onMouseUp: handleScoreMouseUp,
+              onContextMenu: handleScoreContextMenu,
+              onDragOver: handlePaletteDragOver,
+              onDragLeave: handlePaletteDragLeave,
+              onDrop: handlePaletteDrop,
             }
-            onDoubleClick={canEditScore ? handleScoreDoubleClick : undefined}
-            onPointerDown={canEditScore ? handleScorePointerDown : undefined}
-            onPointerMove={canEditScore ? handleScorePointerMove : undefined}
-            onPointerUp={canEditScore ? handleScorePointerUp : undefined}
-            onPointerCancel={canEditScore ? handleScorePointerCancel : undefined}
-            onPointerLeave={
-              !canEditScore
-                ? undefined
-                : () => {
-                    if (noteInputActiveRef.current && dragPointerIdRef.current === null) {
-                      setNoteInputShadow(null);
-                    }
-                  }
-            }
-            onMouseDown={canEditScore ? handleScoreMouseDown : undefined}
-            onMouseMove={canEditScore ? handleScoreMouseMove : undefined}
-            onMouseUp={canEditScore ? handleScoreMouseUp : undefined}
-            onContextMenu={canEditScore ? handleScoreContextMenu : undefined}
-            onDragOver={canEditScore ? handlePaletteDragOver : undefined}
-            onDragLeave={canEditScore ? handlePaletteDragLeave : undefined}
-            onDrop={canEditScore ? handlePaletteDrop : undefined}
-          >
-            <div ref={containerRef} data-testid="svg-container" />
-
-            {reviewsScore &&
-              changeReviewBarBoxes.map(({ bar, left, top, width, height }) => {
-                const selected = changeReviewFocusedAnchorId === bar.anchorId;
-                const hasThread = bar.hasThread || changeReviewThreadsByAnchor.has(bar.anchorId);
-                const changedClasses = hasThread
-                  ? 'border-emerald-500 bg-emerald-300/30'
-                  : bar.changeType === 'added'
-                    ? 'border-emerald-500 bg-emerald-200/20'
-                    : bar.changeType === 'modified'
-                      ? 'border-amber-500 bg-amber-200/20'
-                      : 'border-transparent bg-transparent hover:border-sky-400 hover:bg-sky-100/20';
-                return (
-                  <button
-                    key={bar.anchorId}
-                    type="button"
-                    aria-label={`Comment on ${bar.label}`}
-                    aria-pressed={selected}
-                    className={`absolute z-20 cursor-pointer border-2 transition-colors ${changedClasses} ${selected ? 'ring-2 ring-sky-500 ring-offset-1' : ''}`}
-                    style={{
-                      left,
-                      top,
-                      width,
-                      height,
-                      ...(hasThread
-                        ? {
-                            backgroundColor: 'rgba(16, 185, 129, 0.35)',
-                            borderColor: 'rgb(5, 150, 105)',
-                          }
-                        : {}),
-                    }}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      const nowFocused = changeReviewFocusedAnchorId !== bar.anchorId;
-                      setChangeReviewFocusedAnchorId(nowFocused ? bar.anchorId : null);
-                      if (
-                        nowFocused &&
-                        !hasThread &&
-                        changeReviewDetail?.permissions.canAddThread
-                      ) {
-                        setChangeReviewNewThreadAnchorId(bar.anchorId);
-                      } else {
-                        setChangeReviewNewThreadAnchorId(null);
-                      }
-                      setChangeReviewNewThreadContent('');
-                    }}
-                  />
-                );
-              })}
-
-            {dragSelectionRect && (
-              <div
-                data-testid="drag-selection-rect"
-                className="absolute border border-accent bg-accent/20 pointer-events-none"
-                style={{
-                  left: dragSelectionRect.x,
-                  top: dragSelectionRect.y,
-                  width: dragSelectionRect.w,
-                  height: dragSelectionRect.h,
-                }}
-              />
-            )}
-
-            {noteDragGhost && (
-              <div
-                data-testid="note-drag-ghost"
-                className="absolute pointer-events-none z-20"
-                style={{
-                  left: noteDragGhost.x,
-                  top: noteDragGhost.y,
-                  width: noteDragGhost.w,
-                  height: noteDragGhost.h,
-                }}
-              >
-                <div className="h-full w-full rounded-full border-2 border-accent bg-accent/40" />
-                {noteDragGhost.steps !== 0 && (
-                  <div className="absolute left-full top-1/2 -translate-y-1/2 ml-1 rounded bg-accent px-1 text-caption leading-tight text-white whitespace-nowrap">
-                    {noteDragGhost.steps < 0
-                      ? `▲ ${-noteDragGhost.steps}`
-                      : `▼ ${noteDragGhost.steps}`}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {noteInputActive && noteInputCursorRect && noteInputCursorRect.page === currentPage && (
-              <div
-                data-testid="note-input-cursor"
-                data-voice={noteInputCursorRect.voice}
-                aria-hidden="true"
-                className="absolute pointer-events-none z-10"
-                style={{
-                  left: noteInputCursorRect.x,
-                  top: noteInputCursorRect.y,
-                  width: noteInputCursorRect.width,
-                  height: noteInputCursorRect.height,
-                  backgroundColor: `${noteInputCursorColor}32`,
-                  borderLeft: `3px solid ${noteInputCursorColor}`,
-                }}
-              />
-            )}
-
-            {noteInputActive && noteInputShadow && (
-              <div
-                data-testid="note-input-shadow"
-                className="absolute pointer-events-none z-20 rounded-full border-2 border-sky-600 bg-sky-400/45"
-                style={{
-                  left: noteInputShadow.x,
-                  top: noteInputShadow.y,
-                  width: noteInputShadow.w,
-                  height: noteInputShadow.h,
-                  transform: 'rotate(-12deg)',
-                }}
-                title="Click to place note"
-              />
-            )}
-
-            {gripEdit?.page === currentPage &&
-              gripEdit.grips.map((grip) => {
-                const overlayPoint = engravingToOverlayPoint(grip.x, grip.y);
-                return (
-                  <button
-                    key={grip.index}
-                    type="button"
-                    data-testid={`spanner-grip-${grip.index}`}
-                    aria-label={`Spanner grip ${grip.index + 1}`}
-                    disabled={!grip.draggable}
-                    className={`absolute z-30 h-4 w-4 border-2 shadow-raised ring-1 ring-white ${
-                      grip.draggable
-                        ? 'cursor-move border-slate-950 bg-cyan-300 hover:bg-cyan-100'
-                        : 'cursor-not-allowed border-slate-700 bg-slate-300 opacity-90'
-                    }`}
-                    style={{
-                      left: overlayPoint.x,
-                      top: overlayPoint.y,
-                      transform: `translate(-50%, -50%) scale(${1 / zoom})`,
-                      transformOrigin: 'center',
-                    }}
-                    onClick={(event) => event.stopPropagation()}
-                    onDoubleClick={(event) => event.stopPropagation()}
-                    onPointerDown={(event) => handleGripPointerDown(event, grip.index)}
-                    title={
-                      grip.draggable
-                        ? 'Drag to reshape'
-                        : 'This anchor requires the desktop score view'
-                    }
-                  />
-                );
-              })}
-
-            {/* Selection highlighting is now done natively in the SVG via highlightSelection=true in saveSvg(). Keep the overlays around for testing/interaction feedback. */}
-            {secondarySelectionBoxes.map((box, index) => (
-              <div
-                key={index}
-                className="absolute pointer-events-none"
-                style={{
-                  left: box.x,
-                  top: box.y,
-                  width: box.w,
-                  height: box.h,
-                }}
-              />
-            ))}
-
-            {/* Backend range selections (measure/bar clicks, Shift-extend) get one box
-                        per system from the engine -- render every one of them, not just the
-                        first, or a range spanning a system break loses its rectangle entirely
-                        past the first line. All share the same testid: they're one logical
-                        selection, not a list. */}
-            {hasBackendHighlighting &&
-              selectionBoxes.length > 0 &&
-              !overlaySuppressed &&
-              selectionBoxes.map((box, index) => (
-                <div
-                  key={index}
-                  data-testid="selection-overlay"
-                  className="absolute pointer-events-none border-2 border-accent"
-                  style={{
-                    left: box.x,
-                    top: box.y,
-                    width: box.w,
-                    height: box.h,
-                  }}
-                />
-              ))}
-            {primarySelectionRect &&
-              !overlaySuppressed &&
-              selectionBoxes.length <= 1 &&
-              !hasBackendHighlighting && (
-                <div
-                  data-testid="selection-overlay"
-                  className="absolute pointer-events-none border-2 border-accent"
-                  style={{
-                    left: primarySelectionRect.x,
-                    top: primarySelectionRect.y,
-                    width: primarySelectionRect.w,
-                    height: primarySelectionRect.h,
-                  }}
-                />
-              )}
-            {selectionBoxes.length > 1 &&
-              !overlaySuppressed &&
-              !hasBackendHighlighting &&
-              selectionBoxes.map((box, index) => (
-                <div
-                  key={index}
-                  data-testid={`selection-overlay-${index}`}
-                  className={`absolute pointer-events-none ${
-                    box.isMeasureBbox
-                      ? 'border border-accent/60'
-                      : 'bg-accent/25 border border-accent/60'
-                  }`}
-                  style={{
-                    left: box.x,
-                    top: box.y,
-                    width: box.w,
-                    height: box.h,
-                  }}
-                />
-              ))}
-            {textEditorRect && (
-              <div
-                data-testid="inline-text-editor"
-                className="absolute z-50 flex flex-col gap-1 rounded border-2 border-accent bg-white p-1 shadow-raised"
-                style={{
-                  left: textEditorRect.x,
-                  top: textEditorRect.y,
-                  minWidth: Math.max(160, textEditorRect.w),
-                  minHeight: Math.max(30, textEditorRect.h),
-                  // The editor lives inside the zoomed score canvas; counter-scale so
-                  // text editing is always shown at 100% regardless of the score zoom.
-                  transform: `scale(${1 / zoom})`,
-                  transformOrigin: 'top left',
-                }}
-                onClick={(event) => event.stopPropagation()}
-                onMouseDown={(event) => event.stopPropagation()}
-                onPointerDown={(event) => event.stopPropagation()}
-              >
-                <div
-                  ref={inlineTextContentRef}
-                  data-testid="inline-text-content"
-                  role="textbox"
-                  aria-label="Edit score text"
-                  contentEditable
-                  suppressContentEditableWarning
-                  onInput={(event) => {
-                    inlineTextEditedRef.current = true;
-                    handleSelectedTextChange(event.currentTarget.textContent ?? '');
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Escape') {
-                      event.preventDefault();
-                      closeTextEditor();
-                    } else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-                      event.preventDefault();
-                      void applySelectedTextValue(event.currentTarget.textContent ?? '');
-                      closeTextEditor();
-                    }
-                  }}
-                  className="min-h-7 min-w-[150px] px-1 py-0.5 text-base text-slate-900 outline-none"
-                />
-                <div className="flex justify-end gap-1 border-t border-slate-200 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void applySelectedTextValue(
-                        inlineTextContentRef.current?.textContent ?? selectedTextValue,
-                      );
-                      closeTextEditor();
-                    }}
-                    className="rounded bg-accent px-2 py-0.5 text-xs font-medium text-white hover:bg-accent-hover"
-                  >
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    onClick={closeTextEditor}
-                    className="rounded border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+          : null
+      }
+    >
+      {reviewsScore && (
+        <ChangeReviewBarOverlay
+          boxes={changeReviewBarBoxes}
+          focusedAnchorId={changeReviewFocusedAnchorId}
+          anchorsWithThreads={changeReviewThreadsByAnchor}
+          canAddThread={Boolean(changeReviewDetail?.permissions.canAddThread)}
+          setFocusedAnchorId={setChangeReviewFocusedAnchorId}
+          setNewThreadAnchorId={setChangeReviewNewThreadAnchorId}
+          setNewThreadContent={setChangeReviewNewThreadContent}
+        />
+      )}
+      <DragFeedbackOverlays selectionRect={dragSelectionRect} noteGhost={noteDragGhost} />
+      <NoteInputOverlays
+        active={noteInputActive}
+        currentPage={currentPage}
+        cursorRect={noteInputCursorRect}
+        cursorColor={noteInputCursorColor}
+        shadow={noteInputShadow}
+      />
+      <GripHandles
+        gripEdit={gripEdit}
+        currentPage={currentPage}
+        zoom={zoom}
+        engravingToOverlayPoint={engravingToOverlayPoint}
+        onGripPointerDown={handleGripPointerDown}
+      />
+      <SelectionOverlays
+        secondaryBoxes={secondarySelectionBoxes}
+        selectionBoxes={selectionBoxes}
+        primaryRect={primarySelectionRect}
+        hasBackendHighlighting={hasBackendHighlighting}
+        overlaySuppressed={overlaySuppressed}
+      />
+      {textEditorRect && (
+        <InlineTextEditor
+          rect={textEditorRect}
+          zoom={zoom}
+          contentRef={inlineTextContentRef}
+          editedRef={inlineTextEditedRef}
+          selectedTextValue={selectedTextValue}
+          onChange={handleSelectedTextChange}
+          onApply={applySelectedTextValue}
+          onClose={closeTextEditor}
+        />
+      )}
+    </ScoreCanvas>
   );
 
   const notaGen = useNotaGenTool({
