@@ -43,7 +43,6 @@ import { layoutOracleEnabled, verifyFullLayout } from '../lib/layout-oracle';
 import { noPerf, startPerf, type PerfHandle } from '../lib/perf-trace';
 import { confirmDialog, notify, notifyError, notifyWarning, promptDialog } from './shell/notices';
 import { ShellHeader } from './shell/ShellHeader';
-import type { MeasureAlignmentRow } from './score-editor/compare/compare-reflow-plan';
 import { StatusBar } from './shell/StatusBar';
 import { announce, describeEdit, useSelectionAnnouncer } from './shell/announcer';
 import { WriteToolbar } from './shell/toolbar/WriteToolbar';
@@ -205,8 +204,6 @@ import {
   type AiImageAttachment,
   type AiPdfAttachment,
   type AiSourceRagInfo,
-  type MusicXmlPatch,
-  type MusicXmlPatchOp,
 } from './score-editor/ai-assistant-types';
 import { type AiScoreBridge } from './score-editor/ai-score-bridge';
 import { useLatestCallbackFacade } from '@/lib/use-latest-callback-facade';
@@ -256,6 +253,17 @@ import { buildOtsScoreId, updateUrlScoreId } from './score-editor/score-url';
 import { getSvgNaturalSize } from './score-editor/svg-size';
 import { errorMessage, scoreLoadErrorMessage } from './score-editor/error-messages';
 import { estimateHarmonyTimeoutMs, estimateMusicXmlMeasureCount } from './score-editor/harmony-estimates';
+import { clefCodeMap, escapeXml, newScoreCommonInstrumentPreferences, pickupDurationToRestType } from './score-editor/new-score';
+import { buildIndexAlignment, buildLcsAlignment, buildMismatchBlocks, buildMismatchBreaks } from './score-editor/alignment';
+import { getReviewStatusForFeedback } from './score-editor/block-review-status';
+import { applyMeasureLineBreaks, buildMeasureBounds, fetchMeasureLineBreaks, fetchMeasureSignatures, getPageMeasureRange, hitTestMeasure, refreshMeasurePositions } from './score-editor/score-measures';
+import { applyMusicXmlPatch, decodeXmlData, extractMeasureSignaturesFromXml, getScoreMscxText, normalizeXmlData, parseMusicXmlPatch, replaceMeasuresInMusicXml } from './score-editor/musicxml';
+import { runWithTimeout } from './score-editor/async-timeout';
+import { parsePartsFromMetadata } from './score-editor/part-metadata';
+import { fileToBase64 } from './score-editor/file-base64';
+import { downloadBlob } from './score-editor/download-blob';
+import { isEditableTarget } from './score-editor/editable-target';
+import { summarizeScoreId } from './score-editor/score-id';
 
 
 export default function ScoreEditor() {
@@ -1246,439 +1254,7 @@ export default function ScoreEditor() {
   const aiModelStorageKey = `ots_${aiProvider}_model`;
   const autoFitPendingRef = useRef(true);
 
-  const fetchMeasureSignatures = useCallback(async (targetScore: Score, partIndex: number) => {
-    const parseSignatures = (value: unknown) => {
-      if (Array.isArray(value)) {
-        return value.filter((entry): entry is string => typeof entry === 'string');
-      }
-      if (typeof value === 'string') {
-        try {
-          const parsed = JSON.parse(value);
-          if (Array.isArray(parsed)) {
-            return parsed.filter((entry): entry is string => typeof entry === 'string');
-          }
-        } catch (err) {
-          console.warn('Failed to parse measure signatures payload:', err);
-        }
-      }
-      return null;
-    };
-
-    if (targetScore.measureSignatures) {
-      const signatures = await targetScore.measureSignatures(partIndex);
-      const parsed = parseSignatures(signatures);
-      if (parsed && parsed.length > 0) {
-        return parsed;
-      }
-      if (
-        parsed &&
-        parsed.length === 0 &&
-        targetScore.measureSignatureCount &&
-        targetScore.measureSignatureAt
-      ) {
-        const count = await targetScore.measureSignatureCount(partIndex);
-        if (count > 0) {
-          const fallback: string[] = [];
-          for (let i = 0; i < count; i += 1) {
-            fallback.push(await targetScore.measureSignatureAt(partIndex, i));
-          }
-          return fallback;
-        }
-        return parsed;
-      }
-      if (parsed) {
-        return parsed;
-      }
-    }
-
-    if (targetScore.measureSignatureCount && targetScore.measureSignatureAt) {
-      const count = await targetScore.measureSignatureCount(partIndex);
-      const signatures: string[] = [];
-      for (let i = 0; i < count; i += 1) {
-        signatures.push(await targetScore.measureSignatureAt(partIndex, i));
-      }
-      return signatures;
-    }
-
-    return [];
-  }, []);
-
-  const fetchMeasureLineBreaks = useCallback(async (targetScore: Score) => {
-    if (!targetScore.measureLineBreaks) {
-      return [];
-    }
-    const breaks = await targetScore.measureLineBreaks();
-    return Array.isArray(breaks) ? breaks.map(Boolean) : [];
-  }, []);
-
-  const applyMeasureLineBreaks = useCallback(async (targetScore: Score, breaks: boolean[]) => {
-    if (!targetScore.setMeasureLineBreaks) {
-      return false;
-    }
-    return targetScore.setMeasureLineBreaks(breaks);
-  }, []);
-
-  const refreshMeasurePositions = useCallback(
-    async (targetScore: Score, setter: (positions: Positions | null) => void) => {
-      if (!targetScore.measurePositions) {
-        return false;
-      }
-      try {
-        const positions = await targetScore.measurePositions();
-        setter(positions ?? null);
-        return true;
-      } catch (err) {
-        console.warn('Failed to load measure positions for compare highlight:', err);
-        return false;
-      }
-    },
-    [],
-  );
-
-  const extractMeasureSignaturesFromXml = useCallback((xml: string) => {
-    if (typeof DOMParser === 'undefined') {
-      return [];
-    }
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(xml, 'application/xml');
-    if (doc.getElementsByTagName('parsererror').length > 0) {
-      throw new Error('Invalid MusicXML');
-    }
-
-    const isMscx = doc.documentElement?.tagName === 'museScore';
-    const stripElementNames = new Set([
-      'print',
-      'layoutbreak',
-      'system-layout',
-      'staff-layout',
-      'page-layout',
-      'appearance',
-    ]);
-    const shouldStripAttribute = (name: string) => {
-      const lower = name.toLowerCase();
-      if (lower === 'width') {
-        return true;
-      }
-      if (lower === 'id' || lower === 'xml:id') {
-        return true;
-      }
-      if (lower === 'x' || lower === 'y') {
-        return true;
-      }
-      if (
-        lower === 'default-x' ||
-        lower === 'default-y' ||
-        lower === 'relative-x' ||
-        lower === 'relative-y'
-      ) {
-        return true;
-      }
-      if (
-        lower === 'placement' ||
-        lower === 'justify' ||
-        lower === 'halign' ||
-        lower === 'valign'
-      ) {
-        return true;
-      }
-      if (lower === 'print-object' || lower === 'print-dot' || lower === 'print-spacing') {
-        return true;
-      }
-      if (lower === 'new-page' || lower === 'new-system') {
-        return true;
-      }
-      if (lower === 'color') {
-        return true;
-      }
-      if (lower.startsWith('font-')) {
-        return true;
-      }
-      return false;
-    };
-
-    const scrubElement = (element: Element) => {
-      Array.from(element.attributes).forEach((attr) => {
-        if (shouldStripAttribute(attr.name)) {
-          element.removeAttribute(attr.name);
-        }
-      });
-      Array.from(element.children).forEach((child) => {
-        if (stripElementNames.has(child.tagName.toLowerCase())) {
-          child.remove();
-          return;
-        }
-        scrubElement(child);
-      });
-    };
-
-    const normalizeText = (value: string) => value.replace(/\s+/g, ' ').trim();
-
-    const canonicalizeNode = (node: Node): string => {
-      if (node.nodeType === Node.TEXT_NODE || node.nodeType === Node.CDATA_SECTION_NODE) {
-        const text = normalizeText(node.textContent ?? '');
-        return text ? `#${text}` : '';
-      }
-      if (node.nodeType !== Node.ELEMENT_NODE) {
-        return '';
-      }
-      const element = node as Element;
-      const attributes = Array.from(element.attributes)
-        .filter((attr) => !shouldStripAttribute(attr.name))
-        .map((attr) => `${attr.name}=${normalizeText(attr.value)}`)
-        .sort();
-      const children = Array.from(element.childNodes)
-        .map((child) => canonicalizeNode(child))
-        .filter(Boolean);
-      const attrs = attributes.length ? ` ${attributes.join('|')}` : '';
-      return `<${element.tagName}${attrs}>${children.join('')}</${element.tagName}>`;
-    };
-
-    const measureSignature = (measure: Element) => {
-      const clone = measure.cloneNode(true) as Element;
-      clone.removeAttribute('number');
-      clone.removeAttribute('width');
-      Array.from(clone.getElementsByTagName('LayoutBreak')).forEach((node) => node.remove());
-      scrubElement(clone);
-      return canonicalizeNode(clone);
-    };
-
-    if (isMscx) {
-      const score = doc.querySelector('Score');
-      if (!score) {
-        return [];
-      }
-      const staffs = Array.from(score.children).filter(
-        (node) => node.tagName === 'Staff',
-      ) as Element[];
-      return staffs.map((staff) => {
-        const measures = Array.from(staff.getElementsByTagName('Measure'));
-        return measures.map((measure) => measureSignature(measure));
-      });
-    }
-
-    const parts = Array.from(doc.getElementsByTagName('part'));
-    return parts.map((part) => {
-      const measures = Array.from(part.getElementsByTagName('measure'));
-      return measures.map((measure) => measureSignature(measure));
-    });
-  }, []);
-
-  const replaceMeasuresInMusicXml = useCallback(
-    (
-      sourceXml: string,
-      targetXml: string,
-      partIndex: number,
-      replacements: Array<{ sourceIndex: number; targetIndex: number }>,
-    ) => {
-      if (!sourceXml.trim() || !targetXml.trim()) {
-        return { xml: '', error: 'MusicXML content is empty.' };
-      }
-      if (typeof DOMParser === 'undefined') {
-        return { xml: '', error: 'XML parsing is unavailable in this environment.' };
-      }
-      const parser = new DOMParser();
-      const sourceDoc = parser.parseFromString(sourceXml, 'application/xml');
-      const targetDoc = parser.parseFromString(targetXml, 'application/xml');
-      if (sourceDoc.querySelector('parsererror') || targetDoc.querySelector('parsererror')) {
-        return { xml: '', error: 'MusicXML is not valid XML.' };
-      }
-
-      const getPartMeasures = (doc: Document) => {
-        const parts = Array.from(doc.getElementsByTagName('part'));
-        const part = parts[partIndex] ?? null;
-        if (!part) {
-          return { part: null as Element | null, measures: [] as Element[] };
-        }
-        const measures = Array.from(part.children).filter(
-          (node) => node.nodeType === Node.ELEMENT_NODE && (node as Element).tagName === 'measure',
-        ) as Element[];
-        return { part, measures };
-      };
-
-      const { measures: sourceMeasures } = getPartMeasures(sourceDoc);
-      const { measures: targetMeasures } = getPartMeasures(targetDoc);
-      for (const replacementPair of replacements) {
-        const sourceMeasure = sourceMeasures[replacementPair.sourceIndex];
-        const targetMeasure = targetMeasures[replacementPair.targetIndex];
-        if (!sourceMeasure || !targetMeasure) {
-          return { xml: '', error: 'Measure not found for the selected part/index.' };
-        }
-        const replacement = targetDoc.importNode(sourceMeasure, true) as Element;
-        const targetNumber = targetMeasure.getAttribute('number');
-        if (targetNumber) {
-          replacement.setAttribute('number', targetNumber);
-        }
-        targetMeasure.parentNode?.replaceChild(replacement, targetMeasure);
-      }
-
-      const serializer = new XMLSerializer();
-      return { xml: serializer.serializeToString(targetDoc), error: '' };
-    },
-    [],
-  );
-
-  const buildMismatchBlocks = useCallback((rows: MeasureAlignmentRow[]) => {
-    const blocks: Array<{ start: number; end: number }> = [];
-    let start = -1;
-    rows.forEach((row, index) => {
-      const mismatch = !row.match;
-      if (mismatch && start === -1) {
-        start = index;
-      }
-      if (!mismatch && start !== -1) {
-        blocks.push({ start, end: index - 1 });
-        start = -1;
-      }
-    });
-    if (start !== -1) {
-      blocks.push({ start, end: rows.length - 1 });
-    }
-    return blocks;
-  }, []);
-
-  const buildMismatchBreaks = useCallback(
-    (rows: MeasureAlignmentRow[], side: 'left' | 'right', measureCount: number) => {
-      const breaks = Array.from({ length: measureCount }, () => false);
-      if (!rows.length || measureCount <= 0) {
-        return breaks;
-      }
-      const blocks = buildMismatchBlocks(rows);
-      for (const block of blocks) {
-        let startIndex: number | null = null;
-        let endIndex: number | null = null;
-        for (let i = block.start; i <= block.end; i += 1) {
-          const index = side === 'left' ? rows[i].leftIndex : rows[i].rightIndex;
-          if (index === null) {
-            continue;
-          }
-          if (startIndex === null) {
-            startIndex = index;
-          }
-          endIndex = index;
-        }
-        if (startIndex === null || endIndex === null) {
-          continue;
-        }
-        if (startIndex > 0 && startIndex - 1 < measureCount) {
-          breaks[startIndex - 1] = true;
-        }
-        if (endIndex >= 0 && endIndex < measureCount) {
-          breaks[endIndex] = true;
-        }
-      }
-      return breaks;
-    },
-    [buildMismatchBlocks],
-  );
-
-  const buildIndexAlignment = useCallback(
-    (left: string[], right: string[]): MeasureAlignmentRow[] => {
-      const total = Math.max(left.length, right.length);
-      const rows: MeasureAlignmentRow[] = [];
-      for (let i = 0; i < total; i += 1) {
-        const leftIndex = i < left.length ? i : null;
-        const rightIndex = i < right.length ? i : null;
-        const match =
-          leftIndex !== null && rightIndex !== null && left[leftIndex] === right[rightIndex];
-        rows.push({ leftIndex, rightIndex, match });
-      }
-      return rows;
-    },
-    [],
-  );
-
-  const normalizeAlignmentRows = useCallback((rows: MeasureAlignmentRow[]) => {
-    const normalized: MeasureAlignmentRow[] = [];
-    let pendingLeft: number[] = [];
-    let pendingRight: number[] = [];
-
-    const flush = () => {
-      const pairCount = Math.min(pendingLeft.length, pendingRight.length);
-      for (let i = 0; i < pairCount; i += 1) {
-        normalized.push({
-          leftIndex: pendingLeft[i],
-          rightIndex: pendingRight[i],
-          match: false,
-        });
-      }
-      for (let i = pairCount; i < pendingLeft.length; i += 1) {
-        normalized.push({ leftIndex: pendingLeft[i], rightIndex: null, match: false });
-      }
-      for (let i = pairCount; i < pendingRight.length; i += 1) {
-        normalized.push({ leftIndex: null, rightIndex: pendingRight[i], match: false });
-      }
-      pendingLeft = [];
-      pendingRight = [];
-    };
-
-    rows.forEach((row) => {
-      if (row.match || (row.leftIndex !== null && row.rightIndex !== null)) {
-        flush();
-        normalized.push(row);
-        return;
-      }
-      if (row.leftIndex !== null) {
-        pendingLeft.push(row.leftIndex);
-      }
-      if (row.rightIndex !== null) {
-        pendingRight.push(row.rightIndex);
-      }
-    });
-    flush();
-    return normalized;
-  }, []);
-
-  const buildLcsAlignment = useCallback(
-    (left: string[], right: string[]) => {
-      const n = left.length;
-      const m = right.length;
-      const dp: number[][] = Array.from({ length: n + 1 }, () => Array(m + 1).fill(0));
-
-      for (let i = 0; i < n; i += 1) {
-        for (let j = 0; j < m; j += 1) {
-          if (left[i] === right[j]) {
-            dp[i + 1][j + 1] = dp[i][j] + 1;
-          } else {
-            dp[i + 1][j + 1] = Math.max(dp[i][j + 1], dp[i + 1][j]);
-          }
-        }
-      }
-
-      const rows: MeasureAlignmentRow[] = [];
-      let i = n;
-      let j = m;
-      while (i > 0 && j > 0) {
-        if (left[i - 1] === right[j - 1]) {
-          rows.push({ leftIndex: i - 1, rightIndex: j - 1, match: true });
-          i -= 1;
-          j -= 1;
-        } else if (dp[i - 1][j] >= dp[i][j - 1]) {
-          rows.push({ leftIndex: i - 1, rightIndex: null, match: false });
-          i -= 1;
-        } else {
-          rows.push({ leftIndex: null, rightIndex: j - 1, match: false });
-          j -= 1;
-        }
-      }
-      while (i > 0) {
-        rows.push({ leftIndex: i - 1, rightIndex: null, match: false });
-        i -= 1;
-      }
-      while (j > 0) {
-        rows.push({ leftIndex: null, rightIndex: j - 1, match: false });
-        j -= 1;
-      }
-
-      rows.reverse();
-      const lcsLength = dp[n][m];
-      const maxLen = Math.max(n, m);
-      const lcsRatio = maxLen > 0 ? lcsLength / maxLen : 0;
-      return { rows: normalizeAlignmentRows(rows), lcsRatio };
-    },
-    [normalizeAlignmentRows],
-  );
-
-  useEffect(() => {
+                        useEffect(() => {
     scoreRef.current = score;
     selectionProjectionNeededRef.current = false;
   }, [score]);
@@ -2298,47 +1874,7 @@ export default function ScoreEditor() {
     [scoreId],
   );
 
-  const summarizeScoreId = (id: string) => {
-    if (id.startsWith('url:')) {
-      const url = id.slice(4);
-      const name = url.split('/').pop() || url;
-      return { title: name, detail: url, type: 'url' as const };
-    }
-    if (id.startsWith('file:')) {
-      const parts = id.slice(5).split(':');
-      const name = parts[0] || 'File import';
-      return { title: name, detail: 'File import', type: 'file' as const };
-    }
-    if (id.startsWith('new:')) {
-      return { title: 'New score', detail: id.slice(4), type: 'new' as const };
-    }
-    if (id === 'legacy') {
-      return {
-        title: 'Legacy checkpoints',
-        detail: 'Unscoped checkpoints',
-        type: 'legacy' as const,
-      };
-    }
-    if (id.startsWith('ots:')) {
-      const [, workId = '', sourceId = ''] = id.split(':');
-      return {
-        title: sourceId ? `OTS source ${sourceId}` : 'OurTextScores source',
-        detail: workId ? `Work ${workId}` : 'OurTextScores source',
-        type: 'other' as const,
-      };
-    }
-    return { title: id, detail: '', type: 'other' as const };
-  };
-
-  const escapeXml = (value: string) =>
-    value
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&apos;');
-
-  const newScoreInstrumentGroups =
+      const newScoreInstrumentGroups =
     instrumentGroups.length > 0 ? instrumentGroups : instrumentFallbackGroups;
 
   const newScoreInstrumentOptions = useMemo(() => {
@@ -2359,31 +1895,7 @@ export default function ScoreEditor() {
       { id: 'voice', name: 'Voice', label: 'Voice' },
     ];
   }, [newScoreInstrumentGroups]);
-  const newScoreCommonInstrumentPreferences = useMemo(
-    () => [
-      { key: 'piano', ids: ['piano'] },
-      { key: 'violin', ids: ['violin'] },
-      { key: 'viola', ids: ['viola'] },
-      { key: 'cello', ids: ['violoncello', 'cello'] },
-      { key: 'double-bass', ids: ['double-bass', 'contrabass'], label: 'Double Bass' },
-      { key: 'flute', ids: ['flute'] },
-      { key: 'oboe', ids: ['oboe'] },
-      { key: 'clarinet', ids: ['clarinet'], label: 'Clarinet' },
-      { key: 'bassoon', ids: ['bassoon'] },
-      { key: 'trumpet', ids: ['trumpet'], label: 'Trumpet' },
-      { key: 'horn', ids: ['horn'] },
-      { key: 'trombone', ids: ['trombone'] },
-      { key: 'tuba', ids: ['tuba'] },
-      { key: 'alto-saxophone', ids: ['alto-saxophone'] },
-      { key: 'tenor-saxophone', ids: ['tenor-saxophone'] },
-      { key: 'bass-guitar', ids: ['bass-guitar'] },
-      { key: 'guitar', ids: ['guitar-nylon', 'guitar-steel'] },
-      { key: 'voice', ids: ['voice'] },
-      { key: 'drumset', ids: ['drumset'] },
-    ],
-    [],
-  );
-  const newScoreCommonInstruments = useMemo(() => {
+    const newScoreCommonInstruments = useMemo(() => {
     const results: { instrument: (typeof newScoreInstrumentOptions)[number]; label: string }[] = [];
     const used = new Set<string>();
     for (const pref of newScoreCommonInstrumentPreferences) {
@@ -2396,7 +1908,7 @@ export default function ScoreEditor() {
       }
     }
     return results;
-  }, [newScoreCommonInstrumentPreferences, newScoreInstrumentOptions]);
+  }, [newScoreInstrumentOptions]);
 
   const comparePartCount = Math.max(scoreParts.length, compareRightParts.length, 1);
   const compareCheckpointTitle = compareView?.checkpointLabel || compareView?.title || 'Checkpoint';
@@ -2852,7 +2364,6 @@ export default function ScoreEditor() {
     isAiCompareMode,
     comparePartCount,
     compareAlignmentByPart,
-    buildMismatchBlocks,
     compareSignatures,
   ]);
   const aiDiffReviewByKey = useMemo(() => {
@@ -2869,19 +2380,7 @@ export default function ScoreEditor() {
     });
     return map;
   }, [aiDiffReviews]);
-  const getReviewStatusForFeedback = useCallback(
-    (review: BlockReview | undefined): BlockReviewStatus => {
-      if (!review) {
-        return 'pending';
-      }
-      if (review.status !== 'comment') {
-        return review.status;
-      }
-      return review.comment.trim() ? 'comment' : 'pending';
-    },
-    [],
-  );
-  const resolveAiDiffReview = useCallback(
+    const resolveAiDiffReview = useCallback(
     (block: AiDiffBlockRef): BlockReview | undefined => {
       const review =
         aiDiffReviewByKey.get(block.blockKey) ??
@@ -2904,26 +2403,26 @@ export default function ScoreEditor() {
       aiDiffCurrentBlocks.filter(
         (block) => getReviewStatusForFeedback(resolveAiDiffReview(block)) === 'rejected',
       ).length,
-    [aiDiffCurrentBlocks, resolveAiDiffReview, getReviewStatusForFeedback],
+    [aiDiffCurrentBlocks, resolveAiDiffReview],
   );
   const aiDiffCommentCount = useMemo(
     () =>
       aiDiffCurrentBlocks.filter(
         (block) => getReviewStatusForFeedback(resolveAiDiffReview(block)) === 'comment',
       ).length,
-    [aiDiffCurrentBlocks, resolveAiDiffReview, getReviewStatusForFeedback],
+    [aiDiffCurrentBlocks, resolveAiDiffReview],
   );
   const aiDiffPendingCount = useMemo(
     () =>
       aiDiffCurrentBlocks.filter(
         (block) => getReviewStatusForFeedback(resolveAiDiffReview(block)) === 'pending',
       ).length,
-    [aiDiffCurrentBlocks, resolveAiDiffReview, getReviewStatusForFeedback],
+    [aiDiffCurrentBlocks, resolveAiDiffReview],
   );
   const aiDiffAcceptedCount = useMemo(
     () =>
       aiDiffReviews.filter((review) => getReviewStatusForFeedback(review) === 'accepted').length,
-    [aiDiffReviews, getReviewStatusForFeedback],
+    [aiDiffReviews],
   );
   // Measure-thread notes with at least one user comment are also sent as feedback.
   const aiMeasureNoteCount = useMemo(
@@ -2998,51 +2497,7 @@ export default function ScoreEditor() {
 
   const compareGutterRegionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
-  const hitTestMeasure = useCallback(
-    (
-      positions: Positions | null,
-      clientX: number,
-      clientY: number,
-      wrapperRef: React.RefObject<HTMLDivElement | null>,
-      zoom: number,
-    ): number => {
-      if (!positions?.elements.length || !wrapperRef.current) return -1;
-      const rect = wrapperRef.current.getBoundingClientRect();
-      const scoreX = (clientX - rect.left) / zoom;
-      const scoreY = (clientY - rect.top) / zoom;
-      const pageHeight = positions.pageSize?.height ?? 0;
-      // Exact hit first
-      const exact = positions.elements.findIndex((el) => {
-        const w = typeof el.sx === 'number' ? el.sx : (el.width ?? 0);
-        const h = typeof el.sy === 'number' ? el.sy : (el.height ?? 0);
-        const needsPageOffset = pageHeight > 0 && el.page > 0 && el.y + h <= pageHeight * 1.2;
-        const pageOffset = needsPageOffset ? el.page * pageHeight : 0;
-        const y = el.y + pageOffset;
-        return scoreX >= el.x && scoreX <= el.x + w && scoreY >= y && scoreY <= y + h;
-      });
-      if (exact >= 0) return exact;
-      // Nearest fallback: closest measure by 2D distance to its centre
-      let bestIdx = -1;
-      let bestDist = Infinity;
-      positions.elements.forEach((el, idx) => {
-        const w = typeof el.sx === 'number' ? el.sx : (el.width ?? 0);
-        const h = typeof el.sy === 'number' ? el.sy : (el.height ?? 0);
-        const needsPageOffset = pageHeight > 0 && el.page > 0 && el.y + h <= pageHeight * 1.2;
-        const pageOffset = needsPageOffset ? el.page * pageHeight : 0;
-        const cy = el.y + pageOffset + h / 2;
-        const cx = el.x + w / 2;
-        const dist = (scoreX - cx) ** 2 + (scoreY - cy) ** 2;
-        if (dist < bestDist) {
-          bestDist = dist;
-          bestIdx = idx;
-        }
-      });
-      return bestIdx;
-    },
-    [],
-  );
-
-  const handleCompareScoreClick = useCallback(
+    const handleCompareScoreClick = useCallback(
     (event: React.MouseEvent<HTMLDivElement>, side: 'left' | 'right') => {
       const positions =
         side === 'left' ? compareLeftMeasurePositions : compareRightMeasurePositions;
@@ -3230,7 +2685,6 @@ export default function ScoreEditor() {
       compareLeftWrapperRef,
       compareRightWrapperRef,
       compareEffectiveZoom,
-      hitTestMeasure,
       isChangeReviewCompareMode,
       isAiCompareMode,
       compareSwapped,
@@ -3240,8 +2694,7 @@ export default function ScoreEditor() {
       changeReviewThreadsByAnchor,
       changeReviewDetail,
       compareAlignmentByPart,
-      buildMismatchBlocks,
-    ],
+      ],
   );
 
   const compareGutterRowHeight = 56;
@@ -3284,34 +2737,13 @@ export default function ScoreEditor() {
     const rightOffset = getHeaderOffset(compareRightMeasurePositions);
     return Math.max(leftOffset, rightOffset, 0) * compareEffectiveZoom;
   }, [compareLeftMeasurePositions, compareRightMeasurePositions, compareEffectiveZoom]);
-  const buildMeasureBounds = useCallback((positions: Positions | null, zoomValue: number) => {
-    if (!positions || !positions.elements.length) {
-      return [];
-    }
-    const pageHeight = positions.pageSize?.height ?? 0;
-    return positions.elements.map((element) => {
-      const rawHeight =
-        typeof element.sy === 'number'
-          ? element.sy
-          : typeof element.height === 'number'
-            ? element.height
-            : 0;
-      const needsPageOffset =
-        pageHeight > 0 && element.page > 0 && element.y + rawHeight <= pageHeight * 1.2;
-      const pageOffset = needsPageOffset ? element.page * pageHeight : 0;
-      return {
-        top: (element.y + pageOffset) * zoomValue,
-        height: rawHeight * zoomValue,
-      };
-    });
-  }, []);
-  const compareLeftBounds = useMemo(
+    const compareLeftBounds = useMemo(
     () => buildMeasureBounds(compareLeftMeasurePositions, compareEffectiveZoom),
-    [buildMeasureBounds, compareLeftMeasurePositions, compareEffectiveZoom],
+    [compareLeftMeasurePositions, compareEffectiveZoom],
   );
   const compareRightBounds = useMemo(
     () => buildMeasureBounds(compareRightMeasurePositions, compareEffectiveZoom),
-    [buildMeasureBounds, compareRightMeasurePositions, compareEffectiveZoom],
+    [compareRightMeasurePositions, compareEffectiveZoom],
   );
   const compareGutterTrackHeight = useMemo(() => {
     const leftHeight = compareLeftSvgSize ? compareLeftSvgSize.height * compareEffectiveZoom : 0;
@@ -3682,7 +3114,7 @@ export default function ScoreEditor() {
       return;
     }
     void refreshMeasurePositions(score, setChangeReviewMeasurePositions);
-  }, [currentPage, hostKind, refreshMeasurePositions, score, scoreRevision]);
+  }, [currentPage, hostKind, score, scoreRevision]);
   const changeReviewBarBoxes = useMemo(() => {
     if (!changeReviewMeasurePositions?.elements.length || !changeReviewScoreView) {
       return [];
@@ -3733,24 +3165,7 @@ export default function ScoreEditor() {
     [changeReviewBarBoxes, changeReviewFocusedAnchorId, changeReviewThreadsByAnchor],
   );
 
-  const clefCodeMap: Record<string, { sign: string; line: number; octave?: number }> = {
-    G: { sign: 'G', line: 2 },
-    G8va: { sign: 'G', line: 2, octave: 1 },
-    G8vb: { sign: 'G', line: 2, octave: -1 },
-    G15ma: { sign: 'G', line: 2, octave: 2 },
-    F: { sign: 'F', line: 4 },
-    F8va: { sign: 'F', line: 4, octave: 1 },
-    F8vb: { sign: 'F', line: 4, octave: -1 },
-    F15ma: { sign: 'F', line: 4, octave: 2 },
-    C1: { sign: 'C', line: 1 },
-    C2: { sign: 'C', line: 2 },
-    C3: { sign: 'C', line: 3 },
-    C4: { sign: 'C', line: 4 },
-    C5: { sign: 'C', line: 5 },
-    PERC: { sign: 'percussion', line: 2 },
-  };
-
-  const resolveInstrumentClefs = (instrumentId: string, instrumentName: string) => {
+    const resolveInstrumentClefs = (instrumentId: string, instrumentName: string) => {
     const entry = instrumentClefMap?.[instrumentId];
     if (entry) {
       return entry;
@@ -3783,36 +3198,7 @@ export default function ScoreEditor() {
     return { staves: 1, clefs: [{ staff: 1, clef: 'G' }] };
   };
 
-  const pickupDurationToRestType = (numerator: number, denominator: number): string => {
-    // Map a simple pickup fraction to MusicXML <type> value.
-    // For compound fractions (e.g. 3/8), use the denominator's base note type
-    // with dots handled separately if needed. For the rest element, just using
-    // the denominator's type with the correct duration value is sufficient —
-    // MuseScore will display the correct rest(s) based on duration.
-    const denomTypes: Record<number, string> = {
-      1: 'whole',
-      2: 'half',
-      4: 'quarter',
-      8: 'eighth',
-      16: '16th',
-      32: '32nd',
-    };
-    // Simple case: numerator is 1 → exact match
-    if (numerator === 1) {
-      return denomTypes[denominator] || 'quarter';
-    }
-    // Dotted: 3/8 = dotted quarter, 3/4 = dotted half, etc.
-    if (numerator === 3) {
-      const dottedDenom = denominator / 2;
-      if (denomTypes[dottedDenom]) {
-        return denomTypes[dottedDenom];
-      }
-    }
-    // Fallback: use denominator type (MuseScore will use duration to fill correctly)
-    return denomTypes[denominator] || 'quarter';
-  };
-
-  const buildNewScoreXml = (options: {
+    const buildNewScoreXml = (options: {
     title: string;
     composer: string;
     instruments: { id: string; name: string }[];
@@ -3934,41 +3320,7 @@ ${partsBodyXml}
 `;
   };
 
-  const normalizeXmlData = useCallback(async (data: unknown): Promise<Uint8Array | null> => {
-    if (!data) {
-      return null;
-    }
-    if (data instanceof Uint8Array) {
-      return data;
-    }
-    if (data instanceof ArrayBuffer) {
-      return new Uint8Array(data);
-    }
-    if (ArrayBuffer.isView(data)) {
-      return new Uint8Array(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength));
-    }
-    if (typeof data === 'string') {
-      return new TextEncoder().encode(data);
-    }
-    if (data instanceof Blob) {
-      return new Uint8Array(await data.arrayBuffer());
-    }
-    console.warn('Unexpected saveXml response type', data);
-    return null;
-  }, []);
-
-  const decodeXmlData = useCallback(
-    async (data: unknown): Promise<string | null> => {
-      const normalized = await normalizeXmlData(data);
-      if (!normalized) {
-        return null;
-      }
-      return new TextDecoder().decode(normalized);
-    },
-    [normalizeXmlData],
-  );
-
-  const getScoreMusicXmlText = useCallback(
+      const getScoreMusicXmlText = useCallback(
     async (targetScore: Score | null, fallbackXml: string | null) => {
       if (!targetScore?.saveXml) {
         return fallbackXml;
@@ -3982,7 +3334,7 @@ ${partsBodyXml}
         return fallbackXml;
       }
     },
-    [decodeXmlData, runSerializedScoreOperation],
+    [runSerializedScoreOperation],
   );
 
   const getScoreXmlData = useCallback(async () => {
@@ -3993,7 +3345,7 @@ ${partsBodyXml}
     }
     const data = await runSerializedScoreOperation(() => activeScore.saveXml!(), 'saveXml');
     return await normalizeXmlData(data);
-  }, [score, normalizeXmlData, runSerializedScoreOperation]);
+  }, [score, runSerializedScoreOperation]);
 
   const loadXmlFromScore = useCallback(async () => {
     if (!score) {
@@ -4028,27 +3380,7 @@ ${partsBodyXml}
     void loadXmlFromScore();
   };
 
-  const getScoreMscxText = useCallback(
-    async (targetScore: Score) => {
-      if (!targetScore?.saveMsc) {
-        return null;
-      }
-      const data = await targetScore.saveMsc('mscx');
-      return await decodeXmlData(data);
-    },
-    [decodeXmlData],
-  );
-
-  const fileToBase64 = useCallback((file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = (error) => reject(error);
-    });
-  }, []);
-
-  const resolveXmlContext = useCallback(async () => {
+      const resolveXmlContext = useCallback(async () => {
     if (xmlText.trim()) {
       return xmlText;
     }
@@ -4151,334 +3483,7 @@ ${partsBodyXml}
     return () => clearTimeout(timer);
   }, [score, openScoreSession]);
 
-  const parseMusicXmlPatch = useCallback(
-    (
-      text: string,
-    ): {
-      patch: MusicXmlPatch | null;
-      annotations?: PatchAnnotation[];
-      error: string;
-    } => {
-      if (!text.trim()) {
-        return { patch: null as MusicXmlPatch | null, error: 'AI response is empty.' };
-      }
-      let parsedValue: unknown;
-      try {
-        parsedValue = JSON.parse(text);
-      } catch {
-        return { patch: null, error: 'AI response is not valid JSON.' };
-      }
-      const parsed = asRecord(parsedValue);
-      if (!parsed || parsed.format !== 'musicxml-patch@1' || !Array.isArray(parsed.ops)) {
-        return { patch: null, error: 'AI response is not a musicxml-patch@1 payload.' };
-      }
-      const ops: MusicXmlPatchOp[] = [];
-      const allowedOps = new Set([
-        'replace',
-        'setText',
-        'setAttr',
-        'insertBefore',
-        'insertAfter',
-        'delete',
-      ]);
-      const analyzeXmlFragmentShape = (value: string) => {
-        const tokenPattern =
-          /<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?[\s\S]*?\?>|<![^>]*>|<\/?[^>]+?>|[^<]+/g;
-        const tokens = value.match(tokenPattern) || [];
-        let depth = 0;
-        let topLevelElementCount = 0;
-        let hasTopLevelText = false;
-        let unbalancedTags = false;
-        for (const token of tokens) {
-          if (!token) {
-            continue;
-          }
-          if (
-            token.startsWith('<!--') ||
-            token.startsWith('<?') ||
-            (token.startsWith('<!') && !token.startsWith('<![CDATA['))
-          ) {
-            continue;
-          }
-          if (token.startsWith('<![CDATA[')) {
-            if (depth === 0 && token.replace(/^<!\[CDATA\[|\]\]>$/g, '').trim()) {
-              hasTopLevelText = true;
-            }
-            continue;
-          }
-          if (token.startsWith('</')) {
-            if (depth === 0) {
-              unbalancedTags = true;
-              continue;
-            }
-            depth -= 1;
-            continue;
-          }
-          if (token.startsWith('<')) {
-            const isSelfClosing = /\/>\s*$/.test(token);
-            if (depth === 0) {
-              topLevelElementCount += 1;
-            }
-            if (!isSelfClosing) {
-              depth += 1;
-            }
-            continue;
-          }
-          if (depth === 0 && token.trim()) {
-            hasTopLevelText = true;
-          }
-        }
-        if (depth !== 0) {
-          unbalancedTags = true;
-        }
-        return { topLevelElementCount, hasTopLevelText, unbalancedTags };
-      };
-      for (let i = 0; i < parsed.ops.length; i += 1) {
-        const op = asRecord(parsed.ops[i]);
-        if (!op) {
-          return { patch: null, error: `Patch op ${i + 1} is not an object.` };
-        }
-        const opName = String(op.op || '');
-        if (!allowedOps.has(opName)) {
-          return { patch: null, error: `Patch op ${i + 1} has unsupported op "${opName}".` };
-        }
-        const path = typeof op.path === 'string' ? op.path.trim() : '';
-        if (!path) {
-          return { patch: null, error: `Patch op ${i + 1} is missing a valid path.` };
-        }
-        const nextOp: MusicXmlPatchOp = { op: opName as MusicXmlPatchOp['op'], path };
-        if (
-          opName === 'setText' ||
-          opName === 'replace' ||
-          opName === 'insertBefore' ||
-          opName === 'insertAfter'
-        ) {
-          if (typeof op.value !== 'string') {
-            return { patch: null, error: `Patch op ${i + 1} requires a string value.` };
-          }
-          if (opName === 'setText' && /[<>]/.test(op.value)) {
-            return {
-              patch: null,
-              error: `Patch op ${i + 1} setText value appears to contain XML. Use replace/insert ops for element changes.`,
-            };
-          }
-          if (opName === 'replace' || opName === 'insertBefore' || opName === 'insertAfter') {
-            const shape = analyzeXmlFragmentShape(op.value);
-            if (shape.unbalancedTags) {
-              return {
-                patch: null,
-                error: `Patch op ${i + 1} ${opName} value has unbalanced XML tags.`,
-              };
-            }
-            if (shape.hasTopLevelText) {
-              return {
-                patch: null,
-                error: `Patch op ${i + 1} ${opName} value has top-level text; it must contain exactly one XML element.`,
-              };
-            }
-            if (shape.topLevelElementCount !== 1) {
-              return {
-                patch: null,
-                error: `Patch op ${i + 1} ${opName} value has ${shape.topLevelElementCount} top-level elements; expected exactly one. Use multiple ops for sibling elements.`,
-              };
-            }
-          }
-          nextOp.value = op.value;
-        }
-        if (opName === 'setAttr') {
-          if (typeof op.name !== 'string' || !op.name.trim()) {
-            return { patch: null, error: `Patch op ${i + 1} requires an attribute name.` };
-          }
-          if (typeof op.value !== 'string') {
-            return { patch: null, error: `Patch op ${i + 1} requires a string value.` };
-          }
-          nextOp.name = op.name;
-          nextOp.value = op.value;
-        }
-        ops.push(nextOp);
-      }
-      return {
-        patch: { format: 'musicxml-patch@1', ops },
-        annotations: extractPatchAnnotations(parsed),
-        error: '',
-      };
-    },
-    [],
-  );
-
-  const applyMusicXmlPatch = (baseXml: string, patch: MusicXmlPatch) => {
-    if (!baseXml.trim()) {
-      return { xml: '', error: 'Base MusicXML is empty.' };
-    }
-    if (typeof DOMParser === 'undefined') {
-      return { xml: '', error: 'XML parsing is unavailable in this environment.' };
-    }
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(baseXml, 'application/xml');
-    const parserError = doc.querySelector('parsererror');
-    if (parserError) {
-      return { xml: '', error: 'Base MusicXML is not valid XML.' };
-    }
-    const resolver = doc.createNSResolver(doc.documentElement);
-    const parseFragment = (value: string) => {
-      const fragmentDoc = parser.parseFromString(`<wrapper>${value}</wrapper>`, 'application/xml');
-      const fragmentError = fragmentDoc.querySelector('parsererror');
-      if (fragmentError) {
-        return { node: null as Node | null, error: 'Patch value is not valid XML.' };
-      }
-      const wrapper = fragmentDoc.documentElement;
-      const elementChildren = Array.from(wrapper.childNodes).filter(
-        (node) => node.nodeType === Node.ELEMENT_NODE,
-      );
-      const textChildren = Array.from(wrapper.childNodes).filter(
-        (node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim(),
-      );
-      if (elementChildren.length !== 1 || textChildren.length > 0) {
-        return { node: null, error: 'Patch value must contain exactly one element.' };
-      }
-      const imported = doc.importNode(elementChildren[0], true);
-      return { node: imported, error: '' };
-    };
-    const resolveNodes = (path: string) => {
-      try {
-        const result = doc.evaluate(
-          path,
-          doc,
-          resolver,
-          XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
-          null,
-        );
-        if (result.snapshotLength < 1) {
-          return { nodes: [] as Node[], error: `XPath "${path}" matched 0 nodes.` };
-        }
-        const nodes: Node[] = [];
-        for (let i = 0; i < result.snapshotLength; i += 1) {
-          const node = result.snapshotItem(i);
-          if (node) {
-            nodes.push(node);
-          }
-        }
-        return { nodes, error: '' };
-      } catch {
-        return { nodes: [] as Node[], error: `XPath "${path}" could not be evaluated.` };
-      }
-    };
-    const tryEnsureSetTextTarget = (path: string) => {
-      if (!path.includes('/attributes/')) {
-        return { nodes: [] as Node[], created: false };
-      }
-      const segments = path.split('/').filter(Boolean);
-      if (segments.length < 2) {
-        return { nodes: [] as Node[], created: false };
-      }
-      for (let prefixLength = segments.length - 1; prefixLength >= 1; prefixLength -= 1) {
-        const prefixPath = `/${segments.slice(0, prefixLength).join('/')}`;
-        const prefixResult = resolveNodes(prefixPath);
-        if (prefixResult.error || prefixResult.nodes.length !== 1) {
-          continue;
-        }
-        const rootNode = prefixResult.nodes[0];
-        if (rootNode.nodeType !== Node.ELEMENT_NODE && rootNode.nodeType !== Node.DOCUMENT_NODE) {
-          continue;
-        }
-        const missingSegments = segments.slice(prefixLength);
-        if (missingSegments.length === 0) {
-          continue;
-        }
-        if (!missingSegments.every((segment) => /^[A-Za-z_][\w.-]*$/.test(segment))) {
-          continue;
-        }
-        let current: Node = rootNode;
-        for (const segment of missingSegments) {
-          const nextNode = doc.createElement(segment);
-          if (
-            current.nodeType === Node.ELEMENT_NODE &&
-            (current as Element).tagName === 'measure' &&
-            segment === 'attributes'
-          ) {
-            const firstElementChild = Array.from(current.childNodes).find(
-              (child) => child.nodeType === Node.ELEMENT_NODE,
-            );
-            if (firstElementChild) {
-              current.insertBefore(nextNode, firstElementChild);
-            } else {
-              current.appendChild(nextNode);
-            }
-          } else {
-            current.appendChild(nextNode);
-          }
-          current = nextNode;
-        }
-        return { nodes: [current], created: true };
-      }
-      return { nodes: [] as Node[], created: false };
-    };
-    for (let i = 0; i < patch.ops.length; i += 1) {
-      const op = patch.ops[i];
-      let { nodes, error } = resolveNodes(op.path);
-      if ((error || nodes.length === 0) && op.op === 'setText') {
-        const ensured = tryEnsureSetTextTarget(op.path);
-        if (ensured.created) {
-          nodes = ensured.nodes;
-          error = '';
-        }
-      }
-      if (error || nodes.length === 0) {
-        return { xml: '', error: `Patch op ${i + 1} failed: ${error || 'Target not found.'}` };
-      }
-      if (nodes.length !== 1) {
-        return {
-          xml: '',
-          error: `Patch op ${i + 1} failed: XPath "${op.path}" matched ${nodes.length} nodes.`,
-        };
-      }
-      const node = nodes[0];
-      if (op.op === 'setText') {
-        node.textContent = op.value ?? '';
-        continue;
-      }
-      if (op.op === 'setAttr') {
-        if (node.nodeType !== Node.ELEMENT_NODE) {
-          return { xml: '', error: `Patch op ${i + 1} targets a non-element node.` };
-        }
-        (node as Element).setAttribute(op.name ?? '', op.value ?? '');
-        continue;
-      }
-      if (op.op === 'delete') {
-        if (!node.parentNode) {
-          return { xml: '', error: `Patch op ${i + 1} target has no parent.` };
-        }
-        node.parentNode.removeChild(node);
-        continue;
-      }
-      const fragment = parseFragment(op.value ?? '');
-      if (fragment.error || !fragment.node) {
-        return {
-          xml: '',
-          error: `Patch op ${i + 1} failed: ${fragment.error || 'Invalid value.'}`,
-        };
-      }
-      if (!node.parentNode) {
-        return { xml: '', error: `Patch op ${i + 1} target has no parent.` };
-      }
-      if (op.op === 'replace') {
-        node.parentNode.replaceChild(fragment.node, node);
-        continue;
-      }
-      if (op.op === 'insertBefore') {
-        node.parentNode.insertBefore(fragment.node, node);
-        continue;
-      }
-      if (op.op === 'insertAfter') {
-        node.parentNode.insertBefore(fragment.node, node.nextSibling);
-        continue;
-      }
-    }
-    const serializer = new XMLSerializer();
-    return { xml: serializer.serializeToString(doc), error: '' };
-  };
-
-  const ensureCheckpointBeforeApply = async () => {
+      const ensureCheckpointBeforeApply = async () => {
     if (!isIndexedDbAvailable()) {
       notifyWarning('IndexedDB is not available; cannot verify checkpoint status.');
       return { ok: false, currentXml: '' };
@@ -4731,7 +3736,6 @@ ${partsBodyXml}
       buildCheckpointMetadata,
       ensureScoreId,
       loadCheckpointList,
-      normalizeXmlData,
       runSerializedScoreOperation,
     ],
   );
@@ -5189,29 +4193,7 @@ ${partsBodyXml}
   const requestLayoutProgress = (targetScore: Score, targetPage: number) =>
     requestScoreLayoutProgress(targetScore, targetPage, runSerializedScoreOperation);
 
-  const runWithTimeout = async <T,>(
-    promise: Promise<T>,
-    timeoutMs: number,
-    label: string,
-  ): Promise<T> => {
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    try {
-      return await Promise.race([
-        promise,
-        new Promise<T>((_, reject) => {
-          timeoutId = setTimeout(() => {
-            reject(new Error(`${label} timed out after ${timeoutMs}ms`));
-          }, timeoutMs);
-        }),
-      ]);
-    } finally {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    }
-  };
-
-  const {
+    const {
     hasPendingOperations: hasPendingCompareOperations,
     invalidateOperations: invalidateCompareOperations,
     isGenerationCurrent: isCompareGenerationCurrent,
@@ -6522,7 +5504,7 @@ ${partsBodyXml}
       syncCompareSvgSize(container, setSize);
       await refreshMeasurePositions(targetScore, setPositions);
     },
-    [getCompareTargetPage, refreshMeasurePositions, renderScoreToContainer, syncCompareSvgSize],
+    [getCompareTargetPage, renderScoreToContainer, syncCompareSvgSize],
   );
 
   const commitCompareProposalXml = useCallback((afterXml: string) => {
@@ -6867,7 +5849,6 @@ ${partsBodyXml}
       getCompareScoreRole,
       getCompareTargetPage,
       handleCompareScoreClick,
-      hitTestMeasure,
       invalidateCompareOperations,
       isCompareEditBusy,
       isCompareGenerationCurrent,
@@ -6998,7 +5979,6 @@ ${partsBodyXml}
       getScoreMusicXmlText,
       hasPendingCompareOperations,
       isCompareEditBusy,
-      replaceMeasuresInMusicXml,
       invalidateAiProposalExpectedCurrent,
       recordAiProposalAppliedXml,
       setAiError,
@@ -7771,7 +6751,6 @@ ${partsBodyXml}
     mergeAiAnnotations,
     aiDiffCurrentBlocks,
     resolveAiDiffReview,
-    getReviewStatusForFeedback,
     aiDiffGlobalComment,
     aiDiffIteration,
     getScoreMusicXmlText,
@@ -7786,25 +6765,9 @@ ${partsBodyXml}
     aiTemperature,
     aiPrompt,
     captureApiTraceContext,
-    parseMusicXmlPatch,
-  ]);
+    ]);
 
-  const parsePartsFromMetadata = useCallback((metadata: unknown): PartSummary[] => {
-    const metadataRecord = asRecord(metadata);
-    const parts = Array.isArray(metadataRecord?.parts) ? metadataRecord.parts : [];
-    return parts.map((value, index) => {
-      const part = asRecord(value);
-      return {
-        index,
-        name: typeof part?.name === 'string' ? part.name : '',
-        instrumentName: typeof part?.instrumentName === 'string' ? part.instrumentName : '',
-        instrumentId: typeof part?.instrumentId === 'string' ? part.instrumentId : '',
-        isVisible: String(part?.isVisible ?? '').toLowerCase() === 'true',
-      };
-    });
-  }, []);
-
-  const refreshScoreMetadata = async (currentScore: Score) => {
+    const refreshScoreMetadata = async (currentScore: Score) => {
     try {
       const metadata = await runSerializedScoreOperation(() => currentScore.metadata(), 'metadata');
       setScoreTitle(typeof metadata.title === 'string' ? metadata.title : '');
@@ -8766,7 +7729,6 @@ ${partsBodyXml}
     };
   }, [
     compareView,
-    parsePartsFromMetadata,
     aiDiffFeedbackBusy,
     clearAiProposal,
     invalidateCompareOperations,
@@ -8831,7 +7793,6 @@ ${partsBodyXml}
     compareSwapped,
     renderScoreToContainer,
     syncCompareSvgSize,
-    refreshMeasurePositions,
     getCompareTargetPage,
   ]);
 
@@ -8889,7 +7850,6 @@ ${partsBodyXml}
     compareRightLoading,
     renderScoreToContainer,
     syncCompareSvgSize,
-    refreshMeasurePositions,
     getCompareTargetPage,
   ]);
 
@@ -9365,12 +8325,8 @@ ${partsBodyXml}
     compareLeftScore,
     compareRightScoreDisplay,
     compareContinuousMode,
-    applyMeasureLineBreaks,
-    fetchMeasureLineBreaks,
     compareAlignments,
     comparePartCount,
-    buildMismatchBreaks,
-    refreshMeasurePositions,
     renderScoreToContainer,
     syncCompareSvgSize,
   ]);
@@ -9497,12 +8453,7 @@ ${partsBodyXml}
     compareRightPartsDisplay.length,
     compareLeftScore,
     compareRightScoreDisplay,
-    fetchMeasureSignatures,
-    buildLcsAlignment,
-    buildIndexAlignment,
-    extractMeasureSignaturesFromXml,
-    getScoreMscxText,
-  ]);
+    ]);
 
   useEffect(() => {
     if (!isAiCompareMode) {
@@ -9993,7 +8944,6 @@ ${partsBodyXml}
     [
       aiBaseXml,
       aiScoreBridge,
-      parseMusicXmlPatch,
       setAiOutput,
       setAiPatch,
       setAiPatchError,
@@ -13689,20 +12639,7 @@ ${partsBodyXml}
     ],
   );
 
-  const isEditableTarget = (target: EventTarget | null) => {
-    if (!(target instanceof HTMLElement)) {
-      return false;
-    }
-    const tagName = target.tagName.toLowerCase();
-    return (
-      target.isContentEditable ||
-      tagName === 'input' ||
-      tagName === 'textarea' ||
-      tagName === 'select'
-    );
-  };
-
-  // Editing keys in the main score go through the keyboard router (components/shell/keyboard).
+    // Editing keys in the main score go through the keyboard router (components/shell/keyboard).
   // Only a compare session still has its own table, until it moves onto the same commands.
   keyboardShortcutHandlerRef.current = (event: KeyboardEvent) => {
     if (event.defaultPrevented || !score || !compareView || isEditableTarget(event.target)) {
@@ -13799,18 +12736,7 @@ ${partsBodyXml}
     }
   };
 
-  const downloadBlob = (data: BlobPart | Uint8Array, filename: string, mime: string) => {
-    const blobPart = data instanceof Uint8Array ? toOwnedBytes(data) : data;
-    const blob = new Blob([blobPart], { type: mime });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleExportSvg = async () => {
+    const handleExportSvg = async () => {
     if (!score) return;
     try {
       const svg = await runSerializedScoreOperation(
@@ -14073,23 +12999,7 @@ ${partsBodyXml}
     }
   };
 
-  const getPageMeasureRange = async (targetScore: Score, pageIndex: number) => {
-    if (typeof targetScore.measureRangeForPage !== 'function') {
-      throw new Error('Current-page audio requires an updated webmscore build.');
-    }
-    const safePageIndex = Math.max(0, pageIndex || 0);
-    const range = await Promise.resolve(targetScore.measureRangeForPage(safePageIndex));
-    if (
-      !range ||
-      !Number.isFinite(range.startMeasureIndex) ||
-      !Number.isFinite(range.endMeasureIndex)
-    ) {
-      throw new Error(`No measures found on page ${safePageIndex + 1}.`);
-    }
-    return range;
-  };
-
-  const handleExportCurrentPageAudio = async () => {
+    const handleExportCurrentPageAudio = async () => {
     if (!score || !score.saveAudioForMeasureRange) {
       notifyError('Current-page audio export is not available in this build.');
       return;
