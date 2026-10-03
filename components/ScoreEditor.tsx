@@ -39,12 +39,11 @@ import { findAiEditProposal, type AiEditProposal } from '../lib/ai-edit-proposal
 import { fetchJsonOrThrow } from '../lib/fetch-json';
 import { copySelectionToClipboard, pasteClipboardPayload } from '../lib/selection-clipboard';
 import type { MeasureInsertTarget, HeaderTextTarget } from './score-editor/editorProps';
-import { layoutOracleEnabled, verifyFullLayout } from '../lib/layout-oracle';
 import { noPerf, startPerf, type PerfHandle } from '../lib/perf-trace';
-import { confirmDialog, notify, notifyError, notifyWarning, promptDialog } from './shell/notices';
+import { confirmDialog, notifyError, notifyWarning, promptDialog } from './shell/notices';
 import { ShellHeader } from './shell/ShellHeader';
 import { StatusBar } from './shell/StatusBar';
-import { announce, describeEdit, useSelectionAnnouncer } from './shell/announcer';
+import { useSelectionAnnouncer } from './shell/announcer';
 import { WriteToolbar } from './shell/toolbar/WriteToolbar';
 import { HistoryToolbar } from './shell/toolbar/HistoryToolbar';
 import { CompareToolbar } from './shell/toolbar/CompareToolbar';
@@ -220,7 +219,7 @@ import { type MutationMethods, hasMutationApi } from './score-editor/mutation-ap
 import { type CompareAppliedSpacer, type CompareViewState, type PartAlignment } from './score-editor/compare/compare-types';
 import { type HarmonyVariant } from './score-editor/ai-assistant-types';
 import { PREVIEW_DURATION_MS, PREVIEW_SYNTH_BATCH_SIZE, SELECTION_STREAM_MIN_STARTUP_BATCHES, SELECTION_STREAM_STARTUP_BUFFER_SECONDS, SELECTION_SYNTH_BATCH_SIZE, SELECTION_SYNTH_START_PREROLL_SECONDS, SYNTH_START_PREROLL_SECONDS, TRANSPORT_SYNTH_BATCH_SIZE } from './score-editor/playback-constants';
-import { DEFAULT_PAGE_RENDER_TIMEOUT_MS, ENGINE_OPERATION_STALL_RELEASE_MS, LARGE_PROGRESSIVE_PAGE_RENDER_TIMEOUT_MS, LARGE_SCORE_BACKGROUND_TASK_DELAY_MS, LARGE_SCORE_BACKGROUND_TASK_MAX_RETRIES, LARGE_SCORE_BACKGROUND_TASK_RETRY_DELAY_MS, LARGE_SCORE_INTERACTION_PRIME_DELAY_MS, LAYOUT_MODES, PROGRESSIVE_PAGE_LAYOUT_CONFIRM_TIMEOUT_MS, PROGRESSIVE_PAGE_LAYOUT_EXPAND_TIMEOUT_MS, PROGRESSIVE_PAGE_LAYOUT_TIMEOUT_MS, measureInsertTargetMap } from './score-editor/layout-constants';
+import { DEFAULT_PAGE_RENDER_TIMEOUT_MS, LARGE_PROGRESSIVE_PAGE_RENDER_TIMEOUT_MS, LARGE_SCORE_BACKGROUND_TASK_DELAY_MS, LARGE_SCORE_BACKGROUND_TASK_MAX_RETRIES, LARGE_SCORE_BACKGROUND_TASK_RETRY_DELAY_MS, LARGE_SCORE_INTERACTION_PRIME_DELAY_MS, LAYOUT_MODES, PROGRESSIVE_PAGE_LAYOUT_CONFIRM_TIMEOUT_MS, PROGRESSIVE_PAGE_LAYOUT_EXPAND_TIMEOUT_MS, PROGRESSIVE_PAGE_LAYOUT_TIMEOUT_MS, measureInsertTargetMap } from './score-editor/layout-constants';
 import { DEFAULT_SELECTION_FILTER_MASK, ELEMENT_SELECTION_SELECTOR, NOTE_INPUT_VOICE_COLORS, SELECTION_FILTER_STORAGE_KEY, hasSelectableClass, hasTextElementClass, isSvgTextElement, normalizeElementClasses, resolveTextElement } from './score-editor/selection-classes';
 import { AI_CHAT_SOURCE_RAG_HINT_DISMISSED_STORAGE_KEY, AI_DIFF_COMMENT_GUTTER_PADDING, AI_DIFF_GUTTER_DEFAULT_WIDTH, AI_DIFF_GUTTER_MAX_WIDTH, AI_DIFF_GUTTER_MIN_WIDTH, AI_PDF_ATTACHMENT_MAX_BYTES, AI_SELECTION_BOX_CONTEXT_LIMIT, AI_SELECTION_CONTEXT_MAX_CHARS, ANTHROPIC_EMBED_PROXY_ERROR, isMissingProxyStatus } from './score-editor/ai-constants';
 import { CODE_EDITOR_THEME_STORAGE_KEY, CODE_EDITOR_THEME_VALUES } from './score-editor/music-specialists-constants';
@@ -246,6 +245,7 @@ import { useChordTools } from './score-editor/ai-tools/useChordTools';
 import { requestAiTextImpl } from './score-editor/ai-text-request';
 import { sendAiChatMessage } from './score-editor/ai-chat';
 import { requestAiPatch } from './score-editor/ai-patch-request';
+import { useEditorCore, type EditorCoreLateInputs } from './score-editor/core';
 
 
 export default function ScoreEditor() {
@@ -401,14 +401,12 @@ export default function ScoreEditor() {
     };
   }, [activeLaunchContext]);
 
-  const [score, setScore] = useState<Score | null>(null);
-  const [scoreSessionId, setScoreSessionId] = useState<string | null>(null);
+    const [scoreSessionId, setScoreSessionId] = useState<string | null>(null);
   const [scoreRevision, setScoreRevision] = useState<number>(0);
   const lastSyncedXmlRef = useRef<string>('');
   const lastSyncedRevisionRef = useRef<number>(-1);
   const isSyncingRef = useRef<boolean>(false);
-  const scoreRef = useRef<Score | null>(null);
-  const applyXmlToScoreRef = useRef<ApplyXmlToScore>(async () => false);
+    const applyXmlToScoreRef = useRef<ApplyXmlToScore>(async () => false);
   const stopCompareSideAudioRef = useRef<StopCompareSideAudio>(async () => {});
   const [handleUrlLoad, handleUrlLoadRef] = useLatestCallbackFacade<HandleUrlLoad>(
     async () => false,
@@ -423,30 +421,15 @@ export default function ScoreEditor() {
   const [ensureSoundFontLoaded, ensureSoundFontLoadedRef] =
     useLatestCallbackFacade<EnsureSoundFontLoaded>(async () => false);
   const keyboardShortcutHandlerRef = useRef<(event: KeyboardEvent) => void>(() => {});
-  const [zoom, setZoom] = useState(1.0);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const scoreWrapperRef = useRef<HTMLDivElement>(null);
+      const scoreWrapperRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const changeReviewGutterRef = useRef<HTMLDivElement>(null);
   const MIN_ZOOM = 0.01;
   const MAX_ZOOM = 1.0;
   const clampZoom = (value: number) => Math.min(Math.max(value, MIN_ZOOM), MAX_ZOOM);
   const [loading, setLoading] = useState(false);
-  const [selectedElement, setSelectedElement] = useState<{
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-  } | null>(null);
-  const [selectedPoint, setSelectedPoint] = useState<{ page: number; x: number; y: number } | null>(
-    null,
-  );
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [selectionBoxes, setSelectionBoxes] = useState<SelectionBox[]>([]);
-  const [overlaySuppressed, setOverlaySuppressed] = useState(false);
-  const [hasBackendHighlighting, setHasBackendHighlighting] = useState(false);
-  const [selectedElementClasses, setSelectedElementClasses] = useState<string>('');
-  const [selectedTextValue, setSelectedTextValue] = useState('');
+            const [hasBackendHighlighting, setHasBackendHighlighting] = useState(false);
+    const [selectedTextValue, setSelectedTextValue] = useState('');
   const inlineTextContentRef = useRef<HTMLDivElement>(null);
   // Tracks whether the user has typed in the inline text editor this session, so
   // async loads of the element's current text don't clobber in-progress edits.
@@ -458,13 +441,7 @@ export default function ScoreEditor() {
   const [panelsVisible, setPanelsVisible] = useState(true);
   const [fretDiagramData, setFretDiagramData] = useState<FretDiagramData | null>(null);
   const [inspectorLoading, setInspectorLoading] = useState(false);
-  const [selectedLayoutBreakSubtype, setSelectedLayoutBreakSubtype] = useState<
-    'line' | 'page' | null
-  >(null);
-  const [textEditorPosition, setTextEditorPosition] = useState<{ x: number; y: number } | null>(
-    null,
-  );
-  const [dragSelectionRect, setDragSelectionRect] = useState<{
+      const [dragSelectionRect, setDragSelectionRect] = useState<{
     x: number;
     y: number;
     w: number;
@@ -542,8 +519,60 @@ export default function ScoreEditor() {
   });
   const selectionFilterMaskRef = useRef(selectionFilterMask);
   const [multiMeasureRestsEnabled, setMultiMeasureRestsEnabled] = useState(false);
-  const noteInputActiveRef = useRef(false);
-  const noteInputDesiredRef = useRef(false);
+    const noteInputDesiredRef = useRef(false);
+  const lateInputs = useRef<EditorCoreLateInputs>({
+    interactiveMutationEnabled: false,
+    playSelectionPreview: async () => undefined as never,
+    refreshNoteInputCursor: async () => undefined as never,
+  });
+  const {
+    blockOverlayRefreshRef,
+    clientToEngravingPoint,
+    containerRef,
+    currentPage,
+    currentPageRef,
+    ensureSelectionInWasm,
+    noteInputActiveRef,
+    overlaySuppressed,
+    performMutation,
+    refreshSelectionOverlay,
+    requireMutation,
+    resolvePageIndex,
+    runSerializedScoreOperation,
+    score,
+    scoreDirtySinceCheckpoint,
+    scoreDirtySinceXml,
+    scoreRef,
+    scoreSvgForTarget,
+    selectedElement,
+    selectedElementClasses,
+    selectedIndex,
+    selectedLayoutBreakSubtype,
+    selectedPoint,
+    selectionBoxes,
+    selectionOverlayGenerationRef,
+    selectionProjectionNeededRef,
+    setCurrentPage,
+    setOverlaySuppressed,
+    setScore,
+    setScoreDirtySinceCheckpoint,
+    setScoreDirtySinceXml,
+    setSelectedElement,
+    setSelectedElementClasses,
+    setSelectedIndex,
+    setSelectedLayoutBreakSubtype,
+    setSelectedPoint,
+    setSelectionBoxes,
+    setTextEditorPosition,
+    setZoom,
+    textEditorPosition,
+    zoom,
+  } = useEditorCore({
+    refreshPageCount,
+    renderScore,
+    lateInputs,
+  });
+
   useEffect(() => {
     noteInputActiveRef.current = false;
     noteInputDesiredRef.current = false;
@@ -551,7 +580,7 @@ export default function ScoreEditor() {
     setNoteInputMethod(1);
     setNoteInputCursorRect(null);
     setNoteInputShadow(null);
-  }, [score]);
+  }, [score, noteInputActiveRef]);
   useEffect(() => {
     if (!score) {
       setMultiMeasureRestsEnabled(false);
@@ -582,7 +611,7 @@ export default function ScoreEditor() {
       }
       void Promise.resolve(scoreRef.current?.endElementDrag?.(false)).catch(() => {});
     },
-    [],
+    [scoreRef],
   );
   useEffect(
     () => () => {
@@ -592,9 +621,7 @@ export default function ScoreEditor() {
     },
     [score],
   );
-  const blockOverlayRefreshRef = useRef(false);
-  const selectionOverlayGenerationRef = useRef(0);
-  const [mutationEnabled, setMutationEnabled] = useState(false);
+      const [mutationEnabled, setMutationEnabled] = useState(false);
   const [interactionReady, setInteractionReady] = useState(false);
   const [interactionPreparing, setInteractionPreparing] = useState(false);
   const interactionReadyRef = useRef(interactionReady);
@@ -811,9 +838,7 @@ export default function ScoreEditor() {
   const [scoreSummaries, setScoreSummaries] = useState<ScoreSummary[]>([]);
   const [scoreSummariesLoading, setScoreSummariesLoading] = useState(false);
   const [scoreSummariesError, setScoreSummariesError] = useState<string | null>(null);
-  const [scoreDirtySinceCheckpoint, setScoreDirtySinceCheckpoint] = useState(false);
-  const [scoreDirtySinceXml, setScoreDirtySinceXml] = useState(false);
-  const [xmlSidebarMode, setXmlSidebarMode] = useState<'closed' | 'open'>('closed');
+      const [xmlSidebarMode, setXmlSidebarMode] = useState<'closed' | 'open'>('closed');
   // The MusicXML editor is its own right-side sidebar, separate from the AI tools.
   const [musicXmlOpen, setMusicXmlOpen] = useState(false);
   const [xmlSidebarTab, setXmlSidebarTab] = useState<AiToolsTab>('assistant');
@@ -875,8 +900,7 @@ export default function ScoreEditor() {
   const aiUnsupportedParametersRef = useRef<Map<string, Set<OptionalAiRequestParameter>>>(
     new Map(),
   );
-  const [currentPage, setCurrentPage] = useState(0);
-  const [pageCount, setPageCount] = useState(1);
+    const [pageCount, setPageCount] = useState(1);
   const [progressivePagingActive, setProgressivePagingActive] = useState(false);
   const [progressiveHasMorePages, setProgressiveHasMorePages] = useState(false);
   const [pngExportDialogOpen, setPngExportDialogOpen] = useState(false);
@@ -909,7 +933,7 @@ export default function ScoreEditor() {
     if (Number.isFinite(saved) && saved > 0) {
       setZoom(clampZoom(saved));
     }
-  }, [scoreId]);
+  }, [scoreId, setZoom]);
   useEffect(() => {
     if (typeof window === 'undefined') {
       return;
@@ -954,22 +978,15 @@ export default function ScoreEditor() {
   const previewAudioSourcesRef = useRef<AudioBufferSourceNode[]>([]);
   const previewStreamIteratorRef = useRef<SynthBatchIterator | null>(null);
   const previewPlaybackGenerationRef = useRef(0);
-  const currentPageRef = useRef(currentPage);
-  const selectedPointRef = useRef<{ page: number; x: number; y: number } | null>(selectedPoint);
-  // False means libmscore already owns the authoritative selection. The only
-  // normal path that moves the overlay without moving the engine is letter-key
-  // pitch replacement outside note-input mode, which deliberately previews the
-  // next note. Its next selection-dependent command must project that point once.
-  const selectionProjectionNeededRef = useRef(false);
-  const progressivePageLoadInFlightRef = useRef(false);
+    const selectedPointRef = useRef<{ page: number; x: number; y: number } | null>(selectedPoint);
+    const progressivePageLoadInFlightRef = useRef(false);
   const pageNavigationInFlightRef = useRef(false);
   const largeScoreSessionRef = useRef(false);
   const largeSessionXmlAutoloadDeferredLoggedRef = useRef(false);
   const backgroundInitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const interactionPrimeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const interactionPrimeRunIdRef = useRef(0);
-  const scoreOperationQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const editorSessionIdRef = useRef('');
+    const editorSessionIdRef = useRef('');
   const editorMountedAtRef = useRef(0);
   const lastApiTraceContextRef = useRef<EditorTraceContext>({});
   const telemetryCountersRef = useRef<EditorTelemetryCounters>({
@@ -1039,44 +1056,7 @@ export default function ScoreEditor() {
   const copyInFlightRef = useRef<Promise<boolean> | null>(null);
   const selectionInFlightRef = useRef<Promise<unknown> | null>(null);
 
-  const runSerializedScoreOperation = useCallback(
-    async <T,>(operation: () => Promise<T>, label: string): Promise<T> => {
-      const waitForPriorOperation = scoreOperationQueueRef.current;
-      let releaseQueueSlot: (() => void) | null = null;
-      scoreOperationQueueRef.current = new Promise<void>((resolve) => {
-        releaseQueueSlot = resolve;
-      });
-
-      await waitForPriorOperation;
-
-      let released = false;
-      const release = () => {
-        if (released) {
-          return;
-        }
-        released = true;
-        releaseQueueSlot?.();
-      };
-
-      const operationPromise = Promise.resolve().then(operation);
-      const forceReleaseTimer = setTimeout(() => {
-        console.warn(`[engine-queue] force release after ${ENGINE_OPERATION_STALL_RELEASE_MS}ms`, {
-          label,
-        });
-        release();
-      }, ENGINE_OPERATION_STALL_RELEASE_MS);
-
-      try {
-        return await operationPromise;
-      } finally {
-        clearTimeout(forceReleaseTimer);
-        release();
-      }
-    },
-    [],
-  );
-
-  const reportClipboardUnsupported = useCallback(() => {
+    const reportClipboardUnsupported = useCallback(() => {
     notifyError('This build of webmscore does not expose selection copy.');
   }, []);
   const compareClipboard = useCompareClipboard({
@@ -1149,11 +1129,11 @@ export default function ScoreEditor() {
                         useEffect(() => {
     scoreRef.current = score;
     selectionProjectionNeededRef.current = false;
-  }, [score]);
+  }, [score, scoreRef, selectionProjectionNeededRef]);
 
   useEffect(() => {
     currentPageRef.current = currentPage;
-  }, [currentPage]);
+  }, [currentPage, currentPageRef]);
 
   useEffect(() => {
     selectedPointRef.current = selectedPoint;
@@ -1509,7 +1489,7 @@ export default function ScoreEditor() {
     return () => {
       canceled = true;
     };
-  }, [score, selectedElementClasses]);
+  }, [score, selectedElementClasses, setSelectedLayoutBreakSubtype]);
 
   useEffect(() => {
     const shouldLoadText =
@@ -1608,7 +1588,7 @@ export default function ScoreEditor() {
     } finally {
       setInspectorLoading(false);
     }
-  }, [score]);
+  }, [score, scoreRef]);
 
   useEffect(() => {
     if (!score || (!selectedElement && selectionBoxes.length === 0 && !selectedPoint)) {
@@ -3113,7 +3093,7 @@ ${partsBodyXml}
     }
     const data = await runSerializedScoreOperation(() => activeScore.saveXml!(), 'saveXml');
     return await normalizeXmlData(data);
-  }, [score, runSerializedScoreOperation]);
+  }, [score, runSerializedScoreOperation, scoreRef]);
 
   const loadXmlFromScore = useCallback(async () => {
     if (!score) {
@@ -3139,7 +3119,7 @@ ${partsBodyXml}
     } finally {
       setXmlLoading(false);
     }
-  }, [score, getScoreXmlData]);
+  }, [score, getScoreXmlData, setScoreDirtySinceXml]);
 
   /** After an AI tool applies its output: show the resulting MusicXML in the Score Source panel. */
   const revealScoreSource = () => {
@@ -3161,7 +3141,7 @@ ${partsBodyXml}
     setXmlDirty(false);
     setScoreDirtySinceXml(false);
     return text;
-  }, [xmlText, getScoreXmlData]);
+  }, [xmlText, getScoreXmlData, setScoreDirtySinceXml]);
 
   const openScoreSession = useCallback(
     async (xml?: string) => {
@@ -3504,7 +3484,7 @@ ${partsBodyXml}
       buildCheckpointMetadata,
       ensureScoreId,
       loadCheckpointList,
-      runSerializedScoreOperation,
+      runSerializedScoreOperation, setScoreDirtySinceCheckpoint,
     ],
   );
 
@@ -4024,7 +4004,7 @@ ${partsBodyXml}
       refreshPageCount,
       renderScore,
       runSerializedScoreOperation,
-      setInteractionState,
+      setInteractionState, currentPageRef, scoreRef,
     ],
   );
 
@@ -4048,7 +4028,7 @@ ${partsBodyXml}
       console.warn('Failed to capture page SVG context for AI request:', err);
       return '';
     }
-  }, [score, runSerializedScoreOperation]);
+  }, [score, runSerializedScoreOperation, containerRef, currentPageRef, scoreRef]);
 
   const resolveSelectionContext = useCallback(async () => {
     const lines: string[] = [];
@@ -4168,7 +4148,7 @@ ${partsBodyXml}
     selectedElementClasses,
     selectedIndex,
     selectionBoxes,
-    runSerializedScoreOperation,
+    runSerializedScoreOperation, currentPageRef, scoreRef,
   ]);
 
   const resolveCurrentPageImageAttachment =
@@ -4196,7 +4176,7 @@ ${partsBodyXml}
         console.warn('Failed to capture page PNG context for AI request:', err);
         return null;
       }
-    }, [score, runSerializedScoreOperation]);
+    }, [score, runSerializedScoreOperation, currentPageRef, scoreRef]);
 
   const resolveScorePdfAttachment = useCallback(async (): Promise<AiPdfAttachment | null> => {
     const activeScore = scoreRef.current ?? score;
@@ -4229,7 +4209,7 @@ ${partsBodyXml}
       console.warn('Failed to capture score PDF context for AI request:', err);
       return null;
     }
-  }, [score, runSerializedScoreOperation]);
+  }, [score, runSerializedScoreOperation, scoreRef]);
 
   const aiScoreBridge = useMemo<AiScoreBridge>(
     () => ({
@@ -4248,7 +4228,7 @@ ${partsBodyXml}
       resolveScorePdfAttachment,
       resolveSelectionContext,
       resolveXmlContext,
-      score,
+      score, scoreRef,
     ],
   );
 
@@ -5305,7 +5285,7 @@ ${partsBodyXml}
       invalidateAiProposalExpectedCurrent,
       isAiCompareMode,
       recordAiProposalAppliedXml,
-      setAiProposalApplyError,
+      setAiProposalApplyError, setScoreDirtySinceCheckpoint, setScoreDirtySinceXml,
     ],
   );
 
@@ -5339,7 +5319,7 @@ ${partsBodyXml}
     async (targetScore: Score) => {
       await refreshPageCount(targetScore, currentPageRef.current);
     },
-    [refreshPageCount],
+    [refreshPageCount, currentPageRef],
   );
   const reportCompareMutationError = useCallback((label: string, error: unknown) => {
     console.error(`Compare mutation "${label}" failed:`, error);
@@ -5751,7 +5731,7 @@ ${partsBodyXml}
       recordAiProposalAppliedXml,
       setAiError,
       setAiProposalApplyError,
-      verifyAiProposalCurrent,
+      verifyAiProposalCurrent, scoreRef,
     ],
   );
 
@@ -5864,7 +5844,7 @@ ${partsBodyXml}
     captureAiProposal,
     setAiBaseXml,
     setAiError,
-    setAiProposalApplyError,
+    setAiProposalApplyError, scoreRef,
   ]);
 
   const setAiDiffBlockStatus = useCallback((block: AiDiffBlockRef, status: BlockReviewStatus) => {
@@ -7504,7 +7484,7 @@ ${partsBodyXml}
     resetCompareEditing,
     resetCompareEditingRole,
     runSerializedScoreOperation,
-    stopCompareSideAudio,
+    stopCompareSideAudio, scoreRef,
   ]);
 
   useEffect(() => {
@@ -7515,7 +7495,7 @@ ${partsBodyXml}
       const auxiliaryScore = compareRightScoreRef.current;
       void queueCompareScoreTeardown(auxiliaryScore, scoreRef.current, 'score-editor-unmount');
     };
-  }, [invalidateCompareOperations, queueCompareScoreTeardown, stopCompareSideAudio]);
+  }, [invalidateCompareOperations, queueCompareScoreTeardown, stopCompareSideAudio, scoreRef]);
 
   const prevCompareLiveSelectionScoreRef = useRef<Score | null>(null);
   useEffect(() => {
@@ -7699,7 +7679,7 @@ ${partsBodyXml}
     renderScoreToContainer,
     syncCompareSvgSize,
     compareLeftScore,
-    compareRightScoreDisplay,
+    compareRightScoreDisplay, currentPageRef,
   ]);
 
   useEffect(() => {
@@ -8096,7 +8076,7 @@ ${partsBodyXml}
     compareAlignments,
     comparePartCount,
     renderScoreToContainer,
-    syncCompareSvgSize,
+    syncCompareSvgSize, currentPageRef,
   ]);
 
   useEffect(() => {
@@ -8701,292 +8681,13 @@ ${partsBodyXml}
     mergeAiAnnotations(aiLastAnnotations);
   };
 
-  const ensureSelectionInWasm = async () => {
-    // If the UI is tracking multiple selected elements, avoid collapsing the WASM selection back to a single point.
-    if (selectionBoxes.length > 1) {
-      return;
-    }
-    if (!score || !selectedPoint) {
-      return;
-    }
-    // A range selection cannot be reconstructed from a single point, so
-    // re-projecting the UI's selection into the engine would destroy it. Box count
-    // is not a usable proxy for this: a range renders as one rectangle per system,
-    // so a single-system range legitimately has exactly one box and would otherwise
-    // fall through to selectElementAtPoint below and collapse to one note. Ask the
-    // engine what it is actually holding.
-    try {
-      if (score.isSelectionRange && (await score.isSelectionRange())) {
-        return;
-      }
-    } catch {
-      // Older build without the export: fall through to the point re-select.
-    }
-
-    try {
-      const { page, x, y } = selectedPoint;
-      const containerRect = containerRef.current?.getBoundingClientRect();
-      const engravingPoint = containerRect
-        ? clientToEngravingPoint(containerRect.left + x * zoom, containerRect.top + y * zoom)
-        : null;
-      const selectionX = engravingPoint?.x ?? x;
-      const selectionY = engravingPoint?.y ?? y;
-      const preferTextSelection =
-        hasTextElementClass(selectedElementClasses) || Boolean(textEditorPosition);
-      if (preferTextSelection && score.selectTextElementAtPoint) {
-        const selected = await score.selectTextElementAtPoint(page, selectionX, selectionY);
-        if (selected !== false) {
-          selectionProjectionNeededRef.current = false;
-        }
-        return;
-      }
-      if (!score.selectElementAtPoint) {
-        return;
-      }
-      const selected = await score.selectElementAtPoint(page, selectionX, selectionY);
-      if (selected !== false) {
-        selectionProjectionNeededRef.current = false;
-      }
-    } catch (err) {
-      console.warn('Re-select in WASM failed; continuing anyway', err);
-    }
-  };
-
-  const projectSelectionInWasmIfNeeded = async () => {
+    const projectSelectionInWasmIfNeeded = async () => {
     if (selectionProjectionNeededRef.current) {
       await ensureSelectionInWasm();
     }
   };
 
-  const refreshSelectionOverlay = (
-    fallbackIndex?: number | null,
-    fallbackPoint?: { page: number; x: number; y: number } | null,
-    generation?: number,
-  ) => {
-    if (!containerRef.current) {
-      return;
-    }
-    if (generation !== undefined && generation !== selectionOverlayGenerationRef.current) {
-      return;
-    }
-    if (blockOverlayRefreshRef.current) {
-      return;
-    }
-    const useIndex = fallbackIndex !== undefined ? fallbackIndex : selectedIndex;
-    const usePoint = fallbackPoint !== undefined ? fallbackPoint : selectedPoint;
-    const containerRect = containerRef.current.getBoundingClientRect();
-    const selectors = ['.selected', '.note-selected', '.ms-selection'];
-    const candidates: Element[] = Array.from(
-      new Set(selectors.flatMap((sel) => Array.from(containerRef.current!.querySelectorAll(sel)))),
-    );
-    const allElements = Array.from(
-      containerRef.current.querySelectorAll(ELEMENT_SELECTION_SELECTOR),
-    );
-
-    let boxes: SelectionBox[] = [];
-    if (candidates.length > 0) {
-      boxes = candidates
-        .map((cand) => {
-          const rect = cand.getBoundingClientRect();
-          const x = (rect.left - containerRect.left) / zoom;
-          const y = (rect.top - containerRect.top) / zoom;
-          const w = rect.width / zoom;
-          const h = rect.height / zoom;
-          if (!(w > 0 && h > 0)) {
-            return null;
-          }
-          const page = resolvePageIndex(cand);
-          const centerX = x + w / 2;
-          const centerY = y + h / 2;
-          const classAttr = normalizeElementClasses(cand, cand.getAttribute('class') ?? '');
-
-          let idx = allElements.indexOf(cand);
-          if (idx < 0) {
-            let current: Element | null = cand;
-            while (current && current !== containerRef.current) {
-              idx = allElements.indexOf(current);
-              if (idx >= 0) break;
-              current = current.parentElement;
-            }
-          }
-
-          return {
-            index: idx >= 0 ? idx : null,
-            page,
-            x,
-            y,
-            w,
-            h,
-            centerX,
-            centerY,
-            classes: classAttr,
-          } satisfies SelectionBox;
-        })
-        .filter((box): box is NonNullable<typeof box> => Boolean(box))
-        .sort(
-          (a, b) =>
-            a.page - b.page ||
-            a.y - b.y ||
-            a.x - b.x ||
-            (a.index ?? Number.MAX_SAFE_INTEGER) - (b.index ?? Number.MAX_SAFE_INTEGER),
-        );
-    } else if (useIndex !== null) {
-      // Fallback: use index if selection markers are missing in SVG
-      const el = allElements[useIndex] ?? null;
-      if (el) {
-        const rect = el.getBoundingClientRect();
-        const x = (rect.left - containerRect.left) / zoom;
-        const y = (rect.top - containerRect.top) / zoom;
-        const w = rect.width / zoom;
-        const h = rect.height / zoom;
-        if (w > 0 && h > 0) {
-          const page = resolvePageIndex(el);
-          const centerX = x + w / 2;
-          const centerY = y + h / 2;
-          const fallbackClass = el.getAttribute('class') ?? '';
-          boxes = [
-            {
-              index: useIndex,
-              page,
-              x,
-              y,
-              w,
-              h,
-              centerX,
-              centerY,
-              classes: fallbackClass,
-            },
-          ];
-        }
-      } else {
-      }
-    }
-
-    if (boxes.length === 0) {
-      setSelectionBoxes([]);
-      setSelectedElement(null);
-      setSelectedPoint(null);
-      setSelectedIndex(null);
-      setSelectedElementClasses('');
-      setSelectedLayoutBreakSubtype(null);
-      return;
-    }
-
-    setSelectionBoxes(boxes);
-
-    let primary: SelectionBox | null = null;
-    if (usePoint) {
-      const targetPage = usePoint.page ?? currentPageRef.current;
-      const samePage = boxes.filter((box) => box.page === targetPage);
-      const pool = samePage.length > 0 ? samePage : boxes;
-      primary = pool.reduce(
-        (best, box) => {
-          if (!best) return box;
-          const bestDist = Math.hypot(best.centerX - usePoint.x, best.centerY - usePoint.y);
-          const dist = Math.hypot(box.centerX - usePoint.x, box.centerY - usePoint.y);
-          return dist < bestDist ? box : best;
-        },
-        null as SelectionBox | null,
-      );
-    } else if (useIndex !== null) {
-      primary = boxes.find((box) => box.index === useIndex) ?? boxes[0];
-    } else {
-      primary = boxes[0];
-    }
-
-    if (!primary) {
-      return;
-    }
-
-    setSelectedElement({ x: primary.x, y: primary.y, w: primary.w, h: primary.h });
-    setSelectedPoint({ page: primary.page, x: primary.centerX, y: primary.centerY });
-    setSelectedIndex(primary.index);
-    setSelectedElementClasses(primary.classes ?? '');
-  };
-
-  const advanceSelectionOverlay = (
-    startIndex?: number | null,
-    startPoint?: { page: number; x: number; y: number } | null,
-    step: number = 1,
-  ) => {
-    if (!containerRef.current) {
-      return;
-    }
-    const allElements = Array.from(
-      containerRef.current.querySelectorAll(ELEMENT_SELECTION_SELECTOR),
-    );
-    if (allElements.length === 0) {
-      return;
-    }
-
-    let index = startIndex ?? selectedIndex;
-    const fallbackPoint =
-      startPoint ??
-      selectedPoint ??
-      (selectedElement
-        ? {
-            page: 0,
-            x: selectedElement.x + selectedElement.w / 2,
-            y: selectedElement.y + selectedElement.h / 2,
-          }
-        : null);
-    if (fallbackPoint) {
-      const containerRect = containerRef.current.getBoundingClientRect();
-      index = allElements.reduce((bestIdx, el, idx) => {
-        const rect = el.getBoundingClientRect();
-        const centerX = (rect.left - containerRect.left + rect.width / 2) / zoom;
-        const centerY = (rect.top - containerRect.top + rect.height / 2) / zoom;
-        const bestRect = allElements[bestIdx]?.getBoundingClientRect();
-        const bestCenterX = bestRect
-          ? (bestRect.left - containerRect.left + bestRect.width / 2) / zoom
-          : centerX;
-        const bestCenterY = bestRect
-          ? (bestRect.top - containerRect.top + bestRect.height / 2) / zoom
-          : centerY;
-        const bestDist = Math.hypot(bestCenterX - fallbackPoint.x, bestCenterY - fallbackPoint.y);
-        const dist = Math.hypot(centerX - fallbackPoint.x, centerY - fallbackPoint.y);
-        return dist < bestDist ? idx : bestIdx;
-      }, 0);
-    }
-
-    const baseIndex = index ?? 0;
-    const nextIndex = Math.min(allElements.length - 1, Math.max(0, baseIndex + step));
-    const target = allElements[nextIndex];
-    if (!target) {
-      return;
-    }
-
-    const rect = target.getBoundingClientRect();
-    const containerRect = containerRef.current.getBoundingClientRect();
-    const x = (rect.left - containerRect.left) / zoom;
-    const y = (rect.top - containerRect.top) / zoom;
-    const w = rect.width / zoom;
-    const h = rect.height / zoom;
-    if (!(w > 0 && h > 0)) {
-      return;
-    }
-    const page = resolvePageIndex(target);
-    const centerX = x + w / 2;
-    const centerY = y + h / 2;
-    const box: SelectionBox = {
-      index: nextIndex,
-      page,
-      x,
-      y,
-      w,
-      h,
-      centerX,
-      centerY,
-    };
-
-    setSelectionBoxes([box]);
-    setSelectedElement({ x, y, w, h });
-    setSelectedPoint({ page, x: centerX, y: centerY });
-    setSelectedIndex(nextIndex);
-    selectionProjectionNeededRef.current = true;
-  };
-
-  const goToPage = async (targetPage: number) => {
+      const goToPage = async (targetPage: number) => {
     if (!score || targetPage < 0) {
       return;
     }
@@ -9081,18 +8782,7 @@ ${partsBodyXml}
     void goToPage(currentPage + 1);
   };
 
-  const requireMutation = (methodName: keyof MutationMethods) => {
-    const activeScore = scoreRef.current ?? score;
-    const fn = activeScore && (activeScore as MutationMethods)[methodName];
-    if (typeof fn !== 'function') {
-      console.warn(`Mutation binding "${methodName}" is missing on Score instance.`);
-      notifyError(`This build of webmscore does not expose "${methodName}".`);
-      return null;
-    }
-    return (...args: unknown[]) => Reflect.apply(fn, activeScore, args);
-  };
-
-  const refreshNoteInputCursor = async (targetScore: Score | null = score) => {
+    const refreshNoteInputCursor = async (targetScore: Score | null = score) => {
     if (!targetScore?.getNoteInputCursorRect) {
       setNoteInputCursorRect(null);
       return null;
@@ -9138,200 +8828,7 @@ ${partsBodyXml}
   const promptForText = (label: string, defaultValue?: string) =>
     promptDialog({ title: label.replace(/:$/, ''), defaultValue });
 
-  const performMutation = async (
-    label: string,
-    action?: () => Promise<unknown> | unknown,
-    options?: {
-      clearSelection?: boolean;
-      skipWasmReselect?: boolean;
-      skipSelectionFallback?: boolean;
-      skipRelayout?: boolean;
-      /**
-       * The engine call ends in `endCmd`, whose incremental layout is complete for this edit: the
-       * layout oracle found no difference from a full relayout, across a sweep of fixtures and
-       * selections. Only these edits skip the full relayout (~1.4 s on a 30-page score); every
-       * other one still pays it. Add a label here only after the oracle has checked it.
-       */
-      incrementalLayout?: boolean;
-      advanceSelection?: boolean;
-      advanceSelectionStep?: number;
-      playSelectionPreview?: boolean;
-    },
-  ) => {
-    if (!score) {
-      console.warn(`Mutation "${label}" requested but no score is loaded.`);
-      return;
-    }
-    if (!interactiveMutationEnabled) {
-      console.warn(`Mutation "${label}" skipped: interaction not ready.`);
-      return;
-    }
-    if (!action) {
-      console.warn(`Mutation "${label}" requested but binding is missing on Score instance.`);
-      return;
-    }
-
-    // Preserve selection state before mutation for use in fallback
-    const preservedIndex = selectedIndex;
-    const preservedPoint = selectedPoint;
-    // Both guards below exist to protect a selection richer than a single point --
-    // originally measure selections, which used to render as one box per notehead.
-    // A range now renders as one rectangle per system, so box count no longer
-    // detects it and the engine has to be asked. Captured before the mutation,
-    // while the caller's selection still exists.
-    let preservedRangeSelection = false;
-    try {
-      preservedRangeSelection = Boolean(score.isSelectionRange && (await score.isSelectionRange()));
-    } catch {
-      // Older build without the export; fall back to the box-count heuristic.
-    }
-    const preservedMultiSelection = selectionBoxes.length > 1 || preservedRangeSelection;
-    const allowSelectionFallback = !options?.skipSelectionFallback;
-    const shouldPlaySelectionPreview = Boolean(options?.playSelectionPreview);
-
-    const perf = startPerf(label);
-    // Layout oracle (dev): skip the full relayout, then check afterwards whether it was needed.
-    const oracle = layoutOracleEnabled() && !options?.skipRelayout;
-    try {
-      console.debug(`Mutation "${label}" start`);
-      const result = await perf.time('mutation', action);
-      console.debug(`Mutation "${label}" result:`, result);
-      const mutated = result !== false;
-      if (!mutated) {
-        console.warn(`Mutation "${label}" returned false (no-op).`);
-      }
-
-      // Clear selection if requested (e.g., for delete operations)
-      if (options?.clearSelection) {
-        blockOverlayRefreshRef.current = true;
-        selectionOverlayGenerationRef.current += 1;
-        setOverlaySuppressed(true);
-        setSelectedElement(null);
-        setSelectionBoxes([]);
-        setSelectedPoint(null);
-        setSelectedIndex(null);
-        setSelectedElementClasses('');
-        setSelectedLayoutBreakSubtype(null);
-        selectionProjectionNeededRef.current = false;
-      }
-
-      if (!mutated) {
-        return;
-      }
-      if (options?.skipWasmReselect && !options.advanceSelection) {
-        selectionProjectionNeededRef.current = false;
-      }
-      setScoreDirtySinceCheckpoint(true);
-      setScoreDirtySinceXml(true);
-
-      if (!options?.skipRelayout && !options?.incrementalLayout && !oracle && score.relayout) {
-        try {
-          await perf.time('relayout', () => score.relayout!());
-        } catch (relayoutErr) {
-          console.warn('Relayout after mutation failed:', relayoutErr);
-        }
-      }
-      const refreshedPage = await perf.time('pageCount', () =>
-        refreshPageCount(score, currentPageRef.current),
-      );
-      await renderScore(score, refreshedPage, true, perf);
-      if (noteInputActiveRef.current) {
-        await perf.time('noteInputCursor', () => refreshNoteInputCursor(score));
-      }
-      perf.end();
-      announce(describeEdit(label));
-      if (oracle) {
-        await verifyFullLayout(score, label, refreshedPage, runSerializedScoreOperation, () =>
-          renderScore(score, refreshedPage),
-        );
-      }
-
-      // Re-establish selection inside WASM if we had a previously known point.
-      if (
-        !options?.skipWasmReselect &&
-        !preservedMultiSelection &&
-        preservedPoint &&
-        score.selectElementAtPoint
-      ) {
-        try {
-          await score.selectElementAtPoint(preservedPoint.page, preservedPoint.x, preservedPoint.y);
-        } catch (reselectErr) {
-          console.warn(
-            'Re-select in WASM after mutation failed; continuing with overlay fallback',
-            reselectErr,
-          );
-        }
-      }
-
-      // If selection wasn't cleared, restore preserved state for fallback
-      if (!options?.clearSelection && allowSelectionFallback) {
-        if (preservedIndex !== null && selectedIndex === null) {
-          setSelectedIndex(preservedIndex);
-        }
-        if (preservedPoint && !selectedPoint) {
-          setSelectedPoint(preservedPoint);
-        }
-      }
-
-      if (options?.clearSelection) {
-        return;
-      }
-
-      if (shouldPlaySelectionPreview) {
-        // Re-projecting the pre-mutation point while entering notes moves
-        // libmscore's InputState back to the chord just entered. The engine
-        // already owns the advancing insertion cursor, so audition its current
-        // selection without changing that cursor.
-        void playSelectionPreview(`mutation:${label}`, preservedPoint ?? undefined, {
-          // Mutations such as pitch changes and transposition keep their
-          // selection inside libmscore. Re-selecting from the old SVG
-          // point after relayout can hit staff lines because the note has
-          // moved vertically, leaving the overlay and engine selection
-          // out of sync.
-          reselect: !noteInputActiveRef.current && !options?.skipWasmReselect,
-        });
-      }
-
-      // Schedule overlay refresh after the DOM has had time to update
-      // Use a double-RAF to ensure the DOM is fully parsed and rendered
-      // Pass preserved values to handle async state updates
-      const fallbackIndex = allowSelectionFallback ? preservedIndex : null;
-      const fallbackPoint = allowSelectionFallback ? preservedPoint : null;
-      const advanceSelection = options?.advanceSelection;
-      const advanceStep = options?.advanceSelectionStep ?? 1;
-
-      // Skip overlay refresh for multi-selections (measure selections with backend highlighting)
-      // These don't add .selected classes to DOM, so refreshSelectionOverlay would clear them
-      if (preservedMultiSelection) {
-        return;
-      }
-
-      if (typeof window !== 'undefined') {
-        window.requestAnimationFrame(() => {
-          window.requestAnimationFrame(() => {
-            if (advanceSelection) {
-              advanceSelectionOverlay(preservedIndex, preservedPoint, advanceStep);
-            } else {
-              refreshSelectionOverlay(fallbackIndex, fallbackPoint);
-            }
-          });
-        });
-      } else {
-        if (advanceSelection) {
-          advanceSelectionOverlay(preservedIndex, preservedPoint, advanceStep);
-        } else {
-          refreshSelectionOverlay(fallbackIndex, fallbackPoint);
-        }
-      }
-    } catch (err) {
-      console.error(`Mutation "${label}" failed:`, err);
-      notify({ kind: 'error', title: `Unable to ${label}`, detail: 'See the console.' });
-    } finally {
-      perf.end();
-    }
-  };
-
-  const scheduleSelectionOverlayRefresh = (
+    const scheduleSelectionOverlayRefresh = (
     fallbackIndex?: number | null,
     fallbackPoint?: { page: number; x: number; y: number } | null,
     generation?: number,
@@ -11738,6 +11235,8 @@ ${partsBodyXml}
     }
   };
 
+  lateInputs.current = { interactiveMutationEnabled, playSelectionPreview, refreshNoteInputCursor };
+
   const handlePlayAudio = async () => {
     await playTransportAudio(false);
   };
@@ -11842,40 +11341,7 @@ ${partsBodyXml}
     }
   };
 
-  const extractPageIndex = (element: Element | null): number | null => {
-    let current: Element | null = element;
-    while (current && current !== containerRef.current) {
-      const dataPage = (current as HTMLElement).dataset?.page;
-      if (dataPage && !Number.isNaN(Number(dataPage))) {
-        const parsed = Number(dataPage);
-        return parsed >= 0 ? parsed : null;
-      }
-
-      const idAttr = current.getAttribute('id');
-      if (idAttr) {
-        const match = idAttr.match(/page-?(\d+)/i);
-        if (match) {
-          const parsed = Number(match[1]);
-          return Number.isNaN(parsed) ? null : Math.max(parsed - 1, 0);
-        }
-      }
-      current = current.parentElement;
-    }
-    return null;
-  };
-
-  const resolvePageIndex = (element: Element | null): number => {
-    const extracted = extractPageIndex(element);
-    if (extracted === null) {
-      return currentPageRef.current;
-    }
-    if (extracted === 0 && currentPageRef.current > 0) {
-      return currentPageRef.current;
-    }
-    return extracted;
-  };
-
-  const clientToScorePoint = (clientX: number, clientY: number) => {
+      const clientToScorePoint = (clientX: number, clientY: number) => {
     if (!containerRef.current) {
       return null;
     }
@@ -11887,25 +11353,7 @@ ${partsBodyXml}
     };
   };
 
-  const scoreSvgForTarget = (target?: Element | null): SVGSVGElement | null => {
-    const targetedSvg = target?.closest('svg');
-    if (targetedSvg instanceof SVGSVGElement) {
-      return targetedSvg;
-    }
-    return containerRef.current?.querySelector('svg') ?? null;
-  };
-
-  const clientToEngravingPoint = (clientX: number, clientY: number, target?: Element | null) => {
-    const svg = scoreSvgForTarget(target);
-    const matrix = svg && typeof svg.getScreenCTM === 'function' ? svg.getScreenCTM() : null;
-    if (!matrix) {
-      return null;
-    }
-    const point = new DOMPoint(clientX, clientY).matrixTransform(matrix.inverse());
-    return { x: point.x, y: point.y };
-  };
-
-  const eventHasScorePaletteData = (event: React.DragEvent) =>
+      const eventHasScorePaletteData = (event: React.DragEvent) =>
     Array.from(event.dataTransfer.types).includes(SCORE_PALETTE_DRAG_MIME);
 
   const handlePaletteDragOver = (event: React.DragEvent) => {
