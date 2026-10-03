@@ -1,4 +1,5 @@
 import { act, render } from '@testing-library/react';
+import { needsSelection } from '../../lib/commands/selectionGates';
 import React, { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -355,5 +356,57 @@ describe('useProvideCommandContext / useCommandContext', () => {
     await expect(window.__otsCommands?.run('probe')).resolves.toBe('ran');
     view.unmount();
     expect(window.__otsCommands).toBeUndefined();
+  });
+});
+
+describe('useRegisterCommands keeps a gate\u2019s reason', () => {
+  function GatedHost({ registry, family }: { registry: CommandRegistry; family?: boolean }) {
+    useRegisterCommands(
+      'global',
+      [
+        family
+          ? defineFamily<number>({
+              id: 'gated',
+              label: 'Gated',
+              variants: [{ arg: 1, label: 'One' }],
+              enabled: needsSelection,
+              run: () => {},
+            })
+          : defineCommand({ id: 'gated', label: 'Gated', enabled: needsSelection, run: () => {} }),
+      ],
+      registry,
+    );
+    return null;
+  }
+  const reasonFor = (registry: CommandRegistry, selection: CommandContext['selection']) => {
+    registry.setContextSource(() => ctx({ hasScore: true, isMutable: true, selection }));
+    return registry.list().find((entry) => entry.id === 'gated')?.disabledReason;
+  };
+
+  it('through the stable wrapper, for a command', () => {
+    const registry = new CommandRegistry();
+    render(<GatedHost registry={registry} />);
+    expect(reasonFor(registry, 'none')).toBe('Select something first');
+    expect(reasonFor(registry, 'single')).toBeUndefined();
+  });
+
+  it('through the stable wrapper, for a family', () => {
+    const registry = new CommandRegistry();
+    render(<GatedHost registry={registry} family />);
+    expect(reasonFor(registry, 'none')).toBe('Select something first');
+  });
+
+  it('and says nothing for a command whose enabled gives no reason', () => {
+    const registry = new CommandRegistry();
+    function Plain() {
+      useRegisterCommands(
+        'global',
+        [defineCommand({ id: 'gated', label: 'Gated', enabled: () => false, run: () => {} })],
+        registry,
+      );
+      return null;
+    }
+    render(<Plain />);
+    expect(reasonFor(registry, 'none')).toBeUndefined();
   });
 });

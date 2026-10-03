@@ -333,4 +333,30 @@ describe('ScoreEditor: loading, format detection and progressive layout', () => 
       expect(screen.getByTestId('svg-container').querySelector('svg')).toBeTruthy(),
     );
   });
+
+  it('does not report a failure, or touch the loading state, for a URL load that was aborted', async () => {
+    params.score = '/test_scores/demo.musicxml';
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mocked.loadWebMscore.mockResolvedValue({ ready: Promise.resolve(), load: vi.fn() });
+    // A fetch that never answers, and fails the way a real one does when it is aborted.
+    testGlobals.fetch = vi.fn(
+      (_url: string, init?: { signal?: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () =>
+            reject(new DOMException('signal is aborted without reason', 'AbortError')),
+          );
+        }),
+    );
+
+    const view = render(<ScoreEditor />);
+    await waitFor(() => expect(testGlobals.fetch).toHaveBeenCalled());
+    view.unmount();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(
+      errors.mock.calls.filter((call) => String(call[0]).includes('Error auto-loading file')),
+    ).toEqual([]);
+    expect(noticeTitles()).toEqual([]);
+    errors.mockRestore();
+  });
 });

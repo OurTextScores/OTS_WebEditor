@@ -110,7 +110,7 @@ import {
 } from './score-editor/commands';
 import { StatusBar } from './shell/StatusBar';
 import { useSelectionAnnouncer } from './shell/announcer';
-import { WriteToolbar } from './shell/toolbar/WriteToolbar';
+import { WriteToolbars } from './shell/toolbar/WriteToolbars';
 import { HistoryToolbar } from './shell/toolbar/HistoryToolbar';
 import { CompareToolbar } from './shell/toolbar/CompareToolbar';
 import { TransposeDialog } from './toolbar/TransposeDialog';
@@ -3746,10 +3746,14 @@ export default function ScoreEditor() {
       // We will use DOM-based hit testing on the SVG elements instead.
       return true;
     } catch (err) {
-      console.error('Error auto-loading file:', err);
-      if (!signal?.aborted) {
-        notifyError(scoreLoadErrorMessage(err));
+      // An aborted load was replaced or cancelled (a file was opened, the page navigated). Whatever
+      // replaced it owns the loading and interaction state, and this catch runs late, so it must not
+      // touch them, report a failure, or log an error for what is not one.
+      if (signal?.aborted) {
+        return false;
       }
+      console.error('Error auto-loading file:', err);
+      notifyError(scoreLoadErrorMessage(err));
       setInteractionState({ preparing: false, ready: false });
       telemetryCountersRef.current.documentLoadFailures += 1;
       emitEditorTelemetry('score_editor_document_load_failed', {
@@ -9371,7 +9375,7 @@ export default function ScoreEditor() {
   const mode = buildWorkspaceMode(kind, {
     nodes: {
       header: <ShellHeader title={scoreTitle} dirty={scoreDirtySinceCheckpoint} />,
-      writeToolbar: <WriteToolbar noteInputMethod={noteInputMethod} />,
+      writeToolbar: <WriteToolbars noteInputMethod={noteInputMethod} />,
       historyToolbar: <HistoryToolbar />,
       compareToolbar: compareView ? (
         <CompareToolbar

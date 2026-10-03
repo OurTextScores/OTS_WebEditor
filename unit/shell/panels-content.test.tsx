@@ -48,19 +48,45 @@ describe('FloatingPalettes', () => {
     fireEvent.pointerDown(handle, { clientX: 50, clientY: 130, pointerId: 1 });
     fireEvent.pointerMove(handle, { clientX: 250, clientY: 330, pointerId: 1 });
     fireEvent.pointerUp(handle, { pointerId: 1 });
+    // Moved by (+200, +200) from where it opened: the right edge, 110 down.
+    const openedAt = window.innerWidth - 320 - 24;
     expect(JSON.parse(window.localStorage.getItem('ots.shell.palettesPosition')!)).toEqual({
-      x: 224,
+      x: openedAt + 200,
       y: 310,
     });
     view.unmount();
     render(<FloatingPalettes onApply={() => {}} onClose={() => {}} />);
-    expect(screen.getByTestId('floating-palettes')).toHaveStyle({ left: '224px', top: '310px' });
+    expect(screen.getByTestId('floating-palettes')).toHaveStyle({
+      left: `${openedAt + 200}px`,
+      top: '310px',
+    });
   });
 
-  it('ignores a corrupt stored position', () => {
+  it('ignores a corrupt stored position, and opens at the right edge rather than over the first bar', () => {
     window.localStorage.setItem('ots.shell.palettesPosition', '{"x":"left"}');
     render(<FloatingPalettes onApply={() => {}} onClose={() => {}} />);
-    expect(screen.getByTestId('floating-palettes')).toHaveStyle({ left: '24px', top: '110px' });
+    expect(screen.getByTestId('floating-palettes')).toHaveStyle({
+      left: `${window.innerWidth - 320 - 24}px`,
+      top: '110px',
+    });
+  });
+
+  it('opens just under the toolbar, wherever its wrapped height puts the bottom', () => {
+    const toolbar = document.createElement('div');
+    toolbar.setAttribute('data-testid', 'tool-strip');
+    toolbar.getBoundingClientRect = () => ({ bottom: 200 }) as DOMRect;
+    document.body.appendChild(toolbar);
+    render(<FloatingPalettes onApply={() => {}} onClose={() => {}} />);
+    expect(screen.getByTestId('floating-palettes')).toHaveStyle({ top: '208px' });
+    toolbar.remove();
+  });
+
+  it('never opens off the left edge of a narrow window', () => {
+    const width = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 300 });
+    render(<FloatingPalettes onApply={() => {}} onClose={() => {}} />);
+    expect(screen.getByTestId('floating-palettes')).toHaveStyle({ left: '24px' });
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
   });
 
   it('still closes on Escape', () => {

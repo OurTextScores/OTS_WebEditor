@@ -19,7 +19,20 @@ interface FloatingPalettesProps {
 }
 
 const POSITION_KEY = 'ots.shell.palettesPosition';
-const DEFAULT_POSITION = { x: 24, y: 110 };
+const PALETTE_WIDTH = 320; // the overlay is `w-80`
+const EDGE = 24;
+
+/**
+ * Opens at the right edge, just under the toolbar: the left of the window is where the score starts,
+ * so a palette opened there covers the first bar (and the toolbar's height varies as it wraps).
+ */
+function defaultPosition() {
+  const toolbar = document.querySelector('[data-testid="tool-strip"]')?.getBoundingClientRect();
+  return {
+    x: Math.max(EDGE, window.innerWidth - PALETTE_WIDTH - EDGE),
+    y: Math.max(110, Math.round((toolbar?.bottom ?? 0) + 8)),
+  };
+}
 
 /** Where the overlay was last left; any storage or parse trouble means the default. */
 function readPosition() {
@@ -31,7 +44,7 @@ function readPosition() {
   } catch {
     // Fall through to the default.
   }
-  return DEFAULT_POSITION;
+  return defaultPosition();
 }
 
 export function FloatingPalettes({

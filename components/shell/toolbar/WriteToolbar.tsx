@@ -57,6 +57,9 @@ const LONG_PRESS_MS = 450;
 // The three accidentals worth a button; the rest (double, clear) stay in the dropdown.
 const QUICK_ACCIDENTALS = [1, 2, 3] as const;
 
+/** Space between wrapped lines of buttons. */
+const ROW_GAP = 8;
+
 const divider = <span aria-hidden="true" className="mx-1 h-4 w-px shrink-0 bg-slate-200" />;
 
 const NOTE_INPUT_METHOD_LABELS: Record<number, string> = {
@@ -66,9 +69,9 @@ const NOTE_INPUT_METHOD_LABELS: Record<number, string> = {
 };
 
 /**
- * The Write mode toolbar (SHELL_REDESIGN_DESIGN §8.2): note input, durations, accidentals,
- * ties and slurs, voices, undo and redo. About twenty controls, in one row that scrolls
- * sideways when the window is narrow. It owns no behaviour; every control runs a command.
+ * The Write quick controls (SHELL_REDESIGN_DESIGN §8.2): note input, durations, accidentals,
+ * ties and slurs, voices, undo and redo. About twenty controls, the first group of the Write toolbar
+ * (`ToolStrip` wraps it with the rest and the collapse toggle). It owns no behaviour; every control runs a command.
  */
 export function WriteToolbar({
   noteInputMethod,
@@ -83,10 +86,11 @@ export function WriteToolbar({
 
   return (
     <div
-      role="toolbar"
+      role="group"
       aria-label="Write"
       data-testid="write-toolbar"
-      className={`${styles.root} flex shrink-0 items-center gap-1 overflow-x-auto border-b border-slate-200 bg-white px-3 py-1`}
+      style={{ rowGap: ROW_GAP }}
+      className="flex min-w-0 flex-wrap items-center gap-1"
     >
       <Button
         data-testid="btn-note-input"

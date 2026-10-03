@@ -61,3 +61,27 @@ export const DropdownMenuItem = React.forwardRef<
   />
 ));
 DropdownMenuItem.displayName = DropdownMenuPrimitive.Item.displayName;
+
+/** A menu item that is on or off. Selecting it does not close the menu unless the caller lets it. */
+export const DropdownMenuCheckboxItem = React.forwardRef<
+  React.ElementRef<typeof DropdownMenuPrimitive.CheckboxItem>,
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.CheckboxItem>
+>(({ className, children, ...props }, ref) => (
+  <DropdownMenuPrimitive.CheckboxItem
+    ref={ref}
+    className={cn(
+      'flex cursor-pointer select-none items-center gap-2 rounded py-1 pl-7 pr-3 text-xs text-slate-800 outline-none data-[highlighted]:bg-accent-soft data-[highlighted]:text-slate-900 data-[disabled]:pointer-events-none data-[disabled]:text-slate-400',
+      className,
+    )}
+    {...props}
+  >
+    <span
+      className="absolute left-2 inline-flex w-3 items-center justify-center"
+      aria-hidden="true"
+    >
+      <DropdownMenuPrimitive.ItemIndicator>✓</DropdownMenuPrimitive.ItemIndicator>
+    </span>
+    {children}
+  </DropdownMenuPrimitive.CheckboxItem>
+));
+DropdownMenuCheckboxItem.displayName = DropdownMenuPrimitive.CheckboxItem.displayName;

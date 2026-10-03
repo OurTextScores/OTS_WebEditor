@@ -8,6 +8,7 @@ import {
   type CommandFamily,
   type CommandId,
   type CommandScope,
+  type Enabled,
 } from './types';
 import { installCommandTestHook } from './testHook';
 
@@ -46,6 +47,16 @@ export function useRegisterCommands(
   }, [registry, scope, signature]);
 }
 
+/**
+ * A stable `enabled` that asks the latest entry, and passes on that entry's `unmet` reason: a gate's
+ * explanation lives on the function, so a wrapper that only forwards the call would lose it.
+ */
+function liveEnabled(live: () => { enabled?: Enabled }): Enabled {
+  return Object.assign((ctx: CommandContext) => live().enabled?.(ctx) ?? true, {
+    unmet: (ctx: CommandContext) => live().enabled?.unmet?.(ctx),
+  });
+}
+
 function wrap(
   entry: AnyCommand,
   latest: { current: ReadonlyMap<CommandId, AnyCommand> },
@@ -56,7 +67,7 @@ function wrap(
     const live = () => current() as unknown as LooseFamily;
     const wrapped: LooseFamily = {
       ...family,
-      enabled: (ctx: CommandContext) => live().enabled?.(ctx) ?? true,
+      enabled: liveEnabled(live),
       run: (ctx, arg) => live().run(ctx, arg),
       ...(family.checked
         ? { checked: (ctx: CommandContext, arg: unknown) => live().checked?.(ctx, arg) ?? false }
@@ -68,7 +79,7 @@ function wrap(
   const live = () => current() as unknown as LooseCommand;
   const wrapped: LooseCommand = {
     ...command,
-    enabled: (ctx) => live().enabled?.(ctx) ?? true,
+    enabled: liveEnabled(live),
     visible: (ctx) => live().visible?.(ctx) ?? true,
     run: (ctx, args) => live().run(ctx, args),
     ...(command.checked
