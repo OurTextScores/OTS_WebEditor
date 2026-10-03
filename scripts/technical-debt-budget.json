@@ -11,7 +11,7 @@
     {
       "key": "eslint.maxFilesWithFindings",
       "from": 0,
-      "to": 61,
+      "to": 62,
       "reason": "Same change as the maxWarnings raise above: ScoreEditor.tsx and ScoreSection.tsx now carry no-alert warnings, joining the two files that already had findings."
     },
     {
@@ -95,7 +95,7 @@
     {
       "key": "eslint.maxFilesWithFindings",
       "from": 0,
-      "to": 61,
+      "to": 62,
       "reason": "Same change as the maxWarnings raise above: the 37 files that still contain a raw <button>."
     },
     {
@@ -107,14 +107,14 @@
     {
       "key": "eslint.maxFilesWithFindings",
       "from": 0,
-      "to": 61,
-      "reason": "Same changes as the maxWarnings raise above: the 60 files containing a raw <button> or a function over 200 lines. W4 extraction moves existing long functions into their own files (the three S3a hooks, the S4 editor core, the S6 canvas gestures, and in S3b the 266-line AI patch request, which was already a warning inside ScoreEditor), so the file count rises while the warning count does not."
+      "to": 62,
+      "reason": "Same changes as the maxWarnings raise above: the 60 files containing a raw <button> or a function over 200 lines. W4 extraction moves existing long functions into their own files (the three S3a hooks, the S4 editor core, the S6 canvas gestures, in S8a the 353-line diff-feedback function (already a warning inside ScoreEditor), and in S3b the 266-line AI patch request, which was already a warning inside ScoreEditor), so the file count rises while the warning count does not."
     }
   ],
   "_scoreEditorComment": "Headroom is intentional. These were pinned to the exact current size, and the result was that a 41-line bug fix breached the cap and pressure went into deleting explanatory comments to get back under -- the ratchet making the code worse. Lines are a poor proxy: a comment costs the same as debt. The caps now sit roughly 1% and 1.5% above actual, so routine work passes and a whole slice of drift still trips them. The goal worth chasing is bytes, not lines: Babel deoptimises code generation above 500000 bytes, which this file still exceeds, and that is an observable cost rather than a chosen number.",
   "scoreEditor": {
-    "maxLines": 12650,
-    "maxBytes": 480000
+    "maxLines": 10850,
+    "maxBytes": 415000
   },
   "modules": {
     "components/score-editor/ai-tools/NotaGenPanel.tsx": {
@@ -257,7 +257,7 @@
   "eslint": {
     "maxErrors": 0,
     "maxWarnings": 214,
-    "maxFilesWithFindings": 61
+    "maxFilesWithFindings": 62
   },
   "tests": {
     "maxUnconditionalSkips": 1

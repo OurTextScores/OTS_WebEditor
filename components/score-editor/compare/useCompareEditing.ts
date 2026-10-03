@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import type { Score } from '@/lib/webmscore-loader';
 import type { CompareScoreRole, CompareSide } from './compare-types';
 
-type RoleRecord<T> = Record<CompareScoreRole, T>;
+export type RoleRecord<T> = Record<CompareScoreRole, T>;
 
 export type CompareEditCycleSnapshot = {
   baselines: RoleRecord<string | null>;

@@ -26,7 +26,7 @@ import {
 } from '../lib/checkpoints';
 import { type CodeEditorThemeMode } from './CodeMirrorEditor';
 import { asRecord } from '../lib/as-record';
-import { findAiEditProposal, type AiEditProposal } from '../lib/ai-edit-proposal';
+import { type AiEditProposal } from '../lib/ai-edit-proposal';
 import { fetchJsonOrThrow } from '../lib/fetch-json';
 import { copySelectionToClipboard, pasteClipboardPayload } from '../lib/selection-clipboard';
 import type { MeasureInsertTarget, HeaderTextTarget } from './score-editor/editorProps';
@@ -150,16 +150,7 @@ import {
   type EditorLaunchContext,
   sanitizeEditorLaunchContext,
 } from '../lib/editor-launch-context';
-import {
-  buildSourceCanonicalXmlUrl,
-  commitSourceRevision,
-  createSourceBranch,
-  getSourceCanonicalXml,
-  getSourceHistory,
-  OurTextScoresApiError,
-  type SourceHistoryResponse,
-  type SourceHistoryRevision,
-} from '../lib/ourtextscores-api-client';
+import { buildSourceCanonicalXmlUrl, createSourceBranch, getSourceCanonicalXml, getSourceHistory, type SourceHistoryResponse, type SourceHistoryRevision } from '../lib/ourtextscores-api-client';
 import { appendMusicXmlMeasures } from '../lib/musicxml-append-parts';
 import { sanitizeEngineSvg } from '../lib/sanitize-svg';
 import { DEFAULT_RENDER_WINDOW, type RenderWindow } from '../lib/playback-window';
@@ -176,10 +167,7 @@ import {
   requestScoreLayoutProgress,
   shouldSkipCoverPageFirstRender,
 } from '../lib/score-loader';
-import {
-  extractPatchAnnotations,
-  type PatchAnnotation,
-} from '../lib/patch-annotations';
+import { type PatchAnnotation } from '../lib/patch-annotations';
 import {
   extractTraceContextFromHeaders,
   getOrCreateEditorSessionId,
@@ -191,13 +179,6 @@ import {
   isGoogleDriveScoreUrl,
   resolvePublicScoreUrl,
 } from '../lib/public-score-url';
-import {
-  advanceClientProposalSession,
-  buildProposalSessionRequestPayload,
-  createClientProposalSession,
-  type ClientProposalSession,
-} from '../lib/proposal-session-client';
-import { readAiEditServiceResponse } from '../lib/ai-edit-progress-client';
 import { useAiEditController } from './score-editor/useAiEditController';
 import { useAiProposalController } from './score-editor/useAiProposalController';
 import { AiAssistantPanel } from './score-editor/AiAssistantPanel';
@@ -266,40 +247,31 @@ import { useComparePersistence } from './score-editor/compare/useComparePersiste
 import { useCompareOperationCoordinator } from './score-editor/compare/useCompareOperationCoordinator';
 import { useCompareTransport } from './score-editor/compare/useCompareTransport';
 import {
-  routeCompareKeyboardShortcut,
-  type CompareInputStateMethod,
-  type CompareKeyboardMutationMethod,
-} from './score-editor/compare/compare-keyboard-policy';
-import {
   useCompareEditing,
   useCompareMutationController,
 } from './score-editor/compare/useCompareEditing';
-import {
-  buildCompareUserEditDiff,
-  type CompareScoreRole,
-  type CompareUserEditDiff,
-} from '../lib/compare-user-edit-diff';
-import { type NoteInputCursorRect, type SelectionBox, type SelectionFallback, type SelectionGeometryBox } from './score-editor/selection-types';
+import { type CompareScoreRole } from '../lib/compare-user-edit-diff';
+import { type NoteInputCursorRect, type SelectionBox, type SelectionFallback } from './score-editor/selection-types';
 import { type ApplyXmlToScore, type EditorTelemetryCounters, type EditorTraceContext, type EnsureSoundFontLoaded, type HandleFileUpload, type HandleUrlLoad, type InstrumentTemplateGroup, type PartSummary, type RefreshPageCount, type RenderScore, type StopCompareSideAudio, type SynthBatchIterator } from './score-editor/editor-types';
 import { type MutationMethods, hasMutationApi } from './score-editor/mutation-api';
 import { type CompareAppliedSpacer, type CompareViewState, type PartAlignment } from './score-editor/compare/compare-types';
 import { type HarmonyVariant } from './score-editor/ai-assistant-types';
-import { PREVIEW_DURATION_MS, PREVIEW_SYNTH_BATCH_SIZE, SELECTION_STREAM_MIN_STARTUP_BATCHES, SELECTION_STREAM_STARTUP_BUFFER_SECONDS, SELECTION_SYNTH_BATCH_SIZE, SELECTION_SYNTH_START_PREROLL_SECONDS, SYNTH_START_PREROLL_SECONDS, TRANSPORT_SYNTH_BATCH_SIZE } from './score-editor/playback-constants';
-import { DEFAULT_PAGE_RENDER_TIMEOUT_MS, LARGE_PROGRESSIVE_PAGE_RENDER_TIMEOUT_MS, LARGE_SCORE_BACKGROUND_TASK_DELAY_MS, LARGE_SCORE_BACKGROUND_TASK_MAX_RETRIES, LARGE_SCORE_BACKGROUND_TASK_RETRY_DELAY_MS, LARGE_SCORE_INTERACTION_PRIME_DELAY_MS, LAYOUT_MODES, PROGRESSIVE_PAGE_LAYOUT_CONFIRM_TIMEOUT_MS, PROGRESSIVE_PAGE_LAYOUT_EXPAND_TIMEOUT_MS, PROGRESSIVE_PAGE_LAYOUT_TIMEOUT_MS, measureInsertTargetMap } from './score-editor/layout-constants';
+import { TRANSPORT_SYNTH_BATCH_SIZE } from './score-editor/playback-constants';
+import { DEFAULT_PAGE_RENDER_TIMEOUT_MS, LARGE_PROGRESSIVE_PAGE_RENDER_TIMEOUT_MS, LARGE_SCORE_INTERACTION_PRIME_DELAY_MS, LAYOUT_MODES, measureInsertTargetMap } from './score-editor/layout-constants';
 import { DEFAULT_SELECTION_FILTER_MASK, ELEMENT_SELECTION_SELECTOR, NOTE_INPUT_VOICE_COLORS, SELECTION_FILTER_STORAGE_KEY, hasTextElementClass, isSvgTextElement, normalizeElementClasses, resolveTextElement } from './score-editor/selection-classes';
-import { AI_CHAT_SOURCE_RAG_HINT_DISMISSED_STORAGE_KEY, AI_DIFF_COMMENT_GUTTER_PADDING, AI_DIFF_GUTTER_DEFAULT_WIDTH, AI_DIFF_GUTTER_MAX_WIDTH, AI_DIFF_GUTTER_MIN_WIDTH, AI_PDF_ATTACHMENT_MAX_BYTES, AI_SELECTION_BOX_CONTEXT_LIMIT, AI_SELECTION_CONTEXT_MAX_CHARS, ANTHROPIC_EMBED_PROXY_ERROR, isMissingProxyStatus } from './score-editor/ai-constants';
+import { AI_CHAT_SOURCE_RAG_HINT_DISMISSED_STORAGE_KEY, AI_DIFF_COMMENT_GUTTER_PADDING, AI_DIFF_GUTTER_DEFAULT_WIDTH, AI_DIFF_GUTTER_MAX_WIDTH, AI_DIFF_GUTTER_MIN_WIDTH, AI_PDF_ATTACHMENT_MAX_BYTES, ANTHROPIC_EMBED_PROXY_ERROR, isMissingProxyStatus } from './score-editor/ai-constants';
 import { CODE_EDITOR_THEME_STORAGE_KEY, CODE_EDITOR_THEME_VALUES } from './score-editor/music-specialists-constants';
-import { aiDiffBlockContentSignature, formatAiDiffFeedbackError, truncateAiContext } from './score-editor/ai-prompts';
-import { encodeBase64, toOwnedArrayBuffer, toOwnedBytes } from './score-editor/byte-encoding';
+import { aiDiffBlockContentSignature } from './score-editor/ai-prompts';
+import { encodeBase64, toOwnedArrayBuffer } from './score-editor/byte-encoding';
 import { buildCheckpointTitle, formatBytes, formatTimestamp, toSafeFilename } from './score-editor/checkpoint-labels';
 import { buildOtsScoreId, updateUrlScoreId } from './score-editor/score-url';
 import { getSvgNaturalSize } from './score-editor/svg-size';
 import { errorMessage, scoreLoadErrorMessage } from './score-editor/error-messages';
-import { clefCodeMap, escapeXml, newScoreCommonInstrumentPreferences, pickupDurationToRestType } from './score-editor/new-score';
+import { newScoreCommonInstrumentPreferences } from './score-editor/new-score';
 import { buildIndexAlignment, buildLcsAlignment, buildMismatchBlocks, buildMismatchBreaks } from './score-editor/alignment';
 import { getReviewStatusForFeedback } from './score-editor/block-review-status';
-import { applyMeasureLineBreaks, buildMeasureBounds, fetchMeasureLineBreaks, fetchMeasureSignatures, getPageMeasureRange, hitTestMeasure, refreshMeasurePositions } from './score-editor/score-measures';
-import { applyMusicXmlPatch, decodeXmlData, extractMeasureSignaturesFromXml, getScoreMscxText, normalizeXmlData, parseMusicXmlPatch, replaceMeasuresInMusicXml } from './score-editor/musicxml';
+import { applyMeasureLineBreaks, buildMeasureBounds, fetchMeasureLineBreaks, fetchMeasureSignatures, getPageMeasureRange, refreshMeasurePositions } from './score-editor/score-measures';
+import { decodeXmlData, extractMeasureSignaturesFromXml, getScoreMscxText, normalizeXmlData } from './score-editor/musicxml';
 import { runWithTimeout } from './score-editor/async-timeout';
 import { parsePartsFromMetadata } from './score-editor/part-metadata';
 import { downloadBlob } from './score-editor/download-blob';
@@ -314,6 +286,14 @@ import { requestAiPatch } from './score-editor/ai-patch-request';
 import { useEditorCore, type EditorCoreLateInputs } from './score-editor/core';
 import { promptForText } from './score-editor/prompt-for-text';
 import { useCanvasGestures, type CanvasGesturesLateInputs } from './score-editor/canvas';
+import { comparePaneClick, compareScoreClick, refreshCompareSelectionGeometryImpl, setCompareNoteInputModeImpl } from './score-editor/compare/compare-pane-clicks';
+import { acceptAllAiChanges, compareKeyboardShortcut, compareOverwriteBlock, saveCompareCheckpoint } from './score-editor/compare/compare-actions';
+import { sendDiffFeedback, updateAiOutputImpl } from './score-editor/ai-diff-feedback';
+import { buildNewScoreXmlImpl } from './score-editor/new-score';
+import { ensurePageIsLaidOutImpl, goToPageImpl, openScoreSessionImpl, resolveSelectionContextImpl, scheduleBackgroundInitTasksImpl } from './score-editor/score-session';
+import { playSelectionPreviewImpl, playTransportAudioImpl } from './score-editor/playback';
+import { updateNoteInputShadowImpl } from './score-editor/note-input-shadow';
+import { commitCurrentVersion } from './score-editor/versions';
 
 
 export default function ScoreEditor() {
@@ -2243,189 +2223,30 @@ export default function ScoreEditor() {
 
   const compareGutterRegionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
-    const handleCompareScoreClick = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>, side: 'left' | 'right') => {
-      const positions =
-        side === 'left' ? compareLeftMeasurePositions : compareRightMeasurePositions;
-      const wrapperRef = side === 'left' ? compareLeftWrapperRef : compareRightWrapperRef;
-      const measureIndex = hitTestMeasure(
-        positions,
-        event.clientX,
-        event.clientY,
-        wrapperRef,
-        compareEffectiveZoom,
-      );
-      if (measureIndex < 0) return;
-
-      if (isChangeReviewCompareMode) {
-        const crSide = compareSwapped
-          ? side === 'left'
-            ? 'head'
-            : 'base'
-          : side === 'left'
-            ? 'base'
-            : 'head';
-        let clickedPartIndex = 0;
-        if (comparePartCount > 1 && wrapperRef.current && positions) {
-          const el = positions.elements[measureIndex];
-          if (el) {
-            const h = typeof el.sy === 'number' ? el.sy : (el.height ?? 0);
-            const pageHeight = positions.pageSize?.height ?? 0;
-            const needsPageOffset = pageHeight > 0 && el.page > 0 && el.y + h <= pageHeight * 1.2;
-            const pageOffset = needsPageOffset ? el.page * pageHeight : 0;
-            const rect = wrapperRef.current.getBoundingClientRect();
-            const scoreY = (event.clientY - rect.top) / compareEffectiveZoom;
-            const relativeY = scoreY - (el.y + pageOffset);
-            clickedPartIndex = Math.min(
-              Math.max(Math.floor((relativeY / h) * comparePartCount), 0),
-              comparePartCount - 1,
-            );
-          }
-        }
-        const region = changeReviewDiff?.scoreRegions.find(
-          (r) =>
-            r.partIndex === clickedPartIndex &&
-            (crSide === 'base'
-              ? r.baseMeasureIndex === measureIndex
-              : r.headMeasureIndex === measureIndex),
-        );
-        const bar = changeReviewDiff?.bars.find(
-          (candidate) =>
-            candidate.side === crSide &&
-            candidate.partIndex === clickedPartIndex &&
-            candidate.measureIndex === measureIndex,
-        );
-        const nextAnchorId = region?.anchorId ?? bar?.anchorId;
-        if (!nextAnchorId) return;
-        const toggling = changeReviewFocusedAnchorId === nextAnchorId;
-
-        // Compute the measure indices for the blue highlight on both sides
-        let leftIndex: number | null = null;
-        let rightIndex: number | null = null;
-        const focusedPartIndex: number | null =
-          region?.partIndex ?? bar?.partIndex ?? clickedPartIndex;
-        if (!toggling) {
-          if (region) {
-            const baseIdx = region.baseMeasureIndex ?? null;
-            const headIdx = region.headMeasureIndex ?? null;
-            leftIndex = compareSwapped ? headIdx : baseIdx;
-            rightIndex = compareSwapped ? baseIdx : headIdx;
-          } else {
-            // Unchanged bar: use alignment to find the partner index
-            leftIndex = side === 'left' ? measureIndex : null;
-            rightIndex = side === 'right' ? measureIndex : null;
-            const alignment = compareAlignmentByPart.get(clickedPartIndex);
-            if (alignment) {
-              for (const row of alignment.rows) {
-                const rowIdx = side === 'left' ? row.leftIndex : row.rightIndex;
-                if (rowIdx === measureIndex) {
-                  leftIndex = row.leftIndex ?? null;
-                  rightIndex = row.rightIndex ?? null;
-                  break;
-                }
-              }
-            }
-          }
-        }
-
-        setCompareClickedMeasures(
-          toggling ? null : { leftIndex, rightIndex, partIndex: focusedPartIndex },
-        );
-        setChangeReviewFocusedAnchorId(toggling ? null : nextAnchorId);
-
-        if (!toggling) {
-          const existingThread = changeReviewThreadsByAnchor.get(nextAnchorId);
-          if (!existingThread && changeReviewDetail?.permissions.canAddThread) {
-            setChangeReviewNewThreadAnchorId(nextAnchorId);
-            setChangeReviewNewThreadContent('');
-          } else {
-            setChangeReviewNewThreadAnchorId(null);
-            setChangeReviewNewThreadContent('');
-          }
-          requestAnimationFrame(() => {
-            compareGutterRegionRefs.current
-              .get(nextAnchorId)
-              ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-          });
-        }
-        return;
-      }
-
-      if (isAiCompareMode) {
-        // Anchor an ephemeral measure-level thread at the clicked measure (toggle on repeat).
-        let clickedPartIndex = 0;
-        if (comparePartCount > 1 && wrapperRef.current && positions) {
-          const el = positions.elements[measureIndex];
-          if (el) {
-            const h = typeof el.sy === 'number' ? el.sy : (el.height ?? 0);
-            const pageHeight = positions.pageSize?.height ?? 0;
-            const needsPageOffset = pageHeight > 0 && el.page > 0 && el.y + h <= pageHeight * 1.2;
-            const pageOffset = needsPageOffset ? el.page * pageHeight : 0;
-            const rect = wrapperRef.current.getBoundingClientRect();
-            const scoreY = (event.clientY - rect.top) / compareEffectiveZoom;
-            const relativeY = scoreY - (el.y + pageOffset);
-            clickedPartIndex = Math.min(
-              Math.max(Math.floor((relativeY / h) * comparePartCount), 0),
-              comparePartCount - 1,
-            );
-          }
-        }
-        let leftIndex: number | null = side === 'left' ? measureIndex : null;
-        let rightIndex: number | null = side === 'right' ? measureIndex : null;
-        const alignment = compareAlignmentByPart.get(clickedPartIndex);
-        if (alignment) {
-          for (const row of alignment.rows) {
-            const rowIdx = side === 'left' ? row.leftIndex : row.rightIndex;
-            if (rowIdx === measureIndex) {
-              leftIndex = row.leftIndex ?? null;
-              rightIndex = row.rightIndex ?? null;
-              break;
-            }
-          }
-        }
-        // Anchor on the base/current (left) measure number so it matches the numbering the
-        // AI uses in its patch/annotations (which target the current XML). Falls back to the
-        // proposal index only for inserted measures that have no base counterpart.
-        const measureNumber = (leftIndex ?? rightIndex ?? measureIndex) + 1;
-        const key = `${clickedPartIndex}:m${measureNumber}`;
-        setAiFocusedMeasureAnchor((prev) =>
-          prev?.key === key
-            ? null
-            : { key, partIndex: clickedPartIndex, measureNumber, leftIndex, rightIndex },
-        );
-        setAiMeasureThreadDraft('');
-        return;
-      }
-
-      // Plain compare mode: focus the gutter block that contains this measure
-      for (const [partIndex, alignment] of compareAlignmentByPart) {
-        const blocks = buildMismatchBlocks(alignment.rows);
-        for (let bi = 0; bi < blocks.length; bi++) {
-          const block = blocks[bi];
-          const rows = alignment.rows.slice(block.start, block.end + 1);
-          const indices = rows
-            .map((r) => (side === 'left' ? r.leftIndex : r.rightIndex))
-            .filter((v): v is number => v !== null);
-          if (!indices.includes(measureIndex)) continue;
-          const rightIndices = rows.map((r) => r.rightIndex).filter((v): v is number => v !== null);
-          const leftIndices = rows.map((r) => r.leftIndex).filter((v): v is number => v !== null);
-          const rStart = rightIndices[0];
-          const rEnd = rightIndices[rightIndices.length - 1];
-          const lStart = leftIndices[0];
-          const lEnd = leftIndices[leftIndices.length - 1];
-          const primaryStart = rightIndices.length ? rStart : lStart;
-          const primaryEnd = rightIndices.length ? rEnd : lEnd;
-          const measureRange =
-            primaryStart !== undefined
-              ? `${primaryStart + 1}${primaryEnd !== primaryStart ? `-${primaryEnd + 1}` : ''}`
-              : `${bi}:${lStart ?? 'x'}:${lEnd ?? 'x'}:${rStart ?? 'x'}:${rEnd ?? 'x'}`;
-          const blockKey = `${partIndex}:${measureRange}`;
-          setCompareFocusedBlockKey((prev) => (prev === blockKey ? null : blockKey));
-          return;
-        }
-      }
-    },
-    [
+    const handleCompareScoreClick = useCallback((event: React.MouseEvent<HTMLDivElement>, side: 'left' | 'right') => compareScoreClick({
+      compareLeftMeasurePositions,
+      compareRightMeasurePositions,
+      compareLeftWrapperRef,
+      compareRightWrapperRef,
+      compareEffectiveZoom,
+      isChangeReviewCompareMode,
+      compareSwapped,
+      comparePartCount,
+      changeReviewDiff,
+      changeReviewFocusedAnchorId,
+      compareAlignmentByPart,
+      setCompareClickedMeasures,
+      setChangeReviewFocusedAnchorId,
+      changeReviewThreadsByAnchor,
+      changeReviewDetail,
+      setChangeReviewNewThreadAnchorId,
+      setChangeReviewNewThreadContent,
+      compareGutterRegionRefs,
+      isAiCompareMode,
+      setAiFocusedMeasureAnchor,
+      setAiMeasureThreadDraft,
+      setCompareFocusedBlockKey,
+    }, event, side), [
       compareLeftMeasurePositions,
       compareRightMeasurePositions,
       compareLeftWrapperRef,
@@ -2440,8 +2261,7 @@ export default function ScoreEditor() {
       changeReviewThreadsByAnchor,
       changeReviewDetail,
       compareAlignmentByPart,
-      ],
-  );
+      ]);
 
   const compareGutterRowHeight = 56;
   const compareZoomStyle = {
@@ -2953,118 +2773,9 @@ export default function ScoreEditor() {
     timeNumerator: number;
     timeDenominator: number;
     pickup?: { numerator: number; denominator: number };
-  }) => {
-    const title = escapeXml(options.title.trim());
-    const composer = escapeXml(options.composer.trim());
-    const divisions = 16;
-    const measureDuration = Math.round(
-      (divisions * 4 * options.timeNumerator) / options.timeDenominator,
-    );
-    const partsXml = options.instruments.map((instrument, index) => {
-      const partId = `P${index + 1}`;
-      const rawName = instrument.name.trim() || 'Instrument';
-      const instrumentName = escapeXml(rawName);
-      const clefSpec = resolveInstrumentClefs(instrument.id, rawName);
-      const staves = Math.max(clefSpec.staves || 1, clefSpec.clefs.length || 1);
-      const clefXml = clefSpec.clefs
-        .map((clefEntry) => {
-          const mapEntry = clefCodeMap[clefEntry.clef] ?? clefCodeMap.G;
-          const staffAttr = staves > 1 ? ` number="${clefEntry.staff}"` : '';
-          const octave = mapEntry.octave
-            ? `\n        <clef-octave-change>${mapEntry.octave}</clef-octave-change>`
-            : '';
-          return `        <clef${staffAttr}>\n          <sign>${mapEntry.sign}</sign>\n          <line>${mapEntry.line}</line>${octave}\n        </clef>`;
-        })
-        .join('\n');
-      const fullAttributesXml = `
-      <attributes>
-        <divisions>${divisions}</divisions>
-        <key><fifths>${options.keyFifths}</fifths></key>
-        <time><beats>${options.timeNumerator}</beats><beat-type>${options.timeDenominator}</beat-type></time>
-        ${staves > 1 ? `<staves>${staves}</staves>` : ''}
-${clefXml}
-      </attributes>`;
-      // When there's a pickup, all attributes go on the pickup measure (measure 0).
-      // Measure 1 gets no attributes block to avoid duplicate clefs/time sigs.
-      const hasPickup = !!options.pickup;
-      const measuresXml = Array.from({ length: options.measures }, (_, measureIndex) => {
-        const attributes = measureIndex === 0 && !hasPickup ? fullAttributesXml : '';
-        const notesXml = Array.from({ length: staves }, (_, staffIndex) => {
-          const staffNumber = staffIndex + 1;
-          const voice = staffIndex * 4 + 1;
-          const backup =
-            staffIndex > 0
-              ? `      <backup>\n        <duration>${measureDuration}</duration>\n      </backup>\n`
-              : '';
-          return `${backup}      <note>
-        <rest measure="yes"/>
-        <duration>${measureDuration}</duration>
-        <voice>${voice}</voice>
-        ${staves > 1 ? `<staff>${staffNumber}</staff>` : ''}
-      </note>`;
-        }).join('\n');
-        return `    <measure number="${measureIndex + 1}">
-${attributes}
-${notesXml}
-    </measure>`;
-      }).join('\n');
-      let pickupXml = '';
-      if (options.pickup) {
-        const pickupDuration = Math.round(
-          (divisions * 4 * options.pickup.numerator) / options.pickup.denominator,
-        );
-        const pickupRestType = pickupDurationToRestType(
-          options.pickup.numerator,
-          options.pickup.denominator,
-        );
-        const pickupNotesXml = Array.from({ length: staves }, (_, staffIndex) => {
-          const staffNumber = staffIndex + 1;
-          const voice = staffIndex * 4 + 1;
-          const backup =
-            staffIndex > 0
-              ? `      <backup>\n        <duration>${pickupDuration}</duration>\n      </backup>\n`
-              : '';
-          return `${backup}      <note>
-        <rest/>
-        <duration>${pickupDuration}</duration>
-        <voice>${voice}</voice>
-        <type>${pickupRestType}</type>
-        ${staves > 1 ? `<staff>${staffNumber}</staff>` : ''}
-      </note>`;
-        }).join('\n');
-        pickupXml = `    <measure number="0" implicit="yes">
-${fullAttributesXml}
-${pickupNotesXml}
-    </measure>\n`;
-      }
-      return {
-        partList: `    <score-part id="${partId}">
-      <part-name>${instrumentName}</part-name>
-      <score-instrument id="${partId}-I1">
-        <instrument-name>${instrumentName}</instrument-name>
-      </score-instrument>
-    </score-part>`,
-        part: `  <part id="${partId}">
-${pickupXml}${measuresXml}
-  </part>`,
-      };
-    });
-    const workLine = title ? `  <work><work-title>${title}</work-title></work>\n` : '';
-    const identificationLine = composer
-      ? `  <identification><creator type="composer">${composer}</creator></identification>\n`
-      : '';
-    const partListXml = partsXml.map((part) => part.partList).join('\n');
-    const partsBodyXml = partsXml.map((part) => part.part).join('\n');
-    return `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
-<score-partwise version="3.1">
-${workLine}${identificationLine}  <part-list>
-${partListXml}
-  </part-list>
-${partsBodyXml}
-</score-partwise>
-`;
-  };
+  }) => buildNewScoreXmlImpl({
+      resolveInstrumentClefs,
+    }, options);
 
       const getScoreMusicXmlText = useCallback(
     async (targetScore: Score | null, fallbackXml: string | null) => {
@@ -3141,76 +2852,17 @@ ${partsBodyXml}
     return text;
   }, [xmlText, getScoreXmlData, setScoreDirtySinceXml]);
 
-  const openScoreSession = useCallback(
-    async (xml?: string) => {
-      if (isSyncingRef.current) {
-        return { scoreSessionId, revision: scoreRevision };
-      }
-
-      let nextSessionId = scoreSessionId;
-      let nextRevision = scoreRevision;
-      try {
-        const content = xml || (await resolveXmlContext());
-        if (!content.trim()) {
-          return { scoreSessionId: nextSessionId, revision: nextRevision };
-        }
-
-        // Skip if content and revision haven't changed since last successful sync
-        if (
-          content === lastSyncedXmlRef.current &&
-          scoreRevision === lastSyncedRevisionRef.current
-        ) {
-          return { scoreSessionId: nextSessionId, revision: nextRevision };
-        }
-
-        isSyncingRef.current = true;
-        const isSync = Boolean(scoreSessionId);
-        const endpoint = isSync ? '/api/music/scoreops/sync' : '/api/music/scoreops/session/open';
-        const body: {
-          content: string;
-          scoreMeta?: { launchContext: EditorLaunchContext };
-          scoreSessionId?: string;
-          baseRevision?: number;
-        } = { content };
-        if (activeLaunchContext) {
-          body.scoreMeta = {
-            launchContext: activeLaunchContext,
-          };
-        }
-        if (scoreSessionId) {
-          body.scoreSessionId = scoreSessionId;
-          body.baseRevision = scoreRevision;
-        }
-
-        const response = await fetch(resolveScoreEditorApiPath(endpoint), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-        if (response.ok) {
-          const result = await response.json();
-          if (result.scoreSessionId) {
-            setScoreSessionId(result.scoreSessionId);
-            const nextRev = result.newRevision ?? result.revision ?? 0;
-            setScoreRevision(nextRev);
-            lastSyncedXmlRef.current = content;
-            lastSyncedRevisionRef.current = nextRev;
-            nextSessionId = result.scoreSessionId;
-            nextRevision = nextRev;
-            console.info(
-              `[session] ${isSync ? 'Synced' : 'Opened'} score session: ${result.scoreSessionId}, revision: ${nextRev}`,
-            );
-          }
-        }
-      } catch (err) {
-        console.warn('[session] Failed to open/sync score session:', err);
-      } finally {
-        isSyncingRef.current = false;
-      }
-      return { scoreSessionId: nextSessionId, revision: nextRevision };
-    },
-    [activeLaunchContext, resolveXmlContext, scoreSessionId, scoreRevision],
-  );
+  const openScoreSession = useCallback((xml?: string) => openScoreSessionImpl({
+      isSyncingRef,
+      scoreSessionId,
+      scoreRevision,
+      resolveXmlContext,
+      lastSyncedXmlRef,
+      lastSyncedRevisionRef,
+      activeLaunchContext,
+      setScoreSessionId,
+      setScoreRevision,
+    }, xml), [activeLaunchContext, resolveXmlContext, scoreSessionId, scoreRevision]);
 
   // Automatically open/sync session when score changes (debounced)
   useEffect(() => {
@@ -4028,119 +3680,17 @@ ${partsBodyXml}
     }
   }, [score, runSerializedScoreOperation, containerRef, currentPageRef, scoreRef]);
 
-  const resolveSelectionContext = useCallback(async () => {
-    const lines: string[] = [];
-    const primaryPoint = selectedPointRef.current;
-    if (primaryPoint) {
-      lines.push(
-        `Primary selection point: page=${primaryPoint.page + 1}, x=${primaryPoint.x.toFixed(2)}, y=${primaryPoint.y.toFixed(2)}`,
-      );
-    }
-    const classList = selectedElementClasses.trim();
-    if (classList) {
-      lines.push(`Primary selection classes: ${classList}`);
-    }
-
-    const rawBoxes: SelectionGeometryBox[] = selectionBoxes.length
-      ? selectionBoxes
-      : selectedElement
-        ? [
-            {
-              index: selectedIndex,
-              page: primaryPoint?.page ?? currentPageRef.current ?? 0,
-              x: selectedElement.x,
-              y: selectedElement.y,
-              w: selectedElement.w,
-              h: selectedElement.h,
-              classes: classList || 'unknown',
-            },
-          ]
-        : [];
-
-    const boxes = rawBoxes
-      .map((box, index) => {
-        const x = typeof box?.x === 'number' ? box.x : NaN;
-        const y = typeof box?.y === 'number' ? box.y : NaN;
-        const w =
-          typeof box?.w === 'number' ? box.w : typeof box?.width === 'number' ? box.width : NaN;
-        const h =
-          typeof box?.h === 'number' ? box.h : typeof box?.height === 'number' ? box.height : NaN;
-        if (
-          !Number.isFinite(x) ||
-          !Number.isFinite(y) ||
-          !Number.isFinite(w) ||
-          !Number.isFinite(h)
-        ) {
-          return null;
-        }
-        return {
-          index: typeof box?.index === 'number' ? box.index : index,
-          page:
-            typeof box?.page === 'number'
-              ? box.page
-              : (primaryPoint?.page ?? currentPageRef.current ?? 0),
-          x,
-          y,
-          w,
-          h,
-          classes: typeof box?.classes === 'string' && box.classes.trim() ? box.classes : 'n/a',
-        };
-      })
-      .filter(
-        (
-          box,
-        ): box is {
-          index: number;
-          page: number;
-          x: number;
-          y: number;
-          w: number;
-          h: number;
-          classes: string;
-        } => Boolean(box),
-      );
-
-    if (boxes.length) {
-      const shown = boxes.slice(0, AI_SELECTION_BOX_CONTEXT_LIMIT);
-      const selectionLines = shown.map(
-        (box, index) =>
-          `#${index + 1}: page=${box.page + 1}, x=${box.x.toFixed(2)}, y=${box.y.toFixed(2)}, w=${box.w.toFixed(2)}, h=${box.h.toFixed(2)}, index=${box.index ?? 'n/a'}, classes=${box.classes || 'n/a'}`,
-      );
-      lines.push(`Selection boxes (${boxes.length} total):\n${selectionLines.join('\n')}`);
-      if (boxes.length > shown.length) {
-        lines.push(`Selection boxes truncated to first ${shown.length} entries.`);
-      }
-    } else {
-      lines.push('No active selection boxes.');
-    }
-
-    const activeScore = scoreRef.current ?? score;
-    if (activeScore?.selectionMimeData) {
-      try {
-        const mimeData = await runSerializedScoreOperation(
-          () => Promise.resolve(activeScore.selectionMimeData!()),
-          'selectionMimeData(ai-context)',
-        );
-        if (mimeData instanceof Uint8Array && mimeData.byteLength > 0) {
-          const decoded = new TextDecoder().decode(mimeData);
-          if (decoded.trim()) {
-            const truncated = truncateAiContext(decoded, AI_SELECTION_CONTEXT_MAX_CHARS);
-            lines.push(
-              `Selection MIME XML:\n${truncated.value}${
-                truncated.truncated
-                  ? `\n[Selection MIME XML truncated from ${truncated.originalLength} characters.]`
-                  : ''
-              }`,
-            );
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to capture selection MIME context for AI request:', err);
-      }
-    }
-
-    return lines.join('\n\n').trim();
-  }, [
+  const resolveSelectionContext = useCallback(() => resolveSelectionContextImpl({
+      selectedPointRef,
+      selectedElementClasses,
+      selectionBoxes,
+      selectedElement,
+      selectedIndex,
+      currentPageRef,
+      scoreRef,
+      score,
+      runSerializedScoreOperation,
+    }), [
     score,
     selectedElement,
     selectedElementClasses,
@@ -4254,9 +3804,7 @@ ${partsBodyXml}
     });
   };
 
-  const scheduleBackgroundInitTasks = (
-    loadedScore: Score,
-    options: {
+  const scheduleBackgroundInitTasks = (loadedScore: Score, options: {
       format: InputFileFormat;
       inputByteLength: number;
       isLargeInput: boolean;
@@ -4264,142 +3812,19 @@ ${partsBodyXml}
       createInitialCheckpoint?: boolean;
       checkpointScoreId?: string;
       logStage?: (stage: string, extra?: unknown) => void;
-    },
-  ) => {
-    const {
-      format,
-      inputByteLength,
-      isLargeInput,
-      progressivePaging,
-      createInitialCheckpoint,
-      checkpointScoreId,
-      logStage,
-    } = options;
-
-    const log = (stage: string, extra?: unknown) => {
-      if (!logStage) {
-        return;
-      }
-      logStage(stage, extra);
-    };
-
-    clearScheduledBackgroundInit();
-
-    const runTasks = async (attempt: number) => {
-      if (scoreRef.current !== loadedScore) {
-        backgroundInitTimerRef.current = null;
-        return;
-      }
-      if (isLargeInput && interactionPreparingRef.current) {
-        backgroundInitTimerRef.current = setTimeout(() => {
-          void runTasks(attempt);
-        }, 1000);
-        log('background-tasks:deferred', { reason: 'interaction-preparing', attempt });
-        return;
-      }
-      if (
-        isLargeInput &&
-        (pageNavigationInFlightRef.current || progressivePageLoadInFlightRef.current)
-      ) {
-        if (attempt >= LARGE_SCORE_BACKGROUND_TASK_MAX_RETRIES) {
-          log('background-tasks:skipped', { reason: 'busy-navigation', attempts: attempt });
-          backgroundInitTimerRef.current = null;
-          return;
-        }
-        backgroundInitTimerRef.current = setTimeout(() => {
-          void runTasks(attempt + 1);
-        }, LARGE_SCORE_BACKGROUND_TASK_RETRY_DELAY_MS);
-        return;
-      }
-
-      backgroundInitTimerRef.current = null;
-      log('background-tasks:start', { attempt });
-
-      log('refresh-metadata:start');
-      try {
-        await runWithTimeout(refreshScoreMetadata(loadedScore), 20_000, 'Score metadata refresh');
-        log('refresh-metadata:done');
-      } catch (err) {
-        log('refresh-metadata:failed', err);
-        console.warn('Background score metadata refresh timed out or failed.', err);
-      }
-
-      log('refresh-instruments:start');
-      try {
-        await runWithTimeout(
-          refreshInstrumentTemplates(loadedScore),
-          20_000,
-          'Instrument template refresh',
-        );
-        log('refresh-instruments:done');
-      } catch (err) {
-        log('refresh-instruments:failed', err);
-        console.warn('Background instrument template refresh timed out or failed.', err);
-      }
-
-      if (loadedScore.saveAudio) {
-        log('soundfont:start');
-        try {
-          await runWithTimeout(ensureSoundFontLoaded(loadedScore), 25_000, 'SoundFont load');
-          log('soundfont:done');
-        } catch (err) {
-          log('soundfont:failed', err);
-          console.warn('Background SoundFont load timed out or failed.', err);
-        }
-      }
-
-      if (createInitialCheckpoint) {
-        log('checkpoint:start');
-        try {
-          await runWithTimeout(
-            createInitialLoadCheckpoint(loadedScore, checkpointScoreId),
-            20_000,
-            'Initial checkpoint creation',
-          );
-          log('checkpoint:done');
-        } catch (err) {
-          log('checkpoint:failed', err);
-          console.warn('Background initial checkpoint creation timed out or failed.', err);
-        }
-      }
-    };
-
-    if (loadedScore.saveAudio) {
-      if (isLargeInput && interactionPreparingRef.current) {
-        log('soundfont:warmup-deferred', { reason: 'interaction-preparing' });
-        queueMicrotask(() => {
-          void prefetchSoundFontBytes().catch((err) => {
-            log('soundfont:warmup-prefetch-failed', err);
-            console.warn('Background SoundFont prefetch failed.', err);
-          });
-        });
-      } else {
-        log('soundfont:warmup-scheduled');
-        queueMicrotask(() => {
-          void ensureSoundFontLoaded(loadedScore).catch((err) => {
-            log('soundfont:warmup-failed', err);
-            console.warn('Background SoundFont warmup failed.', err);
-          });
-        });
-      }
-    }
-
-    if (isLargeInput) {
-      log('background-tasks:deferred', {
-        reason: 'large-upload',
-        bytes: inputByteLength,
-        format,
-        progressivePaging,
-        delayMs: LARGE_SCORE_BACKGROUND_TASK_DELAY_MS,
-      });
-      backgroundInitTimerRef.current = setTimeout(() => {
-        void runTasks(0);
-      }, LARGE_SCORE_BACKGROUND_TASK_DELAY_MS);
-      return;
-    }
-
-    void runTasks(0);
-  };
+    }) => scheduleBackgroundInitTasksImpl({
+      clearScheduledBackgroundInit,
+      scoreRef,
+      backgroundInitTimerRef,
+      interactionPreparingRef,
+      pageNavigationInFlightRef,
+      progressivePageLoadInFlightRef,
+      refreshScoreMetadata,
+      refreshInstrumentTemplates,
+      ensureSoundFontLoaded,
+      createInitialLoadCheckpoint,
+      prefetchSoundFontBytes,
+    }, loadedScore, options);
 
   handleUrlLoadRef.current = async (url, signal) => {
     if (signal?.aborted) {
@@ -4857,90 +4282,14 @@ ${partsBodyXml}
     }
   };
 
-  const ensurePageIsLaidOut = async (targetScore: Score, targetPage: number): Promise<boolean> => {
-    if (!targetScore.layoutUntilPage && !targetScore.layoutUntilPageState) {
-      return targetPage < pageCount;
-    }
-    if (progressivePageLoadInFlightRef.current) {
-      return false;
-    }
-
-    progressivePageLoadInFlightRef.current = true;
-    try {
-      const isExpandingBeyondKnownPages = targetPage >= pageCount;
-      if (isExpandingBeyondKnownPages && targetScore.layoutUntilPage) {
-        // For expansion into unknown pages, call layoutUntilPage directly.
-        // layoutUntilPageState can stall for very large scores when advancing.
-        const expanded = Boolean(
-          await runWithTimeout(
-            runSerializedScoreOperation(
-              () => Promise.resolve(targetScore.layoutUntilPage!(targetPage)),
-              `layoutUntilPage(page=${targetPage + 1})`,
-            ),
-            PROGRESSIVE_PAGE_LAYOUT_EXPAND_TIMEOUT_MS,
-            `Expand layout to page ${targetPage + 1}`,
-          ),
-        );
-        if (targetScore.npages) {
-          const pages = Math.max(
-            1,
-            await runSerializedScoreOperation(
-              () => Promise.resolve(targetScore.npages!()),
-              'npages',
-            ),
-          );
-          setPageCount((prev) => Math.max(prev, pages));
-          if (expanded && pages > targetPage) {
-            return true;
-          }
-        } else if (expanded) {
-          setPageCount((prev) => Math.max(prev, targetPage + 1));
-          return true;
-        }
-      }
-
-      const layoutState = await runWithTimeout(
-        requestLayoutProgress(targetScore, targetPage),
-        PROGRESSIVE_PAGE_LAYOUT_TIMEOUT_MS,
-        `Layout state for page ${targetPage + 1}`,
-      );
-      const pages = Math.max(1, layoutState.availablePages || 1);
-      setPageCount((prev) => Math.max(prev, pages));
-      setProgressiveHasMorePages(layoutState.hasMorePages);
-
-      let targetSatisfied = layoutState.targetSatisfied;
-      if (targetSatisfied && targetScore.layoutUntilPage && targetPage > 0) {
-        // Confirm the target page is fully materialized before rendering it.
-        // layoutUntilPageState can report optimistic availability on very large scores.
-        targetSatisfied = Boolean(
-          await runWithTimeout(
-            runSerializedScoreOperation(
-              () => Promise.resolve(targetScore.layoutUntilPage!(targetPage)),
-              `layoutUntilPage(page=${targetPage + 1})`,
-            ),
-            PROGRESSIVE_PAGE_LAYOUT_CONFIRM_TIMEOUT_MS,
-            `Layout page ${targetPage + 1}`,
-          ),
-        );
-      }
-
-      if (!targetSatisfied || pages <= targetPage) {
-        return false;
-      }
-
-      return true;
-    } catch (err) {
-      console.warn('Failed incremental page layout:', err);
-      if (targetPage < pageCount) {
-        // If page count already claims this page exists, allow a best-effort render attempt.
-        return true;
-      }
-      setProgressiveHasMorePages(false);
-      return false;
-    } finally {
-      progressivePageLoadInFlightRef.current = false;
-    }
-  };
+  const ensurePageIsLaidOut = (targetScore: Score, targetPage: number): Promise<boolean> => ensurePageIsLaidOutImpl({
+      pageCount,
+      progressivePageLoadInFlightRef,
+      runSerializedScoreOperation,
+      setPageCount,
+      requestLayoutProgress,
+      setProgressiveHasMorePages,
+    }, targetScore, targetPage);
 
   renderScoreRef.current = async (
     currentScore,
@@ -5098,139 +4447,21 @@ ${partsBodyXml}
     [score],
   );
 
-  const refreshCompareSelectionGeometry = useCallback(
-    async (
-      targetScore: Score,
-      role: CompareScoreRole,
-      side: CompareSide,
-      selected?: boolean,
-      isCurrent?: () => boolean,
-    ) => {
-      if (isCurrent && !isCurrent()) {
-        return [] as SelectionBox[];
-      }
-      if (selected === false) {
-        setCompareSelection(role, [], false);
-        return [] as SelectionBox[];
-      }
-
-      const hasGeometryBinding = Boolean(
-        targetScore.getSelectionBoundingBoxes || targetScore.getSelectionBoundingBox,
-      );
-      let rawBoxes: Array<{
-        page: number;
-        x: number;
-        y: number;
-        width: number;
-        height: number;
-      }> = [];
-      try {
-        if (targetScore.getSelectionBoundingBoxes) {
-          const result = await runSerializedScoreOperation(
-            () => Promise.resolve(targetScore.getSelectionBoundingBoxes!()),
-            `compare-selection-boxes:${side}`,
-          );
-          rawBoxes = Array.isArray(result) ? result : [];
-        }
-        if (rawBoxes.length === 0 && targetScore.getSelectionBoundingBox) {
-          const result = await runSerializedScoreOperation(
-            () => Promise.resolve(targetScore.getSelectionBoundingBox!()),
-            `compare-selection-box:${side}`,
-          );
-          if (result) {
-            rawBoxes = [result];
-          }
-        }
-      } catch (err) {
-        console.warn(`Failed to read ${side} compare selection geometry:`, err);
-      }
-
-      let boxes: SelectionBox[] = rawBoxes
-        .filter(
-          (box) =>
-            Number.isFinite(box.x) &&
-            Number.isFinite(box.y) &&
-            Number.isFinite(box.width) &&
-            Number.isFinite(box.height) &&
-            box.width > 0 &&
-            box.height > 0,
-        )
-        .map((box, index) => ({
-          index,
-          page: box.page,
-          x: box.x,
-          y: box.y,
-          w: box.width,
-          h: box.height,
-          centerX: box.x + box.width / 2,
-          centerY: box.y + box.height / 2,
-          classes: '',
-        }));
-
-      // Older bindings may expose selection in the highlighted SVG without a
-      // bounding-box method. Mirror the main editor's DOM fallback so a selected
-      // note still gets the same blue interaction rectangle.
-      if (boxes.length === 0) {
-        const container =
-          side === 'left' ? compareLeftContainerRef.current : compareRightContainerRef.current;
-        if (container) {
-          const containerRect = container.getBoundingClientRect();
-          const candidates = Array.from(
-            new Set(
-              ['.selected', '.note-selected', '.ms-selection'].flatMap((selector) =>
-                Array.from(container.querySelectorAll(selector)),
-              ),
-            ),
-          );
-          const page = getCompareTargetPage(targetScore);
-          boxes = candidates
-            .map((candidate, index): SelectionBox | null => {
-              const rect = candidate.getBoundingClientRect();
-              const x = (rect.left - containerRect.left) / compareEffectiveZoom;
-              const y = (rect.top - containerRect.top) / compareEffectiveZoom;
-              const w = rect.width / compareEffectiveZoom;
-              const h = rect.height / compareEffectiveZoom;
-              if (!(w > 0 && h > 0)) {
-                return null;
-              }
-              return {
-                index,
-                page,
-                x,
-                y,
-                w,
-                h,
-                centerX: x + w / 2,
-                centerY: y + h / 2,
-                classes: candidate.getAttribute('class') ?? '',
-              };
-            })
-            .filter((box): box is SelectionBox => Boolean(box));
-        }
-      }
-
-      const targetPage = getCompareTargetPage(targetScore);
-      const visibleBoxes = compareContinuousMode
-        ? boxes
-        : boxes.filter((box) => box.page === targetPage);
-      if (isCurrent && !isCurrent()) {
-        return [] as SelectionBox[];
-      }
-      setCompareSelection(
-        role,
-        visibleBoxes,
-        boxes.length > 0 || (selected === true && !hasGeometryBinding),
-      );
-      return visibleBoxes;
-    },
-    [
+  const refreshCompareSelectionGeometry = useCallback((targetScore: Score, role: CompareScoreRole, side: CompareSide, selected?: boolean, isCurrent?: () => boolean) => refreshCompareSelectionGeometryImpl({
+      setCompareSelection,
+      runSerializedScoreOperation,
+      compareLeftContainerRef,
+      compareRightContainerRef,
+      getCompareTargetPage,
+      compareEffectiveZoom,
+      compareContinuousMode,
+    }, targetScore, role, side, selected, isCurrent), [
       compareContinuousMode,
       compareEffectiveZoom,
       getCompareTargetPage,
       runSerializedScoreOperation,
       setCompareSelection,
-    ],
-  );
+    ]);
 
   const renderEditedCompareScore = useCallback(
     async (targetScore: Score, side: CompareSide, highlightSelection = true) => {
@@ -5348,63 +4579,23 @@ ${partsBodyXml}
     reportError: reportCompareMutationError,
   });
 
-  const setCompareNoteInputMode = useCallback(
-    async (enabled: boolean, side: CompareSide = compareActiveSide ?? 'left') => {
-      const targetScore = compareScoreForSide(side);
-      if (
-        !targetScore?.setNoteEntryMode ||
-        isCompareEditBusy() ||
-        compareSwapBusy ||
-        aiDiffFeedbackBusy
-      ) {
-        return;
-      }
-      const generation = invalidateCompareOperations();
-      setCompareActiveSide(side);
-      const role = getCompareScoreRole(targetScore);
-      requestCompareNoteInput(role, enabled);
-      const operation = trackCompareOperation(
-        (async () => {
-          if (enabled && targetScore.setInputStateFromSelection) {
-            await runSerializedScoreOperation(
-              () => Promise.resolve(targetScore.setInputStateFromSelection!()),
-              `compare-note-input-selection:${side}`,
-            ).catch(() => {});
-            if (!isCompareGenerationCurrent(generation)) {
-              return;
-            }
-          }
-          const changed = await runSerializedScoreOperation(
-            () => Promise.resolve(targetScore.setNoteEntryMode!(enabled)),
-            `compare-note-input:${side}`,
-          );
-          if (!isCompareGenerationCurrent(generation)) {
-            return;
-          }
-          if (changed === false) {
-            rollbackCompareNoteInputRequest(role);
-            return;
-          }
-          commitCompareNoteInput(role, enabled);
-          if (enabled) {
-            await refreshCompareNoteInputCursor(targetScore, role, side, () =>
-              isCompareGenerationCurrent(generation),
-            );
-          } else {
-            setCompareNoteInputCursor(role, null);
-          }
-        })(),
-      );
-      try {
-        await operation;
-      } catch (err) {
-        if (isCompareGenerationCurrent(generation)) {
-          rollbackCompareNoteInputRequest(role);
-          console.warn('Failed to toggle compare note input mode:', err);
-        }
-      }
-    },
-    [
+  const setCompareNoteInputMode = useCallback((enabled: boolean, side: CompareSide = compareActiveSide ?? 'left') => setCompareNoteInputModeImpl({
+      compareScoreForSide,
+      isCompareEditBusy,
+      compareSwapBusy,
+      aiDiffFeedbackBusy,
+      invalidateCompareOperations,
+      setCompareActiveSide,
+      getCompareScoreRole,
+      requestCompareNoteInput,
+      trackCompareOperation,
+      runSerializedScoreOperation,
+      isCompareGenerationCurrent,
+      rollbackCompareNoteInputRequest,
+      commitCompareNoteInput,
+      refreshCompareNoteInputCursor,
+      setCompareNoteInputCursor,
+    }, enabled, side), [
       aiDiffFeedbackBusy,
       compareActiveSide,
       compareScoreForSide,
@@ -5420,8 +4611,7 @@ ${partsBodyXml}
       runSerializedScoreOperation,
       setCompareNoteInputCursor,
       trackCompareOperation,
-    ],
-  );
+    ]);
 
   const toggleCompareNoteInputMode = useCallback(
     (side: CompareSide) => {
@@ -5473,116 +4663,33 @@ ${partsBodyXml}
     [performCompareMutation],
   );
 
-  const handleComparePaneClick = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>, side: 'left' | 'right') => {
-      const targetScore = side === 'left' ? compareLeftScore : compareRightScoreDisplay;
-      const positions =
-        side === 'left' ? compareLeftMeasurePositions : compareRightMeasurePositions;
-      const wrapper =
-        side === 'left' ? compareLeftWrapperRef.current : compareRightWrapperRef.current;
-      if (!targetScore || !positions || !wrapper) {
-        return;
-      }
-      setCompareActiveSide(side);
-      if (isCompareEditBusy() || compareSwapBusy || aiDiffFeedbackBusy) {
-        return;
-      }
-      const role = getCompareScoreRole(targetScore);
-      const measureIndex = hitTestMeasure(
-        positions,
-        event.clientX,
-        event.clientY,
-        side === 'left' ? compareLeftWrapperRef : compareRightWrapperRef,
-        compareEffectiveZoom,
-      );
-      const measure = measureIndex >= 0 ? positions.elements[measureIndex] : null;
-      const rect = wrapper.getBoundingClientRect();
-      const x = (event.clientX - rect.left) / compareEffectiveZoom;
-      const absoluteY = (event.clientY - rect.top) / compareEffectiveZoom;
-      const pageHeight = positions.pageSize?.height ?? 0;
-      const legacyMeasureHeight = measure
-        ? (measure as unknown as Record<string, unknown>).height
-        : null;
-      const rawMeasureHeight = measure
-        ? typeof measure.sy === 'number'
-          ? measure.sy
-          : typeof legacyMeasureHeight === 'number'
-            ? legacyMeasureHeight
-            : 0
-        : 0;
-      const usesPageOffset = Boolean(
-        measure &&
-        pageHeight > 0 &&
-        measure.page > 0 &&
-        measure.y + rawMeasureHeight <= pageHeight * 1.2,
-      );
-      const renderedPage = getCompareTargetPage(targetScore);
-      const page = compareContinuousMode ? (measure?.page ?? renderedPage) : renderedPage;
-      const y = compareContinuousMode && usesPageOffset ? absoluteY - page * pageHeight : absoluteY;
-
-      if (isCompareNoteInputCommitted(role)) {
-        void performCompareMutation(
-          'place a note',
-          async (activeScore) => {
-            if (!activeScore.putNote) {
-              notifyError('This build of webmscore does not expose "putNote".');
-              return false;
-            }
-            const result = await activeScore.putNote(page, x, y);
-            if (result !== false) {
-              setCompareHasSelection(role, true);
-            }
-            return result;
-          },
-          { side },
-        );
-        return;
-      }
-
-      handleCompareScoreClick(event, side);
-      if (!targetScore.selectElementAtPoint && !targetScore.selectElementAtPointWithMode) {
-        return;
-      }
-      const hasExistingSelection = compareHasSelectionByRole[role];
-      const selectionMode: 0 | 2 | 3 =
-        event.ctrlKey || event.metaKey ? 2 : event.shiftKey && hasExistingSelection ? 3 : 0;
-      const generation = invalidateCompareOperations();
-      const selectionOperation = trackCompareOperation(
-        runSerializedScoreOperation(
-          () =>
-            Promise.resolve(
-              targetScore.selectElementAtPointWithMode
-                ? targetScore.selectElementAtPointWithMode(page, x, y, selectionMode)
-                : targetScore.selectElementAtPoint!(page, x, y),
-            ),
-          `compare-select:${side}`,
-        ).then(async (selected) => {
-          if (!isCompareGenerationCurrent(generation)) {
-            return;
-          }
-          if (selected === false && selectionMode === 0 && targetScore.clearSelection) {
-            await runSerializedScoreOperation(
-              () => Promise.resolve(targetScore.clearSelection!()),
-              `compare-selection-clear:${side}`,
-            );
-          }
-          await renderEditedCompareScore(targetScore, side, true);
-          if (!isCompareGenerationCurrent(generation)) {
-            return;
-          }
-          await refreshCompareSelectionGeometry(targetScore, role, side, selected !== false, () =>
-            isCompareGenerationCurrent(generation),
-          );
-        }),
-      );
-      void selectionOperation.catch((err) => {
-        if (!isCompareGenerationCurrent(generation)) {
-          return;
-        }
-        console.warn('Failed to select an element in compare score:', err);
-      });
-    },
-    [
+  const handleComparePaneClick = useCallback((event: React.MouseEvent<HTMLDivElement>, side: 'left' | 'right') => comparePaneClick({
+      compareLeftScore,
+      compareRightScoreDisplay,
+      compareLeftMeasurePositions,
+      compareRightMeasurePositions,
+      compareLeftWrapperRef,
+      compareRightWrapperRef,
+      setCompareActiveSide,
+      isCompareEditBusy,
+      compareSwapBusy,
+      aiDiffFeedbackBusy,
+      getCompareScoreRole,
+      compareEffectiveZoom,
+      getCompareTargetPage,
+      compareContinuousMode,
+      isCompareNoteInputCommitted,
+      performCompareMutation,
+      setCompareHasSelection,
+      handleCompareScoreClick,
+      compareHasSelectionByRole,
+      invalidateCompareOperations,
+      trackCompareOperation,
+      runSerializedScoreOperation,
+      isCompareGenerationCurrent,
+      renderEditedCompareScore,
+      refreshCompareSelectionGeometry,
+    }, event, side), [
       aiDiffFeedbackBusy,
       compareEffectiveZoom,
       compareContinuousMode,
@@ -5605,119 +4712,26 @@ ${partsBodyXml}
       runSerializedScoreOperation,
       setCompareHasSelection,
       trackCompareOperation,
-    ],
-  );
+    ]);
 
-  const handleCompareOverwriteBlock = useCallback(
-    async (
-      sourceScore: Score | null,
-      targetScore: Score | null,
-      partIndex: number,
-      pairs: Array<{ leftIndex: number; rightIndex: number }>,
-    ): Promise<boolean> => {
-      if (compareSwapBusy || isCompareEditBusy() || hasPendingCompareOperations()) {
-        return false;
-      }
-      if (!sourceScore || !targetScore) {
-        return false;
-      }
-      if (pairs.length === 0) {
-        return false;
-      }
-
-      setCompareSwapBusy(true);
-      try {
-        const isAiProposalCommit =
-          compareView?.title === 'Assistant Proposal' && targetScore === score;
-        let verifiedTargetXml: string | null = null;
-        if (isAiProposalCommit) {
-          const liveXml = await getScoreMusicXmlText(scoreRef.current ?? targetScore, null);
-          if (!liveXml) {
-            const message = 'Unable to verify the current score before applying this proposal.';
-            setAiProposalApplyError(message);
-            setAiError(message);
-            return false;
-          }
-          verifiedTargetXml = liveXml;
-          try {
-            const hashCheck = await verifyAiProposalCurrent(liveXml, compareView.currentXml);
-            if (!hashCheck.ok) {
-              const message =
-                'The score changed after this proposal was generated. Regenerate or rebase the proposal before applying it.';
-              setAiProposalApplyError(message);
-              setAiError(message);
-              return false;
-            }
-          } catch (hashError) {
-            const message =
-              errorMessage(hashError) || 'Unable to verify the proposal against the current score.';
-            setAiProposalApplyError(message);
-            setAiError(message);
-            return false;
-          }
-        }
-
-        const fallbackSourceXml =
-          sourceScore === score
-            ? (compareView?.currentXml ?? null)
-            : (compareView?.checkpointXml ?? null);
-        const fallbackTargetXml =
-          verifiedTargetXml ??
-          (targetScore === score
-            ? (compareView?.currentXml ?? null)
-            : (compareView?.checkpointXml ?? null));
-        const sourceXml = fallbackSourceXml ?? (await getScoreMusicXmlText(sourceScore, null));
-        const targetXml = fallbackTargetXml ?? (await getScoreMusicXmlText(targetScore, null));
-        if (!sourceXml || !targetXml) {
-          console.warn('Compare overwrite: unable to load MusicXML for swap.');
-          return false;
-        }
-
-        const patched = replaceMeasuresInMusicXml(
-          sourceXml,
-          targetXml,
-          partIndex,
-          pairs.map((pair) => ({ sourceIndex: pair.leftIndex, targetIndex: pair.rightIndex })),
-        );
-        if (patched.error || !patched.xml) {
-          console.warn('Compare overwrite failed:', patched.error || 'Unknown error');
-          return false;
-        }
-
-        if (targetScore === score) {
-          const applied = await aiScoreBridge.applyXml(patched.xml, 'compare_overwrite');
-          if (!applied) {
-            return false;
-          }
-          const appliedXml =
-            (await getScoreMusicXmlText(scoreRef.current ?? targetScore, patched.xml)) ||
-            patched.xml;
-          if (isAiProposalCommit) {
-            try {
-              await recordAiProposalAppliedXml(appliedXml);
-              setAiError(null);
-            } catch (hashError) {
-              const message =
-                errorMessage(hashError) ||
-                'The change was applied, but the next proposal block cannot be verified.';
-              invalidateAiProposalExpectedCurrent(message);
-              setAiError(message);
-            }
-          }
-          setCompareView((prev) => (prev ? { ...prev, currentXml: appliedXml } : prev));
-        } else {
-          setCompareView((prev) => (prev ? { ...prev, checkpointXml: patched.xml } : prev));
-        }
-        setCompareAlignmentRevision((value) => value + 1);
-        return true;
-      } catch (err) {
-        console.warn('Compare overwrite failed:', err);
-        return false;
-      } finally {
-        setCompareSwapBusy(false);
-      }
-    },
-    [
+  const handleCompareOverwriteBlock = useCallback((sourceScore: Score | null, targetScore: Score | null, partIndex: number, pairs: Array<{ leftIndex: number; rightIndex: number }>): Promise<boolean> => compareOverwriteBlock({
+      compareSwapBusy,
+      isCompareEditBusy,
+      hasPendingCompareOperations,
+      setCompareSwapBusy,
+      compareView,
+      score,
+      getScoreMusicXmlText,
+      scoreRef,
+      setAiProposalApplyError,
+      setAiError,
+      verifyAiProposalCurrent,
+      aiScoreBridge,
+      recordAiProposalAppliedXml,
+      invalidateAiProposalExpectedCurrent,
+      setCompareView,
+      setCompareAlignmentRevision,
+    }, sourceScore, targetScore, partIndex, pairs), [
       aiScoreBridge,
       compareSwapBusy,
       score,
@@ -5730,65 +4744,24 @@ ${partsBodyXml}
       setAiError,
       setAiProposalApplyError,
       verifyAiProposalCurrent, scoreRef,
-    ],
-  );
+    ]);
 
-  const handleAcceptAllAiChanges = useCallback(async () => {
-    if (!compareView || compareView.title !== 'Assistant Proposal') {
-      return;
-    }
-    if (!score) {
-      return;
-    }
-    if (compareSwapBusy || isCompareEditBusy() || hasPendingCompareOperations()) {
-      return;
-    }
-
-    setCompareSwapBusy(true);
-    let committedXml: string | null = null;
-    try {
-      const liveXml = await aiScoreBridge.getLiveXml();
-      if (!liveXml) {
-        const message = 'Unable to verify the current score before applying this proposal.';
-        setAiProposalApplyError(message);
-        setAiError(message);
-        return;
-      }
-      const hashCheck = await verifyAiProposalCurrent(liveXml, compareView.currentXml);
-      if (!hashCheck.ok) {
-        const message =
-          'The score changed after this proposal was generated. Regenerate or rebase the proposal before applying it.';
-        setAiProposalApplyError(message);
-        setAiError(message);
-        return;
-      }
-
-      const applied = await aiScoreBridge.applyXml(compareView.checkpointXml, 'compare_apply_all');
-      if (!applied) {
-        return;
-      }
-      const appliedXml =
-        (await aiScoreBridge.getLiveXml(compareView.checkpointXml)) || compareView.checkpointXml;
-      committedXml = appliedXml;
-      await recordAiProposalAppliedXml(appliedXml);
-      setAiError(null);
-      setCompareView((prev) => (prev ? { ...prev, currentXml: appliedXml } : prev));
-      setCompareAlignmentRevision((value) => value + 1);
-    } catch (applyError) {
-      const message = committedXml
-        ? 'The proposal was applied, but its new content hash could not be recorded.'
-        : errorMessage(applyError) || 'Unable to apply the complete proposal.';
-      if (committedXml) {
-        invalidateAiProposalExpectedCurrent(message);
-        setCompareView((prev) => (prev ? { ...prev, currentXml: committedXml! } : prev));
-        setCompareAlignmentRevision((value) => value + 1);
-      }
-      setAiProposalApplyError(message);
-      setAiError(message);
-    } finally {
-      setCompareSwapBusy(false);
-    }
-  }, [
+  const handleAcceptAllAiChanges = useCallback(() => acceptAllAiChanges({
+      compareView,
+      score,
+      compareSwapBusy,
+      isCompareEditBusy,
+      hasPendingCompareOperations,
+      setCompareSwapBusy,
+      aiScoreBridge,
+      setAiProposalApplyError,
+      setAiError,
+      verifyAiProposalCurrent,
+      recordAiProposalAppliedXml,
+      setCompareView,
+      setCompareAlignmentRevision,
+      invalidateAiProposalExpectedCurrent,
+    }), [
     aiScoreBridge,
     compareView,
     compareSwapBusy,
@@ -6155,312 +5128,70 @@ ${partsBodyXml}
     });
   }, []);
 
-  const handleSendDiffFeedback = useCallback(async () => {
-    if (
-      !compareView ||
-      !isAiCompareMode ||
-      aiBusy ||
-      aiDiffFeedbackBusy ||
-      isCompareEditBusy() ||
-      hasPendingCompareOperations()
-    ) {
-      return;
-    }
-    if (!aiApiKey.trim()) {
-      notifyWarning(`Enter your ${AI_PROVIDER_LABELS[aiProvider]} API key.`);
-      return;
-    }
-    if (!aiModel.trim()) {
-      notifyWarning('Select a model.');
-      return;
-    }
-
-    const acceptedReviews = aiDiffReviews.filter(
-      (review) => getReviewStatusForFeedback(review) === 'accepted',
-    );
-    const blockMap = new Map<
-      string,
-      {
-        partIndex: number;
-        measureRange: string;
-        status: BlockReviewStatus;
-        comment?: string;
-      }
-    >();
-    acceptedReviews.forEach((review) => {
-      blockMap.set(review.blockKey, {
-        partIndex: review.partIndex,
-        measureRange: review.measureRange,
-        status: review.status,
-        comment: review.comment,
-      });
-    });
-    aiDiffCurrentBlocks.forEach((block) => {
-      const review = resolveAiDiffReview(block);
-      const status = getReviewStatusForFeedback(review);
-      blockMap.set(block.blockKey, {
-        partIndex: block.partIndex,
-        measureRange: block.measureRange,
-        status,
-        comment: review?.comment ?? '',
-      });
-    });
-    const feedbackEntries = Array.from(blockMap.entries()).map(([blockKey, block]) => ({
-      blockKey,
-      ...block,
-    }));
-    const feedbackBlocks = feedbackEntries.map((block) => ({
-      partIndex: block.partIndex,
-      measureRange: block.measureRange,
-      status: block.status,
-      ...(block.status === 'comment' ? { comment: (block.comment || '').trim() } : {}),
-    }));
-    // Fold measure-level thread notes into the feedback as per-measure comment blocks so
-    // the model sees them on the next regeneration.
-    const threadFeedbackBlocks = Object.values(aiMeasureThreads)
-      .map((thread) => {
-        const userText = thread.comments
-          .filter((entry) => entry.author === 'you')
-          .map((entry) => entry.text.trim())
-          .filter(Boolean)
-          .join('\n');
-        return userText
-          ? {
-              partIndex: thread.partIndex,
-              measureRange: String(thread.measureNumber),
-              status: 'comment' as const,
-              comment: userText,
-            }
-          : null;
-      })
-      .filter(
-        (
-          block,
-        ): block is {
-          partIndex: number;
-          measureRange: string;
-          status: 'comment';
-          comment: string;
-        } => block !== null,
-      );
-    const allFeedbackBlocks = [...feedbackBlocks, ...threadFeedbackBlocks];
-    const commentBlockKeys = feedbackEntries
-      .filter((block) => block.status === 'comment')
-      .map((block) => block.blockKey);
-
-    const currentXml = await aiScoreBridge.getLiveXml(compareView.currentXml);
-    if (!currentXml?.trim()) {
-      const message = 'Unable to export the current score for feedback.';
-      setAiError(message);
-      setAiDiffFeedbackError(message);
-      setCompareRightError(message);
-      return;
-    }
-    const proposalXml =
-      (await getScoreMusicXmlText(compareRightScore, compareView.checkpointXml)) ||
-      compareView.checkpointXml;
-    const userEditDiffs = compareEditedRoles
-      .map((role): CompareUserEditDiff | null => {
-        const beforeXml = getCompareEditBaseline(role);
-        const afterXml = role === 'current' ? currentXml : proposalXml;
-        if (!beforeXml) {
-          return null;
-        }
-        const label = role === 'current' ? 'Current score' : 'Assistant proposal';
-        const diff = buildCompareUserEditDiff(beforeXml, afterXml, label);
-        return diff ? { side: role, label, diff } : null;
-      })
-      .filter((edit): edit is CompareUserEditDiff => edit !== null);
-    if (!allFeedbackBlocks.length && !aiDiffGlobalComment.trim() && !userEditDiffs.length) {
-      return;
-    }
-    const previousCheckpointXml = compareView.checkpointXml;
-    const previousContinuity = snapshotAiProposalContinuity();
-    const previousEditCycle = captureCompareEditCycle();
-    const editRequest = beginAiEdit('feedback', 'Preparing feedback context');
-    const requestController = editRequest.controller;
-    let requestOutcome: 'success' | 'failure' | 'cancelled' = 'failure';
-    setAiError(null);
-    setAiPatchError(null);
-    setAiDiffFeedbackError(null);
-    setXmlSidebarTab('assistant');
-    setXmlSidebarMode((prev) => (prev === 'closed' ? 'open' : prev));
-    invalidateCompareOperations();
-    setCompareView(null);
-    setCompareRightLoading(false);
-    setCompareRightError(null);
-    try {
-      // The session snapshot (not the live sidebar toggle) decides chat inclusion; a
-      // lazily created session adopts the current iteration so the server's
-      // cycle-consistency check holds for pre-session compare views. A cycle that no
-      // longer matches the iteration counter means local state diverged, so the
-      // previous-cycle claim is dropped rather than relabeled with a new cycle.
-      const existingSession = getAiProposalSession();
-      const proposalSession: ClientProposalSession = existingSession
-        ? existingSession.cycle === aiDiffIteration + 1
-          ? existingSession
-          : { ...existingSession, cycle: aiDiffIteration + 1, previousCycle: null }
-        : {
-            ...createClientProposalSession({
-              originalInstruction: aiPrompt.trim(),
-              includeChat: aiIncludeChat,
-            }),
-            cycle: aiDiffIteration + 1,
-          };
-      setAiProposalSession(proposalSession);
-      const expectedHashes = getAiProposalExpectedHashes();
-      const response = await fetch(resolveScoreEditorApiPath('/api/music/diff/feedback'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'text/event-stream',
-        },
-        signal: requestController.signal,
-        body: JSON.stringify({
-          content: currentXml,
-          blocks: allFeedbackBlocks,
-          userEdits: userEditDiffs,
-          globalComment: aiDiffGlobalComment,
-          iteration: aiDiffIteration,
-          provider: aiProvider,
-          model: aiModel.trim(),
-          apiKey: aiApiKey.trim(),
-          editEffort: aiEditEffort,
-          maxTokens: aiMaxTokensMode === 'custom' ? aiMaxTokens : null,
-          temperature: aiTemperatureMode === 'custom' ? aiTemperature : null,
-          ...(proposalSession.includeChat ? { chatHistory: aiChatMessages } : {}),
-          proposalSession: buildProposalSessionRequestPayload(proposalSession, {
-            contentHash: expectedHashes.contentHash,
-            identityHash: expectedHashes.identityHash,
-          }),
-        }),
-      });
-      captureApiTraceContext(response.headers);
-      const serviceResponse = await readAiEditServiceResponse(response, (update) =>
-        updateAiEditProgress(editRequest, update),
-      );
-      const result = asRecord(serviceResponse.body) || {};
-      if (serviceResponse.status >= 400) {
-        if (result.patch && typeof result.patch === 'object') {
-          setAiOutput(JSON.stringify(result.patch, null, 2));
-        }
-        const message =
-          typeof result.error === 'string'
-            ? result.error
-            : `Request failed: ${serviceResponse.status}`;
-        throw new Error(message);
-      }
-
-      const patchPayload = asRecord(result.patch);
-      const parsedPatch = parseMusicXmlPatch(JSON.stringify(patchPayload || {}));
-      if (parsedPatch.error || !parsedPatch.patch) {
-        throw new Error(parsedPatch.error || 'Service returned an invalid patch payload.');
-      }
-      const editProposal = findAiEditProposal(result);
-      const proposedXml =
-        editProposal?.proposedXml ||
-        (typeof result.proposedXml === 'string' ? result.proposedXml.trim() : '');
-      if (!proposedXml) {
-        throw new Error('Service returned empty proposed MusicXML.');
-      }
-      const proposalBaseXml = editProposal?.baseXml || currentXml;
-
-      setAiOutput(JSON.stringify(parsedPatch.patch, null, 2));
-      setAiPatch(parsedPatch.patch);
-      setAiPatchError(null);
-      setAiPatchedXml(proposedXml);
-      setAiBaseXml(proposalBaseXml);
-      // A successful response begins a new proposal cycle. Do this explicitly
-      // rather than relying on the transient closed-modal effect so a second
-      // edit cannot diff against the prior proposal generation.
-      clearCompareEditCycle();
-      // Keep the standard orientation (Current left/red, Proposal right/green) so Apply
-      // writes the proposal into the document. See openAiProposalCompare.
-      setCompareSwapped(true);
-      captureAiProposal(editProposal, proposalBaseXml);
-      setCompareView({
-        title: 'Assistant Proposal',
-        currentXml: proposalBaseXml,
-        checkpointXml: proposedXml,
-        currentLabel: 'Current',
-        checkpointLabel: 'Assistant Proposal',
-      });
-      setAiDiffIteration(
-        typeof result.iteration === 'number' ? result.iteration : aiDiffIteration + 1,
-      );
-      setAiDiffReviews((prev) => prev.filter((review) => review.status === 'accepted'));
-      setAiDiffGlobalComment('');
-      setAiDiffFeedbackError(null);
-      setAiDiffBlockErrors({});
-      const revisionAnnotations = extractPatchAnnotations({
-        annotations: (result as Record<string, unknown>).annotations,
-      });
-      setAiProposalSession(
-        advanceClientProposalSession(proposalSession, {
-          responseId: result.proposalSessionId,
-          newCycle: result.cycle,
-          proposal: editProposal,
-          patch: parsedPatch.patch,
-          annotations: revisionAnnotations,
-          continuityToken: result.continuityToken,
-          sentBlocks: allFeedbackBlocks,
-          sentGlobalComment: aiDiffGlobalComment,
-        }),
-      );
-      const feedbackAudit = asRecord(result.audit);
-      setAiProposalAudit({
-        ...(feedbackAudit ?? {}),
-        cycle:
-          typeof feedbackAudit?.cycle === 'number'
-            ? feedbackAudit.cycle
-            : typeof result.cycle === 'number'
-              ? result.cycle
-              : aiDiffIteration + 2,
-        verification: result.verification,
-      });
-      // Surface the assistant's annotations for this revision as measure-thread notes.
-      mergeAiAnnotations(revisionAnnotations);
-      setCompareAlignmentRevision((value) => value + 1);
-      requestOutcome = 'success';
-    } catch (err) {
-      const wasCancelled =
-        requestController.signal.aborted &&
-        requestController.signal.reason instanceof DOMException &&
-        requestController.signal.reason.name === 'AbortError';
-      const rawMessage = errorMessage(err) || 'Failed to request revised proposal.';
-      const surfacedMessage = formatAiDiffFeedbackError(rawMessage);
-      if (wasCancelled) {
-        requestOutcome = 'cancelled';
-      }
-      setAiError(wasCancelled ? null : surfacedMessage);
-      setAiDiffFeedbackError(wasCancelled ? null : surfacedMessage);
-      setCompareRightError(wasCancelled ? null : surfacedMessage);
-      if (!wasCancelled && commentBlockKeys.length > 0) {
-        setAiDiffBlockErrors((prev) => {
-          const next = { ...prev };
-          commentBlockKeys.forEach((blockKey) => {
-            next[blockKey] = surfacedMessage;
-          });
-          return next;
-        });
-      }
-      setCompareView({
-        title: 'Assistant Proposal',
-        currentXml,
-        checkpointXml: proposalXml || previousCheckpointXml,
-        currentLabel: 'Current',
-        checkpointLabel: 'Assistant Proposal',
-      });
-      restoreCompareEditCycle(previousEditCycle);
-      restoreAiProposalContinuity({
-        ...previousContinuity,
-        baseXml: previousContinuity.baseXml || currentXml,
-      });
-    } finally {
-      finishAiEdit(editRequest, requestOutcome);
-      setCompareRightLoading(false);
-    }
-  }, [
+  const handleSendDiffFeedback = useCallback(() => sendDiffFeedback({
+      compareView,
+      isAiCompareMode,
+      aiBusy,
+      aiDiffFeedbackBusy,
+      isCompareEditBusy,
+      hasPendingCompareOperations,
+      aiApiKey,
+      aiProvider,
+      aiModel,
+      aiDiffReviews,
+      aiDiffCurrentBlocks,
+      resolveAiDiffReview,
+      aiMeasureThreads,
+      aiScoreBridge,
+      setAiError,
+      setAiDiffFeedbackError,
+      setCompareRightError,
+      getScoreMusicXmlText,
+      compareRightScore,
+      compareEditedRoles,
+      getCompareEditBaseline,
+      aiDiffGlobalComment,
+      snapshotAiProposalContinuity,
+      captureCompareEditCycle,
+      beginAiEdit,
+      setAiPatchError,
+      setXmlSidebarTab,
+      setXmlSidebarMode,
+      invalidateCompareOperations,
+      setCompareView,
+      setCompareRightLoading,
+      getAiProposalSession,
+      aiDiffIteration,
+      aiPrompt,
+      aiIncludeChat,
+      setAiProposalSession,
+      getAiProposalExpectedHashes,
+      aiEditEffort,
+      aiMaxTokensMode,
+      aiMaxTokens,
+      aiTemperatureMode,
+      aiTemperature,
+      aiChatMessages,
+      captureApiTraceContext,
+      updateAiEditProgress,
+      setAiOutput,
+      setAiPatch,
+      setAiPatchedXml,
+      setAiBaseXml,
+      clearCompareEditCycle,
+      setCompareSwapped,
+      captureAiProposal,
+      setAiDiffIteration,
+      setAiDiffReviews,
+      setAiDiffGlobalComment,
+      setAiDiffBlockErrors,
+      setAiProposalAudit,
+      mergeAiAnnotations,
+      setCompareAlignmentRevision,
+      restoreCompareEditCycle,
+      restoreAiProposalContinuity,
+      finishAiEdit,
+    }), [
     aiScoreBridge,
     compareView,
     isAiCompareMode,
@@ -7015,102 +5746,23 @@ ${partsBodyXml}
     versionsCreateBranchPolicy,
   ]);
 
-  const handleVersionsCommitCurrent = useCallback(async () => {
-    if (!otsSourceContext) {
-      return;
-    }
-    if (!score) {
-      notifyWarning('Load a score before creating a version.');
-      return;
-    }
-    setVersionsActionBusy(true);
-    setVersionsActionError(null);
-    setVersionsActionNotice(null);
-    try {
-      const data = await getScoreXmlData();
-      if (!data) {
-        return;
-      }
-      const branch = versionsBranchName.trim() || 'trunk';
-      const selectedBranch = sourceHistory?.selectedBranch;
-      if (selectedBranch?.lifecycle === 'closed') {
-        setVersionsActionError(
-          'This branch is closed while its change review is closed. Reopen the CR before committing.',
-        );
-        return;
-      }
-      const targetRevisionId =
-        selectedBranch?.headRevisionId ||
-        selectedBranch?.baseRevisionId ||
-        otsSourceContext.revisionId ||
-        activeLaunchContext?.revisionId ||
-        undefined;
-      const filenameBase = scoreTitle ? toSafeFilename(scoreTitle) : otsSourceContext.sourceId;
-      const file = new File([toOwnedBytes(data)], `${filenameBase || 'score'}.musicxml`, {
-        type: 'application/xml',
-      });
-      const form = new FormData();
-      form.append('file', file);
-      if (versionsCommitMessage.trim()) {
-        form.append('commitMessage', versionsCommitMessage.trim());
-      }
-      form.append('branchName', branch);
-      if (targetRevisionId) {
-        form.append('expectedHeadRevisionId', targetRevisionId);
-        form.append('baseRevisionId', targetRevisionId);
-      }
-
-      const result = await commitSourceRevision({
-        workId: otsSourceContext.workId,
-        sourceId: otsSourceContext.sourceId,
-        body: form,
-      });
-      const nextRevisionId = result.revisionId;
-      setRuntimeLaunchContext(
-        sanitizeEditorLaunchContext({
-          ...(activeLaunchContext || {}),
-          source: 'ourtextscores',
-          workId: otsSourceContext.workId,
-          sourceId: otsSourceContext.sourceId,
-          revisionId: nextRevisionId,
-          branchName: branch,
-          canonicalXmlUrl: buildSourceCanonicalXmlUrl({
-            workId: otsSourceContext.workId,
-            sourceId: otsSourceContext.sourceId,
-            revisionId: nextRevisionId,
-          }),
-        } satisfies EditorLaunchContext),
-      );
-      setVersionsCommitMessage('');
-      setVersionsBranchName(branch);
-      setVersionsActionNotice(result.message || 'Created a new revision.');
-      await refreshSourceHistory(branch);
-    } catch (err) {
-      console.error('Failed to commit source revision', err);
-      if (err instanceof OurTextScoresApiError && err.status === 409) {
-        const details = asRecord(err.details);
-        if (details?.error === 'branch_closed_for_review') {
-          setVersionsActionError(
-            'This branch is closed while its change review is closed. Reopen the CR before committing.',
-          );
-        } else {
-          const actualHeadSequenceNumber =
-            typeof details?.actualHeadSequenceNumber === 'number'
-              ? details.actualHeadSequenceNumber
-              : null;
-          setVersionsActionError(
-            actualHeadSequenceNumber !== null
-              ? `Branch head changed. Refresh and review revision #${actualHeadSequenceNumber} before committing.`
-              : 'Branch head changed. Refresh and review the latest branch revision before committing.',
-          );
-        }
-      } else {
-        setVersionsActionError(errorMessage(err) || 'Failed to commit current score.');
-      }
-    } finally {
-      setVersionsActionBusy(false);
-    }
-  }, [
+  const handleVersionsCommitCurrent = useCallback(() => commitCurrentVersion({
+      otsSourceContext,
+      score,
+      setVersionsActionBusy,
+      setVersionsActionError,
+      setVersionsActionNotice,
+      getScoreXmlData,
+      versionsBranchName,
+      sourceHistory,
+      activeLaunchContext,
+      scoreTitle,
+      versionsCommitMessage,
+      setRuntimeLaunchContext,
+      setVersionsCommitMessage,
+      setVersionsBranchName,
+      refreshSourceHistory,
+    }), [
     otsSourceContext,
     score,
     getScoreXmlData,
@@ -7160,71 +5812,26 @@ ${partsBodyXml}
     }
   };
 
-  const handleSaveCompareCheckpoint = useCallback(
-    async (side: 'left' | 'right') => {
-      if (!compareView) {
-        return;
-      }
-      if (!isIndexedDbAvailable()) {
-        notifyWarning('IndexedDB is not available in this browser.');
-        return;
-      }
-
-      const targetIsCurrent = side === 'left' ? compareLeftIsCurrent : compareRightIsCurrent;
-      const customLabel =
-        side === 'left' ? compareLeftCheckpointLabel : compareRightCheckpointLabel;
-      const sourceLabel = side === 'left' ? compareLeftLabel : compareRightLabel;
-
-      setCheckpointBusy(true);
-      try {
-        let xmlData: Uint8Array;
-
-        if (targetIsCurrent) {
-          // Saving the current score - get its XML directly
-          const currentXmlData = await getScoreXmlData();
-          if (!currentXmlData) {
-            notifyError('Unable to read current score MusicXML.');
-            return;
-          }
-          xmlData = currentXmlData;
-        } else {
-          // Saving a checkpoint - get its XML
-          const xml = await getScoreMusicXmlText(compareRightScore, compareView.checkpointXml);
-          if (!xml) {
-            notifyError('Unable to read checkpoint MusicXML.');
-            return;
-          }
-          xmlData = new TextEncoder().encode(xml);
-        }
-
-        const activeScoreId = ensureScoreId('score');
-        const title = buildCheckpointTitle(customLabel, sourceLabel);
-        await saveCheckpoint({
-          title,
-          createdAt: Date.now(),
-          format: 'musicxml',
-          data: toOwnedArrayBuffer(xmlData),
-          size: xmlData.byteLength,
-          scoreId: activeScoreId,
-          ...buildCheckpointMetadata({
-            branchName: targetIsCurrent ? activeLaunchContext?.branchName : versionsBranchName,
-          }),
-        });
-        await loadCheckpointList();
-        // Clear the label field after saving
-        if (side === 'left') {
-          setCompareLeftCheckpointLabel('');
-        } else {
-          setCompareRightCheckpointLabel('');
-        }
-      } catch (err) {
-        console.error('Failed to save compare checkpoint', err);
-        notifyError('Failed to save compare checkpoint. See console for details.');
-      } finally {
-        setCheckpointBusy(false);
-      }
-    },
-    [
+  const handleSaveCompareCheckpoint = useCallback((side: 'left' | 'right') => saveCompareCheckpoint({
+      compareView,
+      compareLeftIsCurrent,
+      compareRightIsCurrent,
+      compareLeftCheckpointLabel,
+      compareRightCheckpointLabel,
+      compareLeftLabel,
+      compareRightLabel,
+      setCheckpointBusy,
+      getScoreXmlData,
+      getScoreMusicXmlText,
+      compareRightScore,
+      ensureScoreId,
+      buildCheckpointMetadata,
+      activeLaunchContext,
+      versionsBranchName,
+      loadCheckpointList,
+      setCompareLeftCheckpointLabel,
+      setCompareRightCheckpointLabel,
+    }, side), [
       compareView,
       compareLeftIsCurrent,
       compareRightIsCurrent,
@@ -7237,11 +5844,9 @@ ${partsBodyXml}
       getScoreMusicXmlText,
       ensureScoreId,
       buildCheckpointMetadata,
-      activeLaunchContext?.branchName,
       versionsBranchName,
-      loadCheckpointList,
-    ],
-  );
+      loadCheckpointList, activeLaunchContext,
+    ]);
 
   const handleRestoreCheckpoint = async (checkpoint: CheckpointSummary) => {
     if (!isIndexedDbAvailable()) {
@@ -8489,66 +7094,28 @@ ${partsBodyXml}
     [captureAiProposal],
   );
 
-  const updateAiOutput = useCallback(
-    async (
-      nextText: string,
-      baseXmlOverride?: string,
-    ): Promise<{
+  const updateAiOutput = useCallback((nextText: string, baseXmlOverride?: string): Promise<{
       ok: boolean;
       baseXml: string;
       proposedXml: string;
       error: string;
       annotations: PatchAnnotation[];
-    }> => {
-      setAiOutput(nextText);
-      setAiPatch(null);
-      setAiPatchError(null);
-      setAiPatchedXml('');
-      if (!nextText.trim()) {
-        const error = 'AI output is empty.';
-        setAiPatchError(error);
-        return { ok: false, baseXml: '', proposedXml: '', error, annotations: [] };
-      }
-      const parsed = parseMusicXmlPatch(nextText);
-      if (parsed.error || !parsed.patch) {
-        const error = parsed.error || 'Invalid patch payload.';
-        setAiPatchError(error);
-        return { ok: false, baseXml: '', proposedXml: '', error, annotations: [] };
-      }
-      const annotations = parsed.annotations ?? [];
-      setAiLastAnnotations(annotations);
-      setAiPatch(parsed.patch);
-      const baseXml = baseXmlOverride ?? aiBaseXml ?? (await aiScoreBridge.getContextXml());
-      if (!baseXml.trim()) {
-        const error = 'Unable to apply patch without MusicXML.';
-        setAiPatchError(error);
-        return { ok: false, baseXml: '', proposedXml: '', error, annotations };
-      }
-      const applied = applyMusicXmlPatch(baseXml, parsed.patch);
-      if (applied.error || !applied.xml.trim()) {
-        const error = applied.error || 'Failed to apply patch to MusicXML.';
-        setAiPatchError(error);
-        return { ok: false, baseXml: baseXml.trim(), proposedXml: '', error, annotations };
-      }
-      setAiPatchError(null);
-      setAiPatchedXml(applied.xml);
-      return {
-        ok: true,
-        baseXml: baseXml.trim(),
-        proposedXml: applied.xml.trim(),
-        error: '',
-        annotations,
-      };
-    },
-    [
+    }> => updateAiOutputImpl({
+      setAiOutput,
+      setAiPatch,
+      setAiPatchError,
+      setAiPatchedXml,
+      setAiLastAnnotations,
+      aiBaseXml,
+      aiScoreBridge,
+    }, nextText, baseXmlOverride), [
       aiBaseXml,
       aiScoreBridge,
       setAiOutput,
       setAiPatch,
       setAiPatchError,
       setAiPatchedXml,
-    ],
-  );
+    ]);
 
   const handleAiRequest = () => requestAiPatch({
       aiEnabled,
@@ -8685,85 +7252,23 @@ ${partsBodyXml}
     }
   };
 
-      const goToPage = async (targetPage: number) => {
-    if (!score || targetPage < 0) {
-      return;
-    }
-    if (pageNavigationInFlightRef.current) {
-      return;
-    }
-    pageNavigationInFlightRef.current = true;
-    const previousPage = currentPageRef.current;
-    let knownPages = pageCount;
-    try {
-      if (largeScoreSessionRef.current) {
-        console.info('[large-nav] goToPage:start', {
-          targetPage,
-          knownPages: pageCount,
-          progressivePagingActive,
-          progressiveHasMorePages,
-        });
-      }
-      if (progressivePagingActive && targetPage >= pageCount) {
-        if (largeScoreSessionRef.current) {
-          console.info('[large-nav] layout:ensure:start', { targetPage });
-        }
-        const ready = await ensurePageIsLaidOut(score, targetPage);
-        if (!ready) {
-          if (largeScoreSessionRef.current) {
-            console.info('[large-nav] goToPage:not-ready', { targetPage });
-          }
-          return;
-        }
-        if (largeScoreSessionRef.current) {
-          console.info('[large-nav] layout:ensure:done', { targetPage });
-        }
-        if (score.npages) {
-          knownPages = Math.max(
-            1,
-            await runSerializedScoreOperation(() => score.npages!(), 'npages'),
-          );
-          setPageCount((prev) => Math.max(prev, knownPages));
-        } else {
-          knownPages = Math.max(pageCount, targetPage + 1);
-        }
-      } else if (targetPage >= pageCount) {
-        return;
-      }
-
-      const maxKnownPage = Math.max(knownPages - 1, 0);
-      const clampedTarget = Math.min(targetPage, maxKnownPage);
-      setCurrentPage(clampedTarget);
-      if (largeScoreSessionRef.current) {
-        console.info('[large-nav] render:start', { targetPage: clampedTarget });
-      }
-      let rendered = await renderScore(score, clampedTarget);
-      if (!rendered && progressivePagingActive) {
-        if (largeScoreSessionRef.current) {
-          console.info('[large-nav] render:retry-layout:start', { targetPage: clampedTarget });
-        }
-        const readyAfterRetry = await ensurePageIsLaidOut(score, clampedTarget);
-        if (readyAfterRetry) {
-          rendered = await renderScore(score, clampedTarget);
-        }
-      }
-      if (!rendered) {
-        setCurrentPage(previousPage);
-        if (largeScoreSessionRef.current) {
-          console.info('[large-nav] render:failed', { targetPage: clampedTarget, previousPage });
-        }
-        return;
-      }
-      if (largeScoreSessionRef.current) {
-        console.info('[large-nav] render:done', { targetPage: clampedTarget });
-      }
-      refreshSelectionOverlay(selectedIndex, selectedPoint);
-    } catch (err) {
-      console.error('Failed to change page:', err);
-    } finally {
-      pageNavigationInFlightRef.current = false;
-    }
-  };
+      const goToPage = (targetPage: number) => goToPageImpl({
+      score,
+      pageNavigationInFlightRef,
+      currentPageRef,
+      pageCount,
+      largeScoreSessionRef,
+      progressivePagingActive,
+      progressiveHasMorePages,
+      ensurePageIsLaidOut,
+      runSerializedScoreOperation,
+      setPageCount,
+      setCurrentPage,
+      renderScore,
+      refreshSelectionOverlay,
+      selectedIndex,
+      selectedPoint,
+    }, targetPage);
 
   const handlePrevPage = () => {
     if (currentPage <= 0) {
@@ -9707,113 +8212,22 @@ ${partsBodyXml}
     return performMutation('paste selection', () => pastePromise, { skipWasmReselect: true });
   };
 
-  const handleCompareKeyboardShortcut = useCallback(
-    (event: KeyboardEvent) => {
-      const mutate = (
-        label: string,
-        methodName: CompareKeyboardMutationMethod,
-        args: unknown[] = [],
-        skipRelayout = false,
-      ) => {
-        void queueCompareKeyboardOperation(() =>
-          performCompareMutation(
-            label,
-            (targetScore) => {
-              const fn = (targetScore as MutationMethods)[methodName];
-              if (typeof fn !== 'function') {
-                notifyError(`This build of webmscore does not expose "${String(methodName)}".`);
-                return false;
-              }
-              return (fn as (...values: unknown[]) => unknown).apply(targetScore, args);
-            },
-            { skipRelayout, preserveKeyboardQueue: true },
-          ),
-        ).catch((err) => {
-          console.warn(`Compare keyboard mutation "${label}" failed:`, err);
-        });
-      };
-      const updateInputState = (methodName: CompareInputStateMethod, args: unknown[] = []) => {
-        const fn = compareActiveScore ? (compareActiveScore as MutationMethods)[methodName] : null;
-        if (typeof fn === 'function') {
-          void queueCompareKeyboardOperation(() =>
-            runSerializedScoreOperation(
-              () =>
-                Promise.resolve(
-                  (fn as (...values: unknown[]) => unknown).apply(compareActiveScore, args),
-                ),
-              `compare-input:${String(methodName)}`,
-            ),
-          ).catch((err) => {
-            console.warn(`Compare input shortcut "${String(methodName)}" failed:`, err);
-          });
-        }
-      };
-      return routeCompareKeyboardShortcut(event, {
-        active: Boolean(
-          compareView && compareActiveSide && compareActiveScore && compareActiveRole,
-        ),
-        activeRole: compareActiveRole,
-        hasSelection: compareActiveRole ? compareHasSelectionByRole[compareActiveRole] : false,
-        noteMode: compareActiveRole ? isCompareNoteInputCommitted(compareActiveRole) : false,
-        mutate,
-        updateInputState,
-        copySelection: () => {
-          if (!compareActiveScore || !compareActiveSide) {
-            return;
-          }
-          const sourceScore = compareActiveScore;
-          const sourceSide = compareActiveSide;
-          void queueCompareKeyboardOperation(() =>
-            copyCompareSelection(sourceScore, sourceSide),
-          ).catch((err) => {
-            console.warn('Compare selection copy failed:', err);
-          });
-        },
-        pasteSelection: () => {
-          if (!compareActiveSide) {
-            return;
-          }
-          const targetSide = compareActiveSide;
-          void queueCompareKeyboardOperation(async () => {
-            // Resolve the clipboard after prior queued shortcuts complete so
-            // a rapid Copy, Paste sequence sees the bytes captured by Copy.
-            const clip = clipboardRef.current;
-            if (!clip) {
-              notifyWarning('Nothing copied yet.');
-              return false;
-            }
-            return performCompareMutation(
-              'paste selection',
-              (targetScore) => {
-                if (!targetScore.pasteSelection) {
-                  notifyError('This build of webmscore does not expose "pasteSelection".');
-                  return false;
-                }
-                return targetScore.pasteSelection(clip.mimeType, clip.data);
-              },
-              {
-                side: targetSide,
-                preserveKeyboardQueue: true,
-              },
-            );
-          }).catch((err) => {
-            console.warn('Compare selection paste failed:', err);
-          });
-        },
-        disableNoteInput: () => {
-          if (compareActiveSide) {
-            void setCompareNoteInputMode(false, compareActiveSide);
-          }
-        },
-        toggleNoteInput: () => {
-          if (compareActiveSide) {
-            toggleCompareNoteInputMode(compareActiveSide);
-          }
-        },
-        setHasSelection: setCompareHasSelection,
-      });
-    },
-    [
+  const handleCompareKeyboardShortcut = useCallback((event: KeyboardEvent) => compareKeyboardShortcut({
+      queueCompareKeyboardOperation,
+      performCompareMutation,
+      compareActiveScore,
+      runSerializedScoreOperation,
+      compareView,
+      compareActiveSide,
+      compareActiveRole,
+      compareHasSelectionByRole,
+      isCompareNoteInputCommitted,
+      copyCompareSelection,
+      clipboardRef,
+      setCompareNoteInputMode,
+      toggleCompareNoteInputMode,
+      setCompareHasSelection,
+    }, event), [
       // clipboardRef is a stable useRef owned by useCompareClipboard; listed because
       // the rule cannot see through the hook's destructured return.
       clipboardRef,
@@ -9830,8 +8244,7 @@ ${partsBodyXml}
       setCompareHasSelection,
       setCompareNoteInputMode,
       toggleCompareNoteInputMode,
-    ],
-  );
+    ]);
 
     // Editing keys in the main score go through the keyboard router (components/shell/keyboard).
   // Only a compare session still has its own table, until it moves onto the same commands.
@@ -10289,99 +8702,18 @@ ${partsBodyXml}
     setIsPaused(false);
   };
 
-  const playTransportAudio = async (fromSelection: boolean) => {
-    if (!score || !score.saveAudio) {
-      notifyError('Audio playback is not available in this build.');
-      return;
-    }
-    try {
-      setAudioBusy(true);
-      const ok = await ensureSoundFontLoaded(undefined, { forceRetry: true });
-      if (!ok) {
-        notifyError(
-          'No default soundfont found. Configure NEXT_PUBLIC_SOUNDFONT_CDN_URL or provide /public/soundfonts/default.sf3 (or .sf2).',
-        );
-        return;
-      }
-      await stopAudio({ awaitCancel: true });
-
-      const useSelectionStreaming =
-        fromSelection && typeof score.synthAudioBatchFromSelection === 'function';
-      const useStreaming = fromSelection
-        ? useSelectionStreaming
-        : typeof score.synthAudioBatch === 'function';
-      let streamed = false;
-      let streamFailure: unknown = null;
-      if (useStreaming) {
-        try {
-          const batchFn = useSelectionStreaming
-            ? ((await score.synthAudioBatchFromSelection!(
-                SELECTION_SYNTH_BATCH_SIZE,
-              )) as SynthBatchIterator)
-            : ((await score.synthAudioBatch!(0, TRANSPORT_SYNTH_BATCH_SIZE)) as SynthBatchIterator);
-
-          await playSynthBatchStream(batchFn, {
-            sourcesRef: audioSourcesRef,
-            iteratorRef: streamIteratorRef,
-            generationRef: transportPlaybackGenerationRef,
-            trackTransportState: true,
-            debugLabel: useSelectionStreaming ? 'selection-transport' : 'transport',
-            prerollSeconds: useSelectionStreaming
-              ? SELECTION_SYNTH_START_PREROLL_SECONDS
-              : SYNTH_START_PREROLL_SECONDS,
-            startupBufferSeconds: useSelectionStreaming
-              ? SELECTION_STREAM_STARTUP_BUFFER_SECONDS
-              : 0,
-            minStartupBatches: useSelectionStreaming ? SELECTION_STREAM_MIN_STARTUP_BATCHES : 1,
-            mergeWindowSeconds: useSelectionStreaming ? 0.5 : 0,
-            // Transport can run the length of the score, so it is the
-            // path that must stay bounded.
-            renderWindow: DEFAULT_RENDER_WINDOW,
-          });
-          streamed = true;
-        } catch (streamErr) {
-          console.warn('Streaming playback failed; falling back to WAV', streamErr);
-          streamFailure = streamErr;
-          await stopAudio({ awaitCancel: true });
-        }
-      }
-      if (!streamed) {
-        if (fromSelection) {
-          const hasSelectionStreamingApi = typeof score.synthAudioBatchFromSelection === 'function';
-          if (!hasSelectionStreamingApi) {
-            notifyError(
-              'Play from selection is not available in this running build. Rebuild webmscore JS glue (`cd webmscore-fork/web-public && npm run bundle`) and restart `npm run dev`.',
-            );
-          } else if (streamFailure) {
-            const streamMessage =
-              streamFailure instanceof Error ? streamFailure.message : String(streamFailure);
-            notifyError(`Play from selection failed: ${streamMessage}`);
-          } else {
-            notifyError('Play from selection is not available in this build.');
-          }
-          return;
-        }
-        if (audioUrlRef.current) {
-          await playFromUrl(audioUrlRef.current);
-        } else {
-          const wav = await score.saveAudio('wav');
-          const blob = new Blob([toOwnedBytes(wav)], { type: 'audio/wav' });
-          const url = URL.createObjectURL(blob);
-          audioUrlRef.current = url;
-          await playFromUrl(url);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to play audio', err);
-      // Say what went wrong here rather than deferring to a console the
-      // reader may not be able to open: in an embed this runs inside an
-      // iframe, where the browser can refuse DevTools outright.
-      notifyError(`Unable to play audio: ${err instanceof Error ? err.message : String(err)}`);
-      await stopAudio({ awaitCancel: true });
-    } finally {
-      setAudioBusy(false);
-    }
-  };
+  const playTransportAudio = (fromSelection: boolean) => playTransportAudioImpl({
+      score,
+      setAudioBusy,
+      ensureSoundFontLoaded,
+      stopAudio,
+      playSynthBatchStream,
+      audioSourcesRef,
+      streamIteratorRef,
+      transportPlaybackGenerationRef,
+      audioUrlRef,
+      playFromUrl,
+    }, fromSelection);
 
   const compareTransport = useCompareTransport({
     scores: {
@@ -10434,72 +8766,23 @@ ${partsBodyXml}
   const toggleCompareSidePlayPause = compareTransport.toggleSidePlayPause;
   stopCompareSideAudioRef.current = compareTransport.stopSideAudio;
 
-  const playSelectionPreview = async (
-    trigger: string = 'unknown',
-    selectionPoint?: { page: number; x: number; y: number },
-    options?: { reselect?: boolean },
-  ) => {
-    const activeScore = scoreRef.current ?? score;
-    if (
-      !interactionReady ||
-      !activeScore ||
-      !activeScore.synthSelectionPreviewBatch ||
-      isPlaying ||
-      audioBusy
-    ) {
-      return;
-    }
-
-    const shouldReselectForPreview = options?.reselect ?? trigger.startsWith('mutation:');
-    const previewPoint = selectionPoint ?? selectedPointRef.current;
-    if (shouldReselectForPreview && previewPoint && activeScore.selectElementAtPoint) {
-      try {
-        const containerRect = containerRef.current?.getBoundingClientRect();
-        const engravingPoint = containerRect
-          ? clientToEngravingPoint(
-              containerRect.left + previewPoint.x * zoom,
-              containerRect.top + previewPoint.y * zoom,
-            )
-          : null;
-        await activeScore.selectElementAtPoint(
-          previewPoint.page,
-          engravingPoint?.x ?? previewPoint.x,
-          engravingPoint?.y ?? previewPoint.y,
-        );
-      } catch (err) {
-        console.warn('[AUDITION] preview reselection failed', { trigger, err });
-      }
-    }
-
-    const ok = await ensureSoundFontLoaded(activeScore, { forceRetry: true });
-    if (!ok) {
-      console.warn('[AUDITION] skipped preview: soundfont unavailable', { trigger });
-      return;
-    }
-
-    await stopPreviewAudio({ awaitCancel: true });
-    try {
-      const batchFn = (await activeScore.synthSelectionPreviewBatch(
-        PREVIEW_SYNTH_BATCH_SIZE,
-        PREVIEW_DURATION_MS,
-      )) as SynthBatchIterator;
-      await playSynthBatchStream(batchFn, {
-        sourcesRef: previewAudioSourcesRef,
-        iteratorRef: previewStreamIteratorRef,
-        generationRef: previewPlaybackGenerationRef,
-        maxDurationSeconds: 0.6,
-        trackTransportState: false,
-        debugLabel: `preview:${trigger}`,
-        // A 0.6s audition is already bounded by maxDurationSeconds; throttling
-        // it would only add latency to the interaction it exists to make feel
-        // immediate.
-        renderWindow: null,
-      });
-    } catch (err) {
-      console.warn('[AUDITION] selection preview playback failed', { trigger, err });
-      await stopPreviewAudio({ awaitCancel: true });
-    }
-  };
+  const playSelectionPreview = (trigger: string = 'unknown', selectionPoint?: { page: number; x: number; y: number }, options?: { reselect?: boolean }) => playSelectionPreviewImpl({
+      scoreRef,
+      score,
+      interactionReady,
+      isPlaying,
+      audioBusy,
+      selectedPointRef,
+      containerRef,
+      clientToEngravingPoint,
+      zoom,
+      ensureSoundFontLoaded,
+      stopPreviewAudio,
+      playSynthBatchStream,
+      previewAudioSourcesRef,
+      previewStreamIteratorRef,
+      previewPlaybackGenerationRef,
+    }, trigger, selectionPoint, options);
 
   lateInputs.current = { interactiveMutationEnabled, playSelectionPreview, refreshNoteInputCursor };
 
@@ -10743,84 +9026,15 @@ ${partsBodyXml}
     void beginGripEditAtPoint(resolvePageIndex(target), point.x, point.y);
   };
 
-    const updateNoteInputShadow = (clientX: number, clientY: number, target: Element | null) => {
-    if (!noteInputActiveRef.current || !containerRef.current) {
-      setNoteInputShadow(null);
-      return;
-    }
-    const point = clientToScorePoint(clientX, clientY);
-    if (!point) {
-      setNoteInputShadow(null);
-      return;
-    }
-
-    const page = resolvePageIndex(target);
-    const containerRect = containerRef.current.getBoundingClientRect();
-    let nearest: {
-      top: number;
-      left: number;
-      right: number;
-      distance: number;
-      spatium: number;
-    } | null = null;
-    for (const staffLines of Array.from(containerRef.current.querySelectorAll('.StaffLines'))) {
-      if (resolvePageIndex(staffLines) !== page) {
-        continue;
-      }
-      const rect = staffLines.getBoundingClientRect();
-      const left = (rect.left - containerRect.left) / zoom;
-      const right = (rect.right - containerRect.left) / zoom;
-      const top = (rect.top - containerRect.top) / zoom;
-      const bottom = (rect.bottom - containerRect.top) / zoom;
-      if (point.x < left || point.x > right) {
-        continue;
-      }
-      const lineSetHeight = bottom - top;
-      const spatium = scoreSpatiumRef.current ?? (lineSetHeight > 0 ? lineSetHeight / 4 : 0);
-      if (!(spatium > 0)) {
-        continue;
-      }
-      const distance =
-        lineSetHeight > 0
-          ? point.y < top
-            ? top - point.y
-            : point.y > bottom
-              ? point.y - bottom
-              : 0
-          : Math.abs(point.y - top);
-      if (distance > spatium * 2 || (nearest && distance >= nearest.distance)) {
-        continue;
-      }
-      nearest = { top, left, right, distance, spatium };
-    }
-
-    if (!nearest && target?.closest('svg') && containerRef.current.contains(target)) {
-      const spatium = scoreSpatiumRef.current;
-      if (spatium && spatium > 0) {
-        nearest = {
-          top: 0,
-          left: 0,
-          right: containerRect.width / zoom,
-          distance: 0,
-          spatium,
-        };
-      }
-    }
-    if (!nearest || !(nearest.spatium > 0)) {
-      setNoteInputShadow(null);
-      return;
-    }
-    const halfStep = nearest.spatium / 2;
-    const snappedY = nearest.top + Math.round((point.y - nearest.top) / halfStep) * halfStep;
-    const width = nearest.spatium * 1.15;
-    const height = nearest.spatium * 0.78;
-    setNoteInputShadow({
-      x: Math.min(Math.max(point.x - width / 2, nearest.left), nearest.right - width),
-      y: snappedY - height / 2,
-      w: width,
-      h: height,
-    });
-  };
+    const updateNoteInputShadow = (clientX: number, clientY: number, target: Element | null) => updateNoteInputShadowImpl({
+      noteInputActiveRef,
+      containerRef,
+      setNoteInputShadow,
+      clientToScorePoint,
+      resolvePageIndex,
+      zoom,
+      scoreSpatiumRef,
+    }, clientX, clientY, target);
 
             const refreshScoreSpatium = async () => {
     if (!score?.getSpatium) {
