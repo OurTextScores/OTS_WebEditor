@@ -101,20 +101,20 @@
     {
       "key": "eslint.maxWarnings",
       "from": 0,
-      "to": 215,
-      "reason": "Raw-<button> rule (158 existing sites, W3.3), max-lines-per-function at 200 code lines (52 existing functions, W4 S0) and, in W4 S3a, extracted feature hooks (useNotaGenTool 551 lines, useChordTools 548, useTranscodaTool 220, in S4 useEditorCore ~600, and in S6 useCanvasGestures ~1,300) that are themselves over the limit. The user approved this per-hook raise (2026-10-02): a state-heavy hook is a function over 200 lines, moving a cluster out of ScoreEditor's 15,000-line function into one is a net reduction, and the hooks are split further once the core exists (S4). Measured against origin/main, so the changes read as one raise. The ratchet still drives the count down: lower it as buttons migrate and functions are split. In S9 the canvas gestures were split: useCanvasGestures 1,644 -> 512 lines, with useNoteDrag (347-line hook) and handleScoreClickImpl (359 lines) newly over the limit in their own files (net +1 warning)."
+      "to": 216,
+      "reason": "Raw-<button> rule (158 existing sites, W3.3), max-lines-per-function at 200 code lines (52 existing functions, W4 S0) and, in W4 S3a, extracted feature hooks (useNotaGenTool 551 lines, useChordTools 548, useTranscodaTool 220, in S4 useEditorCore ~600, and in S6 useCanvasGestures ~1,300) that are themselves over the limit. The user approved this per-hook raise (2026-10-02): a state-heavy hook is a function over 200 lines, moving a cluster out of ScoreEditor's 15,000-line function into one is a net reduction, and the hooks are split further once the core exists (S4). Measured against origin/main, so the changes read as one raise. The ratchet still drives the count down: lower it as buttons migrate and functions are split. In S9 the canvas gestures were split: useCanvasGestures 1,644 -> 512 lines, with useNoteDrag (347-line hook) and handleScoreClickImpl (359 lines) newly over the limit in their own files (net +1 warning). In S10 the 379-line compare reflow effect left ScoreEditor as useCompareReflow (the hook itself is over the limit; its inner functions were already warnings in ScoreEditor)."
     },
     {
       "key": "eslint.maxFilesWithFindings",
       "from": 0,
-      "to": 64,
-      "reason": "Same changes as the maxWarnings raise above: the 60 files containing a raw <button> or a function over 200 lines. W4 extraction moves existing long functions into their own files (the three S3a hooks, the S4 editor core, the S6 canvas gestures, in S8a the 353-line diff-feedback function (already a warning inside ScoreEditor), and in S3b the 266-line AI patch request, which was already a warning inside ScoreEditor), so the file count rises while the warning count does not. In S9 useNoteDrag.ts and score-click.ts each carry one over-limit function."
+      "to": 65,
+      "reason": "Same changes as the maxWarnings raise above: the 60 files containing a raw <button> or a function over 200 lines. W4 extraction moves existing long functions into their own files (the three S3a hooks, the S4 editor core, the S6 canvas gestures, in S8a the 353-line diff-feedback function (already a warning inside ScoreEditor), and in S3b the 266-line AI patch request, which was already a warning inside ScoreEditor), so the file count rises while the warning count does not. In S9 useNoteDrag.ts and score-click.ts each carry one over-limit function. In S10 useCompareReflow.ts carries the over-limit hook."
     }
   ],
   "_scoreEditorComment": "Headroom is intentional. These were pinned to the exact current size, and the result was that a 41-line bug fix breached the cap and pressure went into deleting explanatory comments to get back under -- the ratchet making the code worse. Lines are a poor proxy: a comment costs the same as debt. The caps now sit roughly 1% and 1.5% above actual, so routine work passes and a whole slice of drift still trips them. The goal worth chasing is bytes, not lines: Babel deoptimises code generation above 500000 bytes, which this file still exceeds, and that is an observable cost rather than a chosen number.",
   "scoreEditor": {
-    "maxLines": 10850,
-    "maxBytes": 415000
+    "maxLines": 10101,
+    "maxBytes": 384000
   },
   "modules": {
     "components/score-editor/ai-tools/NotaGenPanel.tsx": {
@@ -256,8 +256,8 @@
   },
   "eslint": {
     "maxErrors": 0,
-    "maxWarnings": 215,
-    "maxFilesWithFindings": 64
+    "maxWarnings": 216,
+    "maxFilesWithFindings": 65
   },
   "tests": {
     "maxUnconditionalSkips": 1

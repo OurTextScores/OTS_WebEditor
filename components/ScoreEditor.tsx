@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { loadWebMscore, Score, InputFileFormat, Positions, type InspectorPropertyName, type SelectedElementProperties, type FretDiagramData } from '../lib/webmscore-loader';
+import { Score, InputFileFormat, Positions, type InspectorPropertyName, type SelectedElementProperties, type FretDiagramData } from '../lib/webmscore-loader';
 import { EMPTY_STAFF_BANDS, loadStaffBands, type StaffBands } from '../lib/compare-staff-bands';
 import {
   buildPartLocalizedAlignmentHighlights,
@@ -137,8 +137,8 @@ import {
 } from './toolbar/palette';
 import { articulationOptions } from './toolbar/constants';
 import { LeftSidebar, type LeftSidebarTab } from './score-editor/LeftSidebar';
-import { AI_PROVIDER_CONFIGS, AI_PROVIDER_LABELS, DEFAULT_MODEL_BY_PROVIDER, loadAiModelDescriptorsDirect, type AiProvider } from '../lib/ai-provider-adapters';
-import { parseAiModelDescriptors, resolveAiModelDescriptor, type OptionalAiRequestParameter, type AiModelDescriptor } from '../lib/ai-model-capabilities';
+import { AI_PROVIDER_CONFIGS, DEFAULT_MODEL_BY_PROVIDER, type AiProvider } from '../lib/ai-provider-adapters';
+import { resolveAiModelDescriptor, type OptionalAiRequestParameter } from '../lib/ai-model-capabilities';
 import {
   getLegacyLlmProxyBase,
   getScoreEditorApiBase,
@@ -190,20 +190,15 @@ import {
   type AiMeasureThread,
   type AiThreadComment,
 } from './score-editor/compare/CompareMeasureComments';
+import { useCompareReflow } from './score-editor/compare/useCompareReflow';
+import { useCompareAlignment } from './score-editor/compare/useCompareAlignment';
+import { useCompareRightScoreLoading } from './score-editor/compare/useCompareRightScoreLoading';
+import { useAiModelList } from './score-editor/ai-tools/useAiModelList';
 import { CompareDiffGutter } from './score-editor/compare/CompareDiffGutter';
 import {
   ScannerFindingRows,
   type FindingRowsFinding
 } from './score-editor/compare/ScannerFindingRows';
-import {
-  buildAlignmentGaps,
-  buildCompareSystemGeometry,
-  buildCompareReflowPlan,
-  buildResyncBreaks,
-  measureStructuralGapResidual,
-  mergeAlignmentGaps,
-  type MeasureGap,
-} from './score-editor/compare/compare-reflow-plan';
 import { createCompareScrollSync } from './score-editor/compare/compare-scroll-sync';
 import { MmaPanel } from './score-editor/ai-tools/MmaPanel';
 import { TranscodaPanel } from './score-editor/ai-tools/TranscodaPanel';
@@ -254,12 +249,12 @@ import { type CompareScoreRole } from '../lib/compare-user-edit-diff';
 import { type NoteInputCursorRect, type SelectionBox, type SelectionFallback } from './score-editor/selection-types';
 import { type ApplyXmlToScore, type EditorTelemetryCounters, type EditorTraceContext, type EnsureSoundFontLoaded, type HandleFileUpload, type HandleUrlLoad, type InstrumentTemplateGroup, type PartSummary, type RefreshPageCount, type RenderScore, type StopCompareSideAudio, type SynthBatchIterator } from './score-editor/editor-types';
 import { type MutationMethods, hasMutationApi } from './score-editor/mutation-api';
-import { type CompareAppliedSpacer, type CompareViewState, type PartAlignment } from './score-editor/compare/compare-types';
+import { type CompareViewState, type PartAlignment } from './score-editor/compare/compare-types';
 import { type HarmonyVariant } from './score-editor/ai-assistant-types';
 import { TRANSPORT_SYNTH_BATCH_SIZE } from './score-editor/playback-constants';
 import { DEFAULT_PAGE_RENDER_TIMEOUT_MS, LARGE_PROGRESSIVE_PAGE_RENDER_TIMEOUT_MS, LARGE_SCORE_INTERACTION_PRIME_DELAY_MS, LAYOUT_MODES, measureInsertTargetMap } from './score-editor/layout-constants';
 import { DEFAULT_SELECTION_FILTER_MASK, ELEMENT_SELECTION_SELECTOR, NOTE_INPUT_VOICE_COLORS, SELECTION_FILTER_STORAGE_KEY, hasTextElementClass, isSvgTextElement, normalizeElementClasses, resolveTextElement } from './score-editor/selection-classes';
-import { AI_CHAT_SOURCE_RAG_HINT_DISMISSED_STORAGE_KEY, AI_DIFF_COMMENT_GUTTER_PADDING, AI_DIFF_GUTTER_DEFAULT_WIDTH, AI_DIFF_GUTTER_MAX_WIDTH, AI_DIFF_GUTTER_MIN_WIDTH, AI_PDF_ATTACHMENT_MAX_BYTES, ANTHROPIC_EMBED_PROXY_ERROR, isMissingProxyStatus } from './score-editor/ai-constants';
+import { AI_CHAT_SOURCE_RAG_HINT_DISMISSED_STORAGE_KEY, AI_DIFF_COMMENT_GUTTER_PADDING, AI_DIFF_GUTTER_DEFAULT_WIDTH, AI_DIFF_GUTTER_MAX_WIDTH, AI_DIFF_GUTTER_MIN_WIDTH, AI_PDF_ATTACHMENT_MAX_BYTES } from './score-editor/ai-constants';
 import { CODE_EDITOR_THEME_STORAGE_KEY, CODE_EDITOR_THEME_VALUES } from './score-editor/music-specialists-constants';
 import { aiDiffBlockContentSignature } from './score-editor/ai-prompts';
 import { encodeBase64, toOwnedArrayBuffer } from './score-editor/byte-encoding';
@@ -268,10 +263,10 @@ import { buildOtsScoreId, updateUrlScoreId } from './score-editor/score-url';
 import { getSvgNaturalSize } from './score-editor/svg-size';
 import { errorMessage, scoreLoadErrorMessage } from './score-editor/error-messages';
 import { newScoreCommonInstrumentPreferences } from './score-editor/new-score';
-import { buildIndexAlignment, buildLcsAlignment, buildMismatchBlocks, buildMismatchBreaks } from './score-editor/alignment';
+import { buildMismatchBlocks } from './score-editor/alignment';
 import { getReviewStatusForFeedback } from './score-editor/block-review-status';
-import { applyMeasureLineBreaks, buildMeasureBounds, fetchMeasureLineBreaks, fetchMeasureSignatures, getPageMeasureRange, refreshMeasurePositions } from './score-editor/score-measures';
-import { decodeXmlData, extractMeasureSignaturesFromXml, getScoreMscxText, normalizeXmlData } from './score-editor/musicxml';
+import { buildMeasureBounds, getPageMeasureRange, refreshMeasurePositions } from './score-editor/score-measures';
+import { decodeXmlData, normalizeXmlData } from './score-editor/musicxml';
 import { runWithTimeout } from './score-editor/async-timeout';
 import { parsePartsFromMetadata } from './score-editor/part-metadata';
 import { downloadBlob } from './score-editor/download-blob';
@@ -781,13 +776,6 @@ export default function ScoreEditor() {
   const [compareContinuousMode, setCompareContinuousMode] = useState(false);
   const [compareReflowMode, setCompareReflowMode] = useState(false);
   const compareLayoutRestoreRef = useRef<number | null>(null);
-  // Keyed by score identity (live vs auxiliary), NOT by pane. The close path restores
-  // the live score's original breaks and has no pane mapping available at that point.
-  const compareLineBreakRestoreRef = useRef<{ live: boolean[]; auxiliary: boolean[] } | null>(null);
-  const compareAppliedSpacersRef = useRef<CompareAppliedSpacer[]>([]);
-  // Reflow runs are queued so a canceled phase cannot finish mutating the same two WASM
-  // scores after its replacement has already started applying a newer plan.
-  const compareReflowQueueRef = useRef<Promise<void>>(Promise.resolve());
   const compareLeftContainerRef = useRef<HTMLDivElement>(null);
   const compareRightContainerRef = useRef<HTMLDivElement>(null);
   const compareLeftWrapperRef = useRef<HTMLDivElement>(null);
@@ -3315,132 +3303,7 @@ export default function ScoreEditor() {
     setAiTemperatureMode,
   ]);
 
-  useEffect(() => {
-    if (!aiEnabled) {
-      setAiModels([]);
-      setAiModelDescriptors([]);
-      setAiModelsError(null);
-      setAiModelsLoading(false);
-      return;
-    }
-    const trimmedKey = aiApiKey.trim();
-    if (!trimmedKey) {
-      setAiModels([]);
-      setAiModelDescriptors([]);
-      setAiModelsError(null);
-      setAiModelsLoading(false);
-      return;
-    }
-    let canceled = false;
-    setAiModelsLoading(true);
-    setAiModelsError(null);
-    const loadModels = async () => {
-      try {
-        let models: string[] = [];
-        let descriptors: AiModelDescriptor[] = [];
-        let proxyResponse: Response | null = null;
-        if (useLlmProxy) {
-          const nextProxyResponse = await fetch(proxyUrlFor(`/api/llm/${aiProvider}/models`), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ apiKey: trimmedKey }),
-          });
-          if (nextProxyResponse.ok) {
-            proxyResponse = nextProxyResponse;
-          } else if (
-            aiProvider === 'anthropic' &&
-            isEmbedBuild &&
-            !llmProxyBase &&
-            isMissingProxyStatus(nextProxyResponse.status)
-          ) {
-            throw new Error(ANTHROPIC_EMBED_PROXY_ERROR);
-          } else if (!(
-            isEmbedBuild &&
-            !llmProxyBase &&
-            isMissingProxyStatus(nextProxyResponse.status)
-          )) {
-            const errorText = await nextProxyResponse.text();
-            throw new Error(errorText || 'Failed to load models.');
-          }
-        }
-
-        if (proxyResponse) {
-          const data = await proxyResponse.json();
-          models = Array.isArray(data?.models)
-            ? data.models.filter((id: unknown): id is string => typeof id === 'string')
-            : [];
-          descriptors = parseAiModelDescriptors(data?.modelDescriptors);
-        } else {
-          descriptors = await loadAiModelDescriptorsDirect({
-            provider: aiProvider,
-            apiKey: trimmedKey,
-          });
-          models = descriptors.map((descriptor) => descriptor.id);
-        }
-
-        if (canceled) {
-          return;
-        }
-        const filtered =
-          aiProvider === 'openai' ? models.filter((id: string) => /^gpt-|^o/.test(id)) : models;
-        const sorted = [...new Set(filtered.length ? filtered : models)].sort();
-        const descriptorsById = new Map(
-          descriptors.map((descriptor) => [descriptor.id, descriptor]),
-        );
-        const sortedDescriptors = sorted.map(
-          (id) => descriptorsById.get(id) ?? resolveAiModelDescriptor(aiProvider, id),
-        );
-        setAiModels(sorted);
-        setAiModelDescriptors(sortedDescriptors);
-        // Keep the user's current selection if it is still valid; only
-        // pick a default when the selection is empty or no longer offered.
-        // Uses a functional update so this effect need not depend on
-        // aiModel (which would refetch/reset on every keystroke).
-        setAiModel((prev) => {
-          if (prev && sorted.includes(prev)) {
-            return prev;
-          }
-          return (
-            sorted.find((id: string) => id === DEFAULT_MODEL_BY_PROVIDER[aiProvider]) ||
-            sorted[0] ||
-            DEFAULT_MODEL_BY_PROVIDER[aiProvider] ||
-            ''
-          );
-        });
-      } catch (err) {
-        if (!canceled) {
-          console.error(`Failed to load ${AI_PROVIDER_LABELS[aiProvider]} models`, err);
-          setAiModels([]);
-          setAiModelDescriptors([]);
-          const message = errorMessage(err);
-          setAiModelsError(
-            message || 'Failed to load models. Check your API key or enter a model manually.',
-          );
-        }
-      } finally {
-        if (!canceled) {
-          setAiModelsLoading(false);
-        }
-      }
-    };
-    void loadModels();
-    return () => {
-      canceled = true;
-    };
-  }, [
-    aiApiKey,
-    aiEnabled,
-    aiProvider,
-    isEmbedBuild,
-    llmProxyBase,
-    proxyUrlFor,
-    setAiModel,
-    setAiModelDescriptors,
-    setAiModels,
-    setAiModelsError,
-    setAiModelsLoading,
-    useLlmProxy,
-  ]);
+  useAiModelList({ aiEnabled, setAiModels, setAiModelDescriptors, setAiModelsError, setAiModelsLoading, aiApiKey, useLlmProxy, proxyUrlFor, aiProvider, isEmbedBuild, llmProxyBase, setAiModel });
 
   useEffect(() => {
     if (!newScoreDialogOpen) {
@@ -5967,138 +5830,7 @@ export default function ScoreEditor() {
     setCompareView(null);
   }, [invalidateCompareOperations]);
 
-  useEffect(() => {
-    if (!compareView) {
-      invalidateCompareOperations();
-      // awaitCancel keeps the batch-iterator cancellation inside the tracked
-      // operation, so queueCompareScoreTeardown drains it before destroy().
-      void stopCompareSideAudio('left', { awaitCancel: true });
-      void stopCompareSideAudio('right', { awaitCancel: true });
-      const auxiliaryScore = compareRightScoreRef.current;
-      void queueCompareScoreTeardown(auxiliaryScore, scoreRef.current, 'compare-close');
-      compareLoadedCheckpointXmlRef.current = null;
-      setCompareRightScore(null);
-      setCompareRightParts([]);
-      setCompareRightPageCount(1);
-      setCompareRightLoading(false);
-      setCompareRightError(null);
-      setCompareFitZoom(0.5);
-      setCompareZoom(null);
-      setCompareActiveSide(null);
-      resetCompareEditing();
-      setPalettesOpen(false);
-      setPaletteCategory(null);
-      setCompareLeftSvgSize(null);
-      setCompareRightSvgSize(null);
-      setCompareLeftMeasurePositions(null);
-      setCompareRightMeasurePositions(null);
-      setCompareSignatures(null);
-      setCompareSwapped(false);
-      setCompareLeftCheckpointLabel('');
-      setCompareRightCheckpointLabel('');
-      if (!aiDiffFeedbackBusy) {
-        setAiDiffReviews([]);
-        setAiMeasureThreads({});
-        setAiFocusedMeasureAnchor(null);
-        setAiMeasureThreadDraft('');
-        setAiDiffIteration(0);
-        setAiDiffGlobalComment('');
-        setAiDiffFeedbackError(null);
-        setAiDiffBlockErrors({});
-        clearAiProposal();
-        setAiDiffGutterWidth(AI_DIFF_GUTTER_DEFAULT_WIDTH);
-      }
-      return;
-    }
-
-    // Only reload checkpoint score if the XML has actually changed
-    if (compareLoadedCheckpointXmlRef.current === compareView.checkpointXml) {
-      return;
-    }
-
-    invalidateCompareOperations();
-    let canceled = false;
-    const loadCompareScore = async () => {
-      // The checkpoint side is being replaced -- stop whichever visual side is
-      // currently playing it before the underlying Score instance is destroyed.
-      await stopCompareSideAudio('left', { awaitCancel: true });
-      await stopCompareSideAudio('right', { awaitCancel: true });
-      if (canceled) {
-        return;
-      }
-      setCompareRightLoading(true);
-      setCompareRightError(null);
-      const scoreToReplace = compareRightScoreRef.current;
-      await queueCompareScoreTeardown(scoreToReplace, null, 'compare-checkpoint-reload');
-      if (canceled) {
-        return;
-      }
-      setCompareRightScore(null);
-      resetCompareEditingRole('proposal');
-      try {
-        const WebMscore = await loadWebMscore();
-        const data = new TextEncoder().encode(compareView.checkpointXml);
-        const loadedScore = await WebMscore.load('musicxml', data);
-        if (canceled) {
-          loadedScore.destroy();
-          return;
-        }
-        compareRightScoreRef.current = loadedScore;
-        compareLoadedCheckpointXmlRef.current = compareView.checkpointXml;
-        setCompareRightScore(loadedScore);
-        if (loadedScore.npages) {
-          const pages = await runSerializedScoreOperation(
-            () => loadedScore.npages!(),
-            'npages(compare)',
-          );
-          if (!canceled) {
-            setCompareRightPageCount(Math.max(1, pages));
-          }
-        }
-        const metadata = await runSerializedScoreOperation(
-          () => loadedScore.metadata(),
-          'metadata(compare)',
-        );
-        if (!canceled) {
-          setCompareRightParts(parsePartsFromMetadata(metadata));
-        }
-      } catch (err) {
-        console.error('Failed to load compare checkpoint score', err);
-        if (!canceled) {
-          setCompareRightError('Unable to load checkpoint score.');
-        }
-      } finally {
-        if (!canceled) {
-          setCompareRightLoading(false);
-        }
-      }
-    };
-
-    loadCompareScore();
-    return () => {
-      canceled = true;
-    };
-  }, [
-    compareView,
-    aiDiffFeedbackBusy,
-    clearAiProposal,
-    invalidateCompareOperations,
-    queueCompareScoreTeardown,
-    resetCompareEditing,
-    resetCompareEditingRole,
-    runSerializedScoreOperation,
-    stopCompareSideAudio, scoreRef,
-  ]);
-
-  useEffect(() => {
-    return () => {
-      invalidateCompareOperations();
-      void stopCompareSideAudio('left', { awaitCancel: true });
-      void stopCompareSideAudio('right', { awaitCancel: true });
-      const auxiliaryScore = compareRightScoreRef.current;
-      void queueCompareScoreTeardown(auxiliaryScore, scoreRef.current, 'score-editor-unmount');
-    };
-  }, [invalidateCompareOperations, queueCompareScoreTeardown, stopCompareSideAudio, scoreRef]);
+  useCompareRightScoreLoading({ compareView, invalidateCompareOperations, stopCompareSideAudio, compareRightScoreRef, queueCompareScoreTeardown, scoreRef, compareLoadedCheckpointXmlRef, setCompareRightScore, setCompareRightParts, setCompareRightPageCount, setCompareRightLoading, setCompareRightError, setCompareFitZoom, setCompareZoom, setCompareActiveSide, resetCompareEditing, setPalettesOpen, setPaletteCategory, setCompareLeftSvgSize, setCompareRightSvgSize, setCompareLeftMeasurePositions, setCompareRightMeasurePositions, setCompareSignatures, setCompareSwapped, setCompareLeftCheckpointLabel, setCompareRightCheckpointLabel, aiDiffFeedbackBusy, setAiDiffReviews, setAiMeasureThreads, setAiFocusedMeasureAnchor, setAiMeasureThreadDraft, setAiDiffIteration, setAiDiffGlobalComment, setAiDiffFeedbackError, setAiDiffBlockErrors, clearAiProposal, setAiDiffGutterWidth, resetCompareEditingRole, runSerializedScoreOperation });
 
   const prevCompareLiveSelectionScoreRef = useRef<Score | null>(null);
   useEffect(() => {
@@ -6301,510 +6033,9 @@ export default function ScoreEditor() {
     setCompareReflowMode(true);
   }, [compareView, compareSupportsReflow]);
 
-  useEffect(() => {
-    let canceled = false;
-    const isCurrent = () => !canceled;
+  useCompareReflow({ compareView, score, compareReflowMode, compareLeftScore, compareRightScoreDisplay, compareRightScore, compareSupportsReflow, compareContinuousMode, currentPageRef, renderScoreToContainer, compareLeftContainerRef, syncCompareSvgSize, setCompareLeftSvgSize, setCompareLeftMeasurePositions, compareRightContainerRef, setCompareRightSvgSize, setCompareRightMeasurePositions, setCompareRightError, compareAlignments, comparePartCount });
 
-    const clearAlignmentSpacers = async () => {
-      const applied = compareAppliedSpacersRef.current;
-      compareAppliedSpacersRef.current = [];
-      for (const spacer of applied) {
-        try {
-          await spacer.score.setMeasureSpacer?.(spacer.measureIndex, spacer.staffIndex, 0);
-        } catch (err) {
-          console.warn('Failed to remove compare alignment spacer:', err);
-        }
-      }
-    };
-
-    const enqueueReflow = (operation: () => Promise<void>) => {
-      const queued = compareReflowQueueRef.current.catch(() => {}).then(operation);
-      compareReflowQueueRef.current = queued;
-      void queued.catch((err) => {
-        console.warn('Failed to update compare reflow:', err);
-      });
-    };
-
-    if (!compareView) {
-      const restore = compareLineBreakRestoreRef.current;
-      compareLineBreakRestoreRef.current = null;
-      if (restore || compareAppliedSpacersRef.current.length) {
-        enqueueReflow(async () => {
-          await clearAlignmentSpacers();
-          if (restore && score) {
-            await applyMeasureLineBreaks(score, restore.live);
-          }
-        });
-      }
-      return () => {
-        canceled = true;
-      };
-    }
-
-    if (!compareReflowMode) {
-      const restore = compareLineBreakRestoreRef.current;
-      compareLineBreakRestoreRef.current = null;
-      const restoreLeftPaneScore = compareLeftScore;
-      const restoreRightPaneScore = compareRightScoreDisplay;
-      if (restore || compareAppliedSpacersRef.current.length) {
-        enqueueReflow(async () => {
-          await clearAlignmentSpacers();
-          if (
-            !restore ||
-            !score ||
-            !compareRightScore ||
-            !compareSupportsReflow ||
-            !restoreLeftPaneScore ||
-            !restoreRightPaneScore
-          ) {
-            return;
-          }
-          await applyMeasureLineBreaks(score, restore.live);
-          await applyMeasureLineBreaks(compareRightScore, restore.auxiliary);
-          if (!isCurrent()) {
-            return;
-          }
-          const targetPage = compareContinuousMode ? 0 : currentPageRef.current;
-          // Pane content must follow the orientation mapping, not the raw
-          // live/auxiliary scores: which pane holds the live score depends on the
-          // compare mode, so rendering `score` straight into the left container puts
-          // each score in the other pane and writes the wrong score's measure
-          // positions into the state that click hit-testing reads. Same rule as the
-          // continuous-layout path above, which already says so.
-          await renderScoreToContainer(
-            restoreLeftPaneScore,
-            compareLeftContainerRef.current,
-            targetPage,
-            true,
-          );
-          syncCompareSvgSize(compareLeftContainerRef.current, setCompareLeftSvgSize);
-          await refreshMeasurePositions(restoreLeftPaneScore, setCompareLeftMeasurePositions);
-          await renderScoreToContainer(
-            restoreRightPaneScore,
-            compareRightContainerRef.current,
-            targetPage,
-            true,
-          );
-          syncCompareSvgSize(compareRightContainerRef.current, setCompareRightSvgSize);
-          const rightPositionsOk = await refreshMeasurePositions(
-            restoreRightPaneScore,
-            setCompareRightMeasurePositions,
-          );
-          if (!rightPositionsOk) {
-            setCompareRightError(
-              (prev) => prev ?? 'Unable to compute compare highlights for checkpoint score.',
-            );
-          }
-        });
-      }
-      return () => {
-        canceled = true;
-      };
-    }
-
-    if (!compareView || !score || !compareRightScore) {
-      return;
-    }
-    if (!compareSupportsReflow) {
-      return;
-    }
-
-    const applyReflow = async () => {
-      await clearAlignmentSpacers();
-      if (!isCurrent()) {
-        return;
-      }
-      const cached = compareLineBreakRestoreRef.current;
-      let liveBreaks = cached?.live ?? [];
-      let auxiliaryBreaks = cached?.auxiliary ?? [];
-      if (!cached) {
-        liveBreaks = await fetchMeasureLineBreaks(score);
-        auxiliaryBreaks = await fetchMeasureLineBreaks(compareRightScore);
-      }
-      if (!isCurrent()) {
-        return;
-      }
-      if (!compareLineBreakRestoreRef.current) {
-        compareLineBreakRestoreRef.current = { live: liveBreaks, auxiliary: auxiliaryBreaks };
-      }
-      // Pane-oriented alignments and score-oriented break arrays are reconciled in
-      // buildCompareReflowPlan, which is unit tested for the swapped case.
-      const { liveReflow, auxiliaryReflow } = buildCompareReflowPlan({
-        liveBreaks,
-        auxiliaryBreaks,
-        liveIsLeftPane: compareLeftScore === score,
-        alignments: compareAlignments,
-        buildMismatchBreaks,
-      });
-      const withResync = (breaks: boolean[], indices: Set<number>) => {
-        if (!indices.size) {
-          return breaks;
-        }
-        const next = [...breaks];
-        indices.forEach((measureIndex) => {
-          if (measureIndex >= 0 && measureIndex < next.length) {
-            next[measureIndex] = true;
-          }
-        });
-        return next;
-      };
-      const reflowLeftPaneScore = compareLeftScore;
-      const reflowRightPaneScore = compareRightScoreDisplay;
-      if (!reflowLeftPaneScore || !reflowRightPaneScore) {
-        return;
-      }
-      const targetPage = compareContinuousMode ? 0 : currentPageRef.current;
-      const renderAndMeasure = async () => {
-        let leftPositions: Positions | null = null;
-        let rightPositions: Positions | null = null;
-        await renderScoreToContainer(
-          reflowLeftPaneScore,
-          compareLeftContainerRef.current,
-          targetPage,
-          true,
-        );
-        await refreshMeasurePositions(reflowLeftPaneScore, (positions) => {
-          leftPositions = positions;
-        });
-        await renderScoreToContainer(
-          reflowRightPaneScore,
-          compareRightContainerRef.current,
-          targetPage,
-          true,
-        );
-        await refreshMeasurePositions(reflowRightPaneScore, (positions) => {
-          rightPositions = positions;
-        });
-        return { leftPositions, rightPositions };
-      };
-      const publishLayout = ({
-        leftPositions,
-        rightPositions,
-      }: {
-        leftPositions: Positions | null;
-        rightPositions: Positions | null;
-      }) => {
-        syncCompareSvgSize(compareLeftContainerRef.current, setCompareLeftSvgSize);
-        syncCompareSvgSize(compareRightContainerRef.current, setCompareRightSvgSize);
-        setCompareLeftMeasurePositions(leftPositions);
-        setCompareRightMeasurePositions(rightPositions);
-        if (!rightPositions) {
-          setCompareRightError(
-            (prev) => prev ?? 'Unable to compute compare highlights for checkpoint score.',
-          );
-        }
-      };
-
-      // Phase 1: establish the deterministic mismatch-block layout. Any previous
-      // resync breaks are removed because these arrays start from the saved originals.
-      await applyMeasureLineBreaks(score, liveReflow);
-      await applyMeasureLineBreaks(compareRightScore, auxiliaryReflow);
-      if (!isCurrent()) {
-        return;
-      }
-      let settled = await renderAndMeasure();
-      if (!isCurrent() || !settled.leftPositions || !settled.rightPositions) {
-        if (isCurrent()) publishLayout(settled);
-        return;
-      }
-
-      // Phase 2: measure natural wrap divergence from that exact layout, apply the
-      // union once, then measure the settled resync result directly. No React state
-      // participates in the dependency chain, so a later render cannot shrink the
-      // plan and undo it.
-      const naturalLeft = buildCompareSystemGeometry(settled.leftPositions);
-      const naturalRight = buildCompareSystemGeometry(settled.rightPositions);
-      const leftResync = new Set<number>();
-      const rightResync = new Set<number>();
-      compareAlignments.forEach((alignment) => {
-        const breaks = buildResyncBreaks(
-          alignment.rows,
-          naturalLeft.systemOf,
-          naturalRight.systemOf,
-        );
-        breaks.left.forEach((measureIndex) => leftResync.add(measureIndex));
-        breaks.right.forEach((measureIndex) => rightResync.add(measureIndex));
-      });
-      if (leftResync.size || rightResync.size) {
-        const liveIsLeft = compareLeftScore === score;
-        await applyMeasureLineBreaks(
-          score,
-          withResync(liveReflow, liveIsLeft ? leftResync : rightResync),
-        );
-        await applyMeasureLineBreaks(
-          compareRightScore,
-          withResync(auxiliaryReflow, liveIsLeft ? rightResync : leftResync),
-        );
-        if (!isCurrent()) {
-          return;
-        }
-        settled = await renderAndMeasure();
-      }
-      if (!isCurrent() || !settled.leftPositions || !settled.rightPositions) {
-        if (isCurrent()) publishLayout(settled);
-        return;
-      }
-
-      // Phase 3: only null-sided alignment rows represent actual missing music.
-      // Compute each part independently, then take the maximum at an anchor so the
-      // same temporal deficit is not multiplied by the score's part count.
-      const settledLeft = buildCompareSystemGeometry(settled.leftPositions);
-      const settledRight = buildCompareSystemGeometry(settled.rightPositions);
-      const structuralAlignments = compareAlignments.filter((alignment) =>
-        alignment.rows.some((row) => row.leftIndex === null || row.rightIndex === null),
-      );
-      const gapPlans = structuralAlignments.map((alignment) =>
-        buildAlignmentGaps(
-          alignment.rows,
-          settledLeft.systemOf,
-          settledRight.systemOf,
-          settledLeft.systemHeight,
-          settledRight.systemHeight,
-        ),
-      );
-      const leftGaps = mergeAlignmentGaps(gapPlans.map((plan) => plan.left));
-      const rightGaps = mergeAlignmentGaps(gapPlans.map((plan) => plan.right));
-      const applyGaps = async (targetScore: Score, gaps: MeasureGap[]) => {
-        if (!gaps.length || !targetScore.setMeasureSpacer || !targetScore.getSpatium) {
-          return { applied: [] as MeasureGap[], spatium: 0 };
-        }
-        const spatium = Number(await targetScore.getSpatium());
-        if (!Number.isFinite(spatium) || spatium <= 0 || !isCurrent()) {
-          return { applied: [] as MeasureGap[], spatium: 0 };
-        }
-        const appliedGaps: MeasureGap[] = [];
-        for (const gap of gaps) {
-          if (!isCurrent()) {
-            break;
-          }
-          // One spacer per temporal anchor is sufficient; using every part's
-          // row would multiply the same deficit. Page units become spatium here.
-          const staffIndex = Math.max(comparePartCount - 1, 0);
-          const applied = await targetScore.setMeasureSpacer(
-            gap.measureIndex,
-            staffIndex,
-            gap.gap / spatium,
-          );
-          if (applied !== false) {
-            compareAppliedSpacersRef.current.push({
-              score: targetScore,
-              measureIndex: gap.measureIndex,
-              staffIndex,
-            });
-            appliedGaps.push(gap);
-          }
-        }
-        return { applied: appliedGaps, spatium };
-      };
-      const leftApplied = await applyGaps(reflowLeftPaneScore, leftGaps);
-      const rightApplied = await applyGaps(reflowRightPaneScore, rightGaps);
-      if (!isCurrent()) {
-        return;
-      }
-      if (leftApplied.applied.length || rightApplied.applied.length) {
-        settled = await renderAndMeasure();
-      }
-      if (!isCurrent() || !settled.leftPositions || !settled.rightPositions) {
-        if (isCurrent()) publishLayout(settled);
-        return;
-      }
-
-      // A MuseScore spacer stores an absolute minimum clearance, while the planner
-      // computes additional vertical space. Measure what the first application
-      // actually moved, then add the remaining paired-row offset to that same anchor.
-      // This keeps the bridge primitive unit-agnostic and includes the score's
-      // pre-existing staff/system clearance without trying to reproduce engraving
-      // skyline rules in TypeScript.
-      const residual = measureStructuralGapResidual(
-        structuralAlignments,
-        settled.leftPositions,
-        settled.rightPositions,
-      );
-      const correctAppliedGap = async (
-        targetScore: Score,
-        result: { applied: MeasureGap[]; spatium: number },
-        correction: number,
-      ) => {
-        const anchor = result.applied[0];
-        if (
-          !anchor ||
-          correction <= 0 ||
-          result.spatium <= 0 ||
-          !targetScore.setMeasureSpacer ||
-          !isCurrent()
-        ) {
-          return false;
-        }
-        const corrected = await targetScore.setMeasureSpacer(
-          anchor.measureIndex,
-          Math.max(comparePartCount - 1, 0),
-          (anchor.gap + correction) / result.spatium,
-        );
-        return corrected !== false;
-      };
-      const leftCorrected = await correctAppliedGap(
-        reflowLeftPaneScore,
-        leftApplied,
-        residual.left,
-      );
-      const rightCorrected = await correctAppliedGap(
-        reflowRightPaneScore,
-        rightApplied,
-        residual.right,
-      );
-      if (!isCurrent()) {
-        return;
-      }
-      if (leftCorrected || rightCorrected) {
-        settled = await renderAndMeasure();
-      }
-      if (isCurrent()) {
-        publishLayout(settled);
-      }
-    };
-
-    enqueueReflow(applyReflow);
-    return () => {
-      canceled = true;
-    };
-  }, [
-    compareView,
-    compareReflowMode,
-    compareSupportsReflow,
-    score,
-    compareRightScore,
-    compareLeftScore,
-    compareRightScoreDisplay,
-    compareContinuousMode,
-    compareAlignments,
-    comparePartCount,
-    renderScoreToContainer,
-    syncCompareSvgSize, currentPageRef,
-  ]);
-
-  useEffect(() => {
-    // When a caller supplies the differences, the client diff is not merely
-    // redundant — it is wrong here, and running it anyway would leave a
-    // second, disagreeing answer available to anything that reads it.
-    if (!compareView || isSuppliedRegionsMode) {
-      setCompareAlignments([]);
-      setCompareAlignmentLoading(false);
-      setCompareSignatures(null);
-      return;
-    }
-
-    let canceled = false;
-    const loadAlignments = async () => {
-      setCompareAlignmentLoading(true);
-      try {
-        let leftSignatures: string[][] = [];
-        let rightSignatures: string[][] = [];
-        let usedXml = false;
-        try {
-          if (compareLeftXml && compareRightXml) {
-            leftSignatures = extractMeasureSignaturesFromXml(compareLeftXml);
-            rightSignatures = extractMeasureSignaturesFromXml(compareRightXml);
-            usedXml = true;
-          } else if (compareLeftScore && compareRightScoreDisplay) {
-            const [leftMscx, rightMscx] = await Promise.all([
-              getScoreMscxText(compareLeftScore),
-              getScoreMscxText(compareRightScoreDisplay),
-            ]);
-            if (leftMscx && rightMscx) {
-              leftSignatures = extractMeasureSignaturesFromXml(leftMscx);
-              rightSignatures = extractMeasureSignaturesFromXml(rightMscx);
-              usedXml = true;
-            }
-          }
-        } catch (err) {
-          console.warn(
-            'Failed to parse MusicXML for compare signatures; falling back to WASM.',
-            err,
-          );
-        }
-
-        if (!usedXml) {
-          if (!compareLeftScore || !compareRightScoreDisplay) {
-            setCompareAlignments([]);
-            setCompareSignatures(null);
-            return;
-          }
-          const partCount = Math.max(compareLeftParts.length, compareRightPartsDisplay.length, 1);
-          leftSignatures = await Promise.all(
-            Array.from({ length: partCount }, (_, index) =>
-              fetchMeasureSignatures(compareLeftScore, index),
-            ),
-          );
-          rightSignatures = await Promise.all(
-            Array.from({ length: partCount }, (_, index) =>
-              fetchMeasureSignatures(compareRightScoreDisplay, index),
-            ),
-          );
-        }
-
-        if (canceled) {
-          return;
-        }
-
-        const partCount = Math.max(leftSignatures.length, rightSignatures.length, 1);
-        const alignments: PartAlignment[] = Array.from({ length: partCount }, (_, index) => {
-          const left = leftSignatures[index] ?? [];
-          const right = rightSignatures[index] ?? [];
-          if (left.length === 0 && right.length === 0) {
-            return {
-              partIndex: index,
-              rows: [],
-              strategy: 'index',
-              lcsRatio: 0,
-              leftCount: 0,
-              rightCount: 0,
-            };
-          }
-
-          const { rows, lcsRatio } = buildLcsAlignment(left, right);
-          const strategy = rows.some((row) => row.match) ? 'lcs' : 'index';
-          const alignedRows = strategy === 'lcs' ? rows : buildIndexAlignment(left, right);
-
-          return {
-            partIndex: index,
-            rows: alignedRows,
-            strategy,
-            lcsRatio,
-            leftCount: left.length,
-            rightCount: right.length,
-          };
-        });
-
-        setCompareAlignments(alignments);
-        setCompareSignatures({ left: leftSignatures, right: rightSignatures });
-      } catch (err) {
-        console.error('Failed to compute compare alignment', err);
-        if (!canceled) {
-          setCompareAlignments([]);
-          setCompareSignatures(null);
-        }
-      } finally {
-        if (!canceled) {
-          setCompareAlignmentLoading(false);
-        }
-      }
-    };
-
-    loadAlignments();
-    return () => {
-      canceled = true;
-    };
-  }, [
-    compareView,
-    isSuppliedRegionsMode,
-    compareAlignmentRevision,
-    compareLeftXml,
-    compareRightXml,
-    compareLeftParts.length,
-    compareRightPartsDisplay.length,
-    compareLeftScore,
-    compareRightScoreDisplay,
-    ]);
+  useCompareAlignment({ compareView, isSuppliedRegionsMode, setCompareAlignments, setCompareAlignmentLoading, setCompareSignatures, compareLeftXml, compareRightXml, compareLeftScore, compareRightScoreDisplay, compareLeftParts, compareRightPartsDisplay, compareAlignmentRevision });
 
   useEffect(() => {
     if (!isAiCompareMode) {
