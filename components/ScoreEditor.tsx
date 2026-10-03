@@ -201,6 +201,7 @@ import { NoteInputOverlays } from './score-editor/canvas/NoteInputOverlays';
 import { GripHandles } from './score-editor/canvas/GripHandles';
 import { SelectionOverlays } from './score-editor/canvas/SelectionOverlays';
 import { InlineTextEditor } from './score-editor/canvas/InlineTextEditor';
+import { ChangeReviewThreadView } from './score-editor/compare/ChangeReviewThreadView';
 import { CompareDiffGutter } from './score-editor/compare/CompareDiffGutter';
 import {
   ScannerFindingRows,
@@ -1875,142 +1876,19 @@ export default function ScoreEditor() {
   }, [isChangeReviewMode, refreshChangeReview]);
   const renderChangeReviewThread = useCallback(
     (thread: ChangeReviewThread) => (
-      <div className="mt-2 grid gap-2 rounded border border-slate-200 bg-slate-50 px-2 py-2 text-caption text-slate-700">
-        <div className="flex items-center justify-between gap-2">
-          <span
-            className={`rounded px-1 py-0.5 text-caption font-semibold uppercase tracking-wide ${
-              thread.status === 'open'
-                ? 'bg-amber-100 text-amber-800'
-                : 'bg-emerald-100 text-emerald-800'
-            }`}
-          >
-            {thread.status}
-          </span>
-          {changeReviewDetail?.permissions.canResolve && (
-            <button
-              type="button"
-              disabled={changeReviewActionBusy}
-              className="rounded border border-slate-300 bg-white px-2 py-1 text-caption text-slate-700 disabled:opacity-50"
-              onClick={() =>
-                void runChangeReviewAction(async () => {
-                  await fetchJsonOrThrow(
-                    `/api/proxy/change-reviews/${encodeURIComponent(changeReviewId)}/threads/${encodeURIComponent(thread.threadId)}`,
-                    {
-                      method: 'PATCH',
-                      body: JSON.stringify({
-                        status: thread.status === 'open' ? 'resolved' : 'open',
-                      }),
-                    },
-                  );
-                })
-              }
-            >
-              {thread.status === 'open' ? 'Resolve' : 'Reopen'}
-            </button>
-          )}
-        </div>
-        <div className="grid gap-2">
-          {thread.comments.map((comment) => (
-            <div
-              key={comment.commentId}
-              className="rounded border border-slate-200 bg-white px-2 py-2"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="text-caption text-slate-500">
-                  {comment.username || comment.userId} ·{' '}
-                  {new Date(comment.createdAt).toLocaleString()}
-                  {comment.editedAt ? ' · edited' : ''}
-                </div>
-                {changeReviewDetail?.viewerUserId === comment.userId && (
-                  <button
-                    type="button"
-                    disabled={changeReviewActionBusy}
-                    className="rounded border border-slate-300 bg-white px-2 py-0.5 text-caption text-slate-700 disabled:opacity-50"
-                    onClick={() =>
-                      void runChangeReviewAction(async () => {
-                        await fetchJsonOrThrow(
-                          `/api/proxy/change-reviews/${encodeURIComponent(changeReviewId)}/comments/${encodeURIComponent(comment.commentId)}`,
-                          {
-                            method: 'DELETE',
-                          },
-                        );
-                      })
-                    }
-                  >
-                    Delete
-                  </button>
-                )}
-              </div>
-              <div className="mt-1 whitespace-pre-wrap text-caption text-slate-800">
-                {comment.content}
-              </div>
-            </div>
-          ))}
-        </div>
-        {changeReviewDetail?.permissions.canReply && (
-          <div className="grid gap-2">
-            {changeReviewReplyThreadId === thread.threadId ? (
-              <>
-                <textarea
-                  value={changeReviewReplyContent}
-                  onChange={(event) => setChangeReviewReplyContent(event.target.value)}
-                  rows={3}
-                  placeholder="Write a reply"
-                  className="min-h-[72px] w-full rounded border border-slate-300 bg-white px-2 py-1 text-caption text-slate-900 placeholder-slate-400"
-                  disabled={changeReviewActionBusy}
-                />
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    disabled={changeReviewActionBusy}
-                    className="rounded border border-slate-300 bg-white px-2 py-1 text-caption text-slate-700 disabled:opacity-50"
-                    onClick={() => {
-                      setChangeReviewReplyThreadId(null);
-                      setChangeReviewReplyContent('');
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    disabled={changeReviewActionBusy}
-                    className="rounded border border-sky-300 bg-sky-50 px-2 py-1 text-caption text-sky-700 disabled:opacity-50"
-                    onClick={() =>
-                      void runChangeReviewAction(async () => {
-                        await fetchJsonOrThrow(
-                          `/api/proxy/change-reviews/${encodeURIComponent(changeReviewId)}/threads/${encodeURIComponent(thread.threadId)}/comments`,
-                          {
-                            method: 'POST',
-                            body: JSON.stringify({ content: changeReviewReplyContent }),
-                          },
-                        );
-                        setChangeReviewReplyThreadId(null);
-                        setChangeReviewReplyContent('');
-                      })
-                    }
-                  >
-                    Reply
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  disabled={changeReviewActionBusy}
-                  className="rounded border border-slate-300 bg-white px-2 py-1 text-caption text-slate-700 disabled:opacity-50"
-                  onClick={() => {
-                    setChangeReviewReplyThreadId(thread.threadId);
-                    setChangeReviewReplyContent('');
-                  }}
-                >
-                  Reply
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      <ChangeReviewThreadView
+        thread={thread}
+        changeReviewId={changeReviewId}
+        canResolve={Boolean(changeReviewDetail?.permissions.canResolve)}
+        canReply={Boolean(changeReviewDetail?.permissions.canReply)}
+        viewerUserId={changeReviewDetail?.viewerUserId}
+        actionBusy={changeReviewActionBusy}
+        replyThreadId={changeReviewReplyThreadId}
+        replyContent={changeReviewReplyContent}
+        setReplyThreadId={setChangeReviewReplyThreadId}
+        setReplyContent={setChangeReviewReplyContent}
+        runAction={runChangeReviewAction}
+      />
     ),
     [
       changeReviewActionBusy,

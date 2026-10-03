@@ -45,7 +45,9 @@ Embed/static builds: see `docs/BUILD_EMBED.md` (soundfonts come from a CDN; `npm
 
 ## Module structure
 
-`components/ScoreEditor.tsx` is one 18,900-line function that is being decomposed (plan: `docs/private/SCOREEDITOR_DECOMPOSITION_PLAN_2026-10-02.md`). **New editor behaviour goes in a module, never in `ScoreEditor.tsx`.** The rules below are Viritura's (its `AGENTS.md` has the originals), adapted. The ones with a check say which.
+`components/ScoreEditor.tsx` was one 18,900-line function. It is now a ~9,700-line composition root (decomposition plan: `docs/private/SCOREEDITOR_DECOMPOSITION_PLAN_2026-10-02.md`, §12 is the log). **New editor behaviour goes in a module, never in `ScoreEditor.tsx`.** The rules below are Viritura's (its `AGENTS.md` has the originals), adapted. The ones with a check say which.
+
+Where things live now (`components/score-editor/`): `core/` (`useEditorCore`: the score session, selection model and `performMutation`, passed to command modules as `core`), `commands/` (edit handlers by concept), `canvas/` (gestures, marquee, note drag, grips, and the canvas components), `compare/` (compare hooks and components), `ai-tools/`, plus flat modules named for one concept. Reaching for `useEditorCore`'s `EditorCore` is the way to get at the editor from a new module; do not thread dozens of props.
 
 1. **A feature is a folder** with one public surface, its `index.ts` barrel. Outside the folder, import from the barrel; anything not re-exported is private. (New folders only; the existing ones gain barrels as they are touched.)
 2. **Name files by the concept they hold, never by kind.** Good: `musicXmlPatch.ts`, `measureAlignment.ts`, `selectionModel.ts`. Bad: `utils.ts`, `helpers.ts`, `shared.ts`, `internal.ts`, `misc.ts`, `common.ts`, or a `utils/` folder. If you cannot name the file in three words around one concept, the split is wrong. Checked by `unit/module-structure.test.ts`.
@@ -66,7 +68,19 @@ Work down the list and stop when the file is under its limit.
 
 Anti-patterns: a reducer for its own sake when independent `useState` calls would do; container/presenter splits that remove no complexity; a view model with dozens of fields (a component with 40 props has two jobs).
 
-Each extraction is behaviour-preserving, one concept per commit, with a test that fails if the move breaks it written first when the code had none.
+### What worked in the decomposition (and what to watch)
+
+- **Move by dependency graph, not by name.** Resolve identifiers with the TypeScript checker; word matching misses shadowed names and shorthand properties.
+- **Effects:** extract an effect together with the refs only it uses, and call the hook at the effect's original position so effect order is unchanged. Moving a `ref.current = x` assignment out of a component makes `react-hooks/exhaustive-deps` treat that ref as a DOM ref in cleanups left behind: move the cleanup with it, or read the ref through a getter (the suppression cap is small).
+- **Values defined later in render:** pass them through a `lateInputs` ref assigned each render and read at call time. `tsc` cannot see a render-time TDZ.
+- **Refs and setters returned from a hook are not known-stable** to `exhaustive-deps`: list them in dependency arrays (they never change at runtime).
+- **JSX:** compose, do not pass a view model. Overlays become children of a frame component; keep each component's props small. Slice the exact JSX by line range, rename closed-over names to props, and let `tsc` list what is missing.
+- **A hook is not always the answer.** A cluster of ~300 statements that would return ~170 names (compare) is a prop dump; move its big handlers as `xImpl(ctx, ...)` functions instead.
+- **Tests:** write characterization tests for the moved code and break it on purpose (mutation check) to prove they bite. Survivors are real gaps (an unasserted `stopPropagation`, an unmounted cleanup).
+- **Test files have their own typecheck.** Run `npm run typecheck` (app and tests), not only `tsc -p .`, and read `npm run check:debt` to its last line after the final edit. Do not spread `...over` (typed `unknown`) into a mock context: build the typed object, then `Object.assign(ctx, over)`.
+- **Under CPU contention** (another heavy job on the machine) unit tests time out in bulk and early Playwright specs flake; check `uptime` before suspecting the code, and rerun failures alone and against `HEAD` (`git stash -u`).
+
+Still in `ScoreEditor.tsx` by decision (not oversight): `renderCompare` (119 inputs), the `mode` panel (97), and the URL and file-load handler bodies (~50 inputs each). Decompose them when a feature needs them, not as a mechanical pass.
 
 ## WASM extension workflow
 
