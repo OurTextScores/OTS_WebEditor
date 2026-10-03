@@ -42,3 +42,12 @@ export type AiChatMessage = {
   text: string;
   sourceRag?: AiSourceRagInfo | null;
 };
+
+export type NotaGenSpaceCombinations = Record<string, Record<string, string[]>>;
+
+export type HarmonyVariant = 0 | 1 | 2;
+
+export type AiPromptSection = {
+  title: string;
+  content: string;
+};

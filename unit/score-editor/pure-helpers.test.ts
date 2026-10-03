@@ -5,9 +5,9 @@ import {
   buildPartLocalizedSuppliedHighlights,
   sortChangeReviewRegionsByMeasure,
 } from '../../lib/compare-highlights';
-import { scoreLoadErrorMessage } from '../../components/ScoreEditor';
+import { scoreLoadErrorMessage } from '../../components/score-editor/error-messages';
 
-// Pure exports of ScoreEditor: no component render, no mocks, no globals. Kept apart
+// Pure functions that used to live in ScoreEditor: no component render, no mocks, no globals. Kept apart
 // from the component suites so they stay fast and readable.
 
 describe('scoreLoadErrorMessage', () => {

@@ -114,7 +114,7 @@
   "_scoreEditorComment": "Headroom is intentional. These were pinned to the exact current size, and the result was that a 41-line bug fix breached the cap and pressure went into deleting explanatory comments to get back under -- the ratchet making the code worse. Lines are a poor proxy: a comment costs the same as debt. The caps now sit roughly 1% and 1.5% above actual, so routine work passes and a whole slice of drift still trips them. The goal worth chasing is bytes, not lines: Babel deoptimises code generation above 500000 bytes, which this file still exceeds, and that is an observable cost rather than a chosen number.",
   "scoreEditor": {
     "maxLines": 18100,
-    "maxBytes": 805000
+    "maxBytes": 680000
   },
   "modules": {
     "components/score-editor/ai-tools/NotaGenPanel.tsx": {
@@ -226,24 +226,24 @@
       "maxBytes": 36657
     },
     "lib/music-agents/router.ts": {
-      "maxLines": 1713,
-      "maxBytes": 66933
+      "maxLines": 1716,
+      "maxBytes": 66938
     },
     "lib/music-conversion.ts": {
       "maxLines": 2312,
       "maxBytes": 70413
     },
     "lib/music-services/deep-edit-service.ts": {
-      "maxLines": 1222,
-      "maxBytes": 45618
+      "maxLines": 1227,
+      "maxBytes": 45627
     },
     "lib/music-services/generate-service.ts": {
       "maxLines": 1053,
       "maxBytes": 34526
     },
     "lib/music-services/patch-service.ts": {
-      "maxLines": 1432,
-      "maxBytes": 46350
+      "maxLines": 1437,
+      "maxBytes": 46359
     },
     "lib/music-services/scoreops-service.ts": {
       "maxLines": 4326,

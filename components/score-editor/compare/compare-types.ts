@@ -1,3 +1,7 @@
+import type { MeasureAlignmentRow } from './compare-reflow-plan';
+
+import { Score } from '../../../lib/webmscore-loader';
+
 /**
  * Role and side vocabulary shared by every compare module.
  *
@@ -162,3 +166,26 @@ export type AiDiffBlockRef = Pick<
   BlockReview,
   'partIndex' | 'blockIndex' | 'blockKey' | 'measureRange' | 'contentSignature'
 >;
+
+export type CompareViewState = {
+  title: string;
+  currentXml: string;
+  checkpointXml: string;
+  currentLabel?: string;
+  checkpointLabel?: string;
+};
+
+export type PartAlignment = {
+  partIndex: number;
+  rows: MeasureAlignmentRow[];
+  strategy: 'index' | 'lcs';
+  lcsRatio: number;
+  leftCount: number;
+  rightCount: number;
+};
+
+export type CompareAppliedSpacer = {
+  score: Score;
+  measureIndex: number;
+  staffIndex: number;
+};

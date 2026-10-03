@@ -49,7 +49,7 @@ describe('palette guard', () => {
     'components/FloatingPalettes.module.css': 2,
     'components/shell/toolbar/WriteToolbar.module.css': 1,
     // MuseScore's voice colours, and a black/white swatch pair in the inspector.
-    'components/ScoreEditor.tsx': 4,
+    'components/score-editor/selection-classes.ts': 4,
     'components/InspectorPanel.tsx': 1,
     // Banner washes that have no token yet.
     'components/score-editor/LeftSidebar.tsx': 4,
