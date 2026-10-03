@@ -23,7 +23,7 @@ const fakeScore = (over: FakeScore = {}) =>
     selectTextElementAtPoint: vi.fn(async () => true),
     isSelectionRange: vi.fn(async () => false),
     ...over,
-  }) as FakeScore & Score;
+  }) as unknown as FakeScore & Score;
 
 function setup(
   over: {
@@ -53,7 +53,8 @@ function setup(
     };
   };
   const hook = renderHook(() => useEditorCore(ctx));
-  const score = over.score === undefined ? fakeScore() : over.score;
+  // Tests that pass `score: null` never read it, so it is typed as present.
+  const score = (over.score === undefined ? fakeScore() : over.score) as FakeScore;
   if (score) act(() => hook.result.current.setScore(score as unknown as Score));
   return { ctx, score, ...hook };
 }

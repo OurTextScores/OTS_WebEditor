@@ -142,8 +142,8 @@ describe('ensurePageIsLaidOutImpl: laying out a page of a large score', () => {
         targetSatisfied: true,
       })),
       setProgressiveHasMorePages: vi.fn(),
-      ...over,
     };
+    Object.assign(ctx, over);
     return ctx as unknown as EnsurePageLaidOutContext & typeof ctx;
   };
 
@@ -263,8 +263,8 @@ describe('goToPageImpl: changing page', () => {
       refreshSelectionOverlay: vi.fn(),
       selectedIndex: 2,
       selectedPoint: { page: 1, x: 3, y: 4 },
-      ...over,
     };
+    Object.assign(ctx, over);
     return ctx as unknown as GoToPageContext & typeof ctx;
   };
 
@@ -358,8 +358,8 @@ describe('openScoreSessionImpl: the server-side score session', () => {
       activeLaunchContext: null,
       setScoreSessionId: vi.fn(),
       setScoreRevision: vi.fn(),
-      ...over,
     };
+    Object.assign(ctx, over);
     return ctx as unknown as OpenScoreSessionContext & typeof ctx;
   };
   const respond = (body: unknown, ok = true) => {

@@ -145,7 +145,7 @@ describe('requestAiPatch: a successful request', () => {
   it('shows the patch and opens the proposal for review', async () => {
     const { ctx, editRequest } = context();
     await requestAiPatch(ctx);
-    expect(JSON.parse(vi.mocked(ctx.setAiOutput).mock.calls.at(-1)![0])).toEqual(PATCH);
+    expect(JSON.parse(String(vi.mocked(ctx.setAiOutput).mock.calls.at(-1)![0]))).toEqual(PATCH);
     expect(ctx.setAiPatch).toHaveBeenLastCalledWith(PATCH);
     expect(ctx.setAiPatchedXml).toHaveBeenLastCalledWith('<proposed/>');
     expect(ctx.openAiProposalCompare).toHaveBeenCalledWith('<base/>', '<proposed/>', undefined);
@@ -207,7 +207,7 @@ describe('requestAiPatch: a successful request', () => {
     expect(sent()).not.toHaveProperty('maxTokens');
     expect(sent()).not.toHaveProperty('image');
     expect(ctx.setAiPatch).toHaveBeenLastCalledWith(null);
-    expect(JSON.parse(vi.mocked(ctx.setAiOutput).mock.calls.at(-1)![0])).toEqual({
+    expect(JSON.parse(String(vi.mocked(ctx.setAiOutput).mock.calls.at(-1)![0]))).toEqual({
       deepEdit: { finalizedCandidateId: 'c2', rationale: 'because' },
     });
     expect(ctx.finishAiEdit).toHaveBeenCalledWith(expect.anything(), 'success', '');

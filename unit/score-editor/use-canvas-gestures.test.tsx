@@ -262,7 +262,8 @@ describe('click', () => {
     await act(async () => result.current.handleScoreClick(click({ clientX: 30, clientY: 40 })));
     expect(ctx.handlePutNoteAtPoint).toHaveBeenCalledWith(2, 30, 40);
     expect(
-      (core.score as { selectElementAtPoint: ReturnType<typeof vi.fn> }).selectElementAtPoint,
+      (core.score as unknown as { selectElementAtPoint: ReturnType<typeof vi.fn> })
+        .selectElementAtPoint,
     ).not.toHaveBeenCalled();
   });
 
@@ -277,7 +278,8 @@ describe('click', () => {
     (core.resolvePageIndex as ReturnType<typeof vi.fn>).mockReturnValue(1);
     await act(async () => result.current.handleScoreClick(click({ clientX: 12, clientY: 34 })));
     expect(
-      (core.score as { selectElementAtPoint: ReturnType<typeof vi.fn> }).selectElementAtPoint,
+      (core.score as unknown as { selectElementAtPoint: ReturnType<typeof vi.fn> })
+        .selectElementAtPoint,
     ).toHaveBeenCalledWith(1, 12, 34);
   });
 });
@@ -304,7 +306,7 @@ describe('grip editing', () => {
     await act(async () => result.current.handleScorePointerDown(second.event));
     expect(second.event.preventDefault).toHaveBeenCalled();
     expect(
-      (core.score as { beginGripEdit: ReturnType<typeof vi.fn> }).beginGripEdit,
+      (core.score as unknown as { beginGripEdit: ReturnType<typeof vi.fn> }).beginGripEdit,
     ).toHaveBeenCalledWith(0, 52, 51);
   });
 
@@ -324,7 +326,7 @@ describe('grip editing', () => {
       ),
     );
     expect(
-      (core.score as { beginGripEdit: ReturnType<typeof vi.fn> }).beginGripEdit,
+      (core.score as unknown as { beginGripEdit: ReturnType<typeof vi.fn> }).beginGripEdit,
     ).not.toHaveBeenCalled();
   });
 });
