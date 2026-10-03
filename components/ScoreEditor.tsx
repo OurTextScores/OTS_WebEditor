@@ -72,22 +72,8 @@ import {
 } from './toolbar/palette';
 import { articulationOptions } from './toolbar/constants';
 import { LeftSidebar, type LeftSidebarTab } from './score-editor/LeftSidebar';
-import {
-  AI_PROVIDER_CONFIGS,
-  AI_PROVIDER_LABELS,
-  DEFAULT_MODEL_BY_PROVIDER,
-  loadAiModelDescriptorsDirect,
-  requestAiTextDirect,
-  type AiProvider,
-} from '../lib/ai-provider-adapters';
-import {
-  parseAiModelDescriptors,
-  resolveAiModelDescriptor,
-  detectUnsupportedAiRequestParameter,
-  AI_MODEL_CAPABILITY_REGISTRY_VERSION,
-  type OptionalAiRequestParameter,
-  type AiModelDescriptor,
-} from '../lib/ai-model-capabilities';
+import { AI_PROVIDER_CONFIGS, AI_PROVIDER_LABELS, DEFAULT_MODEL_BY_PROVIDER, loadAiModelDescriptorsDirect, type AiProvider } from '../lib/ai-provider-adapters';
+import { parseAiModelDescriptors, resolveAiModelDescriptor, type OptionalAiRequestParameter, type AiModelDescriptor } from '../lib/ai-model-capabilities';
 import {
   getLegacyLlmProxyBase,
   getScoreEditorApiBase,
@@ -146,7 +132,6 @@ import {
   createClientProposalSession,
   type ClientProposalSession,
 } from '../lib/proposal-session-client';
-import { AI_EDIT_EFFORT_PROFILES } from '../lib/ai-edit-effort';
 import { readAiEditServiceResponse } from '../lib/ai-edit-progress-client';
 import { useAiEditController } from './score-editor/useAiEditController';
 import { useAiProposalController } from './score-editor/useAiProposalController';
@@ -197,12 +182,7 @@ import { ScannerSystemRows, type ScannerSystem } from './score-editor/compare/Sc
 import type { MergedScoreState } from './score-editor/compare/useMergedScoreDocument';
 import { XmlDiffView } from './score-editor/XmlDiffView';
 import { useAiAssistantController } from './score-editor/useAiAssistantController';
-import {
-  type AiChatMessage,
-  type AiImageAttachment,
-  type AiPdfAttachment,
-  type AiSourceRagInfo,
-} from './score-editor/ai-assistant-types';
+import { type AiImageAttachment, type AiPdfAttachment } from './score-editor/ai-assistant-types';
 import { type AiScoreBridge } from './score-editor/ai-score-bridge';
 import { useLatestCallbackFacade } from '@/lib/use-latest-callback-facade';
 import type {
@@ -238,13 +218,13 @@ import { type NoteInputCursorRect, type SelectionBox, type SelectionFallback, ty
 import { type ApplyXmlToScore, type EditorTelemetryCounters, type EditorTraceContext, type EnsureSoundFontLoaded, type HandleFileUpload, type HandleUrlLoad, type InstrumentTemplateGroup, type PartSummary, type RefreshPageCount, type RenderScore, type StopCompareSideAudio, type SynthBatchIterator } from './score-editor/editor-types';
 import { type MutationMethods, hasMutationApi } from './score-editor/mutation-api';
 import { type CompareAppliedSpacer, type CompareViewState, type PartAlignment } from './score-editor/compare/compare-types';
-import { type AiPromptSection, type HarmonyVariant } from './score-editor/ai-assistant-types';
+import { type HarmonyVariant } from './score-editor/ai-assistant-types';
 import { PREVIEW_DURATION_MS, PREVIEW_SYNTH_BATCH_SIZE, SELECTION_STREAM_MIN_STARTUP_BATCHES, SELECTION_STREAM_STARTUP_BUFFER_SECONDS, SELECTION_SYNTH_BATCH_SIZE, SELECTION_SYNTH_START_PREROLL_SECONDS, SYNTH_START_PREROLL_SECONDS, TRANSPORT_SYNTH_BATCH_SIZE } from './score-editor/playback-constants';
 import { DEFAULT_PAGE_RENDER_TIMEOUT_MS, ENGINE_OPERATION_STALL_RELEASE_MS, LARGE_PROGRESSIVE_PAGE_RENDER_TIMEOUT_MS, LARGE_SCORE_BACKGROUND_TASK_DELAY_MS, LARGE_SCORE_BACKGROUND_TASK_MAX_RETRIES, LARGE_SCORE_BACKGROUND_TASK_RETRY_DELAY_MS, LARGE_SCORE_INTERACTION_PRIME_DELAY_MS, LAYOUT_MODES, PROGRESSIVE_PAGE_LAYOUT_CONFIRM_TIMEOUT_MS, PROGRESSIVE_PAGE_LAYOUT_EXPAND_TIMEOUT_MS, PROGRESSIVE_PAGE_LAYOUT_TIMEOUT_MS, measureInsertTargetMap } from './score-editor/layout-constants';
 import { DEFAULT_SELECTION_FILTER_MASK, ELEMENT_SELECTION_SELECTOR, NOTE_INPUT_VOICE_COLORS, SELECTION_FILTER_STORAGE_KEY, hasSelectableClass, hasTextElementClass, isSvgTextElement, normalizeElementClasses, resolveTextElement } from './score-editor/selection-classes';
-import { AI_CHAT_SOURCE_RAG_HINT_DISMISSED_STORAGE_KEY, AI_CHAT_SYSTEM_PROMPT, AI_DIFF_COMMENT_GUTTER_PADDING, AI_DIFF_GUTTER_DEFAULT_WIDTH, AI_DIFF_GUTTER_MAX_WIDTH, AI_DIFF_GUTTER_MIN_WIDTH, AI_PAGE_SVG_CONTEXT_MAX_CHARS, AI_PATCH_SYSTEM_PROMPT, AI_PDF_ATTACHMENT_MAX_BYTES, AI_SELECTION_BOX_CONTEXT_LIMIT, AI_SELECTION_CONTEXT_MAX_CHARS, ANTHROPIC_EMBED_PROXY_ERROR, isMissingProxyStatus } from './score-editor/ai-constants';
+import { AI_CHAT_SOURCE_RAG_HINT_DISMISSED_STORAGE_KEY, AI_DIFF_COMMENT_GUTTER_PADDING, AI_DIFF_GUTTER_DEFAULT_WIDTH, AI_DIFF_GUTTER_MAX_WIDTH, AI_DIFF_GUTTER_MIN_WIDTH, AI_PDF_ATTACHMENT_MAX_BYTES, AI_SELECTION_BOX_CONTEXT_LIMIT, AI_SELECTION_CONTEXT_MAX_CHARS, ANTHROPIC_EMBED_PROXY_ERROR, isMissingProxyStatus } from './score-editor/ai-constants';
 import { CODE_EDITOR_THEME_STORAGE_KEY, CODE_EDITOR_THEME_VALUES } from './score-editor/music-specialists-constants';
-import { aiDiffBlockContentSignature, buildAiChatTranscript, buildAiPrompt, buildPromptWithSections, formatAiDiffFeedbackError, shouldEnableSourceRagForPrompt, truncateAiContext } from './score-editor/ai-prompts';
+import { aiDiffBlockContentSignature, formatAiDiffFeedbackError, truncateAiContext } from './score-editor/ai-prompts';
 import { encodeBase64, toOwnedArrayBuffer, toOwnedBytes } from './score-editor/byte-encoding';
 import { buildCheckpointTitle, formatBytes, formatTimestamp, toSafeFilename } from './score-editor/checkpoint-labels';
 import { buildOtsScoreId, updateUrlScoreId } from './score-editor/score-url';
@@ -263,6 +243,9 @@ import { summarizeScoreId } from './score-editor/score-id';
 import { useNotaGenTool } from './score-editor/ai-tools/useNotaGenTool';
 import { useTranscodaTool } from './score-editor/ai-tools/useTranscodaTool';
 import { useChordTools } from './score-editor/ai-tools/useChordTools';
+import { requestAiTextImpl } from './score-editor/ai-text-request';
+import { sendAiChatMessage } from './score-editor/ai-chat';
+import { requestAiPatch } from './score-editor/ai-patch-request';
 
 
 export default function ScoreEditor() {
@@ -8467,7 +8450,7 @@ ${partsBodyXml}
     }
   };
 
-  const requestAiText = async (payload: {
+  const requestAiText = (payload: {
     provider: AiProvider;
     apiKey: string;
     model: string;
@@ -8480,165 +8463,18 @@ ${partsBodyXml}
     maxTokens: number | null;
     temperature?: number | null;
     enableSourceRag?: boolean;
-  }) => {
-    const {
-      provider,
-      apiKey,
-      model,
-      promptText,
-      systemPrompt: systemPromptOverride = '',
-      prompt = '',
-      xml = '',
-      image = null,
-      pdf = null,
-      maxTokens,
-      temperature = null,
-      enableSourceRag = false,
-    } = payload;
-    const systemPrompt = systemPromptOverride.trim() || AI_PATCH_SYSTEM_PROMPT;
-    const userPrompt =
-      promptText.trim() ||
-      buildPromptWithSections(
-        prompt,
-        xml.trim() ? [{ title: 'Current MusicXML', content: xml }] : [],
-      );
-    const capabilityCacheKey = `${provider}:${model.trim().replace(/^models\//, '')}`;
-    const knownUnsupported =
-      aiUnsupportedParametersRef.current.get(capabilityCacheKey) ??
-      new Set<OptionalAiRequestParameter>();
-    let effectiveMaxTokens = knownUnsupported.has('maxOutputTokens') ? null : maxTokens;
-    let effectiveTemperature = knownUnsupported.has('temperature') ? null : temperature;
-    const rememberUnsupported = (parameter: OptionalAiRequestParameter) => {
-      const next = new Set(aiUnsupportedParametersRef.current.get(capabilityCacheKey) ?? []);
-      const isNewObservation = !next.has(parameter);
-      next.add(parameter);
-      aiUnsupportedParametersRef.current.set(capabilityCacheKey, next);
-      if (isNewObservation) {
-        console.warn('[AI] Optional model parameter rejected; retrying without it.', {
-          provider,
-          model,
-          parameter,
-          registryVersion: AI_MODEL_CAPABILITY_REGISTRY_VERSION,
-        });
-      }
-      if (parameter === 'temperature') {
-        effectiveTemperature = null;
-        setAiTemperatureMode('auto');
-      } else {
-        effectiveMaxTokens = null;
-        setAiMaxTokensMode('auto');
-      }
-    };
-    const requestDescriptor =
-      aiModelDescriptors.find(
-        (descriptor) =>
-          descriptor.provider === provider &&
-          descriptor.id === model.trim().replace(/^models\//, ''),
-      ) ?? resolveAiModelDescriptor(provider, model);
-
-    if (useLlmProxy) {
-      const requestBody: Record<string, unknown> = {
-        apiKey,
-        model,
-        prompt,
-        xml,
-        sourceContext: activeLaunchContext || undefined,
-        enableSourceRag,
-        systemPrompt: systemPrompt || undefined,
-        promptText: userPrompt,
-        imageBase64: image?.base64 ?? '',
-        imageMediaType: image?.mediaType ?? '',
-        pdfBase64: pdf?.base64 ?? '',
-        pdfMediaType: pdf?.mediaType ?? '',
-        pdfFilename: pdf?.filename ?? '',
-        maxTokens: effectiveMaxTokens ?? undefined,
-        temperature: effectiveTemperature ?? undefined,
-      };
-      const sendProxyRequest = () =>
-        fetch(proxyUrlFor(`/api/llm/${provider}`), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody),
-        });
-      let response = await sendProxyRequest();
-      captureApiTraceContext(response.headers);
-      let responseErrorText = response.ok ? '' : await response.text();
-      const unsupportedParameter = detectUnsupportedAiRequestParameter(responseErrorText);
-      const canRetryWithoutParameter =
-        unsupportedParameter === 'temperature'
-          ? effectiveTemperature != null
-          : unsupportedParameter === 'maxOutputTokens' && effectiveMaxTokens != null;
-      if (!response.ok && unsupportedParameter && canRetryWithoutParameter) {
-        rememberUnsupported(unsupportedParameter);
-        delete requestBody[unsupportedParameter === 'temperature' ? 'temperature' : 'maxTokens'];
-        response = await sendProxyRequest();
-        captureApiTraceContext(response.headers);
-        responseErrorText = response.ok ? '' : await response.text();
-      }
-      if (response.ok) {
-        const data = await response.json();
-        return {
-          text: typeof data?.text === 'string' ? data.text : '',
-          sourceRag:
-            data &&
-            typeof data === 'object' &&
-            'sourceRag' in data &&
-            data.sourceRag &&
-            typeof data.sourceRag === 'object'
-              ? (data.sourceRag as AiSourceRagInfo)
-              : null,
-        };
-      }
-      if (
-        provider === 'anthropic' &&
-        isEmbedBuild &&
-        !llmProxyBase &&
-        isMissingProxyStatus(response.status)
-      ) {
-        throw new Error(ANTHROPIC_EMBED_PROXY_ERROR);
-      }
-      const canFallbackDirect =
-        provider !== 'anthropic' &&
-        isEmbedBuild &&
-        !llmProxyBase &&
-        isMissingProxyStatus(response.status);
-      if (!canFallbackDirect) {
-        throw new Error(responseErrorText || 'Request failed.');
-      }
-    }
-
-    const sendDirectRequest = () =>
-      requestAiTextDirect({
-        provider,
-        apiKey,
-        model,
-        promptText: userPrompt,
-        systemPrompt,
-        maxTokens: effectiveMaxTokens,
-        temperature: effectiveTemperature,
-        modelDescriptor: requestDescriptor,
-        image,
-        pdf,
-      });
-    let text: string;
-    try {
-      text = await sendDirectRequest();
-    } catch (err) {
-      const unsupportedParameter = detectUnsupportedAiRequestParameter(
-        errorMessage(err) || String(err),
-      );
-      const canRetryWithoutParameter =
-        unsupportedParameter === 'temperature'
-          ? effectiveTemperature != null
-          : unsupportedParameter === 'maxOutputTokens' && effectiveMaxTokens != null;
-      if (!unsupportedParameter || !canRetryWithoutParameter) {
-        throw err;
-      }
-      rememberUnsupported(unsupportedParameter);
-      text = await sendDirectRequest();
-    }
-    return { text, sourceRag: null };
-  };
+  }) => requestAiTextImpl({
+      aiUnsupportedParametersRef,
+      setAiTemperatureMode,
+      setAiMaxTokensMode,
+      aiModelDescriptors,
+      useLlmProxy,
+      activeLaunchContext,
+      proxyUrlFor,
+      captureApiTraceContext,
+      isEmbedBuild,
+      llmProxyBase,
+    }, payload);
 
   const openAiProposalCompare = useCallback(
     (
@@ -8736,429 +8572,77 @@ ${partsBodyXml}
     ],
   );
 
-  const handleAiRequest = async () => {
-    if (!aiEnabled) {
-      notifyWarning('AI features are disabled.');
-      return;
-    }
-    if (aiBusy || aiDiffFeedbackBusy) {
-      return;
-    }
-    if (!aiApiKey.trim()) {
-      notifyWarning(`Enter your ${AI_PROVIDER_LABELS[aiProvider]} API key.`);
-      return;
-    }
-    if (!aiPrompt.trim()) {
-      notifyWarning('Enter an instruction for the assistant.');
-      return;
-    }
-    if (!aiModel.trim()) {
-      notifyWarning('Select a model.');
-      return;
-    }
-    if (aiMaxTokensMode === 'custom' && aiMaxTokens <= 0) {
-      notifyWarning('Enter a max output token limit.');
-      return;
-    }
-    const editRequest = beginAiEdit(
-      aiDeepEdit ? 'deep' : 'patch',
-      aiDeepEdit ? 'Preparing Deep Edit' : 'Preparing patch request',
-    );
-    const requestController = editRequest.controller;
-    let clientTimeoutId: ReturnType<typeof setTimeout> | null = null;
-    setAiError(null);
-    setAiOutput('');
-    setAiPatch(null);
-    setAiPatchError(null);
-    setAiPatchedXml('');
-    clearAiProposal();
-    const requestStartedAt = Date.now();
-    let requestIssued = false;
-    let outcome: 'success' | 'failure' | 'cancelled' = 'failure';
-    let failureReason = '';
-    try {
-      const promptSections: AiPromptSection[] = [];
-      // Proposal identity and later Apply/feedback gates must use the same live
-      // webmscore serialization. The XML sidebar can briefly retain the source
-      // representation after a new score is loaded.
-      const baseXml = (await aiScoreBridge.getLiveXml(xmlText || null)) || '';
-      if (!baseXml.trim()) {
-        failureReason = 'Unable to load MusicXML for patch verification.';
-        setAiError(failureReason);
-        return;
-      }
-      const xmlContext = aiIncludeXml ? baseXml : '';
-      if (aiIncludeXml && !xmlContext.trim()) {
-        notifyError('Unable to load MusicXML for context.');
-        return;
-      }
-      if (aiIncludeXml && xmlContext.trim()) {
-        promptSections.push({
-          title: 'Current MusicXML text',
-          content: xmlContext,
-        });
-      }
-      const pdfAttachment = aiIncludePdf ? await aiScoreBridge.getScorePdf() : null;
-      if (aiIncludePdf) {
-        promptSections.push({
-          title: 'Rendered score PDF',
-          content: pdfAttachment
-            ? `Attached as ${pdfAttachment.filename}.`
-            : `PDF attachment unavailable (or exceeds ${Math.round(AI_PDF_ATTACHMENT_MAX_BYTES / (1024 * 1024))} MB limit).`,
-        });
-      }
-      if (aiIncludePage) {
-        const pageContextRaw = await aiScoreBridge.getPageSvgContext();
-        if (pageContextRaw.trim()) {
-          const pageContext = truncateAiContext(pageContextRaw, AI_PAGE_SVG_CONTEXT_MAX_CHARS);
-          promptSections.push({
-            title: `Current rendered page SVG (page ${Math.max(0, currentPageRef.current) + 1})`,
-            content: `${pageContext.value}${
-              pageContext.truncated
-                ? `\n[Page SVG truncated from ${pageContext.originalLength} characters.]`
-                : ''
-            }`,
-          });
-        } else {
-          promptSections.push({
-            title: `Current rendered page SVG (page ${Math.max(0, currentPageRef.current) + 1})`,
-            content: 'Page SVG context is unavailable.',
-          });
-        }
-      }
-      if (aiIncludeSelection) {
-        const selectionContext = await aiScoreBridge.getSelectionContext();
-        promptSections.push({
-          title: 'Current selection context',
-          content: selectionContext || 'No active selection.',
-        });
-      }
-      if (aiIncludeChat) {
-        const chatTranscript = buildAiChatTranscript(aiChatMessages);
-        promptSections.push({
-          title: 'Assistant chat history',
-          content: chatTranscript || 'No prior chat messages.',
-        });
-      }
-      const imageAttachment = aiIncludeRenderedImage ? await aiScoreBridge.getPageImage() : null;
-      if (aiIncludeRenderedImage && !imageAttachment) {
-        console.warn('Rendered image context requested, but PNG capture is unavailable.');
-      }
-      setAiBaseXml(baseXml);
-      const maxTokens = aiMaxTokensMode === 'custom' ? aiMaxTokens : null;
-      const promptText = buildAiPrompt(aiPrompt, promptSections);
-      if (requestController.signal.aborted) {
-        throw requestController.signal.reason;
-      }
-      requestIssued = true;
-      telemetryCountersRef.current.aiRequests += 1;
-      // Deep Edit is a separate, more expensive endpoint; it does not take
-      // image/PDF context in v1.
-      const patchEndpoint = aiDeepEdit ? '/api/music/patch/deep' : '/api/music/patch';
-      const requestBudgetMs = aiDeepEdit
-        ? AI_EDIT_EFFORT_PROFILES[aiEditEffort].deep.budgetMs
-        : AI_EDIT_EFFORT_PROFILES[aiEditEffort].patch.budgetMs;
-      clientTimeoutId = setTimeout(() => {
-        requestController.abort(new DOMException('AI edit request timed out.', 'TimeoutError'));
-      }, requestBudgetMs + 30_000);
-      const response = await fetch(resolveScoreEditorApiPath(patchEndpoint), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-        signal: requestController.signal,
-        body: JSON.stringify({
-          content: baseXml,
-          promptText,
-          provider: aiProvider,
-          apiKey: aiApiKey.trim(),
-          model: aiModel.trim(),
-          editEffort: aiEditEffort,
-          ...(aiDeepEdit
-            ? {}
-            : {
-                image: imageAttachment,
-                pdf: pdfAttachment,
-                maxTokens,
-                temperature: aiTemperatureMode === 'custom' ? aiTemperature : null,
-              }),
-        }),
-      });
-      captureApiTraceContext(response.headers);
-      const serviceResponse = await readAiEditServiceResponse(response, (update) =>
-        updateAiEditProgress(editRequest, update),
-      );
-      const result = asRecord(serviceResponse.body) || {};
-      if (serviceResponse.status >= 400) {
-        const message =
-          typeof result.error === 'string'
-            ? result.error
-            : `Patch request failed: ${serviceResponse.status}`;
-        throw new Error(message);
-      }
+  const handleAiRequest = () => requestAiPatch({
+      aiEnabled,
+      aiBusy,
+      aiDiffFeedbackBusy,
+      aiApiKey,
+      aiProvider,
+      aiPrompt,
+      aiModel,
+      aiMaxTokensMode,
+      aiMaxTokens,
+      beginAiEdit,
+      aiDeepEdit,
+      setAiError,
+      setAiOutput,
+      setAiPatch,
+      setAiPatchError,
+      setAiPatchedXml,
+      clearAiProposal,
+      aiScoreBridge,
+      xmlText,
+      aiIncludeXml,
+      aiIncludePdf,
+      aiIncludePage,
+      currentPageRef,
+      aiIncludeSelection,
+      aiIncludeChat,
+      aiChatMessages,
+      aiIncludeRenderedImage,
+      setAiBaseXml,
+      telemetryCountersRef,
+      aiEditEffort,
+      aiTemperatureMode,
+      aiTemperature,
+      captureApiTraceContext,
+      updateAiEditProgress,
+      setAiLastAnnotations,
+      openAiProposalCompare,
+      mergeAiAnnotations,
+      setAiProposalSession,
+      setAiProposalAudit,
+      finishAiEdit,
+      emitEditorTelemetry,
+    });
 
-      const verification = asRecord(result.verification);
-      const verificationLevel = typeof verification?.level === 'string' ? verification.level : '';
-      const verifiedLevels = ['patch_apply', 'engine_load', 'render'];
-      if (!verifiedLevels.includes(verificationLevel)) {
-        throw new Error('Patch service returned an unverified proposal.');
-      }
-      const patchPayload = asRecord(result.patch);
-      const parsedPatch = patchPayload
-        ? parseMusicXmlPatch(JSON.stringify(patchPayload))
-        : { patch: null, error: '' };
-      if (patchPayload && (parsedPatch.error || !parsedPatch.patch)) {
-        throw new Error(parsedPatch.error || 'Patch service returned an invalid patch payload.');
-      }
-      if (!parsedPatch.patch && !aiDeepEdit) {
-        throw new Error('Patch service returned an invalid patch payload.');
-      }
-      const proposedXml = typeof result.proposedXml === 'string' ? result.proposedXml.trim() : '';
-      if (!proposedXml) {
-        throw new Error('Patch service returned empty proposed MusicXML.');
-      }
-
-      const annotations = extractPatchAnnotations({ annotations: result.annotations });
-      const deepEditAudit = asRecord(result.deepEdit);
-      if (parsedPatch.patch) {
-        setAiOutput(
-          JSON.stringify(
-            {
-              ...parsedPatch.patch,
-              ...(annotations.length ? { annotations } : {}),
-            },
-            null,
-            2,
-          ),
-        );
-      } else {
-        setAiOutput(
-          JSON.stringify(
-            {
-              deepEdit: {
-                finalizedCandidateId: deepEditAudit?.finalizedCandidateId ?? null,
-                rationale: deepEditAudit?.rationale ?? '',
-              },
-            },
-            null,
-            2,
-          ),
-        );
-      }
-      setAiPatch(parsedPatch.patch);
-      setAiPatchError(null);
-      setAiPatchedXml(proposedXml);
-      setAiLastAnnotations(annotations);
-      const serviceProposal = findAiEditProposal(result);
-      const proposalBaseXml = serviceProposal?.baseXml || baseXml;
-      const proposalXml = serviceProposal?.proposedXml || proposedXml;
-      if (!openAiProposalCompare(proposalBaseXml, proposalXml, serviceProposal || undefined)) {
-        failureReason = 'Unable to open compare view for AI proposal.';
-        setAiError(failureReason);
-        return;
-      }
-      // openAiProposalCompare resets threads, so seed the assistant annotations after it.
-      mergeAiAnnotations(annotations);
-      setAiProposalSession(
-        createClientProposalSession({
-          id: typeof result.proposalSessionId === 'string' ? result.proposalSessionId : null,
-          originalInstruction: aiPrompt.trim(),
-          includeChat: aiIncludeChat,
-          proposal: serviceProposal,
-          patch: parsedPatch.patch,
-          annotations,
-          continuityToken: result.continuityToken,
-        }),
-      );
-      setAiProposalAudit({
-        cycle: 1,
-        verification: result.verification,
-        ...(deepEditAudit ? { deepEdit: deepEditAudit } : {}),
-      });
-      outcome = 'success';
-    } catch (err) {
-      console.error('AI request failed', err);
-      const abortReason = requestController.signal.aborted ? requestController.signal.reason : null;
-      const wasCancelled = abortReason instanceof DOMException && abortReason.name === 'AbortError';
-      const timedOut = abortReason instanceof DOMException && abortReason.name === 'TimeoutError';
-      if (wasCancelled) {
-        outcome = 'cancelled';
-      }
-      const message = wasCancelled
-        ? 'Request cancelled.'
-        : timedOut
-          ? 'AI edit request exceeded its client timeout.'
-          : errorMessage(err);
-      failureReason = message || 'AI request failed. See console for details.';
-      setAiError(wasCancelled ? null : message || 'AI request failed. See console for details.');
-    } finally {
-      if (clientTimeoutId) {
-        clearTimeout(clientTimeoutId);
-      }
-      finishAiEdit(editRequest, outcome, failureReason);
-      if (requestIssued) {
-        if (outcome === 'failure') {
-          telemetryCountersRef.current.aiFailures += 1;
-        }
-        emitEditorTelemetry('score_editor_ai_request', {
-          channel: 'assistant_patch',
-          provider: aiProvider,
-          model: aiModel,
-          edit_effort: aiEditEffort,
-          outcome,
-          duration_ms: Math.max(0, Date.now() - requestStartedAt),
-          error: outcome === 'failure' ? failureReason || undefined : undefined,
-        });
-      }
-    }
-  };
-
-  const handleAiChatSend = async () => {
-    if (!aiEnabled) {
-      notifyWarning('AI features are disabled.');
-      return;
-    }
-    if (!aiApiKey.trim()) {
-      notifyWarning(`Enter your ${AI_PROVIDER_LABELS[aiProvider]} API key.`);
-      return;
-    }
-    if (!aiModel.trim()) {
-      notifyWarning('Select a model.');
-      return;
-    }
-    if (!aiChatInput.trim()) {
-      notifyWarning('Enter a chat message.');
-      return;
-    }
-    if (aiMaxTokensMode === 'custom' && aiMaxTokens <= 0) {
-      notifyWarning('Enter a max output token limit.');
-      return;
-    }
-
-    const userMessage: AiChatMessage = { role: 'user', text: aiChatInput.trim() };
-    const nextMessages = [...aiChatMessages, userMessage];
-    const shouldUseSourceRag = shouldEnableSourceRagForPrompt(userMessage.text);
-
-    setAiChatBusy(true);
-    setAiError(null);
-    const requestStartedAt = Date.now();
-    let requestIssued = false;
-    let outcome: 'success' | 'failure' = 'failure';
-    let failureReason = '';
-    try {
-      const promptSections: AiPromptSection[] = [];
-      const xmlContext = aiIncludeXml ? await aiScoreBridge.getContextXml() : '';
-      if (aiIncludeXml && !xmlContext.trim()) {
-        notifyError('Unable to load MusicXML for context.');
-        return;
-      }
-      if (aiIncludeXml && xmlContext.trim()) {
-        promptSections.push({
-          title: 'Current MusicXML text',
-          content: xmlContext,
-        });
-      }
-      const pdfAttachment = aiIncludePdf ? await aiScoreBridge.getScorePdf() : null;
-      if (aiIncludePdf) {
-        promptSections.push({
-          title: 'Rendered score PDF',
-          content: pdfAttachment
-            ? `Attached as ${pdfAttachment.filename}.`
-            : `PDF attachment unavailable (or exceeds ${Math.round(AI_PDF_ATTACHMENT_MAX_BYTES / (1024 * 1024))} MB limit).`,
-        });
-      }
-      if (aiIncludePage) {
-        const pageContextRaw = await aiScoreBridge.getPageSvgContext();
-        if (pageContextRaw.trim()) {
-          const pageContext = truncateAiContext(pageContextRaw, AI_PAGE_SVG_CONTEXT_MAX_CHARS);
-          promptSections.push({
-            title: `Current rendered page SVG (page ${Math.max(0, currentPageRef.current) + 1})`,
-            content: `${pageContext.value}${
-              pageContext.truncated
-                ? `\n[Page SVG truncated from ${pageContext.originalLength} characters.]`
-                : ''
-            }`,
-          });
-        } else {
-          promptSections.push({
-            title: `Current rendered page SVG (page ${Math.max(0, currentPageRef.current) + 1})`,
-            content: 'Page SVG context is unavailable.',
-          });
-        }
-      }
-      if (aiIncludeSelection) {
-        const selectionContext = await aiScoreBridge.getSelectionContext();
-        promptSections.push({
-          title: 'Current selection context',
-          content: selectionContext || 'No active selection.',
-        });
-      }
-      if (aiIncludeChat) {
-        const chatTranscript = buildAiChatTranscript(nextMessages);
-        promptSections.push({
-          title: 'Assistant chat history',
-          content: chatTranscript || 'No prior chat messages.',
-        });
-      }
-      const imageAttachment = aiIncludeRenderedImage ? await aiScoreBridge.getPageImage() : null;
-      if (aiIncludeRenderedImage && !imageAttachment) {
-        console.warn('Rendered image context requested, but PNG capture is unavailable.');
-      }
-
-      const promptText = buildPromptWithSections(
-        `Latest user message:\n${userMessage.text}\n\nRespond directly to the latest user message.`,
-        promptSections,
-      );
-      setAiChatInput('');
-      setAiChatMessages(nextMessages);
-      const maxTokens = aiMaxTokensMode === 'custom' ? aiMaxTokens : null;
-      requestIssued = true;
-      telemetryCountersRef.current.aiRequests += 1;
-      const result = await requestAiText({
-        provider: aiProvider,
-        apiKey: aiApiKey,
-        model: aiModel,
-        promptText,
-        systemPrompt: AI_CHAT_SYSTEM_PROMPT,
-        prompt: userMessage.text,
-        xml: aiIncludeXml ? xmlContext : '',
-        image: imageAttachment,
-        pdf: pdfAttachment,
-        maxTokens,
-        temperature: aiTemperatureMode === 'custom' ? aiTemperature : null,
-        enableSourceRag: shouldUseSourceRag,
-      });
-      const responseText = result.text.trim();
-      if (!responseText) {
-        failureReason = 'No response was returned by the model.';
-        setAiError(failureReason);
-        return;
-      }
-      setAiChatMessages((prev) => [
-        ...prev,
-        { role: 'assistant', text: responseText, sourceRag: result.sourceRag },
-      ]);
-      outcome = 'success';
-    } catch (err) {
-      console.error('AI chat request failed', err);
-      const message = errorMessage(err);
-      failureReason = message || 'AI chat request failed. See console for details.';
-      setAiError(failureReason);
-    } finally {
-      setAiChatBusy(false);
-      if (requestIssued) {
-        if (outcome === 'failure') {
-          telemetryCountersRef.current.aiFailures += 1;
-        }
-        emitEditorTelemetry('score_editor_ai_request', {
-          channel: 'assistant_chat',
-          provider: aiProvider,
-          model: aiModel,
-          outcome,
-          duration_ms: Math.max(0, Date.now() - requestStartedAt),
-          error: outcome === 'failure' ? failureReason || undefined : undefined,
-        });
-      }
-    }
-  };
+  const handleAiChatSend = () => sendAiChatMessage({
+      aiEnabled,
+      aiApiKey,
+      aiProvider,
+      aiModel,
+      aiChatInput,
+      aiMaxTokensMode,
+      aiMaxTokens,
+      aiChatMessages,
+      setAiChatBusy,
+      setAiError,
+      aiIncludeXml,
+      aiScoreBridge,
+      aiIncludePdf,
+      aiIncludePage,
+      currentPageRef,
+      aiIncludeSelection,
+      aiIncludeChat,
+      aiIncludeRenderedImage,
+      setAiChatInput,
+      setAiChatMessages,
+      telemetryCountersRef,
+      requestAiText,
+      aiTemperatureMode,
+      aiTemperature,
+      emitEditorTelemetry,
+    });
 
   const postScoreEditorJson = useCallback(
     async (path: string, body: Record<string, unknown>) => {

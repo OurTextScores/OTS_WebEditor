@@ -107,14 +107,14 @@
     {
       "key": "eslint.maxFilesWithFindings",
       "from": 0,
-      "to": 58,
-      "reason": "Same changes as the maxWarnings raise above: the 58 files containing a raw <button> or a function over 200 lines, which now include the three extracted hook files."
+      "to": 59,
+      "reason": "Same changes as the maxWarnings raise above: the 59 files containing a raw <button> or a function over 200 lines. W4 extraction moves existing long functions into their own files (the three S3a hooks, and in S3b the 266-line AI patch request, which was already a warning inside ScoreEditor), so the file count rises while the warning count does not."
     }
   ],
   "_scoreEditorComment": "Headroom is intentional. These were pinned to the exact current size, and the result was that a 41-line bug fix breached the cap and pressure went into deleting explanatory comments to get back under -- the ratchet making the code worse. Lines are a poor proxy: a comment costs the same as debt. The caps now sit roughly 1% and 1.5% above actual, so routine work passes and a whole slice of drift still trips them. The goal worth chasing is bytes, not lines: Babel deoptimises code generation above 500000 bytes, which this file still exceeds, and that is an observable cost rather than a chosen number.",
   "scoreEditor": {
-    "maxLines": 15800,
-    "maxBytes": 590000
+    "maxLines": 15300,
+    "maxBytes": 570000
   },
   "modules": {
     "components/score-editor/ai-tools/NotaGenPanel.tsx": {
@@ -253,7 +253,7 @@
   "eslint": {
     "maxErrors": 0,
     "maxWarnings": 212,
-    "maxFilesWithFindings": 58
+    "maxFilesWithFindings": 59
   },
   "tests": {
     "maxUnconditionalSkips": 1
