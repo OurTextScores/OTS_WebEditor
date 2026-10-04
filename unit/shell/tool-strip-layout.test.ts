@@ -24,6 +24,8 @@ const NEW_IDS = new Set([
   'btn-measures-open',
   'btn-pickup-open',
   'btn-timesig-custom-open',
+  // The ribbon's one Markers / Jumps menu (dropdown-navigation) is two buttons; Jumps is new.
+  'dropdown-jumps',
 ]);
 
 const entries = flattenControls(STRIP_GROUPS).flatMap((control) =>
@@ -150,6 +152,7 @@ describe('ribbon parity for the shipped groups', () => {
     'Layout',
     'Bars',
     'Signatures',
+    'Score',
   ];
   /** The open-the-palette footers of the shipped menus (they sit in the ribbon's Score section). */
   const SHIPPED_FOOTERS = new Set([
@@ -158,6 +161,9 @@ describe('ribbon parity for the shipped groups', () => {
     'btn-open-tremolo-palette',
     'btn-open-fermata-palette',
     'btn-open-breath-palette',
+    'btn-open-clef-palette',
+    'btn-open-markers-palette',
+    'btn-open-jumps-palette',
   ]);
   const shipped = (entry: { legacyLocation: string; legacyTestId: string; commandId?: string }) => {
     if (SHIPPED_FOOTERS.has(entry.legacyTestId)) return true;
