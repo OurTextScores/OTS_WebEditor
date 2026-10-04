@@ -78,9 +78,13 @@ test.describe('left dock @smoke', () => {
     expect((await box(page, 'left-dock')).width).toBeCloseTo(resized.width, 0);
   });
 
-  test('has no ribbon Instruments menu while the dock has the tab', async ({ page }) => {
+  test('the tool strip’s Instruments button opens the dock tab rather than a second menu', async ({
+    page,
+  }) => {
     await load(page);
-    await expect(page.getByTestId('dropdown-instruments')).toHaveCount(0);
+    await page.getByTestId('dropdown-instruments').click();
+    await expect(page.getByTestId('instruments-panel')).toBeVisible();
+    await expect(page.getByRole('menu')).toHaveCount(0);
   });
 });
 

@@ -459,3 +459,127 @@ test.describe('Text group', () => {
     await expect(page.getByTestId('input-tempo-bpm')).toBeVisible();
   });
 });
+
+test.describe('Score group', () => {
+  const calls = (page: Page) =>
+    page.evaluate(() => (window as unknown as { __scoreCalls: unknown[][] }).__scoreCalls);
+  async function spyOn(page: Page, method: string) {
+    await page.evaluate((name) => {
+      const score = (
+        window as unknown as { __webmscore: Record<string, (...a: unknown[]) => unknown> }
+      ).__webmscore;
+      const recorded: unknown[][] = [];
+      (window as unknown as Record<string, unknown>).__scoreCalls = recorded;
+      const original = score[name].bind(score);
+      score[name] = (...args: unknown[]) => {
+        recorded.push(args);
+        return original(...args);
+      };
+    }, method);
+    return () => calls(page);
+  }
+  const mscx = (page: Page) =>
+    page.evaluate(async () => {
+      const score = (
+        window as unknown as { __webmscore: { saveMsc: (f: string) => Promise<Uint8Array> } }
+      ).__webmscore;
+      return new TextDecoder().decode(await score.saveMsc('mscx'));
+    });
+
+  test('the clef button runs Treble from its face, then the clef you chose last', async ({
+    page,
+  }) => {
+    await open(page, true);
+    const seen = await spyOn(page, 'setClef');
+    const face = page.getByTestId('dropdown-clef-last');
+    await expect(face).toHaveAccessibleName('Clefs: Treble');
+    await face.click();
+    await expect.poll(seen).toEqual([[0]]);
+    await page.getByTestId('dropdown-clef').click();
+    await page.getByTestId('btn-clef-20').click(); // Bass
+    await expect.poll(seen).toEqual([[0], [20]]);
+    await expect(face).toHaveAccessibleName('Clefs: Bass');
+  });
+
+  test('the clef menu is a grid of all 35 clefs with the palette link, which opens Clefs', async ({
+    page,
+  }) => {
+    await open(page, true);
+    await page.getByTestId('dropdown-clef').click();
+    const menu = page.getByTestId('clef-menu');
+    await expect(menu.getByRole('menuitem')).toHaveCount(36);
+    await expect(menu.getByTestId('btn-clef-20')).toHaveAttribute('aria-label', 'Bass');
+    await page.getByTestId('btn-open-clef-palette').click();
+    await expect(page.locator('[data-testid^="palette-item-clef-"]').first()).toBeVisible();
+  });
+
+  test('the repeats menu lists start, end, counts, barlines and voltas under headings', async ({
+    page,
+  }) => {
+    await open(page, true);
+    await page.getByTestId('dropdown-repeats').click();
+    const menu = page.getByTestId('repeats-menu');
+    await expect(menu.getByRole('menuitem')).toHaveCount(15);
+    for (const heading of ['Repeat', 'Repeat count', 'Barlines', 'Voltas']) {
+      await expect(menu.getByText(heading, { exact: true })).toBeVisible();
+    }
+  });
+
+  test('Start repeat, a Double barline and a 1st ending reach the score', async ({ page }) => {
+    await open(page, true);
+    const count = async (pattern: RegExp) => ((await mscx(page)).match(pattern) ?? []).length;
+    await page.getByTestId('dropdown-repeats').click();
+    await page.getByTestId('btn-repeat-start').click();
+    await expect.poll(() => count(/<startRepeat\/>/g), { timeout: 20_000 }).toBeGreaterThan(0);
+
+    await page.getByTestId('dropdown-repeats').click();
+    await page.getByTestId('btn-barline-2').click();
+    await expect.poll(() => count(/<subtype>double<\/subtype>/g), { timeout: 20_000 }).toBe(1);
+
+    await page.getByTestId('dropdown-repeats').click();
+    await page.getByTestId('btn-volta-1').click();
+    await expect.poll(() => count(/<Volta>/g), { timeout: 20_000 }).toBeGreaterThan(0);
+  });
+
+  test('a marker and a jump reach the engine, and their footers open their own palettes', async ({
+    page,
+  }) => {
+    await open(page, true);
+    const marker = await spyOn(page, 'addMarker');
+    await page.getByTestId('dropdown-navigation').click();
+    await expect(page.getByTestId('navigation-menu').getByRole('menuitem')).toHaveCount(8);
+    await page.getByTestId('btn-marker-2').click(); // Coda
+    await expect.poll(marker).toEqual([[2]]);
+
+    const jump = await spyOn(page, 'addJump');
+    await page.getByTestId('dropdown-jumps').click();
+    await expect(page.getByRole('menu').getByRole('menuitem')).toHaveCount(15);
+    await page.getByTestId('btn-jump-1').click(); // D.C. al Fine
+    await expect.poll(jump).toEqual([[1]]);
+
+    await page.getByTestId('dropdown-navigation').click();
+    await page.getByTestId('btn-open-markers-palette').click();
+    await expect(page.locator('[data-testid^="palette-item-marker-"]').first()).toBeVisible();
+    await page.getByTestId('dropdown-jumps').click();
+    await page.getByTestId('btn-open-jumps-palette').click();
+    await expect(page.locator('[data-testid^="palette-item-jump-"]').first()).toBeVisible();
+  });
+
+  test('with nothing selected the repeats, markers and jumps menus say what to select', async ({
+    page,
+  }) => {
+    await open(page, false);
+    for (const id of ['dropdown-repeats', 'dropdown-navigation', 'dropdown-jumps']) {
+      await expect(page.getByTestId(id)).toHaveAttribute('aria-disabled', 'true');
+    }
+    await page.getByTestId('dropdown-repeats').click({ force: true });
+    await expect(page.getByTestId('announcer')).toContainText('Repeats and barlines: Select');
+    await expect(page.getByRole('menu')).toHaveCount(0);
+  });
+
+  test('the Instruments button opens the instruments panel', async ({ page }) => {
+    await open(page, false);
+    await page.getByTestId('dropdown-instruments').click();
+    await expect(page.getByTestId('instruments-panel')).toBeVisible();
+  });
+});

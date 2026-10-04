@@ -35,7 +35,6 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { CommandId } from '../../../../lib/commands/types';
-import { scorePaletteItems } from '../../../toolbar/palette';
 import {
   arpeggioOptions,
   beamOptions,
@@ -53,6 +52,8 @@ import {
   tremoloOptions,
   trillOptions,
 } from '../../../toolbar/constants';
+import { SCORE_STRIP_GROUPS } from './scoreGroups';
+import { paletteFooter, paletteGlyph } from './paletteReferences';
 
 /**
  * What the tool strip shows, as data (SHELL_REDESIGN_DESIGN §23). A control names the command it
@@ -121,17 +122,6 @@ const exportItem = (suffix: string, label: string, testId: string): StripItem =>
   testId,
   label,
   commandId: `file.export.${suffix}`,
-});
-
-const paletteGlyph = (kind: string, subtype: number): string | undefined =>
-  scorePaletteItems.find((item) => item.kind === kind && item.subtype === subtype)?.symbol;
-
-/** The open-the-palette footer the ribbon's menus ended with. */
-const paletteFooter = (testId: string, category: string): StripItem => ({
-  testId,
-  label: `Open ${category.toLowerCase()} palette`,
-  commandId: 'view.palette.open',
-  arg: category,
 });
 
 /** Items for a family built from an option table; the test id pattern is the ribbon's. */
@@ -664,6 +654,7 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
       },
     ],
   },
+  ...SCORE_STRIP_GROUPS,
 ];
 
 /** Every control in strip order (what arrow keys walk). */
