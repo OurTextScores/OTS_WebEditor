@@ -189,7 +189,8 @@ test('arrow keys walk the strip, and the strip is one tab stop', async ({ page }
   await page.keyboard.press('ArrowRight');
   await expect(page.getByTestId('btn-new-score')).toBeFocused();
   await page.keyboard.press('End');
-  await expect(page.getByTestId('link-help')).toBeFocused();
+  // The last control of the last group (Notes follows Home).
+  await expect(page.getByTestId('btn-transpose-dialog')).toBeFocused();
   const tabStops = await page
     .locator('[data-testid="tool-strip-row"] [data-strip-control][tabindex="0"]')
     .count();
@@ -220,4 +221,82 @@ test('the palette says why a command is unavailable (gate reasons reach the live
     .first();
   await expect(row).toHaveAttribute('aria-disabled', 'true');
   await expect(row.getByTestId('palette-row-reason')).toHaveText('Select something first');
+});
+
+test.describe('Notes group', () => {
+  test('Pitch up, Flip direction and Up an octave reach the engine for the selected note', async ({
+    page,
+  }) => {
+    await open(page, true);
+    for (const [testId, method] of [
+      ['btn-pitch-up', 'pitchUp'],
+      ['btn-flip-stem', 'flipStem'],
+      ['btn-transpose-12', 'transpose'],
+    ] as const) {
+      const count = await spyOnEngine(page, method);
+      await page.getByTestId(testId).click();
+      await expect.poll(count, { message: testId }).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  test('with nothing selected the pitch buttons do nothing and say what to select', async ({
+    page,
+  }) => {
+    await open(page, false);
+    const count = await spyOnEngine(page, 'pitchUp');
+    await expect(page.getByTestId('btn-pitch-up')).toHaveAttribute('aria-disabled', 'true');
+    await page.getByTestId('btn-pitch-up').click({ force: true });
+    await page.waitForTimeout(300);
+    expect(await count()).toBe(0);
+    await expect(page.getByTestId('announcer')).toContainText('Pitch up: Select something first');
+  });
+
+  test('a Lines item adds that line: 8vb is ottava type 1', async ({ page }) => {
+    await open(page, true);
+    await page.evaluate(() => {
+      const score = (
+        window as unknown as { __webmscore: Record<string, (...a: unknown[]) => unknown> }
+      ).__webmscore;
+      const calls: unknown[][] = [];
+      (window as unknown as Record<string, unknown>).__ottavaCalls = calls;
+      const original = score.addOttava.bind(score);
+      score.addOttava = (...args: unknown[]) => {
+        calls.push(args);
+        return original(...args);
+      };
+    });
+    await page.getByTestId('dropdown-lines').click();
+    await page.getByTestId('btn-ottava-1').click();
+    await expect
+      .poll(() =>
+        page.evaluate(() => (window as unknown as { __ottavaCalls: unknown[][] }).__ottavaCalls),
+      )
+      .toEqual([[1]]);
+  });
+
+  for (const [menu, content, expected, headings] of [
+    ['dropdown-fretboards', 'fretboards-menu', 9, []],
+    ['dropdown-beams', null, 6, []],
+    ['dropdown-grace-notes', null, 7, []],
+    ['dropdown-lines', 'lines-menu', 12, ['Ottava', 'Trill lines', 'Glissando']],
+    ['dropdown-chord', 'chord-menu', 13, ['Arpeggio', 'Tremolo']],
+  ] as const) {
+    test(`${menu} lists every variant the ribbon had`, async ({ page }) => {
+      // These menus act on the selection, so they are only open to a selected note.
+      await open(page, true);
+      await page.getByTestId(menu).click();
+      // Inside the opened dropdown only: the menu bar's own items are menuitems too.
+      const items = page.getByRole('menu').getByRole('menuitem');
+      await expect(items).toHaveCount(expected);
+      if (content) await expect(page.getByTestId(content)).toBeVisible();
+      for (const heading of headings)
+        await expect(page.getByRole('menu').getByText(heading, { exact: true })).toBeVisible();
+    });
+  }
+
+  test('the transpose button opens the transpose dialog', async ({ page }) => {
+    await open(page, true);
+    await page.getByTestId('btn-transpose-dialog').click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+  });
 });

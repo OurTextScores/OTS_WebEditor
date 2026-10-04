@@ -1,20 +1,43 @@
 import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  ChevronsDown,
+  ChevronsLeft,
+  ChevronsRight,
+  ChevronsUp,
   Download,
   FilePlus,
+  FlipVertical2,
   FolderOpen,
   GitCompare,
+  Guitar,
   LayoutPanelLeft,
+  Layers,
   Link2,
   ListFilter,
   Music2,
   PanelsTopLeft,
   CircleQuestionMark,
+  Rows3,
+  Sparkles,
+  Waypoints,
   SquareDashedMousePointer,
   Trash2,
   type LucideIcon,
 } from 'lucide-react';
 import type { CommandId } from '../../../../lib/commands/types';
-import { selectionFilterOptions } from '../../../toolbar/constants';
+import {
+  arpeggioOptions,
+  beamOptions,
+  fretDiagramOptions,
+  glissandoOptions,
+  graceNoteOptions,
+  ottavaOptions,
+  selectionFilterOptions,
+  tremoloOptions,
+  trillOptions,
+} from '../../../toolbar/constants';
 
 /**
  * What the tool strip shows, as data (SHELL_REDESIGN_DESIGN §23). A control names the command it
@@ -28,6 +51,10 @@ export interface StripItem {
   /** Defaults to the menu's command. */
   readonly commandId?: CommandId;
   readonly arg?: unknown;
+  /** A heading shown above this item when it starts a new section of the menu. */
+  readonly section?: string;
+  /** A SMuFL notation glyph shown beside the label. */
+  readonly glyph?: string;
 }
 
 interface StripBase {
@@ -68,6 +95,22 @@ const exportItem = (suffix: string, label: string, testId: string): StripItem =>
   label,
   commandId: `file.export.${suffix}`,
 });
+
+/** Items for a family built from an option table; the test id pattern is the ribbon's. */
+const familyItems = <Option extends { label: string; value: number; symbol?: string }>(
+  options: readonly Option[],
+  commandId: CommandId,
+  testId: (option: Option) => string,
+  section?: string,
+): StripItem[] =>
+  options.map((option, index) => ({
+    testId: testId(option),
+    label: option.label,
+    commandId,
+    arg: option.value,
+    ...(section && index === 0 ? { section } : {}),
+    ...(option.symbol ? { glyph: option.symbol } : {}),
+  }));
 
 /**
  * In the order the ribbon had them. Only controls with no button elsewhere on screen are listed: the
@@ -210,6 +253,166 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
         label: 'Editor help',
         icon: CircleQuestionMark,
         commandId: 'help.open',
+      },
+    ],
+  },
+  {
+    id: 'notes-entry',
+    label: 'Note entry',
+    controls: [
+      {
+        kind: 'menu',
+        testId: 'dropdown-fretboards',
+        contentTestId: 'fretboards-menu',
+        label: 'Fretboard diagrams',
+        icon: Guitar,
+        items: fretDiagramOptions.map((option) => ({
+          testId: `btn-fretboard-${option.label.toLowerCase()}`,
+          label: option.label,
+          commandId: 'add.mark.fretboard',
+          arg: option.pattern,
+        })),
+      },
+      {
+        kind: 'menu',
+        testId: 'dropdown-beams',
+        label: 'Beams',
+        icon: Rows3,
+        items: familyItems(beamOptions, 'format.beam', (option) => `btn-beam-${option.value}`),
+      },
+      {
+        kind: 'menu',
+        testId: 'dropdown-grace-notes',
+        label: 'Grace notes',
+        icon: Sparkles,
+        items: graceNoteOptions.map((option) => ({
+          testId: option.testId,
+          label: option.label,
+          commandId: 'add.grace',
+          arg: option.value,
+        })),
+      },
+    ],
+  },
+  {
+    id: 'notes-connect',
+    label: 'Connect and decorate',
+    controls: [
+      {
+        kind: 'command',
+        testId: 'btn-flip-stem',
+        label: 'Flip direction',
+        icon: FlipVertical2,
+        commandId: 'format.flip',
+      },
+      {
+        kind: 'menu',
+        testId: 'dropdown-lines',
+        contentTestId: 'lines-menu',
+        label: 'Lines',
+        icon: Waypoints,
+        items: [
+          ...familyItems(
+            ottavaOptions,
+            'add.line.ottava',
+            (option) => `btn-ottava-${option.value}`,
+            'Ottava',
+          ),
+          ...familyItems(
+            trillOptions,
+            'add.line.trill',
+            (option) => `btn-trill-${option.value}`,
+            'Trill lines',
+          ),
+          ...familyItems(
+            glissandoOptions,
+            'add.line.glissando',
+            (option) => `btn-glissando-${option.value}`,
+            'Glissando',
+          ),
+        ],
+      },
+      {
+        kind: 'menu',
+        testId: 'dropdown-chord',
+        contentTestId: 'chord-menu',
+        label: 'Arpeggios and tremolos',
+        icon: Layers,
+        items: [
+          ...familyItems(
+            arpeggioOptions,
+            'add.mark.arpeggio',
+            (option) => `btn-arpeggio-${option.value}`,
+            'Arpeggio',
+          ),
+          ...familyItems(
+            tremoloOptions,
+            'add.mark.tremolo',
+            (option) => `btn-tremolo-${option.value}`,
+            'Tremolo',
+          ),
+        ],
+      },
+    ],
+  },
+  {
+    id: 'notes-rhythm',
+    label: 'Duration',
+    controls: [
+      {
+        kind: 'command',
+        testId: 'btn-duration-shorter',
+        label: 'Shorter',
+        icon: ChevronsLeft,
+        commandId: 'edit.duration.shorter',
+      },
+      {
+        kind: 'command',
+        testId: 'btn-duration-longer',
+        label: 'Longer',
+        icon: ChevronsRight,
+        commandId: 'edit.duration.longer',
+      },
+    ],
+  },
+  {
+    id: 'notes-pitch',
+    label: 'Pitch',
+    controls: [
+      {
+        kind: 'command',
+        testId: 'btn-pitch-up',
+        label: 'Pitch up',
+        icon: ArrowUp,
+        commandId: 'edit.pitch.up',
+      },
+      {
+        kind: 'command',
+        testId: 'btn-pitch-down',
+        label: 'Pitch down',
+        icon: ArrowDown,
+        commandId: 'edit.pitch.down',
+      },
+      {
+        kind: 'command',
+        testId: 'btn-transpose-12',
+        label: 'Up an octave',
+        icon: ChevronsUp,
+        commandId: 'edit.pitch.octaveUp',
+      },
+      {
+        kind: 'command',
+        testId: 'btn-transpose--12',
+        label: 'Down an octave',
+        icon: ChevronsDown,
+        commandId: 'edit.pitch.octaveDown',
+      },
+      {
+        kind: 'command',
+        testId: 'btn-transpose-dialog',
+        label: 'Transpose…',
+        icon: ArrowUpDown,
+        commandId: 'tools.transpose',
       },
     ],
   },

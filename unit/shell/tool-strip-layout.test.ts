@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { resolveLegacyTestId } from '../../components/shell/ribbonMigration';
+import { RIBBON_MIGRATION, resolveLegacyTestId } from '../../components/shell/ribbonMigration';
 import { COMMAND_FORMS } from '../../components/shell/commandForms';
 import {
   flattenControls,
@@ -71,6 +71,20 @@ describe('the tool strip layout', () => {
     }
   });
 
+  it('gives every ribbon variant id the argument the ribbon gave it (btn-ottava-2 is variant 2)', () => {
+    const wrong: string[] = [];
+    for (const entry of entries) {
+      if (NEW_IDS.has(entry.id) || entry.arg === undefined) continue;
+      const legacy = resolveLegacyTestId(entry.id);
+      if (!legacy?.entry.argFromSuffix) continue;
+      if (legacy.arg !== entry.arg)
+        wrong.push(
+          `${entry.id}: ribbon says ${String(legacy.arg)}, strip passes ${String(entry.arg)}`,
+        );
+    }
+    expect(wrong).toEqual([]);
+  });
+
   it('does not reuse an id another component already renders (a test id must be on screen once)', () => {
     const own = join(REPO, 'components/shell/toolbar/strip');
     const sources: string[] = [];
@@ -103,5 +117,63 @@ describe('the tool strip layout', () => {
         expect(COMMAND_FORMS[entry.commandId], `${entry.id} needs a form`).toBeUndefined();
       }
     }
+  });
+});
+
+/**
+ * The requirement (SHELL_REDESIGN_DESIGN §23): every control the ribbon had is a button somewhere on
+ * screen as well as in the menus. This reads the ribbon manifest, so a control cannot be forgotten.
+ * Sections are added here as their groups ship.
+ */
+describe('ribbon parity for the shipped groups', () => {
+  const SHIPPED_SECTIONS = ['File', 'Edit', 'View', 'Help', 'Notes', 'Duration', 'Pitch'];
+  /** Dropdown triggers whose items are direct buttons elsewhere (the quick row's voices, ties, durations). */
+  const GROUP_HEADERS = new Set(['dropdown-voice', 'dropdown-slur-tie', 'dropdown-rhythm']);
+
+  const renderedElsewhere = (() => {
+    const own = join(REPO, 'components/shell/toolbar/strip');
+    const sources: string[] = [];
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        const path = join(dir, name);
+        if (path.startsWith(own) || name === 'node_modules') continue;
+        if (statSync(path).isDirectory()) walk(path);
+        else if (/\.tsx?$/.test(name) && !/ribbonMigration|menus|menuTree/.test(name)) {
+          sources.push(readFileSync(path, 'utf8'));
+        }
+      }
+    };
+    walk(join(REPO, 'components'));
+    return sources.join('\n');
+  })();
+
+  const onScreen = (id: string, prefix: boolean | undefined) => {
+    const inStrip = entries.some((entry) => (prefix ? entry.id.startsWith(id) : entry.id === id));
+    if (inStrip) return true;
+    const quote = ["'", '"', '`'];
+    return quote.some((q) => renderedElsewhere.includes(prefix ? q + id : q + id + q));
+  };
+
+  it('has a button for every command the ribbon\u2019s shipped sections had', () => {
+    const missing = RIBBON_MIGRATION.filter((entry) => {
+      const section = entry.legacyLocation.split('\u203A')[1]?.trim() ?? '';
+      if (!entry.legacyLocation.startsWith('Ribbon') || !SHIPPED_SECTIONS.includes(section))
+        return false;
+      if ((entry.kind ?? 'command') !== 'command') return false;
+      return !onScreen(entry.legacyTestId, entry.prefix);
+    }).map((entry) => entry.legacyTestId);
+    expect(missing).toEqual([]);
+  });
+
+  it('has a menu button for every dropdown the ribbon had in those sections', () => {
+    const missing = RIBBON_MIGRATION.filter((entry) => {
+      const section = entry.legacyLocation.split('\u203A')[1]?.trim() ?? '';
+      if (!entry.legacyLocation.startsWith('Ribbon') || !SHIPPED_SECTIONS.includes(section))
+        return false;
+      if (entry.kind !== 'container' || !entry.legacyTestId.startsWith('dropdown-')) return false;
+      if (GROUP_HEADERS.has(entry.legacyTestId)) return false;
+      return !onScreen(entry.legacyTestId, entry.prefix);
+    }).map((entry) => entry.legacyTestId);
+    expect(missing).toEqual([]);
   });
 });

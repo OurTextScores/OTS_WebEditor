@@ -67,6 +67,31 @@ const GROUPS: StripGroup[] = [
       },
       {
         kind: 'menu',
+        testId: 'dropdown-lines',
+        contentTestId: 'lines-menu',
+        label: 'Lines',
+        icon: Music2,
+        items: [
+          {
+            testId: 'btn-ottava-0',
+            label: '8va',
+            commandId: 'add.line.ottava',
+            arg: 0,
+            section: 'Ottava',
+            glyph: '\uE511',
+          },
+          { testId: 'btn-ottava-1', label: '8vb', commandId: 'add.line.ottava', arg: 1 },
+          {
+            testId: 'btn-trill-0',
+            label: 'Trill line',
+            commandId: 'add.line.trill',
+            arg: 0,
+            section: 'Trill lines',
+          },
+        ],
+      },
+      {
+        kind: 'menu',
         testId: 'dropdown-filter',
         contentTestId: 'filter-menu',
         label: 'Filter',
@@ -94,6 +119,8 @@ function setup(
   over: { filterMask?: number; palettes?: boolean; quick?: boolean } = {},
 ) {
   const run = {
+    ottava: vi.fn(),
+    trill: vi.fn(),
     del: vi.fn(),
     explode: vi.fn(),
     palettes: vi.fn(),
@@ -139,6 +166,22 @@ function setup(
         mask ^= bit;
         run.filter(bit);
       },
+    }),
+    defineFamily<number>({
+      id: 'add.line.ottava',
+      label: 'Ottava',
+      variants: [
+        { arg: 0, label: '8va' },
+        { arg: 1, label: '8vb' },
+      ],
+      run: (_c, arg) => run.ottava(arg),
+    }),
+    defineFamily<number>({
+      id: 'add.line.trill',
+      label: 'Trill',
+      variants: [{ arg: 0, label: 'Trill line' }],
+      enabled: needsRange,
+      run: (_c, arg) => run.trill(arg),
     }),
     defineCommand({ id: 'help.open', label: 'Help', run: run.help }),
   ]);
@@ -330,5 +373,35 @@ describe('ToolStrip', () => {
     expect(screen.queryByRole('group', { name: 'Edit' })).toBeNull();
     await user.click(screen.getByTestId('btn-tool-strip-toggle'));
     expect(screen.getByTestId('btn-delete')).toBeInTheDocument();
+  });
+
+  describe('menus with sections and glyphs', () => {
+    it('shows a heading above each section, and a glyph beside the items that have one', async () => {
+      const { user } = setup({ selection: 'single' });
+      await user.click(screen.getByTestId('dropdown-lines'));
+      const menu = await screen.findByTestId('lines-menu');
+      expect(within(menu).getByText('Ottava')).toBeInTheDocument();
+      expect(within(menu).getByText('Trill lines')).toBeInTheDocument();
+      // Headings are not items: only the three actions can be chosen.
+      expect(within(menu).getAllByRole('menuitem')).toHaveLength(3);
+      expect(within(screen.getByTestId('btn-ottava-0')).getByText('\uE511')).toHaveAttribute(
+        'aria-hidden',
+        'true',
+      );
+      expect(within(screen.getByTestId('btn-ottava-1')).queryByText('\uE511')).toBeNull();
+      expect(menu.querySelectorAll('[role="separator"]')).toHaveLength(1);
+    });
+
+    it('runs the item\u2019s own command with its own argument, and disables an item whose command cannot run', async () => {
+      const { run, user } = setup({ selection: 'single' });
+      await user.click(screen.getByTestId('dropdown-lines'));
+      await user.click(await screen.findByTestId('btn-ottava-1'));
+      expect(run.ottava).toHaveBeenCalledWith(1);
+      await user.click(screen.getByTestId('dropdown-lines'));
+      const trill = await screen.findByTestId('btn-trill-0');
+      expect(trill).toHaveAttribute('data-disabled');
+      await user.click(trill);
+      expect(run.trill).not.toHaveBeenCalled();
+    });
   });
 });

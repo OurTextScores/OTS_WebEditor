@@ -22,6 +22,15 @@ const POSITION_KEY = 'ots.shell.palettesPosition';
 const PALETTE_WIDTH = 320; // the overlay is `w-80`
 const EDGE = 24;
 
+/** Keeps the whole title bar (and with it the close button) inside the window, whatever the window size was when it was placed. */
+const HANDLE_VISIBLE = 40;
+function clampToWindow(position: { x: number; y: number }) {
+  return {
+    x: Math.min(Math.max(0, position.x), Math.max(0, window.innerWidth - PALETTE_WIDTH)),
+    y: Math.min(Math.max(0, position.y), Math.max(0, window.innerHeight - HANDLE_VISIBLE)),
+  };
+}
+
 /**
  * Opens at the right edge, just under the toolbar: the left of the window is where the score starts,
  * so a palette opened there covers the first bar (and the toolbar's height varies as it wraps).
@@ -39,7 +48,7 @@ function readPosition() {
   try {
     const parsed = JSON.parse(window.localStorage.getItem(POSITION_KEY) ?? 'null');
     if (Number.isFinite(parsed?.x) && Number.isFinite(parsed?.y)) {
-      return { x: Math.max(0, parsed.x), y: Math.max(0, parsed.y) };
+      return clampToWindow({ x: parsed.x, y: parsed.y });
     }
   } catch {
     // Fall through to the default.
@@ -78,10 +87,12 @@ export function FloatingPalettes({
         onPointerDown={startMove}
         onPointerMove={(event) => {
           if (!dragRef.current) return;
-          setPosition({
-            x: Math.max(0, event.clientX - dragRef.current.dx),
-            y: Math.max(0, event.clientY - dragRef.current.dy),
-          });
+          setPosition(
+            clampToWindow({
+              x: event.clientX - dragRef.current.dx,
+              y: event.clientY - dragRef.current.dy,
+            }),
+          );
         }}
         onPointerUp={(event) => {
           if (dragRef.current) {

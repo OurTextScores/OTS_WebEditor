@@ -8,9 +8,12 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../../ui/DropdownMenu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/Tooltip';
+import styles from '../WriteToolbar.module.css';
 import {
   announceUnavailable,
   ControlTip,
@@ -75,34 +78,55 @@ export function MenuButton({
         </TooltipContent>
       </Tooltip>
       <DropdownMenuContent data-testid={control.contentTestId}>
-        {control.items.map((item) => {
+        {control.items.map((item, position) => {
           const commandId = commandOf(item);
           const run = tools.run(commandId, item.arg);
+          const label = (
+            <>
+              {item.glyph ? (
+                <span className={styles.glyph} aria-hidden="true">
+                  {item.glyph}
+                </span>
+              ) : null}
+              {item.label}
+            </>
+          );
+          const heading = item.section ? (
+            <>
+              {position > 0 && <DropdownMenuSeparator />}
+              <DropdownMenuLabel>{item.section}</DropdownMenuLabel>
+            </>
+          ) : null;
           if (control.checkable) {
             return (
-              <DropdownMenuCheckboxItem
-                key={item.testId}
-                data-testid={item.testId}
-                checked={tools.checkedFor(commandId, item.arg)}
-                disabled={!itemEnabled(item)}
-                onSelect={(event) => {
-                  event.preventDefault();
-                  run();
-                }}
-              >
-                {item.label}
-              </DropdownMenuCheckboxItem>
+              <React.Fragment key={item.testId}>
+                {heading}
+                <DropdownMenuCheckboxItem
+                  data-testid={item.testId}
+                  checked={tools.checkedFor(commandId, item.arg)}
+                  disabled={!itemEnabled(item)}
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    run();
+                  }}
+                >
+                  {label}
+                </DropdownMenuCheckboxItem>
+              </React.Fragment>
             );
           }
           return (
-            <DropdownMenuItem
-              key={item.testId}
-              data-testid={item.testId}
-              disabled={!itemEnabled(item)}
-              onSelect={run}
-            >
-              {item.label}
-            </DropdownMenuItem>
+            <React.Fragment key={item.testId}>
+              {heading}
+              <DropdownMenuItem
+                data-testid={item.testId}
+                className={item.glyph ? 'gap-3' : undefined}
+                disabled={!itemEnabled(item)}
+                onSelect={run}
+              >
+                {label}
+              </DropdownMenuItem>
+            </React.Fragment>
           );
         })}
       </DropdownMenuContent>

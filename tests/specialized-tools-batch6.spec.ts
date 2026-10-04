@@ -181,7 +181,8 @@ test('opens, searches, moves, and click-applies the floating palettes', async ({
   if (!handle) throw new Error('Floating palette handle is unavailable');
   await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
   await page.mouse.down();
-  await page.mouse.move(handle.x + handle.width / 2 + 240, handle.y + handle.height / 2 + 100, {
+  // The palette opens at the right edge and cannot leave the window, so it is moved left.
+  await page.mouse.move(handle.x + handle.width / 2 - 240, handle.y + handle.height / 2 + 100, {
     steps: 5,
   });
   await page.mouse.up();

@@ -45,20 +45,44 @@ describe('FloatingPalettes', () => {
     const handle = screen.getByTestId('floating-palettes-handle');
     handle.setPointerCapture = vi.fn();
     handle.releasePointerCapture = vi.fn();
-    fireEvent.pointerDown(handle, { clientX: 50, clientY: 130, pointerId: 1 });
-    fireEvent.pointerMove(handle, { clientX: 250, clientY: 330, pointerId: 1 });
-    fireEvent.pointerUp(handle, { pointerId: 1 });
-    // Moved by (+200, +200) from where it opened: the right edge, 110 down.
+    // Opened at the right edge, so it is moved left by 200 and down by 200.
     const openedAt = window.innerWidth - 320 - 24;
+    fireEvent.pointerDown(handle, { clientX: 700, clientY: 130, pointerId: 1 });
+    fireEvent.pointerMove(handle, { clientX: 500, clientY: 330, pointerId: 1 });
+    fireEvent.pointerUp(handle, { pointerId: 1 });
     expect(JSON.parse(window.localStorage.getItem('ots.shell.palettesPosition')!)).toEqual({
-      x: openedAt + 200,
+      x: openedAt - 200,
       y: 310,
     });
     view.unmount();
     render(<FloatingPalettes onApply={() => {}} onClose={() => {}} />);
     expect(screen.getByTestId('floating-palettes')).toHaveStyle({
-      left: `${openedAt + 200}px`,
+      left: `${openedAt - 200}px`,
       top: '310px',
+    });
+  });
+
+  it('cannot be dragged, or restored, off the window: the title bar and its close button stay reachable', () => {
+    const view = render(<FloatingPalettes onApply={() => {}} onClose={() => {}} />);
+    const handle = screen.getByTestId('floating-palettes-handle');
+    handle.setPointerCapture = vi.fn();
+    handle.releasePointerCapture = vi.fn();
+    fireEvent.pointerDown(handle, { clientX: 700, clientY: 130, pointerId: 1 });
+    fireEvent.pointerMove(handle, { clientX: 5000, clientY: 5000, pointerId: 1 });
+    expect(screen.getByTestId('floating-palettes')).toHaveStyle({
+      left: `${window.innerWidth - 320}px`,
+      top: `${window.innerHeight - 40}px`,
+    });
+    fireEvent.pointerMove(handle, { clientX: -5000, clientY: -5000, pointerId: 1 });
+    expect(screen.getByTestId('floating-palettes')).toHaveStyle({ left: '0px', top: '0px' });
+    fireEvent.pointerUp(handle, { pointerId: 1 });
+    view.unmount();
+    // A position saved in a bigger window is pulled back into this one.
+    window.localStorage.setItem('ots.shell.palettesPosition', JSON.stringify({ x: 9000, y: 9000 }));
+    render(<FloatingPalettes onApply={() => {}} onClose={() => {}} />);
+    expect(screen.getByTestId('floating-palettes')).toHaveStyle({
+      left: `${window.innerWidth - 320}px`,
+      top: `${window.innerHeight - 40}px`,
     });
   });
 
