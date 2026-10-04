@@ -110,3 +110,67 @@ export function resetLastUsedForTests(): void {
   lastUsedStored = null;
   lastUsedListeners.forEach((listener) => listener());
 }
+
+/**
+ * The strip sections the user hid (View ▸ Toolbar), as an external store with the same fallbacks as the others.
+ * Everything is shown until a section is hidden.
+ */
+const HIDDEN_KEY = 'ots.toolstrip.hiddenSections';
+const NONE_HIDDEN: readonly string[] = [];
+
+let hiddenSession: readonly string[] | null = null;
+let hiddenStored: { raw: string | null; value: readonly string[] } | null = null;
+
+function readHidden(): readonly string[] {
+  let raw: string | null = null;
+  try {
+    raw = window.localStorage.getItem(HIDDEN_KEY);
+  } catch {
+    return NONE_HIDDEN;
+  }
+  if (hiddenStored && hiddenStored.raw === raw) return hiddenStored.value;
+  let value: readonly string[] = NONE_HIDDEN;
+  try {
+    const parsed: unknown = JSON.parse(raw ?? '[]');
+    if (Array.isArray(parsed)) value = parsed.filter((id): id is string => typeof id === 'string');
+  } catch {
+    // Corrupt: show everything.
+  }
+  hiddenStored = { raw, value };
+  return value;
+}
+
+export const getHiddenSections = (): readonly string[] => hiddenSession ?? readHidden();
+export const getHiddenSectionsOnServer = (): readonly string[] => NONE_HIDDEN;
+
+export function subscribeHiddenSections(listener: () => void): () => void {
+  hiddenListeners.add(listener);
+  window.addEventListener('storage', listener);
+  return () => {
+    hiddenListeners.delete(listener);
+    window.removeEventListener('storage', listener);
+  };
+}
+const hiddenListeners = new Set<() => void>();
+
+export function writeHiddenSections(ids: readonly string[]): void {
+  hiddenSession = ids.length ? ids : NONE_HIDDEN;
+  try {
+    window.localStorage.setItem(HIDDEN_KEY, JSON.stringify(ids));
+  } catch {
+    // Not remembered across sessions; the choice holds for this one.
+  }
+  hiddenListeners.forEach((listener) => listener());
+}
+
+/** Hides the section if it is shown and shows it if it is hidden. */
+export function toggleSectionHidden(id: string): void {
+  const hidden = getHiddenSections();
+  writeHiddenSections(hidden.includes(id) ? hidden.filter((h) => h !== id) : [...hidden, id]);
+}
+
+export function resetHiddenSectionsForTests(): void {
+  hiddenSession = null;
+  hiddenStored = null;
+  hiddenListeners.forEach((listener) => listener());
+}

@@ -692,3 +692,55 @@ test.describe('Score group', () => {
     await expect(page.getByTestId('instruments-panel')).toBeVisible();
   });
 });
+
+test.describe('View ▸ Toolbar', () => {
+  const NOTES_GROUPS = ['notes-entry', 'notes-connect', 'notes-rhythm', 'notes-pitch'];
+  async function openToolbarMenu(page: Page) {
+    await page.getByTestId('menu-view').click();
+    await page.getByTestId('menu-sub-toolbar').click();
+  }
+
+  test('hides a section, keeps the quick row, remembers it across a reload, and shows all again', async ({
+    page,
+  }) => {
+    await open(page, false);
+    for (const group of NOTES_GROUPS) {
+      await expect(page.getByTestId(`strip-group-${group}`)).toBeVisible();
+    }
+    await openToolbarMenu(page);
+    await expect(page.getByTestId('menu-item-view.toolbar.showAll')).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    const notes = page.getByTestId('menu-item-view.toolbar.section-"notes"');
+    await expect(notes).toHaveAttribute('aria-checked', 'true');
+    await notes.click();
+    await expect(notes).toHaveAttribute('aria-checked', 'false');
+    for (const group of NOTES_GROUPS) {
+      await expect(page.getByTestId(`strip-group-${group}`)).toHaveCount(0);
+    }
+    await expect(page.getByTestId('strip-group-marks-dynamics')).toBeVisible();
+    await expect(page.getByTestId('btn-note-input')).toBeVisible();
+
+    await page.reload();
+    await page.waitForSelector('svg .Note', { timeout: 60_000 });
+    await expect(page.getByTestId('strip-group-notes-entry')).toHaveCount(0);
+    await expect(page.getByTestId('strip-group-marks-dynamics')).toBeVisible();
+
+    await openToolbarMenu(page);
+    await page.getByTestId('menu-item-view.toolbar.showAll').click();
+    await expect(page.getByTestId('strip-group-notes-entry')).toBeVisible();
+  });
+
+  test('arrow keys skip a hidden section', async ({ page }) => {
+    await open(page, false);
+    await openToolbarMenu(page);
+    for (const section of ['notes', 'marks', 'text', 'layout', 'score']) {
+      await page.getByTestId(`menu-item-view.toolbar.section-"${section}"`).click();
+    }
+    await page.keyboard.press('Escape');
+    await page.getByTestId('btn-new-score').focus();
+    await page.keyboard.press('End');
+    await expect(page.getByTestId('link-help')).toBeFocused();
+  });
+});

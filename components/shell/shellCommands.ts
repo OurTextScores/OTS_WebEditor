@@ -1,5 +1,11 @@
 import { defaultCommandRegistry } from '../../lib/commands/registry';
-import { defineCommand, type AnyCommand } from '../../lib/commands/types';
+import { defineCommand, defineFamily, type AnyCommand } from '../../lib/commands/types';
+import {
+  getHiddenSections,
+  toggleSectionHidden,
+  writeHiddenSections,
+} from './toolbar/strip/stripPersistence';
+import { STRIP_SECTIONS } from './toolbar/strip/stripSections';
 import { closeTopEscapeLayer, hasEscapeLayer } from './keyboard/escapeLayers';
 import {
   closePalette,
@@ -44,6 +50,20 @@ export function buildShellOwnCommands(): AnyCommand[] {
         if (closeTopEscapeLayer()) return;
         await defaultCommandRegistry.run('edit.deselect');
       },
+    }),
+    defineFamily<string>({
+      id: 'view.toolbar.section',
+      label: 'Toolbar Section',
+      variants: STRIP_SECTIONS.map((section) => ({ arg: section.id, label: section.label })),
+      checked: (_ctx, id) => !getHiddenSections().includes(id),
+      run: (_ctx, id) => toggleSectionHidden(id),
+    }),
+    defineCommand({
+      id: 'view.toolbar.showAll',
+      label: 'Show All Toolbar Sections',
+      keywords: ['toolbar', 'reset', 'tools', 'ribbon'],
+      enabled: () => getHiddenSections().length > 0,
+      run: () => writeHiddenSections([]),
     }),
     defineCommand({
       id: 'help.shortcuts',

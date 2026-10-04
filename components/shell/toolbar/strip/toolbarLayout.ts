@@ -362,6 +362,7 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
             'Glissando',
           ),
         ],
+        footer: paletteFooter('btn-open-ottava-palette', 'Ottavas'),
       },
       {
         kind: 'menu',
@@ -383,6 +384,7 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
             'Tremolo',
           ),
         ],
+        footer: paletteFooter('btn-open-tremolo-palette', 'Tremolos'),
       },
     ],
   },

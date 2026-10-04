@@ -8,7 +8,10 @@ import { getAnnouncement } from '../../components/shell/announcer/announcerStore
 import { getShellUiState, resetShellUiForTests } from '../../components/shell/shellStore';
 import { ToolStrip } from '../../components/shell/toolbar/strip/ToolStrip';
 import {
+  resetHiddenSectionsForTests,
   resetLastUsedForTests,
+  toggleSectionHidden,
+  writeHiddenSections,
   resetStripCollapsedForTests,
 } from '../../components/shell/toolbar/strip/stripPersistence';
 import type { StripGroup } from '../../components/shell/toolbar/strip/toolbarLayout';
@@ -28,6 +31,7 @@ beforeEach(() => {
   window.localStorage.clear();
   resetStripCollapsedForTests();
   resetLastUsedForTests();
+  resetHiddenSectionsForTests();
 });
 afterEach(() => {
   cleanup();
@@ -755,5 +759,76 @@ describe('a menu item that opens a form', () => {
     expect(getShellUiState().form).toBe('add.timeSig.custom');
     expect(custom).not.toHaveBeenCalled();
     resetShellUiForTests();
+  });
+});
+
+describe('hidden sections', () => {
+  const SECTIONS: StripGroup[] = [
+    {
+      id: 'file',
+      label: 'File',
+      controls: [
+        { kind: 'command', testId: 'btn-a', label: 'A', icon: Music2, commandId: 'edit.delete' },
+      ],
+    },
+    {
+      id: 'notes-entry',
+      label: 'Notes',
+      controls: [
+        { kind: 'command', testId: 'btn-b', label: 'B', icon: Music2, commandId: 'edit.delete' },
+      ],
+    },
+    {
+      id: 'notes-pitch',
+      label: 'Pitch',
+      controls: [
+        { kind: 'command', testId: 'btn-c', label: 'C', icon: Music2, commandId: 'edit.delete' },
+      ],
+    },
+  ];
+  const registry = () => {
+    const r = new CommandRegistry();
+    r.setContextSource(() => ({ ...DEFAULT_COMMAND_CONTEXT, hasScore: true, isMutable: true }));
+    r.register('global', [defineCommand({ id: 'edit.delete', label: 'Delete', run: () => {} })]);
+    return r;
+  };
+
+  it('hides every group of a section, keeps the quick controls, and shows them again', () => {
+    render(
+      <ToolStrip groups={SECTIONS} registry={registry()}>
+        <button data-testid="quick">q</button>
+      </ToolStrip>,
+    );
+    expect(screen.getByTestId('btn-b')).toBeInTheDocument();
+    act(() => toggleSectionHidden('notes'));
+    expect(screen.queryByTestId('btn-b')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('btn-c')).not.toBeInTheDocument();
+    expect(screen.getByTestId('btn-a')).toBeInTheDocument();
+    expect(screen.getByTestId('quick')).toBeInTheDocument();
+    act(() => toggleSectionHidden('notes'));
+    expect(screen.getByTestId('btn-c')).toBeInTheDocument();
+    act(() => toggleSectionHidden('notes'));
+    expect(screen.queryByTestId('btn-c')).not.toBeInTheDocument();
+    act(() => writeHiddenSections([]));
+    expect(screen.getByTestId('btn-c')).toBeInTheDocument();
+  });
+
+  it('keeps the arrow keys on what is shown', async () => {
+    render(<ToolStrip groups={SECTIONS} registry={registry()} />);
+    act(() => toggleSectionHidden('notes'));
+    act(() => screen.getByTestId('btn-a').focus());
+    await userEvent.setup().keyboard('{End}');
+    expect(screen.getByTestId('btn-a')).toHaveFocus();
+  });
+
+  it('remembers the choice, and survives corrupt or unavailable storage', () => {
+    toggleSectionHidden('marks');
+    expect(JSON.parse(window.localStorage.getItem('ots.toolstrip.hiddenSections')!)).toEqual([
+      'marks',
+    ]);
+    resetHiddenSectionsForTests();
+    window.localStorage.setItem('ots.toolstrip.hiddenSections', '{oops');
+    render(<ToolStrip groups={SECTIONS} registry={registry()} />);
+    expect(screen.getByTestId('btn-b')).toBeInTheDocument();
   });
 });

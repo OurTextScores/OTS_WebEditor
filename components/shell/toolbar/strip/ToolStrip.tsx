@@ -11,11 +11,15 @@ import { ControlButton, type StripControlContext } from './ControlButton';
 import { FormButton } from './FormButton';
 import { MenuButton } from './MenuButton';
 import {
+  getHiddenSections,
+  getHiddenSectionsOnServer,
+  subscribeHiddenSections,
   getStripCollapsed,
   getStripCollapsedOnServer,
   subscribeStripCollapsed,
   writeStripCollapsed,
 } from './stripPersistence';
+import { sectionOfGroup } from './stripSections';
 import { flattenControls, STRIP_GROUPS, type StripGroup } from './toolbarLayout';
 
 /** A group's left padding (1rem) plus its 1px divider: how far the row is shifted left so the first divider on a line is clipped. */
@@ -33,7 +37,7 @@ const ROW_GAP = 8;
  */
 export function ToolStrip({
   children,
-  groups = STRIP_GROUPS,
+  groups: allGroups = STRIP_GROUPS,
   registry = defaultCommandRegistry,
 }: {
   /** The controls that come first and stay when the tools are hidden (the Write quick controls). */
@@ -43,6 +47,15 @@ export function ToolStrip({
 }) {
   const tools = useToolbarCommands(registry);
   const rowRef = useRef<HTMLDivElement>(null);
+  const hidden = useSyncExternalStore(
+    subscribeHiddenSections,
+    getHiddenSections,
+    getHiddenSectionsOnServer,
+  );
+  const groups = useMemo(
+    () => allGroups.filter((group) => !hidden.includes(sectionOfGroup(group.id))),
+    [allGroups, hidden],
+  );
   const keys = useMemo(() => flattenControls(groups).map((control) => control.testId), [groups]);
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const collapsed = useSyncExternalStore(

@@ -155,6 +155,12 @@ export const MENUS: readonly MenuDefinition[] = [
       item('view.panel.scoreSource'),
       item('view.panel.history'),
       item('view.panels.toggle'),
+      submenu(
+        'Toolbar',
+        family('view.toolbar.section', undefined, true),
+        separator,
+        item('view.toolbar.showAll'),
+      ),
       item('view.statusBar'),
       item('view.progressiveLoad'),
       family('view.palette.open'),

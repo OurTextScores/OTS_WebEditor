@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { RIBBON_MIGRATION, resolveLegacyTestId } from '../../components/shell/ribbonMigration';
+import { STRIP_SECTIONS, sectionOfGroup } from '../../components/shell/toolbar/strip/stripSections';
 import { COMMAND_FORMS } from '../../components/shell/commandForms';
 import {
   flattenControls,
@@ -37,6 +38,16 @@ const entries = flattenControls(STRIP_GROUPS).flatMap((control) =>
           arg: undefined as unknown,
           owner: control.testId,
         },
+        ...(control.footer
+          ? [
+              {
+                id: control.footer.testId,
+                commandId: control.footer.commandId,
+                arg: control.footer.arg,
+                owner: control.testId,
+              },
+            ]
+          : []),
         ...control.items.map((item: StripItem) => ({
           id: item.testId,
           commandId: item.commandId ?? control.commandId,
@@ -211,6 +222,11 @@ describe('ribbon parity for the shipped groups', () => {
     expect(missing).toEqual([]);
   });
 
+  it('puts every palette link in a strip menu (not just somewhere in the source)', () => {
+    const ids = new Set(entries.map((entry) => entry.id));
+    expect([...SHIPPED_FOOTERS].filter((id) => !ids.has(id))).toEqual([]);
+  });
+
   it('has a menu button for every dropdown the ribbon had in those sections', () => {
     const missing = RIBBON_MIGRATION.filter((entry) => {
       if (!shipped(entry)) return false;
@@ -265,5 +281,18 @@ describe('menu items that open a form', () => {
     for (const item of flagged) {
       expect(item.commandId && COMMAND_FORMS[item.commandId], item.testId).toBeDefined();
     }
+  });
+});
+
+describe('toolbar sections', () => {
+  it('put every group in a section View ▸ Toolbar can toggle, and every section has a group', () => {
+    const known = new Set(STRIP_SECTIONS.map((section) => section.id));
+    const used = new Set<string>();
+    for (const group of STRIP_GROUPS) {
+      const section = sectionOfGroup(group.id);
+      expect(known.has(section), `${group.id} -> ${section}`).toBe(true);
+      used.add(section);
+    }
+    expect([...known].filter((id) => !used.has(id))).toEqual([]);
   });
 });
