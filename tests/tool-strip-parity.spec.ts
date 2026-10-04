@@ -10,7 +10,6 @@ import { RIBBON_MIGRATION } from '../components/shell/ribbonMigration';
 
 /** Ribbon ids that are not strip controls by design, each with where it lives now. */
 const ELSEWHERE: Record<string, string> = {
-  'dropdown-voice': 'the quick row shows the voice buttons directly',
   'dropdown-rhythm': 'the quick row shows the durations directly',
   'dropdown-slur-tie': 'the quick row shows Tie and Slur directly',
   'dropdown-shortcuts': 'Help ▸ Keyboard Shortcuts opens the shortcuts dialog',

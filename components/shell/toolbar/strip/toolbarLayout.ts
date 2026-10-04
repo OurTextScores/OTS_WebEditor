@@ -87,6 +87,8 @@ export interface StripCommand extends StripBase {
   readonly kind: 'command';
   readonly commandId: CommandId;
   readonly arg?: unknown;
+  /** A SMuFL glyph shown instead of the icon (a bow mark looks like what it adds). */
+  readonly glyph?: string;
 }
 
 /** A button that opens a list of items; each item runs a command. */
@@ -526,7 +528,7 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
         label: 'Articulations',
         icon: Dot,
         split: true,
-        columns: 4,
+        columns: 5,
         items: articulationOptions.map((option, index) => ({
           testId: `btn-artic-${option.symbol}`,
           label: option.label,
@@ -534,6 +536,25 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
           arg: option.symbol,
           glyph: paletteGlyph('articulation', index),
         })),
+      },
+      // Bowing is the string player's most used articulation, so it also has a button of its own.
+      {
+        kind: 'command',
+        testId: 'btn-up-bow',
+        label: 'Up bow',
+        icon: Dot,
+        glyph: '\uE612',
+        commandId: 'add.mark.articulation',
+        arg: 'stringsUpBow',
+      },
+      {
+        kind: 'command',
+        testId: 'btn-down-bow',
+        label: 'Down bow',
+        icon: Dot,
+        glyph: '\uE610',
+        commandId: 'add.mark.articulation',
+        arg: 'stringsDownBow',
       },
       {
         kind: 'menu',

@@ -21,6 +21,9 @@ const NEW_IDS = new Set([
   'dropdown-fermata',
   'dropdown-breath',
   'btn-tempo-open',
+  // Bowing buttons: the ribbon had them only inside the articulations menu.
+  'btn-up-bow',
+  'btn-down-bow',
   // Layout group: the ribbon's bar and signature inputs had a submit button but no opener.
   'btn-measures-open',
   'btn-pickup-open',
@@ -182,7 +185,7 @@ describe('ribbon parity for the shipped groups', () => {
     return entry.legacyLocation.startsWith('Ribbon') && SHIPPED_SECTIONS.includes(section);
   };
   /** Dropdown triggers whose items are direct buttons elsewhere (the quick row's voices, ties, durations). */
-  const GROUP_HEADERS = new Set(['dropdown-voice', 'dropdown-slur-tie', 'dropdown-rhythm']);
+  const GROUP_HEADERS = new Set(['dropdown-slur-tie', 'dropdown-rhythm']);
 
   const renderedElsewhere = (() => {
     const own = join(REPO, 'components/shell/toolbar/strip');

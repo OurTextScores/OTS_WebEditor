@@ -1,6 +1,6 @@
 'use client';
 
-import { Hash, PenLine, Redo2, Undo2 } from 'lucide-react';
+import { ChevronDown, Hash, PenLine, Redo2, Undo2 } from 'lucide-react';
 import React, { useRef, useState } from 'react';
 import { defaultCommandRegistry, type CommandRegistry } from '../../../lib/commands/registry';
 import { Button } from '../../ui/Button';
@@ -279,19 +279,33 @@ export function WriteToolbar({
 
       {divider}
 
-      {[1, 2, 3, 4].map((voice) => (
-        <Button
-          key={voice}
-          data-testid={`btn-voice-${voice}`}
-          variant="outline"
-          size="xs"
-          title={`Move to voice ${voice}`}
-          disabled={!enabled('tools.voice')}
-          onClick={run('tools.voice', voice - 1)}
-        >
-          V{voice}
-        </Button>
-      ))}
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            data-testid="dropdown-voice"
+            variant="outline"
+            size="xs"
+            className="gap-0.5 px-1.5"
+            aria-label="Voice"
+            title="Move to voice"
+            disabled={!enabled('tools.voice')}
+          >
+            <span aria-hidden="true">V</span>
+            <ChevronDown size={11} aria-hidden="true" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent data-testid="voice-menu">
+          {[1, 2, 3, 4].map((voice) => (
+            <DropdownMenuItem
+              key={voice}
+              data-testid={`btn-voice-${voice}`}
+              onSelect={run('tools.voice', voice - 1)}
+            >
+              Voice {voice}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       {divider}
 

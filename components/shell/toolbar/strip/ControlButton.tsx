@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import styles from '../WriteToolbar.module.css';
 import { Button } from '../../../ui/Button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/Tooltip';
 import { announce } from '../../announcer';
@@ -81,7 +82,13 @@ export function ControlButton({
           onFocus={() => setActiveKey(control.testId)}
           onClick={() => (enabled ? run() : announceUnavailable(control.label, reason))}
         >
-          <Icon size={16} aria-hidden="true" />
+          {control.glyph ? (
+            <span className={styles.glyph} aria-hidden="true">
+              {control.glyph}
+            </span>
+          ) : (
+            <Icon size={16} aria-hidden="true" />
+          )}
         </Button>
       </TooltipTrigger>
       <TooltipContent>

@@ -832,3 +832,52 @@ describe('hidden sections', () => {
     expect(screen.getByTestId('btn-b')).toBeInTheDocument();
   });
 });
+
+describe('glyph command buttons', () => {
+  it('shows the glyph instead of an icon, keeps the accessible name, and runs the command with its argument', async () => {
+    const run = vi.fn();
+    const registry = new CommandRegistry();
+    registry.setContextSource(() => ({
+      ...DEFAULT_COMMAND_CONTEXT,
+      hasScore: true,
+      isMutable: true,
+      selection: 'single',
+    }));
+    registry.register('global', [
+      defineFamily<string>({
+        id: 'add.mark.articulation',
+        label: 'Articulation',
+        variants: [{ arg: 'stringsUpBow', label: 'Up bow' }],
+        run: (_c, arg) => run(arg),
+      }),
+    ]);
+    render(
+      <ToolStrip
+        registry={registry}
+        groups={[
+          {
+            id: 'bows',
+            label: 'Bows',
+            controls: [
+              {
+                kind: 'command',
+                testId: 'btn-up-bow',
+                label: 'Up bow',
+                icon: Music2,
+                commandId: 'add.mark.articulation',
+                arg: 'stringsUpBow',
+                glyph: '\uE612',
+              },
+            ],
+          },
+        ]}
+      />,
+    );
+    const button = screen.getByTestId('btn-up-bow');
+    expect(button).toHaveAccessibleName('Up bow');
+    expect(within(button).getByText('\uE612')).toBeInTheDocument();
+    expect(button.querySelector('svg')).toBeNull();
+    await userEvent.setup().click(button);
+    expect(run).toHaveBeenCalledWith('stringsUpBow');
+  });
+});

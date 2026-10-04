@@ -7199,9 +7199,27 @@ bool _addArticulation(uintptr_t score_ptr, const char* articulationSymbolName, i
         return false;
     }
 
+    // updateArticulations only has combining rules for accent, marcato, tenuto and staccato (it does nothing
+    // for any other symbol). Every other articulation (bows, staccatissimo, harmonics, mutes, ...) is a plain
+    // toggle: removed from every chord when all of them have it, otherwise added to the chords that lack it.
+    const bool combines = articulationSymbolId == engraving::SymId::articMarcatoAbove
+                          || articulationSymbolId == engraving::SymId::articAccentAbove
+                          || articulationSymbolId == engraving::SymId::articTenutoAbove
+                          || articulationSymbolId == engraving::SymId::articStaccatoAbove;
+
     score->startCmd();
     for (engraving::Chord* chord : chords) {
-        chord->updateArticulations({ articulationSymbolId }, updateMode);
+        if (combines) {
+            chord->updateArticulations({ articulationSymbolId }, updateMode);
+            continue;
+        }
+        const std::set<engraving::SymId> present = chord->articulationSymbolIds();
+        const bool chordHas = present.find(articulationSymbolId) != present.end();
+        if (chordHas == allHave) {
+            engraving::Articulation* articulation = engraving::Factory::createArticulation(score->dummy()->chord());
+            articulation->setSymId(articulationSymbolId);
+            score->toggleArticulation(chord, articulation);
+        }
     }
     score->endCmd();
     return true;

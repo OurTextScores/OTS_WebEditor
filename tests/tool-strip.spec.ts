@@ -285,8 +285,8 @@ test.describe('Notes group', () => {
     ['dropdown-fretboards', 'fretboards-menu', 9, []],
     ['dropdown-beams', null, 6, []],
     ['dropdown-grace-notes', null, 7, []],
-    ['dropdown-lines', 'lines-menu', 12, ['Ottava', 'Trill lines', 'Glissando']],
-    ['dropdown-chord', 'chord-menu', 13, ['Arpeggio', 'Tremolo']],
+    ['dropdown-lines', 'lines-menu', 13, ['Ottava', 'Trill lines', 'Glissando']],
+    ['dropdown-chord', 'chord-menu', 14, ['Arpeggio', 'Tremolo']],
   ] as const) {
     test(`${menu} lists every variant the ribbon had`, async ({ page }) => {
       // These menus act on the selection, so they are only open to a selected note.
@@ -370,7 +370,7 @@ test.describe('Marks group', () => {
 
   for (const [menu, content, expected] of [
     ['dropdown-pedal', null, 5],
-    ['dropdown-articulations', 'articulations-menu', 4],
+    ['dropdown-articulations', 'articulations-menu', 20],
     ['dropdown-fermata', null, 6],
     ['dropdown-breath', null, 10],
   ] as const) {
@@ -742,5 +742,85 @@ test.describe('View ▸ Toolbar', () => {
     await page.getByTestId('btn-new-score').focus();
     await page.keyboard.press('End');
     await expect(page.getByTestId('link-help')).toBeFocused();
+  });
+});
+
+test.describe('Bowing, articulations and voices', () => {
+  const spy = async (page: Page, method: string) => {
+    await page.evaluate((name) => {
+      const score = (
+        window as unknown as { __webmscore: Record<string, (...a: unknown[]) => unknown> }
+      ).__webmscore;
+      const calls: unknown[][] = [];
+      (window as unknown as Record<string, unknown>).__bowCalls = calls;
+      const original = score[name].bind(score);
+      score[name] = (...args: unknown[]) => {
+        calls.push(args);
+        return original(...args);
+      };
+    }, method);
+    return () => page.evaluate(() => (window as unknown as { __bowCalls: unknown[][] }).__bowCalls);
+  };
+
+  test('up bow and down bow have buttons that add that bowing', async ({ page }) => {
+    await open(page, true);
+    const calls = await spy(page, 'addArticulation');
+    await page.getByTestId('btn-up-bow').click();
+    await expect.poll(calls).toEqual([['stringsUpBow']]);
+    await page.getByTestId('btn-down-bow').click();
+    await expect.poll(calls).toEqual([['stringsUpBow'], ['stringsDownBow']]);
+    const xml = await page.evaluate(async () => {
+      const score = (
+        window as unknown as { __webmscore: { saveMsc: (f: string) => Promise<Uint8Array> } }
+      ).__webmscore;
+      return new TextDecoder().decode(await score.saveMsc('mscx'));
+    });
+    expect(xml).toContain('<subtype>stringsDownBow</subtype>');
+    // Pressing a bow again takes it off, as the other articulations do.
+    await page.getByTestId('btn-up-bow').click();
+    await expect
+      .poll(async () => {
+        const text = await page.evaluate(async () => {
+          const score = (
+            window as unknown as { __webmscore: { saveMsc: (f: string) => Promise<Uint8Array> } }
+          ).__webmscore;
+          return new TextDecoder().decode(await score.saveMsc('mscx'));
+        });
+        return [
+          text.includes('<subtype>stringsUpBow</subtype>'),
+          text.includes('<subtype>stringsDownBow</subtype>'),
+        ];
+      })
+      .toEqual([false, true]);
+  });
+
+  test('the articulations menu offers the full set, every one with a glyph', async ({ page }) => {
+    await open(page, true);
+    await page.getByTestId('dropdown-articulations').click();
+    const menu = page.getByTestId('articulations-menu');
+    await expect(menu.getByRole('menuitem')).toHaveCount(20);
+    for (const symbol of [
+      'articStaccatissimoAbove',
+      'stringsUpBow',
+      'stringsDownBow',
+      'stringsHarmonic',
+    ]) {
+      await expect(menu.getByTestId(`btn-artic-${symbol}`)).toBeVisible();
+    }
+    await menu.getByTestId('btn-artic-articStaccatissimoAbove').click();
+    await expect(page.getByTestId('dropdown-articulations-last')).toHaveAccessibleName(
+      'Articulations: Staccatissimo',
+    );
+  });
+
+  test('the four voice buttons are one dropdown', async ({ page }) => {
+    await open(page, true);
+    await expect(page.getByTestId('btn-voice-1')).toHaveCount(0);
+    await page.getByTestId('dropdown-voice').click();
+    const menu = page.getByTestId('voice-menu');
+    await expect(menu.getByRole('menuitem')).toHaveCount(4);
+    const calls = await spy(page, 'changeSelectedElementsVoice');
+    await menu.getByTestId('btn-voice-2').click();
+    await expect.poll(calls).toEqual([[1]]);
   });
 });

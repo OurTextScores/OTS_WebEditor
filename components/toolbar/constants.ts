@@ -136,6 +136,22 @@ export const articulationOptions = [
   { label: 'Tenuto', symbol: 'articTenutoAbove' },
   { label: 'Marcato', symbol: 'articMarcatoAbove' },
   { label: 'Accent', symbol: 'articAccentAbove' },
+  { label: 'Staccatissimo', symbol: 'articStaccatissimoAbove' },
+  { label: 'Staccatissimo stroke', symbol: 'articStaccatissimoStrokeAbove' },
+  { label: 'Staccatissimo wedge', symbol: 'articStaccatissimoWedgeAbove' },
+  { label: 'Tenuto-staccato (louré)', symbol: 'articTenutoStaccatoAbove' },
+  { label: 'Accent-staccato', symbol: 'articAccentStaccatoAbove' },
+  { label: 'Marcato-staccato', symbol: 'articMarcatoStaccatoAbove' },
+  { label: 'Marcato-tenuto', symbol: 'articMarcatoTenutoAbove' },
+  { label: 'Tenuto-accent', symbol: 'articTenutoAccentAbove' },
+  { label: 'Stress', symbol: 'articStressAbove' },
+  { label: 'Unstress', symbol: 'articUnstressAbove' },
+  { label: 'Up bow', symbol: 'stringsUpBow' },
+  { label: 'Down bow', symbol: 'stringsDownBow' },
+  { label: 'Harmonic', symbol: 'stringsHarmonic' },
+  { label: 'Open', symbol: 'brassMuteOpen' },
+  { label: 'Closed (stopped)', symbol: 'brassMuteClosed' },
+  { label: 'Snap pizzicato', symbol: 'pluckedSnapPizzicatoAbove' },
 ];
 
 export const tupletOptions = [

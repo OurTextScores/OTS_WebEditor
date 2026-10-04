@@ -207,10 +207,26 @@ const dynamicItems: ScorePaletteItem[] = dynamicOptions.map((option) => ({
 
 // --- Articulations ---------------------------------------------------------
 const articulationGlyphs: Record<string, string> = {
-  articStaccatoAbove: '',
-  articTenutoAbove: '',
-  articMarcatoAbove: '',
-  articAccentAbove: '',
+  articStaccatoAbove: '\uE4A2',
+  articTenutoAbove: '\uE4A4',
+  articMarcatoAbove: '\uE4AC',
+  articAccentAbove: '\uE4A0',
+  articStaccatissimoAbove: '\uE4A6',
+  articStaccatissimoStrokeAbove: '\uE4AA',
+  articStaccatissimoWedgeAbove: '\uE4A8',
+  articTenutoStaccatoAbove: '\uE4B2',
+  articAccentStaccatoAbove: '\uE4B0',
+  articMarcatoStaccatoAbove: '\uE4AE',
+  articMarcatoTenutoAbove: '\uE4BC',
+  articTenutoAccentAbove: '\uE4B6',
+  articStressAbove: '\uE4B8',
+  articUnstressAbove: '\uE4BA',
+  stringsUpBow: '\uE612',
+  stringsDownBow: '\uE610',
+  stringsHarmonic: '\uE614',
+  brassMuteOpen: '\uE5E7',
+  brassMuteClosed: '\uE5E5',
+  pluckedSnapPizzicatoAbove: '\uE631',
 };
 const articulationItems: ScorePaletteItem[] = articulationOptions.map((option, index) => ({
   label: option.label,
