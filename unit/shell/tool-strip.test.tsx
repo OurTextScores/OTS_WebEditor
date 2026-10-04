@@ -5,6 +5,7 @@ import { Trash2, Music2 } from 'lucide-react';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getAnnouncement } from '../../components/shell/announcer/announcerStore';
+import { getShellUiState, resetShellUiForTests } from '../../components/shell/shellStore';
 import { ToolStrip } from '../../components/shell/toolbar/strip/ToolStrip';
 import {
   resetLastUsedForTests,
@@ -704,5 +705,55 @@ describe('form buttons', () => {
     expect(screen.queryByTestId('input-tempo-bpm')).not.toBeInTheDocument();
     expect(tempo).not.toHaveBeenCalled();
     expect(getAnnouncement().text).toBe('Tempo: Select something first');
+  });
+});
+
+describe('a menu item that opens a form', () => {
+  const SIGNATURES: StripGroup[] = [
+    {
+      id: 'sig',
+      label: 'Signatures',
+      controls: [
+        {
+          kind: 'menu',
+          testId: 'dropdown-signature',
+          label: 'Time signature',
+          icon: Music2,
+          items: [
+            {
+              testId: 'btn-timesig-custom-open',
+              label: 'Custom\u2026',
+              commandId: 'add.timeSig.custom',
+              opensForm: true,
+            },
+          ],
+        },
+      ],
+    },
+  ];
+
+  it('opens the command\u2019s form dialog instead of running it without arguments', async () => {
+    resetShellUiForTests();
+    const custom = vi.fn();
+    const registry = new CommandRegistry();
+    registry.setContextSource(() => ({
+      ...DEFAULT_COMMAND_CONTEXT,
+      hasScore: true,
+      isMutable: true,
+    }));
+    registry.register('global', [
+      defineCommand<{ numerator: number; denominator: number } | undefined>({
+        id: 'add.timeSig.custom',
+        label: 'Custom Time Signature',
+        run: (_c, args) => custom(args),
+      }),
+    ]);
+    render(<ToolStrip groups={SIGNATURES} registry={registry} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId('dropdown-signature'));
+    await user.click(await screen.findByTestId('btn-timesig-custom-open'));
+    expect(getShellUiState().form).toBe('add.timeSig.custom');
+    expect(custom).not.toHaveBeenCalled();
+    resetShellUiForTests();
   });
 });

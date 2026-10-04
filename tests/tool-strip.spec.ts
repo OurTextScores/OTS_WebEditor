@@ -196,8 +196,8 @@ test('arrow keys walk the strip, and the strip is one tab stop', async ({ page }
   await page.keyboard.press('ArrowRight');
   await expect(page.getByTestId('btn-new-score')).toBeFocused();
   await page.keyboard.press('End');
-  // The last control of the last group (Notes, Marks and Text follow Home).
-  await expect(page.getByTestId('btn-tempo-open')).toBeFocused();
+  // The last control of the last group (Notes, Marks, Text and Layout follow Home).
+  await expect(page.getByTestId('dropdown-bulk-tools')).toBeFocused();
   const tabStops = await page
     .locator('[data-testid="tool-strip-row"] [data-strip-control][tabindex="0"]')
     .count();
@@ -457,5 +457,114 @@ test.describe('Text group', () => {
     await open(page, false);
     await page.getByTestId('btn-tempo-open').click();
     await expect(page.getByTestId('input-tempo-bpm')).toBeVisible();
+  });
+});
+
+test.describe('Layout group', () => {
+  const readXml = (page: Page) =>
+    page.evaluate(async () => {
+      const score = (
+        window as unknown as { __webmscore: { saveMsc: (f: string) => Promise<Uint8Array> } }
+      ).__webmscore;
+      return new TextDecoder().decode(await score.saveMsc('mscx'));
+    });
+  const countOf = async (page: Page, pattern: RegExp) =>
+    ((await readXml(page)).match(pattern) ?? []).length;
+  const timeSigs = async (page: Page) =>
+    [
+      ...(await readXml(page)).matchAll(
+        /<TimeSig>[\s\S]*?<sigN>(\d+)<\/sigN>[\s\S]*?<sigD>(\d+)<\/sigD>[\s\S]*?<\/TimeSig>/g,
+      ),
+    ].map((m) => `${m[1]}/${m[2]}`);
+
+  test('the insert measures popover really adds the bars it was asked for', async ({ page }) => {
+    await open(page, true);
+    const before = await countOf(page, /<Measure[ >]/g);
+    await page.getByTestId('btn-measures-open').click();
+    await expect(page.getByTestId('input-measure-count')).toHaveValue('1');
+    await page.getByTestId('input-measure-count').fill('2');
+    await page.getByTestId('btn-insert-measures').click();
+    await expect(page.getByTestId('btn-measures-open-form')).toBeHidden();
+    await expect.poll(() => countOf(page, /<Measure[ >]/g), { timeout: 20_000 }).toBe(before + 2);
+  });
+
+  test('the pickup popover opens with its defaults', async ({ page }) => {
+    await open(page, true);
+    await page.getByTestId('btn-pickup-open').click();
+    await expect(page.getByTestId('input-pickup-numerator')).toHaveValue('1');
+    await expect(page.getByTestId('select-pickup-denominator')).toHaveValue('4');
+  });
+
+  test('new line and new page put breaks in the score', async ({ page }) => {
+    await open(page, true);
+    const before = await countOf(page, /<subtype>line<\/subtype>/g);
+    await page.getByTestId('btn-new-line').click();
+    await expect
+      .poll(() => countOf(page, /<subtype>line<\/subtype>/g), { timeout: 20_000 })
+      .toBe(before + 1);
+    await page.getByTestId('btn-new-page').click();
+    await expect
+      .poll(() => countOf(page, /<subtype>page<\/subtype>/g), { timeout: 20_000 })
+      .toBeGreaterThan(0);
+  });
+
+  test('with nothing selected the break and ambitus buttons do nothing and say what to select', async ({
+    page,
+  }) => {
+    await open(page, false);
+    const button = page.getByTestId('btn-new-line');
+    await expect(button).toHaveAttribute('aria-disabled', 'true');
+    await button.click({ force: true });
+    await expect(page.getByTestId('announcer')).toContainText('New line');
+    expect(await countOf(page, /<subtype>line<\/subtype>/g)).toBe(0);
+    await expect(page.getByTestId('btn-add-ambitus')).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  test('the time signature menu lists the presets and a custom entry, and cut time changes the score', async ({
+    page,
+  }) => {
+    await open(page, true);
+    await page.getByTestId('dropdown-signature').click();
+    await expect(page.getByRole('menu').getByRole('menuitem')).toHaveCount(3);
+    await page.getByTestId('btn-timesig-2-2').click();
+    await expect.poll(() => timeSigs(page), { timeout: 20_000 }).toContain('2/2');
+  });
+
+  test('Custom opens the time signature form, and 3/8 reaches the score', async ({ page }) => {
+    await open(page, true);
+    await page.getByTestId('dropdown-signature').click();
+    await page.getByTestId('btn-timesig-custom-open').click();
+    await page.getByTestId('input-timesig-numerator').fill('3');
+    await page.getByTestId('input-timesig-denominator').fill('8');
+    await page.getByTestId('btn-timesig-custom').click();
+    await expect.poll(() => timeSigs(page), { timeout: 20_000 }).toContain('3/8');
+  });
+
+  test('the key signature grid has all 15 keys and D major puts two sharps in the score', async ({
+    page,
+  }) => {
+    await open(page, true);
+    await page.getByTestId('dropdown-key').click();
+    await expect(page.getByRole('menu').getByRole('menuitem')).toHaveCount(15);
+    await page.getByTestId('btn-keysig-2').click();
+    await expect
+      .poll(() => countOf(page, /<KeySig>\s*<accidental>2<\/accidental>/g), { timeout: 20_000 })
+      .toBeGreaterThan(0);
+  });
+
+  test('the bulk tools menu is off with nothing selected and lists the four tools for a range', async ({
+    page,
+  }) => {
+    await open(page, false);
+    await expect(page.getByTestId('dropdown-bulk-tools')).toHaveAttribute('aria-disabled', 'true');
+    await page.locator('svg .Note').first().click();
+    await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
+    await page.keyboard.press('Shift+ArrowRight');
+    await expect(page.getByTestId('dropdown-bulk-tools')).not.toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    await page.getByTestId('dropdown-bulk-tools').click();
+    await expect(page.getByRole('menu').getByRole('menuitem')).toHaveCount(4);
   });
 });

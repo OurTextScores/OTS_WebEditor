@@ -20,6 +20,10 @@ const NEW_IDS = new Set([
   'dropdown-fermata',
   'dropdown-breath',
   'btn-tempo-open',
+  // Layout group: the ribbon's bar and signature inputs had a submit button but no opener.
+  'btn-measures-open',
+  'btn-pickup-open',
+  'btn-timesig-custom-open',
 ]);
 
 const entries = flattenControls(STRIP_GROUPS).flatMap((control) =>
@@ -36,6 +40,7 @@ const entries = flattenControls(STRIP_GROUPS).flatMap((control) =>
           commandId: item.commandId ?? control.commandId,
           arg: item.arg,
           owner: control.testId,
+          form: Boolean(item.opensForm),
         })),
       ]
     : [
@@ -63,7 +68,7 @@ describe('the tool strip layout', () => {
       expect(command, `${entry.id} -> ${entry.commandId}`).toBeDefined();
       if (command && isCommandFamily(command) && entry.arg !== undefined) {
         const variants = (command as unknown as CommandFamily<unknown>).variants.map((v) => v.arg);
-        expect(variants, `${entry.id} arg`).toContain(entry.arg);
+        expect(variants, `${entry.id} arg`).toContainEqual(entry.arg);
       }
     }
   });
@@ -142,6 +147,9 @@ describe('ribbon parity for the shipped groups', () => {
     'Duration',
     'Pitch',
     'Expression',
+    'Layout',
+    'Bars',
+    'Signatures',
   ];
   /** The open-the-palette footers of the shipped menus (they sit in the ribbon's Score section). */
   const SHIPPED_FOOTERS = new Set([
@@ -238,6 +246,18 @@ describe('form buttons in the layout', () => {
     expect(forms.length).toBeGreaterThan(0);
     for (const control of forms) {
       expect(COMMAND_FORMS[control.commandId], control.testId).toBeDefined();
+    }
+  });
+});
+
+describe('menu items that open a form', () => {
+  it('name a command that has a form (otherwise they would run it with no arguments)', () => {
+    const flagged = flattenControls(STRIP_GROUPS).flatMap((control) =>
+      control.kind === 'menu' ? control.items.filter((item) => item.opensForm) : [],
+    );
+    expect(flagged.length).toBeGreaterThan(0);
+    for (const item of flagged) {
+      expect(item.commandId && COMMAND_FORMS[item.commandId], item.testId).toBeDefined();
     }
   });
 });

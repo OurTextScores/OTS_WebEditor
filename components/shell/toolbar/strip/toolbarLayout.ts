@@ -53,6 +53,7 @@ import {
   tremoloOptions,
   trillOptions,
 } from '../../../toolbar/constants';
+import { LAYOUT_GROUPS } from './layoutGroups';
 
 /**
  * What the tool strip shows, as data (SHELL_REDESIGN_DESIGN §23). A control names the command it
@@ -70,6 +71,8 @@ export interface StripItem {
   readonly section?: string;
   /** A SMuFL notation glyph shown beside the label. */
   readonly glyph?: string;
+  /** The command needs arguments and the menu has no form: running it opens its form dialog (`commandForms.ts`). */
+  readonly opensForm?: boolean;
 }
 
 interface StripBase {
@@ -664,6 +667,7 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
       },
     ],
   },
+  ...LAYOUT_GROUPS,
 ];
 
 /** Every control in strip order (what arrow keys walk). */
