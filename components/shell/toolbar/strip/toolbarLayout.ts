@@ -2,13 +2,16 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  Activity,
   ChevronsDown,
   ChevronsLeft,
   ChevronsRight,
   ChevronsUp,
+  Dot,
   Download,
   FilePlus,
   FlipVertical2,
+  Footprints,
   FolderOpen,
   GitCompare,
   Guitar,
@@ -17,6 +20,9 @@ import {
   Link2,
   ListFilter,
   Music2,
+  Pause,
+  Volume2,
+  Wind,
   PanelsTopLeft,
   CircleQuestionMark,
   Rows3,
@@ -27,13 +33,20 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { CommandId } from '../../../../lib/commands/types';
+import { scorePaletteItems } from '../../../toolbar/palette';
 import {
   arpeggioOptions,
   beamOptions,
   fretDiagramOptions,
   glissandoOptions,
   graceNoteOptions,
+  articulationOptions,
+  breathOptions,
+  dynamicOptions,
+  fermataOptions,
+  hairpinOptions,
   ottavaOptions,
+  pedalOptions,
   selectionFilterOptions,
   tremoloOptions,
   trillOptions,
@@ -80,6 +93,12 @@ export interface StripMenu extends StripBase {
   readonly checkable?: boolean;
   /** The ribbon gave the open menu its own test id. */
   readonly contentTestId?: string;
+  /** The icon runs the variant used last (the first until one is), and the chevron opens the menu. */
+  readonly split?: boolean;
+  /** Lay the items out as a grid of this many columns (notation glyphs) rather than a list. */
+  readonly columns?: number;
+  /** An action under the items, such as opening the matching palette. */
+  readonly footer?: StripItem;
 }
 
 export type StripControl = StripCommand | StripMenu;
@@ -94,6 +113,17 @@ const exportItem = (suffix: string, label: string, testId: string): StripItem =>
   testId,
   label,
   commandId: `file.export.${suffix}`,
+});
+
+const paletteGlyph = (kind: string, subtype: number): string | undefined =>
+  scorePaletteItems.find((item) => item.kind === kind && item.subtype === subtype)?.symbol;
+
+/** The open-the-palette footer the ribbon's menus ended with. */
+const paletteFooter = (testId: string, category: string): StripItem => ({
+  testId,
+  label: `Open ${category.toLowerCase()} palette`,
+  commandId: 'view.palette.open',
+  arg: category,
 });
 
 /** Items for a family built from an option table; the test id pattern is the ribbon's. */
@@ -413,6 +443,122 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
         label: 'Transpose…',
         icon: ArrowUpDown,
         commandId: 'tools.transpose',
+      },
+    ],
+  },
+  {
+    id: 'marks-dynamics',
+    label: 'Dynamics',
+    controls: [
+      {
+        kind: 'menu',
+        testId: 'dropdown-markings',
+        contentTestId: 'markings-menu',
+        label: 'Dynamics',
+        icon: Volume2,
+        split: true,
+        columns: 6,
+        items: dynamicOptions.map((option) => ({
+          testId: `btn-dynamic-${option.value}`,
+          label: option.label,
+          commandId: 'add.mark.dynamic',
+          arg: option.value,
+          glyph: paletteGlyph('dynamic', option.value),
+        })),
+        footer: paletteFooter('btn-open-dynamics-palette', 'Dynamics'),
+      },
+    ],
+  },
+  {
+    id: 'marks-spanners',
+    label: 'Hairpins and pedal',
+    controls: [
+      {
+        kind: 'menu',
+        testId: 'dropdown-hairpins',
+        label: 'Hairpins',
+        icon: Activity,
+        items: hairpinOptions.map((option) => ({
+          testId: option.testId,
+          label: option.label,
+          commandId: 'add.line.hairpin',
+          arg: option.value,
+        })),
+      },
+      {
+        kind: 'menu',
+        testId: 'dropdown-pedal',
+        label: 'Pedal',
+        icon: Footprints,
+        items: [
+          ...pedalOptions.map((option) => ({
+            testId: option.testId,
+            label: option.label,
+            commandId: 'add.line.pedal',
+            arg: option.value,
+          })),
+          {
+            testId: 'btn-pedal-sostenuto',
+            label: 'Sostenuto pedal',
+            commandId: 'add.line.pedal.sostenuto',
+          },
+          {
+            testId: 'btn-pedal-una-corda',
+            label: 'Una corda',
+            commandId: 'add.line.pedal.unaCorda',
+          },
+          { testId: 'btn-pedal-split', label: 'Pedal change', commandId: 'add.line.pedal.split' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'marks-articulations',
+    label: 'Articulations, fermatas and breaths',
+    controls: [
+      {
+        kind: 'menu',
+        testId: 'dropdown-articulations',
+        contentTestId: 'articulations-menu',
+        label: 'Articulations',
+        icon: Dot,
+        split: true,
+        columns: 4,
+        items: articulationOptions.map((option, index) => ({
+          testId: `btn-artic-${option.symbol}`,
+          label: option.label,
+          commandId: 'add.mark.articulation',
+          arg: option.symbol,
+          glyph: paletteGlyph('articulation', index),
+        })),
+      },
+      {
+        kind: 'menu',
+        testId: 'dropdown-fermata',
+        label: 'Fermatas',
+        icon: Pause,
+        split: true,
+        columns: 5,
+        items: familyItems(
+          fermataOptions,
+          'add.mark.fermata',
+          (option) => `btn-fermata-${option.value}`,
+        ),
+        footer: paletteFooter('btn-open-fermata-palette', 'Fermatas'),
+      },
+      {
+        kind: 'menu',
+        testId: 'dropdown-breath',
+        label: 'Breaths and caesuras',
+        icon: Wind,
+        split: true,
+        columns: 5,
+        items: familyItems(
+          breathOptions,
+          'add.mark.breath',
+          (option) => `btn-breath-${option.value}`,
+        ),
+        footer: paletteFooter('btn-open-breath-palette', 'Breaths'),
       },
     ],
   },

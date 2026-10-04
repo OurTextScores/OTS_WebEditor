@@ -6,7 +6,10 @@ import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getAnnouncement } from '../../components/shell/announcer/announcerStore';
 import { ToolStrip } from '../../components/shell/toolbar/strip/ToolStrip';
-import { resetStripCollapsedForTests } from '../../components/shell/toolbar/strip/stripPersistence';
+import {
+  resetLastUsedForTests,
+  resetStripCollapsedForTests,
+} from '../../components/shell/toolbar/strip/stripPersistence';
 import type { StripGroup } from '../../components/shell/toolbar/strip/toolbarLayout';
 import { needsSelection, needsRange } from '../../lib/commands/selectionGates';
 import { CommandRegistry, DEFAULT_COMMAND_CONTEXT } from '../../lib/commands/registry';
@@ -23,6 +26,7 @@ beforeEach(() => {
   );
   window.localStorage.clear();
   resetStripCollapsedForTests();
+  resetLastUsedForTests();
 });
 afterEach(() => {
   cleanup();
@@ -403,5 +407,219 @@ describe('ToolStrip', () => {
       await user.click(trill);
       expect(run.trill).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('split buttons', () => {
+  const DYNAMICS: StripGroup[] = [
+    {
+      id: 'marks',
+      label: 'Marks',
+      controls: [
+        {
+          kind: 'menu',
+          testId: 'dropdown-markings',
+          contentTestId: 'markings-menu',
+          label: 'Dynamics',
+          icon: Music2,
+          split: true,
+          columns: 3,
+          items: [
+            {
+              testId: 'btn-dynamic-6',
+              label: 'p',
+              commandId: 'add.mark.dynamic',
+              arg: 6,
+              glyph: '\uE520',
+            },
+            {
+              testId: 'btn-dynamic-8',
+              label: 'mf',
+              commandId: 'add.mark.dynamic',
+              arg: 8,
+              glyph: '\uE521',
+            },
+            {
+              testId: 'btn-dynamic-9',
+              label: 'f',
+              commandId: 'add.mark.dynamic',
+              arg: 9,
+              glyph: '\uE522',
+            },
+          ],
+          footer: {
+            testId: 'btn-open-dynamics-palette',
+            label: 'Open dynamics palette',
+            commandId: 'view.palette.open',
+            arg: 'Dynamics',
+          },
+        },
+      ],
+    },
+  ];
+
+  function setupSplit(
+    context: Partial<CommandContext> = {},
+    over: { dynamicEnabled?: boolean } = {},
+  ) {
+    const dynamic = vi.fn();
+    const palette = vi.fn();
+    const registry = new CommandRegistry();
+    registry.setContextSource(() => ({
+      ...DEFAULT_COMMAND_CONTEXT,
+      hasScore: true,
+      isMutable: true,
+      ...context,
+    }));
+    registry.register('global', [
+      defineFamily<number>({
+        id: 'add.mark.dynamic',
+        label: 'Dynamic',
+        variants: [
+          { arg: 6, label: 'p' },
+          { arg: 8, label: 'mf' },
+          { arg: 9, label: 'f' },
+        ],
+        enabled: over.dynamicEnabled === false ? needsRange : needsSelection,
+        run: (_c, arg) => dynamic(arg),
+      }),
+      defineCommand<string>({
+        id: 'view.palette.open',
+        label: 'Open palette',
+        run: (_c, arg) => palette(arg),
+      }),
+    ]);
+    render(<ToolStrip groups={DYNAMICS} registry={registry} />);
+    return { dynamic, palette, user: userEvent.setup() };
+  }
+  const face = () => screen.getByTestId('dropdown-markings-last');
+
+  it('starts on the first variant: its glyph on the face, and a click runs it', async () => {
+    const { dynamic, user } = setupSplit({ selection: 'single' });
+    expect(face()).toHaveAccessibleName('Dynamics: p');
+    expect(within(face()).getByText('\uE520')).toBeInTheDocument();
+    await user.click(face());
+    expect(dynamic).toHaveBeenCalledWith(6);
+  });
+
+  it('runs a variant chosen from the menu, and from then on the face runs that one', async () => {
+    const { dynamic, user } = setupSplit({ selection: 'single' });
+    await user.click(screen.getByTestId('dropdown-markings'));
+    await user.click(await screen.findByTestId('btn-dynamic-9'));
+    expect(dynamic).toHaveBeenLastCalledWith(9);
+    expect(face()).toHaveAccessibleName('Dynamics: f');
+    expect(within(face()).getByText('\uE522')).toBeInTheDocument();
+    dynamic.mockClear();
+    await user.click(face());
+    expect(dynamic).toHaveBeenCalledWith(9);
+  });
+
+  it('remembers the choice across a reload, and ignores a remembered variant that no longer exists', async () => {
+    const first = setupSplit({ selection: 'single' });
+    await first.user.click(screen.getByTestId('dropdown-markings'));
+    await first.user.click(await screen.findByTestId('btn-dynamic-8'));
+    expect(JSON.parse(window.localStorage.getItem('ots.toolstrip.lastUsed')!)).toEqual({
+      'dropdown-markings': 'btn-dynamic-8',
+    });
+    cleanup();
+    resetLastUsedForTests();
+    setupSplit({ selection: 'single' });
+    expect(face()).toHaveAccessibleName('Dynamics: mf');
+    cleanup();
+    window.localStorage.setItem(
+      'ots.toolstrip.lastUsed',
+      JSON.stringify({ 'dropdown-markings': 'btn-dynamic-gone' }),
+    );
+    resetLastUsedForTests();
+    setupSplit({ selection: 'single' });
+    expect(face()).toHaveAccessibleName('Dynamics: p');
+  });
+
+  it('survives a corrupt remembered value and unavailable storage', () => {
+    window.localStorage.setItem('ots.toolstrip.lastUsed', '{not json');
+    resetLastUsedForTests();
+    setupSplit({ selection: 'single' });
+    expect(face()).toHaveAccessibleName('Dynamics: p');
+  });
+
+  it('lays a glyph menu out as a grid of labelled cells with the footer spanning the width', async () => {
+    const { palette, user } = setupSplit({ selection: 'single' });
+    await user.click(screen.getByTestId('dropdown-markings'));
+    const menu = await screen.findByTestId('markings-menu');
+    expect(menu).toHaveStyle({ display: 'grid', gridTemplateColumns: 'repeat(3, 2.25rem)' });
+    const cell = screen.getByTestId('btn-dynamic-8');
+    expect(cell).toHaveAccessibleName('mf');
+    expect(cell).toHaveAttribute('aria-label', 'mf');
+    expect(cell).toHaveAttribute('title', 'mf');
+    const footer = screen.getByTestId('btn-open-dynamics-palette');
+    expect(footer).toHaveStyle({ gridColumn: '1 / -1' });
+    await user.click(footer);
+    expect(palette).toHaveBeenCalledWith('Dynamics');
+    // Opening the palette is not a variant: the face still runs the first one.
+    expect(face()).toHaveAccessibleName('Dynamics: p');
+  });
+
+  it('does nothing from the face when that variant cannot run, and says why', async () => {
+    const { dynamic, user } = setupSplit({ selection: 'none' });
+    expect(face()).toHaveAttribute('aria-disabled', 'true');
+    await user.click(face());
+    expect(dynamic).not.toHaveBeenCalled();
+    expect(getAnnouncement().text).toBe('Dynamics: p: Select something first');
+    expect(screen.getByTestId('dropdown-markings')).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('opens with ArrowDown on the face, and the pair is one tab stop', async () => {
+    const { user } = setupSplit({ selection: 'single' });
+    expect(face()).toHaveAttribute('tabindex', '0');
+    expect(screen.getByTestId('dropdown-markings')).toHaveAttribute('tabindex', '-1');
+    act(() => face().focus());
+    await user.keyboard('{ArrowDown}');
+    expect(await screen.findByTestId('markings-menu')).toBeInTheDocument();
+  });
+
+  it('remembers each split button separately: choosing in one does not forget the other', async () => {
+    const second: StripGroup = {
+      id: 'other',
+      label: 'Other',
+      controls: [
+        {
+          kind: 'menu',
+          testId: 'dropdown-other',
+          label: 'Other',
+          icon: Music2,
+          split: true,
+          items: [
+            { testId: 'other-1', label: 'One', commandId: 'add.mark.dynamic', arg: 6 },
+            { testId: 'other-2', label: 'Two', commandId: 'add.mark.dynamic', arg: 8 },
+          ],
+        },
+      ],
+    };
+    const registry = new CommandRegistry();
+    registry.setContextSource(() => ({
+      ...DEFAULT_COMMAND_CONTEXT,
+      hasScore: true,
+      isMutable: true,
+      selection: 'single',
+    }));
+    registry.register('global', [
+      defineFamily<number>({
+        id: 'add.mark.dynamic',
+        label: 'Dynamic',
+        variants: [
+          { arg: 6, label: 'p' },
+          { arg: 8, label: 'mf' },
+        ],
+        run: () => {},
+      }),
+    ]);
+    render(<ToolStrip groups={[DYNAMICS[0], second]} registry={registry} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId('dropdown-markings'));
+    await user.click(await screen.findByTestId('btn-dynamic-9'));
+    await user.click(screen.getByTestId('dropdown-other'));
+    await user.click(await screen.findByTestId('other-2'));
+    expect(screen.getByTestId('dropdown-markings-last')).toHaveAccessibleName('Dynamics: f');
+    expect(screen.getByTestId('dropdown-other-last')).toHaveAccessibleName('Other: Two');
   });
 });

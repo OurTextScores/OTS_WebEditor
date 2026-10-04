@@ -14,7 +14,12 @@ import { allCommandsRegistry } from '../helpers/all-commands';
 const REPO = resolve(__dirname, '../..');
 
 /** Test ids the ribbon never had: its Open and SoundFont controls were hidden file inputs inside labels. */
-const NEW_IDS = new Set(['btn-open-score', 'btn-load-soundfont']);
+const NEW_IDS = new Set([
+  'btn-open-score',
+  'btn-load-soundfont',
+  'dropdown-fermata',
+  'dropdown-breath',
+]);
 
 const entries = flattenControls(STRIP_GROUPS).flatMap((control) =>
   control.kind === 'menu'
@@ -126,7 +131,38 @@ describe('the tool strip layout', () => {
  * Sections are added here as their groups ship.
  */
 describe('ribbon parity for the shipped groups', () => {
-  const SHIPPED_SECTIONS = ['File', 'Edit', 'View', 'Help', 'Notes', 'Duration', 'Pitch'];
+  const SHIPPED_SECTIONS = [
+    'File',
+    'Edit',
+    'View',
+    'Help',
+    'Notes',
+    'Duration',
+    'Pitch',
+    'Expression',
+  ];
+  /** The text types are the Text group, which has not shipped. */
+  const isText = (entry: { legacyTestId: string; commandId?: string }) =>
+    entry.legacyTestId === 'dropdown-text' ||
+    entry.legacyTestId.startsWith('btn-text') ||
+    (entry.commandId ?? '').startsWith('add.text.');
+  /** The open-the-palette footers of the shipped menus (they sit in the ribbon's Score section). */
+  const SHIPPED_FOOTERS = new Set([
+    'btn-open-dynamics-palette',
+    'btn-open-ottava-palette',
+    'btn-open-tremolo-palette',
+    'btn-open-fermata-palette',
+    'btn-open-breath-palette',
+  ]);
+  const shipped = (entry: { legacyLocation: string; legacyTestId: string; commandId?: string }) => {
+    if (SHIPPED_FOOTERS.has(entry.legacyTestId)) return true;
+    const section = entry.legacyLocation.split('\u203A')[1]?.trim() ?? '';
+    return (
+      entry.legacyLocation.startsWith('Ribbon') &&
+      SHIPPED_SECTIONS.includes(section) &&
+      !(section === 'Expression' && isText(entry))
+    );
+  };
   /** Dropdown triggers whose items are direct buttons elsewhere (the quick row's voices, ties, durations). */
   const GROUP_HEADERS = new Set(['dropdown-voice', 'dropdown-slur-tie', 'dropdown-rhythm']);
 
@@ -156,9 +192,7 @@ describe('ribbon parity for the shipped groups', () => {
 
   it('has a button for every command the ribbon\u2019s shipped sections had', () => {
     const missing = RIBBON_MIGRATION.filter((entry) => {
-      const section = entry.legacyLocation.split('\u203A')[1]?.trim() ?? '';
-      if (!entry.legacyLocation.startsWith('Ribbon') || !SHIPPED_SECTIONS.includes(section))
-        return false;
+      if (!shipped(entry)) return false;
       if ((entry.kind ?? 'command') !== 'command') return false;
       return !onScreen(entry.legacyTestId, entry.prefix);
     }).map((entry) => entry.legacyTestId);
@@ -167,13 +201,35 @@ describe('ribbon parity for the shipped groups', () => {
 
   it('has a menu button for every dropdown the ribbon had in those sections', () => {
     const missing = RIBBON_MIGRATION.filter((entry) => {
-      const section = entry.legacyLocation.split('\u203A')[1]?.trim() ?? '';
-      if (!entry.legacyLocation.startsWith('Ribbon') || !SHIPPED_SECTIONS.includes(section))
-        return false;
+      if (!shipped(entry)) return false;
       if (entry.kind !== 'container' || !entry.legacyTestId.startsWith('dropdown-')) return false;
       if (GROUP_HEADERS.has(entry.legacyTestId)) return false;
       return !onScreen(entry.legacyTestId, entry.prefix);
     }).map((entry) => entry.legacyTestId);
     expect(missing).toEqual([]);
+  });
+});
+
+describe('split and grid menus in the layout', () => {
+  const menus = flattenControls(STRIP_GROUPS).filter(
+    (control): control is Extract<typeof control, { kind: 'menu' }> => control.kind === 'menu',
+  );
+
+  it('give every cell of a glyph grid a glyph (a grid of bare words is a list)', () => {
+    for (const menu of menus.filter((candidate) => candidate.columns)) {
+      const bare = menu.items.filter((item) => !item.glyph).map((item) => item.testId);
+      expect(bare, menu.testId).toEqual([]);
+    }
+  });
+
+  it('only split a family that is a grid of glyphs or short enough to choose from, and name its footer', () => {
+    for (const menu of menus.filter((candidate) => candidate.split)) {
+      expect(menu.columns, `${menu.testId} is a split button`).toBeGreaterThan(0);
+      expect(menu.items.length, menu.testId).toBeGreaterThan(1);
+    }
+    for (const menu of menus.filter((candidate) => candidate.footer)) {
+      expect(menu.footer?.commandId, menu.testId).toBe('view.palette.open');
+      expect(typeof menu.footer?.arg, menu.testId).toBe('string');
+    }
   });
 });

@@ -76,18 +76,25 @@ test('the tools flow on after the quick controls in one toolbar, with no scrollb
     for (const gap of lineGaps) expect(gap).toBeGreaterThanOrEqual(6);
     // Neighbouring buttons on a line are not touching either.
     const sideGaps = await page.evaluate(() => {
+      // A split button's face and chevron are one control, deliberately joined.
       const boxes = [
         ...document.querySelectorAll<HTMLElement>('[data-testid="tool-strip-row"] button'),
       ]
-        .map((b) => b.getBoundingClientRect())
-        .filter((r) => r.width > 0);
-      const lines = new Map<number, DOMRect[]>();
-      for (const r of boxes)
-        lines.set(Math.round(r.top), [...(lines.get(Math.round(r.top)) ?? []), r]);
+        .map((b) => ({ rect: b.getBoundingClientRect(), pair: b.closest('[data-split-pair]') }))
+        .filter((b) => b.rect.width > 0);
+      const lines = new Map<number, typeof boxes>();
+      for (const b of boxes) {
+        const key = Math.round(b.rect.top);
+        lines.set(key, [...(lines.get(key) ?? []), b]);
+      }
       const gaps: number[] = [];
       for (const line of lines.values()) {
-        const sorted = line.sort((a, b) => a.left - b.left);
-        sorted.slice(1).forEach((r, i) => gaps.push(r.left - sorted[i].right));
+        const sorted = line.sort((a, b) => a.rect.left - b.rect.left);
+        sorted.slice(1).forEach((b, i) => {
+          const previous = sorted[i];
+          if (b.pair && b.pair === previous.pair) return;
+          gaps.push(b.rect.left - previous.rect.right);
+        });
       }
       return gaps;
     });
@@ -189,8 +196,8 @@ test('arrow keys walk the strip, and the strip is one tab stop', async ({ page }
   await page.keyboard.press('ArrowRight');
   await expect(page.getByTestId('btn-new-score')).toBeFocused();
   await page.keyboard.press('End');
-  // The last control of the last group (Notes follows Home).
-  await expect(page.getByTestId('btn-transpose-dialog')).toBeFocused();
+  // The last control of the last group (Notes and Marks follow Home): a split button's face.
+  await expect(page.getByTestId('dropdown-breath-last')).toBeFocused();
   const tabStops = await page
     .locator('[data-testid="tool-strip-row"] [data-strip-control][tabindex="0"]')
     .count();
@@ -298,5 +305,109 @@ test.describe('Notes group', () => {
     await open(page, true);
     await page.getByTestId('btn-transpose-dialog').click();
     await expect(page.getByRole('dialog')).toBeVisible();
+  });
+});
+
+test.describe('Marks group', () => {
+  async function spyOnCalls(page: Page, method: string) {
+    await page.evaluate((name) => {
+      const score = (
+        window as unknown as { __webmscore: Record<string, (...a: unknown[]) => unknown> }
+      ).__webmscore;
+      const calls: unknown[][] = [];
+      (window as unknown as Record<string, unknown>).__markCalls = calls;
+      const original = score[name].bind(score);
+      score[name] = (...args: unknown[]) => {
+        calls.push(args);
+        return original(...args);
+      };
+    }, method);
+    return () =>
+      page.evaluate(() => (window as unknown as { __markCalls: unknown[][] }).__markCalls);
+  }
+
+  test('the dynamics button runs the first dynamic, then whichever you chose last, and remembers it', async ({
+    page,
+  }) => {
+    await open(page, true);
+    const calls = await spyOnCalls(page, 'addDynamic');
+    const face = page.getByTestId('dropdown-markings-last');
+    await expect(face).toHaveAccessibleName('Dynamics: p');
+    await face.click();
+    await expect.poll(calls).toEqual([[6]]);
+
+    await page.getByTestId('dropdown-markings').click();
+    await page.getByTestId('btn-dynamic-10').click(); // ff
+    await expect.poll(calls).toEqual([[6], [10]]);
+    await expect(face).toHaveAccessibleName('Dynamics: ff');
+    await face.click();
+    await expect.poll(calls).toEqual([[6], [10], [10]]);
+
+    await page.reload();
+    await page.waitForSelector('svg .Note', { timeout: 60_000 });
+    await expect(page.getByTestId('dropdown-markings-last')).toHaveAccessibleName('Dynamics: ff');
+  });
+
+  test('the dynamics menu is a grid of every dynamic, with the palette link under it', async ({
+    page,
+  }) => {
+    await open(page, true);
+    await page.getByTestId('dropdown-markings').click();
+    const menu = page.getByTestId('markings-menu');
+    await expect(menu.getByRole('menuitem')).toHaveCount(31);
+    await expect(menu.getByTestId('btn-dynamic-8')).toHaveAttribute('aria-label', 'mf');
+    await page.getByTestId('btn-open-dynamics-palette').click();
+    await expect(page.locator('[data-testid^="palette-item-dynamic-"]').first()).toBeVisible();
+  });
+
+  test('a hairpin item adds that hairpin: Decrescendo is type 1', async ({ page }) => {
+    await open(page, true);
+    const calls = await spyOnCalls(page, 'addHairpin');
+    await page.getByTestId('dropdown-hairpins').click();
+    await page.getByTestId('btn-hairpin-decresc').click();
+    await expect.poll(calls).toEqual([[1]]);
+  });
+
+  for (const [menu, content, expected] of [
+    ['dropdown-pedal', null, 5],
+    ['dropdown-articulations', 'articulations-menu', 4],
+    ['dropdown-fermata', null, 6],
+    ['dropdown-breath', null, 10],
+  ] as const) {
+    test(`${menu} lists every variant the ribbon had`, async ({ page }) => {
+      await open(page, true);
+      await page.getByTestId(menu).click();
+      await expect(page.getByRole('menu').getByRole('menuitem')).toHaveCount(expected);
+      if (content) await expect(page.getByTestId(content)).toBeVisible();
+    });
+  }
+
+  test('an articulation button runs from the face and the choice is its own: Tenuto after Staccato', async ({
+    page,
+  }) => {
+    await open(page, true);
+    const calls = await spyOnCalls(page, 'addArticulation');
+    await page.getByTestId('dropdown-articulations-last').click();
+    await expect.poll(calls).toEqual([['articStaccatoAbove']]);
+    await page.getByTestId('dropdown-articulations').click();
+    await page.getByTestId('btn-artic-articTenutoAbove').click();
+    await expect.poll(calls).toEqual([['articStaccatoAbove'], ['articTenutoAbove']]);
+    // Fermatas are a separate button with its own memory.
+    await expect(page.getByTestId('dropdown-fermata-last')).toHaveAccessibleName(
+      'Fermatas: Fermata',
+    );
+  });
+
+  test('with nothing selected the split face does nothing and says what to select', async ({
+    page,
+  }) => {
+    await open(page, false);
+    const calls = await spyOnCalls(page, 'addDynamic');
+    const face = page.getByTestId('dropdown-markings-last');
+    await expect(face).toHaveAttribute('aria-disabled', 'true');
+    await face.click({ force: true });
+    await page.waitForTimeout(300);
+    expect(await calls()).toEqual([]);
+    await expect(page.getByTestId('announcer')).toContainText('Select a note or rest first');
   });
 });
