@@ -8,6 +8,7 @@ import { TooltipProvider } from '../../../ui/Tooltip';
 import styles from '../WriteToolbar.module.css';
 import { useToolbarCommands } from '../useToolbarCommands';
 import { ControlButton, type StripControlContext } from './ControlButton';
+import { FormButton } from './FormButton';
 import { MenuButton } from './MenuButton';
 import {
   getStripCollapsed,
@@ -112,6 +113,8 @@ export function ToolStrip({
                   {group.controls.map((control) =>
                     control.kind === 'menu' ? (
                       <MenuButton key={control.testId} control={control} context={context} />
+                    ) : control.kind === 'form' ? (
+                      <FormButton key={control.testId} control={control} context={context} />
                     ) : (
                       <ControlButton key={control.testId} control={control} context={context} />
                     ),

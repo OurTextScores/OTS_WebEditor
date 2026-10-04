@@ -20,6 +20,7 @@ import {
   Link2,
   ListFilter,
   Music2,
+  Metronome,
   Pause,
   Volume2,
   Wind,
@@ -30,6 +31,7 @@ import {
   Waypoints,
   SquareDashedMousePointer,
   Trash2,
+  Type,
   type LucideIcon,
 } from 'lucide-react';
 import type { CommandId } from '../../../../lib/commands/types';
@@ -101,7 +103,13 @@ export interface StripMenu extends StripBase {
   readonly footer?: StripItem;
 }
 
-export type StripControl = StripCommand | StripMenu;
+/** A command that needs arguments: a button that opens a popover with the command's form (`commandForms.ts`). */
+export interface StripForm extends StripBase {
+  readonly kind: 'form';
+  readonly commandId: CommandId;
+}
+
+export type StripControl = StripCommand | StripMenu | StripForm;
 
 export interface StripGroup {
   readonly id: string;
@@ -559,6 +567,100 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
           (option) => `btn-breath-${option.value}`,
         ),
         footer: paletteFooter('btn-open-breath-palette', 'Breaths'),
+      },
+    ],
+  },
+  {
+    id: 'text',
+    label: 'Text and tempo',
+    controls: [
+      {
+        kind: 'menu',
+        testId: 'dropdown-text',
+        label: 'Text',
+        icon: Type,
+        items: [
+          {
+            testId: 'btn-text-title',
+            label: 'Title',
+            commandId: 'add.text.title',
+            section: 'Score header',
+          },
+          { testId: 'btn-text-subtitle', label: 'Subtitle', commandId: 'add.text.subtitle' },
+          { testId: 'btn-text-composer', label: 'Composer', commandId: 'add.text.composer' },
+          { testId: 'btn-text-lyricist', label: 'Lyricist', commandId: 'add.text.lyricist' },
+          {
+            testId: 'btn-text-staff',
+            label: 'Staff text',
+            commandId: 'add.text.staff',
+            section: 'On the score',
+          },
+          { testId: 'btn-text-system', label: 'System text', commandId: 'add.text.system' },
+          {
+            testId: 'btn-text-expression',
+            label: 'Expression text',
+            commandId: 'add.text.expression',
+          },
+          { testId: 'btn-text-lyrics', label: 'Lyrics', commandId: 'add.text.lyrics' },
+          {
+            testId: 'btn-text-figured-bass',
+            label: 'Figured bass',
+            commandId: 'add.text.figuredBass',
+          },
+          {
+            testId: 'btn-text-instrument-change',
+            label: 'Instrument change',
+            commandId: 'add.text.instrumentChange',
+          },
+          {
+            testId: 'btn-text-harmony-standard',
+            label: 'Chord symbol',
+            commandId: 'add.text.harmony',
+            arg: 0,
+            section: 'Harmony',
+          },
+          {
+            testId: 'btn-text-harmony-roman',
+            label: 'Roman numeral',
+            commandId: 'add.text.harmony',
+            arg: 1,
+          },
+          {
+            testId: 'btn-text-harmony-nashville',
+            label: 'Nashville number',
+            commandId: 'add.text.harmony',
+            arg: 2,
+          },
+          {
+            testId: 'btn-text-fingering',
+            label: 'Fingering',
+            commandId: 'add.text.fingering',
+            section: 'Fingering and technique',
+          },
+          {
+            testId: 'btn-text-fingering-lh',
+            label: 'LH guitar fingering',
+            commandId: 'add.text.fingering.lh',
+          },
+          {
+            testId: 'btn-text-fingering-rh',
+            label: 'RH guitar fingering',
+            commandId: 'add.text.fingering.rh',
+          },
+          {
+            testId: 'btn-text-string-number',
+            label: 'String number',
+            commandId: 'add.text.stringNumber',
+          },
+          { testId: 'btn-text-sticking', label: 'Sticking', commandId: 'add.text.sticking' },
+        ],
+      },
+      {
+        kind: 'form',
+        testId: 'btn-tempo-open',
+        label: 'Tempo',
+        icon: Metronome,
+        commandId: 'add.text.tempo',
       },
     ],
   },

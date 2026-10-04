@@ -19,6 +19,7 @@ const NEW_IDS = new Set([
   'btn-load-soundfont',
   'dropdown-fermata',
   'dropdown-breath',
+  'btn-tempo-open',
 ]);
 
 const entries = flattenControls(STRIP_GROUPS).flatMap((control) =>
@@ -41,8 +42,9 @@ const entries = flattenControls(STRIP_GROUPS).flatMap((control) =>
         {
           id: control.testId,
           commandId: control.commandId,
-          arg: control.arg,
+          arg: 'arg' in control ? control.arg : undefined,
           owner: control.testId,
+          form: control.kind === 'form',
         },
       ],
 );
@@ -118,7 +120,7 @@ describe('the tool strip layout', () => {
     expect(missing).toEqual([]);
     // And the argument forms are not bypassed: a command that needs a form is not run bare from a strip.
     for (const entry of entries) {
-      if (entry.commandId && entry.arg === undefined) {
+      if (entry.commandId && entry.arg === undefined && !('form' in entry && entry.form)) {
         expect(COMMAND_FORMS[entry.commandId], `${entry.id} needs a form`).toBeUndefined();
       }
     }
@@ -141,11 +143,6 @@ describe('ribbon parity for the shipped groups', () => {
     'Pitch',
     'Expression',
   ];
-  /** The text types are the Text group, which has not shipped. */
-  const isText = (entry: { legacyTestId: string; commandId?: string }) =>
-    entry.legacyTestId === 'dropdown-text' ||
-    entry.legacyTestId.startsWith('btn-text') ||
-    (entry.commandId ?? '').startsWith('add.text.');
   /** The open-the-palette footers of the shipped menus (they sit in the ribbon's Score section). */
   const SHIPPED_FOOTERS = new Set([
     'btn-open-dynamics-palette',
@@ -157,11 +154,7 @@ describe('ribbon parity for the shipped groups', () => {
   const shipped = (entry: { legacyLocation: string; legacyTestId: string; commandId?: string }) => {
     if (SHIPPED_FOOTERS.has(entry.legacyTestId)) return true;
     const section = entry.legacyLocation.split('\u203A')[1]?.trim() ?? '';
-    return (
-      entry.legacyLocation.startsWith('Ribbon') &&
-      SHIPPED_SECTIONS.includes(section) &&
-      !(section === 'Expression' && isText(entry))
-    );
+    return entry.legacyLocation.startsWith('Ribbon') && SHIPPED_SECTIONS.includes(section);
   };
   /** Dropdown triggers whose items are direct buttons elsewhere (the quick row's voices, ties, durations). */
   const GROUP_HEADERS = new Set(['dropdown-voice', 'dropdown-slur-tie', 'dropdown-rhythm']);
@@ -186,6 +179,11 @@ describe('ribbon parity for the shipped groups', () => {
   const onScreen = (id: string, prefix: boolean | undefined) => {
     const inStrip = entries.some((entry) => (prefix ? entry.id.startsWith(id) : entry.id === id));
     if (inStrip) return true;
+    // A form button's own submit button lives in its popover.
+    const submits = flattenControls(STRIP_GROUPS).some(
+      (control) => control.kind === 'form' && COMMAND_FORMS[control.commandId]?.submitTestId === id,
+    );
+    if (submits) return true;
     const quote = ["'", '"', '`'];
     return quote.some((q) => renderedElsewhere.includes(prefix ? q + id : q + id + q));
   };
@@ -230,6 +228,16 @@ describe('split and grid menus in the layout', () => {
     for (const menu of menus.filter((candidate) => candidate.footer)) {
       expect(menu.footer?.commandId, menu.testId).toBe('view.palette.open');
       expect(typeof menu.footer?.arg, menu.testId).toBe('string');
+    }
+  });
+});
+
+describe('form buttons in the layout', () => {
+  it('open a command that has a form, and nothing else does', () => {
+    const forms = flattenControls(STRIP_GROUPS).filter((control) => control.kind === 'form');
+    expect(forms.length).toBeGreaterThan(0);
+    for (const control of forms) {
+      expect(COMMAND_FORMS[control.commandId], control.testId).toBeDefined();
     }
   });
 });

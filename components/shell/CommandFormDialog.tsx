@@ -1,11 +1,12 @@
 'use client';
 
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import React, { useState, useSyncExternalStore } from 'react';
+import React, { useSyncExternalStore } from 'react';
 import { defaultCommandRegistry, type CommandRegistry } from '../../lib/commands/registry';
 import { Button } from '../ui/Button';
 import { Dialog, DialogContent } from '../ui/Dialog';
 import { COMMAND_FORMS, type CommandForm } from './commandForms';
+import { CommandFormFields, useFormValues } from './CommandFormFields';
 import { invokeCommand } from './invokeCommand';
 import { closeCommandForm, getShellUiState, subscribeToShellUi } from './shellStore';
 
@@ -18,9 +19,7 @@ function FormBody({
   form: CommandForm;
   registry: CommandRegistry;
 }) {
-  const [values, setValues] = useState<Record<string, string>>(() =>
-    Object.fromEntries(form.fields.map((field) => [field.name, String(field.defaultValue)])),
-  );
+  const [values, setValues] = useFormValues(form);
 
   return (
     <form
@@ -36,42 +35,8 @@ function FormBody({
       <DialogPrimitive.Description className="sr-only">
         Enter the values for {form.title}.
       </DialogPrimitive.Description>
-      <div className="mt-3 flex flex-col gap-3">
-        {form.fields.map((field, index) => (
-          <label key={field.name} className="flex flex-col gap-1 text-sm text-slate-700">
-            {field.label}
-            {field.type === 'number' ? (
-              <input
-                autoFocus={index === 0}
-                type="number"
-                min={field.min}
-                data-testid={field.testId}
-                value={values[field.name]}
-                onChange={(event) => {
-                  const next = event.currentTarget.value;
-                  setValues((previous) => ({ ...previous, [field.name]: next }));
-                }}
-                className="rounded border border-slate-300 px-2 py-1 text-sm"
-              />
-            ) : (
-              <select
-                data-testid={field.testId}
-                value={values[field.name]}
-                onChange={(event) => {
-                  const next = event.currentTarget.value;
-                  setValues((previous) => ({ ...previous, [field.name]: next }));
-                }}
-                className="rounded border border-slate-300 bg-white px-2 py-1 text-sm"
-              >
-                {field.options.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            )}
-          </label>
-        ))}
+      <div className="mt-3">
+        <CommandFormFields form={form} values={values} setValues={setValues} />
       </div>
       <div className="mt-5 flex justify-end gap-2">
         <Button type="button" variant="outline" size="md" onClick={closeCommandForm}>

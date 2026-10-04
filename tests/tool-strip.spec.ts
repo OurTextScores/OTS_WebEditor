@@ -196,8 +196,8 @@ test('arrow keys walk the strip, and the strip is one tab stop', async ({ page }
   await page.keyboard.press('ArrowRight');
   await expect(page.getByTestId('btn-new-score')).toBeFocused();
   await page.keyboard.press('End');
-  // The last control of the last group (Notes and Marks follow Home): a split button's face.
-  await expect(page.getByTestId('dropdown-breath-last')).toBeFocused();
+  // The last control of the last group (Notes, Marks and Text follow Home).
+  await expect(page.getByTestId('btn-tempo-open')).toBeFocused();
   const tabStops = await page
     .locator('[data-testid="tool-strip-row"] [data-strip-control][tabindex="0"]')
     .count();
@@ -409,5 +409,53 @@ test.describe('Marks group', () => {
     await page.waitForTimeout(300);
     expect(await calls()).toEqual([]);
     await expect(page.getByTestId('announcer')).toContainText('Select a note or rest first');
+  });
+});
+
+test.describe('Text group', () => {
+  test('the text menu lists all 18 text types under headings', async ({ page }) => {
+    await open(page, true);
+    await page.getByTestId('dropdown-text').click();
+    const menu = page.getByRole('menu');
+    await expect(menu.getByRole('menuitem')).toHaveCount(18);
+    for (const heading of ['Score header', 'On the score', 'Harmony', 'Fingering and technique']) {
+      await expect(menu.getByText(heading, { exact: true })).toBeVisible();
+    }
+  });
+
+  test('Title asks for the text, as the ribbon did', async ({ page }) => {
+    await open(page, true);
+    await page.getByTestId('dropdown-text').click();
+    await page.getByTestId('btn-text-title').click();
+    await expect(page.getByTestId('prompt-dialog-input')).toBeVisible();
+    await page.getByTestId('prompt-dialog').getByRole('button', { name: 'Cancel' }).click();
+  });
+
+  test('the tempo button asks for a BPM in a popover and puts that tempo in the score', async ({
+    page,
+  }) => {
+    await open(page, true);
+    const hasTempo = (bpm: number) =>
+      page.evaluate(async (value) => {
+        const score = (
+          window as unknown as { __webmscore: { saveMsc: (f: string) => Promise<Uint8Array> } }
+        ).__webmscore;
+        const xml = new TextDecoder().decode(await score.saveMsc('mscx'));
+        return xml.includes(`<sym>metNoteQuarterUp</sym> = ${value}`);
+      }, bpm);
+    await page.getByTestId('btn-tempo-open').click();
+    await expect(page.getByTestId('input-tempo-bpm')).toHaveValue('120');
+    await page.getByTestId('input-tempo-bpm').fill('93');
+    await page.getByTestId('btn-tempo-apply').click();
+    await expect(page.getByTestId('btn-tempo-open-form')).toBeHidden();
+    await expect.poll(() => hasTempo(93), { timeout: 20_000 }).toBe(true);
+  });
+
+  test('tempo needs no selection (it goes at the start), so its popover opens with none', async ({
+    page,
+  }) => {
+    await open(page, false);
+    await page.getByTestId('btn-tempo-open').click();
+    await expect(page.getByTestId('input-tempo-bpm')).toBeVisible();
   });
 });

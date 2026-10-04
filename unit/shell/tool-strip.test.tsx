@@ -623,3 +623,86 @@ describe('split buttons', () => {
     expect(screen.getByTestId('dropdown-other-last')).toHaveAccessibleName('Other: Two');
   });
 });
+
+describe('form buttons', () => {
+  const TEMPO: StripGroup[] = [
+    {
+      id: 'text',
+      label: 'Text',
+      controls: [
+        {
+          kind: 'form',
+          testId: 'btn-tempo-open',
+          label: 'Tempo',
+          icon: Music2,
+          commandId: 'add.text.tempo',
+        },
+      ],
+    },
+  ];
+
+  function setupForm(context: Partial<CommandContext> = {}) {
+    const tempo = vi.fn();
+    const registry = new CommandRegistry();
+    registry.setContextSource(() => ({
+      ...DEFAULT_COMMAND_CONTEXT,
+      hasScore: true,
+      isMutable: true,
+      ...context,
+    }));
+    registry.register('global', [
+      defineCommand<{ bpm?: number } | undefined>({
+        id: 'add.text.tempo',
+        label: 'Tempo',
+        enabled: needsSelection,
+        run: (_c, args) => tempo(args),
+      }),
+    ]);
+    render(<ToolStrip groups={TEMPO} registry={registry} />);
+    return { tempo, user: userEvent.setup() };
+  }
+
+  it('opens the command’s form in a popover and runs the command with what was entered', async () => {
+    const { tempo, user } = setupForm({ selection: 'single' });
+    await user.click(screen.getByTestId('btn-tempo-open'));
+    const input = await screen.findByTestId('input-tempo-bpm');
+    expect(input).toHaveValue(120);
+    expect(input).toHaveFocus();
+    await user.clear(input);
+    await user.type(input, '96');
+    await user.click(screen.getByTestId('btn-tempo-apply'));
+    expect(tempo).toHaveBeenCalledWith({ bpm: 96 });
+    expect(screen.queryByTestId('btn-tempo-open-form')).not.toBeInTheDocument();
+  });
+
+  it('submits with Enter, sanitising an empty value like the ribbon did', async () => {
+    const { tempo, user } = setupForm({ selection: 'single' });
+    await user.click(screen.getByTestId('btn-tempo-open'));
+    const input = await screen.findByTestId('input-tempo-bpm');
+    await user.clear(input);
+    await user.keyboard('{Enter}');
+    expect(tempo).toHaveBeenCalledWith({ bpm: 120 });
+  });
+
+  it('cancels without running, and reopens from the defaults', async () => {
+    const { tempo, user } = setupForm({ selection: 'single' });
+    await user.click(screen.getByTestId('btn-tempo-open'));
+    const input = await screen.findByTestId('input-tempo-bpm');
+    await user.clear(input);
+    await user.type(input, '50');
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(tempo).not.toHaveBeenCalled();
+    await user.click(screen.getByTestId('btn-tempo-open'));
+    expect(await screen.findByTestId('input-tempo-bpm')).toHaveValue(120);
+  });
+
+  it('does not open when the command cannot run, and says why', async () => {
+    const { tempo, user } = setupForm({ selection: 'none' });
+    const button = screen.getByTestId('btn-tempo-open');
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    await user.click(button);
+    expect(screen.queryByTestId('input-tempo-bpm')).not.toBeInTheDocument();
+    expect(tempo).not.toHaveBeenCalled();
+    expect(getAnnouncement().text).toBe('Tempo: Select something first');
+  });
+});
