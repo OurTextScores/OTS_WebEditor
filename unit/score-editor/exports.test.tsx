@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { noticeTitles, runEditorCommand, setupScoreEditorTest, testGlobals } from './test-harness';
@@ -21,22 +21,23 @@ describe('ScoreEditor: zoom and export bindings', () => {
   setupScoreEditorTest(mocked, mockedNavigation);
 
   it('zooms in/out and clamps zoom limits', async () => {
-    const user = userEvent.setup();
     render(<ScoreEditor />);
 
     const wrapper = screen.getByTestId('score-wrapper');
     expect(wrapper).toHaveStyle({ transform: 'scale(1)' });
 
+    // fireEvent, not 70 simulated pointer sequences: the point is the clamp, and each user.click on the full editor
+    // costs real time (this test used to time out at 10 s on a busy runner).
     for (let i = 0; i < 20; i++) {
-      await user.click(screen.getByTestId('btn-zoom-out'));
+      fireEvent.click(screen.getByTestId('btn-zoom-out'));
     }
     expect(wrapper).toHaveStyle({ transform: 'scale(0.01)' });
 
     for (let i = 0; i < 50; i++) {
-      await user.click(screen.getByTestId('btn-zoom-in'));
+      fireEvent.click(screen.getByTestId('btn-zoom-in'));
     }
     expect(wrapper).toHaveStyle({ transform: 'scale(1)' });
-  }, 10000);
+  });
 
   it('exports PDF/PNG/MXL/MSCZ/MSCX/MusicXML/ABC/MIDI via Score methods', async () => {
     const user = userEvent.setup();
@@ -122,7 +123,7 @@ describe('ScoreEditor: zoom and export bindings', () => {
         expect.any(Object),
       ),
     );
-  }, 10000);
+  });
 
   it('alerts when optional export bindings are missing', async () => {
     const user = userEvent.setup();

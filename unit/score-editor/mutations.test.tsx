@@ -104,7 +104,7 @@ describe('ScoreEditor: toolbar mutations, note input and keyboard shortcuts', ()
     await runEditorCommand('btn-export-svg');
     await waitFor(() => expect(score.saveSvg).toHaveBeenCalled());
     await waitFor(() => expect(testGlobals.URL.createObjectURL).toHaveBeenCalled());
-  }, 15000);
+  });
 
   // Layout oracle sweep (docs/private/VIRITURA_OTS_CROSS_POLLINATION.md §W7.1): an edit the
   // oracle verified skips the ~1.4 s full relayout, and every other edit still runs it.
