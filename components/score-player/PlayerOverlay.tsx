@@ -15,7 +15,9 @@ const boxWidth = (box: Box, isNote: boolean) =>
 
 /**
  * The click targets and the highlight drawn over the score page. `boxes` are the measures or the notes of the visible
- * page; a click on one calls `onSeek(box)`. The highlight is the sounding measure or note, drawn only on its own page.
+ * page; a click on one calls `onSeek(box)`. The highlight is the sounding measure, drawn only on its own page. A note is
+ * not boxed: its head is coloured in the score itself (`useNoteheadColor`), so its rect here is invisible and only
+ * anchors the follow-scroll and the tests.
  */
 export default function PlayerOverlay({
   pageSize,
@@ -68,18 +70,20 @@ export default function PlayerOverlay({
             y={highlight.y}
             width={boxWidth(highlight, highlightIsNote)}
             height={highlight.height ?? highlight.sy}
-            fill="rgb(8 145 178 / 0.13)"
-            stroke="rgb(8 145 178 / 0.8)"
+            fill={highlightIsNote ? 'none' : 'rgb(8 145 178 / 0.13)'}
+            stroke={highlightIsNote ? 'none' : 'rgb(8 145 178 / 0.8)'}
             strokeWidth="2"
           />
-          <line
-            x1={highlight.x}
-            y1={highlight.y}
-            x2={highlight.x}
-            y2={highlight.y + (highlight.height ?? highlight.sy)}
-            stroke="rgb(8 145 178)"
-            strokeWidth="4"
-          />
+          {!highlightIsNote && (
+            <line
+              x1={highlight.x}
+              y1={highlight.y}
+              x2={highlight.x}
+              y2={highlight.y + (highlight.height ?? highlight.sy)}
+              stroke="rgb(8 145 178)"
+              strokeWidth="4"
+            />
+          )}
         </g>
       )}
     </svg>

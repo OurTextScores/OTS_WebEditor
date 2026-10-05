@@ -27,6 +27,7 @@ import DismissibleNotice from './DismissibleNotice';
 import PlayerControls from './PlayerControls';
 import PlayerOverlay from './PlayerOverlay';
 import { initialHighlightMode, useHighlightView, useNoteHighlight } from './useNoteHighlight';
+import { useNoteheadColor } from './useNoteheadColor';
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const pageCountBucket = (count: number) => (count <= 1 ? '1' : count <= 5 ? '2_to_5' : '6_plus');
@@ -98,6 +99,7 @@ export default function EmbeddedScorePlayer() {
   const playerRootRef = useRef<HTMLElement | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const activeMeasureRef = useRef<SVGRectElement | null>(null);
+  const svgHostRef = useRef<HTMLDivElement | null>(null);
   const followRef = useRef(initialFollow);
   const followResumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const programmaticScrollRef = useRef(false);
@@ -393,6 +395,8 @@ export default function EmbeddedScorePlayer() {
     currentPage,
     activeMeasure,
   });
+
+  useNoteheadColor(svgHostRef, view, currentPage, svg);
 
   const visibleMeasures = useMemo(
     () => positions?.elements.filter((element) => element.page === currentPage) ?? [],
@@ -793,6 +797,7 @@ export default function EmbeddedScorePlayer() {
           >
             <div className="relative mx-auto w-full overflow-hidden bg-white shadow-raised">
               <div
+                ref={svgHostRef}
                 className="[&_svg]:block [&_svg]:h-auto [&_svg]:w-full"
                 data-testid="player-svg"
                 dangerouslySetInnerHTML={{ __html: svg }}
