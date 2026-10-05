@@ -68,6 +68,7 @@
     "codemirror": "^6.0.1",
     "diff": "^9.0.0",
     "lucide-react": "^0.575.0",
+    "mediabunny": "^1.61.3",
     "next": "^16.1.3",
     "openai": "^6.25.0",
     "react": "19.2.0",

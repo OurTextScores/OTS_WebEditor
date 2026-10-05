@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, type RefObject } from 'react';
+import { centreInSegmentBox } from '@/lib/playback/note-box-match';
 import type { Positions } from '@/lib/webmscore-loader';
 
 type Box = Positions['elements'][number];
@@ -77,18 +78,8 @@ export function useNoteheadColor(
     restore();
     if (!box || !svg) return;
     applied.current = { key, svg };
-    const width = box.width ?? box.sx ?? 0;
-    const height = box.height ?? box.sy ?? 0;
-    // The box is the staff's height, so a head on ledger lines sits just outside it: allow three staff spaces.
-    const margin = height * 0.75;
     for (const note of noteCentres(svg)) {
-      if (
-        note.x < box.x ||
-        note.x > box.x + width ||
-        note.y < box.y - margin ||
-        note.y > box.y + height + margin
-      )
-        continue;
+      if (!centreInSegmentBox(note.x, note.y, box)) continue;
       marked.current.push({
         el: note.el,
         fill: note.el.getAttribute('fill'),
