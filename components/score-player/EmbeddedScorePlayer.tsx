@@ -11,11 +11,8 @@ import {
   occurrenceForMeasure,
   timelineFromPositions,
 } from '@/lib/playback/timeline';
-import {
-  segmentAtTime,
-  segmentTimeForId,
-  sortedSegmentEvents,
-} from '@/lib/playback/note-tracking';
+import { segmentTimeForId } from '@/lib/playback/note-tracking';
+import { readPlayerPreference, writePlayerPreference } from '@/lib/playback/player-preferences';
 import { useScoreTransport } from '@/lib/playback/use-score-transport';
 import {
   parsePlayerCommand,
@@ -24,21 +21,12 @@ import {
   resolvePlayerId,
   type HighlightMode,
 } from '@/lib/playback/player-message-api';
+import DismissibleNotice from './DismissibleNotice';
 import PlayerControls from './PlayerControls';
+import PlayerOverlay from './PlayerOverlay';
+import { initialHighlightMode, useHighlightView, useNoteHighlight } from './useNoteHighlight';
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
-/**
- * Minimum highlight/click width for a note box, in score units.
- *
- * The engine reports a segment's width from its glyph bboxes, which can be
- * zero when no track element exposes a valid bbox. A zero-width rect is
- * invisible and unclickable, so note geometry gets a sliver floor while the
- * leading cursor line keeps marking the exact segment x. Measure boxes keep
- * their engine widths untouched.
- */
-const NOTE_MIN_WIDTH = 12;
-const noteBoxWidth = (box: { width?: number; sx: number }) =>
-  Math.max(box.width ?? box.sx ?? 0, NOTE_MIN_WIDTH);
 const pageCountBucket = (count: number) => (count <= 1 ? '1' : count <= 5 ? '2_to_5' : '6_plus');
 const durationBucket = (durationMs: number) =>
   durationMs < 30_000
@@ -55,13 +43,7 @@ export default function EmbeddedScorePlayer() {
   const scoreUrl = searchParams.get('score') ?? '';
   const configuredStartSeconds = Number(searchParams.get('start') ?? 0);
   const initialFollow = searchParams.get('follow') !== '0';
-  const requestedHighlight = searchParams.get('highlight');
-  const storedHighlight =
-    typeof window !== 'undefined' ? window.localStorage.getItem('ots-player-highlight') : null;
-  const initialHighlightMode: 'measure' | 'note' =
-    requestedHighlight === 'note' || (requestedHighlight !== 'measure' && storedHighlight === 'note')
-      ? 'note'
-      : 'measure';
+  const initialMode = initialHighlightMode(searchParams.get('highlight'));
   const requestedPlayerId = searchParams.get('playerId');
   const requestedParentOrigin = searchParams.get('parentOrigin');
   const theme = ['light', 'dark'].includes(searchParams.get('theme') ?? '')
@@ -82,6 +64,14 @@ export default function EmbeddedScorePlayer() {
 
   const [score, setScore] = useState<Score | null>(null);
   const scoreRef = useRef<Score | null>(null);
+  const highlight = useNoteHighlight(scoreRef, initialMode);
+  const {
+    modeRef: highlightModeRef,
+    applyLoaded: applyHighlightLoaded,
+    reset: resetHighlight,
+    fetchSegments,
+    setPreference: setHighlightPreference,
+  } = highlight;
   const [svg, setSvg] = useState('');
   const [positions, setPositions] = useState<Positions | null>(null);
   const [timeline, setTimeline] = useState<PlaybackTimeline | null>(null);
@@ -98,12 +88,6 @@ export default function EmbeddedScorePlayer() {
   const [pageError, setPageError] = useState('');
   const [zoom, setZoom] = useState(1);
   const [follow, setFollow] = useState(initialFollow);
-  const [highlightMode, setHighlightModeState] = useState<'measure' | 'note'>(
-    initialHighlightMode,
-  );
-  const [segments, setSegments] = useState<Positions | null>(null);
-  const [segmentsLoading, setSegmentsLoading] = useState(false);
-  const [highlightMessage, setHighlightMessage] = useState('');
   const [volume, setVolume] = useState(1);
   const [audioMessage, setAudioMessage] = useState('');
   const [inputFormat, setInputFormat] = useState('');
@@ -112,7 +96,6 @@ export default function EmbeddedScorePlayer() {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const activeMeasureRef = useRef<SVGRectElement | null>(null);
   const followRef = useRef(initialFollow);
-  const highlightModeRef = useRef<'measure' | 'note'>(initialHighlightMode);
   const followResumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const programmaticScrollRef = useRef(false);
   const programmaticScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -157,62 +140,6 @@ export default function EmbeddedScorePlayer() {
     setFollow(next);
   }, []);
 
-  const setHighlightMode = useCallback((next: 'measure' | 'note') => {
-    highlightModeRef.current = next;
-    setHighlightModeState(next);
-    window.localStorage.setItem('ots-player-highlight', next);
-  }, []);
-
-  /**
-   * ChordRest segment geometry for note-level tracking. Fetched lazily: the
-   * default measure mode never pays the cost or the (historically crash-prone)
-   * `segmentPositions` risk. Any failure falls back to measure highlighting
-   * with an inline, dismissible message — never a broken player.
-   */
-  const fetchSegments = useCallback(async (target: Score): Promise<boolean> => {
-    setSegmentsLoading(true);
-    try {
-      const next = await target.segmentPositions().catch(() => null);
-      if (scoreRef.current !== target) return false;
-      const usable =
-        next && next.elements.length > 0 && next.events.length > 0 ? next : null;
-      setSegments(usable);
-      if (!usable) {
-        setHighlightMessage('Note highlighting is unavailable for this score.');
-        return false;
-      }
-      setHighlightMessage('');
-      return true;
-    } catch {
-      if (scoreRef.current !== target) return false;
-      setSegments(null);
-      setHighlightMessage('Note highlighting is unavailable for this score.');
-      return false;
-    } finally {
-      if (scoreRef.current === target) setSegmentsLoading(false);
-    }
-  }, []);
-
-  const setHighlightPreference = useCallback(
-    (next: HighlightMode) => {
-      if (highlightModeRef.current === next && (next === 'measure' || segments)) return;
-      setHighlightMode(next);
-      if (next === 'note') {
-        const activeScore = scoreRef.current;
-        if (activeScore && !segments) {
-          void fetchSegments(activeScore).then((ok) => {
-            if (!ok) setHighlightMode('measure');
-          });
-        }
-      }
-    },
-    [fetchSegments, segments, setHighlightMode],
-  );
-
-  const toggleHighlightMode = useCallback(() => {
-    setHighlightPreference(highlightModeRef.current === 'note' ? 'measure' : 'note');
-  }, [setHighlightPreference]);
-
   const suspendFollowTemporarily = useCallback(() => {
     if (!followRef.current && !followResumeTimerRef.current) return;
     if (followResumeTimerRef.current) clearTimeout(followResumeTimerRef.current);
@@ -238,12 +165,12 @@ export default function EmbeddedScorePlayer() {
   );
 
   useEffect(() => {
-    const stored = Number(window.localStorage.getItem('ots-player-volume'));
+    const stored = Number(readPlayerPreference('ots-player-volume'));
     if (Number.isFinite(stored)) setVolume(clamp(stored, 0, 1));
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem('ots-player-volume', String(volume));
+    writePlayerPreference('ots-player-volume', String(volume));
   }, [volume]);
 
   const emitPlayerTelemetry = useCallback(
@@ -298,8 +225,7 @@ export default function EmbeddedScorePlayer() {
     setScore(null);
     setSvg('');
     setPositions(null);
-    setSegments(null);
-    setHighlightMessage('');
+    resetHighlight();
     setTimeline(null);
     setInputFormat('');
     setHostReady(false);
@@ -354,15 +280,7 @@ export default function EmbeddedScorePlayer() {
         if (highlightModeRef.current === 'note') {
           const notePositions = await loadedScore.segmentPositions().catch(() => null);
           if (controller.signal.aborted || loadGenerationRef.current !== generation) return;
-          const usable =
-            notePositions && notePositions.elements.length > 0 && notePositions.events.length > 0
-              ? notePositions
-              : null;
-          setSegments(usable);
-          if (!usable) {
-            setHighlightMode('measure');
-            setHighlightMessage('Note highlighting is unavailable for this score.');
-          }
+          applyHighlightLoaded(notePositions);
         }
         setInputFormat(loadResult.format);
         loadDurationMsRef.current = Math.max(
@@ -416,7 +334,9 @@ export default function EmbeddedScorePlayer() {
     prefetchSoundFont,
     resetTransport,
     scoreUrl,
-    setHighlightMode,
+    applyHighlightLoaded,
+    highlightModeRef,
+    resetHighlight,
   ]);
 
   useEffect(() => {
@@ -462,32 +382,17 @@ export default function EmbeddedScorePlayer() {
       ? (positions.elements[activeOccurrence.measureIndex] ?? null)
       : null;
 
-  const segmentEvents = useMemo(() => sortedSegmentEvents(segments), [segments]);
-  const activeSegment = useMemo(
-    () => (highlightMode === 'note' ? segmentAtTime(segmentEvents, positionMs) : null),
-    [highlightMode, positionMs, segmentEvents],
-  );
-  const activeSegmentBox =
-    activeSegment && segments ? (segments.elements[activeSegment.segmentId] ?? null) : null;
-  /**
-   * Box that drives page following and scroll anchoring: the sounding note in
-   * note mode, the sounding measure otherwise — or while note geometry is
-   * still loading or unavailable.
-   */
-  const followTarget = activeSegmentBox ?? activeMeasure;
-  const highlightBox = highlightMode === 'note' ? (activeSegmentBox ?? activeMeasure) : activeMeasure;
-  const highlightTestId =
-    highlightMode === 'note' && activeSegmentBox
-      ? 'active-note-highlight'
-      : 'active-measure-highlight';
+  const view = useHighlightView({
+    mode: highlight.mode,
+    segments: highlight.segments,
+    positionMs,
+    currentPage,
+    activeMeasure,
+  });
 
   const visibleMeasures = useMemo(
     () => positions?.elements.filter((element) => element.page === currentPage) ?? [],
     [currentPage, positions],
-  );
-  const visibleSegments = useMemo(
-    () => segments?.elements.filter((element) => element.page === currentPage) ?? [],
-    [currentPage, segments],
   );
   const hasPlaybackFailure =
     transport === 'unavailable' || audioMessage.startsWith('Playback was blocked.');
@@ -726,7 +631,7 @@ export default function EmbeddedScorePlayer() {
         }
       }
     },
-    [fetchSegments, pageCount, progressiveHasMorePages],
+    [fetchSegments, highlightModeRef, pageCount, progressiveHasMorePages],
   );
 
   useEffect(() => {
@@ -746,12 +651,12 @@ export default function EmbeddedScorePlayer() {
   ]);
 
   useEffect(() => {
-    if (!follow || !followTarget || followTarget.page === currentPage) return;
-    setCurrentPage(followTarget.page);
-  }, [currentPage, follow, followTarget]);
+    if (!follow || !view.followTarget || view.followTarget.page === currentPage) return;
+    setCurrentPage(view.followTarget.page);
+  }, [currentPage, follow, view.followTarget]);
 
   useEffect(() => {
-    if (!follow || followTarget?.page !== currentPage || !svg) return;
+    if (!follow || view.followTarget?.page !== currentPage || !svg) return;
     const frame = window.requestAnimationFrame(() => {
       const viewport = viewportRef.current;
       const activeRect = activeMeasureRef.current;
@@ -780,7 +685,7 @@ export default function EmbeddedScorePlayer() {
       );
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [currentPage, follow, followTarget?.id, followTarget?.page, svg]);
+  }, [currentPage, follow, view.followTarget?.id, view.followTarget?.page, svg]);
 
   useEffect(() => {
     if (!pageRequestQueued || pageLoadBusy) return;
@@ -889,78 +794,31 @@ export default function EmbeddedScorePlayer() {
                 dangerouslySetInnerHTML={{ __html: svg }}
               />
               {pageSize && (
-                <svg
-                  data-testid="player-overlay"
-                  className="absolute inset-0 h-full w-full"
-                  viewBox={`0 0 ${pageSize.width} ${pageSize.height}`}
-                  preserveAspectRatio="xMidYMid meet"
-                  aria-hidden="true"
-                >
-                  {(highlightMode === 'note' && segments ? visibleSegments : visibleMeasures).map(
-                    (box) => {
-                      const isNote = highlightMode === 'note' && segments !== null;
-                      const boxWidth = isNote
-                        ? noteBoxWidth(box)
-                        : (box.width ?? box.sx);
-                      return (
-                        <rect
-                          key={box.id}
-                          x={box.x}
-                          y={box.y}
-                          width={boxWidth}
-                          height={box.height ?? box.sy}
-                          fill="transparent"
-                          pointerEvents="all"
-                          className="cursor-pointer"
-                          onClick={() => {
-                            if (isNote) {
-                              const targetMs = segmentTimeForId(
-                                segmentEvents,
-                                box.id,
-                                positionRef.current,
-                              );
-                              if (targetMs !== null) handleSeek(targetMs);
-                              return;
-                            }
-                            const occurrence = occurrenceForMeasure(
-                              timeline,
-                              box.id,
-                              positionRef.current,
-                            );
-                            if (occurrence) handleSeek(occurrence.startMs);
-                          }}
-                        />
-                      );
-                    },
-                  )}
-                  {highlightBox?.page === currentPage && (
-                    <g pointerEvents="none">
-                      <rect
-                        data-testid={highlightTestId}
-                        ref={activeMeasureRef}
-                        x={highlightBox.x}
-                        y={highlightBox.y}
-                        width={
-                          highlightMode === 'note' && activeSegmentBox
-                            ? noteBoxWidth(highlightBox)
-                            : (highlightBox.width ?? highlightBox.sx)
-                        }
-                        height={highlightBox.height ?? highlightBox.sy}
-                        fill="rgb(8 145 178 / 0.13)"
-                        stroke="rgb(8 145 178 / 0.8)"
-                        strokeWidth="2"
-                      />
-                      <line
-                        x1={highlightBox.x}
-                        y1={highlightBox.y}
-                        x2={highlightBox.x}
-                        y2={highlightBox.y + (highlightBox.height ?? highlightBox.sy)}
-                        stroke="rgb(8 145 178)"
-                        strokeWidth="4"
-                      />
-                    </g>
-                  )}
-                </svg>
+                <PlayerOverlay
+                  pageSize={pageSize}
+                  boxes={
+                    highlight.mode === 'note' && highlight.segments
+                      ? view.visibleNotes
+                      : visibleMeasures
+                  }
+                  boxesAreNotes={highlight.mode === 'note' && highlight.segments !== null}
+                  highlight={view.highlightBox}
+                  highlightIsNote={view.highlightIsNote}
+                  highlightTestId={
+                    view.highlightIsNote ? 'active-note-highlight' : 'active-measure-highlight'
+                  }
+                  currentPage={currentPage}
+                  highlightRef={activeMeasureRef}
+                  onSeek={(box) => {
+                    if (highlight.mode === 'note' && highlight.segments) {
+                      const targetMs = segmentTimeForId(view.events, box.id, positionRef.current);
+                      if (targetMs !== null) handleSeek(targetMs);
+                      return;
+                    }
+                    const occurrence = occurrenceForMeasure(timeline, box.id, positionRef.current);
+                    if (occurrence) handleSeek(occurrence.startMs);
+                  }}
+                />
               )}
             </div>
           </div>
@@ -982,25 +840,12 @@ export default function EmbeddedScorePlayer() {
           </div>
         )}
         {pageError && (
-          <div
-            className="sticky bottom-2 mx-auto mt-2 flex w-fit items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-xs text-amber-900"
-            role="status"
-          >
-            <span>{pageError}</span>
-            <button
-              type="button"
-              className="font-semibold underline"
-              onClick={() => setPageError('')}
-            >
-              Dismiss
-            </button>
-          </div>
+          <DismissibleNotice onDismiss={() => setPageError('')}>{pageError}</DismissibleNotice>
         )}
-        {highlightMessage && (
-          <div className="sticky bottom-2 mx-auto mt-2 flex w-fit items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-xs text-amber-900" role="status">
-            <span>{highlightMessage}</span>
-            <button type="button" className="font-semibold underline" onClick={() => setHighlightMessage('')}>Dismiss</button>
-          </div>
+        {highlight.message && (
+          <DismissibleNotice onDismiss={highlight.dismissMessage}>
+            {highlight.message}
+          </DismissibleNotice>
         )}
       </div>
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
@@ -1018,8 +863,8 @@ export default function EmbeddedScorePlayer() {
         pageCount={pageCount}
         hasMorePages={progressiveHasMorePages}
         follow={follow}
-        highlightMode={highlightMode}
-        highlightBusy={segmentsLoading}
+        highlightMode={highlight.mode}
+        highlightBusy={highlight.loading}
         onTogglePlayPause={() => void togglePlayPause()}
         onStop={() => void stopAt(startMsRef.current)}
         onSeek={handleSeek}
@@ -1034,7 +879,7 @@ export default function EmbeddedScorePlayer() {
         onFitWidth={() => setZoom(1)}
         onZoomIn={() => setZoom((value) => clamp(value + 0.1, 0.5, 2.5))}
         onToggleFollow={() => setFollowPreference(!follow)}
-        onToggleHighlight={toggleHighlightMode}
+        onToggleHighlight={highlight.toggle}
       />
     </main>
   );

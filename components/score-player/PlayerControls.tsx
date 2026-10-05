@@ -44,6 +44,34 @@ type Props = {
 const controlClass =
   'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--player-border)] bg-[var(--player-control)] text-[var(--player-text)] transition hover:bg-[var(--player-control-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 disabled:cursor-not-allowed disabled:opacity-40';
 
+/** The toggle between measure and note highlighting (one button, in the bar and in the small-screen menu). */
+function NoteHighlightButton({
+  highlightMode,
+  highlightBusy,
+  disabled,
+  onToggleHighlight,
+  compact,
+}: Pick<Props, 'highlightMode' | 'highlightBusy' | 'disabled' | 'onToggleHighlight'> & {
+  compact?: boolean;
+}) {
+  const noteMode = highlightMode === 'note';
+  return (
+    <button
+      type="button"
+      className={`${controlClass} ${noteMode ? '!border-cyan-500 !text-cyan-600' : ''}`}
+      onClick={onToggleHighlight}
+      disabled={Boolean(disabled)}
+      title={noteMode ? 'Highlight measures' : 'Highlight notes'}
+      aria-label="Note highlighting"
+      aria-pressed={noteMode}
+    >
+      <span className={compact ? 'text-[10px] font-semibold' : 'font-semibold'}>
+        {highlightBusy && noteMode ? '…' : 'Note'}
+      </span>
+    </button>
+  );
+}
+
 export default function PlayerControls(props: Props) {
   const [scrubbing, setScrubbing] = useState(false);
   const [draftPosition, setDraftPosition] = useState(props.positionMs);
@@ -81,7 +109,6 @@ export default function PlayerControls(props: Props) {
           : 'Play';
   const transportDisabled = Boolean(props.disabled) || props.state === 'preparing';
   const displayedPosition = scrubbing ? draftPosition : props.positionMs;
-  const noteMode = props.highlightMode === 'note';
 
   return (
     <div className="sticky bottom-0 z-20 border-t border-[var(--player-border)] bg-[var(--player-panel)] px-3 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur">
@@ -227,17 +254,7 @@ export default function PlayerControls(props: Props) {
           >
             <span className="font-semibold">Follow</span>
           </button>
-          <button
-            type="button"
-            className={`${controlClass} ${noteMode ? '!border-cyan-500 !text-cyan-600' : ''}`}
-            onClick={props.onToggleHighlight}
-            disabled={Boolean(props.disabled)}
-            title={noteMode ? 'Highlight measures' : 'Highlight notes'}
-            aria-label="Note highlighting"
-            aria-pressed={noteMode}
-          >
-            <span className="font-semibold">{props.highlightBusy && noteMode ? '…' : 'Note'}</span>
-          </button>
+          <NoteHighlightButton {...props} />
         </div>
         <details className="group relative sm:hidden">
           <summary
@@ -299,19 +316,7 @@ export default function PlayerControls(props: Props) {
               >
                 <span className="text-caption font-semibold">Follow</span>
               </button>
-              <button
-                type="button"
-                className={`${controlClass} ${noteMode ? '!border-cyan-500 !text-cyan-600' : ''}`}
-                onClick={props.onToggleHighlight}
-                disabled={Boolean(props.disabled)}
-                title={noteMode ? 'Highlight measures' : 'Highlight notes'}
-                aria-label="Note highlighting"
-                aria-pressed={noteMode}
-              >
-                <span className="text-[10px] font-semibold">
-                  {props.highlightBusy && noteMode ? '…' : 'Note'}
-                </span>
-              </button>
+              <NoteHighlightButton {...props} compact />
             </div>
           </div>
         </details>

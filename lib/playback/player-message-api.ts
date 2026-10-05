@@ -1,14 +1,7 @@
 export const PLAYER_MESSAGE_VERSION = 1 as const;
 
 export type PlayerCommandName =
-  | 'play'
-  | 'pause'
-  | 'toggle'
-  | 'stop'
-  | 'seek'
-  | 'set-volume'
-  | 'set-follow'
-  | 'set-highlight';
+  'play' | 'pause' | 'toggle' | 'stop' | 'seek' | 'set-volume' | 'set-follow' | 'set-highlight';
 
 export type HighlightMode = 'measure' | 'note';
 

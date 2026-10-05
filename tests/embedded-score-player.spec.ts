@@ -106,6 +106,19 @@ test.describe('embedded score player', () => {
     await expect(page.getByTestId('active-note-highlight')).toBeVisible({ timeout: 30_000 });
   });
 
+  // `segmentPositions` used to trap on most real scores (note mode then fell back to measures with a message) and gave every
+  // note a zero width. These scores are the ones it failed on.
+  for (const score of ['bach_orig.mscz', 'single_note_c4.musicxml', 'two_chords.musicxml']) {
+    test(`note mode works on ${score}, with a real width`, async ({ page }) => {
+      await page.goto(`/?score=%2Ftest_scores%2F${score}&embed=player&highlight=note`);
+      const highlight = page.getByTestId('active-note-highlight');
+      await expect(highlight).toBeVisible({ timeout: 60_000 });
+      await expect(page.getByText('Note highlighting is unavailable')).toHaveCount(0);
+      // A note box is the room layout gave it, not the 12-unit floor.
+      expect(Number(await highlight.getAttribute('width'))).toBeGreaterThan(12);
+    });
+  }
+
   test('exchanges versioned messages only with the configured parent origin', async ({ page }) => {
     await page.route('**/player-host.html', (route) =>
       route.fulfill({
