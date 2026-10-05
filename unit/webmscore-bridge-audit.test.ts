@@ -82,6 +82,35 @@ describe('webmscore bridge audit', () => {
     expect(result.report?.counts.scoreMembers).toBe(1);
   });
 
+  it('does not read the properties of a method\u2019s parameter object type as members (Prettier layout)', () => {
+    const typescript = `
+export interface Score {
+  pitchUp?: () => Promise<void>;
+  setThing?: (options: {
+    startTime: number;
+    value: string;
+  }) => Promise<boolean>;
+  getInfo?: () => Promise<{
+    index: number;
+    x: number;
+  }>;
+}
+`;
+    const result = analyze(
+      { ...baseSources(), typescript },
+      {
+        ...manifest,
+        typescriptOnlyMembers: { setThing: 'test', getInfo: 'test' },
+      },
+    );
+    // Only the three members are known; `startTime`, `value`, `index` and `x` are not reported as missing methods.
+    expect(rules(result)).not.toContain('missing-main-thread');
+    expect(
+      result.failures.some((failure) => /startTime|value|index|\bx\b/.test(failure.message ?? '')),
+    ).toBe(false);
+    expect(result.report?.counts.scoreMembers).toBe(3);
+  });
+
   it('resolves an underscore-prefixed rpc target against its native export', () => {
     const result = analyze(baseSources(), manifest);
 

@@ -30,7 +30,7 @@ jobs:
       - run: npm run typecheck:tests
 
   lint:
-    name: Lint (strict)
+    name: Lint
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -40,7 +40,9 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npm run lint -- --max-warnings=0
+      # Errors fail here. The warning count is held by the debt ratchet (check:debt, eslint.maxWarnings), whose cap was
+      # raised on purpose (scripts/technical-debt-budget.json `raises`), so a zero-warning rule could never pass.
+      - run: npm run lint
       - run: npm run check:score-editor-globals
 
   unit:

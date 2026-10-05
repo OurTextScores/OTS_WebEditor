@@ -67,7 +67,11 @@ const parseStructReturningExports = (source) => {
 const parseRpcTargets = (source) =>
   new Set([...source.matchAll(/\.rpc\(\s*'([^']+)'/g)].map((match) => match[1]));
 
-/** Member names of the exported Score interface. */
+/**
+ * Member names of the exported Score interface: the lines indented exactly two spaces. Prettier puts a method's
+ * parameter object types on following lines at four, so a wider match read their properties (`x`, `value`,
+ * `startTime`...) as methods and the audit failed on all of them.
+ */
 const parseScoreInterface = (source) => {
   const header = /export interface Score\s*\{/.exec(source);
   if (!header) return null;
@@ -86,7 +90,7 @@ const parseScoreInterface = (source) => {
   if (end < 0) return null;
   const body = source.slice(header.index + header[0].length, end);
   return new Set(
-    [...body.matchAll(/^\s{2,4}([a-zA-Z_$][\w$]*)\??\s*[:(]/gm)].map((match) => match[1]),
+    [...body.matchAll(/^ {2}([a-zA-Z_$][\w$]*)\??\s*[:(]/gm)].map((match) => match[1]),
   );
 };
 
