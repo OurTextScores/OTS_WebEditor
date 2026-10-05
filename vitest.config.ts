@@ -9,6 +9,10 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    // The ScoreEditor render tests mount the whole editor; on a busy or two-core runner they take longer than the 5 s
+    // default (and a cold transform, longer still), which showed up as a different one of them failing per run.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
     setupFiles: ['./vitest.setup.ts'],
     include: ['unit/**/*.{test,spec}.{ts,tsx}'],
     exclude: [
