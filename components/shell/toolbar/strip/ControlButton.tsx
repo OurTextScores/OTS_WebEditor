@@ -1,12 +1,12 @@
 'use client';
 
 import React from 'react';
-import styles from '../WriteToolbar.module.css';
 import { Button } from '../../../ui/Button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/Tooltip';
 import { announce } from '../../announcer';
 import { formatShortcut } from '../../shortcutDisplay';
 import type { ToolbarCommands } from '../useToolbarCommands';
+import { ControlIcon } from './icons/ControlIcon';
 import type { StripCommand, StripMenu } from './toolbarLayout';
 
 /** What every strip control gets from the strip: the registry's view, and its place in the roving tab order. */
@@ -82,13 +82,7 @@ export function ControlButton({
           onFocus={() => setActiveKey(control.testId)}
           onClick={() => (enabled ? run() : announceUnavailable(control.label, reason))}
         >
-          {control.glyph ? (
-            <span className={styles.glyph} aria-hidden="true">
-              {control.glyph}
-            </span>
-          ) : (
-            <Icon size={16} aria-hidden="true" />
-          )}
+          <ControlIcon testId={control.testId} fallback={Icon} />
         </Button>
       </TooltipTrigger>
       <TooltipContent>

@@ -7,7 +7,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '../../../ui/DropdownMenu';
-import styles from '../WriteToolbar.module.css';
+import { BeamIcon } from '../../../toolbar/BeamIcon';
+import { GlyphIcon } from './icons/StripIcon';
 import type { ToolbarCommands } from '../useToolbarCommands';
 import type { StripItem, StripMenu } from './toolbarLayout';
 
@@ -16,10 +17,10 @@ export const commandOf = (control: StripMenu, item: StripItem) =>
   item.commandId ?? control.commandId ?? '';
 
 const glyphOf = (item: StripItem) =>
-  item.glyph ? (
-    <span className={styles.glyph} aria-hidden="true">
-      {item.glyph}
-    </span>
+  item.beam !== undefined ? (
+    <BeamIcon value={item.beam} className="text-slate-800" />
+  ) : item.glyph ? (
+    <GlyphIcon glyph={item.glyph} size={22} />
   ) : null;
 
 /**
@@ -59,7 +60,11 @@ export function MenuItems({
               className="h-9 w-9 justify-center p-0"
               onSelect={choose(item)}
             >
-              {item.glyph ? glyphOf(item) : <span className="text-caption">{item.label}</span>}
+              {item.glyph || item.beam !== undefined ? (
+                glyphOf(item)
+              ) : (
+                <span className="text-caption">{item.label}</span>
+              )}
             </DropdownMenuItem>
           );
         }
@@ -98,7 +103,7 @@ export function MenuItems({
             {heading}
             <DropdownMenuItem
               data-testid={item.testId}
-              className={item.glyph ? 'gap-3' : undefined}
+              className={item.glyph || item.beam !== undefined ? 'gap-3' : undefined}
               disabled={!enabled}
               onSelect={choose(item)}
             >

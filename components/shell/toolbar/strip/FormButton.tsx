@@ -12,6 +12,7 @@ import {
   DISABLED_LOOK,
   type StripControlContext,
 } from './ControlButton';
+import { ControlIcon } from './icons/ControlIcon';
 import type { StripForm } from './toolbarLayout';
 
 /** The fields and the submit button; mounted only while the popover is open, so each opening starts from the defaults. */
@@ -92,7 +93,7 @@ export function FormButton({
               tabIndex={activeKey === control.testId ? 0 : -1}
               onFocus={() => setActiveKey(control.testId)}
             >
-              <Icon size={16} aria-hidden="true" />
+              <ControlIcon testId={control.testId} fallback={Icon} />
             </Button>
           </PopoverTrigger>
         </TooltipTrigger>

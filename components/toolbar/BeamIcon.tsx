@@ -36,11 +36,17 @@ const Beam: React.FC<{ x1: number; x2: number; y: number }> = ({ x1, x2, y }) =>
   <rect x={x1} y={y} width={x2 - x1} height={2.4} fill="currentColor" />
 );
 
-export const BeamIcon: React.FC<{ value: number; className?: string }> = ({ value, className }) => {
+export const BeamIcon: React.FC<{
+  value: number;
+  className?: string;
+  /** Rendered size; the palettes use the default. */
+  width?: number;
+  height?: number;
+}> = ({ value, className, width = 34, height = 18 }) => {
   const [a, b, c] = STEM_X;
   const flags = value === 1;
   return (
-    <svg viewBox="0 0 40 22" width="34" height="18" className={className} aria-hidden="true">
+    <svg viewBox="0 0 40 22" width={width} height={height} className={className} aria-hidden="true">
       {STEM_X.map((x) => (
         <Stem key={`s${x}`} x={x} />
       ))}

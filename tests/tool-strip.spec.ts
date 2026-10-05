@@ -297,7 +297,9 @@ test.describe('Notes group', () => {
       await expect(items).toHaveCount(expected);
       if (content) await expect(page.getByTestId(content)).toBeVisible();
       for (const heading of headings)
-        await expect(page.getByRole('menu').getByText(heading, { exact: true })).toBeVisible();
+        await expect(
+          page.getByRole('menu').getByText(heading, { exact: true }).first(),
+        ).toBeVisible();
     });
   }
 

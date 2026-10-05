@@ -72,6 +72,8 @@ export interface StripItem {
   readonly section?: string;
   /** A SMuFL notation glyph shown beside the label. */
   readonly glyph?: string;
+  /** A beam mode: the item shows the palette's beamed-notes picture for it (`BeamIcon`). */
+  readonly beam?: number;
   /** The command needs arguments and the menu has no form: running it opens its form dialog (`commandForms.ts`). */
   readonly opensForm?: boolean;
 }
@@ -87,8 +89,6 @@ export interface StripCommand extends StripBase {
   readonly kind: 'command';
   readonly commandId: CommandId;
   readonly arg?: unknown;
-  /** A SMuFL glyph shown instead of the icon (a bow mark looks like what it adds). */
-  readonly glyph?: string;
 }
 
 /** A button that opens a list of items; each item runs a command. */
@@ -311,7 +311,9 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
         testId: 'dropdown-beams',
         label: 'Beams',
         icon: Rows3,
-        items: familyItems(beamOptions, 'format.beam', (option) => `btn-beam-${option.value}`),
+        items: familyItems(beamOptions, 'format.beam', (option) => `btn-beam-${option.value}`).map(
+          (item, index) => ({ ...item, beam: beamOptions[index].value }),
+        ),
       },
       {
         kind: 'menu',
@@ -540,21 +542,19 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
       // Bowing is the string player's most used articulation, so it also has a button of its own.
       {
         kind: 'command',
-        testId: 'btn-up-bow',
-        label: 'Up bow',
-        icon: Dot,
-        glyph: '\uE612',
-        commandId: 'add.mark.articulation',
-        arg: 'stringsUpBow',
-      },
-      {
-        kind: 'command',
         testId: 'btn-down-bow',
         label: 'Down bow',
         icon: Dot,
-        glyph: '\uE610',
         commandId: 'add.mark.articulation',
         arg: 'stringsDownBow',
+      },
+      {
+        kind: 'command',
+        testId: 'btn-up-bow',
+        label: 'Up bow',
+        icon: Dot,
+        commandId: 'add.mark.articulation',
+        arg: 'stringsUpBow',
       },
       {
         kind: 'menu',

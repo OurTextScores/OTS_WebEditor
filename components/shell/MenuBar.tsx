@@ -17,6 +17,11 @@ import { MENUS, type MenuDefinition, type MenuNode } from './menus';
 import { pruneMenuNodes } from './menuTree';
 import { formatShortcut } from './shortcutDisplay';
 import { getShellUiState, subscribeToShellUi } from './shellStore';
+import {
+  getHiddenSections,
+  getHiddenSectionsOnServer,
+  subscribeHiddenSections,
+} from './toolbar/strip/stripPersistence';
 
 // `relative` matters: Radix copies the content's computed z-index onto its positioning wrapper,
 // and a browser reports `auto` for z-index on an element that is not positioned, which would
@@ -243,6 +248,8 @@ export function MenuBar({
   compact?: boolean;
 }) {
   const ctx = useCommandContext(registry);
+  // The View ▸ Toolbar checks read the strip's hidden sections, which are not part of the command context.
+  useSyncExternalStore(subscribeHiddenSections, getHiddenSections, getHiddenSectionsOnServer);
   const render: RenderContext = { registry, ctx };
 
   if (compact) {

@@ -393,11 +393,10 @@ describe('ToolStrip', () => {
       expect(within(menu).getByText('Trill lines')).toBeInTheDocument();
       // Headings are not items: only the three actions can be chosen.
       expect(within(menu).getAllByRole('menuitem')).toHaveLength(3);
-      expect(within(screen.getByTestId('btn-ottava-0')).getByText('\uE511')).toHaveAttribute(
-        'aria-hidden',
-        'true',
-      );
-      expect(within(screen.getByTestId('btn-ottava-1')).queryByText('\uE511')).toBeNull();
+      const glyphOf = (id: string) => screen.getByTestId(id).querySelector('svg[data-glyph]');
+      expect(glyphOf('btn-ottava-0')).toHaveAttribute('data-glyph', 'E511');
+      expect(glyphOf('btn-ottava-0')).toHaveAttribute('aria-hidden', 'true');
+      expect(glyphOf('btn-ottava-1')).toBeNull();
       expect(menu.querySelectorAll('[role="separator"]')).toHaveLength(1);
     });
 
@@ -502,7 +501,7 @@ describe('split buttons', () => {
   it('starts on the first variant: its glyph on the face, and a click runs it', async () => {
     const { dynamic, user } = setupSplit({ selection: 'single' });
     expect(face()).toHaveAccessibleName('Dynamics: p');
-    expect(within(face()).getByText('\uE520')).toBeInTheDocument();
+    expect(face().querySelector('[data-glyph="E520"]')).not.toBeNull();
     await user.click(face());
     expect(dynamic).toHaveBeenCalledWith(6);
   });
@@ -513,7 +512,7 @@ describe('split buttons', () => {
     await user.click(await screen.findByTestId('btn-dynamic-9'));
     expect(dynamic).toHaveBeenLastCalledWith(9);
     expect(face()).toHaveAccessibleName('Dynamics: f');
-    expect(within(face()).getByText('\uE522')).toBeInTheDocument();
+    expect(face().querySelector('[data-glyph="E522"]')).not.toBeNull();
     dynamic.mockClear();
     await user.click(face());
     expect(dynamic).toHaveBeenCalledWith(9);
@@ -830,54 +829,5 @@ describe('hidden sections', () => {
     window.localStorage.setItem('ots.toolstrip.hiddenSections', '{oops');
     render(<ToolStrip groups={SECTIONS} registry={registry()} />);
     expect(screen.getByTestId('btn-b')).toBeInTheDocument();
-  });
-});
-
-describe('glyph command buttons', () => {
-  it('shows the glyph instead of an icon, keeps the accessible name, and runs the command with its argument', async () => {
-    const run = vi.fn();
-    const registry = new CommandRegistry();
-    registry.setContextSource(() => ({
-      ...DEFAULT_COMMAND_CONTEXT,
-      hasScore: true,
-      isMutable: true,
-      selection: 'single',
-    }));
-    registry.register('global', [
-      defineFamily<string>({
-        id: 'add.mark.articulation',
-        label: 'Articulation',
-        variants: [{ arg: 'stringsUpBow', label: 'Up bow' }],
-        run: (_c, arg) => run(arg),
-      }),
-    ]);
-    render(
-      <ToolStrip
-        registry={registry}
-        groups={[
-          {
-            id: 'bows',
-            label: 'Bows',
-            controls: [
-              {
-                kind: 'command',
-                testId: 'btn-up-bow',
-                label: 'Up bow',
-                icon: Music2,
-                commandId: 'add.mark.articulation',
-                arg: 'stringsUpBow',
-                glyph: '\uE612',
-              },
-            ],
-          },
-        ]}
-      />,
-    );
-    const button = screen.getByTestId('btn-up-bow');
-    expect(button).toHaveAccessibleName('Up bow');
-    expect(within(button).getByText('\uE612')).toBeInTheDocument();
-    expect(button.querySelector('svg')).toBeNull();
-    await userEvent.setup().click(button);
-    expect(run).toHaveBeenCalledWith('stringsUpBow');
   });
 });

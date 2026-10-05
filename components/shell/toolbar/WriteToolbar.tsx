@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronDown, Hash, PenLine, Redo2, Undo2 } from 'lucide-react';
+import { ChevronDown, PenLine, Redo2, Undo2 } from 'lucide-react';
 import React, { useRef, useState } from 'react';
 import { defaultCommandRegistry, type CommandRegistry } from '../../../lib/commands/registry';
 import { Button } from '../../ui/Button';
@@ -18,6 +18,8 @@ import {
   tupletOptions,
 } from '../../toolbar/constants';
 import { Popover, PopoverAnchor, PopoverContent, PopoverPortal } from '../../ui/Popover';
+import { StripIcon } from './strip/icons/StripIcon';
+import { dotIconSpec, ICON_VIEW_WIDTH, QUICK_ROW_ICON_SPECS } from './strip/icons/stripIconSpecs';
 import styles from './WriteToolbar.module.css';
 import { useToolbarCommands } from './useToolbarCommands';
 
@@ -224,7 +226,10 @@ export function WriteToolbar({
             title="More accidentals"
             disabled={!enabled('add.accidental') || !hasTarget}
           >
-            <Hash size={13} aria-hidden="true" />
+            <StripIcon
+              spec={QUICK_ROW_ICON_SPECS['dropdown-accidental']}
+              viewWidth={ICON_VIEW_WIDTH['dropdown-accidental']}
+            />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
@@ -260,21 +265,30 @@ export function WriteToolbar({
         data-testid="btn-tie"
         variant="outline"
         size="xs"
+        className="gap-1 pr-2"
         title="Tie"
+        aria-label="Tie"
         disabled={!enabled('add.line.tie')}
         onClick={run('add.line.tie')}
       >
-        Tie
+        <StripIcon spec={QUICK_ROW_ICON_SPECS['btn-tie']} viewWidth={ICON_VIEW_WIDTH['btn-tie']} />
+        <span>Tie</span>
       </Button>
       <Button
         data-testid="btn-slur"
         variant="outline"
         size="xs"
+        className="gap-1 pr-2"
         title="Slur (S)"
+        aria-label="Slur"
         disabled={!enabled('add.line.slur')}
         onClick={run('add.line.slur')}
       >
-        Slur
+        <StripIcon
+          spec={QUICK_ROW_ICON_SPECS['btn-slur']}
+          viewWidth={ICON_VIEW_WIDTH['btn-slur']}
+        />
+        <span>Slur</span>
       </Button>
 
       {divider}
@@ -290,7 +304,7 @@ export function WriteToolbar({
             title="Move to voice"
             disabled={!enabled('tools.voice')}
           >
-            <span aria-hidden="true">V</span>
+            Voice
             <ChevronDown size={11} aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>
@@ -393,10 +407,7 @@ function DotButton({
               run[current]();
             }}
           >
-            <span className={styles.glyph} style={glyphStyle(QUARTER)} aria-hidden="true">
-              {QUARTER}
-              <span className={styles.dots}>{AUGMENTATION_DOT.repeat(dots)}</span>
-            </span>
+            <StripIcon spec={dotIconSpec(dots)} />
           </Button>
         </span>
       </PopoverAnchor>

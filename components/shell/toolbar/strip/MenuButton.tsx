@@ -5,13 +5,13 @@ import React, { useState, useSyncExternalStore } from 'react';
 import { Button } from '../../../ui/Button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../../../ui/DropdownMenu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/Tooltip';
-import styles from '../WriteToolbar.module.css';
 import {
   announceUnavailable,
   ControlTip,
   DISABLED_LOOK,
   type StripControlContext,
 } from './ControlButton';
+import { ControlIcon } from './icons/ControlIcon';
 import { commandOf, MenuItems } from './MenuItems';
 import {
   getLastUsedMap,
@@ -94,7 +94,7 @@ export function MenuButton({
                   }
                 }}
               >
-                <Icon size={16} aria-hidden="true" />
+                <ControlIcon testId={control.testId} fallback={Icon} />
                 <ChevronDown size={11} aria-hidden="true" />
               </Button>
             </DropdownMenuTrigger>
@@ -138,13 +138,7 @@ export function MenuButton({
                 }
               }}
             >
-              {current.glyph ? (
-                <span className={styles.glyph} aria-hidden="true">
-                  {current.glyph}
-                </span>
-              ) : (
-                <Icon size={16} aria-hidden="true" />
-              )}
+              <ControlIcon testId={control.testId} fallback={Icon} glyph={current.glyph} />
             </Button>
           </TooltipTrigger>
           <TooltipContent>
