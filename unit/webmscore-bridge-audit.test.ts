@@ -106,7 +106,7 @@ export interface Score {
     // Only the three members are known; `startTime`, `value`, `index` and `x` are not reported as missing methods.
     expect(rules(result)).not.toContain('missing-main-thread');
     expect(
-      result.failures.some((failure) => /startTime|value|index|\bx\b/.test(failure.message ?? '')),
+      result.failures.some((failure) => /startTime|value|index|\bx\b/.test(failure.detail)),
     ).toBe(false);
     expect(result.report?.counts.scoreMembers).toBe(3);
   });
