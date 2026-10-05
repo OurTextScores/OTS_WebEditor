@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Score, SynthAudioBatchIterator } from '../webmscore-loader';
+import type { PlaybackTimeline, Score, SynthAudioBatchIterator } from '../webmscore-loader';
+import { ClickScheduler, clicksFromTimeline, planClicks } from './click-track';
 import { DEFAULT_RENDER_WINDOW } from '../playback-window';
 import { SoundFontManager } from './soundfont-manager';
 import { cancelSynthStream, scheduleSynthBatchStream } from './stream-scheduler';
@@ -20,6 +21,8 @@ type Options = {
   volume: number;
   onMessage?: (message: string) => void;
   soundFontManager?: SoundFontManager<Score>;
+  /** A metronome on the music's own clock, and a count-in before it starts (set by the player's Click and Count-in controls). */
+  click?: { enabled: boolean; countIn: boolean; timeline: PlaybackTimeline | null };
 };
 
 export function useScoreTransport(options: Options) {
@@ -43,6 +46,8 @@ export function useScoreTransport(options: Options) {
   const pendingStopRef = useRef<{ attempt: number; targetMs: number } | null>(null);
   const generationRef = useRef(0);
   const clockRef = useRef<TransportClockAnchor | null>(null);
+  const clickRef = useRef(options.click);
+  const clickSchedulerRef = useRef<ClickScheduler | null>(null);
   const soundFontManagerRef = useRef(options.soundFontManager ?? new SoundFontManager<Score>());
   const fallbackBufferRef = useRef<AudioBuffer | null>(null);
   const fallbackSourceRef = useRef<AudioBufferSourceNode | null>(null);
@@ -55,6 +60,7 @@ export function useScoreTransport(options: Options) {
   }
   volumeRef.current = options.volume;
   messageRef.current = options.onMessage;
+  clickRef.current = options.click;
 
   const publishState = useCallback((next: ScoreTransportState) => {
     stateRef.current = next;
@@ -110,6 +116,7 @@ export function useScoreTransport(options: Options) {
     async (awaitCancel = true) => {
       const attempt = ++playbackAttemptRef.current;
       clockRef.current = null;
+      clickSchedulerRef.current?.stop();
       setRenderWindowIdle(false);
       stopFallbackSource();
       await cancelSynthStream({ sourcesRef, iteratorRef, generationRef }, { awaitCancel });
@@ -124,6 +131,7 @@ export function useScoreTransport(options: Options) {
       const attempt = ++playbackAttemptRef.current;
       pendingStopRef.current = { attempt, targetMs };
       clockRef.current = null;
+      clickSchedulerRef.current?.stop();
       setRenderWindowIdle(false);
       stopFallbackSource();
       await cancelSynthStream({ sourcesRef, iteratorRef, generationRef }, { awaitCancel: true });
@@ -247,7 +255,18 @@ export function useScoreTransport(options: Options) {
         }
         publishPosition(targetMs);
         messageRef.current?.('');
+        // A metronome and count-in, when asked for: clicks come from the engine's beat times and share the music's anchor.
+        const clickOptions = clickRef.current;
+        const clickPlan = clickOptions
+          ? planClicks(clickOptions.timeline, targetMs, clickOptions)
+          : null;
+        if (clickPlan) {
+          clickSchedulerRef.current ??= new ClickScheduler(audioContext, {
+            destination: gainNodeRef.current ?? undefined,
+          });
+        }
         await scheduleSynthBatchStream(iterator, audioContext, {
+          leadInSeconds: clickPlan?.leadInSeconds,
           sourcesRef,
           iteratorRef,
           generationRef,
@@ -256,6 +275,9 @@ export function useScoreTransport(options: Options) {
           destination: gainNodeRef.current ?? undefined,
           onClockAnchor: (anchor) => {
             clockRef.current = anchor;
+            if (clickPlan && attempt === playbackAttemptRef.current) {
+              clickSchedulerRef.current?.start(anchor, clickPlan.clicks, clickPlan.fromMs);
+            }
           },
           onRenderWindowIdleChange: (idle) => {
             if (attempt === playbackAttemptRef.current) setRenderWindowIdle(idle);
@@ -393,6 +415,7 @@ export function useScoreTransport(options: Options) {
 
   const reset = useCallback(
     (targetMs: number, durationMs = durationRef.current) => {
+      clickSchedulerRef.current?.stop();
       playbackAttemptRef.current += 1;
       pendingStopRef.current = null;
       setRenderWindowIdle(true);
@@ -413,6 +436,8 @@ export function useScoreTransport(options: Options) {
 
   const dispose = useCallback(async () => {
     await cancel(true);
+    clickSchedulerRef.current?.stop();
+    clickSchedulerRef.current = null;
     const context = audioContextRef.current;
     const gain = gainNodeRef.current;
     audioContextRef.current = null;
@@ -432,6 +457,26 @@ export function useScoreTransport(options: Options) {
     },
     [dispose],
   );
+
+  // Switching the click on or off while the music plays takes effect at once (a count-in only applies to a start).
+  const clickEnabled = options.click?.enabled ?? false;
+  const clickTimeline = options.click?.timeline ?? null;
+  useEffect(() => {
+    const scheduler = clickSchedulerRef.current;
+    if (!clickEnabled) {
+      scheduler?.stop();
+      return;
+    }
+    const anchor = clockRef.current;
+    const context = audioContextRef.current;
+    if (stateRef.current !== 'playing' || !anchor || !context || scheduler?.running) return;
+    const clicks = clicksFromTimeline(clickTimeline);
+    if (clicks.length === 0) return;
+    const live =
+      scheduler ?? new ClickScheduler(context, { destination: gainNodeRef.current ?? undefined });
+    clickSchedulerRef.current = live;
+    live.start(anchor, clicks, positionRef.current);
+  }, [clickEnabled, clickTimeline]);
 
   useEffect(() => {
     if (state !== 'playing') return;

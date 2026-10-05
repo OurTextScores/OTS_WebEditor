@@ -1740,6 +1740,27 @@ WasmRes _playbackTimeline(uintptr_t score_ptr, int excerptId)
                                   std::llround(repeatList.utick2utime(playedStart) * 1000.0));
                 occurrence.insert(QStringLiteral("endMs"),
                                   std::llround(repeatList.utick2utime(playedEnd) * 1000.0));
+
+                // Where the beats fall, for a click track: the measure's time signature gives the beat (a quarter in
+                // 4/4, a dotted quarter in 6/8, 9/8 and 12/8), and tempo changes are already in utick2utime. The first
+                // entry is the downbeat when the occurrence starts at the measure's start.
+                const mu::engraving::Fraction nominal = measure->timesig();
+                const int numerator = std::max(1, nominal.numerator());
+                const int denominator = std::max(1, nominal.denominator());
+                const bool compound = denominator >= 8 && numerator > 3 && numerator % 3 == 0;
+                const int beatTicks = std::max(1, (engraving::Constants::division * 4 / denominator) * (compound ? 3 : 1));
+                QJsonArray beats;
+                for (int tick = rawMeasureStart; tick < rawEnd; tick += beatTicks) {
+                    if (tick >= rawStart) {
+                        beats.append(static_cast<int>(std::llround(repeatList.utick2utime(tick + tickOffset) * 1000.0)));
+                    }
+                }
+                occurrence.insert(QStringLiteral("beatsMs"), beats);
+                // Whether the first beat is the measure's downbeat (an occurrence that starts mid-measure, after a
+                // jump or into a volta, is not), and how many beats a full measure has (for a count-in).
+                // A pickup (a measure shorter than its time signature) has no downbeat: its beats are the last ones of a bar.
+                occurrence.insert(QStringLiteral("downbeat"), rawStart == rawMeasureStart && measure->ticks() >= nominal);
+                occurrence.insert(QStringLiteral("beatsPerMeasure"), compound ? numerator / 3 : numerator);
                 occurrences.append(occurrence);
             }
 

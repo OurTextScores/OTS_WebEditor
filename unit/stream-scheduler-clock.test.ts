@@ -565,3 +565,35 @@ describe('a failing engine', () => {
     expect(audio.sources[0].stopped).toBe(true);
   });
 });
+
+describe('a lead-in before the music', () => {
+  it('delays the first block and reports the delayed start as the clock anchor', async () => {
+    const audio = fakeAudioContext(4);
+    const onClockAnchor = vi.fn();
+    await scheduleSynthBatchStream(
+      scriptedIterator([[block(10), block(10 + BLOCK_SECONDS, { done: true })]]),
+      audio.context,
+      {
+        ...target(),
+        debugLabel: 'lead-in',
+        prerollSeconds: 0.015,
+        leadInSeconds: 2,
+        onClockAnchor,
+      },
+    );
+    expect(onClockAnchor).toHaveBeenCalledWith({ contextTime: 6.015, scoreTimeSeconds: 10 });
+    expect(audio.sources[0].startedAt).toBe(6.015);
+    expect(audio.sources[1].startedAt).toBeCloseTo(6.015 + BLOCK_SECONDS, 9);
+  });
+
+  it('ignores a negative or missing lead-in', async () => {
+    const audio = fakeAudioContext(1);
+    await scheduleSynthBatchStream(scriptedIterator([[block(0, { done: true })]]), audio.context, {
+      ...target(),
+      debugLabel: 'none',
+      prerollSeconds: 0,
+      leadInSeconds: -3,
+    });
+    expect(audio.sources[0].startedAt).toBe(1);
+  });
+});

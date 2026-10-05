@@ -1,9 +1,10 @@
 'use client';
 
-import { Pause, Play, Square } from 'lucide-react';
+import { Metronome, Pause, Play, Square } from 'lucide-react';
 import React, { useSyncExternalStore } from 'react';
 import { defaultCommandRegistry, type CommandRegistry } from '../../lib/commands/registry';
 import { useCommandContext } from '../../lib/commands/useRegisterCommands';
+import { useClickPreferences } from '../../lib/playback/click-preferences';
 import { Button } from '../ui/Button';
 import { invokeCommand } from './invokeCommand';
 import { getShellUiState, subscribeToShellUi } from './shellStore';
@@ -16,6 +17,7 @@ import { getShellUiState, subscribeToShellUi } from './shellStore';
 export function Transport({ registry = defaultCommandRegistry }: { registry?: CommandRegistry }) {
   const { view } = useSyncExternalStore(subscribeToShellUi, getShellUiState, getShellUiState);
   const ctx = useCommandContext(registry);
+  const click = useClickPreferences();
   const showPause = view.isPlaying && !view.isPaused;
   const label = showPause ? 'Pause' : view.isPaused ? 'Resume' : 'Play';
   const run = (id: string) => () => void invokeCommand(id, undefined, registry);
@@ -59,6 +61,19 @@ export function Transport({ registry = defaultCommandRegistry }: { registry?: Co
       >
         <Play size={14} aria-hidden="true" />
         <span className="ml-1 hidden text-caption lg:inline">Selection</span>
+      </Button>
+      <Button
+        data-testid="btn-metronome"
+        variant={click.enabled ? 'primary' : 'outline'}
+        size="sm"
+        title={
+          click.enabled ? 'Metronome on (click to turn off)' : 'Metronome off (click to turn on)'
+        }
+        aria-label="Metronome"
+        aria-pressed={click.enabled}
+        onClick={run('playback.metronome')}
+      >
+        <Metronome size={14} aria-hidden="true" />
       </Button>
     </div>
   );

@@ -13,6 +13,8 @@ import {
   TRANSPORT_SYNTH_BATCH_SIZE,
 } from './playback-constants';
 import type { RenderWindow } from '../../lib/playback-window';
+import { planClicks, type ClickPlan } from '../../lib/playback/click-track';
+import { getClickPreferences } from '../../lib/playback/click-preferences';
 import type { Score, SynthAudioBatchIterator } from '../../lib/webmscore-loader';
 import type { EnsureSoundFontLoaded } from './editor-types';
 import type React from 'react';
@@ -36,6 +38,8 @@ export type PlayTransportAudioContext = {
       minStartupBatches?: number;
       mergeWindowSeconds?: number;
       renderWindow?: RenderWindow | null;
+      /** A metronome and count-in on the music's own clock (see lib/playback/click-track.ts). */
+      click?: ClickPlan;
       stateSetters?: {
         setIsPlaying: (value: boolean) => void;
         setIsPaused: (value: boolean) => void;
@@ -136,10 +140,19 @@ export async function playTransportAudioImpl(
             )) as SynthBatchIterator)
           : ((await score.synthAudioBatch!(0, TRANSPORT_SYNTH_BATCH_SIZE)) as SynthBatchIterator);
 
+        // The metronome and count-in belong to the whole-score transport (a selection plays from mid-score).
+        const clickPlan = useSelectionStreaming
+          ? null
+          : planClicks(
+              (await Promise.resolve(score.playbackTimeline?.()).catch(() => null)) ?? null,
+              0,
+              getClickPreferences(),
+            );
         await playSynthBatchStream(batchFn, {
           sourcesRef: audioSourcesRef,
           iteratorRef: streamIteratorRef,
           generationRef: transportPlaybackGenerationRef,
+          click: clickPlan ?? undefined,
           trackTransportState: true,
           debugLabel: useSelectionStreaming ? 'selection-transport' : 'transport',
           prerollSeconds: useSelectionStreaming

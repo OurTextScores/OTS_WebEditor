@@ -301,7 +301,13 @@ export const MENUS: readonly MenuDefinition[] = [
         item('ai.open.functional'),
         item('ai.open.mma'),
       ),
-      submenu('Playback', item('playback.soundfont')),
+      submenu(
+        'Playback',
+        item('playback.soundfont'),
+        separator,
+        item('playback.metronome'),
+        item('playback.countIn'),
+      ),
     ],
   },
   {

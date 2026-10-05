@@ -154,6 +154,7 @@ import { buildSourceCanonicalXmlUrl, createSourceBranch, getSourceCanonicalXml, 
 import { appendMusicXmlMeasures } from '../lib/musicxml-append-parts';
 import { sanitizeEngineSvg } from '../lib/sanitize-svg';
 import { DEFAULT_RENDER_WINDOW, type RenderWindow } from '../lib/playback-window';
+import { ClickScheduler, type ClickPlan } from '../lib/playback/click-track';
 import {
   cancelSynthStream,
   scheduleSynthBatchStream,
@@ -949,6 +950,7 @@ export default function ScoreEditor() {
   const tempPlaybackAudioUrlRef = useRef<string | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const audioSourcesRef = useRef<AudioBufferSourceNode[]>([]);
+  const transportClickRef = useRef<ClickScheduler | null>(null);
   const streamIteratorRef = useRef<SynthBatchIterator | null>(null);
   const transportPlaybackGenerationRef = useRef(0);
   const previewAudioSourcesRef = useRef<AudioBufferSourceNode[]>([]);
@@ -7698,6 +7700,7 @@ export default function ScoreEditor() {
   };
 
   const stopAudio = async (options?: { awaitCancel?: boolean }) => {
+    transportClickRef.current?.stop();
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -7774,6 +7777,7 @@ export default function ScoreEditor() {
       minStartupBatches?: number;
       mergeWindowSeconds?: number;
       renderWindow?: RenderWindow | null;
+      click?: ClickPlan;
       stateSetters?: {
         setIsPlaying: (value: boolean) => void;
         setIsPaused: (value: boolean) => void;
@@ -7783,7 +7787,13 @@ export default function ScoreEditor() {
     const setPlaying = options.stateSetters?.setIsPlaying ?? setIsPlaying;
     const setPaused = options.stateSetters?.setIsPaused ?? setIsPaused;
     const audioContext = await ensureAudioContextReady();
+    const click = options.click;
+    if (click) transportClickRef.current ??= new ClickScheduler(audioContext);
     await scheduleSynthBatchStream(batchFn, audioContext, {
+      leadInSeconds: click?.leadInSeconds,
+      onClockAnchor: click
+        ? (anchor) => transportClickRef.current?.start(anchor, click.clicks, click.fromMs)
+        : undefined,
       sourcesRef: options.sourcesRef,
       iteratorRef: options.iteratorRef,
       generationRef: options.generationRef,

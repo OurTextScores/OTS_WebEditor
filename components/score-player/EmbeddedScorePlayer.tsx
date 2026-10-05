@@ -12,6 +12,7 @@ import {
   timelineFromPositions,
 } from '@/lib/playback/timeline';
 import { segmentTimeForId } from '@/lib/playback/note-tracking';
+import { setCountIn, setMetronome, useClickPreferences } from '@/lib/playback/click-preferences';
 import { readPlayerPreference, writePlayerPreference } from '@/lib/playback/player-preferences';
 import { useScoreTransport } from '@/lib/playback/use-score-transport';
 import {
@@ -89,6 +90,7 @@ export default function EmbeddedScorePlayer() {
   const [zoom, setZoom] = useState(1);
   const [follow, setFollow] = useState(initialFollow);
   const [volume, setVolume] = useState(1);
+  const clickPrefs = useClickPreferences();
   const [audioMessage, setAudioMessage] = useState('');
   const [inputFormat, setInputFormat] = useState('');
   const [hostReady, setHostReady] = useState(false);
@@ -117,6 +119,7 @@ export default function EmbeddedScorePlayer() {
     startMs: startMsRef.current,
     volume,
     onMessage: setAudioMessage,
+    click: { ...clickPrefs, timeline },
   });
   const {
     state: transport,
@@ -879,6 +882,10 @@ export default function EmbeddedScorePlayer() {
         onFitWidth={() => setZoom(1)}
         onZoomIn={() => setZoom((value) => clamp(value + 0.1, 0.5, 2.5))}
         onToggleFollow={() => setFollowPreference(!follow)}
+        clickEnabled={clickPrefs.enabled}
+        countInEnabled={clickPrefs.countIn}
+        onToggleClick={() => setMetronome(!clickPrefs.enabled)}
+        onToggleCountIn={() => setCountIn(!clickPrefs.countIn)}
         onToggleHighlight={highlight.toggle}
       />
     </main>

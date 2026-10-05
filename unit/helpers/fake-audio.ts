@@ -39,13 +39,42 @@ export function fakeAudioContext(startTime = 0) {
   let now = startTime;
   const sources: FakeSource[] = [];
   const buffers: FakeBuffer[] = [];
+  let contextState: AudioContextState = 'running';
   const destination = { name: 'destination' };
+  const gains: {
+    gain: { value: number };
+    connectedTo: unknown;
+    connect: (node: unknown) => void;
+  }[] = [];
   const context = {
     get currentTime() {
       return now;
     },
     sampleRate: SAMPLE_RATE,
+    get state() {
+      return contextState;
+    },
+    suspend: vi.fn(async () => {
+      contextState = 'suspended';
+    }),
+    resume: vi.fn(async () => {
+      contextState = 'running';
+    }),
+    close: vi.fn(async () => {
+      contextState = 'closed';
+    }),
     destination,
+    createGain: vi.fn(() => {
+      const gain = {
+        gain: { value: 1 },
+        connectedTo: undefined as unknown,
+        connect(node: unknown) {
+          gain.connectedTo = node;
+        },
+      };
+      gains.push(gain);
+      return gain;
+    }),
     createBuffer: vi.fn((channels: number, frames: number) => {
       const buffer: FakeBuffer = {
         channels,
@@ -90,9 +119,14 @@ export function fakeAudioContext(startTime = 0) {
     context: context as unknown as AudioContext,
     sources,
     buffers,
+    gains,
     destination,
     get now() {
       return now;
+    },
+    /** Sets the audio clock without touching timers (for tests on real timers). */
+    setNow(seconds: number) {
+      now = seconds;
     },
     /** Moves the audio clock and the fake timers forward together. */
     async advance(seconds: number) {

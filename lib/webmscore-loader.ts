@@ -62,6 +62,12 @@ export interface PlaybackTimelineOccurrence {
   measureIndex: number;
   startMs: number;
   endMs: number;
+  /** Where the beats fall, in played time (tempo-aware); absent from builds before the click track. */
+  beatsMs?: number[];
+  /** The first beat is the measure's downbeat (false after a jump or into a volta, mid-measure). */
+  downbeat?: boolean;
+  /** Beats in a full measure of this meter: 4 in 4/4, 2 in 6/8 (a dotted quarter is the beat). */
+  beatsPerMeasure?: number;
 }
 
 export interface PlaybackTimeline {

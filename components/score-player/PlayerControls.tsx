@@ -28,6 +28,8 @@ type Props = {
   follow: boolean;
   highlightMode: 'measure' | 'note';
   highlightBusy?: boolean;
+  clickEnabled: boolean;
+  countInEnabled: boolean;
   onTogglePlayPause: () => void;
   onStop: () => void;
   onSeek: (positionMs: number) => void;
@@ -39,36 +41,84 @@ type Props = {
   onZoomIn: () => void;
   onToggleFollow: () => void;
   onToggleHighlight: () => void;
+  onToggleClick: () => void;
+  onToggleCountIn: () => void;
 };
 
 const controlClass =
   'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--player-border)] bg-[var(--player-control)] text-[var(--player-text)] transition hover:bg-[var(--player-control-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 disabled:cursor-not-allowed disabled:opacity-40';
 
-/** The toggle between measure and note highlighting (one button, in the bar and in the small-screen menu). */
-function NoteHighlightButton({
-  highlightMode,
-  highlightBusy,
+/** One labelled on/off control of the transport bar. */
+function PlayerToggle({
+  label,
+  title,
+  ariaLabel,
+  pressed,
+  busy,
   disabled,
-  onToggleHighlight,
   compact,
-}: Pick<Props, 'highlightMode' | 'highlightBusy' | 'disabled' | 'onToggleHighlight'> & {
+  onToggle,
+}: {
+  label: string;
+  title: string;
+  ariaLabel: string;
+  pressed: boolean;
+  busy?: boolean;
+  disabled?: boolean;
   compact?: boolean;
+  onToggle: () => void;
 }) {
-  const noteMode = highlightMode === 'note';
   return (
     <button
       type="button"
-      className={`${controlClass} ${noteMode ? '!border-cyan-500 !text-cyan-600' : ''}`}
-      onClick={onToggleHighlight}
+      className={`${controlClass} ${pressed ? '!border-cyan-500 !text-cyan-600' : ''}`}
+      onClick={onToggle}
       disabled={Boolean(disabled)}
-      title={noteMode ? 'Highlight measures' : 'Highlight notes'}
-      aria-label="Note highlighting"
-      aria-pressed={noteMode}
+      title={title}
+      aria-label={ariaLabel}
+      aria-pressed={pressed}
     >
-      <span className={compact ? 'text-[10px] font-semibold' : 'font-semibold'}>
-        {highlightBusy && noteMode ? '…' : 'Note'}
+      <span className={compact ? 'text-caption font-semibold' : 'font-semibold'}>
+        {busy && pressed ? '…' : label}
       </span>
     </button>
+  );
+}
+
+/** The note-highlight, click and count-in toggles (in the bar and in the small-screen menu). */
+function PlayerToggles({ compact, ...props }: Props & { compact?: boolean }) {
+  const noteMode = props.highlightMode === 'note';
+  return (
+    <>
+      <PlayerToggle
+        label="Note"
+        title={noteMode ? 'Highlight measures' : 'Highlight notes'}
+        ariaLabel="Note highlighting"
+        pressed={noteMode}
+        busy={props.highlightBusy}
+        disabled={props.disabled}
+        compact={compact}
+        onToggle={props.onToggleHighlight}
+      />
+      <PlayerToggle
+        label="Click"
+        title={props.clickEnabled ? 'Turn the metronome off' : 'Turn the metronome on'}
+        ariaLabel="Metronome"
+        pressed={props.clickEnabled}
+        disabled={props.disabled}
+        compact={compact}
+        onToggle={props.onToggleClick}
+      />
+      <PlayerToggle
+        label="Count"
+        title={props.countInEnabled ? 'No count-in' : 'Count in one measure before playing'}
+        ariaLabel="Count-in"
+        pressed={props.countInEnabled}
+        disabled={props.disabled || !props.clickEnabled}
+        compact={compact}
+        onToggle={props.onToggleCountIn}
+      />
+    </>
   );
 }
 
@@ -254,7 +304,7 @@ export default function PlayerControls(props: Props) {
           >
             <span className="font-semibold">Follow</span>
           </button>
-          <NoteHighlightButton {...props} />
+          <PlayerToggles {...props} />
         </div>
         <details className="group relative sm:hidden">
           <summary
@@ -316,7 +366,7 @@ export default function PlayerControls(props: Props) {
               >
                 <span className="text-caption font-semibold">Follow</span>
               </button>
-              <NoteHighlightButton {...props} compact />
+              <PlayerToggles {...props} compact />
             </div>
           </div>
         </details>

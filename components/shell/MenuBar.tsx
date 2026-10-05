@@ -12,6 +12,7 @@ import {
   type CommandFamily,
 } from '../../lib/commands/types';
 import { useCommandContext } from '../../lib/commands/useRegisterCommands';
+import { useClickPreferences } from '../../lib/playback/click-preferences';
 import { invokeCommand } from './invokeCommand';
 import { MENUS, type MenuDefinition, type MenuNode } from './menus';
 import { pruneMenuNodes } from './menuTree';
@@ -250,6 +251,8 @@ export function MenuBar({
   const ctx = useCommandContext(registry);
   // The View ▸ Toolbar checks read the strip's hidden sections, which are not part of the command context.
   useSyncExternalStore(subscribeHiddenSections, getHiddenSections, getHiddenSectionsOnServer);
+  // The Playback ▸ Metronome and Count-in checks read the click preferences, also outside the command context.
+  useClickPreferences();
   const render: RenderContext = { registry, ctx };
 
   if (compact) {

@@ -12,6 +12,8 @@ export type StreamPlaybackOptions = StreamPlaybackTarget & {
   maxDurationSeconds?: number;
   debugLabel: string;
   prerollSeconds?: number;
+  /** Delay the music this long after it is ready (a count-in plays in the gap). The clock anchor reports the delayed start. */
+  leadInSeconds?: number;
   startupBufferSeconds?: number;
   minStartupBatches?: number;
   /** Merge adjacent PCM blocks up to this duration. Disabled by default. */
@@ -113,7 +115,8 @@ export async function scheduleSynthBatchStream(
   const scheduleChunk = (buffer: AudioBuffer, relativeChunkStart: number) => {
     if (options.generationRef.current !== generation) return;
     if (baseTime === null) {
-      baseTime = audioContext.currentTime + prerollSeconds;
+      baseTime =
+        audioContext.currentTime + prerollSeconds + Math.max(0, options.leadInSeconds ?? 0);
       options.onClockAnchor?.({
         contextTime: baseTime,
         scoreTimeSeconds: streamStartTimeSeconds ?? 0,

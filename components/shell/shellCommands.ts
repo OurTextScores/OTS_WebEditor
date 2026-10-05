@@ -6,6 +6,11 @@ import {
   writeHiddenSections,
 } from './toolbar/strip/stripPersistence';
 import { STRIP_SECTIONS } from './toolbar/strip/stripSections';
+import {
+  getClickPreferences,
+  setCountIn,
+  setMetronome,
+} from '../../lib/playback/click-preferences';
 import { closeTopEscapeLayer, hasEscapeLayer } from './keyboard/escapeLayers';
 import {
   closePalette,
@@ -64,6 +69,21 @@ export function buildShellOwnCommands(): AnyCommand[] {
       keywords: ['toolbar', 'reset', 'tools', 'ribbon'],
       enabled: () => getHiddenSections().length > 0,
       run: () => writeHiddenSections([]),
+    }),
+    defineCommand({
+      id: 'playback.metronome',
+      label: 'Metronome',
+      keywords: ['click', 'beat', 'tempo'],
+      checked: () => getClickPreferences().enabled,
+      run: () => setMetronome(!getClickPreferences().enabled),
+    }),
+    defineCommand({
+      id: 'playback.countIn',
+      label: 'Count-in',
+      keywords: ['metronome', 'click', 'lead in', 'measure'],
+      enabled: () => getClickPreferences().enabled,
+      checked: () => getClickPreferences().countIn,
+      run: () => setCountIn(!getClickPreferences().countIn),
     }),
     defineCommand({
       id: 'help.shortcuts',

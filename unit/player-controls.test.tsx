@@ -11,6 +11,10 @@ const props = (overrides: Partial<React.ComponentProps<typeof PlayerControls>> =
   pageCount: 2,
   follow: true,
   highlightMode: 'measure' as const,
+  clickEnabled: false,
+  countInEnabled: false,
+  onToggleClick: vi.fn(),
+  onToggleCountIn: vi.fn(),
   onTogglePlayPause: vi.fn(),
   onStop: vi.fn(),
   onSeek: vi.fn(),
@@ -116,5 +120,30 @@ describe('PlayerControls', () => {
     expect(within(menu!).getByRole('slider', { name: 'Volume' })).toBeInTheDocument();
     fireEvent.click(within(menu!).getByRole('button', { name: 'Fit width' }));
     expect(values.onFitWidth).toHaveBeenCalledOnce();
+  });
+
+  it('has Click and Count toggles that show their state, and Count needs Click', () => {
+    const off = props();
+    const { rerender } = render(<PlayerControls {...off} />);
+    const click = screen.getAllByRole('button', { name: 'Metronome' })[0];
+    const count = screen.getAllByRole('button', { name: 'Count-in' })[0];
+    expect(click).toHaveAttribute('aria-pressed', 'false');
+    expect(count).toBeDisabled();
+    fireEvent.click(click);
+    expect(off.onToggleClick).toHaveBeenCalledOnce();
+
+    const on = props({ clickEnabled: true, countInEnabled: true });
+    rerender(<PlayerControls {...on} />);
+    expect(screen.getAllByRole('button', { name: 'Metronome' })[0]).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getAllByRole('button', { name: 'Count-in' })[0]).toBeEnabled();
+    expect(screen.getAllByRole('button', { name: 'Count-in' })[0]).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    fireEvent.click(screen.getAllByRole('button', { name: 'Count-in' })[0]);
+    expect(on.onToggleCountIn).toHaveBeenCalledOnce();
   });
 });
