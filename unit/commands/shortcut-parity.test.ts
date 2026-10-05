@@ -92,7 +92,8 @@ function classify(entry: Desktop): string {
 const available = existsSync(XML);
 
 describe.skipIf(!available)('desktop shortcut parity', () => {
-  const desktop = readDesktop();
+  // `skipIf` skips the tests, not this body: without MuseScore's file (CI) reading it here would fail the whole file.
+  const desktop = available ? readDesktop() : [];
   const codes = new Set(desktop.map((entry) => entry.action));
   const code = (value: string | undefined) => value?.replace(/^action:\/\//, '');
 
