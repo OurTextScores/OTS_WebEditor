@@ -26,6 +26,8 @@ type Props = {
   pageCount: number;
   hasMorePages?: boolean;
   follow: boolean;
+  highlightMode: 'measure' | 'note';
+  highlightBusy?: boolean;
   onTogglePlayPause: () => void;
   onStop: () => void;
   onSeek: (positionMs: number) => void;
@@ -36,6 +38,7 @@ type Props = {
   onFitWidth: () => void;
   onZoomIn: () => void;
   onToggleFollow: () => void;
+  onToggleHighlight: () => void;
 };
 
 const controlClass =
@@ -78,6 +81,7 @@ export default function PlayerControls(props: Props) {
           : 'Play';
   const transportDisabled = Boolean(props.disabled) || props.state === 'preparing';
   const displayedPosition = scrubbing ? draftPosition : props.positionMs;
+  const noteMode = props.highlightMode === 'note';
 
   return (
     <div className="sticky bottom-0 z-20 border-t border-[var(--player-border)] bg-[var(--player-panel)] px-3 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur">
@@ -223,6 +227,17 @@ export default function PlayerControls(props: Props) {
           >
             <span className="font-semibold">Follow</span>
           </button>
+          <button
+            type="button"
+            className={`${controlClass} ${noteMode ? '!border-cyan-500 !text-cyan-600' : ''}`}
+            onClick={props.onToggleHighlight}
+            disabled={Boolean(props.disabled)}
+            title={noteMode ? 'Highlight measures' : 'Highlight notes'}
+            aria-label="Note highlighting"
+            aria-pressed={noteMode}
+          >
+            <span className="font-semibold">{props.highlightBusy && noteMode ? '…' : 'Note'}</span>
+          </button>
         </div>
         <details className="group relative sm:hidden">
           <summary
@@ -283,6 +298,19 @@ export default function PlayerControls(props: Props) {
                 aria-pressed={props.follow}
               >
                 <span className="text-caption font-semibold">Follow</span>
+              </button>
+              <button
+                type="button"
+                className={`${controlClass} ${noteMode ? '!border-cyan-500 !text-cyan-600' : ''}`}
+                onClick={props.onToggleHighlight}
+                disabled={Boolean(props.disabled)}
+                title={noteMode ? 'Highlight measures' : 'Highlight notes'}
+                aria-label="Note highlighting"
+                aria-pressed={noteMode}
+              >
+                <span className="text-[10px] font-semibold">
+                  {props.highlightBusy && noteMode ? '…' : 'Note'}
+                </span>
               </button>
             </div>
           </div>

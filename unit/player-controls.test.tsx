@@ -10,6 +10,7 @@ const props = (overrides: Partial<React.ComponentProps<typeof PlayerControls>> =
   currentPage: 0,
   pageCount: 2,
   follow: true,
+  highlightMode: 'measure' as const,
   onTogglePlayPause: vi.fn(),
   onStop: vi.fn(),
   onSeek: vi.fn(),
@@ -20,6 +21,7 @@ const props = (overrides: Partial<React.ComponentProps<typeof PlayerControls>> =
   onFitWidth: vi.fn(),
   onZoomIn: vi.fn(),
   onToggleFollow: vi.fn(),
+  onToggleHighlight: vi.fn(),
   ...overrides,
 });
 
@@ -86,6 +88,22 @@ describe('PlayerControls', () => {
   it('rewinds to the configured start position', () => {
     render(<PlayerControls {...props({ positionMs: 2_000, startPositionMs: 2_000 })} />);
     expect(screen.getByRole('button', { name: 'Stop and rewind' })).toBeDisabled();
+  });
+
+  it('toggles between measure and note highlighting', () => {
+    const values = props();
+    const view = render(<PlayerControls {...values} />);
+    const toggle = screen.getAllByRole('button', { name: 'Note highlighting' })[0];
+
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(toggle);
+    expect(values.onToggleHighlight).toHaveBeenCalledOnce();
+
+    view.rerender(<PlayerControls {...values} highlightMode="note" />);
+    expect(screen.getAllByRole('button', { name: 'Note highlighting' })[0]).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 
   it('exposes view and volume controls from the mobile More menu', () => {

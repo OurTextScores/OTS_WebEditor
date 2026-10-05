@@ -100,5 +100,56 @@ describe('player message API', () => {
         10_000,
       ),
     ).toMatchObject({ command: 'set-follow', value: false });
+    expect(
+      parsePlayerCommand(
+        {
+          type: 'ots-player:command',
+          version: 1,
+          playerId: 'p1',
+          command: 'set-highlight',
+          value: 'note',
+        },
+        'p1',
+        10_000,
+      ),
+    ).toMatchObject({ command: 'set-highlight', value: 'note' });
+    expect(
+      parsePlayerCommand(
+        {
+          type: 'ots-player:command',
+          version: 1,
+          playerId: 'p1',
+          command: 'set-highlight',
+          value: 'measure',
+        },
+        'p1',
+        10_000,
+      ),
+    ).toMatchObject({ command: 'set-highlight', value: 'measure' });
+    expect(
+      parsePlayerCommand(
+        {
+          type: 'ots-player:command',
+          version: 1,
+          playerId: 'p1',
+          command: 'set-highlight',
+          value: 'chord',
+        },
+        'p1',
+        10_000,
+      ),
+    ).toBeNull();
+    expect(
+      parsePlayerCommand(
+        {
+          type: 'ots-player:command',
+          version: 1,
+          playerId: 'p1',
+          command: 'set-highlight',
+        },
+        'p1',
+        10_000,
+      ),
+    ).toBeNull();
   });
 });

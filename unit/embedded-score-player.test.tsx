@@ -49,11 +49,24 @@ const positions = {
   pageSize: { width: 100, height: 40 },
 };
 
-const makeScore = () => ({
+const makeScore = (overrides: { segmentPositions?: () => Promise<unknown> } = {}) => ({
   destroy: vi.fn(),
   metadata: vi.fn(async () => ({ title: 'Test score', duration: 2 })),
   npages: vi.fn(async () => 1),
   measurePositions: vi.fn(async () => positions),
+  segmentPositions:
+    overrides.segmentPositions ??
+    vi.fn(async () => ({
+      elements: [
+        { id: 0, x: 0, y: 0, sx: 8, sy: 40, page: 0 },
+        { id: 1, x: 50, y: 0, sx: 8, sy: 40, page: 0 },
+      ],
+      events: [
+        { elid: 0, position: 0 },
+        { elid: 1, position: 500 },
+      ],
+      pageSize: { width: 100, height: 40 },
+    })),
   playbackTimeline: vi.fn(async () => ({
     schemaVersion: 1 as const,
     durationMs: 2_000,
@@ -71,6 +84,7 @@ describe('EmbeddedScorePlayer progressive pages', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
     mocks.search = new URLSearchParams({ score: '/score.musicxml', follow: '0' });
     mocks.transport.state = 'idle';
     mocks.transport.stateRef.current = 'idle';
@@ -350,5 +364,100 @@ describe('EmbeddedScorePlayer progressive pages', () => {
     expect(mocks.transport.togglePlayPause).toHaveBeenCalledOnce();
     fireEvent.keyDown(screen.getByTestId('player-seek'), { key: 'Home' });
     expect(mocks.transport.stopAt).not.toHaveBeenCalled();
+  });
+
+  it('switches to note-level tracking on toggle without fetching segments before', async () => {
+    render(<EmbeddedScorePlayer />);
+    await screen.findByTestId('player-svg');
+    await waitFor(() => expect(screen.getByTestId('active-measure-highlight')).toBeInTheDocument());
+
+    const loaded = await mocks.loadScoreFromUrl.mock.results[0].value;
+    expect(loaded.loadedScore.segmentPositions).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Note highlighting' })[0]);
+
+    await waitFor(() =>
+      expect(loaded.loadedScore.segmentPositions).toHaveBeenCalledTimes(1),
+    );
+    await waitFor(() => expect(screen.getByTestId('active-note-highlight')).toBeInTheDocument());
+    expect(
+      screen.getAllByRole('button', { name: 'Note highlighting' })[0],
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByTestId('active-measure-highlight')).not.toBeInTheDocument();
+  });
+
+  it('falls back to measure highlighting with an inline message when segments fail', async () => {
+    render(<EmbeddedScorePlayer />);
+    await screen.findByTestId('player-svg');
+
+    const loaded = await mocks.loadScoreFromUrl.mock.results[0].value;
+    vi.mocked(loaded.loadedScore.segmentPositions).mockRejectedValueOnce(new Error('boom'));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Note highlighting' })[0]);
+
+    await screen.findByText('Note highlighting is unavailable for this score.');
+    expect(screen.getByTestId('active-measure-highlight')).toBeInTheDocument();
+    expect(screen.queryByTestId('active-note-highlight')).not.toBeInTheDocument();
+    expect(
+      screen.getAllByRole('button', { name: 'Note highlighting' })[0],
+    ).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('starts in note mode from the highlight query parameter', async () => {
+    mocks.search = new URLSearchParams({ score: '/score.musicxml', highlight: 'note' });
+    render(<EmbeddedScorePlayer />);
+    await screen.findByTestId('player-svg');
+
+    const loaded = await mocks.loadScoreFromUrl.mock.results[0].value;
+    await waitFor(() =>
+      expect(loaded.loadedScore.segmentPositions).toHaveBeenCalledTimes(1),
+    );
+    await waitFor(() => expect(screen.getByTestId('active-note-highlight')).toBeInTheDocument());
+  });
+
+  it('switches highlight modes from host commands', async () => {
+    mocks.search = new URLSearchParams({
+      score: '/score.musicxml',
+      follow: '0',
+      playerId: 'highlight-player',
+      parentOrigin: window.location.origin,
+    });
+    render(<EmbeddedScorePlayer />);
+    await screen.findByTestId('player-svg');
+    await waitFor(() => expect(screen.getByTestId('active-measure-highlight')).toBeInTheDocument());
+
+    const loaded = await mocks.loadScoreFromUrl.mock.results[0].value;
+    const sendHighlight = (value: unknown) => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'ots-player:command',
+            version: 1,
+            playerId: 'highlight-player',
+            command: 'set-highlight',
+            value,
+          },
+          origin: window.location.origin,
+          source: window,
+        }),
+      );
+    };
+
+    sendHighlight('note');
+    await waitFor(() =>
+      expect(loaded.loadedScore.segmentPositions).toHaveBeenCalledTimes(1),
+    );
+    await waitFor(() => expect(screen.getByTestId('active-note-highlight')).toBeInTheDocument());
+
+    sendHighlight('measure');
+    await waitFor(() =>
+      expect(screen.getByTestId('active-measure-highlight')).toBeInTheDocument(),
+    );
+    expect(screen.queryByTestId('active-note-highlight')).not.toBeInTheDocument();
+
+    sendHighlight('chord');
+    await waitFor(() =>
+      expect(screen.getByTestId('active-measure-highlight')).toBeInTheDocument(),
+    );
+    expect(loaded.loadedScore.segmentPositions).toHaveBeenCalledTimes(1);
   });
 });
