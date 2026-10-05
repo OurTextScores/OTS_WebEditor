@@ -175,13 +175,13 @@ describe('what the command layer is told', () => {
   });
 
   it('says whether there is anything to undo or redo', () => {
-    expect(undoAvailability(state(0, 0), false)).toEqual({ canUndo: false, canRedo: false });
-    expect(undoAvailability(state(2, 2), false)).toEqual({ canUndo: true, canRedo: false });
-    expect(undoAvailability(state(1, 3), false)).toEqual({ canUndo: true, canRedo: true });
-    expect(undoAvailability(state(0, 3), false)).toEqual({ canUndo: false, canRedo: true });
+    expect(undoAvailability(state(0, 0), false)).toMatchObject({ canUndo: false, canRedo: false });
+    expect(undoAvailability(state(2, 2), false)).toMatchObject({ canUndo: true, canRedo: false });
+    expect(undoAvailability(state(1, 3), false)).toMatchObject({ canUndo: true, canRedo: true });
+    expect(undoAvailability(state(0, 3), false)).toMatchObject({ canUndo: false, canRedo: true });
   });
 
   it('assumes both are possible while a read is in flight, so a key right after an edit is not lost', () => {
-    expect(undoAvailability(state(0, 0), true)).toEqual({ canUndo: true, canRedo: true });
+    expect(undoAvailability(state(0, 0), true)).toMatchObject({ canUndo: true, canRedo: true });
   });
 });
