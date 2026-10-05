@@ -5212,6 +5212,72 @@ bool _redo(uintptr_t score_ptr, int excerptId)
     return true;
 }
 
+// Undo history: what is on the undo stack, for the editor's Edits panel (docs/private/UNDO_HISTORY_PANEL_DESIGN_2026-10-04.md).
+// `index` is the number of entries applied (0: nothing to undo, `size`: nothing to redo).
+static WasmRes _getUndoInfo(uintptr_t score_ptr, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    const engraving::UndoStack* stack = score->undoStack();
+    QJsonObject result;
+    result.insert(QStringLiteral("index"), static_cast<int>(stack->getCurIdx()));
+    result.insert(QStringLiteral("size"), static_cast<int>(stack->size()));
+    result.insert(QStringLiteral("clean"), stack->isClean());
+    return WasmRes(QJsonDocument(result).toJson(QJsonDocument::Compact));
+}
+
+// One object per entry in [from, to): the command names it ran, the element types it changed and where it was.
+static WasmRes _getUndoEntries(uintptr_t score_ptr, int from, int to, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    const engraving::UndoStack* stack = score->undoStack();
+    const int size = static_cast<int>(stack->size());
+    const int first = std::max(0, from);
+    const int last = std::min(size, to);
+    QJsonArray entries;
+    for (int i = first; i < last; ++i) {
+        const engraving::UndoMacro* macro = stack->at(static_cast<size_t>(i));
+        QJsonObject entry;
+        QJsonArray commands;
+        QStringList seen;
+        for (const engraving::UndoCommand* command : macro->commands()) {
+            const QString name = QString::fromUtf8(command->name());
+            if (!seen.contains(name)) {
+                seen.append(name);
+                commands.append(name);
+            }
+        }
+        entry.insert(QStringLiteral("commands"), commands);
+        QJsonArray elements;
+        QStringList seenElements;
+        for (const engraving::ElementType type : macro->changesInfo().changedObjectTypes) {
+            const QString name = QString::fromUtf8(engraving::TConv::toXml(type).ascii());
+            if (!seenElements.contains(name)) {
+                seenElements.append(name);
+                elements.append(name);
+            }
+        }
+        entry.insert(QStringLiteral("elements"), elements);
+        const auto& selection = macro->undoSelectionInfo();
+        entry.insert(QStringLiteral("tickStart"), selection.isValid() ? selection.tickStart.ticks() : -1);
+        entry.insert(QStringLiteral("tickEnd"), selection.isValid() ? selection.tickEnd.ticks() : -1);
+        entries.append(entry);
+    }
+    return WasmRes(QJsonDocument(entries).toJson(QJsonDocument::Compact));
+}
+
+// Moves the undo cursor to `target` (an `index` as getUndoInfo reports it), one undo or redo at a time.
+static bool _undoRedoTo(uintptr_t score_ptr, int target, int excerptId)
+{
+    MainScore score(score_ptr, excerptId);
+    const engraving::UndoStack* stack = score->undoStack();
+    const int goal = std::max(0, std::min(target, static_cast<int>(stack->size())));
+    int guard = static_cast<int>(stack->size()) + 1;
+    while (static_cast<int>(stack->getCurIdx()) != goal && guard-- > 0) {
+        score->undoRedo(/* undo */ static_cast<int>(stack->getCurIdx()) > goal, nullptr);
+    }
+    return static_cast<int>(stack->getCurIdx()) == goal;
+}
+
 bool _relayout(uintptr_t score_ptr, int excerptId)
 {
     MainScore score(score_ptr, excerptId);
@@ -8139,6 +8205,21 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     bool redo(uintptr_t score_ptr, int excerptId = -1) {
         return _redo(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    WasmResBytes getUndoInfo(uintptr_t score_ptr, int excerptId = -1) {
+        return _getUndoInfo(score_ptr, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    WasmResBytes getUndoEntries(uintptr_t score_ptr, int from, int to, int excerptId = -1) {
+        return _getUndoEntries(score_ptr, from, to, excerptId);
+    };
+
+    EMSCRIPTEN_KEEPALIVE
+    bool undoRedoTo(uintptr_t score_ptr, int target, int excerptId = -1) {
+        return _undoRedoTo(score_ptr, target, excerptId);
     };
 
     EMSCRIPTEN_KEEPALIVE

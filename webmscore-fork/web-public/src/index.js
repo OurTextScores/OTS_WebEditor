@@ -1199,6 +1199,37 @@ class WebMscore {
      * Whether the engine currently holds a range selection.
      * @returns {Promise<boolean>}
      */
+    /**
+     * What is on the undo stack: `index` entries applied (0: nothing to undo, `size`: nothing to redo),
+     * `size` entries in all, and whether the score is back at its loaded state.
+     * @returns {Promise<{index: number, size: number, clean: boolean}>}
+     */
+    async getUndoInfo() {
+        const dataptr = Module.ccall('getUndoInfo', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])
+        return JSON.parse(WasmRes.readText(dataptr))
+    }
+
+    /**
+     * The undo entries in [from, to), oldest first: the command names each ran, the element types it changed
+     * and the tick range of the selection it was made on (-1 when there was none).
+     * @param {number} from
+     * @param {number} to
+     * @returns {Promise<{commands: string[], elements: string[], tickStart: number, tickEnd: number}[]>}
+     */
+    async getUndoEntries(from, to) {
+        const dataptr = Module.ccall('getUndoEntries', 'number', ['number', 'number', 'number', 'number'], [this.scoreptr, from, to, this.excerptId])
+        return JSON.parse(WasmRes.readText(dataptr))
+    }
+
+    /**
+     * Moves the undo cursor to `target` (an `index` as getUndoInfo reports it) by undoing or redoing as needed.
+     * @param {number} target
+     * @returns {Promise<boolean>} whether it got there
+     */
+    async undoRedoTo(target) {
+        return Module.ccall('undoRedoTo', 'boolean', ['number', 'number', 'number'], [this.scoreptr, target, this.excerptId])
+    }
+
     async isSelectionRange() {
         return Module.ccall('isSelectionRange', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
     }

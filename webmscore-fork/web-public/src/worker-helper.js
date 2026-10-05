@@ -726,6 +726,18 @@ class WebMscoreW {
         return this.rpc('extendSelectionPrevChord')
     }
 
+    getUndoInfo() {
+        return this.rpc('getUndoInfo')
+    }
+
+    getUndoEntries(from, to) {
+        return this.rpc('getUndoEntries', [from, to])
+    }
+
+    undoRedoTo(target) {
+        return this.rpc('undoRedoTo', [target])
+    }
+
     /**
      * Whether the engine currently holds a range selection.
      * @returns {Promise<boolean>}

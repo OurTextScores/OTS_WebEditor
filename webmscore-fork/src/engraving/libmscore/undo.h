@@ -218,6 +218,9 @@ public:
     bool canRedo() const { return curIdx < list.size(); }
     bool isClean() const { return cleanState == stateList[curIdx]; }
     size_t getCurIdx() const { return curIdx; }
+    // The recorded macros, oldest first (0 .. size() - 1); the editor's undo history reads them.
+    size_t size() const { return list.size(); }
+    const UndoMacro* at(size_t idx) const { return list.at(idx); }
     UndoMacro* current() const { return curCmd; }
     UndoMacro* last() const { return curIdx > 0 ? list[curIdx - 1] : 0; }
     UndoMacro* prev() const { return curIdx > 1 ? list[curIdx - 2] : 0; }

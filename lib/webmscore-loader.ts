@@ -97,6 +97,22 @@ export interface InspectorPropertyState {
   applicableCount: number;
 }
 
+/** What is on the engine's undo stack (`Score.getUndoInfo`). */
+export interface UndoInfo {
+  index: number;
+  size: number;
+  clean: boolean;
+}
+
+/** One undo entry as the engine describes it (`Score.getUndoEntries`): the commands it ran, what it changed and where. */
+export interface UndoEntryInfo {
+  commands: string[];
+  elements: string[];
+  /** The selection's tick range when the edit was made; -1 when there was none. */
+  tickStart: number;
+  tickEnd: number;
+}
+
 export interface SelectedElementProperties {
   selectionCount: number;
   elementType: string;
@@ -249,6 +265,12 @@ export interface Score {
   extendSelectionNextChord?: () => Promise<unknown> | unknown;
   extendSelectionPrevChord?: () => Promise<unknown> | unknown;
   isSelectionRange?: () => Promise<unknown> | unknown;
+  /** The undo stack: `index` entries applied (0 nothing to undo, `size` nothing to redo), and whether the score is at its loaded state. */
+  getUndoInfo?: () => Promise<UndoInfo> | UndoInfo;
+  /** The undo entries in [from, to), oldest first. */
+  getUndoEntries?: (from: number, to: number) => Promise<UndoEntryInfo[]> | UndoEntryInfo[];
+  /** Moves the undo cursor to `target` (an `index` as getUndoInfo reports it); whether it got there. */
+  undoRedoTo?: (target: number) => Promise<boolean> | boolean;
   extendSelectionNextMeasure?: () => Promise<unknown> | unknown;
   extendSelectionPrevMeasure?: () => Promise<unknown> | unknown;
   extendSelectionStaffAbove?: () => Promise<unknown> | unknown;
