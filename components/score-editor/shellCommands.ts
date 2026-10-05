@@ -190,6 +190,19 @@ export function buildShellEditorCommands(getBindings: GetBindings): AnyCommand[]
         dock.toggle('instruments');
       },
     }),
+    defineCommand({
+      id: 'view.panel.undoHistory',
+      label: 'Edits',
+      keywords: ['undo history', 'history', 'edits', 'undo list', 'panel', 'toggle'],
+      enabled: () => b().dock !== null,
+      checked: () => Boolean(b().dock?.isShowing('edits')),
+      run: () => {
+        const dock = b().dock;
+        if (!dock) return;
+        if (!dock.isShowing('edits')) b().setPanelsVisible(true);
+        dock.toggle('edits');
+      },
+    }),
     togglePanel(
       'view.panel.aiTools',
       'AI Tools',

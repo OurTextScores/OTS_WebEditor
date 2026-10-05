@@ -58,6 +58,15 @@ const props = (dock: WorkspaceDock, over: Partial<LeftDockProps> = {}): LeftDock
   },
   instruments: { parts: [], groups: [] },
   inspector: { data: null, loading: false, disabled: false, onChange: vi.fn() },
+  edits: {
+    entries: [],
+    index: 0,
+    canUndo: false,
+    canRedo: false,
+    onUndo: vi.fn(),
+    onRedo: vi.fn(),
+    onJump: vi.fn(),
+  },
   ...over,
 });
 
@@ -68,6 +77,7 @@ describe('LeftDock', () => {
       'Palettes',
       'Instruments',
       'Properties',
+      'Edits',
     ]);
     expect(screen.getByRole('tab', { name: 'Instruments' })).toHaveAttribute(
       'aria-selected',

@@ -126,6 +126,9 @@ test('creates and edits a persistent fretboard diagram and adds an ambitus', asy
   await expect
     .poll(async () => (await readMscx(page)).includes('<Ambitus>'), { timeout: 20_000 })
     .toBe(true);
+  // The engine was called directly, with no pointer or key release for the editor to notice (a real edit has one).
+  await page.keyboard.press('Shift');
+  await page.waitForTimeout(400);
   await page.keyboard.press('Control+z');
   await expect.poll(async () => (await readMscx(page)).includes('<Ambitus>')).toBe(false);
   await page.keyboard.press('Control+y');

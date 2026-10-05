@@ -6,7 +6,7 @@ test.use({ viewport: { width: 2400, height: 1600 } });
 const loadSingleNoteScore = async (page: Page) => {
   await page.goto('/?score=/test_scores/single_note_c4.musicxml');
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
-  await waitForCommandEnabled(page, 'edit.undo');
+  await waitForCommandEnabled(page, 'edit.selectAll');
 };
 
 const saveXml = (page: Page) =>

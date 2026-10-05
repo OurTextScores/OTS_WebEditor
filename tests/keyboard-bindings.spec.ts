@@ -1,3 +1,4 @@
+import { runCommand } from './helpers/commands';
 import { expect, test, type Page } from 'playwright/test';
 
 /**
@@ -89,6 +90,12 @@ const clear = (page: Page) =>
 const firstCall = async (page: Page) => (await calls(page))[0];
 
 // [key, engine method, args]. `undefined` args means "do not care about the arguments".
+/** The edits that give Undo and Redo something to do before their key is pressed. */
+const PRELUDE: Record<string, string[]> = {
+  undo: ['edit.pitch.up'],
+  redo: ['edit.pitch.up', 'edit.undo'],
+};
+
 const WITH_SELECTION: [string, string, unknown[] | undefined][] = [
   ['ArrowUp', 'pitchUp', []],
   ['ArrowDown', 'pitchDown', []],
@@ -135,6 +142,8 @@ test.describe('with a note selected', () => {
   for (const [key, method, args] of WITH_SELECTION) {
     test(`${key} -> ${method}`, async ({ page }) => {
       await load(page, true);
+      // Undo and Redo only run when the engine's undo stack has something for them (Edit ▸ Undo is off on a fresh score).
+      for (const prelude of PRELUDE[method] ?? []) await runCommand(page, prelude);
       await clear(page);
       await page.keyboard.press(key);
       await expect.poll(async () => (await firstCall(page))?.[0], { timeout: 10_000 }).toBe(method);

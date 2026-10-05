@@ -286,6 +286,7 @@ import { useChordTools } from './score-editor/ai-tools/useChordTools';
 import { requestAiTextImpl } from './score-editor/ai-text-request';
 import { sendAiChatMessage } from './score-editor/ai-chat';
 import { requestAiPatch } from './score-editor/ai-patch-request';
+import { undoAvailability } from './score-editor/undoHistory';
 import { useEditorCore, type EditorCoreLateInputs } from './score-editor/core';
 import { promptForText } from './score-editor/prompt-for-text';
 import { useCanvasGestures, type CanvasGesturesLateInputs } from './score-editor/canvas';
@@ -571,6 +572,7 @@ export default function ScoreEditor() {
     setTextEditorPosition,
     setZoom,
     textEditorPosition,
+    undoHistory,
     zoom,
   } = core;
 
@@ -6578,6 +6580,11 @@ export default function ScoreEditor() {
           }
         : undefined,
     );
+  const handleUndoTo = (target: number) =>
+    performMutation(
+      'undo to',
+      score?.undoRedoTo ? async () => (await score.undoRedoTo?.(target)) : undefined,
+    );
   const handlePitchUp = () =>
     performMutation(
       'raise pitch',
@@ -9230,6 +9237,8 @@ export default function ScoreEditor() {
     onSelectAll: handleSelectAll,
     onUndo: handleUndo,
     onRedo: handleRedo,
+    // Unset until the engine has said; a refresh in flight counts as available, so a key right after an edit is not lost.
+    ...undoAvailability(undoHistory.history, undoHistory.refreshing),
     onPitchUp: handlePitchUp,
     onPitchDown: handlePitchDown,
     onTranspose: handleTranspose,
@@ -9465,6 +9474,15 @@ export default function ScoreEditor() {
           },
           instruments: { parts: scoreParts, groups: instrumentGroups },
           inspector: inspectorProps,
+          edits: {
+            entries: undoHistory.history.entries,
+            index: undoHistory.history.index,
+            canUndo: undoHistory.history.index > 0,
+            canRedo: undoHistory.history.index < undoHistory.history.entries.length,
+            onUndo: handleUndo,
+            onRedo: handleRedo,
+            onJump: handleUndoTo,
+          },
         },
         ai: {
           open: aiToolsSidebarOpen,

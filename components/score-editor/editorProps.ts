@@ -48,6 +48,9 @@ export interface EditorCommandProps {
   onDeleteSelection?: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
+  /** Whether the engine's undo stack has something to undo or redo; unset until the engine has said (then both are assumed). */
+  canUndo?: boolean;
+  canRedo?: boolean;
   onPitchUp?: () => void;
   onPitchDown?: () => void;
   onDurationLonger?: () => void;

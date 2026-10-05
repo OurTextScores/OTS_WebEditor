@@ -151,6 +151,7 @@ export const MENUS: readonly MenuDefinition[] = [
       separator,
       item('view.panel.palettes'),
       item('view.panel.properties'),
+      item('view.panel.undoHistory'),
       item('view.panel.aiTools'),
       item('view.panel.scoreSource'),
       item('view.panel.history'),

@@ -1,3 +1,4 @@
+import { useUndoHistory } from '../useUndoHistory';
 import { layoutOracleEnabled, verifyFullLayout } from '../../../lib/layout-oracle';
 import { startPerf } from '../../../lib/perf-trace';
 import { Score } from '../../../lib/webmscore-loader';
@@ -11,7 +12,7 @@ import {
   normalizeElementClasses,
 } from '../selection-classes';
 import { type SelectionBox } from '../selection-types';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RefreshPageCount, RenderScore } from '../editor-types';
 import type { NoteInputCursorRect } from '../selection-types';
 import type { MutableRefObject } from 'react';
@@ -40,6 +41,16 @@ export function useEditorCore(ctx: EditorCoreContext) {
   const { refreshPageCount, renderScore, lateInputs } = ctx;
 
   const [score, setScore] = useState<Score | null>(null);
+  const undoHistory = useUndoHistory(score);
+  const touchHistory = undoHistory.touch;
+  useEffect(() => {
+    document.addEventListener('pointerup', touchHistory);
+    document.addEventListener('keyup', touchHistory);
+    return () => {
+      document.removeEventListener('pointerup', touchHistory);
+      document.removeEventListener('keyup', touchHistory);
+    };
+  }, [touchHistory]);
 
   const scoreRef = useRef<Score | null>(null);
 
@@ -480,6 +491,8 @@ export function useEditorCore(ctx: EditorCoreContext) {
     try {
       console.debug(`Mutation "${label}" start`);
       const result = await perf.time('mutation', action);
+      // Read the engine's undo stack now that it has (maybe) changed.
+      void undoHistory.refresh(label);
       console.debug(`Mutation "${label}" result:`, result);
       const mutated = result !== false;
       if (!mutated) {
@@ -712,6 +725,7 @@ export function useEditorCore(ctx: EditorCoreContext) {
     setTextEditorPosition,
     setZoom,
     textEditorPosition,
+    undoHistory,
     zoom,
   };
 }

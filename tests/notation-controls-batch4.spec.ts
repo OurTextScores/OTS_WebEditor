@@ -188,6 +188,10 @@ test('creates semantic measure-repeat groups without replacing non-empty measure
     })
     .toBe(true);
 
+  // The engine was called directly, with no pointer or key release for the editor to notice (a real edit has one):
+  // give it the release, so it reads the undo stack before Ctrl+Z.
+  await page.keyboard.press('Shift');
+  await page.waitForTimeout(400);
   await page.keyboard.press('Control+z');
   await expect
     .poll(async () => (await readMscx(page)).includes('<MeasureRepeat>'), { timeout: 20_000 })
@@ -232,6 +236,10 @@ test('toggles multi-measure rests as an undoable score style', async ({ page }) 
   expect(await setMultiMeasureRests(true)).toBe(true);
   await expect.poll(() => multiMeasureRestsEnabled(page), { timeout: 20_000 }).toBe(true);
 
+  // The engine was called directly, with no pointer or key release for the editor to notice (a real edit has one):
+  // give it the release, so it reads the undo stack before Ctrl+Z.
+  await page.keyboard.press('Shift');
+  await page.waitForTimeout(400);
   await page.keyboard.press('Control+z');
   await expect.poll(() => multiMeasureRestsEnabled(page), { timeout: 20_000 }).toBe(false);
   await page.keyboard.press('Control+y');

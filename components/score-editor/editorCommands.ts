@@ -5,6 +5,7 @@ import {
   inNoteInput,
   mutable,
   needsBarTarget,
+  historyGates,
   needsRange,
   needsSelection,
   needsSelectionOutsideInput,
@@ -359,8 +360,8 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
     }),
 
     // ── Edit ────────────────────────────────────────────────────────────────────────
-    action('edit.undo', 'Undo', 'onUndo', mutable, { testId: 'btn-undo' }),
-    action('edit.redo', 'Redo', 'onRedo', mutable, { testId: 'btn-redo' }),
+    action('edit.undo', 'Undo', 'onUndo', historyGates.undo, { testId: 'btn-undo' }),
+    action('edit.redo', 'Redo', 'onRedo', historyGates.redo, { testId: 'btn-redo' }),
     action('edit.delete', 'Delete', 'onDeleteSelection', needsSelection, { testId: 'btn-delete' }),
     action('edit.deselect', 'Deselect', 'onClearSelection', needsSelection, {
       keywords: ['clear selection', 'escape'],
@@ -994,10 +995,8 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
 }
 
 /**
- * The context the ribbon implies. `EditorCommandProps` knows only whether *something* is
- * selected, so `selection` is `'none'` or `'single'`; the ribbon's rules never ask which
- * kind. Undo and redo are enabled whenever mutation is, as in the ribbon. Phase 1 supplies
- * the real selection kind and undo depth from `ScoreEditor`.
+ * The context the props imply: the selection kind and whether there is anything to undo or
+ * redo (until the engine has said, whenever mutation is enabled), from `ScoreEditor`.
  */
 export function deriveRibbonCommandContext(props: Props): CommandContext {
   const isMutable = Boolean(props.mutationsEnabled);
@@ -1006,8 +1005,8 @@ export function deriveRibbonCommandContext(props: Props): CommandContext {
     hasScore: Boolean(props.exportsEnabled),
     selection: props.selectionActive ? (props.selectionKind ?? 'single') : 'none',
     noteInput: Boolean(props.noteInputActive),
-    canUndo: isMutable && Boolean(props.onUndo),
-    canRedo: isMutable && Boolean(props.onRedo),
+    canUndo: isMutable && (props.canUndo ?? Boolean(props.onUndo)),
+    canRedo: isMutable && (props.canRedo ?? Boolean(props.onRedo)),
     aiEnabled: false,
     isMutable,
   };

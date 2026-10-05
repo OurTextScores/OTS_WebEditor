@@ -28,7 +28,7 @@ export function writeDock({
   onShowPanels: () => void;
   dock: WorkspaceDock;
   widths: ReturnType<typeof useShellPanels>;
-  left: Pick<LeftDockProps, 'palettes' | 'instruments' | 'inspector'>;
+  left: Pick<LeftDockProps, 'palettes' | 'instruments' | 'inspector' | 'edits'>;
   ai: {
     open: boolean;
     tool: AiToolsTab;

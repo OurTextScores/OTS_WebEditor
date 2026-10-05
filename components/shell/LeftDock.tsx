@@ -7,6 +7,7 @@ import { InspectorPanel } from '../InspectorPanel';
 import { PaletteBrowser } from '../PaletteBrowser';
 import type { InstrumentTemplateGroup, PartSummary } from '../score-editor/editorProps';
 import type { PaletteCategory, ScorePaletteItem } from '../toolbar/palette';
+import { EditsPanel, type EditsPanelProps } from './EditsPanel';
 import { InstrumentsPanel } from './InstrumentsPanel';
 import { PANEL_LIMITS } from './useShellPanels';
 import { Panel } from './vendor/viritura';
@@ -18,6 +19,7 @@ const TABS: readonly { tab: DockTab; label: string; shortcut: string }[] = [
   { tab: 'palettes', label: 'Palettes', shortcut: 'F9' },
   { tab: 'instruments', label: 'Instruments', shortcut: 'F7' },
   { tab: 'properties', label: 'Properties', shortcut: 'F8' },
+  { tab: 'edits', label: 'Edits', shortcut: '' },
 ];
 
 type InspectorProps = React.ComponentProps<typeof InspectorPanel>;
@@ -40,6 +42,8 @@ export interface LeftDockProps {
     onShowAll: () => void;
   };
   instruments: { parts: readonly PartSummary[]; groups: readonly InstrumentTemplateGroup[] };
+  /** The undo history (the Edits tab). */
+  edits: EditsPanelProps;
   inspector: Pick<
     InspectorProps,
     'loading' | 'disabled' | 'onChange' | 'fretDiagram' | 'onFretDiagramChange'
@@ -47,8 +51,8 @@ export interface LeftDockProps {
 }
 
 /**
- * The left panel of the Write mode (SHELL_REDESIGN_DESIGN §8.3): Palettes, Instruments and
- * Properties as tabs in one dock, toggled by F9, F7 and F8. Palettes can pop out into the
+ * The left panel of the Write mode (SHELL_REDESIGN_DESIGN §8.3): Palettes, Instruments,
+ * Properties (toggled by F9, F7 and F8) and the Edits history as tabs in one dock. Palettes can pop out into the
  * floating overlay and dock back.
  */
 export function LeftDock({
@@ -61,6 +65,7 @@ export function LeftDock({
   palettes,
   instruments,
   inspector,
+  edits,
 }: LeftDockProps) {
   return (
     <Panel
@@ -75,8 +80,8 @@ export function LeftDock({
       testId="left-dock"
       resizeTestId="left-dock-resize"
     >
-      <div className="flex shrink-0 items-center border-b border-slate-200 px-1 pt-1">
-        <div role="tablist" aria-label="Side panel" className="flex min-w-0 flex-1">
+      <div className="flex shrink-0 items-center border-b border-slate-200 px-0.5 pt-1">
+        <div role="tablist" aria-label="Side panel" className="flex min-w-0 flex-1 overflow-x-auto">
           {TABS.map(({ tab, label, shortcut }) => {
             const selected = dock.tab === tab;
             return (
@@ -88,9 +93,9 @@ export function LeftDock({
                 aria-selected={selected}
                 aria-controls={`dock-tabpanel-${tab}`}
                 data-testid={`dock-tab-${tab}`}
-                title={`${label} (${shortcut})`}
+                title={shortcut ? `${label} (${shortcut})` : label}
                 onClick={() => dock.show(tab)}
-                className={`rounded-t px-2.5 py-1.5 text-xs font-medium ${
+                className={`shrink-0 rounded-t px-1.5 py-1.5 text-xs font-medium ${
                   selected
                     ? 'border-b-2 border-accent text-slate-900'
                     : 'text-slate-500 hover:text-slate-800'
@@ -170,6 +175,7 @@ export function LeftDock({
           <InstrumentsPanel parts={instruments.parts} instrumentGroups={instruments.groups} />
         )}
         {dock.tab === 'properties' && <InspectorPanel embedded {...inspector} />}
+        {dock.tab === 'edits' && <EditsPanel {...edits} />}
       </div>
     </Panel>
   );

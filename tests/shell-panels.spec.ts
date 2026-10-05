@@ -122,7 +122,7 @@ test.describe('palettes: dock and pop-out', () => {
   for (const form of ['docked', 'floating'] as const) {
     test(`dragging a palette item onto the score applies it (${form})`, async ({ page }) => {
       await load(page, SINGLE_NOTE);
-      await waitForCommandEnabled(page, 'edit.undo');
+      await waitForCommandEnabled(page, 'edit.selectAll');
       if (form === 'floating') {
         await page.getByTestId('btn-palettes-pop-out').click();
         await expect(page.getByTestId('floating-palettes')).toBeVisible();

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { PaletteCategory } from '../toolbar/palette';
 
-export type DockTab = 'palettes' | 'instruments' | 'properties';
+export type DockTab = 'palettes' | 'instruments' | 'properties' | 'edits';
 
 interface DockState {
   readonly open: boolean;
@@ -14,7 +14,7 @@ const KEY = 'ots.shell.dock';
 const DEFAULT: DockState = { open: true, tab: 'palettes', poppedOut: false };
 
 const isTab = (value: unknown): value is DockTab =>
-  value === 'palettes' || value === 'instruments' || value === 'properties';
+  value === 'palettes' || value === 'instruments' || value === 'properties' || value === 'edits';
 
 /** Corrupt or blocked storage falls back to the default rather than breaking the editor. */
 export function readDockState(): DockState {

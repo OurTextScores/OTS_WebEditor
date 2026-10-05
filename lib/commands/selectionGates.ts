@@ -53,6 +53,18 @@ export const inNoteInput: Gate = gate(
   () => 'Start note input first',
 );
 
+/** Undo and Redo need something on the engine's undo stack to move over. */
+export const historyGates = {
+  undo: gate(
+    (ctx) => ctx.isMutable && ctx.canUndo,
+    () => 'Nothing to undo',
+  ),
+  redo: gate(
+    (ctx) => ctx.isMutable && ctx.canRedo,
+    () => 'Nothing to redo',
+  ),
+};
+
 /**
  * A contiguous range: Select All, a bar click, a Shift-extended selection. The bulk tools
  * (explode, implode, regroup, resequence) work on a span and the engine refuses anything else.
