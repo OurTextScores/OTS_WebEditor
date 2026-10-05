@@ -1,4 +1,3 @@
-import { useSyncExternalStore } from 'react';
 import { readPlayerPreference, writePlayerPreference } from './player-preferences';
 
 /**
@@ -47,7 +46,3 @@ export function resetClickPreferencesForTests(): void {
   current = null;
   listeners.forEach((listener) => listener());
 }
-
-/** The switches, live (re-renders when either changes). */
-export const useClickPreferences = (): ClickPreferences =>
-  useSyncExternalStore(subscribeClickPreferences, getClickPreferences, getClickPreferencesOnServer);

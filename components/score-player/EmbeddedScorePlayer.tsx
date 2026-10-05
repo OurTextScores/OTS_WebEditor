@@ -12,7 +12,8 @@ import {
   timelineFromPositions,
 } from '@/lib/playback/timeline';
 import { segmentTimeForId } from '@/lib/playback/note-tracking';
-import { setCountIn, setMetronome, useClickPreferences } from '@/lib/playback/click-preferences';
+import { setCountIn, setMetronome } from '@/lib/playback/click-preferences';
+import { useClickPreferences } from '@/lib/playback/use-click-preferences';
 import { readPlayerPreference, writePlayerPreference } from '@/lib/playback/player-preferences';
 import { useScoreTransport } from '@/lib/playback/use-score-transport';
 import {

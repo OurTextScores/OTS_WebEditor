@@ -12,7 +12,7 @@ import {
   type CommandFamily,
 } from '../../lib/commands/types';
 import { useCommandContext } from '../../lib/commands/useRegisterCommands';
-import { useClickPreferences } from '../../lib/playback/click-preferences';
+import { useClickPreferences } from '../../lib/playback/use-click-preferences';
 import { invokeCommand } from './invokeCommand';
 import { MENUS, type MenuDefinition, type MenuNode } from './menus';
 import { pruneMenuNodes } from './menuTree';

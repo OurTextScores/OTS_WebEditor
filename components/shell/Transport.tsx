@@ -4,7 +4,7 @@ import { Metronome, Pause, Play, Square } from 'lucide-react';
 import React, { useSyncExternalStore } from 'react';
 import { defaultCommandRegistry, type CommandRegistry } from '../../lib/commands/registry';
 import { useCommandContext } from '../../lib/commands/useRegisterCommands';
-import { useClickPreferences } from '../../lib/playback/click-preferences';
+import { useClickPreferences } from '../../lib/playback/use-click-preferences';
 import { Button } from '../ui/Button';
 import { invokeCommand } from './invokeCommand';
 import { getShellUiState, subscribeToShellUi } from './shellStore';
