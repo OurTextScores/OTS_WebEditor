@@ -156,13 +156,18 @@ void PositionJsonWriter::writeSegmentsPositions(QJsonObject& json, const mu::eng
     Measure* measure = score->firstMeasureMM();
     for (mu::engraving::Segment* segment = (measure ? measure->first(mu::engraving::SegmentType::ChordRest) : nullptr);
          segment; segment = segment->next1MM(mu::engraving::SegmentType::ChordRest)) {
+        // The width of the segment's box: from this segment to the next one on the same system, or to the end of its
+        // measure for the last one. That is the room layout gave the notes, and it is never zero. The segment's own
+        // bounding box is no use (a chord or rest has none, so every width came out 0), and calling the virtual
+        // width() on an element traps in the Emscripten build ("function signature mismatch"), which made this whole
+        // call fail on most real scores.
         qreal sx = 0;
-        size_t tracks = score->nstaves() * mu::engraving::VOICES;
-        for (size_t track = 0; track < tracks; track++) {
-            EngravingItem* e = segment->element(static_cast<int>(track));
-            if (e && e->_bbox.isValid()) { // HACK: `e` may be an instance of `EngravingObject` ???, thus no `bbox()` method
-                sx = qMax(sx, e->width());
-            }
+        {
+            const mu::engraving::Measure* own = segment->measure();
+            const mu::engraving::Segment* next = segment->next1MM(mu::engraving::SegmentType::ChordRest);
+            const bool sameSystem = next && next->measure()->system() == own->system();
+            const qreal right = sameSystem ? next->pagePos().x() : (own->pagePos().x() + own->bbox().width());
+            sx = qMax<qreal>(0, right - segment->pagePos().x());
         }
 
         sx *= ndpi;
