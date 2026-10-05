@@ -13,6 +13,7 @@ import {
 } from '../../lib/commands/types';
 import { useCommandContext } from '../../lib/commands/useRegisterCommands';
 import { useClickPreferences } from '../../lib/playback/use-click-preferences';
+import { labelFor } from '../../lib/commands/dynamicLabels';
 import { invokeCommand } from './invokeCommand';
 import { MENUS, type MenuDefinition, type MenuNode } from './menus';
 import { pruneMenuNodes } from './menuTree';
@@ -41,8 +42,8 @@ interface RenderContext {
   readonly ctx: CommandContext;
 }
 
-const display = (command: Command, override?: string) =>
-  `${override ?? command.label}${command.opensDialog ? '…' : ''}`;
+const display = (command: Command, ctx: CommandContext, override?: string) =>
+  `${override ?? labelFor(command.id, command.label, ctx)}${command.opensDialog ? '…' : ''}`;
 
 function Shortcut({ value }: { value: string | undefined }) {
   return value ? <span className="text-slate-500">{formatShortcut(value)}</span> : null;
@@ -200,7 +201,7 @@ function NodeView({ node, render }: { node: MenuNode; render: RenderContext }) {
         checked={command.checked(render.ctx)}
         onSelect={() => void invokeCommand(command.id, undefined, render.registry)}
       >
-        <span>{display(command, node.kind === 'item' ? node.label : undefined)}</span>
+        <span>{display(command, render.ctx, node.kind === 'item' ? node.label : undefined)}</span>
         <span className="flex items-center gap-2">
           <Shortcut value={primaryShortcut(command.id)} />
           <Menubar.ItemIndicator>✓</Menubar.ItemIndicator>
@@ -215,7 +216,7 @@ function NodeView({ node, render }: { node: MenuNode; render: RenderContext }) {
       disabled={!enabled}
       onSelect={() => void invokeCommand(command.id, undefined, render.registry)}
     >
-      <span>{display(command, node.kind === 'item' ? node.label : undefined)}</span>
+      <span>{display(command, render.ctx, node.kind === 'item' ? node.label : undefined)}</span>
       <Shortcut value={primaryShortcut(command.id)} />
     </Menubar.Item>
   );

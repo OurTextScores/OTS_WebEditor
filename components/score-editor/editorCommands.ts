@@ -994,10 +994,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
   ];
 }
 
-/**
- * The context the props imply: the selection kind and whether there is anything to undo or
- * redo (until the engine has said, whenever mutation is enabled), from `ScoreEditor`.
- */
+/** The context the props imply: selection kind, and what there is to undo or redo (all until the engine says). */
 export function deriveRibbonCommandContext(props: Props): CommandContext {
   const isMutable = Boolean(props.mutationsEnabled);
   return {
@@ -1007,6 +1004,8 @@ export function deriveRibbonCommandContext(props: Props): CommandContext {
     noteInput: Boolean(props.noteInputActive),
     canUndo: isMutable && (props.canUndo ?? Boolean(props.onUndo)),
     canRedo: isMutable && (props.canRedo ?? Boolean(props.onRedo)),
+    undoLabel: props.undoLabel,
+    redoLabel: props.redoLabel,
     aiEnabled: false,
     isMutable,
   };

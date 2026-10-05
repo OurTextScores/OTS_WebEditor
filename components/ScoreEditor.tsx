@@ -8382,6 +8382,7 @@ export default function ScoreEditor() {
     checkpointCount: checkpoints.length, progressiveLoadEnabled,
     pageCountIsFloor: progressivePagingActive && progressiveHasMorePages,
     toggleProgressiveLoad: () => setProgressiveLoadEnabled((prev) => !prev),
+    undoTo: handleUndoTo,
   });
   const aiApplyDisabled = xmlControlsDisabled || !aiPatchedXml.trim() || Boolean(aiPatchError);
   const patchEditorHeight = '35vh';

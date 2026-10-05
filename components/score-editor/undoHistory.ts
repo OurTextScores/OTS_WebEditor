@@ -202,5 +202,7 @@ export function undoAvailability(history: HistoryState, refreshing: boolean) {
   return {
     canUndo: history.index > 0 || refreshing,
     canRedo: history.index < history.entries.length || refreshing,
+    undoLabel: history.entries[history.index - 1]?.description,
+    redoLabel: history.entries[history.index]?.description,
   };
 }

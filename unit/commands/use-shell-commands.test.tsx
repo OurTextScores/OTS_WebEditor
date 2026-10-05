@@ -38,6 +38,7 @@ const bindings = (over: Partial<ShellEditorBindings> = {}): ShellEditorBindings 
   pageCountIsFloor: false,
   progressiveLoadEnabled: true,
   toggleProgressiveLoad: vi.fn(),
+  undoTo: vi.fn(),
   saveCheckpoint: vi.fn(),
   copySelection: vi.fn(),
   pasteSelection: vi.fn(),

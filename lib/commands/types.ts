@@ -15,6 +15,9 @@ export interface CommandContext {
   readonly noteInput: boolean;
   readonly canUndo: boolean;
   readonly canRedo: boolean;
+  /** What Undo and Redo would act on, in words ("Add dynamic"); unset when unknown or nothing to do. */
+  readonly undoLabel?: string;
+  readonly redoLabel?: string;
   readonly aiEnabled: boolean;
   readonly isMutable: boolean; // false in read-only/review surfaces
 }

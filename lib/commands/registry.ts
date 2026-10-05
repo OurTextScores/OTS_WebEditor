@@ -1,3 +1,4 @@
+import { labelFor } from './dynamicLabels';
 import { primaryShortcut } from './bindings';
 import {
   isCommandFamily,
@@ -190,7 +191,7 @@ function describe(entry: AnyCommand, scope: CommandScope, ctx: CommandContext): 
     id: command.id,
     kind: 'command',
     scope,
-    label: command.label,
+    label: labelFor(command.id, command.label, ctx),
     ...(primaryShortcut(command.id) ? { shortcut: primaryShortcut(command.id) } : {}),
     ...(command.testId ? { testId: command.testId } : {}),
     enabled,

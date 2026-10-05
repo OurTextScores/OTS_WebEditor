@@ -29,6 +29,7 @@ function setup(over: Partial<ShellEditorBindings> = {}, ctx: Partial<CommandCont
     paste: vi.fn(),
     openScore: vi.fn(),
     toggleProgressive: vi.fn(),
+    undoTo: vi.fn(async () => {}),
     setActivity: vi.fn(),
     closeCompare: vi.fn(),
   };
@@ -68,6 +69,7 @@ function setup(over: Partial<ShellEditorBindings> = {}, ctx: Partial<CommandCont
     pageCountIsFloor: false,
     progressiveLoadEnabled: true,
     toggleProgressiveLoad: calls.toggleProgressive,
+    undoTo: calls.undoTo,
     ...over,
   };
   const context: CommandContext = {
@@ -93,6 +95,21 @@ function setup(over: Partial<ShellEditorBindings> = {}, ctx: Partial<CommandCont
 }
 
 const scoreWith = (extra: Partial<Score>): Score => extra as unknown as Score;
+
+describe('edit.undo.to', () => {
+  it('jumps the undo cursor to the given entry count, clamped to a whole number >= 0', async () => {
+    const { registry, calls } = setup({}, { canUndo: true });
+    await registry.run('edit.undo.to', 3);
+    await registry.run('edit.undo.to', -2);
+    await registry.run('edit.undo.to', 2.9);
+    expect(calls.undoTo.mock.calls).toEqual([[3], [0], [2]]);
+  });
+
+  it('is unavailable when there is nothing to undo or redo', () => {
+    const { registry } = setup();
+    expect(registry.isEnabled('edit.undo.to')).toBe(false);
+  });
+});
 
 describe('panel toggles', () => {
   it.each([

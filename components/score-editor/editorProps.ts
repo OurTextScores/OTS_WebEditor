@@ -51,6 +51,9 @@ export interface EditorCommandProps {
   /** Whether the engine's undo stack has something to undo or redo; unset until the engine has said (then both are assumed). */
   canUndo?: boolean;
   canRedo?: boolean;
+  /** What Undo and Redo would act on, for their menu labels. */
+  undoLabel?: string;
+  redoLabel?: string;
   onPitchUp?: () => void;
   onPitchDown?: () => void;
   onDurationLonger?: () => void;

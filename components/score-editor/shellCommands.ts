@@ -48,6 +48,8 @@ export interface ShellEditorBindings {
   readonly pageCountIsFloor: boolean;
   readonly progressiveLoadEnabled: boolean;
   readonly toggleProgressiveLoad: () => void;
+  /** Moves the undo cursor to `index` entries applied (0 is the loaded score); the Edits panel's jump. */
+  readonly undoTo: (index: number) => Promise<unknown> | unknown;
   readonly saveCheckpoint: () => Promise<void> | void;
   readonly copySelection: () => Promise<unknown> | unknown;
   readonly pasteSelection: () => Promise<unknown> | unknown;
@@ -188,6 +190,16 @@ export function buildShellEditorCommands(getBindings: GetBindings): AnyCommand[]
         if (!dock) return;
         if (!dock.isShowing('instruments')) b().setPanelsVisible(true);
         dock.toggle('instruments');
+      },
+    }),
+    defineCommand<number>({
+      id: 'edit.undo.to',
+      label: 'Undo To',
+      // The Edits panel's rows are the way to choose a point; this is the same jump for keyboard-driven and scripted use.
+      visible: () => false,
+      enabled: (ctx) => ctx.isMutable && (ctx.canUndo || ctx.canRedo),
+      run: async (_ctx, index) => {
+        await b().undoTo(Math.max(0, Math.trunc(Number(index) || 0)));
       },
     }),
     defineCommand({
