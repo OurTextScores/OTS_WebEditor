@@ -826,3 +826,34 @@ test.describe('Bowing, articulations and voices', () => {
     await expect.poll(calls).toEqual([[1]]);
   });
 });
+
+test.describe('small windows', () => {
+  for (const [width, height] of [
+    [1000, 600],
+    [700, 400],
+    [600, 700],
+  ]) {
+    test(`${width}x${height}: the page never scrolls past the window, the status bar stays at the bottom and the score keeps room`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height });
+      await open(page, false);
+      await page.waitForTimeout(500);
+      const layout = await page.evaluate(() => {
+        const box = (selector: string) => document.querySelector(selector)?.getBoundingClientRect();
+        return {
+          docHeight: document.documentElement.scrollHeight,
+          docWidth: document.documentElement.scrollWidth,
+          statusBottom: box('[data-testid="status-bar"]')?.bottom,
+          stripHeight: box('[data-testid="tool-strip"]')?.height,
+          workspaceHeight: box('[data-testid="workspace-shell"]')?.height,
+        };
+      });
+      expect(layout.docHeight).toBeLessThanOrEqual(height);
+      expect(layout.docWidth).toBeLessThanOrEqual(width);
+      expect(layout.statusBottom).toBe(height);
+      expect(layout.stripHeight).toBeLessThanOrEqual(height * 0.45 + 1);
+      expect(layout.workspaceHeight).toBeGreaterThan(100);
+    });
+  }
+});

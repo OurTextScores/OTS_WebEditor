@@ -25,6 +25,9 @@ import { flattenControls, STRIP_GROUPS, type StripGroup } from './toolbarLayout'
 /** A group's left padding (1rem) plus its 1px divider: how far the row is shifted left so the first divider on a line is clipped. */
 const DIVIDER_CLIP = 17;
 
+/** The most of the window the strip may take (see `style` below). */
+const STRIP_MAX_HEIGHT = '45vh';
+
 /** Space between wrapped lines of buttons. */
 const ROW_GAP = 8;
 
@@ -96,6 +99,9 @@ export function ToolStrip({
         data-testid="tool-strip"
         data-collapsed={collapsed ? 'true' : 'false'}
         className={`${styles.root} flex shrink-0 items-start gap-1 border-b border-slate-200 bg-white px-3 py-1`}
+        // The tools wrap onto as many lines as they need, but never take more than this share of the window: the
+        // score and the status bar keep their room, and the strip scrolls when the window is very small.
+        style={{ maxHeight: STRIP_MAX_HEIGHT, overflowX: 'hidden', overflowY: 'auto' }}
       >
         {/* Each group carries a left divider; the row is shifted left and clipped so the divider of the first
             group on every line is cut off, and a wrapped line never starts with one. */}

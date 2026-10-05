@@ -17,7 +17,11 @@ export function EditorWorkspace({ mode }: { mode: OtsWorkspaceMode }) {
   const content = mode.layout === 'content';
 
   return (
-    <div className={content ? 'flex flex-col overflow-x-clip' : 'flex flex-col h-screen'}>
+    <div
+      className={
+        content ? 'flex flex-col overflow-x-clip' : 'flex flex-col h-screen overflow-hidden'
+      }
+    >
       {mode.header}
       {/* Above the activity bar and the panels: a toolbar's dropdowns open downward over both. */}
       {mode.toolbar && (

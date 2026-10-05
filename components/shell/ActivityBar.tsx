@@ -42,7 +42,7 @@ export function ActivityBar({
     <nav
       aria-label="Activities"
       data-testid="activity-bar"
-      className="flex shrink-0 flex-col items-center gap-1 border-r border-slate-200 bg-white py-2"
+      className="flex min-h-0 shrink-0 flex-col items-center gap-1 overflow-y-auto border-r border-slate-200 bg-white py-2"
       style={{ width: 'var(--shell-activity-w, 44px)', zIndex: 'var(--ots-z-activity)' }}
     >
       {ACTIVITIES.map(({ id, label, icon, commandId }, index) => (
