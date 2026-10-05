@@ -20,7 +20,7 @@ const log = console.log;
 console.log = () => {};
 const data = fs.readFileSync(file);
 try {
-  const score = await W.load(file.endsWith('.mscz') ? 'mscz' : 'musicxml', data);
+  const score = await W.load(file.endsWith('.mscz') ? 'mscz' : file.endsWith('.mxl') ? 'mxl' : 'musicxml', data);
   const seg = await score.segmentPositions();
   const widths0 = seg.elements.filter((e) => !((e.width ?? e.sx) > 0)).length;
   const w = seg.elements.map((e) => e.width ?? e.sx).sort((a, b) => a - b);

@@ -1,4 +1,4 @@
-import type { MutableRefObject } from 'react';
+import { memo, useCallback, useEffect, useRef, type MutableRefObject } from 'react';
 import type { Positions } from '@/lib/webmscore-loader';
 
 type Box = Positions['elements'][number];
@@ -12,6 +12,38 @@ type Box = Positions['elements'][number];
 export const NOTE_MIN_WIDTH = 12;
 const boxWidth = (box: Box, isNote: boolean) =>
   isNote ? Math.max(box.width ?? box.sx ?? 0, NOTE_MIN_WIDTH) : (box.width ?? box.sx);
+
+/**
+ * The click targets, as their own memoised layer. A page can carry a thousand of them (every note of a quartet), and the
+ * player re-renders every animation frame while playing; only a change of page or mode should rebuild them.
+ */
+const ClickTargets = memo(function ClickTargets({
+  boxes,
+  boxesAreNotes,
+  onSeek,
+}: {
+  boxes: readonly Box[];
+  boxesAreNotes: boolean;
+  onSeek: (box: Box) => void;
+}) {
+  return (
+    <>
+      {boxes.map((box) => (
+        <rect
+          key={box.id}
+          x={box.x}
+          y={box.y}
+          width={boxWidth(box, boxesAreNotes)}
+          height={box.height ?? box.sy}
+          fill="transparent"
+          pointerEvents="all"
+          className="cursor-pointer"
+          onClick={() => onSeek(box)}
+        />
+      ))}
+    </>
+  );
+});
 
 /**
  * The click targets and the highlight drawn over the score page. `boxes` are the measures or the notes of the visible
@@ -40,6 +72,12 @@ export default function PlayerOverlay({
   highlightRef: MutableRefObject<SVGRectElement | null>;
   onSeek: (box: Box) => void;
 }) {
+  // The latest handler without a new identity per render, so the memoised layer below is not rebuilt each frame.
+  const latestSeek = useRef(onSeek);
+  useEffect(() => {
+    latestSeek.current = onSeek;
+  });
+  const seek = useCallback((box: Box) => latestSeek.current(box), []);
   return (
     <svg
       data-testid="player-overlay"
@@ -48,19 +86,7 @@ export default function PlayerOverlay({
       preserveAspectRatio="xMidYMid meet"
       aria-hidden="true"
     >
-      {boxes.map((box) => (
-        <rect
-          key={box.id}
-          x={box.x}
-          y={box.y}
-          width={boxWidth(box, boxesAreNotes)}
-          height={box.height ?? box.sy}
-          fill="transparent"
-          pointerEvents="all"
-          className="cursor-pointer"
-          onClick={() => onSeek(box)}
-        />
-      ))}
+      <ClickTargets boxes={boxes} boxesAreNotes={boxesAreNotes} onSeek={seek} />
       {highlight?.page === currentPage && (
         <g pointerEvents="none">
           <rect
