@@ -55,11 +55,13 @@ export const STRIP_ICON_SPECS: Readonly<Record<string, IconSpec>> = {
   ],
 
   // Notes: entry
+  // A chord box: the nut, five strings, two frets, two fingered notes and an open string.
   'dropdown-fretboards': [
-    line('M6 4v16M10 4v16M14 4v16M18 4v16'),
-    line('M6 4h12', 2.4),
-    line('M6 10h12M6 15h12'),
-    solid('M10 12.2a1.7 1.7 0 1 0 0.01 0zM18 17.2a1.7 1.7 0 1 0 0.01 0z'),
+    line('M5 6h14', 2.2),
+    line('M5 6V21.5M8.5 6V21.5M12 6V21.5M15.5 6V21.5M19 6V21.5', 0.8),
+    line('M5 13.5h14', 0.8),
+    solid('M8.5 7.4a2 2 0 1 0 0.01 0zM15.5 14.9a2 2 0 1 0 0.01 0z'),
+    line('M12 3.6a1.1 1.1 0 1 0 0.01 0z', 0.9),
   ],
   'dropdown-grace-notes': [glyph('\uE560', [12, 12], 24, 20)],
 
@@ -98,14 +100,15 @@ export const STRIP_ICON_SPECS: Readonly<Record<string, IconSpec>> = {
   'dropdown-markings': [glyph('\uE522', [12, 12], 22, 17)],
   'dropdown-hairpins': [glyph('\uE53E', [12, 12], 24, 20)],
   'dropdown-pedal': [glyph('\uE650', [12, 12], 22, 20)],
-  'dropdown-articulations': [...note(11, 13, false, 18), glyph('\uE4A2', [12, 5], 24, 9, 4)],
+  'dropdown-articulations': [...note(11, 13, false, 18), glyph('\uE4A0', [11, 5.5], 24, 9, 5)],
   'btn-up-bow': [glyph('\uE612', [12, 12], 22, 15, 12)],
   'btn-down-bow': [glyph('\uE610', [12, 12], 22, 15, 12)],
   'dropdown-fermata': [glyph('\uE4C0', [12, 12], 24, 19)],
   'dropdown-breath': [glyph('\uE4CE', [12, 12], 48, 12, 10)],
 
   // Text and tempo
-  'dropdown-text': [line('M5.5 6.5h13M12 6.5v12M9 18.5h6')],
+  // "Aa" in Leland Text, MuseScore's own text face.
+  'dropdown-text': [glyph('A', [7.2, 12.5], 21, 13), glyph('a', [18.4, 14.6], 21, 8.5)],
   'btn-tempo-open': [glyph(NOTE_UP, [8, 12], 20, 17), line('M14.5 10h6M14.5 14h6')],
 
   // Layout

@@ -384,16 +384,16 @@ test.describe('Marks group', () => {
     });
   }
 
-  test('an articulation button runs from the face and the choice is its own: Tenuto after Staccato', async ({
+  test('an articulation button runs from the face and the choice is its own: Tenuto after Accent', async ({
     page,
   }) => {
     await open(page, true);
     const calls = await spyOnCalls(page, 'addArticulation');
     await page.getByTestId('dropdown-articulations-last').click();
-    await expect.poll(calls).toEqual([['articStaccatoAbove']]);
+    await expect.poll(calls).toEqual([['articAccentAbove']]);
     await page.getByTestId('dropdown-articulations').click();
     await page.getByTestId('btn-artic-articTenutoAbove').click();
-    await expect.poll(calls).toEqual([['articStaccatoAbove'], ['articTenutoAbove']]);
+    await expect.poll(calls).toEqual([['articAccentAbove'], ['articTenutoAbove']]);
     // Fermatas are a separate button with its own memory.
     await expect(page.getByTestId('dropdown-fermata-last')).toHaveAccessibleName(
       'Fermatas: Fermata',

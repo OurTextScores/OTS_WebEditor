@@ -531,13 +531,18 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
         icon: Dot,
         split: true,
         columns: 5,
-        items: articulationOptions.map((option, index) => ({
-          testId: `btn-artic-${option.symbol}`,
-          label: option.label,
-          commandId: 'add.mark.articulation',
-          arg: option.symbol,
-          glyph: paletteGlyph('articulation', index),
-        })),
+        // The accent leads, so the button's face starts on it (the palette keeps its own order).
+        items: articulationOptions
+          .map((option, index) => ({
+            testId: `btn-artic-${option.symbol}`,
+            label: option.label,
+            commandId: 'add.mark.articulation',
+            arg: option.symbol,
+            glyph: paletteGlyph('articulation', index),
+          }))
+          .sort(
+            (a, b) => Number(b.arg === 'articAccentAbove') - Number(a.arg === 'articAccentAbove'),
+          ),
       },
       // Bowing is the string player's most used articulation, so it also has a button of its own.
       {

@@ -5,7 +5,7 @@ no font to load, every glyph fitted and centred by its real outline (a clef cann
 
 Which glyphs: every SMuFL code point (U+E000..U+F8FF) that appears, as an escape, a raw character or a 0xE... number, in the
 files below. Outlines come from Leland (MuseScore's font) and fall back to Bravura for the glyphs Leland's
-subset lacks. Both are SIL OFL 1.1 (webmscore-fork/fonts/*/OFL.txt).
+subset lacks. All are SIL OFL 1.1 (webmscore-fork/fonts/*/LICENSE.txt).
 
 Run:  python3 scripts/generate-glyph-paths.py   (needs fontTools; the output is committed)
 """
@@ -44,14 +44,20 @@ def codepoints() -> list[int]:
     return sorted(found)
 
 
+# Letters from Edwin Bold (MuseScore's text face, SIL OFL), for the strip's "Aa" text icon; keyed by their code point.
+TEXT_CODEPOINTS = [0x41, 0x61]
+
+
 def main() -> int:
     leland = TTFont(FONTS / "leland/Leland.otf")
     bravura = TTFont(FONTS / "bravura/Bravura.otf")
+    edwin = TTFont(FONTS / "edwin/Edwin-Bold.otf")
     fonts = [("leland", leland), ("bravura", bravura)]
     lines: list[str] = []
     missing: list[str] = []
-    for cp in codepoints():
-        for name, font in fonts:
+    wanted = [(cp, fonts) for cp in codepoints()] + [(cp, [("edwin", edwin)]) for cp in TEXT_CODEPOINTS]
+    for cp, candidates in wanted:
+        for name, font in candidates:
             glyph_name = font.getBestCmap().get(cp)
             if glyph_name:
                 break
