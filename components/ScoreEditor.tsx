@@ -3700,7 +3700,8 @@ export default function ScoreEditor() {
       } else {
         setInteractionState({ preparing: false, ready: true });
       }
-      const autoFit = handleFitHeight;
+      // A score opens fitted to the width of the view (it used to fit the page height, which left a tall page at about 30%).
+      const autoFit = handleFitWidth;
       if (autoFitPendingRef.current && typeof window !== 'undefined') {
         window.requestAnimationFrame(() => {
           window.requestAnimationFrame(() => {
@@ -3917,12 +3918,12 @@ export default function ScoreEditor() {
       if (autoFitPendingRef.current && typeof window !== 'undefined') {
         window.requestAnimationFrame(() => {
           window.requestAnimationFrame(() => {
-            handleFitHeight();
+            handleFitWidth();
             autoFitPendingRef.current = false;
           });
         });
       } else {
-        handleFitHeight();
+        handleFitWidth();
         autoFitPendingRef.current = false;
       }
       setLoading(false);

@@ -1,3 +1,4 @@
+import { runCommand } from './helpers/commands';
 import { expect, test, type Page } from 'playwright/test';
 
 /**
@@ -437,6 +438,10 @@ test('a bar stays selectable, with its rectangle, after a note click in a dense 
   await page.setViewportSize({ width: 1400, height: 900 });
   await page.goto('/?score=/test_scores/bach_orig.mscz');
   await page.waitForSelector('svg .Note', { timeout: 90_000 });
+  // The hit-testing below was tuned at the page-height fit, which is how scores used to open; they now open
+  // fitted to the width, a larger scale where adjacent noteheads are further apart than this test expects.
+  await runCommand(page, 'view.zoom.fitHeight');
+  await page.waitForTimeout(800);
 
   // Wide pitch range (arpeggiated figuration) means adjacent notes in time can sit
   // far apart in y, so a click point derived from note geometry alone can miss the
