@@ -4,8 +4,7 @@ import { useMemo, useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { Film } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { IconButton } from '@/components/ui/IconButton';
-import { Dialog, DialogContent } from '@/components/ui/Dialog';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/Dialog';
 import { readPlayerPreference } from '@/lib/playback/player-preferences';
 import { formatPlaybackTime } from '@/lib/playback/timeline';
 import type { Score } from '@/lib/webmscore-loader';
@@ -18,6 +17,8 @@ import {
 import { getSaveFilePicker, shouldWriteToDisk } from '@/lib/video-export/saveTarget';
 import { useFormatPreview, useVideoExport } from './useVideoExport';
 
+// The same class string as the other round controls of the bar (PlayerControls' `controlClass`), on Radix's own trigger
+// element rather than the shared Button, whose variant colours would override these.
 const TRIGGER_CLASS =
   'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--player-border)] bg-[var(--player-control)] text-[var(--player-text)] transition hover:bg-[var(--player-control-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 disabled:cursor-not-allowed disabled:opacity-40';
 
@@ -83,16 +84,6 @@ export default function ExportVideoControl({
   const format = useFormatPreview(options, open);
   const running = state.status === 'running';
 
-  // Open on the highlight the player is showing.
-  const openDialog = () => {
-    const remembered = readPlayerPreference('ots-player-highlight');
-    setOptions((current) => ({
-      ...current,
-      highlight: remembered === 'note' ? 'note' : 'measure',
-    }));
-    setOpen(true);
-  };
-
   const estimate = useMemo(() => estimateBytes(durationMs, options), [durationMs, options]);
   const picker = open ? getSaveFilePicker() : null;
   const toDisk =
@@ -100,25 +91,31 @@ export default function ExportVideoControl({
   const set = <K extends keyof VideoExportOptions>(key: K, value: VideoExportOptions[K]) =>
     setOptions((current) => ({ ...current, [key]: value }));
 
-  const close = (next: boolean) => {
+  const onOpenChange = (next: boolean) => {
     if (running) return; // Cancel is the way out of a running export.
+    if (next) {
+      // Open on the highlight the player is showing.
+      const remembered = readPlayerPreference('ots-player-highlight');
+      setOptions((current) => ({
+        ...current,
+        highlight: remembered === 'note' ? 'note' : 'measure',
+      }));
+    } else reset();
     setOpen(next);
-    if (!next) reset();
   };
 
   return (
     <>
-      <IconButton
-        label="Export video"
-        title={disabled && disabledReason ? disabledReason : 'Export video'}
-        data-testid={testId}
-        className={TRIGGER_CLASS}
-        onClick={openDialog}
-        disabled={disabled || !score}
-      >
-        <Film size={17} aria-hidden="true" />
-      </IconButton>
-      <Dialog open={open} onOpenChange={close}>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogTrigger
+          data-testid={testId}
+          className={TRIGGER_CLASS}
+          disabled={disabled || !score}
+          title={disabled && disabledReason ? disabledReason : 'Export video'}
+          aria-label="Export video"
+        >
+          <Film size={17} aria-hidden="true" />
+        </DialogTrigger>
         <DialogContent className="max-w-md" data-testid="export-video-dialog">
           <DialogPrimitive.Title className="text-lg font-semibold text-slate-900">
             Export video
@@ -224,7 +221,7 @@ export default function ExportVideoControl({
               </Button>
             ) : (
               <>
-                <Button variant="neutral" onClick={() => close(false)}>
+                <Button variant="neutral" onClick={() => onOpenChange(false)}>
                   {state.status === 'done' ? 'Close' : 'Cancel'}
                 </Button>
                 <Button
