@@ -22,6 +22,8 @@ export interface SinkOptions {
   readonly videoBitsPerSecond: number;
   readonly audioBitsPerSecond: number;
   readonly hasAudio: boolean;
+  /** Ask for the browser's software encoder: some platform hardware encoders reject frames the software one accepts. */
+  readonly hardwareAcceleration?: 'prefer-software';
   /** Stream the file here (a `FileSystemWritableFileStream`) instead of holding it in memory. */
   readonly writable?: WritableStream;
 }

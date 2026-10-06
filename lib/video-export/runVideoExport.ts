@@ -40,20 +40,34 @@ export async function previewFormat(options: VideoExportOptions): Promise<Export
   return chooseFormat(await probeEncoders(frameSize(options.layout)), options.audio);
 }
 
-/** What the MP4 attempt died of, when the export went on as WebM instead. */
+/** What the MP4 attempts died of, when the export went on as WebM instead. */
 export interface FallbackNote {
   readonly from: 'mp4';
   readonly reason: string;
 }
 
+type Attempt = {
+  readonly format: Extract<ExportFormat, { ok: true }>;
+  readonly hardwareAcceleration?: 'prefer-software';
+};
+
+/** The attempt that last worked in this page, so a browser that needed the fallback is not asked to fail again. */
+let lastWorking = 0;
+
+/** Forgets which attempt worked (for tests). */
+export const forgetWorkingEncoder = () => {
+  lastWorking = 0;
+};
+
 /**
  * Exports `score` as a video: reads its positions and timeline, then drives `exportVideo` with the real page rasteriser,
  * canvas and encoders. Runs on the main thread; it yields between frames, so the page stays usable.
  *
- * MP4 (H.264 + AAC) leans on the platform's own encoders, some of which reject frames or audio the software ones accept
- * (Windows hardware paths especially). If the MP4 attempt fails for any reason but cancel, it is retried once as WebM
- * (VP9 + Opus), which every Chromium encodes in software; the result says it fell back and why. Not done when writing
- * to a chosen file: that stream is spent by the failed attempt and the name already says MP4.
+ * MP4 (H.264 + AAC) leans on the platform's own encoders, some of which reject frames the software ones accept (a
+ * Windows hardware H.264 encoder answers "Unexpected frame format"). So a failed attempt (anything but a cancel) is
+ * followed by MP4 with the software encoder, then by WebM (VP9 + Opus, software everywhere); the result says when it
+ * ended up WebM and why. Not retried when writing to a chosen file: that stream is spent by the failed attempt and its
+ * name already says MP4.
  */
 export async function runVideoExport(input: RunVideoExportInput): Promise<VideoExportResult> {
   const { score, options } = input;
@@ -61,18 +75,10 @@ export async function runVideoExport(input: RunVideoExportInput): Promise<VideoE
   const support = await probeEncoders(frameSize(options.layout));
   const format = chooseFormat(support, withAudio);
   if (!format.ok) throw new ExportUnavailable(format.reason);
-  try {
-    return await exportWithFormat(input, format);
-  } catch (error) {
-    if (
-      format.container !== 'mp4' ||
-      input.writable ||
-      input.signal?.aborted ||
-      error instanceof ExportCancelled ||
-      error instanceof ExportUnavailable
-    ) {
-      throw error;
-    }
+
+  const attempts: Attempt[] = [{ format }];
+  if (format.container === 'mp4' && !input.writable) {
+    attempts.push({ format, hardwareAcceleration: 'prefer-software' });
     const webm = chooseFormat(
       {
         video: support.video.filter((codec) => codec !== 'avc'),
@@ -80,18 +86,47 @@ export async function runVideoExport(input: RunVideoExportInput): Promise<VideoE
       },
       withAudio,
     );
-    if (!webm.ok) throw error;
-    const result = await exportWithFormat(input, webm);
-    return {
-      ...result,
-      fallback: { from: 'mp4', reason: error instanceof Error ? error.message : String(error) },
-    };
+    if (webm.ok) attempts.push({ format: webm });
   }
+
+  let firstError: unknown;
+  for (
+    let index = Math.min(lastWorking, attempts.length - 1);
+    index < attempts.length;
+    index += 1
+  ) {
+    try {
+      const result = await exportWithFormat(
+        input,
+        attempts[index].format,
+        attempts[index].hardwareAcceleration,
+      );
+      lastWorking = index;
+      const droppedMp4 =
+        attempts[index].format.container === 'webm' && attempts[0].format.container === 'mp4';
+      return droppedMp4 && firstError !== undefined
+        ? { ...result, fallback: { from: 'mp4', reason: errorText(firstError) } }
+        : result;
+    } catch (error) {
+      if (
+        input.signal?.aborted ||
+        error instanceof ExportCancelled ||
+        error instanceof ExportUnavailable
+      )
+        throw error;
+      firstError ??= error;
+      if (index === attempts.length - 1) throw firstError;
+    }
+  }
+  throw firstError;
 }
+
+const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 async function exportWithFormat(
   input: RunVideoExportInput,
   format: Extract<ExportFormat, { ok: true }>,
+  hardwareAcceleration?: 'prefer-software',
 ): Promise<VideoExportResult> {
   const { score, options, signal } = input;
   const frame = frameSize(options.layout);
@@ -142,6 +177,7 @@ async function exportWithFormat(
     videoBitsPerSecond: bitrate,
     audioBitsPerSecond: AUDIO_BITRATE,
     hasAudio: iterator !== null,
+    hardwareAcceleration,
     writable: input.writable,
   });
 
