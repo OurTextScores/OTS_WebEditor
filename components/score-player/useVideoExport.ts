@@ -9,6 +9,11 @@ import {
   ExportUnavailable,
 } from '@/lib/video-export/runVideoExport';
 import type { ExportFormat } from '@/lib/video-export/capabilities';
+import {
+  getSaveFilePicker,
+  isPickerDismissed,
+  type SaveFileHandle,
+} from '@/lib/video-export/saveTarget';
 
 export type VideoExportState =
   | { status: 'idle' }
@@ -41,15 +46,30 @@ export function useVideoExport(score: Score | null) {
   useEffect(() => () => controller.current?.abort(), []);
 
   const start = useCallback(
-    async (options: VideoExportOptions) => {
+    async (options: VideoExportOptions, toDisk?: { extension: string; mimeType: string }) => {
       if (!score || controller.current) return;
       const abort = new AbortController();
       controller.current = abort;
-      setState({ status: 'running', framesDone: 0, frameCount: 1 });
+      let handle: SaveFileHandle | null = null;
+      let writable: FileSystemWritableFileStream | undefined;
       try {
+        const meta = await score.metadata().catch(() => ({}) as Record<string, unknown>);
+        const title = typeof meta.title === 'string' ? meta.title : null;
+        if (toDisk) {
+          // Asked first, while the click still counts as a user gesture; the file is then written as the export goes.
+          handle = await getSaveFilePicker()!({
+            suggestedName: fileNameFor(title, toDisk.extension),
+            types: [
+              { description: 'Video', accept: { [toDisk.mimeType]: [`.${toDisk.extension}`] } },
+            ],
+          });
+          writable = await handle.createWritable();
+        }
+        setState({ status: 'running', framesDone: 0, frameCount: 1 });
         const { blob, format } = await runVideoExport({
           score,
           options,
+          writable,
           signal: abort.signal,
           onProgress: ({ framesDone, frameCount }) =>
             setState({ status: 'running', framesDone, frameCount }),
@@ -57,17 +77,20 @@ export function useVideoExport(score: Score | null) {
             await soundFonts.ensure(score);
           },
         });
+        if (handle && writable) {
+          setState({ status: 'done', fileName: handle.name, bytes: (await handle.getFile()).size });
+          return;
+        }
         if (!blob) throw new Error('The export produced no file.');
-        const meta = await score.metadata().catch(() => ({}) as Record<string, unknown>);
-        const fileName = fileNameFor(
-          typeof meta.title === 'string' ? meta.title : null,
-          format.extension,
-        );
+        const fileName = fileNameFor(title, format.extension);
         download(blob, fileName);
         setState({ status: 'done', fileName, bytes: blob.size });
       } catch (error) {
-        if (error instanceof ExportCancelled || abort.signal.aborted) setState({ status: 'idle' });
-        else {
+        // A half-written file is discarded, not left behind.
+        await writable?.abort().catch(() => undefined);
+        if (isPickerDismissed(error) || error instanceof ExportCancelled || abort.signal.aborted) {
+          setState({ status: 'idle' });
+        } else {
           setState({
             status: 'error',
             message:

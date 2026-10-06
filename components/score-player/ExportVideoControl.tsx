@@ -15,6 +15,7 @@ import {
   formatBytes,
   type VideoExportOptions,
 } from '@/lib/video-export/options';
+import { getSaveFilePicker, shouldWriteToDisk } from '@/lib/video-export/saveTarget';
 import { useFormatPreview, useVideoExport } from './useVideoExport';
 
 const TRIGGER_CLASS =
@@ -76,6 +77,8 @@ export default function ExportVideoControl({
 }) {
   const [open, setOpen] = useState(false);
   const [options, setOptions] = useState<VideoExportOptions>(DEFAULT_OPTIONS);
+  // null = decide by size; a choice made in the dialog wins.
+  const [saveToFile, setSaveToFile] = useState<boolean | null>(null);
   const { state, start, cancel, reset } = useVideoExport(score);
   const format = useFormatPreview(options, open);
   const running = state.status === 'running';
@@ -91,6 +94,9 @@ export default function ExportVideoControl({
   };
 
   const estimate = useMemo(() => estimateBytes(durationMs, options), [durationMs, options]);
+  const picker = open ? getSaveFilePicker() : null;
+  const toDisk =
+    format?.ok === true && picker !== null && (saveToFile ?? shouldWriteToDisk(estimate, picker));
   const set = <K extends keyof VideoExportOptions>(key: K, value: VideoExportOptions[K]) =>
     setOptions((current) => ({ ...current, [key]: value }));
 
@@ -164,11 +170,26 @@ export default function ExportVideoControl({
             />
           </div>
 
+          {picker && (
+            <div className="mt-3">
+              <Choice
+                label="Save"
+                value={toDisk}
+                disabled={running}
+                options={[
+                  { value: false, text: 'Download' },
+                  { value: true, text: 'Choose file' },
+                ]}
+                onChange={setSaveToFile}
+              />
+            </div>
+          )}
+
           <p className="mt-4 text-xs text-slate-600" data-testid="export-video-summary">
             {format === null
               ? 'Checking this browser…'
               : format.ok
-                ? `${format.extension.toUpperCase()} · ${formatPlaybackTime(durationMs)} · about ${formatBytes(estimate)}`
+                ? `${format.extension.toUpperCase()} · ${formatPlaybackTime(durationMs)} · about ${formatBytes(estimate)}${toDisk ? ' · written to the file you choose' : ''}`
                 : format.reason}
           </p>
 
@@ -210,7 +231,14 @@ export default function ExportVideoControl({
                   variant="primary"
                   data-testid="export-video-start"
                   disabled={!format || !format.ok || !score}
-                  onClick={() => void start(options)}
+                  onClick={() =>
+                    void start(
+                      options,
+                      toDisk && format?.ok
+                        ? { extension: format.extension, mimeType: format.mimeType }
+                        : undefined,
+                    )
+                  }
                 >
                   Export
                 </Button>
