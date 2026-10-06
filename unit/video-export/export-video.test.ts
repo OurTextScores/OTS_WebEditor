@@ -3,6 +3,7 @@ import type { AudioBlock } from '../../lib/video-export/audioFeed';
 import {
   ExportCancelled,
   exportVideo,
+  frameKey,
   type PageProvider,
 } from '../../lib/video-export/exportVideo';
 import { buildFramePlan } from '../../lib/video-export/framePlan';
@@ -60,19 +61,26 @@ function fakes() {
     finish: vi.fn(async () => new Blob(['x'])),
     cancel: vi.fn(async () => {}),
   };
+  const order: string[] = [];
   const ready = new Set<number>();
   const log = { ensured: [] as number[], prefetched: [] as number[], released: [] as number[][] };
   const pages: PageProvider = {
     ensure: vi.fn(async (p) => {
       log.ensured.push(p);
+      order.push(`ensure:${p}`);
       ready.add(p);
     }),
     prefetch: vi.fn((p) => log.prefetched.push(p)),
     release: vi.fn((keep) => log.released.push([...keep])),
   };
   const drawn: number[] = [];
-  const compositor = { draw: vi.fn((state: { page: number }) => drawn.push(state.page)) };
-  return { sink, pages, compositor, events, frames, audioLog, log, drawn };
+  const compositor = {
+    draw: vi.fn((state: { page: number }) => {
+      drawn.push(state.page);
+      order.push(`draw:${state.page}`);
+    }),
+  };
+  return { sink, pages, compositor, events, frames, audioLog, log, drawn, order };
 }
 
 async function* blocks(count: number, seconds = 1): AsyncGenerator<AudioBlock> {
@@ -86,7 +94,38 @@ async function* blocks(count: number, seconds = 1): AsyncGenerator<AudioBlock> {
   }
 }
 
+describe('frameKey', () => {
+  const base = { page: 0, scrollY: 0, turn: null, active: box(0, 0, 200), activeIsNote: false };
+  it('is equal for identical pictures and differs when anything visible changes', () => {
+    expect(frameKey({ ...base })).toBe(frameKey({ ...base, active: { ...box(0, 0, 200) } }));
+    expect(frameKey({ ...base, active: box(1, 0, 700) })).not.toBe(frameKey(base));
+    expect(frameKey({ ...base, scrollY: 12 })).not.toBe(frameKey(base));
+    expect(frameKey({ ...base, page: 1 })).not.toBe(frameKey(base));
+    expect(frameKey({ ...base, activeIsNote: true })).not.toBe(frameKey(base));
+    expect(frameKey({ ...base, active: null })).not.toBe(frameKey(base));
+    const turning = { fromPage: 0, fromScrollY: 0, progress: 0.2 };
+    expect(frameKey({ ...base, turn: turning })).not.toBe(frameKey(base));
+    expect(frameKey({ ...base, turn: { ...turning, progress: 0.4 } })).not.toBe(
+      frameKey({ ...base, turn: turning }),
+    );
+  });
+});
+
 describe('exportVideo', () => {
+  it('repaints only when the picture changes, but still sends every frame, flagging the repeats', async () => {
+    const f = fakes();
+    const flags: (boolean | undefined)[] = [];
+    f.sink.addFrame = vi.fn(async (_t, _d, unchanged) => {
+      flags.push(unchanged);
+    });
+    await exportVideo({ plan, ...f });
+    expect(flags).toHaveLength(30);
+    expect(flags[0]).toBe(false);
+    expect(f.compositor.draw.mock.calls.length).toBe(flags.filter((x) => !x).length);
+    expect(f.compositor.draw.mock.calls.length).toBeLessThan(15);
+    expect(flags.filter(Boolean).length).toBeGreaterThan(15);
+  });
+
   it('encodes ceil(duration * fps) frames at i / fps with one-frame durations, then finishes', async () => {
     const f = fakes();
     const result = await exportVideo({ plan, ...f });
@@ -104,7 +143,8 @@ describe('exportVideo', () => {
     expect(f.log.ensured[0]).toBe(0);
     expect(f.log.prefetched).toContain(1);
     // Page 1 is made ready before the first frame that shows it.
-    expect(f.drawn.indexOf(1)).toBeGreaterThan(f.log.ensured.indexOf(1) - 1);
+    expect(f.order.indexOf('draw:1')).toBeGreaterThan(f.order.indexOf('ensure:1'));
+    expect(f.order.indexOf('ensure:1')).toBeGreaterThan(-1);
     expect(f.log.released.at(-1)).not.toContain(0);
   });
 

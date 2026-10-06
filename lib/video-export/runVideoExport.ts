@@ -48,6 +48,7 @@ export interface FallbackNote {
 
 type Attempt = {
   readonly format: Extract<ExportFormat, { ok: true }>;
+  readonly frames?: 'i420';
   readonly hardwareAcceleration?: 'prefer-software';
 };
 
@@ -63,10 +64,10 @@ export const forgetWorkingEncoder = () => {
  * Exports `score` as a video: reads its positions and timeline, then drives `exportVideo` with the real page rasteriser,
  * canvas and encoders. Runs on the main thread; it yields between frames, so the page stays usable.
  *
- * MP4 (H.264 + AAC) leans on the platform's own encoders, some of which reject frames the software ones accept (a
- * Windows hardware H.264 encoder answers "Unexpected frame format"). So a failed attempt (anything but a cancel) is
- * followed by MP4 with the software encoder, then by WebM (VP9 + Opus, software everywhere); the result says when it
- * ended up WebM and why. Not retried when writing to a chosen file: that stream is spent by the failed attempt and its
+ * MP4 (H.264 + AAC) leans on the platform's own encoders, some of which reject frames the others accept (a Windows
+ * H.264 encoder answers "Unexpected frame format" to canvas-backed frames). So a failed attempt (anything but a cancel)
+ * is followed by MP4 with plain I420 frames, then with I420 frames and the software encoder, then by WebM (VP9 + Opus,
+ * software everywhere); the result says when it ended up WebM and why. Not retried when writing to a chosen file: that stream is spent by the failed attempt and its
  * name already says MP4.
  */
 export async function runVideoExport(input: RunVideoExportInput): Promise<VideoExportResult> {
@@ -78,7 +79,12 @@ export async function runVideoExport(input: RunVideoExportInput): Promise<VideoE
 
   const attempts: Attempt[] = [{ format }];
   if (format.container === 'mp4' && !input.writable) {
-    attempts.push({ format, hardwareAcceleration: 'prefer-software' });
+    // Frames the encoder cannot read are the usual cause (a canvas-backed frame some Windows encoders refuse), so the
+    // next tries give it plain I420 pixels, with the default encoder and then the software one.
+    attempts.push(
+      { format, frames: 'i420' },
+      { format, frames: 'i420', hardwareAcceleration: 'prefer-software' },
+    );
     const webm = chooseFormat(
       {
         video: support.video.filter((codec) => codec !== 'avc'),
@@ -96,11 +102,7 @@ export async function runVideoExport(input: RunVideoExportInput): Promise<VideoE
     index += 1
   ) {
     try {
-      const result = await exportWithFormat(
-        input,
-        attempts[index].format,
-        attempts[index].hardwareAcceleration,
-      );
+      const result = await exportWithFormat(input, attempts[index]);
       lastWorking = index;
       const droppedMp4 =
         attempts[index].format.container === 'webm' && attempts[0].format.container === 'mp4';
@@ -125,8 +127,7 @@ const errorText = (error: unknown) => (error instanceof Error ? error.message : 
 
 async function exportWithFormat(
   input: RunVideoExportInput,
-  format: Extract<ExportFormat, { ok: true }>,
-  hardwareAcceleration?: 'prefer-software',
+  { format, frames, hardwareAcceleration }: Attempt,
 ): Promise<VideoExportResult> {
   const { score, options, signal } = input;
   const frame = frameSize(options.layout);
@@ -164,7 +165,7 @@ async function exportWithFormat(
   });
 
   const canvas = new OffscreenCanvas(frame.width, frame.height);
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', frames === 'i420' ? { willReadFrequently: true } : undefined);
   if (!ctx) throw new ExportUnavailable('This browser cannot draw video frames.');
   const pages = createPageProvider((page) => score.saveSvg(page, true, false), plan.geometry);
   const compositor = createCompositor(ctx, frame, plan.geometry, (page) => pages.get(page));
@@ -177,6 +178,7 @@ async function exportWithFormat(
     videoBitsPerSecond: bitrate,
     audioBitsPerSecond: AUDIO_BITRATE,
     hasAudio: iterator !== null,
+    frames,
     hardwareAcceleration,
     writable: input.writable,
   });

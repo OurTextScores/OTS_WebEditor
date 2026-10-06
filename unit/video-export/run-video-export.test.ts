@@ -84,20 +84,53 @@ describe('runVideoExport fallback', () => {
       'The video encoder failed (MP4, avc + aac): Encoding error. (Unexpected frame format.)',
     );
 
-  it('tries the software H.264 encoder next, and stays MP4 when that works (no note)', async () => {
+  it('tries plain I420 frames next, and stays MP4 when that works (no note)', async () => {
     sinks.create
       .mockResolvedValueOnce(sinkThatFails(frameError()))
       .mockResolvedValueOnce(sinkThatWorks());
     const result = await runVideoExport({ score, options: silent });
     expect(result.format.container).toBe('mp4');
     expect(result.fallback).toBeUndefined();
-    expect(sinks.create.mock.calls[0][0].hardwareAcceleration).toBeUndefined();
-    expect(sinks.create.mock.calls[1][0].hardwareAcceleration).toBe('prefer-software');
+    expect(sinks.create.mock.calls[0][0].frames).toBeUndefined();
+    expect(sinks.create.mock.calls[1][0]).toMatchObject({ frames: 'i420' });
+    expect(sinks.create.mock.calls[1][0].hardwareAcceleration).toBeUndefined();
   });
 
-  it('falls to WebM when both MP4 attempts fail, and says why', async () => {
+  it('then I420 frames with the software encoder', async () => {
     sinks.create
       .mockResolvedValueOnce(sinkThatFails(frameError()))
+      .mockResolvedValueOnce(sinkThatFails(frameError()))
+      .mockResolvedValueOnce(sinkThatWorks());
+    const result = await runVideoExport({ score, options: silent });
+    expect(result.format.container).toBe('mp4');
+    expect(sinks.create.mock.calls[2][0]).toMatchObject({
+      frames: 'i420',
+      hardwareAcceleration: 'prefer-software',
+    });
+  });
+
+  it('reads the frames back on a CPU canvas only for the I420 attempts', async () => {
+    const contexts: unknown[] = [];
+    vi.stubGlobal(
+      'OffscreenCanvas',
+      class {
+        getContext(_: string, options?: unknown) {
+          contexts.push(options);
+          return {};
+        }
+      },
+    );
+    sinks.create
+      .mockResolvedValueOnce(sinkThatFails(frameError()))
+      .mockResolvedValueOnce(sinkThatWorks());
+    await runVideoExport({ score, options: silent });
+    expect(contexts).toEqual([undefined, { willReadFrequently: true }]);
+  });
+
+  it('falls to WebM when every MP4 attempt fails, and says why', async () => {
+    sinks.create
+      .mockResolvedValueOnce(sinkThatFails(frameError()))
+      .mockResolvedValueOnce(sinkThatFails(new Error('i420 failed too')))
       .mockResolvedValueOnce(sinkThatFails(new Error('software failed too')))
       .mockResolvedValueOnce(sinkThatWorks());
     const result = await runVideoExport({ score, options: silent });
@@ -106,7 +139,8 @@ describe('runVideoExport fallback', () => {
       from: 'mp4',
       reason: expect.stringContaining('Unexpected frame format'),
     });
-    expect(sinks.create.mock.calls[2][0].format.container).toBe('webm');
+    expect(sinks.create.mock.calls[3][0].format.container).toBe('webm');
+    expect(sinks.create.mock.calls[3][0].frames).toBeUndefined();
   });
 
   it('remembers what worked, so a second export does not fail the first way again', async () => {
@@ -117,7 +151,7 @@ describe('runVideoExport fallback', () => {
     sinks.create.mockClear();
     await runVideoExport({ score, options: silent });
     expect(sinks.create).toHaveBeenCalledTimes(1);
-    expect(sinks.create.mock.calls[0][0].hardwareAcceleration).toBe('prefer-software');
+    expect(sinks.create.mock.calls[0][0].frames).toBe('i420');
   });
 
   it('gives up with the first error when every attempt fails', async () => {
@@ -125,7 +159,7 @@ describe('runVideoExport fallback', () => {
       .mockResolvedValueOnce(sinkThatFails(new Error('boom')))
       .mockResolvedValue(sinkThatFails(new Error('later')));
     await expect(runVideoExport({ score, options: silent })).rejects.toThrow('boom');
-    expect(sinks.create).toHaveBeenCalledTimes(3);
+    expect(sinks.create).toHaveBeenCalledTimes(4);
   });
 
   it('does not retry a cancelled export', async () => {
@@ -144,7 +178,7 @@ describe('runVideoExport fallback', () => {
     expect(sinks.create).toHaveBeenCalledTimes(1);
   });
 
-  it('does not retry a WebM export, and tries only the software encoder without VP9/AV1', async () => {
+  it('does not retry a WebM export, and has only the MP4 attempts without VP9/AV1', async () => {
     sinks.probe.mockResolvedValue({ video: ['vp9'], audio: ['opus'] });
     sinks.create.mockResolvedValue(sinkThatFails(new Error('boom')));
     await expect(runVideoExport({ score, options: silent })).rejects.toThrow('boom');
@@ -153,7 +187,7 @@ describe('runVideoExport fallback', () => {
     sinks.create.mockClear();
     sinks.probe.mockResolvedValue({ video: ['avc'], audio: ['aac'] });
     await expect(runVideoExport({ score, options: silent })).rejects.toThrow('boom');
-    expect(sinks.create).toHaveBeenCalledTimes(2);
+    expect(sinks.create).toHaveBeenCalledTimes(3);
   });
 
   it('does not retry a score that cannot be exported at all (nothing to play)', async () => {

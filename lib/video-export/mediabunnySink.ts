@@ -6,12 +6,15 @@ import {
   Mp4OutputFormat,
   Output,
   StreamTarget,
+  VideoSample,
+  VideoSampleSource,
   WebMOutputFormat,
   getFirstEncodableAudioCodec,
   getFirstEncodableVideoCodec,
 } from 'mediabunny';
 import type { AudioBlock } from './audioFeed';
 import type { AudioCodecName, EncoderSupport, ExportFormat, VideoCodecName } from './capabilities';
+import { rgbaToI420 } from './i420';
 import type { VideoSink } from './sink';
 
 type Format = Extract<ExportFormat, { ok: true }>;
@@ -22,6 +25,11 @@ export interface SinkOptions {
   readonly videoBitsPerSecond: number;
   readonly audioBitsPerSecond: number;
   readonly hasAudio: boolean;
+  /**
+   * How frames reach the encoder. `canvas` hands it the canvas itself (fast; the browser picks the frame's backing);
+   * `i420` reads the pixels back and gives it plain CPU I420 frames, which encoders that reject canvas-backed frames accept.
+   */
+  readonly frames?: 'canvas' | 'i420';
   /** Ask for the browser's software encoder: some platform hardware encoders reject frames the software one accepts. */
   readonly hardwareAcceleration?: 'prefer-software';
   /** Stream the file here (a `FileSystemWritableFileStream`) instead of holding it in memory. */
@@ -60,9 +68,9 @@ export async function probeEncoders(size: {
 }
 
 /** An encoder failure with which encoder and format it was, since the browser's own message names neither. */
-function named(encoder: string, format: Format, error: unknown): Error {
+function named(encoder: string, format: Format, hasAudio: boolean, error: unknown): Error {
   const detail = error instanceof Error ? error.message : String(error);
-  const codecs = `${format.container.toUpperCase()}, ${format.video} + ${format.audio}`;
+  const codecs = `${format.container.toUpperCase()}, ${format.video}${hasAudio ? ` + ${format.audio}` : ''}`;
   return new Error(`${encoder} failed (${codecs}): ${detail}`, { cause: error });
 }
 
@@ -77,10 +85,14 @@ export async function createMediabunnySink(options: SinkOptions): Promise<VideoS
     format: format.container === 'mp4' ? new Mp4OutputFormat() : new WebMOutputFormat(),
     target,
   });
-  const video = new CanvasSource(canvas, {
+  const videoConfig = {
     codec: format.video,
     bitrate: options.videoBitsPerSecond,
-  });
+    ...(options.hardwareAcceleration ? { hardwareAcceleration: options.hardwareAcceleration } : {}),
+  };
+  const i420 = options.frames === 'i420';
+  let lastPixels: Uint8Array | null = null;
+  const video = i420 ? new VideoSampleSource(videoConfig) : new CanvasSource(canvas, videoConfig);
   output.addVideoTrack(video);
   const audio = options.hasAudio
     ? new AudioSampleSource({ codec: format.audio, bitrate: options.audioBitsPerSecond })
@@ -114,17 +126,48 @@ export async function createMediabunnySink(options: SinkOptions): Promise<VideoS
     try {
       await audio.add(sample);
     } catch (error) {
-      throw named('The audio encoder', format, error);
+      throw named('The audio encoder', format, options.hasAudio, error);
     } finally {
       sample.close();
     }
   };
 
   return {
-    addFrame: (timestampSeconds, durationSeconds) =>
-      video.add(timestampSeconds, durationSeconds).catch((error) => {
-        throw named('The video encoder', format, error);
-      }),
+    async addFrame(timestampSeconds, durationSeconds, unchanged = false) {
+      try {
+        if (video instanceof CanvasSource)
+          return await video.add(timestampSeconds, durationSeconds);
+        const context = canvas.getContext('2d') as OffscreenCanvasRenderingContext2D;
+        const { width, height } = canvas;
+        // Reading the canvas back and converting it is the slow part; a frame the same as the last reuses its pixels.
+        if (!unchanged || lastPixels === null) {
+          lastPixels = rgbaToI420(context.getImageData(0, 0, width, height).data, width, height);
+        }
+        const pixels = lastPixels;
+        const sample = new VideoSample(
+          new VideoFrame(pixels, {
+            format: 'I420',
+            codedWidth: width,
+            codedHeight: height,
+            timestamp: Math.round(timestampSeconds * 1e6),
+            duration: Math.round(durationSeconds * 1e6),
+            colorSpace: {
+              primaries: 'bt709',
+              transfer: 'bt709',
+              matrix: 'bt709',
+              fullRange: false,
+            },
+          }),
+        );
+        try {
+          await video.add(sample);
+        } finally {
+          sample.close();
+        }
+      } catch (error) {
+        throw named('The video encoder', format, options.hasAudio, error);
+      }
+    },
     async addAudio(block: AudioBlock, offsetSeconds: number) {
       if (!audio) return;
       const left = block.channels[0];

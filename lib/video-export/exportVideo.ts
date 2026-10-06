@@ -1,6 +1,6 @@
 import type { AudioBlock } from './audioFeed';
 import type { Compositor } from './compositor';
-import type { FramePlan } from './framePlan';
+import type { FramePlan, FrameState } from './framePlan';
 import type { VideoSink } from './sink';
 
 /** Makes pages available to the compositor, and lets go of the ones no longer needed. */
@@ -38,6 +38,15 @@ export class ExportCancelled extends Error {
   }
 }
 
+/** What a frame looks like, as a string: equal keys mean identical pictures (most frames of a score repeat the last). */
+export const frameKey = (state: FrameState): string =>
+  [
+    state.page,
+    state.scrollY,
+    state.turn ? `${state.turn.fromPage}:${state.turn.fromScrollY}:${state.turn.progress}` : '-',
+    state.active ? `${state.active.id}:${state.active.page}:${state.activeIsNote}` : '-',
+  ].join('|');
+
 /** How far ahead of the picture the audio is kept, in seconds, so the muxer never waits on a track. */
 const AUDIO_LEAD_SECONDS = 1;
 const PROGRESS_EVERY_FRAMES = 10;
@@ -51,6 +60,7 @@ export async function exportVideo(job: ExportJob): Promise<Blob | null> {
   const { plan, compositor, pages, sink, audio, signal, onProgress } = job;
   const lead = job.leadInSeconds ?? 0;
   let audioEnd = 0;
+  let previousKey: string | null = null;
   let audioDone = !audio;
 
   const pumpAudio = async (untilSeconds: number) => {
@@ -76,8 +86,12 @@ export async function exportVideo(job: ExportJob): Promise<Blob | null> {
       if (upcoming !== undefined) pages.prefetch(upcoming);
       pages.release(upcoming !== undefined ? [...needed, upcoming] : needed);
 
-      compositor.draw(state);
-      await sink.addFrame(index * frameSeconds, frameSeconds);
+      // A frame the same as the last needs no repainting, and a sink that reads pixels back can reuse them.
+      const key = frameKey(state);
+      const unchanged = key === previousKey;
+      if (!unchanged) compositor.draw(state);
+      previousKey = key;
+      await sink.addFrame(index * frameSeconds, frameSeconds, unchanged);
       await pumpAudio(index * frameSeconds + AUDIO_LEAD_SECONDS);
       if ((index + 1) % PROGRESS_EVERY_FRAMES === 0 || index + 1 === plan.frameCount) {
         onProgress?.({ framesDone: index + 1, frameCount: plan.frameCount });

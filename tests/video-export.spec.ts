@@ -87,6 +87,60 @@ test.describe('player video export', () => {
   });
 });
 
+test.describe('player video export when the platform encoder rejects canvas frames', () => {
+  test('still produces an MP4 by handing the encoder plain I420 frames', async ({ page }) => {
+    test.setTimeout(240_000);
+    // Stand in for the Windows H.264 encoder that answered "Unexpected frame format" to canvas-backed frames: wrap the
+    // real VideoEncoder so an avc encode of anything but I420 fails the way the browser reports it.
+    await page.addInitScript(() => {
+      const Real = window.VideoEncoder;
+      class Strict extends Real {
+        codecName = '';
+        onErrorCallback: ((e: DOMException) => void) | null = null;
+        constructor(init: VideoEncoderInit) {
+          super(init);
+          this.onErrorCallback = init.error as (e: DOMException) => void;
+        }
+        configure(config: VideoEncoderConfig) {
+          this.codecName = config.codec;
+          super.configure(config);
+        }
+        encode(frame: VideoFrame, options?: VideoEncoderEncodeOptions) {
+          if (this.codecName.startsWith('avc') && frame.format !== 'I420') {
+            this.onErrorCallback?.(
+              new DOMException('Encoding error. (Unexpected frame format.)', 'EncodingError'),
+            );
+            return;
+          }
+          super.encode(frame, options);
+        }
+      }
+      window.VideoEncoder = Strict as unknown as typeof VideoEncoder;
+    });
+    await page.goto('/?score=%2Ftest_scores%2Ftwo_chords.musicxml&embed=player');
+    await expect(page.getByTestId('player-seek')).toBeEnabled({ timeout: 60_000 });
+    await page.getByTestId('player-export-video').click();
+    // Silent: this Linux Chromium has no AAC encoder, so only a silent video is offered as MP4.
+    await page.getByRole('button', { name: 'Silent' }).click();
+    await expect(page.getByTestId('export-video-summary')).toContainText('MP4', {
+      timeout: 15_000,
+    });
+    const download = page.waitForEvent('download', { timeout: 180_000 });
+    await page.getByTestId('export-video-start').click();
+    const file = await download;
+    expect(file.suggestedFilename()).toMatch(/\.mp4$/);
+    const bytes = await readFile((await file.path())!);
+    const input = new Input({ source: new BufferSource(bytes), formats: ALL_FORMATS });
+    const video = await input.getPrimaryVideoTrack();
+    expect(video).not.toBeNull();
+    expect(video!.codec).toBe('avc');
+    expect(video!.displayWidth).toBe(1920);
+    expect(await input.getPrimaryAudioTrack()).toBeNull();
+    // No "this is a WebM" note: it stayed MP4.
+    await expect(page.getByTestId('export-video-dialog')).not.toContainText('did not work');
+  });
+});
+
 test.describe('player video export to a chosen file', () => {
   test('streams into the file the browser picker returns, and downloads nothing', async ({
     page,
