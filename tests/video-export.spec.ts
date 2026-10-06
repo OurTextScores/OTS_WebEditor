@@ -65,6 +65,19 @@ test.describe('player video export', () => {
     expect(downloaded).toBe(false);
   });
 
+  test('is reachable on a phone, from the More menu', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 700 });
+    await page.goto('/?score=%2Ftest_scores%2Ftwo_chords.musicxml&embed=player');
+    await expect(page.getByTestId('player-seek')).toBeEnabled({ timeout: 60_000 });
+    await expect(page.getByTestId('player-export-video')).toBeHidden();
+    await page.getByLabel('More player controls').click();
+    await page.getByTestId('player-export-video-menu').click();
+    await expect(page.getByTestId('export-video-dialog')).toBeVisible();
+    await expect(page.getByTestId('export-video-summary')).toContainText(/MP4|WEBM/i, {
+      timeout: 15_000,
+    });
+  });
+
   test('is off while the score is playing', async ({ page }) => {
     await page.goto('/?score=%2Ftest_scores%2Ftwo_chords.musicxml&embed=player');
     await expect(page.getByTestId('player-seek')).toBeEnabled({ timeout: 60_000 });

@@ -64,12 +64,15 @@ export default function ExportVideoControl({
   durationMs,
   disabled,
   disabledReason,
+  testId = 'player-export-video',
 }: {
   score: Score | null;
   durationMs: number;
   disabled?: boolean;
   /** Why the button is off, shown as its tooltip (for example while playing). */
   disabledReason?: string;
+  /** Two instances exist (bar and small-screen menu); each needs its own id. */
+  testId?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [options, setOptions] = useState<VideoExportOptions>(DEFAULT_OPTIONS);
@@ -102,7 +105,7 @@ export default function ExportVideoControl({
       <IconButton
         label="Export video"
         title={disabled && disabledReason ? disabledReason : 'Export video'}
-        data-testid="player-export-video"
+        data-testid={testId}
         className={TRIGGER_CLASS}
         onClick={openDialog}
         disabled={disabled || !score}

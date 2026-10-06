@@ -127,7 +127,7 @@ function PlayerToggles({ compact, ...props }: Props & { compact?: boolean }) {
 }
 
 /** Export video, available when nothing is playing (the export renders audio and pages through the same engine). */
-function PlayerExport(props: Props) {
+function PlayerExport({ compact, ...props }: Props & { compact?: boolean }) {
   const busy = props.state === 'playing' || props.state === 'preparing' || props.state === 'paused';
   return (
     <ExportVideoControl
@@ -135,6 +135,7 @@ function PlayerExport(props: Props) {
       durationMs={props.durationMs}
       disabled={Boolean(props.disabled) || busy}
       disabledReason="Stop playback to export a video"
+      testId={compact ? 'player-export-video-menu' : 'player-export-video'}
     />
   );
 }
@@ -385,6 +386,7 @@ export default function PlayerControls(props: Props) {
                 <span className="text-caption font-semibold">Follow</span>
               </button>
               <PlayerToggles {...props} compact />
+              {props.score !== undefined && <PlayerExport {...props} compact />}
             </div>
           </div>
         </details>
