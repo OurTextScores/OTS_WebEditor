@@ -57,6 +57,13 @@ export async function probeEncoders(size: {
   return { video, audio };
 }
 
+/** An encoder failure with which encoder and format it was, since the browser's own message names neither. */
+function named(encoder: string, format: Format, error: unknown): Error {
+  const detail = error instanceof Error ? error.message : String(error);
+  const codecs = `${format.container.toUpperCase()}, ${format.video} + ${format.audio}`;
+  return new Error(`${encoder} failed (${codecs}): ${detail}`, { cause: error });
+}
+
 /** The real sink: mediabunny's canvas video source and audio sample source into an MP4 or WebM container. */
 export async function createMediabunnySink(options: SinkOptions): Promise<VideoSink> {
   const { canvas, format } = options;
@@ -94,19 +101,26 @@ export async function createMediabunnySink(options: SinkOptions): Promise<VideoS
     // Always stereo: a mono block is duplicated, so the track never changes shape mid-stream.
     planar.set(channels[0], 0);
     planar.set(channels[1] ?? channels[0], frames);
-    await audio.add(
-      new AudioSample({
-        data: planar,
-        format: 'f32-planar',
-        numberOfChannels: 2,
-        sampleRate,
-        timestamp: startSeconds,
-      }),
-    );
+    await audio
+      .add(
+        new AudioSample({
+          data: planar,
+          format: 'f32-planar',
+          numberOfChannels: 2,
+          sampleRate,
+          timestamp: startSeconds,
+        }),
+      )
+      .catch((error) => {
+        throw named('The audio encoder', format, error);
+      });
   };
 
   return {
-    addFrame: (timestampSeconds, durationSeconds) => video.add(timestampSeconds, durationSeconds),
+    addFrame: (timestampSeconds, durationSeconds) =>
+      video.add(timestampSeconds, durationSeconds).catch((error) => {
+        throw named('The video encoder', format, error);
+      }),
     async addAudio(block: AudioBlock, offsetSeconds: number) {
       if (!audio) return;
       const left = block.channels[0];

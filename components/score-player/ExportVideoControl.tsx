@@ -206,6 +206,9 @@ export default function ExportVideoControl({
           {state.status === 'done' && (
             <p className="mt-3 text-sm text-emerald-700" role="status">
               Saved {state.fileName} ({formatBytes(state.bytes)}).
+              {state.note && (
+                <span className="mt-1 block text-xs text-slate-600">{state.note}</span>
+              )}
             </p>
           )}
           {state.status === 'error' && (

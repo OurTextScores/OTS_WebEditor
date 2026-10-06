@@ -20,11 +20,12 @@ export type ExportFormat =
   | { readonly ok: false; readonly reason: string };
 
 /**
+ * `withAudio` false (a silent video) needs no audio encoder at all, so MP4 is chosen whenever H.264 encodes.
  * MP4 (H.264 + AAC) where both encode, since that plays everywhere; else WebM (VP9 or AV1 + Opus). MP4 with Opus is not
  * offered: it plays poorly outside browsers. Without a usable pair the reason is spelled out for the dialog.
  */
-export function chooseFormat(support: EncoderSupport): ExportFormat {
-  if (support.video.includes('avc') && support.audio.includes('aac')) {
+export function chooseFormat(support: EncoderSupport, withAudio = true): ExportFormat {
+  if (support.video.includes('avc') && (!withAudio || support.audio.includes('aac'))) {
     return {
       ok: true,
       container: 'mp4',
@@ -39,7 +40,7 @@ export function chooseFormat(support: EncoderSupport): ExportFormat {
     : support.video.includes('av1')
       ? 'av1'
       : null;
-  if (webmVideo && support.audio.includes('opus')) {
+  if (webmVideo && (!withAudio || support.audio.includes('opus'))) {
     return {
       ok: true,
       container: 'webm',

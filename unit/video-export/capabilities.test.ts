@@ -33,6 +33,20 @@ describe('chooseFormat', () => {
     expect(chooseFormat({ video: ['avc'], audio: ['opus'] })).toMatchObject({ ok: false });
   });
 
+  it('needs no audio encoder for a silent video: MP4 whenever H.264 encodes', () => {
+    expect(chooseFormat({ video: ['avc', 'vp9'], audio: ['opus'] }, false)).toMatchObject({
+      ok: true,
+      container: 'mp4',
+      video: 'avc',
+    });
+    expect(chooseFormat({ video: ['vp9'], audio: [] }, false)).toMatchObject({
+      ok: true,
+      container: 'webm',
+      video: 'vp9',
+    });
+    expect(chooseFormat({ video: ['avc'], audio: [] }, true)).toMatchObject({ ok: false });
+  });
+
   it('says why when nothing works', () => {
     const none = chooseFormat({ video: [], audio: [] });
     expect(none).toMatchObject({ ok: false });

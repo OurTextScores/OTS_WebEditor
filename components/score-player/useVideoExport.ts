@@ -18,7 +18,7 @@ import {
 export type VideoExportState =
   | { status: 'idle' }
   | { status: 'running'; framesDone: number; frameCount: number }
-  | { status: 'done'; fileName: string; bytes: number }
+  | { status: 'done'; fileName: string; bytes: number; note?: string }
   | { status: 'error'; message: string };
 
 const soundFonts = new SoundFontManager<Score>();
@@ -66,7 +66,7 @@ export function useVideoExport(score: Score | null) {
           writable = await handle.createWritable();
         }
         setState({ status: 'running', framesDone: 0, frameCount: 1 });
-        const { blob, format } = await runVideoExport({
+        const { blob, format, fallback } = await runVideoExport({
           score,
           options,
           writable,
@@ -84,7 +84,16 @@ export function useVideoExport(score: Score | null) {
         if (!blob) throw new Error('The export produced no file.');
         const fileName = fileNameFor(title, format.extension);
         download(blob, fileName);
-        setState({ status: 'done', fileName, bytes: blob.size });
+        setState({
+          status: 'done',
+          fileName,
+          bytes: blob.size,
+          ...(fallback
+            ? {
+                note: `MP4 did not work in this browser (${fallback.reason}), so this is a WebM, which plays in browsers, VLC and most editors.`,
+              }
+            : {}),
+        });
       } catch (error) {
         // A half-written file is discarded, not left behind.
         await writable?.abort().catch(() => undefined);

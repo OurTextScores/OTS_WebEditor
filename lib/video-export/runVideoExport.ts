@@ -3,7 +3,7 @@ import { timelineFromPositions } from '../playback/timeline';
 import { audioBlocks } from './audioFeed';
 import { chooseFormat, maxInMemorySeconds, type ExportFormat } from './capabilities';
 import { createCompositor } from './compositor';
-import { exportVideo, type ExportProgress } from './exportVideo';
+import { ExportCancelled, exportVideo, type ExportProgress } from './exportVideo';
 import { buildFramePlan } from './framePlan';
 import { AUDIO_BITRATE, frameSize, videoBitrate, type VideoExportOptions } from './options';
 import { createPageProvider } from './pageRaster';
@@ -31,23 +31,70 @@ export interface VideoExportResult {
   /** The file, or null when it was streamed to `writable`. */
   readonly blob: Blob | null;
   readonly format: Extract<ExportFormat, { ok: true }>;
+  /** Set when the first (MP4) attempt failed and this file is the WebM retry. */
+  readonly fallback?: FallbackNote;
 }
 
 /** What this browser will produce, for the dialog to show before anything starts. */
 export async function previewFormat(options: VideoExportOptions): Promise<ExportFormat> {
-  return chooseFormat(await probeEncoders(frameSize(options.layout)));
+  return chooseFormat(await probeEncoders(frameSize(options.layout)), options.audio);
+}
+
+/** What the MP4 attempt died of, when the export went on as WebM instead. */
+export interface FallbackNote {
+  readonly from: 'mp4';
+  readonly reason: string;
 }
 
 /**
  * Exports `score` as a video: reads its positions and timeline, then drives `exportVideo` with the real page rasteriser,
  * canvas and encoders. Runs on the main thread; it yields between frames, so the page stays usable.
+ *
+ * MP4 (H.264 + AAC) leans on the platform's own encoders, some of which reject frames or audio the software ones accept
+ * (Windows hardware paths especially). If the MP4 attempt fails for any reason but cancel, it is retried once as WebM
+ * (VP9 + Opus), which every Chromium encodes in software; the result says it fell back and why. Not done when writing
+ * to a chosen file: that stream is spent by the failed attempt and the name already says MP4.
  */
 export async function runVideoExport(input: RunVideoExportInput): Promise<VideoExportResult> {
+  const { score, options } = input;
+  const withAudio = options.audio && typeof score.synthAudioBatch === 'function';
+  const support = await probeEncoders(frameSize(options.layout));
+  const format = chooseFormat(support, withAudio);
+  if (!format.ok) throw new ExportUnavailable(format.reason);
+  try {
+    return await exportWithFormat(input, format);
+  } catch (error) {
+    if (
+      format.container !== 'mp4' ||
+      input.writable ||
+      input.signal?.aborted ||
+      error instanceof ExportCancelled ||
+      error instanceof ExportUnavailable
+    ) {
+      throw error;
+    }
+    const webm = chooseFormat(
+      {
+        video: support.video.filter((codec) => codec !== 'avc'),
+        audio: support.audio.filter((codec) => codec !== 'aac'),
+      },
+      withAudio,
+    );
+    if (!webm.ok) throw error;
+    const result = await exportWithFormat(input, webm);
+    return {
+      ...result,
+      fallback: { from: 'mp4', reason: error instanceof Error ? error.message : String(error) },
+    };
+  }
+}
+
+async function exportWithFormat(
+  input: RunVideoExportInput,
+  format: Extract<ExportFormat, { ok: true }>,
+): Promise<VideoExportResult> {
   const { score, options, signal } = input;
   const frame = frameSize(options.layout);
-  const format = chooseFormat(await probeEncoders(frame));
-  if (!format.ok) throw new ExportUnavailable(format.reason);
-
   const measures = await score.measurePositions();
   const native = score.playbackTimeline
     ? await Promise.resolve(score.playbackTimeline()).catch(() => null)
