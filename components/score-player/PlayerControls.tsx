@@ -13,6 +13,8 @@ import {
   Volume2,
 } from 'lucide-react';
 import { formatPlaybackTime } from '@/lib/playback/timeline';
+import type { Score } from '@/lib/webmscore-loader';
+import ExportVideoControl from './ExportVideoControl';
 
 type Props = {
   state: 'idle' | 'preparing' | 'playing' | 'paused' | 'ended' | 'unavailable';
@@ -43,6 +45,8 @@ type Props = {
   onToggleHighlight: () => void;
   onToggleClick: () => void;
   onToggleCountIn: () => void;
+  /** The loaded score, for Export video; the button is absent without one. */
+  score?: Score | null;
 };
 
 const controlClass =
@@ -119,6 +123,19 @@ function PlayerToggles({ compact, ...props }: Props & { compact?: boolean }) {
         onToggle={props.onToggleCountIn}
       />
     </>
+  );
+}
+
+/** Export video, available when nothing is playing (the export renders audio and pages through the same engine). */
+function PlayerExport(props: Props) {
+  const busy = props.state === 'playing' || props.state === 'preparing' || props.state === 'paused';
+  return (
+    <ExportVideoControl
+      score={props.score ?? null}
+      durationMs={props.durationMs}
+      disabled={Boolean(props.disabled) || busy}
+      disabledReason="Stop playback to export a video"
+    />
   );
 }
 
@@ -305,6 +322,7 @@ export default function PlayerControls(props: Props) {
             <span className="font-semibold">Follow</span>
           </button>
           <PlayerToggles {...props} />
+          {props.score !== undefined && <PlayerExport {...props} />}
         </div>
         <details className="group relative sm:hidden">
           <summary

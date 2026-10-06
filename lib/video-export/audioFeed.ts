@@ -11,6 +11,16 @@ export interface AudioBlock {
 /** The engine writes 512 frames per channel in each chunk, planar, as float32. */
 export const FRAMES_PER_CHUNK = 512;
 const DEFAULT_SAMPLE_RATE = 44_100;
+const STANDARD_RATES = [
+  8_000, 11_025, 16_000, 22_050, 24_000, 32_000, 44_100, 48_000, 88_200, 96_000,
+];
+
+/** The standard rate nearest to what a chunk's timing implies (which jitters by a few Hz: 44100, 44102, ...). */
+export const snapSampleRate = (hz: number): number =>
+  STANDARD_RATES.reduce(
+    (best, rate) => (Math.abs(rate - hz) < Math.abs(best - hz) ? rate : best),
+    DEFAULT_SAMPLE_RATE,
+  );
 
 /**
  * The engine's synthesised audio as blocks, one at a time, so the encoder can take them as they come instead of the
@@ -21,6 +31,8 @@ export async function* audioBlocks(
   iterator: SynthAudioBatchIterator,
   signal?: AbortSignal,
 ): AsyncGenerator<AudioBlock> {
+  // Fixed by the first block: an encoder rejects a track whose rate changes, and the timings only jitter around it.
+  let sampleRate: number | null = null;
   try {
     for (;;) {
       if (signal?.aborted) return;
@@ -38,7 +50,7 @@ export async function* audioBlocks(
         const channelCount = Math.min(2, Math.floor(floats.length / FRAMES_PER_CHUNK));
         if (channelCount < 1) continue;
         const span = typeof item.endTime === 'number' ? item.endTime - item.startTime : 0;
-        const sampleRate = span > 0 ? Math.round(FRAMES_PER_CHUNK / span) : DEFAULT_SAMPLE_RATE;
+        sampleRate ??= span > 0 ? snapSampleRate(FRAMES_PER_CHUNK / span) : DEFAULT_SAMPLE_RATE;
         yield {
           // Copied: the chunk's buffer belongs to the engine's next call.
           channels: Array.from({ length: channelCount }, (_, channel) =>

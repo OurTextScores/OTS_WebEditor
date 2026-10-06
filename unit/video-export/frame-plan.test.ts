@@ -110,6 +110,18 @@ describe('buildFramePlan', () => {
     expect(odd.frameCount).toBe(Math.ceil(1.01 * 30));
   });
 
+  it('holds the last picture through a tail after the music, with nothing lit', () => {
+    const tailed = buildFramePlan({ ...base, timeline: timelineOf([0, 1]), tailMs: 3_000 });
+    expect(tailed.durationMs).toBe(5_000);
+    expect(tailed.frameCount).toBe(150);
+    expect(tailed.at(1_500).active?.id).toBe(1);
+    expect(tailed.at(3_500).active).toBeNull();
+    expect(tailed.at(3_500).page).toBe(tailed.at(1_500).page);
+    expect(buildFramePlan({ ...base, timeline: timelineOf([0, 1]), tailMs: -5 }).durationMs).toBe(
+      2_000,
+    );
+  });
+
   it('lights the played measure', () => {
     expect(plan.at(0).active?.id).toBe(0);
     expect(plan.at(1_500).active?.id).toBe(1);

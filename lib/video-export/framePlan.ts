@@ -25,6 +25,8 @@ export interface FramePlanInput {
   readonly fps: number;
   /** Silence before the music (count-in): the picture holds on the first system, with nothing lit. */
   readonly leadInMs?: number;
+  /** Extra time after the last note: the ring-out of the audio, shown as the last picture with nothing lit. */
+  readonly tailMs?: number;
 }
 
 /** What one frame shows. Page and scroll are in score units; the compositor applies `geometry`. */
@@ -98,7 +100,7 @@ export function buildFramePlan(input: FramePlanInput): FramePlan {
   if (stops.length > 0) stops[0] = { ...stops[0], startMs: 0 };
 
   const pagesInOrder = [...new Set(stops.map((stop) => stop.page))];
-  const durationMs = leadInMs + timeline.durationMs;
+  const durationMs = leadInMs + timeline.durationMs + Math.max(0, input.tailMs ?? 0);
   const frameCount = Math.max(1, Math.ceil((durationMs / 1000) * fps));
 
   const stopIndexAt = (timeMs: number) => {

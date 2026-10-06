@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { FRAMES_PER_CHUNK, audioBlocks } from '../../lib/video-export/audioFeed';
+import { FRAMES_PER_CHUNK, audioBlocks, snapSampleRate } from '../../lib/video-export/audioFeed';
 import type { SynthAudioBatchChunk } from '../../lib/webmscore-loader';
 
 const chunk = (
@@ -41,6 +41,21 @@ describe('audioBlocks', () => {
     expect(blocks[0].channels[1][0]).toBe(-0.5);
     expect(blocks[0].sampleRate).toBe(44_100);
     expect(blocks[0].frames).toBe(FRAMES_PER_CHUNK);
+  });
+
+  it('keeps one sample rate for the whole stream although chunk timings jitter by a few Hz', async () => {
+    const jittered = (start: number, hz: number) =>
+      chunk(start, 1, 1, { endTime: start + FRAMES_PER_CHUNK / hz });
+    const blocks = await collect(
+      audioBlocks(iteratorOf([[jittered(0, 44_100), jittered(1, 44_102), jittered(2, 44_097)]])),
+    );
+    expect(blocks.map((b) => b.sampleRate)).toEqual([44_100, 44_100, 44_100]);
+  });
+
+  it('snaps to the nearest standard rate', () => {
+    expect(snapSampleRate(44_102)).toBe(44_100);
+    expect(snapSampleRate(47_950)).toBe(48_000);
+    expect(snapSampleRate(21_990)).toBe(22_050);
   });
 
   it('keeps going across batches and stops at done', async () => {
