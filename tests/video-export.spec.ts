@@ -78,6 +78,32 @@ test.describe('player video export', () => {
     });
   });
 
+  test('keeps every control of the small-screen More menu inside the menu', async ({ page }) => {
+    for (const width of [320, 390, 600]) {
+      await page.setViewportSize({ width, height: 700 });
+      await page.goto('/?score=%2Ftest_scores%2Ftwo_chords.musicxml&embed=player');
+      await expect(page.getByTestId('player-seek')).toBeEnabled({ timeout: 60_000 });
+      await page.getByLabel('More player controls').click();
+      const row = page.getByTestId('player-more-controls');
+      await expect(row).toBeVisible();
+      const menu = await row.locator('xpath=..').boundingBox();
+      const buttons = await row.locator('button').evaluateAll((els) =>
+        els.map((el) => {
+          const r = el.getBoundingClientRect();
+          return { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+        }),
+      );
+      expect(buttons.length).toBeGreaterThanOrEqual(8);
+      for (const button of buttons) {
+        expect(button.left).toBeGreaterThanOrEqual(menu!.x - 0.5);
+        expect(button.right).toBeLessThanOrEqual(menu!.x + menu!.width + 0.5);
+      }
+      // And the menu itself is on screen.
+      expect(menu!.x).toBeGreaterThanOrEqual(0);
+      expect(menu!.x + menu!.width).toBeLessThanOrEqual(width);
+    }
+  });
+
   test('is off while the score is playing', async ({ page }) => {
     await page.goto('/?score=%2Ftest_scores%2Ftwo_chords.musicxml&embed=player');
     await expect(page.getByTestId('player-seek')).toBeEnabled({ timeout: 60_000 });

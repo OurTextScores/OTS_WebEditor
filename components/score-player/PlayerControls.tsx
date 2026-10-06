@@ -347,7 +347,11 @@ export default function PlayerControls(props: Props) {
                 onChange={(event) => props.onVolume(Number(event.currentTarget.value))}
               />
             </label>
-            <div className="flex items-center justify-between gap-1">
+            {/* Eight round controls do not fit one row of the 16rem menu, so the row wraps. */}
+            <div
+              className="flex flex-wrap items-center justify-center gap-1"
+              data-testid="player-more-controls"
+            >
               <button
                 type="button"
                 className={controlClass}
