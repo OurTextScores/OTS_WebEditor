@@ -101,19 +101,21 @@ export async function createMediabunnySink(options: SinkOptions): Promise<VideoS
     // Always stereo: a mono block is duplicated, so the track never changes shape mid-stream.
     planar.set(channels[0], 0);
     planar.set(channels[1] ?? channels[0], frames);
-    await audio
-      .add(
-        new AudioSample({
-          data: planar,
-          format: 'f32-planar',
-          numberOfChannels: 2,
-          sampleRate,
-          timestamp: startSeconds,
-        }),
-      )
-      .catch((error) => {
-        throw named('The audio encoder', format, error);
-      });
+    // The encoder takes a copy; the sample itself is ours to close, or the browser warns when it is collected.
+    const sample = new AudioSample({
+      data: planar,
+      format: 'f32-planar',
+      numberOfChannels: 2,
+      sampleRate,
+      timestamp: startSeconds,
+    });
+    try {
+      await audio.add(sample);
+    } catch (error) {
+      throw named('The audio encoder', format, error);
+    } finally {
+      sample.close();
+    }
   };
 
   return {
