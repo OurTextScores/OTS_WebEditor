@@ -53,3 +53,18 @@ export function pickCommonInstruments(
   }
   return results;
 }
+
+/**
+ * A picker lists the common instruments first and then every instrument by family, so a common
+ * one appears twice. The two entries need different values: a select given two options with the
+ * same value treats both as chosen and shows the name twice ("VioloncelloVioloncello").
+ */
+const COMMON_CHOICE_PREFIX = 'common:';
+
+/** The select value for an instrument's entry in the "Common" group. */
+export const commonInstrumentChoice = (instrumentId: string): string =>
+  `${COMMON_CHOICE_PREFIX}${instrumentId}`;
+
+/** The instrument a select value stands for, whichever group its entry was in. */
+export const instrumentIdFromChoice = (choice: string): string =>
+  choice.startsWith(COMMON_CHOICE_PREFIX) ? choice.slice(COMMON_CHOICE_PREFIX.length) : choice;

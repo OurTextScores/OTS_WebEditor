@@ -4,7 +4,12 @@ import React, { useMemo, useState } from 'react';
 import { defaultCommandRegistry, type CommandRegistry } from '../../lib/commands/registry';
 import { useCommandContext } from '../../lib/commands/useRegisterCommands';
 import type { InstrumentTemplateGroup, PartSummary } from '../score-editor/editorProps';
-import { flattenInstrumentGroups, pickCommonInstruments } from '../toolbar/instrumentChoices';
+import {
+  commonInstrumentChoice,
+  flattenInstrumentGroups,
+  instrumentIdFromChoice,
+  pickCommonInstruments,
+} from '../toolbar/instrumentChoices';
 import { Button } from '../ui/Button';
 import {
   Select,
@@ -36,7 +41,8 @@ export function InstrumentsPanel({
 
   const options = useMemo(() => flattenInstrumentGroups(instrumentGroups), [instrumentGroups]);
   const common = useMemo(() => pickCommonInstruments(options), [options]);
-  const instrumentId = chosen || options[0]?.id || '';
+  const choice = chosen || options[0]?.id || '';
+  const instrumentId = instrumentIdFromChoice(choice);
   const canAdd = registry.isEnabled('instruments.add', ctx);
   const canEdit = registry.isEnabled('instruments.part.toggleVisible', ctx);
 
@@ -48,7 +54,7 @@ export function InstrumentsPanel({
           <p className="text-sm text-slate-600">Instrument list unavailable.</p>
         ) : (
           <div className="flex flex-col gap-2">
-            <Select value={instrumentId} onValueChange={setChosen} disabled={!canAdd}>
+            <Select value={choice} onValueChange={setChosen} disabled={!canAdd}>
               <SelectTrigger data-testid="select-instrument-add" className="w-full">
                 <SelectValue placeholder="Select instrument" />
               </SelectTrigger>
@@ -57,7 +63,10 @@ export function InstrumentsPanel({
                   <SelectGroup>
                     <SelectLabel>Common</SelectLabel>
                     {common.map((entry) => (
-                      <SelectItem key={`common-${entry.instrument.id}`} value={entry.instrument.id}>
+                      <SelectItem
+                        key={`common-${entry.instrument.id}`}
+                        value={commonInstrumentChoice(entry.instrument.id)}
+                      >
                         {entry.label}
                       </SelectItem>
                     ))}

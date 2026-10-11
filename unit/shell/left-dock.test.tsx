@@ -232,9 +232,17 @@ describe('InstrumentsPanel', () => {
     setup();
     expect(screen.getByText('Piano')).toBeInTheDocument();
     // A part with no name falls back to its instrument.
-    expect(screen.getByText('Violin', { selector: 'span' })).toBeInTheDocument();
+    expect(screen.getByText('Violin', { selector: 'li span' })).toBeInTheDocument();
     expect(screen.getByTestId('btn-part-visible-0')).toHaveTextContent('Hide');
     expect(screen.getByTestId('btn-part-visible-1')).toHaveTextContent('Show');
+  });
+
+  it('names the instrument to add once', () => {
+    // Violin is offered under "Common" and again under "Strings". When both entries shared a
+    // value the picker counted both as chosen and read "ViolinViolin".
+    setup();
+    const shown = screen.getByTestId('select-instrument-add').textContent ?? '';
+    expect(shown.match(/Violin/g)).toHaveLength(1);
   });
 
   it('runs the part commands with the part index', async () => {

@@ -137,7 +137,8 @@ export function NewScoreDialog({ details, signature, instruments, actions }: New
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
       data-testid="new-score-modal"
     >
-      <div className="w-full max-w-xl rounded bg-white p-4 shadow-modal">
+      {/* Taller than a short window (a 13-inch laptop, an embed): scroll inside rather than lose the top. */}
+      <div className="max-h-full w-full max-w-xl overflow-y-auto rounded bg-white p-4 shadow-modal">
         <div className="flex items-center justify-between">
           <div className="text-sm font-semibold text-slate-800">New Score</div>
           <button
