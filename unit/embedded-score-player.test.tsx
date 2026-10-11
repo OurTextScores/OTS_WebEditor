@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   requestScoreLayoutProgress: vi.fn(),
   trackEvent: vi.fn(),
   onTransportMessage: null as ((message: string) => void) | null,
+  transportVolume: null as number | null,
   transport: {
     state: 'idle',
     stateRef: { current: 'idle' },
@@ -29,8 +30,9 @@ vi.mock('@/lib/score-loader', () => ({
   requestScoreLayoutProgress: mocks.requestScoreLayoutProgress,
 }));
 vi.mock('@/lib/playback/use-score-transport', () => ({
-  useScoreTransport: (options: { onMessage?: (message: string) => void }) => {
+  useScoreTransport: (options: { onMessage?: (message: string) => void; volume?: number }) => {
     mocks.onTransportMessage = options.onMessage ?? null;
+    mocks.transportVolume = options.volume ?? null;
     return mocks.transport;
   },
 }));
@@ -39,6 +41,7 @@ vi.mock('@/lib/editor-analytics', () => ({
 }));
 
 import EmbeddedScorePlayer from '@/components/score-player/EmbeddedScorePlayer';
+import { resetVolumePreferenceForTests } from '@/lib/playback/volume-preference';
 
 const positions = {
   elements: [
@@ -85,6 +88,7 @@ describe('EmbeddedScorePlayer progressive pages', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     window.localStorage.clear();
+    resetVolumePreferenceForTests();
     mocks.search = new URLSearchParams({ score: '/score.musicxml', follow: '0' });
     mocks.transport.state = 'idle';
     mocks.transport.stateRef.current = 'idle';
@@ -92,6 +96,7 @@ describe('EmbeddedScorePlayer progressive pages', () => {
     mocks.transport.positionRef.current = 0;
     mocks.transport.renderWindowIdle = true;
     mocks.onTransportMessage = null;
+    mocks.transportVolume = null;
     const score = makeScore();
     mocks.loadScoreFromUrl.mockResolvedValue({
       loadedScore: score,
@@ -403,15 +408,19 @@ describe('EmbeddedScorePlayer progressive pages', () => {
   });
 
   it('starts in note mode from the highlight query parameter', async () => {
-    mocks.search = new URLSearchParams({ score: '/score.musicxml', highlight: 'note' });
+    // Follow is off so that the only read of the note positions is the one made at load. With it on, following
+    // extends the layout and the positions are read again by design, and "once" would hold only for an instant.
+    mocks.search = new URLSearchParams({
+      score: '/score.musicxml',
+      follow: '0',
+      highlight: 'note',
+    });
     render(<EmbeddedScorePlayer />);
     await screen.findByTestId('player-svg');
 
     const loaded = await mocks.loadScoreFromUrl.mock.results[0].value;
-    await waitFor(() =>
-      expect(loaded.loadedScore.segmentPositions).toHaveBeenCalledTimes(1),
-    );
     await waitFor(() => expect(screen.getByTestId('active-note-highlight')).toBeInTheDocument());
+    expect(loaded.loadedScore.segmentPositions).toHaveBeenCalledTimes(1);
   });
 
   it('switches highlight modes from host commands', async () => {
@@ -459,5 +468,32 @@ describe('EmbeddedScorePlayer progressive pages', () => {
       expect(screen.getByTestId('active-measure-highlight')).toBeInTheDocument(),
     );
     expect(loaded.loadedScore.segmentPositions).toHaveBeenCalledTimes(1);
+  });
+
+  it('is audible for a first-time listener, and for one the old volume key left at zero', async () => {
+    // Restoring "nothing stored" as Number(null) made every new listener's player silent, then saved it.
+    window.localStorage.setItem('ots-player-volume', '0');
+    render(<EmbeddedScorePlayer />);
+    await screen.findByTestId('player-svg');
+
+    expect(mocks.transportVolume).toBe(1);
+    expect(screen.getAllByLabelText('Volume')[0]).toHaveValue('1');
+    // Mounting is not a choice: nothing is remembered until the listener moves the slider.
+    expect(window.localStorage.getItem('ots-player-volume-v2')).toBeNull();
+  });
+
+  it('remembers the volume the listener sets and restores it in the next player', async () => {
+    const first = render(<EmbeddedScorePlayer />);
+    await screen.findByTestId('player-svg');
+    fireEvent.change(screen.getAllByLabelText('Volume')[0], { target: { value: '0.35' } });
+    expect(mocks.transportVolume).toBe(0.35);
+    expect(window.localStorage.getItem('ots-player-volume-v2')).toBe('0.35');
+    first.unmount();
+
+    // A player opened later (another page, another visit) starts from storage, not from this one's memory.
+    resetVolumePreferenceForTests();
+    render(<EmbeddedScorePlayer />);
+    await screen.findByTestId('player-svg');
+    await waitFor(() => expect(mocks.transportVolume).toBe(0.35));
   });
 });

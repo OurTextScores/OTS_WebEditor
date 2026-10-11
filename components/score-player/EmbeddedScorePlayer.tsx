@@ -14,7 +14,8 @@ import {
 import { segmentTimeForId } from '@/lib/playback/note-tracking';
 import { setCountIn, setMetronome } from '@/lib/playback/click-preferences';
 import { useClickPreferences } from '@/lib/playback/use-click-preferences';
-import { readPlayerPreference, writePlayerPreference } from '@/lib/playback/player-preferences';
+import { setVolumePreference } from '@/lib/playback/volume-preference';
+import { useVolumePreference } from '@/lib/playback/use-volume-preference';
 import { useScoreTransport } from '@/lib/playback/use-score-transport';
 import {
   parsePlayerCommand,
@@ -91,7 +92,7 @@ export default function EmbeddedScorePlayer() {
   const [pageError, setPageError] = useState('');
   const [zoom, setZoom] = useState(1);
   const [follow, setFollow] = useState(initialFollow);
-  const [volume, setVolume] = useState(1);
+  const volume = useVolumePreference();
   const clickPrefs = useClickPreferences();
   const [audioMessage, setAudioMessage] = useState('');
   const [inputFormat, setInputFormat] = useState('');
@@ -169,15 +170,6 @@ export default function EmbeddedScorePlayer() {
     },
     [],
   );
-
-  useEffect(() => {
-    const stored = Number(readPlayerPreference('ots-player-volume'));
-    if (Number.isFinite(stored)) setVolume(clamp(stored, 0, 1));
-  }, []);
-
-  useEffect(() => {
-    writePlayerPreference('ots-player-volume', String(volume));
-  }, [volume]);
 
   const emitPlayerTelemetry = useCallback(
     (eventName: string, properties?: Record<string, string | number | boolean | undefined>) => {
@@ -537,7 +529,7 @@ export default function EmbeddedScorePlayer() {
           handleSeek(command.value as number);
           break;
         case 'set-volume':
-          setVolume(command.value as number);
+          setVolumePreference(command.value as number);
           break;
         case 'set-follow':
           setFollowPreference(command.value as boolean);
@@ -878,7 +870,7 @@ export default function EmbeddedScorePlayer() {
         onTogglePlayPause={() => void togglePlayPause()}
         onStop={() => void stopAt(startMsRef.current)}
         onSeek={handleSeek}
-        onVolume={setVolume}
+        onVolume={setVolumePreference}
         onPreviousPage={() => {
           suspendFollowTemporarily();
           setPageError('');
