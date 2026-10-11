@@ -777,6 +777,11 @@ static VBox* addCreditWords(Score* const score, const CreditWordsList& crWords,
             double yoffs = (maxy - w->defaultY) * score->spatium() / 10;
             if (!vbox) {
                 vbox = createAndAddVBoxForCreditWords(score, miny, maxy);
+                // The credits are placed by their own offsets inside a frame made tall enough
+                // for them. An auto-sizing frame ignores that height and shrinks to its first
+                // lines, which leaves the lower credits (composer, lyricist) on top of the
+                // first system. Keep the height that was computed.
+                vbox->setAutoSizeEnabled(false);
             }
             addText2(vbox, score, w->words, tid, align, yoffs);
         }

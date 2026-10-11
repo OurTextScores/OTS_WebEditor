@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="4.0">
+  <work><work-title>Credit frame</work-title></work>
+  <identification>
+    <creator type="composer">Test Composer</creator>
+    <creator type="lyricist">Test Lyricist</creator>
+  </identification>
+  <defaults>
+    <scaling><millimeters>5.52</millimeters><tenths>40</tenths></scaling>
+    <page-layout>
+      <page-height>2151.66</page-height>
+      <page-width>1522.17</page-width>
+      <page-margins type="both">
+        <left-margin>72.4638</left-margin><right-margin>72.4638</right-margin>
+        <top-margin>72.4638</top-margin><bottom-margin>92.029</bottom-margin>
+      </page-margins>
+    </page-layout>
+  </defaults>
+  <credit page="1">
+    <credit-type>title</credit-type>
+    <credit-words default-x="761.09" default-y="2079.19" justify="center" valign="top" font-size="14">Credit frame</credit-words>
+  </credit>
+  <credit page="1">
+    <credit-type>subtitle</credit-type>
+    <credit-words default-x="761.09" default-y="2006.73" justify="center" valign="top" font-size="20">A small staff size</credit-words>
+  </credit>
+  <credit page="1">
+    <credit-type>lyricist</credit-type>
+    <credit-words default-x="72.46" default-y="1889.00" justify="left" valign="bottom">Test Lyricist</credit-words>
+  </credit>
+  <credit page="1">
+    <credit-type>composer</credit-type>
+    <credit-words default-x="1449.71" default-y="1889.00" justify="right" valign="bottom">Test Composer</credit-words>
+  </credit>
+  <part-list>
+    <score-part id="P1"><part-name>Voice</part-name></score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>1</divisions>
+        <key><fifths>0</fifths></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <clef><sign>G</sign><line>2</line></clef>
+      </attributes>
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>4</duration><type>whole</type></note>
+    </measure>
+    <measure number="2">
+      <note><pitch><step>E</step><octave>5</octave></pitch><duration>4</duration><type>whole</type></note>
+      <barline location="right"><bar-style>light-heavy</bar-style></barline>
+    </measure>
+  </part>
+</score-partwise>
