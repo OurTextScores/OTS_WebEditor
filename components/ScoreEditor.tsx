@@ -271,7 +271,7 @@ import { buildCheckpointTitle, formatBytes, formatTimestamp, toSafeFilename } fr
 import { buildOtsScoreId, updateUrlScoreId } from './score-editor/score-url';
 import { getSvgNaturalSize } from './score-editor/svg-size';
 import { errorMessage, scoreLoadErrorMessage } from './score-editor/error-messages';
-import { newScoreCommonInstrumentPreferences } from './score-editor/new-score';
+import { instrumentDataUrl, newScoreCommonInstrumentPreferences } from './score-editor/new-score';
 import { buildMismatchBlocks } from './score-editor/alignment';
 import { getReviewStatusForFeedback } from './score-editor/block-review-status';
 import { buildMeasureBounds, getPageMeasureRange, refreshMeasurePositions } from './score-editor/score-measures';
@@ -3225,7 +3225,7 @@ export default function ScoreEditor() {
     let canceled = false;
     const loadClefs = async () => {
       try {
-        const response = await fetch('/api/instruments/clefs');
+        const response = await fetch(instrumentDataUrl('clefs'));
         if (!response.ok) {
           throw new Error('Failed to load clef map.');
         }
@@ -3255,7 +3255,7 @@ export default function ScoreEditor() {
     let canceled = false;
     const loadFallbackInstruments = async () => {
       try {
-        const response = await fetch('/api/instruments/templates');
+        const response = await fetch(instrumentDataUrl('templates'));
         if (!response.ok) {
           throw new Error('Failed to load instrument templates.');
         }
