@@ -1,6 +1,45 @@
 import { SaxesParser, type SaxesAttributeNS, type SaxesTagNS } from 'saxes';
 
 export const MUSICXML_IDENTITY_VERSION = 'xmlid-v1' as const;
+/**
+ * The identity of a score's content with its page layout set aside: see
+ * `computeMusicXmlContentIdentityHash`. Versioned apart from the strict identity so that the
+ * two can never be mistaken for each other.
+ */
+export const MUSICXML_CONTENT_IDENTITY_VERSION = 'xmlcontent-v1' as const;
+
+export type MusicXmlIdentityOptions = {
+  /**
+   * Leave out what only says where things sit on the page: `<print>` (system and page breaks
+   * and their distances), a measure's `width`, the position attributes, and the copies of a
+   * header or footer that are written once per page after the first.
+   */
+  ignoreLayout?: boolean;
+};
+
+const LAYOUT_POSITION_ATTRIBUTES = new Set(['default-x', 'default-y', 'relative-x', 'relative-y']);
+
+/** MusicXML's own elements and attributes are in no namespace. */
+const isLayoutOnlyElement = (tag: SaxesTagNS): boolean => {
+  if (tag.uri !== '') {
+    return false;
+  }
+  if (tag.local === 'print') {
+    return true;
+  }
+  if (tag.local === 'credit') {
+    const page = Object.values(tag.attributes).find(
+      (attribute) => attribute.uri === '' && attribute.local === 'page',
+    );
+    return page !== undefined && page.value.trim() !== '1';
+  }
+  return false;
+};
+
+const isLayoutOnlyAttribute = (tag: SaxesTagNS, attribute: SaxesAttributeNS): boolean =>
+  attribute.uri === '' &&
+  (LAYOUT_POSITION_ATTRIBUTES.has(attribute.local) ||
+    (tag.uri === '' && tag.local === 'measure' && attribute.local === 'width'));
 
 type CanonicalAttribute = [name: string, value: string];
 type CanonicalProcessingInstruction = ['pi', target: string, body: string];
@@ -52,6 +91,7 @@ const isVolatileEncodingDate = (path: ExpandedPathSegment[]) =>
 
 const canonicalAttributes = (
   tag: SaxesTagNS,
+  ignoreLayout: boolean,
 ): {
   attributes: CanonicalAttribute[];
   xmlSpace: 'preserve' | 'default' | null;
@@ -59,6 +99,7 @@ const canonicalAttributes = (
   let xmlSpace: 'preserve' | 'default' | null = null;
   const attributes = Object.values(tag.attributes)
     .filter((attribute) => attribute.uri !== XMLNS_NAMESPACE)
+    .filter((attribute) => !ignoreLayout || !isLayoutOnlyAttribute(tag, attribute))
     .map((attribute: SaxesAttributeNS): CanonicalAttribute => {
       if (attribute.uri === XML_NAMESPACE && attribute.local === 'space') {
         if (attribute.value === 'preserve' || attribute.value === 'default') {
@@ -83,10 +124,14 @@ const closeFrame = (frame: ElementFrame): CanonicalElement => {
   return ['element', frame.name, frame.attributes, children];
 };
 
-export function canonicalizeMusicXmlIdentity(xml: string): string {
+export function canonicalizeMusicXmlIdentity(
+  xml: string,
+  options: MusicXmlIdentityOptions = {},
+): string {
   if (!xml.trim()) {
     throw new Error('MusicXML identity input is empty.');
   }
+  const ignoreLayout = options.ignoreLayout === true;
 
   const documentChildren: CanonicalChild[] = [];
   const frames: ElementFrame[] = [];
@@ -107,8 +152,17 @@ export function canonicalizeMusicXmlIdentity(xml: string): string {
       skipDepth = 1;
       return;
     }
+    if (ignoreLayout && isLayoutOnlyElement(tag)) {
+      // It was an element all the same: the white space around it is formatting, not text.
+      const parent = frames.at(-1);
+      if (parent) {
+        parent.hasStructuralChild = true;
+      }
+      skipDepth = 1;
+      return;
+    }
 
-    const { attributes, xmlSpace } = canonicalAttributes(tag);
+    const { attributes, xmlSpace } = canonicalAttributes(tag, ignoreLayout);
     const inheritedPreserveSpace = frames.at(-1)?.preserveSpace ?? false;
     const preserveSpace =
       xmlSpace === 'preserve' ? true : xmlSpace === 'default' ? false : inheritedPreserveSpace;
@@ -185,20 +239,34 @@ export function canonicalizeMusicXmlIdentity(xml: string): string {
   if (frames.length > 0 || skipDepth > 0) {
     throw new Error('MusicXML identity parser did not close every element.');
   }
-  return JSON.stringify([MUSICXML_IDENTITY_VERSION, documentChildren]);
+  return JSON.stringify([
+    ignoreLayout ? MUSICXML_CONTENT_IDENTITY_VERSION : MUSICXML_IDENTITY_VERSION,
+    documentChildren,
+  ]);
 }
 
-export async function computeMusicXmlIdentityHash(xml: string): Promise<string> {
+async function sha256Hex(text: string): Promise<string> {
   if (!globalThis.crypto?.subtle) {
     throw new Error('This browser cannot compute a MusicXML identity hash.');
   }
-  const canonical = canonicalizeMusicXmlIdentity(xml);
-  const digest = await globalThis.crypto.subtle.digest(
-    'SHA-256',
-    new TextEncoder().encode(canonical),
-  );
-  const hex = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join(
-    '',
-  );
-  return `${MUSICXML_IDENTITY_VERSION}:${hex}`;
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+export async function computeMusicXmlIdentityHash(xml: string): Promise<string> {
+  return `${MUSICXML_IDENTITY_VERSION}:${await sha256Hex(canonicalizeMusicXmlIdentity(xml))}`;
+}
+
+/**
+ * The identity of what a score says, whatever its layout: two serializations of one score
+ * laid out differently (other system breaks, other measure widths, another page count) have
+ * the same hash, and any change to the music or its text does not.
+ *
+ * The strict identity above cannot be used to ask "has this score been edited?" while a
+ * comparison is open, because the comparison lays the live score out again to line its
+ * systems up with the other side's, and puts it back on closing.
+ */
+export async function computeMusicXmlContentIdentityHash(xml: string): Promise<string> {
+  const canonical = canonicalizeMusicXmlIdentity(xml, { ignoreLayout: true });
+  return `${MUSICXML_CONTENT_IDENTITY_VERSION}:${await sha256Hex(canonical)}`;
 }

@@ -201,11 +201,32 @@ const waitForDiffReviewReady = async (page: Page) => {
   await expect(page.getByText('Aligning measures...')).toHaveCount(0, { timeout: 20_000 });
 };
 
+/** The live score as MusicXML, or '' while an Apply is swapping the score for a new one. */
+const readLiveXml = (page: Page) =>
+  page.evaluate(async () => {
+    const score = (window as typeof window & { __webmscore?: { saveXml?: () => Promise<unknown> } })
+      .__webmscore;
+    try {
+      const data = await score?.saveXml?.();
+      if (typeof data === 'string') {
+        return data;
+      }
+      return data instanceof Uint8Array ? new TextDecoder().decode(data) : '';
+    } catch {
+      return '';
+    }
+  });
+
+/** The octave of the first note of bar 1. */
+const firstNoteOctave = (xml: string) =>
+  /<measure\b[^>]*number="1"[^>]*>[\s\S]*?<note\b[\s\S]*?<octave>(\d)<\/octave>/.exec(xml)?.[1] ??
+  null;
+
 const openAssistantProposalCompare = async (
   page: Page,
-  options: { effort?: 'efficient' | 'balanced' | 'thorough' } = {},
+  options: { effort?: 'efficient' | 'balanced' | 'thorough'; score?: string } = {},
 ) => {
-  await page.goto('/?score=/test_scores/three_notes_cde.musicxml');
+  await page.goto(`/?score=${options.score ?? '/test_scores/three_notes_cde.musicxml'}`);
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
 
   await runCommand(page, 'ai.open.assistant');
@@ -601,6 +622,79 @@ test.describe('Assistant diff editor flow', () => {
 
     await expect.poll(() => countHighlights(page), { timeout: 20_000 }).toBe(0);
   });
+
+  // Eight bars fit on one system in the full window and take several in half of it. While a
+  // proposal is compared, the live score is laid out to match the proposal's systems, so it
+  // no longer serializes as it did when the proposal was requested, though nobody edited it.
+  // The Apply gate used to read that as an edit and refuse every Apply on such a score.
+  for (const applyWith of ['Apply All AI Changes', 'Apply'] as const) {
+    test(`"${applyWith}" works on a score the comparison has laid out again`, async ({ page }) => {
+      // An octave, not a pitch name: a new pitch name would make the engine write accidentals
+      // the patch did not, and bar 1 would stay marked for a reason this test is not about.
+      const raiseFirstNote: MusicXmlPatch = {
+        format: 'musicxml-patch@1',
+        ops: [
+          {
+            op: 'setText',
+            path: '/score-partwise/part[@id="P1"]/measure[@number="1"]/note[1]/pitch/octave',
+            value: '5',
+          },
+        ],
+      };
+      let requestedBase = '';
+      await page.route('**/api/music/patch', async (route) => {
+        requestedBase = String(route.request().postDataJSON()?.content || '');
+        const applied = await applyMusicXmlPatch(requestedBase, raiseFirstNote);
+        expect(applied.error).toBeFalsy();
+        const baseContentHash = scoreHash(requestedBase);
+        const baseIdentityHash = computeMusicXmlIdentityHashServer(requestedBase);
+        await route.fulfill({
+          status: 200,
+          body: JSON.stringify({
+            ...PATCH_RESPONSE,
+            patch: raiseFirstNote,
+            proposedXml: applied.xml,
+            proposalSessionId: E2E_PROPOSAL_SESSION_ID,
+            cycle: 1,
+            proposal: {
+              sourceTool: 'music.patch',
+              baseXml: requestedBase,
+              proposedXml: applied.xml,
+              baseScoreSessionId: null,
+              baseRevision: null,
+              baseContentHash,
+              expectedCurrentContentHash: baseContentHash,
+              baseIdentityHash,
+              expectedCurrentIdentityHash: baseIdentityHash,
+              proposedContentHash: scoreHash(String(applied.xml)),
+              proposedIdentityHash: computeMusicXmlIdentityHashServer(String(applied.xml)),
+              verification: PATCH_RESPONSE.verification,
+            },
+          }),
+        });
+      });
+
+      await openAssistantProposalCompare(page, {
+        score: '/test_scores/eight_bars_one_voice.musicxml',
+      });
+      await expect.poll(() => countHighlights(page), { timeout: 20_000 }).toBeGreaterThan(0);
+      expect(firstNoteOctave(requestedBase)).toBe('4');
+      // The premise. Without it this would pass for the wrong reason.
+      await expect
+        .poll(async () => (await readLiveXml(page)) === requestedBase, { timeout: 20_000 })
+        .toBe(false);
+
+      await page.getByRole('button', { name: applyWith, exact: true }).first().click();
+
+      await expect
+        .poll(async () => firstNoteOctave(await readLiveXml(page)), { timeout: 20_000 })
+        .toBe('5');
+      await expect(
+        page.getByText(/The score changed after this proposal was generated/),
+      ).toHaveCount(0);
+      await expect.poll(() => countHighlights(page), { timeout: 20_000 }).toBe(0);
+    });
+  }
 
   test('per-block reject marks block and leaves score unchanged', async ({ page }) => {
     await page.route('**/api/music/patch', fulfillPatchFromRequestBase);

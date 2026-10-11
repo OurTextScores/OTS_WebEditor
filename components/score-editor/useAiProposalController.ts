@@ -16,12 +16,17 @@ export type AiProposalIdentity = {
 export type AiProposalContinuitySnapshot = {
   expectedCurrentContentHash: string | null;
   expectedCurrentIdentityHash: string | null;
+  /** The score the hashes describe, as text: what the live score is expected to be. */
+  expectedCurrentXml: string | null;
   baseXml: string;
 };
 
 export function useAiProposalController() {
   const expectedContentHashRef = useRef<string | null>(null);
   const expectedIdentityHashRef = useRef<string | null>(null);
+  // The text the expected hashes were taken from. The hashes alone cannot tell a score that
+  // was edited from one the comparison has merely laid out again; the text can.
+  const expectedCurrentXmlRef = useRef<string | null>(null);
   const baseXmlRef = useRef('');
   const applyErrorRef = useRef<string | null>(null);
   const sessionRef = useRef<ClientProposalSession | null>(null);
@@ -37,6 +42,7 @@ export function useAiProposalController() {
     (): AiProposalContinuitySnapshot => ({
       expectedCurrentContentHash: expectedContentHashRef.current,
       expectedCurrentIdentityHash: expectedIdentityHashRef.current,
+      expectedCurrentXml: expectedCurrentXmlRef.current,
       baseXml: baseXmlRef.current,
     }),
     [],
@@ -46,6 +52,7 @@ export function useAiProposalController() {
     (value: AiProposalContinuitySnapshot) => {
       expectedContentHashRef.current = value.expectedCurrentContentHash;
       expectedIdentityHashRef.current = value.expectedCurrentIdentityHash;
+      expectedCurrentXmlRef.current = value.expectedCurrentXml;
       baseXmlRef.current = value.baseXml;
       setApplyError(null);
     },
@@ -56,6 +63,7 @@ export function useAiProposalController() {
     (proposal: AiProposalIdentity | null | undefined, baseXml: string) => {
       expectedContentHashRef.current = proposal?.expectedCurrentContentHash || null;
       expectedIdentityHashRef.current = proposal?.expectedCurrentIdentityHash || null;
+      expectedCurrentXmlRef.current = baseXml || null;
       baseXmlRef.current = baseXml;
       setApplyError(null);
     },
@@ -68,6 +76,7 @@ export function useAiProposalController() {
         currentXml: liveXml,
         expectedCurrentContentHash: expectedContentHashRef.current,
         expectedCurrentIdentityHash: expectedIdentityHashRef.current,
+        expectedCurrentXml: expectedCurrentXmlRef.current,
         baseXml: baseXmlRef.current || fallbackBaseXml,
       });
       expectedContentHashRef.current = result.expectedCurrentContentHash;
@@ -85,6 +94,7 @@ export function useAiProposalController() {
       const hashes = await computeClientProposalHashes(xml);
       expectedContentHashRef.current = hashes.contentHash;
       expectedIdentityHashRef.current = hashes.identityHash;
+      expectedCurrentXmlRef.current = xml;
       setApplyError(null);
       return hashes;
     },
@@ -95,6 +105,7 @@ export function useAiProposalController() {
     (message: string) => {
       expectedContentHashRef.current = null;
       expectedIdentityHashRef.current = null;
+      expectedCurrentXmlRef.current = null;
       setApplyError(message);
     },
     [setApplyError],
@@ -116,6 +127,7 @@ export function useAiProposalController() {
   const clear = useCallback(() => {
     expectedContentHashRef.current = null;
     expectedIdentityHashRef.current = null;
+    expectedCurrentXmlRef.current = null;
     baseXmlRef.current = '';
     sessionRef.current = null;
     setApplyError(null);
