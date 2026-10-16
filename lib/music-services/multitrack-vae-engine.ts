@@ -113,10 +113,9 @@ export async function runMultitrackVaeGenerate(
     input_midi_base64: request.inputMidiBase64 || '',
   };
 
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (request.traceContext) {
-    Object.assign(headers, withTraceHeaders(request.traceContext));
-  }
+  const headers: HeadersInit = request.traceContext
+    ? withTraceHeaders(request.traceContext, { 'Content-Type': 'application/json' })
+    : { 'Content-Type': 'application/json' };
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
