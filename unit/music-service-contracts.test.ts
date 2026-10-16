@@ -13,6 +13,7 @@ import {
   MUSIC_MMA_RENDER_TOOL_CONTRACT,
   MUSIC_OMR_TRANSCRIBE_TOOL_CONTRACT,
   MUSIC_MULTITRACK_VAE_TOOL_CONTRACT,
+  MUSIC_INFILL_TOOL_CONTRACT,
   MUSIC_TOOL_CONTRACTS,
 } from '../lib/music-services/contracts';
 
@@ -33,6 +34,7 @@ describe('music service tool contracts', () => {
       'music.mma_render',
       'music.omr_transcribe',
       'music.multitrack_vae',
+      'music.infill',
     ]);
     expect(new Set(names).size).toBe(names.length);
   });
@@ -45,6 +47,17 @@ describe('music service tool contracts', () => {
       required: ['mode'],
     });
     expect(MUSIC_MULTITRACK_VAE_TOOL_CONTRACT.outputSchema).toMatchObject({
+      oneOf: expect.any(Array),
+    });
+  });
+
+  it('declares required infill contract fields', () => {
+    expect(MUSIC_INFILL_TOOL_CONTRACT.name).toBe('music.infill');
+    expect(MUSIC_INFILL_TOOL_CONTRACT.inputSchema).toMatchObject({
+      type: 'object',
+      properties: { mode: { enum: ['accompany'] } },
+    });
+    expect(MUSIC_INFILL_TOOL_CONTRACT.outputSchema).toMatchObject({
       oneOf: expect.any(Array),
     });
   });

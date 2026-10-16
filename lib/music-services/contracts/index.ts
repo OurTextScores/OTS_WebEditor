@@ -11,6 +11,7 @@ import { MUSIC_MMA_TEMPLATE_TOOL_CONTRACT } from './music-mma-template-contract'
 import { MUSIC_MMA_RENDER_TOOL_CONTRACT } from './music-mma-render-contract';
 import { MUSIC_OMR_TRANSCRIBE_TOOL_CONTRACT } from './music-omr-transcribe-contract';
 import { MUSIC_MULTITRACK_VAE_TOOL_CONTRACT } from './music-multitrack-vae-contract';
+import { MUSIC_INFILL_TOOL_CONTRACT } from './music-infill-contract';
 
 export { MUSIC_CONTEXT_TOOL_CONTRACT } from './music-context-contract';
 export { MUSIC_CONVERT_TOOL_CONTRACT } from './music-convert-contract';
@@ -25,6 +26,7 @@ export { MUSIC_MMA_TEMPLATE_TOOL_CONTRACT } from './music-mma-template-contract'
 export { MUSIC_MMA_RENDER_TOOL_CONTRACT } from './music-mma-render-contract';
 export { MUSIC_OMR_TRANSCRIBE_TOOL_CONTRACT } from './music-omr-transcribe-contract';
 export { MUSIC_MULTITRACK_VAE_TOOL_CONTRACT } from './music-multitrack-vae-contract';
+export { MUSIC_INFILL_TOOL_CONTRACT } from './music-infill-contract';
 export type { MusicToolContract, JsonSchema } from './types';
 
 export const MUSIC_TOOL_CONTRACTS = [
@@ -41,4 +43,5 @@ export const MUSIC_TOOL_CONTRACTS = [
   MUSIC_MMA_RENDER_TOOL_CONTRACT,
   MUSIC_OMR_TRANSCRIBE_TOOL_CONTRACT,
   MUSIC_MULTITRACK_VAE_TOOL_CONTRACT,
+  MUSIC_INFILL_TOOL_CONTRACT,
 ];
