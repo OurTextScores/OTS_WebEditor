@@ -84,6 +84,13 @@ export const AI_TOOLS: readonly {
     testId: 'tab-multitrack-vae',
     needsAi: false,
   },
+  {
+    tool: 'amt',
+    id: 'amt',
+    label: 'Accompany (AMT)',
+    testId: 'tab-amt-accompany',
+    needsAi: false,
+  },
   { tool: 'harmony', id: 'harmony', label: 'Harmony', testId: 'tab-harmony', needsAi: false },
   {
     tool: 'functional',

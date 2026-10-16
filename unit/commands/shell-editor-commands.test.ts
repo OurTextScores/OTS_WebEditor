@@ -177,6 +177,7 @@ describe('ai.open.*', () => {
       notagen: 'notagen',
       transcoda: 'transcoda',
       multitrack: 'multitrack',
+      amt: 'amt',
       harmony: 'harmony',
       functional: 'functional',
       mma: 'mma',

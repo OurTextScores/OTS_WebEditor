@@ -823,6 +823,7 @@ export const RIBBON_MIGRATION: readonly MigrationEntry[] = [
       ['tab-notagen', 'notagen', 'NotaGen'],
       ['tab-transcoda', 'transcoda', 'Transcoda OMR'],
       ['tab-multitrack-vae', 'multitrack', 'Multitrack'],
+      ['tab-amt-accompany', 'amt', 'Accompany (AMT)'],
       ['tab-harmony', 'harmony', 'Harmony'],
       ['tab-functional-harmony', 'functional', 'Functional Harmony'],
       ['tab-mma', 'mma', 'Accompaniment (MMA)'],

@@ -285,6 +285,8 @@ import { summarizeScoreId } from './score-editor/score-id';
 import { useNotaGenTool } from './score-editor/ai-tools/useNotaGenTool';
 import { useTranscodaTool } from './score-editor/ai-tools/useTranscodaTool';
 import { useChordTools } from './score-editor/ai-tools/useChordTools';
+import { useAmtAccompanyTool } from './score-editor/ai-tools/useAmtAccompanyTool';
+import { AmtAccompanyPanel } from './score-editor/ai-tools/AmtAccompanyPanel';
 import { requestAiTextImpl } from './score-editor/ai-text-request';
 import { sendAiChatMessage } from './score-editor/ai-chat';
 import { requestAiPatch } from './score-editor/ai-patch-request';
@@ -1172,6 +1174,7 @@ export default function ScoreEditor() {
     if (
       xmlSidebarTab !== 'transcoda' &&
       xmlSidebarTab !== 'multitrack' &&
+      xmlSidebarTab !== 'amt' &&
       xmlSidebarTab !== 'mma' &&
       xmlSidebarTab !== 'harmony' &&
       xmlSidebarTab !== 'functional'
@@ -8520,6 +8523,15 @@ export default function ScoreEditor() {
     codeEditorTheme,
   });
 
+  const amtAccompany = useAmtAccompanyTool({
+    postScoreEditorJson,
+    score,
+    resolveXmlContext,
+    applyXmlToScore,
+    setXmlLoading,
+    revealScoreSource,
+  });
+
   const renderAiToolsBody = () => (
     <>
                   {xmlSidebarTab === 'assistant' && aiEnabled && (
@@ -8621,6 +8633,7 @@ export default function ScoreEditor() {
                       }}
                     />
                   )}
+                  {xmlSidebarTab === 'amt' && <AmtAccompanyPanel {...amtAccompany.panel} />}
                   {xmlSidebarTab === 'mma' && (
                     <MmaPanel {...chordTools.mmaPanel}
                     />

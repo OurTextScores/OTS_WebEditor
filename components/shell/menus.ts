@@ -297,6 +297,7 @@ export const MENUS: readonly MenuDefinition[] = [
         item('ai.open.notagen'),
         item('ai.open.transcoda'),
         item('ai.open.multitrack'),
+        item('ai.open.amt'),
         item('ai.open.harmony'),
         item('ai.open.functional'),
         item('ai.open.mma'),

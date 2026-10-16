@@ -184,6 +184,7 @@ test.describe('AI Tools and Score Source panels', () => {
       'tab-notagen',
       'tab-transcoda',
       'tab-multitrack-vae',
+      'tab-amt-accompany',
       'tab-harmony',
       'tab-functional-harmony',
       'tab-mma',
