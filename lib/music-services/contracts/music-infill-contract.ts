@@ -3,7 +3,7 @@ import type { MusicToolContract } from './types';
 export const MUSIC_INFILL_TOOL_CONTRACT: MusicToolContract = {
   name: 'music.infill',
   description:
-    'Write an accompaniment under a melody with the Anticipatory Music Transformer (via a Hugging Face Space): holds the chosen melody part of a MIDI passage fixed and generates new parts, returned as their own MIDI and MusicXML to add to the score. Only mode "accompany" is available; region and instrument infill are planned.',
+    'Write an accompaniment under a melody with the Anticipatory Music Transformer (via a Hugging Face Space): holds the chosen melody part of a MIDI passage (or the open score session) fixed and generates new parts, returned as their own MIDI and MusicXML to add to the score. Only mode "accompany" is available; region and instrument infill are planned.',
   inputSchema: {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
     type: 'object',
@@ -12,6 +12,7 @@ export const MUSIC_INFILL_TOOL_CONTRACT: MusicToolContract = {
       mode: { type: 'string', enum: ['accompany'], default: 'accompany' },
       inputArtifactId: { type: 'string' },
       inputMidiBase64: { type: 'string' },
+      scoreSessionId: { type: 'string' },
       melodyTrack: { type: 'number', minimum: 0 },
       melodyTrackName: { type: 'string' },
       historySeconds: { type: 'number', minimum: 1, maximum: 10, default: 5 },

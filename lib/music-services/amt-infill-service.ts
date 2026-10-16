@@ -2,6 +2,7 @@ import { allowServerCredentialFallback } from '../api-access-control';
 import { convertMusicNotation } from '../music-conversion';
 import { createScoreArtifact, getScoreArtifact, summarizeScoreArtifact } from '../score-artifacts';
 import type { TraceContext } from '../trace-http';
+import { normalizeScoreSessionId, resolveScoreContent } from './score-request';
 import {
   AMT_MODELS,
   AmtInputError,
@@ -77,19 +78,54 @@ function normalizeModel(value: unknown): AmtModelKey | null {
   return key ?? null;
 }
 
-async function readInputMidi(data: Record<string, unknown> | null): Promise<Uint8Array | string> {
+/**
+ * The MIDI to accompany: inline, a MIDI artifact, or the live score session (its MusicXML
+ * converted to MIDI, which needs the MuseScore CLI the editor-api image ships).
+ */
+async function readInputMidi(
+  data: Record<string, unknown> | null,
+  traceContext?: TraceContext,
+): Promise<Uint8Array | AmtInfillServiceResult> {
   const inline = readTrimmedString(data?.inputMidiBase64 ?? data?.input_midi_base64);
   if (inline) return Uint8Array.from(Buffer.from(inline.replace(/\s+/g, ''), 'base64'));
+
   const artifactId = readTrimmedString(data?.inputArtifactId ?? data?.input_artifact_id);
-  if (!artifactId) return 'Provide inputMidiBase64 or inputArtifactId (a MIDI artifact).';
-  const artifact = await getScoreArtifact(artifactId);
-  if (!artifact) return `Artifact "${artifactId}" was not found.`;
-  if (artifact.format !== 'midi') {
-    return `Artifact "${artifactId}" is ${artifact.format}, not MIDI.`;
+  if (artifactId) {
+    const artifact = await getScoreArtifact(artifactId);
+    if (!artifact) return bad(`Artifact "${artifactId}" was not found.`);
+    if (artifact.format !== 'midi') {
+      return bad(`Artifact "${artifactId}" is ${artifact.format}, not MIDI.`);
+    }
+    return Uint8Array.from(
+      Buffer.from(artifact.content, artifact.encoding === 'base64' ? 'base64' : 'utf8'),
+    );
   }
-  return Uint8Array.from(
-    Buffer.from(artifact.content, artifact.encoding === 'base64' ? 'base64' : 'utf8'),
-  );
+
+  const scoreSessionId = normalizeScoreSessionId(data);
+  if (scoreSessionId) {
+    const resolution = await resolveScoreContent({ scoreSessionId });
+    if (resolution.error) return resolution.error;
+    try {
+      const midi = await convertMusicNotation({
+        inputFormat: 'musicxml',
+        outputFormat: 'midi',
+        content: resolution.xml,
+        validate: false,
+        traceContext,
+      });
+      return Uint8Array.from(Buffer.from(midi.content, 'base64'));
+    } catch (err) {
+      return {
+        status: 503,
+        body: {
+          ok: false,
+          error: `Could not export the score session to MIDI: ${err instanceof Error ? err.message : String(err)}`,
+        },
+      };
+    }
+  }
+
+  return bad('Provide inputMidiBase64, inputArtifactId (a MIDI artifact), or scoreSessionId.');
 }
 
 type ScoreArtifactRecord = Awaited<ReturnType<typeof createScoreArtifact>>;
@@ -181,8 +217,8 @@ export async function runMusicInfillService(
   const convertToMusicXml = readBoolean(data?.convertToMusicXml, data?.convert_to_musicxml, true);
   const includeContent = readBoolean(data?.includeContent, data?.include_content, false);
 
-  const input = await readInputMidi(data);
-  if (typeof input === 'string') return bad(input);
+  const input = await readInputMidi(data, traceContext);
+  if (!(input instanceof Uint8Array)) return input;
 
   let prepared: ReturnType<typeof prepareMelody>;
   let inputSeconds: number;

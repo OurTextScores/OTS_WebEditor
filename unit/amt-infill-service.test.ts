@@ -6,6 +6,7 @@ const mocked = vi.hoisted(() => ({
   convertMusicNotation: vi.fn(),
   createScoreArtifact: vi.fn(),
   getScoreArtifact: vi.fn(),
+  resolveScoreContent: vi.fn(),
   summarizeScoreArtifact: vi.fn((artifact: { id: string; format: string }) => ({
     id: artifact.id,
     format: artifact.format,
@@ -20,6 +21,11 @@ vi.mock('../lib/score-artifacts', () => ({
   createScoreArtifact: mocked.createScoreArtifact,
   getScoreArtifact: mocked.getScoreArtifact,
   summarizeScoreArtifact: mocked.summarizeScoreArtifact,
+}));
+
+vi.mock('../lib/music-services/score-request', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/music-services/score-request')>()),
+  resolveScoreContent: mocked.resolveScoreContent,
 }));
 
 import { runMusicInfillService } from '../lib/music-services/amt-infill-service';
@@ -297,12 +303,56 @@ describe('runMusicInfillService (accompany)', () => {
     expect(mocked.getScoreArtifact).toHaveBeenCalledWith('in-1');
   });
 
+  it('exports the live score session to MIDI and accompanies it', async () => {
+    const space = fakeSpace();
+    mocked.resolveScoreContent.mockResolvedValue({
+      xml: '<score-partwise/>',
+      artifact: null,
+      session: {},
+    });
+    mocked.convertMusicNotation.mockImplementation(async (request: { outputFormat: string }) =>
+      request.outputFormat === 'midi'
+        ? { content: toBase64(pianoInput()), contentEncoding: 'base64' }
+        : {
+            content: '<score-partwise/>',
+            contentEncoding: 'utf8',
+            inputFormat: 'midi',
+            outputFormat: 'musicxml',
+            normalization: { actions: [] },
+            validation: { ok: true },
+          },
+    );
+    const result = await runMusicInfillService({ scoreSessionId: 'sess-1', melodyTrack: 1 });
+
+    expect(result.status).toBe(200);
+    expect(mocked.resolveScoreContent).toHaveBeenCalledWith({ scoreSessionId: 'sess-1' });
+    expect(mocked.convertMusicNotation.mock.calls[0][0]).toMatchObject({
+      inputFormat: 'musicxml',
+      outputFormat: 'midi',
+      content: '<score-partwise/>',
+    });
+    expect(space.queuedData()[2]).toBe('Flute');
+  });
+
+  it('passes a missing score session through for the agent to act on', async () => {
+    const space = fakeSpace();
+    mocked.resolveScoreContent.mockResolvedValue({
+      xml: '',
+      artifact: null,
+      session: null,
+      error: { status: 404, body: { error: 'session_not_found' } },
+    });
+    const result = await runMusicInfillService({ scoreSessionId: 'gone' });
+    expect(result).toEqual({ status: 404, body: { error: 'session_not_found' } });
+    expect(space.fetchMock).not.toHaveBeenCalled();
+  });
+
   it.each([
     [{ mode: 'infill_region', inputMidiBase64: 'x' }, /not available yet/],
     [{ mode: 'remix', inputMidiBase64: 'x' }, /Invalid "mode"/],
     [{ model: 'huge', inputMidiBase64: 'x' }, /Invalid "model"/],
     [{ historySeconds: 30, inputMidiBase64: 'x' }, /historySeconds/],
-    [{}, /inputMidiBase64 or inputArtifactId/],
+    [{}, /inputMidiBase64, inputArtifactId/],
     [{ inputMidiBase64: Buffer.from('not midi').toString('base64') }, /not a readable MIDI/],
   ])('rejects %o before calling the Space', async (body, message) => {
     const space = fakeSpace();

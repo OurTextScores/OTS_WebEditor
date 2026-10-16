@@ -8,6 +8,7 @@ const mocked = vi.hoisted(() => ({
   runFunctionalHarmonyAnalyzeService: vi.fn(),
   runMusicGenerateService: vi.fn(),
   runMusicMultitrackVaeService: vi.fn(),
+  runMusicInfillService: vi.fn(),
   runHarmonyAnalyzeService: vi.fn(),
   runMusicScoreOpsPromptService: vi.fn(),
   runMusicScoreOpsPreviewService: vi.fn(),
@@ -51,6 +52,10 @@ vi.mock('../lib/music-services/generate-service', () => ({
 
 vi.mock('../lib/music-services/multitrack-vae-service', () => ({
   runMusicMultitrackVaeService: mocked.runMusicMultitrackVaeService,
+}));
+
+vi.mock('../lib/music-services/amt-infill-service', () => ({
+  runMusicInfillService: mocked.runMusicInfillService,
 }));
 
 vi.mock('../lib/music-services/harmony-service', () => ({
@@ -275,6 +280,37 @@ describe('runMusicAgentRouter', () => {
       expect.objectContaining({ mode: 'style_interpolation' }),
     );
     expect(mocked.runMusicGenerateService).not.toHaveBeenCalled();
+  });
+
+  it('routes accompaniment-as-notes prompts to music.infill on the open score session', async () => {
+    delete process.env.OPENAI_API_KEY;
+    mocked.runMusicInfillService.mockResolvedValue({
+      status: 200,
+      body: { ok: true, engine: 'anticipatory-music-transformer', midiArtifactId: 'a1' },
+    });
+
+    const result = await runMusicAgentRouter({
+      prompt: 'Write an accompaniment for this melody',
+      toolInput: { context: { scoreSessionId: 'sess-9' }, infill: { melodyTrackName: 'Flute' } },
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({ mode: 'fallback', selectedTool: 'music.infill' });
+    expect(mocked.runMusicInfillService).toHaveBeenCalledWith({
+      mode: 'accompany',
+      melodyTrackName: 'Flute',
+      scoreSessionId: 'sess-9',
+    });
+    expect(mocked.runHarmonyAnalyzeService).not.toHaveBeenCalled();
+    expect(mocked.runMusicGenerateService).not.toHaveBeenCalled();
+  });
+
+  it('keeps chord-symbol accompaniment prompts on harmony analysis', async () => {
+    delete process.env.OPENAI_API_KEY;
+    mocked.runHarmonyAnalyzeService.mockResolvedValue({ status: 200, body: { ok: true } });
+    const result = await runMusicAgentRouter({ prompt: 'Add accompaniment chords to this melody' });
+    expect(result.body).toMatchObject({ selectedTool: 'music.harmony_analyze' });
+    expect(mocked.runMusicInfillService).not.toHaveBeenCalled();
   });
 
   it('uses fallback router and scoreops service for edit prompts', async () => {
