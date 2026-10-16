@@ -10,6 +10,7 @@ import {
   type Positions,
   type Score,
 } from '@/lib/webmscore-loader';
+import { renderScannerPageSvgs } from './scanner-svg-pages';
 import { routeCompareKeyboardShortcut } from './compare-keyboard-policy';
 import type { CompareSide, CompareTransportState } from './compare-types';
 import type { CompareTransport } from './useCompareTransport';
@@ -279,27 +280,6 @@ function measureBounds(positions: Positions | null, scale: number): Array<Measur
       height: rawHeight * scale,
       page: element.page,
     };
-  });
-}
-
-/**
- * Draw the score's page at exactly `RENDER_WIDTH`.
- *
- * The measure coordinates below are scaled by `RENDER_WIDTH / pageWidth`, so
- * unless the SVG is drawn at that same width the clip windows point at the
- * wrong part of the page — which renders every row blank, since the systems sit
- * outside the visible band.
- */
-function svgAtRenderWidth(svg: string): string {
-  return svg.replace(/<svg\b[^>]*>/, (tag) => {
-    const withoutSize = tag
-      .replace(/\swidth="[^"]*"/i, '')
-      .replace(/\sheight="[^"]*"/i, '')
-      .replace(/\spreserveAspectRatio="[^"]*"/i, '');
-    return withoutSize.replace(
-      /^<svg/,
-      `<svg width="${RENDER_WIDTH}" preserveAspectRatio="xMinYMin meet"`,
-    );
   });
 }
 
@@ -620,7 +600,7 @@ async function renderScoreSide(
   const pageWidth = positions?.pageSize?.width || 0;
   const renderScale = pageWidth > 0 ? RENDER_WIDTH / pageWidth : 1;
   return {
-    svg: svgAtRenderWidth(svg),
+    svg: await renderScannerPageSvgs(score, svg, positions, highlightSelection),
     measures: measureBounds(positions, renderScale),
     segments: measureBounds(segments, renderScale).filter((box): box is MeasureBox => Boolean(box)),
     staffBands: staffBands.map((band) => ({

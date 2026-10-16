@@ -1,5 +1,6 @@
 'use client';
 
+import { useEmbeddedContentHeight } from './score-editor/useEmbeddedContentHeight';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Score, InputFileFormat, Positions, type InspectorPropertyName, type SelectedElementProperties, type FretDiagramData } from '../lib/webmscore-loader';
@@ -353,76 +354,7 @@ export default function ScoreEditor() {
     (Boolean(compareLeftUrl && compareRightUrl) || hostKind === 'host-scanner-findings') &&
     Boolean(compareRegionsUrl);
 
-  /*
-   * Report the document's height to whoever embedded it.
-   *
-   * The rows view does not scroll itself — a scrollable box inside a
-   * fixed-height iframe gives a reader two scrollbars and the shorter of two
-   * viewports. Instead the host sizes the frame to the content and its own
-   * page scrolls, which is the only way this gets the window's full height.
-   * Ignored by any host that is not listening, which is every other embed.
-   */
-  useEffect(() => {
-    if (hostTraits.layout !== 'content' || typeof ResizeObserver === 'undefined') return;
-    if (window.parent === window) return;
-
-    /*
-     * Nothing here may be measured against the viewport, and nothing may
-     * scroll.
-     *
-     * The frame is sized to this document, so `100vh` inside it *is* the
-     * frame — and the page wrapper's `min-h-screen` therefore grows to
-     * whatever height was last reported. Report a height, the frame grows,
-     * the wrapper grows to match, report a taller height: a ratchet that
-     * added a few hundred pixels every second. `min-height: 0` breaks it.
-     *
-     * `overflow: clip` is the other half. A frame a pixel shorter than its
-     * content can scroll by that pixel, and a wheel over a frame that can
-     * scroll is consumed by it and never reaches the page behind — which is
-     * what a broken scrollbar feels like. Clipping means no rounding error
-     * can produce one.
-     */
-    const root = document.documentElement;
-    const wrapper = document.querySelector('main');
-    const restore = {
-      rootOverflow: root.style.overflow,
-      bodyOverflow: document.body.style.overflow,
-      wrapperMinHeight: wrapper instanceof HTMLElement ? wrapper.style.minHeight : '',
-    };
-    if (wrapper instanceof HTMLElement) wrapper.style.minHeight = '0';
-
-    const post = () => {
-      const height = Math.ceil(document.body.scrollHeight);
-      /*
-       * Clip only once the frame is actually tall enough.
-       *
-       * A host that ignores the message — or has not resized yet — leaves
-       * this document in a short frame, and clipping there would hide
-       * everything below the fold with no way to reach it: a window on a
-       * score, and no scrollbar in either direction. So the clip is
-       * conditional on the frame having grown, and until it does this
-       * scrolls itself, which is the behaviour it had before any of this.
-       */
-      const fits = window.innerHeight >= height;
-      root.style.overflow = fits ? 'clip' : '';
-      document.body.style.overflow = fits ? 'clip' : '';
-      window.parent.postMessage({ type: 'ots-compare-height', height }, '*');
-    };
-    const observer = new ResizeObserver(post);
-    observer.observe(document.body);
-    // The frame's own size is what decides whether clipping is safe, and it
-    // changes when the host acts on the message rather than when the
-    // content does.
-    window.addEventListener('resize', post);
-    post();
-    return () => {
-      observer.disconnect();
-      window.removeEventListener('resize', post);
-      root.style.overflow = restore.rootOverflow;
-      document.body.style.overflow = restore.bodyOverflow;
-      if (wrapper instanceof HTMLElement) wrapper.style.minHeight = restore.wrapperMinHeight;
-    };
-  }, [hostTraits.layout]);
+  useEmbeddedContentHeight(hostTraits.layout === 'content');
 
   const [suppliedFindings, setSuppliedFindings] = useState<FindingRowsFinding[]>([]);
 
