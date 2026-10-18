@@ -33,10 +33,17 @@ export class AmtInputError extends Error {
 /** The Space could not serve the request: auth, quota, timeout, outage. */
 export class AmtSpaceError extends Error {
   status: number;
-  constructor(message: string, status: number, options?: { cause?: unknown }) {
+  /** The Space refused access (401/403/404): a private Space without a token that can read it. */
+  accessDenied: boolean;
+  constructor(
+    message: string,
+    status: number,
+    options?: { cause?: unknown; accessDenied?: boolean },
+  ) {
     super(message, options);
     this.name = 'AmtSpaceError';
     this.status = status;
+    this.accessDenied = options?.accessDenied ?? false;
   }
 }
 
@@ -144,15 +151,20 @@ export async function runAmtAccompany(request: AmtAccompanyRequest): Promise<Amt
       );
     }
     if (!res.ok) {
-      const detail = (await res.text().catch(() => '')).slice(0, 300);
-      // A private Space answers 401/404 to a missing or wrong token.
-      const hint =
-        res.status === 401 || res.status === 403 || res.status === 404
+      const body = (await res.text().catch(() => '')).trim();
+      // Hugging Face's own error pages are HTML; they say nothing the status doesn't.
+      const detail = body.startsWith('<') ? '' : body.slice(0, 300);
+      // A private Space answers 404 (or 401/403) to a missing or wrong token.
+      const accessDenied = res.status === 401 || res.status === 403 || res.status === 404;
+      const hint = !accessDenied
+        ? ''
+        : request.hfToken
           ? ' Check MUSIC_AMT_SPACE_ID and that MUSIC_AMT_SPACE_TOKEN can read the Space.'
-          : '';
+          : ' No Hugging Face token was sent, and a private Space needs one.';
       throw new AmtSpaceError(
         `AMT Space ${step} failed with HTTP ${res.status} (${host}).${hint}${detail ? ` ${detail}` : ''}`,
         res.status === 429 ? 429 : 503,
+        { accessDenied },
       );
     }
     return res;

@@ -403,6 +403,27 @@ describe('runMusicInfillService (accompany)', () => {
     expect(String(result.body.error)).toMatch(/MUSIC_AMT_SPACE_TOKEN/);
   });
 
+  it('names the flag when a configured token was held back', async () => {
+    vi.stubEnv('ALLOW_SERVER_LLM_KEYS', '');
+    fakeSpace({ status: { upload: 404 } });
+    const result = await runMusicInfillService({ inputMidiBase64: toBase64(pianoInput()) });
+    const error = String(result.body.error);
+    expect(error).toMatch(/No Hugging Face token was sent/);
+    expect(error).toMatch(/ALLOW_SERVER_LLM_KEYS=true/);
+    expect(error).not.toMatch(/can read the Space/);
+  });
+
+  it('leaves out an HTML error page', async () => {
+    const space = fakeSpace({ status: { upload: 404 } });
+    space.fetchMock.mockResolvedValueOnce(
+      new Response('<!DOCTYPE html><html>404</html>', { status: 404 }),
+    );
+    const result = await runMusicInfillService({ inputMidiBase64: toBase64(pianoInput()) });
+    const error = String(result.body.error);
+    expect(error).toMatch(/can read the Space\.$/);
+    expect(error).not.toMatch(/DOCTYPE/);
+  });
+
   it('sends no token unless server credentials are allowed', async () => {
     vi.stubEnv('ALLOW_SERVER_LLM_KEYS', '');
     const space = fakeSpace();

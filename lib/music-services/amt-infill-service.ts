@@ -30,6 +30,14 @@ const env = (name: string) => (process.env[name] || '').trim();
 const defaultSpaceId = () => env('MUSIC_AMT_SPACE_ID') || 'jhlusko/Anticipatory-Music-Transformer';
 const defaultSpaceToken = () =>
   allowServerCredentialFallback() ? env('MUSIC_AMT_SPACE_TOKEN') || env('HF_TOKEN') : '';
+/** Why a configured token was not sent, when that is why the Space refused access. */
+const ignoredTokenNote = (err: AmtSpaceError, sentToken: string) =>
+  err.accessDenied &&
+  !sentToken &&
+  !allowServerCredentialFallback() &&
+  (env('MUSIC_AMT_SPACE_TOKEN') || env('HF_TOKEN'))
+    ? ' MUSIC_AMT_SPACE_TOKEN is set but not used: server-side tokens need ALLOW_SERVER_LLM_KEYS=true.'
+    : '';
 const defaultModel = (): AmtModelKey => {
   const configured = env('MUSIC_AMT_MODEL_ID');
   const key = (Object.keys(AMT_MODELS) as AmtModelKey[]).find(
@@ -257,7 +265,10 @@ export async function runMusicInfillService(
   } catch (err) {
     if (err instanceof AmtInputError) return bad(err.message);
     if (err instanceof AmtSpaceError) {
-      return { status: err.status, body: { ok: false, error: err.message } };
+      return {
+        status: err.status,
+        body: { ok: false, error: err.message + ignoredTokenNote(err, hfToken) },
+      };
     }
     throw err;
   }
