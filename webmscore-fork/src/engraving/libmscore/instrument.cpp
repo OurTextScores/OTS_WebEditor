@@ -264,6 +264,7 @@ void StaffName::read(XmlReader& e)
 {
     _pos  = e.intAttribute("pos", 0);
     _name = e.readXml();
+    XmlReader::lineBreakFromTag(_name);
     if (_name.startsWith(u"<html>")) {
         // compatibility to old html implementation:
         _name = HtmlParser::parse(_name);

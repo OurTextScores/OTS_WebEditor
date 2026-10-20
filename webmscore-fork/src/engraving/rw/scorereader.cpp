@@ -220,6 +220,9 @@ Err ScoreReader::doRead(MasterScore* score, XmlReader& e, ReadContext& ctx)
             }
         } else if (tag == "Revision") {
             e.skipCurrentElement();
+        } else {
+            // e.g. <LastEID>, written before <Score> by MuseScore 4.2-4.4
+            e.skipCurrentElement();
         }
     }
 

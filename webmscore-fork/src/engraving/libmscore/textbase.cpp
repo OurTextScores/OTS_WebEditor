@@ -2335,6 +2335,7 @@ bool TextBase::readProperties(XmlReader& e)
     }
     if (tag == "text") {
         String str = e.readXml();
+        XmlReader::lineBreakFromTag(str);
         setXmlText(str);
         checkCustomFormatting(str);
     } else if (tag == "bold") {

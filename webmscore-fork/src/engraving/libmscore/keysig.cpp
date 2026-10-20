@@ -482,6 +482,7 @@ void KeySig::read(XmlReader& e)
 {
     _sig = KeySigEvent();     // invalidate _sig
     int subtype = 0;
+    bool hasActualKey = false;
 
     while (e.readNextStartElement()) {
         const AsciiStringView tag(e.name());
@@ -539,6 +540,15 @@ void KeySig::read(XmlReader& e)
             e.readInt();
         } else if (tag == "accidental") {
             _sig.setKey(Key(e.readInt()));
+        } else if (tag == "concertKey") {         // MuseScore 4.1+
+            if (!hasActualKey) {
+                _sig.setKey(Key(e.readInt()));
+            } else {
+                e.skipCurrentElement();
+            }
+        } else if (tag == "actualKey") {          // MuseScore 4.1+, only written when it differs from concertKey
+            _sig.setKey(Key(e.readInt()));
+            hasActualKey = true;
         } else if (tag == "natural") {                // obsolete
             e.readInt();
         } else if (tag == "custom") {
