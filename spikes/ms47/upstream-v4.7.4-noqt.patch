@@ -1,0 +1,184 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 5238ea5cee..fda47fdca8 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -219,6 +219,12 @@ if (MUE_COMPILE_MACOS_PRECOMPILED_DEPS_PATH)
+     set(MUE_COMPILE_USE_SYSTEM_OPUS ON)
+ endif()
+ 
++option(MS47_SPIKE_ENGINE_ONLY "Spike: build engraving + musicxml without Qt" OFF)
++if (MS47_SPIKE_ENGINE_ONLY)
++    include(${CMAKE_CURRENT_LIST_DIR}/spike/SpikeEngineOnly.cmake)
++    return()
++endif()
++
+ include(SetupQt6)
+ 
+ if (MUE_DOWNLOAD_SOUNDFONT)
+diff --git a/src/engraving/internal/engravingfontsprovider.cpp b/src/engraving/internal/engravingfontsprovider.cpp
+index 90a9561efe..c8384258b1 100644
+--- a/src/engraving/internal/engravingfontsprovider.cpp
++++ b/src/engraving/internal/engravingfontsprovider.cpp
+@@ -36,7 +36,7 @@ EngravingFontsProvider::EngravingFontsProvider(const muse::modularity::ContextPt
+ 
+ void EngravingFontsProvider::addInternalFont(const std::string& name, const std::string& family, const muse::io::path_t& filePath)
+ {
+-    muse::io::path_t basePath = muse::io::dirpath(filePath.toQString());
++    muse::io::path_t basePath = muse::io::dirpath(filePath);
+     muse::io::path_t metadataPath = basePath + "/metadata.json";
+     std::shared_ptr<EngravingFont> f = std::make_shared<EngravingFont>(name, family, filePath, metadataPath, iocContext());
+     m_symbolFonts.push_back(f);
+diff --git a/src/framework/draw/CMakeLists.txt b/src/framework/draw/CMakeLists.txt
+index 72bc354e02..7d6a8619fd 100644
+--- a/src/framework/draw/CMakeLists.txt
++++ b/src/framework/draw/CMakeLists.txt
+@@ -68,6 +68,29 @@ target_sources(muse_draw PRIVATE
+ 
+ if (DRAW_NO_INTERNAL)
+     target_compile_definitions(muse_draw PRIVATE DRAW_NO_INTERNAL DRAW_NO_QSVGRENDER)
++elseif (NOT MUSE_QT_SUPPORT)
++    # MS47 spike: freetype/harfbuzz font engine only, no Qt painters or QFontProvider
++    # MUSE_MODULE_DRAW_USE_QTTEXTDRAW here only switches off the msdfgen glyph-SDF path (msdfgen is not vendored)
++    target_compile_definitions(muse_draw PRIVATE DRAW_NO_QSVGRENDER MUSE_MODULE_DRAW_USE_QTTEXTDRAW)
++    target_sources(muse_draw PRIVATE
++        internal/ifontsengine.h
++        internal/ifontsdatabase.h
++        internal/ifontface.h
++        internal/fontprovider.cpp
++        internal/fontprovider.h
++        internal/fontsdatabase.cpp
++        internal/fontsdatabase.h
++        internal/fontsengine.cpp
++        internal/fontsengine.h
++        internal/fontfaceft.cpp
++        internal/fontfaceft.h
++        internal/fontfacedu.cpp
++        internal/fontfacedu.h
++    )
++    include(cmake/SetupFreeType.cmake)
++    include(cmake/SetupHarfBuzz.cmake)
++    target_link_libraries(muse_draw PRIVATE ${FREETYPE_LIBRARIES} ${HARFBUZZ_LIBRARIES})
++    target_include_directories(muse_draw PRIVATE ${FREETYPE_INCLUDE_DIRS} ${HARFBUZZ_INCLUDE_DIRS})
+ else()
+     target_sources(muse_draw PRIVATE
+         internal/qpainterprovider.cpp
+diff --git a/src/framework/draw/drawmodule.cpp b/src/framework/draw/drawmodule.cpp
+index 3978bd75b9..e2adea0400 100644
+--- a/src/framework/draw/drawmodule.cpp
++++ b/src/framework/draw/drawmodule.cpp
+@@ -23,7 +23,11 @@
+ 
+ #include "global/modularity/ioc.h"
+ 
+-#ifndef DRAW_NO_INTERNAL
++#if !defined(DRAW_NO_INTERNAL) && defined(NO_QT_SUPPORT)
++#include "internal/fontprovider.h"
++#include "internal/fontsengine.h"
++#include "internal/fontsdatabase.h"
++#elif !defined(DRAW_NO_INTERNAL)
+ #include "internal/qfontprovider.h"
+ #include "internal/qimageprovider.h"
+ 
+@@ -45,7 +49,12 @@ std::string DrawModule::moduleName() const
+ 
+ void DrawModule::registerExports()
+ {
+-#ifndef DRAW_NO_INTERNAL
++#if !defined(DRAW_NO_INTERNAL) && defined(NO_QT_SUPPORT)
++    m_fontsEngine = std::make_shared<FontsEngine>(iocContext());
++    ioc()->registerExport<draw::IFontProvider>(moduleName(), new FontProvider(iocContext()));
++    ioc()->registerExport<draw::IFontsEngine>(moduleName(), m_fontsEngine);
++    ioc()->registerExport<draw::IFontsDatabase>(moduleName(), new FontsDatabase());
++#elif !defined(DRAW_NO_INTERNAL)
+ 
+     ioc()->registerExport<draw::IImageProvider>(moduleName(), new QImageProvider());
+ 
+diff --git a/src/framework/draw/internal/fontsdatabase.cpp b/src/framework/draw/internal/fontsdatabase.cpp
+index 162a5996b8..e53c44f088 100644
+--- a/src/framework/draw/internal/fontsdatabase.cpp
++++ b/src/framework/draw/internal/fontsdatabase.cpp
+@@ -23,10 +23,12 @@
+ 
+ #include "muse_framework_config.h"
+ 
++#ifdef MUSE_MODULE_DRAW_USE_QTFONTMETRICS
+ #ifdef MUSE_MODULE_DRAW_USE_QTFONTMETRICS
+ #include <QFontDatabase>
+ #include <QFont>
+ #endif
++#endif
+ 
+ #include "global/io/file.h"
+ #include "global/io/dir.h"
+diff --git a/src/framework/global/thirdparty/kors_logger/src/logger.h b/src/framework/global/thirdparty/kors_logger/src/logger.h
+index ac86d4d185..956740e502 100644
+--- a/src/framework/global/thirdparty/kors_logger/src/logger.h
++++ b/src/framework/global/thirdparty/kors_logger/src/logger.h
+@@ -29,6 +29,7 @@ SOFTWARE.
+ #include <thread>
+ #include <vector>
+ #include <mutex>
++#include <memory>
+ 
+ #include "logstream.h"
+ 
+diff --git a/src/framework/global/types/string.h b/src/framework/global/types/string.h
+index cce1c7f376..e8f310bb0f 100644
+--- a/src/framework/global/types/string.h
++++ b/src/framework/global/types/string.h
+@@ -500,24 +500,40 @@ struct std::hash<muse::String>
+     std::size_t operator()(const muse::String& s) const noexcept { return s.hash(); }
+ };
+ 
+-inline muse::logger::Stream& operator<<(muse::logger::Stream& s, const muse::String& str)
++namespace muse {
++// In namespace muse so ADL finds them from any namespace; the && overload serves temporaries (LOGD() << str).
++// Without Qt there is no QString conversion to fall back on.
++inline logger::Stream& operator<<(logger::Stream& s, const String& str)
+ {
+     s << str.toUtf8().constChar();
+     return s;
+ }
+ 
++inline logger::Stream& operator<<(logger::Stream&& s, const String& str)
++{
++    return s << str;
++}
++}
++
+ // ============================
+ // AsciiStringView (ASCII)
+ // ============================
+ inline bool operator ==(const char* s1, const muse::AsciiStringView& s2) { return s2 == s1; }
+ inline bool operator !=(const char* s1, const muse::AsciiStringView& s2) { return s2 != s1; }
+ 
+-inline muse::logger::Stream& operator<<(muse::logger::Stream& s, const muse::AsciiStringView& str)
++namespace muse {
++inline logger::Stream& operator<<(logger::Stream& s, const AsciiStringView& str)
+ {
+     s << str.ascii();
+     return s;
+ }
+ 
++inline logger::Stream& operator<<(logger::Stream&& s, const AsciiStringView& str)
++{
++    return s << str;
++}
++}
++
+ #ifndef muPrintable
+ #  define muPrintable(string) string.toUtf8().constChar()
+ #endif
+diff --git a/src/importexport/musicxml/internal/export/exportmusicxml.cpp b/src/importexport/musicxml/internal/export/exportmusicxml.cpp
+index 883509b694..eec947b280 100644
+--- a/src/importexport/musicxml/internal/export/exportmusicxml.cpp
++++ b/src/importexport/musicxml/internal/export/exportmusicxml.cpp
+@@ -6001,7 +6001,7 @@ void ExportMusicXml::dynamic(Dynamic const* const dyn, staff_idx_t staff)
+     if (muse::contains(validMusicXmlDynamics, dynTypeName) && !hasCustomText) {
+         m_xml.tagRaw(dynTypeName);
+     } else if (!dynTypeName.empty()) {
+-        static const std::map<ushort, Char> map = {
++        static const std::map<unsigned short, Char> map = {
+             { 0xE520, u'p' },
+             { 0xE521, u'm' },
+             { 0xE522, u'f' },
