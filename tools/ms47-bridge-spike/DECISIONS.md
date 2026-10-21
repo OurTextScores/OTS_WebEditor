@@ -1,7 +1,8 @@
 # MuseScore 4.7 bridge — decisions needed
 
 **Date:** 2026-10-20 · **State:** 159 of 184 exports ported and verified (see `PORT_LOG.md`).
-Each item states what is blocked, the options, a recommendation and the reasoning. "Used by" lists callers in
+**All nine recommendations were accepted on 2026-10-20.** Each item states what is blocked, the options, the
+accepted recommendation and the reasoning. "Used by" lists callers in
 OTS_Web and OurTextScores (searched 2026-10-20). Items are ordered by impact.
 
 | # | Decision | Recommendation | Blocks |

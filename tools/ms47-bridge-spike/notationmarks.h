@@ -13,17 +13,9 @@
 #include "engraving/editing/editdata.h"
 #include "engraving/dom/segment.h"
 #include "engraving/dom/input.h"
-extern "C" {
-EMSCRIPTEN_KEEPALIVE bool addDynamic(uintptr_t score_ptr, int dynamicType, int excerptId)
+// 4.7 inserted SFFF/SFFFZ before SFP; maps the JS (4.00) dynamic index to 4.7's DynamicType.
+static bool legacyDynamicType(int index, engraving::DynamicType& out)
 {
-    auto* score=getScore(score_ptr, excerptId);
-    if(!score) return false;
-    auto cr = score->selection().cr();
-    if (!cr) {
-        LOGW() << "addDynamic: no chord/rest selected";
-        return false;
-    }
-    // 4.7 inserted SFFF/SFFFZ before SFP; preserve all existing JS indices.
     static constexpr engraving::DynamicType legacyTypes[] = {
         engraving::DynamicType::OTHER,
         engraving::DynamicType::PPPPPP,
@@ -57,8 +49,23 @@ EMSCRIPTEN_KEEPALIVE bool addDynamic(uintptr_t score_ptr, int dynamicType, int e
         engraving::DynamicType::Z,
         engraving::DynamicType::N,
     };
-    if (dynamicType < 0 || dynamicType >= int(sizeof(legacyTypes)/sizeof(*legacyTypes))) return false;
-    auto dtype=legacyTypes[dynamicType];
+    if (index < 0 || index >= int(sizeof(legacyTypes) / sizeof(*legacyTypes))) return false;
+    out = legacyTypes[index];
+    return true;
+}
+
+extern "C" {
+EMSCRIPTEN_KEEPALIVE bool addDynamic(uintptr_t score_ptr, int dynamicType, int excerptId)
+{
+    auto* score=getScore(score_ptr, excerptId);
+    if(!score) return false;
+    auto cr = score->selection().cr();
+    if (!cr) {
+        LOGW() << "addDynamic: no chord/rest selected";
+        return false;
+    }
+    engraving::DynamicType dtype;
+    if (!legacyDynamicType(dynamicType, dtype)) return false;
     score->startCmd(TranslatableString::untranslatable("add Dynamic"));
     auto dyn = new engraving::Dynamic(score->dummy()->segment());
     dyn->setDynamicType(dtype);

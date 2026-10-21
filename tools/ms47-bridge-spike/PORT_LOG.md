@@ -1,3 +1,20 @@
+# Remaining-exports checkpoint (in progress) — 2026-10-20
+
+**174 of 184 exports are implemented; 10 remain (playback, PDF, MIDI).** All nine DECISIONS.md recommendations
+were accepted. Added: `setSelectionFilter` (legacy mask translated, plus a one-line upstream `SelectionFilter`
+patch so "Notes and rests" off excludes single notes), `savePng` (explicit refusal), `transpose`,
+`layoutUntilPage`/`State`, `savePositions` (same element/event counts as 4.00 on Bach: 43/43, 657/657),
+`saveMetadata`, `loadProfile`, and drag/grip/drop (`dragtools.h`; 4.7's `Measure::drop` needs `EditData::track`
+for clefs). Suites `MS47_VERIFY_MISC` and `MS47_VERIFY_DRAG` pass except one check:
+
+* **Open bug:** after committing a hairpin grip drag and undoing it, MusicXML is restored but rendered pixels are
+  not (the segment is re-serialized with its autoplace offset). Investigate before relying on grip undo.
+
+Not yet re-run: the full suite on an optimized build for this batch. Next: MIDI, the playback spike, the PDF writer,
+fonts/packaging, then incremental layout.
+
+---
+
 # Parts, excerpts and fonts checkpoint — 2026-10-20
 
 **159 of 184 exports are implemented; 25 remain.** This batch adds `generateExcerpts`, `appendPart`,

@@ -15,6 +15,22 @@ index 5238ea5cee..fda47fdca8 100644
  include(SetupQt6)
  
  if (MUE_DOWNLOAD_SOUNDFONT)
+diff --git a/src/engraving/dom/selectionfilter.cpp b/src/engraving/dom/selectionfilter.cpp
+index f8bc376d52..f05a8f54d6 100644
+--- a/src/engraving/dom/selectionfilter.cpp
++++ b/src/engraving/dom/selectionfilter.cpp
+@@ -210,7 +210,10 @@ bool SelectionFilter::canSelectNoteIdx(size_t noteIdx, size_t totalNotesInChord,
+ {
+     if (totalNotesInChord == 1) {
+         //! NOTE: Always include single notes when the selection consists solely of single notes...
+-        return m_includeSingleNotes || !selectionContainsMultiNoteChords;
++        //! ...unless every note filter is off (single notes and all notes-in-chord), i.e. notes are excluded entirely
++        const bool allNotesExcluded = !m_includeSingleNotes
++                                      && m_filteredNotesInChordTypes == static_cast<unsigned int>(NotesInChordSelectionFilterTypes::NONE);
++        return m_includeSingleNotes || (!selectionContainsMultiNoteChords && !allNotesExcluded);
+     }
+ 
+     NotesInChordSelectionFilterTypes type = NotesInChordSelectionFilterTypes::NONE;
 diff --git a/src/engraving/internal/engravingfontsprovider.cpp b/src/engraving/internal/engravingfontsprovider.cpp
 index 90a9561efe..c8384258b1 100644
 --- a/src/engraving/internal/engravingfontsprovider.cpp
