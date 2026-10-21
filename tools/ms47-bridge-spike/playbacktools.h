@@ -7,6 +7,7 @@
 #ifdef MS47_WITH_PLAYBACK
 
 #include <cstring>
+#include <deque>
 #include <map>
 #include <memory>
 
@@ -197,7 +198,123 @@ static bool renderWav(uintptr_t id, mu::engraving::Score* score, muse::ByteArray
     sequence->player()->seek(0);
     return true;
 }
+// Streaming synthesis for the transport (4.00 bridge contract): an opaque iterator pointer; each call renders 512
+// frames into a malloc'd SynthRes that JS reads and frees. Layout must stay byte-compatible with the 4.00 SynthRes.
+struct SynthRes {
+    int done;
+    float startTime;     // seconds
+    float endTime;       // seconds
+    unsigned chunkSize;  // bytes
+    char chunk[];        // RENDER_STEP frames, non-interleaved float32: all of channel 0, then channel 1
+};
+
+struct SynthStream {
+    size_t playedFrames = 0;     // absolute position in frames (for start/end times)
+    size_t endFrame = 0;         // stop after this frame
+    bool done = false;
+};
+static std::deque<SynthStream> synthStreams;   // stable addresses while JS holds them
+
+static SynthStream* startStream(uintptr_t id, mu::engraving::Score* score, double startSeconds, double durationSeconds,
+                                const std::vector<const mu::engraving::EngravingItem*>& previewItems = {})
+{
+    if (!ensureSoundFont()) return nullptr;
+    Engine* e = engine();
+    ScorePlayback* sp = preparePlayback(id, score);
+    auto sequence = e->playback->sequence(sp->sequenceId);
+    if (!sequence) return nullptr;
+    const bool preview = !previewItems.empty();
+    sequence->player()->stop();
+    sequence->player()->seek(preview ? 0.0 : startSeconds);
+    e->audioEngine->setMode(RenderMode::OfflineMode);
+    auto mixer = e->audioEngine->mixer();
+    mixer->setOutputSpec(outputSpec());
+    mixer->setIsActive(true);
+    if (preview) {
+        // Off-stream events only (desktop "play element on selection"): the main stream is not playing
+        sp->model->triggerEventsForItems(previewItems, muse::mpe::duration_t(durationSeconds * 1000000.0), true);
+    }
+    const double totalSeconds = sequence->player()->duration() / 1000000.0;
+    SynthStream stream;
+    stream.playedFrames = preview ? 0 : static_cast<size_t>(std::max(0.0, startSeconds) * SAMPLE_RATE);
+    const double endSeconds = durationSeconds > 0 ? (preview ? durationSeconds : startSeconds + durationSeconds) : totalSeconds;
+    stream.endFrame = static_cast<size_t>(std::max(0.0, endSeconds) * SAMPLE_RATE);
+    synthStreams.push_back(stream);
+    return &synthStreams.back();
+}
+
+static SynthRes* renderChunk(SynthStream* stream, bool cancel)
+{
+    if (!stream || stream->done) {
+        auto* res = static_cast<SynthRes*>(calloc(1, sizeof(SynthRes)));
+        res->done = 1; res->startTime = -1; res->endTime = -1; res->chunkSize = 0;
+        return res;
+    }
+    float buffer[RENDER_STEP * CHANNELS] = {};
+    engine()->audioEngine->mixer()->process(buffer, RENDER_STEP);
+    auto* res = static_cast<SynthRes*>(calloc(1, sizeof(SynthRes) + sizeof(buffer)));
+    res->chunkSize = sizeof(buffer);
+    float* out = reinterpret_cast<float*>(res->chunk);
+    for (size_t i = 0; i < RENDER_STEP; ++i) {       // de-interleave, as 4.00
+        out[i] = buffer[2 * i];
+        out[RENDER_STEP + i] = buffer[2 * i + 1];
+    }
+    const size_t previous = stream->playedFrames;
+    stream->playedFrames += RENDER_STEP;
+    if (stream->playedFrames >= stream->endFrame || cancel) {
+        engine()->audioEngine->mixer()->setIsActive(false);
+        engine()->audioEngine->setMode(RenderMode::IdleMode);
+        stream->done = true;
+    }
+    res->done = stream->done;
+    res->startTime = float(previous) / SAMPLE_RATE;
+    res->endTime = float(stream->playedFrames) / SAMPLE_RATE;
+    return res;
+}
+
+// 4.00 playbackWindowForMeasureRange: measure indices -> played (repeat-expanded) start time and duration
+static bool measureRangeWindow(mu::engraving::Score* score, int startIndex, int endIndex, double& startSeconds, double& durationSeconds)
+{
+    auto* startMeasure = measureAtIndex(score, startIndex);
+    auto* endMeasure = measureAtIndex(score, endIndex);
+    if (!startMeasure || !endMeasure || endIndex < startIndex) return false;
+    const auto& repeats = score->repeatList();
+    const int playedStart = repeats.tick2utick(startMeasure->tick().ticks());
+    const int playedEnd = repeats.tick2utick((endMeasure->tick() + endMeasure->ticks()).ticks());
+    startSeconds = score->utick2utime(playedStart);
+    durationSeconds = std::max(0.05, score->utick2utime(playedEnd) - startSeconds);
+    return true;
+}
+
+static muse::ByteArray encodeStream(SynthStream* stream)
+{
+    std::vector<float> interleaved;
+    for (bool done = false; !done;) {
+        SynthRes* res = renderChunk(stream, false);
+        const size_t frames = res->chunkSize / sizeof(float) / CHANNELS;
+        const float* in = reinterpret_cast<const float*>(res->chunk);
+        for (size_t i = 0; i < frames; ++i) {
+            interleaved.push_back(in[i]);
+            interleaved.push_back(in[frames + i]);
+        }
+        done = res->done;
+        free(res);
+    }
+    muse::ByteArray wav;
+    writeWavHeader(wav, interleaved.size() / CHANNELS);
+    wav.push_back(reinterpret_cast<const uint8_t*>(interleaved.data()), interleaved.size() * sizeof(float));
+    return wav;
+}
 } // namespace ms47audio
+
+// Drop the score's playback model (it holds the Score*) and its engine sequence before the score is destroyed
+static void releasePlaybackForScore(uintptr_t id)
+{
+    auto it = ms47audio::scorePlaybacks.find(id);
+    if (it == ms47audio::scorePlaybacks.end()) return;
+    if (it->second.sequenceId >= 0) ms47audio::engine()->playback->removeSequence(it->second.sequenceId);
+    ms47audio::scorePlaybacks.erase(it);
+}
 
 extern "C" {
 
@@ -211,6 +328,72 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* saveAudio(uintptr_t score_ptr, const char* f
     return response(wav);
 }
 
+EMSCRIPTEN_KEEPALIVE uintptr_t synthAudio(uintptr_t score_ptr, float starttime, int excerptId)
+{
+    auto* score = getScore(score_ptr, excerptId);
+    return score ? reinterpret_cast<uintptr_t>(ms47audio::startStream(score_ptr, score, starttime, -1)) : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE uintptr_t synthAudioFromSelection(uintptr_t score_ptr, int excerptId)
+{
+    auto* score = getScore(score_ptr, excerptId);
+    if (!score) return 0;
+    return reinterpret_cast<uintptr_t>(ms47audio::startStream(score_ptr, score, selectionPlaybackStartTime(score_ptr, excerptId), -1));
+}
+
+EMSCRIPTEN_KEEPALIVE uintptr_t synthAudioForMeasureRange(uintptr_t score_ptr, int startMeasureIndex, int endMeasureIndex, int excerptId)
+{
+    auto* score = getScore(score_ptr, excerptId);
+    double start = 0, duration = 0;
+    if (!score || !ms47audio::measureRangeWindow(score, startMeasureIndex, endMeasureIndex, start, duration)) return 0;
+    return reinterpret_cast<uintptr_t>(ms47audio::startStream(score_ptr, score, start, duration));
+}
+
+// Audition the selected element(s) for durationSeconds (desktop "play on selection")
+EMSCRIPTEN_KEEPALIVE uintptr_t synthAudioSelectionPreview(uintptr_t score_ptr, float durationSeconds, int excerptId)
+{
+    auto* score = getScore(score_ptr, excerptId);
+    if (!score) return 0;
+    std::vector<const mu::engraving::EngravingItem*> items;
+    for (auto* item : score->selection().elements()) {
+        if (item && (item->isNote() || item->isChord() || item->isRest() || item->isHarmony())) items.push_back(item);
+    }
+    if (items.empty()) {
+        if (auto* cr = score->selection().firstChordRest()) items.push_back(cr);
+    }
+    if (items.empty()) return 0;
+    const double seconds = durationSeconds > 0 ? durationSeconds : 0.5;
+    return reinterpret_cast<uintptr_t>(ms47audio::startStream(score_ptr, score, 0, seconds, items));
+}
+
+EMSCRIPTEN_KEEPALIVE const char* processSynth(uintptr_t fn_ptr, bool cancel)
+{
+    return reinterpret_cast<const char*>(ms47audio::renderChunk(reinterpret_cast<ms47audio::SynthStream*>(fn_ptr), cancel));
+}
+
+EMSCRIPTEN_KEEPALIVE const char* processSynthBatch(uintptr_t fn_ptr, int batchSize, bool cancel)
+{
+    auto** results = static_cast<ms47audio::SynthRes**>(calloc(std::max(1, batchSize), sizeof(ms47audio::SynthRes*)));
+    for (int i = 0; i < batchSize; ++i) {
+        results[i] = ms47audio::renderChunk(reinterpret_cast<ms47audio::SynthStream*>(fn_ptr), cancel);
+    }
+    return reinterpret_cast<const char*>(results);
+}
+
+EMSCRIPTEN_KEEPALIVE const uint8_t* saveAudioForMeasureRange(uintptr_t score_ptr, const char* format, int startMeasureIndex, int endMeasureIndex, int excerptId)
+{
+    auto* score = getScore(score_ptr, excerptId);
+    if (!score) return textResponse("Invalid score or excerpt", 1);
+    if (!format || std::strcmp(format, "wav") != 0) return textResponse("saveAudioForMeasureRange currently supports wav only", 1);
+    double start = 0, duration = 0;
+    if (!ms47audio::measureRangeWindow(score, startMeasureIndex, endMeasureIndex, start, duration)) return textResponse("Invalid measure range", 1);
+    auto* stream = ms47audio::startStream(score_ptr, score, start, duration);
+    if (!stream) return textResponse("Unable to initialize audio synth", 1);
+    return response(ms47audio::encodeStream(stream));
+}
+
 } // extern "C"
 
+#else
+static void releasePlaybackForScore(uintptr_t) {}
 #endif // MS47_WITH_PLAYBACK

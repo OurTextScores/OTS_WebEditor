@@ -1,3 +1,32 @@
+# Streaming playback checkpoint — 2026-10-21
+
+**183/184 exports; only `savePdf` remains.** All nine audio exports are on 4.7's engine with the 4.00 JS ABI
+unchanged: `saveAudio`, `saveAudioForMeasureRange`, `synthAudio`, `synthAudioFromSelection`,
+`synthAudioForMeasureRange`, `synthAudioSelectionPreview`, `processSynth`, `processSynthBatch` (the 4.00
+`SynthRes` layout: done, start/end seconds, byte size, 512 de-interleaved float frames per chunk; batches are a
+malloc'd pointer array). `getValue` is now an exported runtime method (the JS `SynthRes` reader needs it).
+
+`verify-audio.mjs` (`MS47_VERIFY_AUDIO=1`, needs `MS47_SOUNDFONT`): whole-score streaming is **bit-identical** to
+`saveAudio` (12,662 chunks of Bach in 0.73 s); `synthAudio(30)` starts at 30.000 s and cancel ends the stream with
+empty done records afterwards; the bar 3–4 range starts and ends at the bars' played times and its WAV length
+(6.861 s) equals 4.00's to the sample; play-from-selection starts at the selected bar; a single-note preview of
+400 ms sounds for 0.41 s (rounded to whole chunks). Full suite on the playback build: green, 134 verified
+operations, 1m15s.
+
+Bug found by the bit-identity check: a destroyed score's `PlaybackModel` (holding the freed `Score*`) and its
+engine sequence were never released, and the stale sequence sounded under the next score's first render.
+`destroy` now releases them. The spike's numbers are unaffected (that render was the process's first).
+
+Differences from 4.00: with a measure-range selection, 4.00's `synthAudioFromSelection` started at 0 s; 4.7
+starts at the selected bar. The preview auditions the selected notes/chords through `PlaybackModel`'s
+off-stream events (desktop's "play on selection") instead of 4.00's playback-controller round trip. The engine is
+one shared mixer: starting a stream stops whatever stream was running (the editor runs one transport at a time).
+
+Next: `savePdf` (DECISIONS.md item 2), then an optimized playback build for size and speed, then making
+playback part of the default build.
+
+---
+
 # Playback spike — 2026-10-21 (DECISIONS.md item 1)
 
 **Result: 4.7's own audio stack renders in the Qt-free WASM bridge, faster than 4.00.** Behind the new
