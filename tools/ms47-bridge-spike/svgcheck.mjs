@@ -6,7 +6,8 @@ export async function createSvgRenderer() {
   const page = await browser.newPage({ viewport: { width: 900, height: 1200 }, deviceScaleFactor: 1 });
   page.on("console", msg => { if (msg.type() === "warning" || msg.type() === "error") console.error("SVG browser:", msg.text().slice(0, 500)); });
   return {
-    async render(svg) {
+    // textOnly: a page may hold only text (e.g. a page number and footer), so no path primitives are required
+    async render(svg, { textOnly = false } = {}) {
       await page.setContent(`<style>body{margin:0;background:white}svg{width:850px;height:auto}</style>${svg}`);
       const info = await page.evaluate(async () => {
         await document.fonts.ready;
@@ -40,10 +41,10 @@ export async function createSvgRenderer() {
         };
       });
       assert.equal(info.error, undefined);
-      assert.ok(info.paths > 0);
+      assert.ok(textOnly ? info.paths + info.texts > 0 : info.paths > 0);
       assert.ok(info.fonts.length > 0);
       assert.ok(info.fonts.every(f => f.status === 'loaded'), `All SVG fonts must load: ${JSON.stringify(info.fonts)}`);
-      assert.ok(info.inkPixels > 100, 'SVG must paint visible marks, not a blank page');
+      assert.ok(info.inkPixels > (textOnly ? 0 : 100), 'SVG must paint visible marks, not a blank page');
       return { png: await page.locator('svg').screenshot(), info };
     },
     async textBounds(svg, text) {

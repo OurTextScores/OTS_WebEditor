@@ -7,6 +7,40 @@
 #include <sstream>
 #include "svgfontoutlines.h"
 
+// Painter::drawText(rect, flags, text) as single-line runs: alignment, line breaks and clipping. Returns false for
+// word wrap and tab expansion, which the engraving painter never requests for score content.
+template<class Provider, class Run>
+static bool layoutRectText(Provider& provider, const muse::RectF& r, int flags, const muse::String& value, Run&& run)
+{
+    using namespace muse::draw;
+    if(flags & (TextWordWrap | TextExpandTabs)) return false;
+    auto fp=muse::modularity::globalIoc()->resolve<IFontProvider>("spike");
+    muse::String content=value;
+    if(flags & TextSingleLine) {
+        auto str=content.toStdString(); std::replace(str.begin(),str.end(),'\n',' ');
+        content=muse::String::fromStdString(str);
+    }
+    auto lines=content.split(u'\n');
+    if(lines.empty()) return true;
+    const auto& font=provider.font();
+    const double ascent=fp->ascent(font), descent=fp->descent(font);
+    const double spacing=fp->lineSpacing(font);
+    const double height=ascent+descent+(lines.size()-1)*spacing;
+    double y=r.top()+ascent;
+    if(flags & AlignVCenter) y=r.top()+(r.height()-height)/2+ascent;
+    else if(flags & AlignBottom) y=r.bottom()-height+ascent;
+    if(!(flags & TextDontClip)) { provider.save(); provider.setClipRect(r); }
+    for(const auto& line:lines) {
+        double x=r.left();
+        const double width=fp->horizontalAdvance(font,line);
+        if(flags & AlignHCenter) x+=(r.width()-width)/2;
+        else if(flags & AlignRight) x+=r.width()-width;
+        run(muse::PointF(x,y),line); y+=spacing;
+    }
+    if(!(flags & TextDontClip)) provider.restore();
+    return true;
+}
+
 // Streaming SVG provider. Reuse upstream state/save/restore, but emit immediately
 // so overlapping primitives retain painter order (DrawData groups by primitive).
 class SvgPaint : public muse::draw::BufferedPaintProvider {
@@ -135,31 +169,8 @@ public:
     void drawTextWorkaround(const Font& f,const Point& p,const muse::String& s) override { text(f,p,s); }
     void drawSymbol(const Point& p,char32_t c) override { text(font(),p,muse::String::fromUcs4(c)); }
     void drawText(const Rect& r,int flags,const muse::String& value) override {
-        using namespace muse::draw;
-        if(flags & (TextWordWrap | TextExpandTabs)) { failure="SVG wrapped/tabbed text not yet ported"; return; }
-        auto fp=muse::modularity::globalIoc()->resolve<IFontProvider>("spike");
-        muse::String content=value;
-        if(flags & TextSingleLine) {
-            auto str=content.toStdString(); std::replace(str.begin(),str.end(),'\n',' ');
-            content=muse::String::fromStdString(str);
-        }
-        auto lines=content.split(u'\n');
-        if(lines.empty()) return;
-        const double ascent=fp->ascent(font()), descent=fp->descent(font());
-        const double spacing=fp->lineSpacing(font());
-        const double height=ascent+descent+(lines.size()-1)*spacing;
-        double y=r.top()+ascent;
-        if(flags & AlignVCenter) y=r.top()+(r.height()-height)/2+ascent;
-        else if(flags & AlignBottom) y=r.bottom()-height+ascent;
-        if(!(flags & TextDontClip)) { save(); setClipRect(r); }
-        for(const auto& line:lines) {
-            double x=r.left();
-            const double width=fp->horizontalAdvance(font(),line);
-            if(flags & AlignHCenter) x+=(r.width()-width)/2;
-            else if(flags & AlignRight) x+=r.width()-width;
-            text(font(),Point(x,y),line); y+=spacing;
-        }
-        if(!(flags & TextDontClip)) restore();
+        if(!layoutRectText(*this,r,flags,value,[&](const Point& at,const muse::String& line) { text(font(),at,line); }))
+            failure="SVG wrapped/tabbed text not yet ported";
     }
     void drawPixmap(const Point&,const muse::draw::Pixmap&) override { failure="SVG images not yet ported"; }
     void drawTiledPixmap(const Rect&,const muse::draw::Pixmap&,const Point&) override { failure="SVG tiled images not yet ported"; }

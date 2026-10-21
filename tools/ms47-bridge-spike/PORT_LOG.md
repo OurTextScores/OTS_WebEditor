@@ -1,3 +1,35 @@
+# PDF checkpoint — 2026-10-21: 184/184 exports
+
+**Every 4.00 export now exists on the 4.7 bridge** (playback build; the default build lacks only the nine audio
+exports until playback joins it). `savePdf` is the native vector writer of DECISIONS.md item 2 (`pdfpaint.h`):
+the same streaming paint-provider shape as `SvgPaint`, emitting PDF 1.4 content-stream operators in painter order
+(per-primitive `q … cm … Q`, clip rects and masks as pre-transformed paths, pen caps/joins/dashes, alpha through
+`ExtGState`, Flate-compressed streams), with all text drawn as HarfBuzz-shaped FreeType glyph outlines cached per
+glyph. No fonts are embedded, so files are small and render identically everywhere; text is not selectable or
+searchable (the accepted trade-off). Images fail the export, as in SVG. Title metadata follows desktop
+(`workTitle`, else the score name, plus " - part" for parts). Glyph shaping and rect-text layout are now shared
+with the SVG writer (`SvgFontOutlines::shape`, `layoutRectText`).
+
+`verify-pdf.mjs` (`MS47_VERIFY_PDF=1`): page count, page size and title checked with poppler, page size against
+4.00's PDF; every page rasterised by poppler and compared with the same page's SVG rasterised by Chromium. Music
+pages agree ≥ 0.998 (fraction of each image's ink with ink within 1 px in the other). The text-only page in Bach
+(page number and footer) is 0.905: the browser shapes the SVG's `<text>` about 1% wider than the engraving metrics
+the layout centred it with, and the PDF's outlines follow the layout, so that page has a documented 0.85 floor.
+Bach: 3 pages, 45 KB in 0.34 s (4.00: 56 KB).
+
+Bug found by comparing with 4.00's PDF: upstream `FontsDatabase::actualFont` replaces a missing family with the
+plain default face, dropping bold and italic (Qt substitution keeps them; the Qt-free build never had it). Bach asks
+for "Tempus Sans ITC" italic measure numbers and drew them upright. Patched to keep the requested weight/slant when
+the default family has that face. The other visible differences from 4.00 on Bach (non-bold title, 18 pt measure
+numbers) are 4.7 reading the file's 4.6.3 style correctly; 4.00 misread the newer format.
+
+Full suite on the playback build: green, 137 verified operations.
+
+Next: optimized playback build (size, speed) and folding playback into the default build; on-demand fallback
+fonts and lazy resource packaging (items 3 and 8); incremental layout (item 9).
+
+---
+
 # Streaming playback checkpoint — 2026-10-21
 
 **183/184 exports; only `savePdf` remains.** All nine audio exports are on 4.7's engine with the 4.00 JS ABI

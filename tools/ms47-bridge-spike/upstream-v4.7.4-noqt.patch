@@ -175,7 +175,7 @@ index 3978bd75b9..e2adea0400 100644
      ioc()->registerExport<draw::IImageProvider>(moduleName(), new QImageProvider());
  
 diff --git a/src/framework/draw/internal/fontsdatabase.cpp b/src/framework/draw/internal/fontsdatabase.cpp
-index 162a5996b8..e53c44f088 100644
+index 162a5996b8..e23e6e01dd 100644
 --- a/src/framework/draw/internal/fontsdatabase.cpp
 +++ b/src/framework/draw/internal/fontsdatabase.cpp
 @@ -23,10 +23,12 @@
@@ -191,6 +191,19 @@ index 162a5996b8..e53c44f088 100644
  
  #include "global/io/file.h"
  #include "global/io/dir.h"
+@@ -89,6 +91,12 @@ FontDataKey FontsDatabase::actualFont(const FontDataKey& requireKey, Font::Type
+ 
+     FontDataKey def = defaultFont(type);
+     LOGW() << "not found required font: " << requireKey.family().id() << ", will be using default: " << def.family().id();
++    // Keep the requested weight and slant when the default family has that face (Qt's substitution does the same)
++    const FontDataKey styled(def.family(), requireKey.bold(), requireKey.italic());
++    const io::path_t styledPath = fontInfo(styled).path;
++    if (!styledPath.empty() && io::File::exists(styledPath)) {
++        return styled;
++    }
+     return def;
+ }
+ 
 diff --git a/src/framework/draw/internal/fontsengine.cpp b/src/framework/draw/internal/fontsengine.cpp
 index 7d9bf3d93f..fedc1ca542 100644
 --- a/src/framework/draw/internal/fontsengine.cpp

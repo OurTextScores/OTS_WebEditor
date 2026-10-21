@@ -38,8 +38,11 @@ class SvgFontOutlines {
     std::map<muse::draw::FontDataKey,std::unique_ptr<Face>> faces;
 public:
     ~SvgFontOutlines() { faces.clear(); if (library) FT_Done_FreeType(library); }
-    bool draw(const muse::draw::Font& font, const muse::PointF& at, const muse::String& text,
-              const muse::draw::FontData& data, double dpi, std::ostream& out) {
+    // Shape a run and hand each glyph's outline (font units, y up) to `glyph(outline, glyphId, x, y, scale)` at its pen
+    // position. Glyphs the face lacks call `missing()` and are skipped when it returns true, otherwise the run fails.
+    template<class Glyph, class Missing>
+    bool shape(const muse::draw::Font& font, const muse::PointF& at, const muse::String& text,
+               const muse::draw::FontData& data, double dpi, Glyph&& glyph, Missing&& missing) {
         using namespace muse::draw;
         if (text.empty()) return true;
         const auto key=dataKeyForFont(font);
@@ -68,15 +71,23 @@ public:
         double x=at.x(), y=at.y(); bool ok=true;
         for (unsigned i=0;i<count;++i) {
             if (!glyphs[i].codepoint || FT_Load_Glyph(face.ft,glyphs[i].codepoint,FT_LOAD_NO_SCALE|FT_LOAD_NO_HINTING)
-                || face.ft->glyph->format!=FT_GLYPH_FORMAT_OUTLINE) { ok=false; break; }
-            out << "<path data-font-outline=\"true\" transform=\"translate(" << x+positions[i].x_offset*scale << ' '
-                << y-positions[i].y_offset*scale << ") scale(" << scale << ' ' << -scale << ")\" d=\"";
-            Path path {out}; FT_Outline_Funcs callbacks {Path::move,Path::line,Path::conic,Path::cubic,0,0};
-            if (FT_Outline_Decompose(&face.ft->glyph->outline,&callbacks,&path)) { ok=false; break; }
-            if (path.open) out << 'Z';
-            out << "\"/>";
+                || face.ft->glyph->format!=FT_GLYPH_FORMAT_OUTLINE) {
+                if (!missing()) { ok=false; break; }
+            } else if (!glyph(&face.ft->glyph->outline,glyphs[i].codepoint,x+positions[i].x_offset*scale,
+                              y-positions[i].y_offset*scale,scale)) { ok=false; break; }
             x+=positions[i].x_advance*scale; y-=positions[i].y_advance*scale;
         }
         hb_buffer_destroy(buffer); return ok;
+    }
+
+    bool draw(const muse::draw::Font& font, const muse::PointF& at, const muse::String& text,
+              const muse::draw::FontData& data, double dpi, std::ostream& out) {
+        return shape(font,at,text,data,dpi,[&](FT_Outline* outline,unsigned,double x,double y,double scale) {
+            out << "<path data-font-outline=\"true\" transform=\"translate(" << x << ' ' << y << ") scale(" << scale << ' ' << -scale << ")\" d=\"";
+            Path path {out}; FT_Outline_Funcs callbacks {Path::move,Path::line,Path::conic,Path::cubic,0,0};
+            if (FT_Outline_Decompose(outline,&callbacks,&path)) return false;
+            if (path.open) out << 'Z';
+            out << "\"/>"; return true;
+        },[] { return false; });
     }
 };
