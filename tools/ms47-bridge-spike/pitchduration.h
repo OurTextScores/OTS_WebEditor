@@ -24,7 +24,7 @@ EMSCRIPTEN_KEEPALIVE bool setAccidental(uintptr_t score_ptr, int accidentalType,
     score->startCmd(TranslatableString::untranslatable("set Accidental"));
     score->changeAccidental(static_cast<engraving::AccidentalType>(accidentalType));
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -47,7 +47,7 @@ EMSCRIPTEN_KEEPALIVE bool doubleDuration(uintptr_t score_ptr, int excerptId)
     score->startCmd(TranslatableString::untranslatable("double Duration"));
     score->cmdDoubleDuration();
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -70,7 +70,7 @@ EMSCRIPTEN_KEEPALIVE bool halfDuration(uintptr_t score_ptr, int excerptId)
     score->startCmd(TranslatableString::untranslatable("half Duration"));
     score->cmdHalfDuration();
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -108,7 +108,7 @@ EMSCRIPTEN_KEEPALIVE bool toggleDot(uintptr_t score_ptr, int excerptId)
     }
     score->inputState().setDuration(d);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -146,7 +146,7 @@ EMSCRIPTEN_KEEPALIVE bool toggleDoubleDot(uintptr_t score_ptr, int excerptId)
     }
     score->inputState().setDuration(d);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 

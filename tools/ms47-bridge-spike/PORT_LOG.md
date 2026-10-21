@@ -1,3 +1,45 @@
+# Parts, excerpts and fonts checkpoint — 2026-10-20
+
+**159 of 184 exports are implemented; 25 remain.** This batch adds `generateExcerpts`, `appendPart`,
+`appendPartByMusicXmlId`, `removePart`, `setPartVisible`, `listInstrumentTemplates`, `addFont` (`parttools.h`)
+and `saveMxl`, and makes **every existing export part-aware**. Open decisions for the remaining exports, with
+recommendations: [DECISIONS.md](DECISIONS.md).
+
+Changes and compatibility decisions:
+
+* **The bridge is no longer master-score only.** `getScore` resolves `excerptId` to the excerpt's own `Score`;
+  all helpers take `Score*`. The compiler surfaced the master-only calls: measure insertion now uses
+  `Score::insertMeasure(ElementType::MEASURE, ...)` (acts on the master, maps back to the local score) and repeat
+  expansion goes through `masterScore()`. 4.00 cast the excerpt to `MasterScore*` (undefined behaviour) and threw on
+  a bad id; the port returns a failed call.
+* **Linked layout.** Master and part scores share one undo stack, so a command or undo issued through either can
+  change both. `layoutLinked(score)` lays out every linked score; without parts it is the same single layout.
+  A part edit undone from the master previously left the part with stale positions (MusicXML `default-x` and bar
+  widths differed); now both restore exactly.
+* `generateExcerpts` uses `MasterScore::initAndAddExcerpt(excerpt, true)`, the upstream form of 4.00's manual fake
+  `AddExcerpt`. `saveMsc` on a part returns an explicit error (DECISIONS.md item 7).
+* `listInstrumentTemplates` keeps the 4.00 ABI (an unused score pointer). 4.00 returned an empty `groupId` for all
+  588 templates; 4.7 fills it. 4.7 leaves the first long name empty for some templates, so names fall back to the
+  track name.
+* **`addFont` and Qt-free text fallback.** `addFont` reads the family and style from the font's `name`/`OS/2`
+  tables (Qt did this in 4.00) and registers it through `IFontsDatabase::addAdditionalFonts`. Making it work
+  exposed gaps in upstream's Qt-free `FontsEngine` (desktop measures through Qt and never uses it): fallback faces
+  were attached only when a font was first resolved, `horizontalAdvance` ignored fallback faces, and bounding
+  rects measured fallback glyphs in the primary face. Three small fixes are now in the upstream patch (10 files,
+  80+/9-). Without a fallback, CJK-only text is not drawn at all (DECISIONS.md item 3).
+
+`verify-parts.mjs` (`MS47_VERIFY_PARTS=1`, runs last because `addFont` is global): excerpt generation and
+idempotence, part-scoped page count/SVG/MusicXML, invalid excerpt ids, the explicit part-save error, an edit on a
+part reaching the master with undo/redo across both scores, the four part mutations (native change, one undo
+entry, exact MusicXML and pixel undo, redo) and their rejections, MXL for master and part, the template list, and
+the CJK fallback (a centred mixed title moves from x 3612 to 3130; a CJK-only title is drawn only with the
+fallback). The optimized build passes all suites together: 112 verified operations. All 159 names are in
+generated glue; `npm run check:debt` passes. Corpus timings are unchanged within noise (Bach load 110 -> 102 ms).
+Engine boot 201 ms; WASM 9,619,597 bytes. Evidence: [parts-2026-10-20.json](results/parts-2026-10-20.json).
+No bounded effort sample was recorded for this batch.
+
+---
+
 # Spanner, chord-tool and fret-diagram checkpoint — 2026-10-20
 
 **151 of 184 exports are implemented; 33 remain.** This batch adds 18: `addSlur`, `addTie`,

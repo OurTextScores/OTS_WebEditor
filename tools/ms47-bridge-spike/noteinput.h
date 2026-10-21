@@ -16,7 +16,7 @@ static engraving::ChordRest* chordRestForNoteInputStart(engraving::EngravingItem
     return item->isChordRest() ? engraving::toChordRest(item) : nullptr;
 }
 
-static engraving::ChordRest* resolveNoteInputStartPosition(MasterScore* score)
+static engraving::ChordRest* resolveNoteInputStartPosition(Score* score)
 {
     auto& inputState = score->inputState();
     engraving::EngravingItem* selected = score->selection().element();
@@ -120,7 +120,7 @@ EMSCRIPTEN_KEEPALIVE bool setDurationType(uintptr_t score_ptr, int durationType,
     score->inputState().setDuration(d);
     score->inputState().setRest(cr->isRest());
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -267,7 +267,7 @@ EMSCRIPTEN_KEEPALIVE bool putNote(uintptr_t score_ptr, int pageNumber, double x,
     score->startCmd(TranslatableString::untranslatable("Enter note"));
     const auto ret = score->putNote(pos, replace, insert);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return ret.success();
 }
 
@@ -294,7 +294,7 @@ EMSCRIPTEN_KEEPALIVE bool enterRest(uintptr_t score_ptr, int excerptId)
     score->startCmd(TranslatableString::untranslatable("Enter rest"));
     score->enterRest(duration);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -347,7 +347,7 @@ EMSCRIPTEN_KEEPALIVE bool addPitchByStep(uintptr_t id, int note, bool addToChord
     score->startCmd(TranslatableString::untranslatable(addToChord ? "Add note to chord" : "Enter note"));
     score->cmdAddPitch(params, addToChord, insert);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 

@@ -67,7 +67,7 @@ struct PedalSelectionRange {
     engraving::Segment* endSeg = nullptr;
 };
 
-static bool resolvePedalSelectionRange(MasterScore* score, PedalSelectionRange& out, const char* logPrefix)
+static bool resolvePedalSelectionRange(Score* score, PedalSelectionRange& out, const char* logPrefix)
 {
     const auto& selection = score->selection();
     if (selection.isNone()) {
@@ -151,7 +151,7 @@ static engraving::ChordRest* findChordRestAtSegment(engraving::Segment* segment,
     return nullptr;
 }
 
-static bool resolvePedalTextAnchor(MasterScore* score, engraving::ChordRest*& outCr, const char* logPrefix)
+static bool resolvePedalTextAnchor(Score* score, engraving::ChordRest*& outCr, const char* logPrefix)
 {
     const auto& selection = score->selection();
     if (selection.isNone()) {
@@ -199,7 +199,7 @@ static bool resolvePedalTextAnchor(MasterScore* score, engraving::ChordRest*& ou
     return true;
 }
 
-static bool applyTextMarkup(MasterScore* score, engraving::TextStyleType style, engraving::ChordRest* target, const String& xmlText, const char* logPrefix)
+static bool applyTextMarkup(Score* score, engraving::TextStyleType style, engraving::ChordRest* target, const String& xmlText, const char* logPrefix)
 {
     if (!target) {
         LOGW() << logPrefix << ": no target for text";
@@ -210,13 +210,13 @@ static bool applyTextMarkup(MasterScore* score, engraving::TextStyleType style, 
     engraving::TextBase* textItem = score->addText(style, target);
     if (!textItem) {
         score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
         LOGW() << logPrefix << ": failed to create text";
         return false;
     }
     textItem->undoChangeProperty(engraving::Pid::TEXT, xmlText);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -304,7 +304,7 @@ EMSCRIPTEN_KEEPALIVE bool addSlur(uintptr_t score_ptr, int excerptId)
     }
 
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return added;
 }
 
@@ -320,7 +320,7 @@ EMSCRIPTEN_KEEPALIVE bool addTie(uintptr_t score_ptr, int excerptId)
 
     // Score::cmdAddTie manages startCmd/endCmd internally.
     score->cmdAddTie(false);
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -362,7 +362,7 @@ EMSCRIPTEN_KEEPALIVE bool addGraceNote(uintptr_t score_ptr, int graceType, int e
     score->startCmd(TranslatableString::untranslatable("addGraceNote"));
     score->cmdAddGrace(type, engraving::Constants::DIVISION / denominator);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -412,7 +412,7 @@ EMSCRIPTEN_KEEPALIVE bool addTuplet(uintptr_t score_ptr, int tupletCount, int ex
         }
     }
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return added;
 }
 
@@ -474,7 +474,7 @@ EMSCRIPTEN_KEEPALIVE bool addTremolo(uintptr_t score_ptr, int tremoloType, int e
         }
     }
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -529,7 +529,7 @@ EMSCRIPTEN_KEEPALIVE bool addGlissando(uintptr_t score_ptr, int glissandoType, i
     score->startCmd(TranslatableString::untranslatable("addGlissando"));
     score->undoAddElement(glissando);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -562,7 +562,7 @@ EMSCRIPTEN_KEEPALIVE bool addPedal(uintptr_t score_ptr, int pedalVariant, int ex
     score->startCmd(TranslatableString::untranslatable("addPedal"));
     score->cmdAddSpanner(pedal, selectionRange.staffIdx, selectionRange.startSeg, selectionRange.endSeg);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -589,7 +589,7 @@ EMSCRIPTEN_KEEPALIVE bool addSostenutoPedal(uintptr_t score_ptr, int excerptId)
     score->startCmd(TranslatableString::untranslatable("addSostenutoPedal"));
     score->cmdAddSpanner(pedal, selectionRange.staffIdx, selectionRange.startSeg, selectionRange.endSeg);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -708,7 +708,7 @@ EMSCRIPTEN_KEEPALIVE bool splitPedal(uintptr_t score_ptr, int excerptId)
     score->cmdAddSpanner(leftPedal, staffIdx, startSeg, splitSeg);
     score->cmdAddSpanner(rightPedal, staffIdx, splitSeg, endSeg);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -737,7 +737,7 @@ EMSCRIPTEN_KEEPALIVE bool addAmbitus(uintptr_t score_ptr, int excerptId)
     ambitus->setTrack(track);
     score->undoAddElement(ambitus);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     score->select(ambitus, engraving::SelectType::SINGLE, ambitus->staffIdx());
     return true;
 }
@@ -750,7 +750,7 @@ EMSCRIPTEN_KEEPALIVE bool explodeSelection(uintptr_t score_ptr, int excerptId)
     score->startCmd(TranslatableString::untranslatable("explodeSelection"));
     score->cmdExplode();
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -762,7 +762,7 @@ EMSCRIPTEN_KEEPALIVE bool implodeSelection(uintptr_t score_ptr, int excerptId)
     score->startCmd(TranslatableString::untranslatable("implodeSelection"));
     score->cmdImplode();
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -775,7 +775,7 @@ EMSCRIPTEN_KEEPALIVE bool regroupSelection(uintptr_t score_ptr, int excerptId)
     score->startCmd(TranslatableString::untranslatable("regroupSelection"));
     score->cmdResetNoteAndRestGroupings();
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -823,7 +823,7 @@ EMSCRIPTEN_KEEPALIVE bool resequenceRehearsalMarks(uintptr_t score_ptr, int exce
         current->undoChangeProperty(engraving::Pid::TEXT, nextText(rehearsalMarks[index - 1], current));
     }
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 

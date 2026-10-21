@@ -10,7 +10,7 @@
 #include "engraving/dom/fret.h"
 #include "engraving/dom/segment.h"
 
-static engraving::FretDiagram* selectedFretDiagram(MasterScore* score)
+static engraving::FretDiagram* selectedFretDiagram(Score* score)
 {
     engraving::FretDiagram* selected = nullptr;
     for (auto* item : selectedInspectorTargets(score)) {
@@ -181,7 +181,7 @@ EMSCRIPTEN_KEEPALIVE bool setSelectedFretDiagram(uintptr_t score_ptr, const char
         diagram->undoSetFretBarre(barre.startString, barre.fret, false);
     }
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -224,7 +224,7 @@ EMSCRIPTEN_KEEPALIVE bool addFretDiagram(uintptr_t score_ptr, const char* patter
     score->undoAddElement(diagram);
     score->endCmd();
     score->select(diagram, engraving::SelectType::SINGLE, diagram->staffIdx());
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 

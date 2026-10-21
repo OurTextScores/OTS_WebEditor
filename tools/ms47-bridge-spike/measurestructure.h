@@ -26,7 +26,7 @@ static InsertMeasuresTarget parseInsertMeasuresTarget(int target)
     }
 }
 
-static bool computeBeforeMeasureIndex(MasterScore* score, InsertMeasuresTarget target, int& beforeIndex)
+static bool computeBeforeMeasureIndex(Score* score, InsertMeasuresTarget target, int& beforeIndex)
 {
     beforeIndex = -1;
 
@@ -139,7 +139,7 @@ EMSCRIPTEN_KEEPALIVE bool insertMeasures(uintptr_t score_ptr, int count, int tar
     }
 
     for (int i = 0; i < count; ++i) {
-        score->insertMeasure(beforeMeasure, options);
+        score->insertMeasure(engraving::ElementType::MEASURE, beforeMeasure, options); // acts on the master, adds to linked scores
     }
 
     if (target == InsertMeasuresTarget::AtEndOfScore && oldLastMeasure && oldHadCustomEnding) {
@@ -155,7 +155,7 @@ EMSCRIPTEN_KEEPALIVE bool insertMeasures(uintptr_t score_ptr, int count, int tar
     }
 
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -192,13 +192,13 @@ EMSCRIPTEN_KEEPALIVE bool addPickupMeasure(uintptr_t score_ptr, int numerator, i
     score->startCmd(TranslatableString::untranslatable("addPickupMeasure"));
 
     // Insert one measure before the current first measure
-    score->insertMeasure(firstMeasure, options);
+    score->insertMeasure(engraving::ElementType::MEASURE, firstMeasure, options);
 
     // The newly inserted measure is now the first measure
     engraving::Measure* newMeasure = score->firstMeasure();
     if (!newMeasure) {
         score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
         return false;
     }
 
@@ -209,7 +209,7 @@ EMSCRIPTEN_KEEPALIVE bool addPickupMeasure(uintptr_t score_ptr, int numerator, i
     newMeasure->adjustToLen(pickupFraction);
 
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -240,7 +240,7 @@ EMSCRIPTEN_KEEPALIVE bool removeTrailingEmptyMeasures(uintptr_t score_ptr, int e
     score->startCmd(TranslatableString::untranslatable("removeTrailingEmptyMeasures"));
     score->deleteMeasures(firstToDelete, lastMeasure, false);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -264,7 +264,7 @@ EMSCRIPTEN_KEEPALIVE bool removeSelectedMeasures(uintptr_t score_ptr, int excerp
     score->startCmd(TranslatableString::untranslatable("removeSelectedMeasures"));
     score->deleteMeasures(startMeasure, endMeasure, false);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -289,7 +289,7 @@ EMSCRIPTEN_KEEPALIVE bool setMeasureLengthToTimeSignature(uintptr_t score_ptr, i
         measure->undoChangeProperty(engraving::Pid::IRREGULAR, false);
     }
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -305,7 +305,7 @@ EMSCRIPTEN_KEEPALIVE bool setMeasureLineBreaks(uintptr_t id, const char* data, u
         const bool enabled=i<breaks.size() && breaks.at(i).isBool() ? breaks.at(i).toBool() : false;
         if (measure->lineBreak()!=enabled) measure->undoSetLineBreak(enabled);
     }
-    score->endCmd(); score->doLayout(); return true;
+    score->endCmd(); layoutLinked(score); return true;
 }
 EMSCRIPTEN_KEEPALIVE bool setMeasureSpacer(uintptr_t id, int measureIndex, int staffIdx, double gap, int excerpt) {
     auto* score=getScore(id,excerpt);
@@ -321,7 +321,7 @@ EMSCRIPTEN_KEEPALIVE bool setMeasureSpacer(uintptr_t id, int measureIndex, int s
         spacer->setTrack(staffIdx*engraving::VOICES); spacer->setSpacerType(SpacerType::DOWN);
         spacer->setGap(Spatium(gap)); score->undoAddElement(spacer);
     }
-    score->endCmd(); score->doLayout(); return true;
+    score->endCmd(); layoutLinked(score); return true;
 }
 
 }

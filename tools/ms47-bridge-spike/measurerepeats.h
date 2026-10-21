@@ -71,7 +71,7 @@ EMSCRIPTEN_KEEPALIVE bool toggleRepeatStart(uintptr_t score_ptr, int excerptId)
     score->startCmd(TranslatableString::untranslatable("toggleRepeatStart"));
     target->undoChangeProperty(engraving::Pid::REPEAT_START, nextState);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -103,7 +103,7 @@ EMSCRIPTEN_KEEPALIVE bool toggleRepeatEnd(uintptr_t score_ptr, int excerptId)
     score->startCmd(TranslatableString::untranslatable("toggleRepeatEnd"));
     target->undoChangeProperty(engraving::Pid::REPEAT_END, nextState);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -142,7 +142,7 @@ EMSCRIPTEN_KEEPALIVE bool setRepeatCount(uintptr_t score_ptr, int count, int exc
     }
     target->undoChangeProperty(engraving::Pid::REPEAT_COUNT, count);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -183,13 +183,13 @@ EMSCRIPTEN_KEEPALIVE bool setBarLineType(uintptr_t score_ptr, int barLineType, i
     engraving::BarLine* barLine = ensureEndBarLine(target);
     if (!barLine) {
         score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
         LOGW() << "setBarLineType: failed to locate or create barline";
         return false;
     }
     barLine->undoChangeProperty(engraving::Pid::BARLINE_TYPE, engraving::PropertyValue::fromValue(type));
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -238,7 +238,7 @@ EMSCRIPTEN_KEEPALIVE bool addVolta(uintptr_t score_ptr, int endingNumber, int ex
     score->startCmd(TranslatableString::untranslatable("addVolta"));
     score->cmdAddSpanner(volta, 0, startSegment, endSegment);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -270,7 +270,7 @@ static bool insertMarker(uintptr_t score_ptr, engraving::MarkerType type, int ex
     score->startCmd(TranslatableString::untranslatable(command));
     score->undoAddElement(marker);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -331,7 +331,7 @@ EMSCRIPTEN_KEEPALIVE bool addJump(uintptr_t score_ptr, int jumpType, int excerpt
     score->startCmd(TranslatableString::untranslatable("addJump"));
     score->undoAddElement(jump);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -391,7 +391,7 @@ EMSCRIPTEN_KEEPALIVE bool addMeasureRepeat(uintptr_t score_ptr, int numMeasures,
     score->startCmd(TranslatableString::untranslatable("addMeasureRepeat"));
     score->cmdAddMeasureRepeat(target, numMeasures, staffIdx);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return target->isMeasureRepeatGroup(staffIdx);
 }
 

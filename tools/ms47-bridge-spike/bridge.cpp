@@ -4,6 +4,7 @@
 #include "engraving/dom/select.h"
 #include "engraving/dom/note.h"
 #include "engraving/dom/chord.h"
+#include "engraving/dom/excerpt.h"
 #include <emscripten/emscripten.h>
 #include <cstring>
 #include <cstdlib>
@@ -20,9 +21,22 @@ static const uint8_t* textResponse(const std::string& text, uint32_t error = 0) 
     return response(ByteArray(reinterpret_cast<const uint8_t*>(text.data()), text.size()), error);
 }
 static std::map<uintptr_t, std::shared_ptr<EngravingProject>> projects;
-static MasterScore* getScore(uintptr_t id, int excerpt = -1) {
+// excerpt -1 is the full score; 0..n-1 index the master score's excerpts (parts), as in the 4.00 bridge.
+// Unlike 4.00, an out-of-range excerpt is a null score (a failed call), not a throw, and an excerpt is a Score,
+// not a MasterScore cast.
+static Score* getScore(uintptr_t id, int excerpt = -1) {
     auto it = projects.find(id);
-    return it != projects.end() && excerpt == -1 ? it->second->masterScore() : nullptr;
+    if (it == projects.end()) return nullptr;
+    MasterScore* master = it->second->masterScore();
+    if (excerpt == -1) return master;
+    if (excerpt < 0 || excerpt >= int(master->excerpts().size())) return nullptr;
+    return master->excerpts()[excerpt]->excerptScore();
+}
+
+// Every linked score (the master and its part scores) shares one undo stack, so a command or undo issued through any
+// of them can change all of them. Lay all of them out; without parts this is the single score's layout.
+static void layoutLinked(Score* score) {
+    for (Score* linked : score->scoreList()) linked->doLayout();
 }
 
 static bool changePitch(uintptr_t id,int excerpt,bool up);
@@ -80,6 +94,14 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* saveXml(uintptr_t id,int excerpt) {
     ByteArray xml; io::Buffer buffer(&xml); buffer.open(io::IODevice::WriteOnly);
     mu::iex::musicxml::saveXml(score,&buffer); buffer.close(); return response(xml);
 }
+EMSCRIPTEN_KEEPALIVE const uint8_t* saveMxl(uintptr_t id,int excerpt) {
+    // Compressed MusicXML through upstream's Qt-free ZipWriter (container.xml + score.xml)
+    auto* score=getScore(id,excerpt); if(!score) return textResponse("Invalid score or excerpt",1);
+    ByteArray mxl; io::Buffer buffer(&mxl); buffer.open(io::IODevice::WriteOnly);
+    const bool ok=mu::iex::musicxml::saveMxl(score,&buffer); buffer.close();
+    return ok ? response(mxl) : textResponse("Could not write MXL",1);
+}
+
 EMSCRIPTEN_KEEPALIVE const uint8_t* saveSvg(uintptr_t id,int page,bool background,bool highlight,int excerpt) {
     auto* score=getScore(id,excerpt);
     if(!score || page<0 || page>=int(score->npages())) return textResponse("Invalid score, excerpt or page",1);
@@ -103,11 +125,11 @@ EMSCRIPTEN_KEEPALIVE bool selectNextChord(uintptr_t id,int excerpt) {
 EMSCRIPTEN_KEEPALIVE bool pitchUp(uintptr_t id,int excerpt) { return changePitch(id,excerpt,true); }
 EMSCRIPTEN_KEEPALIVE bool undo(uintptr_t id,int excerpt) {
     auto* score=getScore(id,excerpt); if(!score) return false;
-    score->undoRedo(true,nullptr); score->doLayout(); return true;
+    score->undoRedo(true,nullptr); layoutLinked(score); return true;
 }
 EMSCRIPTEN_KEEPALIVE bool redo(uintptr_t id,int excerpt) {
     auto* score=getScore(id,excerpt); if(!score) return false;
-    score->undoRedo(false,nullptr); score->doLayout(); return true;
+    score->undoRedo(false,nullptr); layoutLinked(score); return true;
 }
 }
 
@@ -138,3 +160,4 @@ EMSCRIPTEN_KEEPALIVE bool redo(uintptr_t id,int excerpt) {
 #include "playbacktimeline.h"
 #include "spannertools.h"
 #include "frettools.h"
+#include "parttools.h"

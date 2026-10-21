@@ -3,7 +3,7 @@
 // Ported from webmscore-fork/web/main.cpp.
 #include <set>
 namespace engraving = mu::engraving;
-static std::vector<engraving::Note*> selectedNormalNotes(MasterScore* score)
+static std::vector<engraving::Note*> selectedNormalNotes(Score* score)
 {
     std::vector<engraving::Note*> notes;
     for (auto* note : score->selection().noteList()) {
@@ -25,7 +25,7 @@ static std::vector<engraving::Note*> selectedNormalNotes(MasterScore* score)
     return notes;
 }
 
-static std::vector<engraving::ChordRest*> selectedChordRests(MasterScore* score)
+static std::vector<engraving::ChordRest*> selectedChordRests(Score* score)
 {
     std::set<engraving::ChordRest*> uniqueChordRests;
     const auto& selection = score->selection();
@@ -73,7 +73,7 @@ static std::vector<engraving::ChordRest*> selectedChordRests(MasterScore* score)
     return chordRests;
 }
 
-static std::vector<engraving::Chord*> selectedChords(MasterScore* score, bool requireMultipleNotes)
+static std::vector<engraving::Chord*> selectedChords(Score* score, bool requireMultipleNotes)
 {
     std::vector<engraving::Chord*> chords;
     for (auto* chordRest : selectedChordRests(score)) {

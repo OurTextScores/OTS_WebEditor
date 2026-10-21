@@ -34,7 +34,7 @@ static engraving::EngravingItem* resolvePrimarySelectionElement(engraving::Score
     return nullptr;
 }
 
-static std::optional<int> resolveSelectionRawTick(engraving::MasterScore* score)
+static std::optional<int> resolveSelectionRawTick(engraving::Score* score)
 {
     if (!score) {
         return std::nullopt;
@@ -167,7 +167,7 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* playbackTimeline(uintptr_t score_ptr, int ex
 
 EMSCRIPTEN_KEEPALIVE float selectionPlaybackStartTime(uintptr_t id, int excerpt) {
     auto* score=getScore(id,excerpt); if (!score) return 0.f;
-    score->setExpandRepeats(true);
+    score->masterScore()->setExpandRepeats(true); // repeat expansion is a master-score setting
     const auto raw=resolveSelectionRawTick(score);
     if (!raw) return 0.f;
     const auto& repeats=score->repeatList();

@@ -5,6 +5,7 @@ import { verifyEdits } from './verify-edits.mjs';
 import { verifyTimeline } from './verify-timeline.mjs';
 import { verifyMeasures } from './verify-measures.mjs';
 import { verifySpanners } from './verify-spanners.mjs';
+import { verifyParts } from './verify-parts.mjs';
 import { verifyNoteInput } from './verify-noteinput.mjs';
 import { verifySelection } from './verify-selection.mjs';
 import { verifyInspector } from './verify-inspector.mjs';
@@ -175,9 +176,11 @@ export default options => Engine({ ...options, wasmBinary: readFileSync(new URL(
   const measures = process.env.MS47_VERIFY_MEASURES ? await verifyMeasures(WebMscore, renderer, output, (await import(pathToFileURL(path.join(temp, 'helper.js')))).Module) : undefined;
   const timeline = process.env.MS47_VERIFY_MEASURES || process.env.MS47_VERIFY_TIMELINE ? await verifyTimeline(WebMscore, (await import(pathToFileURL(path.join(temp, 'helper.js')))).Module) : undefined;
   const spanners = process.env.MS47_VERIFY_SPANNERS ? await verifySpanners(WebMscore, renderer, output) : undefined;
+  // Last: addFont changes global font state
+  const parts = process.env.MS47_VERIFY_PARTS ? await verifyParts(WebMscore, renderer, output) : undefined;
   const cache = await readFile(path.join(process.env.MS47_BUILD || path.join(workspace, 'ms47-build-wasm'), 'CMakeCache.txt'), 'utf8');
   const wasm = await readFile(path.join(temp, 'ms47_bridge.wasm'));
-  const report = { bootMs, results, edits, inspector, selection, noteInput, measures, timeline, spanners, build: { node: process.version, fastLink: /^MS47_BRIDGE_FAST_LINK:BOOL=ON$/m.test(cache), wasmBytes: wasm.length, wasmSha256: createHash('sha256').update(wasm).digest('hex') } };
+  const report = { bootMs, results, edits, inspector, selection, noteInput, measures, timeline, spanners, parts, build: { node: process.version, fastLink: /^MS47_BRIDGE_FAST_LINK:BOOL=ON$/m.test(cache), wasmBytes: wasm.length, wasmSha256: createHash('sha256').update(wasm).digest('hex') } };
   await writeFile(path.join(output, 'timings.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
 } finally {

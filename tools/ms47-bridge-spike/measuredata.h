@@ -3,7 +3,7 @@
 #include "engraving/dom/barline.h"
 #include "engraving/dom/keysig.h"
 
-static engraving::Part* partFromIndex(MasterScore* score, int partIndex)
+static engraving::Part* partFromIndex(Score* score, int partIndex)
 {
     const auto& parts = score->parts();
     if (partIndex < 0 || partIndex >= static_cast<int>(parts.size())) {
@@ -12,7 +12,7 @@ static engraving::Part* partFromIndex(MasterScore* score, int partIndex)
     return parts.at(static_cast<size_t>(partIndex));
 }
 
-static bool selectionMeasureRange(MasterScore* score, engraving::Measure*& startMeasure, engraving::Measure*& endMeasure)
+static bool selectionMeasureRange(Score* score, engraving::Measure*& startMeasure, engraving::Measure*& endMeasure)
 {
     startMeasure = nullptr;
     endMeasure = nullptr;
@@ -44,7 +44,7 @@ static bool selectionMeasureRange(MasterScore* score, engraving::Measure*& start
     return true;
 }
 
-static engraving::Measure* measureAtIndex(MasterScore* score, int measureIndex)
+static engraving::Measure* measureAtIndex(Score* score, int measureIndex)
 {
     if (measureIndex < 0) {
         return nullptr;
@@ -61,7 +61,7 @@ static engraving::Measure* measureAtIndex(MasterScore* score, int measureIndex)
     return nullptr;
 }
 
-static int measureCount(MasterScore* score)
+static int measureCount(Score* score)
 {
     int count = 0;
     for (auto* measure = score->firstMeasureMM(); measure; measure = measure->nextMeasureMM()) {
@@ -70,7 +70,7 @@ static int measureCount(MasterScore* score)
     return count;
 }
 
-static bool measureRangeForPage(MasterScore* score, int pageIndex, int& startMeasureIndex, int& endMeasureIndex)
+static bool measureRangeForPage(Score* score, int pageIndex, int& startMeasureIndex, int& endMeasureIndex)
 {
     startMeasureIndex = -1;
     endMeasureIndex = -1;
@@ -95,7 +95,7 @@ static bool measureRangeForPage(MasterScore* score, int pageIndex, int& startMea
     return startMeasureIndex >= 0 && endMeasureIndex >= startMeasureIndex;
 }
 
-static int measureIndexFor(MasterScore* score, engraving::Measure* targetMeasure)
+static int measureIndexFor(Score* score, engraving::Measure* targetMeasure)
 {
     if (!targetMeasure) {
         return -1;
@@ -112,7 +112,7 @@ static int measureIndexFor(MasterScore* score, engraving::Measure* targetMeasure
     return -1;
 }
 
-static bool measureRangeForSelection(MasterScore* score, int& startMeasureIndex, int& endMeasureIndex)
+static bool measureRangeForSelection(Score* score, int& startMeasureIndex, int& endMeasureIndex)
 {
     startMeasureIndex = -1;
     endMeasureIndex = -1;

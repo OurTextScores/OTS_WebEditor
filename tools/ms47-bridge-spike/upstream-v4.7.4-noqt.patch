@@ -110,6 +110,114 @@ index 162a5996b8..e53c44f088 100644
  
  #include "global/io/file.h"
  #include "global/io/dir.h"
+diff --git a/src/framework/draw/internal/fontsengine.cpp b/src/framework/draw/internal/fontsengine.cpp
+index 7d9bf3d93f..fedc1ca542 100644
+--- a/src/framework/draw/internal/fontsengine.cpp
++++ b/src/framework/draw/internal/fontsengine.cpp
+@@ -167,6 +167,12 @@ double FontsEngine::horizontalAdvance(const Font& f, const char32_t& ch) const
+     }
+ 
+     glyph_idx_t glyphIdx = rf->face->glyphIndex(ch);
++    if (glyphIdx == 0) {
++        // Missing from the primary face: measure in the substitution (fallback) face that has it, as rendering does
++        if (const IFontFace* sub = findSubtitutionFont(ch, rf->subtitutionFaces)) {
++            return from_f26d6(sub->glyphAdvance(sub->glyphIndex(ch))) * rf->pixelScale();
++        }
++    }
+     return from_f26d6(rf->face->glyphAdvance(glyphIdx)) * rf->pixelScale();
+ }
+ 
+@@ -181,10 +187,19 @@ double FontsEngine::horizontalAdvance(const Font& f, const std::u32string& text)
+         return 0.0;
+     }
+ 
+-    std::vector<GlyphPos> glyphs = rf->face->glyphs(&text[0], (int)text.size());
++    // Measure each run in the face that has its glyphs (primary or substitution), as boundingRect does
+     f26dot6_t advance = 0;
+-    for (const GlyphPos& g : glyphs) {
+-        advance += g.x_advance;
++    for (const TextBlock& line : splitTextByLines(text)) {
++        for (const TextBlock& block : splitTextByFontFaces(rf, line)) {
++            const IFontFace* face = rf->face->glyphIndex(*block.text) != 0
++                                    ? rf->face : findSubtitutionFont(*block.text, rf->subtitutionFaces);
++            if (!face) {
++                face = rf->face;   // no face has it: the primary face's missing-glyph advance, as before
++            }
++            for (const GlyphPos& g : face->glyphs(block.text, block.lenght)) {
++                advance += g.x_advance;
++            }
++        }
+     }
+ 
+     return from_f26d6(advance) * rf->pixelScale();
+@@ -237,7 +252,7 @@ RectF FontsEngine::boundingRect(const Font& f, const std::u32string& text) const
+             std::vector<GlyphPos> glyphs = fontFace->glyphs(ffBlock.text, ffBlock.lenght);
+ 
+             for (const GlyphPos& g : glyphs) {
+-                FBBox bbox = rf->face->glyphBbox(g.idx);
++                FBBox bbox = fontFace->glyphBbox(g.idx);
+                 if (isFirstInLine) {
+                     lineRect = bbox;
+                     isFirstInLine = false;
+@@ -287,6 +302,7 @@ RectF FontsEngine::tightBoundingRect(const Font& f, const std::u32string& text)
+         std::vector<TextBlock> fontFaceBlocks = splitTextByFontFaces(rf, l);
+ 
+         GlyphPos lastGlyph;
++        const IFontFace* lastFace = rf->face;
+         for (const TextBlock& ffBlock : fontFaceBlocks) {
+             const IFontFace* fontFace = nullptr;
+             if (rf->face->glyphIndex(*ffBlock.text) != 0) {
+@@ -301,7 +317,7 @@ RectF FontsEngine::tightBoundingRect(const Font& f, const std::u32string& text)
+             std::vector<GlyphPos> glyphs = fontFace->glyphs(ffBlock.text, ffBlock.lenght);
+ 
+             for (const GlyphPos& g : glyphs) {
+-                FBBox bbox = rf->face->glyphBbox(g.idx);
++                FBBox bbox = fontFace->glyphBbox(g.idx);
+                 if (isFirstInLine) {
+                     lineRect = bbox;
+                     isFirstInLine = false;
+@@ -314,9 +330,10 @@ RectF FontsEngine::tightBoundingRect(const Font& f, const std::u32string& text)
+                 advance += g.x_advance;
+             }
+             lastGlyph = glyphs.back();
++            lastFace = fontFace;
+         }
+ 
+-        advance -= (lastGlyph.x_advance - rf->face->glyphBbox(lastGlyph.idx).width());
++        advance -= (lastGlyph.x_advance - lastFace->glyphBbox(lastGlyph.idx).width());
+         lineRect.setWidth(advance);
+ 
+         if (isFirstLine) {
+@@ -479,6 +496,14 @@ IFontFace* FontsEngine::createFontFace(const io::path_t& path) const
+     return new FontFaceDU(origin);
+ }
+ 
++void FontsEngine::resetRequiredFaces()
++{
++    for (RequireFace* f : m_requiredFaces) {
++        delete f;
++    }
++    m_requiredFaces.clear();
++}
++
+ FontsEngine::RequireFace* FontsEngine::fontFace(const Font& f, bool isSymbolMode) const
+ {
+     //! NOTE This font is required
+diff --git a/src/framework/draw/internal/fontsengine.h b/src/framework/draw/internal/fontsengine.h
+index adb8843395..51a29d687b 100644
+--- a/src/framework/draw/internal/fontsengine.h
++++ b/src/framework/draw/internal/fontsengine.h
+@@ -44,6 +44,10 @@ public:
+ 
+     void init();
+ 
++    //! Forget resolved faces so their substitution (fallback) fonts are looked up again,
++    //! e.g. after IFontsDatabase::addAdditionalFonts. Loaded faces are kept.
++    void resetRequiredFaces();
++
+     double lineSpacing(const Font& f) const override;
+     double xHeight(const Font& f) const override;
+     double height(const Font& f) const override;
 diff --git a/src/framework/global/thirdparty/kors_logger/src/logger.h b/src/framework/global/thirdparty/kors_logger/src/logger.h
 index ac86d4d185..956740e502 100644
 --- a/src/framework/global/thirdparty/kors_logger/src/logger.h

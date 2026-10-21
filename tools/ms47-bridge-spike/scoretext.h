@@ -5,7 +5,7 @@
 // Figured bass keeps parsed figure items separately from TEXT. Replace the
 // complete element so text and parsed items travel through undo together.
 // Use upstream's parser; regenerateText() opens/closes its own command.
-static void replaceFiguredBass(MasterScore* score,FiguredBass* previous,const char* text) {
+static void replaceFiguredBass(Score* score,FiguredBass* previous,const char* text) {
     auto* next=previous->clone();
     next->clearItems();
     String plain=String::fromUtf8(text?text:"");
@@ -33,7 +33,7 @@ static bool addStyledText(uintptr_t id,int excerpt,const char* text,TextStyleTyp
     score->startCmd(TranslatableString::untranslatable("Add text"));
     TextBase* item=score->addText(style,target);
     if(item) item->undoChangeProperty(Pid::TEXT,TextBase::plainToXmlText(String::fromUtf8(text?text:"")));
-    score->endCmd(); score->doLayout(); return item;
+    score->endCmd(); layoutLinked(score); return item;
 }
 extern "C" {
 EMSCRIPTEN_KEEPALIVE bool setSelectedText(uintptr_t id,const char* text,int excerpt) {
@@ -47,7 +47,7 @@ EMSCRIPTEN_KEEPALIVE bool setSelectedText(uintptr_t id,const char* text,int exce
     score->startCmd(TranslatableString::untranslatable("Change text"));
     if(target->isFiguredBass()) replaceFiguredBass(score,toFiguredBass(target),text);
     else toTextBase(target)->undoChangeProperty(Pid::TEXT,TextBase::plainToXmlText(String::fromUtf8(text?text:"")));
-    score->endCmd(); score->doLayout(); return true;
+    score->endCmd(); layoutLinked(score); return true;
 }
 EMSCRIPTEN_KEEPALIVE bool addStaffText(uintptr_t id,const char* text,int excerpt) { return addStyledText(id,excerpt,text,TextStyleType::STAFF); }
 EMSCRIPTEN_KEEPALIVE bool addSystemText(uintptr_t id,const char* text,int excerpt) { return addStyledText(id,excerpt,text,TextStyleType::SYSTEM); }
@@ -68,6 +68,6 @@ EMSCRIPTEN_KEEPALIVE bool addFiguredBassText(uintptr_t id,const char* text,int e
     score->startCmd(TranslatableString::untranslatable("Add figured bass"));
     auto* item=score->addFiguredBass();
     if(item) replaceFiguredBass(score,item,text);
-    score->endCmd(); score->doLayout(); return item;
+    score->endCmd(); layoutLinked(score); return item;
 }
 }

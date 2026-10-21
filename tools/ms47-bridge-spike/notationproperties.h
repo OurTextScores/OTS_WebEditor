@@ -40,7 +40,7 @@ EMSCRIPTEN_KEEPALIVE bool setNoteheadGroup(uintptr_t score_ptr, int noteheadGrou
         note->undoChangeProperty(engraving::Pid::HEAD_GROUP, group);
     }
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -80,7 +80,7 @@ EMSCRIPTEN_KEEPALIVE bool setBeamMode(uintptr_t score_ptr, int beamMode, int exc
         chordRest->undoChangeProperty(engraving::Pid::BEAM_MODE, mode);
     }
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -97,7 +97,7 @@ EMSCRIPTEN_KEEPALIVE bool setMultiMeasureRests(uintptr_t score_ptr, bool enabled
     score->startCmd(TranslatableString::untranslatable("set Multi Measure Rests"));
     score->cmdToggleMmrest();
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 

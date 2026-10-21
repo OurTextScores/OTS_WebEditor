@@ -45,7 +45,7 @@ EMSCRIPTEN_KEEPALIVE bool addNoteFromRest(uintptr_t score_ptr, int excerptId)
     score->startCmd(TranslatableString::untranslatable("Replace rest with note"));
     score->setNoteRest(segment, rest->track(), nval, rest->durationTypeTicks(), engraving::DirectionV::AUTO);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -104,7 +104,7 @@ EMSCRIPTEN_KEEPALIVE bool flipStem(uintptr_t score_ptr, int excerptId)
         chord->undoChangeProperty(engraving::Pid::STEM_DIRECTION, static_cast<int>(newDir));
     }
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -120,7 +120,7 @@ static bool toggleLayoutBreak(uintptr_t score_ptr, engraving::LayoutBreakType ty
     score->startCmd(TranslatableString::untranslatable("Toggle layout break"));
     score->cmdToggleLayoutBreak(type);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -140,7 +140,7 @@ EMSCRIPTEN_KEEPALIVE bool changeSelectedElementsVoice(uintptr_t id, int voice, i
     score->startCmd(TranslatableString::untranslatable("Change voice"));
     score->changeSelectedElementsVoice(voice);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 

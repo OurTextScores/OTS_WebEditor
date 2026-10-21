@@ -24,7 +24,7 @@ static bool changePitch(uintptr_t id,int excerpt,bool up) {
     // Match desktop NotationInteraction::movePitch, including rest nudging.
     if(el && el->isRest()) score->cmdMoveRest(toRest(el),up?DirectionV::UP:DirectionV::DOWN);
     else score->upDown(up, UpDownMode::CHROMATIC);
-    score->endCmd(); score->doLayout(); return true;
+    score->endCmd(); layoutLinked(score); return true;
 }
 static bool setHeader(uintptr_t id,int excerpt,const char* text,TextStyleType style) {
     auto* score=getScore(id,excerpt); if(!score) return false;
@@ -32,7 +32,7 @@ static bool setHeader(uintptr_t id,int excerpt,const char* text,TextStyleType st
     TextBase* header=score->getText(style);
     if(!header) header=score->addText(style,nullptr);
     if(header) header->undoChangeProperty(Pid::TEXT,TextBase::plainToXmlText(String::fromUtf8(text?text:"")));
-    score->endCmd(); score->doLayout(); return header;
+    score->endCmd(); layoutLinked(score); return header;
 }
 extern "C" {
 EMSCRIPTEN_KEEPALIVE const uint8_t* title(uintptr_t id) {
@@ -57,6 +57,9 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* npages(uintptr_t id,int excerpt) {
 }
 EMSCRIPTEN_KEEPALIVE const uint8_t* saveMsc(uintptr_t id,bool compressed,int excerpt) {
     auto* score=getScore(id,excerpt); if(!score) return textResponse("Invalid score or unsupported excerpt",1);
+    // 4.00 wrote a part as a standalone score by casting the excerpt to a MasterScore; 4.7 has no such path and no
+    // consumer saves parts (see DECISIONS.md, "Saving a part as MSCZ"). Fail explicitly instead of saving the full score.
+    if (excerpt != -1) return textResponse("Saving a part as MSCZ/MSCX is not supported",1);
     ByteArray bytes; io::Buffer buffer(&bytes);
     MscWriter::Params params; params.device=&buffer; params.filePath="score.mscz";
     params.mode=MscIoMode::Zip;
@@ -123,14 +126,14 @@ EMSCRIPTEN_KEEPALIVE bool pitchDown(uintptr_t id,int excerpt) { return changePit
 EMSCRIPTEN_KEEPALIVE bool deleteSelection(uintptr_t id,int excerpt) {
     auto* score=getScore(id,excerpt); if(!score || score->selection().isNone()) return false;
     score->startCmd(TranslatableString::untranslatable("Delete selection"));
-    score->cmdDeleteSelection(); score->endCmd(); score->doLayout(); return true;
+    score->cmdDeleteSelection(); score->endCmd(); layoutLinked(score); return true;
 }
 EMSCRIPTEN_KEEPALIVE double getSpatium(uintptr_t id,int excerpt) {
     auto* score=getScore(id,excerpt); return score?score->style().spatium():0;
 }
 EMSCRIPTEN_KEEPALIVE bool relayout(uintptr_t id,int excerpt) {
     auto* score=getScore(id,excerpt); if(!score) return false;
-    score->setLayoutAll(); score->doLayout(); return true;
+    score->setLayoutAll(); layoutLinked(score); return true;
 }
 EMSCRIPTEN_KEEPALIVE const uint8_t* getLayoutMode(uintptr_t id,int excerpt) {
     auto* score=getScore(id,excerpt); return score?numberResponse(uint32_t(score->layoutMode())):textResponse("Invalid score",1);
@@ -138,7 +141,7 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* getLayoutMode(uintptr_t id,int excerpt) {
 EMSCRIPTEN_KEEPALIVE bool setLayoutMode(uintptr_t id,int mode,int excerpt) {
     auto* score=getScore(id,excerpt);
     if(!score || mode<int(LayoutMode::PAGE) || mode>int(LayoutMode::HORIZONTAL_FIXED)) return false;
-    if(score->layoutMode()!=LayoutMode(mode)) { score->setLayoutMode(LayoutMode(mode)); score->setLayoutAll(); score->doLayout(); }
+    if(score->layoutMode()!=LayoutMode(mode)) { score->setLayoutMode(LayoutMode(mode)); score->setLayoutAll(); layoutLinked(score); }
     return true;
 }
 EMSCRIPTEN_KEEPALIVE const uint8_t* getUndoInfo(uintptr_t id,int excerpt) {
@@ -153,6 +156,6 @@ EMSCRIPTEN_KEEPALIVE bool undoRedoTo(uintptr_t id,int target,int excerpt) {
     int guard=int(score->undoStack()->size())+1;
     while(int(score->undoStack()->currentIndex())!=target && guard-- > 0)
         score->undoRedo(int(score->undoStack()->currentIndex())>target,nullptr);
-    score->doLayout(); return int(score->undoStack()->currentIndex())==target;
+    layoutLinked(score); return int(score->undoStack()->currentIndex())==target;
 }
 }

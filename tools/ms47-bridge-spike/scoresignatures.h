@@ -49,7 +49,7 @@ EMSCRIPTEN_KEEPALIVE bool setTimeSignature(uintptr_t score_ptr, int numerator, i
     score->startCmd(TranslatableString::untranslatable("set Time Signature"));
     score->cmdAddTimeSig(targetMeasure, 0, ts, /*local*/ false);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -95,7 +95,7 @@ EMSCRIPTEN_KEEPALIVE bool setTimeSignatureWithType(uintptr_t score_ptr, int nume
     score->startCmd(TranslatableString::untranslatable("set Time Signature With Type"));
     score->cmdAddTimeSig(targetMeasure, 0, ts, /*local*/ false);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -132,7 +132,7 @@ EMSCRIPTEN_KEEPALIVE bool setKeySignature(uintptr_t score_ptr, int fifths, int e
         score->undoChangeKeySig(staff, tick, k);
     }
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -182,7 +182,7 @@ EMSCRIPTEN_KEEPALIVE bool setClef(uintptr_t score_ptr, int clefType, int excerpt
     score->startCmd(TranslatableString::untranslatable("set Clef"));
     score->undoChangeClef(targetStaff, targetItem, static_cast<engraving::ClefType>(clefType));
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -193,7 +193,7 @@ EMSCRIPTEN_KEEPALIVE bool setHarmonyVoiceLiteral(uintptr_t score_ptr, bool liter
     score->startCmd(TranslatableString::untranslatable("set Harmony Voice Literal"));
     score->undoChangeStyleVal(engraving::Sid::harmonyVoiceLiteral, literal);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -218,7 +218,7 @@ EMSCRIPTEN_KEEPALIVE bool setChordSymbolStylePreset(uintptr_t score_ptr, const c
     score->undoChangeStyleVal(engraving::Sid::chordStyle, styleValue);
     score->undoChangeStyleVal(engraving::Sid::chordDescriptionFile, chordFile);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -252,7 +252,7 @@ EMSCRIPTEN_KEEPALIVE bool addRehearsalMark(uintptr_t score_ptr, int excerptId)
     score->startCmd(TranslatableString::untranslatable("add Rehearsal Mark"));
     score->undo(new engraving::AddElement(rm));
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -340,7 +340,7 @@ EMSCRIPTEN_KEEPALIVE bool addArticulation(uintptr_t score_ptr, const char* artic
         }
     }
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -389,7 +389,7 @@ EMSCRIPTEN_KEEPALIVE bool addTempoText(uintptr_t score_ptr, double bpm, int exce
         auto tempoText = engraving::Factory::createTempoText(seg);
         if (!tempoText) {
             score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
             LOGW() << "addTempoText: Factory returned null";
             return false;
         }
@@ -403,7 +403,7 @@ EMSCRIPTEN_KEEPALIVE bool addTempoText(uintptr_t score_ptr, double bpm, int exce
         score->undoAddElement(tempoText);
     }
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 

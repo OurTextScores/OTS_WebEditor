@@ -2,7 +2,7 @@
 #pragma once
 #include "global/serialization/json.h"
 #include "engraving/dom/spanner.h"
-static std::vector<engraving::EngravingItem*> selectedInspectorTargets(MasterScore* score)
+static std::vector<engraving::EngravingItem*> selectedInspectorTargets(Score* score)
 {
     std::vector<engraving::EngravingItem*> targets;
     std::set<engraving::EngravingItem*> seen;
@@ -249,7 +249,7 @@ extern "C" EMSCRIPTEN_KEEPALIVE bool setSelectedElementProperty(uintptr_t score_
         change.first->undoChangeProperty(pid, change.second, engraving::PropertyFlags::UNSTYLED);
     }
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 

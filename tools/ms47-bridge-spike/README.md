@@ -140,4 +140,5 @@ work was batched and interrupted by laptop standby. The latest selection report
 records a bounded 12-export group (including a shared DPI fix), separately from
 invocation timings. Neither is a basis for extrapolating drag, excerpts or audio.
 
-Current measured scope and evidence: [PORT_LOG.md](PORT_LOG.md).
+Current measured scope and evidence: [PORT_LOG.md](PORT_LOG.md). Decisions needed for the remaining exports, with
+recommendations: [DECISIONS.md](DECISIONS.md).

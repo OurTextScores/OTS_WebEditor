@@ -67,7 +67,7 @@ EMSCRIPTEN_KEEPALIVE bool addDynamic(uintptr_t score_ptr, int dynamicType, int e
     ed.dropElement = dyn;
     cr->drop(ed);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -89,7 +89,7 @@ EMSCRIPTEN_KEEPALIVE bool addHairpin(uintptr_t score_ptr, int hairpinType, int e
     const auto type = static_cast<engraving::HairpinType>(hairpinType);
     const auto hairpins = score->addHairpins(type);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
 
     const bool added = std::any_of(hairpins.begin(), hairpins.end(), [](engraving::Hairpin* hairpin) {
         return hairpin != nullptr;
@@ -141,7 +141,7 @@ EMSCRIPTEN_KEEPALIVE bool addFermata(uintptr_t score_ptr, int fermataVariant, in
         chordRest->drop(editData);
     }
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -170,7 +170,7 @@ EMSCRIPTEN_KEEPALIVE bool addBreath(uintptr_t score_ptr, int breathType, int exc
         chordRest->drop(editData);
     }
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -198,7 +198,7 @@ EMSCRIPTEN_KEEPALIVE bool addArpeggio(uintptr_t score_ptr, int arpeggioType, int
         chord->drop(editData);
     }
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -219,7 +219,7 @@ EMSCRIPTEN_KEEPALIVE bool addOttava(uintptr_t score_ptr, int ottavaType, int exc
     score->startCmd(TranslatableString::untranslatable("add Ottava"));
     score->cmdAddOttava(static_cast<engraving::OttavaType>(ottavaType));
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 
@@ -260,7 +260,7 @@ EMSCRIPTEN_KEEPALIVE bool addTrill(uintptr_t score_ptr, int trillType, int excer
     score->startCmd(TranslatableString::untranslatable("add Trill"));
     score->undoAddElement(trill);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return true;
 }
 

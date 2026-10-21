@@ -4,7 +4,7 @@
 #include "engraving/infrastructure/imimedata.h"
 
 
-static bool selectMeasureRange(MasterScore* score, engraving::Measure* measure, engraving::staff_idx_t staffIdx)
+static bool selectMeasureRange(Score* score, engraving::Measure* measure, engraving::staff_idx_t staffIdx)
 {
     if (!measure || staffIdx == muse::nidx) {
         return false;
@@ -500,7 +500,7 @@ EMSCRIPTEN_KEEPALIVE bool pasteSelection(uintptr_t id, const char* mimeType, con
     score->startCmd(muse::TranslatableString("action", "Paste"));
     const bool pasted = score->cmdPaste(&mime, nullptr);
     score->endCmd();
-    score->doLayout();
+    layoutLinked(score);
     return pasted;
 }
 }
