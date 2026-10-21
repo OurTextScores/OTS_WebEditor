@@ -1,3 +1,40 @@
+# On-demand resources and the Qt-free stub audit — 2026-10-21
+
+**On-demand resources (DECISIONS.md items 3 and 8), engine and JS loader.**
+- `lazy-resources.json` lists 17 font files (9.9 MB) that stay out of the preload: optional music fonts, their Text
+  companions, the FreeSerif bold/italic faces and FreeSans. FreeSerif regular stays in because it is the default
+  Tablature font. The preload is 10.5 MB raw.
+- The engine records font files it looked for and did not find (filesystem shim, `fonts/` only). It exposes
+  `missingResources` (those files, plus CJK fallback ids `ja`/`ko`/`zh` by script found in the score's text),
+  `resourceRoot`, `writeResource` and `resourcesAdded` (re-resolve text faces, load newly present music fonts,
+  relayout).
+- Music fonts whose files are missing now fall back to Bravura until they arrive (upstream `fontByName` patch, plus a
+  bridge `addSymbolFont` that refuses missing files).
+- `index.js` gains `WebMscore.resourceBaseUrl` (`MSCORE_RESOURCE_BASEURL`), `fallbackFonts` and an overridable
+  `fetchResource`. After a laid-out load it fetches what is missing and lays the score out again. It is a no-op on the
+  4.00 engine, and unavailable resources are not retried.
+- `verify.mjs` `MS47_LAZY_RESOURCES=1` boots from a minimal copy of the resource root and serves fetches from the full
+  one. The whole suite passes that way. Of the corpus, only the test's Japanese fallback needed anything.
+- `verify-resources.mjs`:
+  - Petaluma is fetched on load, and the relayout equals a warm load byte for byte.
+  - An unavailable MuseJazz draws in Bravura and is not retried.
+  - A kana title fetches and registers the Japanese fallback and is drawn.
+- Still to do for item 8: the browser link variant (`webmscore.lib.{js,wasm,data}` with the preload package, MEMFS).
+
+**Stub audit:** see `STUBS_AUDIT.md`. Fixed:
+- **Crash:** any score containing an image aborted the engine (unregistered `ICryptographicHash`/`IImageProvider`).
+  Now MD4 store names and header-only pixmaps. Images are embedded in SVG and in PDF (JPEG, 8-bit PNG with alpha).
+- **Text corruption:** the Qt-free `Char`/`String` case and class functions truncated UTF-16 to a byte (`Ł`→`a`,
+  Cyrillic `Р` treated as a space). Now Unicode-correct; lyric alignment with a verse number is fixed (it was half a
+  staff space off for accented words).
+- Desktop defaults restored: fret diagrams auto-update, UI colours, MusicXML `inferTextType` off.
+- Upstream music fonts that were never registered are now registered.
+
+Regression tests: `verify-stubs.mjs` (`MS47_VERIFY_STUBS=1`), and the image fixture added to the PDF corpus. Full suite
+in lazy mode: green, 144 verified operations.
+
+---
+
 # Playback in the default build — 2026-10-21
 
 `MS47_WITH_PLAYBACK` now defaults to ON (CMake and `build.sh`): one module with the whole 4.00 API, as the 4.00

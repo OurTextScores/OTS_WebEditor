@@ -2,6 +2,7 @@
 #pragma once
 #include "draw/ifontprovider.h"
 #include "draw/types/fontstypes.h"
+#include "global/io/file.h"
 
 // The generic Qt-free FontsEngine uses 360 DPI; engraving uses 1200 DPI.
 // Match the desktop QFontProvider's engraving paint device without Qt.
@@ -13,7 +14,11 @@ class EngravingFontMetrics : public muse::draw::IFontProvider {
     }
 public:
     EngravingFontMetrics(std::shared_ptr<muse::draw::IFontProvider> source) : provider(std::move(source)) {}
-    int addSymbolFont(const muse::String& family, const muse::io::path_t& path) override { return provider->addSymbolFont(family, path); }
+    // The Qt-free provider accepts any path; refuse a missing file so engraving falls back to Bravura until the font is
+    // fetched (EngravingFont::ensureLoad retries on the next lookup)
+    int addSymbolFont(const muse::String& family, const muse::io::path_t& path) override {
+        return muse::io::File::exists(path) ? provider->addSymbolFont(family, path) : -1;
+    }
     double lineSpacing(const muse::draw::Font& f) const override { return provider->lineSpacing(engravingFont(f)); }
     double xHeight(const muse::draw::Font& f) const override { return provider->xHeight(engravingFont(f)); }
     double height(const muse::draw::Font& f) const override { return provider->height(engravingFont(f)); }

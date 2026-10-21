@@ -88,7 +88,7 @@ text drawn.
 - B. Bundle a CJK fallback with the engine. Simple but large (a full CJK font is 15–20 MB).
 - C. Do nothing. CJK lyrics and titles will mis-lay-out or vanish, as above.
 
-**Recommendation: A**, with fonts served from the same CDN as the soundfont. The bytes form of `WebMscore.addFont`
+**Implemented (2026-10-21):** engine reports missing files and CJK fallbacks; `index.js` fetches them (see PORT_LOG.md). **Recommendation: A**, with fonts served from the same CDN as the soundfont. The bytes form of `WebMscore.addFont`
 writes into `/fonts/` via `FS_createDataFile`, which this build must export — part of item 8.
 
 ## 4. Selection filter

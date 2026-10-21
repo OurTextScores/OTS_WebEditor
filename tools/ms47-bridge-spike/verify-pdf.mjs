@@ -50,6 +50,7 @@ export async function verifyPdf(WebMscore, renderer, output) {
     ['public/test_scores/bach_orig.mscz', 'mscz'],
     ['public/test_scores/four_measures.musicxml', 'musicxml'],
     ['tools/ms47-bridge-spike/spanner-fixture.musicxml', 'musicxml'],
+    ['tools/ms47-bridge-spike/image-fixture.mscz', 'mscz'],   // a raster image (PNG XObject)
   ];
   const results = [];
   const temp = await mkdtemp(path.join(tmpdir(), 'ms47-pdf-'));

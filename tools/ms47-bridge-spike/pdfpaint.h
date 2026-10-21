@@ -20,6 +20,13 @@ class PdfPaint : public muse::draw::BufferedPaintProvider {
     std::map<std::pair<int, int>, int> alphaStates;   // (fill, stroke) alpha -> /GSn
     std::map<std::pair<const void*, unsigned>, std::string> glyphPaths;   // outline ops in font units, per face+glyph
     size_t missingGlyphs = 0;
+    // Image XObjects: the stream dictionary entries and data, plus an optional soft mask (alpha), de-duplicated by bytes
+    struct PdfImage {
+        std::string dict, data, maskData;
+        int width = 0, height = 0;
+    };
+    std::vector<PdfImage> images;
+    std::map<std::string, size_t> imageIndex;
     // Clip region as page-space paths (transformed when set): a clip rect, and a mask (background minus holes)
     struct Clip { std::string clip, mask; bool enabled = false; } clip;
     std::vector<Clip> clips;
@@ -143,6 +150,101 @@ class PdfPaint : public muse::draw::BufferedPaintProvider {
         content << "Q\n";
     }
 
+    static std::string deflate(const std::string& raw) {
+        uLongf size = compressBound(raw.size());
+        std::string packed(size, '\0');
+        compress2(reinterpret_cast<Bytef*>(packed.data()), &size, reinterpret_cast<const Bytef*>(raw.data()), raw.size(), Z_BEST_COMPRESSION);
+        packed.resize(size);
+        return packed;
+    }
+
+    static bool encodeImage(const muse::ByteArray& bytes, PdfImage& out, std::string& error) {
+        const ImageHeader header = readImageHeader(bytes);
+        if (!header.mime) { error = "Unsupported PDF image data"; return false; }
+        out.width = header.width; out.height = header.height;
+        const uint8_t* p = bytes.constData();
+        const size_t n = bytes.size();
+        if (std::string(header.mime) == "image/jpeg") {
+            int components = 3;
+            for (size_t i = 2; i + 9 < n;) {   // component count from the frame header
+                if (p[i] != 0xFF) { ++i; continue; }
+                const uint8_t m = p[i + 1];
+                if (m == 0xD8 || m == 0x01 || (m >= 0xD0 && m <= 0xD7)) { i += 2; continue; }
+                if (m >= 0xC0 && m <= 0xCF && m != 0xC4 && m != 0xC8 && m != 0xCC) { components = p[i + 9]; break; }
+                i += 2 + (int(p[i + 2]) << 8 | p[i + 3]);
+            }
+            const char* space = components == 1 ? "/DeviceGray" : components == 4 ? "/DeviceCMYK /Decode [1 0 1 0 1 0 1 0]" : "/DeviceRGB";
+            out.dict = std::string("/ColorSpace ") + space + " /BitsPerComponent 8 /Filter /DCTDecode";
+            out.data.assign(reinterpret_cast<const char*>(p), n);
+            return true;
+        }
+        if (std::string(header.mime) != "image/png") { error = std::string("PDF export does not support ") + header.mime + " images"; return false; }
+        // PNG: 8-bit, non-interlaced; gray, RGB, palette, gray+alpha, RGBA
+        int depth = 0, type = 0, interlace = 0;
+        std::string idat, palette, trns;
+        for (size_t i = 8; i + 8 <= n;) {
+            const uint32_t len = uint32_t(p[i]) << 24 | uint32_t(p[i + 1]) << 16 | uint32_t(p[i + 2]) << 8 | p[i + 3];
+            const std::string tag(reinterpret_cast<const char*>(p + i + 4), 4);
+            const char* body = reinterpret_cast<const char*>(p + i + 8);
+            if (i + 12 + len > n) break;
+            if (tag == "IHDR") { depth = p[i + 16]; type = p[i + 17]; interlace = p[i + 20]; }
+            else if (tag == "PLTE") palette.assign(body, len);
+            else if (tag == "tRNS") trns.assign(body, len);
+            else if (tag == "IDAT") idat.append(body, len);
+            i += 12 + len;
+        }
+        const int channels = type == 0 ? 1 : type == 2 ? 3 : type == 3 ? 1 : type == 4 ? 2 : type == 6 ? 4 : 0;
+        if (depth != 8 || interlace || !channels || (type == 3 && palette.empty())) {
+            error = "PDF export supports 8-bit non-interlaced PNG images only"; return false;
+        }
+        const size_t w = out.width, h = out.height, stride = w * channels;
+        std::string raw(h * (stride + 1), '\0');
+        uLongf rawSize = raw.size();
+        if (uncompress(reinterpret_cast<Bytef*>(raw.data()), &rawSize, reinterpret_cast<const Bytef*>(idat.data()), idat.size()) != Z_OK
+            || rawSize != raw.size()) {
+            error = "Corrupt PNG image data"; return false;
+        }
+        std::vector<uint8_t> pixels(h * stride), prior(stride, 0);
+        for (size_t y = 0; y < h; ++y) {   // undo the per-row filters
+            const uint8_t filter = raw[y * (stride + 1)];
+            const uint8_t* in = reinterpret_cast<const uint8_t*>(raw.data()) + y * (stride + 1) + 1;
+            uint8_t* row = pixels.data() + y * stride;
+            for (size_t x = 0; x < stride; ++x) {
+                const int a = x >= size_t(channels) ? row[x - channels] : 0, b = prior[x], c = x >= size_t(channels) ? prior[x - channels] : 0;
+                int predicted = 0;
+                switch (filter) {
+                case 1: predicted = a; break;
+                case 2: predicted = b; break;
+                case 3: predicted = (a + b) / 2; break;
+                case 4: { const int pa = std::abs(b - c), pb = std::abs(a - c), pc = std::abs(a + b - 2 * c);
+                          predicted = pa <= pb && pa <= pc ? a : pb <= pc ? b : c; break; }
+                default: break;
+                }
+                row[x] = uint8_t(in[x] + predicted);
+            }
+            std::copy(row, row + stride, prior.begin());
+        }
+        const bool gray = type == 0 || type == 4;
+        std::string color, alpha;
+        bool hasAlpha = type == 4 || type == 6 || (type == 3 && !trns.empty());
+        for (size_t i = 0; i < w * h; ++i) {
+            const uint8_t* px = pixels.data() + i * channels;
+            if (type == 3) {
+                const size_t index = px[0];
+                for (int k = 0; k < 3; ++k) color += 3 * index + k < palette.size() ? palette[3 * index + k] : '\0';
+                if (hasAlpha) alpha += index < trns.size() ? trns[index] : char(255);
+            } else {
+                const int colorChannels = gray ? 1 : 3;
+                color.append(reinterpret_cast<const char*>(px), colorChannels);
+                if (hasAlpha) alpha += char(px[colorChannels]);
+            }
+        }
+        out.dict = std::string("/ColorSpace ") + (gray ? "/DeviceGray" : "/DeviceRGB") + " /BitsPerComponent 8 /Filter /FlateDecode";
+        out.data = deflate(color);
+        if (hasAlpha) out.maskData = deflate(alpha);
+        return true;
+    }
+
 public:
     double deviceLogicalDpi() const override { return mu::engraving::DPI; }
 
@@ -192,7 +294,23 @@ public:
         if (!layoutRectText(*this, r, flags, value, [&](const Point& at, const muse::String& line) { text(font(), at, line); }))
             failure = "PDF wrapped/tabbed text not yet ported";
     }
-    void drawPixmap(const Point&, const muse::draw::Pixmap&) override { failure = "PDF images not yet ported"; }
+    // Score images keep their encoded bytes (imagetools.h): JPEG passes through, PNG is decoded into RGB/gray + alpha
+    void drawPixmap(const Point& p, const muse::draw::Pixmap& pm) override {
+        const muse::ByteArray bytes = pm.data();
+        const std::string key(reinterpret_cast<const char*>(bytes.constData()), bytes.size());
+        auto it = imageIndex.find(key);
+        if (it == imageIndex.end()) {
+            PdfImage image;
+            std::string error;
+            if (!encodeImage(bytes, image, error)) { failure = error; return; }
+            images.push_back(std::move(image));
+            it = imageIndex.emplace(key, images.size() - 1).first;
+        }
+        begin(false, false, brush().color());
+        // The image's unit square, top row first, onto the pixmap's rect in the y-down page space
+        content << num(pm.width()) << " 0 0 " << num(-pm.height()) << ' ' << num(p.x()) << ' ' << num(p.y() + pm.height())
+                << " cm /Im" << it->second << " Do Q\n";
+    }
     void drawTiledPixmap(const Rect&, const muse::draw::Pixmap&, const Point&) override { failure = "PDF tiled images not yet ported"; }
     void save() override { BufferedPaintProvider::save(); clips.push_back(clip); }
     void restore() override { BufferedPaintProvider::restore(); if (!clips.empty()) { clip = clips.back(); clips.pop_back(); } }
@@ -226,7 +344,16 @@ public:
         for (const auto& [alpha, index] : alphaStates) {
             states += "/GS" + std::to_string(index) + " << /ca " + num(alpha.first / 255.0) + " /CA " + num(alpha.second / 255.0) + " >> ";
         }
-        object("<< /ExtGState << " + states + ">> >>");
+        // Image objects follow the pages: image i at imageObjects[i], its soft mask (if any) right after it
+        std::vector<size_t> imageObjects;
+        size_t next = firstPage + 2 * pageCount;
+        for (const PdfImage& image : images) {
+            imageObjects.push_back(next);
+            next += image.maskData.empty() ? 1 : 2;
+        }
+        std::string xobjects;
+        for (size_t i = 0; i < images.size(); ++i) xobjects += "/Im" + std::to_string(i) + ' ' + std::to_string(imageObjects[i]) + " 0 R ";
+        object("<< /ExtGState << " + states + ">> /XObject << " + xobjects + ">> >>");
         std::string hexTitle = "FEFF";
         for (char16_t c : title.toStdU16String()) {
             char buf[5];
@@ -243,6 +370,17 @@ public:
             compress2(reinterpret_cast<Bytef*>(packed.data()), &packedSize, reinterpret_cast<const Bytef*>(raw.data()), raw.size(), Z_BEST_COMPRESSION);
             packed.resize(packedSize);
             object("<< /Length " + std::to_string(packed.size()) + " /Filter /FlateDecode >>\nstream\n" + packed + "\nendstream");
+        }
+        for (size_t i = 0; i < images.size(); ++i) {
+            const PdfImage& image = images[i];
+            const std::string size = "/Width " + std::to_string(image.width) + " /Height " + std::to_string(image.height);
+            const std::string mask = image.maskData.empty() ? "" : " /SMask " + std::to_string(imageObjects[i] + 1) + " 0 R";
+            object("<< /Type /XObject /Subtype /Image " + size + ' ' + image.dict + mask + " /Length " + std::to_string(image.data.size())
+                   + " >>\nstream\n" + image.data + "\nendstream");
+            if (!image.maskData.empty()) {
+                object("<< /Type /XObject /Subtype /Image " + size + " /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode /Length "
+                       + std::to_string(image.maskData.size()) + " >>\nstream\n" + image.maskData + "\nendstream");
+            }
         }
         const size_t xref = doc.size();
         doc += "xref\n0 " + std::to_string(offsets.size() + 1) + "\n0000000000 65535 f \n";

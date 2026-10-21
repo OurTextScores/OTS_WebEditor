@@ -1,0 +1,22 @@
+{
+  "comment": "Resource files left out of the browser preload and fetched on demand (DECISIONS.md item 8). Paths are relative to the resource root. Everything else under the staged root is preloaded. FreeSerif.ttf stays preloaded: it is the engine's default Tablature font, which must exist.",
+  "files": [
+    "fonts/petaluma/Petaluma.otf",
+    "fonts/petaluma/PetalumaText.otf",
+    "fonts/musejazz/MuseJazz.otf",
+    "fonts/musejazz/MuseJazzText.otf",
+    "fonts/gootville/Gootville.otf",
+    "fonts/gootville/GootvilleText.otf",
+    "fonts/finalemaestro/FinaleMaestro.otf",
+    "fonts/finalemaestro/FinaleMaestroText.otf",
+    "fonts/finalebroadway/FinaleBroadway.otf",
+    "fonts/finalebroadway/FinaleBroadwayText.otf",
+    "fonts/mscore/MScore.otf",
+    "fonts/mscore/MScoreText.otf",
+    "fonts/campania/Campania.otf",
+    "fonts/FreeSerifBold.ttf",
+    "fonts/FreeSerifItalic.ttf",
+    "fonts/FreeSerifBoldItalic.ttf",
+    "fonts/FreeSans.ttf"
+  ]
+}

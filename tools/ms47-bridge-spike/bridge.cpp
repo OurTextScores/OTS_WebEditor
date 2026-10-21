@@ -184,3 +184,4 @@ EMSCRIPTEN_KEEPALIVE bool redo(uintptr_t id,int excerpt) {
 #include "miditools.h"
 #include "playbacktools.h"
 #include "pdfpaint.h"
+#include "resourcetools.h"

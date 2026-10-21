@@ -102,7 +102,7 @@ target_link_options(ms47_bridge PRIVATE
     "SHELL:-s STACK_SIZE=5MB" "SHELL:-s NODERAWFS=1" "SHELL:-s ENVIRONMENT=node"
     "SHELL:-s IMPORTED_MEMORY=1" "SHELL:-s MODULARIZE=1" "SHELL:-s EXPORT_NAME=MS47Bridge" "SHELL:-s NO_EXIT_RUNTIME=1"
     "SHELL:-s EXPORTED_FUNCTIONS=['_malloc','_free']"
-    "SHELL:-s EXPORTED_RUNTIME_METHODS=['ccall','stringToUTF8','UTF8ToString','HEAPU8','getValue']"
+    "SHELL:-s EXPORTED_RUNTIME_METHODS=['ccall','stringToUTF8','UTF8ToString','HEAPU8','getValue','FS_createPath','FS_createDataFile']"
     --no-entry)
 if(MS47_BRIDGE_FAST_LINK)
     target_link_options(ms47_bridge PRIVATE -O0 -g2 --emit-symbol-map)

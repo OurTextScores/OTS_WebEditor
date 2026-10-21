@@ -11,15 +11,18 @@ import { verifyDrag } from './verify-drag.mjs';
 import { verifyMidi } from './verify-midi.mjs';
 import { verifyAudio } from './verify-audio.mjs';
 import { verifyPdf } from './verify-pdf.mjs';
+import { verifyResources } from './verify-resources.mjs';
+import { verifyStubs } from './verify-stubs.mjs';
 import { verifyNoteInput } from './verify-noteinput.mjs';
 import { verifySelection } from './verify-selection.mjs';
 import { verifyInspector } from './verify-inspector.mjs';
-import { mkdtemp, readFile, writeFile, copyFile, rm, mkdir } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, copyFile, rm, mkdir, cp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, '../..');
 const workspace = path.dirname(repo);
@@ -28,6 +31,17 @@ process.env.MS47_RESOURCE_ROOT ||= path.join(workspace, 'ms47-build-native/res')
 const output = path.resolve(process.env.MS47_OUTPUT || '/tmp/ms47-bridge-results');
 await mkdir(output, { recursive: true });
 const temp = await mkdtemp(path.join(tmpdir(), 'ms47-bridge-'));
+// MS47_LAZY_RESOURCES: boot from a copy of the resource root without the lazy files and serve them through
+// WebMscore.fetchResource, as a browser build fetches them from the CDN. The whole suite can run this way.
+let lazy;
+if (process.env.MS47_LAZY_RESOURCES) {
+  const fullRoot = process.env.MS47_RESOURCE_ROOT;
+  const lazyFiles = new Set(JSON.parse(await readFile(path.join(here, 'lazy-resources.json'), 'utf8')).files);
+  const minimal = path.join(temp, 'res');
+  await cp(fullRoot, minimal, { recursive: true, filter: src => !lazyFiles.has(path.relative(fullRoot, src).split(path.sep).join('/')) });
+  process.env.MS47_RESOURCE_ROOT = minimal;
+  lazy = { fullRoot, fetched: [], block: null, serveFallbacks: false };
+}
 let renderer;
 try {
   const bridge = path.join(repo, 'webmscore-fork/web-public/src');
@@ -48,6 +62,19 @@ export default options => Engine({ ...options, wasmBinary: readFileSync(new URL(
   const started = performance.now();
   const { default: WebMscore } = await import(pathToFileURL(path.join(temp, 'index.js')));
   await WebMscore.ready;
+  if (lazy) {
+    WebMscore.fetchResource = async resource => {
+      lazy.fetched.push(resource);
+      if (lazy.block?.test(resource)) return null;
+      if (resource.startsWith('fonts/fallback/')) {
+        // Fallback fonts are global once registered: served only to the resources test
+        const local = '/usr/share/fonts/truetype/fonts-japanese-gothic.ttf';
+        return lazy.serveFallbacks && resource.includes('JP') && existsSync(local) ? new Uint8Array(await readFile(local)) : null;
+      }
+      const file = path.join(lazy.fullRoot, resource);
+      return existsSync(file) ? new Uint8Array(await readFile(file)) : null;
+    };
+  }
   const bootMs = performance.now() - started;
   assert.equal(await WebMscore.version(), 470);
   const scores = process.argv.slice(2);
@@ -186,11 +213,15 @@ export default options => Engine({ ...options, wasmBinary: readFileSync(new URL(
   const midi = process.env.MS47_VERIFY_MIDI ? await verifyMidi(WebMscore) : undefined;
   const audio = process.env.MS47_VERIFY_AUDIO ? await verifyAudio(WebMscore, output) : undefined;
   const pdf = process.env.MS47_VERIFY_PDF ? await verifyPdf(WebMscore, renderer, output) : undefined;
+  const stubs = process.env.MS47_VERIFY_STUBS ? await verifyStubs(WebMscore) : undefined;
   // Last: addFont changes global font state
   const parts = process.env.MS47_VERIFY_PARTS ? await verifyParts(WebMscore, renderer, output) : undefined;
+  // After parts: registers a CJK fallback font (global)
+  const resources = process.env.MS47_VERIFY_RESOURCES ? await verifyResources(WebMscore, lazy, { partsRan: !!parts }) : undefined;
+  if (lazy) console.log(`lazy resources fetched during the run: ${[...new Set(lazy.fetched)].join(', ') || 'none'}`);
   const cache = await readFile(path.join(process.env.MS47_BUILD || path.join(workspace, 'ms47-build-wasm'), 'CMakeCache.txt'), 'utf8');
   const wasm = await readFile(path.join(temp, 'ms47_bridge.wasm'));
-  const report = { bootMs, results, edits, inspector, selection, noteInput, measures, timeline, spanners, misc, drag, midi, audio, pdf, parts, build: { node: process.version, fastLink: /^MS47_BRIDGE_FAST_LINK:BOOL=ON$/m.test(cache), wasmBytes: wasm.length, wasmSha256: createHash('sha256').update(wasm).digest('hex') } };
+  const report = { bootMs, results, edits, inspector, selection, noteInput, measures, timeline, spanners, misc, drag, midi, audio, pdf, stubs, parts, resources, build: { node: process.version, fastLink: /^MS47_BRIDGE_FAST_LINK:BOOL=ON$/m.test(cache), wasmBytes: wasm.length, wasmSha256: createHash('sha256').update(wasm).digest('hex') } };
   await writeFile(path.join(output, 'timings.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
 } finally {

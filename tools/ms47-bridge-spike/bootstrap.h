@@ -8,6 +8,9 @@
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
+#include <set>
+#include <array>
+#include <cmath>
 #include <fstream>
 #include <map>
 #include <sstream>
@@ -52,15 +55,31 @@
 
 using namespace muse;
 using namespace mu::engraving;
+#include "imagetools.h"
 namespace fs = std::filesystem;
 
 #define STAGE(x) (std::fprintf(stderr, "[stage] %s\n", x), std::fflush(stderr))
+
+// Font files the engine looked for and did not find (paths relative to the resource root). Browser builds preload a
+// minimal resource set and fetch the rest on demand: see resourcetools.h.
+static std::set<std::string>& missingResourcePaths()
+{
+    static std::set<std::string> paths;
+    return paths;
+}
 
 // ---------------------------------------------------------------------------
 // Filesystem: real files, with ":/x" (Qt resource paths) served from <resroot>/x
 // ---------------------------------------------------------------------------
 class SpikeFileSystem : public io::IFileSystem
 {
+    void noteMissing(const io::path_t& p) const
+    {
+        const std::string& s = p.toStdString();
+        const size_t skip = s.rfind("://", 0) == 0 ? 3 : s.rfind(":/", 0) == 0 ? 2 : 0;
+        if (skip && s.compare(skip, 6, "fonts/") == 0) missingResourcePaths().insert(s.substr(skip));
+    }
+
 public:
     explicit SpikeFileSystem(fs::path resRoot)
         : m_resRoot(std::move(resRoot)) {}
@@ -80,7 +99,9 @@ public:
     Ret exists(const io::path_t& path) const override
     {
         std::error_code ec;
-        return fs::exists(map(path), ec) ? make_ok() : make_ret(Ret::Code::UnknownError);
+        if (fs::exists(map(path), ec)) return make_ok();
+        noteMissing(path);
+        return make_ret(Ret::Code::UnknownError);
     }
 
     Ret remove(const io::path_t&, bool) override { return make_ret(Ret::Code::NotSupported); }
@@ -152,6 +173,7 @@ public:
     {
         std::ifstream in(map(filePath), std::ios::binary);
         if (!in) {
+            noteMissing(filePath);
             return make_ret(Ret::Code::UnknownError);
         }
         std::string bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
@@ -233,21 +255,27 @@ public:
     String iconsFontFamily() const override { return {}; }
 
     Color defaultColor() const override { return Color::BLACK; }
-    Color scoreInversionColor() const override { return Color::BLACK; }
-    Color lassoColor() const override { return Color::BLACK; }
-    Color warningColor() const override { return Color::RED; }
-    Color warningSelectedColor() const override { return Color::RED; }
+    // Desktop EngravingConfiguration defaults (UI colours: drawn only when not printing, e.g. highlighted SVG)
+    Color scoreInversionColor() const override { return Color(220, 220, 220); }
+    Color lassoColor() const override { return Color("#00323200"); }
+    Color warningColor() const override { return Color("#808000"); }
+    Color warningSelectedColor() const override { return Color("#565600"); }
     Color criticalColor() const override { return Color::RED; }
-    Color criticalBackgroundColor() const override { return Color::WHITE; }
-    Color criticalSelectedColor() const override { return Color::RED; }
+    Color criticalBackgroundColor() const override { return Color::RED; }
+    Color criticalSelectedColor() const override { return Color("#8B0000"); }
     Color thumbnailBackgroundColor() const override { return Color::WHITE; }
     Color noteBackgroundColor() const override { return Color::WHITE; }
     Color fontPrimaryColor() const override { return Color::BLACK; }
-    Color voiceColor(voice_idx_t) const override { return Color::BLUE; }
+    Color voiceColor(voice_idx_t voice) const override { return voiceColors()[std::min<voice_idx_t>(voice, VOICES)]; }
 
     double guiScaling() const override { return 1.0; }
 
-    Color selectionColor(voice_idx_t, bool, bool) const override { return Color::BLUE; }
+    Color selectionColor(voice_idx_t voice, bool itemVisible, bool unlinked) const override
+    {
+        Color color = unlinked ? unlinkedColor() : voiceColor(voice);
+        if (!itemVisible) color.applyTint(.6f);
+        return color;
+    }
     void setSelectionColor(voice_idx_t, Color) override {}
     async::Channel<voice_idx_t, Color> selectionColorChanged() const override { return {}; }
 
@@ -255,20 +283,20 @@ public:
     void setDynamicsApplyToAllVoices(bool) override {}
     async::Channel<bool> dynamicsApplyToAllVoicesChanged() const override { return {}; }
 
-    bool autoUpdateFretboardDiagrams() const override { return false; }
+    bool autoUpdateFretboardDiagrams() const override { return true; }
     void setAutoUpdateFretboardDiagrams(bool) override {}
     async::Channel<bool> autoUpdateFretboardDiagramsChanged() const override { return {}; }
 
-    Color formattingColor() const override { return Color::BLUE; }
+    Color formattingColor() const override { return Color("#C31989"); }
     async::Channel<Color> formattingColorChanged() const override { return {}; }
-    Color invisibleColor() const override { return Color(128, 128, 128); }
+    Color invisibleColor() const override { return Color("#808080"); }
     async::Channel<Color> invisibleColorChanged() const override { return {}; }
-    Color unlinkedColor() const override { return Color(128, 128, 128); }
+    Color unlinkedColor() const override { return Color("#FF9300"); }
     async::Channel<Color> unlinkedColorChanged() const override { return {}; }
-    Color frameColor() const override { return Color::BLACK; }
+    Color frameColor() const override { return Color("#A0A0A4"); }
     async::Channel<Color> frameColorChanged() const override { return {}; }
-    Color scoreGreyColor() const override { return Color(128, 128, 128); }
-    Color highlightSelectionColor(voice_idx_t) const override { return Color::BLUE; }
+    Color scoreGreyColor() const override { return Color("#A0A0A4"); }
+    Color highlightSelectionColor(voice_idx_t voice) const override { return lighter(selectionColor(voice, true, false), 1.35); }
 
     const DebuggingOptions& debuggingOptions() const override { return m_debug; }
     void setDebuggingOptions(const DebuggingOptions& options) override { m_debug = options; }
@@ -292,6 +320,32 @@ public:
     void setMaxScaledImageDim(int) override {}
 
 private:
+    static const std::array<Color, VOICES + 1>& voiceColors()
+    {
+        static const std::array<Color, VOICES + 1> colors { Color("#0065BF"), Color("#007F00"), Color("#C53F00"), Color("#C31989"),
+                                                            Color("#6038FC") };   // last: "all voices"
+        return colors;
+    }
+    // QColor::lighter: scale the HSV value; what overflows 255 comes off the saturation
+    static Color lighter(const Color& c, double factor)
+    {
+        const double r = c.red() / 255.0, g = c.green() / 255.0, b = c.blue() / 255.0;
+        const double maxc = std::max({ r, g, b }), minc = std::min({ r, g, b }), delta = maxc - minc;
+        double h = 0;
+        if (delta > 0) {
+            h = maxc == r ? std::fmod((g - b) / delta, 6.0) : maxc == g ? (b - r) / delta + 2 : (r - g) / delta + 4;
+            h *= 60;
+            if (h < 0) h += 360;
+        }
+        double sat = maxc > 0 ? delta / maxc : 0, v = maxc * factor;
+        if (v > 1) { sat = std::max(0.0, sat - (v - 1)); v = 1; }
+        const double cc = v * sat, x = cc * (1 - std::abs(std::fmod(h / 60, 2.0) - 1)), m = v - cc;
+        double rr = 0, gg = 0, bb = 0;
+        if (h < 60) { rr = cc; gg = x; } else if (h < 120) { rr = x; gg = cc; } else if (h < 180) { gg = cc; bb = x; }
+        else if (h < 240) { gg = x; bb = cc; } else if (h < 300) { rr = x; bb = cc; } else { rr = cc; bb = x; }
+        return Color(int(std::lround((rr + m) * 255)), int(std::lround((gg + m) * 255)), int(std::lround((bb + m) * 255)), c.alpha());
+    }
+
     DebuggingOptions m_debug;
 };
 
@@ -322,7 +376,7 @@ public:
     bool needAskAboutApplyingNewStyle() const override { return false; }
     void setNeedAskAboutApplyingNewStyle(bool) override {}
     async::Channel<bool> needAskAboutApplyingNewStyleChanged() const override { return {}; }
-    bool inferTextType() const override { return true; }
+    bool inferTextType() const override { return false; }   // desktop default; see MUSE_SOUNDS_INTEGRATION_ROADMAP.md on why not on
     void setInferTextType(bool) override {}
     async::Channel<bool> inferTextTypeChanged() const override { return {}; }
     void setInferTextTypeOverride(std::optional<bool>) override {}
@@ -336,12 +390,59 @@ public:
 static muse::draw::DrawModule s_drawModule;
 static EngravingModule s_engravingModule;
 
+// Upstream's internal music fonts (EngravingModule::onInit) and their text companions
+struct MusicFontFiles {
+    const char* name;
+    const char* family;
+    const char* path;
+    const char* textFamily;
+    const char* textPath;
+};
+
+static const std::vector<MusicFontFiles>& musicFontFiles()
+{
+    static const std::vector<MusicFontFiles> files {
+        { "Bravura", "Bravura", ":/fonts/bravura/Bravura.otf", "Bravura Text", ":/fonts/bravura/BravuraText.otf" },
+        { "Leland", "Leland", ":/fonts/leland/Leland.otf", "Leland Text", ":/fonts/leland/LelandText.otf" },
+        { "Emmentaler", "MScore", ":/fonts/mscore/MScore.otf", "MScore Text", ":/fonts/mscore/MScoreText.otf" },
+        { "Gonville", "Gootville", ":/fonts/gootville/Gootville.otf", "Gootville Text", ":/fonts/gootville/GootvilleText.otf" },
+        { "MuseJazz", "MuseJazz", ":/fonts/musejazz/MuseJazz.otf", "MuseJazz Text", ":/fonts/musejazz/MuseJazzText.otf" },
+        { "Petaluma", "Petaluma", ":/fonts/petaluma/Petaluma.otf", "Petaluma Text", ":/fonts/petaluma/PetalumaText.otf" },
+        { "Finale Maestro", "Finale Maestro", ":/fonts/finalemaestro/FinaleMaestro.otf", "Finale Maestro Text",
+          ":/fonts/finalemaestro/FinaleMaestroText.otf" },
+        { "Finale Broadway", "Finale Broadway", ":/fonts/finalebroadway/FinaleBroadway.otf", "Finale Broadway Text",
+          ":/fonts/finalebroadway/FinaleBroadwayText.otf" },
+    };
+    return files;
+}
+
+// Upstream loads every music font at startup so painters can draw them by family name. Load those whose files are
+// present (checked quietly, so absent ones are not reported as missing); fontByName loads the rest once fetched.
+static void loadPresentMusicFonts(const std::shared_ptr<EngravingFontsProvider>& engravingFonts)
+{
+    auto fileSystem = muse::modularity::globalIoc()->resolve<io::IFileSystem>("spike");
+    auto* spikeFs = dynamic_cast<SpikeFileSystem*>(fileSystem.get());
+    for (const MusicFontFiles& f : musicFontFiles()) {
+        std::error_code ec;
+        if (spikeFs && fs::exists(spikeFs->map(f.path), ec)) engravingFonts->fontByName(f.name);
+    }
+}
+
+static fs::path& resourceRootPath()
+{
+    static fs::path root;
+    return root;
+}
+
 static void boot(const fs::path& resRoot)
 {
+    resourceRootPath() = resRoot;
     using namespace muse::draw;
     auto ioc = muse::modularity::globalIoc();
 
     ioc->registerExport<io::IFileSystem>("spike", new SpikeFileSystem(resRoot));
+    ioc->registerExport<ICryptographicHash>("spike", new SpikeCryptographicHash());
+    ioc->registerExport<IImageProvider>("spike", new SpikeImageProvider());
     ioc->registerExport<IApplication>("spike", new SpikeApplication());
     ioc->registerExport<mu::iex::musicxml::IMusicXmlConfiguration>("spike", new SpikeMusicXmlConfiguration());
     STAGE("fs registered");
@@ -362,24 +463,23 @@ static void boot(const fs::path& resRoot)
     STAGE("draw onInit");
 
     std::shared_ptr<IFontsDatabase> fdb = ioc->resolve<IFontsDatabase>("spike");
+    // As upstream EngravingModule::onInit. Files outside the preloaded set may be absent until fetched: the font
+    // database checks existence on every lookup, and engraving fonts fall back to Bravura until they load.
     fdb->addFont(FontDataKey(u"Edwin", false, false), ":/fonts/edwin/Edwin-Roman.otf");
     fdb->addFont(FontDataKey(u"Edwin", false, true), ":/fonts/edwin/Edwin-Italic.otf");
     fdb->addFont(FontDataKey(u"Edwin", true, false), ":/fonts/edwin/Edwin-Bold.otf");
     fdb->addFont(FontDataKey(u"Edwin", true, true), ":/fonts/edwin/Edwin-BdIta.otf");
 
-    auto addMusicFont = [&](const std::string& name, const FontDataKey& key, const io::path_t& path) {
-        fdb->addFont(key, path);
-        engravingFonts->addInternalFont(name, key.family().id().toStdString(), path);
-    };
-    addMusicFont("Bravura", FontDataKey(u"Bravura"), ":/fonts/bravura/Bravura.otf");
-    fdb->addFont(FontDataKey(u"Bravura Text"), ":/fonts/bravura/BravuraText.otf");
-    addMusicFont("Leland", FontDataKey(u"Leland"), ":/fonts/leland/Leland.otf");
-    fdb->addFont(FontDataKey(u"Leland Text"), ":/fonts/leland/LelandText.otf");
-    addMusicFont("Emmentaler", FontDataKey(u"MScore"), ":/fonts/mscore/MScore.otf");
-    fdb->addFont(FontDataKey(u"MScore Text"), ":/fonts/mscore/MScoreText.otf");
-    addMusicFont("Petaluma", FontDataKey(u"Petaluma"), ":/fonts/petaluma/Petaluma.otf");
-    fdb->addFont(FontDataKey(u"Petaluma Text"), ":/fonts/petaluma/PetalumaText.otf");
+    for (const MusicFontFiles& f : musicFontFiles()) {
+        fdb->addFont(FontDataKey(String::fromUtf8(f.family)), f.path);
+        engravingFonts->addInternalFont(f.name, f.family, f.path);
+        fdb->addFont(FontDataKey(String::fromUtf8(f.textFamily)), f.textPath);
+    }
+
     fdb->addFont(FontDataKey(u"FreeSerif"), ":/fonts/FreeSerif.ttf");
+    fdb->addFont(FontDataKey(u"FreeSerif", true, false), ":/fonts/FreeSerifBold.ttf");
+    fdb->addFont(FontDataKey(u"FreeSerif", false, true), ":/fonts/FreeSerifItalic.ttf");
+    fdb->addFont(FontDataKey(u"FreeSerif", true, true), ":/fonts/FreeSerifBoldItalic.ttf");
     fdb->addFont(FontDataKey(u"FreeSans"), ":/fonts/FreeSans.ttf");
     fdb->addFont(FontDataKey(u"MScoreTabulature"), ":/fonts/mscoreTab.ttf");
     fdb->addFont(FontDataKey(u"MscoreBC"), ":/fonts/mscore-BC.ttf");
@@ -391,11 +491,21 @@ static void boot(const fs::path& resRoot)
     fdb->setDefaultFont(Font::Type::MusicSymbolText, FontDataKey(u"Bravura Text"));
     fdb->setDefaultFont(Font::Type::MusicSymbol, FontDataKey(u"Bravura"));
     engravingFonts->setFallbackFont("Bravura");
+
+    fdb->insertSubstitution(u"Leland Text", u"Bravura Text");
+    fdb->insertSubstitution(u"Bravura Text", u"Leland Text");
+    fdb->insertSubstitution(u"MScore Text", u"Leland Text");
+    fdb->insertSubstitution(u"Gootville Text", u"Leland Text");
+    fdb->insertSubstitution(u"MuseJazz Text", u"Leland Text");
+    fdb->insertSubstitution(u"Petaluma Text", u"MuseJazz Text");
+    fdb->insertSubstitution(u"Finale Maestro Text", u"Leland Text");
+    fdb->insertSubstitution(u"Finale Broadway Text", u"MuseJazz Text");
+    fdb->insertSubstitution(u"ScoreFont", u"Leland Text");
     STAGE("fonts added");
 
     Smufl::init();
     STAGE("smufl init");
-    engravingFonts->loadAllFonts();
+    loadPresentMusicFonts(engravingFonts);
     STAGE("fonts loaded");
 
     DefaultStyle::instance()->init(config->defaultStyleFilePath(), config->partStyleFilePath(), config->defaultPageSize());

@@ -31,8 +31,20 @@ index f8bc376d52..f05a8f54d6 100644
      }
  
      NotesInChordSelectionFilterTypes type = NotesInChordSelectionFilterTypes::NONE;
+diff --git a/src/engraving/internal/engravingfont.h b/src/engraving/internal/engravingfont.h
+index 1ce8098fce..e2735e6581 100644
+--- a/src/engraving/internal/engravingfont.h
++++ b/src/engraving/internal/engravingfont.h
+@@ -93,6 +93,7 @@ public:
+     void draw(const SymIdList& ids, muse::draw::Painter* p, const SizeF& mag, const PointF& pos, const double angle = 0) const override;
+ 
+     void ensureLoad();
++    bool isLoaded() const { return m_loaded; }
+ 
+ private:
+ 
 diff --git a/src/engraving/internal/engravingfontsprovider.cpp b/src/engraving/internal/engravingfontsprovider.cpp
-index 90a9561efe..c8384258b1 100644
+index 90a9561efe..f84a988046 100644
 --- a/src/engraving/internal/engravingfontsprovider.cpp
 +++ b/src/engraving/internal/engravingfontsprovider.cpp
 @@ -36,7 +36,7 @@ EngravingFontsProvider::EngravingFontsProvider(const muse::modularity::ContextPt
@@ -44,6 +56,19 @@ index 90a9561efe..c8384258b1 100644
      muse::io::path_t metadataPath = basePath + "/metadata.json";
      std::shared_ptr<EngravingFont> f = std::make_shared<EngravingFont>(name, family, filePath, metadataPath, iocContext());
      m_symbolFonts.push_back(f);
+@@ -74,6 +74,12 @@ IEngravingFontPtr EngravingFontsProvider::fontByName(const std::string& name) co
+     }
+ 
+     font->ensureLoad();
++    // A registered font whose file is missing (not installed, or not fetched yet) draws nothing: use the fallback.
++    // ensureLoad retries on the next lookup, so the font is picked up once its file appears.
++    if (!font->isLoaded()) {
++        font = doFallbackFont();
++        font->ensureLoad();
++    }
+     return font;
+ }
+ 
 diff --git a/src/framework/audio/common/audiotypes.h b/src/framework/audio/common/audiotypes.h
 index a1569e0827..f607048f9b 100644
 --- a/src/framework/audio/common/audiotypes.h
@@ -323,6 +348,89 @@ index ac86d4d185..956740e502 100644
 +#include <memory>
  
  #include "logstream.h"
+ 
+diff --git a/src/framework/global/types/string.cpp b/src/framework/global/types/string.cpp
+index e8927e9386..13bc9c9b60 100644
+--- a/src/framework/global/types/string.cpp
++++ b/src/framework/global/types/string.cpp
+@@ -19,6 +19,7 @@
+  * You should have received a copy of the GNU General Public License
+  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+  */
++#include <cwctype>
+ #include "string.h"
+ 
+ #include <algorithm>
+@@ -133,7 +134,8 @@ bool Char::isLetter(char16_t c)
+ #ifndef NO_QT_SUPPORT
+     return QChar::isLetter(c);
+ #else
+-    return std::isalpha(static_cast<unsigned char>(c));
++    // Not std::isalpha on a truncated code unit: that misclassified every non-ASCII character (U+0141 read as 'A')
++    return std::iswalpha(static_cast<wint_t>(c));
+ #endif
+ }
+ 
+@@ -143,7 +145,8 @@ bool Char::isSpace(char16_t c)
+ #ifndef NO_QT_SUPPORT
+     return QChar::isSpace(c);
+ #else
+-    return std::isspace(static_cast<unsigned char>(c));
++    // musl's iswspace follows POSIX and leaves out the no-break spaces and NEL, which Qt counts as spaces
++    return std::iswspace(static_cast<wint_t>(c)) || c == 0x00A0 || c == 0x2007 || c == 0x202F || c == 0x0085;
+ #endif
+ }
+ 
+@@ -165,7 +168,7 @@ bool Char::isPunct(char16_t ch)
+ #ifndef NO_QT_SUPPORT
+     return QChar::isPunct(ch);
+ #else
+-    return std::ispunct(static_cast<unsigned char>(ch));
++    return std::iswpunct(static_cast<wint_t>(ch));
+ #endif
+ }
+ 
+@@ -175,7 +178,7 @@ char16_t Char::toLower(char16_t ch)
+ #ifndef NO_QT_SUPPORT
+     return QChar::toLower(ch);
+ #else
+-    return std::tolower(static_cast<unsigned char>(ch));
++    return static_cast<char16_t>(std::towlower(static_cast<wint_t>(ch)));
+ #endif
+ }
+ 
+@@ -185,7 +188,7 @@ char16_t Char::toUpper(char16_t ch)
+ #ifndef NO_QT_SUPPORT
+     return QChar::toUpper(ch);
+ #else
+-    return std::toupper(static_cast<unsigned char>(ch));
++    return static_cast<char16_t>(std::towupper(static_cast<wint_t>(ch)));
+ #endif
+ }
+ 
+@@ -1275,7 +1278,22 @@ String String::simplified() const
+ #ifndef NO_QT_SUPPORT
+     return String::fromQString(toQString().simplified());
+ #else
+-    return *this;
++    // As QString::simplified: trim, and replace each internal run of whitespace with one space
++    String result;
++    std::u16string& out = result.mutStr();
++    bool pendingSpace = false;
++    for (char16_t c : constStr()) {
++        if (Char::isSpace(c)) {
++            pendingSpace = !out.empty();
++            continue;
++        }
++        if (pendingSpace) {
++            out.push_back(u' ');
++            pendingSpace = false;
++        }
++        out.push_back(c);
++    }
++    return result;
+ #endif
+ }
  
 diff --git a/src/framework/global/types/string.h b/src/framework/global/types/string.h
 index cce1c7f376..e8f310bb0f 100644

@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <sstream>
 #include "svgfontoutlines.h"
+#include "imagetools.h"
 
 // Painter::drawText(rect, flags, text) as single-line runs: alignment, line breaks and clipping. Returns false for
 // word wrap and tab expansion, which the engraving painter never requests for score content.
@@ -172,7 +173,14 @@ public:
         if(!layoutRectText(*this,r,flags,value,[&](const Point& at,const muse::String& line) { text(font(),at,line); }))
             failure="SVG wrapped/tabbed text not yet ported";
     }
-    void drawPixmap(const Point&,const muse::draw::Pixmap&) override { failure="SVG images not yet ported"; }
+    // Score images keep their encoded bytes (imagetools.h): embed them at the pixmap's size under the current transform
+    void drawPixmap(const Point& p,const muse::draw::Pixmap& pm) override {
+        const ImageHeader h=readImageHeader(pm.data());
+        if(!h.mime) { failure="Unsupported SVG image data"; return; }
+        group();
+        out << "<image x=\"" << p.x() << "\" y=\"" << p.y() << "\" width=\"" << pm.width() << "\" height=\"" << pm.height()
+            << "\" preserveAspectRatio=\"none\" href=\"data:" << h.mime << ";base64," << base64(pm.data()) << "\"/></g></g></g>";
+    }
     void drawTiledPixmap(const Rect&,const muse::draw::Pixmap&,const Point&) override { failure="SVG tiled images not yet ported"; }
     void save() override { BufferedPaintProvider::save(); clips.push_back(clip); }
     void restore() override { BufferedPaintProvider::restore(); if(!clips.empty()) { clip=clips.back(); clips.pop_back(); } }
