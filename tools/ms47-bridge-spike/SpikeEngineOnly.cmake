@@ -69,6 +69,11 @@ if(OS_IS_WASM)
 option(MS47_BRIDGE_FAST_LINK "Skip Binaryen optimization while porting" OFF)
 add_executable(ms47_bridge ${CMAKE_CURRENT_LIST_DIR}/bridge.cpp)
 target_link_libraries(ms47_bridge PRIVATE iex_musicxml engraving muse::draw muse::global)
+# MIDI export: upstream's writer, made Qt-free by the patch (read/import path stays Qt-only)
+target_sources(ms47_bridge PRIVATE
+    ${PROJECT_SOURCE_DIR}/src/importexport/midi/internal/midiexport/exportmidi.cpp
+    ${PROJECT_SOURCE_DIR}/src/importexport/midi/internal/midishared/midifile.cpp
+)
 # Reuse the font libraries already configured by muse_draw for SVG glyph outlines.
 get_target_property(MS47_DRAW_INCLUDES muse_draw INCLUDE_DIRECTORIES)
 target_include_directories(ms47_bridge PRIVATE ${MS47_DRAW_INCLUDES})

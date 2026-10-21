@@ -293,6 +293,310 @@ index cce1c7f376..e8f310bb0f 100644
  #ifndef muPrintable
  #  define muPrintable(string) string.toUtf8().constChar()
  #endif
+diff --git a/src/importexport/midi/internal/midiexport/exportmidi.cpp b/src/importexport/midi/internal/midiexport/exportmidi.cpp
+index 732044cdb8..4d986a7d8f 100644
+--- a/src/importexport/midi/internal/midiexport/exportmidi.cpp
++++ b/src/importexport/midi/internal/midiexport/exportmidi.cpp
+@@ -110,7 +110,7 @@ void ExportMidi::writeHeader(const CompatMidiRendererInternal::Context& context)
+             default:
+                 n = 2;
+                 LOGD("ExportMidi: unknown time signature %s",
+-                     qPrintable(ts.toString()));
++                     ts.toString().toUtf8().constChar());
+                 break;
+             }
+ 
+@@ -213,7 +213,7 @@ void ExportMidi::writeHeader(const CompatMidiRendererInternal::Context& context)
+ //    from mscore->synthesizerState() as the synthState parameter.
+ //---------------------------------------------------------
+ 
+-bool ExportMidi::write(QIODevice* device, bool midiExpandRepeats, bool exportRPNs, const SynthesizerState& synthState)
++bool ExportMidi::write(MidiIODevice* device, bool midiExpandRepeats, bool exportRPNs, const SynthesizerState& synthState)
+ {
+     m_midiFile.setDivision(Constants::DIVISION);
+     m_midiFile.setFormat(1);
+@@ -424,6 +424,7 @@ bool ExportMidi::write(QIODevice* device, bool midiExpandRepeats, bool exportRPN
+     return !m_midiFile.write(device);
+ }
+ 
++#ifndef NO_QT_SUPPORT
+ bool ExportMidi::write(const QString& name, bool midiExpandRepeats, bool exportRPNs, const SynthesizerState& synthState)
+ {
+     m_file.setFileName(name);
+@@ -432,16 +433,19 @@ bool ExportMidi::write(const QString& name, bool midiExpandRepeats, bool exportR
+     }
+     return write(&m_file, midiExpandRepeats, exportRPNs, synthState);
+ }
++#endif
+ 
+-bool ExportMidi::write(QIODevice* device, bool midiExpandRepeats, bool exportRPNs)
++bool ExportMidi::write(MidiIODevice* device, bool midiExpandRepeats, bool exportRPNs)
+ {
+     SynthesizerState ss;
+     return write(device, midiExpandRepeats, exportRPNs, ss);
+ }
+ 
++#ifndef NO_QT_SUPPORT
+ bool ExportMidi::write(const QString& name, bool midiExpandRepeats, bool exportRPNs)
+ {
+     SynthesizerState ss;
+     return write(name, midiExpandRepeats, exportRPNs, ss);
+ }
++#endif
+ }
+diff --git a/src/importexport/midi/internal/midiexport/exportmidi.h b/src/importexport/midi/internal/midiexport/exportmidi.h
+index 094156cff9..70ce50d303 100644
+--- a/src/importexport/midi/internal/midiexport/exportmidi.h
++++ b/src/importexport/midi/internal/midiexport/exportmidi.h
+@@ -23,7 +23,9 @@
+ #ifndef EXPORTMIDI_H
+ #define EXPORTMIDI_H
+ 
++#ifndef NO_QT_SUPPORT
+ #include <QFile>
++#endif
+ 
+ #include "../midishared/midifile.h"
+ #include "engraving/compat/midi/pausemap.h"
+@@ -44,15 +46,19 @@ class ExportMidi
+ {
+ public:
+     ExportMidi(engraving::Score* s) { m_score = s; }
++#ifndef NO_QT_SUPPORT
+     bool write(const QString& name, bool midiExpandRepeats, bool exportRPNs);
+-    bool write(QIODevice* device, bool midiExpandRepeats, bool exportRPNs);
+     bool write(const QString& name, bool midiExpandRepeats, bool exportRPNs, const engraving::SynthesizerState& synthState);
+-    bool write(QIODevice* device, bool midiExpandRepeats, bool exportRPNs, const engraving::SynthesizerState& synthState);
++#endif
++    bool write(MidiIODevice* device, bool midiExpandRepeats, bool exportRPNs);
++    bool write(MidiIODevice* device, bool midiExpandRepeats, bool exportRPNs, const engraving::SynthesizerState& synthState);
+ 
+ private:
+     void writeHeader(const engraving::CompatMidiRendererInternal::Context& context);
+ 
++#ifndef NO_QT_SUPPORT
+     QFile m_file;
++#endif
+     MidiFile m_midiFile;
+     engraving::Score* m_score = nullptr;
+ };
+diff --git a/src/importexport/midi/internal/midishared/midievent.h b/src/importexport/midi/internal/midishared/midievent.h
+index e2cfe85c04..fdf1d618f5 100644
+--- a/src/importexport/midi/internal/midishared/midievent.h
++++ b/src/importexport/midi/internal/midishared/midievent.h
+@@ -26,6 +26,9 @@
+ #include "engraving/compat/midi/midicoreevent.h"
+ 
+ namespace mu::iex::midi {
++#ifdef NO_QT_SUPPORT
++using uchar = unsigned char; // Qt typedef
++#endif
+ class MidiEvent : public engraving::MidiCoreEvent
+ {
+ protected:
+diff --git a/src/importexport/midi/internal/midishared/midifile.cpp b/src/importexport/midi/internal/midishared/midifile.cpp
+index 7a066db141..8a7e2cbee8 100644
+--- a/src/importexport/midi/internal/midishared/midifile.cpp
++++ b/src/importexport/midi/internal/midishared/midifile.cpp
+@@ -48,7 +48,7 @@ MidiFile::MidiFile()
+ //    returns true on error
+ //---------------------------------------------------------
+ 
+-bool MidiFile::write(QIODevice* out)
++bool MidiFile::write(MidiIODevice* out)
+ {
+     fp = out;
+     write("MThd", 4);
+@@ -193,6 +193,7 @@ void MidiFile::writeStatus(int nstat, int c)
+ //    return false on error
+ //---------------------------------------------------------
+ 
++#ifndef NO_QT_SUPPORT // read path (import) uses QIODevice::getChar and throws QString
+ bool MidiFile::read(QIODevice* in)
+ {
+     fp = in;
+@@ -291,12 +292,15 @@ bool MidiFile::read(QIODevice* in)
+     }
+     return true;
+ }
++#endif
++
+ 
+ //---------------------------------------------------------
+ //   readTrack
+ //    return true on error
+ //---------------------------------------------------------
+ 
++#ifndef NO_QT_SUPPORT // read path (import) uses QIODevice::getChar and throws QString
+ bool MidiFile::readTrack()
+ {
+     char tmp[4];
+@@ -336,12 +340,15 @@ bool MidiFile::readTrack()
+     }
+     return false;
+ }
++#endif
++
+ 
+ /*---------------------------------------------------------
+  *    read
+  *    return false on error
+  *---------------------------------------------------------*/
+ 
++#ifndef NO_QT_SUPPORT // read path (import) uses QIODevice::getChar and throws QString
+ void MidiFile::read(void* p, qint64 len)
+ {
+     curPos += len;
+@@ -350,6 +357,8 @@ void MidiFile::read(void* p, qint64 len)
+         throw(QString("bad midifile: unexpected EOF"));
+     }
+ }
++#endif
++
+ 
+ //---------------------------------------------------------
+ //   write
+@@ -361,7 +370,11 @@ bool MidiFile::write(const void* p, qint64 len)
+     if (rv == len) {
+         return false;
+     }
++#ifndef NO_QT_SUPPORT
+     LOGD("write midifile failed: %s", fp->errorString().toLatin1().data());
++#else
++    LOGD("write midifile failed");
++#endif
+     return true;
+ }
+ 
+@@ -369,6 +382,7 @@ bool MidiFile::write(const void* p, qint64 len)
+ //   readShort
+ //---------------------------------------------------------
+ 
++#ifndef NO_QT_SUPPORT // read path (import) uses QIODevice::getChar and throws QString
+ int MidiFile::readShort()
+ {
+     char c;
+@@ -380,6 +394,8 @@ int MidiFile::readShort()
+     }
+     return val;
+ }
++#endif
++
+ 
+ //---------------------------------------------------------
+ //   writeShort
+@@ -396,6 +412,7 @@ void MidiFile::writeShort(int i)
+ //   writeLong
+ //---------------------------------------------------------
+ 
++#ifndef NO_QT_SUPPORT // read path (import) uses QIODevice::getChar and throws QString
+ int MidiFile::readLong()
+ {
+     char c;
+@@ -407,6 +424,8 @@ int MidiFile::readLong()
+     }
+     return val;
+ }
++#endif
++
+ 
+ //---------------------------------------------------------
+ //   writeLong
+@@ -425,6 +444,7 @@ void MidiFile::writeLong(int i)
+  *    Read variable-length number (7 bits per byte, MSB first)
+  *---------------------------------------------------------*/
+ 
++#ifndef NO_QT_SUPPORT // read path (import) uses QIODevice::getChar and throws QString
+ int MidiFile::getvl()
+ {
+     int l = 0;
+@@ -439,6 +459,8 @@ int MidiFile::getvl()
+     }
+     return -1;
+ }
++#endif
++
+ 
+ /*---------------------------------------------------------
+  *    putvl
+@@ -492,6 +514,7 @@ void MidiTrack::insert(int tick, const MidiEvent& event)
+ //    return true on success
+ //---------------------------------------------------------
+ 
++#ifndef NO_QT_SUPPORT // read path (import) uses QIODevice::getChar and throws QString
+ bool MidiFile::readEvent(MidiEvent* event)
+ {
+     uchar me, a, b;
+@@ -633,6 +656,8 @@ bool MidiFile::readEvent(MidiEvent* event)
+     }
+     return true;
+ }
++#endif
++
+ 
+ //---------------------------------------------------------
+ //   setOutChannel
+diff --git a/src/importexport/midi/internal/midishared/midifile.h b/src/importexport/midi/internal/midishared/midifile.h
+index e5423e4b7a..471b61a288 100644
+--- a/src/importexport/midi/internal/midishared/midifile.h
++++ b/src/importexport/midi/internal/midishared/midifile.h
+@@ -22,11 +22,35 @@
+ #pragma once
+ 
+ #include <vector>
++#ifndef NO_QT_SUPPORT
+ #include <QIODevice>
++#else
++#include <cstdint>
++#include "global/io/iodevice.h"
++#endif
+ 
+ #include "../midishared/midievent.h"
+ 
+ namespace mu::iex::midi {
++#ifndef NO_QT_SUPPORT
++using MidiIODevice = QIODevice;
++#else
++using qint64 = int64_t;
++// The QIODevice calls MidiFile makes, over muse::io::IODevice (Qt-free builds export only)
++class MidiIODevice
++{
++public:
++    explicit MidiIODevice(muse::io::IODevice* device)
++        : m_device(device) {}
++    qint64 pos() const { return static_cast<qint64>(m_device->pos()); }
++    bool seek(qint64 pos) { return m_device->seek(static_cast<size_t>(pos)); }
++    qint64 write(const char* data, qint64 len) { return static_cast<qint64>(m_device->write(reinterpret_cast<const uint8_t*>(data), static_cast<size_t>(len))); }
++    bool putChar(char c) { return write(&c, 1) == 1; }
++private:
++    muse::io::IODevice* m_device = nullptr;
++};
++#endif
++
+ class MidiTrack
+ {
+     std::multimap<int, MidiEvent> _events;
+@@ -59,7 +83,7 @@ public:
+ 
+ class MidiFile
+ {
+-    QIODevice* fp;
++    MidiIODevice* fp;
+     std::vector<MidiTrack> _tracks;
+     int _division;
+     bool _isDivisionInTps;         ///< ticks per second, alternative - ticks per beat
+@@ -96,8 +120,10 @@ protected:
+ 
+ public:
+     MidiFile();
++#ifndef NO_QT_SUPPORT
+     bool read(QIODevice*);
+-    bool write(QIODevice*);
++#endif
++    bool write(MidiIODevice*);
+ 
+     std::vector<MidiTrack>& tracks() { return _tracks; }
+     const std::vector<MidiTrack>& tracks() const { return _tracks; }
 diff --git a/src/importexport/musicxml/internal/export/exportmusicxml.cpp b/src/importexport/musicxml/internal/export/exportmusicxml.cpp
 index 883509b694..eec947b280 100644
 --- a/src/importexport/musicxml/internal/export/exportmusicxml.cpp

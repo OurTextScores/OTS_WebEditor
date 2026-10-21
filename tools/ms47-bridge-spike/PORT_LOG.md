@@ -1,3 +1,18 @@
+# MIDI checkpoint — 2026-10-21
+
+**175 of 184 exports are implemented; 9 remain (playback and PDF).** `saveMidi` (`miditools.h`) uses upstream's
+`ExportMidi`, compiled into the bridge with a small Qt-free patch: a `MidiIODevice` adapter over `muse::io::IODevice`
+(Qt builds keep `QIODevice`), the file-name overloads and the read/import path compiled only with Qt, a `uchar`
+alias and one `qPrintable`. It renders through engraving's `compat/midi`, independent of the playback decision.
+
+`verify-midi.mjs` (`MS47_VERIFY_MIDI=1`) compares every track's notes (pitch, on/off tick, velocity) and the tempo
+map against the 4.00 engine's export, with repeats expanded and not, on Bach, two small fixtures and a new
+`repeat-fixture.musicxml`: identical, including velocities. One deliberate difference: **4.00 ignored
+`expandRepeats=false`** and always expanded (7 notes where the fixture has 5 unexpanded); 4.7 honours the flag.
+No caller is affected (the app always passes `saveMidi(true, true)`).
+
+---
+
 # Remaining-exports checkpoint — 2026-10-21
 
 **174 of 184 exports are implemented; 10 remain (playback, PDF, MIDI).** All nine DECISIONS.md recommendations
