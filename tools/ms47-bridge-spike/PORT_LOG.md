@@ -1,3 +1,48 @@
+# Spanner, chord-tool and fret-diagram checkpoint — 2026-10-20
+
+**151 of 184 exports are implemented; 33 remain.** This batch adds 18: `addSlur`, `addTie`,
+`addGraceNote`, `addTuplet`, `addTremolo`, `addGlissando`, `addPedal`, `addSostenutoPedal`,
+`addUnaCorda`, `splitPedal`, `addAmbitus`, `explodeSelection`, `implodeSelection`, `regroupSelection`,
+`resequenceRehearsalMarks`, `addFretDiagram`, `getSelectedFretDiagram`, `setSelectedFretDiagram`
+(`spannertools.h`, `frettools.h`, ported from the 4.00 `web/main.cpp`).
+
+Compatibility decisions:
+
+* **Tremolo:** 4.4 split `Tremolo` into `TremoloSingleChord`/`TremoloTwoChord`; `TremoloType` values
+  are unchanged, so the legacy index chooses the factory.
+* **Undo ownership changed for two commands.** 4.7's `cmdAddTie` opens its own command (left unwrapped,
+  as in 4.00); `cmdResetNoteAndRestGroupings` no longer does, so regroup is wrapped to stay one undo entry.
+* **Fret offset:** 4.7's `FretDiagram::clear()` also resets the offset, so `setSelectedFretDiagram` clears
+  before applying properties. `FretClear` undo data restores the whole diagram, offset included.
+* `Constants::division` is `Constants::DIVISION`; `NoteType` (now in `chord.h`), `GlissandoType`,
+  `FretDotType` and `FretMarkerType` keep their values.
+* Fret diagrams without a chord symbol have no MusicXML representation in either engine (MusicXML frames
+  live inside `<harmony>`; 4.00 never exported them), so their checks use native data and the JSON getter.
+
+`verify-spanners.mjs` (`MS47_VERIFY_SPANNERS=1`) uses a two-part fixture (`spanner-fixture.musicxml`).
+21 cases must persist a native change, export their notation, be one undo command, visibly change the
+score and restore exact MusicXML and pixels on undo/redo; 7 invalid selections must be rejected without
+a score change or undo entry. `MS47_ENGINE_LOG=2` shows the engine's rejection reasons;
+`MS47_SPANNER_CASES` filters cases. Three test mistakes were fixed along the way, not engine bugs:
+from a bar selection `selectNextChord` moves past the range (the helper now steps from the previous
+bar), implode across staves combines staves into voices (not chords), and an X32010 fixture misread.
+
+The optimized build passes every suite together (corpus, 50 edits, inspector, selection, note entry,
+measures, timeline, spanners): 103 verified operations. All 151 names are in generated glue;
+`npm run check:debt` passes. Engine boot 251 ms; WASM 9,566,906 bytes.
+Evidence: [spanners-2026-10-20.json](results/spanners-2026-10-20.json).
+
+Bounded engineering sample: **02:27:10–02:43:24 UTC, 16m 14s** for 18 exports, the new suite and
+fixture, builds and full verification. Elapsed wall time, not independent per-export effort.
+
+Remaining (33): parts/excerpts/instruments (`generateExcerpts`, `appendPart`, `appendPartByMusicXmlId`,
+`removePart`, `setPartVisible`, `listInstrumentTemplates`, `addFont`), `setSelectionFilter` (needs the
+compatibility decision noted in the README), drag/grip/drop (7), `transpose`, progressive layout
+(`layoutUntilPage`, `layoutUntilPageState`), and the export/audio group (`saveMxl`, `savePng`, `savePdf`,
+`saveMidi`, `saveAudio*`, `synth*`, `processSynth*`, `savePositions`, `saveMetadata`, `loadProfile`).
+
+---
+
 # Measures, repeats and timeline checkpoint — 2026-10-20
 
 **133 of 184 exports are implemented; 51 remain.** This batch (24 exports) covers measure structure

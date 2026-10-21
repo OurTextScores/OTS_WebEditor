@@ -136,3 +136,5 @@ EMSCRIPTEN_KEEPALIVE bool redo(uintptr_t id,int excerpt) {
 #include "measurestructure.h"
 
 #include "playbacktimeline.h"
+#include "spannertools.h"
+#include "frettools.h"
