@@ -1,19 +1,27 @@
-# Remaining-exports checkpoint (in progress) — 2026-10-20
+# Remaining-exports checkpoint — 2026-10-21
 
 **174 of 184 exports are implemented; 10 remain (playback, PDF, MIDI).** All nine DECISIONS.md recommendations
 were accepted. Added: `setSelectionFilter` (legacy mask translated, plus a one-line upstream `SelectionFilter`
-patch so "Notes and rests" off excludes single notes), `savePng` (explicit refusal), `transpose`,
-`layoutUntilPage`/`State`, `savePositions` (same element/event counts as 4.00 on Bach: 43/43, 657/657),
-`saveMetadata`, `loadProfile`, and drag/grip/drop (`dragtools.h`; 4.7's `Measure::drop` needs `EditData::track`
-for clefs). Suites `MS47_VERIFY_MISC` and `MS47_VERIFY_DRAG` pass except one check:
+patch so "Notes and rests" off excludes single notes, which 4.7 otherwise always keeps), `savePng` (explicit
+refusal), `transpose` (static `Transpose::transpose` in 4.7), `layoutUntilPage`/`State`, `savePositions` (4.00 JSON;
+same element/event counts as 4.00 on Bach: 43/43, 657/657), `saveMetadata`, `loadProfile`, and drag/grip/drop
+(`dragtools.h`; 4.7 renamed the grip calls, and its `Measure::drop` needs `EditData::track` for clefs or it
+discards them silently).
 
-* **Open bug:** after committing a hairpin grip drag and undoing it, MusicXML is restored but rendered pixels are
-  not (the segment is re-serialized with its autoplace offset). Investigate before relying on grip undo.
+**Grip undo oracle.** After a committed hairpin grip drag is undone (or a drag is cancelled), MusicXML is exact
+and the SVG contains exactly the same drawing primitives, but in a different paint order (undo re-inserts the
+hairpin), so overlapping anti-aliased strokes blend slightly differently and pixels are not byte-identical. The
+grip checks therefore compare MusicXML plus the order-independent primitive set. The native file also
+re-serializes the hairpin segment with its unchanged offset (upstream `endDragGrip` resets property flags outside
+the undo command); harmless for rendering, noted in case style-driven repositioning of edited hairpins matters.
 
-Not yet re-run: the full suite on an optimized build for this batch. Next: MIDI, the playback spike, the PDF writer,
-fonts/packaging, then incremental layout.
+`verify-misc.mjs` (`MS47_VERIFY_MISC=1`) and `verify-drag.mjs` (`MS47_VERIFY_DRAG=1`) cover the batch. The optimized
+build passes every suite together: 120 verified operations; all 174 names in generated glue; `npm run check:debt`
+passes. Engine boot 264 ms; WASM 9,676,864 bytes.
+Evidence: [drag-misc-2026-10-21.json](results/drag-misc-2026-10-21.json).
 
 ---
+
 
 # Parts, excerpts and fonts checkpoint — 2026-10-20
 
