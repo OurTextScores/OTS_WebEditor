@@ -26,8 +26,11 @@ python3 "$spike_tools/stage_resources.py" "$source_dir" "$resource_dir"
 set +u
 source "$emsdk_dir/emsdk_env.sh"
 set -u
+# The framework config header is generated before SpikeEngineOnly.cmake runs, so these must be set here too
 emcmake cmake -S "$source_dir" -B "$build_dir" -G Ninja -DCMAKE_BUILD_TYPE=Release \
     -DMS47_SPIKE_ENGINE_ONLY=ON -DMUSE_QT_SUPPORT=OFF -DMUSE_ENABLE_UNIT_TESTS=OFF \
-    -DMUSE_MODULE_DRAW_USE_QTFONTMETRICS=OFF -DMS47_BRIDGE_FAST_LINK="${MS47_FAST_LINK:-OFF}"
+    -DMUSE_MODULE_DRAW_USE_QTFONTMETRICS=OFF -DMS47_BRIDGE_FAST_LINK="${MS47_FAST_LINK:-OFF}" \
+    -DMS47_WITH_PLAYBACK="${MS47_WITH_PLAYBACK:-ON}" \
+    -DMUSE_CONFIGURATION_IS_WEB=ON -DMUSE_THREADS_SUPPORT=OFF -DMUSE_MODULE_AUDIO_EXPORT=OFF
 export BINARYEN_CORES=${MS47_JOBS:-2}
 cmake --build "$build_dir" --target ms47_bridge --parallel "${MS47_JOBS:-2}"

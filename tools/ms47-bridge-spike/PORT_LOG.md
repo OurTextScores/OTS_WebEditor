@@ -1,3 +1,30 @@
+# Playback in the default build — 2026-10-21
+
+`MS47_WITH_PLAYBACK` now defaults to ON (CMake and `build.sh`): one module with the whole 4.00 API, as the 4.00
+engine is. Optimized sizes (wasm):
+
+| | raw | gzip |
+|---|---|---|
+| 4.7 bridge, no playback | 9.90 MB | 3.13 MB |
+| **4.7 bridge with playback (default)** | **11.26 MB** | **3.60 MB** |
+| 4.00 engine (with playback) | 9.72 MB | 3.17 MB |
+
+Playback costs 474 KB gzip; the full 4.7 engine is 13% larger than 4.00 to download. Full suite on the optimized
+build: green, 137 operations; Bach renders to WAV in 1.0 s (≈150× real time; Binaryen optimization makes no
+difference here, the debug directory already compiles with Release flags).
+
+Build fix: `muse_framework_config.h` is generated before `SpikeEngineOnly.cmake` runs, so on a **fresh** configure
+its FORCE-set options came out wrong (`MUSE_CONFIGURATION_IS_WEB` off, `MUSE_THREADS_SUPPORT` and
+`MUSE_MODULE_AUDIO_EXPORT` on). Earlier build directories had been reconfigured and were correct; a fresh playback
+build failed to link (`SoundTrackWriter`, `pthread_setschedparam`). `build.sh` now passes all three on the command
+line.
+
+Note for comparisons: every build directory links into the same `ms47-spike/build.artifacts`, and `verify.mjs`
+always loads that file (`MS47_BUILD` only selects the CMake cache it reports), so a run tests whichever build was
+linked last.
+
+---
+
 # PDF checkpoint — 2026-10-21: 184/184 exports
 
 **Every 4.00 export now exists on the 4.7 bridge** (playback build; the default build lacks only the nine audio

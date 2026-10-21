@@ -11,7 +11,7 @@ set(MUSE_MODULE_GLOBAL_LOGGER_DEBUGLEVEL OFF CACHE BOOL "" FORCE)
 set(MUE_BUILD_ENGRAVING_QML OFF)
 set(MUE_BUILD_ENGRAVING_TESTS OFF)
 set(MUE_BUILD_ENGRAVING_DEVTOOLS OFF)
-option(MS47_WITH_PLAYBACK "Build engraving playback (MPE) and the audio engine into the bridge" OFF)
+option(MS47_WITH_PLAYBACK "Build engraving playback (MPE) and the audio engine into the bridge" ON)
 set(MUE_BUILD_ENGRAVING_PLAYBACK ${MS47_WITH_PLAYBACK})
 set(MUE_BUILD_IMPORTEXPORT_TESTS OFF)
 set(MUSICXML_NO_INTERNAL ON)
@@ -26,7 +26,9 @@ if (OS_IS_WASM)
     set(MUSE_CONFIGURATION_IS_WEB ON CACHE BOOL "" FORCE)
 endif()
 
-# MuseSetupConfiguration is already included by SetupConfigure; MUSE_QT_SUPPORT must be OFF on the command line.
+# MuseSetupConfiguration is already included by SetupConfigure (it writes muse_framework_config.h): MUSE_QT_SUPPORT,
+# MUSE_CONFIGURATION_IS_WEB, MUSE_THREADS_SUPPORT and MUSE_MODULE_AUDIO_EXPORT must be set on the command line (build.sh);
+# the FORCE sets here only fix a reconfigure.
 if (MUSE_QT_SUPPORT)
     message(FATAL_ERROR "Configure with -DMUSE_QT_SUPPORT=OFF")
 endif()
