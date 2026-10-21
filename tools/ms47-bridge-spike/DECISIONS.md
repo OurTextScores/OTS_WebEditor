@@ -44,7 +44,7 @@ browser without Qt. The spike currently builds with `MUE_BUILD_ENGRAVING_PLAYBAC
 - C. Synthesize in JavaScript from exported MIDI (e.g. a JS SoundFont player). Loses MPE articulation, dynamics and
   ornament rendering, and needs a new streaming/positions pipeline.
 
-**Recommendation: A, after a 1–2 day spike.** It keeps the architecture the app already relies on, 4.7's playback is
+**Spike result (2026-10-21): viable.** 4.7's stack renders Bach to the same length as 4.00, 3× faster, with closely matching phrase-level dynamics (see PORT_LOG.md). **Recommendation: A, after a 1–2 day spike.** It keeps the architecture the app already relies on, 4.7's playback is
 better than 4.00's (articulation, ornaments, tremolos, dynamics on newer elements), and upstream has proved the engine
 in WASM. The spike: build engraving playback + MPE + audio engine Qt-free in this harness, render the first 10 s of a
 corpus score to WAV with the current soundfont, and compare duration, RMS and peaks against 4.00's output, plus

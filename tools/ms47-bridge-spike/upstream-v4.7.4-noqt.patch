@@ -44,6 +44,71 @@ index 90a9561efe..c8384258b1 100644
      muse::io::path_t metadataPath = basePath + "/metadata.json";
      std::shared_ptr<EngravingFont> f = std::make_shared<EngravingFont>(name, family, filePath, metadataPath, iocContext());
      m_symbolFonts.push_back(f);
+diff --git a/src/framework/audio/common/audiotypes.h b/src/framework/audio/common/audiotypes.h
+index a1569e0827..f607048f9b 100644
+--- a/src/framework/audio/common/audiotypes.h
++++ b/src/framework/audio/common/audiotypes.h
+@@ -182,12 +182,12 @@ enum class AudioResourceType {
+     AudioUnit,
+ };
+ 
+-static const std::map<AudioResourceType, QString> RESOURCE_TYPE_MAP = {
+-    { AudioResourceType::Undefined, "undefined" },
+-    { AudioResourceType::MuseSamplerSoundPack, "muse_sampler_sound_pack" },
+-    { AudioResourceType::FluidSoundfont, "fluid_soundfont" },
+-    { AudioResourceType::VstPlugin, "vst_plugin" },
+-    { AudioResourceType::MusePlugin, "muse_plugin" },
++static const std::map<AudioResourceType, String> RESOURCE_TYPE_MAP = {
++    { AudioResourceType::Undefined, u"undefined" },
++    { AudioResourceType::MuseSamplerSoundPack, u"muse_sampler_sound_pack" },
++    { AudioResourceType::FluidSoundfont, u"fluid_soundfont" },
++    { AudioResourceType::VstPlugin, u"vst_plugin" },
++    { AudioResourceType::MusePlugin, u"muse_plugin" },
+ };
+ 
+ struct AudioResourceMeta {
+diff --git a/src/framework/audio/common/workmode.cpp b/src/framework/audio/common/workmode.cpp
+index 12af9a8030..ee89bb87cf 100644
+--- a/src/framework/audio/common/workmode.cpp
++++ b/src/framework/audio/common/workmode.cpp
+@@ -22,7 +22,9 @@
+ 
+ #include "workmode.h"
+ 
++#ifndef NO_QT_SUPPORT
+ #include "global/settings.h"
++#endif
+ 
+ #include "muse_framework_config.h"
+ 
+@@ -32,11 +34,17 @@ using namespace muse::audio;
+ workmode::Mode workmode::m_mode = workmode::Mode::Undefined;
+ workmode::Mode workmode::m_desiredMode = workmode::Mode::Undefined;
+ 
++#ifndef NO_QT_SUPPORT
+ static const Settings::Key WORKMODE_KEY("audio", "dev/workmode");
++#endif
+ 
+ void workmode::load()
+ {
++#ifndef NO_QT_SUPPORT
+     int val = settings()->value(WORKMODE_KEY).toInt();
++#else
++    int val = 0; // no settings store: the compiled-in default
++#endif
+     if (val > 0 && val <= 3) {
+         m_mode = static_cast<Mode>(val);
+     } else {
+@@ -59,7 +67,9 @@ workmode::Mode workmode::mode()
+ void workmode::setMode(Mode m)
+ {
+     //! NOTE Need restart
++#ifndef NO_QT_SUPPORT
+     settings()->setLocalValue(WORKMODE_KEY, Val(static_cast<int>(m)));
++#endif
+     m_desiredMode = m;
+ }
+ 
 diff --git a/src/framework/draw/CMakeLists.txt b/src/framework/draw/CMakeLists.txt
 index 72bc354e02..7d6a8619fd 100644
 --- a/src/framework/draw/CMakeLists.txt
@@ -293,6 +358,720 @@ index cce1c7f376..e8f310bb0f 100644
  #ifndef muPrintable
  #  define muPrintable(string) string.toUtf8().constChar()
  #endif
+diff --git a/src/framework/global/types/uri.h b/src/framework/global/types/uri.h
+index 38bec3d35d..e950757b36 100644
+--- a/src/framework/global/types/uri.h
++++ b/src/framework/global/types/uri.h
+@@ -111,18 +111,31 @@ private:
+ };
+ }
+ 
+-inline muse::logger::Stream& operator<<(muse::logger::Stream& s, const muse::Uri& uri)
++namespace muse {
++// In namespace muse so ADL finds them from any namespace; && overloads serve temporaries (LOGD() << uri)
++inline logger::Stream& operator<<(logger::Stream& s, const Uri& uri)
+ {
+     s << uri.toString();
+     return s;
+ }
+ 
+-inline muse::logger::Stream& operator<<(muse::logger::Stream& s, const muse::UriQuery& q)
++inline logger::Stream& operator<<(logger::Stream&& s, const Uri& uri)
++{
++    return s << uri;
++}
++
++inline logger::Stream& operator<<(logger::Stream& s, const UriQuery& q)
+ {
+     s << q.toString();
+     return s;
+ }
+ 
++inline logger::Stream& operator<<(logger::Stream&& s, const UriQuery& q)
++{
++    return s << q;
++}
++}
++
+ template<>
+ struct std::hash<muse::Uri>
+ {
+diff --git a/src/framework/mpe/CMakeLists.txt b/src/framework/mpe/CMakeLists.txt
+index 8d45b03b94..9165e32a90 100644
+--- a/src/framework/mpe/CMakeLists.txt
++++ b/src/framework/mpe/CMakeLists.txt
+@@ -34,6 +34,7 @@ target_sources(muse_mpe PRIVATE
+     internal/articulationprofilesrepository.h
+ )
+ 
++if (MUSE_QT_SUPPORT) # Qt-free builds serve :/mpe/resources from the file system
+ qt_add_resources(muse_mpe muse_mpe_resources
+     PREFIX
+         /mpe
+@@ -44,6 +45,7 @@ qt_add_resources(muse_mpe muse_mpe_resources
+         resources/general_percussion_articulations_profile.json
+         resources/general_voice_articulations_profile.json
+ )
++endif()
+ 
+ if (MUSE_MODULE_MPE_TESTS)
+     add_subdirectory(tests)
+diff --git a/src/framework/mpe/internal/articulationprofilesrepository.cpp b/src/framework/mpe/internal/articulationprofilesrepository.cpp
+index 2ba025513e..37928e17ee 100644
+--- a/src/framework/mpe/internal/articulationprofilesrepository.cpp
++++ b/src/framework/mpe/internal/articulationprofilesrepository.cpp
+@@ -22,10 +22,7 @@
+ 
+ #include "articulationprofilesrepository.h"
+ 
+-#include <QJsonDocument>
+-#include <QJsonObject>
+-#include <QJsonArray>
+-#include <QString>
++#include "global/serialization/json.h"
+ 
+ #include "log.h"
+ 
+@@ -44,26 +41,26 @@ static const std::map<ArticulationFamily, io::path_t> DEFAULT_ARTICULATION_PROFI
+     { ArticulationFamily::Voices, io::path_t(":/mpe/resources/general_voice_articulations_profile.json") }
+ };
+ 
+-static const QString SUPPORTED_FAMILIES = "supportedFamilies";
+-static const QString PATTERNS_KEY = "patterns";
+-static const QString PATTERN_POS_KEY = "patternPosition";
+-static const QString OFFSET_POS_KEY = "offsetPosition";
+-static const QString OFFSET_VAL_KEY = "offsetValue";
++static const std::string SUPPORTED_FAMILIES = "supportedFamilies";
++static const std::string PATTERNS_KEY = "patterns";
++static const std::string PATTERN_POS_KEY = "patternPosition";
++static const std::string OFFSET_POS_KEY = "offsetPosition";
++static const std::string OFFSET_VAL_KEY = "offsetValue";
+ 
+ // Arrangement
+-static const QString ARRANGEMENT_PATTERN_KEY = "arrangementPattern";
+-static const QString DURATION_FACTOR_KEY = "durationFactor";
+-static const QString TIMESTAMP_OFFSET_KEY = "timestampOffset";
++static const std::string ARRANGEMENT_PATTERN_KEY = "arrangementPattern";
++static const std::string DURATION_FACTOR_KEY = "durationFactor";
++static const std::string TIMESTAMP_OFFSET_KEY = "timestampOffset";
+ 
+ // Pitch
+-static const QString PITCH_PATTERN_KEY = "pitchPattern";
+-static const QString PITCH_OFFSETS_KEY = "pitchOffsets";
++static const std::string PITCH_PATTERN_KEY = "pitchPattern";
++static const std::string PITCH_OFFSETS_KEY = "pitchOffsets";
+ 
+ // Expression
+-static const QString EXPRESSION_PATTERN = "expressionPattern";
+-static const QString MAX_AMPLITUDE_LEVEL_KEY = "maxAmplitudeLevel";
+-static const QString AMPLITUDE_TIME_SHIFT = "amplitudeTimeShift";
+-static const QString DYNAMIC_OFFSETS_KEY = "dynamicOffsets";
++static const std::string EXPRESSION_PATTERN = "expressionPattern";
++static const std::string MAX_AMPLITUDE_LEVEL_KEY = "maxAmplitudeLevel";
++static const std::string AMPLITUDE_TIME_SHIFT = "amplitudeTimeShift";
++static const std::string DYNAMIC_OFFSETS_KEY = "dynamicOffsets";
+ 
+ ArticulationsProfilePtr ArticulationProfilesRepository::createNew() const
+ {
+@@ -100,24 +97,24 @@ ArticulationsProfilePtr ArticulationProfilesRepository::loadProfile(const io::pa
+         return nullptr;
+     }
+ 
+-    QJsonParseError err;
++    std::string err;
+ 
+-    QJsonDocument file = QJsonDocument::fromJson(fileReading.val.toQByteArrayNoCopy(), &err);
+-    if (err.error != QJsonParseError::NoError) {
+-        LOGE() << err.errorString();
++    JsonDocument file = JsonDocument::fromJson(fileReading.val, &err);
++    if (!err.empty()) {
++        LOGE() << err;
+         return nullptr;
+     }
+ 
+     ArticulationsProfilePtr result = std::make_shared<ArticulationsProfile>();
+ 
+-    QJsonObject rootObj = file.object();
++    JsonObject rootObj = file.rootObject();
+ 
+     result->supportedFamilies = supportedFamiliesFromJson(rootObj.value(SUPPORTED_FAMILIES).toArray());
+ 
+-    QJsonObject articulationPatterns = rootObj.value(PATTERNS_KEY).toObject();
++    JsonObject articulationPatterns = rootObj.value(PATTERNS_KEY).toObject();
+ 
+-    for (const QString& key : articulationPatterns.keys()) {
+-        result->setPattern(articulationTypeFromString(key),
++    for (const std::string& key : articulationPatterns.keys()) {
++        result->setPattern(articulationTypeFromString(String::fromStdString(key)),
+                            patternsScopeFromJson(articulationPatterns.value(key).toArray()));
+     }
+ 
+@@ -130,21 +127,21 @@ void ArticulationProfilesRepository::saveProfile(const io::path_t& path, const A
+         return;
+     }
+ 
+-    QJsonObject rootObj;
++    JsonObject rootObj;
+ 
+-    rootObj.insert(SUPPORTED_FAMILIES, supportedFamiliesToJson(profilePtr->supportedFamilies));
++    rootObj.set(SUPPORTED_FAMILIES, supportedFamiliesToJson(profilePtr->supportedFamilies));
+ 
+-    QJsonObject articulationPatterns;
++    JsonObject articulationPatterns;
+ 
+     for (const auto& pair : profilePtr->data()) {
+-        articulationPatterns.insert(articulationTypeToString(pair.first),
++        articulationPatterns.set(articulationTypeToString(pair.first).toStdString(),
+                                     patternsScopeToJson(pair.second));
+     }
+ 
+-    rootObj.insert(PATTERNS_KEY, articulationPatterns);
++    rootObj.set(PATTERNS_KEY, articulationPatterns);
+ 
+-    QByteArray json = QJsonDocument(rootObj).toJson();
+-    Ret fileWriting = fileSystem()->writeFile(path, ByteArray::fromQByteArrayNoCopy(json));
++    ByteArray json = JsonDocument(rootObj).toJson();
++    Ret fileWriting = fileSystem()->writeFile(path, json);
+ 
+     if (!fileWriting) {
+         LOGE() << "Unable to write MPE Articulation Profile, err: " << fileWriting.toString();
+@@ -159,21 +156,22 @@ Channel<io::path_t> ArticulationProfilesRepository::profileChanged() const
+     return m_profileChanged;
+ }
+ 
+-std::vector<ArticulationFamily> ArticulationProfilesRepository::supportedFamiliesFromJson(const QJsonArray& array) const
++std::vector<ArticulationFamily> ArticulationProfilesRepository::supportedFamiliesFromJson(const JsonArray& array) const
+ {
+     std::vector<ArticulationFamily> result;
+     result.reserve(array.size());
+ 
+-    for (const QJsonValue& val : array) {
++    for (size_t i_ = 0; i_ < array.size(); ++i_) {
++        const JsonValue val = array.at(i_);
+         result.push_back(articulationFamilyFromString(val.toString()));
+     }
+ 
+     return result;
+ }
+ 
+-QJsonArray ArticulationProfilesRepository::supportedFamiliesToJson(const std::vector<ArticulationFamily>& families) const
++JsonArray ArticulationProfilesRepository::supportedFamiliesToJson(const std::vector<ArticulationFamily>& families) const
+ {
+-    QJsonArray result;
++    JsonArray result;
+ 
+     for (const auto& family : families) {
+         result.append(articulationFamilyToString(family));
+@@ -182,12 +180,13 @@ QJsonArray ArticulationProfilesRepository::supportedFamiliesToJson(const std::ve
+     return result;
+ }
+ 
+-ArticulationPattern ArticulationProfilesRepository::patternsScopeFromJson(const QJsonArray& array) const
++ArticulationPattern ArticulationProfilesRepository::patternsScopeFromJson(const JsonArray& array) const
+ {
+     ArticulationPattern result;
+ 
+-    for (const QJsonValue& val : array) {
+-        QJsonObject patternObj = val.toObject();
++    for (size_t i_ = 0; i_ < array.size(); ++i_) {
++        const JsonValue val = array.at(i_);
++        JsonObject patternObj = val.toObject();
+ 
+         duration_percentage_t position = patternObj.value(PATTERN_POS_KEY).toInt();
+ 
+@@ -206,16 +205,16 @@ ArticulationPattern ArticulationProfilesRepository::patternsScopeFromJson(const
+     return result;
+ }
+ 
+-QJsonArray ArticulationProfilesRepository::patternsScopeToJson(const ArticulationPattern& scope) const
++JsonArray ArticulationProfilesRepository::patternsScopeToJson(const ArticulationPattern& scope) const
+ {
+-    QJsonArray result;
++    JsonArray result;
+ 
+     for (const auto& pair : scope) {
+-        QJsonObject pattern;
+-        pattern.insert(PATTERN_POS_KEY, static_cast<int>(pair.first));
+-        pattern.insert(ARRANGEMENT_PATTERN_KEY, arrangementPatternToJson(pair.second.arrangementPattern));
+-        pattern.insert(PITCH_PATTERN_KEY, pitchPatternToJson(pair.second.pitchPattern));
+-        pattern.insert(EXPRESSION_PATTERN, expressionPatternToJson(pair.second.expressionPattern));
++        JsonObject pattern;
++        pattern.set(PATTERN_POS_KEY, static_cast<int>(pair.first));
++        pattern.set(ARRANGEMENT_PATTERN_KEY, arrangementPatternToJson(pair.second.arrangementPattern));
++        pattern.set(PITCH_PATTERN_KEY, pitchPatternToJson(pair.second.pitchPattern));
++        pattern.set(EXPRESSION_PATTERN, expressionPatternToJson(pair.second.expressionPattern));
+ 
+         result.append(pattern);
+     }
+@@ -223,7 +222,7 @@ QJsonArray ArticulationProfilesRepository::patternsScopeToJson(const Articulatio
+     return result;
+ }
+ 
+-ArrangementPattern ArticulationProfilesRepository::arrangementPatternFromJson(const QJsonObject& obj) const
++ArrangementPattern ArticulationProfilesRepository::arrangementPatternFromJson(const JsonObject& obj) const
+ {
+     ArrangementPattern result;
+ 
+@@ -233,24 +232,25 @@ ArrangementPattern ArticulationProfilesRepository::arrangementPatternFromJson(co
+     return result;
+ }
+ 
+-QJsonObject ArticulationProfilesRepository::arrangementPatternToJson(const ArrangementPattern& pattern) const
++JsonObject ArticulationProfilesRepository::arrangementPatternToJson(const ArrangementPattern& pattern) const
+ {
+-    QJsonObject result;
++    JsonObject result;
+ 
+-    result.insert(DURATION_FACTOR_KEY, static_cast<int>(pattern.durationFactor));
+-    result.insert(TIMESTAMP_OFFSET_KEY, static_cast<int>(pattern.timestampOffset));
++    result.set(DURATION_FACTOR_KEY, static_cast<int>(pattern.durationFactor));
++    result.set(TIMESTAMP_OFFSET_KEY, static_cast<int>(pattern.timestampOffset));
+ 
+     return result;
+ }
+ 
+-PitchPattern ArticulationProfilesRepository::pitchPatternFromJson(const QJsonObject& obj) const
++PitchPattern ArticulationProfilesRepository::pitchPatternFromJson(const JsonObject& obj) const
+ {
+     PitchPattern result;
+ 
+-    QJsonArray offsets = obj.value(PITCH_OFFSETS_KEY).toArray();
++    JsonArray offsets = obj.value(PITCH_OFFSETS_KEY).toArray();
+ 
+-    for (const QJsonValue pitchOffset : offsets) {
+-        QJsonObject offsetObj = pitchOffset.toObject();
++    for (size_t i_ = 0; i_ < offsets.size(); ++i_) {
++        const JsonValue pitchOffset = offsets.at(i_);
++        JsonObject offsetObj = pitchOffset.toObject();
+ 
+         result.pitchOffsetMap.emplace(offsetObj.value(OFFSET_POS_KEY).toInt(),
+                                       offsetObj.value(OFFSET_VAL_KEY).toInt());
+@@ -259,33 +259,34 @@ PitchPattern ArticulationProfilesRepository::pitchPatternFromJson(const QJsonObj
+     return result;
+ }
+ 
+-QJsonObject ArticulationProfilesRepository::pitchPatternToJson(const PitchPattern& pattern) const
++JsonObject ArticulationProfilesRepository::pitchPatternToJson(const PitchPattern& pattern) const
+ {
+-    QJsonObject result;
++    JsonObject result;
+ 
+-    QJsonArray pitchOffsets;
++    JsonArray pitchOffsets;
+ 
+     for (const auto& pair : pattern.pitchOffsetMap) {
+-        QJsonObject offsetObj;
+-        offsetObj.insert(OFFSET_POS_KEY, static_cast<int>(pair.first));
+-        offsetObj.insert(OFFSET_VAL_KEY, static_cast<int>(pair.second));
++        JsonObject offsetObj;
++        offsetObj.set(OFFSET_POS_KEY, static_cast<int>(pair.first));
++        offsetObj.set(OFFSET_VAL_KEY, static_cast<int>(pair.second));
+ 
+         pitchOffsets.append(std::move(offsetObj));
+     }
+ 
+-    result.insert(PITCH_OFFSETS_KEY, pitchOffsets);
++    result.set(PITCH_OFFSETS_KEY, pitchOffsets);
+ 
+     return result;
+ }
+ 
+-ExpressionPattern ArticulationProfilesRepository::expressionPatternFromJson(const QJsonObject& obj) const
++ExpressionPattern ArticulationProfilesRepository::expressionPatternFromJson(const JsonObject& obj) const
+ {
+     ExpressionPattern result;
+ 
+-    QJsonArray offsets = obj.value(DYNAMIC_OFFSETS_KEY).toArray();
++    JsonArray offsets = obj.value(DYNAMIC_OFFSETS_KEY).toArray();
+ 
+-    for (const QJsonValue offset : offsets) {
+-        QJsonObject offsetObj = offset.toObject();
++    for (size_t i_ = 0; i_ < offsets.size(); ++i_) {
++        const JsonValue offset = offsets.at(i_);
++        JsonObject offsetObj = offset.toObject();
+         result.dynamicOffsetMap.emplace(offsetObj.value(OFFSET_POS_KEY).toInt(),
+                                         offsetObj.value(OFFSET_VAL_KEY).toInt());
+     }
+@@ -293,21 +294,21 @@ ExpressionPattern ArticulationProfilesRepository::expressionPatternFromJson(cons
+     return result;
+ }
+ 
+-QJsonObject ArticulationProfilesRepository::expressionPatternToJson(const ExpressionPattern& pattern) const
++JsonObject ArticulationProfilesRepository::expressionPatternToJson(const ExpressionPattern& pattern) const
+ {
+-    QJsonObject result;
++    JsonObject result;
+ 
+-    QJsonArray dynamicOffsets;
++    JsonArray dynamicOffsets;
+ 
+     for (const auto& pair : pattern.dynamicOffsetMap) {
+-        QJsonObject offsetObj;
+-        offsetObj.insert(OFFSET_POS_KEY, static_cast<int>(pair.first));
+-        offsetObj.insert(OFFSET_VAL_KEY, static_cast<int>(pair.second));
++        JsonObject offsetObj;
++        offsetObj.set(OFFSET_POS_KEY, static_cast<int>(pair.first));
++        offsetObj.set(OFFSET_VAL_KEY, static_cast<int>(pair.second));
+ 
+         dynamicOffsets.append(std::move(offsetObj));
+     }
+ 
+-    result.insert(DYNAMIC_OFFSETS_KEY, dynamicOffsets);
++    result.set(DYNAMIC_OFFSETS_KEY, dynamicOffsets);
+ 
+     return result;
+ }
+diff --git a/src/framework/mpe/internal/articulationprofilesrepository.h b/src/framework/mpe/internal/articulationprofilesrepository.h
+index 8f85c16160..bae5105a67 100644
+--- a/src/framework/mpe/internal/articulationprofilesrepository.h
++++ b/src/framework/mpe/internal/articulationprofilesrepository.h
+@@ -26,6 +26,7 @@
+ #include "modularity/ioc.h"
+ #include "io/ifilesystem.h"
+ #include "async/asyncable.h"
++#include "global/serialization/json.h"
+ 
+ #include "iarticulationprofilesrepository.h"
+ 
+@@ -45,20 +46,20 @@ public:
+     async::Channel<io::path_t> profileChanged() const override;
+ 
+ private:
+-    std::vector<ArticulationFamily> supportedFamiliesFromJson(const QJsonArray& array) const;
+-    QJsonArray supportedFamiliesToJson(const std::vector<ArticulationFamily>& families) const;
++    std::vector<ArticulationFamily> supportedFamiliesFromJson(const JsonArray& array) const;
++    JsonArray supportedFamiliesToJson(const std::vector<ArticulationFamily>& families) const;
+ 
+-    ArticulationPattern patternsScopeFromJson(const QJsonArray& array) const;
+-    QJsonArray patternsScopeToJson(const ArticulationPattern& scope) const;
++    ArticulationPattern patternsScopeFromJson(const JsonArray& array) const;
++    JsonArray patternsScopeToJson(const ArticulationPattern& scope) const;
+ 
+-    ArrangementPattern arrangementPatternFromJson(const QJsonObject& obj) const;
+-    QJsonObject arrangementPatternToJson(const ArrangementPattern& pattern) const;
++    ArrangementPattern arrangementPatternFromJson(const JsonObject& obj) const;
++    JsonObject arrangementPatternToJson(const ArrangementPattern& pattern) const;
+ 
+-    PitchPattern pitchPatternFromJson(const QJsonObject& obj) const;
+-    QJsonObject pitchPatternToJson(const PitchPattern& pattern) const;
++    PitchPattern pitchPatternFromJson(const JsonObject& obj) const;
++    JsonObject pitchPatternToJson(const PitchPattern& pattern) const;
+ 
+-    ExpressionPattern expressionPatternFromJson(const QJsonObject& obj) const;
+-    QJsonObject expressionPatternToJson(const ExpressionPattern& pattern) const;
++    ExpressionPattern expressionPatternFromJson(const JsonObject& obj) const;
++    JsonObject expressionPatternToJson(const ExpressionPattern& pattern) const;
+ 
+     mutable std::unordered_map<ArticulationFamily, ArticulationsProfilePtr> m_defaultProfiles;
+ 
+diff --git a/src/framework/mpe/internal/articulationstringutils.h b/src/framework/mpe/internal/articulationstringutils.h
+index 5be49f5ea4..fb59a0cf3f 100644
+--- a/src/framework/mpe/internal/articulationstringutils.h
++++ b/src/framework/mpe/internal/articulationstringutils.h
+@@ -22,165 +22,165 @@
+ 
+ #pragma once
+ 
+-#include <QString>
++#include "global/types/string.h"
+ #include <unordered_map>
+ 
+ #include "mpe/mpetypes.h"
+ 
+ namespace muse::mpe {
+-static const std::unordered_map<ArticulationFamily, QString> ARTICULATION_FAMILY_NAMES {
+-    { ArticulationFamily::Undefined, "Undefined" },
+-    { ArticulationFamily::Keyboards, "KeyboardsArticulation" },
+-    { ArticulationFamily::Strings, "StringsArticulation" },
+-    { ArticulationFamily::Winds, "WindsArticulation" },
+-    { ArticulationFamily::Percussions, "PercussionsArticulation" },
+-    { ArticulationFamily::Voices, "VoicesArticulation" },
++static const std::unordered_map<ArticulationFamily, muse::String> ARTICULATION_FAMILY_NAMES {
++    { ArticulationFamily::Undefined, u"Undefined" },
++    { ArticulationFamily::Keyboards, u"KeyboardsArticulation" },
++    { ArticulationFamily::Strings, u"StringsArticulation" },
++    { ArticulationFamily::Winds, u"WindsArticulation" },
++    { ArticulationFamily::Percussions, u"PercussionsArticulation" },
++    { ArticulationFamily::Voices, u"VoicesArticulation" },
+ };
+ 
+-static const std::unordered_map<ArticulationType, QString> ARTICULATION_TYPE_NAMES {
+-    { ArticulationType::Undefined, "Undefined" },
+-    { ArticulationType::Standard, "Standard" },
+-    { ArticulationType::Staccato, "Staccato" },
+-    { ArticulationType::Staccatissimo, "Staccatissimo" },
+-    { ArticulationType::Tenuto, "Tenuto" },
+-    { ArticulationType::Marcato, "Marcato" },
+-    { ArticulationType::Accent, "Accent" },
+-    { ArticulationType::SoftAccent, "SoftAccent" },
+-    { ArticulationType::LaissezVibrer, "LaissezVibrer" },
+-    { ArticulationType::Subito, "Subito" },
+-    { ArticulationType::FadeIn, "FadeIn" },
+-    { ArticulationType::FadeOut, "FadeOut" },
+-    { ArticulationType::Harmonic, "Harmonic" },
+-    { ArticulationType::JazzTone, "JazzTone" },
+-    { ArticulationType::PalmMute, "PalmMute" },
+-    { ArticulationType::Mute, "Mute" },
+-    { ArticulationType::Open, "Open" },
+-    { ArticulationType::Pizzicato, "Pizzicato" },
+-    { ArticulationType::SnapPizzicato, "SnapPizzicato" },
+-    { ArticulationType::RandomPizzicato, "RandomPizzicato" },
+-    { ArticulationType::UpBow, "UpBow" },
+-    { ArticulationType::DownBow, "DownBow" },
+-    { ArticulationType::Detache, "Detache" },
+-    { ArticulationType::Martele, "Martele" },
+-    { ArticulationType::Jete, "Jete" },
+-    { ArticulationType::ColLegno, "ColLegno" },
+-    { ArticulationType::SulPont, "SulPonticello" },
+-    { ArticulationType::SulTasto, "SulTasto" },
+-    { ArticulationType::GhostNote, "GhostNote" },
+-    { ArticulationType::CrossNote, "CrossNote" },
+-    { ArticulationType::CrossLargeNote, "CrossLargeNote" },
+-    { ArticulationType::CrossOrnateNote, "CrossOrnateNote" },
+-    { ArticulationType::CircleNote, "CircleNote" },
+-    { ArticulationType::CircleCrossNote, "CircleCrossNote" },
+-    { ArticulationType::CircleDotNote, "CircleDotNote" },
+-    { ArticulationType::TriangleLeftNote, "TriangleLeftNote" },
+-    { ArticulationType::TriangleRightNote, "TriangleRightNote" },
+-    { ArticulationType::TriangleUpNote, "TriangleUpNote" },
+-    { ArticulationType::TriangleDownNote, "TriangleDownNote" },
+-    { ArticulationType::TriangleRoundDownNote, "TriangleRoundDownNote" },
+-    { ArticulationType::DiamondNote, "DiamondNote" },
+-    { ArticulationType::MoonNote, "MoonNote" },
+-    { ArticulationType::PlusNote, "PlusNote" },
+-    { ArticulationType::SlashNote, "SlashNote" },
+-    { ArticulationType::SquareNote, "SquareNote" },
+-    { ArticulationType::SlashedBackwardsNote, "SlashedBackwardsNote" },
+-    { ArticulationType::SlashedForwardsNote, "SlashedForwardsNote" },
+-    { ArticulationType::Fall, "Fall" },
+-    { ArticulationType::QuickFall, "QuickFall" },
+-    { ArticulationType::Doit, "Doit" },
+-    { ArticulationType::Plop, "Plop" },
+-    { ArticulationType::Scoop, "Scoop" },
+-    { ArticulationType::BrassBend, "BrassBend" },
+-    { ArticulationType::Multibend, "Multibend" },
+-    { ArticulationType::SlideOutDown, "SlideOutDown" },
+-    { ArticulationType::SlideOutUp, "SlideOutUp" },
+-    { ArticulationType::SlideInAbove, "SlideInAbove" },
+-    { ArticulationType::SlideInBelow, "SlideInBelow" },
+-    { ArticulationType::Crescendo, "Crescendo" },
+-    { ArticulationType::Diminuendo, "Diminuendo" },
+-    { ArticulationType::DiscreteGlissando, "DiscreteGlissando" },
+-    { ArticulationType::ContinuousGlissando, "ContinuousGlissando" },
+-    { ArticulationType::Breath, "Breath" },
+-    { ArticulationType::Legato, "Legato" },
+-    { ArticulationType::Pedal, "Pedal" },
+-    { ArticulationType::Arpeggio, "Arpeggio" },
+-    { ArticulationType::ArpeggioUp, "ArpeggioUp" },
+-    { ArticulationType::ArpeggioDown, "ArpeggioDown" },
+-    { ArticulationType::ArpeggioStraightUp, "ArpeggioStraightUp" },
+-    { ArticulationType::ArpeggioStraightDown, "ArpeggioStraightDown" },
+-    { ArticulationType::Vibrato, "Vibrato" },
+-    { ArticulationType::WideVibrato, "WideVibrato" },
+-    { ArticulationType::MoltoVibrato, "MoltoVibrato" },
+-    { ArticulationType::SenzaVibrato, "SenzaVibrato" },
+-    { ArticulationType::Tremolo8th, "Tremolo8th" },
+-    { ArticulationType::Tremolo16th, "Tremolo16th" },
+-    { ArticulationType::Tremolo32nd, "Tremolo32nd" },
+-    { ArticulationType::Tremolo64th, "Tremolo64th" },
+-    { ArticulationType::TremoloBuzz, "TremoloBuzz" },
+-    { ArticulationType::UpperMordent, "ShortTrill" },
+-    { ArticulationType::Trill, "Trill" },
+-    { ArticulationType::TrillBaroque, "TrillBaroque" },
+-    { ArticulationType::LowerMordent, "Mordent" },
+-    { ArticulationType::PrallMordent, "PrallMordent" },
+-    { ArticulationType::UpperMordentBaroque, "UpperMordentBaroque" },
+-    { ArticulationType::LowerMordentBaroque, "LowerMordentBaroque" },
+-    { ArticulationType::MordentWithUpperPrefix, "MordentWithUpperPrefix" },
+-    { ArticulationType::UpMordent, "UpMordent" },
+-    { ArticulationType::DownMordent, "DownMordent" },
+-    { ArticulationType::Tremblement, "Tremblement" },
+-    { ArticulationType::UpPrall, "UpPrall" },
+-    { ArticulationType::PrallUp, "PrallUp" },
+-    { ArticulationType::PrallDown, "PrallDown" },
+-    { ArticulationType::LinePrall, "LinePrall" },
+-    { ArticulationType::Slide, "Slide" },
+-    { ArticulationType::Turn, "Turn" },
+-    { ArticulationType::InvertedTurn, "InvertedTurn" },
+-    { ArticulationType::PreAppoggiatura, "PreAppoggiatura" },
+-    { ArticulationType::PostAppoggiatura, "PostAppoggiatura" },
+-    { ArticulationType::Acciaccatura, "Acciaccatura" },
+-    { ArticulationType::TremoloBar, "TremoloBar" },
+-    { ArticulationType::Distortion, "Distortion" },
+-    { ArticulationType::Overdrive, "Overdrive" },
+-    { ArticulationType::Slap, "Slap" },
+-    { ArticulationType::Pop, "Pop" },
+-    { ArticulationType::LeftHandTapping, "LeftHandTapping" },
+-    { ArticulationType::RightHandTapping, "RightHandTapping" },
+-    { ArticulationType::MalletBellOnTable, "MalletBellOnTable" },
+-    { ArticulationType::MalletBellSuspended, "MalletBellSuspended" },
+-    { ArticulationType::MalletLift, "MalletLift" },
+-    { ArticulationType::Pluck, "Pluck" },
+-    { ArticulationType::PluckLift, "PluckLift" },
+-    { ArticulationType::Gyro, "Gyro" },
+-    { ArticulationType::Martellato, "Martellato" },
+-    { ArticulationType::MartellatoLift, "MartellatoLift" },
+-    { ArticulationType::HandMartellato, "HandMartellato" },
+-    { ArticulationType::MutedMartellato, "MutedMartellato" },
+-    { ArticulationType::ThumbDamp, "ThumbDamp" },
+-    { ArticulationType::BrushDamp, "BrushDamp" },
+-    { ArticulationType::Ring, "Ring" },
+-    { ArticulationType::RingTouch, "RingTouch" },
+-    { ArticulationType::SingingBell, "SingingBell" },
+-    { ArticulationType::SingingVibrate, "SingingVibrate" },
+-    { ArticulationType::Swing, "Swing" },
+-    { ArticulationType::Echo, "Echo" },
++static const std::unordered_map<ArticulationType, muse::String> ARTICULATION_TYPE_NAMES {
++    { ArticulationType::Undefined, u"Undefined" },
++    { ArticulationType::Standard, u"Standard" },
++    { ArticulationType::Staccato, u"Staccato" },
++    { ArticulationType::Staccatissimo, u"Staccatissimo" },
++    { ArticulationType::Tenuto, u"Tenuto" },
++    { ArticulationType::Marcato, u"Marcato" },
++    { ArticulationType::Accent, u"Accent" },
++    { ArticulationType::SoftAccent, u"SoftAccent" },
++    { ArticulationType::LaissezVibrer, u"LaissezVibrer" },
++    { ArticulationType::Subito, u"Subito" },
++    { ArticulationType::FadeIn, u"FadeIn" },
++    { ArticulationType::FadeOut, u"FadeOut" },
++    { ArticulationType::Harmonic, u"Harmonic" },
++    { ArticulationType::JazzTone, u"JazzTone" },
++    { ArticulationType::PalmMute, u"PalmMute" },
++    { ArticulationType::Mute, u"Mute" },
++    { ArticulationType::Open, u"Open" },
++    { ArticulationType::Pizzicato, u"Pizzicato" },
++    { ArticulationType::SnapPizzicato, u"SnapPizzicato" },
++    { ArticulationType::RandomPizzicato, u"RandomPizzicato" },
++    { ArticulationType::UpBow, u"UpBow" },
++    { ArticulationType::DownBow, u"DownBow" },
++    { ArticulationType::Detache, u"Detache" },
++    { ArticulationType::Martele, u"Martele" },
++    { ArticulationType::Jete, u"Jete" },
++    { ArticulationType::ColLegno, u"ColLegno" },
++    { ArticulationType::SulPont, u"SulPonticello" },
++    { ArticulationType::SulTasto, u"SulTasto" },
++    { ArticulationType::GhostNote, u"GhostNote" },
++    { ArticulationType::CrossNote, u"CrossNote" },
++    { ArticulationType::CrossLargeNote, u"CrossLargeNote" },
++    { ArticulationType::CrossOrnateNote, u"CrossOrnateNote" },
++    { ArticulationType::CircleNote, u"CircleNote" },
++    { ArticulationType::CircleCrossNote, u"CircleCrossNote" },
++    { ArticulationType::CircleDotNote, u"CircleDotNote" },
++    { ArticulationType::TriangleLeftNote, u"TriangleLeftNote" },
++    { ArticulationType::TriangleRightNote, u"TriangleRightNote" },
++    { ArticulationType::TriangleUpNote, u"TriangleUpNote" },
++    { ArticulationType::TriangleDownNote, u"TriangleDownNote" },
++    { ArticulationType::TriangleRoundDownNote, u"TriangleRoundDownNote" },
++    { ArticulationType::DiamondNote, u"DiamondNote" },
++    { ArticulationType::MoonNote, u"MoonNote" },
++    { ArticulationType::PlusNote, u"PlusNote" },
++    { ArticulationType::SlashNote, u"SlashNote" },
++    { ArticulationType::SquareNote, u"SquareNote" },
++    { ArticulationType::SlashedBackwardsNote, u"SlashedBackwardsNote" },
++    { ArticulationType::SlashedForwardsNote, u"SlashedForwardsNote" },
++    { ArticulationType::Fall, u"Fall" },
++    { ArticulationType::QuickFall, u"QuickFall" },
++    { ArticulationType::Doit, u"Doit" },
++    { ArticulationType::Plop, u"Plop" },
++    { ArticulationType::Scoop, u"Scoop" },
++    { ArticulationType::BrassBend, u"BrassBend" },
++    { ArticulationType::Multibend, u"Multibend" },
++    { ArticulationType::SlideOutDown, u"SlideOutDown" },
++    { ArticulationType::SlideOutUp, u"SlideOutUp" },
++    { ArticulationType::SlideInAbove, u"SlideInAbove" },
++    { ArticulationType::SlideInBelow, u"SlideInBelow" },
++    { ArticulationType::Crescendo, u"Crescendo" },
++    { ArticulationType::Diminuendo, u"Diminuendo" },
++    { ArticulationType::DiscreteGlissando, u"DiscreteGlissando" },
++    { ArticulationType::ContinuousGlissando, u"ContinuousGlissando" },
++    { ArticulationType::Breath, u"Breath" },
++    { ArticulationType::Legato, u"Legato" },
++    { ArticulationType::Pedal, u"Pedal" },
++    { ArticulationType::Arpeggio, u"Arpeggio" },
++    { ArticulationType::ArpeggioUp, u"ArpeggioUp" },
++    { ArticulationType::ArpeggioDown, u"ArpeggioDown" },
++    { ArticulationType::ArpeggioStraightUp, u"ArpeggioStraightUp" },
++    { ArticulationType::ArpeggioStraightDown, u"ArpeggioStraightDown" },
++    { ArticulationType::Vibrato, u"Vibrato" },
++    { ArticulationType::WideVibrato, u"WideVibrato" },
++    { ArticulationType::MoltoVibrato, u"MoltoVibrato" },
++    { ArticulationType::SenzaVibrato, u"SenzaVibrato" },
++    { ArticulationType::Tremolo8th, u"Tremolo8th" },
++    { ArticulationType::Tremolo16th, u"Tremolo16th" },
++    { ArticulationType::Tremolo32nd, u"Tremolo32nd" },
++    { ArticulationType::Tremolo64th, u"Tremolo64th" },
++    { ArticulationType::TremoloBuzz, u"TremoloBuzz" },
++    { ArticulationType::UpperMordent, u"ShortTrill" },
++    { ArticulationType::Trill, u"Trill" },
++    { ArticulationType::TrillBaroque, u"TrillBaroque" },
++    { ArticulationType::LowerMordent, u"Mordent" },
++    { ArticulationType::PrallMordent, u"PrallMordent" },
++    { ArticulationType::UpperMordentBaroque, u"UpperMordentBaroque" },
++    { ArticulationType::LowerMordentBaroque, u"LowerMordentBaroque" },
++    { ArticulationType::MordentWithUpperPrefix, u"MordentWithUpperPrefix" },
++    { ArticulationType::UpMordent, u"UpMordent" },
++    { ArticulationType::DownMordent, u"DownMordent" },
++    { ArticulationType::Tremblement, u"Tremblement" },
++    { ArticulationType::UpPrall, u"UpPrall" },
++    { ArticulationType::PrallUp, u"PrallUp" },
++    { ArticulationType::PrallDown, u"PrallDown" },
++    { ArticulationType::LinePrall, u"LinePrall" },
++    { ArticulationType::Slide, u"Slide" },
++    { ArticulationType::Turn, u"Turn" },
++    { ArticulationType::InvertedTurn, u"InvertedTurn" },
++    { ArticulationType::PreAppoggiatura, u"PreAppoggiatura" },
++    { ArticulationType::PostAppoggiatura, u"PostAppoggiatura" },
++    { ArticulationType::Acciaccatura, u"Acciaccatura" },
++    { ArticulationType::TremoloBar, u"TremoloBar" },
++    { ArticulationType::Distortion, u"Distortion" },
++    { ArticulationType::Overdrive, u"Overdrive" },
++    { ArticulationType::Slap, u"Slap" },
++    { ArticulationType::Pop, u"Pop" },
++    { ArticulationType::LeftHandTapping, u"LeftHandTapping" },
++    { ArticulationType::RightHandTapping, u"RightHandTapping" },
++    { ArticulationType::MalletBellOnTable, u"MalletBellOnTable" },
++    { ArticulationType::MalletBellSuspended, u"MalletBellSuspended" },
++    { ArticulationType::MalletLift, u"MalletLift" },
++    { ArticulationType::Pluck, u"Pluck" },
++    { ArticulationType::PluckLift, u"PluckLift" },
++    { ArticulationType::Gyro, u"Gyro" },
++    { ArticulationType::Martellato, u"Martellato" },
++    { ArticulationType::MartellatoLift, u"MartellatoLift" },
++    { ArticulationType::HandMartellato, u"HandMartellato" },
++    { ArticulationType::MutedMartellato, u"MutedMartellato" },
++    { ArticulationType::ThumbDamp, u"ThumbDamp" },
++    { ArticulationType::BrushDamp, u"BrushDamp" },
++    { ArticulationType::Ring, u"Ring" },
++    { ArticulationType::RingTouch, u"RingTouch" },
++    { ArticulationType::SingingBell, u"SingingBell" },
++    { ArticulationType::SingingVibrate, u"SingingVibrate" },
++    { ArticulationType::Swing, u"Swing" },
++    { ArticulationType::Echo, u"Echo" },
+ };
+ 
+-inline ArticulationFamily articulationFamilyFromString(const QString& str)
++inline ArticulationFamily articulationFamilyFromString(const muse::String& str)
+ {
+     return muse::key(ARTICULATION_FAMILY_NAMES, str, ArticulationFamily::Undefined);
+ }
+ 
+-inline const QString articulationFamilyToString(const ArticulationFamily family)
++inline const muse::String articulationFamilyToString(const ArticulationFamily family)
+ {
+     return muse::value(ARTICULATION_FAMILY_NAMES, family);
+ }
+ 
+-inline ArticulationType articulationTypeFromString(const QString& str)
++inline ArticulationType articulationTypeFromString(const muse::String& str)
+ {
+     return muse::key(ARTICULATION_TYPE_NAMES, str, ArticulationType::Undefined);
+ }
+ 
+-inline const QString articulationTypeToString(const ArticulationType type)
++inline const muse::String articulationTypeToString(const ArticulationType type)
+ {
+     return muse::value(ARTICULATION_TYPE_NAMES, type);
+ }
 diff --git a/src/importexport/midi/internal/midiexport/exportmidi.cpp b/src/importexport/midi/internal/midiexport/exportmidi.cpp
 index 732044cdb8..4d986a7d8f 100644
 --- a/src/importexport/midi/internal/midiexport/exportmidi.cpp

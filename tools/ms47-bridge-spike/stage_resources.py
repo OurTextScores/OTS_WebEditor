@@ -17,3 +17,12 @@ for q in qrcs:
             shutil.copyfile(os.path.normpath(os.path.join(base, f.text)), dst)
             n += 1
 print(f"staged {n} files from {len(qrcs)} qrc into {out}")
+
+# MPE articulation profiles, served as :/mpe/resources/*.json (Qt resources in desktop builds)
+mpe = os.path.join(root, "src/framework/mpe/resources")
+if os.path.isdir(mpe):
+    os.makedirs(os.path.join(out, "mpe/resources"), exist_ok=True)
+    for f in sorted(os.listdir(mpe)):
+        if f.endswith(".json"):
+            shutil.copyfile(os.path.join(mpe, f), os.path.join(out, "mpe/resources", f))
+

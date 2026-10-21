@@ -1,3 +1,38 @@
+# Playback spike — 2026-10-21 (DECISIONS.md item 1)
+
+**Result: 4.7's own audio stack renders in the Qt-free WASM bridge, faster than 4.00.** Behind the new
+`MS47_WITH_PLAYBACK` build option (off until the streaming exports are ported): engraving playback (MPE), `muse_mpe`,
+audio common and the audio engine with FluidSynth, as upstream's own web audio engine builds them. `playbacktools.h`
+creates the engine services in-process (no RPC; the bridge thread is the engine thread), builds a `PlaybackModel` and
+one engine sequence per score, and renders offline as upstream's `SoundTrackWriter` does. `saveAudio('wav')` works
+(32-bit float, stereo, 44.1 kHz).
+
+Bach (`bach_orig.mscz`) with the OTS demo soundfont (`demo_data/cache/default.sf3`), Node, unoptimized debug build:
+
+| | 4.00 engine | 4.7 bridge |
+|---|---|---|
+| audio length | 146.999 s | 147.0 s |
+| render time | 3.0 s | 0.9 s |
+| RMS / peak | 0.0213 / 0.190 | 0.0227 / 0.280 |
+| loudness-envelope correlation with 4.00 | — | 0.59 (10 ms), 0.70 (100 ms), 0.88 (500 ms); best lag 0–10 ms |
+
+Notes line up in time and phrase-level dynamics track closely; note shaping differs, as expected from 4.7's MPE
+articulation rendering. A listening comparison is still worth doing before switching.
+
+Upstream patch additions for this (all Qt-free cleanups): MPE's articulation profiles repository converted from
+Qt JSON to muse JSON (and its string table to `muse::String`), MPE resources guarded in CMake (served as
+`:/mpe/resources/*.json` from the staged resource directory), `RESOURCE_TYPE_MAP` to `muse::String`, `workmode`
+without the settings store, and `Uri`/`UriQuery` log operators moved into `namespace muse` (the same lookup fix as
+`String`). Bridge setup lessons: `AudioEngine::init` needs non-zero render constraints (`minSamplesToReserve`), the
+track input must name the loaded soundfont (the default names desktop's bundled "MS Basic"), the FluidSynth resolver
+needs an explicit `refresh()` after loading, and the sequence duration must be set from the score's play time plus
+the 3 s release tail, as desktop's playback controller does.
+
+Next: port the streaming exports (`synthAudio*`, `processSynth*`, `saveAudioForMeasureRange`) on this engine, then
+make playback part of the default build.
+
+---
+
 # MIDI checkpoint — 2026-10-21
 
 **175 of 184 exports are implemented; 9 remain (playback and PDF).** `saveMidi` (`miditools.h`) uses upstream's

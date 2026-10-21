@@ -180,3 +180,4 @@ EMSCRIPTEN_KEEPALIVE bool redo(uintptr_t id,int excerpt) {
 #include "layouttools.h"
 #include "dragtools.h"
 #include "miditools.h"
+#include "playbacktools.h"
