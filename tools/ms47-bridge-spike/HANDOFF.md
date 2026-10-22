@@ -10,8 +10,7 @@ same unmodified `web-public/src/index.js`**.
   selection, note input, parts and drag.
 - The full suite runs green, including with fonts fetched on demand: 144 verified operations, about 80 s.
 - Size: 11.26 MB wasm, 3.60 MB gzip, with playback. The 4.00 engine is 9.72 MB / 3.17 MB.
-- **Not yet usable in the browser.** The bridge links for Node only (`ENVIRONMENT=node`, `NODERAWFS`). The browser
-  build is the next task (below).
+- **Runs in the browser:** the editor loads the 4.7 package (`build.sh` also links `webmscore.lib.*`).
 
 Branch: `engine-ms47-spike` in OTS_Web, **13 commits, not pushed** (6393dd94 … 1b098e9e). OurTextScores rule:
 commit, don't push. Working tree clean.
@@ -63,27 +62,32 @@ node tools/ms47-bridge-spike/inventory.mjs   # export coverage against the 4.00 
 The verifiers compare against the shipping 4.00 Node build (`webmscore-fork/web-public/webmscore.nodejs.cjs`) where it
 matters: MIDI notes, PDF page sizes, audio length.
 
-## Next tasks, in order
+## Next tasks, in order (updated 2026-10-22)
 
-1. **Browser build (DECISIONS item 8).**
-   - Add a link variant producing `webmscore.lib.{js,wasm,data}` to match the 4.00 loading contract in `helper.js`:
-     `ENVIRONMENT=web,worker,node`, MEMFS instead of `NODERAWFS`, `FORCE_FILESYSTEM`, and the resource root `/res`
-     instead of `process.env`. `bridge.cpp` `init()` currently calls `process.env` unconditionally.
-   - Preload everything under the staged root except `lazy-resources.json` (10.5 MB raw) with
-     `--preload-file …@/res`.
-   - Then test it through `helper.js` in Node (`getPreloadedPackage`) and in the editor.
-   - The CDN must serve the lazy files and `fonts/fallback/NotoSans{JP,KR,SC}-Regular.otf`. Those fallback fonts are
-     not staged anywhere yet; set `WebMscore.resourceBaseUrl` or `MSCORE_RESOURCE_BASEURL`.
-2. **Rebuild and retest the 4.00 bundle with the new `index.js`.** The on-demand loader added to
-   `webmscore-fork/web-public/src/index.js` is guarded (`Module._missingResources` absent → no-op), but the 4.00
-   rollup bundle hasn't been rebuilt or tested with it. It uses getters/setters, not class fields, for babel.
-3. **Incremental layout (DECISIONS item 9).** Port the editor's incremental-layout allowlist and oracle
-   (memory `project_w7_perf_layout_oracle`). Every edit does a full layout today (`layoutLinked`).
-4. **Open audit items** (`STUBS_AUDIT.md` "Open"):
-   - SVG images inside scores are silently not drawn (the Qt-free `SvgRenderer` is a stub).
-   - PDF export refuses GIF, BMP and 16-bit or interlaced PNG.
-5. **Listening comparison of 4.7 against 4.00 playback** before switching. Timing matches and dynamics correlate
-   (0.88 at 500 ms), but note shaping differs by design (MPE articulations).
+Done since the first handoff:
+- browser package (`webmscore.lib.*`, `bundle.mjs`);
+- 4.00 coordinate units at the ABI;
+- incremental layout with the layout oracle;
+- 4.00 SVG contract: classes, outlined text, stable order;
+- editor parity fixes from the Playwright suite;
+- the other agent's system locks (engine side; their UI is on `main`).
+
+Editor suite on 4.7: **357/360** in the last full run, before the final fixes that made the inspector spec pass. Runs
+use worktrees `~/workspace/ots-ms47-browser` (4.7, port 3150) and `~/workspace/ots-400-baseline` (4.00, port 3160),
+with results in `~/workspace/ms47-e2e-results/`.
+
+1. **Compare highlight geometry** (`change-review-highlight-geometry`, intermittent): the p3-m2 highlight sits about
+   half a staff low after compare reflow. Check `staffSystemBands` y against the drawn staff lines after reflow.
+2. **System-lock UI against this engine:** run the `main` UI (worktree `ots-system-locks-ui`) with the current 4.7
+   package.
+3. **Editor incremental-layout allowlist:** re-sweep with the editor's W7.1 oracle on 4.7. The bridge oracle finds
+   no stale edits, so the allowlist can likely widen.
+4. **Ship prep:**
+   - host the lazy fonts and the `fonts/fallback/NotoSans{JP,KR,SC}-Regular.otf` CDN files;
+   - make `check:wasm` accept a package without `webmscore.lib.mem.wasm`;
+   - rebuild the shipping 4.00 bundle with the new `index.js` and retest.
+5. **Open audit items** (`STUBS_AUDIT.md`): SVG images in scores; PDF GIF/BMP; per-family font substitution.
+6. **Listening comparison** of 4.7 against 4.00 playback.
 
 ## Gotchas that cost time
 
