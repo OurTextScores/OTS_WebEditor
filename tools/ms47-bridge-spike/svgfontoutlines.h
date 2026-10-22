@@ -141,7 +141,8 @@ public:
             if (path.open) { d << 'Z'; path.open=false; }
             return true;
         },[&] { ++missing; return true; });
-        if (ok && !d.str().empty()) out << "<path" << attrs << " d=\"" << d.str() << "\"/>";
+        // A run is hit-tested by its box, like the <text> it replaces: clicks between glyphs (or inside a "8va") hit it
+        if (ok && !d.str().empty()) out << "<path" << attrs << " pointer-events=\"bounding-box\" d=\"" << d.str() << "\"/>";
         return ok;
     }
 };

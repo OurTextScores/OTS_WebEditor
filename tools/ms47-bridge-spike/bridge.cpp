@@ -7,6 +7,7 @@
 #include "engraving/dom/stafflines.h"
 #include "engraving/dom/stafftype.h"
 #include "engraving/dom/measure.h"
+#include "engraving/dom/spanner.h"
 #include "engraving/dom/select.h"
 #include "engraving/dom/note.h"
 #include "engraving/dom/chord.h"
@@ -157,10 +158,17 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* saveMxl(uintptr_t id,int excerpt) {
 static std::string svgClass(const EngravingItem* item, const Selection& selection)
 {
     std::string cls = item->typeName();
+    // Exactly the 4.00 fork's rule (svggenerator getClass): the item itself is the single selection, or a member of a
+    // list or copyable range selection. Not item->selected(): segments of a selected spanner would be marked, and the
+    // editor treats a click on a "selected" element as a click on the current selection (it keeps it).
     const auto& elements = selection.elements();
-    const bool selected = selection.isSingle() ? selection.element() == item
-                          : (selection.isRange() && !selection.canCopy()) ? false
-                          : std::find(elements.begin(), elements.end(), item) != elements.end();
+    const bool member = std::find(elements.begin(), elements.end(), item) != elements.end();
+    // A single selected spanner (4.7 selects the Ottava where 4.00 selected the segment) is drawn as its segments
+    const bool singleSpanner = selection.isSingle() && item->isSpannerSegment()
+                               && toSpannerSegment(item)->spanner() == selection.element();
+    const bool selected = selection.isSingle() ? selection.element() == item || singleSpanner
+                          : selection.isRange() ? selection.canCopy() && member
+                          : selection.isList() && member;
     if (selected) cls += " selected";
     return cls;
 }

@@ -1,3 +1,47 @@
+# Editor parity in the browser — 2026-10-22
+
+The editor's Playwright suite (360 tests) was run against the 4.7 browser package and against 4.00 in separate
+worktrees (`~/workspace/ots-ms47-browser`, `~/workspace/ots-400-baseline`). The first 4.7 run had 21 failures. Four of
+them also fail on 4.00. The 4.7-only failures exposed contract and engine bugs, all fixed:
+
+- **SVG text as outlines.** 4.00 draws every text run and symbol as an outlined `<path>`: no `<text>`, no fonts.
+  The bridge emitted `<text>` with embedded fonts, so a notehead's box was the font's em box (10× too tall). That
+  broke note-drag step measurement and would bloat the selection overlays built from `.selected` boxes.
+  - Now one path per run, carrying `data-text`/`data-font` (extras, not in 4.00).
+  - Glyph shaping follows the font database's substitution faces, as `FontsEngine` measures, so CJK fallbacks draw.
+  - PDF and SVG agree ≥ 0.999 on every page, text-only pages included. SVGs no longer embed fonts.
+- **SVG order independent of selection.** `elementLessThan` puts selected elements last, so a click reordered every
+  later `.Note` and index-based clicks hit the next note (jumps landed a bar early). `saveSvg` sorts by z, visibility
+  and track only.
+- **Class on the primitive**, as 4.00 (`<path class="HairpinSegment">`), not on a wrapper group.
+- **Key signature:** `setKeySignature` set only the transposed key and saved `concertKey -8` (invalid). It now sets the
+  concert key, as desktop does.
+- **Glissando type:** `GLISS_TYPE` is styled in 4.4+; without the unstyled flag a wavy glissando saved as straight.
+- **Selection filter:** 4.00's notes-and-rests bit excludes rests again (`SelectionFilter::includeRests`, upstream
+  patch, default true). A single-note-only range honours an all-notes-excluded filter
+  (`SelectionFilter::excludesAllNotes`). A select-all that selects nothing clears the selection, as in 4.00.
+- **Specs** for tremolos and key signatures now accept the 4.4+/4.5+ MSCX tags as well (`<TremoloSingleChord>`,
+  `<concertKey>`).
+
+Follow-ups from the full rerun (357/360 passed):
+- **Text runs hit-test by their box** (`pointer-events="bounding-box"`), like the `<text>` they replaced. An outlined
+  "8va" has a gap at its centre, so clicks fell through to the background.
+- **Selection classes:** the 4.00 rule, plus the drawn segments of a single selected spanner. 4.7 selects the
+  `Ottava` where 4.00 selected the segment.
+- **Inspector refresh** (`ScoreEditor.tsx`): keyed on the selection boxes' content, not their count. Replacing a range
+  with a single line kept the count at 1, so the inspector showed the stale range. 4.00 hid this by returning no boxes
+  for ranges.
+- **Open:** `change-review-highlight-geometry` "each pane places a highlight over that score's own staff" is
+  intermittent (1 of 3 passes). The p3-m2 highlight sits about half a staff below its staff (y=368..389, staff centre
+  364–367) and passes only within the ±1 px tolerance, and the spec's DOM read races the compare pane's reflow
+  (4 vs 12 staff centres). Next: check `staffSystemBands` y after compare reflow.
+
+After the fixes, the 8 spec files with 4.7-only failures pass, including two bar-selection tests that fail on 4.00. A
+full rerun is the next entry. Also found: without Qt, `FontsDatabase::insertSubstitution` is a no-op
+(STUBS_AUDIT.md, open).
+
+---
+
 # Incremental layout — 2026-10-21 (DECISIONS.md item 9)
 
 **Edits no longer lay out the whole score.** The bridge first ended about 96 exports with `layoutLinked`: a full

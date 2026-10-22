@@ -1503,8 +1503,14 @@ export default function ScoreEditor() {
     }
   }, [score, scoreRef]);
 
+  // Keyed on the boxes' content, not their count: replacing one selection with another of the same size (a range by a
+  // single line, which the 4.00 engine hid by returning no boxes for ranges) must still refresh the inspector
+  const selectionBoxesKey = useMemo(
+    () => selectionBoxes.map((box) => `${box.page}:${box.x}:${box.y}:${box.w}:${box.h}`).join('|'),
+    [selectionBoxes],
+  );
   useEffect(() => {
-    if (!score || (!selectedElement && selectionBoxes.length === 0 && !selectedPoint)) {
+    if (!score || (!selectedElement && selectionBoxesKey === '' && !selectedPoint)) {
       setInspectorData(null);
       setFretDiagramData(null);
       setInspectorLoading(false);
@@ -1517,7 +1523,7 @@ export default function ScoreEditor() {
     selectedElement,
     selectedElementClasses,
     selectedPoint,
-    selectionBoxes.length,
+    selectionBoxesKey,
   ]);
 
   useSelectionAnnouncer(inspectorData);
