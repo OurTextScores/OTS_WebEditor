@@ -29,7 +29,12 @@ export function wavStats(buffer) {
 export async function verifyAudio(WebMscore, output) {
   assert.ok(process.env.MS47_SOUNDFONT, 'set MS47_SOUNDFONT to a .sf2/.sf3 file');
   if (process.env.MS47_ENGINE_LOG) await WebMscore.setLogLevel(Number(process.env.MS47_ENGINE_LOG));
-  try { WebMscore.hasSoundfont = true; } catch { Object.defineProperty(WebMscore, 'hasSoundfont', { get: () => true }); }
+  if (WebMscore.bundled) {
+    await WebMscore.setSoundFont(new Uint8Array(await readFile(process.env.MS47_SOUNDFONT)));   // as the editor does
+  } else {
+    // Host file system build: the engine reads MS47_SOUNDFONT itself (FS_createDataFile does not work under NODERAWFS)
+    try { WebMscore.hasSoundfont = true; } catch { Object.defineProperty(WebMscore, 'hasSoundfont', { get: () => true }); }
+  }
   const scores = (process.env.MS47_AUDIO_SCORES ?? '../../public/test_scores/bach_orig.mscz').split(',');
   const results = [];
   for (const file of scores) {

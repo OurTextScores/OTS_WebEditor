@@ -33,8 +33,13 @@ await mkdir(output, { recursive: true });
 const temp = await mkdtemp(path.join(tmpdir(), 'ms47-bridge-'));
 // MS47_LAZY_RESOURCES: boot from a copy of the resource root without the lazy files and serve them through
 // WebMscore.fetchResource, as a browser build fetches them from the CDN. The whole suite can run this way.
+// MS47_BUNDLE=<dir>: test the browser package instead (webmscore.lib.* behind web-public's real rollup bundle
+// webmscore.nodejs.cjs in <dir>): MEMFS, preloaded /res without the lazy files, so lazy mode is implied.
+const bundle = process.env.MS47_BUNDLE && path.resolve(process.env.MS47_BUNDLE);
 let lazy;
-if (process.env.MS47_LAZY_RESOURCES) {
+if (bundle) {
+  lazy = { fullRoot: process.env.MS47_RESOURCE_ROOT, fetched: [], block: null, serveFallbacks: false };
+} else if (process.env.MS47_LAZY_RESOURCES) {
   const fullRoot = process.env.MS47_RESOURCE_ROOT;
   const lazyFiles = new Set(JSON.parse(await readFile(path.join(here, 'lazy-resources.json'), 'utf8')).files);
   const minimal = path.join(temp, 'res');
@@ -60,7 +65,12 @@ export default options => Engine({ ...options, wasmBinary: readFileSync(new URL(
   globalThis.require = createRequire(path.join(temp, 'helper.js'));
   await writeFile(path.join(temp, 'helper.js'), helper);
   const started = performance.now();
-  const { default: WebMscore } = await import(pathToFileURL(path.join(temp, 'index.js')));
+  const WebMscore = bundle
+    ? createRequire(import.meta.url)(path.join(bundle, 'webmscore.nodejs.test.cjs'))   // bundle.mjs
+    : (await import(pathToFileURL(path.join(temp, 'index.js')))).default;
+  WebMscore.bundled = !!bundle;
+  // Native exports without JS wrappers (test setup only): the staged helper's Module, or the bundle's test getter
+  const nativeModule = async () => (bundle ? WebMscore.__testModule : (await import(pathToFileURL(path.join(temp, 'helper.js')))).Module);   // tests pass bytes, not host paths, to a MEMFS engine
   await WebMscore.ready;
   if (lazy) {
     WebMscore.fetchResource = async resource => {
@@ -203,10 +213,10 @@ export default options => Engine({ ...options, wasmBinary: readFileSync(new URL(
   await assert.rejects(WebMscore.load('invalid', new Uint8Array()), /Unsupported/);
   const edits = process.env.MS47_VERIFY_EDITS ? await verifyEdits(WebMscore, renderer, output) : undefined;
   const inspector = process.env.MS47_VERIFY_INSPECTOR ? await verifyInspector(WebMscore) : undefined;
-  const selection = process.env.MS47_VERIFY_SELECTION ? await verifySelection(WebMscore, renderer, (await import(pathToFileURL(path.join(temp, 'helper.js')))).Module) : undefined;
-  const noteInput = process.env.MS47_VERIFY_NOTEINPUT ? await verifyNoteInput(WebMscore, renderer, (await import(pathToFileURL(path.join(temp, 'helper.js')))).Module) : undefined;
-  const measures = process.env.MS47_VERIFY_MEASURES ? await verifyMeasures(WebMscore, renderer, output, (await import(pathToFileURL(path.join(temp, 'helper.js')))).Module) : undefined;
-  const timeline = process.env.MS47_VERIFY_MEASURES || process.env.MS47_VERIFY_TIMELINE ? await verifyTimeline(WebMscore, (await import(pathToFileURL(path.join(temp, 'helper.js')))).Module) : undefined;
+  const selection = process.env.MS47_VERIFY_SELECTION ? await verifySelection(WebMscore, renderer, await nativeModule()) : undefined;
+  const noteInput = process.env.MS47_VERIFY_NOTEINPUT ? await verifyNoteInput(WebMscore, renderer, await nativeModule()) : undefined;
+  const measures = process.env.MS47_VERIFY_MEASURES ? await verifyMeasures(WebMscore, renderer, output, await nativeModule()) : undefined;
+  const timeline = process.env.MS47_VERIFY_MEASURES || process.env.MS47_VERIFY_TIMELINE ? await verifyTimeline(WebMscore, await nativeModule()) : undefined;
   const spanners = process.env.MS47_VERIFY_SPANNERS ? await verifySpanners(WebMscore, renderer, output) : undefined;
   const misc = process.env.MS47_VERIFY_MISC ? await verifyMisc(WebMscore, renderer) : undefined;
   const drag = process.env.MS47_VERIFY_DRAG ? await verifyDrag(WebMscore, renderer) : undefined;

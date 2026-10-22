@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const forkBuild = fileURLToPath(new URL('../../webmscore-fork/web-public/webmscore.nodejs.cjs', import.meta.url));
 
 // Regression tests for the Qt-free stubs found by the audit (STUBS_AUDIT.md): paths where the engine dereferenced an
 // unregistered service, or where a Qt-free fallback gave wrong results. MS47_STUB_CASES=a,b selects cases (a crash
@@ -64,6 +71,38 @@ const cases = {
     const accented = await lyricX('1. éa'), plain = await lyricX('1. ea');
     assert.ok(Math.abs(accented - plain) < 1, `é is a letter: "1. éa" at x ${accented}, "1. ea" at x ${plain}`);
     return { accented, plain };
+  },
+
+  // The 4.00 SVG contract the editor hit-tests against: every primitive carries its element type as a class (and
+  // "selected" when selected). Bach page 1 must use the same classes as the 4.00 engine's SVG.
+  async svgclasses(WebMscore) {
+    const file = new URL('../../public/test_scores/bach_orig.mscz', import.meta.url);
+    const classes = svg => new Map([...svg.matchAll(/class="([^"]*)"/g)].flatMap(m => m[1].split(' '))
+      .filter(c => c && !c.startsWith('selstate')).reduce((map, c) => map.set(c, (map.get(c) ?? 0) + 1), new Map()));
+    const score = await WebMscore.load('mscz', new Uint8Array(await readFile(file)));
+    try {
+      const mine = classes(await score.saveSvg(0));
+      const report = Object.fromEntries(mine);
+      if (existsSync(forkBuild)) {
+        // Through a file: stdout to a pipe is asynchronous and process.exit would truncate it
+        const out = path.join(tmpdir(), `ms47-svgclasses-${process.pid}.svg`);
+        execFileSync(process.execPath, ['-e', `
+          const fs=require('fs');const W=require(${JSON.stringify(forkBuild)});
+          (async()=>{await W.ready;console.log=()=>{};const s=await W.load('mscz',fs.readFileSync(${JSON.stringify(fileURLToPath(file))}));
+          fs.writeFileSync(${JSON.stringify(out)},await s.saveSvg(0));process.exit(0)})()`], { stdio: 'ignore', timeout: 120000 });
+        const ref = classes(await readFile(out, 'utf8'));
+        await rm(out, { force: true });
+        // 4.00 painted header/footer text as part of the Page; 4.7 lays them out as Text items (already classed)
+        ref.delete('Page');
+        assert.deepEqual([...mine.keys()].sort(), [...ref.keys()].sort(), 'same element classes as the 4.00 SVG');
+      }
+      assert.ok(mine.get('Note') > 0 && mine.get('StaffLines') > 0 && !mine.has('selected'), 'notes and staff lines classed; nothing selected');
+      assert.equal(await score.selectPartMeasureByIndex(0, 0), true);
+      assert.equal(await score.selectNextChord(), true);
+      const selected = (await score.saveSvg(0)).match(/class="([^"]*selected[^"]*)"/g) ?? [];
+      assert.ok(selected.length > 0 && selected.every(c => /class="(Note|Chord|Stem|Rest)[^"]*selected"/.test(c)), `selected element marked (${selected.slice(0, 3)})`);
+      return report;
+    } finally { score.destroy(); }
   },
 };
 

@@ -5,7 +5,9 @@ import { readFile } from 'node:fs/promises';
 
 const parts = xml => [...xml.matchAll(/<part id="[^"]+">([\s\S]*?)<\/part>/g)].map(m => m[1]);
 const bars = part => [...part.matchAll(/<measure\b[^>]*>([\s\S]*?)<\/measure>/g)].map(m => m[1]);
-const primitives = svg => [...svg.matchAll(/<g transform="[^"]*"[^>]*>\s*<(?:polyline|path|polygon|text)[^>]*>(?:[^<]*<\/text>)?/g)].map(m => m[0]).sort();
+// The drawing only: element classes (which carry "selected") are not part of it
+const primitives = svg => [...svg.matchAll(/<g transform="[^"]*"[^>]*>\s*<(?:polyline|path|polygon|text)[^>]*>(?:[^<]*<\/text>)?/g)]
+  .map(m => m[0].replace(/ class="[^"]*"/, '')).sort();
 const pitches = text => [...text.matchAll(/<step>([A-G])<\/step>\s*(?:<alter>(-?\d+)<\/alter>\s*)?<octave>(\d)<\/octave>/g)].map(m => `${m[1]}${m[2] ?? ''}${m[3]}`);
 
 // The first note of bar 2 (C4) as a single selection, and its centre on the page

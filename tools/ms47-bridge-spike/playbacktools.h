@@ -108,7 +108,11 @@ static Engine* engine()
 static bool ensureSoundFont()
 {
     Engine* e = engine();
+#ifdef MS47_BROWSER
+    const char* override = "";
+#else
     const char* override = emscripten_run_script_string("(typeof process !== 'undefined' && process.env.MS47_SOUNDFONT) || ''");
+#endif
     const std::string path = override && *override ? override : "/MuseScore_General.sf3";
     if (e->soundFontPath == path) return true;
     FILE* f = fopen(path.c_str(), "rb");

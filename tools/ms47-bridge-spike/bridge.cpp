@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "bootstrap.h"
 #include "svgpaint.h"
+#include "engraving/dom/page.h"
+#include "engraving/dom/system.h"
+#include "engraving/dom/staff.h"
+#include "engraving/dom/stafflines.h"
+#include "engraving/dom/stafftype.h"
+#include "engraving/dom/measure.h"
 #include "engraving/dom/select.h"
 #include "engraving/dom/note.h"
 #include "engraving/dom/chord.h"
@@ -47,8 +53,16 @@ static void releasePlaybackForScore(uintptr_t id);   // playbacktools.h
 
 extern "C" {
 EMSCRIPTEN_KEEPALIVE void init() {
+#ifdef MS47_BROWSER
+    // Browser package (webmscore.lib.*): resources are preloaded at /res in MEMFS; index.js writes fonts and the
+    // soundfont into /fonts and / (FS_createDataFile needs the directory to exist)
+    std::error_code ec;
+    std::filesystem::create_directories("/fonts", ec);
+    boot("/res");
+#else
     const char* root = emscripten_run_script_string("process.env.MS47_RESOURCE_ROOT || '../ms47-build-native/res'");
     boot(root ? root : "../ms47-build-native/res");
+#endif
 }
 EMSCRIPTEN_KEEPALIVE int version() { return 470; }
 EMSCRIPTEN_KEEPALIVE void setLogLevel(int level) {
@@ -119,18 +133,93 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* saveMxl(uintptr_t id,int excerpt) {
     return ok ? response(mxl) : textResponse("Could not write MXL",1);
 }
 
+// As upstream SvgWriter (and the 4.00 fork's): staff lines joined per system, then the page's elements in z order, each
+// drawn under its own class (type name, plus "selected" as in the 4.00 bridge) so the editor can hit-test the SVG
+static std::string svgClass(const EngravingItem* item, const Selection& selection)
+{
+    std::string cls = item->typeName();
+    const auto& elements = selection.elements();
+    const bool selected = selection.isSingle() ? selection.element() == item
+                          : (selection.isRange() && !selection.canCopy()) ? false
+                          : std::find(elements.begin(), elements.end(), item) != elements.end();
+    if (selected) cls += " selected";
+    return cls;
+}
+
+static void paintSvgStaffLines(SvgPaint& svg, muse::draw::Painter& painter, Score* score, const Page* page,
+                               const rendering::IScoreRenderer& renderer, const rendering::PaintOptions& opt)
+{
+    for (const System* system : page->systems()) {
+        Measure* firstMeasure = system->firstMeasure();
+        if (!firstMeasure) continue;   // only frames
+        for (size_t staffIndex = 0; staffIndex < system->staves().size(); ++staffIndex) {
+            if (!score->staff(staffIndex)->show() || !system->staff(staffIndex)->show()) continue;
+            StaffLines* joined = nullptr;
+            Shape joinedShape, joinedMask;
+            const StaffType* prevType = nullptr;
+            auto flush = [&] {
+                if (!joined) return;
+                joined->mutldata()->setShape(joinedShape);
+                joined->mutldata()->setMask(joinedMask);
+                svg.setElementClass(svgClass(joined, score->selection()));
+                renderer.paintItem(painter, joined, opt);
+                delete joined;
+                joined = nullptr; prevType = nullptr; joinedShape = Shape(); joinedMask = Shape();
+            };
+            for (MeasureBase* mb = firstMeasure; mb; mb = system->nextMeasure(mb)) {
+                if (!mb->isMeasure()) { flush(); continue; }
+                Measure* m = toMeasure(mb);
+                StaffLines* sl = m->staffLines(static_cast<int>(staffIndex));
+                const bool shown = (m->visible(staffIndex) || m->isCutawayClef(staffIndex)) && sl->visible();
+                if (!shown || score->staff(staffIndex)->staffType(m->tick()) != prevType) flush();
+                if (!joined) {
+                    if (!shown) continue;
+                    joined = sl->clone();
+                    joinedShape.add(sl->ldata()->shape());
+                    joinedMask.add(sl->ldata()->mask());
+                    prevType = score->staff(staffIndex)->staffType(m->tick());
+                } else {
+                    const double lastX = sl->ldata()->bbox().right() + sl->pagePos().x() - joined->pagePos().x();
+                    std::vector<LineF> lines = joined->lines();
+                    for (LineF& line : lines) line.setP2(PointF(lastX, line.p2().y()));
+                    joined->setLines(lines);
+                    joinedShape.add(sl->ldata()->shape().translated(sl->pagePos() - joined->pagePos()));
+                    joinedMask.add(sl->ldata()->mask().translated(sl->pagePos() - joined->pagePos()));
+                }
+            }
+            flush();
+        }
+    }
+}
+
 EMSCRIPTEN_KEEPALIVE const uint8_t* saveSvg(uintptr_t id,int page,bool background,bool highlight,int excerpt) {
     auto* score=getScore(id,excerpt);
     if(!score || page<0 || page>=int(score->npages())) return textResponse("Invalid score, excerpt or page",1);
+    const Page* pg=score->pages().at(page);
     auto provider=std::make_shared<SvgPaint>();
     muse::draw::Painter painter(provider,"ms47-svg");
-    rendering::IScoreRenderer::ScorePaintOptions opt;
-    opt.fromPage=page; opt.toPage=page; opt.isSetViewport=false;
-    opt.isPrinting=!highlight; opt.printPageBackground=false;
+    painter.setAntialiasing(true);
     auto renderer=muse::modularity::globalIoc()->resolve<rendering::IScoreRenderer>("spike");
-    renderer->paintScore(&painter,score,opt); painter.endDraw();
+    rendering::PaintOptions opt;
+    opt.isPrinting=!highlight;       // printing hides selection colours and invisible elements
+    const bool wasPrinting=score->printing();
+    score->setPrinting(opt.isPrinting);
+    MScore::pdfPrinting=opt.isPrinting;
+    MScore::svgPrinting=true;
+    paintSvgStaffLines(*provider,painter,score,pg,*renderer,opt);
+    std::vector<EngravingItem*> elements=pg->elements();
+    std::sort(elements.begin(),elements.end(),elementLessThan);
+    for(const EngravingItem* element:elements) {
+        if(!element->collectForDrawing() || element->ldata()->bbox().isEmpty() || element->isStaffLines()) continue;
+        provider->setElementClass(svgClass(element,score->selection()));
+        renderer->paintItem(painter,element,opt);
+    }
+    painter.endDraw();
+    MScore::svgPrinting=false;
+    MScore::pdfPrinting=false;
+    score->setPrinting(wasPrinting);
     if(!provider->error().empty()) return textResponse(provider->error(),1);
-    auto box=score->pages().at(page)->ldata()->bbox();
+    auto box=pg->ldata()->bbox();
     return textResponse(provider->svg(box.width(),box.height(),background));
 }
 EMSCRIPTEN_KEEPALIVE bool selectNextChord(uintptr_t id,int excerpt) {

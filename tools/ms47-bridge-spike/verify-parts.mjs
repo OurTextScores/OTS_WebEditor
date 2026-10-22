@@ -168,8 +168,10 @@ export async function verifyParts(WebMscore, renderer, output) {
       };
       const cjkOnlyBefore = await title('音楽音楽');
       const before = await titleX();
-      assert.equal(await WebMscore.addFont(notFont), false, 'a non-font file is rejected');
-      assert.equal(await WebMscore.addFont(fontPath), true);
+      // A MEMFS engine (browser package) cannot see host paths: pass the bytes, as the editor does
+      const font = async file => (WebMscore.bundled ? new Uint8Array(await readFile(file)) : file);
+      assert.equal(await WebMscore.addFont(await font(notFont)), false, 'a non-font file is rejected');
+      assert.equal(await WebMscore.addFont(await font(fontPath)), true);
       const after = await titleX();
       const cjkOnlyAfter = await title('音楽音楽');
       assert.ok(Math.abs(after - before) > 1e-6, `registered fallback changes the centred CJK title position (x ${before} -> ${after})`);

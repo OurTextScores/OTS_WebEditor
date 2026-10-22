@@ -52,6 +52,7 @@ class SvgPaint : public muse::draw::BufferedPaintProvider {
     std::ostringstream out;
     std::string failure;
     SvgFontOutlines outlines;
+    std::string elementClass;   // 4.00 SVG contract: the drawn element's type name (+ " selected"), see saveSvg
     struct Clip { std::string clip, mask; bool enabled=false; } clip;
     std::vector<Clip> clips;
     unsigned clipId=0;
@@ -78,6 +79,7 @@ class SvgPaint : public muse::draw::BufferedPaintProvider {
     }
 public:
     double deviceLogicalDpi() const override { return mu::engraving::DPI; }
+    void setElementClass(std::string cls) { elementClass = std::move(cls); }
     SvgPaint() { out << std::setprecision(10); }
     static std::string escape(const std::string& s) {
         std::string r;
@@ -106,6 +108,7 @@ public:
         const auto& t = transform();
         out << "<g transform=\"matrix(" << t.m11() << ' ' << t.m12() << ' ' << t.m21() << ' '
             << t.m22() << ' ' << t.dx() << ' ' << t.dy() << ")\"";
+        if(!elementClass.empty()) out << " class=\"" << elementClass << "\"";
         out << " fill=\"" << (text ? color(pen().color()) : brush().style() == BrushStyle::NoBrush ? "none" : color(brush().color())) << "\"";
         out << " stroke=\"" << (text || pen().style() == PenStyle::NoPen ? "none" : color(pen().color())) << "\" stroke-width=\"" << pen().widthF() << "\"";
         out << " stroke-linecap=\"" << (pen().capStyle()==PenCapStyle::RoundCap ? "round" : pen().capStyle()==PenCapStyle::FlatCap ? "butt" : "square") << "\"";
