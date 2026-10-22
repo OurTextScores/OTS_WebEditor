@@ -255,7 +255,7 @@ EMSCRIPTEN_KEEPALIVE bool putNote(uintptr_t score_ptr, int pageNumber, double x,
     engraving::Page* page = pages.at(pageNumber);
     // Score::getPosition expects canvas coordinates; accept either canvas or
     // page-local input (mirrors the tolerant hit-testing used for selection).
-    muse::PointF pos(x, y);
+    muse::PointF pos(fromAbi(x), fromAbi(y));
     const muse::RectF canvasRect = page->ldata()->bbox().translated(page->pos());
     if (!canvasRect.contains(pos)) {
         const muse::PointF shifted = pos + page->pos();
@@ -447,10 +447,10 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* getNoteInputCursorRect(uintptr_t score_ptr, 
 
     muse::JsonObject result;
     result.set("page", pageNumber);
-    result.set("x", x);
-    result.set("y", y);
-    result.set("width", w);
-    result.set("height", h);
+    result.set("x", toAbi(x));
+    result.set("y", toAbi(y));
+    result.set("width", toAbi(w));
+    result.set("height", toAbi(h));
     result.set("voice", static_cast<int>(track % engraving::VOICES));
     return response(muse::JsonDocument(result).toJson(muse::JsonDocument::Format::Compact));
 }

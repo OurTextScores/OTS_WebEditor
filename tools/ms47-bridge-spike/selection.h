@@ -216,6 +216,7 @@ extern "C" {
 
 EMSCRIPTEN_KEEPALIVE bool selectTextElementAtPoint(uintptr_t score_ptr, int pageNumber, double x, double y, int excerptId)
 {
+    x = fromAbi(x); y = fromAbi(y);   // ABI units (bridge.cpp)
     auto* score = getScore(score_ptr, excerptId);
     if (!score) return false;
     const auto& pages = score->pages();
@@ -243,6 +244,7 @@ EMSCRIPTEN_KEEPALIVE bool selectTextElementAtPoint(uintptr_t score_ptr, int page
 
 EMSCRIPTEN_KEEPALIVE bool selectElementAtPoint(uintptr_t score_ptr, int pageNumber, double x, double y, int excerptId)
 {
+    x = fromAbi(x); y = fromAbi(y);   // ABI units (bridge.cpp)
     auto* score = getScore(score_ptr, excerptId);
     if (!score) return false;
     const auto& pages = score->pages();
@@ -303,12 +305,12 @@ EMSCRIPTEN_KEEPALIVE bool selectElementAtPoint(uintptr_t score_ptr, int pageNumb
 
 EMSCRIPTEN_KEEPALIVE bool selectMeasureAtPoint(uintptr_t score_ptr, int pageNumber, double x, double y, int excerptId)
 {
-    return selectMeasureAtPointImpl(score_ptr, pageNumber, x, y, /*replace*/ true, excerptId);
+    return selectMeasureAtPointImpl(score_ptr, pageNumber, fromAbi(x), fromAbi(y), /*replace*/ true, excerptId);
 }
 
 EMSCRIPTEN_KEEPALIVE bool extendMeasureSelectionAtPoint(uintptr_t score_ptr, int pageNumber, double x, double y, int excerptId)
 {
-    return selectMeasureAtPointImpl(score_ptr, pageNumber, x, y, /*replace*/ false, excerptId);
+    return selectMeasureAtPointImpl(score_ptr, pageNumber, fromAbi(x), fromAbi(y), /*replace*/ false, excerptId);
 }
 
 EMSCRIPTEN_KEEPALIVE bool convertRangeToListSelection(uintptr_t score_ptr, int excerptId)
@@ -396,6 +398,7 @@ EMSCRIPTEN_KEEPALIVE bool convertRangeToListSelection(uintptr_t score_ptr, int e
 
 EMSCRIPTEN_KEEPALIVE bool selectElementAtPointWithMode(uintptr_t score_ptr, int pageNumber, double x, double y, int mode, int excerptId)
 {
+    x = fromAbi(x); y = fromAbi(y);   // ABI units (bridge.cpp)
     auto* score = getScore(score_ptr, excerptId);
     if (!score) return false;
     const auto& pages = score->pages();

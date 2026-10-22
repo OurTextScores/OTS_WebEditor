@@ -1,3 +1,54 @@
+# Browser package, SVG contract and ABI units — 2026-10-21
+
+**The editor runs on the 4.7 engine in Chromium.**
+
+Browser package:
+- `build.sh` also links `webmscore_lib` into `<build>/browser/webmscore.lib.{js,wasm,data}`. It follows the 4.00
+  package contract: ES-module factory, MEMFS, `FORCE_FILESYSTEM`, and `FS_createDataFile` for
+  `addFont`/`setSoundFont`.
+- The data file is a `/res` preload of the staged root minus `lazy-resources.json`: 13.8 MB raw, 4.0 MB gzip. FreeSerif
+  (3.2 MB) has to stay because it is the default Tablature font.
+- A stamp file relinks when the preload changes.
+- `patch_lib.py` (post-link) replaces emscripten's Node-only `await import("module")`, which Next/webpack tried to
+  resolve for the browser, with `process.getBuiltinModule`. Node bundles therefore need Node >= 20.16.
+- Browser builds keep the boot log off stderr (it surfaced as `console.error`) and create `/fonts`.
+
+Bundles and tests:
+- `bundle.mjs <dir>` builds web-public's real rollup bundles against the package in a scratch copy, with locked dev
+  dependencies.
+- `rollup.config.js` gives the Node CJS bundle a real `import.meta.url`. Emscripten 4 calls `createRequire` with it,
+  and the old `""` threw.
+- `verify.mjs` `MS47_BUNDLE=<dir>` runs the whole suite through `webmscore.nodejs.cjs`: green.
+  - Tests pass bytes, not host paths, for `addFont`/`setSoundFont`.
+  - Native exports without JS wrappers go through a test-only `__testModule` getter in `webmscore.nodejs.test.cjs`.
+
+**SVG contract.** The editor hit-tests the engine's SVG by element class:
+- `ELEMENT_SELECTION_SELECTOR`, text classes, `.Note` drag, `.StaffLines` input shadow, `.Note,.Rest` playback
+  colouring, and `.selected`.
+- `saveSvg` now paints element by element, as upstream `SvgWriter` and the 4.00 fork do: staff lines joined per system,
+  then the page's elements in z order. Each primitive's group carries `class="<typeName>[ selected]"`.
+- On Bach page 1 the classes and their counts equal the 4.00 SVG (Note/Stem 320, Beam 160, …). The only difference:
+  4.00 drew the footer as part of `Page`, while 4.7 lays it out as `Text`. Test: `verify-stubs.mjs` `svgclasses`.
+
+**ABI units.**
+- 4.00 engraved at 360 DPI, and every coordinate crossing the bridge was in those units. The editor relies on that:
+  engine boxes go straight into overlay boxes in SVG pixel space, and zoom presets (25–100%) and clamps are fractions of
+  the SVG's natural size.
+- 4.7 engraves at 1200 DPI. The first browser run showed fit-width as "9%". The bridge now converts at the boundary
+  (`toAbi`/`fromAbi`, `ABI_UNIT = 360/DPI`) and stays native inside. Converted:
+  - SVG size and drawing;
+  - selection boxes and staff bands;
+  - the note-input cursor;
+  - spatium;
+  - positions and page size;
+  - grips;
+  - every point taken by the at-point selectors, `putNote`, drag, drop and grip.
+- Bach now reports page width 2975.75 (4.00: 2977.2). Spatium is 25.37 against 4.00's 24.8, which misreads this
+  4.6-format file's staff size.
+- Engine suite green: 145 operations.
+
+---
+
 # On-demand resources and the Qt-free stub audit — 2026-10-21
 
 **On-demand resources (DECISIONS.md items 3 and 8), engine and JS loader.**

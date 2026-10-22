@@ -22,10 +22,10 @@ static void positionElement(JsonArray& elements, int id, double x, double y, dou
 {
     JsonObject el;
     el.set("id", id);
-    el.set("x", x);
-    el.set("y", y);
-    el.set("sx", sx);
-    el.set("sy", sy);
+    el.set("x", toAbi(x));
+    el.set("y", toAbi(y));
+    el.set("sx", toAbi(sx));
+    el.set("sy", toAbi(sy));
     el.set("page", static_cast<int>(page));
     elements.append(el);
 }
@@ -93,8 +93,8 @@ static JsonObject positionsJson(Score* score, bool ofSegments)
     json.set("events", events);
     if (!score->pages().empty()) {
         JsonObject pageSize;
-        pageSize.set("height", score->pages().front()->ldata()->bbox().height());
-        pageSize.set("width", score->pages().front()->ldata()->bbox().width());
+        pageSize.set("height", toAbi(score->pages().front()->ldata()->bbox().height()));
+        pageSize.set("width", toAbi(score->pages().front()->ldata()->bbox().width()));
         json.set("pageSize", pageSize);
     }
     return json;

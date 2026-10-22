@@ -203,7 +203,7 @@ public:
     const std::string& error() const { return failure; }
     std::string svg(double w,double h,bool background) const {
         std::ostringstream s;
-        s << "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"" << w << "\" height=\"" << h << "\" viewBox=\"0 0 " << w << ' ' << h << "\">";
+        s << "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"" << w << "px\" height=\"" << h << "px\" viewBox=\"0 0 " << w << ' ' << h << "\">";
         s << "<defs><style>";
         for(const auto& entry : fonts) {
             const auto& key=entry.first;

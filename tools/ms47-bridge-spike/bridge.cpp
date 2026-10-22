@@ -43,6 +43,13 @@ static Score* getScore(uintptr_t id, int excerpt = -1) {
 
 // Every linked score (the master and its part scores) shares one undo stack, so a command or undo issued through any
 // of them can change all of them. Lay all of them out; without parts this is the single score's layout.
+// Coordinate unit of the bridge ABI. The 4.00 engine engraved at 360 DPI, and every coordinate it exchanged with JS
+// (SVG, boxes, positions, spatium, points) was in those units; editor code assumes engine units == SVG pixels and its
+// zoom presets are fractions of that size. 4.7 engraves at 1200 DPI, so convert at the boundary: native inside.
+static constexpr double ABI_UNIT = 360.0 / mu::engraving::DPI;
+static inline double toAbi(double v) { return v * ABI_UNIT; }
+static inline double fromAbi(double v) { return v / ABI_UNIT; }
+
 static void layoutLinked(Score* score) {
     for (Score* linked : score->scoreList()) linked->doLayout();
 }
@@ -200,6 +207,7 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* saveSvg(uintptr_t id,int page,bool backgroun
     muse::draw::Painter painter(provider,"ms47-svg");
     painter.setAntialiasing(true);
     auto renderer=muse::modularity::globalIoc()->resolve<rendering::IScoreRenderer>("spike");
+    painter.scale(ABI_UNIT,ABI_UNIT);   // SVG in ABI units (360 DPI), as the 4.00 SVG
     rendering::PaintOptions opt;
     opt.isPrinting=!highlight;       // printing hides selection colours and invisible elements
     const bool wasPrinting=score->printing();
@@ -220,7 +228,7 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* saveSvg(uintptr_t id,int page,bool backgroun
     score->setPrinting(wasPrinting);
     if(!provider->error().empty()) return textResponse(provider->error(),1);
     auto box=pg->ldata()->bbox();
-    return textResponse(provider->svg(box.width(),box.height(),background));
+    return textResponse(provider->svg(toAbi(box.width()),toAbi(box.height()),background));
 }
 EMSCRIPTEN_KEEPALIVE bool selectNextChord(uintptr_t id,int excerpt) {
     auto* score=getScore(id,excerpt); if(!score) return false;

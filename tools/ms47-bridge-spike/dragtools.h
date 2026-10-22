@@ -156,8 +156,8 @@ static const uint8_t* gripEditJson(const GripEditState& state)
     for (size_t i = 0; i < positions.size(); ++i) {
         JsonObject grip;
         grip.set("index", static_cast<int>(i));
-        grip.set("x", positions[i].x());
-        grip.set("y", positions[i].y());
+        grip.set("x", toAbi(positions[i].x()));
+        grip.set("y", toAbi(positions[i].y()));
         grip.set("draggable", gripCanDrag(state.element, static_cast<int>(i)));
         grips.append(grip);
     }
@@ -178,6 +178,7 @@ static const uint8_t* gripEditJson(const GripEditState& state)
 
 extern "C" EMSCRIPTEN_KEEPALIVE bool beginElementDrag(uintptr_t score_ptr, int pageNumber, double x, double y, int excerptId)
 {
+    x = fromAbi(x); y = fromAbi(y);   // ABI units (bridge.cpp)
     // A stale gesture (e.g. lost pointer-up) must not leak an open command
     abortElementDragIfActive();
     abortGripEditIfActive();
@@ -238,6 +239,7 @@ extern "C" EMSCRIPTEN_KEEPALIVE bool beginElementDrag(uintptr_t score_ptr, int p
 // dragMode mirrors desktop DragMode: 0 = both axes, 1 = X only, 2 = Y only
 extern "C" EMSCRIPTEN_KEEPALIVE bool updateElementDrag(uintptr_t score_ptr, int pageNumber, double x, double y, int modifiers, int dragMode, int excerptId)
 {
+    x = fromAbi(x); y = fromAbi(y);   // ABI units (bridge.cpp)
     if (!g_elementDrag.active) {
         return false;
     }
@@ -300,6 +302,7 @@ enum class PaletteDropKind {
 extern "C" EMSCRIPTEN_KEEPALIVE bool applyDropAtPoint(uintptr_t score_ptr, int pageNumber, double x, double y,
                        int elementType, int subtype, int excerptId)
 {
+    x = fromAbi(x); y = fromAbi(y);   // ABI units (bridge.cpp)
     abortElementDragIfActive();
     abortGripEditIfActive();
 
@@ -496,6 +499,7 @@ static void scanGripEditTarget(void* data, engraving::EngravingItem* item)
 
 extern "C" EMSCRIPTEN_KEEPALIVE const uint8_t* beginGripEdit(uintptr_t score_ptr, int pageNumber, double x, double y, int excerptId)
 {
+    x = fromAbi(x); y = fromAbi(y);   // ABI units (bridge.cpp)
     abortElementDragIfActive();
     abortGripEditIfActive();
 
@@ -564,6 +568,7 @@ extern "C" EMSCRIPTEN_KEEPALIVE const uint8_t* beginGripEdit(uintptr_t score_ptr
 
 extern "C" EMSCRIPTEN_KEEPALIVE const uint8_t* dragGrip(uintptr_t score_ptr, int gripIndex, double dx, double dy, int modifiers, int excerptId)
 {
+    dx = fromAbi(dx); dy = fromAbi(dy);   // ABI units (bridge.cpp)
     if (!g_gripEdit.active || !g_gripEdit.element || !gripCanDrag(g_gripEdit.element, gripIndex)) {
         return textResponse("null");
     }

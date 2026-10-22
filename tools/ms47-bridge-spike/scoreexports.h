@@ -129,7 +129,7 @@ EMSCRIPTEN_KEEPALIVE bool deleteSelection(uintptr_t id,int excerpt) {
     score->cmdDeleteSelection(); score->endCmd(); layoutLinked(score); return true;
 }
 EMSCRIPTEN_KEEPALIVE double getSpatium(uintptr_t id,int excerpt) {
-    auto* score=getScore(id,excerpt); return score?score->style().spatium():0;
+    auto* score=getScore(id,excerpt); return score?toAbi(score->style().spatium()):0;
 }
 EMSCRIPTEN_KEEPALIVE bool relayout(uintptr_t id,int excerpt) {
     auto* score=getScore(id,excerpt); if(!score) return false;

@@ -120,10 +120,10 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* getSelectionBoundingBox(uintptr_t score_ptr,
     // Build JSON string using mu::String
     String json = String(u"{\"page\":%1,\"x\":%2,\"y\":%3,\"width\":%4,\"height\":%5}")
         .arg(pageNumber)
-        .arg(pagePosition.x())
-        .arg(pagePosition.y())
-        .arg(bbox.width())
-        .arg(bbox.height());
+        .arg(toAbi(pagePosition.x()))
+        .arg(toAbi(pagePosition.y()))
+        .arg(toAbi(bbox.width()))
+        .arg(toAbi(bbox.height()));
 
 
     return textResponse(json.toStdString());
@@ -218,10 +218,10 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* getSelectionBoundingBoxes(uintptr_t score_pt
 
                 json += String(u"{\"page\":%1,\"x\":%2,\"y\":%3,\"width\":%4,\"height\":%5}")
                     .arg(pageNumber)
-                    .arg(x1)
-                    .arg(y1)
-                    .arg(x2 - x1)
-                    .arg(y2 - y1);
+                    .arg(toAbi(x1))
+                    .arg(toAbi(y1))
+                    .arg(toAbi(x2 - x1))
+                    .arg(toAbi(y2 - y1));
             }
         }
     } else {
@@ -264,10 +264,10 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* getSelectionBoundingBoxes(uintptr_t score_pt
 
             json += String(u"{\"page\":%1,\"x\":%2,\"y\":%3,\"width\":%4,\"height\":%5}")
                 .arg(pageNumber)
-                .arg(pageBbox.x())
-                .arg(pageBbox.y())
-                .arg(pageBbox.width())
-                .arg(pageBbox.height());
+                .arg(toAbi(pageBbox.x()))
+                .arg(toAbi(pageBbox.y()))
+                .arg(toAbi(pageBbox.width()))
+                .arg(toAbi(pageBbox.height()));
         }
     }
 
@@ -411,8 +411,8 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* staffSystemBands(uintptr_t score_ptr, int ex
                     .arg(static_cast<int>(pageIdx))
                     .arg(static_cast<int>(systemIdx))
                     .arg(static_cast<int>(partIdx))
-                    .arg(y1)
-                    .arg(y2 - y1);
+                    .arg(toAbi(y1))
+                    .arg(toAbi(y2 - y1));
             }
         }
     }
