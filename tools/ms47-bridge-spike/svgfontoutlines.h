@@ -81,9 +81,9 @@ public:
     }
 
     bool draw(const muse::draw::Font& font, const muse::PointF& at, const muse::String& text,
-              const muse::draw::FontData& data, double dpi, std::ostream& out) {
+              const muse::draw::FontData& data, double dpi, std::ostream& out, const std::string& attrs = {}) {
         return shape(font,at,text,data,dpi,[&](FT_Outline* outline,unsigned,double x,double y,double scale) {
-            out << "<path data-font-outline=\"true\" transform=\"translate(" << x << ' ' << y << ") scale(" << scale << ' ' << -scale << ")\" d=\"";
+            out << "<path" << attrs << " data-font-outline=\"true\" transform=\"translate(" << x << ' ' << y << ") scale(" << scale << ' ' << -scale << ")\" d=\"";
             Path path {out}; FT_Outline_Funcs callbacks {Path::move,Path::line,Path::conic,Path::cubic,0,0};
             if (FT_Outline_Decompose(outline,&callbacks,&path)) return false;
             if (path.open) out << 'Z';

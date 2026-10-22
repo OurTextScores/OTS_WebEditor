@@ -64,7 +64,7 @@ const cases = {
         assert.ok(at > 0, `lyric ${text} drawn`);
         const matrices = [...svg.slice(0, at).matchAll(/transform="matrix\(([^)]*)\)"/g)];
         const [, , , , dx] = matrices.at(-1)[1].split(' ').map(Number);
-        const x = Number(svg.slice(0, at).match(/<text x="([-\d.]+)"[^>]*$/)[1]);
+        const x = Number(svg.slice(0, at).match(/<text[^>]* x="([-\d.]+)"[^>]*$/)[1]);
         return dx + x;
       } finally { score.destroy(); }
     };

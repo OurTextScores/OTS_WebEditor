@@ -80,6 +80,8 @@ class SvgPaint : public muse::draw::BufferedPaintProvider {
 public:
     double deviceLogicalDpi() const override { return mu::engraving::DPI; }
     void setElementClass(std::string cls) { elementClass = std::move(cls); }
+    // On the primitive itself, as the 4.00 SVG (editor code and tests query e.g. `.HairpinSegment` as a path)
+    std::string classAttr() const { return elementClass.empty() ? std::string() : " class=\"" + elementClass + "\""; }
     SvgPaint() { out << std::setprecision(10); }
     static std::string escape(const std::string& s) {
         std::string r;
@@ -108,7 +110,6 @@ public:
         const auto& t = transform();
         out << "<g transform=\"matrix(" << t.m11() << ' ' << t.m12() << ' ' << t.m21() << ' '
             << t.m22() << ' ' << t.dx() << ' ' << t.dy() << ")\"";
-        if(!elementClass.empty()) out << " class=\"" << elementClass << "\"";
         out << " fill=\"" << (text ? color(pen().color()) : brush().style() == BrushStyle::NoBrush ? "none" : color(brush().color())) << "\"";
         out << " stroke=\"" << (text || pen().style() == PenStyle::NoPen ? "none" : color(pen().color())) << "\" stroke-width=\"" << pen().widthF() << "\"";
         out << " stroke-linecap=\"" << (pen().capStyle()==PenCapStyle::RoundCap ? "round" : pen().capStyle()==PenCapStyle::FlatCap ? "butt" : "square") << "\"";
@@ -122,7 +123,7 @@ public:
         out << '>';
     }
     void drawPath(const Path& p) override {
-        group(); out << "<path fill-rule=\"" << (int(p.fillRule()) == 0 ? "evenodd" : "nonzero") << "\" d=\"";
+        group(); out << "<path" << classAttr() << " fill-rule=\"" << (int(p.fillRule()) == 0 ? "evenodd" : "nonzero") << "\" d=\"";
         for (size_t i=0; i<p.elementCount(); ++i) {
             auto e = p.elementAt(i);
             switch (int(e.type)) {
@@ -142,7 +143,7 @@ public:
         using namespace muse::draw;
         group();
         const char* tag = mode == PolygonMode::Polyline ? "polyline" : "polygon";
-        out << '<' << tag << " fill-rule=\"" << (mode == PolygonMode::OddEven ? "evenodd" : "nonzero") << "\" points=\"";
+        out << '<' << tag << classAttr() << " fill-rule=\"" << (mode == PolygonMode::OddEven ? "evenodd" : "nonzero") << "\" points=\"";
         for(size_t i=0;i<n;++i) out << p[i].x() << ',' << p[i].y() << ' ';
         out << "\"/></g></g></g>";
     }
@@ -153,7 +154,7 @@ public:
             auto db=muse::modularity::globalIoc()->resolve<IFontsDatabase>("spike");
             const auto data=db->fontData(requested,f.type());
             group(true);
-            if (!data.valid() || !outlines.draw(f,p,s,data,deviceLogicalDpi(),out)) failure="Could not outline SVG font run";
+            if (!data.valid() || !outlines.draw(f,p,s,data,deviceLogicalDpi(),out,classAttr())) failure="Could not outline SVG font run";
             out << "</g></g></g>"; return;
         }
         if (!fonts.count(requested)) {
@@ -164,7 +165,7 @@ public:
         }
         group(true);
         // Match the engraving font metrics and painter's 1200-DPI coordinates.
-        out << "<text x=\"" << p.x() << "\" y=\"" << p.y() << "\" font-family=\"" << escape(f.family().id().toStdString())
+        out << "<text" << classAttr() << " x=\"" << p.x() << "\" y=\"" << p.y() << "\" font-family=\"" << escape(f.family().id().toStdString())
             << "\" font-size=\"" << (f.pixelSize()>0 ? f.pixelSize() : f.pointSizeF()*deviceLogicalDpi()/72.0)
             << "\" font-weight=\"" << (f.bold()?"bold":"normal") << "\" font-style=\"" << (f.italic()?"italic":"normal")
             << "\" xml:space=\"preserve\">" << escape(s.toStdString()) << "</text></g></g></g>";
@@ -181,7 +182,7 @@ public:
         const ImageHeader h=readImageHeader(pm.data());
         if(!h.mime) { failure="Unsupported SVG image data"; return; }
         group();
-        out << "<image x=\"" << p.x() << "\" y=\"" << p.y() << "\" width=\"" << pm.width() << "\" height=\"" << pm.height()
+        out << "<image" << classAttr() << " x=\"" << p.x() << "\" y=\"" << p.y() << "\" width=\"" << pm.width() << "\" height=\"" << pm.height()
             << "\" preserveAspectRatio=\"none\" href=\"data:" << h.mime << ";base64," << base64(pm.data()) << "\"/></g></g></g>";
     }
     void drawTiledPixmap(const Rect&,const muse::draw::Pixmap&,const Point&) override { failure="SVG tiled images not yet ported"; }
