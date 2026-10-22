@@ -7,11 +7,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const defaultFiles = [
-  'public/webmscore.lib.wasm',
-  'public/webmscore.lib.data',
-  'public/webmscore.lib.mem.wasm',
-];
+const defaultFiles = ['public/webmscore.lib.wasm', 'public/webmscore.lib.data'];
+// Separate memory initializer: fetched by the emsdk 2 loader (4.00 engine) only; emsdk 4 builds (4.7) have none
+const memoryInitializerFile = 'public/webmscore.lib.mem.wasm';
 const optionalFiles = ['public/webmscore.lib.js', 'public/webmscore.lib.js.mem'];
 
 const GIT_LFS_POINTER_PREFIX = 'version https://git-lfs.github.com/spec/v1';
@@ -36,6 +34,15 @@ function hasWasmMagic(headBuf) {
   return headBuf.length >= 4 && headBuf.subarray(0, 4).equals(WASM_MAGIC);
 }
 
+// A loader that cannot be read is assumed to need it
+function loaderNeedsMemoryInitializer(fsModule, loaderPath) {
+  try {
+    return fsModule.readFileSync(loaderPath, 'utf8').includes('memoryInitializer=');
+  } catch {
+    return true;
+  }
+}
+
 function checkWasmArtifacts({
   files = defaultFiles,
   optional = optionalFiles,
@@ -43,6 +50,10 @@ function checkWasmArtifacts({
   fsModule = fs,
   log = console.log,
   error = console.error,
+  memoryInitializer = loaderNeedsMemoryInitializer(
+    fsModule,
+    path.resolve(cwd, 'public/webmscore.lib.js'),
+  ),
 } = {}) {
   let ok = true;
 
@@ -85,6 +96,8 @@ function checkWasmArtifacts({
   }
 
   files.forEach((f) => checkFile(f, { required: true }));
+  if (memoryInitializer) checkFile(memoryInitializerFile, { required: true });
+  else log(`[wasm-check] Not needed by this loader: ${memoryInitializerFile}`);
   optional.forEach((f) => checkFile(f, { required: false }));
 
   if (!ok) {
@@ -110,6 +123,8 @@ function checkWasmArtifacts({
 
 module.exports = {
   defaultFiles,
+  memoryInitializerFile,
+  loaderNeedsMemoryInitializer,
   optionalFiles,
   checkWasmArtifacts,
 };

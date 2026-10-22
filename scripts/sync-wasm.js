@@ -3,12 +3,11 @@
 const fs = require('fs');
 const path = require('path');
 
-const defaultFiles = [
-  'webmscore.lib.js',
-  'webmscore.lib.wasm',
-  'webmscore.lib.data',
-  'webmscore.lib.mem.wasm',
-];
+const { loaderNeedsMemoryInitializer } = require('./check-wasm.js');
+
+const defaultFiles = ['webmscore.lib.js', 'webmscore.lib.wasm', 'webmscore.lib.data'];
+// Required only when the loader fetches a separate memory initializer (emsdk 2, the 4.00 engine)
+const memoryInitializerFile = 'webmscore.lib.mem.wasm';
 const optionalFiles = ['webmscore.lib.js.mem'];
 
 function syncWasmArtifacts({
@@ -19,6 +18,7 @@ function syncWasmArtifacts({
   optional = optionalFiles,
   fsModule = fs,
   log = console.log,
+  memoryInitializer = loaderNeedsMemoryInitializer(fsModule, path.join(srcDir, 'webmscore.lib.js')),
 } = {}) {
   const jsMem = path.join(srcDir, 'webmscore.lib.js.mem');
   const memWasm = path.join(srcDir, 'webmscore.lib.mem.wasm');
@@ -42,6 +42,7 @@ function syncWasmArtifacts({
   }
 
   files.forEach((name) => copyFile(name));
+  copyFile(memoryInitializerFile, { required: memoryInitializer });
   optional.forEach((name) => copyFile(name, { required: false }));
   log('[sync-wasm] All artifacts copied to public/');
   return true;
