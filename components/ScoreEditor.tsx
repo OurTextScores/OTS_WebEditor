@@ -1522,7 +1522,10 @@ export default function ScoreEditor() {
     selectionBoxes.length,
   ]);
 
-  const systemLocks = useSystemLocks(core, inspectorData);
+  // Lock state also changes on undo/redo with the selection unchanged (so inspectorData stays the same)
+  const undoIndex = core.undoHistory.history.index;
+  const systemLockRevision = useMemo(() => ({ inspectorData, undoIndex }), [inspectorData, undoIndex]);
+  const systemLocks = useSystemLocks(core, systemLockRevision);
   useSelectionAnnouncer(inspectorData);
 
   const ensureScoreId = useCallback(
