@@ -15,8 +15,21 @@ index 5238ea5cee..fda47fdca8 100644
  include(SetupQt6)
  
  if (MUE_DOWNLOAD_SOUNDFONT)
+diff --git a/src/engraving/dom/select.cpp b/src/engraving/dom/select.cpp
+index 86d9821ce3..e7d42dbd8e 100644
+--- a/src/engraving/dom/select.cpp
++++ b/src/engraving/dom/select.cpp
+@@ -798,7 +798,7 @@ void Selection::updateSelectedElements()
+     m_rangeContainsMultiNoteChords = totalChordsFound > singleNoteChords.size();
+ 
+     for (Chord* singleNoteChord : singleNoteChords) {
+-        if (!m_rangeContainsMultiNoteChords || selectionFilter().includeSingleNotes()) {
++        if ((!m_rangeContainsMultiNoteChords && !selectionFilter().excludesAllNotes()) || selectionFilter().includeSingleNotes()) {
+             appendChordRest(singleNoteChord);
+         } else {
+             // Include elements anchored to the note even if the note itself isn't included...
 diff --git a/src/engraving/dom/selectionfilter.cpp b/src/engraving/dom/selectionfilter.cpp
-index f8bc376d52..0734903bab 100644
+index f8bc376d52..428ac69ef6 100644
 --- a/src/engraving/dom/selectionfilter.cpp
 +++ b/src/engraving/dom/selectionfilter.cpp
 @@ -133,6 +133,9 @@ bool SelectionFilter::canSelect(const EngravingItem* e) const
@@ -29,33 +42,44 @@ index f8bc376d52..0734903bab 100644
      case ElementType::DYNAMIC:
          return isFiltered(ElementsSelectionFilterTypes::DYNAMIC);
      case ElementType::HAIRPIN:
-@@ -210,7 +213,10 @@ bool SelectionFilter::canSelectNoteIdx(size_t noteIdx, size_t totalNotesInChord,
+@@ -206,11 +209,19 @@ bool SelectionFilter::canSelect(const EngravingItem* e) const
+     return true;
+ }
+ 
++bool SelectionFilter::excludesAllNotes() const
++{
++    return !m_includeSingleNotes
++           && m_filteredNotesInChordTypes == static_cast<unsigned int>(NotesInChordSelectionFilterTypes::NONE);
++}
++
+ bool SelectionFilter::canSelectNoteIdx(size_t noteIdx, size_t totalNotesInChord, bool selectionContainsMultiNoteChords) const
  {
      if (totalNotesInChord == 1) {
          //! NOTE: Always include single notes when the selection consists solely of single notes...
 -        return m_includeSingleNotes || !selectionContainsMultiNoteChords;
 +        //! ...unless every note filter is off (single notes and all notes-in-chord), i.e. notes are excluded entirely
-+        const bool allNotesExcluded = !m_includeSingleNotes
-+                                      && m_filteredNotesInChordTypes == static_cast<unsigned int>(NotesInChordSelectionFilterTypes::NONE);
++        const bool allNotesExcluded = excludesAllNotes();
 +        return m_includeSingleNotes || (!selectionContainsMultiNoteChords && !allNotesExcluded);
      }
  
      NotesInChordSelectionFilterTypes type = NotesInChordSelectionFilterTypes::NONE;
 diff --git a/src/engraving/dom/selectionfilter.h b/src/engraving/dom/selectionfilter.h
-index 1612a6d264..112d00847a 100644
+index 1612a6d264..fab8c84f3d 100644
 --- a/src/engraving/dom/selectionfilter.h
 +++ b/src/engraving/dom/selectionfilter.h
-@@ -107,6 +107,9 @@ public:
+@@ -107,6 +107,11 @@ public:
      //! ignored in selections that exclusively consist of single notes...
      bool includeSingleNotes() const { return m_includeSingleNotes; }
      void setIncludeSingleNotes(bool include) { m_includeSingleNotes = include; }
 +    // Rests (and measure rests) are always selectable on desktop; embedders with a combined "notes and rests" filter clear this
 +    bool includeRests() const { return m_includeRests; }
++    // Every note filter off: not even selections made only of single notes include notes
++    bool excludesAllNotes() const;
 +    void setIncludeRests(bool include) { m_includeRests = include; }
  
  private:
      unsigned int m_filteredVoicesTypes = static_cast<unsigned int>(VoicesSelectionFilterTypes::ALL);
-@@ -114,5 +117,6 @@ private:
+@@ -114,5 +119,6 @@ private:
      unsigned int m_filteredElementsTypes = static_cast<unsigned int>(ElementsSelectionFilterTypes::ALL);
  
      bool m_includeSingleNotes = true;

@@ -110,7 +110,10 @@ EMSCRIPTEN_KEEPALIVE bool clearSelection(uintptr_t id,int excerpt) {
 }
 EMSCRIPTEN_KEEPALIVE bool selectAll(uintptr_t id,int excerpt) {
     auto* score=getScore(id,excerpt); if(!score) return false;
-    score->cmdSelectAll(); return !score->selection().isNone();
+    score->cmdSelectAll();
+    // As 4.00: a filter that excludes everything leaves no selection (4.7 would keep an empty range)
+    if (score->selection().elements().empty()) { score->deselectAll(); return false; }
+    return !score->selection().isNone();
 }
 EMSCRIPTEN_KEEPALIVE bool isSelectionRange(uintptr_t id,int excerpt) {
     auto* score=getScore(id,excerpt); return score && score->selection().isRange();

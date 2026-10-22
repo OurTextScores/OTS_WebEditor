@@ -517,6 +517,8 @@ EMSCRIPTEN_KEEPALIVE bool addGlissando(uintptr_t score_ptr, int glissandoType, i
         return false;
     }
     glissando->setGlissandoType(static_cast<engraving::GlissandoType>(glissandoType));
+    // GLISS_TYPE is styled in 4.4+: mark it, as desktop's palette does, or it is saved as "use the style" (straight)
+    glissando->setPropertyFlags(engraving::Pid::GLISS_TYPE, engraving::PropertyFlags::UNSTYLED);
     glissando->setAnchor(engraving::Spanner::Anchor::NOTE);
     glissando->setStartElement(startNote);
     glissando->setEndElement(endNote);
