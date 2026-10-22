@@ -31,10 +31,13 @@ Follow-ups from the full rerun (357/360 passed):
 - **Inspector refresh** (`ScoreEditor.tsx`): keyed on the selection boxes' content, not their count. Replacing a range
   with a single line kept the count at 1, so the inspector showed the stale range. 4.00 hid this by returning no boxes
   for ranges.
-- **Open:** `change-review-highlight-geometry` "each pane places a highlight over that score's own staff" is
-  intermittent (1 of 3 passes). The p3-m2 highlight sits about half a staff below its staff (y=368..389, staff centre
-  364–367) and passes only within the ±1 px tolerance, and the spec's DOM read races the compare pane's reflow
-  (4 vs 12 staff centres). Next: check `staffSystemBands` y after compare reflow.
+- **Compare highlight geometry (resolved, test race).** The engine's bands and positions match 4.00 and the drawn
+  staves in every layout mode. Tracing the worker calls showed the compare reflow settling later on 4.7: `metadata()`
+  arrives mid-reflow, part counts change, alignments recompute, and the reflow supersedes itself (exits at its
+  `isCurrent()` check) before finishing. The spec read geometry once, at a stable staff *count*, and could pair final
+  highlights (bands from layout mode 3) with the still-unreflowed page. It now polls the property itself (every
+  highlight lies over a staff centre) and passes 6/6 on both engines. With a 5 s settle the old check also passed
+  3/3, so the final state was always correct.
 
 After the fixes, the 8 spec files with 4.7-only failures pass, including two bar-selection tests that fail on 4.00. A
 full rerun is the next entry. Also found: without Qt, `FontsDatabase::insertSubstitution` is a no-op
