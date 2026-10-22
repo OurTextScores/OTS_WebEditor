@@ -117,15 +117,26 @@ export async function verifyFullLayout(
   page: number,
   runSerialized: <T>(operation: () => Promise<T>, label: string) => Promise<T>,
   rerender: () => Promise<unknown>,
+  superseded: () => boolean = () => false,
 ): Promise<void> {
   if (!score.relayout) return;
-  const run = <T>(operation: () => Promise<T>) => runSerialized(operation, 'layout-oracle');
   try {
-    const pagesBefore = await run(async () => (await score.npages?.()) ?? 1);
-    const incremental = await run(async () => score.saveSvg(page, true, false));
-    await run(async () => score.relayout!());
-    const pagesAfter = await run(async () => (await score.npages?.()) ?? 1);
-    const full = await run(async () => score.saveSvg(Math.min(page, pagesAfter - 1), true, false));
+    // One queue slot for both reads and the relayout: an edit queued in between (a quick next edit, or Ctrl+A and
+    // an edit after an undo) would otherwise land in `full` only and read as this edit's stale layout
+    const { pagesBefore, pagesAfter, incremental, full } = await runSerialized(async () => {
+      const pagesBefore = (await score.npages?.()) ?? 1;
+      const incremental = await score.saveSvg(page, true, false);
+      await score.relayout!();
+      const pagesAfter = (await score.npages?.()) ?? 1;
+      const full = await score.saveSvg(Math.min(page, pagesAfter - 1), true, false);
+      return { pagesBefore, pagesAfter, incremental, full };
+    }, 'layout-oracle');
+    // Mutations do not take the queue, so a later edit (an undo pressed right after) can land between the reads
+    if (superseded()) {
+      console.info(`[layout-oracle] ${label}: skipped, another edit overlapped the check`);
+      await rerender();
+      return;
+    }
     recordOracleResult(
       label,
       compareSvg(label, page, incremental, full, pagesBefore !== pagesAfter),
