@@ -56,7 +56,7 @@ export async function verifyMeasures(WebMscore, renderer, output, Module) {
       await writeFile(`${output}/measure-${name}-debug.svg`, afterSvg);
       const afterImage = (await renderer.render(afterSvg)).png;
       if (name !== 'setMeasureSpacer') assert.ok(!afterImage.equals(beforeImage), `${name} must visibly change the score`);
-      if (name === 'addMarker') assert.match(afterSvg, /data-font-outline="true"/, 'Bravura Text uses native glyph outlines');
+      if (name === 'addMarker') assert.match(afterSvg, /data-font="Bravura Text" data-text=/, 'Bravura Text drawn as native glyph outlines');
       await writeFile(`${output}/measure-${name}-${args.join('-').replaceAll(',', '_')}.musicxml`, after);
       await score.undo();
       assert.equal(await score.saveXml(), before, `${name} undo restores MusicXML`);

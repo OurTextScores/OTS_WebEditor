@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { runX } from './svgcheck.mjs';
 import { copyFile, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -157,8 +158,7 @@ export async function verifyParts(WebMscore, renderer, output) {
           assert.equal(await score.setTitleText(text), true);
           const svg = await score.saveSvg(0);
           if (process.env.MS47_DEBUG_PARTS) await writeFile(`${output}/debug-title-${text.length}.svg`, svg);
-          const match = svg.match(new RegExp(`<text[^>]* x="([-\\d.]+)"[^>]*>${text}<`));
-          return match ? Number(match[1]) : null;
+          return runX(svg, text);   // null when the run is not drawn
         } finally { score.destroy(); }
       };
       const titleX = async () => {

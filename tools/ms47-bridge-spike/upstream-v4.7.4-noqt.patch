@@ -16,10 +16,20 @@ index 5238ea5cee..fda47fdca8 100644
  
  if (MUE_DOWNLOAD_SOUNDFONT)
 diff --git a/src/engraving/dom/selectionfilter.cpp b/src/engraving/dom/selectionfilter.cpp
-index f8bc376d52..f05a8f54d6 100644
+index f8bc376d52..0734903bab 100644
 --- a/src/engraving/dom/selectionfilter.cpp
 +++ b/src/engraving/dom/selectionfilter.cpp
-@@ -210,7 +210,10 @@ bool SelectionFilter::canSelectNoteIdx(size_t noteIdx, size_t totalNotesInChord,
+@@ -133,6 +133,9 @@ bool SelectionFilter::canSelect(const EngravingItem* e) const
+     }
+ 
+     switch (e->type()) {
++    case ElementType::REST:
++    case ElementType::MMREST:
++        return m_includeRests;
+     case ElementType::DYNAMIC:
+         return isFiltered(ElementsSelectionFilterTypes::DYNAMIC);
+     case ElementType::HAIRPIN:
+@@ -210,7 +213,10 @@ bool SelectionFilter::canSelectNoteIdx(size_t noteIdx, size_t totalNotesInChord,
  {
      if (totalNotesInChord == 1) {
          //! NOTE: Always include single notes when the selection consists solely of single notes...
@@ -31,6 +41,27 @@ index f8bc376d52..f05a8f54d6 100644
      }
  
      NotesInChordSelectionFilterTypes type = NotesInChordSelectionFilterTypes::NONE;
+diff --git a/src/engraving/dom/selectionfilter.h b/src/engraving/dom/selectionfilter.h
+index 1612a6d264..112d00847a 100644
+--- a/src/engraving/dom/selectionfilter.h
++++ b/src/engraving/dom/selectionfilter.h
+@@ -107,6 +107,9 @@ public:
+     //! ignored in selections that exclusively consist of single notes...
+     bool includeSingleNotes() const { return m_includeSingleNotes; }
+     void setIncludeSingleNotes(bool include) { m_includeSingleNotes = include; }
++    // Rests (and measure rests) are always selectable on desktop; embedders with a combined "notes and rests" filter clear this
++    bool includeRests() const { return m_includeRests; }
++    void setIncludeRests(bool include) { m_includeRests = include; }
+ 
+ private:
+     unsigned int m_filteredVoicesTypes = static_cast<unsigned int>(VoicesSelectionFilterTypes::ALL);
+@@ -114,5 +117,6 @@ private:
+     unsigned int m_filteredElementsTypes = static_cast<unsigned int>(ElementsSelectionFilterTypes::ALL);
+ 
+     bool m_includeSingleNotes = true;
++    bool m_includeRests = true;
+ };
+ }
 diff --git a/src/engraving/internal/engravingfont.h b/src/engraving/internal/engravingfont.h
 index 1ce8098fce..e2735e6581 100644
 --- a/src/engraving/internal/engravingfont.h

@@ -65,7 +65,7 @@ class SvgPaint : public muse::draw::BufferedPaintProvider {
         out << "<rect x=\"" << r.x() << "\" y=\"" << r.y() << "\" width=\"" << r.width() << "\" height=\"" << r.height() << "\" fill=\"" << fill << "\"/>";
     }
 
-    std::map<muse::draw::FontDataKey, muse::draw::FontData> fonts;
+    size_t missingGlyphs=0;
     static std::string base64(const muse::ByteArray& bytes) {
         static const char chars[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
         std::string s;
@@ -147,28 +147,17 @@ public:
         for(size_t i=0;i<n;++i) out << p[i].x() << ',' << p[i].y() << ' ';
         out << "\"/></g></g></g>";
     }
+    // All text and symbols as glyph outlines, one path per run (the 4.00 SVG contract); data-text keeps the run's text
     void text(const Font& f, const Point& p, const muse::String& s) {
         using namespace muse::draw;
-        const auto requested = dataKeyForFont(f);
-        if (f.family().id() == u"Bravura Text") {
-            auto db=muse::modularity::globalIoc()->resolve<IFontsDatabase>("spike");
-            const auto data=db->fontData(requested,f.type());
-            group(true);
-            if (!data.valid() || !outlines.draw(f,p,s,data,deviceLogicalDpi(),out,classAttr())) failure="Could not outline SVG font run";
-            out << "</g></g></g>"; return;
-        }
-        if (!fonts.count(requested)) {
-            auto db=muse::modularity::globalIoc()->resolve<IFontsDatabase>("spike");
-            auto data=db->fontData(requested,f.type());
-            if(!data.valid()) failure="Missing SVG font";
-            fonts.emplace(requested,std::move(data));
-        }
+        if (s.empty()) return;
+        auto db=muse::modularity::globalIoc()->resolve<IFontsDatabase>("spike");
+        const auto data=db->fontData(dataKeyForFont(f),f.type());
+        if (!data.valid()) { failure="Missing SVG font "+f.family().id().toStdString(); return; }
         group(true);
-        // Match the engraving font metrics and painter's 1200-DPI coordinates.
-        out << "<text" << classAttr() << " x=\"" << p.x() << "\" y=\"" << p.y() << "\" font-family=\"" << escape(f.family().id().toStdString())
-            << "\" font-size=\"" << (f.pixelSize()>0 ? f.pixelSize() : f.pointSizeF()*deviceLogicalDpi()/72.0)
-            << "\" font-weight=\"" << (f.bold()?"bold":"normal") << "\" font-style=\"" << (f.italic()?"italic":"normal")
-            << "\" xml:space=\"preserve\">" << escape(s.toStdString()) << "</text></g></g></g>";
+        if (!outlines.draw(f,p,s,data,deviceLogicalDpi(),out,classAttr()+" data-font=\""+escape(f.family().id().toStdString())+"\" data-text=\""+escape(s.toStdString())+"\"",missingGlyphs))
+            failure="Could not outline SVG font run";
+        out << "</g></g></g>";
     }
     void drawText(const Point& p, const muse::String& s) override { text(font(),p,s); }
     void drawTextWorkaround(const Font& f,const Point& p,const muse::String& s) override { text(f,p,s); }
@@ -205,14 +194,6 @@ public:
     std::string svg(double w,double h,bool background) const {
         std::ostringstream s;
         s << "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"" << w << "px\" height=\"" << h << "px\" viewBox=\"0 0 " << w << ' ' << h << "\">";
-        s << "<defs><style>";
-        for(const auto& entry : fonts) {
-            const auto& key=entry.first;
-            s << "@font-face{font-family:&quot;" << escape(key.family().id().toStdString())
-                << "&quot;;font-weight:" << (key.bold()?"bold":"normal") << ";font-style:" << (key.italic()?"italic":"normal")
-                << ";src:url(data:font/otf;base64," << base64(entry.second.data) << ")}\n";
-        }
-        s << "</style></defs>";
         if(background) s << "<rect width=\"100%\" height=\"100%\" fill=\"white\"/>";
         s << out.str() << "</svg>";
         return s.str();

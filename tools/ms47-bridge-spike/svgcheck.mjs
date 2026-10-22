@@ -1,6 +1,17 @@
 import assert from 'node:assert/strict';
 import { chromium } from '@playwright/test';
 
+// Text is outlined (one <path data-text> per run, as the 4.00 SVG): locate a run's left edge in page units
+export function runX(svg, text) {
+  const esc = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const at = svg.indexOf(`data-text="${esc}"`);
+  if (at < 0) return null;
+  const dx = Number([...svg.slice(0, at).matchAll(/transform="matrix\(([^)]*)\)"/g)].at(-1)[1].split(' ')[4]);
+  const d = svg.slice(at).match(/ d="([^"]*)"/)[1];
+  const xs = [...d.matchAll(/[MLQC]\s*(-?[\d.]+),/g)].map(m => Number(m[1]));
+  return dx + Math.min(...xs);
+}
+
 export async function createSvgRenderer() {
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({ viewport: { width: 900, height: 1200 }, deviceScaleFactor: 1 });
@@ -42,7 +53,6 @@ export async function createSvgRenderer() {
       });
       assert.equal(info.error, undefined);
       assert.ok(textOnly ? info.paths + info.texts > 0 : info.paths > 0);
-      assert.ok(info.fonts.length > 0);
       assert.ok(info.fonts.every(f => f.status === 'loaded'), `All SVG fonts must load: ${JSON.stringify(info.fonts)}`);
       assert.ok(info.inkPixels > (textOnly ? 0 : 100), 'SVG must paint visible marks, not a blank page');
       return { png: await page.locator('svg').screenshot(), info };
@@ -51,7 +61,7 @@ export async function createSvgRenderer() {
       await page.setContent(svg);
       return page.evaluate(async text => {
         await document.fonts.ready;
-        const el = [...document.querySelectorAll('text')].find(el => el.textContent === text);
+        const el = [...document.querySelectorAll('[data-text]')].find(el => el.getAttribute('data-text') === text);
         if (!el) throw new Error(`Missing SVG text: ${text}`);
         const box = el.getBBox();
 

@@ -95,10 +95,8 @@ export async function verifyPdf(WebMscore, renderer, output) {
           const pdfInSvg = covered(fromPdf, fromSvg, height), svgInPdf = covered(fromSvg, fromPdf, height);
           result.coverage.push([+pdfInSvg.fraction.toFixed(4), +svgInPdf.fraction.toFixed(4)]);
           assert.ok(pdfInSvg.ink > 0, `${name} p${page + 1}: PDF page has ink`);
-          // Text-only pages (page number, footer) are dominated by the SVG reference's own drift: the browser shapes <text>
-          // about 1% wider than the engraving metrics the layout centred it with, while the PDF's outlines follow them
-          const textOnly = !/<path(?! data-font-outline)|<polygon|<polyline/.test(svgText);
-          const floor = textOnly ? 0.85 : 0.99;
+          // Both writers outline text from the same shaping, so every page, text-only or not, must agree
+          const floor = 0.99;
           assert.ok(pdfInSvg.fraction > floor && svgInPdf.fraction > floor,
             `${name} p${page + 1}: PDF and SVG ink coincide (${pdfInSvg.fraction.toFixed(4)} / ${svgInPdf.fraction.toFixed(4)})`);
         }

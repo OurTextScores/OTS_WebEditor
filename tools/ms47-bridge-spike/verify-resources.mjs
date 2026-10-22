@@ -33,7 +33,7 @@ export async function verifyResources(WebMscore, lazy, { partsRan }) {
     lazy.fetched.length = 0;
     const first = await svgOf(WebMscore, 'mscx', data);
     assert.ok(lazy.fetched.includes('fonts/petaluma/Petaluma.otf'), `Petaluma fetched on load (${lazy.fetched})`);
-    assert.match(first, /font-family="Petaluma"/, 'drawn in Petaluma');
+    assert.match(first, /data-font="Petaluma"/, 'drawn in Petaluma');
     const fetches = lazy.fetched.length;
     const second = await svgOf(WebMscore, 'mscx', data);
     assert.equal(lazy.fetched.length, fetches, 'nothing fetched twice');
@@ -49,8 +49,8 @@ export async function verifyResources(WebMscore, lazy, { partsRan }) {
     const data = await withMusicFont(WebMscore, 'MuseJazz');
     const svg = await svgOf(WebMscore, 'mscx', data);
     assert.ok(lazy.fetched.some(p => p.includes('musejazz')), 'MuseJazz requested');
-    assert.doesNotMatch(svg, /font-family="MuseJazz"/, 'not drawn in the missing font');
-    assert.match(svg, /font-family="Bravura"/, 'drawn in the fallback music font');
+    assert.doesNotMatch(svg, /data-font="MuseJazz"/, 'not drawn in the missing font');
+    assert.match(svg, /data-font="Bravura"/, 'drawn in the fallback music font');
     const attempts = lazy.fetched.length;
     await svgOf(WebMscore, 'mscx', data);
     assert.equal(lazy.fetched.length, attempts, 'an unavailable resource is not requested again');

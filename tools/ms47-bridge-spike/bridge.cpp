@@ -228,7 +228,13 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* saveSvg(uintptr_t id,int page,bool backgroun
     MScore::svgPrinting=true;
     paintSvgStaffLines(*provider,painter,score,pg,*renderer,opt);
     std::vector<EngravingItem*> elements=pg->elements();
-    std::sort(elements.begin(),elements.end(),elementLessThan);
+    // elementLessThan without its "selected last" rule: the SVG's document order must not change when the selection
+    // does (editor code and specs address elements by order; a click reordered every later .Note)
+    std::stable_sort(elements.begin(),elements.end(),[](const EngravingItem* a,const EngravingItem* b) {
+        if(a->z()!=b->z()) return a->z()<b->z();
+        if(a->visible()!=b->visible()) return !a->visible();
+        return a->track()<b->track();
+    });
     for(const EngravingItem* element:elements) {
         if(!element->collectForDrawing() || element->ldata()->bbox().isEmpty() || element->isStaffLines()) continue;
         provider->setElementClass(svgClass(element,score->selection()));

@@ -125,7 +125,7 @@ export default options => Engine({ ...options, wasmBinary: readFileSync(new URL(
       const svgBefore = await timed('saveSvg', () => score.saveSvg());
       assert.match(svgBefore, /^<svg /);
       assert.match(svgBefore, /<(path|polygon|polyline)/);
-      assert.match(svgBefore, /<text /);
+      assert.match(svgBefore, /data-text=/);
       const beforeImage = await renderer.render(svgBefore);
       await writeFile(path.join(output, `${i}-before.png`), beforeImage.png);
       await writeFile(path.join(output, `${i}-before.svg`), svgBefore);

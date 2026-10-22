@@ -130,8 +130,8 @@ class PdfPaint : public muse::draw::BufferedPaintProvider {
         // Text is filled with the pen colour, as the SVG writer and Qt do
         begin(true, false, pen().color());
         const bool ok = outlines.shape(f, p, s, data, deviceLogicalDpi(),
-            [&](FT_Outline* outline, unsigned glyphId, double x, double y, double scale) {
-                auto key = std::make_pair(static_cast<const void*>(data.data.constData()), glyphId);
+            [&](FT_Outline* outline, const void* face, unsigned glyphId, double x, double y, double scale) {
+                auto key = std::make_pair(face, glyphId);   // per face: substitution faces reuse glyph ids
                 auto it = glyphPaths.find(key);
                 if (it == glyphPaths.end()) {
                     std::ostringstream ops;

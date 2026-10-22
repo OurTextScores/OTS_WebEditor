@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { runX } from './svgcheck.mjs';
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { readFile, rm } from 'node:fs/promises';
@@ -59,13 +60,9 @@ const cases = {
         assert.equal(await score.selectNextChord(), true);
         assert.equal(await score.addLyricText(text), true);
         const svg = await score.saveSvg(0);
-        // Text is drawn at the origin of a group translated to its position: read the group's matrix
-        const at = svg.indexOf(`>${text}<`);
-        assert.ok(at > 0, `lyric ${text} drawn`);
-        const matrices = [...svg.slice(0, at).matchAll(/transform="matrix\(([^)]*)\)"/g)];
-        const [, , , , dx] = matrices.at(-1)[1].split(' ').map(Number);
-        const x = Number(svg.slice(0, at).match(/<text[^>]* x="([-\d.]+)"[^>]*$/)[1]);
-        return dx + x;
+        const x = runX(svg, text);
+        assert.ok(x !== null, `lyric ${text} drawn`);
+        return x;
       } finally { score.destroy(); }
     };
     const accented = await lyricX('1. éa'), plain = await lyricX('1. ea');

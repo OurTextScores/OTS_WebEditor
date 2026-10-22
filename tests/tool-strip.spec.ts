@@ -550,7 +550,7 @@ test.describe('Layout group', () => {
     await expect(page.getByRole('menu').getByRole('menuitem')).toHaveCount(15);
     await page.getByTestId('btn-keysig-2').click();
     await expect
-      .poll(() => countOf(page, /<KeySig>\s*<accidental>2<\/accidental>/g), { timeout: 20_000 })
+      .poll(() => countOf(page, /<KeySig>(?:\s*<eid>[^<]*<\/eid>)?\s*<(?:accidental|concertKey)>2<\//g), { timeout: 20_000 })
       .toBeGreaterThan(0);
   });
 

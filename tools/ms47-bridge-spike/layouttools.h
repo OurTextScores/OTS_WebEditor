@@ -146,7 +146,7 @@ static bool layoutScoreUntilPage(Score* score, int targetPage)
 extern "C" {
 
 // Legacy 24-bit mask -> 4.7's voice / element / notes-in-chord filters (DECISIONS.md item 4).
-// "Notes and rests" off turns every notes-in-chord filter and single notes off; 4.7 has no rest filter, so rests stay selectable.
+// "Notes and rests" off turns every notes-in-chord filter, single notes and rests off (rests via the patch's includeRests).
 EMSCRIPTEN_KEEPALIVE bool setSelectionFilter(uintptr_t score_ptr, int filterMask, int excerptId)
 {
     if (filterMask < 0 || (static_cast<unsigned>(filterMask) & ~legacyfilter::ALL) != 0) {
@@ -169,6 +169,7 @@ EMSCRIPTEN_KEEPALIVE bool setSelectionFilter(uintptr_t score_ptr, int filterMask
         filter.setFiltered(type, notes);
     }
     filter.setIncludeSingleNotes(notes);
+    filter.setIncludeRests(notes);   // 4.00's "notes and rests" bit also excluded rests (upstream patch adds the flag)
     score->selection().updateSelectedElements();
     return true;
 }

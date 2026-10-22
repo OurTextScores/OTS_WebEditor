@@ -109,8 +109,10 @@ EMSCRIPTEN_KEEPALIVE bool setKeySignature(uintptr_t score_ptr, int fifths, int e
         return false;
     }
 
+    // As desktop (palette, new-score wizard): give the concert key; undoChangeKeySig derives each staff's transposed
+    // key. Setting only the transposed key left concertKey INVALID (-8) in saved files.
     engraving::KeySigEvent k;
-    k.setKey(static_cast<engraving::Key>(fifths));
+    k.setConcertKey(static_cast<engraving::Key>(fifths));
     k.setMode(engraving::KeyMode::MAJOR);
 
     // If a chord/rest is selected, start the change at that tick.
