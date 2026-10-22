@@ -136,5 +136,9 @@ if (MS47_BROWSER)
         "SHELL:--preload-file ${MS47_PRELOAD_DIR}@/res")
     # build.sh rewrites the stamp when the staged preload changes: relink to repackage webmscore.lib.data
     set_property(TARGET webmscore_lib APPEND PROPERTY LINK_DEPENDS "${MS47_PRELOAD_DIR}.stamp")
+    # Browser bundlers must not see emscripten's Node-only `import("module")` (patch_lib.py explains)
+    add_custom_command(TARGET webmscore_lib POST_BUILD
+        COMMAND python3 ${CMAKE_CURRENT_LIST_DIR}/patch_lib.py $<TARGET_FILE:webmscore_lib>
+        VERBATIM)
 endif()
 endif()

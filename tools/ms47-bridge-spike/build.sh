@@ -20,7 +20,7 @@ else
     git -C "$source_dir" apply "$spike_tools/upstream-v4.7.4-noqt.patch"
 fi
 mkdir -p "$source_dir/spike"
-cp "$spike_tools/SpikeEngineOnly.cmake" "$spike_tools/bridge.cpp" "$spike_tools/"*.h "$source_dir/spike/"
+cp "$spike_tools/SpikeEngineOnly.cmake" "$spike_tools/bridge.cpp" "$spike_tools/"*.h "$spike_tools/patch_lib.py" "$source_dir/spike/"
 python3 "$spike_tools/stage_resources.py" "$source_dir" "$resource_dir"
 # Browser preload: the staged root minus lazy-resources.json (fetched on demand by index.js)
 preload_dir="$resource_dir-preload"

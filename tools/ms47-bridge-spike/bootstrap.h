@@ -58,7 +58,11 @@ using namespace mu::engraving;
 #include "imagetools.h"
 namespace fs = std::filesystem;
 
+#ifdef MS47_BROWSER
+#define STAGE(x) ((void)0)   // stderr is console.error in browsers
+#else
 #define STAGE(x) (std::fprintf(stderr, "[stage] %s\n", x), std::fflush(stderr))
+#endif
 
 // Font files the engine looked for and did not find (paths relative to the resource root). Browser builds preload a
 // minimal resource set and fetch the rest on demand: see resourcetools.h.
