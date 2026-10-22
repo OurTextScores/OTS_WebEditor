@@ -108,7 +108,14 @@ class WebMscoreW {
             instance.rpc('ready')
         ])
         await instance.rpc('setLogLevel', [_logLevel]) // default 0 (Off)
-        await instance.rpc('load', [format, data, _fonts, doLayout], [data.buffer, ..._fonts.map(f => f.buffer)])
+        const capabilities = await instance.rpc('load', [format, data, _fonts, doLayout], [data.buffer, ..._fonts.map(f => f.buffer)])
+        // Probe native support through the worker, rather than treating JS proxy
+        // presence as proof of a native export. Older packages omit this path.
+        if (!capabilities?.systemLocks) {
+            for (const name of ['getSystemLockState', 'setSystemLock', 'moveSelectedMeasureToSystem']) {
+                Object.defineProperty(instance, name, { value: undefined })
+            }
+        }
         return instance
     }
 
@@ -259,6 +266,18 @@ class WebMscoreW {
      */
     setSelectedText(text) {
         return this.rpc('setSelectedText', [text])
+    }
+
+    getSystemLockState() {
+        return this.rpc('getSystemLockState')
+    }
+
+    setSystemLock(locked) {
+        return this.rpc('setSystemLock', [locked])
+    }
+
+    moveSelectedMeasureToSystem(direction) {
+        return this.rpc('moveSelectedMeasureToSystem', [direction])
     }
 
     getSelectedElementProperties() {

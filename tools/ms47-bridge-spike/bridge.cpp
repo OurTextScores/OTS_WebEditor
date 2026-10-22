@@ -270,6 +270,7 @@ EMSCRIPTEN_KEEPALIVE bool redo(uintptr_t id,int excerpt) {
 #include "measuredata.h"
 #include "measurerepeats.h"
 #include "measurestructure.h"
+#include "systemlocks.h"
 
 #include "playbacktimeline.h"
 #include "spannertools.h"

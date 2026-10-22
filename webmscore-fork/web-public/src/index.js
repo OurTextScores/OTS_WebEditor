@@ -300,6 +300,11 @@ class WebMscore {
 
         /** @private */
         this.excerptId = -1
+        if (!Module._getSystemLockState || !Module._setSystemLock || !Module._moveSelectedMeasureToSystem) {
+            for (const name of ['getSystemLockState', 'setSystemLock', 'moveSelectedMeasureToSystem']) {
+                Object.defineProperty(this, name, { value: undefined })
+            }
+        }
     }
 
     /**
@@ -414,6 +419,24 @@ class WebMscore {
         } finally {
             freePtr(strptr)
         }
+    }
+
+    // Returning null also lets worker-helper hide these methods when a new JS
+    // package is paired with an older native engine. Do not infer from version().
+    async getSystemLockState() {
+        if (!Module._getSystemLockState || !Module._setSystemLock || !Module._moveSelectedMeasureToSystem) return null
+        const ptr = Module.ccall('getSystemLockState', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])
+        return JSON.parse(WasmRes.readText(ptr))
+    }
+
+    async setSystemLock(locked) {
+        if (typeof locked !== 'boolean' || !Module._setSystemLock) return false
+        return Module.ccall('setSystemLock', 'boolean', ['number', 'number', 'number'], [this.scoreptr, Number(locked), this.excerptId])
+    }
+
+    async moveSelectedMeasureToSystem(direction) {
+        if (!Module._moveSelectedMeasureToSystem || (direction !== 'previous' && direction !== 'next')) return false
+        return Module.ccall('moveSelectedMeasureToSystem', 'boolean', ['number', 'number', 'number'], [this.scoreptr, direction === 'previous' ? -1 : 1, this.excerptId])
     }
 
     async getSelectedElementProperties() {
