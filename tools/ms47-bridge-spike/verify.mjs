@@ -13,6 +13,7 @@ import { verifyAudio } from './verify-audio.mjs';
 import { verifyPdf } from './verify-pdf.mjs';
 import { verifyResources } from './verify-resources.mjs';
 import { verifyStubs } from './verify-stubs.mjs';
+import { installLayoutOracle } from './layout-oracle.mjs';
 import { verifyNoteInput } from './verify-noteinput.mjs';
 import { verifySelection } from './verify-selection.mjs';
 import { verifySystemLocks } from './verify-systemlocks.mjs';
@@ -70,6 +71,7 @@ export default options => Engine({ ...options, wasmBinary: readFileSync(new URL(
     ? createRequire(import.meta.url)(path.join(bundle, 'webmscore.nodejs.test.cjs'))   // bundle.mjs
     : (await import(pathToFileURL(path.join(temp, 'index.js')))).default;
   WebMscore.bundled = !!bundle;
+  const oracle = process.env.MS47_LAYOUT_ORACLE ? installLayoutOracle(WebMscore) : null;
   // Native exports without JS wrappers (test setup only): the staged helper's Module, or the bundle's test getter
   const nativeModule = async () => (bundle ? WebMscore.__testModule : (await import(pathToFileURL(path.join(temp, 'helper.js')))).Module);   // tests pass bytes, not host paths, to a MEMFS engine
   await WebMscore.ready;
@@ -230,10 +232,11 @@ export default options => Engine({ ...options, wasmBinary: readFileSync(new URL(
   const parts = process.env.MS47_VERIFY_PARTS ? await verifyParts(WebMscore, renderer, output) : undefined;
   // After parts: registers a CJK fallback font (global)
   const resources = process.env.MS47_VERIFY_RESOURCES ? await verifyResources(WebMscore, lazy, { partsRan: !!parts }) : undefined;
+  const layoutOracle = oracle?.report();
   if (lazy) console.log(`lazy resources fetched during the run: ${[...new Set(lazy.fetched)].join(', ') || 'none'}`);
   const cache = await readFile(path.join(process.env.MS47_BUILD || path.join(workspace, 'ms47-build-wasm'), 'CMakeCache.txt'), 'utf8');
   const wasm = await readFile(path.join(temp, 'ms47_bridge.wasm'));
-  const report = { bootMs, results, edits, systemLocks, inspector, selection, noteInput, measures, timeline, spanners, misc, drag, midi, audio, pdf, stubs, parts, resources, build: { node: process.version, fastLink: /^MS47_BRIDGE_FAST_LINK:BOOL=ON$/m.test(cache), wasmBytes: wasm.length, wasmSha256: createHash('sha256').update(wasm).digest('hex') } };
+  const report = { bootMs, results, edits, systemLocks, inspector, selection, noteInput, measures, timeline, spanners, misc, drag, midi, audio, pdf, stubs, parts, resources, layoutOracle, build: { node: process.version, fastLink: /^MS47_BRIDGE_FAST_LINK:BOOL=ON$/m.test(cache), wasmBytes: wasm.length, wasmSha256: createHash('sha256').update(wasm).digest('hex') } };
   await writeFile(path.join(output, 'timings.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
 } finally {

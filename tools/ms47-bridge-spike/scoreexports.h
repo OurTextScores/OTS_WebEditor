@@ -133,7 +133,7 @@ EMSCRIPTEN_KEEPALIVE double getSpatium(uintptr_t id,int excerpt) {
 }
 EMSCRIPTEN_KEEPALIVE bool relayout(uintptr_t id,int excerpt) {
     auto* score=getScore(id,excerpt); if(!score) return false;
-    score->setLayoutAll(); layoutLinked(score); return true;
+    layoutAllLinked(score); return true;
 }
 EMSCRIPTEN_KEEPALIVE const uint8_t* getLayoutMode(uintptr_t id,int excerpt) {
     auto* score=getScore(id,excerpt); return score?numberResponse(uint32_t(score->layoutMode())):textResponse("Invalid score",1);

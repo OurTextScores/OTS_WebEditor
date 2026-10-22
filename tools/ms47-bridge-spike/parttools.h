@@ -74,6 +74,7 @@ EMSCRIPTEN_KEEPALIVE void generateExcerpts(uintptr_t score_ptr)
         master->initAndAddExcerpt(excerpt, true);
     }
     master->setExcerptsChanged(false);
+    layoutAllLinked(master);   // new part scores have never been laid out
     LOGI() << "Generated excerpts: " << excerpts.size();
 }
 
@@ -211,7 +212,7 @@ EMSCRIPTEN_KEEPALIVE bool addFont(const char* fontPath)
         engine->resetRequiredFaces();
     }
     for (auto& [id, project] : projects) {
-        layoutLinked(project->masterScore());
+        layoutAllLinked(project->masterScore());
     }
     LOGI() << "addFont: " << info.family << " from " << path;
     return true;

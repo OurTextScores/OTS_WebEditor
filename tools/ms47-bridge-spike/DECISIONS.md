@@ -151,6 +151,8 @@ on-demand fallback fonts. Requires exporting `FS_createDataFile` (or an equivale
 
 ## 9. Incremental layout
 
+**Implemented (2026-10-21):** edits use `endCmd`'s range layout, as desktop and 4.00 do; the layout oracle finds no stale layout over 939 calls (see PORT_LOG.md). Fauré pitch edit 28 ms (was a 2.2 s full layout).
+
 **Facts.** Every command currently requests a full layout of every linked score (`layoutLinked`). On the five-score
 corpus edits take 2–30 ms, but the 4.00 work (W7.1) showed full relayout dominates on long scores (≈1.4 s per edit on
 a 30-page score) and introduced an allowlist of edits safe for incremental layout, with an oracle that compares against

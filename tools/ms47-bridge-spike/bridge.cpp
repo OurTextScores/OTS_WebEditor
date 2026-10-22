@@ -36,13 +36,13 @@ static Score* getScore(uintptr_t id, int excerpt = -1) {
     auto it = projects.find(id);
     if (it == projects.end()) return nullptr;
     MasterScore* master = it->second->masterScore();
+    // Range layout at endCmd/undo reaches only "open" linked scores (desktop: visible part tabs); all of ours are
+    for (Score* linked : master->scoreList()) linked->setIsOpen(true);
     if (excerpt == -1) return master;
     if (excerpt < 0 || excerpt >= int(master->excerpts().size())) return nullptr;
     return master->excerpts()[excerpt]->excerptScore();
 }
 
-// Every linked score (the master and its part scores) shares one undo stack, so a command or undo issued through any
-// of them can change all of them. Lay all of them out; without parts this is the single score's layout.
 // Coordinate unit of the bridge ABI. The 4.00 engine engraved at 360 DPI, and every coordinate it exchanged with JS
 // (SVG, boxes, positions, spatium, points) was in those units; editor code assumes engine units == SVG pixels and its
 // zoom presets are fractions of that size. 4.7 engraves at 1200 DPI, so convert at the boundary: native inside.
@@ -50,8 +50,20 @@ static constexpr double ABI_UNIT = 360.0 / mu::engraving::DPI;
 static inline double toAbi(double v) { return v * ABI_UNIT; }
 static inline double fromAbi(double v) { return v / ABI_UNIT; }
 
+// After an edit (DECISIONS.md item 9). Every linked score shares one undo stack, so a command or undo through any of
+// them can change all of them. As desktop and the 4.00 bridge, endCmd and undoRedo already lay out the edited range in
+// every open linked score; update() finishes any layout still pending (a style change's layout-all) and is otherwise
+// a no-op. A full doLayout after every edit, as this bridge first did, cost seconds per edit on large scores.
 static void layoutLinked(Score* score) {
-    for (Score* linked : score->scoreList()) linked->doLayout();
+    score->masterScore()->update();   // lays out every open linked score; getScore() opens them all
+}
+
+// Explicit full layout: relayout(), new part scores, font and resource changes
+static void layoutAllLinked(Score* score) {
+    for (Score* linked : score->scoreList()) {
+        linked->setLayoutAll();
+        linked->doLayout();
+    }
 }
 
 static bool changePitch(uintptr_t id,int excerpt,bool up);

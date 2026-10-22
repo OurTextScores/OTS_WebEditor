@@ -1,3 +1,36 @@
+# Incremental layout — 2026-10-21 (DECISIONS.md item 9)
+
+**Edits no longer lay out the whole score.** The bridge first ended about 96 exports with `layoutLinked`: a full
+`doLayout()` of every linked score after every edit. The 4.00 bridge never did that. Its 82 commands rely on
+`endCmd`'s range layout, `doLayout()` appears three times, and `relayout()` is `setLayoutAll()` + `update()`. The
+editor then adds its own full `relayout()` after edits outside its allowlist.
+
+What changed:
+- `layoutLinked` is now `masterScore()->update()`. That is a no-op once `endCmd` or `undoRedo` has laid out the edited
+  range, and it finishes any pending layout-all (style changes, layout mode).
+- `getScore()` marks every linked score open, because `update()` lays out only open parts (desktop: visible tabs).
+- Full layout is explicit in `layoutAllLinked`: `relayout()`, new part scores, fonts and resources.
+
+**Oracle** (`layout-oracle.mjs`, `MS47_LAYOUT_ORACLE=1` for undoable calls or `=all` for every non-read call):
+- It wraps every loaded score. After each checked call it draws every page of every linked score (full score and
+  each part), forces a full relayout, and draws again.
+- Full suite: **939 checked calls over 121 methods, none stale**.
+- Mutation check: with parts left closed, the oracle flags `pitchUp` and `undo`. Its first version missed this because
+  it drew only the edited score, and was fixed to draw every linked score.
+
+Edit speed (Node, CPU-contended):
+
+| score | pitch edit | undo | full relayout (old cost of every edit) |
+|---|---|---|---|
+| Fauré, 32 pages | 28 ms | 48 ms | 2,189 ms |
+| men-head, 9 pages | 14 ms | 23 ms | 123 ms |
+
+The editor's `incrementalLayout` allowlist exists because 46 of 716 edits differed from full layout on the 4.00
+engine. On 4.7 the bridge oracle finds no such edits, so the allowlist can be re-swept with the editor's own oracle
+(W7.1) and likely widened. That is an editor change, still to do.
+
+---
+
 # Browser package, SVG contract and ABI units — 2026-10-21
 
 **The editor runs on the 4.7 engine in Chromium.**

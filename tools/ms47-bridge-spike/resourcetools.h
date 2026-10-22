@@ -106,7 +106,7 @@ EMSCRIPTEN_KEEPALIVE int resourcesAdded()
         for (Score* score : project->masterScore()->scoreList()) {
             score->setLayoutAll();
         }
-        layoutLinked(project->masterScore());
+        layoutAllLinked(project->masterScore());
     }
     return static_cast<int>(missing.size());
 }
