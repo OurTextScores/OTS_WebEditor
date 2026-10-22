@@ -36,6 +36,10 @@
     "titleFilenameSafe": "Sanitizes the native title() result in JS; no native export of its own.",
     "setSoundFont": "Per-score method delegating to the module-level WebMscore.setSoundFont; the native export is module-level, not score-level."
   },
-  "typescriptOnlyMembers": {},
+  "typescriptOnlyMembers": {
+    "getSystemLockState": "Optional 4.7-only system-lock API. UI requires all three methods at runtime; main intentionally ships the 4.00 bridge without these methods. Native implementation and JS/worker proxies are delivered on engine-ms47-spike.",
+    "setSystemLock": "Optional 4.7-only system-lock API. UI requires all three methods at runtime; main intentionally ships the 4.00 bridge without these methods. Native implementation and JS/worker proxies are delivered on engine-ms47-spike.",
+    "moveSelectedMeasureToSystem": "Optional 4.7-only system-lock API. UI requires all three methods at runtime; main intentionally ships the 4.00 bridge without these methods. Native implementation and JS/worker proxies are delivered on engine-ms47-spike."
+  },
   "_typescriptOnlyMembersReason": "Members of the Score interface that intentionally have no bridge implementation. Should normally be empty: a declared method with no worker proxy is exactly the silent failure TD-05 exists to catch."
 }

@@ -144,7 +144,26 @@ export type SynthAudioBatchChunk = {
 
 export type SynthAudioBatchIterator = (cancel?: boolean) => Promise<SynthAudioBatchChunk[]>;
 
+/** Structural measure positions are zero-based, including pickup measures. */
+export interface SystemLockRange {
+  startMeasure: number;
+  endMeasure: number;
+}
+
+export interface SystemLockState {
+  selection: SystemLockRange | null;
+  locks: SystemLockRange[];
+  locked: { value: boolean | null; mixed: boolean; applicableCount: number };
+  canLock: boolean;
+  canUnlock: boolean;
+  canMovePrevious: boolean;
+  canMoveNext: boolean;
+}
+
 export interface Score {
+  getSystemLockState?: () => Promise<SystemLockState | null>;
+  setSystemLock?: (locked: boolean) => Promise<boolean>;
+  moveSelectedMeasureToSystem?: (direction: 'previous' | 'next') => Promise<boolean>;
   destroy: (soft?: boolean) => void;
   saveSvg: (
     pageNumber?: number,

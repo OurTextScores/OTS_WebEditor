@@ -1,5 +1,7 @@
 'use client';
 
+import { SystemLocksPanel, useSystemLocks } from './score-editor/system-locks';
+
 import { useEmbeddedContentHeight } from './score-editor/useEmbeddedContentHeight';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -1520,6 +1522,7 @@ export default function ScoreEditor() {
     selectionBoxes.length,
   ]);
 
+  const systemLocks = useSystemLocks(core, inspectorData);
   useSelectionAnnouncer(inspectorData);
 
   const ensureScoreId = useCallback(
@@ -8651,6 +8654,7 @@ export default function ScoreEditor() {
   );
 
   const inspectorProps: LeftDockProps['inspector'] = {
+    systemLayout: <SystemLocksPanel model={systemLocks} disabled={!interactiveMutationEnabled} />,
     data: inspectorData,
     loading: inspectorLoading,
     disabled: !interactiveMutationEnabled || !score?.setSelectedElementProperty,
