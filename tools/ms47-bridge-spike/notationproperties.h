@@ -6,6 +6,7 @@
 #include "engraving/editing/editdata.h"
 #include "engraving/dom/segment.h"
 #include "engraving/dom/input.h"
+#include "engraving/dom/beam.h"
 extern "C" {
 EMSCRIPTEN_KEEPALIVE bool setNoteheadGroup(uintptr_t score_ptr, int noteheadGroup, int excerptId)
 {
@@ -75,11 +76,25 @@ EMSCRIPTEN_KEEPALIVE bool setBeamMode(uintptr_t score_ptr, int beamMode, int exc
         return false;
     }
 
+    // The chords of the beams being changed, including those before the selection that a split leaves behind
+    Fraction start = chordRests.front()->tick(), end = chordRests.front()->endTick();
+    for (auto* chordRest : chordRests) {
+        const engraving::ChordRest* first = chordRest->beam() ? chordRest->beam()->elements().front() : chordRest;
+        const engraving::ChordRest* last = chordRest->beam() ? chordRest->beam()->elements().back() : chordRest;
+        start = std::min(start, first->tick());
+        end = std::max(end, last->endTick());
+    }
+
     score->startCmd(TranslatableString::untranslatable("set Beam Mode"));
     for (auto* chordRest : chordRests) {
         chordRest->undoChangeProperty(engraving::Pid::BEAM_MODE, mode);
     }
     score->endCmd();
+    layoutLinked(score);
+    // A chord leaving a beam has its stem direction computed while the old beam is still attached; beams are rebuilt
+    // later in the same pass, so its stem stayed stale until a full layout (editor layout oracle). A second pass over
+    // the range sees the new beams.
+    score->setLayout(start, end, 0, score->nstaves() - 1);
     layoutLinked(score);
     return true;
 }

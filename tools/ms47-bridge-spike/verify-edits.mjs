@@ -136,5 +136,23 @@ export async function verifyEdits(WebMscore, renderer, output) {
       console.log(`verified ${name} (${ms.toFixed(1)} ms)`);
     } finally { score.destroy(); }
   }
+  results.push(await verifyBeamSplitLayout(WebMscore));
   return results;
+}
+
+// Starting a beam on the second chord of a beamed pair leaves the first chord unbeamed; its stem must turn in the
+// incremental layout, not only after a full one (it stayed stale before setBeamMode laid the range out twice)
+async function verifyBeamSplitLayout(WebMscore) {
+  const file = new URL('../../public/test_scores/batch4_controls.musicxml', import.meta.url);
+  const score = await WebMscore.load('musicxml', new Uint8Array(await readFile(file)));
+  try {
+    const notes = [...(await score.saveSvg(0, true, false)).matchAll(/<g transform="matrix\(0\.3 0 0 0\.3 ([\d.]+) ([\d.]+)\)"[^>]*><path class="Note"/g)];
+    assert.ok(notes.length >= 2, 'fixture notes drawn');
+    assert.equal(await score.selectElementAtPoint(0, +notes[1][1] + 5, +notes[1][2] + 4), true);
+    assert.equal(await score.setBeamMode(2), true, 'beam begins on the second chord');
+    const incremental = await score.saveSvg(0, true, false);
+    await score.relayout();
+    assert.equal(incremental, await score.saveSvg(0, true, false), 'incremental layout matches the full layout');
+    return { name: 'setBeamMode split layout', ok: true };
+  } finally { score.destroy(); }
 }
