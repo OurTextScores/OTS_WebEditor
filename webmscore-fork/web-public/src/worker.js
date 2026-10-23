@@ -81,6 +81,11 @@ self.onmessage = async (e) => {
                 rpcRes(id, 'done')
                 break
 
+            case 'setResourceBaseUrl':
+                WebMscore.resourceBaseUrl = params[0]
+                rpcRes(id, 'done')
+                break
+
             default:
                 if (!score) { rpcErr(id, new Error('Score not loaded')) }
                 if (DEBUG_RENDER_RPC && (method === 'saveSvg' || method === 'savePng')) {

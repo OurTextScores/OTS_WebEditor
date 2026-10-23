@@ -25,7 +25,8 @@
     "load": "Module-level score load, called before any Score instance exists.",
     "setLogLevel": "Module-level logger configuration, not per-score.",
     "processSynth": "Worker-side pump for a synthAudio iterator; no native export of its own.",
-    "processSynthBatch": "Worker-side pump for a batched synthAudio iterator; no native export of its own."
+    "processSynthBatch": "Worker-side pump for a batched synthAudio iterator; no native export of its own.",
+    "setResourceBaseUrl": "Module-level base URL for on-demand engine resources, sent to the worker before load."
   },
   "jsImplementedRpcTargets": {
     "getExcerptId": "Pure JS state on the main-thread score object (this.excerptId); no native call.",

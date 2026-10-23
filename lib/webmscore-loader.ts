@@ -506,7 +506,24 @@ export interface WebMscoreInstance {
     doLayout?: boolean,
   ) => Promise<Score>;
   ready: Promise<void>;
+  /** Where the engine fetches fonts it does not preload (the 4.7 engine; 4.00 bundles everything) */
+  resourceBaseUrl?: string;
 }
+
+/**
+ * Base URL of the engine's on-demand resources (`fonts/…`, `fonts/fallback/…`), from
+ * NEXT_PUBLIC_WEBMSCORE_RESOURCE_BASE_URL. Unset: nothing is fetched and those fonts fall back.
+ */
+export const webMscoreResourceBaseUrl = (): string | undefined => {
+  const raw = (process.env.NEXT_PUBLIC_WEBMSCORE_RESOURCE_BASE_URL ?? '').trim();
+  if (!raw) return undefined;
+  return raw.endsWith('/') ? raw : `${raw}/`;   // resource paths resolve below it, so it must end in a slash
+};
+
+const applyResourceBaseUrl = (instance: WebMscoreInstance) => {
+  const url = webMscoreResourceBaseUrl();
+  if (url && 'resourceBaseUrl' in instance) instance.resourceBaseUrl = url;
+};
 
 // NOTE:
 // The `webmscore` package can present different module shapes depending on
@@ -583,6 +600,7 @@ export const loadWebMscore = async (): Promise<WebMscoreInstance> => {
     const imported = await import('./webmscore-worker-runtime.js');
     const resolved = resolveWebMscore(imported as unknown);
     await resolved.ready;
+    applyResourceBaseUrl(resolved);
     webMscore = resolved;
     initialized = true;
     return resolved;
@@ -621,6 +639,7 @@ export const loadWebMscoreInProcess = async (): Promise<WebMscoreInstance> => {
     }
     const resolved = resolveWebMscore(inProcessImport);
     await resolved.ready;
+    applyResourceBaseUrl(resolved);
     inProcessWebMscore = resolved;
     inProcessInitialized = true;
     return resolved;

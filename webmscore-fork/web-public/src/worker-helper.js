@@ -38,6 +38,8 @@ class WorkerError extends Error {
  * @see WebMscore.setLogLevel
  */
 let _logLevel = 0
+/** @see WebMscoreW.resourceBaseUrl */
+let _resourceBaseUrl = undefined
 const DEBUG_RENDER_RPC = false
 
 /**
@@ -95,6 +97,19 @@ class WebMscoreW {
     }
 
     /**
+     * Base URL the worker's engine fetches on-demand resources from (fonts a score needs that the package does not
+     * preload). Sent to each worker when a score loads; resolved against the page, since a worker has no document.
+     * Unset: nothing is fetched and those fonts fall back (the 4.00 engine bundles everything and never asks).
+     * @type {string | undefined}
+     */
+    static get resourceBaseUrl() {
+        return _resourceBaseUrl
+    }
+    static set resourceBaseUrl(url) {
+        _resourceBaseUrl = url ? new URL(url, globalThis.location?.href).href : undefined
+    }
+
+    /**
      * Load score data
      * @param {import('../schemas').InputFileFormat} format 
      * @param {Uint8Array} data 
@@ -108,6 +123,7 @@ class WebMscoreW {
             instance.rpc('ready')
         ])
         await instance.rpc('setLogLevel', [_logLevel]) // default 0 (Off)
+        if (_resourceBaseUrl) await instance.rpc('setResourceBaseUrl', [_resourceBaseUrl])   // before load: load fetches
         const capabilities = await instance.rpc('load', [format, data, _fonts, doLayout], [data.buffer, ..._fonts.map(f => f.buffer)])
         // Probe native support through the worker, rather than treating JS proxy
         // presence as proof of a native export. Older packages omit this path.
