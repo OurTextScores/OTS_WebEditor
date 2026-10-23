@@ -82,9 +82,12 @@ with results in `~/workspace/ms47-e2e-results/`.
 1. Done 2026-10-22: compare highlight geometry (a reflow race in the spec, now polled); system-lock UI on this engine
    (undo refresh fixed on `main`, `tests/system-locks-engine.spec.ts`); the editor skips its post-edit relayout on
    4.7 (`layoutsAfterCommands`; evidence in PORT_LOG).
-2. **Ship prep:** host the lazy fonts and the `fonts/fallback/NotoSans{JP,KR,SC}-Regular.otf` CDN files.
-3. **Listening comparison** of 4.7 against 4.00 playback (needs a person): matched pairs and a guide are in
-   `~/workspace/ms47-e2e-results/listening/`. Timing matches; Bach is about 1.7 dB louder on 4.7 (check dynamics).
+2. **Ship prep:** upload `~/workspace/ms47-cdn-upload/` (20 on-demand fonts, licences, checksums; its README has
+   the upload, CORS and verify steps), then build with
+   `NEXT_PUBLIC_WEBMSCORE_RESOURCE_BASE_URL=https://cdn.ourtextscores.com/webmscore-resources/4.7.4/`. Until then
+   less common music fonts and CJK text fall back in the browser (the editor wiring is done, 33d59ec7).
+3. Done 2026-10-22: **listening comparison passed** (user, after the metronome fix 35b03618). Pairs and demo page in
+   `~/workspace/ms47-e2e-results/listening/`.
 4. Deferred audit items (`STUBS_AUDIT.md`): SVG images in scores and PDF GIF/BMP. No local score uses them (2,316
    checked). Font family substitution was checked and is benign.
 
