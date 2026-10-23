@@ -268,6 +268,10 @@ class WebMscoreW {
         return this.rpc('setSelectedText', [text])
     }
 
+    layoutsAfterCommands() {
+        return this.rpc('layoutsAfterCommands')
+    }
+
     getSystemLockState() {
         return this.rpc('getSystemLockState')
     }

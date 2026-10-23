@@ -90,6 +90,8 @@ export default options => Engine({ ...options, wasmBinary: readFileSync(new URL(
   }
   const bootMs = performance.now() - started;
   assert.equal(await WebMscore.version(), 470);
+  // The editor skips its post-edit relayout on this capability; MS47_LAYOUT_ORACLE is what backs the claim
+  assert.equal((await nativeModule())._layoutsAfterCommands(), 1, 'layoutsAfterCommands capability exported');
   const scores = process.argv.slice(2);
   if (!scores.length && !process.env.MS47_ONLY_EDITS) scores.push('public/test_scores/three_notes_cde.musicxml', 'public/test_scores/bach_orig.mscz');
   function pitches(xml) {

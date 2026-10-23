@@ -161,6 +161,8 @@ export interface SystemLockState {
 }
 
 export interface Score {
+  /** True when every mutating export leaves the score fully laid out (the 4.7 engine), so no relayout is needed. */
+  layoutsAfterCommands?: () => Promise<boolean> | boolean;
   getSystemLockState?: () => Promise<SystemLockState | null>;
   setSystemLock?: (locked: boolean) => Promise<boolean>;
   moveSelectedMeasureToSystem?: (direction: 'previous' | 'next') => Promise<boolean>;

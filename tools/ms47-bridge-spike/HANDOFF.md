@@ -72,22 +72,19 @@ Done since the first handoff:
 - editor parity fixes from the Playwright suite;
 - the other agent's system locks (engine side; their UI is on `main`).
 
-Editor suite on 4.7: **357/360** in the last full run, before the final fixes that made the inspector spec pass. Runs
+Editor suite on 4.7: **355/360** in the last full run (2026-10-22, post-edit relayout skipped); the 4 failures pass on
+rerun (load flakes). The tracked 4.00 `webmscore.webpack.mjs` is rebuilt with the new `index.js` and passes its suite
+apart from known 4.00 failures. Use `--reporter=list,json` (`PLAYWRIGHT_JSON_OUTPUT_FILE`) so a stopped run keeps its
+progress. Runs
 use worktrees `~/workspace/ots-ms47-browser` (4.7, port 3150) and `~/workspace/ots-400-baseline` (4.00, port 3160),
 with results in `~/workspace/ms47-e2e-results/`.
 
-1. **Compare highlight geometry** (`change-review-highlight-geometry`, intermittent): the p3-m2 highlight sits about
-   half a staff low after compare reflow. Check `staffSystemBands` y against the drawn staff lines after reflow.
-2. **System-lock UI against this engine:** run the `main` UI (worktree `ots-system-locks-ui`) with the current 4.7
-   package.
-3. **Editor incremental-layout allowlist:** re-sweep with the editor's W7.1 oracle on 4.7. The bridge oracle finds
-   no stale edits, so the allowlist can likely widen.
-4. **Ship prep:**
-   - host the lazy fonts and the `fonts/fallback/NotoSans{JP,KR,SC}-Regular.otf` CDN files;
-   - make `check:wasm` accept a package without `webmscore.lib.mem.wasm`;
-   - rebuild the shipping 4.00 bundle with the new `index.js` and retest.
-5. **Open audit items** (`STUBS_AUDIT.md`): SVG images in scores; PDF GIF/BMP; per-family font substitution.
-6. **Listening comparison** of 4.7 against 4.00 playback.
+1. Done 2026-10-22: compare highlight geometry (a reflow race in the spec, now polled); system-lock UI on this engine
+   (undo refresh fixed on `main`, `tests/system-locks-engine.spec.ts`); the editor skips its post-edit relayout on
+   4.7 (`layoutsAfterCommands`; evidence in PORT_LOG).
+2. **Ship prep:** host the lazy fonts and the `fonts/fallback/NotoSans{JP,KR,SC}-Regular.otf` CDN files.
+3. **Open audit items** (`STUBS_AUDIT.md`): SVG images in scores; PDF GIF/BMP; per-family font substitution.
+4. **Listening comparison** of 4.7 against 4.00 playback.
 
 ## Gotchas that cost time
 

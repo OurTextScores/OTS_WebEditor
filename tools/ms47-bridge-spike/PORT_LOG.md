@@ -1,3 +1,35 @@
+# Editor skips its post-edit relayout on 4.7 — 2026-10-22
+
+`performMutation` runs a full relayout after every edit outside its `incrementalLayout` allowlist (46 edits needed it
+on 4.00). That costs 2.2 s per edit on a 32-page score (Fauré), against 28 ms for the incremental layout.
+
+**Capability.** The bridge exports `layoutsAfterCommands()` (returns 1). `index.js`/`worker-helper.js` expose it as
+`Score.layoutsAfterCommands()`, false when the native export is missing (4.00). `useEditorCore` reads it once per
+score and then skips the relayout for every edit. 4.00 behaviour is unchanged. `verify.mjs` asserts the export.
+
+**Evidence: the editor's own oracle (W7.1) over the whole Playwright suite on 4.7.**
+- First sweep: 153 checks over 68 edit labels, 18 diffs. Every diff was then reproduced or explained:
+  - **Oracle bug, fixed (cd6511a5).** Mutations do not take the serial queue, so a quick next edit (undo then redo,
+    or Ctrl+A and an edit) landed between the oracle's incremental read, relayout and full read. The reads now share
+    one queue slot, and a check that another mutation overlapped is skipped. This was most of the 18.
+  - **Engine bug, fixed (0e455bf9).** `setBeamMode` starting a beam on the second chord of a beamed pair left the
+    first chord's stem stale until a full layout (reload agrees with the full layout). The bridge lays the range
+    out a second time. Hidden on 4.00 because the edit was never allowlisted.
+  - **Not layout.** One `raise pitch` diff differed only in the `selected` class (a selection read in between).
+- Rerun of the 13 affected spec files with both fixes: 167/167 pass, 75 checks, no layout diffs.
+- Bridge oracle (`MS47_LAYOUT_ORACLE=all`) over the engine suite: 0 stale, including a new beam-split case in
+  `verify-edits.mjs`.
+
+**Suites with the change (no oracle).**
+- 4.7: 355/360. The 4 failures pass 2/2 on rerun: load flakes (three suites ran at once).
+- 4.00: 339/360. 6 of the 20 failures were load flakes (pass on rerun). The other 14 fail without the change too:
+  the five compare/zoom files fail at the committed code, the rest failed in the earlier 4.00 baseline.
+
+Also: `check:wasm`/`sync:wasm` require `webmscore.lib.mem.wasm` only when the loader declares
+`memoryInitializer=` (the emsdk 2 build), so a 4.7 package passes (f16c3657).
+
+---
+
 # Editor parity in the browser — 2026-10-22
 
 The editor's Playwright suite (360 tests) was run against the 4.7 browser package and against 4.00 in separate

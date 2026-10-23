@@ -42,6 +42,10 @@
     "ms47SystemLocks": {
       "source": "tools/ms47-bridge-spike/systemlocks.h",
       "reason": "4.7-only exports; the default 4.00 WASM remains unchanged. Runtime JS and worker capability checks hide the API unless all three native exports exist. Validate the 4.7 artifact with MS47_VERIFY_SYSTEMLOCKS and verify-systemlock-capabilities.mjs."
+    },
+    "ms47LayoutCapability": {
+      "source": "tools/ms47-bridge-spike/bridge.cpp",
+      "reason": "4.7-only capability export layoutsAfterCommands: the engine leaves the score fully laid out after every command (bridge layout oracle), so the editor skips its post-edit relayout. The 4.00 WASM lacks it; the JS wrapper returns false there."
     }
   }
 }

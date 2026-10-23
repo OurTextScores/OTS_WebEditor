@@ -42,6 +42,22 @@ export function useEditorCore(ctx: EditorCoreContext) {
 
   const [score, setScore] = useState<Score | null>(null);
   const undoHistory = useUndoHistory(score);
+  // Whether the loaded engine lays the score out completely after every command (an engine capability): then
+  // performMutation's full relayout is redundant for every edit, not only the allowlisted ones
+  const engineLaysOutRef = useRef<{ score: Score | null; value: boolean }>({ score: null, value: false });
+  useEffect(() => {
+    engineLaysOutRef.current = { score, value: false };
+    if (!score?.layoutsAfterCommands) return;
+    let current = true;
+    void Promise.resolve(score.layoutsAfterCommands())
+      .then((value) => {
+        if (current) engineLaysOutRef.current = { score, value: value === true };
+      })
+      .catch(() => {});
+    return () => {
+      current = false;
+    };
+  }, [score]);
   const touchHistory = undoHistory.touch;
   useEffect(() => {
     document.addEventListener('pointerup', touchHistory);
@@ -526,7 +542,8 @@ export function useEditorCore(ctx: EditorCoreContext) {
       setScoreDirtySinceCheckpoint(true);
       setScoreDirtySinceXml(true);
 
-      if (!options?.skipRelayout && !options?.incrementalLayout && !oracle && score.relayout) {
+      const engineLaysOut = engineLaysOutRef.current.score === score && engineLaysOutRef.current.value;
+      if (!options?.skipRelayout && !options?.incrementalLayout && !engineLaysOut && !oracle && score.relayout) {
         try {
           await perf.time('relayout', () => score.relayout!());
         } catch (relayoutErr) {

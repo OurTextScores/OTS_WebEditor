@@ -423,6 +423,17 @@ class WebMscore {
 
     // Returning null also lets worker-helper hide these methods when a new JS
     // package is paired with an older native engine. Do not infer from version().
+    /**
+     * Whether every mutating export leaves the score fully laid out, so an editor need not call
+     * `relayout()` after an edit. A capability of the native engine (an export, not `version()`):
+     * false on engines without it, which need the full relayout after edits their range layout misses.
+     * @returns {Promise<boolean>}
+     */
+    async layoutsAfterCommands() {
+        if (!Module._layoutsAfterCommands) return false
+        return Module.ccall('layoutsAfterCommands', 'number', [], []) === 1
+    }
+
     async getSystemLockState() {
         if (!Module._getSystemLockState || !Module._setSystemLock || !Module._moveSelectedMeasureToSystem) return null
         const ptr = Module.ccall('getSystemLockState', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])

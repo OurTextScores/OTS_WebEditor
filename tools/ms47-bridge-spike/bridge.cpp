@@ -85,6 +85,10 @@ EMSCRIPTEN_KEEPALIVE void init() {
 #endif
 }
 EMSCRIPTEN_KEEPALIVE int version() { return 470; }
+// Capability: every mutating export leaves the score fully laid out (endCmd/undo range layout; checked by
+// layout-oracle.mjs), so callers need no full relayout after an edit. The 4.00 engine lacks this export.
+EMSCRIPTEN_KEEPALIVE
+int layoutsAfterCommands() { return 1; }
 EMSCRIPTEN_KEEPALIVE void setLogLevel(int level) {
     if(level>=0 && level<=2) kors::logger::Logger::instance()->setLevel(static_cast<kors::logger::Level>(level));
 }
