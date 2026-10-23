@@ -68,6 +68,6 @@ and drew nothing. This audit looks for every other such place in the code the br
 
 | Where | Behaviour | Recommendation |
 |---|---|---|
-| `draw/svgrenderer.cpp` (no-Qt) | Every method is `NOT_SUPPORTED`: an SVG image in a score has size zero and is not drawn, silently | Keep the bytes and parse `width/height/viewBox` in a bridge `SvgRenderer` stand-in. The SVG writer can then embed it as `<image href="data:image/svg+xml…">`; PDF would need an SVG→PDF path (or a raster fallback). Rare in scores, so worth doing only if the corpus has them. |
-| PDF image formats | GIF, BMP, 16-bit or interlaced PNG fail `savePdf` with a clear message (SVG embeds them all) | Decode on demand if they appear in real scores |
+| `draw/svgrenderer.cpp` (no-Qt) | Every method is `NOT_SUPPORTED`: an SVG image in a score has size zero and is not drawn, silently | Keep the bytes and parse `width/height/viewBox` in a bridge `SvgRenderer` stand-in. The SVG writer can then embed it as `<image href="data:image/svg+xml…">`; PDF would need an SVG→PDF path (or a raster fallback). Rare in scores, so worth doing only if the corpus has them. **Corpus check 2026-10-22:** of 2,316 unique local scores (OpenScore Lieder included), 5 contain images, all PNG/JPEG and none SVG, GIF or BMP. Four draw them in SVG and PDF on 4.7; the fifth (a MuseScore 0.9.6 file, image inside a measure) loses it on 4.00 too. Keep deferred. |
+| PDF image formats | GIF, BMP, 16-bit or interlaced PNG fail `savePdf` with a clear message (SVG embeds them all) | Decode on demand if they appear in real scores. None in the 2,316-score corpus check (see the SVG row). |
 | `saveAsPng` (paste of images) | Writes only PNG sources | Same: needs a codec only for non-PNG sources |
