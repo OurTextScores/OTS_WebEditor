@@ -143,6 +143,8 @@ static ScorePlayback* preparePlayback(uintptr_t id, mu::engraving::Score* score)
     }
     sp.model = std::make_unique<mu::engraving::PlaybackModel>(nullptr);
     sp.model->setPlayRepeats(true);
+    // PlaybackModel defaults the metronome on; desktop applies its setting (default off) before load, as here
+    sp.model->setIsMetronomeEnabled(false);
     sp.model->load(score);
     sp.sequenceId = e->playback->addSequence();
     AudioParams params;

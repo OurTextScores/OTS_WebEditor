@@ -1,3 +1,14 @@
+# Playback: metronome off — 2026-10-22
+
+Found by listening (4.00 vs 4.7 pairs): every 4.7 render had a metronome click. Upstream `PlaybackModel` defaults
+`m_metronomeEnabled` to true; desktop's `NotationPlayback` sets it from the user setting (default off) before
+`load`, and the bridge did not. The bridge now turns it off. The other three model defaults (repeats, chord symbols,
+score dynamics for preview notes) already match desktop. After the fix, the pairs agree closely (1-s loudness
+correlation 0.992–0.997, peaks within 10 %). `verify-audio.mjs` checks that a bar of rest is silent; it fails with the
+metronome on (rest RMS 1.3e-2) and passes with it off (0).
+
+---
+
 # Editor skips its post-edit relayout on 4.7 — 2026-10-22
 
 `performMutation` runs a full relayout after every edit outside its `incrementalLayout` allowlist (46 edits needed it

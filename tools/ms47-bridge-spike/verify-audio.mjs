@@ -54,7 +54,27 @@ export async function verifyAudio(WebMscore, output) {
     } finally { score.destroy(); }
   }
   results.push(...await verifyStreaming(WebMscore, scores[0]));
+  results.push(await verifyNoMetronome(WebMscore));
   return results;
+}
+
+// A bar of rest renders as silence: PlaybackModel defaults its metronome track on (desktop applies its setting,
+// default off), which ticked through every render until the bridge turned it off
+async function verifyNoMetronome(WebMscore) {
+  const note = (body) => `<note>${body}<duration>4</duration><type>whole</type></note>`;
+  const xml = `<?xml version="1.0" encoding="UTF-8"?><score-partwise version="3.1"><part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>
+<part id="P1"><measure number="1"><attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes>
+${note('<rest/>')}</measure><measure number="2">${note('<pitch><step>C</step><octave>4</octave></pitch>')}</measure></part></score-partwise>`;
+  const score = await WebMscore.load('musicxml', new TextEncoder().encode(xml));
+  try {
+    const st = wavStats(await score.saveAudio('wav'));
+    // Bar 1 is 2 s at the default 120 bpm: its first second is wholly rest
+    const restRms = Math.max(...st.env.slice(0, 1));
+    assert.ok(restRms < 1e-4, `the rest bar is silent (RMS ${restRms.toExponential(2)}): no metronome`);
+    assert.ok(Math.max(...st.env.slice(2, 4)) > 1e-3, 'the note in bar 2 sounds');
+    console.log(`verified no metronome: rest bar RMS ${restRms.toExponential(2)}`);
+    return { name: 'no metronome', restRms };
+  } finally { score.destroy(); }
 }
 
 // Collect a batch iterator to the end: interleaved samples plus the first chunk's start time
