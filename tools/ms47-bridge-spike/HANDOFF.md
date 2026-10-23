@@ -83,8 +83,10 @@ with results in `~/workspace/ms47-e2e-results/`.
    (undo refresh fixed on `main`, `tests/system-locks-engine.spec.ts`); the editor skips its post-edit relayout on
    4.7 (`layoutsAfterCommands`; evidence in PORT_LOG).
 2. **Ship prep:** host the lazy fonts and the `fonts/fallback/NotoSans{JP,KR,SC}-Regular.otf` CDN files.
-3. **Open audit items** (`STUBS_AUDIT.md`): SVG images in scores; PDF GIF/BMP; per-family font substitution.
-4. **Listening comparison** of 4.7 against 4.00 playback.
+3. **Listening comparison** of 4.7 against 4.00 playback (needs a person): matched pairs and a guide are in
+   `~/workspace/ms47-e2e-results/listening/`. Timing matches; Bach is about 1.7 dB louder on 4.7 (check dynamics).
+4. Deferred audit items (`STUBS_AUDIT.md`): SVG images in scores and PDF GIF/BMP. No local score uses them (2,316
+   checked). Font family substitution was checked and is benign.
 
 ## Gotchas that cost time
 
