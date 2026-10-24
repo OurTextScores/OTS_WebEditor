@@ -1767,11 +1767,7 @@ function enumerateTargetsForScope(xml: string, scope?: ScoreScope): WasmMutation
 }
 
 async function saveXmlFromScore(score: Score): Promise<string | null> {
-  if (!score.saveXml) {
-    return null;
-  }
-  // The engine returns a string (WasmRes.readText); decodeScoreXml also takes bytes from any realm
-  return decodeScoreXml(await score.saveXml());
+  return score.saveXml ? decodeScoreXml(await score.saveXml()) : null;
 }
 
 async function relayoutIfSupported(score: Score) {
@@ -1909,7 +1905,7 @@ async function executeOpsWithWasm(beforeXml: string, ops: ScoreOp[]): Promise<Wa
             fallbackReason: `Missing wasm setter for metadata field: ${op.field}`,
           };
         }
-        await Promise.resolve(setter.call(score, op.value));   // engine methods need their score as `this`
+        await Promise.resolve(setter.call(score, op.value));
       } else if (op.op === 'set_key_signature') {
         if (typeof score.setKeySignature !== 'function') {
           return {
