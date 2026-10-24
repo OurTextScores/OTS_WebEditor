@@ -88,7 +88,22 @@ with results in `~/workspace/ms47-e2e-results/`.
    less common music fonts and CJK text fall back in the browser (the editor wiring is done, 33d59ec7).
 3. Done 2026-10-22: **listening comparison passed** (user, after the metronome fix 35b03618). Pairs and demo page in
    `~/workspace/ms47-e2e-results/listening/`.
-4. Deferred audit items (`STUBS_AUDIT.md`): SVG images in scores and PDF GIF/BMP. No local score uses them (2,316
+4. **Cutover (needs the user's go-ahead):** replace the tracked 4.00 package with the 4.7 one on this branch.
+   Dry run 2026-10-24 (worktree `~/workspace/ots-cutover-dryrun`, 4.7 files in every tracked location):
+   - Passes: `check:wasm`, `check:bridge`, the unit suite (2358; one load flake that passes alone), and the editor
+     API's in-process Node engine (MusicXML/MSCZ load, MusicXML/SVG/MSCX export).
+   - Fixed on the way: the in-process Node engine never found its `.wasm` from the repo, on 4.00 too (1a276545,
+     real-engine test `unit/webmscore-in-process-node.test.ts`); the editor-api publish workflow required
+     `webmscore.lib.mem.wasm` (5db40ae9).
+   - Cutover commit: copy `webmscore.lib.{js,wasm,data}` into `public/` and `webmscore-fork/web-public/` plus the
+     rollup bundles (`bundle.mjs` output), drop `public/webmscore.lib.{mem.wasm,symbols}`, and remove
+     `public/webmscore.lib.mem.wasm` from the bridge manifest's `generated` map.
+   - Not yet verified: the editor-api Docker image (Next server bundle) running deep edit/scoreops on 4.7. The
+     in-process lookup now falls back to `cwd/public/`, which the runner stage has. Build and exercise the image
+     before deploying.
+   - Server-side scores using less common fonts lay out with fallbacks unless the server also sets
+     `resourceBaseUrl` (exports such as MusicXML/MSCX do not depend on fonts).
+5. Deferred audit items (`STUBS_AUDIT.md`): SVG images in scores and PDF GIF/BMP. No local score uses them (2,316
    checked). Font family substitution was checked and is benign.
 
 ## Gotchas that cost time
