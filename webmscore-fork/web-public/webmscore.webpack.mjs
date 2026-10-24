@@ -39,7 +39,10 @@ const WebMscoreWorker = function () {
       ? {
           resolveNodeAssetPath(pathOrName) {
               const { basename, join } = require('path');
-              const name = basename(pathOrName);
+              // As in the browser: the emsdk 2 glue (4.00) asks for webmscore.lib.js.mem, published as webmscore.lib.mem.wasm.
+              // A webmscore.lib.js.mem left in public/ by an older build would otherwise be found first and is not this one.
+              const requested = basename(pathOrName);
+              const name = requested === 'webmscore.lib.js.mem' ? 'webmscore.lib.mem.wasm' : requested;
               const candidates = [];
               if (typeof __dirname === 'string' && __dirname.length > 0) {
                   candidates.push(join(__dirname, name));
@@ -53,9 +56,14 @@ const WebMscoreWorker = function () {
               candidates.push(pathOrName);
               return candidates
           },
+          // The first candidate that exists: the emsdk 4 glue (4.7 engine) reads whatever path this returns, and the
+          // first candidate (next to src/) is not where the package keeps its .wasm/.data
           locateFile(path) {
-              const [primary] = this.resolveNodeAssetPath(path);
-              return primary
+              const fs = require('fs');
+              const candidates = this.resolveNodeAssetPath(path);
+              return candidates.find(candidate => {
+                  try { return fs.existsSync(candidate) } catch { return false }
+              }) ?? candidates[0]
           },
           getPreloadedPackage(remotePackageName) {
               const fs = require('fs');
