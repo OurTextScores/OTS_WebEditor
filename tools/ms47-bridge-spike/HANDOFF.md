@@ -12,7 +12,7 @@ same unmodified `web-public/src/index.js`**.
 - Size: 11.26 MB wasm, 3.60 MB gzip, with playback. The 4.00 engine is 9.72 MB / 3.17 MB.
 - **Runs in the browser:** the editor loads the 4.7 package (`build.sh` also links `webmscore.lib.*`).
 
-Branch: `engine-ms47-spike` in OTS_Web, **13 commits, not pushed** (6393dd94 … 1b098e9e). OurTextScores rule:
+Branch: `engine-ms47-spike` in OTS_Web, **not pushed** (6393dd94 … 1b098e9e). OurTextScores rule:
 commit, don't push. Working tree clean.
 
 ## Read these first (all in `tools/ms47-bridge-spike/`)
@@ -88,21 +88,18 @@ with results in `~/workspace/ms47-e2e-results/`.
    less common music fonts and CJK text fall back in the browser (the editor wiring is done, 33d59ec7).
 3. Done 2026-10-22: **listening comparison passed** (user, after the metronome fix 35b03618). Pairs and demo page in
    `~/workspace/ms47-e2e-results/listening/`.
-4. **Cutover (needs the user's go-ahead):** replace the tracked 4.00 package with the 4.7 one on this branch.
-   Dry run 2026-10-24 (worktree `~/workspace/ots-cutover-dryrun`, 4.7 files in every tracked location):
-   - Passes: `check:wasm`, `check:bridge`, the unit suite (2358; one load flake that passes alone), and the editor
-     API's in-process Node engine (MusicXML/MSCZ load, MusicXML/SVG/MSCX export).
-   - Fixed on the way: the in-process Node engine never found its `.wasm` from the repo, on 4.00 too (1a276545,
-     real-engine test `unit/webmscore-in-process-node.test.ts`); the editor-api publish workflow required
-     `webmscore.lib.mem.wasm` (5db40ae9).
-   - Cutover commit: copy `webmscore.lib.{js,wasm,data}` into `public/` and `webmscore-fork/web-public/` plus the
-     rollup bundles (`bundle.mjs` output), drop `public/webmscore.lib.{mem.wasm,symbols}`, and remove
-     `public/webmscore.lib.mem.wasm` from the bridge manifest's `generated` map.
-   - Not yet verified: the editor-api Docker image (Next server bundle) running deep edit/scoreops on 4.7. The
-     in-process lookup now falls back to `cwd/public/`, which the runner stage has. Build and exercise the image
-     before deploying.
-   - Server-side scores using less common fonts lay out with fallbacks unless the server also sets
+4. Done 2026-10-24: **cutover.** The branch ships the 4.7 package: `public/webmscore.lib.{wasm,data}` (LFS),
+   `webmscore-fork/web-public/webmscore.lib.js` and the rollup bundles; 4.00's `webmscore.lib.{mem.wasm,symbols}`
+   are gone. Before it, on a dry-run worktree: the unit suite, the asset/bridge checks, the in-process Node engine,
+   the editor in the browser (user-checked), and the editor-api Docker image (Next production server: scoreops
+   apply via WASM, editor page rendering through the 4.7 worker) all passed. Fixed on the way: the in-process
+   engine's file lookup (1a276545), the scoreops WASM executor (2071a5c0), the publish workflow's mem.wasm check
+   (5db40ae9). 4.00 artifacts are backed up in `~/workspace/ms47-e2e-results/backup-400-artifacts/`.
+   - Building the image on a network with a captive portal: Debian's apt mirror is plain HTTP; the dry run used a
+     copy of the Dockerfile that switches it to HTTPS.
+   - Server-side layouts use fallback fonts for the less common music fonts unless the server is given
      `resourceBaseUrl` (exports such as MusicXML/MSCX do not depend on fonts).
+   - To deploy: build with `NEXT_PUBLIC_WEBMSCORE_RESOURCE_BASE_URL=https://cdn.ourtextscores.com/webmscore-resources/4.7.4/`.
 5. Deferred audit items (`STUBS_AUDIT.md`): SVG images in scores and PDF GIF/BMP. No local score uses them (2,316
    checked). Font family substitution was checked and is benign.
 

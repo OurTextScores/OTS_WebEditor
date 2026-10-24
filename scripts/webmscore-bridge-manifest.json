@@ -14,8 +14,7 @@
     },
     "synced": {
       "public/webmscore.lib.wasm": "webmscore-fork/web-public/webmscore.lib.wasm",
-      "public/webmscore.lib.data": "webmscore-fork/web-public/webmscore.lib.data",
-      "public/webmscore.lib.mem.wasm": "webmscore-fork/web-public/webmscore.lib.mem.wasm"
+      "public/webmscore.lib.data": "webmscore-fork/web-public/webmscore.lib.data"
     }
   },
   "syntheticRpcPrefix": "_",
