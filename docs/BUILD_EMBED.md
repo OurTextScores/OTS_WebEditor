@@ -80,7 +80,7 @@ mv ~/soundfonts.backup public/soundfonts
 
 The build generates a static export in the `out/` directory:
 
-- **Size**: ~38MB (without soundfonts bundled)
+- **Size**: ~30MB (without soundfonts bundled)
 - **Base path**: `/score-editor` (configurable in `next.config.ts`)
 - **Format**: Static HTML/JS/CSS + WASM artifacts
 - **Includes**: `<base href="/score-editor/">` tag for proper path resolution when embedded
@@ -191,10 +191,12 @@ The copied directory must contain `index.html`, `_next/`, and the WebAssembly/da
 
 ```text
 webmscore.lib.wasm
-webmscore.lib.mem.wasm
 webmscore.lib.data
-webmscore.lib.symbols
 ```
+
+(Since v3.0.0, the MuseScore 4.7 engine: there is no `webmscore.lib.mem.wasm` or `webmscore.lib.symbols`, and the
+engine glue is bundled into `_next/`, so `out/` has no standalone `webmscore.lib.js`. Build from a clean checkout of
+the tag: the export copies `public/` as is, so untracked files there end up in the vendored copy.)
 
 (`webmscore.webpack.mjs` is not one of these -- it's the fork's JS bridge, imported from
 `webmscore-fork/web-public/webmscore.webpack.mjs` and bundled into `_next/` by webpack. It
@@ -587,11 +589,9 @@ See `.env.example` for more details.
 The `out/` directory contains:
 
 - **HTML/JS/CSS**: Next.js compiled static assets
-- **WASM artifacts**:
-  - `webmscore.lib.wasm` (9.4MB)
-  - `webmscore.lib.mem.wasm` (5.2MB)
-  - `webmscore.lib.data` (4.0MB)
-  - `webmscore.lib.js` (310KB)
+- **WASM artifacts** (4.7 engine):
+  - `webmscore.lib.wasm` (11.3MB)
+  - `webmscore.lib.data` (13.8MB; common fonts, styles and instruments; the rest load from the CDN)
 - **Static data**:
   - `data/clefs.json` (84KB)
   - `data/templates.json` (95KB)
