@@ -12,6 +12,18 @@ import {
 
 
 /** @see WebMscore.hasSoundfont */
+/** @see WebMscore.resourceBaseUrl */
+let _resourceBaseUrl = typeof MSCORE_RESOURCE_BASEURL === 'string' ? MSCORE_RESOURCE_BASEURL : undefined
+/** @see WebMscore.fallbackFonts */
+const _fallbackFonts = {
+    ja: 'fonts/fallback/NotoSansJP-Regular.otf',
+    ko: 'fonts/fallback/NotoSansKR-Regular.otf',
+    zh: 'fonts/fallback/NotoSansSC-Regular.otf',
+}
+/** Resource paths that could not be fetched (not retried) */
+const _unavailableResources = new Set()
+/** Fallback font ids already registered */
+const _loadedFallbacks = new Set()
 let _hasSoundfont = false
 const _utf8Decoder = typeof TextDecoder !== 'undefined' ? new TextDecoder() : null
 /**
@@ -125,7 +137,101 @@ class WebMscore {
         }
 
         const mscore = new WebMscore(scoreptr)
+        if (doLayout) {
+            await WebMscore._loadMissingResources(mscore)
+        }
         return mscore
+    }
+
+    /**
+     * Base URL of the engine resources fetched on demand (music fonts outside the preloaded set, CJK fallback fonts).
+     * Only engines that report missing resources (the MuseScore 4.7 engine) use it.
+     * @type {string | undefined}
+     */
+    static get resourceBaseUrl() {
+        return _resourceBaseUrl
+    }
+    static set resourceBaseUrl(url) {
+        _resourceBaseUrl = url
+    }
+
+    /**
+     * Fallback font files by script id, relative to `resourceBaseUrl`
+     * @type {Record<string, string>}
+     */
+    static get fallbackFonts() {
+        return _fallbackFonts
+    }
+
+    /**
+     * Fetch one resource; override to serve resources another way (tests, offline bundles)
+     * @param {string} path - relative to `resourceBaseUrl`
+     * @returns {Promise<Uint8Array | null>} null when unavailable
+     */
+    static async fetchResource(path) {
+        if (!WebMscore.resourceBaseUrl) {
+            return null
+        }
+        try {
+            const response = await fetch(new URL(path, WebMscore.resourceBaseUrl))
+            return response.ok ? new Uint8Array(await response.arrayBuffer()) : null
+        } catch {
+            return null
+        }
+    }
+
+    /**
+     * Fetch the fonts a freshly laid-out score asked for but the engine lacks, then lay it out again.
+     * A no-op on engines without `missingResources` (the 4.00 engine bundles everything).
+     * @private
+     * @param {WebMscore} score
+     */
+    static async _loadMissingResources(score) {
+        if (typeof Module['_missingResources'] !== 'function') {
+            return
+        }
+        const root = WasmRes.readText(Module.ccall('resourceRoot', 'number', [], []))
+        const write = (path, data) => {
+            const pathptr = getStrPtr(path)
+            const dataptr = getTypedArrayPtr(data)
+            const ok = Module.ccall('writeResource', 'boolean', ['number', 'number', 'number'], [pathptr, dataptr, data.byteLength])
+            freePtr(pathptr)
+            freePtr(dataptr)
+            if (!ok) {
+                _unavailableResources.add(path)
+            }
+            return ok
+        }
+        // A newly loaded font can need another (a music font's text companion), so allow a few rounds
+        for (let round = 0; round < 3; round++) {
+            const wanted = JSON.parse(WasmRes.readText(Module.ccall('missingResources', 'number', ['number', 'number'], [score.scoreptr, score.excerptId])))
+            let added = false
+            for (const path of wanted.files) {
+                if (_unavailableResources.has(path)) continue
+                const data = await WebMscore.fetchResource(path)
+                if (!data) {
+                    _unavailableResources.add(path)
+                    continue
+                }
+                added = write(path, data) || added
+            }
+            for (const id of wanted.fallbacks) {
+                const path = WebMscore.fallbackFonts[id]
+                if (!path || _loadedFallbacks.has(id) || _unavailableResources.has(path)) continue
+                const data = await WebMscore.fetchResource(path)
+                if (!data) {
+                    _unavailableResources.add(path)
+                    continue
+                }
+                if (!write(path, data)) continue
+                _loadedFallbacks.add(id)
+                added = (await WebMscore.addFont(`${root}/${path}`)) || added
+            }
+            if (!added) {
+                break
+            }
+            Module.ccall('resourcesAdded', 'number', [], [])
+        }
     }
 
     /**
@@ -194,6 +300,11 @@ class WebMscore {
 
         /** @private */
         this.excerptId = -1
+        if (!Module._getSystemLockState || !Module._setSystemLock || !Module._moveSelectedMeasureToSystem) {
+            for (const name of ['getSystemLockState', 'setSystemLock', 'moveSelectedMeasureToSystem']) {
+                Object.defineProperty(this, name, { value: undefined })
+            }
+        }
     }
 
     /**
@@ -308,6 +419,35 @@ class WebMscore {
         } finally {
             freePtr(strptr)
         }
+    }
+
+    // Returning null also lets worker-helper hide these methods when a new JS
+    // package is paired with an older native engine. Do not infer from version().
+    /**
+     * Whether every mutating export leaves the score fully laid out, so an editor need not call
+     * `relayout()` after an edit. A capability of the native engine (an export, not `version()`):
+     * false on engines without it, which need the full relayout after edits their range layout misses.
+     * @returns {Promise<boolean>}
+     */
+    async layoutsAfterCommands() {
+        if (!Module._layoutsAfterCommands) return false
+        return Module.ccall('layoutsAfterCommands', 'number', [], []) === 1
+    }
+
+    async getSystemLockState() {
+        if (!Module._getSystemLockState || !Module._setSystemLock || !Module._moveSelectedMeasureToSystem) return null
+        const ptr = Module.ccall('getSystemLockState', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])
+        return JSON.parse(WasmRes.readText(ptr))
+    }
+
+    async setSystemLock(locked) {
+        if (typeof locked !== 'boolean' || !Module._setSystemLock) return false
+        return Module.ccall('setSystemLock', 'boolean', ['number', 'number', 'number'], [this.scoreptr, Number(locked), this.excerptId])
+    }
+
+    async moveSelectedMeasureToSystem(direction) {
+        if (!Module._moveSelectedMeasureToSystem || (direction !== 'previous' && direction !== 'next')) return false
+        return Module.ccall('moveSelectedMeasureToSystem', 'boolean', ['number', 'number', 'number'], [this.scoreptr, direction === 'previous' ? -1 : 1, this.excerptId])
     }
 
     async getSelectedElementProperties() {
@@ -2333,6 +2473,15 @@ class WebMscore {
 
         Module.ccall('destroy', 'void', ['number'], [this.scoreptr])
         freePtr(this.scoreptr)
+        this._destroyed = true
+    }
+
+    /**
+     * True once `destroy()` was called: the engine no longer knows this score
+     * @returns {boolean}
+     */
+    get destroyed() {
+        return this._destroyed === true
     }
 
 }

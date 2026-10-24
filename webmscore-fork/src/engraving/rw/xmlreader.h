@@ -67,6 +67,7 @@ public:
     draw::Color readColor();
     Fraction readFraction();
     String readXml();
+    static void lineBreakFromTag(String& str);
 
     void setDocName(const String& s) { m_docName = s; }
     String docName() const { return m_docName; }

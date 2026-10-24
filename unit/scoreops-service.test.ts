@@ -18,10 +18,10 @@ const mocked = vi.hoisted(() => {
       const next = updater(match[1]);
       xml = xml.replace(measureRegex, next);
     };
-    return {
+    const score = {
       destroy: vi.fn(),
       relayout: vi.fn(async () => undefined),
-      saveXml: vi.fn(async () => new TextEncoder().encode(xml)),
+      saveXml: vi.fn(async () => xml),   // the engine returns a string (WasmRes.readText)
       selectPartMeasureByIndex: vi.fn(async (_partIndex: number, measureIndex: number) => {
         selectedMeasure = measureIndex + 1;
       }),
@@ -176,6 +176,15 @@ const mocked = vi.hoisted(() => {
         xml = xml.replace(/<\/score-partwise>/, `<!-- redo --></score-partwise>`);
       }),
     };
+    // The real engine's methods read this.scoreptr: fail the same way when a method is called detached from its score
+    for (const [name, method] of Object.entries(score)) {
+      if (typeof method !== 'function') continue;
+      (score as Record<string, unknown>)[name] = vi.fn(function (this: unknown, ...args: unknown[]) {
+        if (this !== score) throw new TypeError(`${name} called without its score as this`);
+        return (method as (...a: unknown[]) => unknown).apply(this, args);
+      });
+    }
+    return score;
   };
   return {
     artifacts,
@@ -215,7 +224,8 @@ vi.mock('../lib/score-artifacts', () => ({
   summarizeScoreArtifact: mocked.summarizeScoreArtifact,
 }));
 
-vi.mock('../lib/webmscore-loader', () => ({
+vi.mock('../lib/webmscore-loader', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/webmscore-loader')>()),
   loadWebMscoreInProcess: mocked.loadWebMscoreInProcess,
 }));
 

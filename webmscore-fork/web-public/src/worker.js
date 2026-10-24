@@ -73,11 +73,16 @@ self.onmessage = async (e) => {
             case 'load':
                 await WebMscore.ready
                 score = await WebMscore.load.apply(undefined, params)
-                rpcRes(id, 'done')
+                rpcRes(id, { systemLocks: typeof score.getSystemLockState === 'function' })
                 break;
 
             case 'setLogLevel':
                 await WebMscore.setLogLevel.apply(undefined, params)
+                rpcRes(id, 'done')
+                break
+
+            case 'setResourceBaseUrl':
+                WebMscore.resourceBaseUrl = params[0]
                 rpcRes(id, 'done')
                 break
 

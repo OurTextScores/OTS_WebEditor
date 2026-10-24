@@ -1,0 +1,19 @@
+"""Stage engraving .qrc resources into a plain directory keyed by alias (stand-in for Qt resources)."""
+import os, shutil, sys, xml.etree.ElementTree as ET
+
+root, out = sys.argv[1], sys.argv[2]
+qrcs = [os.path.join(root, "src/engraving/engraving.qrc")]
+fonts = os.path.join(root, "src/engraving/data/fonts")
+qrcs += [os.path.join(fonts, f) for f in sorted(os.listdir(fonts)) if f.endswith(".qrc")]
+n = 0
+for q in qrcs:
+    base = os.path.dirname(q)
+    for qres in ET.parse(q).getroot().iter("qresource"):
+        prefix = (qres.get("prefix") or "/").strip("/")
+        for f in qres.iter("file"):
+            alias = f.get("alias") or f.text
+            dst = os.path.join(out, prefix, alias)
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copyfile(os.path.normpath(os.path.join(base, f.text)), dst)
+            n += 1
+print(f"staged {n} files from {len(qrcs)} qrc into {out}")

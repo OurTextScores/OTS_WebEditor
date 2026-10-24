@@ -75,6 +75,33 @@ const baseSources = () => ({
 const rules = (result: Analysis) => result.failures.map((failure) => failure.rule);
 
 describe('webmscore bridge audit', () => {
+  it('resolves optional-engine APIs only when their native declarations exist', () => {
+    const variantManifest = {
+      ...manifest,
+      nativeVariants: { ms47: { source: 'systemlocks.h', reason: '4.7-only API' } },
+    };
+    const sources = {
+      ...baseSources(),
+      native: nativeSource.replace('void pitchUp', 'void legacyPitchUp'),
+      nativeVariants: { ms47: nativeSource },
+    };
+    expect(analyze(sources, variantManifest).failures).toEqual([]);
+    expect(
+      rules(analyze({ ...sources, nativeVariants: { ms47: null } }, variantManifest)),
+    ).toContain('layer-missing');
+    expect(
+      rules(
+        analyze(
+          {
+            ...sources,
+            nativeVariants: { ms47: nativeSource.replace('void pitchUp', 'void differentMethod') },
+          },
+          variantManifest,
+        ),
+      ),
+    ).toContain('unresolved-rpc-target');
+  });
+
   it('accepts a bridge where every layer is present', () => {
     const result = analyze(baseSources(), manifest);
 

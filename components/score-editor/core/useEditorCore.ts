@@ -42,6 +42,22 @@ export function useEditorCore(ctx: EditorCoreContext) {
 
   const [score, setScore] = useState<Score | null>(null);
   const undoHistory = useUndoHistory(score);
+  // Whether the loaded engine lays the score out completely after every command (an engine capability): then
+  // performMutation's full relayout is redundant for every edit, not only the allowlisted ones
+  const engineLaysOutRef = useRef<{ score: Score | null; value: boolean }>({ score: null, value: false });
+  useEffect(() => {
+    engineLaysOutRef.current = { score, value: false };
+    if (!score?.layoutsAfterCommands) return;
+    let current = true;
+    void Promise.resolve(score.layoutsAfterCommands())
+      .then((value) => {
+        if (current) engineLaysOutRef.current = { score, value: value === true };
+      })
+      .catch(() => {});
+    return () => {
+      current = false;
+    };
+  }, [score]);
   const touchHistory = undoHistory.touch;
   useEffect(() => {
     document.addEventListener('pointerup', touchHistory);
@@ -106,6 +122,9 @@ export function useEditorCore(ctx: EditorCoreContext) {
   const selectionProjectionNeededRef = useRef(false);
 
   const scoreOperationQueueRef = useRef<Promise<void>>(Promise.resolve());
+  // Bumped as each mutation starts (mutations do not take the serial queue): the layout oracle skips a check that
+  // another edit overlapped
+  const mutationGenerationRef = useRef(0);
 
   const runSerializedScoreOperation = useCallback(
     async <T>(operation: () => Promise<T>, label: string): Promise<T> => {
@@ -486,6 +505,7 @@ export function useEditorCore(ctx: EditorCoreContext) {
     const shouldPlaySelectionPreview = Boolean(options?.playSelectionPreview);
 
     const perf = startPerf(label);
+    const generation = ++mutationGenerationRef.current;
     // Layout oracle (dev): skip the full relayout, then check afterwards whether it was needed.
     const oracle = layoutOracleEnabled() && !options?.skipRelayout;
     try {
@@ -522,7 +542,8 @@ export function useEditorCore(ctx: EditorCoreContext) {
       setScoreDirtySinceCheckpoint(true);
       setScoreDirtySinceXml(true);
 
-      if (!options?.skipRelayout && !options?.incrementalLayout && !oracle && score.relayout) {
+      const engineLaysOut = engineLaysOutRef.current.score === score && engineLaysOutRef.current.value;
+      if (!options?.skipRelayout && !options?.incrementalLayout && !engineLaysOut && !oracle && score.relayout) {
         try {
           await perf.time('relayout', () => score.relayout!());
         } catch (relayoutErr) {
@@ -539,8 +560,13 @@ export function useEditorCore(ctx: EditorCoreContext) {
       perf.end();
       announce(describeEdit(label));
       if (oracle) {
-        await verifyFullLayout(score, label, refreshedPage, runSerializedScoreOperation, () =>
-          renderScore(score, refreshedPage),
+        await verifyFullLayout(
+          score,
+          label,
+          refreshedPage,
+          runSerializedScoreOperation,
+          () => renderScore(score, refreshedPage),
+          () => mutationGenerationRef.current !== generation,
         );
       }
 

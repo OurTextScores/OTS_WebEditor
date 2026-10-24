@@ -161,10 +161,14 @@ export interface SystemLockState {
 }
 
 export interface Score {
+  /** True when every mutating export leaves the score fully laid out (the 4.7 engine), so no relayout is needed. */
+  layoutsAfterCommands?: () => Promise<boolean> | boolean;
   getSystemLockState?: () => Promise<SystemLockState | null>;
   setSystemLock?: (locked: boolean) => Promise<boolean>;
   moveSelectedMeasureToSystem?: (direction: 'previous' | 'next') => Promise<boolean>;
   destroy: (soft?: boolean) => void;
+  /** True once destroy() was called (calls on it then fail with "Invalid score") */
+  readonly destroyed?: boolean;
   saveSvg: (
     pageNumber?: number,
     drawPageBackground?: boolean,
@@ -504,7 +508,30 @@ export interface WebMscoreInstance {
     doLayout?: boolean,
   ) => Promise<Score>;
   ready: Promise<void>;
+  /** Where the engine fetches fonts it does not preload (the 4.7 engine; 4.00 bundles everything) */
+  resourceBaseUrl?: string;
 }
+
+/**
+ * Base URL of the engine's on-demand resources (`fonts/…`, `fonts/fallback/…`). The server reads
+ * WEBMSCORE_RESOURCE_BASE_URL at runtime (the editor API image sets it; its build has no NEXT_PUBLIC_ values);
+ * the browser gets NEXT_PUBLIC_WEBMSCORE_RESOURCE_BASE_URL, inlined at build. Unset: nothing is fetched and those
+ * fonts fall back.
+ */
+export const webMscoreResourceBaseUrl = (): string | undefined => {
+  const raw = (
+    process.env.WEBMSCORE_RESOURCE_BASE_URL ||
+    process.env.NEXT_PUBLIC_WEBMSCORE_RESOURCE_BASE_URL ||
+    ''
+  ).trim();
+  if (!raw) return undefined;
+  return raw.endsWith('/') ? raw : `${raw}/`;   // resource paths resolve below it, so it must end in a slash
+};
+
+const applyResourceBaseUrl = (instance: WebMscoreInstance) => {
+  const url = webMscoreResourceBaseUrl();
+  if (url && 'resourceBaseUrl' in instance) instance.resourceBaseUrl = url;
+};
 
 // NOTE:
 // The `webmscore` package can present different module shapes depending on
@@ -581,6 +608,7 @@ export const loadWebMscore = async (): Promise<WebMscoreInstance> => {
     const imported = await import('./webmscore-worker-runtime.js');
     const resolved = resolveWebMscore(imported as unknown);
     await resolved.ready;
+    applyResourceBaseUrl(resolved);
     webMscore = resolved;
     initialized = true;
     return resolved;
@@ -619,6 +647,7 @@ export const loadWebMscoreInProcess = async (): Promise<WebMscoreInstance> => {
     }
     const resolved = resolveWebMscore(inProcessImport);
     await resolved.ready;
+    applyResourceBaseUrl(resolved);
     inProcessWebMscore = resolved;
     inProcessInitialized = true;
     return resolved;

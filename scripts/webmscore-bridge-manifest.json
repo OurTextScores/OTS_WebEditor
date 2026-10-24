@@ -14,8 +14,7 @@
     },
     "synced": {
       "public/webmscore.lib.wasm": "webmscore-fork/web-public/webmscore.lib.wasm",
-      "public/webmscore.lib.data": "webmscore-fork/web-public/webmscore.lib.data",
-      "public/webmscore.lib.mem.wasm": "webmscore-fork/web-public/webmscore.lib.mem.wasm"
+      "public/webmscore.lib.data": "webmscore-fork/web-public/webmscore.lib.data"
     }
   },
   "syntheticRpcPrefix": "_",
@@ -25,7 +24,8 @@
     "load": "Module-level score load, called before any Score instance exists.",
     "setLogLevel": "Module-level logger configuration, not per-score.",
     "processSynth": "Worker-side pump for a synthAudio iterator; no native export of its own.",
-    "processSynthBatch": "Worker-side pump for a batched synthAudio iterator; no native export of its own."
+    "processSynthBatch": "Worker-side pump for a batched synthAudio iterator; no native export of its own.",
+    "setResourceBaseUrl": "Module-level base URL for on-demand engine resources, sent to the worker before load."
   },
   "jsImplementedRpcTargets": {
     "getExcerptId": "Pure JS state on the main-thread score object (this.excerptId); no native call.",
@@ -36,10 +36,16 @@
     "titleFilenameSafe": "Sanitizes the native title() result in JS; no native export of its own.",
     "setSoundFont": "Per-score method delegating to the module-level WebMscore.setSoundFont; the native export is module-level, not score-level."
   },
-  "typescriptOnlyMembers": {
-    "getSystemLockState": "Optional 4.7-only system-lock API. UI requires all three methods at runtime; main intentionally ships the 4.00 bridge without these methods. Native implementation and JS/worker proxies are delivered on engine-ms47-spike.",
-    "setSystemLock": "Optional 4.7-only system-lock API. UI requires all three methods at runtime; main intentionally ships the 4.00 bridge without these methods. Native implementation and JS/worker proxies are delivered on engine-ms47-spike.",
-    "moveSelectedMeasureToSystem": "Optional 4.7-only system-lock API. UI requires all three methods at runtime; main intentionally ships the 4.00 bridge without these methods. Native implementation and JS/worker proxies are delivered on engine-ms47-spike."
-  },
-  "_typescriptOnlyMembersReason": "Members of the Score interface that intentionally have no bridge implementation. Should normally be empty: a declared method with no worker proxy is exactly the silent failure TD-05 exists to catch."
+  "typescriptOnlyMembers": {},
+  "_typescriptOnlyMembersReason": "Members of the Score interface that intentionally have no bridge implementation. Should normally be empty: a declared method with no worker proxy is exactly the silent failure TD-05 exists to catch.",
+  "nativeVariants": {
+    "ms47SystemLocks": {
+      "source": "tools/ms47-bridge-spike/systemlocks.h",
+      "reason": "4.7-only exports; the default 4.00 WASM remains unchanged. Runtime JS and worker capability checks hide the API unless all three native exports exist. Validate the 4.7 artifact with MS47_VERIFY_SYSTEMLOCKS and verify-systemlock-capabilities.mjs."
+    },
+    "ms47LayoutCapability": {
+      "source": "tools/ms47-bridge-spike/bridge.cpp",
+      "reason": "4.7-only capability export layoutsAfterCommands: the engine leaves the score fully laid out after every command (bridge layout oracle), so the editor skips its post-edit relayout. The 4.00 WASM lacks it; the JS wrapper returns false there."
+    }
+  }
 }

@@ -204,23 +204,30 @@ test('each pane places a highlight over that score’s own staff', async ({ page
 
   for (const side of ['left', 'right'] as const) {
     await waitForStaffGeometry(page, side);
-    const rects = await highlightRects(page, side);
-    const centres = await staffCentres(page, side);
-
-    expect(rects.length, `${side} pane should draw 8 highlights`).toBe(8);
-    expect(centres.length, `${side} pane should render staves`).toBeGreaterThanOrEqual(PART_COUNT);
-
     // Every highlight must contain the centre line of some staff. The even split put
     // parts 2 and 3 of the head score off their staves entirely, because that score's
     // staff 2->3 gap is ~16% larger than its staff 1->2 gap.
-    for (const rect of rects) {
-      const covered = centres.some((c) => c >= rect.y - 1 && c <= rect.y + rect.h + 1);
-      expect(
-        covered,
-        `${side} highlight ${rect.id} at y=${Math.round(rect.y)}..${Math.round(rect.y + rect.h)} ` +
-          `covers no staff centre (staff centres: ${centres.map(Math.round).join(', ')})`,
-      ).toBe(true);
-    }
+    // Polled as a whole: compare reflow can still be settling (a superseded pass leaves the pane idle with the staff
+    // count already final), so a one-shot read may pair final highlights with an intermediate layout.
+    let report = '';
+    await expect
+      .poll(
+        async () => {
+          const rects = await highlightRects(page, side);
+          const centres = await staffCentres(page, side);
+          const misplaced = rects.filter((rect) => !centres.some((c) => c >= rect.y - 1 && c <= rect.y + rect.h + 1));
+          report =
+            `${rects.length} highlights; misplaced: ` +
+            misplaced.map((r) => `${r.id} at y=${Math.round(r.y)}..${Math.round(r.y + r.h)}`).join(', ') +
+            ` (staff centres: ${centres.map(Math.round).join(', ')})`;
+          return rects.length === 8 && centres.length >= PART_COUNT && misplaced.length === 0;
+        },
+        { timeout: 30_000, intervals: [500], message: `${side} pane highlights never all lay over staves` },
+      )
+      .toBe(true)
+      .catch((error: unknown) => {
+        throw new Error(`${String(error)}\n${report}`);
+      });
   }
 });
 

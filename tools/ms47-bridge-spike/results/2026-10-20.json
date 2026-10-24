@@ -1,0 +1,611 @@
+{
+  "scope": "Checkpoint: implemented export inventory and defined runtime gates; bridge port remains incomplete",
+  "upstream": "MuseScore v4.7.4 (7688c005ad)",
+  "emsdk": "4.0.7",
+  "wasmGzipBytes": 2926854,
+  "defaultSuite": {
+    "bootMs": 215.403341,
+    "results": [
+      {
+        "score": "public/test_scores/three_notes_cde.musicxml",
+        "bytes": 1227,
+        "svgBytes": 285228,
+        "times": {
+          "load": [
+            63.23791700000004
+          ],
+          "saveXml": [
+            12.667112999999972,
+            0.5114109999999528
+          ],
+          "saveSvg": [
+            14.673995999999988,
+            4.834106999999904
+          ],
+          "selectPartMeasureByIndex": [
+            0.822685999999976
+          ],
+          "pitchUp": [
+            3.759497999999894
+          ],
+          "undo": [
+            1.6614980000001651
+          ],
+          "redo": [
+            1.3407020000001921
+          ],
+          "saveMsc:mscz": [
+            12.995001999999886
+          ],
+          "reload:mscz": [
+            18.222532
+          ],
+          "saveMsc:mscx": [
+            1.489116999999851
+          ],
+          "reload:mscx": [
+            9.298263000000134
+          ],
+          "destroy": [
+            0.19938100000013037
+          ]
+        }
+      },
+      {
+        "score": "public/test_scores/bach_orig.mscz",
+        "bytes": 81006,
+        "svgBytes": 1086564,
+        "times": {
+          "load": [
+            77.31418099999996
+          ],
+          "saveXml": [
+            19.428891999999905,
+            11.14570700000013
+          ],
+          "saveSvg": [
+            20.97684400000003,
+            14.009416999999758
+          ],
+          "selectPartMeasureByIndex": [
+            0.22035500000038155
+          ],
+          "pitchUp": [
+            28.631683000000066
+          ],
+          "undo": [
+            26.872133000000304
+          ],
+          "redo": [
+            30.5464750000001
+          ],
+          "saveMsc:mscz": [
+            17.266551000000163
+          ],
+          "reload:mscz": [
+            39.81827499999963
+          ],
+          "saveMsc:mscx": [
+            12.153525000000172
+          ],
+          "reload:mscx": [
+            43.99999800000023
+          ],
+          "destroy": [
+            1.8633419999996477
+          ]
+        }
+      }
+    ],
+    "edits": [
+      {
+        "name": "pitchUp",
+        "args": [],
+        "selectionMode": "rest",
+        "artifact": "pitchUp-rest",
+        "ms": 1.3350339999997232
+      },
+      {
+        "name": "pitchDown",
+        "args": [],
+        "selectionMode": "rest",
+        "artifact": "pitchDown-rest",
+        "ms": 1.6826550000005227
+      },
+      {
+        "name": "setAccidental",
+        "args": [
+          1
+        ],
+        "artifact": "setAccidental-1",
+        "ms": 1.5415179999999964
+      },
+      {
+        "name": "doubleDuration",
+        "args": [],
+        "artifact": "doubleDuration",
+        "ms": 2.9593340000001263
+      },
+      {
+        "name": "halfDuration",
+        "args": [],
+        "artifact": "halfDuration",
+        "ms": 1.6203560000003563
+      },
+      {
+        "name": "toggleDot",
+        "args": [],
+        "artifact": "toggleDot",
+        "ms": 1.7705329999998867
+      },
+      {
+        "name": "toggleDoubleDot",
+        "args": [],
+        "artifact": "toggleDoubleDot",
+        "ms": 1.622511000000486
+      },
+      {
+        "name": "setNoteheadGroup",
+        "args": [
+          1
+        ],
+        "artifact": "setNoteheadGroup-1",
+        "ms": 1.7712900000005902
+      },
+      {
+        "name": "setBeamMode",
+        "args": [
+          1
+        ],
+        "artifact": "setBeamMode-1",
+        "ms": 1.7222389999988081
+      },
+      {
+        "name": "setMultiMeasureRests",
+        "args": [
+          true
+        ],
+        "artifact": "setMultiMeasureRests-true",
+        "ms": 1.9928870000003371
+      },
+      {
+        "name": "addDynamic",
+        "args": [
+          6
+        ],
+        "artifact": "addDynamic-6",
+        "ms": 3.8279419999998936
+      },
+      {
+        "name": "addDynamic",
+        "args": [
+          23
+        ],
+        "artifact": "addDynamic-23",
+        "ms": 1.9104150000002846
+      },
+      {
+        "name": "addHairpin",
+        "args": [
+          0
+        ],
+        "artifact": "addHairpin-0",
+        "ms": 3.386497999999847
+      },
+      {
+        "name": "addFermata",
+        "args": [
+          0
+        ],
+        "artifact": "addFermata-0",
+        "ms": 2.1069859999988694
+      },
+      {
+        "name": "addBreath",
+        "args": [
+          0
+        ],
+        "artifact": "addBreath-0",
+        "ms": 2.035636999999042
+      },
+      {
+        "name": "addArpeggio",
+        "args": [
+          0
+        ],
+        "artifact": "addArpeggio-0",
+        "ms": 1.9155630000004749
+      },
+      {
+        "name": "addOttava",
+        "args": [
+          0
+        ],
+        "artifact": "addOttava-0",
+        "ms": 2.4779730000009295
+      },
+      {
+        "name": "addTrill",
+        "args": [
+          0
+        ],
+        "artifact": "addTrill-0",
+        "ms": 3.0428159999992204
+      },
+      {
+        "name": "addStaffText",
+        "args": [
+          "Bridge <text> & \"quotes\""
+        ],
+        "artifact": "addStaffText-Bridge__text_____quotes_",
+        "ms": 2.540037000000666
+      },
+      {
+        "name": "addSystemText",
+        "args": [
+          "System"
+        ],
+        "artifact": "addSystemText-System",
+        "ms": 1.7473320000008243
+      },
+      {
+        "name": "addExpressionText",
+        "args": [
+          "espressivo"
+        ],
+        "artifact": "addExpressionText-espressivo",
+        "ms": 3.0623480000012933
+      },
+      {
+        "name": "addLyricText",
+        "args": [
+          "hello"
+        ],
+        "artifact": "addLyricText-hello",
+        "ms": 2.276858999999604
+      },
+      {
+        "name": "addHarmonyText",
+        "args": [
+          0,
+          "C7"
+        ],
+        "artifact": "addHarmonyText-0-C7",
+        "ms": 5.190273000000161
+      },
+      {
+        "name": "addFingeringText",
+        "args": [
+          "2"
+        ],
+        "artifact": "addFingeringText-2",
+        "ms": 1.9826169999978447
+      },
+      {
+        "name": "addLeftHandGuitarFingeringText",
+        "args": [
+          "2"
+        ],
+        "artifact": "addLeftHandGuitarFingeringText-2",
+        "ms": 1.554309999999532
+      },
+      {
+        "name": "addRightHandGuitarFingeringText",
+        "args": [
+          "p"
+        ],
+        "artifact": "addRightHandGuitarFingeringText-p",
+        "ms": 1.8347460000004503
+      },
+      {
+        "name": "addStringNumberText",
+        "args": [
+          "3"
+        ],
+        "artifact": "addStringNumberText-3",
+        "ms": 1.8783089999997173
+      },
+      {
+        "name": "addStickingText",
+        "args": [
+          "R"
+        ],
+        "artifact": "addStickingText-R",
+        "ms": 2.1682460000010906
+      },
+      {
+        "name": "addFiguredBassText",
+        "args": [
+          "6"
+        ],
+        "artifact": "addFiguredBassText-6",
+        "ms": 2.9718839999986812
+      },
+      {
+        "name": "addRehearsalMark",
+        "args": [],
+        "artifact": "addRehearsalMark",
+        "ms": 1.632621000000654
+      },
+      {
+        "name": "addArticulation",
+        "args": [
+          "articStaccatoAbove"
+        ],
+        "artifact": "addArticulation-articStaccatoAbove",
+        "ms": 1.9489710000016203
+      },
+      {
+        "name": "addTempoText",
+        "args": [
+          132
+        ],
+        "artifact": "addTempoText-132",
+        "ms": 1.8028709999998682
+      },
+      {
+        "name": "setKeySignature",
+        "args": [
+          2
+        ],
+        "artifact": "setKeySignature-2",
+        "ms": 1.849196999999549
+      },
+      {
+        "name": "setClef",
+        "args": [
+          20
+        ],
+        "artifact": "setClef-20",
+        "ms": 1.5418640000025334
+      },
+      {
+        "name": "setTimeSignature",
+        "args": [
+          3,
+          4
+        ],
+        "artifact": "setTimeSignature-3-4",
+        "ms": 4.910909999998694
+      },
+      {
+        "name": "setTimeSignatureWithType",
+        "args": [
+          4,
+          4,
+          1
+        ],
+        "artifact": "setTimeSignatureWithType-4-4-1",
+        "ms": 1.5622430000003078
+      },
+      {
+        "name": "setChordSymbolStylePreset",
+        "args": [
+          "jazz"
+        ],
+        "artifact": "setChordSymbolStylePreset-jazz",
+        "ms": 2.9520700000030047
+      },
+      {
+        "name": "setHarmonyVoiceLiteral",
+        "args": [
+          false
+        ],
+        "artifact": "setHarmonyVoiceLiteral-false",
+        "ms": 1.4685339999996359
+      },
+      {
+        "name": "setSelectedElementProperty",
+        "args": [
+          "visible",
+          false
+        ],
+        "artifact": "setSelectedElementProperty-visible-false",
+        "ms": 1.7547640000011597
+      },
+      {
+        "name": "setSelectedElementProperty",
+        "args": [
+          "small",
+          true
+        ],
+        "artifact": "setSelectedElementProperty-small-true",
+        "ms": 1.5429780000013125
+      },
+      {
+        "name": "setSelectedElementProperty",
+        "args": [
+          "offsetX",
+          2
+        ],
+        "artifact": "setSelectedElementProperty-offsetX-2",
+        "ms": 1.354854000001069
+      },
+      {
+        "name": "setSelectedElementProperty",
+        "args": [
+          "offsetY",
+          -1.5
+        ],
+        "artifact": "setSelectedElementProperty-offsetY--1_5",
+        "ms": 1.2427680000000692
+      },
+      {
+        "name": "setSelectedElementProperty",
+        "args": [
+          "color",
+          "#ff0000"
+        ],
+        "artifact": "setSelectedElementProperty-color-_ff0000",
+        "ms": 1.3239829999984067
+      },
+      {
+        "name": "setSelectedElementProperty",
+        "args": [
+          "stemDirection",
+          "down"
+        ],
+        "artifact": "setSelectedElementProperty-stemDirection-down",
+        "ms": 1.4210889999994833
+      }
+    ],
+    "inspector": {
+      "mixedSelection": true,
+      "invalidValuesRejected": true,
+      "undo": true
+    },
+    "build": {
+      "node": "v24.21.0",
+      "fastLink": false,
+      "wasmBytes": 9314517,
+      "wasmSha256": "b92e927858e6d497a4fd329203ff1faa705d2174841e92a37ad07943ddd98430"
+    }
+  },
+  "additionalCorpus": {
+    "bootMs": 233.53336099999996,
+    "results": [
+      {
+        "score": "public/test_scores/four_measures.musicxml",
+        "bytes": 1144,
+        "svgBytes": 289584,
+        "times": {
+          "load": [
+            75.37411899999995
+          ],
+          "saveXml": [
+            8.83701300000007,
+            0.4959089999999833
+          ],
+          "saveSvg": [
+            9.581603000000086,
+            4.116729999999961
+          ],
+          "selectPartMeasureByIndex": [
+            1.133395999999948
+          ],
+          "pitchUp": [
+            3.673819000000094
+          ],
+          "undo": [
+            1.6687289999999848
+          ],
+          "redo": [
+            3.250058000000081
+          ],
+          "saveMsc:mscz": [
+            18.527648999999883
+          ],
+          "reload:mscz": [
+            20.034458000000086
+          ],
+          "saveMsc:mscx": [
+            2.9261670000000777
+          ],
+          "reload:mscx": [
+            13.120556999999962
+          ],
+          "destroy": [
+            0.31883700000003046
+          ]
+        }
+      },
+      {
+        "score": "public/test_scores/two_staves_four_bars_lower_edit.musicxml",
+        "bytes": 2033,
+        "svgBytes": 299884,
+        "times": {
+          "load": [
+            3.494331000000102
+          ],
+          "saveXml": [
+            0.5008230000000822,
+            0.5173389999999927
+          ],
+          "saveSvg": [
+            4.542461000000003,
+            4.033892000000378
+          ],
+          "selectPartMeasureByIndex": [
+            0.060429000000112865
+          ],
+          "pitchUp": [
+            1.9479639999999563
+          ],
+          "undo": [
+            1.8121180000002823
+          ],
+          "redo": [
+            1.73585200000025
+          ],
+          "saveMsc:mscz": [
+            4.00426299999981
+          ],
+          "reload:mscz": [
+            10.17573399999992
+          ],
+          "saveMsc:mscx": [
+            1.483502000000044
+          ],
+          "reload:mscx": [
+            8.952497000000221
+          ],
+          "destroy": [
+            0.13805900000033944
+          ]
+        }
+      },
+      {
+        "score": "public/test_scores/credits_small_staff.musicxml",
+        "bytes": 2340,
+        "svgBytes": 287304,
+        "times": {
+          "load": [
+            5.737245000000257
+          ],
+          "saveXml": [
+            0.6097159999999349,
+            0.38026300000001356
+          ],
+          "saveSvg": [
+            4.215215000000171,
+            3.365553000000091
+          ],
+          "selectPartMeasureByIndex": [
+            0.06498700000020108
+          ],
+          "pitchUp": [
+            1.251028000000133
+          ],
+          "undo": [
+            0.9726419999997233
+          ],
+          "redo": [
+            1.1572809999997844
+          ],
+          "saveMsc:mscz": [
+            3.4544819999996434
+          ],
+          "reload:mscz": [
+            8.909893999999895
+          ],
+          "saveMsc:mscx": [
+            1.3686270000002878
+          ],
+          "reload:mscx": [
+            7.2408620000001065
+          ],
+          "destroy": [
+            0.09748199999967255
+          ]
+        }
+      }
+    ],
+    "build": {
+      "node": "v24.21.0",
+      "fastLink": false,
+      "wasmBytes": 9314517,
+      "wasmSha256": "b92e927858e6d497a4fd329203ff1faa705d2174841e92a37ad07943ddd98430"
+    }
+  },
+  "generatedGlueExportsVerified": 80
+}

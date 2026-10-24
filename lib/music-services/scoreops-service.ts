@@ -4,7 +4,7 @@ import {
   summarizeScoreArtifact,
   type ScoreArtifact,
 } from '../score-artifacts';
-import { loadWebMscoreInProcess, type Score } from '../webmscore-loader';
+import { decodeScoreXml, loadWebMscoreInProcess, type Score } from '../webmscore-loader';
 import { computeMusicXmlIdentityHashServer } from '../musicxml-identity-server';
 import { asRecord, errorResult, resolveScoreContent, type ServiceResult } from './score-request';
 import { sanitizeEditorLaunchContext } from '../editor-launch-context';
@@ -1703,7 +1703,6 @@ function buildScoreOpsPatch(
 }
 
 const textEncoder = new TextEncoder();
-const textDecoder = new TextDecoder();
 
 function normalizeExecutorPreference(optionPreference: unknown): ScoreOpsExecutorMode {
   if (optionPreference === 'wasm' || optionPreference === 'xml' || optionPreference === 'auto') {
@@ -1768,11 +1767,7 @@ function enumerateTargetsForScope(xml: string, scope?: ScoreScope): WasmMutation
 }
 
 async function saveXmlFromScore(score: Score): Promise<string | null> {
-  if (!score.saveXml) {
-    return null;
-  }
-  const bytes = await score.saveXml();
-  return textDecoder.decode(bytes);
+  return score.saveXml ? decodeScoreXml(await score.saveXml()) : null;
 }
 
 async function relayoutIfSupported(score: Score) {
@@ -1910,7 +1905,7 @@ async function executeOpsWithWasm(beforeXml: string, ops: ScoreOp[]): Promise<Wa
             fallbackReason: `Missing wasm setter for metadata field: ${op.field}`,
           };
         }
-        await Promise.resolve(setter(op.value));
+        await Promise.resolve(setter.call(score, op.value));
       } else if (op.op === 'set_key_signature') {
         if (typeof score.setKeySignature !== 'function') {
           return {
@@ -2295,7 +2290,7 @@ async function executeOpsWithWasm(beforeXml: string, ops: ScoreOp[]): Promise<Wa
               fallbackReason: selected.reason || 'Failed to select target measure.',
             };
           }
-          await Promise.resolve(voiceMethod(voiceIndex));
+          await Promise.resolve(voiceMethod.call(score, voiceIndex));
         }
       } else if (op.op === 'select_all') {
         const allParts = Array.from(partIndexById.keys());
@@ -2392,7 +2387,7 @@ async function executeOpsWithWasm(beforeXml: string, ops: ScoreOp[]): Promise<Wa
               };
             }
           }
-          await Promise.resolve(textMethod(op.text));
+          await Promise.resolve(textMethod.call(score, op.text));
         } else {
           return {
             ok: false,
@@ -2420,7 +2415,7 @@ async function executeOpsWithWasm(beforeXml: string, ops: ScoreOp[]): Promise<Wa
               fallbackReason: selected.reason || 'Failed to select target measure.',
             };
           }
-          await Promise.resolve(breakMethod());
+          await Promise.resolve(breakMethod.call(score));
         }
       } else if (op.op === 'set_repeat_markers') {
         if (op.start !== undefined) {
@@ -2507,7 +2502,7 @@ async function executeOpsWithWasm(beforeXml: string, ops: ScoreOp[]): Promise<Wa
           };
         }
         for (let i = 0; i < op.steps; i += 1) {
-          await Promise.resolve(historyMethod());
+          await Promise.resolve(historyMethod.call(score));
         }
       } else {
         return {

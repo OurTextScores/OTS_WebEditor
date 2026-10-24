@@ -13,6 +13,7 @@ export type BridgeGeneratedSources = {
 
 export type BridgeSources = Record<BridgeLayer, string | null> & {
   generated?: BridgeGeneratedSources;
+  nativeVariants?: Record<string, string | null>;
 };
 
 export type BridgeManifest = {
@@ -21,6 +22,7 @@ export type BridgeManifest = {
   controlPlaneRpcTargets?: Record<string, string>;
   jsImplementedRpcTargets?: Record<string, string>;
   typescriptOnlyMembers?: Record<string, string>;
+  nativeVariants?: Record<string, { source: string; reason: string }>;
   generated?: {
     glue?: string;
     bundles?: Record<string, string>;

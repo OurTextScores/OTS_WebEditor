@@ -134,8 +134,23 @@ export function analyzeBridge(sources, manifest) {
   const typescriptOnly = manifest.typescriptOnlyMembers || {};
   const syntheticPrefix = manifest.syntheticRpcPrefix || '';
 
+  // Variant declarations are checked independently of the default 4.00 binary.
+  const variantExports = new Set();
+  for (const [name, variant] of Object.entries(manifest.nativeVariants || {})) {
+    const source = sources.nativeVariants?.[name];
+    const exports = source && parseNativeExports(source);
+    if (!exports) {
+      fail(
+        'layer-missing',
+        `native variant ${name} is missing or unparseable at ${variant.source}`,
+      );
+    } else {
+      for (const method of exports) variantExports.add(method);
+    }
+  }
+
   const resolveNative = (rpcName) => {
-    if (native.has(rpcName)) return rpcName;
+    if (native.has(rpcName) || variantExports.has(rpcName)) return rpcName;
     if (syntheticPrefix && rpcName.startsWith(syntheticPrefix)) {
       const stripped = rpcName.slice(syntheticPrefix.length);
       if (native.has(stripped)) return stripped;
@@ -353,6 +368,12 @@ function main() {
   const sources = {
     ...Object.fromEntries(
       Object.entries(manifest.layers).map(([layer, path]) => [layer, read(path)]),
+    ),
+    nativeVariants: Object.fromEntries(
+      Object.entries(manifest.nativeVariants || {}).map(([name, variant]) => [
+        name,
+        read(variant.source),
+      ]),
     ),
     generated: {
       glue: generatedConfig.glue ? read(generatedConfig.glue) : null,

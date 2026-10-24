@@ -1,0 +1,39 @@
+{
+  "bootMs": 581.6138940000001,
+  "results": [],
+  "systemLocks": {
+    "verified": true,
+    "checks": [
+      "capabilities",
+      "invalid-input",
+      "title-selection-rejected",
+      "selection",
+      "lock",
+      "unlock",
+      "overlap",
+      "move-previous",
+      "move-next",
+      "insert",
+      "delete",
+      "parts",
+      "mscx",
+      "mscz",
+      "undo-redo",
+      "pixels"
+    ]
+  },
+  "build": {
+    "node": "v24.21.0",
+    "fastLink": false,
+    "wasmBytes": 11316822,
+    "wasmSha256": "b3ac3f68e9ea610e353e2fba0d5f6b15eda4455f79eb5978ca36b178d4bc8e1f"
+  },
+  "verification": {
+    "date": "2026-10-21",
+    "artifactBuild": "Isolated optimized Node link against existing ms47-build-wasm engine libraries; bridge compiled from this branch. Migration build outputs and public WASM were not replaced.",
+    "uiBranch": "main",
+    "uiCommit": "9b8d6a3e",
+    "uiTests": 50,
+    "capabilityHandshake": "Passed verify-systemlock-capabilities.mjs using real JS, worker helper, and dispatcher with native exports present and absent."
+  }
+}

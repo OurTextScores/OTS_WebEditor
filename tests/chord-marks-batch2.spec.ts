@@ -79,7 +79,7 @@ test('adds single-note and compatible two-note tremolos', async ({ page }) => {
   await expect
     .poll(
       async () =>
-        (await readMscx(page)).match(/<Tremolo>[\s\S]*?<subtype>r32<\/subtype>/g)?.length ?? 0,
+        (await readMscx(page)).match(/<Tremolo(?:SingleChord|TwoChord)?>[\s\S]*?<subtype>r32<\/subtype>/g)?.length ?? 0,
       { timeout: 20_000 },
     )
     .toBe(2);
@@ -89,7 +89,7 @@ test('adds single-note and compatible two-note tremolos', async ({ page }) => {
   await runCommand(page, 'btn-open-tremolo-palette');
   await page.getByTestId('palette-item-tremolo-7').click();
   await expect
-    .poll(async () => /<Tremolo>[\s\S]*?<subtype>c32<\/subtype>/.test(await readMscx(page)), {
+    .poll(async () => /<Tremolo(?:SingleChord|TwoChord)?>[\s\S]*?<subtype>c32<\/subtype>/.test(await readMscx(page)), {
       timeout: 20_000,
     })
     .toBe(true);

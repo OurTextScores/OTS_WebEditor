@@ -38,6 +38,13 @@ Important:
 - If you omit it, the built app will only try local `/soundfonts/*` fallback files.
 - If a soundfont remains under `public/soundfonts/`, it will be copied into `out/`; move the
   directory out before building so the CDN asset is not vendored downstream.
+- `NEXT_PUBLIC_WEBMSCORE_RESOURCE_BASE_URL` (4.7 engine only, also compile-time) is where the engine fetches the fonts
+  it does not preload: the less common music fonts, FreeSerif bold/italic, FreeSans and the CJK fallbacks, e.g.
+  `https://cdn.ourtextscores.com/webmscore-resources/4.7.4/`. The host must send `Access-Control-Allow-Origin` (the
+  engine fetches from a worker). Unset, nothing is fetched and those scores fall back to Bravura/Edwin. The 4.00
+  engine bundles everything and ignores it.
+- The editor API's server-side engine (deep edit, scoreops, compare) reads `WEBMSCORE_RESOURCE_BASE_URL` at runtime
+  instead; `Dockerfile.editor-api` sets it to the same CDN path. Override it with `docker run -e` if the fonts move.
 
 #### Option 2: Full release package (with archives)
 

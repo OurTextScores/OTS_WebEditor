@@ -238,6 +238,17 @@ String XmlReader::readXml()
     return s;
 }
 
+//-------------------------------------------------------------------
+//   lineBreakFromTag
+//    MuseScore 4.7+ writes newlines inside text as <br/>; readXml() returns it as <br></br>
+//-------------------------------------------------------------------
+
+void XmlReader::lineBreakFromTag(String& str)
+{
+    str.replace(u"<br></br>", u"\n");
+    str.replace(u"<br/>", u"\n");
+}
+
 engraving::ReadContext* XmlReader::context() const
 {
     if (!m_context) {

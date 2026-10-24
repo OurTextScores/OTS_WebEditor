@@ -30,10 +30,12 @@ jobs:
           min_data_bytes=1000000
           actual_wasm_bytes=$(wc -c < public/webmscore.lib.wasm)
           actual_data_bytes=$(wc -c < public/webmscore.lib.data)
-          actual_mem_wasm_bytes=$(wc -c < public/webmscore.lib.mem.wasm)
           echo "webmscore.lib.wasm bytes: ${actual_wasm_bytes}"
           echo "webmscore.lib.data bytes: ${actual_data_bytes}"
-          echo "webmscore.lib.mem.wasm bytes: ${actual_mem_wasm_bytes}"
+          # Only the 4.00 (emsdk 2) package has a separate memory initializer; check:wasm decides whether it is required
+          if [ -f public/webmscore.lib.mem.wasm ]; then
+            echo "webmscore.lib.mem.wasm bytes: $(wc -c < public/webmscore.lib.mem.wasm)"
+          fi
           if [ "${actual_wasm_bytes}" -lt "${min_wasm_bytes}" ] || [ "${actual_data_bytes}" -lt "${min_data_bytes}" ]; then
             echo "LFS artifacts look unresolved (files are too small)."
             exit 1
