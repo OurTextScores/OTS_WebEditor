@@ -7,6 +7,8 @@
 #include "global/serialization/json.h"
 #include "engraving/dom/selectionfilter.h"
 #include "engraving/editing/transpose.h"
+#include "engraving/dom/note.h"
+#include "engraving/dom/tie.h"
 
 // Legacy (4.00) selection filter bits, as stored by the editor (components/toolbar/constants.ts)
 namespace legacyfilter {
@@ -193,6 +195,22 @@ EMSCRIPTEN_KEEPALIVE bool transpose(uintptr_t score_ptr, int mode, int direction
             return false;
         }
     }
+    // Transpose::transpose moves exactly the notes of a list selection, so transposing one note of a tie chain left the
+    // tie joining two pitches (upDown, behind pitchUp/pitchDown, moves the chain). Add the rest of each chain first.
+    std::vector<engraving::EngravingItem*> listed;
+    if (score->selection().isList()) {
+        for (engraving::EngravingItem* e : score->selection().uniqueElements()) listed.push_back(e);
+        std::vector<engraving::EngravingItem*> chained;
+        for (engraving::EngravingItem* e : listed) {
+            if (!e->isNote()) continue;
+            engraving::Note* n = engraving::toNote(e)->firstTiedNote();
+            for (size_t guard = 0; n && guard < 4096; ++guard) {
+                if (!n->selected()) chained.push_back(n);
+                n = n->tieFor() ? n->tieFor()->endNote() : nullptr;
+            }
+        }
+        for (engraving::EngravingItem* e : chained) score->select(e, engraving::SelectType::ADD);
+    }
     score->startCmd(TranslatableString::untranslatable("transpose"));
     // 4.7 moved Score::transpose to the static Transpose::transpose; the mode/direction/key values are unchanged
     const bool ok = engraving::Transpose::transpose(score, static_cast<engraving::TransposeMode>(mode),
@@ -202,6 +220,11 @@ EMSCRIPTEN_KEEPALIVE bool transpose(uintptr_t score_ptr, int mode, int direction
     score->endCmd();
     if (!hadSelection) {
         score->deselectAll();
+        score->setSelectionChanged(true);
+    } else if (!listed.empty() && score->selection().uniqueElements().size() != listed.size()) {
+        // Give the user back the notes they selected, not the chains added for the transpose
+        score->deselectAll();
+        for (engraving::EngravingItem* e : listed) score->select(e, engraving::SelectType::ADD);
         score->setSelectionChanged(true);
     }
     layoutLinked(score);

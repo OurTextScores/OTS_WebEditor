@@ -41,8 +41,20 @@ describe('compare keyboard policy, from the shared key table', () => {
     ['y', { ctrlKey: true }, 'redo', 'redo'],
     ['ArrowUp', {}, 'raise pitch', 'pitchUp'],
     ['ArrowDown', {}, 'lower pitch', 'pitchDown'],
-    ['ArrowUp', { ctrlKey: true }, 'transpose an octave', 'transpose', [12]],
-    ['ArrowDown', { ctrlKey: true }, 'transpose an octave', 'transpose', [-12]],
+    [
+      'ArrowUp',
+      { ctrlKey: true },
+      'transpose an octave',
+      'transpose',
+      [1, 0, 0, 25, true, true, true],
+    ],
+    [
+      'ArrowDown',
+      { ctrlKey: true },
+      'transpose an octave',
+      'transpose',
+      [1, 1, 0, 25, true, true, true],
+    ],
     ['ArrowRight', {}, 'move compare selection', 'selectNextChord'],
     ['ArrowLeft', { shiftKey: true }, 'move compare selection', 'extendSelectionPrevChord'],
     [

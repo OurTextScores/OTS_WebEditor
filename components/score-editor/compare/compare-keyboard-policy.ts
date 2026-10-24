@@ -127,13 +127,14 @@ const ADAPTERS: Readonly<Record<string, Adapter>> = {
   'add.line.slur': { gate: 'selection', run: mutate('add a slur', 'addSlur') },
   'edit.pitch.up': { gate: 'selection', run: mutate('raise pitch', 'pitchUp') },
   'edit.pitch.down': { gate: 'selection', run: mutate('lower pitch', 'pitchDown') },
+  // transpose(mode, direction, key, interval, ...): by interval, up/down, Perfect Octave (as the main editor's octave)
   'edit.pitch.octaveUp': {
     gate: 'selection',
-    run: mutate('transpose an octave', 'transpose', [12]),
+    run: mutate('transpose an octave', 'transpose', [1, 0, 0, 25, true, true, true]),
   },
   'edit.pitch.octaveDown': {
     gate: 'selection',
-    run: mutate('transpose an octave', 'transpose', [-12]),
+    run: mutate('transpose an octave', 'transpose', [1, 1, 0, 25, true, true, true]),
   },
   'edit.select.nextChord': move('selectNextChord'),
   'edit.select.prevChord': move('selectPrevChord'),

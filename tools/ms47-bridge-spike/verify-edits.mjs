@@ -137,6 +137,7 @@ export async function verifyEdits(WebMscore, renderer, output) {
     } finally { score.destroy(); }
   }
   results.push(await verifyBeamSplitLayout(WebMscore));
+  results.push(await verifyTiedTranspose(WebMscore));
   return results;
 }
 
@@ -155,4 +156,27 @@ async function verifyBeamSplitLayout(WebMscore) {
     assert.equal(incremental, await score.saveSvg(0, true, false), 'incremental layout matches the full layout');
     return { name: 'setBeamMode split layout', ok: true };
   } finally { score.destroy(); }
+}
+
+// Transposing one note of a tie chain moves the whole chain, as pitchUp does (Transpose::transpose moves only the
+// listed notes, which left a tie joining two pitches: the editor's Ctrl+Up on a tied note)
+async function verifyTiedTranspose(WebMscore) {
+  const note = (tie) => `<note><pitch><step>C</step><octave>4</octave></pitch><duration>2</duration><tie type="${tie}"/><type>half</type><notations><tied type="${tie}"/></notations></note>`;
+  const xml = `<?xml version="1.0" encoding="UTF-8"?><score-partwise version="3.1"><part-list><score-part id="P1"><part-name>P</part-name></score-part></part-list><part id="P1"><measure number="1"><attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes>${note('start')}${note('stop')}</measure></part></score-partwise>`;
+  const octaves = (out) => [...out.matchAll(/<octave>(\d)<\/octave>/g)].map((m) => m[1]).join('');
+  const results = {};
+  for (const [name, args] of [['octave', [1, 0, 0, 25]], ['diatonic third', [2, 0, 0, 2]]]) {
+    const score = await WebMscore.load('musicxml', new TextEncoder().encode(xml));
+    try {
+      assert.equal(await score.selectPartMeasureByIndex(0, 0), true);
+      assert.equal(await score.selectNextChord(), true);   // one note of the chain, as a click selects
+      assert.equal(await score.transpose(...args, true, true, true), true);
+      const out = await score.saveXml();
+      const steps = [...out.matchAll(/<step>([A-G])<\/step>/g)].map((m) => m[1]).join('');
+      results[name] = `${steps} ${octaves(out)}`;
+      assert.ok(steps[0] === steps[1] && octaves(out)[0] === octaves(out)[1], `${name}: both tied notes move (${results[name]})`);
+      assert.equal((await score.getSelectedElementProperties())?.selectionCount, 1, `${name}: the selection is the clicked note again`);
+    } finally { score.destroy(); }
+  }
+  return { name: 'transpose follows ties', ...results };
 }
