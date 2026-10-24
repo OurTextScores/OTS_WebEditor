@@ -22,6 +22,15 @@ describe('webmscore resource base URL', () => {
     expect(webMscoreResourceBaseUrl()).toBe('https://cdn.example.org/webmscore/4.7.4/');
   });
 
+  it('prefers the server runtime setting (the editor API image has no NEXT_PUBLIC_ values)', async () => {
+    const { webMscoreResourceBaseUrl } = await import('../lib/webmscore-loader');
+    vi.stubEnv('NEXT_PUBLIC_WEBMSCORE_RESOURCE_BASE_URL', 'https://public.example.org/r/');
+    vi.stubEnv('WEBMSCORE_RESOURCE_BASE_URL', 'https://server.example.org/r');
+    expect(webMscoreResourceBaseUrl()).toBe('https://server.example.org/r/');
+    vi.stubEnv('WEBMSCORE_RESOURCE_BASE_URL', '');
+    expect(webMscoreResourceBaseUrl()).toBe('https://public.example.org/r/');
+  });
+
   it('sets it on the engine when the worker runtime loads', async () => {
     vi.stubEnv('NEXT_PUBLIC_WEBMSCORE_RESOURCE_BASE_URL', 'https://cdn.example.org/webmscore/4.7.4/');
     const { loadWebMscore } = await import('../lib/webmscore-loader');

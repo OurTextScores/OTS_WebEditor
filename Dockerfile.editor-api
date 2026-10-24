@@ -47,6 +47,8 @@ ENV MUSIC_AMT_SPACE_REVISION=ee699ba5191bebaef1386c0869f3dc72b04c3821
 ENV MUSIC_AMT_MODEL_ID=stanford-crfm/music-medium-800k
 ENV MUSIC_AMT_TIMEOUT_MS=180000
 ENV MUSIC_AMT_MAX_INPUT_SECONDS=60
+# On-demand fonts for the server-side engine (deep edit, scoreops, compare); versioned with the engine
+ENV WEBMSCORE_RESOURCE_BASE_URL=https://cdn.ourtextscores.com/webmscore-resources/4.7.4/
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \

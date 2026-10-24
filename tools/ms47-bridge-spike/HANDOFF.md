@@ -97,8 +97,7 @@ with results in `~/workspace/ms47-e2e-results/`.
    (5db40ae9). 4.00 artifacts are backed up in `~/workspace/ms47-e2e-results/backup-400-artifacts/`.
    - Building the image on a network with a captive portal: Debian's apt mirror is plain HTTP; the dry run used a
      copy of the Dockerfile that switches it to HTTPS.
-   - Server-side layouts use fallback fonts for the less common music fonts unless the server is given
-     `resourceBaseUrl` (exports such as MusicXML/MSCX do not depend on fonts).
+   - Server-side engine fonts: `WEBMSCORE_RESOURCE_BASE_URL` (runtime), set in `Dockerfile.editor-api` to the CDN.
    - To deploy: build with `NEXT_PUBLIC_WEBMSCORE_RESOURCE_BASE_URL=https://cdn.ourtextscores.com/webmscore-resources/4.7.4/`.
 5. Deferred audit items (`STUBS_AUDIT.md`): SVG images in scores and PDF GIF/BMP. No local score uses them (2,316
    checked). Font family substitution was checked and is benign.

@@ -513,11 +513,17 @@ export interface WebMscoreInstance {
 }
 
 /**
- * Base URL of the engine's on-demand resources (`fonts/…`, `fonts/fallback/…`), from
- * NEXT_PUBLIC_WEBMSCORE_RESOURCE_BASE_URL. Unset: nothing is fetched and those fonts fall back.
+ * Base URL of the engine's on-demand resources (`fonts/…`, `fonts/fallback/…`). The server reads
+ * WEBMSCORE_RESOURCE_BASE_URL at runtime (the editor API image sets it; its build has no NEXT_PUBLIC_ values);
+ * the browser gets NEXT_PUBLIC_WEBMSCORE_RESOURCE_BASE_URL, inlined at build. Unset: nothing is fetched and those
+ * fonts fall back.
  */
 export const webMscoreResourceBaseUrl = (): string | undefined => {
-  const raw = (process.env.NEXT_PUBLIC_WEBMSCORE_RESOURCE_BASE_URL ?? '').trim();
+  const raw = (
+    process.env.WEBMSCORE_RESOURCE_BASE_URL ||
+    process.env.NEXT_PUBLIC_WEBMSCORE_RESOURCE_BASE_URL ||
+    ''
+  ).trim();
   if (!raw) return undefined;
   return raw.endsWith('/') ? raw : `${raw}/`;   // resource paths resolve below it, so it must end in a slash
 };
