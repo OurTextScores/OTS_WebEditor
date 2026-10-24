@@ -17,8 +17,8 @@ describe('in-process webmscore under Node', () => {
     const data = new Uint8Array(readFileSync('public/test_scores/three_notes_cde.musicxml'));
     const score = await engine.load('musicxml', data);
     try {
-      expect(await score.npages()).toBe(1);
-      expect(await score.saveXml()).toMatch(/<score-partwise[\s\S]*<step>E<\/step>/);
+      expect(await score.npages!()).toBe(1);
+      expect(await score.saveXml!()).toMatch(/<score-partwise[\s\S]*<step>E<\/step>/);
     } finally {
       score.destroy();
     }
