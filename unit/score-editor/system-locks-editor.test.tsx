@@ -14,6 +14,9 @@ describe('ScoreEditor system-lock wiring', () => {
   it.each([false, true])(
     'shows working controls only with the complete API (supported=%s)',
     async (supported) => {
+      // A small undo stack, as the engines keep: every lock change is a command; getUndoInfo reports the position
+      const states = [false];
+      let index = 0;
       let locked = false;
       const score = {
         destroy: vi.fn(),
@@ -26,13 +29,24 @@ describe('ScoreEditor system-lock wiring', () => {
         pitchUp: vi.fn(async () => true),
         relayout: vi.fn(async () => true),
         undo: vi.fn(async () => {
-          locked = false;
+          if (index === 0) return false;
+          locked = states[--index];
           return true;
         }),
         redo: vi.fn(async () => {
-          locked = true;
+          if (index === states.length - 1) return false;
+          locked = states[++index];
           return true;
         }),
+        getUndoInfo: vi.fn(async () => ({ index, size: states.length - 1, clean: index === 0 })),
+        getUndoEntries: vi.fn(async (from: number, to: number) =>
+          states.slice(from + 1, to + 1).map(() => ({
+            commands: ['ToggleSystemLock'],
+            elements: [],
+            tickStart: -1,
+            tickEnd: -1,
+          })),
+        ),
         getSelectedElementProperties: vi.fn(async () => ({
           selectionCount: 1,
           elementType: 'Note',
@@ -51,6 +65,8 @@ describe('ScoreEditor system-lock wiring', () => {
           : undefined,
         setSystemLock: supported
           ? vi.fn(async (value: boolean) => {
+              states.splice(index + 1, states.length, value);
+              index += 1;
               locked = value;
               return true;
             })

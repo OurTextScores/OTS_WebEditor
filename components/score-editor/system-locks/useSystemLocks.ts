@@ -76,6 +76,8 @@ export function useSystemLocks(core: SystemLocksContext, revision: unknown) {
     [supported, score, scoreRef, ensureSelectionInWasm, performMutation],
   );
 
-  const state = snapshot?.score === score && snapshot.revision === revision ? snapshot.state : null;
+  // Keep the last state for this score while a newer revision is read: blanking it unmounted the controls after every
+  // edit (the undo position arrives a moment after the edit's own render), so a click in that moment was lost
+  const state = snapshot?.score === score ? snapshot.state : null;
   return { supported, state, busy, error, mutate };
 }
