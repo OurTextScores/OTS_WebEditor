@@ -1462,7 +1462,16 @@ class WebMscoreW {
      *                 * `false` destroy the whole WebMscore webworker context 
      * @returns {void}
      */
+    /**
+     * True once `destroy()` was called: the engine no longer knows this score (calls fail with "Invalid score")
+     * @returns {boolean}
+     */
+    get destroyed() {
+        return this._destroyed === true
+    }
+
     destroy(soft = true) {
+        this._destroyed = true
         if (soft) {
             // destroy the score instance only
             this.rpc('destroy', [soft])

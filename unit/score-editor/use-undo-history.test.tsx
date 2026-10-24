@@ -22,6 +22,36 @@ function fakeScore(initial: UndoInfo = { index: 0, size: 0, clean: true }) {
 }
 
 describe('useUndoHistory', () => {
+  // The editor destroys the old score, then loads the new one: until setScore runs, the hook still holds the old one
+  it('does not read, or warn about, a score the editor has destroyed', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const fake = fakeScore();
+      const { result } = renderHook(() => useUndoHistory(fake.score));
+      await waitFor(() => expect(result.current.history.known).toBe(true));
+      const reads = vi.mocked(fake.score.getUndoInfo!).mock.calls.length;
+
+      Object.defineProperty(fake.score, 'destroyed', { value: true, configurable: true });
+      await act(async () => {
+        await result.current.refresh();
+      });
+      expect(vi.mocked(fake.score.getUndoInfo!).mock.calls.length).toBe(reads);
+
+      // Destroyed while a read is in flight: the engine answers "Invalid score"
+      Object.defineProperty(fake.score, 'destroyed', { value: false, configurable: true });
+      vi.mocked(fake.score.getUndoInfo!).mockImplementationOnce(async () => {
+        Object.defineProperty(fake.score, 'destroyed', { value: true, configurable: true });
+        throw new Error('WebMscore ErrInvalid score');
+      });
+      await act(async () => {
+        await result.current.refresh();
+      });
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it('stays unknown for an engine without the undo exports', async () => {
     const { result } = renderHook(() => useUndoHistory({} as Score));
     await act(async () => {

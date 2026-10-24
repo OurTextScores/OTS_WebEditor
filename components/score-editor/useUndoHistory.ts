@@ -37,7 +37,8 @@ export function useUndoHistory(score: Score | null) {
     setRefreshing(true);
     const run = async () => {
       try {
-        if (scoreRef.current !== target) return;
+        // The editor destroys the old score before the new one has loaded: it can still be current here
+        if (scoreRef.current !== target || target.destroyed) return;
         const info = await target.getUndoInfo?.();
         if (!info || scoreRef.current !== target) return;
         const nextId = () => (ids.current += 1);
@@ -49,6 +50,8 @@ export function useUndoHistory(score: Score | null) {
         const entries = (await target.getUndoEntries?.(0, info.size)) ?? [];
         if (scoreRef.current === target) commit(rebuild(entries, info, nextId));
       } catch (error) {
+        // Destroyed while the read was in flight: nothing to show, nothing went wrong
+        if (target.destroyed) return;
         console.warn('Undo history refresh failed:', error);
       }
     };

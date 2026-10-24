@@ -167,6 +167,8 @@ export interface Score {
   setSystemLock?: (locked: boolean) => Promise<boolean>;
   moveSelectedMeasureToSystem?: (direction: 'previous' | 'next') => Promise<boolean>;
   destroy: (soft?: boolean) => void;
+  /** True once destroy() was called (calls on it then fail with "Invalid score") */
+  readonly destroyed?: boolean;
   saveSvg: (
     pageNumber?: number,
     drawPageBackground?: boolean,

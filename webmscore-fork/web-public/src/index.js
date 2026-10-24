@@ -2473,6 +2473,15 @@ class WebMscore {
 
         Module.ccall('destroy', 'void', ['number'], [this.scoreptr])
         freePtr(this.scoreptr)
+        this._destroyed = true
+    }
+
+    /**
+     * True once `destroy()` was called: the engine no longer knows this score
+     * @returns {boolean}
+     */
+    get destroyed() {
+        return this._destroyed === true
     }
 
 }
