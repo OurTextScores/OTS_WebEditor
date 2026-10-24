@@ -198,6 +198,30 @@ describe('scripts', () => {
       expect(run(false)).toBe(true);
     });
 
+    it('check-wasm reads the tracked glue when public/webmscore.lib.js is absent (a fresh clone)', async () => {
+      const mod = await loadCjs<CheckWasmModule>('../scripts/check-wasm.js');
+      const read = vi.fn((p: string) =>
+        p.endsWith('web-public/webmscore.lib.js') ? loader(false) : loader(true),
+      );
+      const fsModule = {
+        ...checkFs(
+          false,
+          (p: string) => !p.endsWith('mem.wasm') && !p.endsWith('/public/webmscore.lib.js'),
+        ),
+        readFileSync: read,
+      };
+      const ok = mod.checkWasmArtifacts({
+        cwd: '/repo',
+        files: [],
+        optional: [],
+        fsModule,
+        log: vi.fn(),
+        error: vi.fn(),
+      });
+      expect(ok).toBe(true);
+      expect(read).toHaveBeenCalledWith('/repo/webmscore-fork/web-public/webmscore.lib.js', 'utf8');
+    });
+
     it('check-wasm still requires it when the loader cannot be read', async () => {
       const mod = await loadCjs<CheckWasmModule>('../scripts/check-wasm.js');
       const fsModule = {

@@ -35,6 +35,13 @@ function hasWasmMagic(headBuf) {
 }
 
 // A loader that cannot be read is assumed to need it
+// public/webmscore.lib.js is gitignored (sync:wasm copies it), so a fresh clone has only the tracked glue that the
+// bundles are built from: read whichever exists
+const loaderPaths = (cwd) => [
+  path.resolve(cwd, 'public/webmscore.lib.js'),
+  path.resolve(cwd, 'webmscore-fork/web-public/webmscore.lib.js'),
+];
+
 function loaderNeedsMemoryInitializer(fsModule, loaderPath) {
   try {
     return fsModule.readFileSync(loaderPath, 'utf8').includes('memoryInitializer=');
@@ -52,7 +59,7 @@ function checkWasmArtifacts({
   error = console.error,
   memoryInitializer = loaderNeedsMemoryInitializer(
     fsModule,
-    path.resolve(cwd, 'public/webmscore.lib.js'),
+    loaderPaths(cwd).find((candidate) => fsModule.existsSync(candidate)) ?? loaderPaths(cwd)[0],
   ),
 } = {}) {
   let ok = true;
