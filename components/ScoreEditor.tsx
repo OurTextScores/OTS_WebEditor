@@ -302,7 +302,8 @@ import { sendDiffFeedback, updateAiOutputImpl } from './score-editor/ai-diff-fee
 import { buildNewScoreXmlImpl } from './score-editor/new-score';
 import { ensurePageIsLaidOutImpl, goToPageImpl, openScoreSessionImpl, resolveSelectionContextImpl, scheduleBackgroundInitTasksImpl } from './score-editor/score-session';
 import { playSelectionPreviewImpl } from './score-editor/playback';
-import { useEditorPlayback } from './score-editor/playback-session';
+import { useEditorPlayback, useTransportTimePublisher } from './score-editor/playback-session';
+import { usePlaybackOptionsSync } from '../lib/playback/use-playback-options';
 import { PlaybackFollowLayer, usePlaybackFollowing } from './score-editor/score-following';
 import { updateNoteInputShadowImpl } from './score-editor/note-input-shadow';
 import { commitCurrentVersion } from './score-editor/versions';
@@ -891,6 +892,8 @@ export default function ScoreEditor() {
     reportError: notifyError,
   });
   const { isPlaying, isPaused } = editorPlayback;
+  usePlaybackOptionsSync({ score, transport: editorPlayback });
+  useTransportTimePublisher(editorPlayback);
   const audioBusy = exportAudioBusy || editorPlayback.busy;
   const audioCtxRef = editorPlayback.audioContextRef;
   const previewAudioSourcesRef = useRef<AudioBufferSourceNode[]>([]);
@@ -8261,7 +8264,7 @@ export default function ScoreEditor() {
     setAiToolsOpen: (open) => setXmlSidebarMode(open ? 'open' : 'closed'),
     saveCheckpoint: handleSaveCheckpoint, copySelection: handleCopySelection,
     pasteSelection: handlePasteSelection, scoreSummaries, openScoreFromSummary: handleOpenScoreFromSummary,
-    zoom, isPlaying, isPaused, audioBusy, interactionPreparing, dirty: scoreDirtySinceCheckpoint,
+    zoom, isPlaying, isPaused, audioBusy, audioPreparing: editorPlayback.busy, interactionPreparing, dirty: scoreDirtySinceCheckpoint,
     checkpointCount: checkpoints.length, progressiveLoadEnabled,
     pageCountIsFloor: progressivePagingActive && progressiveHasMorePages,
     toggleProgressiveLoad: () => setProgressiveLoadEnabled((prev) => !prev),

@@ -25,6 +25,7 @@ test('the editor cursor follows playback, and a plain note click seeks without s
   await expect(cursor(page)).toHaveAttribute('data-kind', 'segment');
   const first = await cursorStart(page);
   await expect.poll(() => cursorStart(page), { timeout: 10_000 }).toBeGreaterThan(first);
+  await expect(page.getByTestId('playback-tracking-hint')).toBeVisible();
   await expect(page.getByTestId('playback-tracking-hint')).toHaveText('Click a note to seek');
 
   const focused = await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 80));

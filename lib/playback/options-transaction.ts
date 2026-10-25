@@ -7,8 +7,12 @@ import type {
 } from '../webmscore-loader';
 
 export type PlaybackOptionsChange = {
-  /** `applied`: the native options changed. `unchanged`: accepted as-is. `unavailable`: the engine lacks options. */
-  status: 'applied' | 'unchanged' | 'unavailable';
+  /**
+   * `applied`: the native options changed. `unchanged`: accepted as-is. `unavailable`: the engine lacks options.
+   * `failed`: a native call failed; `accepted` is what the engine now holds (possibly a partial change) and the
+   * location is mapped under it, so playback resumes coherently and the UI shows the real values.
+   */
+  status: 'applied' | 'unchanged' | 'unavailable' | 'failed';
   accepted: PlaybackOptions | null;
   /** The new-option timeline, when the change was applied. Its `optionsRevision` matches `accepted.revision`. */
   timeline: PlaybackTimeline | null;
@@ -17,6 +21,7 @@ export type PlaybackOptionsChange = {
   toMs: number;
   /** How the location was carried across: null when no conversion was needed or possible. */
   mapped: PlaybackTimeForPosition | null;
+  error?: unknown;
 };
 
 /** Nothing changed and no location moved: an engine without options, or no score. */
@@ -49,23 +54,45 @@ export async function applyPlaybackOptions(
     }
     return unchanged(null, 'unavailable');
   }
-  const position = (await score.playbackPositionAt?.(fromMs)) ?? null;
+  const position = (await score.playbackPositionAt?.(fromMs).catch(() => null)) ?? null;
   let accepted: PlaybackOptions | null = null;
   let changed = false;
   let mapped: PlaybackTimeForPosition | null | undefined = null;
   let timeline: PlaybackTimeline | null = null;
-  for (let next = takePending(); next;) {
-    const result = await score.setPlaybackOptions(next);
-    if (!result) return unchanged(null, 'unavailable');
-    accepted = result;
-    changed ||= result.changed === true;
-    next = takePending();
-    if (!next && changed) {
-      // Reads for the settled options; a request arriving meanwhile is applied and the reads repeated.
-      mapped = position ? await score.playbackTimeForPosition?.(position) : null;
-      timeline = (await score.playbackTimeline?.()) ?? null;
+  try {
+    for (let next = takePending(); next;) {
+      const result = await score.setPlaybackOptions(next);
+      if (!result) return unchanged(null, 'unavailable');
+      accepted = result;
+      changed ||= result.changed === true;
       next = takePending();
+      if (!next && changed) {
+        // Reads for the settled options; a request arriving meanwhile is applied and the reads repeated.
+        mapped = position ? await score.playbackTimeForPosition?.(position) : null;
+        timeline = (await score.playbackTimeline?.()) ?? null;
+        next = takePending();
+      }
     }
+  } catch (error) {
+    while (takePending()) {
+      /* a failed transaction does not carry later requests; the caller may retry */
+    }
+    const actual = (await score.playbackOptions?.().catch(() => null)) ?? accepted;
+    const moved = !!actual && !!position && actual.revision !== position.optionsRevision;
+    const settled = moved
+      ? await score.playbackTimeForPosition?.(position).catch(() => null)
+      : null;
+    return {
+      status: 'failed',
+      accepted: actual,
+      timeline: moved
+        ? ((await Promise.resolve(score.playbackTimeline?.() ?? null).catch(() => null)) ?? null)
+        : null,
+      fromMs,
+      toMs: settled?.timeMs ?? fromMs,
+      mapped: settled ?? null,
+      error,
+    };
   }
   if (!changed) return unchanged(accepted, 'unchanged');
   return {

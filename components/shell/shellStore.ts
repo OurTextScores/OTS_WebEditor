@@ -35,6 +35,8 @@ export interface ShellView {
   readonly isPaused: boolean;
   /** A playback is starting (audio rendering or loading); it cannot be started again yet. */
   readonly audioBusy: boolean;
+  /** Audio for a Play is being prepared (soundfont, native preparation, first PCM); Stop cancels it. */
+  readonly audioPreparing: boolean;
   readonly hasScore: boolean;
   /** The AI Tools and Score source panels beside the score are open (the activity bar shows them pressed). */
   readonly aiToolsOpen: boolean;
@@ -53,6 +55,7 @@ export const EMPTY_SHELL_VIEW: ShellView = {
   isPlaying: false,
   isPaused: false,
   audioBusy: false,
+  audioPreparing: false,
   hasScore: false,
   aiToolsOpen: false,
   musicXmlOpen: false,

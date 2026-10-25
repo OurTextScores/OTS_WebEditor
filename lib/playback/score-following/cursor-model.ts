@@ -36,6 +36,8 @@ export type PlaybackCursor = {
 
 const usable = (positions: Positions | null | undefined): positions is Positions =>
   !!positions &&
+  Array.isArray(positions.elements) &&
+  Array.isArray(positions.events) &&
   positions.elements.some((element) => hasPositionGeometry(element)) &&
   sortedSegmentEvents(positions).length > 0;
 

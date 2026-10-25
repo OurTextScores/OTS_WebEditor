@@ -53,10 +53,15 @@ function optionsScore(extra: Partial<Score> = {}) {
   let playRepeats = true;
   let revision = 0;
   let hold: Promise<void> | null = null;
+  let failNext = false;
   const beforeNative: Array<() => void> = [];
   const native = vi.fn(async (next: PlaybackOptionsRequest) => {
     if (hold) await hold;
     beforeNative.forEach((check) => check());
+    if (failNext) {
+      failNext = false;
+      throw new Error('native options failed');
+    }
     const changed = next.tempoMultiplier !== multiplier || next.playRepeats !== playRepeats;
     if (changed) revision += 1;
     multiplier = next.tempoMultiplier;
@@ -68,6 +73,12 @@ function optionsScore(extra: Partial<Score> = {}) {
     synthAudioBatch: vi.fn(async (startSeconds: number) => music(startSeconds)),
     setPlaybackOptions: native,
     playbackTimeline: vi.fn(async () => timelineAt(multiplier, revision)),
+    playbackOptions: vi.fn(async () => ({
+      schemaVersion: 1 as const,
+      tempoMultiplier: multiplier,
+      playRepeats,
+      revision,
+    })),
     playbackPositionAt: vi.fn(async (timeMs: number): Promise<MusicalPlaybackPosition> => ({
       schemaVersion: 1,
       optionsRevision: revision,
@@ -94,6 +105,9 @@ function optionsScore(extra: Partial<Score> = {}) {
     score,
     native,
     beforeNative,
+    failOnce() {
+      failNext = true;
+    },
     holdNext() {
       let release!: () => void;
       hold = new Promise<void>((resolve) => {
@@ -384,5 +398,32 @@ describe('playback options on the shared transport', () => {
       view.audio.sources.slice(before).filter((source) => source.buffer?.frames !== 1_323);
     await waitFor(() => expect(music3().length).toBeGreaterThan(0));
     expect(music3()[0].startedAt! - view.audio.context.currentTime).toBeLessThan(0.5);
+  });
+
+  it('resumes at the same place under the options the engine still holds when a change fails', async () => {
+    const { score, failOnce } = optionsScore();
+    const view = mount(score);
+    await playTo(view, 1);
+    failOnce();
+    let change: Awaited<ReturnType<typeof view.result.current.setPlaybackOptions>>;
+    await act(async () => {
+      change = await view.result.current.setPlaybackOptions({
+        tempoMultiplier: 0.5,
+        playRepeats: true,
+      });
+    });
+    expect(change!).toMatchObject({
+      status: 'failed',
+      accepted: { tempoMultiplier: 1, revision: 0 },
+    });
+    expect(change!.toMs).toBeCloseTo(1000, 6);
+    await waitFor(() => expect(startTimes(score)).toHaveLength(2));
+    expect(startTimes(score)[1]).toBeCloseTo(1, 9);
+    expect(view.result.current.state).not.toBe('idle');
+    // A later request still applies normally.
+    await act(async () => {
+      await view.result.current.setPlaybackOptions({ tempoMultiplier: 0.5, playRepeats: true });
+    });
+    expect(view.result.current.playbackOptions).toMatchObject({ tempoMultiplier: 0.5 });
   });
 });

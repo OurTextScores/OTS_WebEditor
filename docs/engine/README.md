@@ -182,3 +182,9 @@ consume `segmentPositions`/`measurePositions` events and `playbackTimeline` unde
 Shared timing lives in `lib/playback/score-following/` (no UI imports); the editor feature folder is
 `components/score-editor/score-following/`. Read positions off the Play critical path, keep per-segment updates
 inside `PlaybackFollowLayer`, and never derive the cursor from selection commands.
+
+## Playback speed and repeats controls (Phase 5)
+
+[Phase 5 execution record](PHASE5_2026-10-25.md). Editor and player share `TempoControl` / `PlayRepeatsToggle`
+(`components/playback-controls/`) and the local preference store; `usePlaybackOptionsSync` applies them per score
+through the transport's position-preserving change, gated on the `playbackOptions` capability.

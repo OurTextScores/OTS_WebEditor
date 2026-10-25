@@ -12,6 +12,8 @@ export default defineConfig({
   testDir: './tests/perf',
   testMatch: /\.perf\.ts$/,
   workers: 1,
+  // `line` prints each failure with its error as it happens, not only after the whole run.
+  reporter: process.env.CI ? 'dot' : 'line',
   timeout: 10 * 60 * 1000,
   expect: { timeout: 30 * 1000 },
   use: { baseURL: process.env.BASE_URL || `http://127.0.0.1:${PORT}`, headless: true },

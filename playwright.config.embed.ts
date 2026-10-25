@@ -4,6 +4,8 @@ export default defineConfig({
   testDir: './tests',
   testMatch: /(embed-integration|scanner-rows-embed-height)\.spec\.ts/,
   workers: 1,
+  // `line` prints each failure with its error as it happens, not only after the whole run.
+  reporter: process.env.CI ? 'dot' : 'line',
   timeout: 60 * 1000,
   expect: {
     timeout: 10 * 1000,

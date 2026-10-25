@@ -42,6 +42,7 @@ export interface ShellEditorBindings {
   readonly isPlaying: boolean;
   readonly isPaused: boolean;
   readonly audioBusy: boolean;
+  readonly audioPreparing: boolean;
   readonly interactionPreparing: boolean;
   readonly dirty: boolean;
   readonly checkpointCount: number;

@@ -31,21 +31,6 @@ export function useEditorPlayback(options: Options) {
     ms: Number.MAX_SAFE_INTEGER,
   });
   const durationMs = duration.score === options.score ? duration.ms : Number.MAX_SAFE_INTEGER;
-  useEffect(() => {
-    let current = true;
-    void Promise.resolve(options.score?.playbackTimeline?.())
-      .then((timeline) => {
-        if (current)
-          setDuration({
-            score: options.score,
-            ms: timeline?.durationMs ?? Number.MAX_SAFE_INTEGER,
-          });
-      })
-      .catch(() => {});
-    return () => {
-      current = false;
-    };
-  }, [options.score]);
   const transport = useScoreTransport({
     score: options.score,
     durationMs,
@@ -60,6 +45,24 @@ export function useEditorPlayback(options: Options) {
       }
     },
   });
+  // Re-read per score and once each play is live (off the startup path): an edit, which stops playback first,
+  // can change the length.
+  const live = transport.state === 'playing';
+  useEffect(() => {
+    let current = true;
+    void Promise.resolve(options.score?.playbackTimeline?.())
+      .then((timeline) => {
+        if (current)
+          setDuration({
+            score: options.score,
+            ms: timeline?.durationMs ?? Number.MAX_SAFE_INTEGER,
+          });
+      })
+      .catch(() => {});
+    return () => {
+      current = false;
+    };
+  }, [options.score, live]);
   const { start, stopAt, invalidate, stateRef } = transport;
   const { awaitRetirement } = transport;
   const beforeMutation = useCallback(async () => {
@@ -68,11 +71,15 @@ export function useEditorPlayback(options: Options) {
     await awaitRetirement();
     invalidate();
   }, [awaitRetirement, invalidate, stateRef, stopAt]);
-  const guardScore = useCallback((score: Score) => {
-    const guarded = guardPlaybackMutations(score, () =>
-      latest.current.score === guarded ? beforeMutation() : Promise.resolve());
-    return guarded;
-  }, [beforeMutation]);
+  const guardScore = useCallback(
+    (score: Score) => {
+      const guarded = guardPlaybackMutations(score, () =>
+        latest.current.score === guarded ? beforeMutation() : Promise.resolve(),
+      );
+      return guarded;
+    },
+    [beforeMutation],
+  );
   const play = useCallback(
     (fromSelection: boolean) =>
       start({

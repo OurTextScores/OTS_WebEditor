@@ -33,6 +33,7 @@ export function useShellCommands(bindings: ShellEditorBindings): void {
     isPlaying,
     isPaused,
     audioBusy,
+    audioPreparing,
     aiToolsOpen,
     musicXmlOpen,
   } = bindings;
@@ -49,6 +50,7 @@ export function useShellCommands(bindings: ShellEditorBindings): void {
       isPlaying,
       isPaused,
       audioBusy,
+    audioPreparing,
       hasScore: Boolean(score),
       aiToolsOpen,
       musicXmlOpen,
@@ -66,6 +68,7 @@ export function useShellCommands(bindings: ShellEditorBindings): void {
     isPlaying,
     isPaused,
     audioBusy,
+    audioPreparing,
     aiToolsOpen,
     musicXmlOpen,
   ]);

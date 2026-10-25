@@ -814,7 +814,7 @@ export function useScoreTransport(options: Options) {
         const change = await applyPlaybackOptions(activeScore, fromMs, takePending);
         if (scoreRef.current !== activeScore) return change;
         if (change.accepted) setPlaybackOptionsState(change.accepted);
-        if (change.status === 'applied') {
+        if (change.status === 'applied' || change.timeline) {
           // Compatibility WAV and any cached duration belong to the previous options revision.
           releaseFallbackAudio();
           setFallbackMode(false);
@@ -879,6 +879,8 @@ export function useScoreTransport(options: Options) {
     phase,
     phaseRef,
     clockRef,
+    /** The playable duration, including an applied options change the host has not re-read yet. */
+    durationRef,
     audioContextRef,
     subscribePosition,
     state,

@@ -19,6 +19,7 @@ function setup(mode: HighlightMode = 'measure') {
     measurePositions: vi.fn(async () => positions),
   } as unknown as Score;
   const scoreRef = { current: score as Score | null };
+  const setPlaybackOptions = vi.fn();
   const targets = {
     setTimeline: vi.fn(),
     setPositions: vi.fn(),
@@ -26,7 +27,12 @@ function setup(mode: HighlightMode = 'measure') {
   };
   const hook = renderHook(
     ({ accepted }: { accepted: PlaybackOptions | null }) =>
-      usePlaybackOptionsRefresh(scoreRef, accepted, targets),
+      usePlaybackOptionsRefresh(
+        scoreRef,
+        null,
+        { playbackOptions: accepted, setPlaybackOptions },
+        targets,
+      ),
     { initialProps: { accepted: null as PlaybackOptions | null } },
   );
   return { score, scoreRef, targets, hook };

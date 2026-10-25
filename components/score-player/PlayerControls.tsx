@@ -15,6 +15,7 @@ import {
 import { formatPlaybackTime } from '@/lib/playback/timeline';
 import type { Score } from '@/lib/webmscore-loader';
 import ExportVideoControl from './ExportVideoControl';
+import { PlayRepeatsToggle, TempoControl } from '../playback-controls';
 
 type Props = {
   state: 'idle' | 'preparing' | 'playing' | 'paused' | 'ended' | 'unavailable';
@@ -51,6 +52,26 @@ type Props = {
 
 const controlClass =
   'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--player-border)] bg-[var(--player-control)] text-[var(--player-text)] transition hover:bg-[var(--player-control-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 disabled:cursor-not-allowed disabled:opacity-40';
+
+/** The shared speed/repeat controls in the player's own round-control look (Button with the player palette). */
+const playerButtonClass =
+  '!h-11 !min-w-11 !rounded-full !border-[var(--player-border)] !bg-[var(--player-control)] !px-3 !text-[var(--player-text)] hover:!bg-[var(--player-control-hover)]';
+
+function PlayerOptions({ compact }: { compact?: boolean }) {
+  const prefix = compact ? 'player-menu' : 'player';
+  return (
+    <>
+      <TempoControl variant="quiet" triggerClassName={playerButtonClass} testIdPrefix={prefix} />
+      <PlayRepeatsToggle
+        variant="quiet"
+        pressedVariant="quiet"
+        className={playerButtonClass}
+        pressedClassName="!border-cyan-500 !text-cyan-600"
+        testId={`${prefix}-play-repeats`}
+      />
+    </>
+  );
+}
 
 /** One labelled on/off control of the transport bar. */
 function PlayerToggle({
@@ -322,6 +343,7 @@ export default function PlayerControls(props: Props) {
           >
             <span className="font-semibold">Follow</span>
           </button>
+          <PlayerOptions />
           <PlayerToggles {...props} />
           {props.score !== undefined && <PlayerExport {...props} />}
         </div>
@@ -389,6 +411,7 @@ export default function PlayerControls(props: Props) {
               >
                 <span className="text-caption font-semibold">Follow</span>
               </button>
+              <PlayerOptions compact />
               <PlayerToggles {...props} compact />
               {props.score !== undefined && <PlayerExport {...props} compact />}
             </div>

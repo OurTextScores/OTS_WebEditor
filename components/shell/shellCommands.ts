@@ -18,6 +18,15 @@ import {
   setFollowEnabled,
 } from '../../lib/playback/score-following';
 import { announce } from './announcer';
+import {
+  getPlaybackOptionPreferences,
+  getPlaybackOptionsStatus,
+  resetTempo,
+  setPlayRepeats,
+  setTempoPercent,
+  stepTempo,
+  TEMPO_PRESETS,
+} from '../../lib/playback/playback-options-preferences';
 import { closeTopEscapeLayer, hasEscapeLayer } from './keyboard/escapeLayers';
 import {
   closePalette,
@@ -92,6 +101,59 @@ export function buildShellOwnCommands(): AnyCommand[] {
       checked: () => getClickPreferences().countIn,
       run: () => setCountIn(!getClickPreferences().countIn),
     }),
+    defineFamily<number>({
+      id: 'playback.tempo',
+      label: 'Playback Speed',
+      variants: TEMPO_PRESETS.map((preset) => ({ arg: preset, label: `${preset}%` })),
+      enabled: () => optionsAvailable(),
+      checked: (_ctx, preset) => getPlaybackOptionPreferences().tempoPercent === preset,
+      run: (_ctx, preset) => {
+        setTempoPercent(preset);
+        announce(`Playback speed ${preset}%`);
+      },
+    }),
+    defineCommand({
+      id: 'playback.tempo.slower',
+      label: 'Slower Playback',
+      keywords: ['tempo', 'speed'],
+      enabled: () => optionsAvailable(),
+      run: () => {
+        stepTempo(-1);
+        announce(`Playback speed ${getPlaybackOptionPreferences().tempoPercent}%`);
+      },
+    }),
+    defineCommand({
+      id: 'playback.tempo.faster',
+      label: 'Faster Playback',
+      keywords: ['tempo', 'speed'],
+      enabled: () => optionsAvailable(),
+      run: () => {
+        stepTempo(1);
+        announce(`Playback speed ${getPlaybackOptionPreferences().tempoPercent}%`);
+      },
+    }),
+    defineCommand({
+      id: 'playback.tempo.reset',
+      label: 'Reset Playback Speed',
+      keywords: ['tempo', 'speed', '100%'],
+      enabled: () => optionsAvailable() && getPlaybackOptionPreferences().tempoPercent !== 100,
+      run: () => {
+        resetTempo();
+        announce('Playback speed 100%');
+      },
+    }),
+    defineCommand({
+      id: 'playback.playRepeats',
+      label: 'Play Repeats',
+      keywords: ['repeat', 'volta', 'ending', 'da capo', 'dal segno', 'coda'],
+      enabled: () => optionsAvailable(),
+      checked: () => getPlaybackOptionPreferences().playRepeats,
+      run: () => {
+        const next = !getPlaybackOptionPreferences().playRepeats;
+        setPlayRepeats(next);
+        announce(next ? 'Playing repeats' : 'Playing each measure once');
+      },
+    }),
     defineCommand({
       id: 'playback.follow',
       label: 'Follow Playback',
@@ -128,6 +190,9 @@ export function buildShellOwnCommands(): AnyCommand[] {
     }),
   ];
 }
+
+/** The engine plays tempo/repeat options; unknown (no score asked yet) still lets the preference be set. */
+const optionsAvailable = () => getPlaybackOptionsStatus().capability !== 'unavailable';
 
 /** Registered by the status bar itself, which is the only thing that can pin or unpin it. */
 export function buildStatusBarCommands(): AnyCommand[] {

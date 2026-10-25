@@ -140,7 +140,7 @@ export default function EmbeddedScorePlayer() {
     dispose: disposeTransport,
     prefetchSoundFont,
   } = transportController;
-  usePlaybackOptionsRefresh(scoreRef, transportController.playbackOptions, {
+  usePlaybackOptionsRefresh(scoreRef, score, transportController, {
     setTimeline,
     setPositions,
     notes: { modeRef: highlightModeRef, fetchSegments },

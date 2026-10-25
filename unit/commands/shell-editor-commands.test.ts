@@ -63,6 +63,7 @@ function setup(over: Partial<ShellEditorBindings> = {}, ctx: Partial<CommandCont
     isPlaying: false,
     isPaused: false,
     audioBusy: false,
+    audioPreparing: false,
     interactionPreparing: false,
     dirty: false,
     checkpointCount: 0,
