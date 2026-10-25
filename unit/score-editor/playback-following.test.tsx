@@ -63,8 +63,27 @@ function fakeTransport(state: ScoreTransportState = 'playing') {
   };
 }
 
-const fakeScore = () =>
+const followMap = {
+  schemaVersion: 1,
+  optionsRevision: 0,
+  coordinateSpace: 'page-local-360dpi',
+  complete: true,
+  durationMs: 3000,
+  renderDurationMs: 6000,
+  spatium: 10,
+  pages: [{ page: 0, width: 1000, height: 1400 }],
+  intervals: [0, 1].map((i) => ({
+    occurrenceIndex: 0,
+    measureIndex: 0,
+    segmentId: i,
+    startMs: i * 1000,
+    endMs: i * 1000 + 1000,
+    geometry: { page: 0, systemId: 0, xStart: i * 40, xEnd: i * 40 + 40, y: 90, height: 220 },
+  })),
+};
+const fakeScore = (withMap = false) =>
   ({
+    playbackFollowMap: withMap ? vi.fn(async () => followMap) : undefined,
     segmentPositions: vi.fn(async () => segments),
     measurePositions: vi.fn(async () => segments),
     playbackTimeline: vi.fn(async () => timeline),
@@ -97,9 +116,9 @@ function Harness({
   );
 }
 
-function setup(state: ScoreTransportState = 'playing') {
+function setup(state: ScoreTransportState = 'playing', withMap = false) {
   const fake = fakeTransport(state);
-  const score = fakeScore();
+  const score = fakeScore(withMap);
   const goToPage = vi.fn();
   const prefetchPage = vi.fn();
   const hook = renderHook(
@@ -157,6 +176,39 @@ describe('editor playback cursor', () => {
   });
 });
 
+describe('continuous cursor from the follow map', () => {
+  it('replaces the discrete cursor with a bar moved directly on each tick', async () => {
+    const { tick } = setup('playing', true);
+    await waitFor(() => expect(screen.getByTestId('playback-cursor')).toBeTruthy());
+    tick(500);
+    const bar = screen.getByTestId('playback-cursor');
+    expect(bar.dataset.kind).toBe('continuous');
+    expect(bar.dataset.elementId).toBe('0');
+    // Halfway through segment 0 (x 0→40), less one spatium.
+    expect(bar.style.transform).toBe('translate(10px, 90px)');
+    expect(bar.style.display).toBe('block');
+    tick(1500);
+    expect(bar.style.transform).toBe('translate(50px, 90px)');
+  });
+});
+
+describe('continuous map consistency', () => {
+  it('falls back to the discrete cursor when the map describes another options revision', async () => {
+    const fake = fakeTransport('playing');
+    const score = fakeScore(true);
+    vi.mocked(score.playbackFollowMap!).mockResolvedValue({
+      ...followMap,
+      optionsRevision: 7,
+    } as never);
+    const hook = renderHook(() =>
+      usePlaybackFollowing({ score, transport: fake.transport, currentPage: 0, goToPage: vi.fn() }),
+    );
+    await waitFor(() => expect(getFollowState().tracking).toBe('segment'));
+    expect(hook.result.current.followMapRef.current).toBeNull();
+    expect(hook.result.current.indexRef.current).not.toBeNull();
+  });
+});
+
 describe('page following', () => {
   it('turns to the playback page, and treats that turn as its own', async () => {
     const { tick, goToPage, setPage } = setup();
@@ -186,9 +238,27 @@ describe('page following', () => {
     act(() => {
       screen.getByTestId('scroll').dispatchEvent(new WheelEvent('wheel'));
     });
-    expect(getFollowState().suspended).toBe(true);
+    // Judged once the scroll settles: jsdom lays nothing out, so the cursor is not in view.
+    await waitFor(() => expect(getFollowState().suspended).toBe(true));
     act(() => requestReveal());
     expect(getFollowState().suspended).toBe(true);
+  });
+});
+
+describe('manual scrolling', () => {
+  it('keeps following while the cursor stays in view, as Viritura does', async () => {
+    const { tick } = setup();
+    const scroll = screen.getByTestId('scroll');
+    scroll.getBoundingClientRect = () => ({ top: 0, bottom: 800, left: 0, right: 1000 }) as DOMRect;
+    (scroll.firstElementChild as HTMLElement).getBoundingClientRect = () =>
+      ({ top: 0, left: 0 }) as DOMRect;
+    await waitFor(() => expect(getFollowState().tracking).toBe('segment'));
+    tick(500);
+    act(() => {
+      scroll.dispatchEvent(new WheelEvent('wheel'));
+    });
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    expect(getFollowState().suspended).toBe(false);
   });
 });
 

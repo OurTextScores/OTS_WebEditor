@@ -1,6 +1,7 @@
 import type { PlaybackTimeline, Positions } from '../webmscore-loader';
 import { occurrenceAtTime } from '../playback/timeline';
 import { segmentAtTime, sortedSegmentEvents } from '../playback/note-tracking';
+import { resolveContinuousCursor, type FollowMapIndex } from '../playback/score-following';
 import {
   easeInOut,
   frameGeometry,
@@ -27,6 +28,8 @@ export interface FramePlanInput {
   readonly leadInMs?: number;
   /** Extra time after the last note: the ring-out of the audio, shown as the last picture with nothing lit. */
   readonly tailMs?: number;
+  /** The moving cursor, from the same follow map and resolver as the editor and player; absent draws none. */
+  readonly followMap?: FollowMapIndex | null;
 }
 
 /** What one frame shows. Page and scroll are in score units; the compositor applies `geometry`. */
@@ -42,6 +45,8 @@ export interface FrameState {
   /** The lit measure (measure mode) or lit note (note mode). Null before the music and in the gaps. */
   readonly active: Box | null;
   readonly activeIsNote: boolean;
+  /** The moving cursor at this frame's music time (page units), or null. */
+  readonly cursor: { page: number; x: number; y: number; width: number; height: number } | null;
 }
 
 export interface FramePlan {
@@ -145,6 +150,7 @@ export function buildFramePlan(input: FramePlanInput): FramePlan {
 
     let active: Box | null = null;
     let activeIsNote = false;
+    let cursor: FrameState['cursor'] = null;
     if (musicMs >= 0 && musicMs <= timeline.durationMs) {
       const occurrence = occurrenceAtTime(timeline, musicMs);
       const measure = occurrence ? (measureById.get(occurrence.measureIndex) ?? null) : null;
@@ -153,8 +159,10 @@ export function buildFramePlan(input: FramePlanInput): FramePlan {
         segment && input.segments ? (input.segments.elements[segment.segmentId] ?? null) : null;
       active = note ?? measure;
       activeIsNote = note !== null;
+      const moving = resolveContinuousCursor(input.followMap ?? null, musicMs);
+      if (moving?.geometry) cursor = moving;
     }
-    return { page, scrollY, turn, active, activeIsNote };
+    return { page, scrollY, turn, active, activeIsNote, cursor };
   };
 
   return { geometry, fps, frameCount, durationMs, at, pagesInOrder };

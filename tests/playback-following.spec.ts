@@ -22,7 +22,8 @@ test('the editor cursor follows playback, and a plain note click seeks without s
 }) => {
   await startPlayback(page);
   const undo = await undoIndex(page);
-  await expect(cursor(page)).toHaveAttribute('data-kind', 'segment');
+  // The engine's follow map drives a continuous cursor (Phase 7); it still names its segment.
+  await expect(cursor(page)).toHaveAttribute('data-kind', 'continuous');
   const first = await cursorStart(page);
   await expect.poll(() => cursorStart(page), { timeout: 10_000 }).toBeGreaterThan(first);
   await expect(page.getByTestId('playback-tracking-hint')).toBeVisible();
@@ -41,7 +42,7 @@ test('the editor cursor follows playback, and a plain note click seeks without s
   expect(await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 80))).toBe(focused);
 
   await page.getByTestId('btn-stop').click();
-  await expect(cursor(page)).toHaveCount(0);
+  await expect(cursor(page)).toBeHidden();
   // Stopped: the same click is an ordinary selection again.
   await page.locator('svg .Note').nth(3).click();
   await expect(page.getByTestId('selection-overlay').first()).toBeVisible();

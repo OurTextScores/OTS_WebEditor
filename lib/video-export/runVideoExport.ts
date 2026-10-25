@@ -5,6 +5,7 @@ import { chooseFormat, maxInMemorySeconds, type ExportFormat } from './capabilit
 import { createCompositor } from './compositor';
 import { ExportCancelled, exportVideo, type ExportProgress } from './exportVideo';
 import { buildFramePlan } from './framePlan';
+import { buildFollowMapIndex } from '../playback/score-following';
 import { AUDIO_BITRATE, frameSize, videoBitrate, type VideoExportOptions } from './options';
 import { createPageProvider } from './pageRaster';
 import { createMediabunnySink, probeEncoders } from './mediabunnySink';
@@ -152,10 +153,16 @@ async function exportWithFormat(
 
   const segments =
     options.highlight === 'note' ? await score.segmentPositions().catch(() => null) : null;
+  const followMap = options.cursor
+    ? buildFollowMapIndex(
+        await Promise.resolve(score.playbackFollowMap?.() ?? null).catch(() => null),
+      )
+    : null;
   const plan = buildFramePlan({
     timeline,
     measures,
     segments,
+    followMap,
     highlight: segments ? 'note' : 'measure',
     layout: options.layout,
     frame,

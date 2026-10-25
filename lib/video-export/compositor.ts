@@ -16,6 +16,7 @@ export interface CompositorStyle {
   readonly measureFill: string;
   readonly measureStroke: string;
   readonly noteColor: string;
+  readonly cursorColor: string;
 }
 
 export const DEFAULT_STYLE: CompositorStyle = {
@@ -23,6 +24,7 @@ export const DEFAULT_STYLE: CompositorStyle = {
   measureFill: 'rgb(8 145 178 / 0.13)',
   measureStroke: 'rgb(8 145 178 / 0.8)',
   noteColor: 'rgb(8 145 178)',
+  cursorColor: 'rgb(8 145 178)',
 };
 
 export interface Compositor {
@@ -79,9 +81,20 @@ export function createCompositor(
         drawPage(state.page, state.scrollY, 1);
       }
 
+      // Highlight and cursor belong to the page they are on; mid-turn the old page fades out under them, so they wait.
+      if (state.turn && state.turn.progress < 1) return;
+      const cursor = state.cursor;
+      if (cursor && cursor.page === state.page) {
+        ctx.fillStyle = style.cursorColor;
+        ctx.fillRect(
+          offsetX + cursor.x * scale,
+          offsetY + (cursor.y - state.scrollY) * scale,
+          Math.max(1, cursor.width * scale),
+          cursor.height * scale,
+        );
+      }
       const box = state.active;
-      // The highlight belongs to the page it is on; mid-turn the old page fades out under it, so it waits for the new one.
-      if (!box || box.page !== state.page || (state.turn && state.turn.progress < 1)) return;
+      if (!box || box.page !== state.page) return;
 
       if (state.activeIsNote) {
         ctx.fillStyle = style.noteColor;

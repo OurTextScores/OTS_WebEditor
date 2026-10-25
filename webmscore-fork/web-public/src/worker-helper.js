@@ -489,6 +489,10 @@ class WebMscoreW {
         return this.rpc('playbackOptions')
     }
 
+    playbackFollowMap() {
+        return this.rpc('playbackFollowMap')
+    }
+
     /** @param {{ tempoMultiplier: number, playRepeats: boolean }} options */
     setPlaybackOptions(options) {
         return this.rpc('setPlaybackOptions', [options])

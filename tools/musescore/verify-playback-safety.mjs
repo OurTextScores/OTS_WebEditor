@@ -117,6 +117,12 @@ export async function verifyPartialPositions(W, Module) {
       assert.ok(positions.elements.filter(e => !e.geometryAvailable).every(e => e.page === -1 && e.sx === 0 && e.sy === 0));
       assert.deepEqual(positions.events, full.events, 'missing geometry does not remove musical timing');
     }
+    // The follow map keeps every interval's timing when its measure has no layout, and invents no geometry.
+    const fullMap = await score.playbackFollowMap();
+    assert.equal(partial.followMap.complete, false);
+    assert.deepEqual(partial.followMap.intervals.map(i => [i.startMs, i.endMs, i.segmentId]), fullMap.intervals.map(i => [i.startMs, i.endMs, i.segmentId]));
+    assert.ok(partial.followMap.intervals.some(i => i.geometry === null));
+    assert.ok(partial.followMap.intervals.filter(i => i.geometry).every(i => [i.geometry.xStart, i.geometry.xEnd, i.geometry.y, i.geometry.height].every(Number.isFinite)));
     const after = await score.measurePositions();
     assert.deepEqual(after, before, 'fault injection restores the real score layout');
     const repeated = await W.load('musicxml', new Uint8Array(await readFile(new URL('../../public/test_scores/playback_timeline.musicxml', import.meta.url))));

@@ -178,9 +178,22 @@ export function seekTimeAt(
       point.y <= element.y + element.sy,
   );
   if (elementId < 0) return null;
-  const times = index.events
-    .filter((event) => event.segmentId === elementId)
-    .map((event) => event.startMs);
+  return passTime(
+    index.events.filter((event) => event.segmentId === elementId).map((event) => event.startMs),
+    timeline,
+    nowMs,
+  );
+}
+
+/**
+ * Which played time of a written element to seek to, from all of its times in performance order: the pass inside
+ * the repeat run now playing, otherwise the next pass, otherwise the first. Shared by the editor and the player.
+ */
+export function passTime(
+  times: readonly number[],
+  timeline: PlaybackTimeline | null,
+  nowMs: number,
+): number | null {
   if (times.length === 0) return null;
   const run = timeline ? containingRun(timeline, nowMs) : null;
   const inRun = run ? times.find((time) => time >= run[0] && time < run[1]) : undefined;

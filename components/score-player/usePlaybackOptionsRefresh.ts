@@ -4,6 +4,7 @@ import { usePlaybackOptionsSync } from '@/lib/playback/use-playback-options';
 import type { PlaybackOptionsChange } from '@/lib/playback/options-transaction';
 import type {
   PlaybackOptions,
+  PlaybackFollowMap,
   PlaybackOptionsRequest,
   PlaybackTimeline,
   Positions,
@@ -13,6 +14,7 @@ import type {
 type Targets = {
   setTimeline: (timeline: PlaybackTimeline) => void;
   setPositions: (positions: Positions) => void;
+  setFollowMap: (map: PlaybackFollowMap | null) => void;
   notes: { modeRef: MutableRefObject<HighlightMode>; fetchSegments: (score: Score) => unknown };
 };
 
@@ -50,11 +52,13 @@ export function usePlaybackOptionsRefresh(
     void Promise.all([
       Promise.resolve(score.playbackTimeline?.() ?? null).catch(() => null),
       score.measurePositions().catch(() => null),
-    ]).then(([timeline, positions]) => {
+      Promise.resolve(score.playbackFollowMap?.() ?? null).catch(() => null),
+    ]).then(([timeline, positions, followMap]) => {
       if (!current || scoreRef.current !== score) return;
-      const { setTimeline, setPositions, notes } = targetsRef.current;
+      const { setTimeline, setPositions, setFollowMap, notes } = targetsRef.current;
       if (timeline) setTimeline(timeline);
       if (positions) setPositions(positions);
+      setFollowMap(followMap);
       if (notes.modeRef.current === 'note') void notes.fetchSegments(score);
     });
     return () => {

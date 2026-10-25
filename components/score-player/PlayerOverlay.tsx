@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useRef, type MutableRefObject } from 'react';
 import type { Positions } from '@/lib/webmscore-loader';
+import type { ContinuousCursor } from '@/lib/playback/score-following';
 
 type Box = Positions['elements'][number];
 
@@ -60,6 +61,7 @@ export default function PlayerOverlay({
   highlightTestId,
   currentPage,
   highlightRef,
+  cursor = null,
   onSeek,
 }: {
   pageSize: { width: number; height: number };
@@ -70,8 +72,11 @@ export default function PlayerOverlay({
   highlightTestId: string;
   currentPage: number;
   highlightRef: MutableRefObject<SVGRectElement | null>;
+  /** The engine-mapped moving cursor; when present it replaces the measure's leading line. */
+  cursor?: ContinuousCursor | null;
   onSeek: (box: Box) => void;
 }) {
+  const movingCursor = cursor?.geometry && cursor.page === currentPage ? cursor : null;
   // The latest handler without a new identity per render, so the memoised layer below is not rebuilt each frame.
   const latestSeek = useRef(onSeek);
   useEffect(() => {
@@ -100,7 +105,7 @@ export default function PlayerOverlay({
             stroke={highlightIsNote ? 'none' : 'rgb(8 145 178 / 0.8)'}
             strokeWidth="2"
           />
-          {!highlightIsNote && (
+          {!highlightIsNote && !movingCursor && (
             <line
               x1={highlight.x}
               y1={highlight.y}
@@ -111,6 +116,17 @@ export default function PlayerOverlay({
             />
           )}
         </g>
+      )}
+      {movingCursor && (
+        <rect
+          data-testid="player-cursor"
+          pointerEvents="none"
+          x={movingCursor.x}
+          y={movingCursor.y}
+          width={movingCursor.width}
+          height={movingCursor.height}
+          fill="rgb(8 145 178)"
+        />
       )}
     </svg>
   );

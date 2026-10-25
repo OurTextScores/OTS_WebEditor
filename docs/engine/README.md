@@ -195,3 +195,10 @@ through the transport's position-preserving change, gated on the `playbackOption
 (`components/score-editor/page-turns/`): latest target wins, manual supersedes automatic, and commits are
 generation-checked against every other canvas render (`pageInstallGenerationRef`). Following prefetches the next
 page in performance order into a bounded cache, spending only the transport's scheduled-audio cushion.
+
+## Continuous cursor (Phase 7)
+
+[Phase 7 execution record](PHASE7_2026-10-25.md). `playbackFollowMap()` (`followmap.h`) returns repeat-expanded,
+tempo-split cursor intervals with native geometry under the playback options; `resolveContinuousCursor`
+interpolates only within an interval. Editor, player and video export share the resolver. Verify with
+`MS47_VERIFY_FOLLOW_MAP=1` and the upstream repeat corpus `MS47_VERIFY_REPEAT_CORPUS=1` (69/69).

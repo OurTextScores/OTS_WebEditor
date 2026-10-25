@@ -95,7 +95,14 @@ async function* blocks(count: number, seconds = 1): AsyncGenerator<AudioBlock> {
 }
 
 describe('frameKey', () => {
-  const base = { page: 0, scrollY: 0, turn: null, active: box(0, 0, 200), activeIsNote: false };
+  const base = {
+    page: 0,
+    scrollY: 0,
+    turn: null,
+    active: box(0, 0, 200),
+    activeIsNote: false,
+    cursor: null,
+  };
   it('is equal for identical pictures and differs when anything visible changes', () => {
     expect(frameKey({ ...base })).toBe(frameKey({ ...base, active: { ...box(0, 0, 200) } }));
     expect(frameKey({ ...base, active: box(1, 0, 700) })).not.toBe(frameKey(base));

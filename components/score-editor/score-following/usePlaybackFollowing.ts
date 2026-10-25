@@ -8,6 +8,8 @@ import {
 } from 'react';
 import {
   buildCursorIndex,
+  buildFollowMapIndex,
+  type FollowMapIndex,
   seekTimeAt,
   updateFollowState,
   type CursorIndex,
@@ -54,6 +56,8 @@ export type SeekClick = {
  */
 export type PlaybackFollowing = {
   indexRef: MutableRefObject<CursorIndex | null>;
+  /** The engine's continuous map, when the engine has one and it validates; drawing falls back to `indexRef`. */
+  followMapRef: MutableRefObject<FollowMapIndex | null>;
   timelineRef: MutableRefObject<PlaybackTimeline | null>;
   transportRef: MutableRefObject<FollowTransport>;
   currentPageRef: MutableRefObject<number>;
@@ -82,6 +86,7 @@ export function usePlaybackFollowing({
   prefetchLeadMs,
 }: Options) {
   const indexRef = useRef<CursorIndex | null>(null);
+  const followMapRef = useRef<FollowMapIndex | null>(null);
   const timelineRef = useRef<PlaybackTimeline | null>(null);
   const transportRef = useRef(transport);
   const currentPageRef = useRef(currentPage);
@@ -99,6 +104,7 @@ export function usePlaybackFollowing({
     const seekListeners = new Set<(timeMs: number) => void>();
     return {
       indexRef,
+      followMapRef,
       timelineRef,
       transportRef,
       currentPageRef,
@@ -149,9 +155,19 @@ export function usePlaybackFollowing({
       score.segmentPositions().catch(() => null),
       score.measurePositions().catch(() => null),
       Promise.resolve(score.playbackTimeline?.() ?? null).catch(() => null),
-    ]).then(([segments, measures, timeline]) => {
+      Promise.resolve(score.playbackFollowMap?.() ?? null).catch(() => null),
+    ]).then(([segments, measures, timeline, followMap]) => {
       if (!current) return;
       indexRef.current = buildCursorIndex(segments, measures);
+      // A wrong cursor is worse than a discrete one: the continuous map must describe the same traversal (options
+      // revision and duration) as the segment map and timeline read with it, or it is not used.
+      const continuous = buildFollowMapIndex(followMap);
+      const agrees =
+        continuous &&
+        continuous.optionsRevision ===
+          (indexRef.current?.optionsRevision ?? continuous.optionsRevision) &&
+        (!timeline || Math.abs((followMap?.durationMs ?? 0) - timeline.durationMs) <= 1);
+      followMapRef.current = agrees ? continuous : null;
       timelineRef.current = timeline;
       setMapIncomplete(indexRef.current?.positions.complete === false);
       updateFollowState({ tracking: indexRef.current?.kind ?? 'unavailable' });
@@ -165,6 +181,7 @@ export function usePlaybackFollowing({
 
   useEffect(() => {
     indexRef.current = null;
+    followMapRef.current = null;
     timelineRef.current = null;
     updateFollowState({ tracking: null });
     following.mapListeners.forEach((listener) => listener());

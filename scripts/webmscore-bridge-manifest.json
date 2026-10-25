@@ -5,6 +5,7 @@
       "engine/musescore/bridge/bridge.cpp",
       "engine/musescore/bridge/chordedits.h",
       "engine/musescore/bridge/dragtools.h",
+      "engine/musescore/bridge/followmap.h",
       "engine/musescore/bridge/frettools.h",
       "engine/musescore/bridge/inspector.h",
       "engine/musescore/bridge/layouttools.h",

@@ -485,6 +485,8 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* playbackCapabilities(uintptr_t id, int excer
     options.set("playRepeats", true);
     options.set("positionConversion", true);
     caps.set("playbackOptions", options);
+    // Repeat-expanded cursor intervals with native geometry (followmap.h)
+    caps.set("followMapSchemaVersion", 1);
 #ifdef MS47_WITH_PLAYBACK
     caps.set("streamHandlesVersion", 1);
     caps.set("soundFontGeneration", true);

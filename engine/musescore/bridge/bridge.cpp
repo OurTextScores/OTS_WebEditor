@@ -310,6 +310,7 @@ EMSCRIPTEN_KEEPALIVE bool redo(uintptr_t id,int excerpt) {
 #include "frettools.h"
 #include "parttools.h"
 #include "metatools.h"
+#include "followmap.h"
 #include "layouttools.h"
 #include "dragtools.h"
 #include "miditools.h"

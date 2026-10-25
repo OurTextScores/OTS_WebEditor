@@ -13,9 +13,21 @@ const markerStyle = (cursor: PlaybackCursor): React.CSSProperties =>
  * a white outline keeps it visible over selection colours without relying on colour alone.
  */
 export function PlaybackFollowLayer(props: FollowLayerOptions) {
-  const { cursor, seekMarker } = usePlaybackFollowLayer(props);
+  const { cursor, step, seekMarker, barRef, continuous } = usePlaybackFollowLayer(props);
   return (
     <>
+      {continuous && (
+        <div
+          ref={barRef}
+          // One cursor element either way: the moving bar carries the discrete segment it is in.
+          data-testid="playback-cursor"
+          data-kind="continuous"
+          data-element-id={step?.elementId}
+          data-start-ms={step?.startMs}
+          aria-hidden="true"
+          className="pointer-events-none absolute left-0 top-0 z-20 hidden bg-accent shadow-[0_0_0_1px_white]"
+        />
+      )}
       {seekMarker && (
         <div
           data-testid="playback-seek-marker"

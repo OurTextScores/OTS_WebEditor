@@ -6,12 +6,8 @@ import type { PlaybackTimeline, Positions, Score } from '@/lib/webmscore-loader'
 import { sanitizeEngineSvg } from '@/lib/sanitize-svg';
 import { trackEditorAnalyticsEvent } from '@/lib/editor-analytics';
 import { loadScoreFromUrl, requestScoreLayoutProgress } from '@/lib/score-loader';
-import {
-  occurrenceAtTime,
-  occurrenceForMeasure,
-  timelineFromPositions,
-} from '@/lib/playback/timeline';
-import { hasPositionGeometry, segmentTimeForId } from '@/lib/playback/note-tracking';
+import { occurrenceAtTime, timelineFromPositions } from '@/lib/playback/timeline';
+import { hasPositionGeometry } from '@/lib/playback/note-tracking';
 import { setCountIn, setMetronome } from '@/lib/playback/click-preferences';
 import { useClickPreferences } from '@/lib/playback/use-click-preferences';
 import { setVolumePreference } from '@/lib/playback/volume-preference';
@@ -31,6 +27,12 @@ import { initialHighlightMode, useHighlightView, useNoteHighlight } from './useN
 import { useNoteheadColor } from './useNoteheadColor';
 import { usePlaybackOptionsRefresh } from './usePlaybackOptionsRefresh';
 import { usePlayerFollowScroll } from './usePlayerFollowScroll';
+import {
+  buildFollowMapIndex,
+  passTime,
+  resolveContinuousCursor,
+  type FollowMapIndex,
+} from '@/lib/playback/score-following';
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const pageCountBucket = (count: number) => (count <= 1 ? '1' : count <= 5 ? '2_to_5' : '6_plus');
@@ -81,6 +83,7 @@ export default function EmbeddedScorePlayer() {
   const [svg, setSvg] = useState('');
   const [positions, setPositions] = useState<Positions | null>(null);
   const [timeline, setTimeline] = useState<PlaybackTimeline | null>(null);
+  const [followMap, setFollowMap] = useState<FollowMapIndex | null>(null);
   const [title, setTitle] = useState('Score playback');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -144,6 +147,7 @@ export default function EmbeddedScorePlayer() {
   usePlaybackOptionsRefresh(scoreRef, score, transportController, {
     setTimeline,
     setPositions,
+    setFollowMap: (map) => setFollowMap(buildFollowMapIndex(map)),
     notes: { modeRef: highlightModeRef, fetchSegments },
   });
 
@@ -282,6 +286,12 @@ export default function EmbeddedScorePlayer() {
           nativeTimeline ?? timelineFromPositions(measurePositions, metadataDurationMs);
         setPositions(measurePositions);
         setTimeline(nextTimeline);
+        setFollowMap(
+          buildFollowMapIndex(
+            await Promise.resolve(loadedScore.playbackFollowMap?.() ?? null).catch(() => null),
+          ),
+        );
+        if (controller.signal.aborted || loadGenerationRef.current !== generation) return;
         if (highlightModeRef.current === 'note') {
           const notePositions = await loadedScore.segmentPositions().catch(() => null);
           if (controller.signal.aborted || loadGenerationRef.current !== generation) return;
@@ -793,14 +803,21 @@ export default function EmbeddedScorePlayer() {
                   }
                   currentPage={currentPage}
                   highlightRef={activeMeasureRef}
+                  cursor={
+                    transport === 'idle' || transport === 'ended'
+                      ? null
+                      : resolveContinuousCursor(followMap, positionMs)
+                  }
                   onSeek={(box) => {
-                    if (highlight.mode === 'note' && highlight.segments) {
-                      const targetMs = segmentTimeForId(view.events, box.id, positionRef.current);
-                      if (targetMs !== null) handleSeek(targetMs);
-                      return;
-                    }
-                    const occurrence = occurrenceForMeasure(timeline, box.id, positionRef.current);
-                    if (occurrence) handleSeek(occurrence.startMs);
+                    // The pass inside the repeat run now playing, else the next one, else the first (as the editor).
+                    const times =
+                      highlight.mode === 'note' && highlight.segments
+                        ? view.events.filter((e) => e.segmentId === box.id).map((e) => e.startMs)
+                        : (timeline?.occurrences ?? [])
+                            .filter((o) => o.measureIndex === box.id)
+                            .map((o) => o.startMs);
+                    const targetMs = passTime(times, timeline, positionRef.current);
+                    if (targetMs !== null) handleSeek(targetMs);
                   }}
                 />
               )}

@@ -16,6 +16,7 @@ extern "C" EMSCRIPTEN_KEEPALIVE const uint8_t* probeMissingLayout(uintptr_t id)
     JsonObject result;
     result.set("measures", positionsJson(id, score, false));
     result.set("segments", positionsJson(id, score, true));
+    result.set("followMap", ms47follow::followMapJson(id, score));
     for (const auto& [measure, parent] : parents) measure->setParent(parent);
     return response(JsonDocument(result).toJson(JsonDocument::Format::Compact));
 }

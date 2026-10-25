@@ -45,6 +45,8 @@ export const frameKey = (state: FrameState): string =>
     state.scrollY,
     state.turn ? `${state.turn.fromPage}:${state.turn.fromScrollY}:${state.turn.progress}` : '-',
     state.active ? `${state.active.id}:${state.active.page}:${state.activeIsNote}` : '-',
+    // A moving cursor changes the picture even when the highlight does not.
+    state.cursor ? `${state.cursor.page}:${state.cursor.x.toFixed(1)}:${state.cursor.y}` : '-',
   ].join('|');
 
 /** How far ahead of the picture the audio is kept, in seconds, so the muxer never waits on a track. */

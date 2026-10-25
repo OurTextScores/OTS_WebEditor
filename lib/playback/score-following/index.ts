@@ -2,6 +2,7 @@ export {
   buildCursorIndex,
   cursorAt,
   nextPageChange,
+  passTime,
   sameCursor,
   seekTimeAt,
   type CursorIndex,
@@ -21,3 +22,9 @@ export {
   updateFollowState,
   type FollowState,
 } from './follow-preferences';
+export {
+  buildFollowMapIndex,
+  resolveContinuousCursor,
+  type ContinuousCursor,
+  type FollowMapIndex,
+} from './follow-map';

@@ -12,6 +12,8 @@ import { verifyMidi } from './verify-midi.mjs';
 import { verifyAudio } from './verify-audio.mjs';
 import { verifyPlaybackSafety, verifyPartialPositions } from './verify-playback-safety.mjs';
 import { verifyPlaybackOptions } from './verify-playback-options.mjs';
+import { verifyFollowMap } from './verify-follow-map.mjs';
+import { verifyRepeatCorpus } from './verify-repeat-corpus.mjs';
 import { verifyPdf } from './verify-pdf.mjs';
 import { verifyResources } from './verify-resources.mjs';
 import { verifyStubs } from './verify-stubs.mjs';
@@ -236,6 +238,8 @@ export default options => Engine({ ...options, wasmBinary: readFileSync(new URL(
   const playbackOptions = process.env.MS47_VERIFY_PLAYBACK_OPTIONS
     ? await verifyPlaybackOptions(WebMscore, await nativeModule())
     : undefined;
+  const followMap = process.env.MS47_VERIFY_FOLLOW_MAP ? await verifyFollowMap(WebMscore) : undefined;
+  const repeatCorpus = process.env.MS47_VERIFY_REPEAT_CORPUS ? await verifyRepeatCorpus(WebMscore, build) : undefined;
   const partialPositions = process.env.MS47_VERIFY_PARTIAL_POSITIONS ? await verifyPartialPositions(WebMscore, await nativeModule()) : undefined;
   const pdf = process.env.MS47_VERIFY_PDF ? await verifyPdf(WebMscore, renderer, output) : undefined;
   const stubs = process.env.MS47_VERIFY_STUBS ? await verifyStubs(WebMscore) : undefined;
@@ -247,7 +251,7 @@ export default options => Engine({ ...options, wasmBinary: readFileSync(new URL(
   if (lazy) console.log(`lazy resources fetched during the run: ${[...new Set(lazy.fetched)].join(', ') || 'none'}`);
   const cache = await readFile(path.join(process.env.MS47_BUILD || path.join(workspace, 'ms47-build-wasm'), 'CMakeCache.txt'), 'utf8');
   const wasm = await readFile(bundle ? path.join(bundle, 'webmscore.lib.wasm') : path.join(temp, 'ms47_bridge.wasm'));
-  const report = { bootMs, results, edits, systemLocks, inspector, selection, noteInput, measures, timeline, spanners, misc, drag, midi, audio, playbackSafety, playbackOptions, partialPositions, pdf, stubs, parts, resources, layoutOracle, build: { node: process.version, target: bundle ? 'browser-package' : 'node-harness', fastLink: /^MS47_BRIDGE_FAST_LINK:BOOL=ON$/m.test(cache), wasmBytes: wasm.length, wasmSha256: createHash('sha256').update(wasm).digest('hex') } };
+  const report = { bootMs, results, edits, systemLocks, inspector, selection, noteInput, measures, timeline, spanners, misc, drag, midi, audio, playbackSafety, playbackOptions, followMap, repeatCorpus, partialPositions, pdf, stubs, parts, resources, layoutOracle, build: { node: process.version, target: bundle ? 'browser-package' : 'node-harness', fastLink: /^MS47_BRIDGE_FAST_LINK:BOOL=ON$/m.test(cache), wasmBytes: wasm.length, wasmSha256: createHash('sha256').update(wasm).digest('hex') } };
   await writeFile(path.join(output, 'timings.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
 } finally {

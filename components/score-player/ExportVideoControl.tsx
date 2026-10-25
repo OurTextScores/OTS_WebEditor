@@ -165,6 +165,16 @@ export default function ExportVideoControl({
               ]}
               onChange={(value) => set('audio', value)}
             />
+            <Choice
+              label="Cursor"
+              value={options.cursor}
+              disabled={running}
+              options={[
+                { value: false, text: 'None' },
+                { value: true, text: 'Moving cursor' },
+              ]}
+              onChange={(value) => set('cursor', value)}
+            />
           </div>
 
           {picker && (

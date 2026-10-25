@@ -7,6 +7,8 @@ export interface VideoExportOptions {
   readonly highlight: VideoHighlight;
   /** Include the rendered audio. Off gives a silent video. */
   readonly audio: boolean;
+  /** Draw the moving playback cursor (the editor/player follow map). Off by default: an intentional choice. */
+  readonly cursor: boolean;
 }
 
 export const DEFAULT_OPTIONS: VideoExportOptions = {
@@ -14,6 +16,7 @@ export const DEFAULT_OPTIONS: VideoExportOptions = {
   fps: 30,
   highlight: 'measure',
   audio: true,
+  cursor: false,
 };
 
 /** Frame size in pixels. Even, because H.264 cannot encode odd dimensions. */

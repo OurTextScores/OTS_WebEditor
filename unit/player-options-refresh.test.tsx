@@ -17,12 +17,14 @@ function setup(mode: HighlightMode = 'measure') {
   const score = {
     playbackTimeline: vi.fn(async () => timeline),
     measurePositions: vi.fn(async () => positions),
+    playbackFollowMap: vi.fn(async () => null),
   } as unknown as Score;
   const scoreRef = { current: score as Score | null };
   const setPlaybackOptions = vi.fn();
   const targets = {
     setTimeline: vi.fn(),
     setPositions: vi.fn(),
+    setFollowMap: vi.fn(),
     notes: { modeRef: { current: mode }, fetchSegments: vi.fn() },
   };
   const hook = renderHook(
@@ -51,6 +53,7 @@ describe('player timing refresh on a playback-options revision', () => {
     hook.rerender({ accepted: options(1) });
     await waitFor(() => expect(targets.setTimeline).toHaveBeenCalledWith(timeline));
     expect(targets.setPositions).toHaveBeenCalledWith(positions);
+    expect(targets.setFollowMap).toHaveBeenCalledWith(null);
     expect(targets.notes.fetchSegments).toHaveBeenCalledWith(score);
     hook.rerender({ accepted: { ...options(1), changed: false } });
     expect(score.playbackTimeline).toHaveBeenCalledOnce();

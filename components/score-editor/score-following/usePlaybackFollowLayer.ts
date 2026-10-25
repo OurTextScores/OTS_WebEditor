@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -8,6 +9,7 @@ import {
 } from 'react';
 import {
   cursorAt,
+  resolveContinuousCursor,
   nextPageChange,
   getFollowState,
   getFollowStateOnServer,
@@ -20,6 +22,7 @@ import {
 } from '../../../lib/playback/score-following';
 import type { ScoreTransportState } from '../../../lib/playback/use-score-transport';
 import type { PlaybackFollowing } from './usePlaybackFollowing';
+import { useManualScrollSuspension } from './useManualScrollSuspension';
 
 export type FollowLayerOptions = {
   following: PlaybackFollowing;
@@ -30,8 +33,6 @@ export type FollowLayerOptions = {
   scoreWrapperRef: RefObject<HTMLDivElement | null>;
 };
 
-/** Keys that scroll the canvas by hand; any of them suspends following, like the wheel or a touch drag. */
-const SCROLL_KEYS = new Set(['PageUp', 'PageDown', 'Home', 'End', 'ArrowUp', 'ArrowDown']);
 const SEEK_MARKER_MS = 700;
 /** The next page is prepared at least this long before playback reaches it, longer when renders are slow. */
 const MIN_PREFETCH_LEAD_MS = 6_000;
@@ -60,6 +61,27 @@ export function usePlaybackFollowLayer({
   const [seekMarker, setSeekMarker] = useState<PlaybackCursor | null>(null);
   const follow = useSyncExternalStore(subscribeFollowState, getFollowState, getFollowStateOnServer);
   const cursorRef = useRef<PlaybackCursor | null>(null);
+  // The continuous bar is positioned straight from position ticks: no React render per frame.
+  const barRef = useRef<HTMLDivElement | null>(null);
+  const [continuous, setContinuous] = useState(false);
+  const paintBar = useRef(() => {
+    const bar = barRef.current;
+    if (!bar) return;
+    const transport = following.transportRef.current;
+    const live =
+      transport.stateRef.current === 'playing' || transport.stateRef.current === 'paused';
+    const at = live
+      ? resolveContinuousCursor(following.followMapRef.current, transport.positionRef.current)
+      : null;
+    if (!at?.geometry || at.page !== pageRef.current) {
+      bar.style.display = 'none';
+      return;
+    }
+    bar.style.display = 'block';
+    bar.style.transform = `translate(${at.x}px, ${at.y}px)`;
+    bar.style.width = `${at.width}px`;
+    bar.style.height = `${at.height}px`;
+  });
   const pendingPageRef = useRef<number | null>(null);
   const pageRef = useRef(currentPage);
   const zoomRef = useRef(zoom);
@@ -141,6 +163,7 @@ export function usePlaybackFollowLayer({
   });
 
   const recompute = useRef(() => {
+    paintBar.current();
     const transport = following.transportRef.current;
     const live =
       transport.stateRef.current === 'playing' || transport.stateRef.current === 'paused';
@@ -158,11 +181,15 @@ export function usePlaybackFollowLayer({
   useEffect(() => {
     const transport = following.transportRef.current;
     const update = recompute.current;
+    const onMap = () => {
+      setContinuous(following.followMapRef.current !== null);
+      update();
+    };
     const unsubscribe = transport.subscribePosition(update);
-    following.mapListeners.add(update);
+    following.mapListeners.add(onMap);
     return () => {
       unsubscribe();
-      following.mapListeners.delete(update);
+      following.mapListeners.delete(onMap);
     };
   }, [following]);
 
@@ -174,6 +201,7 @@ export function usePlaybackFollowLayer({
   useEffect(() => {
     if (pageRef.current === currentPage) return;
     pageRef.current = currentPage;
+    paintBar.current();
     if (pendingPageRef.current === currentPage) {
       pendingPageRef.current = null;
       if (cursorRef.current?.page === currentPage) scrollToCursor.current(cursorRef.current);
@@ -196,28 +224,22 @@ export function usePlaybackFollowLayer({
     followCursor.current(cursorRef.current, true);
   }, [follow.revealRequests]);
 
-  // Manual scrolling (wheel, touch drag, scroll keys, the scrollbar) suspends following until Resume.
-  useEffect(() => {
+  // Visible: the cursor's system band overlaps the scroll viewport, on the page that is shown.
+  const isPlaybackVisible = useCallback(() => {
+    const target = cursorRef.current;
     const container = scrollContainerRef.current;
-    if (!container) return;
-    const suspend = () => suspendFollow();
-    const onKey = (event: KeyboardEvent) => {
-      if (SCROLL_KEYS.has(event.key)) suspendFollow();
-    };
-    const onPointerDown = (event: PointerEvent) => {
-      if (event.target === container) suspendFollow();
-    };
-    container.addEventListener('wheel', suspend, { passive: true });
-    container.addEventListener('touchmove', suspend, { passive: true });
-    container.addEventListener('keydown', onKey);
-    container.addEventListener('pointerdown', onPointerDown);
-    return () => {
-      container.removeEventListener('wheel', suspend);
-      container.removeEventListener('touchmove', suspend);
-      container.removeEventListener('keydown', onKey);
-      container.removeEventListener('pointerdown', onPointerDown);
-    };
-  }, [scrollContainerRef]);
+    const wrapper = scoreWrapperRef.current;
+    if (!target?.geometry || target.page !== pageRef.current || !container || !wrapper)
+      return false;
+    const view = container.getBoundingClientRect();
+    const page = wrapper.getBoundingClientRect();
+    const scale = zoomRef.current;
+    const top = page.top + target.y * scale;
+    const bottom = page.top + (target.y + target.height) * scale;
+    const x = page.left + target.x * scale;
+    return bottom > view.top && top < view.bottom && x >= view.left && x <= view.right;
+  }, [scrollContainerRef, scoreWrapperRef]);
+  useManualScrollSuspension(scrollContainerRef, isPlaybackVisible);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -237,7 +259,12 @@ export function usePlaybackFollowLayer({
   const onPage = (target: PlaybackCursor | null) =>
     target?.geometry && target.page === currentPage ? target : null;
   return {
-    cursor: onPage(cursor),
+    // With a follow map the moving bar draws; the discrete cursor still drives following and is the fallback.
+    cursor: continuous ? null : onPage(cursor),
+    /** The discrete segment the moving bar is in, for its data attributes. */
+    step: onPage(cursor),
+    barRef,
+    continuous,
     seekMarker: onPage(seekMarker),
     playing: transportState === 'playing',
   };

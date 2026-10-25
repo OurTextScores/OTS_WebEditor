@@ -80,6 +80,39 @@ export interface PlaybackCapabilities {
     playRepeats: boolean;
     positionConversion: boolean;
   };
+  /** Present when `playbackFollowMap()` is supported. */
+  followMapSchemaVersion?: number;
+}
+
+/**
+ * Repeat-expanded playback cursor intervals with native geometry (followmap.h). Within an interval the cursor moves
+ * linearly in time from xStart to xEnd (the engine splits intervals wherever that would not hold); geometry is null
+ * where the page is not laid out. Times use the options revision `optionsRevision`.
+ */
+export interface PlaybackFollowMap {
+  schemaVersion: 1;
+  optionsRevision: number;
+  coordinateSpace: 'page-local-360dpi';
+  complete: boolean;
+  durationMs: number;
+  renderDurationMs: number;
+  spatium: number;
+  pages: Array<{ page: number; width: number; height: number }>;
+  intervals: Array<{
+    occurrenceIndex: number;
+    measureIndex: number;
+    segmentId: number | null;
+    startMs: number;
+    endMs: number;
+    geometry: null | {
+      page: number;
+      systemId: number;
+      xStart: number;
+      xEnd: number;
+      y: number;
+      height: number;
+    };
+  }>;
 }
 
 export interface PlaybackOptionsRequest {
@@ -287,6 +320,7 @@ export interface Score {
   playbackCapabilities?: () => Promise<PlaybackCapabilities | null>;
   playbackTimeline?: () => Promise<PlaybackTimeline | null> | PlaybackTimeline | null;
   playbackOptions?: () => Promise<PlaybackOptions | null>;
+  playbackFollowMap?: () => Promise<PlaybackFollowMap | null>;
   /** Applies to the whole project (its parts share the tempo map); retires its prepared stream on change. */
   setPlaybackOptions?: (options: PlaybackOptionsRequest) => Promise<PlaybackOptions | null>;
   playbackPositionAt?: (timeMs: number) => Promise<MusicalPlaybackPosition | null>;

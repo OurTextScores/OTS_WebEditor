@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { ANTICIPATE_MS, TRANSITION_MS, buildFramePlan } from '../../lib/video-export/framePlan';
 import { frameGeometry, scrollForRow, systemRowsByMeasure } from '../../lib/video-export/layout';
 import type { PlaybackTimeline, Positions } from '../../lib/webmscore-loader';
+import { buildFollowMapIndex, resolveContinuousCursor } from '../../lib/playback/score-following';
+import { frameKey } from '../../lib/video-export/exportVideo';
 
 type Box = Positions['elements'][number];
 
@@ -229,5 +231,55 @@ describe('buildFramePlan', () => {
     });
     expect(empty.frameCount).toBe(1);
     expect(empty.at(0)).toMatchObject({ page: 0, active: null, turn: null });
+  });
+});
+
+describe('moving cursor in the export', () => {
+  const followMap = buildFollowMapIndex({
+    schemaVersion: 1,
+    optionsRevision: 0,
+    coordinateSpace: 'page-local-360dpi',
+    complete: true,
+    durationMs: 2000,
+    renderDurationMs: 5000,
+    spatium: 10,
+    pages: [{ page: 0, width: 2000, height: 3000 }],
+    intervals: [0, 1].map((i) => ({
+      occurrenceIndex: i,
+      measureIndex: i,
+      segmentId: i,
+      startMs: i * 1000,
+      endMs: i * 1000 + 1000,
+      geometry: {
+        page: 0,
+        systemId: 0,
+        xStart: 100 + i * 500,
+        xEnd: 500 + i * 500,
+        y: 180,
+        height: 240,
+      },
+    })),
+  });
+
+  it('draws the cursor the player shows at the same music time, after any lead-in', () => {
+    const plan = buildFramePlan({
+      ...base,
+      timeline: timelineOf([0, 1]),
+      leadInMs: 2_000,
+      followMap,
+    });
+    for (const musicMs of [0, 250, 999, 1000, 1500]) {
+      expect(plan.at(2_000 + musicMs).cursor).toEqual(
+        expect.objectContaining(resolveContinuousCursor(followMap, musicMs)),
+      );
+    }
+    expect(plan.at(1_000).cursor).toBeNull();
+    expect(buildFramePlan({ ...base, timeline: timelineOf([0, 1]) }).at(500).cursor).toBeNull();
+  });
+
+  it('gives frames that differ only by the cursor different keys, so neither is dropped as a duplicate', () => {
+    const plan = buildFramePlan({ ...base, timeline: timelineOf([0, 1]), followMap });
+    expect(frameKey(plan.at(100))).not.toBe(frameKey(plan.at(400)));
+    expect(plan.at(100).active).toEqual(plan.at(400).active);
   });
 });

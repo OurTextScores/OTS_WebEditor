@@ -38,6 +38,7 @@ const state = (over: Partial<FrameState> = {}): FrameState => ({
   scrollY: 0,
   turn: null,
   active: null,
+  cursor: null,
   activeIsNote: false,
   ...over,
 });
@@ -141,5 +142,21 @@ describe('createCompositor', () => {
     const blit = calls.find((c) => c[0] === 'drawImage')!;
     expect(blit[6]).toBe(portrait.offsetX);
     expect(blit[7]).toBeCloseTo(portrait.offsetY);
+  });
+
+  it('draws the moving cursor on its own page, and not while a page turns', () => {
+    const cursor = { page: 0, x: 600, y: 180, width: 4, height: 240 };
+    const { ctx, calls } = recorder();
+    createCompositor(ctx, frame, geometry, image, undefined, makePath).draw(state({ cursor }));
+    // Page units scaled by 0.5 into the frame.
+    expect(calls.filter((c) => c[0] === 'fillRect')).toContainEqual(['fillRect', 300, 90, 2, 120]);
+    for (const over of [
+      { cursor: { ...cursor, page: 1 } },
+      { cursor, turn: { fromPage: 1, fromScrollY: 0, progress: 0.5 } },
+    ]) {
+      const recorded = recorder();
+      createCompositor(recorded.ctx, frame, geometry, image, undefined, makePath).draw(state(over));
+      expect(recorded.calls.filter((c) => c[0] === 'fillRect')).toHaveLength(1);
+    }
   });
 });

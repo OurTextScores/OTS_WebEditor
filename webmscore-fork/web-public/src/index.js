@@ -771,6 +771,17 @@ class WebMscore {
     }
 
     /**
+     * Repeat-expanded playback cursor intervals with native geometry, under the current playback options;
+     * null on older engines.
+     * @returns {Promise<import('../schemas').PlaybackFollowMap | null>}
+     */
+    async playbackFollowMap() {
+        if (typeof Module._playbackFollowMap !== 'function') return null
+        const ptr = Module.ccall('playbackFollowMap', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])
+        return JSON.parse(WasmRes.readText(ptr))
+    }
+
+    /**
      * Return the repeat-expanded, tempo-aware measure occurrence timeline.
      * @returns {Promise<import('../schemas').PlaybackTimeline | null>}
      */

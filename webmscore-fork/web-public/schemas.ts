@@ -230,6 +230,34 @@ export interface PlaybackCapabilities {
     playRepeats: boolean;
     positionConversion: boolean;
   };
+  followMapSchemaVersion?: number;
+}
+
+/** Repeat-expanded playback cursor intervals (score-following design §7.2). Times are under `optionsRevision`. */
+export interface PlaybackFollowMap {
+  schemaVersion: 1;
+  optionsRevision: number;
+  coordinateSpace: 'page-local-360dpi';
+  complete: boolean;
+  durationMs: number;
+  renderDurationMs: number;
+  spatium: number;
+  pages: Array<{ page: number; width: number; height: number }>;
+  intervals: Array<{
+    occurrenceIndex: number;
+    measureIndex: number;
+    segmentId: number | null;
+    startMs: number;
+    endMs: number;
+    geometry: null | {
+      page: number;
+      systemId: number;
+      xStart: number;
+      xEnd: number;
+      y: number;
+      height: number;
+    };
+  }>;
 }
 
 /** Transient per-project playback options; never part of the notation, undo or saved score. */
