@@ -20,6 +20,7 @@ import type { MutableRefObject } from 'react';
 /** Values defined after the hook is called; ScoreEditor assigns them on every render, before any event or effect can read them. */
 export type EditorCoreLateInputs = {
   interactiveMutationEnabled: boolean;
+  beforeMutation?: () => Promise<void>;
   playSelectionPreview: (
     trigger?: string,
     selectionPoint?: { page: number; x: number; y: number },
@@ -485,6 +486,8 @@ export function useEditorCore(ctx: EditorCoreContext) {
       console.warn(`Mutation "${label}" requested but binding is missing on Score instance.`);
       return;
     }
+
+    await lateInputs.current.beforeMutation?.();
 
     // Preserve selection state before mutation for use in fallback
     const preservedIndex = selectedIndex;

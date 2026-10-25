@@ -143,3 +143,19 @@ This benchmark opens three cold Node processes with five stream starts each. It 
 load/SVG, native prepare, first pull and cancel, plus notation/PCM hashes. It excludes network, worker RPC, browser
 scheduling and output-device latency. See [`PHASE0_2026-10-24.md`](PHASE0_2026-10-24.md) for measured results and
 [`baselines/`](baselines/) for raw artifact/timing records. A local copy of the optional soundfont is needed to benchmark.
+
+## Shared playback sessions (Phase 2)
+
+[Phase 2 execution record](PHASE2_2026-10-24.md) documents the shared editor/player transport,
+compare adapters, cancellation barriers and buffering behavior. Browser-only changes use the installed
+Phase 1 engine; rebuilding native artifacts is unnecessary for this phase.
+
+- `lib/playback/session-owner.ts`: attempt/resource ownership, preparation retirement and presentation refs.
+- `lib/playback/use-score-transport.ts`: shared React adapter, stream factories, Web Audio fallback and clicks.
+- `lib/playback/stream-scheduler.ts` and `stream-frontier.ts`: bounded scheduling, starvation and fresh anchors.
+- `components/score-editor/playback-session/`: editor adapter and explicit notation/lifecycle boundary.
+
+`stopAt()` cancels audible output immediately and returns an awaitable retirement barrier. Await it before
+mutating or destroying a score. `reset()` only invalidates/reset state; it does not replace an awaited
+retirement boundary. Editor animation consumers read `clockRef`/`positionRef` or subscribe to position;
+do not introduce animation-frame worker RPC or editor-root React position updates.

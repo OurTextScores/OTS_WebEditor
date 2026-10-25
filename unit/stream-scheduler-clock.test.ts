@@ -103,14 +103,17 @@ describe('turning engine blocks into audio buffers', () => {
     expect(audio.buffers[1].data[0][100]).toBe(-0.25);
   });
 
-  it('uses at most two channels, even if the engine returns more', async () => {
+  // The SynthRes ABI is planar mono/stereo; a wider block is a malformed record, not audio to truncate.
+  it('rejects a block with more than two channels instead of scheduling part of it', async () => {
     const audio = fakeAudioContext();
-    await scheduleSynthBatchStream(
-      scriptedIterator([[block(0, { channels: 4, done: true })]]),
-      audio.context,
-      { ...target(), debugLabel: 'wide' },
-    );
-    expect(audio.buffers[0].channels).toBe(2);
+    await expect(
+      scheduleSynthBatchStream(
+        scriptedIterator([[block(0, { channels: 4, done: true })]]),
+        audio.context,
+        { ...target(), debugLabel: 'wide' },
+      ),
+    ).rejects.toThrow('Unsupported synth PCM channel count.');
+    expect(audio.buffers).toHaveLength(0);
   });
 
   it('merges contiguous blocks into one buffer up to the merge window, and starts a new one after that', async () => {

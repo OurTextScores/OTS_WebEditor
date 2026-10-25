@@ -8,6 +8,13 @@ import {
   type MutableRefObject,
 } from 'react';
 import type { Score, SynthAudioBatchIterator } from '@/lib/webmscore-loader';
+import {
+  compareStreamTarget,
+  compareSideTransport,
+  prepareCompareIterator,
+} from './comparePlayback';
+import type { TransportClockAnchor } from '@/lib/playback/transport-clock';
+import { PlaybackSessionOwner } from '@/lib/playback/session-owner';
 import type { CompareSide, CompareTransportState } from './compare-types';
 
 export type { CompareSide, CompareTransportState };
@@ -30,12 +37,16 @@ export type CompareStreamTarget = {
   setIsPlaying: (value: boolean) => void;
   setIsPaused: (value: boolean) => void;
   debugLabel: string;
+  onClockAnchor?: (anchor: TransportClockAnchor) => void;
+  onBufferingChange?: (buffering: boolean, scoreTimeSeconds: number) => void;
+  onDraining?: () => void;
 };
 
 type CompareTransportOptions = {
   scores: Record<CompareSide, Score | null>;
   audioContextRef: MutableRefObject<AudioContext | null>;
   batchSize: number;
+  activateAudioContext?: () => Promise<AudioContext>;
   ensureSoundFontLoaded: (score: Score, options: { forceRetry: boolean }) => Promise<boolean>;
   stopMainAudio: () => Promise<void>;
   stopStream: (
@@ -80,9 +91,8 @@ export function useCompareTransport(options: CompareTransportOptions) {
     bySide(idleState),
   );
   const statesRef = useRef(states);
-  const sourcesRefs = useRef(bySide(() => ({ current: [] as AudioBufferSourceNode[] })));
-  const iteratorRefs = useRef(bySide(() => ({ current: null as SynthAudioBatchIterator | null })));
-  const generationRefs = useRef(bySide(() => ({ current: 0 })));
+  const sessions = useRef(bySide(() => new PlaybackSessionOwner()));
+  const activeAttempt = useRef(0);
   // A property of the engine build, not of a score or a side, so it is
   // learned once and remembered for the life of the workspace.
   const rangedSynthUnavailable = useRef(false);
@@ -95,19 +105,6 @@ export function useCompareTransport(options: CompareTransportOptions) {
     setStates(statesRef.current);
   }, []);
 
-  const getSideTransport = useCallback(
-    (side: CompareSide) => ({
-      state: () => statesRef.current[side],
-      setIsPlaying: (value: boolean) => update(side, { isPlaying: value }),
-      setIsPaused: (value: boolean) => update(side, { isPaused: value }),
-      setIsBusy: (value: boolean) => update(side, { isBusy: value }),
-      sourcesRef: sourcesRefs.current[side],
-      iteratorRef: iteratorRefs.current[side],
-      generationRef: generationRefs.current[side],
-    }),
-    [update],
-  );
-
   const track = useCallback(
     <T>(operation: Promise<T>): Promise<T> =>
       optionsRef.current.trackOperation?.(operation) ?? operation,
@@ -116,42 +113,41 @@ export function useCompareTransport(options: CompareTransportOptions) {
 
   const stopSideAudio = useCallback(
     (side: CompareSide, stopOptions?: { awaitCancel?: boolean }) => {
-      const transport = getSideTransport(side);
+      const transport = compareSideTransport(sessions.current[side], side, update);
       // Claim before the first await so a concurrent play attempt cannot publish
       // audio for a score this stop is retiring.
+      const session = sessions.current[side];
+      const attempt = session.begin();
+      session.phaseRef.current = 'cancelling';
       transport.generationRef.current += 1;
+      update(side, idleState());
       return track(
         (async () => {
-          await optionsRef.current.stopStream(
-            transport.sourcesRef,
-            transport.iteratorRef,
-            stopOptions,
+          const pending = session.drain();
+          await session.track(
+            optionsRef.current.stopStream(transport.sourcesRef, transport.iteratorRef, stopOptions),
           );
-          update(side, idleState());
+          await pending;
+          if (session.isCurrent(attempt)) {
+            session.phaseRef.current = 'idle';
+            update(side, idleState());
+          }
         })(),
       );
     },
-    [getSideTransport, track, update],
+    [track, update],
   );
 
-  const pauseSideAudio = useCallback(
-    async (side: CompareSide) => {
-      const audioContext = optionsRef.current.audioContextRef.current;
-      if (audioContext?.state === 'running') {
-        await audioContext.suspend();
-      }
-      update(side, { isPaused: true });
-    },
-    [update],
-  );
-
-  const resumeSideAudio = useCallback(
-    async (side: CompareSide) => {
-      const audioContext = optionsRef.current.audioContextRef.current;
-      if (audioContext?.state === 'suspended') {
-        await audioContext.resume();
-      }
-      update(side, { isPaused: false });
+  const setPaused = useCallback(
+    async (side: CompareSide, paused: boolean) => {
+      const session = sessions.current[side];
+      const attempt = session.attemptRef.current;
+      const context = optionsRef.current.audioContextRef.current;
+      if (paused && context?.state === 'running') await context.suspend();
+      if (!paused && context?.state === 'suspended') await context.resume();
+      if (!session.isCurrent(attempt)) return;
+      session.phaseRef.current = paused ? 'paused' : 'playing';
+      update(side, { isPaused: paused });
     },
     [update],
   );
@@ -166,7 +162,7 @@ export function useCompareTransport(options: CompareTransportOptions) {
    */
   const playSideAudio = useCallback(
     async (side: CompareSide, range?: { startMeasureIndex: number; endMeasureIndex: number }) => {
-      const transport = getSideTransport(side);
+      const transport = compareSideTransport(sessions.current[side], side, update);
       const targetScore = optionsRef.current.scores[side];
       if (!targetScore?.synthAudioBatch && !targetScore?.synthAudioBatchForMeasureRange) {
         optionsRef.current.reportUnavailable();
@@ -175,13 +171,25 @@ export function useCompareTransport(options: CompareTransportOptions) {
 
       // Claim the attempt before soundfont and iterator setup so close, replacement,
       // or a newer play request can invalidate it before any audio starts.
-      const generation = ++transport.generationRef.current;
-      const isCurrent = () => transport.generationRef.current === generation;
+      const session = sessions.current[side];
+      const attempt = session.begin();
+      session.phaseRef.current = 'preparing';
+      const exclusiveAttempt = ++activeAttempt.current;
+      const isCurrent = () =>
+        session.isCurrent(attempt) && exclusiveAttempt === activeAttempt.current;
       try {
         transport.setIsBusy(true);
-        const soundFontReady = await optionsRef.current.ensureSoundFontLoaded(targetScore, {
-          forceRetry: true,
-        });
+        // Resume from this gesture before waiting for font/worker work.
+        const context = optionsRef.current.activateAudioContext
+          ? await optionsRef.current.activateAudioContext()
+          : optionsRef.current.audioContextRef.current;
+        if (context?.state === 'suspended') await context.resume();
+        if (!isCurrent()) return;
+        const soundFontReady = await session.track(
+          optionsRef.current.ensureSoundFontLoaded(targetScore, {
+            forceRetry: true,
+          }),
+        );
         if (!isCurrent()) {
           return;
         }
@@ -206,59 +214,37 @@ export function useCompareTransport(options: CompareTransportOptions) {
           return;
         }
 
-        /*
-         * Whether a ranged synth exists cannot be answered by asking.
-         *
-         * The worker proxy forwards any method name, so
-         * `synthAudioBatchForMeasureRange` is always present on the object
-         * and the capability check above always passes. What decides it is
-         * the WASM build, which either exports `synthAudioForMeasureRange`
-         * or does not — and when it does not, the call reaches
-         * `undefined.apply` inside the worker. This build is one of those,
-         * and every row's play button reported "unable to play audio"
-         * rather than playing anything.
-         *
-         * So it is settled by calling: try the range, and on failure fall
-         * back to the whole score, which is what the doc comment above has
-         * always promised. Recorded per side, so the failing call is made
-         * once and not on every row.
-         */
-        const wantsRange = Boolean(range) && !rangedSynthUnavailable.current;
-        let iterator: SynthAudioBatchIterator | null = null;
-        if (wantsRange && targetScore.synthAudioBatchForMeasureRange) {
-          try {
-            iterator = (await targetScore.synthAudioBatchForMeasureRange(
-              range!.startMeasureIndex,
-              range!.endMeasureIndex,
-              optionsRef.current.batchSize,
-            )) as SynthAudioBatchIterator;
-          } catch (error) {
+        await optionsRef.current.stopStream(transport.sourcesRef, transport.iteratorRef, {
+          awaitCancel: true,
+        });
+        if (!isCurrent()) return;
+
+        const iterator = await prepareCompareIterator({
+          score: targetScore,
+          range: rangedSynthUnavailable.current ? undefined : range,
+          batchSize: optionsRef.current.batchSize,
+          session,
+          isCurrent,
+          onRangeUnavailable: (error) => {
             rangedSynthUnavailable.current = true;
             optionsRef.current.reportRangedSynthUnavailable?.(error);
-          }
-        }
+          },
+        });
+        if (!isCurrent()) return;
         if (!iterator) {
-          if (!targetScore.synthAudioBatch) {
-            optionsRef.current.reportUnavailable();
-            return;
-          }
-          iterator = (await targetScore.synthAudioBatch(
-            0,
-            optionsRef.current.batchSize,
-          )) as SynthAudioBatchIterator;
-        }
-        if (!isCurrent()) {
-          await track(Promise.resolve(iterator(true)).catch(() => {}));
+          optionsRef.current.reportUnavailable();
           return;
         }
-        await optionsRef.current.playStream(iterator, {
-          sourcesRef: transport.sourcesRef,
-          iteratorRef: transport.iteratorRef,
-          generationRef: transport.generationRef,
-          setIsPlaying: transport.setIsPlaying,
-          setIsPaused: transport.setIsPaused,
-          debugLabel: `compare-${side}`,
-        });
+        await optionsRef.current.playStream(
+          iterator,
+          compareStreamTarget(
+            side,
+            session,
+            attempt,
+            transport.setIsPlaying,
+            transport.setIsPaused,
+          ),
+        );
       } catch (error) {
         if (isCurrent()) {
           optionsRef.current.reportPlaybackError(side, error);
@@ -266,28 +252,35 @@ export function useCompareTransport(options: CompareTransportOptions) {
         }
       } finally {
         // A superseded attempt must not clear the busy flag a newer attempt owns.
-        if (isCurrent()) {
+        if (session.isCurrent(attempt)) {
           transport.setIsBusy(false);
         }
       }
     },
-    [getSideTransport, stopSideAudio, track],
+    [stopSideAudio, update],
   );
 
   const toggleSidePlayPause = useCallback(
     async (side: CompareSide, range?: { startMeasureIndex: number; endMeasureIndex: number }) => {
       const state = statesRef.current[side];
       if (state.isPlaying && !state.isPaused) {
-        await pauseSideAudio(side);
+        await setPaused(side, true);
         return;
       }
       if (state.isPaused) {
-        await resumeSideAudio(side);
+        await setPaused(side, false);
         return;
       }
       await playSideAudio(side, range);
     },
-    [pauseSideAudio, playSideAudio, resumeSideAudio],
+    [setPaused, playSideAudio],
+  );
+
+  useEffect(
+    () => () => {
+      for (const side of COMPARE_SIDES) void stopSideAudio(side, { awaitCancel: true });
+    },
+    [stopSideAudio],
   );
 
   // A score that has been replaced must not keep playing: the audio would no
@@ -309,6 +302,11 @@ export function useCompareTransport(options: CompareTransportOptions) {
       middle: states.middle,
       right: states.right,
       states,
+      session: (side: CompareSide) => sessions.current[side],
+      stopForEdit: async () => {
+        await optionsRef.current.stopMainAudio();
+        await Promise.all(COMPARE_SIDES.map((side) => stopSideAudio(side, { awaitCancel: true })));
+      },
       playSideAudio,
       stopSideAudio,
       toggleSidePlayPause,

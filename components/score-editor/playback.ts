@@ -1,58 +1,12 @@
-import { DEFAULT_RENDER_WINDOW } from '../../lib/playback-window';
-import { startPerf } from '../../lib/perf-trace';
-import { notifyError } from '../shell/notices';
-import { toOwnedBytes } from './byte-encoding';
 import { type SynthBatchIterator } from './editor-types';
 import {
   PREVIEW_DURATION_MS,
   PREVIEW_SYNTH_BATCH_SIZE,
-  SELECTION_STREAM_MIN_STARTUP_BATCHES,
-  SELECTION_STREAM_STARTUP_BUFFER_SECONDS,
-  SELECTION_SYNTH_BATCH_SIZE,
-  SELECTION_SYNTH_START_PREROLL_SECONDS,
-  SYNTH_START_PREROLL_SECONDS,
-  TRANSPORT_SYNTH_BATCH_SIZE,
 } from './playback-constants';
 import type { RenderWindow } from '../../lib/playback-window';
-import { planClicks, type ClickPlan } from '../../lib/playback/click-track';
-import { getClickPreferences } from '../../lib/playback/click-preferences';
 import type { Score, SynthAudioBatchIterator } from '../../lib/webmscore-loader';
 import type { EnsureSoundFontLoaded } from './editor-types';
 import type React from 'react';
-
-export type PlayTransportAudioContext = {
-  score: Score | null;
-  setAudioBusy: React.Dispatch<React.SetStateAction<boolean>>;
-  ensureSoundFontLoaded: EnsureSoundFontLoaded;
-  stopAudio: (options?: { awaitCancel?: boolean }) => Promise<void>;
-  playSynthBatchStream: (
-    batchFn: SynthBatchIterator,
-    options: {
-      sourcesRef: React.MutableRefObject<AudioBufferSourceNode[]>;
-      iteratorRef: React.MutableRefObject<SynthBatchIterator | null>;
-      generationRef: React.MutableRefObject<number>;
-      maxDurationSeconds?: number;
-      trackTransportState: boolean;
-      debugLabel: string;
-      prerollSeconds?: number;
-      startupBufferSeconds?: number;
-      minStartupBatches?: number;
-      mergeWindowSeconds?: number;
-      renderWindow?: RenderWindow | null;
-      /** A metronome and count-in on the music's own clock (see lib/playback/click-track.ts). */
-      click?: ClickPlan;
-      stateSetters?: {
-        setIsPlaying: (value: boolean) => void;
-        setIsPaused: (value: boolean) => void;
-      };
-    },
-  ) => Promise<void>;
-  audioSourcesRef: React.RefObject<AudioBufferSourceNode[]>;
-  streamIteratorRef: React.RefObject<SynthAudioBatchIterator | null>;
-  transportPlaybackGenerationRef: React.RefObject<number>;
-  audioUrlRef: React.RefObject<string | null>;
-  playFromUrl: (url: string, options?: { revokeOnEnded?: boolean }) => Promise<void>;
-};
 
 export type PlaySelectionPreviewContext = {
   scoreRef: React.RefObject<Score | null>;
@@ -95,131 +49,6 @@ export type PlaySelectionPreviewContext = {
   previewPlaybackGenerationRef: React.RefObject<number>;
 };
 
-export async function playTransportAudioImpl(
-  ctx: PlayTransportAudioContext,
-  fromSelection: boolean,
-) {
-  const {
-    score,
-    setAudioBusy,
-    ensureSoundFontLoaded,
-    stopAudio,
-    playSynthBatchStream,
-    audioSourcesRef,
-    streamIteratorRef,
-    transportPlaybackGenerationRef,
-    audioUrlRef,
-    playFromUrl,
-  } = ctx;
-  if (!score || !score.saveAudio) {
-    notifyError('Audio playback is not available in this build.');
-    return;
-  }
-  const preparePerf = startPerf(
-    fromSelection ? 'playback:prepare:selection' : 'playback:prepare:full',
-  );
-  try {
-    setAudioBusy(true);
-    const ok = await preparePerf.time('soundfont', () =>
-      ensureSoundFontLoaded(undefined, { forceRetry: true }),
-    );
-    if (!ok) {
-      notifyError(
-        'No default soundfont found. Configure NEXT_PUBLIC_SOUNDFONT_CDN_URL or provide /public/soundfonts/default.sf3 (or .sf2).',
-      );
-      return;
-    }
-    await stopAudio({ awaitCancel: true });
-
-    const useSelectionStreaming =
-      fromSelection && typeof score.synthAudioBatchFromSelection === 'function';
-    const useStreaming = fromSelection
-      ? useSelectionStreaming
-      : typeof score.synthAudioBatch === 'function';
-    let streamed = false;
-    let streamFailure: unknown = null;
-    if (useStreaming) {
-      try {
-        const batchFn = await preparePerf.time('nativePrepare', async () =>
-          useSelectionStreaming
-            ? ((await score.synthAudioBatchFromSelection!(
-                SELECTION_SYNTH_BATCH_SIZE,
-              )) as SynthBatchIterator)
-            : ((await score.synthAudioBatch!(0, TRANSPORT_SYNTH_BATCH_SIZE)) as SynthBatchIterator),
-        );
-        preparePerf.end();
-
-        // The metronome and count-in belong to the whole-score transport (a selection plays from mid-score).
-        const clickPlan = useSelectionStreaming
-          ? null
-          : planClicks(
-              (await Promise.resolve(score.playbackTimeline?.()).catch(() => null)) ?? null,
-              0,
-              getClickPreferences(),
-            );
-        await playSynthBatchStream(batchFn, {
-          sourcesRef: audioSourcesRef,
-          iteratorRef: streamIteratorRef,
-          generationRef: transportPlaybackGenerationRef,
-          click: clickPlan ?? undefined,
-          trackTransportState: true,
-          debugLabel: useSelectionStreaming ? 'selection-transport' : 'transport',
-          prerollSeconds: useSelectionStreaming
-            ? SELECTION_SYNTH_START_PREROLL_SECONDS
-            : SYNTH_START_PREROLL_SECONDS,
-          startupBufferSeconds: useSelectionStreaming ? SELECTION_STREAM_STARTUP_BUFFER_SECONDS : 0,
-          minStartupBatches: useSelectionStreaming ? SELECTION_STREAM_MIN_STARTUP_BATCHES : 1,
-          mergeWindowSeconds: useSelectionStreaming ? 0.5 : 0,
-          // Transport can run the length of the score, so it is the
-          // path that must stay bounded.
-          renderWindow: DEFAULT_RENDER_WINDOW,
-        });
-        streamed = true;
-      } catch (streamErr) {
-        console.warn('Streaming playback failed; falling back to WAV', streamErr);
-        streamFailure = streamErr;
-        await stopAudio({ awaitCancel: true });
-      }
-    }
-    if (!streamed) {
-      if (fromSelection) {
-        const hasSelectionStreamingApi = typeof score.synthAudioBatchFromSelection === 'function';
-        if (!hasSelectionStreamingApi) {
-          notifyError(
-            'Play from selection is not available in this running build. Rebuild webmscore JS glue (`cd webmscore-fork/web-public && npm run bundle`) and restart `npm run dev`.',
-          );
-        } else if (streamFailure) {
-          const streamMessage =
-            streamFailure instanceof Error ? streamFailure.message : String(streamFailure);
-          notifyError(`Play from selection failed: ${streamMessage}`);
-        } else {
-          notifyError('Play from selection is not available in this build.');
-        }
-        return;
-      }
-      if (audioUrlRef.current) {
-        await playFromUrl(audioUrlRef.current);
-      } else {
-        const wav = await score.saveAudio('wav');
-        const blob = new Blob([toOwnedBytes(wav)], { type: 'audio/wav' });
-        const url = URL.createObjectURL(blob);
-        audioUrlRef.current = url;
-        await playFromUrl(url);
-      }
-    }
-  } catch (err) {
-    console.error('Failed to play audio', err);
-    // Say what went wrong here rather than deferring to a console the
-    // reader may not be able to open: in an embed this runs inside an
-    // iframe, where the browser can refuse DevTools outright.
-    notifyError(`Unable to play audio: ${err instanceof Error ? err.message : String(err)}`);
-    await stopAudio({ awaitCancel: true });
-  } finally {
-    preparePerf.end();
-    setAudioBusy(false);
-  }
-}
-
 export async function playSelectionPreviewImpl(
   ctx: PlaySelectionPreviewContext,
   trigger: string = 'unknown',
@@ -254,6 +83,8 @@ export async function playSelectionPreviewImpl(
     return;
   }
 
+  let attempt = ++previewPlaybackGenerationRef.current;
+  const isCurrent = () => attempt === previewPlaybackGenerationRef.current;
   const shouldReselectForPreview = options?.reselect ?? trigger.startsWith('mutation:');
   const previewPoint = selectionPoint ?? selectedPointRef.current;
   if (shouldReselectForPreview && previewPoint && activeScore.selectElementAtPoint) {
@@ -275,18 +106,27 @@ export async function playSelectionPreviewImpl(
     }
   }
 
+  if (!isCurrent()) return;
   const ok = await ensureSoundFontLoaded(activeScore, { forceRetry: true });
+  if (!isCurrent()) return;
   if (!ok) {
     console.warn('[AUDITION] skipped preview: soundfont unavailable', { trigger });
     return;
   }
 
-  await stopPreviewAudio({ awaitCancel: true });
+  const stopping = stopPreviewAudio({ awaitCancel: true });
+  attempt = previewPlaybackGenerationRef.current;
+  await stopping;
+  if (!isCurrent()) return;
   try {
     const batchFn = (await activeScore.synthSelectionPreviewBatch(
       PREVIEW_SYNTH_BATCH_SIZE,
       PREVIEW_DURATION_MS,
     )) as SynthBatchIterator;
+    if (!isCurrent()) {
+      await batchFn(true).catch(() => {});
+      return;
+    }
     await playSynthBatchStream(batchFn, {
       sourcesRef: previewAudioSourcesRef,
       iteratorRef: previewStreamIteratorRef,
@@ -300,6 +140,7 @@ export async function playSelectionPreviewImpl(
       renderWindow: null,
     });
   } catch (err) {
+    if (previewPlaybackGenerationRef.current !== attempt && previewPlaybackGenerationRef.current !== attempt + 1) return;
     console.warn('[AUDITION] selection preview playback failed', { trigger, err });
     await stopPreviewAudio({ awaitCancel: true });
   }

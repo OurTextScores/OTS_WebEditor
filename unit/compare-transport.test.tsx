@@ -78,9 +78,16 @@ describe('useCompareTransport', () => {
       play = transport.result.current.playSideAudio('left');
       await Promise.resolve();
     });
-    await act(async () => transport.result.current.stopSideAudio('left', { awaitCancel: true }));
+    let stopped!: Promise<void>;
+    act(() => {
+      stopped = transport.result.current.stopSideAudio('left', { awaitCancel: true });
+    });
+    expect(transport.result.current.left.isPlaying).toBe(false);
     soundFont.resolve(true);
-    await act(async () => play);
+    await act(async () => {
+      await stopped;
+      await play;
+    });
 
     expect(left.synthAudioBatch).not.toHaveBeenCalled();
     expect(transport.playStream).not.toHaveBeenCalled();

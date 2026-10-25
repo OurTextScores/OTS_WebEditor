@@ -287,7 +287,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       label: 'Stop',
       testId: 'btn-stop',
       keywords: ['rewind'],
-      enabled: () => audioReady() && has('onStopAudio') && Boolean(p().isPlaying || p().isPaused),
+      enabled: () => audioReady() && has('onStopAudio') && Boolean(p().isPlaying || p().isPaused || p().audioBusy),
       run: () => p().onStopAudio?.(),
     }),
     defineCommand({

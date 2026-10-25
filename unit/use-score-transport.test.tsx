@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useScoreTransport } from '@/lib/playback/use-score-transport';
 import type { SoundFontManager } from '@/lib/playback/soundfont-manager';
 import type { PlaybackTimeline, Score, SynthAudioBatchIterator } from '@/lib/webmscore-loader';
@@ -47,6 +47,13 @@ const makeFallbackAudioContext = () => {
   } as unknown as AudioContext;
   return { context, decodedBuffer, gain, source };
 };
+
+beforeEach(() => {
+  const audio = fakeAudioContext();
+  vi.stubGlobal('AudioContext', function FakeAudioContext() {
+    return audio.context;
+  });
+});
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -308,9 +315,10 @@ describe('useScoreTransport', () => {
       ensure: vi.fn(async () => true),
       prefetch: vi.fn(),
     } as unknown as SoundFontManager<Score>;
+    const stableScore = scoreWithIterator(iterator);
     const { result } = renderHook(() =>
       useScoreTransport({
-        score: scoreWithIterator(iterator),
+        score: stableScore,
         durationMs: 10_000,
         startMs: 0,
         volume: 1,

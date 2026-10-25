@@ -1,0 +1,50 @@
+{
+  "phase": 2,
+  "date": "2026-10-24",
+  "status": "complete",
+  "phase1Commit": "19889edf",
+  "phase2Committed": false,
+  "checks": {
+    "unit": {
+      "files": 17,
+      "passed": 182,
+      "unhandledErrors": 0
+    },
+    "browser": {
+      "distinctPassed": 27,
+      "engine": "Chromium",
+      "note": "Isolated port 3012; complete case set passed across the main run and focused rechecks after a hot reload interrupted one editor click case."
+    },
+    "static": {
+      "build": "passed",
+      "loadingTestsPassed": 2,
+      "streamedStarts": "see companion report"
+    },
+    "typecheck": "passed",
+    "lintErrors": 0,
+    "debtRatchets": "passed",
+    "bridgeAudit": "passed",
+    "whitespace": "passed"
+  },
+  "faultInjection": {
+    "workerStallMs": 350,
+    "pastDueBrowserPcmStarts": 0,
+    "unitRetirementCycles": 25,
+    "postRetirement": {
+      "pendingOperations": 0,
+      "scheduledSources": 0,
+      "activeIterator": false
+    }
+  },
+  "nativeArtifactsChanged": false,
+  "hashes": {
+    "webmscore.lib.wasm": "e65875dd86fcd0d49e369410af3d4c5e124892b3ba7502405badc05b81a59473",
+    "webmscore.lib.data": "ee4213e9bc985f0dce6d43b418c66cd6a717a416899872c1a8dda40f5722a206"
+  },
+  "limitations": [
+    "Headless Chromium, not audible-device latency or Safari/Firefox qualification.",
+    "Retirement waits for non-interruptible native calls/font installation; UI Stop is immediate.",
+    "Underflow keeps the sequential native iterator and replaces the browser scheduling epoch using the existing preroll.",
+    "Tempo/repeat options, visible following/cursor, page preparation and buffer tuning remain subsequent phases."
+  ]
+}

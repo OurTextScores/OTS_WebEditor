@@ -154,6 +154,7 @@ export function useMergedScoreDocument({
   resolveUrl,
   prepare,
   sourceEngineId,
+  beforeMutation,
   finding,
 }: {
   state: MergedScoreState | null;
@@ -166,6 +167,7 @@ export function useMergedScoreDocument({
    */
   prepare: (persistedXml: string | null, state: MergedScoreState | null) => LoadInput | null;
   sourceEngineId: string;
+  beforeMutation?: () => Promise<void>;
   /**
    * Set when the editor was opened to answer a cross-staff finding.
    *
@@ -301,6 +303,7 @@ export function useMergedScoreDocument({
       if (!target || busy || saving) return false;
       setBusy(true);
       try {
+        if (options?.mutates !== false) await beforeMutation?.();
         const before =
           options?.mutates === false || options?.measureIndexes
             ? null
@@ -341,7 +344,7 @@ export function useMergedScoreDocument({
         setBusy(false);
       }
     },
-    [acceptEditedMeasures, busy, saving],
+    [acceptEditedMeasures, beforeMutation, busy, saving],
   );
 
   /** Export what the reviewer sees, minus the row view's imposed breaks. */

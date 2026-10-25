@@ -301,7 +301,8 @@ import { acceptAllAiChanges, compareKeyboardShortcut, compareOverwriteBlock, sav
 import { sendDiffFeedback, updateAiOutputImpl } from './score-editor/ai-diff-feedback';
 import { buildNewScoreXmlImpl } from './score-editor/new-score';
 import { ensurePageIsLaidOutImpl, goToPageImpl, openScoreSessionImpl, resolveSelectionContextImpl, scheduleBackgroundInitTasksImpl } from './score-editor/score-session';
-import { playSelectionPreviewImpl, playTransportAudioImpl } from './score-editor/playback';
+import { playSelectionPreviewImpl } from './score-editor/playback';
+import { useEditorPlayback } from './score-editor/playback-session';
 import { updateNoteInputShadowImpl } from './score-editor/note-input-shadow';
 import { commitCurrentVersion } from './score-editor/versions';
 
@@ -876,19 +877,21 @@ export default function ScoreEditor() {
     InstrumentTemplateGroup[]
   >([]);
   const [instrumentFallbackError, setInstrumentFallbackError] = useState<string | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  // Paused is a distinct state from stopped: the stream, its scheduled sources and
-  // its iterator all stay alive, so resuming continues rather than re-renders.
-  const [isPaused, setIsPaused] = useState(false);
-  const [audioBusy, setAudioBusy] = useState(false);
-  const audioUrlRef = useRef<string | null>(null);
-  const tempPlaybackAudioUrlRef = useRef<string | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const audioSourcesRef = useRef<AudioBufferSourceNode[]>([]);
-  const transportClickRef = useRef<ClickScheduler | null>(null);
-  const streamIteratorRef = useRef<SynthBatchIterator | null>(null);
-  const transportPlaybackGenerationRef = useRef(0);
+  const [exportAudioBusy, setAudioBusy] = useState(false);
+  const editorPlayback = useEditorPlayback({
+    score,
+    ensureSoundFont: (target, forceRetry) => ensureSoundFontLoaded(target, { forceRetry }),
+    beforeStart: async () => {
+      await stopPreviewAudio({ awaitCancel: true });
+      await Promise.all((['left', 'middle', 'right'] as const).map((side) =>
+        compareTransport.stopSideAudio(side, { awaitCancel: true })));
+    },
+    beforeMutation: () => compareTransport.stopForEdit(),
+    reportError: notifyError,
+  });
+  const { isPlaying, isPaused } = editorPlayback;
+  const audioBusy = exportAudioBusy || editorPlayback.busy;
+  const audioCtxRef = editorPlayback.audioContextRef;
   const previewAudioSourcesRef = useRef<AudioBufferSourceNode[]>([]);
   const previewStreamIteratorRef = useRef<SynthBatchIterator | null>(null);
   const previewPlaybackGenerationRef = useRef(0);
@@ -3496,11 +3499,12 @@ export default function ScoreEditor() {
       }
       console.info(`[large-load] ${format} ${stage} @ ${elapsedMs}ms`, extra);
     };
-    return loadScoreWithSharedEngineFallback(format, data, {
+    const result = await loadScoreWithSharedEngineFallback(format, data, {
       progressiveEnabled: progressiveLoadEnabled,
       runSerialized: runSerializedScoreOperation,
       logStage: logLargeLoad,
     });
+    return { ...result, loadedScore: editorPlayback.guardScore(result.loadedScore) };
   };
 
   const scheduleBackgroundInitTasks = (loadedScore: Score, options: {
@@ -3580,7 +3584,7 @@ export default function ScoreEditor() {
       largeScoreSessionRef.current = inputIsLarge;
       const format = detectScoreInputFormat(url, data);
       if (score) {
-        score.destroy();
+        await score.destroy();
       }
 
       const skipCoverPage = shouldSkipCoverPageFirstRender(format, data);
@@ -3799,7 +3803,7 @@ export default function ScoreEditor() {
       format = detectScoreInputFormat(file.name, data);
       // But wait, we need to destroy previous score if exists
       if (score) {
-        score.destroy();
+        await score.destroy();
       }
 
       const skipCoverPage = shouldSkipCoverPageFirstRender(format, data);
@@ -4285,6 +4289,7 @@ export default function ScoreEditor() {
     setAuxiliaryPageCount: setCompareRightPageCount,
     refreshNoteInputCursor: refreshCompareNoteInputCursor,
     reportError: reportCompareMutationError,
+    beforeMutation: () => compareTransport.stopForEdit(),
   });
 
   const setCompareNoteInputMode = useCallback((enabled: boolean, side: CompareSide = compareActiveSide ?? 'left') => setCompareNoteInputModeImpl({
@@ -5052,6 +5057,8 @@ export default function ScoreEditor() {
     try {
       const buffer = await file.arrayBuffer();
       const data = new Uint8Array(buffer);
+      await compareTransport.stopForEdit();
+      editorPlayback.invalidate();
       // The manager retains pristine bytes, copies them across the worker
       // boundary, and invalidates every main/compare score installed from the
       // previous source version.
@@ -7596,6 +7603,7 @@ export default function ScoreEditor() {
         );
         return;
       }
+      await compareTransport.stopForEdit();
       const wav = await score.saveAudio('wav');
       downloadBlob(wav, 'score.wav', 'audio/wav');
     } catch (err) {
@@ -7624,6 +7632,7 @@ export default function ScoreEditor() {
         score,
         Math.max(0, currentPageRef.current || 0),
       );
+      await compareTransport.stopForEdit();
       const wav = await score.saveAudioForMeasureRange('wav', startMeasureIndex, endMeasureIndex);
       downloadBlob(wav, `score-page-${Math.max(0, currentPageRef.current) + 1}.wav`, 'audio/wav');
     } catch (err) {
@@ -7651,26 +7660,7 @@ export default function ScoreEditor() {
   };
 
   const stopAudio = async (options?: { awaitCancel?: boolean }) => {
-    transportClickRef.current?.stop();
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-    }
-    if (tempPlaybackAudioUrlRef.current) {
-      URL.revokeObjectURL(tempPlaybackAudioUrlRef.current);
-      tempPlaybackAudioUrlRef.current = null;
-    }
-    await cancelSynthStream(
-      {
-        sourcesRef: audioSourcesRef,
-        iteratorRef: streamIteratorRef,
-        generationRef: transportPlaybackGenerationRef,
-      },
-      options,
-    );
-    await stopPreviewAudio(options);
-    setIsPlaying(false);
-    setIsPaused(false);
+    await Promise.all([editorPlayback.stopAt(0), stopPreviewAudio(options)]);
   };
 
   const ensureAudioContextReady = async () => {
@@ -7680,38 +7670,6 @@ export default function ScoreEditor() {
       await audioCtx.resume();
     }
     return audioCtx;
-  };
-
-  /**
-   * Pauses without tearing the stream down.
-   *
-   * Suspending the AudioContext freezes its clock, so already-scheduled sources
-   * hold their positions and the render loop's horizon check sees a constant
-   * distance ahead of the playhead and idles. The <audio> element path (the
-   * non-streaming WAV fallback) is paused alongside it.
-   */
-  const pauseAudio = async () => {
-    const audioCtx = audioCtxRef.current;
-    if (audioCtx && audioCtx.state === 'running') {
-      await audioCtx.suspend();
-    }
-    if (audioRef.current && !audioRef.current.paused) {
-      audioRef.current.pause();
-    }
-    setIsPaused(true);
-  };
-
-  const resumeAudio = async () => {
-    const audioCtx = audioCtxRef.current;
-    if (audioCtx && audioCtx.state === 'suspended') {
-      await audioCtx.resume();
-    }
-    if (audioRef.current && audioRef.current.paused) {
-      await audioRef.current.play().catch(() => {
-        /* element playback already gone */
-      });
-    }
-    setIsPaused(false);
   };
 
   const playSynthBatchStream = async (
@@ -7729,22 +7687,32 @@ export default function ScoreEditor() {
       mergeWindowSeconds?: number;
       renderWindow?: RenderWindow | null;
       click?: ClickPlan;
+      onClockAnchor?: (anchor: { contextTime: number; scoreTimeSeconds: number }) => void;
+      onBufferingChange?: (buffering: boolean, scoreTimeSeconds: number) => void;
+      onDraining?: () => void;
       stateSetters?: {
         setIsPlaying: (value: boolean) => void;
         setIsPaused: (value: boolean) => void;
       };
     },
   ) => {
-    const setPlaying = options.stateSetters?.setIsPlaying ?? setIsPlaying;
-    const setPaused = options.stateSetters?.setIsPaused ?? setIsPaused;
+    const setPlaying = options.stateSetters?.setIsPlaying;
+    const setPaused = options.stateSetters?.setIsPaused;
+    const generation = options.generationRef.current;
     const audioContext = await ensureAudioContextReady();
+    if (generation !== options.generationRef.current) {
+      await batchFn(true).catch(() => {});
+      return;
+    }
     const click = options.click;
-    if (click) transportClickRef.current ??= new ClickScheduler(audioContext);
+    const clickScheduler = click ? new ClickScheduler(audioContext) : null;
     await scheduleSynthBatchStream(batchFn, audioContext, {
       leadInSeconds: click?.leadInSeconds,
       onClockAnchor: click
-        ? (anchor) => transportClickRef.current?.start(anchor, click.clicks, click.fromMs)
-        : undefined,
+        ? (anchor) => clickScheduler?.start(anchor, click.clicks, click.fromMs)
+        : options.onClockAnchor,
+      onBufferingChange: options.onBufferingChange,
+      onDraining: options.onDraining,
       sourcesRef: options.sourcesRef,
       iteratorRef: options.iteratorRef,
       generationRef: options.generationRef,
@@ -7757,52 +7725,14 @@ export default function ScoreEditor() {
       renderWindow: options.renderWindow,
       onPlayingChange: options.trackTransportState
         ? (playing) => {
-            setPlaying(playing);
-            if (!playing) setPaused(false);
+            setPlaying?.(playing);
+            if (!playing) setPaused?.(false);
           }
         : undefined,
     });
   };
 
-  const playFromUrl = async (url: string, options?: { revokeOnEnded?: boolean }) => {
-    if (tempPlaybackAudioUrlRef.current) {
-      URL.revokeObjectURL(tempPlaybackAudioUrlRef.current);
-      tempPlaybackAudioUrlRef.current = null;
-    }
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = '';
-    }
-    const audio = new Audio(url);
-    audioRef.current = audio;
-    if (options?.revokeOnEnded) {
-      tempPlaybackAudioUrlRef.current = url;
-    }
-    audio.onended = () => {
-      setIsPlaying(false);
-      setIsPaused(false);
-      if (options?.revokeOnEnded && tempPlaybackAudioUrlRef.current === url) {
-        URL.revokeObjectURL(url);
-        tempPlaybackAudioUrlRef.current = null;
-      }
-    };
-    await audio.play();
-    setIsPlaying(true);
-    setIsPaused(false);
-  };
-
-  const playTransportAudio = (fromSelection: boolean) => playTransportAudioImpl({
-      score,
-      setAudioBusy,
-      ensureSoundFontLoaded,
-      stopAudio,
-      playSynthBatchStream,
-      audioSourcesRef,
-      streamIteratorRef,
-      transportPlaybackGenerationRef,
-      audioUrlRef,
-      playFromUrl,
-    }, fromSelection);
+  const playTransportAudio = editorPlayback.play;
 
   const compareTransport = useCompareTransport({
     scores: {
@@ -7815,6 +7745,7 @@ export default function ScoreEditor() {
       right: compareRightScoreDisplay,
     },
     audioContextRef: audioCtxRef,
+    activateAudioContext: ensureAudioContextReady,
     batchSize: TRANSPORT_SYNTH_BATCH_SIZE,
     ensureSoundFontLoaded: (targetScore, options) => ensureSoundFontLoaded(targetScore, options),
     stopMainAudio: () => stopAudio({ awaitCancel: true }),
@@ -7830,6 +7761,9 @@ export default function ScoreEditor() {
           setIsPaused: target.setIsPaused,
         },
         debugLabel: target.debugLabel,
+        onClockAnchor: target.onClockAnchor,
+        onBufferingChange: target.onBufferingChange,
+        onDraining: target.onDraining,
         renderWindow: DEFAULT_RENDER_WINDOW,
       }),
     reportUnavailable: () => notifyError('Audio playback is not available for this score.'),
@@ -7873,7 +7807,7 @@ export default function ScoreEditor() {
       previewPlaybackGenerationRef,
     }, trigger, selectionPoint, options);
 
-  lateInputs.current = { interactiveMutationEnabled, playSelectionPreview, refreshNoteInputCursor };
+  lateInputs.current = { interactiveMutationEnabled, playSelectionPreview, refreshNoteInputCursor, beforeMutation: editorPlayback.beforeMutation };
 
   const handlePlayAudio = async () => {
     await playTransportAudio(false);
@@ -7886,15 +7820,11 @@ export default function ScoreEditor() {
    * immediate and does not re-render audio that was already synthesised.
    */
   const handleTogglePlayPause = async () => {
-    if (isPlaying && !isPaused) {
-      await pauseAudio();
-      return;
+    if (editorPlayback.state === 'idle' || editorPlayback.state === 'ended' || editorPlayback.state === 'unavailable') {
+      await handlePlayAudio();
+    } else {
+      await editorPlayback.togglePlayPause();
     }
-    if (isPaused) {
-      await resumeAudio();
-      return;
-    }
-    await handlePlayAudio();
   };
 
   const handlePlayFromSelectionAudio = async () => {

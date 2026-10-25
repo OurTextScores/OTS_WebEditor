@@ -180,6 +180,24 @@ const mutationOptions = (
 };
 
 describe('useCompareMutationController', () => {
+  it('awaits transport retirement before snapshotting or editing', async () => {
+    const retirement = deferred<void>();
+    const options = mutationOptions({ beforeMutation: vi.fn(() => retirement.promise) });
+    const action = vi.fn(async () => true);
+    const { result } = renderHook(() => useCompareMutationController(options));
+    let mutation!: Promise<boolean>;
+    act(() => {
+      mutation = result.current('edit after stop', action);
+    });
+    expect(options.beforeMutation).toHaveBeenCalledOnce();
+    expect(options.snapshotScore).not.toHaveBeenCalled();
+    expect(action).not.toHaveBeenCalled();
+    retirement.resolve();
+    await act(async () => {
+      await mutation;
+    });
+    expect(action).toHaveBeenCalledOnce();
+  });
   it('resolves role from live score identity and persists the explicit side target', async () => {
     const options = mutationOptions();
     const action = vi.fn(async () => true);

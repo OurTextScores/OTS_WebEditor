@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { setupScoreEditorTest, testGlobals } from './test-harness';
+import { fakeAudioContext } from '../helpers/fake-audio';
 import { defaultCommandRegistry } from '../../lib/commands';
 
 const mocked = vi.hoisted(() => ({
@@ -57,7 +58,7 @@ describe('ScoreEditor: soundfont loading, playback and preview audio', () => {
     await waitFor(() => expect(defaultCommandRegistry.isEnabled('file.export.audio')).toBe(true));
   });
 
-  it('plays audio from WAV once and replays from cached URL', async () => {
+  it('decodes WAV once and replays its cached Web Audio buffer', async () => {
     const user = userEvent.setup();
 
     const saveAudioDeferred: { resolve?: (value: Uint8Array) => void } = {};
@@ -92,20 +93,12 @@ describe('ScoreEditor: soundfont loading, playback and preview audio', () => {
     testGlobals.URL.createObjectURL = vi.fn(() => 'blob:audio');
     testGlobals.URL.revokeObjectURL = vi.fn();
 
-    const createdAudios: MockAudio[] = [];
-    class MockAudio {
-      src = '';
-      currentTime = 0;
-      onended: (() => void) | null = null;
-      pause = vi.fn();
-      play = vi.fn(async () => {});
-
-      constructor(url: string) {
-        this.src = url;
-        createdAudios.push(this);
-      }
-    }
-    testGlobals.Audio = MockAudio;
+    const audio = fakeAudioContext();
+    const decodeAudioData = vi.fn(async () => ({ duration: 10 }) as AudioBuffer);
+    Object.assign(audio.context, { decodeAudioData });
+    testGlobals.AudioContext = function FakeAudioContext() {
+      return audio.context;
+    };
 
     render(<ScoreEditor />);
 
@@ -125,22 +118,27 @@ describe('ScoreEditor: soundfont loading, playback and preview audio', () => {
       expect(screen.getByTestId('btn-play')).toHaveAttribute('aria-label', 'Pause'),
     );
     expect(saveAudio).toHaveBeenCalledTimes(1);
-    expect(createdAudios.length).toBeGreaterThanOrEqual(1);
+    expect(audio.sources).toHaveLength(1);
+    expect(decodeAudioData).toHaveBeenCalledOnce();
+    expect(audio.sources[0].connectedTo).toBe(audio.gains[0]);
 
     // Stop resets the transport and leaves the rendered WAV cached.
     await user.click(screen.getByTestId('btn-stop'));
     await waitFor(() =>
       expect(screen.getByTestId('btn-play')).toHaveAttribute('aria-label', 'Play'),
     );
-    expect(createdAudios.at(-1)?.pause).toHaveBeenCalled();
+    expect(audio.sources[0].stopped).toBe(true);
 
-    // Replaying reuses the cached object URL instead of re-rendering audio.
+    // Replaying reuses decoded PCM while creating a new one-shot source.
     await user.click(screen.getByTestId('btn-play'));
     await waitFor(() =>
       expect(screen.getByTestId('btn-play')).toHaveAttribute('aria-label', 'Pause'),
     );
     expect(saveAudio).toHaveBeenCalledTimes(1);
-    expect(testGlobals.URL.createObjectURL).toHaveBeenCalledTimes(1);
+    expect(decodeAudioData).toHaveBeenCalledOnce();
+    expect(audio.sources).toHaveLength(2);
+    expect(audio.sources[1].buffer).toBe(audio.sources[0].buffer);
+    expect(testGlobals.URL.createObjectURL).not.toHaveBeenCalled();
   });
 
   it('streams playback when synthAudioBatch is available and cancels on stop', async () => {
@@ -205,6 +203,8 @@ describe('ScoreEditor: soundfont loading, playback and preview audio', () => {
         await resumeAudioContext();
       });
 
+      close = vi.fn(async () => {});
+      createGain = vi.fn(() => ({ gain: { value: 1 }, connect: vi.fn(), disconnect: vi.fn() }));
       createBuffer = vi.fn(() => ({
         copyToChannel: vi.fn(),
       }));
@@ -302,6 +302,8 @@ describe('ScoreEditor: soundfont loading, playback and preview audio', () => {
       resume = vi.fn(async () => {
         this.state = 'running';
       });
+      close = vi.fn(async () => {});
+      createGain = vi.fn(() => ({ gain: { value: 1 }, connect: vi.fn(), disconnect: vi.fn() }));
       createBuffer = vi.fn(() => ({
         copyToChannel: vi.fn(),
       }));
@@ -382,6 +384,8 @@ describe('ScoreEditor: soundfont loading, playback and preview audio', () => {
       resume = vi.fn(async () => {
         this.state = 'running';
       });
+      close = vi.fn(async () => {});
+      createGain = vi.fn(() => ({ gain: { value: 1 }, connect: vi.fn(), disconnect: vi.fn() }));
       createBuffer = vi.fn(() => ({
         copyToChannel: vi.fn(),
       }));

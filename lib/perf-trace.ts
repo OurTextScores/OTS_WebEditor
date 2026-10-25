@@ -92,6 +92,8 @@ export function startPerf(label: string): PerfHandle {
       const rendered = now();
       requestAnimationFrame(() => {
         setTimeout(() => {
+          // A cancelled session may finish tracing after its document/test environment is gone.
+          if (typeof window === 'undefined') return;
           const painted = now();
           trace.phases.push({ name: 'paint', ms: painted - rendered });
           trace.endedAt = painted;

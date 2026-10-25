@@ -50,6 +50,7 @@ export type CompareMutationControllerOptions = {
     side: CompareSide,
     isCurrent: () => boolean,
   ) => Promise<unknown>;
+  beforeMutation?: () => Promise<void>;
   reportError: (label: string, error: unknown) => void;
 };
 
@@ -76,6 +77,7 @@ export function useCompareMutationController({
   setAuxiliaryPageCount,
   refreshNoteInputCursor,
   reportError,
+  beforeMutation,
 }: CompareMutationControllerOptions) {
   return useCallback(
     async (
@@ -97,6 +99,8 @@ export function useCompareMutationController({
 
       const operation = trackOperation(
         (async () => {
+          await beforeMutation?.();
+          if (!isCurrent()) return false;
           const fallbackXml = role === 'current' ? view.currentXml : view.checkpointXml;
           const beforeXml = await snapshotScore(targetScore, fallbackXml);
           if (!isCurrent()) {
@@ -158,6 +162,7 @@ export function useCompareMutationController({
     },
     [
       activeSide,
+      beforeMutation,
       beginBusy,
       endBusy,
       feedbackBusy,

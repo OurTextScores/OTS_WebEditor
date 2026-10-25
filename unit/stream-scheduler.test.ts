@@ -340,3 +340,43 @@ describe('stream scheduler', () => {
     }
   });
 });
+
+it('buffers during a worker stall and re-anchors late PCM without overlapping it', async () => {
+  const { fakeAudioContext, block, BLOCK_SECONDS } = await import('./helpers/fake-audio');
+  const fake = fakeAudioContext();
+  let resolve!: (value: Awaited<ReturnType<SynthAudioBatchIterator>>) => void;
+  const delayed = new Promise<Awaited<ReturnType<SynthAudioBatchIterator>>>((done) => {
+    resolve = done;
+  });
+  let pull = 0;
+  const iterator: SynthAudioBatchIterator = async () => (++pull === 1 ? [block(0)] : delayed);
+  const sourcesRef = ref<AudioBufferSourceNode[]>([]);
+  const onClockAnchor = vi.fn();
+  const onBufferingChange = vi.fn();
+  const onEnded = vi.fn();
+  const run = scheduleSynthBatchStream(iterator, fake.context, {
+    sourcesRef,
+    iteratorRef: ref<SynthAudioBatchIterator | null>(null),
+    generationRef: ref(0),
+    debugLabel: 'stalled-worker',
+    onClockAnchor,
+    onBufferingChange,
+    onEnded,
+  });
+  await vi.waitFor(() => expect(fake.sources).toHaveLength(1));
+  fake.setNow(0.1);
+  await vi.waitFor(() =>
+    expect(onBufferingChange).toHaveBeenCalledWith(true, expect.closeTo(BLOCK_SECONDS, 6)),
+  );
+  resolve([block(BLOCK_SECONDS, { done: true })]);
+  await run;
+  expect(fake.sources[0].stopped).toBe(true);
+  expect(fake.sources[1].startedAt).toBeCloseTo(0.115, 6);
+  expect(onClockAnchor).toHaveBeenCalledTimes(2);
+  const fresh = onClockAnchor.mock.calls[1][0];
+  expect(fresh.contextTime).toBeCloseTo(0.115, 6);
+  expect(fresh.scoreTimeSeconds).toBeCloseTo(BLOCK_SECONDS, 6);
+  expect(onBufferingChange).toHaveBeenLastCalledWith(false, expect.closeTo(BLOCK_SECONDS, 6));
+  fake.sources[1].finish();
+  expect(onEnded).toHaveBeenCalledOnce();
+});

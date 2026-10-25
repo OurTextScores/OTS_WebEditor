@@ -6,8 +6,11 @@ import { ClickScheduler, clicksFromTimeline, planClicks } from './click-track';
 import { DEFAULT_RENDER_WINDOW } from '../playback-window';
 import { SoundFontManager } from './soundfont-manager';
 import { cancelSynthStream, scheduleSynthBatchStream } from './stream-scheduler';
-import { clampScorePosition, scoreTimeAt, type TransportClockAnchor } from './transport-clock';
+import { clampScorePosition, scoreTimeAt } from './transport-clock';
 import { startPerf } from '../perf-trace';
+import { PlaybackSessionOwner, type TransportPhase } from './session-owner';
+export type { TransportPhase } from './session-owner';
+import type { StreamPlaybackOptions } from './stream-scheduler';
 
 export type ScoreTransportState =
   'idle' | 'preparing' | 'playing' | 'paused' | 'ended' | 'unavailable';
@@ -15,8 +18,30 @@ export type ScoreTransportState =
 const isAutoplayDenial = (error: unknown) =>
   error instanceof DOMException && error.name === 'NotAllowedError';
 
+export type PlaybackRequest = {
+  createIterator?: (
+    score: Score,
+    startSeconds: number,
+    isCurrent: () => boolean,
+  ) => Promise<SynthAudioBatchIterator>;
+  stream?: Pick<
+    StreamPlaybackOptions,
+    | 'prerollSeconds'
+    | 'startupBufferSeconds'
+    | 'minStartupBatches'
+    | 'mergeWindowSeconds'
+    | 'maxDurationSeconds'
+  >;
+  allowFallback?: boolean;
+  click?: Options['click'];
+};
+
 type Options = {
   score: Score | null;
+  /** Editor overlays read refs/subscriptions; their composition root does not render on every frame. */
+  publishProgress?: boolean;
+  ensureSoundFont?: (score: Score, forceRetry: boolean) => Promise<boolean>;
+  beforeStart?: () => Promise<void>;
   durationMs: number;
   startMs: number;
   volume: number;
@@ -27,12 +52,23 @@ type Options = {
 };
 
 export function useScoreTransport(options: Options) {
+  const owner = useRef(new PlaybackSessionOwner()).current;
+  const [phase, setPhase] = useState<TransportPhase>('idle');
+  const { phaseRef, clockRef, positionRef } = owner;
+  const requestRef = useRef<PlaybackRequest>({});
+  const drainingRef = useRef(false);
+  const pausedPhaseRef = useRef<TransportPhase>('playing');
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+  const subscribers = useRef(new Set<() => void>());
   const [state, setState] = useState<ScoreTransportState>('idle');
   const stateRef = useRef<ScoreTransportState>('idle');
-  const [positionMs, setPositionMs] = useState(options.startMs);
+  const [positionMs, setPositionMs] = useState(() => {
+    positionRef.current = options.startMs;
+    return options.startMs;
+  });
   const [renderWindowIdle, setRenderWindowIdle] = useState(true);
   const [fallbackMode, setFallbackMode] = useState(false);
-  const positionRef = useRef(options.startMs);
   const scoreRef = useRef(options.score);
   const durationRef = useRef(options.durationMs);
   const startRef = useRef(options.startMs);
@@ -41,12 +77,8 @@ export function useScoreTransport(options: Options) {
   const messageRef = useRef(options.onMessage);
   const audioContextRef = useRef<AudioContext | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
-  const sourcesRef = useRef<AudioBufferSourceNode[]>([]);
-  const iteratorRef = useRef<SynthAudioBatchIterator | null>(null);
-  const playbackAttemptRef = useRef(0);
+  const { sourcesRef, iteratorRef, attemptRef: playbackAttemptRef, generationRef } = owner;
   const pendingStopRef = useRef<{ attempt: number; targetMs: number } | null>(null);
-  const generationRef = useRef(0);
-  const clockRef = useRef<TransportClockAnchor | null>(null);
   const clickRef = useRef(options.click);
   const clickSchedulerRef = useRef<ClickScheduler | null>(null);
   const soundFontManagerRef = useRef(options.soundFontManager ?? new SoundFontManager<Score>());
@@ -63,16 +95,25 @@ export function useScoreTransport(options: Options) {
   messageRef.current = options.onMessage;
   clickRef.current = options.click;
 
-  const publishState = useCallback((next: ScoreTransportState) => {
-    stateRef.current = next;
-    setState(next);
-  }, []);
+  const publishState = useCallback(
+    (next: ScoreTransportState) => {
+      stateRef.current = next;
+      phaseRef.current = next;
+      setPhase(next);
+      setState(next);
+    },
+    [phaseRef],
+  );
 
-  const publishPosition = useCallback((next: number) => {
-    const clamped = clampScorePosition(next, durationRef.current);
-    positionRef.current = clamped;
-    setPositionMs(clamped);
-  }, []);
+  const publishPosition = useCallback(
+    (next: number) => {
+      const clamped = clampScorePosition(next, durationRef.current);
+      positionRef.current = clamped;
+      if (optionsRef.current.publishProgress !== false) setPositionMs(clamped);
+      subscribers.current.forEach((notify) => notify());
+    },
+    [positionRef],
+  );
 
   useEffect(() => {
     if (gainNodeRef.current) gainNodeRef.current.gain.value = options.volume;
@@ -120,22 +161,42 @@ export function useScoreTransport(options: Options) {
       clickSchedulerRef.current?.stop();
       setRenderWindowIdle(false);
       stopFallbackSource();
-      await cancelSynthStream({ sourcesRef, iteratorRef, generationRef }, { awaitCancel });
+      const pending = owner.drain();
+      await owner.track(
+        cancelSynthStream({ sourcesRef, iteratorRef, generationRef }, { awaitCancel }),
+      );
+      if (awaitCancel) await pending;
       if (attempt === playbackAttemptRef.current) setRenderWindowIdle(true);
       return attempt;
     },
-    [stopFallbackSource],
+    [
+      owner,
+      sourcesRef,
+      iteratorRef,
+      generationRef,
+      playbackAttemptRef,
+      clockRef,
+      stopFallbackSource,
+    ],
   );
 
   const stopAt = useCallback(
     async (targetMs: number, nextState: ScoreTransportState = 'idle') => {
       const attempt = ++playbackAttemptRef.current;
       pendingStopRef.current = { attempt, targetMs };
+      publishPosition(targetMs);
+      publishState(nextState);
+      phaseRef.current = 'cancelling';
+      setPhase('cancelling');
       clockRef.current = null;
       clickSchedulerRef.current?.stop();
       setRenderWindowIdle(false);
       stopFallbackSource();
-      await cancelSynthStream({ sourcesRef, iteratorRef, generationRef }, { awaitCancel: true });
+      const pending = owner.drain();
+      await owner.track(
+        cancelSynthStream({ sourcesRef, iteratorRef, generationRef }, { awaitCancel: true }),
+      );
+      await pending;
       if (pendingStopRef.current?.attempt === attempt) pendingStopRef.current = null;
       if (attempt !== playbackAttemptRef.current) return false;
       setRenderWindowIdle(true);
@@ -143,7 +204,18 @@ export function useScoreTransport(options: Options) {
       publishState(nextState);
       return true;
     },
-    [publishPosition, publishState, stopFallbackSource],
+    [
+      owner,
+      sourcesRef,
+      iteratorRef,
+      generationRef,
+      playbackAttemptRef,
+      clockRef,
+      phaseRef,
+      publishPosition,
+      publishState,
+      stopFallbackSource,
+    ],
   );
 
   const playFallbackFrom = useCallback(
@@ -156,7 +228,7 @@ export function useScoreTransport(options: Options) {
           throw new Error('Compatibility audio is unavailable in this build.');
         messageRef.current?.('Streaming unavailable — preparing compatibility audio…');
         fallbackBufferRef.current = null;
-        const wav = await activeScore.saveAudio('wav');
+        const wav = await owner.track(activeScore.saveAudio('wav'));
         if (attempt !== playbackAttemptRef.current) return;
         try {
           buffer = await audioContext.decodeAudioData(wav.slice().buffer as ArrayBuffer);
@@ -174,10 +246,16 @@ export function useScoreTransport(options: Options) {
       source.connect(gainNodeRef.current ?? audioContext.destination);
       const targetSeconds = Math.max(0, Math.min(targetMs / 1000, buffer.duration));
       fallbackSourceRef.current = source;
-      clockRef.current = {
-        contextTime: audioContext.currentTime,
-        scoreTimeSeconds: targetSeconds,
-      };
+      const clicks = requestRef.current.click ?? clickRef.current;
+      const clickPlan = clicks ? planClicks(clicks.timeline, targetMs, clicks) : null;
+      const musicStart = audioContext.currentTime + (clickPlan?.leadInSeconds ?? 0);
+      clockRef.current = { contextTime: musicStart, scoreTimeSeconds: targetSeconds };
+      if (clickPlan) {
+        clickSchedulerRef.current ??= new ClickScheduler(audioContext, {
+          destination: gainNodeRef.current ?? undefined,
+        });
+        clickSchedulerRef.current.start(clockRef.current, clickPlan.clicks, clickPlan.fromMs);
+      }
       source.onended = () => {
         if (attempt !== playbackAttemptRef.current) return;
         if (fallbackSourceRef.current !== source) return;
@@ -188,11 +266,12 @@ export function useScoreTransport(options: Options) {
           /* already disconnected */
         }
         setRenderWindowIdle(true);
-        publishPosition(durationRef.current);
+        clickSchedulerRef.current?.stop();
+        publishPosition(Math.min(durationRef.current, buffer.duration * 1000));
         publishState('ended');
       };
       try {
-        source.start(0, targetSeconds);
+        source.start(clickPlan?.leadInSeconds ? musicStart : 0, targetSeconds);
       } catch (error) {
         if (fallbackSourceRef.current === source) fallbackSourceRef.current = null;
         try {
@@ -208,8 +287,30 @@ export function useScoreTransport(options: Options) {
       publishPosition(targetMs);
       messageRef.current?.('Compatibility audio');
       publishState('playing');
+      if (clickPlan?.leadInSeconds) {
+        phaseRef.current = 'count-in';
+        setPhase('count-in');
+      }
     },
-    [ensureAudioContext, publishPosition, publishState, stopFallbackSource],
+    [
+      owner,
+      playbackAttemptRef,
+      clockRef,
+      phaseRef,
+      ensureAudioContext,
+      publishPosition,
+      publishState,
+      stopFallbackSource,
+    ],
+  );
+
+  const ensureFont = useCallback(
+    (score: Score, forceRetry: boolean) =>
+      owner.track(
+        optionsRef.current.ensureSoundFont?.(score, forceRetry) ??
+          soundFontManagerRef.current.ensure(score, { forceRetry }),
+      ),
+    [owner],
   );
 
   const playFrom = useCallback(
@@ -221,14 +322,32 @@ export function useScoreTransport(options: Options) {
         publishState('unavailable');
         return;
       }
-      const attempt = ++playbackAttemptRef.current;
+      const attempt = owner.begin();
+      drainingRef.current = false;
+      clockRef.current = null;
+      clickSchedulerRef.current?.stop();
+      stopFallbackSource();
+      const previousCancellation = owner.track(
+        cancelSynthStream({ sourcesRef, iteratorRef, generationRef }, { awaitCancel: true }),
+      );
+      // Creation/resume happens synchronously on the Play gesture, before font/worker awaits.
+      const contextReady = ensureAudioContext();
+      void contextReady.catch(() => {});
+      const request = requestRef.current;
       setRenderWindowIdle(false);
       publishState('preparing');
       messageRef.current?.('Preparing audio…');
       const preparePerf = startPerf('playback:prepare:player');
+      let compatibilityAttempted = false;
       try {
+        const audioContext = await contextReady;
+        if (!owner.isCurrent(attempt)) return;
+        await previousCancellation;
+        if (!owner.isCurrent(attempt)) return;
+        await optionsRef.current.beforeStart?.();
+        if (!owner.isCurrent(attempt)) return;
         const ready = await preparePerf.time('soundfont', () =>
-          soundFontManagerRef.current.ensure(activeScore, { forceRetry }),
+          ensureFont(activeScore, forceRetry),
         );
         if (!ready || attempt !== playbackAttemptRef.current) {
           if (!ready && attempt === playbackAttemptRef.current) {
@@ -238,29 +357,37 @@ export function useScoreTransport(options: Options) {
           }
           return;
         }
-        if (fallbackBufferRef.current) {
+        if (fallbackBufferRef.current && !request.createIterator) {
+          compatibilityAttempted = true;
           await playFallbackFrom(activeScore, targetMs, attempt, false);
           return;
         }
-        if (!activeScore.synthAudioBatch) {
+        if (!activeScore.synthAudioBatch && !request.createIterator) {
+          compatibilityAttempted = true;
           await playFallbackFrom(activeScore, targetMs, attempt, true);
           return;
         }
         await cancelSynthStream({ sourcesRef, iteratorRef, generationRef }, { awaitCancel: true });
         if (attempt !== playbackAttemptRef.current) return;
-        const audioContext = await ensureAudioContext();
-        const iterator = (await preparePerf.time('nativePrepare', () =>
-          activeScore.synthAudioBatch!(targetMs / 1000, 2),
-        )) as SynthAudioBatchIterator;
+        const iterator = await preparePerf.time('nativePrepare', () =>
+          owner.prepareIterator(
+            () =>
+              request.createIterator
+                ? request.createIterator(activeScore, targetMs / 1000, () =>
+                    owner.isCurrent(attempt),
+                  )
+                : activeScore.synthAudioBatch!(targetMs / 1000, 2),
+            () => owner.isCurrent(attempt),
+          ),
+        );
         preparePerf.end();
         if (attempt !== playbackAttemptRef.current) {
-          await iterator(true).catch(() => {});
           return;
         }
         publishPosition(targetMs);
         messageRef.current?.('');
         // A metronome and count-in, when asked for: clicks come from the engine's beat times and share the music's anchor.
-        const clickOptions = clickRef.current;
+        const clickOptions = request.click ?? clickRef.current;
         const clickPlan = clickOptions
           ? planClicks(clickOptions.timeline, targetMs, clickOptions)
           : null;
@@ -275,12 +402,42 @@ export function useScoreTransport(options: Options) {
           iteratorRef,
           generationRef,
           debugLabel: 'score-transport',
+          ...request.stream,
           renderWindow: DEFAULT_RENDER_WINDOW,
           destination: gainNodeRef.current ?? undefined,
           onClockAnchor: (anchor) => {
             clockRef.current = anchor;
+            publishPosition(anchor.scoreTimeSeconds * 1000);
+            if ((clickPlan?.leadInSeconds ?? 0) > 0 && phaseRef.current !== 'buffering') {
+              phaseRef.current = 'count-in';
+              setPhase('count-in');
+            }
             if (clickPlan && attempt === playbackAttemptRef.current) {
-              clickSchedulerRef.current?.start(anchor, clickPlan.clicks, clickPlan.fromMs);
+              clickSchedulerRef.current?.start(
+                anchor,
+                clickPlan.clicks,
+                phaseRef.current === 'buffering' ? positionRef.current : clickPlan.fromMs,
+              );
+            }
+          },
+          onBufferingChange: (buffering, scoreTimeSeconds) => {
+            if (!owner.isCurrent(attempt)) return;
+            owner.setBuffering(buffering, scoreTimeSeconds);
+            if (buffering) {
+              clickSchedulerRef.current?.stop();
+              publishPosition(scoreTimeSeconds * 1000);
+            }
+            setPhase(phaseRef.current);
+          },
+          onDraining: () => {
+            drainingRef.current = true;
+            if (
+              owner.isCurrent(attempt) &&
+              stateRef.current !== 'paused' &&
+              phaseRef.current !== 'count-in'
+            ) {
+              phaseRef.current = 'draining';
+              setPhase('draining');
             }
           },
           onRenderWindowIdleChange: (idle) => {
@@ -291,11 +448,18 @@ export function useScoreTransport(options: Options) {
               playing &&
               attempt === playbackAttemptRef.current &&
               stateRef.current === 'preparing'
-            )
+            ) {
+              const detailed = phaseRef.current;
               publishState('playing');
+              if (detailed === 'count-in') {
+                phaseRef.current = detailed;
+                setPhase(detailed);
+              }
+            }
           },
           onEnded: () => {
             if (attempt !== playbackAttemptRef.current) return;
+            clickSchedulerRef.current?.stop();
             setRenderWindowIdle(true);
             publishPosition(durationRef.current);
             publishState('ended');
@@ -315,7 +479,11 @@ export function useScoreTransport(options: Options) {
           publishState('idle');
           return;
         }
-        if (!fallbackBufferRef.current) {
+        if (
+          !compatibilityAttempted &&
+          !fallbackBufferRef.current &&
+          request.allowFallback !== false
+        ) {
           try {
             const fallbackTargetMs =
               stateRef.current === 'playing' ? positionRef.current : targetMs;
@@ -346,7 +514,22 @@ export function useScoreTransport(options: Options) {
         preparePerf.end();
       }
     },
-    [ensureAudioContext, playFallbackFrom, publishPosition, publishState],
+    [
+      owner,
+      sourcesRef,
+      iteratorRef,
+      generationRef,
+      playbackAttemptRef,
+      clockRef,
+      phaseRef,
+      positionRef,
+      ensureAudioContext,
+      ensureFont,
+      playFallbackFrom,
+      publishPosition,
+      publishState,
+      stopFallbackSource,
+    ],
   );
 
   const togglePlayPause = useCallback(async () => {
@@ -362,16 +545,37 @@ export function useScoreTransport(options: Options) {
       await playFrom(pendingTargetMs);
       return;
     }
+    if (priorState === 'preparing') {
+      await stopAt(positionRef.current);
+      return;
+    }
     if (priorState === 'playing') {
+      const attempt = playbackAttemptRef.current;
+      pausedPhaseRef.current = phaseRef.current;
       if (audioContextRef.current?.state === 'running') await audioContextRef.current.suspend();
+      if (!owner.isCurrent(attempt)) return;
       publishState('paused');
       return;
     }
-    if (priorState === 'paused' && iteratorRef.current) {
+    if (priorState === 'paused' && (iteratorRef.current || fallbackSourceRef.current)) {
+      const attempt = playbackAttemptRef.current;
       try {
         if (audioContextRef.current?.state === 'suspended') await audioContextRef.current.resume();
+        if (!owner.isCurrent(attempt)) return;
         publishState('playing');
+        const detail =
+          pausedPhaseRef.current === 'count-in' &&
+          clockRef.current &&
+          audioContextRef.current &&
+          audioContextRef.current.currentTime < clockRef.current.contextTime
+            ? 'count-in'
+            : drainingRef.current
+              ? 'draining'
+              : clockRef.current ? 'playing' : 'buffering';
+        phaseRef.current = detail;
+        setPhase(detail);
       } catch (error) {
+        if (!owner.isCurrent(attempt)) return;
         messageRef.current?.(
           isAutoplayDenial(error)
             ? 'Playback was blocked. Press Play to try again.'
@@ -383,26 +587,20 @@ export function useScoreTransport(options: Options) {
       }
       return;
     }
-    if (priorState === 'paused' && fallbackSourceRef.current) {
-      try {
-        if (audioContextRef.current?.state === 'suspended') await audioContextRef.current.resume();
-        publishState('playing');
-      } catch (error) {
-        messageRef.current?.(
-          isAutoplayDenial(error)
-            ? 'Playback was blocked. Press Play to try again.'
-            : error instanceof Error
-              ? error.message
-              : 'Compatibility audio could not resume.',
-        );
-        publishState(isAutoplayDenial(error) ? 'idle' : 'unavailable');
-      }
-      return;
-    }
     const target =
       pendingTargetMs ?? (priorState === 'ended' ? startRef.current : positionRef.current);
     await playFrom(target, priorState === 'unavailable');
-  }, [playFrom, publishState]);
+  }, [
+    owner,
+    playbackAttemptRef,
+    iteratorRef,
+    clockRef,
+    phaseRef,
+    positionRef,
+    playFrom,
+    publishState,
+    stopAt,
+  ]);
 
   const seek = useCallback(
     (targetMs: number) => {
@@ -411,7 +609,7 @@ export function useScoreTransport(options: Options) {
         void stopAt(targetMs, 'paused');
         return;
       }
-      const shouldResume = priorState === 'playing';
+      const shouldResume = priorState === 'playing' || priorState === 'preparing';
       void stopAt(targetMs).then((stopped) => {
         if (stopped && shouldResume) void playFrom(targetMs);
       });
@@ -421,6 +619,8 @@ export function useScoreTransport(options: Options) {
 
   const reset = useCallback(
     (targetMs: number, durationMs = durationRef.current) => {
+      void cancelSynthStream({ sourcesRef, iteratorRef, generationRef });
+      clockRef.current = null;
       clickSchedulerRef.current?.stop();
       playbackAttemptRef.current += 1;
       pendingStopRef.current = null;
@@ -432,7 +632,16 @@ export function useScoreTransport(options: Options) {
       publishPosition(targetMs);
       publishState('idle');
     },
-    [publishPosition, publishState, releaseFallbackAudio],
+    [
+      sourcesRef,
+      iteratorRef,
+      generationRef,
+      playbackAttemptRef,
+      clockRef,
+      publishPosition,
+      publishState,
+      releaseFallbackAudio,
+    ],
   );
 
   const prefetchSoundFont = useCallback(
@@ -441,19 +650,21 @@ export function useScoreTransport(options: Options) {
   );
 
   const dispose = useCallback(async () => {
-    await cancel(true);
-    clickSchedulerRef.current?.stop();
-    clickSchedulerRef.current = null;
+    // Capture and detach before awaiting: a StrictMode remount/new Play may create a new context.
     const context = audioContextRef.current;
     const gain = gainNodeRef.current;
+    const pending = cancel(true);
     audioContextRef.current = null;
     gainNodeRef.current = null;
+    clickSchedulerRef.current?.stop();
+    clickSchedulerRef.current = null;
     releaseFallbackAudio();
     try {
       gain?.disconnect();
     } catch {
       /* already disconnected */
     }
+    await pending;
     if (context && context.state !== 'closed') await context.close().catch(() => {});
   }, [cancel, releaseFallbackAudio]);
 
@@ -463,6 +674,15 @@ export function useScoreTransport(options: Options) {
     },
     [dispose],
   );
+
+  const priorScoreRef = useRef(options.score);
+  useEffect(() => {
+    if (priorScoreRef.current === options.score) return;
+    priorScoreRef.current = options.score;
+    void stopAt(options.startMs);
+    releaseFallbackAudio();
+    setFallbackMode(false);
+  }, [options.score, options.startMs, releaseFallbackAudio, stopAt]);
 
   // Switching the click on or off while the music plays takes effect at once (a count-in only applies to a start).
   const clickEnabled = options.click?.enabled ?? false;
@@ -482,7 +702,7 @@ export function useScoreTransport(options: Options) {
       scheduler ?? new ClickScheduler(context, { destination: gainNodeRef.current ?? undefined });
     clickSchedulerRef.current = live;
     live.start(anchor, clicks, positionRef.current);
-  }, [clickEnabled, clickTimeline]);
+  }, [clickEnabled, clickTimeline, clockRef, positionRef]);
 
   useEffect(() => {
     if (state !== 'playing') return;
@@ -492,13 +712,42 @@ export function useScoreTransport(options: Options) {
       if (context && anchor) {
         const scoreTime = scoreTimeAt(anchor, context.currentTime);
         if (scoreTime !== null) publishPosition(scoreTime * 1000);
+        if (phaseRef.current === 'count-in' && context.currentTime >= anchor.contextTime) {
+          phaseRef.current = drainingRef.current ? 'draining' : 'playing';
+          setPhase(phaseRef.current);
+        }
       }
       frame = window.requestAnimationFrame(update);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [publishPosition, state]);
+  }, [clockRef, phaseRef, publishPosition, state]);
+
+  const start = useCallback(
+    (request: PlaybackRequest = {}, targetMs = 0) => {
+      requestRef.current = request;
+      return playFrom(targetMs, true);
+    },
+    [playFrom],
+  );
+  const subscribePosition = useCallback((notify: () => void) => {
+    subscribers.current.add(notify);
+    return () => {
+      subscribers.current.delete(notify);
+    };
+  }, []);
+
+  const awaitRetirement = useCallback(() => owner.drain(), [owner]);
 
   return {
+    start,
+    diagnostics: () => owner.diagnostics(),
+    awaitRetirement,
+    invalidate: releaseFallbackAudio,
+    phase,
+    phaseRef,
+    clockRef,
+    audioContextRef,
+    subscribePosition,
     state,
     stateRef,
     positionMs,

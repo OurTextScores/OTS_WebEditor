@@ -1,6 +1,7 @@
 import type { MutableRefObject } from 'react';
 import type { SynthAudioBatchIterator } from '../webmscore-loader';
 import { releaseScheduledSource, renderWindowDelayMs, type RenderWindow } from '../playback-window';
+import { watchStreamFrontier } from './stream-frontier';
 import { startPerf } from '../perf-trace';
 
 // The legacy native SynthRes ABI is planar float32 at this rate, regardless of output-device rate.
@@ -32,6 +33,9 @@ export type StreamPlaybackOptions = StreamPlaybackTarget & {
   onClockAnchor?: (anchor: { contextTime: number; scoreTimeSeconds: number }) => void;
   /** Called after the final scheduled source naturally finishes. */
   onEnded?: () => void;
+  /** A stalled worker exhausted scheduled PCM. Position freezes until a fresh anchor is published. */
+  onBufferingChange?: (buffering: boolean, scoreTimeSeconds: number) => void;
+  onDraining?: () => void;
   /** Optional gain/effects node. Defaults to the AudioContext destination. */
   destination?: AudioNode;
 };
@@ -106,7 +110,18 @@ export async function scheduleSynthBatchStream(
   const minStartupBatches = options.minStartupBatches ?? 1;
   let baseTime: number | null = null;
   let streamStartTimeSeconds: number | null = null;
-  let lastSource: AudioBufferSourceNode | null = null;
+  let draining = false;
+  let ended = false;
+  let buffering = false;
+  let scheduledUntil = 0;
+  const finish = () => {
+    if (ended || !draining || options.generationRef.current !== generation) return;
+    if (options.sourcesRef.current.length > 0) return;
+    ended = true;
+    if (options.iteratorRef.current === batchFn) options.iteratorRef.current = null;
+    options.onPlayingChange?.(false);
+    options.onEnded?.();
+  };
   let startedAny = false;
   let batchCount = 0;
   let bufferedUntilSeconds = 0;
@@ -135,15 +150,44 @@ export async function scheduleSynthBatchStream(
         scoreTimeSeconds: streamStartTimeSeconds ?? 0,
       });
     }
+    // Web Audio starts a source scheduled in the past immediately. Re-anchor instead,
+    // preserving score order and preventing a burst of overlapping late blocks.
+    if (buffering || baseTime + relativeChunkStart < audioContext.currentTime - 0.001) {
+      if (!buffering)
+        options.onBufferingChange?.(true, (streamStartTimeSeconds ?? 0) + relativeChunkStart);
+      for (const old of options.sourcesRef.current) {
+        old.onended = null;
+        try {
+          old.stop();
+          old.disconnect();
+        } catch {
+          /* already ended */
+        }
+      }
+      options.sourcesRef.current = [];
+      baseTime = audioContext.currentTime + prerollSeconds - relativeChunkStart;
+      options.onClockAnchor?.({
+        contextTime: baseTime + relativeChunkStart,
+        scoreTimeSeconds: (streamStartTimeSeconds ?? 0) + relativeChunkStart,
+      });
+      buffering = false;
+      options.onBufferingChange?.(false, (streamStartTimeSeconds ?? 0) + relativeChunkStart);
+    }
     const source = audioContext.createBufferSource();
     source.buffer = buffer;
     source.connect(options.destination ?? audioContext.destination);
     source.start(baseTime + relativeChunkStart);
     source.onended = () => {
       releaseScheduledSource(options.sourcesRef.current, source);
+      finish();
     };
     options.sourcesRef.current.push(source);
-    lastSource = source;
+    scheduledUntil = Math.max(
+      scheduledUntil,
+      baseTime +
+        relativeChunkStart +
+        (buffer.length ?? SYNTH_FRAMES_PER_CHUNK) / (buffer.sampleRate ?? SYNTH_SAMPLE_RATE),
+    );
     if (!startedAny) {
       startedAny = true;
       // This closes at the next paint; it measures scheduling startup, not audible device output.
@@ -213,10 +257,32 @@ export async function scheduleSynthBatchStream(
       options.onRenderWindowIdleChange?.(false);
     }
 
-    const batch =
-      batchCount === 0
-        ? await startupPerf.time('firstPull', () => batchFn(false))
-        : await batchFn(false);
+    // Detect starvation while the worker promise is unresolved, rather than letting
+    // the presentation clock run through music that has never been rendered.
+    const stopWatching =
+      baseTime !== null && scheduledUntil > 0
+        ? watchStreamFrontier(
+            audioContext,
+            scheduledUntil,
+            () => options.generationRef.current === generation,
+            () => {
+              buffering = true;
+              options.onBufferingChange?.(
+                true,
+                (streamStartTimeSeconds ?? 0) + scheduledUntil - baseTime!,
+              );
+            },
+          )
+        : null;
+    let batch;
+    try {
+      batch =
+        batchCount === 0
+          ? await startupPerf.time('firstPull', () => batchFn(false))
+          : await batchFn(false);
+    } finally {
+      stopWatching?.();
+    }
     // Iterator calls cross the cancellation boundary. A superseded run no
     // longer owns any of the shared refs and must not schedule or clean up.
     if (options.generationRef.current !== generation) return;
@@ -332,18 +398,11 @@ export async function scheduleSynthBatchStream(
   if (!startedAny) {
     if (options.iteratorRef.current === batchFn) options.iteratorRef.current = null;
     options.onPlayingChange?.(false);
+    options.onEnded?.();
     return;
   }
 
-  const finalSource = lastSource as AudioBufferSourceNode | null;
-  if (finalSource) {
-    finalSource.onended = () => {
-      releaseScheduledSource(options.sourcesRef.current, finalSource);
-      if (options.generationRef.current !== generation) return;
-      options.sourcesRef.current = [];
-      if (options.iteratorRef.current === batchFn) options.iteratorRef.current = null;
-      options.onPlayingChange?.(false);
-      options.onEnded?.();
-    };
-  }
+  draining = true;
+  options.onDraining?.();
+  finish();
 }

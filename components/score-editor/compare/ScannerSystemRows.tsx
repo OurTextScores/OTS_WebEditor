@@ -1413,6 +1413,7 @@ export function ScannerSystemRows({
   );
 
   const merged = useMergedScoreDocument({
+    beforeMutation: () => transport?.stopForEdit() ?? Promise.resolve(),
     state: mergedState ?? null,
     resolveUrl,
     prepare,

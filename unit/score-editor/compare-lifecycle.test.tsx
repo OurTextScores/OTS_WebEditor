@@ -1,3 +1,4 @@
+import { fakeAudioContext } from '../helpers/fake-audio';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
@@ -234,6 +235,10 @@ describe('ScoreEditor: compare pane lifecycle, routing and audio teardown', () =
   });
 
   it('does not start compare audio after close cancels soundfont setup', async () => {
+    const audio = fakeAudioContext();
+    vi.stubGlobal('AudioContext', function AudioContext() {
+      return audio.context;
+    });
     const user = userEvent.setup();
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <score-partwise version="3.1">
