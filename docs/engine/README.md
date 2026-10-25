@@ -62,7 +62,7 @@ MS47_VERIFY_EDITS=1 MS47_VERIFY_INSPECTOR=1 MS47_VERIFY_SELECTION=1 MS47_VERIFY_
 MS47_VERIFY_MEASURES=1 MS47_VERIFY_TIMELINE=1 MS47_VERIFY_SPANNERS=1 MS47_VERIFY_MISC=1 \
 MS47_VERIFY_DRAG=1 MS47_VERIFY_MIDI=1 MS47_VERIFY_AUDIO=1 MS47_VERIFY_PDF=1 \
 MS47_VERIFY_STUBS=1 MS47_VERIFY_PARTS=1 MS47_VERIFY_RESOURCES=1 MS47_VERIFY_SYSTEMLOCKS=1 \
-MS47_VERIFY_PLAYBACK_SAFETY=1 \
+MS47_VERIFY_PLAYBACK_SAFETY=1 MS47_VERIFY_PLAYBACK_OPTIONS=1 \
 MS47_SOUNDFONT="$PWD/public/soundfonts/default.sf3" npm run verify:engine
 node tools/musescore/inventory.mjs
 MS47_ARTIFACTS="$PWD/../musescore-clean/build.artifacts" node tools/musescore/verify-exports.mjs
@@ -159,3 +159,18 @@ Phase 1 engine; rebuilding native artifacts is unnecessary for this phase.
 mutating or destroying a score. `reset()` only invalidates/reset state; it does not replace an awaited
 retirement boundary. Editor animation consumers read `clockRef`/`positionRef` or subscribe to position;
 do not introduce animation-frame worker RPC or editor-root React position updates.
+
+## Playback options (Phase 3)
+
+[Phase 3 execution record](PHASE3_2026-10-24.md). Tempo multiplier (0.25–2.0) and written repeats are transient
+per-project options (`setPlaybackOptions`, `playbackOptions`), applied by `playbackoptions.h` inside every
+playback-family read and restored afterwards. Audio, timeline, positions, selection start and range windows share one
+options revision; notation exports, layout and undo never see the options. Use `playbackPositionAt` /
+`playbackTimeForPosition` (written tick + repeat pass) to carry a location across an options change; never rescale
+seconds in JavaScript. On the app side call `useScoreTransport().setPlaybackOptions`, which retires old-option audio,
+coalesces requests and resumes at the mapped location.
+
+```bash
+MS47_BUNDLE=/tmp/ots-engine-bundle MS47_VERIFY_PLAYBACK_OPTIONS=1 \
+MS47_SOUNDFONT="$PWD/public/soundfonts/default.sf3" npm run verify:engine
+```

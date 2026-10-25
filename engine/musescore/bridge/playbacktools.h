@@ -181,9 +181,11 @@ static ScorePlayback* preparePlayback(uintptr_t id, mu::engraving::Score* score)
     // The module has one offline mixer. Remove every previous sequence, including another score's,
     // before handing ownership to this render; otherwise old tracks can sound underneath it.
     releaseAllPlayback();
+    // Model events, the sequence duration and the caller's start time all use the project's playback options.
+    ms47options::PlaybackOptionsScope scope(id, score);
     ScorePlayback& sp = scorePlaybacks[id];
     sp.model = std::make_unique<mu::engraving::PlaybackModel>(nullptr);
-    sp.model->setPlayRepeats(true);
+    sp.model->setPlayRepeats(scope.options().playRepeats);
     // PlaybackModel defaults the metronome on; desktop applies its setting (default off) before load, as here
     sp.model->setIsMetronomeEnabled(false);
     sp.model->load(score);
@@ -194,9 +196,9 @@ static ScorePlayback* preparePlayback(uintptr_t id, mu::engraving::Score* score)
         muse::mpe::PlaybackData& data = sp.model->resolveTrackPlaybackData(trackId);
         e->playback->addTrack(sp.sequenceId, trackId.instrumentId.toStdString(), data, params);
     }
-    // As desktop NotationPlayback/PlaybackController: total play time with repeats plus the release tail
-    const int lastTick = score->repeatList(true).ticks();
-    const secs_t total = secs_t(score->utick2utime(lastTick)) + PLAYBACK_TAIL_SECS;
+    // As desktop NotationPlayback/PlaybackController: total play time of the traversal plus the release tail
+    const auto& repeats = scope.repeats();
+    const secs_t total = secs_t(repeats.utick2utime(repeats.ticks())) + PLAYBACK_TAIL_SECS;
     if (auto sequence = e->playback->sequence(sp.sequenceId)) {
         sequence->player()->setDuration(secsToMilisecs(total));
     }
@@ -318,16 +320,17 @@ static SynthRes* renderChunk(uintptr_t handle, bool cancel)
 }
 
 // 4.00 playbackWindowForMeasureRange: measure indices -> played (repeat-expanded) start time and duration
-static bool measureRangeWindow(mu::engraving::Score* score, int startIndex, int endIndex, double& startSeconds, double& durationSeconds)
+static bool measureRangeWindow(uintptr_t id, mu::engraving::Score* score, int startIndex, int endIndex, double& startSeconds, double& durationSeconds)
 {
     auto* startMeasure = measureAtIndex(score, startIndex);
     auto* endMeasure = measureAtIndex(score, endIndex);
     if (!startMeasure || !endMeasure || endIndex < startIndex) return false;
-    const auto& repeats = score->repeatList();
+    ms47options::PlaybackOptionsScope scope(id, score);
+    const auto& repeats = scope.repeats();
     const int playedStart = repeats.tick2utick(startMeasure->tick().ticks());
     const int playedEnd = repeats.tick2utick((endMeasure->tick() + endMeasure->ticks()).ticks());
-    startSeconds = score->utick2utime(playedStart);
-    durationSeconds = std::max(0.05, score->utick2utime(playedEnd) - startSeconds);
+    startSeconds = repeats.utick2utime(playedStart);
+    durationSeconds = std::max(0.05, repeats.utick2utime(playedEnd) - startSeconds);
     return true;
 }
 
@@ -413,7 +416,7 @@ EMSCRIPTEN_KEEPALIVE uintptr_t synthAudioForMeasureRange(uintptr_t score_ptr, in
 {
     auto* score = getScore(score_ptr, excerptId);
     double start = 0, duration = 0;
-    if (!score || !ms47audio::measureRangeWindow(score, startMeasureIndex, endMeasureIndex, start, duration)) return 0;
+    if (!score || !ms47audio::measureRangeWindow(score_ptr, score, startMeasureIndex, endMeasureIndex, start, duration)) return 0;
     return ms47audio::startStream(score_ptr, score, start, duration);
 }
 
@@ -454,7 +457,7 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* saveAudioForMeasureRange(uintptr_t score_ptr
     if (!score) return textResponse("Invalid score or excerpt", 1);
     if (!format || std::strcmp(format, "wav") != 0) return textResponse("saveAudioForMeasureRange currently supports wav only", 1);
     double start = 0, duration = 0;
-    if (!ms47audio::measureRangeWindow(score, startMeasureIndex, endMeasureIndex, start, duration)) return textResponse("Invalid measure range", 1);
+    if (!ms47audio::measureRangeWindow(score_ptr, score, startMeasureIndex, endMeasureIndex, start, duration)) return textResponse("Invalid measure range", 1);
     const auto stream = ms47audio::startStream(score_ptr, score, start, duration);
     if (!stream) return textResponse("Unable to initialize audio synth", 1);
     return response(ms47audio::encodeStream(stream));
@@ -474,6 +477,14 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* playbackCapabilities(uintptr_t id, int excer
     caps.set("schemaVersion", 1);
     caps.set("positionsSchemaVersion", 1);
     caps.set("partialLayoutSafe", true);
+    // Transient tempo/repeat options shared by audio, timeline, positions and position conversion (playbackoptions.h)
+    JsonObject options;
+    options.set("schemaVersion", 1);
+    options.set("minTempoMultiplier", ms47options::MIN_TEMPO_MULTIPLIER);
+    options.set("maxTempoMultiplier", ms47options::MAX_TEMPO_MULTIPLIER);
+    options.set("playRepeats", true);
+    options.set("positionConversion", true);
+    caps.set("playbackOptions", options);
 #ifdef MS47_WITH_PLAYBACK
     caps.set("streamHandlesVersion", 1);
     caps.set("soundFontGeneration", true);

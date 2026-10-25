@@ -39,6 +39,8 @@ export interface IrregularMeasure {
 export interface Positions {
   /** Additive schema; absent on legacy engines. Missing geometry retains its ID with page=-1. */
   schemaVersion?: 1;
+  /** Revision of the playback options its event times use; absent on engines without options. */
+  optionsRevision?: number;
   complete?: boolean;
   elements: Array<{
     id: number;
@@ -70,6 +72,53 @@ export interface PlaybackCapabilities {
   streamHandlesVersion: number;
   soundFontGeneration: boolean;
   pcm?: { sampleRate: number; channels: number; framesPerChunk: number; format: 'f32-planar' };
+  /** Transient tempo/repeat options; absent on engines that always play written repeats at 100%. */
+  playbackOptions?: {
+    schemaVersion: 1;
+    minTempoMultiplier: number;
+    maxTempoMultiplier: number;
+    playRepeats: boolean;
+    positionConversion: boolean;
+  };
+}
+
+export interface PlaybackOptionsRequest {
+  tempoMultiplier: number;
+  playRepeats: boolean;
+}
+
+/** Accepted per-project options. Never part of the notation, undo history or saved file. */
+export interface PlaybackOptions extends PlaybackOptionsRequest {
+  schemaVersion: 1;
+  /** Changes only when an option does; audio, timeline and positions report the revision they used. */
+  revision: number;
+  changed?: boolean;
+}
+
+/** A playback location that survives a tempo change: written tick plus which pass over it, inside repeats. */
+export interface MusicalPlaybackPosition {
+  schemaVersion: 1;
+  optionsRevision: number;
+  timeMs: number;
+  writtenTick: number;
+  /** writtenTick plus progress through it, in [writtenTick, writtenTick + 1). */
+  fractionalTick: number;
+  occurrenceIndex: number;
+  /** 0 on the first pass over writtenTick. */
+  pass: number;
+  occurrenceKey: string;
+  atEnd: boolean;
+}
+
+export interface PlaybackTimeForPosition {
+  schemaVersion: 1;
+  optionsRevision: number;
+  timeMs: number;
+  writtenTick: number;
+  pass: number;
+  exact: boolean;
+  /** Why the location moved: its pass is no longer played, its tick is unreachable, or it is past the end. */
+  fallback: null | 'pass-unavailable' | 'tick-unreachable' | 'end';
 }
 
 export interface PlaybackTimelineOccurrence {
@@ -87,6 +136,7 @@ export interface PlaybackTimelineOccurrence {
 
 export interface PlaybackTimeline {
   schemaVersion: 1;
+  optionsRevision?: number;
   durationMs: number;
   renderDurationMs: number;
   occurrences: PlaybackTimelineOccurrence[];
@@ -236,6 +286,13 @@ export interface Score {
     | null;
   playbackCapabilities?: () => Promise<PlaybackCapabilities | null>;
   playbackTimeline?: () => Promise<PlaybackTimeline | null> | PlaybackTimeline | null;
+  playbackOptions?: () => Promise<PlaybackOptions | null>;
+  /** Applies to the whole project (its parts share the tempo map); retires its prepared stream on change. */
+  setPlaybackOptions?: (options: PlaybackOptionsRequest) => Promise<PlaybackOptions | null>;
+  playbackPositionAt?: (timeMs: number) => Promise<MusicalPlaybackPosition | null>;
+  playbackTimeForPosition?: (
+    position: Pick<MusicalPlaybackPosition, 'writtenTick' | 'fractionalTick' | 'pass'>,
+  ) => Promise<PlaybackTimeForPosition | null>;
   selectionMeasureRange?: () =>
     | Promise<{ startMeasureIndex: number; endMeasureIndex: number } | null>
     | { startMeasureIndex: number; endMeasureIndex: number }

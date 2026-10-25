@@ -87,11 +87,10 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* playbackTimeline(uintptr_t score_ptr, int ex
         return textResponse("null");
     }
 
-    // Playback and the positions writer both use the expanded repeat list. Keep
-    // this export on the same authority so callers never have to reconstruct
-    // repeats, voltas, jumps, or tempo changes in JavaScript.
-    engravingScore->masterScore()->setExpandRepeats(true);
-    const auto& repeatList = engravingScore->repeatList();
+    // Playback, positions and this timeline share one options scope (tempo multiplier, written repeats), so
+    // callers never reconstruct repeats, voltas, jumps, or tempo changes in JavaScript.
+    ms47options::PlaybackOptionsScope scope(score_ptr, engravingScore);
+    const auto& repeatList = scope.repeats();
 
     std::map<const engraving::Measure*, int> measureIndices;
     int measureIndex = 0;
@@ -158,6 +157,7 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* playbackTimeline(uintptr_t score_ptr, int ex
     );
     JsonObject result;
     result.set("schemaVersion", 1);
+    result.set("optionsRevision", scope.options().revision);
     result.set("durationMs", durationMs);
     // Matches NotationPlayback's existing three-second playback tail.
     result.set("renderDurationMs", durationMs + 3000);
@@ -167,10 +167,10 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* playbackTimeline(uintptr_t score_ptr, int ex
 
 EMSCRIPTEN_KEEPALIVE float selectionPlaybackStartTime(uintptr_t id, int excerpt) {
     auto* score=getScore(id,excerpt); if (!score) return 0.f;
-    score->masterScore()->setExpandRepeats(true); // repeat expansion is a master-score setting
     const auto raw=resolveSelectionRawTick(score);
     if (!raw) return 0.f;
-    const auto& repeats=score->repeatList();
+    ms47options::PlaybackOptionsScope scope(id, score);
+    const auto& repeats=scope.repeats();
     return float(repeats.utick2utime(repeats.tick2utick(*raw)));
 }
 

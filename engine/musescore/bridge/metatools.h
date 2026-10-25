@@ -40,7 +40,7 @@ static void positionEvent(JsonArray& events, int id, int time)
     events.append(ev);
 }
 
-static JsonObject positionsJson(Score* score, bool ofSegments)
+static JsonObject positionsJson(uintptr_t projectId, Score* score, bool ofSegments)
 {
     std::unordered_map<const void*, int> ids;
     JsonArray elements;
@@ -82,8 +82,8 @@ static JsonObject positionsJson(Score* score, bool ofSegments)
     }
 
     JsonArray events;
-    score->masterScore()->setExpandRepeats(true);
-    const RepeatList& repeats = score->repeatList();
+    ms47options::PlaybackOptionsScope scope(projectId, score);
+    const RepeatList& repeats = scope.repeats();
     for (const RepeatSegment* repeatSegment : repeats) {
         const int startTick = repeatSegment->tick;
         const int endTick = startTick + repeatSegment->len();
@@ -104,6 +104,7 @@ static JsonObject positionsJson(Score* score, bool ofSegments)
 
     JsonObject json;
     json.set("schemaVersion", 1);
+    json.set("optionsRevision", scope.options().revision);
     json.set("complete", complete);
     json.set("elements", elements);
     json.set("events", events);
@@ -132,7 +133,7 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* savePositions(uintptr_t score_ptr, bool ofSe
 {
     auto* score = getScore(score_ptr, excerptId);
     if (!score) return textResponse("Invalid score or excerpt", 1);
-    return response(JsonDocument(positionsJson(score, ofSegments)).toJson(JsonDocument::Format::Compact));
+    return response(JsonDocument(positionsJson(score_ptr, score, ofSegments)).toJson(JsonDocument::Format::Compact));
 }
 
 EMSCRIPTEN_KEEPALIVE const uint8_t* saveMetadata(uintptr_t score_ptr)

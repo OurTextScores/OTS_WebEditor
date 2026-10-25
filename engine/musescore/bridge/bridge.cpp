@@ -70,6 +70,7 @@ static void layoutAllLinked(Score* score) {
 static bool changePitch(uintptr_t id,int excerpt,bool up);
 static void abortGesturesForScore(MasterScore* master); // dragtools.h
 static void releasePlaybackForScore(uintptr_t id);   // playbacktools.h
+static void forgetPlaybackOptions(uintptr_t id);  // playbackoptions.h
 
 extern "C" {
 EMSCRIPTEN_KEEPALIVE void init() {
@@ -142,6 +143,7 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* load(const char* format, const uint8_t* data
 EMSCRIPTEN_KEEPALIVE void destroy(uintptr_t id) {
     if (auto it=projects.find(id); it!=projects.end()) abortGesturesForScore(it->second->masterScore());
     releasePlaybackForScore(id);
+    forgetPlaybackOptions(id);
     projects.erase(id); loadProfiles.erase(id);
 }
 EMSCRIPTEN_KEEPALIVE const uint8_t* saveXml(uintptr_t id,int excerpt) {
@@ -302,6 +304,7 @@ EMSCRIPTEN_KEEPALIVE bool redo(uintptr_t id,int excerpt) {
 #include "measurestructure.h"
 #include "systemlocks.h"
 
+#include "playbackoptions.h"
 #include "playbacktimeline.h"
 #include "spannertools.h"
 #include "frettools.h"

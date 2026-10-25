@@ -106,13 +106,15 @@ export function useEditorPlayback(options: Options) {
       timeline: null as Awaited<ReturnType<NonNullable<Score['playbackTimeline']>>>,
     };
     return start({
-      createIterator: async (score, _time, isCurrent) => {
+      // Re-read per start: an options change restarts here with the new-option beat map.
+      createIterator: async (score, startSeconds, isCurrent) => {
         const timeline = await score.playbackTimeline?.();
         if (!isCurrent()) throw new Error('Playback preparation cancelled.');
         click.timeline = timeline ?? null;
         if (!score.synthAudioBatch) throw new Error('Streaming synthesis unavailable.');
-        return score.synthAudioBatch(0, TRANSPORT_SYNTH_BATCH_SIZE);
+        return score.synthAudioBatch(startSeconds, TRANSPORT_SYNTH_BATCH_SIZE);
       },
+      restartable: true,
       click,
     });
   }, [play, start]);

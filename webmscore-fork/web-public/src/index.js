@@ -723,6 +723,54 @@ class WebMscore {
     }
 
     /**
+     * Transient playback options of this project (shared by its excerpts); null on older engines.
+     * @returns {Promise<import('../schemas').PlaybackOptions | null>}
+     */
+    async playbackOptions() {
+        if (typeof Module._playbackOptions !== 'function') return null
+        return JSON.parse(WasmRes.readText(Module.ccall('playbackOptions', 'number', ['number'], [this.scoreptr])))
+    }
+
+    /**
+     * Apply tempo/repeat playback options; returns the options actually accepted, or null on older engines.
+     * A change retires this project's prepared stream: its PCM and timing belong to the previous revision.
+     * @param {{ tempoMultiplier: number, playRepeats: boolean }} options
+     * @returns {Promise<import('../schemas').PlaybackOptions | null>}
+     */
+    async setPlaybackOptions(options) {
+        if (typeof Module._setPlaybackOptions !== 'function') return null
+        const ptr = Module.ccall('setPlaybackOptions', 'number', ['number', 'number', 'boolean'],
+            [this.scoreptr, Number(options.tempoMultiplier), !!options.playRepeats])
+        return JSON.parse(WasmRes.readText(ptr))
+    }
+
+    /**
+     * Musical location of a playback time under the current options.
+     * @param {number} timeMs
+     * @returns {Promise<import('../schemas').MusicalPlaybackPosition | null>}
+     */
+    async playbackPositionAt(timeMs) {
+        if (typeof Module._playbackPositionAt !== 'function') return null
+        const ptr = Module.ccall('playbackPositionAt', 'number', ['number', 'number', 'number'],
+            [this.scoreptr, timeMs, this.excerptId])
+        return JSON.parse(WasmRes.readText(ptr))
+    }
+
+    /**
+     * Playback time of a musical location under the current options, with an explicit fallback when the
+     * traversal no longer plays that pass or written tick.
+     * @param {{ writtenTick: number, fractionalTick: number, pass: number }} position
+     * @returns {Promise<import('../schemas').PlaybackTimeForPosition | null>}
+     */
+    async playbackTimeForPosition(position) {
+        if (typeof Module._playbackTimeForPosition !== 'function') return null
+        const fraction = Math.max(0, position.fractionalTick - position.writtenTick)
+        const ptr = Module.ccall('playbackTimeForPosition', 'number', ['number', 'number', 'number', 'number', 'number'],
+            [this.scoreptr, position.writtenTick, fraction, position.pass, this.excerptId])
+        return JSON.parse(WasmRes.readText(ptr))
+    }
+
+    /**
      * Return the repeat-expanded, tempo-aware measure occurrence timeline.
      * @returns {Promise<import('../schemas').PlaybackTimeline | null>}
      */

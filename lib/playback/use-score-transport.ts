@@ -1,7 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { PlaybackTimeline, Score, SynthAudioBatchIterator } from '../webmscore-loader';
+import type {
+  PlaybackOptions,
+  PlaybackOptionsRequest,
+  PlaybackTimeline,
+  Score,
+  SynthAudioBatchIterator,
+} from '../webmscore-loader';
 import { ClickScheduler, clicksFromTimeline, planClicks } from './click-track';
 import { DEFAULT_RENDER_WINDOW } from '../playback-window';
 import { SoundFontManager } from './soundfont-manager';
@@ -9,11 +15,23 @@ import { cancelSynthStream, scheduleSynthBatchStream } from './stream-scheduler'
 import { clampScorePosition, scoreTimeAt } from './transport-clock';
 import { startPerf } from '../perf-trace';
 import { PlaybackSessionOwner, type TransportPhase } from './session-owner';
+import {
+  applyPlaybackOptions,
+  movedTarget,
+  type PlaybackOptionsChange,
+} from './options-transaction';
+export type { PlaybackOptionsChange } from './options-transaction';
 export type { TransportPhase } from './session-owner';
 import type { StreamPlaybackOptions } from './stream-scheduler';
 
 export type ScoreTransportState =
   'idle' | 'preparing' | 'playing' | 'paused' | 'ended' | 'unavailable';
+
+/** A resumed (options-change) start never replays the count-in; an explicit Play can. */
+const withCountIn = <T extends { countIn: boolean }>(click: T, allowed: boolean): T => ({
+  ...click,
+  countIn: click.countIn && allowed,
+});
 
 const isAutoplayDenial = (error: unknown) =>
   error instanceof DOMException && error.name === 'NotAllowedError';
@@ -34,6 +52,8 @@ export type PlaybackRequest = {
   >;
   allowFallback?: boolean;
   click?: Options['click'];
+  /** `createIterator` honours its start time, so an options change can restart it at the mapped location. */
+  restartable?: boolean;
 };
 
 type Options = {
@@ -84,9 +104,21 @@ export function useScoreTransport(options: Options) {
   const soundFontManagerRef = useRef(options.soundFontManager ?? new SoundFontManager<Score>());
   const fallbackBufferRef = useRef<AudioBuffer | null>(null);
   const fallbackSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const [playbackOptions, setPlaybackOptionsState] = useState<PlaybackOptions | null>(null);
+  const optionsPendingRef = useRef<PlaybackOptionsRequest | null>(null);
+  const optionsRunRef = useRef<Promise<PlaybackOptionsChange> | null>(null);
+  const countInRef = useRef(true);
+  // An applied options change knows the new duration before the host refetches its timeline.
+  const durationOverrideRef = useRef<{ score: Score; hostMs: number; durationMs: number } | null>(
+    null,
+  );
 
   scoreRef.current = options.score;
-  durationRef.current = options.durationMs;
+  const override = durationOverrideRef.current;
+  durationRef.current =
+    override && override.score === options.score && override.hostMs === options.durationMs
+      ? override.durationMs
+      : options.durationMs;
   if (optionStartRef.current !== options.startMs) {
     optionStartRef.current = options.startMs;
     startRef.current = options.startMs;
@@ -247,7 +279,9 @@ export function useScoreTransport(options: Options) {
       const targetSeconds = Math.max(0, Math.min(targetMs / 1000, buffer.duration));
       fallbackSourceRef.current = source;
       const clicks = requestRef.current.click ?? clickRef.current;
-      const clickPlan = clicks ? planClicks(clicks.timeline, targetMs, clicks) : null;
+      const clickPlan = clicks
+        ? planClicks(clicks.timeline, targetMs, withCountIn(clicks, countInRef.current))
+        : null;
       const musicStart = audioContext.currentTime + (clickPlan?.leadInSeconds ?? 0);
       clockRef.current = { contextTime: musicStart, scoreTimeSeconds: targetSeconds };
       if (clickPlan) {
@@ -314,7 +348,7 @@ export function useScoreTransport(options: Options) {
   );
 
   const playFrom = useCallback(
-    async (targetMs: number, forceRetry = false) => {
+    async (targetMs: number, forceRetry = false, countIn = true) => {
       const activeScore = scoreRef.current;
       if (!activeScore?.setSoundFont) {
         setRenderWindowIdle(true);
@@ -334,6 +368,7 @@ export function useScoreTransport(options: Options) {
       const contextReady = ensureAudioContext();
       void contextReady.catch(() => {});
       const request = requestRef.current;
+      countInRef.current = countIn;
       setRenderWindowIdle(false);
       publishState('preparing');
       messageRef.current?.('Preparing audio…');
@@ -343,6 +378,9 @@ export function useScoreTransport(options: Options) {
         const audioContext = await contextReady;
         if (!owner.isCurrent(attempt)) return;
         await previousCancellation;
+        if (!owner.isCurrent(attempt)) return;
+        // Never prepare under options that are about to change; a target in the old time base moves with them.
+        targetMs = movedTarget(await optionsRunRef.current?.catch(() => null), targetMs);
         if (!owner.isCurrent(attempt)) return;
         await optionsRef.current.beforeStart?.();
         if (!owner.isCurrent(attempt)) return;
@@ -381,15 +419,13 @@ export function useScoreTransport(options: Options) {
           ),
         );
         preparePerf.end();
-        if (attempt !== playbackAttemptRef.current) {
-          return;
-        }
+        if (attempt !== playbackAttemptRef.current) return;
         publishPosition(targetMs);
         messageRef.current?.('');
         // A metronome and count-in, when asked for: clicks come from the engine's beat times and share the music's anchor.
         const clickOptions = request.click ?? clickRef.current;
         const clickPlan = clickOptions
-          ? planClicks(clickOptions.timeline, targetMs, clickOptions)
+          ? planClicks(clickOptions.timeline, targetMs, withCountIn(clickOptions, countIn))
           : null;
         if (clickPlan) {
           clickSchedulerRef.current ??= new ClickScheduler(audioContext, {
@@ -571,7 +607,9 @@ export function useScoreTransport(options: Options) {
             ? 'count-in'
             : drainingRef.current
               ? 'draining'
-              : clockRef.current ? 'playing' : 'buffering';
+              : clockRef.current
+                ? 'playing'
+                : 'buffering';
         phaseRef.current = detail;
         setPhase(detail);
       } catch (error) {
@@ -682,6 +720,9 @@ export function useScoreTransport(options: Options) {
     void stopAt(options.startMs);
     releaseFallbackAudio();
     setFallbackMode(false);
+    // Options are per project: a new score starts from its own defaults.
+    durationOverrideRef.current = null;
+    setPlaybackOptionsState(null);
   }, [options.score, options.startMs, releaseFallbackAudio, stopAt]);
 
   // Switching the click on or off while the music plays takes effect at once (a count-in only applies to a start).
@@ -722,6 +763,95 @@ export function useScoreTransport(options: Options) {
     return () => window.cancelAnimationFrame(frame);
   }, [clockRef, phaseRef, publishPosition, state]);
 
+  /**
+   * Position-preserving options change. Old-option audio and clicks are retired first; rapid requests coalesce
+   * (latest wins) into one transaction; playback resumes at the same musical location without a count-in, and a
+   * paused session stays paused at it. Stop or Play during the transaction take precedence over the resume.
+   */
+  const setPlaybackOptions = useCallback(
+    (next: PlaybackOptionsRequest): Promise<PlaybackOptionsChange> => {
+      optionsPendingRef.current = next;
+      if (optionsRunRef.current) return optionsRunRef.current;
+      const run = (async () => {
+        const activeScore = scoreRef.current;
+        const priorState = stateRef.current;
+        const context = audioContextRef.current;
+        const fromMs =
+          context && clockRef.current
+            ? clampScorePosition(
+                owner.presentationSeconds(context.currentTime) * 1000,
+                durationRef.current,
+              )
+            : positionRef.current;
+        const takePending = () => {
+          const pending = optionsPendingRef.current;
+          optionsPendingRef.current = null;
+          return pending;
+        };
+        // Older engines play written repeats at 100% only; leave their playback untouched.
+        if (!activeScore?.setPlaybackOptions) {
+          takePending();
+          return {
+            status: 'unavailable',
+            accepted: null,
+            timeline: null,
+            fromMs,
+            toMs: fromMs,
+            mapped: null,
+          } as const;
+        }
+        const resume = priorState === 'playing' || priorState === 'preparing';
+        const retired =
+          resume || priorState === 'paused'
+            ? stopAt(fromMs, resume ? 'preparing' : 'paused')
+            : null;
+        // Captured after our own stop's attempt: a Stop/Play from now on supersedes the resume.
+        const attempt = playbackAttemptRef.current;
+        await retired;
+        const change = await applyPlaybackOptions(activeScore, fromMs, takePending);
+        if (scoreRef.current !== activeScore) return change;
+        if (change.accepted) setPlaybackOptionsState(change.accepted);
+        if (change.status === 'applied') {
+          // Compatibility WAV and any cached duration belong to the previous options revision.
+          releaseFallbackAudio();
+          setFallbackMode(false);
+          if (change.timeline) {
+            durationOverrideRef.current = {
+              score: activeScore,
+              hostMs: optionsRef.current.durationMs,
+              durationMs: change.timeline.durationMs,
+            };
+            durationRef.current = change.timeline.durationMs;
+          }
+        }
+        if (playbackAttemptRef.current !== attempt) return change;
+        publishPosition(change.toMs);
+        if (resume) {
+          if (!requestRef.current.restartable) {
+            const { click, allowFallback } = requestRef.current;
+            requestRef.current = { click, allowFallback };
+          }
+          void playFrom(change.toMs, false, false);
+        }
+        return change;
+      })().finally(() => {
+        optionsRunRef.current = null;
+      });
+      optionsRunRef.current = run;
+      return run;
+    },
+    [
+      owner,
+      clockRef,
+      positionRef,
+      playbackAttemptRef,
+      playFrom,
+      publishPosition,
+      releaseFallbackAudio,
+      stopAt,
+    ],
+  );
+
   const start = useCallback(
     (request: PlaybackRequest = {}, targetMs = 0) => {
       requestRef.current = request;
@@ -740,6 +870,8 @@ export function useScoreTransport(options: Options) {
 
   return {
     start,
+    setPlaybackOptions,
+    playbackOptions,
     diagnostics: () => owner.diagnostics(),
     awaitRetirement,
     invalidate: releaseFallbackAudio,

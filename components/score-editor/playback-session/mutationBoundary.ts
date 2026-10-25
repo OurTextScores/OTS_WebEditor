@@ -1,6 +1,10 @@
 import type { Score } from '../../../lib/webmscore-loader';
 
-/** Explicit notation/lifecycle boundary; selection, layout-only rendering and CSS zoom keep playing. */
+/**
+ * Explicit notation/lifecycle boundary; selection, layout-only rendering and CSS zoom keep playing.
+ * Layout mode and bulk line breaks are deliberately absent: compare reflow writes them to the score a
+ * compare pane may be playing, and neither changes what sounds. User line/page-break toggles stay guarded.
+ */
 export const PLAYBACK_MUTATION_METHODS = [
   'undoRedoTo',
   'beginElementDrag',
@@ -103,10 +107,8 @@ export const PLAYBACK_MUTATION_METHODS = [
   'setSystemLock',
   'moveSelectedMeasureToSystem',
   'setMeasureLengthToTimeSignature',
-  'setMeasureLineBreaks',
   'setMeasureSpacer',
   'addRehearsalMark',
-  'setLayoutMode',
   'destroy',
 ] as const satisfies readonly (keyof Score)[];
 

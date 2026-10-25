@@ -485,6 +485,25 @@ class WebMscoreW {
         return this.rpc('playbackTimeline')
     }
 
+    playbackOptions() {
+        return this.rpc('playbackOptions')
+    }
+
+    /** @param {{ tempoMultiplier: number, playRepeats: boolean }} options */
+    setPlaybackOptions(options) {
+        return this.rpc('setPlaybackOptions', [options])
+    }
+
+    /** @param {number} timeMs */
+    playbackPositionAt(timeMs) {
+        return this.rpc('playbackPositionAt', [timeMs])
+    }
+
+    /** @param {{ writtenTick: number, fractionalTick: number, pass: number }} position */
+    playbackTimeForPosition(position) {
+        return this.rpc('playbackTimeForPosition', [position])
+    }
+
     /**
      * Resolve the inclusive measure range covered by the current selection.
      * @returns {Promise<{startMeasureIndex: number, endMeasureIndex: number} | null>}

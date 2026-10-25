@@ -19,6 +19,7 @@
       "engine/musescore/bridge/parttools.h",
       "engine/musescore/bridge/pdfpaint.h",
       "engine/musescore/bridge/pitchduration.h",
+      "engine/musescore/bridge/playbackoptions.h",
       "engine/musescore/bridge/playbacktimeline.h",
       "engine/musescore/bridge/playbacktools.h",
       "engine/musescore/bridge/resourcetools.h",

@@ -102,7 +102,16 @@ describe('shared playback session boundaries', () => {
     const pitchUp = vi.fn(async () => true);
     const selectAll = vi.fn(async () => true);
     const relayout = vi.fn(async () => true);
-    const score = Object.assign(scoreFor(iterator), { pitchUp, selectAll, relayout });
+    // Compare reflow writes these to a score a compare pane may be playing; neither changes the audio.
+    const setLayoutMode = vi.fn(async () => true);
+    const setMeasureLineBreaks = vi.fn(async () => true);
+    const score = Object.assign(scoreFor(iterator), {
+      pitchUp,
+      selectAll,
+      relayout,
+      setLayoutMode,
+      setMeasureLineBreaks,
+    });
     const hook = setup(score);
     await act(async () => {
       await hook.result.current.togglePlayPause();
@@ -112,6 +121,9 @@ describe('shared playback session boundaries', () => {
     });
     await guard.selectAll?.();
     await guard.relayout?.();
+    await guard.setLayoutMode?.(0);
+    await guard.setMeasureLineBreaks?.([true, false]);
+    expect(setMeasureLineBreaks).toHaveBeenCalledWith([true, false]);
     expect(fake.sources[0].stopped).toBe(false);
     expect(iterator).not.toHaveBeenCalledWith(true);
     await act(async () => {

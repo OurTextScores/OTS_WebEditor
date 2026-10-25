@@ -161,6 +161,8 @@ export interface PlaybackTimelineOccurrence {
 
 export interface PlaybackTimeline {
     schemaVersion: 1;
+    /** Revision of the transient playback options this timeline was computed under. */
+    optionsRevision?: number;
     durationMs: number;
     renderDurationMs: number;
     occurrences: PlaybackTimelineOccurrence[];
@@ -221,10 +223,53 @@ export interface PlaybackCapabilities {
   streamHandlesVersion: number;
   soundFontGeneration: boolean;
   pcm?: { sampleRate: number; channels: number; framesPerChunk: number; format: 'f32-planar' };
+  playbackOptions?: {
+    schemaVersion: 1;
+    minTempoMultiplier: number;
+    maxTempoMultiplier: number;
+    playRepeats: boolean;
+    positionConversion: boolean;
+  };
+}
+
+/** Transient per-project playback options; never part of the notation, undo or saved score. */
+export interface PlaybackOptions {
+  schemaVersion: 1;
+  tempoMultiplier: number;
+  playRepeats: boolean;
+  /** Changes only when an option changes; every dependent audio/timeline/positions read reports it. */
+  revision: number;
+  changed?: boolean;
+}
+
+/** A playback location that survives tempo changes: written tick plus which pass over it, inside repeats. */
+export interface MusicalPlaybackPosition {
+  schemaVersion: 1;
+  optionsRevision: number;
+  timeMs: number;
+  writtenTick: number;
+  /** writtenTick plus progress through that tick, in [writtenTick, writtenTick + 1). */
+  fractionalTick: number;
+  occurrenceIndex: number;
+  /** 0 on the first pass over writtenTick. */
+  pass: number;
+  occurrenceKey: string;
+  atEnd: boolean;
+}
+
+export interface PlaybackTimeForPosition {
+  schemaVersion: 1;
+  optionsRevision: number;
+  timeMs: number;
+  writtenTick: number;
+  pass: number;
+  exact: boolean;
+  fallback: null | 'pass-unavailable' | 'tick-unreachable' | 'end';
 }
 
 export interface Positions {
     schemaVersion?: 1;
+    optionsRevision?: number;
     complete?: boolean;
     /**
      * The position information of each element (measure or segment) on the sheet,  

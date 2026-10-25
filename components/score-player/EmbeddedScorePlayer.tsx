@@ -29,6 +29,7 @@ import PlayerControls from './PlayerControls';
 import PlayerOverlay from './PlayerOverlay';
 import { initialHighlightMode, useHighlightView, useNoteHighlight } from './useNoteHighlight';
 import { useNoteheadColor } from './useNoteheadColor';
+import { usePlaybackOptionsRefresh } from './usePlaybackOptionsRefresh';
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const pageCountBucket = (count: number) => (count <= 1 ? '1' : count <= 5 ? '2_to_5' : '6_plus');
@@ -139,6 +140,11 @@ export default function EmbeddedScorePlayer() {
     dispose: disposeTransport,
     prefetchSoundFont,
   } = transportController;
+  usePlaybackOptionsRefresh(scoreRef, transportController.playbackOptions, {
+    setTimeline,
+    setPositions,
+    notes: { modeRef: highlightModeRef, fetchSegments },
+  });
 
   const setFollowPreference = useCallback((next: boolean) => {
     if (followResumeTimerRef.current) clearTimeout(followResumeTimerRef.current);
