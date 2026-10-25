@@ -1,5 +1,9 @@
 """Stage engraving .qrc resources into a plain directory keyed by alias (stand-in for Qt resources)."""
-import os, shutil, sys, xml.etree.ElementTree as ET
+import filecmp, os, shutil, sys, xml.etree.ElementTree as ET
+
+def stage_file(source, destination):
+    if not os.path.exists(destination) or not filecmp.cmp(source, destination, shallow=False):
+        shutil.copyfile(source, destination)
 
 root, out = sys.argv[1], sys.argv[2]
 qrcs = [os.path.join(root, "src/engraving/engraving.qrc")]
@@ -14,7 +18,7 @@ for q in qrcs:
             alias = f.get("alias") or f.text
             dst = os.path.join(out, prefix, alias)
             os.makedirs(os.path.dirname(dst), exist_ok=True)
-            shutil.copyfile(os.path.normpath(os.path.join(base, f.text)), dst)
+            stage_file(os.path.normpath(os.path.join(base, f.text)), dst)
             n += 1
 print(f"staged {n} files from {len(qrcs)} qrc into {out}")
 
@@ -24,5 +28,5 @@ if os.path.isdir(mpe):
     os.makedirs(os.path.join(out, "mpe/resources"), exist_ok=True)
     for f in sorted(os.listdir(mpe)):
         if f.endswith(".json"):
-            shutil.copyfile(os.path.join(mpe, f), os.path.join(out, "mpe/resources", f))
+            stage_file(os.path.join(mpe, f), os.path.join(out, "mpe/resources", f))
 

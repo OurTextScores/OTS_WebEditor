@@ -12,6 +12,14 @@ Instead of building from source, you can download pre-built releases from GitHub
 
 See the included README in the release for deployment instructions.
 
+## Engine source and artifacts
+
+The shipping MuseScore v4.7.4 bridge is maintained in `engine/musescore/`; executable tooling lives in
+`tools/musescore/`. See [the production engine guide](engine/README.md) for the pinned toolchain,
+fresh builds and synchronized artifact installation (`build:engine`, `bundle:engine`, `install:engine`).
+The old 4.00 native compile command does not build the shipping engine. Existing generated artifacts
+can be used directly when only rebuilding the static app.
+
 ## Build From Source
 
 If you need to build from source or customize the build:

@@ -1,3 +1,5 @@
+> Historical migration record, archived 2026-10-24. Paths and branch/default-engine statements below describe the original audit. See [the current production guide](../../README.md).
+
 # Qt-free stub audit (2026-10-21)
 
 The 4.7 bridge builds MuseScore with `MUSE_QT_SUPPORT=OFF` and the `*_NO_INTERNAL` options. Desktop always runs the Qt

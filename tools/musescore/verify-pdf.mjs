@@ -1,6 +1,6 @@
+import { reference400 } from './reference400.mjs';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
 import { readFile, writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -13,7 +13,7 @@ import sharp from 'sharp';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '../..');
-const forkBuild = path.join(root, 'webmscore-fork/web-public/webmscore.nodejs.cjs');
+const forkBuild = reference400();
 const WIDTH = 850;
 
 function pdfInfo(file) {
@@ -49,8 +49,8 @@ export async function verifyPdf(WebMscore, renderer, output) {
   const corpus = [
     ['public/test_scores/bach_orig.mscz', 'mscz'],
     ['public/test_scores/four_measures.musicxml', 'musicxml'],
-    ['tools/ms47-bridge-spike/spanner-fixture.musicxml', 'musicxml'],
-    ['tools/ms47-bridge-spike/image-fixture.mscz', 'mscz'],   // a raster image (PNG XObject)
+    ['tools/musescore/spanner-fixture.musicxml', 'musicxml'],
+    ['tools/musescore/image-fixture.mscz', 'mscz'],   // a raster image (PNG XObject)
   ];
   const results = [];
   const temp = await mkdtemp(path.join(tmpdir(), 'ms47-pdf-'));
@@ -72,7 +72,7 @@ export async function verifyPdf(WebMscore, renderer, output) {
         if (metadata.metaTags?.workTitle) assert.equal(info.title, metadata.metaTags.workTitle, `${name}: PDF title is the work title`);
         const result = { file: name, pages: info.pages, bytes: pdf.length, ms: Math.round(ms), coverage: [] };
 
-        if (existsSync(forkBuild)) {
+        if (forkBuild) {
           const ref = path.join(temp, 'ref.pdf');
           execFileSync(process.execPath, ['-e', `
             const fs=require('fs');const W=require(${JSON.stringify(forkBuild)});

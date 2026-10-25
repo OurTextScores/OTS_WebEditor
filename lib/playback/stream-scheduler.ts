@@ -1,6 +1,7 @@
 import type { MutableRefObject } from 'react';
 import type { SynthAudioBatchIterator } from '../webmscore-loader';
 import { releaseScheduledSource, renderWindowDelayMs, type RenderWindow } from '../playback-window';
+import { startPerf } from '../perf-trace';
 
 export type StreamPlaybackTarget = {
   sourcesRef: MutableRefObject<AudioBufferSourceNode[]>;
@@ -71,8 +72,15 @@ export async function cancelSynthStream(
   target: StreamPlaybackTarget,
   options?: { awaitCancel?: boolean },
 ) {
+  const perf = startPerf('playback:cancel');
   target.generationRef.current += 1;
-  await stopSynthStream(target.sourcesRef, target.iteratorRef, options);
+  try {
+    await perf.time(options?.awaitCancel ? 'awaitCancel' : 'requestCancel', () =>
+      stopSynthStream(target.sourcesRef, target.iteratorRef, options),
+    );
+  } finally {
+    perf.end();
+  }
 }
 
 /**
@@ -86,6 +94,7 @@ export async function scheduleSynthBatchStream(
   audioContext: AudioContext,
   options: StreamPlaybackOptions,
 ) {
+  const startupPerf = startPerf(`playback:stream:${options.debugLabel}`);
   const generation = ++options.generationRef.current;
   options.iteratorRef.current = batchFn;
   const prerollSeconds = options.prerollSeconds ?? 0.015;
@@ -133,6 +142,8 @@ export async function scheduleSynthBatchStream(
     lastSource = source;
     if (!startedAny) {
       startedAny = true;
+      // This closes at the next paint; it measures scheduling startup, not audible device output.
+      startupPerf.end();
       options.onPlayingChange?.(true);
     }
   };
@@ -198,7 +209,10 @@ export async function scheduleSynthBatchStream(
       options.onRenderWindowIdleChange?.(false);
     }
 
-    const batch = await batchFn(false);
+    const batch =
+      batchCount === 0
+        ? await startupPerf.time('firstPull', () => batchFn(false))
+        : await batchFn(false);
     // Iterator calls cross the cancellation boundary. A superseded run no
     // longer owns any of the shared refs and must not schedule or clean up.
     if (options.generationRef.current !== generation) return;

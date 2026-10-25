@@ -1,0 +1,1978 @@
+{
+  "recordedAt": "2026-10-25T01:11:21.964Z",
+  "node": "v24.21.0",
+  "cpu": "Intel(R) Core(TM) Ultra 7 155H",
+  "scope": "Node in-process; cold process, preinstalled local soundfont; excludes network, worker, scheduling and output latency",
+  "bundle": "/tmp/ots-phase0-bundle",
+  "wasmSha256": "28edc02a8df279bbd1e383ef75a3a17b30f4eb647092aaa23dfa04fce0728550",
+  "runs": [
+    {
+      "bootMs": 355.950865,
+      "soundfontInstallMs": 47.457651999999996,
+      "loadMs": 423.717624,
+      "svgMs": 280.2030219999999,
+      "version": 470,
+      "xmlSha256": "2766e1a9feebe32dab8612ad6b0ef083ee1bb263cd175716b78d27667c80e9b0",
+      "svgSha256": "cb2049e85fda301eda9797a607278bafe33c5ef2646789dbe779e727ad1303c7",
+      "timeline": {
+        "durationMs": 144000,
+        "occurrences": [
+          {
+            "beatsMs": [
+              0,
+              857,
+              1714,
+              2571
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 3429,
+            "measureIndex": 0,
+            "occurrenceIndex": 0,
+            "startMs": 0
+          },
+          {
+            "beatsMs": [
+              3429,
+              4286,
+              5143,
+              6000
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 6857,
+            "measureIndex": 1,
+            "occurrenceIndex": 1,
+            "startMs": 3429
+          },
+          {
+            "beatsMs": [
+              6857,
+              7714,
+              8571,
+              9429
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 10286,
+            "measureIndex": 2,
+            "occurrenceIndex": 2,
+            "startMs": 6857
+          },
+          {
+            "beatsMs": [
+              10286,
+              11143,
+              12000,
+              12857
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 13714,
+            "measureIndex": 3,
+            "occurrenceIndex": 3,
+            "startMs": 10286
+          },
+          {
+            "beatsMs": [
+              13714,
+              14571,
+              15429,
+              16286
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 17143,
+            "measureIndex": 4,
+            "occurrenceIndex": 4,
+            "startMs": 13714
+          },
+          {
+            "beatsMs": [
+              17143,
+              18000,
+              18857,
+              19714
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 20571,
+            "measureIndex": 5,
+            "occurrenceIndex": 5,
+            "startMs": 17143
+          },
+          {
+            "beatsMs": [
+              20571,
+              21429,
+              22286,
+              23143
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 24000,
+            "measureIndex": 6,
+            "occurrenceIndex": 6,
+            "startMs": 20571
+          },
+          {
+            "beatsMs": [
+              24000,
+              24857,
+              25714,
+              26571
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 27429,
+            "measureIndex": 7,
+            "occurrenceIndex": 7,
+            "startMs": 24000
+          },
+          {
+            "beatsMs": [
+              27429,
+              28286,
+              29143,
+              30000
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 30857,
+            "measureIndex": 8,
+            "occurrenceIndex": 8,
+            "startMs": 27429
+          },
+          {
+            "beatsMs": [
+              30857,
+              31714,
+              32571,
+              33429
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 34286,
+            "measureIndex": 9,
+            "occurrenceIndex": 9,
+            "startMs": 30857
+          },
+          {
+            "beatsMs": [
+              34286,
+              35143,
+              36000,
+              36857
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 37714,
+            "measureIndex": 10,
+            "occurrenceIndex": 10,
+            "startMs": 34286
+          },
+          {
+            "beatsMs": [
+              37714,
+              38571,
+              39429,
+              40286
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 41143,
+            "measureIndex": 11,
+            "occurrenceIndex": 11,
+            "startMs": 37714
+          },
+          {
+            "beatsMs": [
+              41143,
+              42000,
+              42857,
+              43714
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 44571,
+            "measureIndex": 12,
+            "occurrenceIndex": 12,
+            "startMs": 41143
+          },
+          {
+            "beatsMs": [
+              44571,
+              45429,
+              46286,
+              47143
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 48000,
+            "measureIndex": 13,
+            "occurrenceIndex": 13,
+            "startMs": 44571
+          },
+          {
+            "beatsMs": [
+              48000,
+              48857,
+              49714,
+              50571
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 51429,
+            "measureIndex": 14,
+            "occurrenceIndex": 14,
+            "startMs": 48000
+          },
+          {
+            "beatsMs": [
+              51429,
+              52286,
+              53143,
+              54000
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 54857,
+            "measureIndex": 15,
+            "occurrenceIndex": 15,
+            "startMs": 51429
+          },
+          {
+            "beatsMs": [
+              54857,
+              55714,
+              56571,
+              57429
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 58286,
+            "measureIndex": 16,
+            "occurrenceIndex": 16,
+            "startMs": 54857
+          },
+          {
+            "beatsMs": [
+              58286,
+              59143,
+              60000,
+              60857
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 61714,
+            "measureIndex": 17,
+            "occurrenceIndex": 17,
+            "startMs": 58286
+          },
+          {
+            "beatsMs": [
+              61714,
+              62571,
+              63429,
+              64286
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 65143,
+            "measureIndex": 18,
+            "occurrenceIndex": 18,
+            "startMs": 61714
+          },
+          {
+            "beatsMs": [
+              65143,
+              66000,
+              66857,
+              67714
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 68571,
+            "measureIndex": 19,
+            "occurrenceIndex": 19,
+            "startMs": 65143
+          },
+          {
+            "beatsMs": [
+              68571,
+              69429,
+              70286,
+              71143
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 72000,
+            "measureIndex": 20,
+            "occurrenceIndex": 20,
+            "startMs": 68571
+          },
+          {
+            "beatsMs": [
+              72000,
+              72857,
+              73714,
+              74571
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 75429,
+            "measureIndex": 21,
+            "occurrenceIndex": 21,
+            "startMs": 72000
+          },
+          {
+            "beatsMs": [
+              75429,
+              76286,
+              77143,
+              78000
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 78857,
+            "measureIndex": 22,
+            "occurrenceIndex": 22,
+            "startMs": 75429
+          },
+          {
+            "beatsMs": [
+              78857,
+              79714,
+              80571,
+              81429
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 82286,
+            "measureIndex": 23,
+            "occurrenceIndex": 23,
+            "startMs": 78857
+          },
+          {
+            "beatsMs": [
+              82286,
+              83143,
+              84000,
+              84857
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 85714,
+            "measureIndex": 24,
+            "occurrenceIndex": 24,
+            "startMs": 82286
+          },
+          {
+            "beatsMs": [
+              85714,
+              86571,
+              87429,
+              88286
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 89143,
+            "measureIndex": 25,
+            "occurrenceIndex": 25,
+            "startMs": 85714
+          },
+          {
+            "beatsMs": [
+              89143,
+              90000,
+              90857,
+              91714
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 92571,
+            "measureIndex": 26,
+            "occurrenceIndex": 26,
+            "startMs": 89143
+          },
+          {
+            "beatsMs": [
+              92571,
+              93429,
+              94286,
+              95143
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 96000,
+            "measureIndex": 27,
+            "occurrenceIndex": 27,
+            "startMs": 92571
+          },
+          {
+            "beatsMs": [
+              96000,
+              96857,
+              97714,
+              98571
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 99429,
+            "measureIndex": 28,
+            "occurrenceIndex": 28,
+            "startMs": 96000
+          },
+          {
+            "beatsMs": [
+              99429,
+              100286,
+              101143,
+              102000
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 102857,
+            "measureIndex": 29,
+            "occurrenceIndex": 29,
+            "startMs": 99429
+          },
+          {
+            "beatsMs": [
+              102857,
+              103714,
+              104571,
+              105429
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 106286,
+            "measureIndex": 30,
+            "occurrenceIndex": 30,
+            "startMs": 102857
+          },
+          {
+            "beatsMs": [
+              106286,
+              107143,
+              108000,
+              108857
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 109714,
+            "measureIndex": 31,
+            "occurrenceIndex": 31,
+            "startMs": 106286
+          },
+          {
+            "beatsMs": [
+              109714,
+              110571
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": false,
+            "endMs": 111429,
+            "measureIndex": 32,
+            "occurrenceIndex": 32,
+            "startMs": 109714
+          },
+          {
+            "beatsMs": [
+              111429,
+              112286
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": false,
+            "endMs": 113143,
+            "measureIndex": 33,
+            "occurrenceIndex": 33,
+            "startMs": 111429
+          },
+          {
+            "beatsMs": [
+              113143,
+              114000,
+              114857,
+              115714
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 116571,
+            "measureIndex": 34,
+            "occurrenceIndex": 34,
+            "startMs": 113143
+          },
+          {
+            "beatsMs": [
+              116571,
+              117429,
+              118286,
+              119143
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 120000,
+            "measureIndex": 35,
+            "occurrenceIndex": 35,
+            "startMs": 116571
+          },
+          {
+            "beatsMs": [
+              120000,
+              120857,
+              121714,
+              122571
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 123429,
+            "measureIndex": 36,
+            "occurrenceIndex": 36,
+            "startMs": 120000
+          },
+          {
+            "beatsMs": [
+              123429,
+              124286,
+              125143,
+              126000
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 126857,
+            "measureIndex": 37,
+            "occurrenceIndex": 37,
+            "startMs": 123429
+          },
+          {
+            "beatsMs": [
+              126857,
+              127714,
+              128571,
+              129429
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 130286,
+            "measureIndex": 38,
+            "occurrenceIndex": 38,
+            "startMs": 126857
+          },
+          {
+            "beatsMs": [
+              130286,
+              131143,
+              132000,
+              132857
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 133714,
+            "measureIndex": 39,
+            "occurrenceIndex": 39,
+            "startMs": 130286
+          },
+          {
+            "beatsMs": [
+              133714,
+              134571,
+              135429,
+              136286
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 137143,
+            "measureIndex": 40,
+            "occurrenceIndex": 40,
+            "startMs": 133714
+          },
+          {
+            "beatsMs": [
+              137143,
+              138000,
+              138857,
+              139714
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 140571,
+            "measureIndex": 41,
+            "occurrenceIndex": 41,
+            "startMs": 137143
+          },
+          {
+            "beatsMs": [
+              140571,
+              141429,
+              142286,
+              143143
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 144000,
+            "measureIndex": 42,
+            "occurrenceIndex": 42,
+            "startMs": 140571
+          }
+        ],
+        "renderDurationMs": 147000,
+        "schemaVersion": 1
+      },
+      "samples": [
+        {
+          "start": 0,
+          "prepareMs": 410.3241949999999,
+          "firstPullMs": 4.054825000000164,
+          "cancelMs": 0.22127899999986766,
+          "firstTime": 0,
+          "pcmSha256": "4c3418633e704cb53bf79a8600aed96b9b3e769674f0e1a457e9ac8795f6e121"
+        },
+        {
+          "start": 30,
+          "prepareMs": 228.73105499999997,
+          "firstPullMs": 0.23110600000018167,
+          "cancelMs": 0.04758500000002641,
+          "firstTime": 30,
+          "pcmSha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+        },
+        {
+          "start": 0,
+          "prepareMs": 209.42429599999969,
+          "firstPullMs": 0.33038600000008955,
+          "cancelMs": 0.11784299999999348,
+          "firstTime": 0,
+          "pcmSha256": "4c3418633e704cb53bf79a8600aed96b9b3e769674f0e1a457e9ac8795f6e121"
+        },
+        {
+          "start": 30,
+          "prepareMs": 200.531657,
+          "firstPullMs": 0.13870300000007774,
+          "cancelMs": 0.0473069999998188,
+          "firstTime": 30,
+          "pcmSha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+        },
+        {
+          "start": 0,
+          "prepareMs": 208.9346069999997,
+          "firstPullMs": 0.2538860000004206,
+          "cancelMs": 0.08703699999978198,
+          "firstTime": 0,
+          "pcmSha256": "4c3418633e704cb53bf79a8600aed96b9b3e769674f0e1a457e9ac8795f6e121"
+        }
+      ]
+    },
+    {
+      "bootMs": 477.43833699999993,
+      "soundfontInstallMs": 66.8291670000001,
+      "loadMs": 543.6331289999999,
+      "svgMs": 417.74335900000005,
+      "version": 470,
+      "xmlSha256": "2766e1a9feebe32dab8612ad6b0ef083ee1bb263cd175716b78d27667c80e9b0",
+      "svgSha256": "cb2049e85fda301eda9797a607278bafe33c5ef2646789dbe779e727ad1303c7",
+      "timeline": {
+        "durationMs": 144000,
+        "occurrences": [
+          {
+            "beatsMs": [
+              0,
+              857,
+              1714,
+              2571
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 3429,
+            "measureIndex": 0,
+            "occurrenceIndex": 0,
+            "startMs": 0
+          },
+          {
+            "beatsMs": [
+              3429,
+              4286,
+              5143,
+              6000
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 6857,
+            "measureIndex": 1,
+            "occurrenceIndex": 1,
+            "startMs": 3429
+          },
+          {
+            "beatsMs": [
+              6857,
+              7714,
+              8571,
+              9429
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 10286,
+            "measureIndex": 2,
+            "occurrenceIndex": 2,
+            "startMs": 6857
+          },
+          {
+            "beatsMs": [
+              10286,
+              11143,
+              12000,
+              12857
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 13714,
+            "measureIndex": 3,
+            "occurrenceIndex": 3,
+            "startMs": 10286
+          },
+          {
+            "beatsMs": [
+              13714,
+              14571,
+              15429,
+              16286
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 17143,
+            "measureIndex": 4,
+            "occurrenceIndex": 4,
+            "startMs": 13714
+          },
+          {
+            "beatsMs": [
+              17143,
+              18000,
+              18857,
+              19714
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 20571,
+            "measureIndex": 5,
+            "occurrenceIndex": 5,
+            "startMs": 17143
+          },
+          {
+            "beatsMs": [
+              20571,
+              21429,
+              22286,
+              23143
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 24000,
+            "measureIndex": 6,
+            "occurrenceIndex": 6,
+            "startMs": 20571
+          },
+          {
+            "beatsMs": [
+              24000,
+              24857,
+              25714,
+              26571
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 27429,
+            "measureIndex": 7,
+            "occurrenceIndex": 7,
+            "startMs": 24000
+          },
+          {
+            "beatsMs": [
+              27429,
+              28286,
+              29143,
+              30000
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 30857,
+            "measureIndex": 8,
+            "occurrenceIndex": 8,
+            "startMs": 27429
+          },
+          {
+            "beatsMs": [
+              30857,
+              31714,
+              32571,
+              33429
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 34286,
+            "measureIndex": 9,
+            "occurrenceIndex": 9,
+            "startMs": 30857
+          },
+          {
+            "beatsMs": [
+              34286,
+              35143,
+              36000,
+              36857
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 37714,
+            "measureIndex": 10,
+            "occurrenceIndex": 10,
+            "startMs": 34286
+          },
+          {
+            "beatsMs": [
+              37714,
+              38571,
+              39429,
+              40286
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 41143,
+            "measureIndex": 11,
+            "occurrenceIndex": 11,
+            "startMs": 37714
+          },
+          {
+            "beatsMs": [
+              41143,
+              42000,
+              42857,
+              43714
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 44571,
+            "measureIndex": 12,
+            "occurrenceIndex": 12,
+            "startMs": 41143
+          },
+          {
+            "beatsMs": [
+              44571,
+              45429,
+              46286,
+              47143
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 48000,
+            "measureIndex": 13,
+            "occurrenceIndex": 13,
+            "startMs": 44571
+          },
+          {
+            "beatsMs": [
+              48000,
+              48857,
+              49714,
+              50571
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 51429,
+            "measureIndex": 14,
+            "occurrenceIndex": 14,
+            "startMs": 48000
+          },
+          {
+            "beatsMs": [
+              51429,
+              52286,
+              53143,
+              54000
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 54857,
+            "measureIndex": 15,
+            "occurrenceIndex": 15,
+            "startMs": 51429
+          },
+          {
+            "beatsMs": [
+              54857,
+              55714,
+              56571,
+              57429
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 58286,
+            "measureIndex": 16,
+            "occurrenceIndex": 16,
+            "startMs": 54857
+          },
+          {
+            "beatsMs": [
+              58286,
+              59143,
+              60000,
+              60857
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 61714,
+            "measureIndex": 17,
+            "occurrenceIndex": 17,
+            "startMs": 58286
+          },
+          {
+            "beatsMs": [
+              61714,
+              62571,
+              63429,
+              64286
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 65143,
+            "measureIndex": 18,
+            "occurrenceIndex": 18,
+            "startMs": 61714
+          },
+          {
+            "beatsMs": [
+              65143,
+              66000,
+              66857,
+              67714
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 68571,
+            "measureIndex": 19,
+            "occurrenceIndex": 19,
+            "startMs": 65143
+          },
+          {
+            "beatsMs": [
+              68571,
+              69429,
+              70286,
+              71143
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 72000,
+            "measureIndex": 20,
+            "occurrenceIndex": 20,
+            "startMs": 68571
+          },
+          {
+            "beatsMs": [
+              72000,
+              72857,
+              73714,
+              74571
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 75429,
+            "measureIndex": 21,
+            "occurrenceIndex": 21,
+            "startMs": 72000
+          },
+          {
+            "beatsMs": [
+              75429,
+              76286,
+              77143,
+              78000
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 78857,
+            "measureIndex": 22,
+            "occurrenceIndex": 22,
+            "startMs": 75429
+          },
+          {
+            "beatsMs": [
+              78857,
+              79714,
+              80571,
+              81429
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 82286,
+            "measureIndex": 23,
+            "occurrenceIndex": 23,
+            "startMs": 78857
+          },
+          {
+            "beatsMs": [
+              82286,
+              83143,
+              84000,
+              84857
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 85714,
+            "measureIndex": 24,
+            "occurrenceIndex": 24,
+            "startMs": 82286
+          },
+          {
+            "beatsMs": [
+              85714,
+              86571,
+              87429,
+              88286
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 89143,
+            "measureIndex": 25,
+            "occurrenceIndex": 25,
+            "startMs": 85714
+          },
+          {
+            "beatsMs": [
+              89143,
+              90000,
+              90857,
+              91714
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 92571,
+            "measureIndex": 26,
+            "occurrenceIndex": 26,
+            "startMs": 89143
+          },
+          {
+            "beatsMs": [
+              92571,
+              93429,
+              94286,
+              95143
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 96000,
+            "measureIndex": 27,
+            "occurrenceIndex": 27,
+            "startMs": 92571
+          },
+          {
+            "beatsMs": [
+              96000,
+              96857,
+              97714,
+              98571
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 99429,
+            "measureIndex": 28,
+            "occurrenceIndex": 28,
+            "startMs": 96000
+          },
+          {
+            "beatsMs": [
+              99429,
+              100286,
+              101143,
+              102000
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 102857,
+            "measureIndex": 29,
+            "occurrenceIndex": 29,
+            "startMs": 99429
+          },
+          {
+            "beatsMs": [
+              102857,
+              103714,
+              104571,
+              105429
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 106286,
+            "measureIndex": 30,
+            "occurrenceIndex": 30,
+            "startMs": 102857
+          },
+          {
+            "beatsMs": [
+              106286,
+              107143,
+              108000,
+              108857
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 109714,
+            "measureIndex": 31,
+            "occurrenceIndex": 31,
+            "startMs": 106286
+          },
+          {
+            "beatsMs": [
+              109714,
+              110571
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": false,
+            "endMs": 111429,
+            "measureIndex": 32,
+            "occurrenceIndex": 32,
+            "startMs": 109714
+          },
+          {
+            "beatsMs": [
+              111429,
+              112286
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": false,
+            "endMs": 113143,
+            "measureIndex": 33,
+            "occurrenceIndex": 33,
+            "startMs": 111429
+          },
+          {
+            "beatsMs": [
+              113143,
+              114000,
+              114857,
+              115714
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 116571,
+            "measureIndex": 34,
+            "occurrenceIndex": 34,
+            "startMs": 113143
+          },
+          {
+            "beatsMs": [
+              116571,
+              117429,
+              118286,
+              119143
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 120000,
+            "measureIndex": 35,
+            "occurrenceIndex": 35,
+            "startMs": 116571
+          },
+          {
+            "beatsMs": [
+              120000,
+              120857,
+              121714,
+              122571
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 123429,
+            "measureIndex": 36,
+            "occurrenceIndex": 36,
+            "startMs": 120000
+          },
+          {
+            "beatsMs": [
+              123429,
+              124286,
+              125143,
+              126000
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 126857,
+            "measureIndex": 37,
+            "occurrenceIndex": 37,
+            "startMs": 123429
+          },
+          {
+            "beatsMs": [
+              126857,
+              127714,
+              128571,
+              129429
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 130286,
+            "measureIndex": 38,
+            "occurrenceIndex": 38,
+            "startMs": 126857
+          },
+          {
+            "beatsMs": [
+              130286,
+              131143,
+              132000,
+              132857
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 133714,
+            "measureIndex": 39,
+            "occurrenceIndex": 39,
+            "startMs": 130286
+          },
+          {
+            "beatsMs": [
+              133714,
+              134571,
+              135429,
+              136286
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 137143,
+            "measureIndex": 40,
+            "occurrenceIndex": 40,
+            "startMs": 133714
+          },
+          {
+            "beatsMs": [
+              137143,
+              138000,
+              138857,
+              139714
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 140571,
+            "measureIndex": 41,
+            "occurrenceIndex": 41,
+            "startMs": 137143
+          },
+          {
+            "beatsMs": [
+              140571,
+              141429,
+              142286,
+              143143
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 144000,
+            "measureIndex": 42,
+            "occurrenceIndex": 42,
+            "startMs": 140571
+          }
+        ],
+        "renderDurationMs": 147000,
+        "schemaVersion": 1
+      },
+      "samples": [
+        {
+          "start": 0,
+          "prepareMs": 493.0450310000001,
+          "firstPullMs": 4.485747000000174,
+          "cancelMs": 0.2699909999996635,
+          "firstTime": 0,
+          "pcmSha256": "4c3418633e704cb53bf79a8600aed96b9b3e769674f0e1a457e9ac8795f6e121"
+        },
+        {
+          "start": 30,
+          "prepareMs": 200.73636399999987,
+          "firstPullMs": 0.4008129999997436,
+          "cancelMs": 0.153479999999945,
+          "firstTime": 30,
+          "pcmSha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+        },
+        {
+          "start": 0,
+          "prepareMs": 200.5495890000002,
+          "firstPullMs": 0.28098799999997937,
+          "cancelMs": 0.09571999999980108,
+          "firstTime": 0,
+          "pcmSha256": "4c3418633e704cb53bf79a8600aed96b9b3e769674f0e1a457e9ac8795f6e121"
+        },
+        {
+          "start": 30,
+          "prepareMs": 184.07053099999985,
+          "firstPullMs": 0.13132600000017192,
+          "cancelMs": 0.04209899999978006,
+          "firstTime": 30,
+          "pcmSha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+        },
+        {
+          "start": 0,
+          "prepareMs": 175.0909099999999,
+          "firstPullMs": 0.21543300000030285,
+          "cancelMs": 0.07061099999964426,
+          "firstTime": 0,
+          "pcmSha256": "4c3418633e704cb53bf79a8600aed96b9b3e769674f0e1a457e9ac8795f6e121"
+        }
+      ]
+    },
+    {
+      "bootMs": 289.13734999999997,
+      "soundfontInstallMs": 43.35157099999998,
+      "loadMs": 262.28644599999996,
+      "svgMs": 240.384001,
+      "version": 470,
+      "xmlSha256": "2766e1a9feebe32dab8612ad6b0ef083ee1bb263cd175716b78d27667c80e9b0",
+      "svgSha256": "cb2049e85fda301eda9797a607278bafe33c5ef2646789dbe779e727ad1303c7",
+      "timeline": {
+        "durationMs": 144000,
+        "occurrences": [
+          {
+            "beatsMs": [
+              0,
+              857,
+              1714,
+              2571
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 3429,
+            "measureIndex": 0,
+            "occurrenceIndex": 0,
+            "startMs": 0
+          },
+          {
+            "beatsMs": [
+              3429,
+              4286,
+              5143,
+              6000
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 6857,
+            "measureIndex": 1,
+            "occurrenceIndex": 1,
+            "startMs": 3429
+          },
+          {
+            "beatsMs": [
+              6857,
+              7714,
+              8571,
+              9429
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 10286,
+            "measureIndex": 2,
+            "occurrenceIndex": 2,
+            "startMs": 6857
+          },
+          {
+            "beatsMs": [
+              10286,
+              11143,
+              12000,
+              12857
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 13714,
+            "measureIndex": 3,
+            "occurrenceIndex": 3,
+            "startMs": 10286
+          },
+          {
+            "beatsMs": [
+              13714,
+              14571,
+              15429,
+              16286
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 17143,
+            "measureIndex": 4,
+            "occurrenceIndex": 4,
+            "startMs": 13714
+          },
+          {
+            "beatsMs": [
+              17143,
+              18000,
+              18857,
+              19714
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 20571,
+            "measureIndex": 5,
+            "occurrenceIndex": 5,
+            "startMs": 17143
+          },
+          {
+            "beatsMs": [
+              20571,
+              21429,
+              22286,
+              23143
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 24000,
+            "measureIndex": 6,
+            "occurrenceIndex": 6,
+            "startMs": 20571
+          },
+          {
+            "beatsMs": [
+              24000,
+              24857,
+              25714,
+              26571
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 27429,
+            "measureIndex": 7,
+            "occurrenceIndex": 7,
+            "startMs": 24000
+          },
+          {
+            "beatsMs": [
+              27429,
+              28286,
+              29143,
+              30000
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 30857,
+            "measureIndex": 8,
+            "occurrenceIndex": 8,
+            "startMs": 27429
+          },
+          {
+            "beatsMs": [
+              30857,
+              31714,
+              32571,
+              33429
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 34286,
+            "measureIndex": 9,
+            "occurrenceIndex": 9,
+            "startMs": 30857
+          },
+          {
+            "beatsMs": [
+              34286,
+              35143,
+              36000,
+              36857
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 37714,
+            "measureIndex": 10,
+            "occurrenceIndex": 10,
+            "startMs": 34286
+          },
+          {
+            "beatsMs": [
+              37714,
+              38571,
+              39429,
+              40286
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 41143,
+            "measureIndex": 11,
+            "occurrenceIndex": 11,
+            "startMs": 37714
+          },
+          {
+            "beatsMs": [
+              41143,
+              42000,
+              42857,
+              43714
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 44571,
+            "measureIndex": 12,
+            "occurrenceIndex": 12,
+            "startMs": 41143
+          },
+          {
+            "beatsMs": [
+              44571,
+              45429,
+              46286,
+              47143
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 48000,
+            "measureIndex": 13,
+            "occurrenceIndex": 13,
+            "startMs": 44571
+          },
+          {
+            "beatsMs": [
+              48000,
+              48857,
+              49714,
+              50571
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 51429,
+            "measureIndex": 14,
+            "occurrenceIndex": 14,
+            "startMs": 48000
+          },
+          {
+            "beatsMs": [
+              51429,
+              52286,
+              53143,
+              54000
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 54857,
+            "measureIndex": 15,
+            "occurrenceIndex": 15,
+            "startMs": 51429
+          },
+          {
+            "beatsMs": [
+              54857,
+              55714,
+              56571,
+              57429
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 58286,
+            "measureIndex": 16,
+            "occurrenceIndex": 16,
+            "startMs": 54857
+          },
+          {
+            "beatsMs": [
+              58286,
+              59143,
+              60000,
+              60857
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 61714,
+            "measureIndex": 17,
+            "occurrenceIndex": 17,
+            "startMs": 58286
+          },
+          {
+            "beatsMs": [
+              61714,
+              62571,
+              63429,
+              64286
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 65143,
+            "measureIndex": 18,
+            "occurrenceIndex": 18,
+            "startMs": 61714
+          },
+          {
+            "beatsMs": [
+              65143,
+              66000,
+              66857,
+              67714
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 68571,
+            "measureIndex": 19,
+            "occurrenceIndex": 19,
+            "startMs": 65143
+          },
+          {
+            "beatsMs": [
+              68571,
+              69429,
+              70286,
+              71143
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 72000,
+            "measureIndex": 20,
+            "occurrenceIndex": 20,
+            "startMs": 68571
+          },
+          {
+            "beatsMs": [
+              72000,
+              72857,
+              73714,
+              74571
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 75429,
+            "measureIndex": 21,
+            "occurrenceIndex": 21,
+            "startMs": 72000
+          },
+          {
+            "beatsMs": [
+              75429,
+              76286,
+              77143,
+              78000
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 78857,
+            "measureIndex": 22,
+            "occurrenceIndex": 22,
+            "startMs": 75429
+          },
+          {
+            "beatsMs": [
+              78857,
+              79714,
+              80571,
+              81429
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 82286,
+            "measureIndex": 23,
+            "occurrenceIndex": 23,
+            "startMs": 78857
+          },
+          {
+            "beatsMs": [
+              82286,
+              83143,
+              84000,
+              84857
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 85714,
+            "measureIndex": 24,
+            "occurrenceIndex": 24,
+            "startMs": 82286
+          },
+          {
+            "beatsMs": [
+              85714,
+              86571,
+              87429,
+              88286
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 89143,
+            "measureIndex": 25,
+            "occurrenceIndex": 25,
+            "startMs": 85714
+          },
+          {
+            "beatsMs": [
+              89143,
+              90000,
+              90857,
+              91714
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 92571,
+            "measureIndex": 26,
+            "occurrenceIndex": 26,
+            "startMs": 89143
+          },
+          {
+            "beatsMs": [
+              92571,
+              93429,
+              94286,
+              95143
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 96000,
+            "measureIndex": 27,
+            "occurrenceIndex": 27,
+            "startMs": 92571
+          },
+          {
+            "beatsMs": [
+              96000,
+              96857,
+              97714,
+              98571
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 99429,
+            "measureIndex": 28,
+            "occurrenceIndex": 28,
+            "startMs": 96000
+          },
+          {
+            "beatsMs": [
+              99429,
+              100286,
+              101143,
+              102000
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 102857,
+            "measureIndex": 29,
+            "occurrenceIndex": 29,
+            "startMs": 99429
+          },
+          {
+            "beatsMs": [
+              102857,
+              103714,
+              104571,
+              105429
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 106286,
+            "measureIndex": 30,
+            "occurrenceIndex": 30,
+            "startMs": 102857
+          },
+          {
+            "beatsMs": [
+              106286,
+              107143,
+              108000,
+              108857
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 109714,
+            "measureIndex": 31,
+            "occurrenceIndex": 31,
+            "startMs": 106286
+          },
+          {
+            "beatsMs": [
+              109714,
+              110571
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": false,
+            "endMs": 111429,
+            "measureIndex": 32,
+            "occurrenceIndex": 32,
+            "startMs": 109714
+          },
+          {
+            "beatsMs": [
+              111429,
+              112286
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": false,
+            "endMs": 113143,
+            "measureIndex": 33,
+            "occurrenceIndex": 33,
+            "startMs": 111429
+          },
+          {
+            "beatsMs": [
+              113143,
+              114000,
+              114857,
+              115714
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 116571,
+            "measureIndex": 34,
+            "occurrenceIndex": 34,
+            "startMs": 113143
+          },
+          {
+            "beatsMs": [
+              116571,
+              117429,
+              118286,
+              119143
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 120000,
+            "measureIndex": 35,
+            "occurrenceIndex": 35,
+            "startMs": 116571
+          },
+          {
+            "beatsMs": [
+              120000,
+              120857,
+              121714,
+              122571
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 123429,
+            "measureIndex": 36,
+            "occurrenceIndex": 36,
+            "startMs": 120000
+          },
+          {
+            "beatsMs": [
+              123429,
+              124286,
+              125143,
+              126000
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 126857,
+            "measureIndex": 37,
+            "occurrenceIndex": 37,
+            "startMs": 123429
+          },
+          {
+            "beatsMs": [
+              126857,
+              127714,
+              128571,
+              129429
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 130286,
+            "measureIndex": 38,
+            "occurrenceIndex": 38,
+            "startMs": 126857
+          },
+          {
+            "beatsMs": [
+              130286,
+              131143,
+              132000,
+              132857
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 133714,
+            "measureIndex": 39,
+            "occurrenceIndex": 39,
+            "startMs": 130286
+          },
+          {
+            "beatsMs": [
+              133714,
+              134571,
+              135429,
+              136286
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 137143,
+            "measureIndex": 40,
+            "occurrenceIndex": 40,
+            "startMs": 133714
+          },
+          {
+            "beatsMs": [
+              137143,
+              138000,
+              138857,
+              139714
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 140571,
+            "measureIndex": 41,
+            "occurrenceIndex": 41,
+            "startMs": 137143
+          },
+          {
+            "beatsMs": [
+              140571,
+              141429,
+              142286,
+              143143
+            ],
+            "beatsPerMeasure": 4,
+            "downbeat": true,
+            "endMs": 144000,
+            "measureIndex": 42,
+            "occurrenceIndex": 42,
+            "startMs": 140571
+          }
+        ],
+        "renderDurationMs": 147000,
+        "schemaVersion": 1
+      },
+      "samples": [
+        {
+          "start": 0,
+          "prepareMs": 347.94534599999986,
+          "firstPullMs": 7.744991000000027,
+          "cancelMs": 0.9043930000000273,
+          "firstTime": 0,
+          "pcmSha256": "4c3418633e704cb53bf79a8600aed96b9b3e769674f0e1a457e9ac8795f6e121"
+        },
+        {
+          "start": 30,
+          "prepareMs": 197.81828700000005,
+          "firstPullMs": 0.21146299999986695,
+          "cancelMs": 0.06511500000010528,
+          "firstTime": 30,
+          "pcmSha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+        },
+        {
+          "start": 0,
+          "prepareMs": 174.07268299999987,
+          "firstPullMs": 0.263590000000022,
+          "cancelMs": 0.11771999999996297,
+          "firstTime": 0,
+          "pcmSha256": "4c3418633e704cb53bf79a8600aed96b9b3e769674f0e1a457e9ac8795f6e121"
+        },
+        {
+          "start": 30,
+          "prepareMs": 162.40158999999994,
+          "firstPullMs": 0.18439899999998488,
+          "cancelMs": 0.05364100000019789,
+          "firstTime": 30,
+          "pcmSha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+        },
+        {
+          "start": 0,
+          "prepareMs": 185.77354300000002,
+          "firstPullMs": 0.18912700000009863,
+          "cancelMs": 0.06401699999992161,
+          "firstTime": 0,
+          "pcmSha256": "4c3418633e704cb53bf79a8600aed96b9b3e769674f0e1a457e9ac8795f6e121"
+        }
+      ]
+    }
+  ]
+}

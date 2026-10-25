@@ -1,13 +1,13 @@
 # OTS_Web Editor — Agent Guide
 
-A browser-based musical score editor built on **libmscore** (MuseScore's engraving engine) compiled to WebAssembly via the in-repo **webmscore fork** (`webmscore-fork/`, MuseScore 4.00 engine).
+A browser-based musical score editor built on **libmscore** (MuseScore's engraving engine) compiled to WebAssembly via the production **MuseScore v4.7.4 Qt-free bridge** (`engine/musescore/`, Emscripten 4.0.7).
 
-**libmscore is the permanent engraving backbone — there is no plan to replace it.** Strategy: stay on the 4.00 fork and selectively backport upstream readers/fixes as the format-fidelity corpus (roadmap §4) demands. Do not re-implement layout, engraving, or music semantics in TypeScript when the engine already provides them.
+**libmscore is the permanent engraving backbone — there is no plan to replace it.** The accepted 4.7 bridge is maintained in `engine/musescore/bridge/`; build/verification tools live in `tools/musescore/`. `webmscore-fork/web-public/` retains the JS API, worker RPC and generated package; the old native 4.00 tree is retained for history and is not the production build. Do not re-implement layout, engraving, or music semantics in TypeScript when the engine already provides them.
 
 ## Architecture
 
 - **Next.js / React app** (`app/`, `components/`, `lib/`). The editor surface is `components/ScoreEditor.tsx`.
-- **WASM engine in a worker.** The webmscore fork exposes ~135 `EMSCRIPTEN_KEEPALIVE` exports from `webmscore-fork/web/main.cpp`; the app talks to it through a worker RPC bridge.
+- **WASM engine in a worker.** The production bridge exposes `EMSCRIPTEN_KEEPALIVE` exports across `engine/musescore/bridge/bridge.cpp` and its domain headers; the app talks to it through a worker RPC bridge.
 - **Rendering is one-way:** engine → SVG → DOM. Editing is command-based: UI → WASM mutation → re-layout → re-render.
 - **The WASM-side score is the single source of truth.** UI state only mirrors selection, cursors, tools.
 - **Undo/redo is engine-level.** Every mutation must be wrapped in `startCmd`/`endCmd` (this is the codebase convention — never mutate outside a command).
@@ -15,11 +15,13 @@ A browser-based musical score editor built on **libmscore** (MuseScore's engravi
 ### Reference checkouts
 
 - `~/workspace/MuseScore` — upstream MuseScore master. **The reference for desktop behavior and conventions** (e.g., `NotationInteraction` in `src/notation/internal/notationinteraction.cpp` for interaction semantics). When implementing an editing behavior, match what desktop MuseScore does.
-- `webmscore-fork/` — our fork of webmscore (MuseScore 4.00 engine), built in-repo.
+- `~/workspace/ms47-spike` — pinned v4.7.4 worktree, used by the production build by default. See `engine/musescore/upstream.json` for exact commit/toolchain.
+- `engine/musescore/` — maintained native production bridge, patch and build configuration.
+- `webmscore-fork/web-public/` — JS/worker wrappers and package artifacts. The remaining 4.00 native tree is legacy.
 
 ## Docs conventions
 
-`docs/private/` is **gitignored by design**. Only `docs/BUILD_EMBED.md` and `docs/AI_MODEL_CAPABILITIES_RUNBOOK.md` are tracked. If a doc referenced somewhere is "missing" from git, it lives in `docs/private/` on this machine — do **not** try to restore or re-create it from git history.
+`docs/private/` is **gitignored by design**. Production engine/build documentation under `docs/engine/` is tracked alongside the existing public runbooks. If a doc referenced somewhere is "missing" from git, it lives in `docs/private/` on this machine — do **not** try to restore or re-create it from git history.
 
 Key private docs:
 
@@ -90,16 +92,16 @@ Use this for any `webmscore` extension, not just score mutations. An authoritati
 
 When adding a new C++ function to the WASM bridge, update **all** relevant layers below. Missing one usually produces a method that compiles but silently does not exist in the app.
 
-| #   | File                                                 | What to add                                                                                          |
-| --- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| 1   | `webmscore-fork/web/main.cpp`                        | Native implementation plus `EMSCRIPTEN_KEEPALIVE` export in the `extern "C"` block                   |
-| 2   | `webmscore-fork/web-public/src/index.js`             | Main-thread score method, typically a `Module.ccall(...)` wrapper                                    |
-| 3   | **`webmscore-fork/web-public/src/worker-helper.js`** | Worker RPC proxy (`this.rpc('myMethod', [...args])`). This is the layer most likely to be forgotten. |
-| 4   | `lib/webmscore-loader.ts`                            | Add the method to the `Score` TypeScript interface                                                   |
-| 5   | `components/ScoreEditor.tsx`                         | Wire the method into editor logic if it is user-facing                                               |
-| 6   | `components/Toolbar.tsx`                             | If invoked from the toolbar, add handler/button plumbing here too                                    |
-| 7   | `lib/music-services/scoreops-service.ts`             | If ScoreOps/agent flows need the method, extend schema/capability/executor/fallback handling         |
-| 8   | Tests                                                | Add/update tests for any consumer layer you changed                                                  |
+| #   | File                                                  | What to add                                                                                          |
+| --- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| 1   | `engine/musescore/bridge/bridge.cpp` + domain headers | Native implementation plus `EMSCRIPTEN_KEEPALIVE` export in the `extern "C"` block                   |
+| 2   | `webmscore-fork/web-public/src/index.js`              | Main-thread score method, typically a `Module.ccall(...)` wrapper                                    |
+| 3   | **`webmscore-fork/web-public/src/worker-helper.js`**  | Worker RPC proxy (`this.rpc('myMethod', [...args])`). This is the layer most likely to be forgotten. |
+| 4   | `lib/webmscore-loader.ts`                             | Add the method to the `Score` TypeScript interface                                                   |
+| 5   | `components/score-editor/` feature module             | Wire the method into editor logic if it is user-facing                                               |
+| 6   | shell command registry and transport/menu UI          | If invoked from the toolbar, add handler/button plumbing here too                                    |
+| 7   | `lib/music-services/scoreops-service.ts`              | If ScoreOps/agent flows need the method, extend schema/capability/executor/fallback handling         |
+| 8   | Tests                                                 | Add/update tests for any consumer layer you changed                                                  |
 
 Notes:
 
@@ -113,41 +115,19 @@ source but not in webmscore.webpack.mjs; the bundle predates the source`) and co
 
 ### Rebuild + artifact sync (incremental — preferred)
 
-1. `cd webmscore-fork/web-public && npm run compile`
-   — the reliable C++ → WASM build path; the npm script sets up the emsdk PATH itself.
-2. If JS bridge files changed (`src/index.js`, `src/worker-helper.js`, or related bundling inputs): `npm run bundle`
-3. `cd ../.. && npm run sync:wasm` — copies generated artifacts into `public/`
+1. `npm run build:engine` — builds the pinned Qt-free 4.7 engine from tracked sources/patches.
+2. `npm run bundle:engine -- /tmp/ots-engine-bundle` — bundles the fresh browser artifacts with the maintained JS/worker wrappers.
+3. Install the synchronized package and run `npm run sync:wasm`, as documented in [docs/engine/README.md](docs/engine/README.md).
+4. `npm run check:bridge` checks production native declarations, JS, worker, types and generated artifacts.
 
-**Step 2 is not optional, and skipping it fails silently.** `webmscore.webpack.mjs` embeds the
-JS glue, so a stale bundle pairs old glue with a new `.wasm`. When no export changed the two are
-interchangeable and everything works; **add or remove an export and the module stops
-instantiating** — no console error, no stack trace, nothing renders anywhere, in the plain editor
-as well as the compare panes. It is indistinguishable by eye from a corrupt engine build.
+Use `MS47_SOURCE`, `MS47_BUILD`, `MS47_RESOURCE_ROOT`, `MS47_EMSDK`, and `MS47_JOBS` for isolated builds. See the production guide for fresh-checkout verification and artifact installation. The default worktree is already patched; never edit its staged `spike/` copies. Change maintained sources under `engine/musescore/`, or update the tracked upstream patch for upstream changes.
 
-Note this is _not_ what `c33e7a7b` hit — that change touched no JS bridge and no export, and a
-stale bundle is harmless when the export table is unchanged. Its cause is still unidentified. What
-is settled is that the build environment was not to blame: a null rebuild on this machine is
-byte-deterministic (identical source, identical bytes) and behaviourally identical to the committed
-artifacts across the full 200-test Playwright matrix, so `7eec1985`'s "needs a reproducible build
-environment before it is attempted again" does not hold. `c33e7a7b` used a 1m32s ccache build,
-which is the most obvious remaining suspect and worth ruling out with a cache-cold rebuild.
-
-**IMPORTANT — PATH pitfall:** Do NOT run `make release` directly from the shell, even after `source ~/workspace/emsdk/emsdk_env.sh`. The Makefile spawns `/bin/sh` subprocesses that do not inherit the emsdk PATH, causing `emcmake: not found`. Always use `npm run compile`.
-
-Avoid `npm run build` (clean rebuild) unless there is a specific reason.
-
-Generated artifacts to expect after a rebuild:
-
-- `webmscore-fork/web-public/webmscore.lib.js`
-- `webmscore-fork/web-public/webmscore.webpack.mjs`
-- `public/webmscore.lib.wasm`
-- `public/webmscore.lib.mem.wasm`
-- sometimes `public/webmscore.lib.data`
+Do not use the legacy `webmscore-fork/web-public` `compile` command or `web/Makefile` for production 4.7 work. Native, JS glue, bundles, resources and served WASM must be installed together; stale export tables can prevent module initialization. The `spike/` staging name and `MS47_*` CMake target/options remain compatibility details of the pinned patch, not source ownership.
 
 ### Verification checklist
 
 1. Confirm the method exists across the bridge:
-   `rg "myMethod" webmscore-fork/web/main.cpp webmscore-fork/web-public/src/index.js webmscore-fork/web-public/src/worker-helper.js lib/webmscore-loader.ts components/ScoreEditor.tsx`
+   `rg "myMethod" engine/musescore/bridge webmscore-fork/web-public/src/index.js webmscore-fork/web-public/src/worker-helper.js lib/webmscore-loader.ts components/ScoreEditor.tsx`
 2. Confirm the bundled JS contains it:
    `rg "myMethod" webmscore-fork/web-public/webmscore.lib.js webmscore-fork/web-public/webmscore.webpack.mjs`
 3. Restart `npm run dev`

@@ -1,18 +1,18 @@
+import { reference400 } from './reference400.mjs';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
 import { readFile, writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// MIDI export compared with the shipping 4.00 engine on the same scores: per-track notes (pitch, on/off tick,
+// MIDI export optionally compared with an explicitly selected 4.00 engine on the same scores: per-track notes (pitch, on/off tick,
 // velocity) and the tempo map, with repeats expanded and not. The 4.00 reference runs in a child process (its Node
-// build manages one load per process) and is skipped where that local build is absent.
+// build manages one load per process) and is skipped when MS47_REFERENCE_400 is unset.
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '../..');
-const forkBuild = path.join(root, 'webmscore-fork/web-public/webmscore.nodejs.cjs');
+const forkBuild = reference400();
 
 function parseMidi(bytes) {
   const b = Buffer.from(bytes);
@@ -57,8 +57,8 @@ export async function verifyMidi(WebMscore) {
   const corpus = [
     ['public/test_scores/bach_orig.mscz', 'mscz'],
     ['public/test_scores/four_measures.musicxml', 'musicxml'],
-    ['tools/ms47-bridge-spike/spanner-fixture.musicxml', 'musicxml'],
-    ['tools/ms47-bridge-spike/repeat-fixture.musicxml', 'musicxml'],
+    ['tools/musescore/spanner-fixture.musicxml', 'musicxml'],
+    ['tools/musescore/repeat-fixture.musicxml', 'musicxml'],
   ];
   const results = [];
   const temp = await mkdtemp(path.join(tmpdir(), 'ms47-midi-'));
@@ -73,7 +73,7 @@ export async function verifyMidi(WebMscore) {
         } finally { score.destroy(); }
         assert.ok(mine.tracks.length > 0 && mine.tracks.some(t => t.length > 0), `${file}: MIDI has notes`);
         const result = { file, expand, tracks: mine.tracks.length, notes: mine.tracks.reduce((n, t) => n + t.length, 0) };
-        if (existsSync(forkBuild)) {
+        if (forkBuild) {
           const out = path.join(temp, 'ref.mid');
           execFileSync(process.execPath, ['-e', `
             const fs=require('fs');const W=require(${JSON.stringify(forkBuild)});

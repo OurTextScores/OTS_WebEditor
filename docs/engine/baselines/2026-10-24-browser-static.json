@@ -1,0 +1,962 @@
+{
+  "recordedAt": "2026-10-25T01:17:44.554Z",
+  "browser": "143.0.7499.4",
+  "scope": "Headless Chromium, real worker/Web Audio, new browser context per run, local soundfont served by route; dev compile/cache and host contention affect timing; not audible device latency",
+  "base": "http://localhost:8080/score-editor/index.html",
+  "runs": [
+    {
+      "coldContext": 0,
+      "readyMs": 2799.2798740000003,
+      "starts": [
+        {
+          "clickToFirstScheduleMs": 401.3999999985099,
+          "scheduledLeadMs": 15,
+          "traces": [
+            {
+              "label": "playback:cancel",
+              "startedAt": 2950.300000000745,
+              "endedAt": 2955.099999997765,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0
+                },
+                {
+                  "name": "paint",
+                  "ms": 4.799999997019768
+                }
+              ],
+              "totalMs": 4.799999997019768
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 2950.300000000745,
+              "endedAt": 2955.099999997765,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0
+                },
+                {
+                  "name": "paint",
+                  "ms": 4.799999997019768
+                }
+              ],
+              "totalMs": 4.799999997019768
+            },
+            {
+              "label": "playback:prepare:full",
+              "startedAt": 2936.199999999255,
+              "endedAt": 3225.099999997765,
+              "phases": [
+                {
+                  "name": "soundfont",
+                  "ms": 14
+                },
+                {
+                  "name": "nativePrepare",
+                  "ms": 254.79999999701977
+                },
+                {
+                  "name": "paint",
+                  "ms": 20
+                }
+              ],
+              "totalMs": 288.8999999985099
+            },
+            {
+              "label": "playback:stream:transport",
+              "startedAt": 3259.599999997765,
+              "endedAt": 3285,
+              "phases": [
+                {
+                  "name": "firstPull",
+                  "ms": 4.5
+                },
+                {
+                  "name": "paint",
+                  "ms": 19.800000000745058
+                }
+              ],
+              "totalMs": 25.400000002235174
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 3355.89999999851,
+              "endedAt": 3396.800000000745,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 23.600000001490116
+                },
+                {
+                  "name": "paint",
+                  "ms": 17.300000000745058
+                }
+              ],
+              "totalMs": 40.900000002235174
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 3379.5,
+              "endedAt": 3396.800000000745,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0
+                },
+                {
+                  "name": "paint",
+                  "ms": 17.300000000745058
+                }
+              ],
+              "totalMs": 17.300000000745058
+            }
+          ]
+        },
+        {
+          "clickToFirstScheduleMs": 249.39999999850988,
+          "scheduledLeadMs": 15.000000000000014,
+          "traces": [
+            {
+              "label": "playback:cancel",
+              "startedAt": 2950.300000000745,
+              "endedAt": 2955.099999997765,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0
+                },
+                {
+                  "name": "paint",
+                  "ms": 4.799999997019768
+                }
+              ],
+              "totalMs": 4.799999997019768
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 2950.300000000745,
+              "endedAt": 2955.099999997765,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0
+                },
+                {
+                  "name": "paint",
+                  "ms": 4.799999997019768
+                }
+              ],
+              "totalMs": 4.799999997019768
+            },
+            {
+              "label": "playback:prepare:full",
+              "startedAt": 2936.199999999255,
+              "endedAt": 3225.099999997765,
+              "phases": [
+                {
+                  "name": "soundfont",
+                  "ms": 14
+                },
+                {
+                  "name": "nativePrepare",
+                  "ms": 254.79999999701977
+                },
+                {
+                  "name": "paint",
+                  "ms": 20
+                }
+              ],
+              "totalMs": 288.8999999985099
+            },
+            {
+              "label": "playback:stream:transport",
+              "startedAt": 3259.599999997765,
+              "endedAt": 3285,
+              "phases": [
+                {
+                  "name": "firstPull",
+                  "ms": 4.5
+                },
+                {
+                  "name": "paint",
+                  "ms": 19.800000000745058
+                }
+              ],
+              "totalMs": 25.400000002235174
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 3355.89999999851,
+              "endedAt": 3396.800000000745,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 23.600000001490116
+                },
+                {
+                  "name": "paint",
+                  "ms": 17.300000000745058
+                }
+              ],
+              "totalMs": 40.900000002235174
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 3379.5,
+              "endedAt": 3396.800000000745,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0
+                },
+                {
+                  "name": "paint",
+                  "ms": 17.300000000745058
+                }
+              ],
+              "totalMs": 17.300000000745058
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 3586.699999999255,
+              "endedAt": 3588.800000000745,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0
+                },
+                {
+                  "name": "paint",
+                  "ms": 2.100000001490116
+                }
+              ],
+              "totalMs": 2.100000001490116
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 3586.699999999255,
+              "endedAt": 3588.89999999851,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0
+                },
+                {
+                  "name": "paint",
+                  "ms": 2.199999999254942
+                }
+              ],
+              "totalMs": 2.199999999254942
+            },
+            {
+              "label": "playback:prepare:full",
+              "startedAt": 3570.5,
+              "endedAt": 3753.199999999255,
+              "phases": [
+                {
+                  "name": "soundfont",
+                  "ms": 16.199999999254942
+                },
+                {
+                  "name": "nativePrepare",
+                  "ms": 149.19999999925494
+                },
+                {
+                  "name": "paint",
+                  "ms": 17.300000000745058
+                }
+              ],
+              "totalMs": 182.69999999925494
+            },
+            {
+              "label": "playback:stream:transport",
+              "startedAt": 3751.300000000745,
+              "endedAt": 3767.099999997765,
+              "phases": [
+                {
+                  "name": "firstPull",
+                  "ms": 2
+                },
+                {
+                  "name": "paint",
+                  "ms": 13.699999999254942
+                }
+              ],
+              "totalMs": 15.799999997019768
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 3824.89999999851,
+              "endedAt": 3857.599999997765,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 15.100000001490116
+                },
+                {
+                  "name": "paint",
+                  "ms": 17.599999997764826
+                }
+              ],
+              "totalMs": 32.69999999925494
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 3840,
+              "endedAt": 3857.599999997765,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0
+                },
+                {
+                  "name": "paint",
+                  "ms": 17.599999997764826
+                }
+              ],
+              "totalMs": 17.599999997764826
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "coldContext": 1,
+      "readyMs": 2281.265431,
+      "starts": [
+        {
+          "clickToFirstScheduleMs": 386.8999999985099,
+          "scheduledLeadMs": 15.000000000000002,
+          "traces": [
+            {
+              "label": "playback:cancel",
+              "startedAt": 2339.699999999255,
+              "endedAt": 2345.39999999851,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0
+                },
+                {
+                  "name": "paint",
+                  "ms": 5.699999999254942
+                }
+              ],
+              "totalMs": 5.699999999254942
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 2339.699999999255,
+              "endedAt": 2345.5,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0
+                },
+                {
+                  "name": "paint",
+                  "ms": 5.800000000745058
+                }
+              ],
+              "totalMs": 5.800000000745058
+            },
+            {
+              "label": "playback:prepare:full",
+              "startedAt": 2329.599999997765,
+              "endedAt": 2669.599999997765,
+              "phases": [
+                {
+                  "name": "soundfont",
+                  "ms": 10.100000001490116
+                },
+                {
+                  "name": "nativePrepare",
+                  "ms": 300.69999999925494
+                },
+                {
+                  "name": "paint",
+                  "ms": 29.099999997764826
+                }
+              ],
+              "totalMs": 340
+            },
+            {
+              "label": "playback:stream:transport",
+              "startedAt": 2666.099999997765,
+              "endedAt": 2684.89999999851,
+              "phases": [
+                {
+                  "name": "firstPull",
+                  "ms": 3.800000000745058
+                },
+                {
+                  "name": "paint",
+                  "ms": 14
+                }
+              ],
+              "totalMs": 18.800000000745058
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 2760.199999999255,
+              "endedAt": 2813.800000000745,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 35.399999998509884
+                },
+                {
+                  "name": "paint",
+                  "ms": 18.100000001490116
+                }
+              ],
+              "totalMs": 53.600000001490116
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 2795.699999999255,
+              "endedAt": 2813.89999999851,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0.10000000149011612
+                },
+                {
+                  "name": "paint",
+                  "ms": 18.099999997764826
+                }
+              ],
+              "totalMs": 18.199999999254942
+            }
+          ]
+        },
+        {
+          "clickToFirstScheduleMs": 228,
+          "scheduledLeadMs": 15.000000000000014,
+          "traces": [
+            {
+              "label": "playback:cancel",
+              "startedAt": 2339.699999999255,
+              "endedAt": 2345.39999999851,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0
+                },
+                {
+                  "name": "paint",
+                  "ms": 5.699999999254942
+                }
+              ],
+              "totalMs": 5.699999999254942
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 2339.699999999255,
+              "endedAt": 2345.5,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0
+                },
+                {
+                  "name": "paint",
+                  "ms": 5.800000000745058
+                }
+              ],
+              "totalMs": 5.800000000745058
+            },
+            {
+              "label": "playback:prepare:full",
+              "startedAt": 2329.599999997765,
+              "endedAt": 2669.599999997765,
+              "phases": [
+                {
+                  "name": "soundfont",
+                  "ms": 10.100000001490116
+                },
+                {
+                  "name": "nativePrepare",
+                  "ms": 300.69999999925494
+                },
+                {
+                  "name": "paint",
+                  "ms": 29.099999997764826
+                }
+              ],
+              "totalMs": 340
+            },
+            {
+              "label": "playback:stream:transport",
+              "startedAt": 2666.099999997765,
+              "endedAt": 2684.89999999851,
+              "phases": [
+                {
+                  "name": "firstPull",
+                  "ms": 3.800000000745058
+                },
+                {
+                  "name": "paint",
+                  "ms": 14
+                }
+              ],
+              "totalMs": 18.800000000745058
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 2760.199999999255,
+              "endedAt": 2813.800000000745,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 35.399999998509884
+                },
+                {
+                  "name": "paint",
+                  "ms": 18.100000001490116
+                }
+              ],
+              "totalMs": 53.600000001490116
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 2795.699999999255,
+              "endedAt": 2813.89999999851,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0.10000000149011612
+                },
+                {
+                  "name": "paint",
+                  "ms": 18.099999997764826
+                }
+              ],
+              "totalMs": 18.199999999254942
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 2978.39999999851,
+              "endedAt": 2982.199999999255,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0
+                },
+                {
+                  "name": "paint",
+                  "ms": 3.800000000745058
+                }
+              ],
+              "totalMs": 3.800000000745058
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 2978.39999999851,
+              "endedAt": 2982.300000000745,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0
+                },
+                {
+                  "name": "paint",
+                  "ms": 3.900000002235174
+                }
+              ],
+              "totalMs": 3.900000002235174
+            },
+            {
+              "label": "playback:prepare:full",
+              "startedAt": 2967.300000000745,
+              "endedAt": 3141.199999999255,
+              "phases": [
+                {
+                  "name": "soundfont",
+                  "ms": 11
+                },
+                {
+                  "name": "nativePrepare",
+                  "ms": 143.80000000074506
+                },
+                {
+                  "name": "paint",
+                  "ms": 19
+                }
+              ],
+              "totalMs": 173.89999999850988
+            },
+            {
+              "label": "playback:stream:transport",
+              "startedAt": 3138.599999997765,
+              "endedAt": 3154.300000000745,
+              "phases": [
+                {
+                  "name": "firstPull",
+                  "ms": 2.7000000029802322
+                },
+                {
+                  "name": "paint",
+                  "ms": 13
+                }
+              ],
+              "totalMs": 15.700000002980232
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 3197,
+              "endedAt": 3230.800000000745,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 16.099999997764826
+                },
+                {
+                  "name": "paint",
+                  "ms": 17.700000002980232
+                }
+              ],
+              "totalMs": 33.80000000074506
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 3213.099999997765,
+              "endedAt": 3230.800000000745,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0
+                },
+                {
+                  "name": "paint",
+                  "ms": 17.700000002980232
+                }
+              ],
+              "totalMs": 17.700000002980232
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "coldContext": 2,
+      "readyMs": 2395.990089000001,
+      "starts": [
+        {
+          "clickToFirstScheduleMs": 353.5999999977648,
+          "scheduledLeadMs": 15.000000000000002,
+          "traces": [
+            {
+              "label": "playback:cancel",
+              "startedAt": 2459.400000002235,
+              "endedAt": 2464,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0
+                },
+                {
+                  "name": "paint",
+                  "ms": 4.599999997764826
+                }
+              ],
+              "totalMs": 4.599999997764826
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 2459.400000002235,
+              "endedAt": 2464.10000000149,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0
+                },
+                {
+                  "name": "paint",
+                  "ms": 4.699999999254942
+                }
+              ],
+              "totalMs": 4.699999999254942
+            },
+            {
+              "label": "playback:prepare:full",
+              "startedAt": 2445.5,
+              "endedAt": 2745.60000000149,
+              "phases": [
+                {
+                  "name": "soundfont",
+                  "ms": 13.699999999254942
+                },
+                {
+                  "name": "nativePrepare",
+                  "ms": 261.8999999985099
+                },
+                {
+                  "name": "paint",
+                  "ms": 24.300000000745058
+                }
+              ],
+              "totalMs": 300.1000000014901
+            },
+            {
+              "label": "playback:stream:transport",
+              "startedAt": 2743.699999999255,
+              "endedAt": 2764,
+              "phases": [
+                {
+                  "name": "firstPull",
+                  "ms": 5.900000002235174
+                },
+                {
+                  "name": "paint",
+                  "ms": 14
+                }
+              ],
+              "totalMs": 20.300000000745058
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 2829.800000000745,
+              "endedAt": 2860.60000000149,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 14.699999999254942
+                },
+                {
+                  "name": "paint",
+                  "ms": 16
+                }
+              ],
+              "totalMs": 30.800000000745058
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 2844.699999999255,
+              "endedAt": 2860.60000000149,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0
+                },
+                {
+                  "name": "paint",
+                  "ms": 15.900000002235174
+                }
+              ],
+              "totalMs": 15.900000002235174
+            }
+          ]
+        },
+        {
+          "clickToFirstScheduleMs": 221.69999999925494,
+          "scheduledLeadMs": 15.000000000000014,
+          "traces": [
+            {
+              "label": "playback:cancel",
+              "startedAt": 2459.400000002235,
+              "endedAt": 2464,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0
+                },
+                {
+                  "name": "paint",
+                  "ms": 4.599999997764826
+                }
+              ],
+              "totalMs": 4.599999997764826
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 2459.400000002235,
+              "endedAt": 2464.10000000149,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0
+                },
+                {
+                  "name": "paint",
+                  "ms": 4.699999999254942
+                }
+              ],
+              "totalMs": 4.699999999254942
+            },
+            {
+              "label": "playback:prepare:full",
+              "startedAt": 2445.5,
+              "endedAt": 2745.60000000149,
+              "phases": [
+                {
+                  "name": "soundfont",
+                  "ms": 13.699999999254942
+                },
+                {
+                  "name": "nativePrepare",
+                  "ms": 261.8999999985099
+                },
+                {
+                  "name": "paint",
+                  "ms": 24.300000000745058
+                }
+              ],
+              "totalMs": 300.1000000014901
+            },
+            {
+              "label": "playback:stream:transport",
+              "startedAt": 2743.699999999255,
+              "endedAt": 2764,
+              "phases": [
+                {
+                  "name": "firstPull",
+                  "ms": 5.900000002235174
+                },
+                {
+                  "name": "paint",
+                  "ms": 14
+                }
+              ],
+              "totalMs": 20.300000000745058
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 2829.800000000745,
+              "endedAt": 2860.60000000149,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 14.699999999254942
+                },
+                {
+                  "name": "paint",
+                  "ms": 16
+                }
+              ],
+              "totalMs": 30.800000000745058
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 2844.699999999255,
+              "endedAt": 2860.60000000149,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0
+                },
+                {
+                  "name": "paint",
+                  "ms": 15.900000002235174
+                }
+              ],
+              "totalMs": 15.900000002235174
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 3018.60000000149,
+              "endedAt": 3024.900000002235,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0
+                },
+                {
+                  "name": "paint",
+                  "ms": 6.300000000745058
+                }
+              ],
+              "totalMs": 6.300000000745058
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 3018.60000000149,
+              "endedAt": 3024.900000002235,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0
+                },
+                {
+                  "name": "paint",
+                  "ms": 6.300000000745058
+                }
+              ],
+              "totalMs": 6.300000000745058
+            },
+            {
+              "label": "playback:prepare:full",
+              "startedAt": 3010.800000000745,
+              "endedAt": 3181.800000000745,
+              "phases": [
+                {
+                  "name": "soundfont",
+                  "ms": 7.600000001490116
+                },
+                {
+                  "name": "nativePrepare",
+                  "ms": 147.69999999925494
+                },
+                {
+                  "name": "paint",
+                  "ms": 15.5
+                }
+              ],
+              "totalMs": 171
+            },
+            {
+              "label": "playback:stream:transport",
+              "startedAt": 3179.10000000149,
+              "endedAt": 3196,
+              "phases": [
+                {
+                  "name": "firstPull",
+                  "ms": 2.899999998509884
+                },
+                {
+                  "name": "paint",
+                  "ms": 13.399999998509884
+                }
+              ],
+              "totalMs": 16.899999998509884
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 3243.900000002235,
+              "endedAt": 3275.900000002235,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 14.5
+                },
+                {
+                  "name": "paint",
+                  "ms": 17.5
+                }
+              ],
+              "totalMs": 32
+            },
+            {
+              "label": "playback:cancel",
+              "startedAt": 3258.400000002235,
+              "endedAt": 3275.900000002235,
+              "phases": [
+                {
+                  "name": "awaitCancel",
+                  "ms": 0
+                },
+                {
+                  "name": "paint",
+                  "ms": 17.5
+                }
+              ],
+              "totalMs": 17.5
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

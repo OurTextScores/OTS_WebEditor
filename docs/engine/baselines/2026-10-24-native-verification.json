@@ -1,0 +1,1379 @@
+{
+  "bootMs": 439.64109900000005,
+  "results": [
+    {
+      "score": "public/test_scores/three_notes_cde.musicxml",
+      "bytes": 1227,
+      "svgBytes": 15200,
+      "times": {
+        "load": [
+          116.172233
+        ],
+        "saveXml": [
+          12.096504000000095,
+          0.6675719999998364
+        ],
+        "saveSvg": [
+          18.404641999999967,
+          10.503537999999935
+        ],
+        "selectPartMeasureByIndex": [
+          1.356927000000269
+        ],
+        "pitchUp": [
+          5.276976000000104
+        ],
+        "undo": [
+          2.6964920000000347
+        ],
+        "redo": [
+          2.170712000000094
+        ],
+        "saveMsc:mscz": [
+          78.4987530000003
+        ],
+        "reload:mscz": [
+          64.74844200000007
+        ],
+        "saveMsc:mscx": [
+          12.785796000000119
+        ],
+        "reload:mscx": [
+          27.641995999999835
+        ],
+        "destroy": [
+          0.5964439999997921
+        ]
+      }
+    },
+    {
+      "score": "public/test_scores/bach_orig.mscz",
+      "bytes": 81006,
+      "svgBytes": 440904,
+      "times": {
+        "load": [
+          335.3338710000003
+        ],
+        "saveXml": [
+          34.84772299999986,
+          11.763513000000785
+        ],
+        "saveSvg": [
+          348.08169899999984,
+          209.10364599999957
+        ],
+        "selectPartMeasureByIndex": [
+          0.28740900000047986
+        ],
+        "pitchUp": [
+          3.3643080000001646
+        ],
+        "undo": [
+          6.421629000000394
+        ],
+        "redo": [
+          6.0153330000002825
+        ],
+        "saveMsc:mscz": [
+          22.50631500000054
+        ],
+        "reload:mscz": [
+          79.03444300000046
+        ],
+        "saveMsc:mscx": [
+          20.995256999999583
+        ],
+        "reload:mscx": [
+          77.63112300000012
+        ],
+        "destroy": [
+          2.0405339999997523
+        ]
+      }
+    }
+  ],
+  "edits": [
+    {
+      "name": "addNoteFromRest",
+      "args": [],
+      "selectionMode": "rest",
+      "artifact": "addNoteFromRest-rest",
+      "ms": 2.4359650000005786
+    },
+    {
+      "name": "flipStem",
+      "args": [],
+      "artifact": "flipStem",
+      "ms": 1.4021240000001853
+    },
+    {
+      "name": "setDurationType",
+      "args": [
+        5
+      ],
+      "artifact": "setDurationType-5",
+      "ms": 1.8833140000006097
+    },
+    {
+      "name": "toggleLineBreak",
+      "args": [],
+      "artifact": "toggleLineBreak",
+      "ms": 1.4278819999999541
+    },
+    {
+      "name": "togglePageBreak",
+      "args": [],
+      "artifact": "togglePageBreak",
+      "ms": 1.3174849999995786
+    },
+    {
+      "name": "changeSelectedElementsVoice",
+      "args": [
+        1
+      ],
+      "artifact": "changeSelectedElementsVoice-1",
+      "ms": 3.6398390000013023
+    },
+    {
+      "name": "pitchUp",
+      "args": [],
+      "selectionMode": "rest",
+      "artifact": "pitchUp-rest",
+      "ms": 1.4341640000002371
+    },
+    {
+      "name": "pitchDown",
+      "args": [],
+      "selectionMode": "rest",
+      "artifact": "pitchDown-rest",
+      "ms": 1.1326779999999417
+    },
+    {
+      "name": "setAccidental",
+      "args": [
+        1
+      ],
+      "artifact": "setAccidental-1",
+      "ms": 1.4623800000008487
+    },
+    {
+      "name": "doubleDuration",
+      "args": [],
+      "artifact": "doubleDuration",
+      "ms": 1.4615709999998217
+    },
+    {
+      "name": "halfDuration",
+      "args": [],
+      "artifact": "halfDuration",
+      "ms": 1.1464739999992162
+    },
+    {
+      "name": "toggleDot",
+      "args": [],
+      "artifact": "toggleDot",
+      "ms": 1.3554839999997057
+    },
+    {
+      "name": "toggleDoubleDot",
+      "args": [],
+      "artifact": "toggleDoubleDot",
+      "ms": 1.2393320000010135
+    },
+    {
+      "name": "setNoteheadGroup",
+      "args": [
+        1
+      ],
+      "artifact": "setNoteheadGroup-1",
+      "ms": 1.231007000000318
+    },
+    {
+      "name": "setBeamMode",
+      "args": [
+        1
+      ],
+      "artifact": "setBeamMode-1",
+      "ms": 1.8597010000012233
+    },
+    {
+      "name": "setMultiMeasureRests",
+      "args": [
+        true
+      ],
+      "artifact": "setMultiMeasureRests-true",
+      "ms": 1.6218019999996613
+    },
+    {
+      "name": "addDynamic",
+      "args": [
+        6
+      ],
+      "artifact": "addDynamic-6",
+      "ms": 2.4531410000017786
+    },
+    {
+      "name": "addDynamic",
+      "args": [
+        23
+      ],
+      "artifact": "addDynamic-23",
+      "ms": 1.2097470000007888
+    },
+    {
+      "name": "addHairpin",
+      "args": [
+        0
+      ],
+      "artifact": "addHairpin-0",
+      "ms": 2.9795129999984056
+    },
+    {
+      "name": "addFermata",
+      "args": [
+        0
+      ],
+      "artifact": "addFermata-0",
+      "ms": 1.7981540000000678
+    },
+    {
+      "name": "addBreath",
+      "args": [
+        0
+      ],
+      "artifact": "addBreath-0",
+      "ms": 1.6150779999989027
+    },
+    {
+      "name": "addArpeggio",
+      "args": [
+        0
+      ],
+      "artifact": "addArpeggio-0",
+      "ms": 1.4420519999985117
+    },
+    {
+      "name": "addOttava",
+      "args": [
+        0
+      ],
+      "artifact": "addOttava-0",
+      "ms": 2.0357619999995222
+    },
+    {
+      "name": "addTrill",
+      "args": [
+        0
+      ],
+      "artifact": "addTrill-0",
+      "ms": 2.9375489999983984
+    },
+    {
+      "name": "addStaffText",
+      "args": [
+        "Bridge <text> & \"quotes\""
+      ],
+      "artifact": "addStaffText-Bridge__text_____quotes_",
+      "ms": 1.6072740000017802
+    },
+    {
+      "name": "addSystemText",
+      "args": [
+        "System"
+      ],
+      "artifact": "addSystemText-System",
+      "ms": 1.4256119999990915
+    },
+    {
+      "name": "addExpressionText",
+      "args": [
+        "espressivo"
+      ],
+      "artifact": "addExpressionText-espressivo",
+      "ms": 1.6172130000013567
+    },
+    {
+      "name": "addLyricText",
+      "args": [
+        "hello"
+      ],
+      "artifact": "addLyricText-hello",
+      "ms": 2.6278109999984736
+    },
+    {
+      "name": "addHarmonyText",
+      "args": [
+        0,
+        "C7"
+      ],
+      "artifact": "addHarmonyText-0-C7",
+      "ms": 4.830804000001081
+    },
+    {
+      "name": "addFingeringText",
+      "args": [
+        "2"
+      ],
+      "artifact": "addFingeringText-2",
+      "ms": 1.3925669999989623
+    },
+    {
+      "name": "addLeftHandGuitarFingeringText",
+      "args": [
+        "2"
+      ],
+      "artifact": "addLeftHandGuitarFingeringText-2",
+      "ms": 1.3535009999977774
+    },
+    {
+      "name": "addRightHandGuitarFingeringText",
+      "args": [
+        "p"
+      ],
+      "artifact": "addRightHandGuitarFingeringText-p",
+      "ms": 1.1850299999969138
+    },
+    {
+      "name": "addStringNumberText",
+      "args": [
+        "3"
+      ],
+      "artifact": "addStringNumberText-3",
+      "ms": 1.9123120000003837
+    },
+    {
+      "name": "addStickingText",
+      "args": [
+        "R"
+      ],
+      "artifact": "addStickingText-R",
+      "ms": 1.3225920000004407
+    },
+    {
+      "name": "addFiguredBassText",
+      "args": [
+        "6"
+      ],
+      "artifact": "addFiguredBassText-6",
+      "ms": 2.647884999998496
+    },
+    {
+      "name": "addRehearsalMark",
+      "args": [],
+      "artifact": "addRehearsalMark",
+      "ms": 1.4709279999988212
+    },
+    {
+      "name": "addArticulation",
+      "args": [
+        "articStaccatoAbove"
+      ],
+      "artifact": "addArticulation-articStaccatoAbove",
+      "ms": 1.4467989999975543
+    },
+    {
+      "name": "addTempoText",
+      "args": [
+        132
+      ],
+      "artifact": "addTempoText-132",
+      "ms": 1.3086089999997057
+    },
+    {
+      "name": "setKeySignature",
+      "args": [
+        2
+      ],
+      "artifact": "setKeySignature-2",
+      "ms": 1.367740000001504
+    },
+    {
+      "name": "setClef",
+      "args": [
+        20
+      ],
+      "artifact": "setClef-20",
+      "ms": 1.825221999999485
+    },
+    {
+      "name": "setTimeSignature",
+      "args": [
+        3,
+        4
+      ],
+      "artifact": "setTimeSignature-3-4",
+      "ms": 4.374951000001602
+    },
+    {
+      "name": "setTimeSignatureWithType",
+      "args": [
+        4,
+        4,
+        1
+      ],
+      "artifact": "setTimeSignatureWithType-4-4-1",
+      "ms": 1.9665160000004107
+    },
+    {
+      "name": "setChordSymbolStylePreset",
+      "args": [
+        "jazz"
+      ],
+      "artifact": "setChordSymbolStylePreset-jazz",
+      "ms": 2.0506640000021434
+    },
+    {
+      "name": "setHarmonyVoiceLiteral",
+      "args": [
+        false
+      ],
+      "artifact": "setHarmonyVoiceLiteral-false",
+      "ms": 1.31997599999886
+    },
+    {
+      "name": "setSelectedElementProperty",
+      "args": [
+        "visible",
+        false
+      ],
+      "artifact": "setSelectedElementProperty-visible-false",
+      "ms": 1.5407989999985148
+    },
+    {
+      "name": "setSelectedElementProperty",
+      "args": [
+        "small",
+        true
+      ],
+      "artifact": "setSelectedElementProperty-small-true",
+      "ms": 0.8800699999992503
+    },
+    {
+      "name": "setSelectedElementProperty",
+      "args": [
+        "offsetX",
+        2
+      ],
+      "artifact": "setSelectedElementProperty-offsetX-2",
+      "ms": 1.3234389999997802
+    },
+    {
+      "name": "setSelectedElementProperty",
+      "args": [
+        "offsetY",
+        -1.5
+      ],
+      "artifact": "setSelectedElementProperty-offsetY--1_5",
+      "ms": 0.8641109999989567
+    },
+    {
+      "name": "setSelectedElementProperty",
+      "args": [
+        "color",
+        "#ff0000"
+      ],
+      "artifact": "setSelectedElementProperty-color-_ff0000",
+      "ms": 1.169358999999531
+    },
+    {
+      "name": "setSelectedElementProperty",
+      "args": [
+        "stemDirection",
+        "down"
+      ],
+      "artifact": "setSelectedElementProperty-stemDirection-down",
+      "ms": 0.9688380000006873
+    },
+    {
+      "name": "setBeamMode split layout",
+      "ok": true
+    },
+    {
+      "name": "transpose follows ties",
+      "octave": "CC 55",
+      "diatonic third": "EE 44"
+    }
+  ],
+  "systemLocks": {
+    "verified": true,
+    "checks": [
+      "capabilities",
+      "invalid-input",
+      "selection",
+      "lock",
+      "unlock",
+      "overlap",
+      "move-previous",
+      "move-next",
+      "insert",
+      "delete",
+      "parts",
+      "mscx",
+      "mscz",
+      "undo-redo",
+      "pixels"
+    ]
+  },
+  "inspector": {
+    "mixedSelection": true,
+    "invalidValuesRejected": true,
+    "undo": true
+  },
+  "selection": {
+    "pointModes": true,
+    "rangeExtension": true,
+    "clipboardPasteUndo": true,
+    "titleHit": true,
+    "spatialCorpus": [
+      {
+        "name": "bach_orig.mscz",
+        "pageCount": 3,
+        "rangeBoxes": 20,
+        "bands": 20,
+        "frameOnlyPages": [
+          1
+        ]
+      },
+      {
+        "name": "two_staves_four_bars_lower_edit.musicxml",
+        "pageCount": 1,
+        "rangeBoxes": 1,
+        "bands": 2,
+        "frameOnlyPages": []
+      }
+    ],
+    "times": {
+      "saveXml": [
+        0.37319700000080047,
+        0.4676370000015595,
+        0.4943249999996624,
+        0.3453060000028927,
+        0.49633199999516364,
+        0.7874089999968419
+      ],
+      "saveSvg": [
+        7.612705999999889,
+        6.674360000004526,
+        6.857728999995743,
+        10.074660999998741
+      ],
+      "getUndoInfo": [
+        0.08592800000042189,
+        0.017714000001433305,
+        0.025523999996948987
+      ],
+      "getSelectionBoundingBox": [
+        0.3248149999999441,
+        0.01986600000236649
+      ],
+      "getSelectionBoundingBoxes": [
+        0.26884699999936856,
+        0.10169999999925494,
+        0.03804600000148639,
+        0.0563549999933457,
+        0.07474099999672035,
+        0.07867799999803538,
+        0.020561000004818197,
+        0.10829099999682512,
+        0.09147699999448378,
+        0.05569600000308128
+      ],
+      "selectElementAtPoint": [
+        0.015652000001864508,
+        0.00299799999629613,
+        0.15017599999555387,
+        0.021345999994082376
+      ],
+      "selectTextElementAtPoint": [
+        0.009037000003445428,
+        0.005539999998291023,
+        0.005733999998483341,
+        0.1455729999943287
+      ],
+      "selectMeasureAtPoint": [
+        0.12167200000112643,
+        0.003949999998440035,
+        0.25675300000148127,
+        0.19981900000129826
+      ],
+      "extendMeasureSelectionAtPoint": [
+        0.09322500000416767,
+        0.002948000001197215,
+        0.002282000001287088,
+        0.03248100000200793
+      ],
+      "selectPartMeasureByIndex": [
+        0.035947999997006264,
+        0.08087199999863515,
+        0.05820500000118045,
+        0.027809999999590218
+      ],
+      "isSelectionRange": [
+        0.012026000003970694,
+        0.0036110000000917353,
+        0.004575999999360647,
+        0.0012419999984558672
+      ],
+      "getSelectedElementProperties": [
+        0.08971100000053411,
+        0.1948850000044331
+      ],
+      "selectElementAtPointWithMode": [
+        0.13948600000003353,
+        0.015905000000202563,
+        0.01766700000007404,
+        0.012656999999308027,
+        0.001564999998663552
+      ],
+      "selectionMimeType": [
+        0.28736299999582116
+      ],
+      "selectionMimeData": [
+        0.8824749999985215
+      ],
+      "pasteSelection": [
+        3.7081079999989015,
+        0.17075199999817414,
+        0.03802700000233017
+      ],
+      "undo": [
+        1.105771000002278,
+        1.787045000004582
+      ],
+      "redo": [
+        2.0116760000018985
+      ],
+      "setTitleText": [
+        1.256571999998414
+      ],
+      "clearSelection": [
+        0.02880400000140071
+      ],
+      "setSelectedText": [
+        0.9348599999939324
+      ],
+      "title": [
+        0.03179400000226451
+      ],
+      "destroy": [
+        0.11479700000199955
+      ]
+    }
+  },
+  "noteInput": [
+    {
+      "label": "enter C sharp",
+      "ms": 1.4701570000033826
+    },
+    {
+      "label": "enter D",
+      "ms": 1.039602000004379
+    },
+    {
+      "label": "enter dotted E",
+      "ms": 0.9737309999982244
+    },
+    {
+      "label": "enter eighth rest",
+      "ms": 1.4804760000042734
+    },
+    {
+      "label": "legacy repitch method",
+      "ms": 1.8791970000020228
+    },
+    {
+      "label": "enter voice 2",
+      "ms": 1.2516060000052676
+    },
+    {
+      "label": "click to place",
+      "ms": 1.237992000002123
+    },
+    {
+      "sequential": {
+        "cursors": [
+          {
+            "height": 136.417323,
+            "page": 0,
+            "voice": 0,
+            "width": 56.97815,
+            "x": 554.22028,
+            "y": 615.649606
+          },
+          {
+            "height": 136.417323,
+            "page": 0,
+            "voice": 0,
+            "width": 48.06815,
+            "x": 757.840733,
+            "y": 615.649606
+          },
+          {
+            "height": 136.417323,
+            "page": 0,
+            "voice": 0,
+            "width": 56.97815,
+            "x": 961.461185,
+            "y": 615.649606
+          },
+          {
+            "height": 136.417323,
+            "page": 0,
+            "voice": 0,
+            "width": 48.06815,
+            "x": 1136.669482,
+            "y": 615.649606
+          }
+        ],
+        "addToChordUndo": true,
+        "legacyTimewiseUndo": true
+      }
+    },
+    {
+      "specialStaves": [
+        {
+          "kind": "percussion",
+          "cursor": {
+            "height": 136.417323,
+            "page": 0,
+            "voice": 0,
+            "width": 56.97815,
+            "x": 514.125213,
+            "y": 367.61811
+          }
+        },
+        {
+          "kind": "tablature",
+          "cursor": {
+            "height": 37.204724,
+            "page": 0,
+            "voice": 0,
+            "width": 49.606299,
+            "x": 527.335335,
+            "y": 367.61811
+          }
+        }
+      ]
+    }
+  ],
+  "measures": {
+    "cases": [
+      {
+        "name": "toggleRepeatStart",
+        "args": [],
+        "ms": 1.249759999998787
+      },
+      {
+        "name": "toggleRepeatEnd",
+        "args": [],
+        "ms": 2.2839080000048853
+      },
+      {
+        "name": "setRepeatCount",
+        "args": [
+          3
+        ],
+        "ms": 2.295381999996607
+      },
+      {
+        "name": "setBarLineType",
+        "args": [
+          2
+        ],
+        "ms": 1.346172999998089
+      },
+      {
+        "name": "addVolta",
+        "args": [
+          1
+        ],
+        "ms": 2.48251899999741
+      },
+      {
+        "name": "addMarker",
+        "args": [
+          0
+        ],
+        "ms": 6.977559999999357
+      },
+      {
+        "name": "addJump",
+        "args": [
+          0
+        ],
+        "ms": 1.5175390000003972
+      },
+      {
+        "name": "addJump",
+        "args": [
+          12
+        ],
+        "ms": 1.1409330000024056
+      },
+      {
+        "name": "addJump",
+        "args": [
+          13
+        ],
+        "ms": 1.307632999996713
+      },
+      {
+        "name": "addMeasureRepeat",
+        "args": [
+          1
+        ],
+        "ms": 1.9579739999971935
+      },
+      {
+        "name": "addMeasureRepeat",
+        "args": [
+          2
+        ],
+        "ms": 2.1040700000012293
+      },
+      {
+        "name": "addMeasureRepeat",
+        "args": [
+          4
+        ],
+        "ms": 1.1629470000043511
+      },
+      {
+        "name": "insertMeasures",
+        "args": [
+          2,
+          0
+        ],
+        "ms": 1.2608820000023115
+      },
+      {
+        "name": "insertMeasures",
+        "args": [
+          2,
+          1
+        ],
+        "ms": 1.2924409999977797
+      },
+      {
+        "name": "insertMeasures",
+        "args": [
+          2,
+          2
+        ],
+        "ms": 1.3346799999999348
+      },
+      {
+        "name": "insertMeasures",
+        "args": [
+          2,
+          3
+        ],
+        "ms": 1.6407899999976507
+      },
+      {
+        "name": "addPickupMeasure",
+        "args": [
+          1,
+          4
+        ],
+        "ms": 2.0005590000000666
+      },
+      {
+        "name": "removeTrailingEmptyMeasures",
+        "args": [],
+        "ms": 1.3100160000030883
+      },
+      {
+        "name": "removeSelectedMeasures",
+        "args": [],
+        "ms": 0.9641360000023269
+      },
+      {
+        "name": "setMeasureLineBreaks",
+        "args": [
+          [
+            true,
+            false,
+            true
+          ]
+        ],
+        "ms": 1.416892999994161
+      },
+      {
+        "name": "setMeasureSpacer",
+        "args": [
+          0,
+          0,
+          18
+        ],
+        "ms": 1.330857000000833
+      }
+    ],
+    "metadata": {
+      "signatures": [
+        "4/4|0|1|S0:V0=N0o4:8 N2o4:8 N4o4:8 N5o4:8 R:2,V1=,V2=,V3=",
+        "4/4|0|1|S0:V0=N0o4+4o4+7o4:4 R:2.,V1=,V2=,V3=",
+        "4/4|0|1|S0:V0=R:M,V1=,V2=,V3=",
+        "4/4|0|1|S0:V0=R:M,V1=,V2=,V3=",
+        "4/4|0|1|S0:V0=R:M,V1=,V2=,V3=",
+        "4/4|0|1|S0:V0=R:M,V1=,V2=,V3="
+      ],
+      "collapsedCount": 3,
+      "validation": true
+    },
+    "geometry": {
+      "spacerUndo": true,
+      "pageRanges": [
+        {
+          "page": 0,
+          "endMeasureIndex": 19,
+          "startMeasureIndex": 0
+        },
+        {
+          "page": 2,
+          "endMeasureIndex": 42,
+          "startMeasureIndex": 20
+        }
+      ]
+    }
+  },
+  "timeline": {
+    "repeats": true,
+    "legacyDaCodaMarkers": true,
+    "tempo": true,
+    "pickup": true,
+    "compoundMeter": true,
+    "selectionStart": true
+  },
+  "spanners": [
+    {
+      "name": "addSlur",
+      "args": [],
+      "ms": 3.057792999999947
+    },
+    {
+      "name": "addTie",
+      "args": [],
+      "ms": 2.146398999997473
+    },
+    {
+      "name": "addGraceNote",
+      "args": [
+        1
+      ],
+      "ms": 1.8551010000010137
+    },
+    {
+      "name": "addGraceNote",
+      "args": [
+        2
+      ],
+      "ms": 1.3330999999961932
+    },
+    {
+      "name": "addTuplet",
+      "args": [
+        3
+      ],
+      "ms": 3.0715569999956642
+    },
+    {
+      "name": "addTremolo",
+      "args": [
+        1
+      ],
+      "ms": 2.0164939999958733
+    },
+    {
+      "name": "addTremolo",
+      "args": [
+        5
+      ],
+      "ms": 1.9322059999976773
+    },
+    {
+      "name": "addGlissando",
+      "args": [
+        0
+      ],
+      "ms": 2.201656000004732
+    },
+    {
+      "name": "addGlissando",
+      "args": [
+        1
+      ],
+      "ms": 1.2925130000003264
+    },
+    {
+      "name": "addPedal",
+      "args": [
+        0
+      ],
+      "ms": 2.0559420000063255
+    },
+    {
+      "name": "addPedal",
+      "args": [
+        1
+      ],
+      "ms": 1.8650639999978011
+    },
+    {
+      "name": "addSostenutoPedal",
+      "args": [],
+      "ms": 1.974609999997483
+    },
+    {
+      "name": "addUnaCorda",
+      "args": [],
+      "ms": 1.6076979999998002
+    },
+    {
+      "name": "splitPedal",
+      "args": [],
+      "ms": 1.865390999999363
+    },
+    {
+      "name": "addAmbitus",
+      "args": [],
+      "ms": 1.8957230000014533
+    },
+    {
+      "name": "explodeSelection",
+      "args": [],
+      "ms": 1.7577600000004168
+    },
+    {
+      "name": "implodeSelection",
+      "args": [],
+      "ms": 2.0478210000001127
+    },
+    {
+      "name": "regroupSelection",
+      "args": [],
+      "ms": 1.9014010000028065
+    },
+    {
+      "name": "resequenceRehearsalMarks",
+      "args": [],
+      "ms": 1.6631229999984498
+    },
+    {
+      "name": "addFretDiagram",
+      "args": [
+        "X32010"
+      ],
+      "ms": 2.0226570000013453
+    },
+    {
+      "name": "setSelectedFretDiagram",
+      "args": [
+        {
+          "strings": 6,
+          "frets": 5,
+          "fretOffset": 2,
+          "showNut": false,
+          "dots": [
+            {
+              "string": 3,
+              "fret": 2,
+              "type": 0
+            }
+          ],
+          "markers": [
+            {
+              "string": 0,
+              "type": 2
+            }
+          ],
+          "barres": []
+        }
+      ],
+      "ms": 2.260071999997308
+    }
+  ],
+  "misc": {
+    "selectionFilter": [
+      "notesAndRests",
+      "invalidMask"
+    ],
+    "transpose": true,
+    "progressiveLayout": {
+      "pages": 3,
+      "measures": 43
+    },
+    "measurePositions": {
+      "elements": 43,
+      "events": 43
+    },
+    "segmentPositions": {
+      "elements": 657,
+      "events": 657
+    },
+    "metadata": {
+      "title": "\u00a0CLEAN VERSION",
+      "measures": 43,
+      "duration": 144
+    }
+  },
+  "drag": {
+    "elementDrag": [
+      "commit",
+      "cancel",
+      "rejections"
+    ],
+    "drops": [
+      "bass clef",
+      "p (legacy dynamic index 6)",
+      "staccato"
+    ],
+    "gripEdit": [
+      "commit",
+      "cancel"
+    ]
+  },
+  "midi": [
+    {
+      "file": "public/test_scores/bach_orig.mscz",
+      "expand": true,
+      "tracks": 1,
+      "notes": 657
+    },
+    {
+      "file": "public/test_scores/bach_orig.mscz",
+      "expand": false,
+      "tracks": 1,
+      "notes": 657
+    },
+    {
+      "file": "public/test_scores/four_measures.musicxml",
+      "expand": true,
+      "tracks": 1,
+      "notes": 4
+    },
+    {
+      "file": "public/test_scores/four_measures.musicxml",
+      "expand": false,
+      "tracks": 1,
+      "notes": 4
+    },
+    {
+      "file": "tools/musescore/spanner-fixture.musicxml",
+      "expand": true,
+      "tracks": 2,
+      "notes": 14
+    },
+    {
+      "file": "tools/musescore/spanner-fixture.musicxml",
+      "expand": false,
+      "tracks": 2,
+      "notes": 14
+    },
+    {
+      "file": "tools/musescore/repeat-fixture.musicxml",
+      "expand": true,
+      "tracks": 1,
+      "notes": 7
+    },
+    {
+      "file": "tools/musescore/repeat-fixture.musicxml",
+      "expand": false,
+      "tracks": 1,
+      "notes": 5
+    }
+  ],
+  "audio": [
+    {
+      "file": "../../public/test_scores/bach_orig.mscz",
+      "ms": 1057,
+      "seconds": 146.99897959183673,
+      "rms": 0.020234759533502608,
+      "peak": 0.17484533786773682,
+      "env": [
+        0.0172,
+        0.0185,
+        0.0184,
+        0.0195,
+        0.0214,
+        0.021,
+        0.0213,
+        0.0207,
+        0.0221,
+        0.0217,
+        0.0198,
+        0.0181
+      ]
+    },
+    {
+      "stream": "whole",
+      "chunks": 12662,
+      "maxDiff": 0,
+      "ms": 920
+    },
+    {
+      "stream": "seek/range/selection/preview",
+      "ok": true
+    },
+    {
+      "name": "no metronome",
+      "restRms": 0
+    }
+  ],
+  "pdf": [
+    {
+      "file": "bach_orig.mscz",
+      "pages": 3,
+      "bytes": 47823,
+      "ms": 349,
+      "coverage": [
+        [
+          1,
+          0.9998
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          1,
+          0.9999
+        ]
+      ]
+    },
+    {
+      "file": "four_measures.musicxml",
+      "pages": 1,
+      "bytes": 3118,
+      "ms": 4,
+      "coverage": [
+        [
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "file": "spanner-fixture.musicxml",
+      "pages": 1,
+      "bytes": 5767,
+      "ms": 13,
+      "coverage": [
+        [
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "file": "image-fixture.mscz",
+      "pages": 3,
+      "bytes": 48092,
+      "ms": 344,
+      "coverage": [
+        [
+          1,
+          0.9998
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          1,
+          0.9999
+        ]
+      ]
+    }
+  ],
+  "stubs": {
+    "image": {
+      "svg": "embedded"
+    },
+    "warning": {},
+    "unicode": {
+      "accented": 1093.0197210000001,
+      "plain": 1093.0197210000001
+    },
+    "svgclasses": {
+      "StaffLines": 50,
+      "Text": 4,
+      "MeasureNumber": 9,
+      "BarLine": 20,
+      "Accidental": 10,
+      "LedgerLine": 36,
+      "Stem": 320,
+      "Note": 320,
+      "Clef": 10,
+      "KeySig": 10,
+      "TimeSig": 2,
+      "Beam": 160
+    }
+  },
+  "parts": {
+    "excerpts": [
+      "generate",
+      "idempotent",
+      "scopedExports",
+      "invalidId",
+      "partSaveRejected",
+      "linkedEditUndo"
+    ],
+    "mutations": [
+      {
+        "name": "appendPart",
+        "args": [
+          "violin"
+        ],
+        "ms": 2.759936000002199
+      },
+      {
+        "name": "appendPartByMusicXmlId",
+        "args": [
+          "strings.violin"
+        ],
+        "ms": 1.9194359999964945
+      },
+      {
+        "name": "removePart",
+        "args": [
+          1
+        ],
+        "ms": 1.6077450000011595
+      },
+      {
+        "name": "setPartVisible",
+        "args": [
+          1,
+          false
+        ],
+        "ms": 1.5970159999997122
+      }
+    ],
+    "saveMxl": true,
+    "instrumentTemplates": 644,
+    "addFont": {
+      "before": 3831.3024252,
+      "after": 3349.0974251999996,
+      "cjkOnlyDrawnBefore": false,
+      "cjkOnlyDrawnAfter": true
+    }
+  },
+  "resources": {
+    "petaluma": [
+      "fonts/petaluma/Petaluma.otf"
+    ],
+    "cjk": {
+      "fetched": [
+        "fonts/fallback/NotoSansJP-Regular.otf"
+      ],
+      "drawnChecked": false
+    }
+  },
+  "build": {
+    "node": "v24.21.0",
+    "fastLink": false,
+    "wasmBytes": 11294926,
+    "wasmSha256": "83613e2159fc5639e9cac57be57b13e48acac9a0a0c2b4ae57e334daac820b6d"
+  }
+}

@@ -39,7 +39,11 @@
     "release:prepare": "npm run build:embed && npm run package:release",
     "test:embed": "node test-embed/server.js",
     "test:embed:integration": "npx playwright test --config playwright.config.embed.ts",
-    "test:perf": "npx playwright test --config playwright.config.perf.ts"
+    "test:perf": "npx playwright test --config playwright.config.perf.ts",
+    "build:engine": "bash tools/musescore/build.sh",
+    "bundle:engine": "node tools/musescore/bundle.mjs",
+    "verify:engine": "node tools/musescore/verify.mjs",
+    "install:engine": "node tools/musescore/install.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.53",

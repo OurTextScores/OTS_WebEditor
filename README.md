@@ -2,6 +2,12 @@
 
 Browser-based music score editor using MuseScore’s engraving engine (`libmscore`) compiled to WebAssembly (via a `webmscore` fork).
 
+The production engine is MuseScore **v4.7.4**, built without Qt using Emscripten 4.0.7.
+Native sources live in `engine/musescore/`; build and verification tooling lives in `tools/musescore/`.
+See [the production engine guide](docs/engine/README.md) for `build:engine`, `bundle:engine`,
+`install:engine`, and the exact upstream/toolchain pin. `webmscore-fork/web-public/` retains the JS/worker API;
+the legacy 4.00 native tree is not the shipping build.
+
 ## Git LFS Required
 
 This repo stores large WASM/soundfont assets in Git LFS. If you clone without LFS, you’ll get pointer files and the app won’t run.

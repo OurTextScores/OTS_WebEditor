@@ -75,6 +75,18 @@ const baseSources = () => ({
 const rules = (result: Analysis) => result.failures.map((failure) => failure.rule);
 
 describe('webmscore bridge audit', () => {
+  it('reads compact production declarations and catches compact struct returns', () => {
+    const sources = {
+      ...baseSources(),
+      native:
+        'extern "C" {\nEMSCRIPTEN_KEEPALIVE void pitchUp() {}\n' +
+        'EMSCRIPTEN_KEEPALIVE void synthAudio() {}\n}',
+    };
+    expect(analyze(sources, manifest).failures).toEqual([]);
+    sources.native = sources.native.replace('void pitchUp()', 'WasmRes pitchUp()');
+    expect(rules(analyze(sources, manifest))).toContain('native-struct-return');
+  });
+
   it('resolves optional-engine APIs only when their native declarations exist', () => {
     const variantManifest = {
       ...manifest,

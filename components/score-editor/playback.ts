@@ -1,4 +1,5 @@
 import { DEFAULT_RENDER_WINDOW } from '../../lib/playback-window';
+import { startPerf } from '../../lib/perf-trace';
 import { notifyError } from '../shell/notices';
 import { toOwnedBytes } from './byte-encoding';
 import { type SynthBatchIterator } from './editor-types';
@@ -114,9 +115,14 @@ export async function playTransportAudioImpl(
     notifyError('Audio playback is not available in this build.');
     return;
   }
+  const preparePerf = startPerf(
+    fromSelection ? 'playback:prepare:selection' : 'playback:prepare:full',
+  );
   try {
     setAudioBusy(true);
-    const ok = await ensureSoundFontLoaded(undefined, { forceRetry: true });
+    const ok = await preparePerf.time('soundfont', () =>
+      ensureSoundFontLoaded(undefined, { forceRetry: true }),
+    );
     if (!ok) {
       notifyError(
         'No default soundfont found. Configure NEXT_PUBLIC_SOUNDFONT_CDN_URL or provide /public/soundfonts/default.sf3 (or .sf2).',
@@ -134,11 +140,14 @@ export async function playTransportAudioImpl(
     let streamFailure: unknown = null;
     if (useStreaming) {
       try {
-        const batchFn = useSelectionStreaming
-          ? ((await score.synthAudioBatchFromSelection!(
-              SELECTION_SYNTH_BATCH_SIZE,
-            )) as SynthBatchIterator)
-          : ((await score.synthAudioBatch!(0, TRANSPORT_SYNTH_BATCH_SIZE)) as SynthBatchIterator);
+        const batchFn = await preparePerf.time('nativePrepare', async () =>
+          useSelectionStreaming
+            ? ((await score.synthAudioBatchFromSelection!(
+                SELECTION_SYNTH_BATCH_SIZE,
+              )) as SynthBatchIterator)
+            : ((await score.synthAudioBatch!(0, TRANSPORT_SYNTH_BATCH_SIZE)) as SynthBatchIterator),
+        );
+        preparePerf.end();
 
         // The metronome and count-in belong to the whole-score transport (a selection plays from mid-score).
         const clickPlan = useSelectionStreaming
@@ -206,6 +215,7 @@ export async function playTransportAudioImpl(
     notifyError(`Unable to play audio: ${err instanceof Error ? err.message : String(err)}`);
     await stopAudio({ awaitCancel: true });
   } finally {
+    preparePerf.end();
     setAudioBusy(false);
   }
 }

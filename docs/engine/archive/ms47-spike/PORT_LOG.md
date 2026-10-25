@@ -1,3 +1,5 @@
+> Historical migration record, archived 2026-10-24. Paths and branch/default-engine statements below describe the original audit. See [the current production guide](../../README.md).
+
 # Playback: metronome off — 2026-10-22
 
 Found by listening (4.00 vs 4.7 pairs): every 4.7 render had a metronome click. Upstream `PlaybackModel` defaults

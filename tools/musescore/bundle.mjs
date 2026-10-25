@@ -1,5 +1,5 @@
 // Build web-public's real bundles against the 4.7 browser package, in a scratch copy:
-//   node tools/ms47-bridge-spike/bundle.mjs <outdir> [<build dir>]
+//   node tools/musescore/bundle.mjs <outdir> [<build dir>]
 // <outdir> gets web-public/src + rollup.config.js + the locked dev dependencies + webmscore.lib.{js,wasm,data} from
 // <build dir>/browser, then `rollup -c` produces webmscore.{js,mjs,nodejs.cjs,...} exactly as the 4.00 release does.
 // webmscore.nodejs.test.cjs is the Node bundle plus a live `__testModule` getter, for tests that call native exports

@@ -1,0 +1,84 @@
+{
+  "recordedAt": "2026-10-25T00:58:52.985643+00:00",
+  "commit": "2aab7d50e9133a8c49b333a6c8e3f9b6ed406ea8",
+  "upstreamCommit": "7688c005ad963ba09ee715aae53dbc7e8c9d5ef8",
+  "toolchain": "Emscripten 4.0.7",
+  "node": "v24.21.0",
+  "artifacts": [
+    {
+      "file": "webmscore-fork/web-public/webmscore.cdn.mjs",
+      "bytes": 260049,
+      "sha256": "054990e8b1985fe280bfad2813a612e0068cc49d00749dc67f645f1e341474f1"
+    },
+    {
+      "file": "webmscore-fork/web-public/webmscore.webpack.mjs",
+      "bytes": 259857,
+      "sha256": "d50add269eff07fce274b66808874556a9e8e8f568fc353bbe14a0baa6db39d9"
+    },
+    {
+      "file": "webmscore-fork/web-public/webmscore.lib.js",
+      "bytes": 115956,
+      "sha256": "a12c10e07784f6eefb0b6fb41df56eaaf46ddf6339530eaa584e17c0bbe5ae33"
+    },
+    {
+      "file": "webmscore-fork/web-public/webmscore.lib.data",
+      "bytes": 13754257,
+      "sha256": "ee4213e9bc985f0dce6d43b418c66cd6a717a416899872c1a8dda40f5722a206"
+    },
+    {
+      "file": "webmscore-fork/web-public/webmscore.nodejs.cjs",
+      "bytes": 209959,
+      "sha256": "006e4424b24a5bd85495b89d810f778c15b1f3ffb6e6c5b0c1392f61d42c91f7"
+    },
+    {
+      "file": "webmscore-fork/web-public/webmscore.lib.wasm",
+      "bytes": 11291512,
+      "sha256": "a2ff5aae2de88a442063a614d131e496608bdcb69a2c27e094bdb44adccdf109"
+    },
+    {
+      "file": "webmscore-fork/web-public/webmscore.lib.d.ts",
+      "bytes": 82,
+      "sha256": "b31efa096de58ee071c546cd47e27df86cce54d86d4c462fb23aeefca42f527b"
+    },
+    {
+      "file": "webmscore-fork/web-public/webmscore.js",
+      "bytes": 267412,
+      "sha256": "2e37f7edd8adfdd37f034e53bd1ff60e90a25151d9b6883c974023535e6555f3"
+    },
+    {
+      "file": "webmscore-fork/web-public/webmscore.mjs",
+      "bytes": 259585,
+      "sha256": "8f261a48eff8a1471e2ca78305071310235998aaabd271408a667ce7fbb20e51"
+    },
+    {
+      "file": "public/webmscore.lib.js",
+      "bytes": 115956,
+      "sha256": "a12c10e07784f6eefb0b6fb41df56eaaf46ddf6339530eaa584e17c0bbe5ae33"
+    },
+    {
+      "file": "public/webmscore.lib.data",
+      "bytes": 13754257,
+      "sha256": "ee4213e9bc985f0dce6d43b418c66cd6a717a416899872c1a8dda40f5722a206"
+    },
+    {
+      "file": "public/webmscore.lib.wasm",
+      "bytes": 11291512,
+      "sha256": "a2ff5aae2de88a442063a614d131e496608bdcb69a2c27e094bdb44adccdf109"
+    },
+    {
+      "file": "public/webmscore.lib.d.ts",
+      "bytes": 82,
+      "sha256": "b31efa096de58ee071c546cd47e27df86cce54d86d4c462fb23aeefca42f527b"
+    }
+  ],
+  "inputs": [
+    {
+      "file": "tools/ms47-bridge-spike/upstream-v4.7.4-noqt.patch",
+      "sha256": "7d4b2096e904172b6c5ef7a9184647df53fffb6086bde53634acad858fbf27e6"
+    },
+    {
+      "file": "tools/ms47-bridge-spike/lazy-resources.json",
+      "sha256": "0e4c82689fe3237ca0ccd61ee536108ef22f063997a94f9b1889b6d9492f9302"
+    }
+  ]
+}

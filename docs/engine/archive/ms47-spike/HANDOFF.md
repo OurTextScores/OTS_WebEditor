@@ -1,3 +1,5 @@
+> Historical migration record, archived 2026-10-24. Paths and branch/default-engine statements below describe the original audit. See [the current production guide](../../README.md).
+
 # MuseScore 4.7 engine port: handoff (2026-10-21)
 
 ## Where things stand

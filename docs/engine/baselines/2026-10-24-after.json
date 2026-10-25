@@ -1,0 +1,97 @@
+{
+  "artifacts": [
+    {
+      "file": "webmscore-fork/web-public/webmscore.cdn.mjs",
+      "bytes": 260049,
+      "sha256": "054990e8b1985fe280bfad2813a612e0068cc49d00749dc67f645f1e341474f1",
+      "matchesBefore": true
+    },
+    {
+      "file": "webmscore-fork/web-public/webmscore.webpack.mjs",
+      "bytes": 259857,
+      "sha256": "d50add269eff07fce274b66808874556a9e8e8f568fc353bbe14a0baa6db39d9",
+      "matchesBefore": true
+    },
+    {
+      "file": "webmscore-fork/web-public/webmscore.lib.js",
+      "bytes": 115956,
+      "sha256": "a12c10e07784f6eefb0b6fb41df56eaaf46ddf6339530eaa584e17c0bbe5ae33",
+      "matchesBefore": true
+    },
+    {
+      "file": "webmscore-fork/web-public/webmscore.lib.data",
+      "bytes": 13754257,
+      "sha256": "ee4213e9bc985f0dce6d43b418c66cd6a717a416899872c1a8dda40f5722a206",
+      "matchesBefore": true
+    },
+    {
+      "file": "webmscore-fork/web-public/webmscore.nodejs.cjs",
+      "bytes": 209959,
+      "sha256": "006e4424b24a5bd85495b89d810f778c15b1f3ffb6e6c5b0c1392f61d42c91f7",
+      "matchesBefore": true
+    },
+    {
+      "file": "webmscore-fork/web-public/webmscore.lib.wasm",
+      "bytes": 11293945,
+      "sha256": "28edc02a8df279bbd1e383ef75a3a17b30f4eb647092aaa23dfa04fce0728550",
+      "matchesBefore": false
+    },
+    {
+      "file": "webmscore-fork/web-public/webmscore.lib.d.ts",
+      "bytes": 82,
+      "sha256": "b31efa096de58ee071c546cd47e27df86cce54d86d4c462fb23aeefca42f527b",
+      "matchesBefore": true
+    },
+    {
+      "file": "webmscore-fork/web-public/webmscore.js",
+      "bytes": 267412,
+      "sha256": "2e37f7edd8adfdd37f034e53bd1ff60e90a25151d9b6883c974023535e6555f3",
+      "matchesBefore": true
+    },
+    {
+      "file": "webmscore-fork/web-public/webmscore.mjs",
+      "bytes": 259585,
+      "sha256": "8f261a48eff8a1471e2ca78305071310235998aaabd271408a667ce7fbb20e51",
+      "matchesBefore": true
+    },
+    {
+      "file": "public/webmscore.lib.js",
+      "bytes": 115956,
+      "sha256": "a12c10e07784f6eefb0b6fb41df56eaaf46ddf6339530eaa584e17c0bbe5ae33",
+      "matchesBefore": true
+    },
+    {
+      "file": "public/webmscore.lib.data",
+      "bytes": 13754257,
+      "sha256": "ee4213e9bc985f0dce6d43b418c66cd6a717a416899872c1a8dda40f5722a206",
+      "matchesBefore": true
+    },
+    {
+      "file": "public/webmscore.lib.wasm",
+      "bytes": 11293945,
+      "sha256": "28edc02a8df279bbd1e383ef75a3a17b30f4eb647092aaa23dfa04fce0728550",
+      "matchesBefore": false
+    },
+    {
+      "file": "public/webmscore.lib.d.ts",
+      "bytes": 82,
+      "sha256": "b31efa096de58ee071c546cd47e27df86cce54d86d4c462fb23aeefca42f527b",
+      "matchesBefore": true
+    }
+  ],
+  "wasmComparison": {
+    "oldSourceRoot": "/home/jhlusko/workspace/ms47-spike/",
+    "newSourceRoot": "/home/jhlusko/workspace/musescore-phase0-source/",
+    "beforeOnlyPrintableStrings": 182,
+    "afterOnlyPrintableStrings": 182,
+    "normalizedPrintableStringsMatch": true,
+    "note": "Relocation changes embedded assertion/source paths and consequently binary offsets/hash. Native source, JS/data, and probed XML/SVG/timeline/PCM match."
+  },
+  "buildInputs": {
+    "engine/musescore/upstream.json": "17677db8cee6e2ee387efec5dac304b7278593047c6631040b436371b3a194c0",
+    "engine/musescore/patches/upstream-v4.7.4-noqt.patch": "7d4b2096e904172b6c5ef7a9184647df53fffb6086bde53634acad858fbf27e6",
+    "engine/musescore/resources/lazy-resources.json": "0e4c82689fe3237ca0ccd61ee536108ef22f063997a94f9b1889b6d9492f9302",
+    "harfbuzzPopulateSha256": "f1de11351f56152993013990f73bab3fb2f3d9ab1ceb8c0ad3342867518bb006",
+    "emccVersion": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 4.0.7 (8dc91db45bf96c174531006839472a3924d105aa)"
+  }
+}

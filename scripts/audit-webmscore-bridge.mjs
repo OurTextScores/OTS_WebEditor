@@ -31,9 +31,7 @@ const parseNativeExports = (source) => {
   if (blockStart < 0) return null;
   return new Set(
     [
-      ...source
-        .slice(blockStart)
-        .matchAll(/EMSCRIPTEN_KEEPALIVE\s*\n\s*[\w:<>\s*&]+?\s+(\w+)\s*\(/g),
+      ...source.slice(blockStart).matchAll(/EMSCRIPTEN_KEEPALIVE\s+[\w:<>\s*&]+?\s+(\w+)\s*\(/g),
     ].map((match) => match[1]),
   );
 };
@@ -54,9 +52,9 @@ const parseNativeExports = (source) => {
 const parseStructReturningExports = (source) => {
   const blockStart = source.indexOf('extern "C" {');
   if (blockStart < 0) return [];
-  return [
-    ...source.slice(blockStart).matchAll(/EMSCRIPTEN_KEEPALIVE\s*\n\s*WasmRes\s+(\w+)\s*\(/g),
-  ].map((match) => match[1]);
+  return [...source.slice(blockStart).matchAll(/EMSCRIPTEN_KEEPALIVE\s+WasmRes\s+(\w+)\s*\(/g)].map(
+    (match) => match[1],
+  );
 };
 
 /**
@@ -134,7 +132,7 @@ export function analyzeBridge(sources, manifest) {
   const typescriptOnly = manifest.typescriptOnlyMembers || {};
   const syntheticPrefix = manifest.syntheticRpcPrefix || '';
 
-  // Variant declarations are checked independently of the default 4.00 binary.
+  // Optional declarations are checked independently for mixed-version consumers.
   const variantExports = new Set();
   for (const [name, variant] of Object.entries(manifest.nativeVariants || {})) {
     const source = sources.nativeVariants?.[name];
@@ -256,7 +254,7 @@ const declaresName = (source, name) =>
  *
  * Three separate mistakes, three separate rules:
  *
- *   - forgot `npm run compile`  -> a native export missing from the emscripten glue;
+ *   - forgot `npm run build:engine`  -> a native export missing from the emscripten glue;
  *   - forgot `npm run bundle`   -> a bridge name missing from a rollup output;
  *   - forgot `npm run sync:wasm`-> `public/` holding a different build than the fork.
  *
@@ -278,14 +276,14 @@ export function analyzeGeneratedArtifacts(generated, manifest, parsed) {
     if (glue == null) {
       fail(
         'generated-artifact-missing',
-        `emscripten glue not found at ${config.glue}; run npm run compile in webmscore-fork/web-public`,
+        `emscripten glue not found at ${config.glue}; run npm run build:engine and npm run bundle:engine`,
       );
     } else {
       const absent = [...parsed.native].filter((name) => !declaresName(glue, name)).sort();
       for (const name of absent) {
         fail(
           'missing-from-generated-glue',
-          `native export ${name} is not in ${config.glue}; the WASM build predates the native source (npm run compile)`,
+          `native export ${name} is not in ${config.glue}; the WASM build predates the native source (npm run build:engine)`,
         );
       }
     }
@@ -348,6 +346,9 @@ function main() {
   );
   const read = (relativePath) => {
     try {
+      if (Array.isArray(relativePath)) {
+        return relativePath.map((part) => readFileSync(resolve(root, part), 'utf8')).join('\n');
+      }
       return readFileSync(resolve(root, relativePath), 'utf8');
     } catch {
       return null;

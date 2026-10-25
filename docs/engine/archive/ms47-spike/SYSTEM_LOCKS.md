@@ -1,3 +1,5 @@
+> Historical migration record, archived 2026-10-24. Paths and branch/default-engine statements below describe the original audit. See [the current production guide](../../README.md).
+
 # System locks: E06 and the first E09 property control
 
 The browser UI is committed on `main` as `9b8d6a3e` in the

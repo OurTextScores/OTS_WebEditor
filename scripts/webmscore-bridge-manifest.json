@@ -1,12 +1,41 @@
 {
   "_comment": "TD-05 reviewed bridge manifest. Changes here need the same review as an API change: an entry added to silence the audit is a bridge regression in disguise. Each allowlist entry states why the asymmetry is intentional and must remain true.",
   "layers": {
-    "native": "webmscore-fork/web/main.cpp",
+    "native": [
+      "engine/musescore/bridge/bridge.cpp",
+      "engine/musescore/bridge/chordedits.h",
+      "engine/musescore/bridge/dragtools.h",
+      "engine/musescore/bridge/frettools.h",
+      "engine/musescore/bridge/inspector.h",
+      "engine/musescore/bridge/layouttools.h",
+      "engine/musescore/bridge/measuredata.h",
+      "engine/musescore/bridge/measurerepeats.h",
+      "engine/musescore/bridge/measurestructure.h",
+      "engine/musescore/bridge/metatools.h",
+      "engine/musescore/bridge/miditools.h",
+      "engine/musescore/bridge/notationmarks.h",
+      "engine/musescore/bridge/notationproperties.h",
+      "engine/musescore/bridge/noteinput.h",
+      "engine/musescore/bridge/parttools.h",
+      "engine/musescore/bridge/pdfpaint.h",
+      "engine/musescore/bridge/pitchduration.h",
+      "engine/musescore/bridge/playbacktimeline.h",
+      "engine/musescore/bridge/playbacktools.h",
+      "engine/musescore/bridge/resourcetools.h",
+      "engine/musescore/bridge/scoreexports.h",
+      "engine/musescore/bridge/scoresignatures.h",
+      "engine/musescore/bridge/scoretext.h",
+      "engine/musescore/bridge/selection.h",
+      "engine/musescore/bridge/selectiongeometry.h",
+      "engine/musescore/bridge/spannertools.h",
+      "engine/musescore/bridge/systemlocks.h",
+      "engine/musescore/bridge/undohistory.h"
+    ],
     "mainThread": "webmscore-fork/web-public/src/index.js",
     "worker": "webmscore-fork/web-public/src/worker-helper.js",
     "typescript": "lib/webmscore-loader.ts"
   },
-  "_generatedComment": "Layer 5/6 of the AGENTS.md checklist. The four source layers above are hand-edited; these are built from them, and a bridge change that skips compile, bundle or sync is consistent in source and broken at runtime. 'glue' and 'bundles' are name-presence checks, so they catch a new, renamed or removed entry point but not an edited body; Only artifacts committed to the repo may be declared here: a fresh clone is all CI has, and a declaration it cannot satisfy fails the job rather than finding a defect. public/webmscore.lib.js is gitignored and so is not listed. 'synced' is exact, comparing the served copy in public/ against the build output byte for byte -- but only where a local build exists. The fork's binary outputs are gitignored (only the copies under public/ are committed), so a fresh clone has nothing to diff against and the rule reports 'sync not verifiable here' instead of failing. It catches the real case: a machine that compiled and forgot to run sync:wasm.",
+  "_generatedComment": "Production native declarations (the ordered aggregate in layers.native), JS wrappers, worker RPC and TypeScript are hand maintained. Generated glue and the committed webpack bundle must contain their exports/methods. The served public WASM/data must exactly match local package outputs when present; CI without local outputs reports unverifiable sync. Install a complete build with install:engine rather than mixing old JS, WASM or resource artifacts.",
   "generated": {
     "glue": "webmscore-fork/web-public/webmscore.lib.js",
     "bundles": {
@@ -38,14 +67,5 @@
   },
   "typescriptOnlyMembers": {},
   "_typescriptOnlyMembersReason": "Members of the Score interface that intentionally have no bridge implementation. Should normally be empty: a declared method with no worker proxy is exactly the silent failure TD-05 exists to catch.",
-  "nativeVariants": {
-    "ms47SystemLocks": {
-      "source": "tools/ms47-bridge-spike/systemlocks.h",
-      "reason": "4.7-only exports; the default 4.00 WASM remains unchanged. Runtime JS and worker capability checks hide the API unless all three native exports exist. Validate the 4.7 artifact with MS47_VERIFY_SYSTEMLOCKS and verify-systemlock-capabilities.mjs."
-    },
-    "ms47LayoutCapability": {
-      "source": "tools/ms47-bridge-spike/bridge.cpp",
-      "reason": "4.7-only capability export layoutsAfterCommands: the engine leaves the score fully laid out after every command (bridge layout oracle), so the editor skips its post-edit relayout. The 4.00 WASM lacks it; the JS wrapper returns false there."
-    }
-  }
+  "nativeVariants": {}
 }

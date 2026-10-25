@@ -1,13 +1,13 @@
+import { reference400 } from './reference400.mjs';
 import assert from 'node:assert/strict';
 import { runX } from './svgcheck.mjs';
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
 import { readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const forkBuild = fileURLToPath(new URL('../../webmscore-fork/web-public/webmscore.nodejs.cjs', import.meta.url));
+const forkBuild = reference400();
 
 // Regression tests for the Qt-free stubs found by the audit (STUBS_AUDIT.md): paths where the engine dereferenced an
 // unregistered service, or where a Qt-free fallback gave wrong results. MS47_STUB_CASES=a,b selects cases (a crash
@@ -80,7 +80,7 @@ const cases = {
     try {
       const mine = classes(await score.saveSvg(0));
       const report = Object.fromEntries(mine);
-      if (existsSync(forkBuild)) {
+      if (forkBuild) {
         // Through a file: stdout to a pipe is asynchronous and process.exit would truncate it
         const out = path.join(tmpdir(), `ms47-svgclasses-${process.pid}.svg`);
         execFileSync(process.execPath, ['-e', `

@@ -43,7 +43,7 @@ if (bundle) {
   lazy = { fullRoot: process.env.MS47_RESOURCE_ROOT, fetched: [], block: null, serveFallbacks: false };
 } else if (process.env.MS47_LAZY_RESOURCES) {
   const fullRoot = process.env.MS47_RESOURCE_ROOT;
-  const lazyFiles = new Set(JSON.parse(await readFile(path.join(here, 'lazy-resources.json'), 'utf8')).files);
+  const lazyFiles = new Set(JSON.parse(await readFile(path.join(repo, 'engine/musescore/resources/lazy-resources.json'), 'utf8')).files);
   const minimal = path.join(temp, 'res');
   await cp(fullRoot, minimal, { recursive: true, filter: src => !lazyFiles.has(path.relative(fullRoot, src).split(path.sep).join('/')) });
   process.env.MS47_RESOURCE_ROOT = minimal;

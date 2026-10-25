@@ -17,7 +17,7 @@ export type BridgeSources = Record<BridgeLayer, string | null> & {
 };
 
 export type BridgeManifest = {
-  layers: Record<BridgeLayer, string>;
+  layers: Record<BridgeLayer, string | string[]>;
   syntheticRpcPrefix?: string;
   controlPlaneRpcTargets?: Record<string, string>;
   jsImplementedRpcTargets?: Record<string, string>;
@@ -34,6 +34,7 @@ export type BridgeFailure = {
   rule:
     | 'layer-missing'
     | 'layer-unparseable'
+    | 'native-struct-return'
     | 'missing-main-thread'
     | 'missing-worker-proxy'
     | 'unresolved-rpc-target'

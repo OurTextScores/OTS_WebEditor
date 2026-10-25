@@ -1,5 +1,5 @@
-# MS47 build spike: engraving + MusicXML without Qt.
-# Included from the root CMakeLists.txt when MS47_SPIKE_ENGINE_ONLY=ON (after SetupConfigure).
+# Production Qt-free engraving, interchange and playback targets.
+# The pinned upstream patch retains the MS47_SPIKE_ENGINE_ONLY inclusion hook after SetupConfigure.
 
 set(MUSE_QT_SUPPORT OFF CACHE BOOL "" FORCE)
 set(MUSE_ENABLE_UNIT_TESTS OFF CACHE BOOL "" FORCE)

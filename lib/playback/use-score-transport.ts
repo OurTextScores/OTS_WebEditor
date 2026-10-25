@@ -7,6 +7,7 @@ import { DEFAULT_RENDER_WINDOW } from '../playback-window';
 import { SoundFontManager } from './soundfont-manager';
 import { cancelSynthStream, scheduleSynthBatchStream } from './stream-scheduler';
 import { clampScorePosition, scoreTimeAt, type TransportClockAnchor } from './transport-clock';
+import { startPerf } from '../perf-trace';
 
 export type ScoreTransportState =
   'idle' | 'preparing' | 'playing' | 'paused' | 'ended' | 'unavailable';
@@ -224,8 +225,11 @@ export function useScoreTransport(options: Options) {
       setRenderWindowIdle(false);
       publishState('preparing');
       messageRef.current?.('Preparing audio…');
+      const preparePerf = startPerf('playback:prepare:player');
       try {
-        const ready = await soundFontManagerRef.current.ensure(activeScore, { forceRetry });
+        const ready = await preparePerf.time('soundfont', () =>
+          soundFontManagerRef.current.ensure(activeScore, { forceRetry }),
+        );
         if (!ready || attempt !== playbackAttemptRef.current) {
           if (!ready && attempt === playbackAttemptRef.current) {
             setRenderWindowIdle(true);
@@ -245,10 +249,10 @@ export function useScoreTransport(options: Options) {
         await cancelSynthStream({ sourcesRef, iteratorRef, generationRef }, { awaitCancel: true });
         if (attempt !== playbackAttemptRef.current) return;
         const audioContext = await ensureAudioContext();
-        const iterator = (await activeScore.synthAudioBatch(
-          targetMs / 1000,
-          2,
+        const iterator = (await preparePerf.time('nativePrepare', () =>
+          activeScore.synthAudioBatch!(targetMs / 1000, 2),
         )) as SynthAudioBatchIterator;
+        preparePerf.end();
         if (attempt !== playbackAttemptRef.current) {
           await iterator(true).catch(() => {});
           return;
@@ -338,6 +342,8 @@ export function useScoreTransport(options: Options) {
         setRenderWindowIdle(true);
         messageRef.current?.(error instanceof Error ? error.message : 'Playback could not start.');
         publishState('unavailable');
+      } finally {
+        preparePerf.end();
       }
     },
     [ensureAudioContext, playFallbackFrom, publishPosition, publishState],

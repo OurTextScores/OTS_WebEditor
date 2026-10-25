@@ -33,7 +33,7 @@ import { type AiEditProposal } from '../lib/ai-edit-proposal';
 import { fetchJsonOrThrow } from '../lib/fetch-json';
 import { copySelectionToClipboard, pasteClipboardPayload } from '../lib/selection-clipboard';
 import type { MeasureInsertTarget, HeaderTextTarget } from './score-editor/editorProps';
-import { noPerf, type PerfHandle } from '../lib/perf-trace';
+import { noPerf, startPerf, type PerfHandle } from '../lib/perf-trace';
 import { confirmDialog, notifyError, notifyWarning, promptDialog } from './shell/notices';
 import { ShellHeader } from './shell/ShellHeader';
 import {
@@ -4003,6 +4003,8 @@ export default function ScoreEditor() {
   ) => {
     if (!currentScore || !containerRef.current) return false;
 
+    const ownsTrace = perf === noPerf;
+    if (ownsTrace) perf = startPerf('page:render');
     try {
       const targetPage = typeof pageIndex === 'number' ? pageIndex : currentPage;
       const timeoutMs =
@@ -4032,6 +4034,8 @@ export default function ScoreEditor() {
     } catch (err) {
       console.error('Error rendering score:', err);
       return false;
+    } finally {
+      if (ownsTrace) perf.end();
     }
   };
 

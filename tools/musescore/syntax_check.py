@@ -25,7 +25,7 @@ while i < len(args):
         i += 1
         continue
     if args[i].endswith("/spike/bridge.cpp"):
-        checked.append(str(here / "bridge.cpp"))
+        checked.append(str(here.parents[1] / "engine/musescore/bridge/bridge.cpp"))
     else:
         checked.append(args[i])
     i += 1

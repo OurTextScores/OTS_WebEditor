@@ -1,3 +1,5 @@
+> Historical migration record, archived 2026-10-24. Paths and branch/default-engine statements below describe the original audit. See [the current production guide](../../README.md).
+
 # MuseScore 4.7 bridge — decisions needed
 
 **Date:** 2026-10-20 · **State:** 159 of 184 exports ported and verified (see `PORT_LOG.md`).
