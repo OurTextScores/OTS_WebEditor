@@ -78,6 +78,18 @@ export function handleScoreClickImpl(ctx: ScoreClickContext, e: React.MouseEvent
   }
   if (!containerRef.current || !score) return;
 
+  // Decided before any selection or note-input work: a seek never changes the editing selection.
+  if (
+    gestureLateInputs.current.seekPlaybackFromClick?.({
+      target: e.target as Element | null,
+      point: clientToScorePoint(e.clientX, e.clientY),
+      modified: e.metaKey || e.ctrlKey || e.shiftKey || e.altKey,
+      noteInputActive: noteInputActiveRef.current,
+    })
+  ) {
+    return;
+  }
+
   // Invalidate any overlay refresh scheduled by a previous click (double-RAF
   // in refreshSelectionFromSvg/scheduleSelectionOverlayRefresh) before it fires.
   // Without this, a stale refreshSelectionOverlay callback from an earlier

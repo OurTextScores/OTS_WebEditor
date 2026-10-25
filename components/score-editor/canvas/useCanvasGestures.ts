@@ -1,3 +1,4 @@
+import type { SeekClick } from '../score-following';
 import { type SelectionFallback } from '../selection-types';
 import React, { useState } from 'react';
 import type { RefreshPageCount, RenderScore } from '../editor-types';
@@ -14,6 +15,8 @@ export type CanvasGesturesLateInputs = {
   updateNoteInputShadow: (clientX: number, clientY: number, target: Element | null) => void;
   refreshScoreSpatium: () => Promise<void>;
   clearEditorSelection: () => void;
+  /** During playback a plain note/rest click seeks instead of selecting; true when it did. */
+  seekPlaybackFromClick?: (click: SeekClick) => boolean;
 };
 
 export type CanvasGesturesContext = {

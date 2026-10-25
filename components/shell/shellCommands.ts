@@ -11,6 +11,13 @@ import {
   setCountIn,
   setMetronome,
 } from '../../lib/playback/click-preferences';
+import {
+  getFollowState,
+  requestReveal,
+  resumeFollowing,
+  setFollowEnabled,
+} from '../../lib/playback/score-following';
+import { announce } from './announcer';
 import { closeTopEscapeLayer, hasEscapeLayer } from './keyboard/escapeLayers';
 import {
   closePalette,
@@ -84,6 +91,34 @@ export function buildShellOwnCommands(): AnyCommand[] {
       enabled: () => getClickPreferences().enabled,
       checked: () => getClickPreferences().countIn,
       run: () => setCountIn(!getClickPreferences().countIn),
+    }),
+    defineCommand({
+      id: 'playback.follow',
+      label: 'Follow Playback',
+      keywords: ['cursor', 'page turn', 'scroll', 'track'],
+      checked: () => getFollowState().followEnabled,
+      run: () => {
+        const enabled = !getFollowState().followEnabled;
+        setFollowEnabled(enabled);
+        announce(enabled ? 'Following playback' : 'Not following playback');
+      },
+    }),
+    defineCommand({
+      id: 'playback.jumpToPlayback',
+      label: 'Jump to Playback',
+      keywords: ['cursor', 'reveal', 'where', 'page'],
+      enabled: () => getFollowState().active,
+      run: () => requestReveal(),
+    }),
+    defineCommand({
+      id: 'playback.resumeFollowing',
+      label: 'Resume Following',
+      keywords: ['follow', 'cursor', 'page turn'],
+      enabled: () => getFollowState().active && getFollowState().suspended,
+      run: () => {
+        resumeFollowing();
+        announce('Following playback');
+      },
     }),
     defineCommand({
       id: 'help.shortcuts',

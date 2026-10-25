@@ -18,6 +18,7 @@ import { PlaybackSessionOwner, type TransportPhase } from './session-owner';
 import {
   applyPlaybackOptions,
   movedTarget,
+  unavailableChange,
   type PlaybackOptionsChange,
 } from './options-transaction';
 export type { PlaybackOptionsChange } from './options-transaction';
@@ -640,19 +641,28 @@ export function useScoreTransport(options: Options) {
     stopAt,
   ]);
 
+  /** A restart away from the request's own start: a selection iterator cannot start elsewhere, a full stream can. */
+  const allowAnyStart = useCallback(() => {
+    if (requestRef.current.restartable) return;
+    const { click, allowFallback } = requestRef.current;
+    requestRef.current = { click, allowFallback };
+  }, []);
+
   const seek = useCallback(
     (targetMs: number) => {
       const priorState = stateRef.current;
+      allowAnyStart();
       if (priorState === 'paused') {
         void stopAt(targetMs, 'paused');
         return;
       }
       const shouldResume = priorState === 'playing' || priorState === 'preparing';
+      // Continuing playback at a new place is not a fresh start: no count-in.
       void stopAt(targetMs).then((stopped) => {
-        if (stopped && shouldResume) void playFrom(targetMs);
+        if (stopped && shouldResume) void playFrom(targetMs, false, false);
       });
     },
-    [playFrom, stopAt],
+    [allowAnyStart, playFrom, stopAt],
   );
 
   const reset = useCallback(
@@ -791,14 +801,7 @@ export function useScoreTransport(options: Options) {
         // Older engines play written repeats at 100% only; leave their playback untouched.
         if (!activeScore?.setPlaybackOptions) {
           takePending();
-          return {
-            status: 'unavailable',
-            accepted: null,
-            timeline: null,
-            fromMs,
-            toMs: fromMs,
-            mapped: null,
-          } as const;
+          return unavailableChange(fromMs);
         }
         const resume = priorState === 'playing' || priorState === 'preparing';
         const retired =
@@ -827,10 +830,7 @@ export function useScoreTransport(options: Options) {
         if (playbackAttemptRef.current !== attempt) return change;
         publishPosition(change.toMs);
         if (resume) {
-          if (!requestRef.current.restartable) {
-            const { click, allowFallback } = requestRef.current;
-            requestRef.current = { click, allowFallback };
-          }
+          allowAnyStart();
           void playFrom(change.toMs, false, false);
         }
         return change;
@@ -842,6 +842,7 @@ export function useScoreTransport(options: Options) {
     },
     [
       owner,
+      allowAnyStart,
       clockRef,
       positionRef,
       playbackAttemptRef,

@@ -174,3 +174,11 @@ coalesces requests and resumes at the mapped location.
 MS47_BUNDLE=/tmp/ots-engine-bundle MS47_VERIFY_PLAYBACK_OPTIONS=1 \
 MS47_SOUNDFONT="$PWD/public/soundfonts/default.sf3" npm run verify:engine
 ```
+
+## Editor following (Phase 4)
+
+[Phase 4 execution record](PHASE4_2026-10-24.md). The editor cursor, page/system following and click-to-seek
+consume `segmentPositions`/`measurePositions` events and `playbackTimeline` under the current options revision.
+Shared timing lives in `lib/playback/score-following/` (no UI imports); the editor feature folder is
+`components/score-editor/score-following/`. Read positions off the Play critical path, keep per-segment updates
+inside `PlaybackFollowLayer`, and never derive the cursor from selection commands.

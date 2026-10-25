@@ -303,6 +303,7 @@ import { buildNewScoreXmlImpl } from './score-editor/new-score';
 import { ensurePageIsLaidOutImpl, goToPageImpl, openScoreSessionImpl, resolveSelectionContextImpl, scheduleBackgroundInitTasksImpl } from './score-editor/score-session';
 import { playSelectionPreviewImpl } from './score-editor/playback';
 import { useEditorPlayback } from './score-editor/playback-session';
+import { PlaybackFollowLayer, usePlaybackFollowing } from './score-editor/score-following';
 import { updateNoteInputShadowImpl } from './score-editor/note-input-shadow';
 import { commitCurrentVersion } from './score-editor/versions';
 
@@ -7989,7 +7990,8 @@ export default function ScoreEditor() {
     };
   };
 
-    const gestureLateInputs = useRef<CanvasGesturesLateInputs>({ updateNoteInputShadow: async () => undefined as never, refreshScoreSpatium: async () => undefined as never, clearEditorSelection: async () => undefined as never });
+  const following = usePlaybackFollowing({ score, transport: editorPlayback, currentPage, goToPage });
+    const gestureLateInputs = useRef<CanvasGesturesLateInputs>({ updateNoteInputShadow: async () => undefined as never, refreshScoreSpatium: async () => undefined as never, clearEditorSelection: async () => undefined as never, seekPlaybackFromClick: following.seekFromClick });
   const {
     beginGripEditAtPoint,
     closeGripEdit,
@@ -8095,7 +8097,7 @@ export default function ScoreEditor() {
     }
   };
 
-  gestureLateInputs.current = { updateNoteInputShadow, refreshScoreSpatium, clearEditorSelection };
+  gestureLateInputs.current = { updateNoteInputShadow, refreshScoreSpatium, clearEditorSelection, seekPlaybackFromClick: following.seekFromClick };
 
     async function openTextEditorFromEvent(e: React.MouseEvent) {
     if (!containerRef.current || !score) {
@@ -8390,6 +8392,7 @@ export default function ScoreEditor() {
         />
       )}
       <DragFeedbackOverlays selectionRect={dragSelectionRect} noteGhost={noteDragGhost} />
+      <PlaybackFollowLayer following={following} transportState={editorPlayback.state} currentPage={currentPage} zoom={zoom} scrollContainerRef={scrollContainerRef} scoreWrapperRef={scoreWrapperRef} />
       <NoteInputOverlays
         active={noteInputActive}
         currentPage={currentPage}

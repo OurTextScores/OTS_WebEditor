@@ -19,6 +19,16 @@ export type PlaybackOptionsChange = {
   mapped: PlaybackTimeForPosition | null;
 };
 
+/** Nothing changed and no location moved: an engine without options, or no score. */
+export const unavailableChange = (fromMs: number): PlaybackOptionsChange => ({
+  status: 'unavailable',
+  accepted: null,
+  timeline: null,
+  fromMs,
+  toMs: fromMs,
+  mapped: null,
+});
+
 /**
  * Applies every pending options request (latest wins) and carries one musical location across them. The location is
  * captured once, under the options in effect before the first request, so an intermediate repeat-off state cannot
@@ -32,14 +42,7 @@ export async function applyPlaybackOptions(
   const unchanged = (
     accepted: PlaybackOptions | null,
     status: PlaybackOptionsChange['status'],
-  ) => ({
-    status,
-    accepted,
-    timeline: null,
-    fromMs,
-    toMs: fromMs,
-    mapped: null,
-  });
+  ): PlaybackOptionsChange => ({ ...unavailableChange(fromMs), status, accepted });
   if (!score.setPlaybackOptions) {
     while (takePending()) {
       /* drop: unsupported engines keep their only behaviour */

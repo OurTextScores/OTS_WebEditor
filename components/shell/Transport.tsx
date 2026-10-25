@@ -1,10 +1,11 @@
 'use client';
 
-import { Metronome, Pause, Play, Square } from 'lucide-react';
+import { LocateFixed, Metronome, Pause, Play, Square } from 'lucide-react';
 import React, { useSyncExternalStore } from 'react';
 import { defaultCommandRegistry, type CommandRegistry } from '../../lib/commands/registry';
 import { useCommandContext } from '../../lib/commands/useRegisterCommands';
 import { useClickPreferences } from '../../lib/playback/use-click-preferences';
+import { useFollowState } from '../../lib/playback/use-follow-state';
 import { Button } from '../ui/Button';
 import { invokeCommand } from './invokeCommand';
 import { getShellUiState, subscribeToShellUi } from './shellStore';
@@ -18,6 +19,8 @@ export function Transport({ registry = defaultCommandRegistry }: { registry?: Co
   const { view } = useSyncExternalStore(subscribeToShellUi, getShellUiState, getShellUiState);
   const ctx = useCommandContext(registry);
   const click = useClickPreferences();
+  const follow = useFollowState();
+  const offPage = follow.active && follow.playbackPage !== null;
   const showPause = view.isPlaying && !view.isPaused;
   const label = showPause ? 'Pause' : view.isPaused ? 'Resume' : 'Play';
   const run = (id: string) => () => void invokeCommand(id, undefined, registry);
@@ -75,6 +78,51 @@ export function Transport({ registry = defaultCommandRegistry }: { registry?: Co
       >
         <Metronome size={14} aria-hidden="true" />
       </Button>
+      <Button
+        data-testid="btn-follow-playback"
+        variant={follow.followEnabled ? 'primary' : 'outline'}
+        size="sm"
+        title={
+          follow.followEnabled
+            ? 'Following playback (click to stop turning pages)'
+            : 'Not following playback (click to follow)'
+        }
+        aria-label="Follow playback"
+        aria-pressed={follow.followEnabled}
+        onClick={run('playback.follow')}
+      >
+        <LocateFixed size={14} aria-hidden="true" />
+      </Button>
+      {follow.active && follow.followEnabled && follow.suspended && (
+        <Button
+          data-testid="btn-resume-following"
+          variant="outline"
+          size="sm"
+          title="Resume following playback"
+          onClick={run('playback.resumeFollowing')}
+        >
+          Resume following
+        </Button>
+      )}
+      {offPage && !(follow.followEnabled && !follow.suspended) && (
+        <Button
+          data-testid="btn-jump-to-playback"
+          variant="ghost"
+          size="sm"
+          title="Show where playback is"
+          onClick={run('playback.jumpToPlayback')}
+        >
+          Playing on page {follow.playbackPage! + 1}
+        </Button>
+      )}
+      {showPause && follow.tracking !== null && (
+        <span
+          data-testid="playback-tracking-hint"
+          className="hidden text-caption text-slate-500 xl:inline"
+        >
+          {follow.tracking === 'unavailable' ? 'Tracking unavailable' : 'Click a note to seek'}
+        </span>
+      )}
     </div>
   );
 }

@@ -364,4 +364,25 @@ describe('playback options on the shared transport', () => {
     expect(view.audio.sources.every((source) => !source.stopped)).toBe(true);
     expect(startTimes(score)).toEqual([0]);
   });
+
+  it('seeks a selection play by restarting a full stream at the target, without a count-in', async () => {
+    const { score } = optionsScore();
+    const view = mount(score, { enabled: true, countIn: true });
+    const selection = vi.fn(async () => music(1.5));
+    await act(async () => {
+      await view.result.current.start({ createIterator: selection });
+    });
+    await waitFor(() => expect(selection).toHaveBeenCalledOnce());
+    await waitFor(() => expect(view.result.current.state).toBe('playing'));
+    const before = view.audio.sources.length;
+    act(() => {
+      view.result.current.seek(3000);
+    });
+    await waitFor(() => expect(startTimes(score)).toEqual([3]));
+    expect(selection).toHaveBeenCalledOnce();
+    const music3 = () =>
+      view.audio.sources.slice(before).filter((source) => source.buffer?.frames !== 1_323);
+    await waitFor(() => expect(music3().length).toBeGreaterThan(0));
+    expect(music3()[0].startedAt! - view.audio.context.currentTime).toBeLessThan(0.5);
+  });
 });
