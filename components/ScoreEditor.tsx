@@ -300,11 +300,13 @@ import { comparePaneClick, compareScoreClick, refreshCompareSelectionGeometryImp
 import { acceptAllAiChanges, compareKeyboardShortcut, compareOverwriteBlock, saveCompareCheckpoint } from './score-editor/compare/compare-actions';
 import { sendDiffFeedback, updateAiOutputImpl } from './score-editor/ai-diff-feedback';
 import { buildNewScoreXmlImpl } from './score-editor/new-score';
-import { ensurePageIsLaidOutImpl, goToPageImpl, openScoreSessionImpl, resolveSelectionContextImpl, scheduleBackgroundInitTasksImpl } from './score-editor/score-session';
+import { ensurePageIsLaidOutImpl, openScoreSessionImpl, resolveSelectionContextImpl, scheduleBackgroundInitTasksImpl } from './score-editor/score-session';
 import { playSelectionPreviewImpl } from './score-editor/playback';
 import { useEditorPlayback, useTransportTimePublisher } from './score-editor/playback-session';
 import { usePlaybackOptionsSync } from '../lib/playback/use-playback-options';
 import { PlaybackFollowLayer, usePlaybackFollowing } from './score-editor/score-following';
+import { PageNavigator, type NavigationIntent } from './score-editor/page-turns';
+import { updateFollowState } from '../lib/playback/score-following';
 import { updateNoteInputShadowImpl } from './score-editor/note-input-shadow';
 import { commitCurrentVersion } from './score-editor/versions';
 
@@ -902,6 +904,10 @@ export default function ScoreEditor() {
     const selectedPointRef = useRef<{ page: number; x: number; y: number } | null>(selectedPoint);
     const progressivePageLoadInFlightRef = useRef(false);
   const pageNavigationInFlightRef = useRef(false);
+  // Every install into the canvas claims a generation; an older render cannot land after a newer one.
+  const pageInstallGenerationRef = useRef(0);
+  const pageNavigatorRef = useRef<PageNavigator | null>(null);
+  pageNavigatorRef.current ??= new PageNavigator();
   const largeScoreSessionRef = useRef(false);
   const largeSessionXmlAutoloadDeferredLoggedRef = useRef(false);
   const backgroundInitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -4003,6 +4009,32 @@ export default function ScoreEditor() {
       setProgressiveHasMorePages,
     }, targetScore, targetPage);
 
+  /** The engine's sanitized SVG for a page, through the shared score queue (the page-render trace times it). */
+  const fetchPageSvg = async (
+    currentScore: Score,
+    targetPage: number,
+    highlightSelection = true,
+    perf: PerfHandle = noPerf,
+  ): Promise<string | null> => {
+    const timeoutMs =
+      largeScoreSessionRef.current && progressivePagingActive
+        ? LARGE_PROGRESSIVE_PAGE_RENDER_TIMEOUT_MS
+        : DEFAULT_PAGE_RENDER_TIMEOUT_MS;
+    // The round trip includes the worker's layout-free SVG write, the byte transfer and the
+    // UTF-8 decode on this thread.
+    const svgData = await perf.time('saveSvg', () =>
+      runWithTimeout(
+        runSerializedScoreOperation(
+          () => currentScore.saveSvg(targetPage, true, highlightSelection),
+          `saveSvg(page=${targetPage + 1})`,
+        ),
+        timeoutMs,
+        `Render page ${targetPage + 1}`,
+      ),
+    );
+    return svgData ? perf.time('sanitize', () => sanitizeEngineSvg(svgData)) : null;
+  };
+
   renderScoreRef.current = async (
     currentScore,
     pageIndex,
@@ -4011,28 +4043,17 @@ export default function ScoreEditor() {
   ) => {
     if (!currentScore || !containerRef.current) return false;
 
+    // This render may change any page (an edit, a selection repaint, fonts, layout): prepared pages are stale.
+    const generation = ++pageInstallGenerationRef.current;
+    pageNavigatorRef.current!.invalidate();
     const ownsTrace = perf === noPerf;
     if (ownsTrace) perf = startPerf('page:render');
     try {
       const targetPage = typeof pageIndex === 'number' ? pageIndex : currentPage;
-      const timeoutMs =
-        largeScoreSessionRef.current && progressivePagingActive
-          ? LARGE_PROGRESSIVE_PAGE_RENDER_TIMEOUT_MS
-          : DEFAULT_PAGE_RENDER_TIMEOUT_MS;
-      // The round trip includes the worker's layout-free SVG write, the byte transfer and the
-      // UTF-8 decode on this thread.
-      const svgData = await perf.time('saveSvg', () =>
-        runWithTimeout(
-          runSerializedScoreOperation(
-            () => currentScore.saveSvg(targetPage, true, highlightSelection),
-            `saveSvg(page=${targetPage + 1})`,
-          ),
-          timeoutMs,
-          `Render page ${targetPage + 1}`,
-        ),
-      );
-      if (svgData) {
-        const clean = await perf.time('sanitize', () => sanitizeEngineSvg(svgData));
+      const clean = await fetchPageSvg(currentScore, targetPage, highlightSelection, perf);
+      if (clean) {
+        // A newer render or page turn has claimed the canvas: this one is superseded, not failed.
+        if (generation !== pageInstallGenerationRef.current) return true;
         await perf.time('innerHTML', () => {
           containerRef.current!.innerHTML = clean;
         });
@@ -6339,23 +6360,30 @@ export default function ScoreEditor() {
     }
   };
 
-      const goToPage = (targetPage: number) => goToPageImpl({
-      score,
-      pageNavigationInFlightRef,
-      currentPageRef,
-      pageCount,
-      largeScoreSessionRef,
-      progressivePagingActive,
-      progressiveHasMorePages,
-      ensurePageIsLaidOut,
-      runSerializedScoreOperation,
-      setPageCount,
-      setCurrentPage,
-      renderScore,
-      refreshSelectionOverlay,
-      selectedIndex,
-      selectedPoint,
-    }, targetPage);
+  pageNavigatorRef.current.deps = {
+    score,
+    pageCount,
+    currentPage: () => currentPageRef.current,
+    progressivePagingActive,
+    ensurePageIsLaidOut,
+    countPages: async (target) =>
+      Math.max(1, target.npages ? await runSerializedScoreOperation(() => target.npages!(), 'npages') : pageCount),
+    setPageCount,
+    fetchPage: (target, page) => fetchPageSvg(target, page),
+    commit: (svg, page) => {
+      if (containerRef.current) containerRef.current.innerHTML = svg;
+      currentPageRef.current = page;
+      setCurrentPage(page);
+    },
+    afterCommit: () => refreshSelectionOverlay(selectedIndex, selectedPoint),
+    installGenerationRef: pageInstallGenerationRef,
+    inFlightRef: pageNavigationInFlightRef,
+    onPreparing: (page) => updateFollowState({ preparingPage: page }),
+    log: largeScoreSessionRef.current ? (stage, extra) => console.info(`[large-nav] ${stage}`, extra) : undefined,
+  };
+  /** Latest target wins; manual navigation supersedes automatic turns (see page-turns/pageNavigator.ts). */
+  const goToPage = (targetPage: number, intent: NavigationIntent = 'manual') =>
+    pageNavigatorRef.current!.navigate(targetPage, intent);
 
   const handlePrevPage = () => {
     if (currentPage <= 0) {
@@ -7993,7 +8021,11 @@ export default function ScoreEditor() {
     };
   };
 
-  const following = usePlaybackFollowing({ score, transport: editorPlayback, currentPage, goToPage });
+  const following = usePlaybackFollowing({
+    score, transport: editorPlayback, currentPage, goToPage,
+    prefetchPage: (page) => void pageNavigatorRef.current!.prefetch(page),
+    prefetchLeadMs: () => 4 * pageNavigatorRef.current!.averageRenderMs(),
+  });
     const gestureLateInputs = useRef<CanvasGesturesLateInputs>({ updateNoteInputShadow: async () => undefined as never, refreshScoreSpatium: async () => undefined as never, clearEditorSelection: async () => undefined as never, seekPlaybackFromClick: following.seekFromClick });
   const {
     beginGripEditAtPoint,

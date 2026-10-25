@@ -23,13 +23,19 @@ export type FollowTransport = {
   subscribePosition: (notify: () => void) => () => void;
   seek: (targetMs: number) => void;
   playbackOptions: PlaybackOptions | null;
+  /** Audio already scheduled ahead of the clock: page preparation spends this cushion. */
+  bufferedAheadSeconds: () => number;
 };
 
 type Options = {
   score: Score | null;
   transport: FollowTransport;
   currentPage: number;
-  goToPage: (page: number) => Promise<void> | void;
+  /** Prepares a page ahead of the turn (cached, never shown), and the lead it needs. */
+  prefetchPage?: (page: number) => void;
+  prefetchLeadMs?: () => number;
+  /** Page navigation with an intent: following turns pages as `playback`, Jump/Resume as `reveal`. */
+  goToPage: (page: number, intent: 'playback' | 'reveal') => Promise<unknown> | void;
 };
 
 /** Notes and rests seek on a plain click during playback; everything else keeps its editing meaning. */
@@ -52,6 +58,7 @@ export type PlaybackFollowing = {
   transportRef: MutableRefObject<FollowTransport>;
   currentPageRef: MutableRefObject<number>;
   goToPageRef: MutableRefObject<Options['goToPage']>;
+  prefetchRef: MutableRefObject<Pick<Options, 'prefetchPage' | 'prefetchLeadMs'>>;
   /** Bumped when a new map is installed, so the layer recomputes without a position tick (paused, tail). */
   mapListeners: Set<() => void>;
   seekListeners: Set<(timeMs: number) => void>;
@@ -66,16 +73,25 @@ const ACTIVE: readonly ScoreTransportState[] = ['playing', 'paused'];
  * The map is read once the stream is live (never on the Play critical path), again for a new options revision, and
  * again on a page change while layout is still incomplete (progressive scores gain geometry as pages lay out).
  */
-export function usePlaybackFollowing({ score, transport, currentPage, goToPage }: Options) {
+export function usePlaybackFollowing({
+  score,
+  transport,
+  currentPage,
+  goToPage,
+  prefetchPage,
+  prefetchLeadMs,
+}: Options) {
   const indexRef = useRef<CursorIndex | null>(null);
   const timelineRef = useRef<PlaybackTimeline | null>(null);
   const transportRef = useRef(transport);
   const currentPageRef = useRef(currentPage);
   const goToPageRef = useRef(goToPage);
+  const prefetchRef = useRef<Pick<Options, 'prefetchPage' | 'prefetchLeadMs'>>({});
   useLayoutEffect(() => {
     transportRef.current = transport;
     currentPageRef.current = currentPage;
     goToPageRef.current = goToPage;
+    prefetchRef.current = { prefetchPage, prefetchLeadMs };
   });
 
   const following = useMemo<PlaybackFollowing>(() => {
@@ -87,6 +103,7 @@ export function usePlaybackFollowing({ score, transport, currentPage, goToPage }
       transportRef,
       currentPageRef,
       goToPageRef,
+      prefetchRef,
       mapListeners,
       seekListeners,
       seekFromClick: ({ target, point, modified, noteInputActive }) => {

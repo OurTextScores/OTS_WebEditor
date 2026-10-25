@@ -104,6 +104,29 @@ export function cursorAt(index: CursorIndex | null, timeMs: number): PlaybackCur
   };
 }
 
+/**
+ * The next page change in performance order after `timeMs` (a later page, or an earlier one after a repeat or
+ * jump), with when it starts. Null when playback stays on `page` to the end or the map has no laid-out page.
+ */
+export function nextPageChange(
+  index: CursorIndex | null,
+  timeMs: number,
+  page: number,
+): { page: number; startMs: number } | null {
+  if (!index) return null;
+  for (
+    let at = Math.max(0, eventIndexAt(index.events, timeMs) + 1);
+    at < index.events.length;
+    at += 1
+  ) {
+    const event = index.events[at];
+    const element = index.positions.elements[event.segmentId];
+    if (hasPositionGeometry(element) && element.page !== page)
+      return { page: element.page, startMs: event.startMs };
+  }
+  return null;
+}
+
 /** Same cursor position: no re-render, no viewport work. */
 export const sameCursor = (a: PlaybackCursor | null, b: PlaybackCursor | null) =>
   a === b ||

@@ -22,11 +22,14 @@ export class PlaybackSessionOwner {
   readonly clockRef = { current: null as TransportClockAnchor | null };
   readonly positionRef = { current: 0 };
   readonly phaseRef = { current: 'idle' as TransportPhase };
+  /** Context time at which the scheduled PCM ends; 0 when nothing is scheduled. */
+  readonly frontierRef = { current: 0 };
   underflows = 0;
   private pending = new Set<Promise<unknown>>();
 
   begin() {
     this.clockRef.current = null;
+    this.frontierRef.current = 0;
     return ++this.attemptRef.current;
   }
 
@@ -53,6 +56,18 @@ export class PlaybackSessionOwner {
         return iterator;
       })(),
     );
+  }
+
+  /** Scheduler callback for one attempt: later attempts own the frontier once they begin. */
+  frontierFor(attempt: number) {
+    return (contextTime: number) => {
+      if (this.isCurrent(attempt)) this.frontierRef.current = contextTime;
+    };
+  }
+
+  /** Seconds of audio already scheduled ahead of the clock: the cushion other engine work may spend. */
+  bufferedAhead(contextTime: number | undefined) {
+    return contextTime === undefined ? 0 : Math.max(0, this.frontierRef.current - contextTime);
   }
 
   setBuffering(buffering: boolean, scoreTimeSeconds: number) {

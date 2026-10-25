@@ -8,6 +8,7 @@ import {
 } from 'react';
 import {
   cursorAt,
+  nextPageChange,
   getFollowState,
   getFollowStateOnServer,
   revealScroll,
@@ -32,6 +33,10 @@ export type FollowLayerOptions = {
 /** Keys that scroll the canvas by hand; any of them suspends following, like the wheel or a touch drag. */
 const SCROLL_KEYS = new Set(['PageUp', 'PageDown', 'Home', 'End', 'ArrowUp', 'ArrowDown']);
 const SEEK_MARKER_MS = 700;
+/** The next page is prepared at least this long before playback reaches it, longer when renders are slow. */
+const MIN_PREFETCH_LEAD_MS = 6_000;
+/** Page preparation runs on the engine queue between audio pulls; only with this much audio already scheduled. */
+const MIN_AUDIO_CUSHION_S = 1.5;
 
 const reducedMotion = () =>
   typeof window !== 'undefined' &&
@@ -101,7 +106,9 @@ export function usePlaybackFollowLayer({
       if (pendingPageRef.current === target.page) return;
       pendingPageRef.current = target.page;
       // The existing asynchronous page navigation (prepared page turns arrive in Phase 6).
-      void Promise.resolve(following.goToPageRef.current(target.page))
+      void Promise.resolve(
+        following.goToPageRef.current(target.page, reveal ? 'reveal' : 'playback'),
+      )
         .catch(() => undefined)
         .finally(() => {
           // Navigation drops a request while another is in flight; allow a retry once React has committed.
@@ -115,6 +122,24 @@ export function usePlaybackFollowLayer({
     scrollToCursor.current(target);
   });
 
+  /** Prepares the next destination in performance order once it is within the lead and audio is buffered. */
+  const prefetchNext = useRef((cursor: PlaybackCursor | null) => {
+    const { prefetchPage, prefetchLeadMs } = following.prefetchRef.current;
+    const transport = following.transportRef.current;
+    if (!prefetchPage || !cursor?.geometry || !getFollowState().followEnabled) return;
+    const renderMs = prefetchLeadMs?.() ?? 0;
+    if (transport.bufferedAheadSeconds() < Math.max(MIN_AUDIO_CUSHION_S, (3 * renderMs) / 4000))
+      return;
+    const upcoming = nextPageChange(
+      following.indexRef.current,
+      transport.positionRef.current,
+      cursor.page,
+    );
+    if (!upcoming) return;
+    const lead = Math.max(MIN_PREFETCH_LEAD_MS, prefetchLeadMs?.() ?? 0);
+    if (upcoming.startMs - transport.positionRef.current <= lead) prefetchPage(upcoming.page);
+  });
+
   const recompute = useRef(() => {
     const transport = following.transportRef.current;
     const live =
@@ -125,6 +150,7 @@ export function usePlaybackFollowLayer({
     const systemChanged = pageChanged || next?.y !== cursorRef.current?.y;
     cursorRef.current = next;
     setCursor(next);
+    prefetchNext.current(next);
     // System granularity: no viewport work while the cursor walks along one system.
     if (systemChanged) followCursor.current(next, false);
   });

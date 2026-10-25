@@ -180,6 +180,14 @@ function FollowStatus({ showHint, run }: { showHint: boolean; run: Run }) {
           Playing on page {follow.playbackPage! + 1}
         </Button>
       )}
+      {follow.active && follow.preparingPage !== null && (
+        <span
+          data-testid="playback-preparing-page"
+          className="whitespace-nowrap text-caption text-slate-500"
+        >
+          Preparing page {follow.preparingPage + 1}…
+        </span>
+      )}
       {showHint && follow.tracking !== null && (
         <span
           data-testid="playback-tracking-hint"

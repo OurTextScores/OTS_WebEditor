@@ -3,6 +3,7 @@ import {
   buildCursorIndex,
   cursorAt,
   getFollowState,
+  nextPageChange,
   resetFollowStateForTests,
   resumeFollowing,
   revealScroll,
@@ -76,6 +77,27 @@ describe('discrete playback cursor', () => {
     const index = buildCursorIndex({ ...segments, elements: [] }, measures)!;
     expect(index.kind).toBe('measure');
     expect(cursorAt(index, 1500)).toMatchObject({ geometry: false, page: -1, x: 0, width: 0 });
+  });
+});
+
+describe('next page in performance order', () => {
+  // Pages 0, 1, 0 (a repeat back to page 0), then 1 again.
+  const pages: Positions = {
+    elements: [box(0, 0), box(0, 1), box(50, 0)],
+    events: [
+      { elid: 0, position: 0 },
+      { elid: 1, position: 1000 },
+      { elid: 2, position: 2000 },
+      { elid: 1, position: 3000 },
+    ],
+    pageSize: { width: 1000, height: 1400 },
+  };
+  const index = buildCursorIndex(pages, null);
+  it('finds the next different page after now, including a backward jump', () => {
+    expect(nextPageChange(index, 0, 0)).toEqual({ page: 1, startMs: 1000 });
+    expect(nextPageChange(index, 1500, 1)).toEqual({ page: 0, startMs: 2000 });
+    expect(nextPageChange(index, 3500, 1)).toBeNull();
+    expect(nextPageChange(null, 0, 0)).toBeNull();
   });
 });
 

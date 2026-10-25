@@ -14,7 +14,7 @@ import {
 } from './layout-constants';
 import { type SelectionGeometryBox } from './selection-types';
 import type { LayoutProgressState } from '../../lib/webmscore-loader';
-import type { EnsureSoundFontLoaded, RenderScore } from './editor-types';
+import type { EnsureSoundFontLoaded } from './editor-types';
 import type { SelectionBox } from './selection-types';
 import type React from 'react';
 
@@ -51,28 +51,6 @@ export type OpenScoreSessionContext = {
   activeLaunchContext: EditorLaunchContext | null;
   setScoreSessionId: React.Dispatch<React.SetStateAction<string | null>>;
   setScoreRevision: React.Dispatch<React.SetStateAction<number>>;
-};
-
-export type GoToPageContext = {
-  score: Score | null;
-  pageNavigationInFlightRef: React.RefObject<boolean>;
-  currentPageRef: React.RefObject<number>;
-  pageCount: number;
-  largeScoreSessionRef: React.RefObject<boolean>;
-  progressivePagingActive: boolean;
-  progressiveHasMorePages: boolean;
-  ensurePageIsLaidOut: (targetScore: Score, targetPage: number) => Promise<boolean>;
-  runSerializedScoreOperation: <T>(operation: () => Promise<T>, label: string) => Promise<T>;
-  setPageCount: React.Dispatch<React.SetStateAction<number>>;
-  setCurrentPage: React.Dispatch<React.SetStateAction<number>>;
-  renderScore: RenderScore;
-  refreshSelectionOverlay: (
-    fallbackIndex?: number | null,
-    fallbackPoint?: { page: number; x: number; y: number } | null,
-    generation?: number,
-  ) => void;
-  selectedIndex: number | null;
-  selectedPoint: { page: number; x: number; y: number } | null;
 };
 
 export type ResolveSelectionContext = {
@@ -416,103 +394,6 @@ export async function openScoreSessionImpl(ctx: OpenScoreSessionContext, xml?: s
     isSyncingRef.current = false;
   }
   return { scoreSessionId: nextSessionId, revision: nextRevision };
-}
-
-export async function goToPageImpl(ctx: GoToPageContext, targetPage: number) {
-  const {
-    score,
-    pageNavigationInFlightRef,
-    currentPageRef,
-    pageCount,
-    largeScoreSessionRef,
-    progressivePagingActive,
-    progressiveHasMorePages,
-    ensurePageIsLaidOut,
-    runSerializedScoreOperation,
-    setPageCount,
-    setCurrentPage,
-    renderScore,
-    refreshSelectionOverlay,
-    selectedIndex,
-    selectedPoint,
-  } = ctx;
-  if (!score || targetPage < 0) {
-    return;
-  }
-  if (pageNavigationInFlightRef.current) {
-    return;
-  }
-  pageNavigationInFlightRef.current = true;
-  const previousPage = currentPageRef.current;
-  let knownPages = pageCount;
-  try {
-    if (largeScoreSessionRef.current) {
-      console.info('[large-nav] goToPage:start', {
-        targetPage,
-        knownPages: pageCount,
-        progressivePagingActive,
-        progressiveHasMorePages,
-      });
-    }
-    if (progressivePagingActive && targetPage >= pageCount) {
-      if (largeScoreSessionRef.current) {
-        console.info('[large-nav] layout:ensure:start', { targetPage });
-      }
-      const ready = await ensurePageIsLaidOut(score, targetPage);
-      if (!ready) {
-        if (largeScoreSessionRef.current) {
-          console.info('[large-nav] goToPage:not-ready', { targetPage });
-        }
-        return;
-      }
-      if (largeScoreSessionRef.current) {
-        console.info('[large-nav] layout:ensure:done', { targetPage });
-      }
-      if (score.npages) {
-        knownPages = Math.max(
-          1,
-          await runSerializedScoreOperation(() => score.npages!(), 'npages'),
-        );
-        setPageCount((prev) => Math.max(prev, knownPages));
-      } else {
-        knownPages = Math.max(pageCount, targetPage + 1);
-      }
-    } else if (targetPage >= pageCount) {
-      return;
-    }
-
-    const maxKnownPage = Math.max(knownPages - 1, 0);
-    const clampedTarget = Math.min(targetPage, maxKnownPage);
-    setCurrentPage(clampedTarget);
-    if (largeScoreSessionRef.current) {
-      console.info('[large-nav] render:start', { targetPage: clampedTarget });
-    }
-    let rendered = await renderScore(score, clampedTarget);
-    if (!rendered && progressivePagingActive) {
-      if (largeScoreSessionRef.current) {
-        console.info('[large-nav] render:retry-layout:start', { targetPage: clampedTarget });
-      }
-      const readyAfterRetry = await ensurePageIsLaidOut(score, clampedTarget);
-      if (readyAfterRetry) {
-        rendered = await renderScore(score, clampedTarget);
-      }
-    }
-    if (!rendered) {
-      setCurrentPage(previousPage);
-      if (largeScoreSessionRef.current) {
-        console.info('[large-nav] render:failed', { targetPage: clampedTarget, previousPage });
-      }
-      return;
-    }
-    if (largeScoreSessionRef.current) {
-      console.info('[large-nav] render:done', { targetPage: clampedTarget });
-    }
-    refreshSelectionOverlay(selectedIndex, selectedPoint);
-  } catch (err) {
-    console.error('Failed to change page:', err);
-  } finally {
-    pageNavigationInFlightRef.current = false;
-  }
 }
 
 export async function resolveSelectionContextImpl(ctx: ResolveSelectionContext) {

@@ -457,6 +457,7 @@ export function useScoreTransport(options: Options) {
               );
             }
           },
+          onScheduledFrontier: owner.frontierFor(attempt),
           onBufferingChange: (buffering, scoreTimeSeconds) => {
             if (!owner.isCurrent(attempt)) return;
             owner.setBuffering(buffering, scoreTimeSeconds);
@@ -874,13 +875,13 @@ export function useScoreTransport(options: Options) {
     setPlaybackOptions,
     playbackOptions,
     diagnostics: () => owner.diagnostics(),
+    bufferedAheadSeconds: () => owner.bufferedAhead(audioContextRef.current?.currentTime),
     awaitRetirement,
     invalidate: releaseFallbackAudio,
     phase,
     phaseRef,
     clockRef,
-    /** The playable duration, including an applied options change the host has not re-read yet. */
-    durationRef,
+    durationRef, // includes an applied options change the host has not re-read yet
     audioContextRef,
     subscribePosition,
     state,

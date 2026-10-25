@@ -12,6 +12,7 @@ import {
   requestReveal,
   resetFollowStateForTests,
   resumeFollowing,
+  setFollowEnabled,
 } from '@/lib/playback/score-following';
 import type { ScoreTransportState } from '@/lib/playback/use-score-transport';
 import type { PlaybackTimeline, Positions, Score } from '@/lib/webmscore-loader';
@@ -51,6 +52,7 @@ function fakeTransport(state: ScoreTransportState = 'playing') {
     },
     seek: vi.fn(),
     playbackOptions: null,
+    bufferedAheadSeconds: vi.fn(() => 10),
   };
   return {
     transport,
@@ -99,9 +101,17 @@ function setup(state: ScoreTransportState = 'playing') {
   const fake = fakeTransport(state);
   const score = fakeScore();
   const goToPage = vi.fn();
+  const prefetchPage = vi.fn();
   const hook = renderHook(
     (props: { page: number }) =>
-      usePlaybackFollowing({ score, transport: fake.transport, currentPage: props.page, goToPage }),
+      usePlaybackFollowing({
+        score,
+        transport: fake.transport,
+        currentPage: props.page,
+        goToPage,
+        prefetchPage,
+        prefetchLeadMs: () => 0,
+      }),
     { initialProps: { page: 0 } },
   );
   const view = render(<Harness following={hook.result.current} state={state} page={0} />);
@@ -109,7 +119,7 @@ function setup(state: ScoreTransportState = 'playing') {
     hook.rerender({ page });
     view.rerender(<Harness following={hook.result.current} state={state} page={page} />);
   };
-  return { ...fake, score, goToPage, hook, view, setPage };
+  return { ...fake, score, goToPage, prefetchPage, hook, view, setPage };
 }
 
 const scrollTo = vi.fn();
@@ -152,7 +162,7 @@ describe('page following', () => {
     const { tick, goToPage, setPage } = setup();
     await waitFor(() => expect(getFollowState().tracking).toBe('segment'));
     tick(2100);
-    expect(goToPage).toHaveBeenCalledWith(1);
+    expect(goToPage).toHaveBeenCalledWith(1, 'playback');
     expect(getFollowState().playbackPage).toBe(1);
     setPage(1);
     expect(getFollowState()).toMatchObject({ suspended: false, playbackPage: null });
@@ -169,7 +179,7 @@ describe('page following', () => {
     expect(goToPage).not.toHaveBeenCalled();
     expect(getFollowState().playbackPage).toBe(0);
     act(() => resumeFollowing());
-    expect(goToPage).toHaveBeenCalledWith(0);
+    expect(goToPage).toHaveBeenCalledWith(0, 'reveal');
     expect(getFollowState().suspended).toBe(false);
 
     setPage(0);
@@ -179,6 +189,25 @@ describe('page following', () => {
     expect(getFollowState().suspended).toBe(true);
     act(() => requestReveal());
     expect(getFollowState().suspended).toBe(true);
+  });
+});
+
+describe('prepared page turns', () => {
+  it('prepares the next page in performance order only with an audio cushion and following on', async () => {
+    const { tick, prefetchPage, transport } = setup();
+    vi.mocked(transport.bufferedAheadSeconds).mockReturnValue(0.5);
+    await waitFor(() => expect(getFollowState().tracking).toBe('segment'));
+    tick(500);
+    expect(prefetchPage).not.toHaveBeenCalled();
+    vi.mocked(transport.bufferedAheadSeconds).mockReturnValue(10);
+    // The next page change (segment 2, page 1, at 2 s) is within the 6 s minimum lead.
+    tick(1100);
+    expect(prefetchPage).toHaveBeenCalledWith(1);
+    prefetchPage.mockClear();
+    act(() => setFollowEnabled(false));
+    tick(1500);
+    tick(100);
+    expect(prefetchPage).not.toHaveBeenCalled();
   });
 });
 

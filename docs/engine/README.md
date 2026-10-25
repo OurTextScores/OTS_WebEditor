@@ -188,3 +188,10 @@ inside `PlaybackFollowLayer`, and never derive the cursor from selection command
 [Phase 5 execution record](PHASE5_2026-10-25.md). Editor and player share `TempoControl` / `PlayRepeatsToggle`
 (`components/playback-controls/`) and the local preference store; `usePlaybackOptionsSync` applies them per score
 through the transport's position-preserving change, gated on the `playbackOptions` capability.
+
+## Prepared page turns (Phase 6)
+
+[Phase 6 execution record](PHASE6_2026-10-25.md). Editor page navigation goes through `PageNavigator`
+(`components/score-editor/page-turns/`): latest target wins, manual supersedes automatic, and commits are
+generation-checked against every other canvas render (`pageInstallGenerationRef`). Following prefetches the next
+page in performance order into a bounded cache, spending only the transport's scheduled-audio cushion.

@@ -18,6 +18,8 @@ export interface FollowState {
   readonly playbackPage: number | null;
   /** `segment` or `measure` tracking, or `unavailable` when the engine gave no usable map. */
   readonly tracking: 'segment' | 'measure' | 'unavailable' | null;
+  /** Following reached a page that was not prepared in time; the current page stays until it is ready. */
+  readonly preparingPage: number | null;
   readonly revealRequests: number;
 }
 
@@ -30,6 +32,7 @@ const initial = (): FollowState => ({
   active: false,
   playbackPage: null,
   tracking: null,
+  preparingPage: null,
   revealRequests: 0,
 });
 
@@ -41,6 +44,7 @@ const SERVER_STATE: FollowState = {
   active: false,
   playbackPage: null,
   tracking: null,
+  preparingPage: null,
   revealRequests: 0,
 };
 

@@ -1,6 +1,7 @@
 export {
   buildCursorIndex,
   cursorAt,
+  nextPageChange,
   sameCursor,
   seekTimeAt,
   type CursorIndex,

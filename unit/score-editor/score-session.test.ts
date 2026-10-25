@@ -3,11 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AI_SELECTION_BOX_CONTEXT_LIMIT } from '../../components/score-editor/ai-constants';
 import {
   ensurePageIsLaidOutImpl,
-  goToPageImpl,
   openScoreSessionImpl,
   resolveSelectionContextImpl,
   type EnsurePageLaidOutContext,
-  type GoToPageContext,
   type OpenScoreSessionContext,
   type ResolveSelectionContext,
 } from '../../components/score-editor/score-session';
@@ -242,107 +240,6 @@ describe('ensurePageIsLaidOutImpl: laying out a page of a large score', () => {
       await ensurePageIsLaidOutImpl(unknown, asScore({ layoutUntilPageState: vi.fn() }), 8),
     ).toBe(false);
     expect(unknown.setProgressiveHasMorePages).toHaveBeenCalledWith(false);
-  });
-});
-
-describe('goToPageImpl: changing page', () => {
-  const context = (over: Partial<Record<keyof GoToPageContext, unknown>> = {}) => {
-    const ctx = {
-      score: asScore({ npages: vi.fn(async () => 8) }),
-      pageNavigationInFlightRef: { current: false },
-      currentPageRef: { current: 1 },
-      pageCount: 4,
-      largeScoreSessionRef: { current: false },
-      progressivePagingActive: false,
-      progressiveHasMorePages: false,
-      ensurePageIsLaidOut: vi.fn(async () => true),
-      runSerializedScoreOperation: serial,
-      setPageCount: vi.fn(),
-      setCurrentPage: vi.fn(),
-      renderScore: vi.fn(async () => true),
-      refreshSelectionOverlay: vi.fn(),
-      selectedIndex: 2,
-      selectedPoint: { page: 1, x: 3, y: 4 },
-    };
-    Object.assign(ctx, over);
-    return ctx as unknown as GoToPageContext & typeof ctx;
-  };
-
-  it('renders the page, sets it as current, and refreshes the selection overlay', async () => {
-    const ctx = context();
-    await goToPageImpl(ctx, 2);
-    expect(ctx.setCurrentPage).toHaveBeenCalledWith(2);
-    expect(ctx.renderScore).toHaveBeenCalledWith(ctx.score, 2);
-    expect(ctx.refreshSelectionOverlay).toHaveBeenCalledWith(2, { page: 1, x: 3, y: 4 });
-    expect(ctx.pageNavigationInFlightRef.current).toBe(false);
-  });
-
-  it('does nothing with no score, a negative page, a page past the end, or a navigation already running', async () => {
-    for (const [over, page] of [
-      [{ score: null }, 1],
-      [{}, -1],
-      [{}, 4],
-      [{ pageNavigationInFlightRef: { current: true } }, 1],
-    ] as const) {
-      const ctx = context(over);
-      await goToPageImpl(ctx, page);
-      expect(ctx.renderScore).not.toHaveBeenCalled();
-      expect(ctx.setCurrentPage).not.toHaveBeenCalled();
-    }
-  });
-
-  it('puts the previous page back when the new one cannot be rendered', async () => {
-    const ctx = context({ renderScore: vi.fn(async () => false) });
-    await goToPageImpl(ctx, 3);
-    expect(ctx.setCurrentPage.mock.calls).toEqual([[3], [1]]);
-    expect(ctx.refreshSelectionOverlay).not.toHaveBeenCalled();
-    expect(ctx.pageNavigationInFlightRef.current).toBe(false);
-  });
-
-  it('lays out a page beyond the known ones first when paging progressively, and raises the page count', async () => {
-    const ctx = context({ progressivePagingActive: true });
-    await goToPageImpl(ctx, 6);
-    expect(ctx.ensurePageIsLaidOut).toHaveBeenCalledWith(ctx.score, 6);
-    expect((ctx.setPageCount.mock.calls[0][0] as (p: number) => number)(4)).toBe(8);
-    expect(ctx.setCurrentPage).toHaveBeenCalledWith(6);
-  });
-
-  it('never goes past the last page the score really has', async () => {
-    const ctx = context({
-      progressivePagingActive: true,
-      score: asScore({ npages: vi.fn(async () => 5) }),
-    });
-    await goToPageImpl(ctx, 9);
-    expect(ctx.setCurrentPage).toHaveBeenCalledWith(4);
-    expect(ctx.renderScore).toHaveBeenCalledWith(ctx.score, 4);
-  });
-
-  it('stays put when the page is not ready, and retries the layout once if the first render fails', async () => {
-    const notReady = context({
-      progressivePagingActive: true,
-      ensurePageIsLaidOut: vi.fn(async () => false),
-    });
-    await goToPageImpl(notReady, 6);
-    expect(notReady.setCurrentPage).not.toHaveBeenCalled();
-
-    const retry = context({
-      progressivePagingActive: true,
-      renderScore: vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true),
-    });
-    await goToPageImpl(retry, 2);
-    expect(retry.ensurePageIsLaidOut).toHaveBeenCalledWith(retry.score, 2);
-    expect(retry.renderScore).toHaveBeenCalledTimes(2);
-    expect(retry.refreshSelectionOverlay).toHaveBeenCalled();
-  });
-
-  it('survives a render that throws and frees the navigation lock', async () => {
-    const ctx = context({
-      renderScore: vi.fn(async () => {
-        throw new Error('x');
-      }),
-    });
-    await goToPageImpl(ctx, 2);
-    expect(ctx.pageNavigationInFlightRef.current).toBe(false);
   });
 });
 

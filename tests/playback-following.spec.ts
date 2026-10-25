@@ -60,12 +60,9 @@ test('following turns pages, manual paging suspends it, and Resume brings playba
   const playbackPage = await pageSelect.inputValue();
   await expect(cursor(page)).toBeVisible();
 
-  // Navigation still drops a request while a page render is in flight (latest-wins navigation is Phase 6),
-  // so a press during the follow turn's render can be ignored; press again, as a user would.
-  await expect(async () => {
-    await runCommand(page, 'view.goto.prevPage');
-    await expect(pageSelect).not.toHaveValue(playbackPage, { timeout: 1_000 });
-  }).toPass({ timeout: 15_000 });
+  // Manual navigation supersedes an automatic turn (latest-wins navigation), even during its render.
+  await runCommand(page, 'view.goto.prevPage');
+  await expect(pageSelect).not.toHaveValue(playbackPage);
   await expect(page.getByTestId('btn-resume-following')).toBeVisible();
   await expect(page.getByTestId('btn-jump-to-playback')).toHaveText(
     `Playing on page ${Number(playbackPage) + 1}`,

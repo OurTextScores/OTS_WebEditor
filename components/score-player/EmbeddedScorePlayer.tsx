@@ -30,6 +30,7 @@ import PlayerOverlay from './PlayerOverlay';
 import { initialHighlightMode, useHighlightView, useNoteHighlight } from './useNoteHighlight';
 import { useNoteheadColor } from './useNoteheadColor';
 import { usePlaybackOptionsRefresh } from './usePlaybackOptionsRefresh';
+import { usePlayerFollowScroll } from './usePlayerFollowScroll';
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const pageCountBucket = (count: number) => (count <= 1 ? '1' : count <= 5 ? '2_to_5' : '6_plus');
@@ -663,37 +664,11 @@ export default function EmbeddedScorePlayer() {
     setCurrentPage(view.followTarget.page);
   }, [currentPage, follow, view.followTarget]);
 
-  useEffect(() => {
-    if (!follow || view.followTarget?.page !== currentPage || !svg) return;
-    const frame = window.requestAnimationFrame(() => {
-      const viewport = viewportRef.current;
-      const activeRect = activeMeasureRef.current;
-      if (!viewport || !activeRect) return;
-      const viewportBox = viewport.getBoundingClientRect();
-      const measureBox = activeRect.getBoundingClientRect();
-      const targetTop = Math.max(
-        0,
-        viewport.scrollTop + measureBox.top - viewportBox.top - viewport.clientHeight * 0.28,
-      );
-      const reducedMotion =
-        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-      programmaticScrollRef.current = true;
-      if (typeof viewport.scrollTo === 'function') {
-        viewport.scrollTo({ top: targetTop, behavior: reducedMotion ? 'auto' : 'smooth' });
-      } else {
-        viewport.scrollTop = targetTop;
-      }
-      if (programmaticScrollTimerRef.current) clearTimeout(programmaticScrollTimerRef.current);
-      programmaticScrollTimerRef.current = setTimeout(
-        () => {
-          programmaticScrollRef.current = false;
-          programmaticScrollTimerRef.current = null;
-        },
-        reducedMotion ? 0 : 350,
-      );
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [currentPage, follow, view.followTarget?.id, view.followTarget?.page, svg]);
+  usePlayerFollowScroll({
+    active: follow && view.followTarget?.page === currentPage && !!svg,
+    targetKey: `${currentPage}:${view.followTarget?.id}:${svg?.length}`,
+    refs: { viewportRef, activeMeasureRef, programmaticScrollRef, programmaticScrollTimerRef },
+  });
 
   useEffect(() => {
     if (!pageRequestQueued || pageLoadBusy) return;

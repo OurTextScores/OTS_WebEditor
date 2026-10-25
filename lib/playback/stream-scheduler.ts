@@ -36,6 +36,8 @@ export type StreamPlaybackOptions = StreamPlaybackTarget & {
   /** A stalled worker exhausted scheduled PCM. Position freezes until a fresh anchor is published. */
   onBufferingChange?: (buffering: boolean, scoreTimeSeconds: number) => void;
   onDraining?: () => void;
+  /** Context time at which the scheduled PCM now ends, after each scheduled block. */
+  onScheduledFrontier?: (contextTime: number) => void;
   /** Optional gain/effects node. Defaults to the AudioContext destination. */
   destination?: AudioNode;
 };
@@ -188,6 +190,7 @@ export async function scheduleSynthBatchStream(
         relativeChunkStart +
         (buffer.length ?? SYNTH_FRAMES_PER_CHUNK) / (buffer.sampleRate ?? SYNTH_SAMPLE_RATE),
     );
+    options.onScheduledFrontier?.(scheduledUntil);
     if (!startedAny) {
       startedAny = true;
       // This closes at the next paint; it measures scheduling startup, not audible device output.

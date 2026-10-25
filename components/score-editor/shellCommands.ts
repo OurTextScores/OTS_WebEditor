@@ -17,7 +17,7 @@ export interface ShellEditorBindings {
   readonly aiEnabled: boolean;
   readonly pageCount: number;
   readonly currentPage: number;
-  readonly goToPage: (page: number) => Promise<void>;
+  readonly goToPage: (page: number) => Promise<unknown>;
   readonly goToNextPage: () => void;
   readonly goToPreviousPage: () => void;
   /** The left dock; null on host surfaces, which have no chrome. */
