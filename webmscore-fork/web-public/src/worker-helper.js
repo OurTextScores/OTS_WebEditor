@@ -477,6 +477,10 @@ class WebMscoreW {
     }
 
     /** Return the repeat-expanded, tempo-aware playback timeline. */
+    playbackCapabilities() {
+        return this.rpc('playbackCapabilities')
+    }
+
     playbackTimeline() {
         return this.rpc('playbackTimeline')
     }

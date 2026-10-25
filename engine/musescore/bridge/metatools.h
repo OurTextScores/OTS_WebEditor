@@ -18,7 +18,7 @@
 #include "engraving/dom/text.h"
 #include "engraving/dom/timesig.h"
 
-static void positionElement(JsonArray& elements, int id, double x, double y, double sx, double sy, size_t page)
+static void positionElement(JsonArray& elements, int id, double x, double y, double sx, double sy, int page, int writtenTick, bool geometryAvailable)
 {
     JsonObject el;
     el.set("id", id);
@@ -26,7 +26,9 @@ static void positionElement(JsonArray& elements, int id, double x, double y, dou
     el.set("y", toAbi(y));
     el.set("sx", toAbi(sx));
     el.set("sy", toAbi(sy));
-    el.set("page", static_cast<int>(page));
+    el.set("page", page);
+    el.set("writtenTick", writtenTick);
+    el.set("geometryAvailable", geometryAvailable);
     elements.append(el);
 }
 
@@ -43,26 +45,38 @@ static JsonObject positionsJson(Score* score, bool ofSegments)
     std::unordered_map<const void*, int> ids;
     JsonArray elements;
     int id = 0;
+    bool complete = !score->pages().empty();
     if (ofSegments) {
         Measure* first = score->firstMeasureMM();
         for (Segment* segment = first ? first->first(SegmentType::ChordRest) : nullptr; segment;
              segment = segment->next1MM(SegmentType::ChordRest)) {
-            // Width: up to the next segment on the same system, or to the end of the measure (4.00 semantics)
             const Measure* own = segment->measure();
-            const Segment* next = segment->next1MM(SegmentType::ChordRest);
-            const bool sameSystem = next && next->measure()->system() == own->system();
-            const double right = sameSystem ? next->pagePos().x() : own->pagePos().x() + own->ldata()->bbox().width();
-            const double sx = std::max(0.0, right - segment->pagePos().x());
-            const System* system = own->system();
-            positionElement(elements, id, int(segment->pagePos().x()), int(segment->pagePos().y()), sx,
-                            system->ldata()->bbox().height(), score->pageIdx(system->page()));
+            const System* system = own ? own->system() : nullptr;
+            const bool available = system && system->page() && int(score->pageIdx(system->page())) >= 0;
+            complete = complete && available;
+            double x = 0, y = 0, sx = 0, sy = 0;
+            if (available) {
+                const Segment* next = segment->next1MM(SegmentType::ChordRest);
+                const bool sameSystem = next && next->measure() && next->measure()->system() == system;
+                const double right = sameSystem ? next->pagePos().x() : own->pagePos().x() + own->ldata()->bbox().width();
+                x = int(segment->pagePos().x()); y = int(segment->pagePos().y());
+                sx = std::max(0.0, right - segment->pagePos().x());
+                sy = system->ldata()->bbox().height();
+            }
+            // Missing layout gets a non-visible placeholder, not a skipped ID or invented page geometry.
+            positionElement(elements, id, x, y, sx, sy, available ? int(score->pageIdx(system->page())) : -1,
+                            segment->tick().ticks(), available);
             ids[segment] = id++;
         }
     } else {
         for (Measure* measure = score->firstMeasureMM(); measure; measure = measure->nextMeasureMM()) {
             const System* system = measure->system();
-            positionElement(elements, id, measure->pagePos().x(), system->pagePos().y(), measure->ldata()->bbox().width(),
-                            system->ldata()->bbox().height(), score->pageIdx(system->page()));
+            const bool available = system && system->page() && int(score->pageIdx(system->page())) >= 0;
+            complete = complete && available;
+            positionElement(elements, id, available ? measure->pagePos().x() : 0,
+                            available ? system->pagePos().y() : 0, available ? measure->ldata()->bbox().width() : 0,
+                            available ? system->ldata()->bbox().height() : 0,
+                            available ? int(score->pageIdx(system->page())) : -1, measure->tick().ticks(), available);
             ids[measure] = id++;
         }
     }
@@ -78,25 +92,29 @@ static JsonObject positionsJson(Score* score, bool ofSegments)
             if (ofSegments) {
                 for (Segment* s = measure->first(SegmentType::ChordRest); s; s = s->next(SegmentType::ChordRest)) {
                     auto it = ids.find(s);
-                    if (it == ids.end()) continue;
+                    if (it == ids.end() || s->tick().ticks() < startTick || s->tick().ticks() >= endTick) continue;
                     positionEvent(events, it->second, int(std::lrint(repeats.utick2utime(s->tick().ticks() + tickOffset) * 1000)));
                 }
             } else if (auto it = ids.find(measure); it != ids.end()) {
-                positionEvent(events, it->second, int(std::lrint(repeats.utick2utime(measure->tick().ticks() + tickOffset) * 1000)));
+                positionEvent(events, it->second, int(std::lrint(repeats.utick2utime(std::max(startTick, measure->tick().ticks()) + tickOffset) * 1000)));
             }
             if (measure->endTick().ticks() >= endTick) break;
         }
     }
 
     JsonObject json;
+    json.set("schemaVersion", 1);
+    json.set("complete", complete);
     json.set("elements", elements);
     json.set("events", events);
+    JsonObject pageSize;
+    pageSize.set("height", 0.0);
+    pageSize.set("width", 0.0);
     if (!score->pages().empty()) {
-        JsonObject pageSize;
         pageSize.set("height", toAbi(score->pages().front()->ldata()->bbox().height()));
         pageSize.set("width", toAbi(score->pages().front()->ldata()->bbox().width()));
-        json.set("pageSize", pageSize);
     }
+    json.set("pageSize", pageSize);
     return json;
 }
 

@@ -37,8 +37,14 @@ export interface IrregularMeasure {
 }
 
 export interface Positions {
+  /** Additive schema; absent on legacy engines. Missing geometry retains its ID with page=-1. */
+  schemaVersion?: 1;
+  complete?: boolean;
   elements: Array<{
     id: number;
+    /** Written musical anchor, stable across layout; legacy array IDs are layout-scoped. */
+    writtenTick?: number;
+    geometryAvailable?: boolean;
     x: number;
     y: number;
     sx: number;
@@ -55,6 +61,15 @@ export interface Positions {
     height: number;
     width: number;
   };
+}
+
+export interface PlaybackCapabilities {
+  schemaVersion: 1;
+  positionsSchemaVersion: 1;
+  partialLayoutSafe: boolean;
+  streamHandlesVersion: number;
+  soundFontGeneration: boolean;
+  pcm?: { sampleRate: number; channels: number; framesPerChunk: number; format: 'f32-planar' };
 }
 
 export interface PlaybackTimelineOccurrence {
@@ -136,6 +151,9 @@ export interface FretDiagramData {
 }
 
 export type SynthAudioBatchChunk = {
+  sampleRate?: number;
+  channels?: number;
+  framesPerChannel?: number;
   chunk: Uint8Array;
   startTime: number;
   endTime?: number;
@@ -216,6 +234,7 @@ export interface Score {
     | Promise<{ startMeasureIndex: number; endMeasureIndex: number } | null>
     | { startMeasureIndex: number; endMeasureIndex: number }
     | null;
+  playbackCapabilities?: () => Promise<PlaybackCapabilities | null>;
   playbackTimeline?: () => Promise<PlaybackTimeline | null> | PlaybackTimeline | null;
   selectionMeasureRange?: () =>
     | Promise<{ startMeasureIndex: number; endMeasureIndex: number } | null>
@@ -525,7 +544,7 @@ export const webMscoreResourceBaseUrl = (): string | undefined => {
     ''
   ).trim();
   if (!raw) return undefined;
-  return raw.endsWith('/') ? raw : `${raw}/`;   // resource paths resolve below it, so it must end in a slash
+  return raw.endsWith('/') ? raw : `${raw}/`; // resource paths resolve below it, so it must end in a slash
 };
 
 const applyResourceBaseUrl = (instance: WebMscoreInstance) => {

@@ -167,6 +167,9 @@ export interface PlaybackTimeline {
 }
 
 export interface PositionElement {
+    /** Stable musical anchor; array IDs remain scoped to the layout snapshot. */
+    writtenTick?: number;
+    geometryAvailable?: boolean;
     /**
      * element index
      */
@@ -211,7 +214,18 @@ interface PositionEvent {
 /**
  * The position information of measures or segments
  */
+export interface PlaybackCapabilities {
+  schemaVersion: 1;
+  positionsSchemaVersion: 1;
+  partialLayoutSafe: boolean;
+  streamHandlesVersion: number;
+  soundFontGeneration: boolean;
+  pcm?: { sampleRate: number; channels: number; framesPerChunk: number; format: 'f32-planar' };
+}
+
 export interface Positions {
+    schemaVersion?: 1;
+    complete?: boolean;
     /**
      * The position information of each element (measure or segment) on the sheet,  
      * in pixels of the exported SVG/PNG/PDF file
@@ -237,6 +251,9 @@ export interface Positions {
 }
 
 export interface SynthRes {
+    sampleRate?: number;
+    channels?: number;
+    framesPerChannel?: number;
     /**
      * Has the value `false` if the iterator is able to produce the next chunk
      */

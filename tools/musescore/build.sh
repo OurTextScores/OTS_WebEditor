@@ -16,12 +16,14 @@ if [[ $(git -C "$source_dir" rev-parse HEAD) != "$expected_commit" ]]; then
     echo "Expected pinned MuseScore v4.7.4 commit $expected_commit" >&2
     exit 1
 fi
-if git -C "$source_dir" apply --reverse --check "$engine_sources/patches/upstream-v4.7.4-noqt.patch" 2>/dev/null; then
-    : # Existing checkout already has the tracked patch.
-else
-    git -C "$source_dir" apply --check "$engine_sources/patches/upstream-v4.7.4-noqt.patch"
-    git -C "$source_dir" apply "$engine_sources/patches/upstream-v4.7.4-noqt.patch"
-fi
+while IFS= read -r engine_patch; do
+    if git -C "$source_dir" apply --reverse --check "$engine_sources/$engine_patch" 2>/dev/null; then
+        : # Existing checkout already has this tracked patch.
+    else
+        git -C "$source_dir" apply --check "$engine_sources/$engine_patch"
+        git -C "$source_dir" apply "$engine_sources/$engine_patch"
+    fi
+done < <(node -e 'for (const patch of require(process.argv[1]).patches) console.log(patch)' "$engine_sources/upstream.json")
 mkdir -p "$source_dir/spike"
 # Preserve mtimes on unchanged inputs so a no-op build does not relink the entire engine.
 stage_file() {
@@ -31,6 +33,7 @@ stage_file "$engine_sources/cmake/EngineOnly.cmake" "$source_dir/spike/SpikeEngi
 for input in "$engine_sources/bridge/bridge.cpp" "$engine_sources/bridge/"*.h "$engine_tools/patch_lib.py"; do
     stage_file "$input" "$source_dir/spike/$(basename "$input")"
 done
+stage_file "$engine_tools/metadata-probe.h" "$source_dir/spike/metadata-probe.h"
 python3 "$engine_tools/stage_resources.py" "$source_dir" "$resource_dir"
 # Browser preload: the staged root minus lazy-resources.json (fetched on demand by index.js)
 preload_dir="$resource_dir-preload"

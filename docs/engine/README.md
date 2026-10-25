@@ -62,6 +62,7 @@ MS47_VERIFY_EDITS=1 MS47_VERIFY_INSPECTOR=1 MS47_VERIFY_SELECTION=1 MS47_VERIFY_
 MS47_VERIFY_MEASURES=1 MS47_VERIFY_TIMELINE=1 MS47_VERIFY_SPANNERS=1 MS47_VERIFY_MISC=1 \
 MS47_VERIFY_DRAG=1 MS47_VERIFY_MIDI=1 MS47_VERIFY_AUDIO=1 MS47_VERIFY_PDF=1 \
 MS47_VERIFY_STUBS=1 MS47_VERIFY_PARTS=1 MS47_VERIFY_RESOURCES=1 MS47_VERIFY_SYSTEMLOCKS=1 \
+MS47_VERIFY_PLAYBACK_SAFETY=1 \
 MS47_SOUNDFONT="$PWD/public/soundfonts/default.sf3" npm run verify:engine
 node tools/musescore/inventory.mjs
 MS47_ARTIFACTS="$PWD/../musescore-clean/build.artifacts" node tools/musescore/verify-exports.mjs
@@ -76,6 +77,48 @@ Historical 4.00 comparisons are **opt-in**: `MS47_REFERENCE_400=/absolute/path/t
 The helper validates that the bundle reports format version 400. Unset, only that historical comparison is skipped;
 the current engine's semantic assertions still run. The shipping 4.7 bundle must never masquerade as a 4.00 reference.
 Archived migration evidence in [`archive/ms47-spike/`](archive/ms47-spike/) describes its historical state and paths.
+
+## Playback safety contract (Phase 1)
+
+`score.playbackCapabilities()` returns a versioned contract, or `null` when the native export is absent. Method
+presence in a worker proxy and the score-format version alone do not prove support. The current contract advertises
+safe partial-layout positions, stream-handle version 1, soundfont-generation invalidation and planar float32 PCM at
+44,100 Hz, stereo, 512 frames per channel. This preserves the binary `SynthRes` ABI. JS adds source-format metadata;
+the scheduler validates it and creates buffers at the source rate, allowing Web Audio to resample to a 48 kHz device.
+An empty terminal record is not scheduled as silent audio.
+
+Stream IDs are opaque monotonic integers, not addresses. One module owns one native stream/sequence; superseding
+it, replacing its font or destroying its score invalidates the old ID. Old pulls/cancels return empty done records.
+Completed/cancelled state is reclaimed immediately. Never dereference or reuse an ID; older engines may use pointers
+behind the same numeric JS interface. Browser-scheduled sources still belong to the transport and require its own
+cancellation; the native hook cannot remove PCM already scheduled in Web Audio.
+
+Soundfont installation invalidates the module before overwriting its shared file. The tracked upstream patch
+`0002-soundfont-cache-invalidation.patch` evicts FluidSynth's filename-keyed decoded cache only after native voices
+are released. The generation is checked on next preparation; a failed eviction prevents the file overwrite. All
+patches in `upstream.json` are applied in order. Native `playbackDiagnostics` exposes bounded lifecycle counters for
+verification; it does not return score data or pointers.
+
+Positions add `schemaVersion: 1`, `complete`, per-box `geometryAvailable`, and `writtenTick`. Missing layout retains
+the box's array ID and timing events, with page `-1` and zero finite geometry. Array IDs remain scoped to a layout
+snapshot; written ticks are musical anchors across layout changes, not identifiers stable across notation edits.
+Legacy packages omit these additive fields. The player excludes placeholders from following/click geometry.
+
+Current `setupMasterScore()` performs an initial layout even for `load(..., false)`. Deferred-load performance is
+therefore a separate issue, not evidence that missing-layout guards were exercised. The Node-only verification
+target compiles `tools/musescore/metadata-probe.h` to detach selected layout parents temporarily, call the real writer,
+and restore them. That fault-injection export is excluded from the browser package and the application's Node bundle;
+the safety suite asserts this exclusion.
+
+```bash
+# Actual MEMFS package: ownership, same-path audible replacement, invalid font, 100 cancellations, terminal cleanup
+MS47_BUNDLE=/tmp/ots-engine-bundle MS47_VERIFY_PLAYBACK_SAFETY=1 \
+MS47_SOUNDFONT="$PWD/public/soundfonts/default.sf3" npm run verify:engine
+# Node-only raw-filesystem harness: missing-layout injection, IDs/timing, repeat positions and exact restoration
+MS47_VERIFY_PARTIAL_POSITIONS=1 npm run verify:engine
+# Mixed/old native artifacts: real JS/worker wrappers must degrade without calling absent exports
+node tools/musescore/verify-playback-capabilities.mjs
+```
 
 ## Local timing diagnostics and baseline
 

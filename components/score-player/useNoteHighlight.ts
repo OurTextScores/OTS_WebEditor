@@ -1,5 +1,9 @@
 import { useCallback, useMemo, useRef, useState, type MutableRefObject } from 'react';
-import { segmentAtTime, sortedSegmentEvents } from '@/lib/playback/note-tracking';
+import {
+  hasPositionGeometry,
+  segmentAtTime,
+  sortedSegmentEvents,
+} from '@/lib/playback/note-tracking';
 import { readPlayerPreference, writePlayerPreference } from '@/lib/playback/player-preferences';
 import type { HighlightMode } from '@/lib/playback/player-message-api';
 import type { Positions, Score } from '@/lib/webmscore-loader';
@@ -131,7 +135,8 @@ export function useHighlightView({
     () => (mode === 'note' ? segmentAtTime(events, positionMs) : null),
     [events, mode, positionMs],
   );
-  const activeNote = active && segments ? (segments.elements[active.segmentId] ?? null) : null;
+  const candidate = active && segments ? segments.elements[active.segmentId] : null;
+  const activeNote = hasPositionGeometry(candidate) ? candidate : null;
   const visibleNotes = useMemo(
     () => segments?.elements.filter((element) => element.page === currentPage) ?? [],
     [currentPage, segments],

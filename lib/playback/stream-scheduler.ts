@@ -3,6 +3,10 @@ import type { SynthAudioBatchIterator } from '../webmscore-loader';
 import { releaseScheduledSource, renderWindowDelayMs, type RenderWindow } from '../playback-window';
 import { startPerf } from '../perf-trace';
 
+// The legacy native SynthRes ABI is planar float32 at this rate, regardless of output-device rate.
+const SYNTH_SAMPLE_RATE = 44_100;
+const SYNTH_FRAMES_PER_CHUNK = 512;
+
 export type StreamPlaybackTarget = {
   sourcesRef: MutableRefObject<AudioBufferSourceNode[]>;
   iteratorRef: MutableRefObject<SynthAudioBatchIterator | null>;
@@ -110,9 +114,9 @@ export async function scheduleSynthBatchStream(
   const mergeWindowSeconds = options.mergeWindowSeconds ?? 0;
   const mergeTargetFrames =
     mergeWindowSeconds > 0
-      ? Math.max(512, Math.round(audioContext.sampleRate * mergeWindowSeconds))
+      ? Math.max(SYNTH_FRAMES_PER_CHUNK, Math.round(SYNTH_SAMPLE_RATE * mergeWindowSeconds))
       : 0;
-  const contiguousToleranceSeconds = 1 / audioContext.sampleRate;
+  const contiguousToleranceSeconds = 1 / SYNTH_SAMPLE_RATE;
   let mergedChunkState: {
     relativeChunkStart: number;
     lastRelativeChunkEnd: number;
@@ -177,7 +181,7 @@ export async function scheduleSynthBatchStream(
   const flushMergedChunk = (hitDoneForChunk: boolean) => {
     if (!mergedChunkState) return;
     const { channels, totalFrames, channelSlices, relativeChunkStart } = mergedChunkState;
-    const buffer = audioContext.createBuffer(channels, totalFrames, audioContext.sampleRate);
+    const buffer = audioContext.createBuffer(channels, totalFrames, SYNTH_SAMPLE_RATE);
     for (let channel = 0; channel < channels; channel += 1) {
       const merged = new Float32Array(totalFrames);
       let offset = 0;
@@ -227,6 +231,17 @@ export async function scheduleSynthBatchStream(
       const relativeChunkStart = Math.max(0, absoluteChunkStart - streamStartTimeSeconds);
 
       if (result.done) hitDone = true;
+      // Finished/superseded native handles return an empty terminal record; it is not silent PCM.
+      if (result.chunk.byteLength === 0) continue;
+      if (
+        (result.sampleRate ?? SYNTH_SAMPLE_RATE) !== SYNTH_SAMPLE_RATE ||
+        (result.framesPerChannel ?? SYNTH_FRAMES_PER_CHUNK) !== SYNTH_FRAMES_PER_CHUNK ||
+        result.chunk.byteLength % (SYNTH_FRAMES_PER_CHUNK * Float32Array.BYTES_PER_ELEMENT) !== 0
+      ) {
+        throw new Error(
+          'Unsupported synth PCM format: expected 512-frame planar float32 at 44100 Hz.',
+        );
+      }
       const relativeChunkEnd =
         typeof result.endTime === 'number'
           ? Math.max(0, result.endTime - streamStartTimeSeconds)
@@ -247,10 +262,15 @@ export async function scheduleSynthBatchStream(
         result.chunk.byteOffset,
         result.chunk.byteLength / 4,
       );
-      const framesPerChannel = 512;
-      let channels = Math.floor(floats.length / framesPerChannel);
-      if (!Number.isInteger(channels) || channels < 1) channels = 1;
-      if (channels > 2) channels = 2;
+      const framesPerChannel = SYNTH_FRAMES_PER_CHUNK;
+      const channels = floats.length / framesPerChannel;
+      if (
+        channels < 1 ||
+        channels > 2 ||
+        (result.channels !== undefined && result.channels !== channels)
+      ) {
+        throw new Error('Unsupported synth PCM channel count.');
+      }
 
       const channelSlices: Float32Array[] = [];
       for (let channel = 0; channel < channels; channel += 1) {
@@ -285,11 +305,7 @@ export async function scheduleSynthBatchStream(
         if (mergedChunkState.totalFrames >= mergeTargetFrames) flushMergedChunk(false);
       } else {
         if (mergedChunkState) flushMergedChunk(false);
-        const buffer = audioContext.createBuffer(
-          channels,
-          framesPerChannel,
-          audioContext.sampleRate,
-        );
+        const buffer = audioContext.createBuffer(channels, framesPerChannel, SYNTH_SAMPLE_RATE);
         for (let channel = 0; channel < channels; channel += 1) {
           buffer.copyToChannel(new Float32Array(channelSlices[channel]), channel);
         }

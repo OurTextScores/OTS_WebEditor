@@ -7,7 +7,8 @@
 #ifdef MS47_WITH_PLAYBACK
 
 #include <cstring>
-#include <deque>
+#include <limits>
+#include <optional>
 #include <map>
 #include <memory>
 
@@ -23,7 +24,10 @@
 #include "audio/engine/internal/synthesizers/synthresolver.h"
 #include "audio/engine/internal/synthesizers/soundfontrepository.h"
 #include "audio/engine/internal/synthesizers/fluidsynth/fluidresolver.h"
+#include "audio/engine/internal/synthesizers/fluidsynth/fluidsoundfontparser.h"
 #include "engraving/playback/playbackmodel.h"
+
+namespace muse::audio::synth { bool evictSoundFontCache(); }
 
 namespace ms47audio {
 using namespace muse::audio;
@@ -44,6 +48,7 @@ struct Engine {
     std::shared_ptr<synth::FluidResolver> fluidResolver;
     AudioInputParams inputParams;   // FluidSynth, automatic presets from the loaded soundfont
     std::string soundFontPath;
+    uint64_t soundFontGeneration = 0;
 };
 
 struct ScorePlayback {
@@ -52,6 +57,38 @@ struct ScorePlayback {
 };
 
 static std::map<uintptr_t, ScorePlayback> scorePlaybacks;
+static std::unique_ptr<Engine> engineInstance;
+static uint64_t soundFontGeneration = 1;
+
+// Handles are monotonically allocated integers, never dereferenceable addresses. Only the current
+// mixer owner retains stream state; a completed/superseded handle can never alias a later session.
+struct SynthStream {
+    uintptr_t handle;
+    uintptr_t scoreId;
+    size_t playedFrames;
+    size_t endFrame;
+};
+static std::optional<SynthStream> activeStream;
+static uintptr_t nextStreamHandle = 1;
+
+static void stopActiveStream()
+{
+    activeStream.reset();
+    if (!engineInstance) return;
+    engineInstance->audioEngine->mixer()->setIsActive(false);
+    engineInstance->audioEngine->setMode(RenderMode::IdleMode);
+}
+
+static void releaseAllPlayback()
+{
+    stopActiveStream();
+    if (engineInstance) {
+        for (const auto& [id, sp] : scorePlaybacks) {
+            if (sp.sequenceId >= 0) engineInstance->playback->removeSequence(sp.sequenceId);
+        }
+    }
+    scorePlaybacks.clear();
+}
 
 static OutputSpec outputSpec()
 {
@@ -64,7 +101,7 @@ static OutputSpec outputSpec()
 
 static Engine* engine()
 {
-    static std::unique_ptr<Engine> e;
+    auto& e = engineInstance;
     if (e) return e.get();
     e = std::make_unique<Engine>();
     AudioSanitizer::setupEngineThread();   // single-threaded: the bridge thread is the engine thread
@@ -114,13 +151,16 @@ static bool ensureSoundFont()
     const char* override = emscripten_run_script_string("(typeof process !== 'undefined' && process.env.MS47_SOUNDFONT) || ''");
 #endif
     const std::string path = override && *override ? override : "/MuseScore_General.sf3";
-    if (e->soundFontPath == path) return true;
+    if (e->soundFontPath == path && e->soundFontGeneration == soundFontGeneration) return true;
     FILE* f = fopen(path.c_str(), "rb");
     if (!f) {
         LOGE() << "no soundfont at " << path;
         return false;
     }
     fclose(f);
+    // addSoundFont reparses and replaces the entry at this URI; loadSoundFonts would reuse cached metadata.
+    // Validate first so an invalid replacement cannot accidentally reuse the previous font's metadata.
+    if (!synth::FluidSoundFontParser::parseSoundFont(path).ret) return false;
     e->soundFonts->addSoundFont(muse::Uri("file://" + path));
     e->fluidResolver->refresh();
     // The default input names desktop's bundled "MS Basic"; use the loaded soundfont's automatic-preset resource
@@ -130,6 +170,7 @@ static bool ensureSoundFont()
         if (uri == muse::Uri("file://" + path)) e->inputParams.resourceMeta.id = meta.name;
     }
     e->soundFontPath = path;
+    e->soundFontGeneration = soundFontGeneration;
     return true;
 }
 
@@ -137,10 +178,10 @@ static bool ensureSoundFont()
 static ScorePlayback* preparePlayback(uintptr_t id, mu::engraving::Score* score)
 {
     Engine* e = engine();
+    // The module has one offline mixer. Remove every previous sequence, including another score's,
+    // before handing ownership to this render; otherwise old tracks can sound underneath it.
+    releaseAllPlayback();
     ScorePlayback& sp = scorePlaybacks[id];
-    if (sp.sequenceId >= 0) {
-        e->playback->removeSequence(sp.sequenceId);
-    }
     sp.model = std::make_unique<mu::engraving::PlaybackModel>(nullptr);
     sp.model->setPlayRepeats(true);
     // PlaybackModel defaults the metronome on; desktop applies its setting (default off) before load, as here
@@ -214,21 +255,15 @@ struct SynthRes {
     char chunk[];        // RENDER_STEP frames, non-interleaved float32: all of channel 0, then channel 1
 };
 
-struct SynthStream {
-    size_t playedFrames = 0;     // absolute position in frames (for start/end times)
-    size_t endFrame = 0;         // stop after this frame
-    bool done = false;
-};
-static std::deque<SynthStream> synthStreams;   // stable addresses while JS holds them
-
-static SynthStream* startStream(uintptr_t id, mu::engraving::Score* score, double startSeconds, double durationSeconds,
+static uintptr_t startStream(uintptr_t id, mu::engraving::Score* score, double startSeconds, double durationSeconds,
                                 const std::vector<const mu::engraving::EngravingItem*>& previewItems = {})
 {
-    if (!ensureSoundFont()) return nullptr;
+    if (!ensureSoundFont()) return 0;
+    if (nextStreamHandle > static_cast<uintptr_t>(std::numeric_limits<int32_t>::max())) return 0;
     Engine* e = engine();
     ScorePlayback* sp = preparePlayback(id, score);
     auto sequence = e->playback->sequence(sp->sequenceId);
-    if (!sequence) return nullptr;
+    if (!sequence) return 0;
     const bool preview = !previewItems.empty();
     sequence->player()->stop();
     sequence->player()->seek(preview ? 0.0 : startSeconds);
@@ -241,40 +276,44 @@ static SynthStream* startStream(uintptr_t id, mu::engraving::Score* score, doubl
         sp->model->triggerEventsForItems(previewItems, muse::mpe::duration_t(durationSeconds * 1000000.0), true);
     }
     const double totalSeconds = sequence->player()->duration() / 1000000.0;
-    SynthStream stream;
-    stream.playedFrames = preview ? 0 : static_cast<size_t>(std::max(0.0, startSeconds) * SAMPLE_RATE);
+    const size_t firstFrame = preview ? 0 : static_cast<size_t>(std::max(0.0, startSeconds) * SAMPLE_RATE);
     const double endSeconds = durationSeconds > 0 ? (preview ? durationSeconds : startSeconds + durationSeconds) : totalSeconds;
-    stream.endFrame = static_cast<size_t>(std::max(0.0, endSeconds) * SAMPLE_RATE);
-    synthStreams.push_back(stream);
-    return &synthStreams.back();
+    const size_t endFrame = static_cast<size_t>(std::max(0.0, endSeconds) * SAMPLE_RATE);
+    const uintptr_t handle = nextStreamHandle++;
+    activeStream = SynthStream { handle, id, firstFrame, endFrame };
+    return handle;
 }
 
-static SynthRes* renderChunk(SynthStream* stream, bool cancel)
+static SynthRes* finishedChunk()
 {
-    if (!stream || stream->done) {
-        auto* res = static_cast<SynthRes*>(calloc(1, sizeof(SynthRes)));
-        res->done = 1; res->startTime = -1; res->endTime = -1; res->chunkSize = 0;
-        return res;
+    auto* res = static_cast<SynthRes*>(calloc(1, sizeof(SynthRes)));
+    res->done = 1; res->startTime = -1; res->endTime = -1;
+    return res;
+}
+
+static SynthRes* renderChunk(uintptr_t handle, bool cancel)
+{
+    if (!activeStream || activeStream->handle != handle) return finishedChunk();
+    if (cancel || !projects.count(activeStream->scoreId)) {
+        stopActiveStream();
+        return finishedChunk();
     }
+    auto& stream = *activeStream;
     float buffer[RENDER_STEP * CHANNELS] = {};
     engine()->audioEngine->mixer()->process(buffer, RENDER_STEP);
     auto* res = static_cast<SynthRes*>(calloc(1, sizeof(SynthRes) + sizeof(buffer)));
     res->chunkSize = sizeof(buffer);
     float* out = reinterpret_cast<float*>(res->chunk);
-    for (size_t i = 0; i < RENDER_STEP; ++i) {       // de-interleave, as 4.00
+    for (size_t i = 0; i < RENDER_STEP; ++i) {
         out[i] = buffer[2 * i];
         out[RENDER_STEP + i] = buffer[2 * i + 1];
     }
-    const size_t previous = stream->playedFrames;
-    stream->playedFrames += RENDER_STEP;
-    if (stream->playedFrames >= stream->endFrame || cancel) {
-        engine()->audioEngine->mixer()->setIsActive(false);
-        engine()->audioEngine->setMode(RenderMode::IdleMode);
-        stream->done = true;
-    }
-    res->done = stream->done;
+    const size_t previous = stream.playedFrames;
+    stream.playedFrames += RENDER_STEP;
+    res->done = stream.playedFrames >= stream.endFrame;
     res->startTime = float(previous) / SAMPLE_RATE;
-    res->endTime = float(stream->playedFrames) / SAMPLE_RATE;
+    res->endTime = float(stream.playedFrames) / SAMPLE_RATE;
+    if (res->done) stopActiveStream();
     return res;
 }
 
@@ -292,7 +331,7 @@ static bool measureRangeWindow(mu::engraving::Score* score, int startIndex, int 
     return true;
 }
 
-static muse::ByteArray encodeStream(SynthStream* stream)
+static muse::ByteArray encodeStream(uintptr_t stream)
 {
     std::vector<float> interleaved;
     for (bool done = false; !done;) {
@@ -316,6 +355,7 @@ static muse::ByteArray encodeStream(SynthStream* stream)
 // Drop the score's playback model (it holds the Score*) and its engine sequence before the score is destroyed
 static void releasePlaybackForScore(uintptr_t id)
 {
+    if (ms47audio::activeStream && ms47audio::activeStream->scoreId == id) ms47audio::stopActiveStream();
     auto it = ms47audio::scorePlaybacks.find(id);
     if (it == ms47audio::scorePlaybacks.end()) return;
     if (it->second.sequenceId >= 0) ms47audio::engine()->playback->removeSequence(it->second.sequenceId);
@@ -323,6 +363,28 @@ static void releasePlaybackForScore(uintptr_t id)
 }
 
 extern "C" {
+
+// Called by the JS installation path, before the shared file is overwritten. No eager engine initialization.
+EMSCRIPTEN_KEEPALIVE bool invalidateSoundFont()
+{
+    ms47audio::releaseAllPlayback();
+    if (!muse::audio::synth::evictSoundFontCache()) return false;
+    ++ms47audio::soundFontGeneration;
+    return true;
+}
+
+// Native diagnostics for real-engine lifecycle tests; no score content or raw pointers.
+EMSCRIPTEN_KEEPALIVE const uint8_t* playbackDiagnostics()
+{
+    JsonObject state;
+    state.set("schemaVersion", 1);
+    state.set("activeStreams", ms47audio::activeStream ? 1 : 0);
+    state.set("retainedStreams", ms47audio::activeStream ? 1 : 0);
+    state.set("sequences", static_cast<int>(ms47audio::scorePlaybacks.size()));
+    state.set("soundFontGeneration", double(ms47audio::soundFontGeneration));
+    state.set("loadedSoundFontGeneration", double(ms47audio::engineInstance ? ms47audio::engineInstance->soundFontGeneration : 0));
+    return response(JsonDocument(state).toJson(JsonDocument::Format::Compact));
+}
 
 EMSCRIPTEN_KEEPALIVE const uint8_t* saveAudio(uintptr_t score_ptr, const char* format, int excerptId)
 {
@@ -337,14 +399,14 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* saveAudio(uintptr_t score_ptr, const char* f
 EMSCRIPTEN_KEEPALIVE uintptr_t synthAudio(uintptr_t score_ptr, float starttime, int excerptId)
 {
     auto* score = getScore(score_ptr, excerptId);
-    return score ? reinterpret_cast<uintptr_t>(ms47audio::startStream(score_ptr, score, starttime, -1)) : 0;
+    return score ? ms47audio::startStream(score_ptr, score, starttime, -1) : 0;
 }
 
 EMSCRIPTEN_KEEPALIVE uintptr_t synthAudioFromSelection(uintptr_t score_ptr, int excerptId)
 {
     auto* score = getScore(score_ptr, excerptId);
     if (!score) return 0;
-    return reinterpret_cast<uintptr_t>(ms47audio::startStream(score_ptr, score, selectionPlaybackStartTime(score_ptr, excerptId), -1));
+    return ms47audio::startStream(score_ptr, score, selectionPlaybackStartTime(score_ptr, excerptId), -1);
 }
 
 EMSCRIPTEN_KEEPALIVE uintptr_t synthAudioForMeasureRange(uintptr_t score_ptr, int startMeasureIndex, int endMeasureIndex, int excerptId)
@@ -352,7 +414,7 @@ EMSCRIPTEN_KEEPALIVE uintptr_t synthAudioForMeasureRange(uintptr_t score_ptr, in
     auto* score = getScore(score_ptr, excerptId);
     double start = 0, duration = 0;
     if (!score || !ms47audio::measureRangeWindow(score, startMeasureIndex, endMeasureIndex, start, duration)) return 0;
-    return reinterpret_cast<uintptr_t>(ms47audio::startStream(score_ptr, score, start, duration));
+    return ms47audio::startStream(score_ptr, score, start, duration);
 }
 
 // Audition the selected element(s) for durationSeconds (desktop "play on selection")
@@ -369,19 +431,19 @@ EMSCRIPTEN_KEEPALIVE uintptr_t synthAudioSelectionPreview(uintptr_t score_ptr, f
     }
     if (items.empty()) return 0;
     const double seconds = durationSeconds > 0 ? durationSeconds : 0.5;
-    return reinterpret_cast<uintptr_t>(ms47audio::startStream(score_ptr, score, 0, seconds, items));
+    return ms47audio::startStream(score_ptr, score, 0, seconds, items);
 }
 
 EMSCRIPTEN_KEEPALIVE const char* processSynth(uintptr_t fn_ptr, bool cancel)
 {
-    return reinterpret_cast<const char*>(ms47audio::renderChunk(reinterpret_cast<ms47audio::SynthStream*>(fn_ptr), cancel));
+    return reinterpret_cast<const char*>(ms47audio::renderChunk(fn_ptr, cancel));
 }
 
 EMSCRIPTEN_KEEPALIVE const char* processSynthBatch(uintptr_t fn_ptr, int batchSize, bool cancel)
 {
     auto** results = static_cast<ms47audio::SynthRes**>(calloc(std::max(1, batchSize), sizeof(ms47audio::SynthRes*)));
     for (int i = 0; i < batchSize; ++i) {
-        results[i] = ms47audio::renderChunk(reinterpret_cast<ms47audio::SynthStream*>(fn_ptr), cancel);
+        results[i] = ms47audio::renderChunk(fn_ptr, cancel);
     }
     return reinterpret_cast<const char*>(results);
 }
@@ -393,7 +455,7 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* saveAudioForMeasureRange(uintptr_t score_ptr
     if (!format || std::strcmp(format, "wav") != 0) return textResponse("saveAudioForMeasureRange currently supports wav only", 1);
     double start = 0, duration = 0;
     if (!ms47audio::measureRangeWindow(score, startMeasureIndex, endMeasureIndex, start, duration)) return textResponse("Invalid measure range", 1);
-    auto* stream = ms47audio::startStream(score_ptr, score, start, duration);
+    const auto stream = ms47audio::startStream(score_ptr, score, start, duration);
     if (!stream) return textResponse("Unable to initialize audio synth", 1);
     return response(ms47audio::encodeStream(stream));
 }
@@ -403,3 +465,28 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* saveAudioForMeasureRange(uintptr_t score_ptr
 #else
 static void releasePlaybackForScore(uintptr_t) {}
 #endif // MS47_WITH_PLAYBACK
+
+extern "C" {
+EMSCRIPTEN_KEEPALIVE const uint8_t* playbackCapabilities(uintptr_t id, int excerpt)
+{
+    if (!getScore(id, excerpt)) return textResponse("Invalid score or excerpt", 1);
+    JsonObject caps;
+    caps.set("schemaVersion", 1);
+    caps.set("positionsSchemaVersion", 1);
+    caps.set("partialLayoutSafe", true);
+#ifdef MS47_WITH_PLAYBACK
+    caps.set("streamHandlesVersion", 1);
+    caps.set("soundFontGeneration", true);
+    JsonObject pcm;
+    pcm.set("sampleRate", int(ms47audio::SAMPLE_RATE));
+    pcm.set("channels", int(ms47audio::CHANNELS));
+    pcm.set("framesPerChunk", int(ms47audio::RENDER_STEP));
+    pcm.set("format", "f32-planar");
+    caps.set("pcm", pcm);
+#else
+    caps.set("streamHandlesVersion", 0);
+    caps.set("soundFontGeneration", false);
+#endif
+    return response(JsonDocument(caps).toJson(JsonDocument::Format::Compact));
+}
+}

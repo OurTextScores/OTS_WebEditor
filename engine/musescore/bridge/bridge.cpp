@@ -313,3 +313,7 @@ EMSCRIPTEN_KEEPALIVE bool redo(uintptr_t id,int excerpt) {
 #include "playbacktools.h"
 #include "pdfpaint.h"
 #include "resourcetools.h"
+
+#ifdef OTS_ENGINE_TEST_PROBES
+#include "metadata-probe.h"
+#endif

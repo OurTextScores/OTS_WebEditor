@@ -144,4 +144,14 @@ describe('useHighlightView', () => {
     expect(waiting.followTarget).toBe(measure);
     expect(waiting.highlightIsNote).toBe(false);
   });
+
+  it('retains musical timing but follows the measure when segment geometry is incomplete', () => {
+    const incomplete = positions(3);
+    Object.assign(incomplete.elements[2], { geometryAvailable: false, page: -1 });
+    const waiting = view('note', 1100, incomplete);
+    expect(waiting.events[2]).toEqual({ segmentId: 2, startMs: 1000 });
+    expect(waiting.followTarget).toBe(measure);
+    expect(waiting.highlightBox).toBe(measure);
+    expect(waiting.highlightIsNote).toBe(false);
+  });
 });

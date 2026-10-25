@@ -1,5 +1,12 @@
 import type { Positions } from '../webmscore-loader';
 
+/** Missing progressive layout uses non-visible placeholders while keeping event/array IDs intact. */
+export function hasPositionGeometry(
+  box: Positions['elements'][number] | null | undefined,
+): box is Positions['elements'][number] {
+  return !!box && box.geometryAvailable !== false && Number.isInteger(box.page) && box.page >= 0;
+}
+
 /**
  * Note-level (ChordRest segment) tracking for the embedded score player.
  *

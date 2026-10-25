@@ -29,5 +29,7 @@ while i < len(args):
     else:
         checked.append(args[i])
     i += 1
-checked.append("-fsyntax-only")
+# The Node harness has a test-only include staged beside bridge.cpp by build.sh. When checking the
+# maintained bridge source directly, resolve it from the tooling directory instead of the stage copy.
+checked.extend(["-I", str(here), "-fsyntax-only"])
 raise SystemExit(subprocess.call(checked))

@@ -11,7 +11,7 @@ import {
   occurrenceForMeasure,
   timelineFromPositions,
 } from '@/lib/playback/timeline';
-import { segmentTimeForId } from '@/lib/playback/note-tracking';
+import { hasPositionGeometry, segmentTimeForId } from '@/lib/playback/note-tracking';
 import { setCountIn, setMetronome } from '@/lib/playback/click-preferences';
 import { useClickPreferences } from '@/lib/playback/use-click-preferences';
 import { setVolumePreference } from '@/lib/playback/volume-preference';
@@ -375,10 +375,12 @@ export default function EmbeddedScorePlayer() {
     () => occurrenceAtTime(timeline, positionMs),
     [positionMs, timeline],
   );
-  const activeMeasure =
+  const measureCandidate =
     activeOccurrence && positions
       ? (positions.elements[activeOccurrence.measureIndex] ?? null)
       : null;
+
+  const activeMeasure = hasPositionGeometry(measureCandidate) ? measureCandidate : null;
 
   const view = useHighlightView({
     mode: highlight.mode,

@@ -1,0 +1,59 @@
+diff --git a/src/framework/audio/engine/internal/synthesizers/fluidsynth/sfcachedloader.h b/src/framework/audio/engine/internal/synthesizers/fluidsynth/sfcachedloader.h
+index ae6e27a116..0080bf409b 100644
+--- a/src/framework/audio/engine/internal/synthesizers/fluidsynth/sfcachedloader.h
++++ b/src/framework/audio/engine/internal/synthesizers/fluidsynth/sfcachedloader.h
+@@ -42,26 +42,41 @@ struct SoundFontCache : public std::map<std::string, SoundFontData> {
+         return &s;
+     }
+ 
++    // All synth instances must be released before eviction. Used by browser hosts replacing
++    // the bytes behind the same filename; path identity alone is not a soundfont generation.
++    bool evictAll()
++    {
++        bool cleared = true;
++        for (auto it = begin(); it != end();) {
++            if (it->second.soundFontPtr) {
++                auto* defsFont = static_cast<fluid_defsfont_t*>(fluid_sfont_get_data(it->second.soundFontPtr));
++                if (delete_fluid_defsfont(defsFont) != FLUID_OK) {
++                    cleared = false;
++                    ++it;
++                    continue;
++                }
++                delete_fluid_sfont(it->second.soundFontPtr);
++            }
++            if (it->second.fileStream) std::fclose(it->second.fileStream);
++            it = erase(it);
++        }
++        return cleared;
++    }
++
+ private:
+     SoundFontCache() = default;
+     ~SoundFontCache()
+     {
+-        for (const auto& pair : *this) {
+-            fluid_defsfont_t* defsFont = static_cast<fluid_defsfont_t*>(fluid_sfont_get_data(pair.second.soundFontPtr));
+-
+-            if (delete_fluid_defsfont(defsFont) != FLUID_OK) {
+-                continue;
+-            }
+-
+-            delete_fluid_sfont(pair.second.soundFontPtr);
+-
+-            if (pair.second.fileStream) {
+-                std::fclose(pair.second.fileStream);
+-            }
+-        }
++        evictAll();
+     }
+ };
+ 
++// Defined in fluidsynth.cpp's loader translation unit; embedding bridges need not include this implementation header.
++bool evictSoundFontCache()
++{
++    return SoundFontCache::instance()->evictAll();
++}
++
+ void* openSoundFont(const char* filename)
+ {
+     auto search = SoundFontCache::instance()->find(filename);

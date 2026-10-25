@@ -114,9 +114,11 @@ function(ms47_bridge_target target)
 endfunction()
 
 ms47_bridge_target(ms47_bridge)
+# The Node-only raw-filesystem target is a verification harness, not the application's Node bundle.
+target_compile_definitions(ms47_bridge PRIVATE OTS_ENGINE_TEST_PROBES)
 target_link_options(ms47_bridge PRIVATE
     "SHELL:-s NODERAWFS=1" "SHELL:-s ENVIRONMENT=node" "SHELL:-s IMPORTED_MEMORY=1" "SHELL:-s EXPORT_NAME=MS47Bridge"
-    "SHELL:-s EXPORTED_RUNTIME_METHODS=['ccall','stringToUTF8','UTF8ToString','HEAPU8','getValue','FS_createPath','FS_createDataFile']")
+    "SHELL:-s EXPORTED_RUNTIME_METHODS=['ccall','stringToUTF8','UTF8ToString','HEAPU8','getValue','FS_createPath','FS_createDataFile','FS_unlink']")
 
 if (MS47_BROWSER)
     if (NOT IS_DIRECTORY "${MS47_PRELOAD_DIR}")
@@ -132,7 +134,7 @@ if (MS47_BROWSER)
         "SHELL:-s ENVIRONMENT=web,worker,node" "SHELL:-s EXPORT_ES6=1"
         "SHELL:-s FORCE_FILESYSTEM=1" "SHELL:-s ALLOW_TABLE_GROWTH=1"
         "SHELL:-s NODEJS_CATCH_EXIT=0" "SHELL:-s NODEJS_CATCH_REJECTION=0"
-        "SHELL:-s EXPORTED_RUNTIME_METHODS=['ccall','cwrap','stringToUTF8','UTF8ToString','getValue','setValue','HEAPU8','FS_createPath','FS_createDataFile']"
+        "SHELL:-s EXPORTED_RUNTIME_METHODS=['ccall','cwrap','stringToUTF8','UTF8ToString','getValue','setValue','HEAPU8','FS_createPath','FS_createDataFile','FS_unlink']"
         "SHELL:--preload-file ${MS47_PRELOAD_DIR}@/res")
     # build.sh rewrites the stamp when the staged preload changes: relink to repackage webmscore.lib.data
     set_property(TARGET webmscore_lib APPEND PROPERTY LINK_DEPENDS "${MS47_PRELOAD_DIR}.stamp")

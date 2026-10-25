@@ -1,0 +1,69 @@
+{
+  "recordedAt": "2026-10-25T02:21:17.535507+00:00",
+  "phase0Commit": "09164bbd",
+  "nativeVerificationSections": [
+    "results",
+    "edits",
+    "systemLocks",
+    "inspector",
+    "selection",
+    "noteInput",
+    "measures",
+    "timeline",
+    "spanners",
+    "misc",
+    "drag",
+    "midi",
+    "audio",
+    "playbackSafety",
+    "pdf",
+    "stubs",
+    "parts",
+    "resources"
+  ],
+  "playbackSafety": {
+    "schemaVersion": 1,
+    "staleOwnership": true,
+    "samePathSoundfont": {
+      "loud": 0.07960957288742065,
+      "quiet": 0.00010494585876585916
+    },
+    "repeatedSessions": 100,
+    "retainedStreams": 0
+  },
+  "partialPositions": {
+    "measures": 43,
+    "segments": 657,
+    "missingGeometrySafe": true,
+    "repeatEventsClipped": true
+  },
+  "metadataHarnessBuild": {
+    "node": "v24.21.0",
+    "fastLink": false,
+    "wasmBytes": 11298516,
+    "wasmSha256": "44169d79298d987d3dd7f32b9e95c3cc6e5f2c0f000ddc61ac924ad8a07cfb29"
+  },
+  "artifacts": {
+    "public/webmscore.lib.wasm": {
+      "bytes": 11296385,
+      "sha256": "e65875dd86fcd0d49e369410af3d4c5e124892b3ba7502405badc05b81a59473"
+    },
+    "public/webmscore.lib.data": {
+      "bytes": 13754257,
+      "sha256": "ee4213e9bc985f0dce6d43b418c66cd6a717a416899872c1a8dda40f5722a206"
+    },
+    "webmscore-fork/web-public/webmscore.lib.js": {
+      "bytes": 116210,
+      "sha256": "2403b8ee6511558341788d72338fa5128a678f5dabc8c01b4182a8af3afc2843"
+    },
+    "webmscore-fork/web-public/webmscore.webpack.mjs": {
+      "bytes": 261273,
+      "sha256": "54e5367c871c5c1ece1c8e6334cf22292954a788759cb818e1b5136819c91ab3"
+    },
+    "engine/musescore/patches/0002-soundfont-cache-invalidation.patch": {
+      "bytes": 2235,
+      "sha256": "d9396caf63da677fe74a622fcd6086124cdbc002ac126e44d79998b0e6ba584b"
+    }
+  },
+  "verifierNote": "Summary records installed browser-package hashes independently. Earlier full-run build metadata described the Node harness even in bundle mode; verify.mjs now reports the actual runtime target."
+}

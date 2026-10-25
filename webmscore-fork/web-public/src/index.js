@@ -278,10 +278,19 @@ class WebMscore {
      * @returns {Promise<void>}
      */
     static async setSoundFont(data) {
+        // Mixed artifacts: older engines lack explicit invalidation. New engines stop the old mixer owner
+        // before its shared file changes; native generation identity forces a same-path reload on next play.
+        if (typeof Module._invalidateSoundFont === 'function') {
+            if (!Module.ccall('invalidateSoundFont', 'number', [], [])) {
+                throw new Error('Unable to replace soundfont: native voices are still active.')
+            }
+        }
         if (WebMscore.hasSoundfont) {
             // remove the old soundfont file
             Module['FS_unlink']('/MuseScore_General.sf3')
         }
+
+        WebMscore.hasSoundfont = false
 
         // put the soundfont file into the virtual file system
         // side effects: the soundfont is shared across all instances
@@ -701,6 +710,16 @@ class WebMscore {
             return null
         }
         return JSON.parse(json)
+    }
+
+    /**
+     * Native playback/metadata safety contract; null on older or mixed artifacts.
+     * @returns {Promise<import('../schemas').PlaybackCapabilities | null>}
+     */
+    async playbackCapabilities() {
+        if (typeof Module._playbackCapabilities !== 'function') return null
+        const ptr = Module.ccall('playbackCapabilities', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])
+        return JSON.parse(WasmRes.readText(ptr))
     }
 
     /**
@@ -1142,6 +1161,9 @@ class WebMscore {
         freePtr(resptr)
 
         return {
+            sampleRate: 44100,
+            channels: 2,
+            framesPerChannel: chunkSize / (4 * 2),
             done: !!done,
             startTime, // The chunk's start time in seconds
             endTime,   // The current play time in seconds (the chunk's end time)

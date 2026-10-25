@@ -23,7 +23,8 @@ describe('stream scheduler', () => {
     const destination = {} as AudioNode;
     const audioContext = {
       currentTime: 10,
-      sampleRate: 44_100,
+      // A 48 kHz device must resample the 44.1 kHz source, not reinterpret its PCM as 48 kHz.
+      sampleRate: 48_000,
       destination,
       createBuffer: vi.fn(() => ({
         copyToChannel: (_values: Float32Array, channel: number) => copiedChannels.push(channel),
@@ -56,6 +57,7 @@ describe('stream scheduler', () => {
     });
 
     expect(copiedChannels).toEqual([0, 1]);
+    expect(audioContext.createBuffer).toHaveBeenCalledWith(2, 512, 44_100);
     expect(source.connect).toHaveBeenCalledWith(destination);
     expect(source.start).toHaveBeenCalledWith(10.015);
     expect(onClockAnchor).toHaveBeenCalledWith({ contextTime: 10.015, scoreTimeSeconds: 2 });
@@ -66,6 +68,77 @@ describe('stream scheduler', () => {
     expect(sourcesRef.current).toEqual([]);
     expect(iteratorRef.current).toBeNull();
     expect(onEnded).toHaveBeenCalledOnce();
+  });
+
+  it('does not schedule an empty terminal record from a retired native handle', async () => {
+    const audioContext = {
+      currentTime: 0,
+      sampleRate: 48_000,
+      createBuffer: vi.fn(),
+      createBufferSource: vi.fn(),
+    } as unknown as AudioContext;
+    const iterator: SynthAudioBatchIterator = async () => [
+      { chunk: new Uint8Array(), startTime: -1, endTime: -1, done: true },
+    ];
+    await scheduleSynthBatchStream(iterator, audioContext, {
+      sourcesRef: ref([]),
+      iteratorRef: ref<SynthAudioBatchIterator | null>(null),
+      generationRef: ref(0),
+      debugLabel: 'retired',
+    });
+    expect(audioContext.createBuffer).not.toHaveBeenCalled();
+    expect(audioContext.createBufferSource).not.toHaveBeenCalled();
+  });
+
+  it('rejects mismatched source-format metadata before scheduling audio', async () => {
+    const audioContext = {
+      currentTime: 0,
+      sampleRate: 48_000,
+      createBuffer: vi.fn(),
+    } as unknown as AudioContext;
+    const iterator: SynthAudioBatchIterator = async () => [
+      { chunk: new Uint8Array(4096), startTime: 0, done: true, sampleRate: 48_000 },
+    ];
+    await expect(
+      scheduleSynthBatchStream(iterator, audioContext, {
+        sourcesRef: ref([]),
+        iteratorRef: ref<SynthAudioBatchIterator | null>(null),
+        generationRef: ref(0),
+        debugLabel: 'wrong-format',
+      }),
+    ).rejects.toThrow('Unsupported synth PCM format');
+    expect(audioContext.createBuffer).not.toHaveBeenCalled();
+  });
+
+  it('keeps merged PCM at its source rate on a 48 kHz output device', async () => {
+    const audioContext = {
+      currentTime: 0,
+      sampleRate: 48_000,
+      destination: {} as AudioNode,
+      createBuffer: vi.fn(() => ({ copyToChannel: vi.fn() })),
+      createBufferSource: vi.fn(() => ({
+        buffer: null,
+        connect: vi.fn(),
+        start: vi.fn(),
+        onended: null,
+      })),
+    } as unknown as AudioContext;
+    const iterator: SynthAudioBatchIterator = async () =>
+      [0, 1, 2].map((i) => ({
+        chunk: new Uint8Array(4096),
+        startTime: (i * 512) / 44_100,
+        endTime: ((i + 1) * 512) / 44_100,
+        done: i === 2,
+      }));
+    await scheduleSynthBatchStream(iterator, audioContext, {
+      sourcesRef: ref([]),
+      iteratorRef: ref<SynthAudioBatchIterator | null>(null),
+      generationRef: ref(0),
+      debugLabel: 'merged-rate',
+      mergeWindowSeconds: 0.03,
+    });
+    expect(audioContext.createBuffer).toHaveBeenNthCalledWith(1, 2, 1024, 44_100);
+    expect(audioContext.createBuffer).toHaveBeenNthCalledWith(2, 2, 512, 44_100);
   });
 
   it('stops and disconnects sources before awaiting iterator cancellation', async () => {
