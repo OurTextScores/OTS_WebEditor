@@ -238,3 +238,10 @@ horizons retain their previous defaults pending slow-device qualification.
 [Phase 9 execution record](PHASE9_2026-10-25.md): first cross-browser runs (`PLAYWRIGHT_BROWSER=firefox|webkit`),
 release escape hatches (`NEXT_PUBLIC_OTS_PLAYBACK_CURSOR`, `NEXT_PUBLIC_OTS_PLAYBACK_AUTOFOLLOW`), compressed
 MusicXML import, and the local Linux setup needed for Playwright's WebKit and Firefox.
+
+## Editor and host coverage (Phase 10)
+
+[Phase 10 execution record](PHASE10_2026-10-26.md) records the 68-spec editor matrix, the OurTextScores
+smoke matrix, browser-specific fixes, focused retests and remaining qualification limits. The
+[tracked inventory](PHASE10_EDITOR_SPECS.txt) can be passed to the resumable runner's `--specs-file`.
+Chromium runs on PRs; nightly/manual CI adds Firefox and WebKit across four shards.

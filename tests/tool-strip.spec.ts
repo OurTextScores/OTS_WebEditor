@@ -281,8 +281,9 @@ test.describe('Notes group', () => {
     await waitForCommandEnabled(page, 'btn-ottava-1', { timeout: 60_000 });
     await page.getByTestId('btn-ottava-1').click();
     await expect
-      .poll(() =>
-        page.evaluate(() => (window as unknown as { __ottavaCalls: unknown[][] }).__ottavaCalls),
+      .poll(
+        () =>
+          page.evaluate(() => (window as unknown as { __ottavaCalls: unknown[][] }).__ottavaCalls),
         { timeout: 30_000 },
       )
       .toEqual([[1]]);
