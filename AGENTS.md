@@ -40,6 +40,20 @@ npm run lint
 npx playwright test  # e2e (see playwright.config*.ts)
 ```
 
+Long or cross-browser Playwright runs: use the resumable runner, which runs one spec file at a time, prints a
+progress line after each, and keeps results in `.playwright-runs/<name>/` (git-ignored; `test-results/` is wiped by
+every Playwright run). Rerunning the same command skips specs already recorded (`--rerun-failed`, `--fresh`). Set
+`PLAYWRIGHT_PORT`: the default 3000 may be another app (OurTextScores' Docker frontend).
+
+```bash
+PLAYWRIGHT_PORT=3013 PLAYWRIGHT_BROWSER=webkit node scripts/playwright-resumable.mjs --run my-run tests/a.spec.ts tests/b.spec.ts
+```
+
+Browsers: `PLAYWRIGHT_BROWSER=chromium|firefox|webkit`; on Ubuntu 26.04 also `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-x64`.
+Playwright's Firefox build has no optimizing WebAssembly compiler (the engine runs 5-10x slower than for users), so
+use it for correctness; `PLAYWRIGHT_FIREFOX_EXECUTABLE=/path/to/stock/firefox` drives stock Firefox over WebDriver
+BiDi for timing, but that driver hangs on pages with iframes. See `docs/engine/PHASE9_2026-10-25.md`.
+
 Test score for manual verification:
 `http://localhost:3000/?score=%2Ftest_scores%2Fbach_orig.mscz`
 

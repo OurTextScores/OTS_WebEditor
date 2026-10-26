@@ -15,6 +15,7 @@
 /.playwright-mcp/
 /playwright-report/
 /test-results/
+/.playwright-runs/
 /blob-report/
 
 # Optional webmscore JS artifacts (sync script doesn't copy these)
