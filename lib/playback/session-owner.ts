@@ -1,5 +1,6 @@
+import { countPlaybackUnderflow } from '../perf-trace';
 import { scoreTimeAt, type TransportClockAnchor } from './transport-clock';
-import type { SynthAudioBatchIterator } from '../webmscore-loader';
+import type { Score, SynthAudioBatchIterator } from '../webmscore-loader';
 
 export type TransportPhase =
   | 'idle'
@@ -74,6 +75,7 @@ export class PlaybackSessionOwner {
     this.positionRef.current = scoreTimeSeconds * 1000;
     if (buffering) {
       this.underflows += 1;
+      countPlaybackUnderflow();
       this.clockRef.current = null;
       if (this.phaseRef.current !== 'paused') this.phaseRef.current = 'buffering';
     } else if (this.phaseRef.current !== 'paused') {
@@ -92,6 +94,11 @@ export class PlaybackSessionOwner {
       activeIterator: this.iteratorRef.current !== null,
       underflows: this.underflows,
     };
+  }
+
+  warmup(score: Score | null): Promise<boolean> {
+    if (!score?.warmupPlayback || this.iteratorRef.current) return Promise.resolve(false);
+    return this.track(score.warmupPlayback().catch(() => false));
   }
 
   async drain() {

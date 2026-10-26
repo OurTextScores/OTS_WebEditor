@@ -1,6 +1,7 @@
 import React from 'react';
 import type { PlaybackCursor } from '../../../lib/playback/score-following';
 import { usePlaybackFollowLayer, type FollowLayerOptions } from './usePlaybackFollowLayer';
+import { PlaybackHighlightLayer } from './PlaybackHighlightLayer';
 
 const markerStyle = (cursor: PlaybackCursor): React.CSSProperties =>
   cursor.kind === 'segment'
@@ -16,6 +17,7 @@ export function PlaybackFollowLayer(props: FollowLayerOptions) {
   const { cursor, step, seekMarker, barRef, continuous } = usePlaybackFollowLayer(props);
   return (
     <>
+      <PlaybackHighlightLayer {...props} />
       {continuous && (
         <div
           ref={barRef}

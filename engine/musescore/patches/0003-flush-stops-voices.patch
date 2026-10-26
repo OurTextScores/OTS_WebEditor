@@ -1,0 +1,18 @@
+diff --git a/src/framework/audio/engine/internal/synthesizers/fluidsynth/fluidsynth.cpp b/src/framework/audio/engine/internal/synthesizers/fluidsynth/fluidsynth.cpp
+index c9f91f31f8..5979c0598b 100644
+--- a/src/framework/audio/engine/internal/synthesizers/fluidsynth/fluidsynth.cpp
++++ b/src/framework/audio/engine/internal/synthesizers/fluidsynth/fluidsynth.cpp
+@@ -167,7 +167,12 @@ void FluidSynth::doFlushSound()
+         return;
+     }
+ 
+-    fluid_synth_all_notes_off(m_fluid->synth, -1);
++    // OTS browser engine: a flush starts a new offline stream, whose host discards the previous one's audio, so voices
++    // stop at once rather than release into it. A reused preparation then sounds exactly like a fresh synth.
++    fluid_synth_all_sounds_off(m_fluid->synth, -1);
++    // Notes are tuned after their note-on (processSequence), so a key's first note starts from the key's last tuning.
++    // Restore the standard tuning setupSound gives a new synth, so the next stream starts exactly as a fresh one.
++    fluid_synth_activate_key_tuning(m_fluid->synth, 0, 0, "standard", NULL, true);
+ 
+     int lastChannelIdx = static_cast<int>(m_sequencer.channels().lastIndex());
+     for (int i = 0; i < lastChannelIdx; ++i) {

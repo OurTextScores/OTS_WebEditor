@@ -11,6 +11,14 @@ export {
 } from './cursor-model';
 export { revealScroll, type Rect, type Viewport } from './follow-viewport';
 export {
+  getEditorHighlights,
+  getEditorHighlightsOnServer,
+  subscribeEditorHighlights,
+  setEditorHighlight,
+  resetEditorHighlightsForTests,
+  type EditorHighlightPreferences,
+} from './highlight-preferences';
+export {
   getFollowState,
   getFollowStateOnServer,
   requestReveal,

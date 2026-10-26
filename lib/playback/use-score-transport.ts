@@ -12,7 +12,8 @@ import { ClickScheduler, clicksFromTimeline, planClicks } from './click-track';
 import { DEFAULT_RENDER_WINDOW } from '../playback-window';
 import { SoundFontManager } from './soundfont-manager';
 import { cancelSynthStream, scheduleSynthBatchStream } from './stream-scheduler';
-import { clampScorePosition, scoreTimeAt } from './transport-clock';
+import { clampScorePosition } from './transport-clock';
+import { useTransportPresentation } from './useTransportPresentation';
 import { startPerf } from '../perf-trace';
 import { PlaybackSessionOwner, type TransportPhase } from './session-owner';
 import {
@@ -756,23 +757,14 @@ export function useScoreTransport(options: Options) {
     live.start(anchor, clicks, positionRef.current);
   }, [clickEnabled, clickTimeline, clockRef, positionRef]);
 
-  useEffect(() => {
-    if (state !== 'playing') return;
-    let frame = window.requestAnimationFrame(function update() {
-      const context = audioContextRef.current;
-      const anchor = clockRef.current;
-      if (context && anchor) {
-        const scoreTime = scoreTimeAt(anchor, context.currentTime);
-        if (scoreTime !== null) publishPosition(scoreTime * 1000);
-        if (phaseRef.current === 'count-in' && context.currentTime >= anchor.contextTime) {
-          phaseRef.current = drainingRef.current ? 'draining' : 'playing';
-          setPhase(phaseRef.current);
-        }
-      }
-      frame = window.requestAnimationFrame(update);
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [clockRef, phaseRef, publishPosition, state]);
+  useTransportPresentation({
+    owner,
+    contextRef: audioContextRef,
+    playing: state === 'playing',
+    drainingRef,
+    publishPosition,
+    publishPhase: setPhase,
+  });
 
   /**
    * Position-preserving options change. Old-option audio and clicks are retired first; rapid requests coalesce
@@ -877,6 +869,10 @@ export function useScoreTransport(options: Options) {
     diagnostics: () => owner.diagnostics(),
     bufferedAheadSeconds: () => owner.bufferedAhead(audioContextRef.current?.currentTime),
     awaitRetirement,
+    warmupPlayback: () =>
+      ['idle', 'ended'].includes(stateRef.current) && !optionsRunRef.current
+        ? owner.warmup(scoreRef.current)
+        : Promise.resolve(false),
     invalidate: releaseFallbackAudio,
     phase,
     phaseRef,

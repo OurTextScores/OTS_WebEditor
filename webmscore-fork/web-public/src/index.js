@@ -713,6 +713,30 @@ class WebMscore {
     }
 
     /**
+     * Prepare an idle score without rendering; false on older engines or while a stream owns the mixer.
+     * @returns {Promise<boolean>}
+     */
+    async warmupPlayback() {
+        if (typeof Module._warmupPlayback !== 'function') return false
+        return !!Module.ccall('warmupPlayback', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
+    }
+
+    /** @returns {Promise<import('../schemas').PlaybackDiagnostics | null>} Local diagnostics without score content. */
+    async playbackDiagnostics() {
+        if (typeof Module._playbackDiagnostics !== 'function') return null
+        const value = JSON.parse(WasmRes.readText(Module.ccall('playbackDiagnostics', 'number', [], [])))
+        if (!value.lastPrepare) return null
+        return { ...value, wasmHeapBytes: Module.HEAPU8.byteLength }
+    }
+
+    /** @param {boolean} enabled @returns {Promise<boolean>} A/B measurement switch; stop playback first. */
+    async setPlaybackReuse(enabled) {
+        if (typeof Module._setPlaybackReuse !== 'function') return false
+        Module.ccall('setPlaybackReuse', null, ['boolean'], [enabled])
+        return true
+    }
+
+    /**
      * Native playback/metadata safety contract; null on older or mixed artifacts.
      * @returns {Promise<import('../schemas').PlaybackCapabilities | null>}
      */

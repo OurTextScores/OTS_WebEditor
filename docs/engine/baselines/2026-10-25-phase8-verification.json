@@ -1,0 +1,185 @@
+{
+  "bootMs": 368.2695899999999,
+  "results": [],
+  "timeline": {
+    "repeats": true,
+    "legacyDaCodaMarkers": true,
+    "tempo": true,
+    "pickup": true,
+    "compoundMeter": true,
+    "selectionStart": true
+  },
+  "audio": [
+    {
+      "file": "../../public/test_scores/bach_orig.mscz",
+      "ms": 4876,
+      "seconds": 146.99897959183673,
+      "rms": 0.020234759665243972,
+      "peak": 0.17484533786773682,
+      "env": [
+        0.0172,
+        0.0185,
+        0.0184,
+        0.0195,
+        0.0214,
+        0.021,
+        0.0213,
+        0.0207,
+        0.0221,
+        0.0217,
+        0.0198,
+        0.0181
+      ]
+    },
+    {
+      "stream": "whole",
+      "chunks": 12662,
+      "maxDiff": 0,
+      "ms": 829
+    },
+    {
+      "stream": "seek/range/selection/preview",
+      "ok": true
+    },
+    {
+      "name": "no metronome",
+      "restRms": 0
+    }
+  ],
+  "playbackSafety": {
+    "schemaVersion": 1,
+    "staleOwnership": true,
+    "samePathSoundfont": {
+      "loud": 0.07960957288742065,
+      "quiet": 0.00010494585876585916
+    },
+    "repeatedSessions": 100,
+    "retainedStreams": 0
+  },
+  "playbackOptions": {
+    "schemaVersion": 1,
+    "voltas": {
+      "on": [
+        0,
+        1,
+        2,
+        1,
+        3,
+        4,
+        5
+      ],
+      "off": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "fallback": "pass-unavailable"
+    },
+    "dcAlFine": {
+      "on": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        0,
+        1
+      ],
+      "off": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    "audio": {
+      "pitchHz": {
+        "1": 258.75,
+        "0.5": 258.75,
+        "1.5": 258.75
+      },
+      "streamEndSeconds": {
+        "1": 13.502403259277344,
+        "0.5": 23.99782371520996,
+        "1.5": 10.007800102233887
+      },
+      "durationsMs": {
+        "1": 10498,
+        "0.5": 20996,
+        "1.5": 6999
+      },
+      "measure2Ms": {
+        "1": 4498,
+        "0.5": 8996
+      }
+    }
+  },
+  "followMap": {
+    "schemaVersion": 1,
+    "bachMs": 11,
+    "bachIntervals": 657,
+    "repeats": {
+      "on": [
+        0,
+        1,
+        2,
+        1,
+        3,
+        4,
+        5,
+        0,
+        1,
+        3,
+        4,
+        5
+      ],
+      "off": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    "tempoChange": {
+      "beatsMs": [
+        500,
+        1000,
+        1000,
+        1000
+      ]
+    },
+    "accelerando": {
+      "durationMs": 5901,
+      "speedRatio": 1.88
+    },
+    "pauseHolds": 4,
+    "multiMeasureRest": {
+      "restMs": 8000
+    },
+    "polyphonyIntervals": 4,
+    "hiddenStaffHeights": [
+      585,
+      248
+    ]
+  },
+  "playbackReuse": {
+    "reusedOpenMs": 0.045403000000078464,
+    "freshOpenMs": 189.49423500000194,
+    "comparedPulls": 160
+  },
+  "build": {
+    "node": "v24.21.0",
+    "target": "browser-package",
+    "fastLink": false,
+    "wasmBytes": 11316923,
+    "wasmSha256": "1a8318fe08e5dd0e7d150d93b4c2b5631c6763b99c0af0d501d0a75d3cb2b9cc"
+  }
+}

@@ -477,6 +477,18 @@ class WebMscoreW {
     }
 
     /** Return the repeat-expanded, tempo-aware playback timeline. */
+    warmupPlayback() {
+        return this.rpc('warmupPlayback')
+    }
+
+    playbackDiagnostics() {
+        return this.rpc('playbackDiagnostics')
+    }
+
+    setPlaybackReuse(enabled) {
+        return this.rpc('setPlaybackReuse', [enabled])
+    }
+
     playbackCapabilities() {
         return this.rpc('playbackCapabilities')
     }

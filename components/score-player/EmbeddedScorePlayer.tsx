@@ -1,4 +1,5 @@
 'use client';
+import { usePresentationTimes } from '../../lib/playback/use-presentation-preferences';
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -388,9 +389,10 @@ export default function EmbeddedScorePlayer() {
     });
   }, [currentPage, score]);
 
+  const presentation = usePresentationTimes(positionMs);
   const activeOccurrence = useMemo(
-    () => occurrenceAtTime(timeline, positionMs),
-    [positionMs, timeline],
+    () => occurrenceAtTime(timeline, presentation.measure),
+    [presentation.measure, timeline],
   );
   const measureCandidate =
     activeOccurrence && positions
@@ -402,7 +404,7 @@ export default function EmbeddedScorePlayer() {
   const view = useHighlightView({
     mode: highlight.mode,
     segments: highlight.segments,
-    positionMs,
+    positionMs: presentation.cursor,
     currentPage,
     activeMeasure,
   });
@@ -806,7 +808,7 @@ export default function EmbeddedScorePlayer() {
                   cursor={
                     transport === 'idle' || transport === 'ended'
                       ? null
-                      : resolveContinuousCursor(followMap, positionMs)
+                      : resolveContinuousCursor(followMap, presentation.cursor)
                   }
                   onSeek={(box) => {
                     // The pass inside the repeat run now playing, else the next one, else the first (as the editor).

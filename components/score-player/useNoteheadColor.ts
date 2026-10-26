@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, type RefObject } from 'react';
-import { centreInSegmentBox } from '@/lib/playback/note-box-match';
+import { notesInSegment } from '@/lib/playback/notehead-geometry';
 import type { Positions } from '@/lib/webmscore-loader';
 
 type Box = Positions['elements'][number];
@@ -7,37 +7,6 @@ type Box = Positions['elements'][number];
 export const PLAYING_NOTE_COLOR = 'rgb(8 145 178)';
 
 type Mark = { el: SVGElement; fill: string | null; stroke: string | null };
-
-type Centre = { el: SVGElement; x: number; y: number };
-const centresBySvg = new WeakMap<SVGSVGElement, Centre[]>();
-
-/**
- * The notes and rests of the page's SVG with their centres in score units (the overlay's coordinate space). Measured
- * once per SVG node: a page can hold well over a thousand, and measuring them on every note change stalls playback.
- * The result is in score units, so zooming does not invalidate it.
- */
-function noteCentres(svg: SVGSVGElement): Centre[] {
-  const cached = centresBySvg.get(svg);
-  if (cached) return cached;
-  const measured = measureCentres(svg);
-  if (measured.length > 0) centresBySvg.set(svg, measured);
-  return measured;
-}
-
-function measureCentres(svg: SVGSVGElement): Centre[] {
-  const view = svg.viewBox.baseVal;
-  const frame = svg.getBoundingClientRect();
-  if (!view.width || !frame.width) return [];
-  const scale = view.width / frame.width;
-  return [...svg.querySelectorAll<SVGGraphicsElement>('.Note, .Rest')].map((el) => {
-    const rect = el.getBoundingClientRect();
-    return {
-      el,
-      x: view.x + (rect.left + rect.width / 2 - frame.left) * scale,
-      y: view.y + (rect.top + rect.height / 2 - frame.top) * scale,
-    };
-  });
-}
 
 /**
  * Colours the sounding note's head (or rest) in the page's own SVG, instead of drawing a box over it. `box` is the
@@ -78,15 +47,14 @@ export function useNoteheadColor(
     restore();
     if (!box || !svg) return;
     applied.current = { key, svg };
-    for (const note of noteCentres(svg)) {
-      if (!centreInSegmentBox(note.x, note.y, box)) continue;
+    for (const el of notesInSegment(svg, box)) {
       marked.current.push({
-        el: note.el,
-        fill: note.el.getAttribute('fill'),
-        stroke: note.el.getAttribute('stroke'),
+        el,
+        fill: el.getAttribute('fill'),
+        stroke: el.getAttribute('stroke'),
       });
-      note.el.setAttribute('fill', PLAYING_NOTE_COLOR);
-      note.el.setAttribute('stroke', PLAYING_NOTE_COLOR);
+      el.setAttribute('fill', PLAYING_NOTE_COLOR);
+      el.setAttribute('stroke', PLAYING_NOTE_COLOR);
     }
   });
 

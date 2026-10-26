@@ -112,7 +112,11 @@ export const PLAYBACK_MUTATION_METHODS = [
   'destroy',
 ] as const satisfies readonly (keyof Score)[];
 
-export function guardPlaybackMutations(score: Score, beforeMutation: () => Promise<void>): Score {
+export function guardPlaybackMutations(
+  score: Score,
+  beforeMutation: () => Promise<void>,
+  afterMutation?: () => void,
+): Score {
   const guarded = new Set<string>(PLAYBACK_MUTATION_METHODS);
   const methods = new Map<PropertyKey, unknown>();
   return new Proxy(score, {
@@ -129,7 +133,9 @@ export function guardPlaybackMutations(score: Score, beforeMutation: () => Promi
           guarded.has(String(key))
             ? async (...args: unknown[]) => {
                 await beforeMutation();
-                return Reflect.apply(value, target, args);
+                const result = await Reflect.apply(value, target, args);
+                if (key !== 'destroy') afterMutation?.();
+                return result;
               }
             : value.bind(target),
         );

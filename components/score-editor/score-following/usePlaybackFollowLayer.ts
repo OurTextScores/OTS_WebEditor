@@ -1,3 +1,5 @@
+import { visualScoreTime } from '../../../lib/playback/presentation-preferences';
+import { usePresentationPreferences } from '../../../lib/playback/use-presentation-preferences';
 import {
   useCallback,
   useEffect,
@@ -44,6 +46,31 @@ const reducedMotion = () =>
   typeof window.matchMedia === 'function' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+/** Paint directly from the output-aligned transport clock, without rendering React per animation frame. */
+function paintContinuousBar(
+  bar: HTMLDivElement | null,
+  following: PlaybackFollowing,
+  page: number,
+) {
+  if (!bar) return;
+  const transport = following.transportRef.current;
+  const live = transport.stateRef.current === 'playing' || transport.stateRef.current === 'paused';
+  const at = live
+    ? resolveContinuousCursor(
+        following.followMapRef.current,
+        visualScoreTime(transport.positionRef.current, 'cursor'),
+      )
+    : null;
+  if (!at?.geometry || at.page !== page) {
+    bar.style.display = 'none';
+    return;
+  }
+  bar.style.display = 'block';
+  bar.style.transform = `translate(${at.x}px, ${at.y}px)`;
+  bar.style.width = `${at.width}px`;
+  bar.style.height = `${at.height}px`;
+}
+
 /**
  * Cursor, page and system following for the editor canvas. Position ticks arrive from the transport's subscription
  * (one per animation frame while playing); this re-renders only when the discrete cursor changes, and never moves
@@ -64,24 +91,7 @@ export function usePlaybackFollowLayer({
   // The continuous bar is positioned straight from position ticks: no React render per frame.
   const barRef = useRef<HTMLDivElement | null>(null);
   const [continuous, setContinuous] = useState(false);
-  const paintBar = useRef(() => {
-    const bar = barRef.current;
-    if (!bar) return;
-    const transport = following.transportRef.current;
-    const live =
-      transport.stateRef.current === 'playing' || transport.stateRef.current === 'paused';
-    const at = live
-      ? resolveContinuousCursor(following.followMapRef.current, transport.positionRef.current)
-      : null;
-    if (!at?.geometry || at.page !== pageRef.current) {
-      bar.style.display = 'none';
-      return;
-    }
-    bar.style.display = 'block';
-    bar.style.transform = `translate(${at.x}px, ${at.y}px)`;
-    bar.style.width = `${at.width}px`;
-    bar.style.height = `${at.height}px`;
-  });
+  const paintBar = useRef(() => paintContinuousBar(barRef.current, following, pageRef.current));
   const pendingPageRef = useRef<number | null>(null);
   const pageRef = useRef(currentPage);
   const zoomRef = useRef(zoom);
@@ -162,12 +172,21 @@ export function usePlaybackFollowLayer({
     if (upcoming.startMs - transport.positionRef.current <= lead) prefetchPage(upcoming.page);
   });
 
+  const presentation = usePresentationPreferences();
   const recompute = useRef(() => {
     paintBar.current();
     const transport = following.transportRef.current;
     const live =
       transport.stateRef.current === 'playing' || transport.stateRef.current === 'paused';
-    const next = live ? cursorAt(following.indexRef.current, transport.positionRef.current) : null;
+    const next = live
+      ? cursorAt(
+          following.indexRef.current,
+          visualScoreTime(
+            transport.positionRef.current,
+            following.indexRef.current?.kind === 'measure' ? 'measure' : 'cursor',
+          ),
+        )
+      : null;
     if (sameCursor(cursorRef.current, next)) return;
     const pageChanged = next?.page !== cursorRef.current?.page || !cursorRef.current;
     const systemChanged = pageChanged || next?.y !== cursorRef.current?.y;
@@ -195,7 +214,7 @@ export function usePlaybackFollowLayer({
 
   useEffect(() => {
     recompute.current();
-  }, [transportState]);
+  }, [transportState, presentation]);
 
   // A page change we did not ask for, during playback, is the user paging: suspend following.
   useEffect(() => {

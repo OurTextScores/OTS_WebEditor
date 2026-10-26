@@ -884,6 +884,9 @@ export default function ScoreEditor() {
   const [exportAudioBusy, setAudioBusy] = useState(false);
   const editorPlayback = useEditorPlayback({
     score,
+    runSerialized: runSerializedScoreOperation,
+    canWarmup: () => soundFontLoadedRef.current &&
+      !Object.values(compareTransport.states).some((state) => state.isPlaying || state.isPaused || state.isBusy),
     ensureSoundFont: (target, forceRetry) => ensureSoundFontLoaded(target, { forceRetry }),
     beforeStart: async () => {
       await stopPreviewAudio({ awaitCancel: true });

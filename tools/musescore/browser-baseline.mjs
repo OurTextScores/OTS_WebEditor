@@ -4,6 +4,15 @@ import { chromium } from 'playwright';
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
+if (process.argv.includes('--phase8')) {
+  const { profileBrowserStartup } = await import('./browser-startup-profile.mjs');
+  await profileBrowserStartup(
+    process.argv[2] || 'http://127.0.0.1:3018/',
+    process.argv[3] || '/tmp/ots-phase8-browser.json',
+  );
+  process.exit(0);
+}
+
 const base = process.argv[2] || 'http://127.0.0.1:3018/';
 const output = process.argv[3] || '/tmp/ots-browser-playback.json';
 const font = fileURLToPath(new URL('../../public/soundfonts/default.sf3', import.meta.url));

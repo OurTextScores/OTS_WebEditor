@@ -202,3 +202,33 @@ page in performance order into a bounded cache, spending only the transport's sc
 tempo-split cursor intervals with native geometry under the playback options; `resolveContinuousCursor`
 interpolates only within an interval. Editor, player and video export share the resolver. Verify with
 `MS47_VERIFY_FOLLOW_MAP=1` and the upstream repeat corpus `MS47_VERIFY_REPEAT_CORPUS=1` (69/69).
+
+## Prepared playback and presentation timing (Phase 8)
+
+[Phase 8 execution record](PHASE8_2026-10-25.md). Native preparation retains one score/excerpt's model and tracks
+while its committed-change watcher, options revision and SoundFont generation match. Upstream patches 0003/0004
+make reused FluidSynth voices deterministic; the verifier compares fresh/reused PCM byte for byte.
+`MS47_VERIFY_PLAYBACK_REUSE=1` exercises reuse, invalidation and idle preparation; the existing audio/options/
+ownership/map suites remain required. `verify-playback-reuse-mutations.mjs` builds scratch variants and restores
+the maintained header/build: the edit guard is caught; the explicit extra flush is equivalent under the current
+mixer lifecycle, which also flushes on activation changes.
+
+`warmupPlayback()` prepares only when no native stream is active. The editor calls it after an idle edit through
+its existing engine queue, with an already-loaded font. It never schedules audio. Optional
+`playbackDiagnostics()` and `setPlaybackReuse(false)` support local A/B profiling; stop/await playback before using
+the latter. `preparedPlaybackVersion: 1` advertises the native feature. Older engines return false/null.
+
+`startup-profile.mjs <bundle> <report> [cold-process-count]` records native stage timings and PCM onset.
+Set `MS47_PROFILE_REUSE=0` for fresh preparation. `browser-baseline.mjs <base-url> <report> --phase8` records real
+worker/Web Audio cold/warm startup, cancellation, memory, batches 2/8/16 and isolated scheduler-policy experiments.
+`playback-stress-profile.mjs` compares interleaved fresh/reused starts in the editor, while
+`scheduler-policy-profile.mjs` isolates startup buffer and PCM merging policies.
+`OTS_PROFILE_CONTEXTS` defaults to 3; `OTS_PROFILE_RESUME=1` resumes matching browser/WASM checkpoints. Font serving
+is local and renderer 4x throttling is simulated. These tools do not establish physical-device audible latency.
+
+Live visuals follow a valid output timestamp, with reported output/base latency as a fallback. Editor/player
+visual timing controls independently trim measure/cursor presentation in real milliseconds; defaults are zero.
+Editor Playback settings also offer independent measure and notehead highlighting toggles, defaulting to measure
+shading. These reuse the fetched native geometry, keep the cursor visible, and preserve the score SVG's own colours.
+These preferences do not change native score times or exported video. Selection buffering/merging and render
+horizons retain their previous defaults pending slow-device qualification.

@@ -32,6 +32,7 @@ export interface PerfTrace {
 interface PerfStore {
   last: PerfTrace | null;
   history: PerfTrace[];
+  counters?: Partial<Record<'playback:underflow', number>>;
 }
 
 type PerfWindow = Window & { __otsPerf?: PerfStore };
@@ -119,4 +120,11 @@ export const noPerf: PerfHandle = NOOP;
 /** For tests: forget everything recorded so far. */
 export function resetPerf(): void {
   if (typeof window !== 'undefined') (window as PerfWindow).__otsPerf = { last: null, history: [] };
+}
+
+/** Bounded local counters complement the capped trace history. */
+export function countPlaybackUnderflow(): void {
+  if (!enabled()) return;
+  const counters = store().counters ??= {};
+  counters['playback:underflow'] = (counters['playback:underflow'] ?? 0) + 1;
 }

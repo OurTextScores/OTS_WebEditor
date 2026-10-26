@@ -1,0 +1,252 @@
+{
+  "recordedAt": "2026-10-26T03:00:02.512Z",
+  "cpu": "Intel(R) Core(TM) Ultra 7 155H",
+  "browser": "143.0.7499.4",
+  "scope": "Warm native preparation, real maintained scheduler in an otherwise idle editor. Two-second PCM window, 400 ms observation before cancellation. One run per policy/fixture/renderer rate; simulated renderer 4x. This is not application-contention or physical-device qualification.",
+  "runs": [
+    {
+      "fixture": "bach_orig.mscz",
+      "cpuRate": 1,
+      "policies": [
+        {
+          "label": "selection-current",
+          "startupBufferSeconds": 0.6,
+          "mergeWindowSeconds": 0.5,
+          "minStartupBatches": 3,
+          "openToFirstScheduleMs": 6,
+          "scheduledSources": 5,
+          "retainedSources": 5,
+          "underflows": 0,
+          "cancellationMs": 1.0999999940395355
+        },
+        {
+          "label": "selection-zero-startup-buffer",
+          "startupBufferSeconds": 0,
+          "mergeWindowSeconds": 0.5,
+          "minStartupBatches": 3,
+          "openToFirstScheduleMs": 4.4000000059604645,
+          "scheduledSources": 5,
+          "retainedSources": 5,
+          "underflows": 0,
+          "cancellationMs": 0.6000000089406967
+        },
+        {
+          "label": "selection-200ms",
+          "startupBufferSeconds": 0.2,
+          "mergeWindowSeconds": 0.5,
+          "minStartupBatches": 3,
+          "openToFirstScheduleMs": 3.5999999940395355,
+          "scheduledSources": 5,
+          "retainedSources": 5,
+          "underflows": 0,
+          "cancellationMs": 0.7999999970197678
+        },
+        {
+          "label": "selection-unmerged",
+          "startupBufferSeconds": 0.6,
+          "mergeWindowSeconds": 0,
+          "minStartupBatches": 3,
+          "openToFirstScheduleMs": 4.800000011920929,
+          "scheduledSources": 173,
+          "retainedSources": 148,
+          "underflows": 0,
+          "cancellationMs": 0.5
+        },
+        {
+          "label": "first-chunk-unmerged",
+          "startupBufferSeconds": 0,
+          "mergeWindowSeconds": 0,
+          "minStartupBatches": 1,
+          "openToFirstScheduleMs": 1.1000000089406967,
+          "scheduledSources": 173,
+          "retainedSources": 148,
+          "underflows": 0,
+          "cancellationMs": 0.6000000089406967
+        }
+      ]
+    },
+    {
+      "fixture": "bach_orig.mscz",
+      "cpuRate": 4,
+      "policies": [
+        {
+          "label": "selection-current",
+          "startupBufferSeconds": 0.6,
+          "mergeWindowSeconds": 0.5,
+          "minStartupBatches": 3,
+          "openToFirstScheduleMs": 8.599999994039536,
+          "scheduledSources": 5,
+          "retainedSources": 5,
+          "underflows": 0,
+          "cancellationMs": 1.3999999910593033
+        },
+        {
+          "label": "selection-zero-startup-buffer",
+          "startupBufferSeconds": 0,
+          "mergeWindowSeconds": 0.5,
+          "minStartupBatches": 3,
+          "openToFirstScheduleMs": 8.700000002980232,
+          "scheduledSources": 5,
+          "retainedSources": 5,
+          "underflows": 0,
+          "cancellationMs": 2
+        },
+        {
+          "label": "selection-200ms",
+          "startupBufferSeconds": 0.2,
+          "mergeWindowSeconds": 0.5,
+          "minStartupBatches": 3,
+          "openToFirstScheduleMs": 10.199999988079071,
+          "scheduledSources": 5,
+          "retainedSources": 5,
+          "underflows": 0,
+          "cancellationMs": 1.300000011920929
+        },
+        {
+          "label": "selection-unmerged",
+          "startupBufferSeconds": 0.6,
+          "mergeWindowSeconds": 0,
+          "minStartupBatches": 3,
+          "openToFirstScheduleMs": 9.399999991059303,
+          "scheduledSources": 173,
+          "retainedSources": 148,
+          "underflows": 0,
+          "cancellationMs": 3.6000000089406967
+        },
+        {
+          "label": "first-chunk-unmerged",
+          "startupBufferSeconds": 0,
+          "mergeWindowSeconds": 0,
+          "minStartupBatches": 1,
+          "openToFirstScheduleMs": 13.700000002980232,
+          "scheduledSources": 173,
+          "retainedSources": 132,
+          "underflows": 0,
+          "cancellationMs": 1.6000000089406967
+        }
+      ]
+    },
+    {
+      "fixture": "men-base.musicxml",
+      "cpuRate": 1,
+      "policies": [
+        {
+          "label": "selection-current",
+          "startupBufferSeconds": 0.6,
+          "mergeWindowSeconds": 0.5,
+          "minStartupBatches": 3,
+          "openToFirstScheduleMs": 8.700000002980232,
+          "scheduledSources": 5,
+          "retainedSources": 5,
+          "underflows": 0,
+          "cancellationMs": 0.7999999970197678
+        },
+        {
+          "label": "selection-zero-startup-buffer",
+          "startupBufferSeconds": 0,
+          "mergeWindowSeconds": 0.5,
+          "minStartupBatches": 3,
+          "openToFirstScheduleMs": 4.700000002980232,
+          "scheduledSources": 5,
+          "retainedSources": 5,
+          "underflows": 0,
+          "cancellationMs": 0.4000000059604645
+        },
+        {
+          "label": "selection-200ms",
+          "startupBufferSeconds": 0.2,
+          "mergeWindowSeconds": 0.5,
+          "minStartupBatches": 3,
+          "openToFirstScheduleMs": 4.5999999940395355,
+          "scheduledSources": 5,
+          "retainedSources": 5,
+          "underflows": 0,
+          "cancellationMs": 0.5999999940395355
+        },
+        {
+          "label": "selection-unmerged",
+          "startupBufferSeconds": 0.6,
+          "mergeWindowSeconds": 0,
+          "minStartupBatches": 3,
+          "openToFirstScheduleMs": 5.0999999940395355,
+          "scheduledSources": 173,
+          "retainedSources": 148,
+          "underflows": 0,
+          "cancellationMs": 0.6000000089406967
+        },
+        {
+          "label": "first-chunk-unmerged",
+          "startupBufferSeconds": 0,
+          "mergeWindowSeconds": 0,
+          "minStartupBatches": 1,
+          "openToFirstScheduleMs": 1.2999999970197678,
+          "scheduledSources": 173,
+          "retainedSources": 148,
+          "underflows": 0,
+          "cancellationMs": 0.7000000029802322
+        }
+      ]
+    },
+    {
+      "fixture": "men-base.musicxml",
+      "cpuRate": 4,
+      "policies": [
+        {
+          "label": "selection-current",
+          "startupBufferSeconds": 0.6,
+          "mergeWindowSeconds": 0.5,
+          "minStartupBatches": 3,
+          "openToFirstScheduleMs": 9.800000011920929,
+          "scheduledSources": 5,
+          "retainedSources": 5,
+          "underflows": 0,
+          "cancellationMs": 2.5999999940395355
+        },
+        {
+          "label": "selection-zero-startup-buffer",
+          "startupBufferSeconds": 0,
+          "mergeWindowSeconds": 0.5,
+          "minStartupBatches": 3,
+          "openToFirstScheduleMs": 7.5,
+          "scheduledSources": 5,
+          "retainedSources": 5,
+          "underflows": 0,
+          "cancellationMs": 1.5
+        },
+        {
+          "label": "selection-200ms",
+          "startupBufferSeconds": 0.2,
+          "mergeWindowSeconds": 0.5,
+          "minStartupBatches": 3,
+          "openToFirstScheduleMs": 9.099999994039536,
+          "scheduledSources": 5,
+          "retainedSources": 5,
+          "underflows": 0,
+          "cancellationMs": 1.4000000059604645
+        },
+        {
+          "label": "selection-unmerged",
+          "startupBufferSeconds": 0.6,
+          "mergeWindowSeconds": 0,
+          "minStartupBatches": 3,
+          "openToFirstScheduleMs": 9.800000011920929,
+          "scheduledSources": 173,
+          "retainedSources": 148,
+          "underflows": 0,
+          "cancellationMs": 1.0999999940395355
+        },
+        {
+          "label": "first-chunk-unmerged",
+          "startupBufferSeconds": 0,
+          "mergeWindowSeconds": 0,
+          "minStartupBatches": 1,
+          "openToFirstScheduleMs": 2.5,
+          "scheduledSources": 173,
+          "retainedSources": 148,
+          "underflows": 0,
+          "cancellationMs": 1.5
+        }
+      ]
+    }
+  ]
+}

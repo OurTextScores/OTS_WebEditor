@@ -21,6 +21,7 @@ for (const supported of [false, true]) {
     Module._playbackCapabilities = () => {};
     Module._invalidateSoundFont = () => {};
   }
+  if (supported) Module._warmupPlayback = () => {};
   const caps = { schemaVersion: 1, streamHandlesVersion: 1, partialLayoutSafe: true };
   const ctx = vm.createContext({ Module, IS_NODE: true, console, WasmRes: { readText: () => JSON.stringify(caps) } });
   vm.runInContext(index, ctx);
@@ -28,6 +29,9 @@ for (const supported of [false, true]) {
   assert.deepEqual(JSON.parse(JSON.stringify(await score.playbackCapabilities())), supported ? caps : null);
   if (supported) assert.deepEqual(Array.from(calls[0][3]), [123, -1]);
   else assert.equal(calls.length, 0);
+  assert.equal(await score.warmupPlayback(), supported);
+  assert.equal(await score.playbackDiagnostics(), null, 'absent diagnostic export is never called');
+  assert.equal(await score.setPlaybackReuse(false), false, 'old native has no reuse control');
   order.length = 0;
   await ctx.ScoreClass.setSoundFont(new Uint8Array([1]));
   await ctx.ScoreClass.setSoundFont(new Uint8Array([2]));

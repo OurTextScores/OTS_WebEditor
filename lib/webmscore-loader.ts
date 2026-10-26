@@ -65,11 +65,35 @@ export interface Positions {
   };
 }
 
+export interface PlaybackDiagnostics {
+  schemaVersion: 1;
+  activeStreams: number;
+  retainedStreams: number;
+  sequences: number;
+  wasmHeapBytes: number;
+  soundFontGeneration: number;
+  loadedSoundFontGeneration: number;
+  lastPrepare: {
+    soundFontMs: number;
+    releaseMs: number;
+    scopeMs: number;
+    modelLoadMs: number;
+    tracksMs: number;
+    trackDataMs: number;
+    seekMs: number;
+    totalMs: number;
+    firstBatchMs: number;
+    tracks: number;
+    reused: boolean;
+  };
+}
+
 export interface PlaybackCapabilities {
   schemaVersion: 1;
   positionsSchemaVersion: 1;
   partialLayoutSafe: boolean;
   streamHandlesVersion: number;
+  preparedPlaybackVersion?: 1;
   soundFontGeneration: boolean;
   pcm?: { sampleRate: number; channels: number; framesPerChunk: number; format: 'f32-planar' };
   /** Transient tempo/repeat options; absent on engines that always play written repeats at 100%. */
@@ -317,6 +341,9 @@ export interface Score {
     | Promise<{ startMeasureIndex: number; endMeasureIndex: number } | null>
     | { startMeasureIndex: number; endMeasureIndex: number }
     | null;
+  warmupPlayback?: () => Promise<boolean>;
+  playbackDiagnostics?: () => Promise<PlaybackDiagnostics | null>;
+  setPlaybackReuse?: (enabled: boolean) => Promise<boolean>;
   playbackCapabilities?: () => Promise<PlaybackCapabilities | null>;
   playbackTimeline?: () => Promise<PlaybackTimeline | null> | PlaybackTimeline | null;
   playbackOptions?: () => Promise<PlaybackOptions | null>;

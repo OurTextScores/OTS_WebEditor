@@ -1,0 +1,1898 @@
+{
+  "recordedAt": "2026-10-25T22:38:18.698Z",
+  "node": "v24.21.0",
+  "cpu": "Intel(R) Core(TM) Ultra 7 155H",
+  "memoryGiB": 15,
+  "scope": "Node in-process, one cold process per run; native stage times from playbackDiagnostics().lastPrepare; excludes network, worker RPC, Web Audio scheduling and device output",
+  "bundle": "/tmp/ots-phase8-bundle-final",
+  "reuseEnabled": true,
+  "onsetMethod": "Isolated quarter notes at 60 bpm, three beats rest between strikes; first sample above 2% of that note peak. Event times 0/4000/... ms; no MP3 encoder.",
+  "summary": {
+    "bach / first": {
+      "openMs": {
+        "n": 3,
+        "p50": 296.22170400000005,
+        "p95": 313.1956058999999,
+        "max": 315.0815949999999
+      },
+      "modelLoadMs": {
+        "n": 3,
+        "p50": 32.444625,
+        "p95": 33.2626134,
+        "max": 33.353501
+      },
+      "tracksMs": {
+        "n": 3,
+        "p50": 232.353946,
+        "p95": 243.89379459999998,
+        "max": 245.176
+      },
+      "seekMs": {
+        "n": 3,
+        "p50": 0.156374,
+        "p95": 0.20161249999999997,
+        "max": 0.206639
+      },
+      "firstPullMs": {
+        "n": 3,
+        "p50": 3.256114000000025,
+        "p95": 4.00675719999997,
+        "max": 4.090161999999964
+      },
+      "renderCost": {
+        "n": 3,
+        "p50": 0.009950749409179978,
+        "p95": 0.010018878418212914,
+        "max": 0.010026448308105463
+      }
+    },
+    "bach / repeat-same": {
+      "openMs": {
+        "n": 3,
+        "p50": 0.12837100000001556,
+        "p95": 0.1676695000001473,
+        "max": 0.17203600000016195
+      },
+      "modelLoadMs": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "tracksMs": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "seekMs": {
+        "n": 3,
+        "p50": 0.050988,
+        "p95": 0.065118,
+        "max": 0.066688
+      },
+      "firstPullMs": {
+        "n": 3,
+        "p50": 0.301729000000023,
+        "p95": 0.36544089999990775,
+        "max": 0.37251999999989494
+      },
+      "renderCost": {
+        "n": 3,
+        "p50": 0.007329491059571588,
+        "p95": 0.008692262132079388,
+        "max": 0.008843681140135812
+      }
+    },
+    "bach / seek": {
+      "openMs": {
+        "n": 3,
+        "p50": 0.21780100000000857,
+        "p95": 0.3128311000000167,
+        "max": 0.3233900000000176
+      },
+      "modelLoadMs": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "tracksMs": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "seekMs": {
+        "n": 3,
+        "p50": 0.166071,
+        "p95": 0.230601,
+        "max": 0.237771
+      },
+      "firstPullMs": {
+        "n": 3,
+        "p50": 0.12804099999993923,
+        "p95": 0.13062219999997068,
+        "max": 0.13090899999997418
+      },
+      "renderCost": {
+        "n": 3,
+        "p50": 0.004197257336426175,
+        "p95": 0.004222492850829882,
+        "max": 0.004225296796874738
+      }
+    },
+    "bach / after-speed-change": {
+      "openMs": {
+        "n": 3,
+        "p50": 172.1736669999998,
+        "p95": 181.13587869999995,
+        "max": 182.13167999999996
+      },
+      "modelLoadMs": {
+        "n": 3,
+        "p50": 2.064657,
+        "p95": 2.3286828,
+        "max": 2.358019
+      },
+      "tracksMs": {
+        "n": 3,
+        "p50": 169.97814,
+        "p95": 178.9088958,
+        "max": 179.901202
+      },
+      "seekMs": {
+        "n": 3,
+        "p50": 0.003576,
+        "p95": 0.0041088,
+        "max": 0.004168
+      },
+      "firstPullMs": {
+        "n": 3,
+        "p50": 0.1854840000000877,
+        "p95": 0.20078219999993507,
+        "max": 0.20248199999991812
+      },
+      "renderCost": {
+        "n": 3,
+        "p50": 0.002910472954102101,
+        "p95": 0.0031569821564950483,
+        "max": 0.0031843720678720426
+      }
+    },
+    "bach / batch-2": {
+      "openMs": {
+        "n": 3,
+        "p50": 167.53280299999983,
+        "p95": 168.3211273999998,
+        "max": 168.4087189999998
+      },
+      "modelLoadMs": {
+        "n": 3,
+        "p50": 2.127455,
+        "p95": 2.152952,
+        "max": 2.155785
+      },
+      "tracksMs": {
+        "n": 3,
+        "p50": 165.282012,
+        "p95": 166.05059490000002,
+        "max": 166.135993
+      },
+      "seekMs": {
+        "n": 3,
+        "p50": 0.006853,
+        "p95": 0.007967199999999999,
+        "max": 0.008091
+      },
+      "firstPullMs": {
+        "n": 3,
+        "p50": 0.11837500000001455,
+        "p95": 0.22587279999995644,
+        "max": 0.23781699999994999
+      },
+      "renderCost": {
+        "n": 3,
+        "p50": 0.0029167628027334767,
+        "p95": 0.003169666397460458,
+        "max": 0.003197766796874567
+      }
+    },
+    "bach / batch-8": {
+      "openMs": {
+        "n": 3,
+        "p50": 0.05527799999981653,
+        "p95": 0.05863499999993564,
+        "max": 0.05900799999994888
+      },
+      "modelLoadMs": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "tracksMs": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "seekMs": {
+        "n": 3,
+        "p50": 0.003953,
+        "p95": 0.0048763999999999995,
+        "max": 0.004979
+      },
+      "firstPullMs": {
+        "n": 3,
+        "p50": 0.1271630000001096,
+        "p95": 0.13007990000000974,
+        "max": 0.13040399999999863
+      },
+      "renderCost": {
+        "n": 3,
+        "p50": 0.0020118848510745067,
+        "p95": 0.0023524233068848697,
+        "max": 0.0023902609130860212
+      }
+    },
+    "bach / batch-16": {
+      "openMs": {
+        "n": 3,
+        "p50": 0.04172400000015841,
+        "p95": 0.0435743999999886,
+        "max": 0.04377999999996973
+      },
+      "modelLoadMs": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "tracksMs": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "seekMs": {
+        "n": 3,
+        "p50": 0.003299,
+        "p95": 0.003299,
+        "max": 0.003299
+      },
+      "firstPullMs": {
+        "n": 3,
+        "p50": 0.25558700000010504,
+        "p95": 0.2593921999999111,
+        "max": 0.25981499999988955
+      },
+      "renderCost": {
+        "n": 3,
+        "p50": 0.002303729736328069,
+        "p95": 0.002437606935791039,
+        "max": 0.0024524821801758133
+      }
+    },
+    "men-base (4 parts, 272 measures) / first": {
+      "openMs": {
+        "n": 3,
+        "p50": 1172.0788180000002,
+        "p95": 1262.8434328,
+        "max": 1272.92839
+      },
+      "modelLoadMs": {
+        "n": 3,
+        "p50": 21.9206,
+        "p95": 24.092643799999998,
+        "max": 24.333982
+      },
+      "tracksMs": {
+        "n": 3,
+        "p50": 1150.270703,
+        "p95": 1238.5956338,
+        "max": 1248.409515
+      },
+      "seekMs": {
+        "n": 3,
+        "p50": 0.004846,
+        "p95": 0.0071491,
+        "max": 0.007405
+      },
+      "firstPullMs": {
+        "n": 3,
+        "p50": 2.1533979999999247,
+        "p95": 2.437984299999789,
+        "max": 2.469604999999774
+      },
+      "renderCost": {
+        "n": 3,
+        "p50": 0.009223774475097474,
+        "p95": 0.010295227149169606,
+        "max": 0.010414277446288731
+      }
+    },
+    "men-base (4 parts, 272 measures) / repeat-same": {
+      "openMs": {
+        "n": 3,
+        "p50": 0.07832400000006601,
+        "p95": 0.10980690000028517,
+        "max": 0.11330500000030952
+      },
+      "modelLoadMs": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "tracksMs": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "seekMs": {
+        "n": 3,
+        "p50": 0.009632,
+        "p95": 0.0133364,
+        "max": 0.013748
+      },
+      "firstPullMs": {
+        "n": 3,
+        "p50": 0.25133599999981016,
+        "p95": 0.2646406999998817,
+        "max": 0.26611899999988964
+      },
+      "renderCost": {
+        "n": 3,
+        "p50": 0.006814887341308107,
+        "p95": 0.006945252906006166,
+        "max": 0.006959737968750395
+      }
+    },
+    "men-base (4 parts, 272 measures) / seek": {
+      "openMs": {
+        "n": 3,
+        "p50": 0.07840299999998024,
+        "p95": 0.09074379999992743,
+        "max": 0.09211499999992157
+      },
+      "modelLoadMs": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "tracksMs": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "seekMs": {
+        "n": 3,
+        "p50": 0.011474,
+        "p95": 0.0142109,
+        "max": 0.014515
+      },
+      "firstPullMs": {
+        "n": 3,
+        "p50": 0.3256279999995968,
+        "p95": 0.351018799999747,
+        "max": 0.3538399999997637
+      },
+      "renderCost": {
+        "n": 3,
+        "p50": 0.007973860319823016,
+        "p95": 0.00865412909033184,
+        "max": 0.008729714509277264
+      }
+    },
+    "men-base (4 parts, 272 measures) / after-speed-change": {
+      "openMs": {
+        "n": 3,
+        "p50": 1003.4308510000001,
+        "p95": 1006.1151711999997,
+        "max": 1006.4134289999997
+      },
+      "modelLoadMs": {
+        "n": 3,
+        "p50": 11.301329,
+        "p95": 11.324072899999999,
+        "max": 11.3266
+      },
+      "tracksMs": {
+        "n": 3,
+        "p50": 993.649202,
+        "p95": 994.8376079,
+        "max": 994.969653
+      },
+      "seekMs": {
+        "n": 3,
+        "p50": 0.004132,
+        "p95": 0.0042022000000000006,
+        "max": 0.00421
+      },
+      "firstPullMs": {
+        "n": 3,
+        "p50": 0.3401910000002317,
+        "p95": 0.37466819999995093,
+        "max": 0.37849899999991976
+      },
+      "renderCost": {
+        "n": 3,
+        "p50": 0.00607357452392687,
+        "p95": 0.006522299237547366,
+        "max": 0.006572157539060755
+      }
+    },
+    "men-base (4 parts, 272 measures) / batch-2": {
+      "openMs": {
+        "n": 3,
+        "p50": 912.910531,
+        "p95": 931.1401516000004,
+        "max": 933.1656650000004
+      },
+      "modelLoadMs": {
+        "n": 3,
+        "p50": 9.155567,
+        "p95": 9.294628699999999,
+        "max": 9.31008
+      },
+      "tracksMs": {
+        "n": 3,
+        "p50": 903.633615,
+        "p95": 921.7131939,
+        "max": 923.722036
+      },
+      "seekMs": {
+        "n": 3,
+        "p50": 0.009801,
+        "p95": 0.0106317,
+        "max": 0.010724
+      },
+      "firstPullMs": {
+        "n": 3,
+        "p50": 0.29357700000036857,
+        "p95": 0.3391772999999375,
+        "max": 0.34424399999988964
+      },
+      "renderCost": {
+        "n": 3,
+        "p50": 0.006652631425783433,
+        "p95": 0.006995510971439346,
+        "max": 0.007033608698734448
+      }
+    },
+    "men-base (4 parts, 272 measures) / batch-8": {
+      "openMs": {
+        "n": 3,
+        "p50": 0.06231299999944895,
+        "p95": 0.07268100000028425,
+        "max": 0.07383300000037707
+      },
+      "modelLoadMs": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "tracksMs": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "seekMs": {
+        "n": 3,
+        "p50": 0.006495,
+        "p95": 0.007891800000000001,
+        "max": 0.008047
+      },
+      "firstPullMs": {
+        "n": 3,
+        "p50": 0.6394339999997101,
+        "p95": 0.6454828999994788,
+        "max": 0.6461549999994531
+      },
+      "renderCost": {
+        "n": 3,
+        "p50": 0.006669213068846531,
+        "p95": 0.007574178014650117,
+        "max": 0.0076747296752949605
+      }
+    },
+    "men-base (4 parts, 272 measures) / batch-16": {
+      "openMs": {
+        "n": 3,
+        "p50": 0.04872299999988172,
+        "p95": 0.0893156999994062,
+        "max": 0.09382599999935337
+      },
+      "modelLoadMs": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "tracksMs": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "seekMs": {
+        "n": 3,
+        "p50": 0.006597,
+        "p95": 0.0087516,
+        "max": 0.008991
+      },
+      "firstPullMs": {
+        "n": 3,
+        "p50": 1.193398000000343,
+        "p95": 1.4168031999998676,
+        "max": 1.4416259999998147
+      },
+      "renderCost": {
+        "n": 3,
+        "p50": 0.00685943092529312,
+        "p95": 0.007318989962402003,
+        "max": 0.007370052077636324
+      }
+    }
+  },
+  "onsets": [
+    {
+      "instrument": "Piano",
+      "program": 1,
+      "lagsMs": [
+        0.9750566893424036,
+        2.0634920634920637,
+        1.7006802721088434,
+        2.7891156462585034,
+        2.4263038548752833,
+        3.5147392290249435,
+        3.1519274376417235,
+        4.240362811791384
+      ],
+      "n": 8,
+      "p50": 2.6077097505668934,
+      "p95": 3.9863945578231292,
+      "max": 4.240362811791384
+    },
+    {
+      "instrument": "Violin",
+      "program": 41,
+      "lagsMs": [
+        13.696145124716553,
+        14.784580498866212,
+        14.421768707482993,
+        15.510204081632654,
+        15.147392290249433,
+        16.235827664399093,
+        15.873015873015872,
+        16.961451247165535
+      ],
+      "n": 8,
+      "p50": 15.328798185941043,
+      "p95": 16.707482993197278,
+      "max": 16.961451247165535
+    },
+    {
+      "instrument": "Flute",
+      "program": 74,
+      "lagsMs": [
+        1.4285714285714286,
+        2.5170068027210886,
+        2.1541950113378685,
+        3.2426303854875282,
+        2.8798185941043086,
+        3.968253968253968,
+        3.6054421768707483,
+        4.6938775510204085
+      ],
+      "n": 8,
+      "p50": 3.0612244897959187,
+      "p95": 4.439909297052154,
+      "max": 4.6938775510204085
+    },
+    {
+      "instrument": "Trumpet",
+      "program": 57,
+      "lagsMs": [
+        4.71655328798186,
+        5.804988662131519,
+        5.442176870748299,
+        6.530612244897959,
+        6.167800453514739,
+        7.2562358276643995,
+        6.893424036281179,
+        7.98185941043084
+      ],
+      "n": 8,
+      "p50": 6.34920634920635,
+      "p95": 7.727891156462585,
+      "max": 7.98185941043084
+    }
+  ],
+  "runs": [
+    {
+      "bootMs": 234.781887,
+      "soundfontInstallMs": 69.88123300000001,
+      "version": 470,
+      "memoryBytes": 288751616,
+      "fixtures": [
+        {
+          "name": "bach",
+          "loadMs": 290.860053,
+          "firstPageMs": 224.583263,
+          "timelineMs": 0.9189989999999852,
+          "followMapMs": 10.015783000000056,
+          "followIntervals": 657,
+          "durationMs": 144000,
+          "starts": [
+            {
+              "label": "first",
+              "startSeconds": 0,
+              "batchSize": 2,
+              "openMs": 295.981396,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 33.353501,
+                "releaseMs": 0.026866,
+                "reused": false,
+                "scopeMs": 0.004625,
+                "seekMs": 0.156374,
+                "soundFontMs": 31.475177,
+                "totalMs": 295.129083,
+                "trackDataMs": 0.004804,
+                "tracks": 2,
+                "tracksMs": 229.708685
+              },
+              "firstPullMs": 4.090161999999964,
+              "pullP50Ms": 0.12953950000007808,
+              "renderCostPerAudioSecond": 0.010026448308105463,
+              "cancelMs": 0.2569370000001072
+            },
+            {
+              "label": "repeat-same",
+              "startSeconds": 0,
+              "batchSize": 2,
+              "openMs": 0.12393200000019533,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 0,
+                "releaseMs": 0.003324,
+                "reused": true,
+                "scopeMs": 0,
+                "seekMs": 0.050988,
+                "soundFontMs": 0.00227,
+                "totalMs": 0.057699,
+                "trackDataMs": 0,
+                "tracks": 0,
+                "tracksMs": 0
+              },
+              "firstPullMs": 0.301729000000023,
+              "pullP50Ms": 0.19420049999996536,
+              "renderCostPerAudioSecond": 0.007329491059571588,
+              "cancelMs": 0.09586500000000342
+            },
+            {
+              "label": "seek",
+              "startSeconds": 30,
+              "batchSize": 2,
+              "openMs": 0.21780100000000857,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 0,
+                "releaseMs": 0.001534,
+                "reused": true,
+                "scopeMs": 0,
+                "seekMs": 0.166071,
+                "soundFontMs": 0.001985,
+                "totalMs": 0.170839,
+                "trackDataMs": 0,
+                "tracks": 0,
+                "tracksMs": 0
+              },
+              "firstPullMs": 0.12804099999993923,
+              "pullP50Ms": 0.08051399999999376,
+              "renderCostPerAudioSecond": 0.004197257336426175,
+              "cancelMs": 0.18811200000004646
+            },
+            {
+              "label": "after-speed-change",
+              "startSeconds": 0,
+              "batchSize": 2,
+              "openMs": 172.1736669999998,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 2.044797,
+                "releaseMs": 0.002562,
+                "reused": false,
+                "scopeMs": 0.047352,
+                "seekMs": 0.003576,
+                "soundFontMs": 0.002525,
+                "totalMs": 172.092186,
+                "trackDataMs": 0.001953,
+                "tracks": 2,
+                "tracksMs": 169.97814
+              },
+              "firstPullMs": 0.1854840000000877,
+              "pullP50Ms": 0.06457850000003873,
+              "renderCostPerAudioSecond": 0.0031843720678720426,
+              "cancelMs": 0.07889099999988503
+            },
+            {
+              "label": "batch-2",
+              "startSeconds": 30,
+              "batchSize": 2,
+              "openMs": 167.53280299999983,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 2.127455,
+                "releaseMs": 0.002432,
+                "reused": false,
+                "scopeMs": 0.002827,
+                "seekMs": 0.005597,
+                "soundFontMs": 0.001956,
+                "totalMs": 167.434304,
+                "trackDataMs": 0.003891,
+                "tracks": 2,
+                "tracksMs": 165.282012
+              },
+              "firstPullMs": 0.11069800000018404,
+              "pullP50Ms": 0.055318499999998494,
+              "renderCostPerAudioSecond": 0.0025165951391608685,
+              "cancelMs": 0.10154799999986608
+            },
+            {
+              "label": "batch-8",
+              "startSeconds": 30,
+              "batchSize": 8,
+              "openMs": 0.05900799999994888,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 0,
+                "releaseMs": 0.002937,
+                "reused": true,
+                "scopeMs": 0,
+                "seekMs": 0.003953,
+                "soundFontMs": 0.003483,
+                "totalMs": 0.011426,
+                "trackDataMs": 0,
+                "tracks": 0,
+                "tracksMs": 0
+              },
+              "firstPullMs": 0.12668300000018462,
+              "pullP50Ms": 0.1842824999999948,
+              "renderCostPerAudioSecond": 0.0020118848510745067,
+              "cancelMs": 0.04910300000005918
+            },
+            {
+              "label": "batch-16",
+              "startSeconds": 30,
+              "batchSize": 16,
+              "openMs": 0.04377999999996973,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 0,
+                "releaseMs": 0.001959,
+                "reused": true,
+                "scopeMs": 0,
+                "seekMs": 0.003299,
+                "soundFontMs": 0.001398,
+                "totalMs": 0.007317,
+                "trackDataMs": 0,
+                "tracks": 0,
+                "tracksMs": 0
+              },
+              "firstPullMs": 0.25558700000010504,
+              "pullP50Ms": 0.4404299999998784,
+              "renderCostPerAudioSecond": 0.002303729736328069,
+              "cancelMs": 0.0575539999999819
+            }
+          ]
+        },
+        {
+          "name": "men-base (4 parts, 272 measures)",
+          "loadMs": 235.88523999999984,
+          "firstPageMs": 173.13916300000005,
+          "timelineMs": 0.949628999999959,
+          "followMapMs": 10.451763000000028,
+          "followIntervals": 968,
+          "durationMs": 211500,
+          "starts": [
+            {
+              "label": "first",
+              "startSeconds": 0,
+              "batchSize": 2,
+              "openMs": 1272.92839,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 24.333982,
+                "releaseMs": 0.005259,
+                "reused": false,
+                "scopeMs": 0.003713,
+                "seekMs": 0.00469,
+                "soundFontMs": 0.003814,
+                "totalMs": 1272.770736,
+                "trackDataMs": 0.007834,
+                "tracks": 5,
+                "tracksMs": 1248.409515
+              },
+              "firstPullMs": 2.469604999999774,
+              "pullP50Ms": 0.14258250000011685,
+              "renderCostPerAudioSecond": 0.009223774475097474,
+              "cancelMs": 0.07346800000004805
+            },
+            {
+              "label": "repeat-same",
+              "startSeconds": 0,
+              "batchSize": 2,
+              "openMs": 0.07644899999968402,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 0,
+                "releaseMs": 0.002357,
+                "reused": true,
+                "scopeMs": 0,
+                "seekMs": 0.008317,
+                "soundFontMs": 0.002162,
+                "totalMs": 0.013735,
+                "trackDataMs": 0,
+                "tracks": 0,
+                "tracksMs": 0
+              },
+              "firstPullMs": 0.24865399999998772,
+              "pullP50Ms": 0.1414359999998851,
+              "renderCostPerAudioSecond": 0.006814887341308107,
+              "cancelMs": 0.10587600000008024
+            },
+            {
+              "label": "seek",
+              "startSeconds": 30,
+              "batchSize": 2,
+              "openMs": 0.06931800000029398,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 0,
+                "releaseMs": 0.002347,
+                "reused": true,
+                "scopeMs": 0,
+                "seekMs": 0.01029,
+                "soundFontMs": 0.001374,
+                "totalMs": 0.014618,
+                "trackDataMs": 0,
+                "tracks": 0,
+                "tracksMs": 0
+              },
+              "firstPullMs": 0.2868029999999635,
+              "pullP50Ms": 0.1682064999999966,
+              "renderCostPerAudioSecond": 0.007973860319823016,
+              "cancelMs": 0.0832629999999881
+            },
+            {
+              "label": "after-speed-change",
+              "startSeconds": 0,
+              "batchSize": 2,
+              "openMs": 968.3633829999999,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 11.3266,
+                "releaseMs": 0.002786,
+                "reused": false,
+                "scopeMs": 0.008963,
+                "seekMs": 0.004132,
+                "soundFontMs": 0.002586,
+                "totalMs": 968.250183,
+                "trackDataMs": 0.009566,
+                "tracks": 5,
+                "tracksMs": 956.89336
+              },
+              "firstPullMs": 0.3401910000002317,
+              "pullP50Ms": 0.11689150000029258,
+              "renderCostPerAudioSecond": 0.00607357452392687,
+              "cancelMs": 0.07395499999984168
+            },
+            {
+              "label": "batch-2",
+              "startSeconds": 30,
+              "batchSize": 2,
+              "openMs": 933.1656650000004,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 9.31008,
+                "releaseMs": 0.002247,
+                "reused": false,
+                "scopeMs": 0.002924,
+                "seekMs": 0.009801,
+                "soundFontMs": 0.002268,
+                "totalMs": 933.058393,
+                "trackDataMs": 0.009549,
+                "tracks": 5,
+                "tracksMs": 923.722036
+              },
+              "firstPullMs": 0.34424399999988964,
+              "pullP50Ms": 0.14529999999967913,
+              "renderCostPerAudioSecond": 0.007033608698734448,
+              "cancelMs": 0.11730199999965407
+            },
+            {
+              "label": "batch-8",
+              "startSeconds": 30,
+              "batchSize": 8,
+              "openMs": 0.05517599999984668,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 0,
+                "releaseMs": 0.002944,
+                "reused": true,
+                "scopeMs": 0,
+                "seekMs": 0.006165,
+                "soundFontMs": 0.001402,
+                "totalMs": 0.01138,
+                "trackDataMs": 0,
+                "tracks": 0,
+                "tracksMs": 0
+              },
+              "firstPullMs": 0.5848110000006272,
+              "pullP50Ms": 0.6143085000003339,
+              "renderCostPerAudioSecond": 0.0076747296752949605,
+              "cancelMs": 0.06929399999989982
+            },
+            {
+              "label": "batch-16",
+              "startSeconds": 30,
+              "batchSize": 16,
+              "openMs": 0.09382599999935337,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 0,
+                "releaseMs": 0.023841,
+                "reused": true,
+                "scopeMs": 0,
+                "seekMs": 0.008991,
+                "soundFontMs": 0.00189,
+                "totalMs": 0.035926,
+                "trackDataMs": 0,
+                "tracks": 0,
+                "tracksMs": 0
+              },
+              "firstPullMs": 1.4416259999998147,
+              "pullP50Ms": 1.366269000000102,
+              "renderCostPerAudioSecond": 0.007370052077636324,
+              "cancelMs": 0.06267800000023271
+            }
+          ]
+        }
+      ],
+      "onsets": [
+        {
+          "instrument": "Piano",
+          "program": 1,
+          "lagsMs": [
+            0.9750566893424036,
+            2.0634920634920637,
+            1.7006802721088434,
+            2.7891156462585034,
+            2.4263038548752833,
+            3.5147392290249435,
+            3.1519274376417235,
+            4.240362811791384
+          ],
+          "n": 8,
+          "p50": 2.6077097505668934,
+          "p95": 3.9863945578231292,
+          "max": 4.240362811791384
+        },
+        {
+          "instrument": "Violin",
+          "program": 41,
+          "lagsMs": [
+            13.696145124716553,
+            14.784580498866212,
+            14.421768707482993,
+            15.510204081632654,
+            15.147392290249433,
+            16.235827664399093,
+            15.873015873015872,
+            16.961451247165535
+          ],
+          "n": 8,
+          "p50": 15.328798185941043,
+          "p95": 16.707482993197278,
+          "max": 16.961451247165535
+        },
+        {
+          "instrument": "Flute",
+          "program": 74,
+          "lagsMs": [
+            1.4285714285714286,
+            2.5170068027210886,
+            2.1541950113378685,
+            3.2426303854875282,
+            2.8798185941043086,
+            3.968253968253968,
+            3.6054421768707483,
+            4.6938775510204085
+          ],
+          "n": 8,
+          "p50": 3.0612244897959187,
+          "p95": 4.439909297052154,
+          "max": 4.6938775510204085
+        },
+        {
+          "instrument": "Trumpet",
+          "program": 57,
+          "lagsMs": [
+            4.71655328798186,
+            5.804988662131519,
+            5.442176870748299,
+            6.530612244897959,
+            6.167800453514739,
+            7.2562358276643995,
+            6.893424036281179,
+            7.98185941043084
+          ],
+          "n": 8,
+          "p50": 6.34920634920635,
+          "p95": 7.727891156462585,
+          "max": 7.98185941043084
+        }
+      ]
+    },
+    {
+      "bootMs": 245.67749,
+      "soundfontInstallMs": 63.787665000000004,
+      "version": 470,
+      "memoryBytes": 288751616,
+      "fixtures": [
+        {
+          "name": "bach",
+          "loadMs": 304.699947,
+          "firstPageMs": 255.07016899999996,
+          "timelineMs": 0.9589509999999564,
+          "followMapMs": 9.476931000000036,
+          "followIntervals": 657,
+          "durationMs": 144000,
+          "starts": [
+            {
+              "label": "first",
+              "startSeconds": 0,
+              "batchSize": 2,
+              "openMs": 315.0815949999999,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 32.444625,
+                "releaseMs": 0.032247,
+                "reused": false,
+                "scopeMs": 0.005121,
+                "seekMs": 0.206639,
+                "soundFontMs": 35.881031,
+                "totalMs": 314.201729,
+                "trackDataMs": 0.003802,
+                "tracks": 2,
+                "tracksMs": 245.176
+              },
+              "firstPullMs": 3.256114000000025,
+              "pullP50Ms": 0.12334650000002512,
+              "renderCostPerAudioSecond": 0.009950749409179978,
+              "cancelMs": 0.4253329999999096
+            },
+            {
+              "label": "repeat-same",
+              "startSeconds": 0,
+              "batchSize": 2,
+              "openMs": 0.17203600000016195,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 0,
+                "releaseMs": 0.004135,
+                "reused": true,
+                "scopeMs": 0,
+                "seekMs": 0.066688,
+                "soundFontMs": 0.002081,
+                "totalMs": 0.075184,
+                "trackDataMs": 0,
+                "tracks": 0,
+                "tracksMs": 0
+              },
+              "firstPullMs": 0.37251999999989494,
+              "pullP50Ms": 0.17025749999993423,
+              "renderCostPerAudioSecond": 0.008843681140135812,
+              "cancelMs": 0.17937700000015866
+            },
+            {
+              "label": "seek",
+              "startSeconds": 30,
+              "batchSize": 2,
+              "openMs": 0.3233900000000176,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 0,
+                "releaseMs": 0.002865,
+                "reused": true,
+                "scopeMs": 0,
+                "seekMs": 0.237771,
+                "soundFontMs": 0.002133,
+                "totalMs": 0.245164,
+                "trackDataMs": 0,
+                "tracks": 0,
+                "tracksMs": 0
+              },
+              "firstPullMs": 0.13090899999997418,
+              "pullP50Ms": 0.08127999999999247,
+              "renderCostPerAudioSecond": 0.004225296796874738,
+              "cancelMs": 0.11017199999992044
+            },
+            {
+              "label": "after-speed-change",
+              "startSeconds": 0,
+              "batchSize": 2,
+              "openMs": 182.13167999999996,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 2.064657,
+                "releaseMs": 0.002419,
+                "reused": false,
+                "scopeMs": 0.047614,
+                "seekMs": 0.004168,
+                "soundFontMs": 0.001923,
+                "totalMs": 182.037679,
+                "trackDataMs": 0.00238,
+                "tracks": 2,
+                "tracksMs": 179.901202
+              },
+              "firstPullMs": 0.20248199999991812,
+              "pullP50Ms": 0.05771249999997963,
+              "renderCostPerAudioSecond": 0.002910472954102101,
+              "cancelMs": 0.07083899999997811
+            },
+            {
+              "label": "batch-2",
+              "startSeconds": 30,
+              "batchSize": 2,
+              "openMs": 168.4087189999998,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 2.155785,
+                "releaseMs": 0.00203,
+                "reused": false,
+                "scopeMs": 0.00307,
+                "seekMs": 0.006853,
+                "soundFontMs": 0.001428,
+                "totalMs": 168.317273,
+                "trackDataMs": 0.003744,
+                "tracks": 2,
+                "tracksMs": 166.135993
+              },
+              "firstPullMs": 0.11837500000001455,
+              "pullP50Ms": 0.06630149999989499,
+              "renderCostPerAudioSecond": 0.0029167628027334767,
+              "cancelMs": 0.11757800000009411
+            },
+            {
+              "label": "batch-8",
+              "startSeconds": 30,
+              "batchSize": 8,
+              "openMs": 0.05527799999981653,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 0,
+                "releaseMs": 0.002531,
+                "reused": true,
+                "scopeMs": 0,
+                "seekMs": 0.004979,
+                "soundFontMs": 0.001663,
+                "totalMs": 0.010618,
+                "trackDataMs": 0,
+                "tracks": 0,
+                "tracksMs": 0
+              },
+              "firstPullMs": 0.13040399999999863,
+              "pullP50Ms": 0.21810149999998885,
+              "renderCostPerAudioSecond": 0.0023902609130860212,
+              "cancelMs": 0.041492000000062035
+            },
+            {
+              "label": "batch-16",
+              "startSeconds": 30,
+              "batchSize": 16,
+              "openMs": 0.04172400000015841,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 0,
+                "releaseMs": 0.001698,
+                "reused": true,
+                "scopeMs": 0,
+                "seekMs": 0.003299,
+                "soundFontMs": 0.001437,
+                "totalMs": 0.007771,
+                "trackDataMs": 0,
+                "tracks": 0,
+                "tracksMs": 0
+              },
+              "firstPullMs": 0.25981499999988955,
+              "pullP50Ms": 0.49551500000006854,
+              "renderCostPerAudioSecond": 0.0024524821801758133,
+              "cancelMs": 0.04448299999990013
+            }
+          ]
+        },
+        {
+          "name": "men-base (4 parts, 272 measures)",
+          "loadMs": 185.79958999999985,
+          "firstPageMs": 144.02782200000001,
+          "timelineMs": 0.773012000000108,
+          "followMapMs": 10.257372000000032,
+          "followIntervals": 968,
+          "durationMs": 211500,
+          "starts": [
+            {
+              "label": "first",
+              "startSeconds": 0,
+              "batchSize": 2,
+              "openMs": 1172.0788180000002,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 21.582615,
+                "releaseMs": 0.0051,
+                "reused": false,
+                "scopeMs": 0.003033,
+                "seekMs": 0.007405,
+                "soundFontMs": 0.003526,
+                "totalMs": 1171.886087,
+                "trackDataMs": 0.01157,
+                "tracks": 5,
+                "tracksMs": 1150.270703
+              },
+              "firstPullMs": 2.113495000000057,
+              "pullP50Ms": 0.17475100000001476,
+              "renderCostPerAudioSecond": 0.010414277446288731,
+              "cancelMs": 0.08929299999999785
+            },
+            {
+              "label": "repeat-same",
+              "startSeconds": 0,
+              "batchSize": 2,
+              "openMs": 0.07832400000006601,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 0,
+                "releaseMs": 0.00208,
+                "reused": true,
+                "scopeMs": 0,
+                "seekMs": 0.013748,
+                "soundFontMs": 0.001954,
+                "totalMs": 0.019169,
+                "trackDataMs": 0,
+                "tracks": 0,
+                "tracksMs": 0
+              },
+              "firstPullMs": 0.26611899999988964,
+              "pullP50Ms": 0.14383349999980055,
+              "renderCostPerAudioSecond": 0.006959737968750395,
+              "cancelMs": 0.1205920000002152
+            },
+            {
+              "label": "seek",
+              "startSeconds": 30,
+              "batchSize": 2,
+              "openMs": 0.09211499999992157,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 0,
+                "releaseMs": 0.002759,
+                "reused": true,
+                "scopeMs": 0,
+                "seekMs": 0.014515,
+                "soundFontMs": 0.001748,
+                "totalMs": 0.020208,
+                "trackDataMs": 0,
+                "tracks": 0,
+                "tracksMs": 0
+              },
+              "firstPullMs": 0.3538399999997637,
+              "pullP50Ms": 0.19275450000009187,
+              "renderCostPerAudioSecond": 0.008729714509277264,
+              "cancelMs": 0.08686199999965538
+            },
+            {
+              "label": "after-speed-change",
+              "startSeconds": 0,
+              "batchSize": 2,
+              "openMs": 1006.4134289999997,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 11.301329,
+                "releaseMs": 0.002335,
+                "reused": false,
+                "scopeMs": 0.009587,
+                "seekMs": 0.003806,
+                "soundFontMs": 0.001902,
+                "totalMs": 1006.300873,
+                "trackDataMs": 0.007227,
+                "tracks": 5,
+                "tracksMs": 994.969653
+              },
+              "firstPullMs": 0.3118059999997058,
+              "pullP50Ms": 0.11869650000016918,
+              "renderCostPerAudioSecond": 0.005681124360353382,
+              "cancelMs": 0.05544000000008964
+            },
+            {
+              "label": "batch-2",
+              "startSeconds": 30,
+              "batchSize": 2,
+              "openMs": 893.1413499999999,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 8.330856,
+                "releaseMs": 0.001964,
+                "reused": false,
+                "scopeMs": 0.002599,
+                "seekMs": 0.010724,
+                "soundFontMs": 0.001813,
+                "totalMs": 893.033956,
+                "trackDataMs": 0.00647,
+                "tracks": 5,
+                "tracksMs": 884.6745
+              },
+              "firstPullMs": 0.28931199999988166,
+              "pullP50Ms": 0.13935449999962657,
+              "renderCostPerAudioSecond": 0.006455290385740515,
+              "cancelMs": 0.11804200000005949
+            },
+            {
+              "label": "batch-8",
+              "startSeconds": 30,
+              "batchSize": 8,
+              "openMs": 0.07383300000037707,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 0,
+                "releaseMs": 0.003249,
+                "reused": true,
+                "scopeMs": 0,
+                "seekMs": 0.008047,
+                "soundFontMs": 0.00168,
+                "totalMs": 0.01388,
+                "trackDataMs": 0,
+                "tracks": 0,
+                "tracksMs": 0
+              },
+              "firstPullMs": 0.6394339999997101,
+              "pullP50Ms": 0.5860679999996137,
+              "renderCostPerAudioSecond": 0.006294655920408773,
+              "cancelMs": 0.03989700000056473
+            },
+            {
+              "label": "batch-16",
+              "startSeconds": 30,
+              "batchSize": 16,
+              "openMs": 0.039993000000322354,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 0,
+                "releaseMs": 0.001479,
+                "reused": true,
+                "scopeMs": 0,
+                "seekMs": 0.004651,
+                "soundFontMs": 0.000902,
+                "totalMs": 0.007635,
+                "trackDataMs": 0,
+                "tracks": 0,
+                "tracksMs": 0
+              },
+              "firstPullMs": 1.0184120000003531,
+              "pullP50Ms": 1.1632690000005823,
+              "renderCostPerAudioSecond": 0.00685943092529312,
+              "cancelMs": 0.061627999999473104
+            }
+          ]
+        }
+      ],
+      "onsets": [
+        {
+          "instrument": "Piano",
+          "program": 1,
+          "lagsMs": [
+            0.9750566893424036,
+            2.0634920634920637,
+            1.7006802721088434,
+            2.7891156462585034,
+            2.4263038548752833,
+            3.5147392290249435,
+            3.1519274376417235,
+            4.240362811791384
+          ],
+          "n": 8,
+          "p50": 2.6077097505668934,
+          "p95": 3.9863945578231292,
+          "max": 4.240362811791384
+        },
+        {
+          "instrument": "Violin",
+          "program": 41,
+          "lagsMs": [
+            13.696145124716553,
+            14.784580498866212,
+            14.421768707482993,
+            15.510204081632654,
+            15.147392290249433,
+            16.235827664399093,
+            15.873015873015872,
+            16.961451247165535
+          ],
+          "n": 8,
+          "p50": 15.328798185941043,
+          "p95": 16.707482993197278,
+          "max": 16.961451247165535
+        },
+        {
+          "instrument": "Flute",
+          "program": 74,
+          "lagsMs": [
+            1.4285714285714286,
+            2.5170068027210886,
+            2.1541950113378685,
+            3.2426303854875282,
+            2.8798185941043086,
+            3.968253968253968,
+            3.6054421768707483,
+            4.6938775510204085
+          ],
+          "n": 8,
+          "p50": 3.0612244897959187,
+          "p95": 4.439909297052154,
+          "max": 4.6938775510204085
+        },
+        {
+          "instrument": "Trumpet",
+          "program": 57,
+          "lagsMs": [
+            4.71655328798186,
+            5.804988662131519,
+            5.442176870748299,
+            6.530612244897959,
+            6.167800453514739,
+            7.2562358276643995,
+            6.893424036281179,
+            7.98185941043084
+          ],
+          "n": 8,
+          "p50": 6.34920634920635,
+          "p95": 7.727891156462585,
+          "max": 7.98185941043084
+        }
+      ]
+    },
+    {
+      "bootMs": 235.14619599999997,
+      "soundfontInstallMs": 63.35992799999997,
+      "version": 470,
+      "memoryBytes": 288751616,
+      "fixtures": [
+        {
+          "name": "bach",
+          "loadMs": 253.72754799999996,
+          "firstPageMs": 207.181831,
+          "timelineMs": 0.8030129999999644,
+          "followMapMs": 9.152021999999988,
+          "followIntervals": 657,
+          "durationMs": 144000,
+          "starts": [
+            {
+              "label": "first",
+              "startSeconds": 0,
+              "batchSize": 2,
+              "openMs": 296.22170400000005,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 29.665539,
+                "releaseMs": 0.093926,
+                "reused": false,
+                "scopeMs": 0.00441,
+                "seekMs": 0.137893,
+                "soundFontMs": 32.972391,
+                "totalMs": 295.543454,
+                "trackDataMs": 0.004313,
+                "tracks": 2,
+                "tracksMs": 232.353946
+              },
+              "firstPullMs": 2.920274999999947,
+              "pullP50Ms": 0.14030649999995148,
+              "renderCostPerAudioSecond": 0.00976370770019561,
+              "cancelMs": 0.407558999999992
+            },
+            {
+              "label": "repeat-same",
+              "startSeconds": 0,
+              "batchSize": 2,
+              "openMs": 0.12837100000001556,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 0,
+                "releaseMs": 0.003952,
+                "reused": true,
+                "scopeMs": 0,
+                "seekMs": 0.049428,
+                "soundFontMs": 0.002255,
+                "totalMs": 0.057428,
+                "trackDataMs": 0,
+                "tracks": 0,
+                "tracksMs": 0
+              },
+              "firstPullMs": 0.24558000000001812,
+              "pullP50Ms": 0.10021649999987403,
+              "renderCostPerAudioSecond": 0.004661237570800881,
+              "cancelMs": 0.0757539999999608
+            },
+            {
+              "label": "seek",
+              "startSeconds": 30,
+              "batchSize": 2,
+              "openMs": 0.208035000000109,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 0,
+                "releaseMs": 0.00153,
+                "reused": true,
+                "scopeMs": 0,
+                "seekMs": 0.148542,
+                "soundFontMs": 0.001208,
+                "totalMs": 0.152989,
+                "trackDataMs": 0,
+                "tracks": 0,
+                "tracksMs": 0
+              },
+              "firstPullMs": 0.0617339999998876,
+              "pullP50Ms": 0.06189749999987271,
+              "renderCostPerAudioSecond": 0.0036237053979484516,
+              "cancelMs": 0.12831600000004073
+            },
+            {
+              "label": "after-speed-change",
+              "startSeconds": 0,
+              "batchSize": 2,
+              "openMs": 162.47795500000007,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 2.358019,
+                "releaseMs": 0.001484,
+                "reused": false,
+                "scopeMs": 0.042052,
+                "seekMs": 0.003205,
+                "soundFontMs": 0.001473,
+                "totalMs": 162.402758,
+                "trackDataMs": 0.00459,
+                "tracks": 2,
+                "tracksMs": 159.983471
+              },
+              "firstPullMs": 0.1828410000000531,
+              "pullP50Ms": 0.04568949999986671,
+              "renderCostPerAudioSecond": 0.002242228754881357,
+              "cancelMs": 0.05093799999986004
+            },
+            {
+              "label": "batch-2",
+              "startSeconds": 30,
+              "batchSize": 2,
+              "openMs": 155.62338299999988,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 1.673143,
+                "releaseMs": 0.001755,
+                "reused": false,
+                "scopeMs": 0.002988,
+                "seekMs": 0.008091,
+                "soundFontMs": 0.00153,
+                "totalMs": 155.500193,
+                "trackDataMs": 0.004141,
+                "tracks": 2,
+                "tracksMs": 153.799301
+              },
+              "firstPullMs": 0.23781699999994999,
+              "pullP50Ms": 0.058682499999918036,
+              "renderCostPerAudioSecond": 0.003197766796874567,
+              "cancelMs": 0.04865399999994224
+            },
+            {
+              "label": "batch-8",
+              "startSeconds": 30,
+              "batchSize": 8,
+              "openMs": 0.0463839999999891,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 0,
+                "releaseMs": 0.001894,
+                "reused": true,
+                "scopeMs": 0,
+                "seekMs": 0.003704,
+                "soundFontMs": 0.001475,
+                "totalMs": 0.008443,
+                "trackDataMs": 0,
+                "tracks": 0,
+                "tracksMs": 0
+              },
+              "firstPullMs": 0.1271630000001096,
+              "pullP50Ms": 0.1907259999999269,
+              "renderCostPerAudioSecond": 0.0018887020092772475,
+              "cancelMs": 0.03791499999988446
+            },
+            {
+              "label": "batch-16",
+              "startSeconds": 30,
+              "batchSize": 16,
+              "openMs": 0.03302899999994224,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 0,
+                "releaseMs": 0.001352,
+                "reused": true,
+                "scopeMs": 0,
+                "seekMs": 0.002906,
+                "soundFontMs": 0.00064,
+                "totalMs": 0.006008,
+                "trackDataMs": 0,
+                "tracks": 0,
+                "tracksMs": 0
+              },
+              "firstPullMs": 0.22111499999982698,
+              "pullP50Ms": 0.40002800000002026,
+              "renderCostPerAudioSecond": 0.0020638778466795537,
+              "cancelMs": 0.041177999999945314
+            }
+          ]
+        },
+        {
+          "name": "men-base (4 parts, 272 measures)",
+          "loadMs": 166.13560000000007,
+          "firstPageMs": 145.79963900000007,
+          "timelineMs": 0.8045349999999871,
+          "followMapMs": 10.410094000000072,
+          "followIntervals": 968,
+          "durationMs": 211500,
+          "starts": [
+            {
+              "label": "first",
+              "startSeconds": 0,
+              "batchSize": 2,
+              "openMs": 1106.9694299999999,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 21.9206,
+                "releaseMs": 0.004749,
+                "reused": false,
+                "scopeMs": 0.003591,
+                "seekMs": 0.004846,
+                "soundFontMs": 0.003495,
+                "totalMs": 1106.839594,
+                "trackDataMs": 0.010457,
+                "tracks": 5,
+                "tracksMs": 1084.892461
+              },
+              "firstPullMs": 2.1533979999999247,
+              "pullP50Ms": 0.1618954999999005,
+              "renderCostPerAudioSecond": 0.009169802578124116,
+              "cancelMs": 0.16232700000000477
+            },
+            {
+              "label": "repeat-same",
+              "startSeconds": 0,
+              "batchSize": 2,
+              "openMs": 0.11330500000030952,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 0,
+                "releaseMs": 0.002012,
+                "reused": true,
+                "scopeMs": 0,
+                "seekMs": 0.009632,
+                "soundFontMs": 0.002037,
+                "totalMs": 0.014646,
+                "trackDataMs": 0,
+                "tracks": 0,
+                "tracksMs": 0
+              },
+              "firstPullMs": 0.25133599999981016,
+              "pullP50Ms": 0.13290450000022247,
+              "renderCostPerAudioSecond": 0.00663266260986386,
+              "cancelMs": 0.09985199999982797
+            },
+            {
+              "label": "seek",
+              "startSeconds": 30,
+              "batchSize": 2,
+              "openMs": 0.07840299999998024,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 0,
+                "releaseMs": 0.002176,
+                "reused": true,
+                "scopeMs": 0,
+                "seekMs": 0.011474,
+                "soundFontMs": 0.001743,
+                "totalMs": 0.016174,
+                "trackDataMs": 0,
+                "tracks": 0,
+                "tracksMs": 0
+              },
+              "firstPullMs": 0.3256279999995968,
+              "pullP50Ms": 0.15630999999984851,
+              "renderCostPerAudioSecond": 0.007345480539550488,
+              "cancelMs": 0.07683099999985643
+            },
+            {
+              "label": "after-speed-change",
+              "startSeconds": 0,
+              "batchSize": 2,
+              "openMs": 1003.4308510000001,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 9.644294,
+                "releaseMs": 0.001628,
+                "reused": false,
+                "scopeMs": 0.009064,
+                "seekMs": 0.00421,
+                "soundFontMs": 0.002257,
+                "totalMs": 1003.324116,
+                "trackDataMs": 0.011768,
+                "tracks": 5,
+                "tracksMs": 993.649202
+              },
+              "firstPullMs": 0.37849899999991976,
+              "pullP50Ms": 0.1354515000000447,
+              "renderCostPerAudioSecond": 0.006572157539060755,
+              "cancelMs": 0.06755999999995765
+            },
+            {
+              "label": "batch-2",
+              "startSeconds": 30,
+              "batchSize": 2,
+              "openMs": 912.910531,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 9.155567,
+                "releaseMs": 0.004196,
+                "reused": false,
+                "scopeMs": 0.00307,
+                "seekMs": 0.008106,
+                "soundFontMs": 0.003469,
+                "totalMs": 912.816358,
+                "trackDataMs": 0.008742,
+                "tracks": 5,
+                "tracksMs": 903.633615
+              },
+              "firstPullMs": 0.29357700000036857,
+              "pullP50Ms": 0.14280700000017532,
+              "renderCostPerAudioSecond": 0.006652631425783433,
+              "cancelMs": 0.11912800000027346
+            },
+            {
+              "label": "batch-8",
+              "startSeconds": 30,
+              "batchSize": 8,
+              "openMs": 0.06231299999944895,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 0,
+                "releaseMs": 0.002531,
+                "reused": true,
+                "scopeMs": 0,
+                "seekMs": 0.006495,
+                "soundFontMs": 0.001739,
+                "totalMs": 0.011591,
+                "trackDataMs": 0,
+                "tracks": 0,
+                "tracksMs": 0
+              },
+              "firstPullMs": 0.6461549999994531,
+              "pullP50Ms": 0.6280914999997549,
+              "renderCostPerAudioSecond": 0.006669213068846531,
+              "cancelMs": 0.047739999999976135
+            },
+            {
+              "label": "batch-16",
+              "startSeconds": 30,
+              "batchSize": 16,
+              "openMs": 0.04872299999988172,
+              "native": {
+                "firstBatchMs": 0,
+                "modelLoadMs": 0,
+                "releaseMs": 0.001716,
+                "reused": true,
+                "scopeMs": 0,
+                "seekMs": 0.006597,
+                "soundFontMs": 0.001479,
+                "totalMs": 0.010458,
+                "trackDataMs": 0,
+                "tracks": 0,
+                "tracksMs": 0
+              },
+              "firstPullMs": 1.193398000000343,
+              "pullP50Ms": 1.1519769999995333,
+              "renderCostPerAudioSecond": 0.006298612646482917,
+              "cancelMs": 0.03861899999992602
+            }
+          ]
+        }
+      ],
+      "onsets": [
+        {
+          "instrument": "Piano",
+          "program": 1,
+          "lagsMs": [
+            0.9750566893424036,
+            2.0634920634920637,
+            1.7006802721088434,
+            2.7891156462585034,
+            2.4263038548752833,
+            3.5147392290249435,
+            3.1519274376417235,
+            4.240362811791384
+          ],
+          "n": 8,
+          "p50": 2.6077097505668934,
+          "p95": 3.9863945578231292,
+          "max": 4.240362811791384
+        },
+        {
+          "instrument": "Violin",
+          "program": 41,
+          "lagsMs": [
+            13.696145124716553,
+            14.784580498866212,
+            14.421768707482993,
+            15.510204081632654,
+            15.147392290249433,
+            16.235827664399093,
+            15.873015873015872,
+            16.961451247165535
+          ],
+          "n": 8,
+          "p50": 15.328798185941043,
+          "p95": 16.707482993197278,
+          "max": 16.961451247165535
+        },
+        {
+          "instrument": "Flute",
+          "program": 74,
+          "lagsMs": [
+            1.4285714285714286,
+            2.5170068027210886,
+            2.1541950113378685,
+            3.2426303854875282,
+            2.8798185941043086,
+            3.968253968253968,
+            3.6054421768707483,
+            4.6938775510204085
+          ],
+          "n": 8,
+          "p50": 3.0612244897959187,
+          "p95": 4.439909297052154,
+          "max": 4.6938775510204085
+        },
+        {
+          "instrument": "Trumpet",
+          "program": 57,
+          "lagsMs": [
+            4.71655328798186,
+            5.804988662131519,
+            5.442176870748299,
+            6.530612244897959,
+            6.167800453514739,
+            7.2562358276643995,
+            6.893424036281179,
+            7.98185941043084
+          ],
+          "n": 8,
+          "p50": 6.34920634920635,
+          "p95": 7.727891156462585,
+          "max": 7.98185941043084
+        }
+      ]
+    }
+  ]
+}

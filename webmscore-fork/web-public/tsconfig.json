@@ -8,5 +8,5 @@
     "emitDeclarationOnly": true,
     "target": "esnext"
   },
-  "include": ["src/index.js"]
+  "include": ["src/index.js", "src/resource-base-url.ts"]
 }

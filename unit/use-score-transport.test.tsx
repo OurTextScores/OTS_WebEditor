@@ -61,6 +61,52 @@ afterEach(() => {
 });
 
 describe('useScoreTransport', () => {
+  it('warms after a natural finish while refusing active and paused playback', async () => {
+    const audio = fakeAudioContext();
+    vi.stubGlobal('AudioContext', function FakeAudioContext() {
+      return audio.context;
+    });
+    const iterator: SynthAudioBatchIterator = vi.fn(async () => [
+      {
+        done: true,
+        startTime: 0,
+        endTime: 512 / 44100,
+        chunk: new Uint8Array(512 * 2 * 4),
+      },
+    ]);
+    const warmup = vi.fn(async () => true);
+    const score = Object.assign(scoreWithIterator(iterator), { warmupPlayback: warmup });
+    const { result } = renderHook(() =>
+      useScoreTransport({
+        score,
+        durationMs: 1000,
+        startMs: 0,
+        volume: 1,
+        ensureSoundFont: async () => true,
+      }),
+    );
+    await act(async () => {
+      expect(await result.current.warmupPlayback()).toBe(true);
+      await result.current.start();
+    });
+    await waitFor(() => expect(result.current.state).toBe('playing'));
+    await act(async () => {
+      expect(await result.current.warmupPlayback()).toBe(false);
+      await result.current.togglePlayPause();
+    });
+    expect(result.current.state).toBe('paused');
+    expect(await result.current.warmupPlayback()).toBe(false);
+    await act(async () => {
+      await result.current.togglePlayPause();
+    });
+    act(() => {
+      audio.sources.forEach((source) => source.finish());
+    });
+    expect(result.current.state).toBe('ended');
+    expect(await result.current.warmupPlayback()).toBe(true);
+    expect(warmup).toHaveBeenCalledTimes(2);
+  });
+
   it('forces a fresh soundfont attempt when retrying unavailable playback', async () => {
     const ensure = vi.fn(async () => false);
     const manager = { ensure, prefetch: vi.fn() } as unknown as SoundFontManager<Score>;

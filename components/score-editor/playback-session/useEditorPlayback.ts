@@ -10,10 +10,13 @@ import {
   SYNTH_START_PREROLL_SECONDS,
   TRANSPORT_SYNTH_BATCH_SIZE,
 } from '../playback-constants';
+import { useIdlePlaybackWarmup, type WarmupOptions } from './useIdlePlaybackWarmup';
 import { guardPlaybackMutations } from './mutationBoundary';
 
 type Options = {
   score: Score | null;
+  canWarmup?: WarmupOptions['canWarmup'];
+  runSerialized?: WarmupOptions['runSerialized'];
   ensureSoundFont: (score: Score, forceRetry: boolean) => Promise<boolean>;
   beforeStart: () => Promise<void>;
   beforeMutation?: () => Promise<void>;
@@ -38,13 +41,24 @@ export function useEditorPlayback(options: Options) {
     volume: 1,
     publishProgress: false,
     ensureSoundFont: options.ensureSoundFont,
-    beforeStart: options.beforeStart,
+    beforeStart: () => {
+      warmup.cancel();
+      return latest.current.beforeStart();
+    },
     onMessage: (message) => {
       if (message && !message.includes('reparing') && !message.includes('Compatibility')) {
         latest.current.reportError(message);
       }
     },
   });
+  const warmup = useIdlePlaybackWarmup({
+    score: options.score,
+    canWarmup: options.canWarmup,
+    runSerialized: options.runSerialized,
+    prepare: transport.warmupPlayback,
+  });
+  const cancelWarmup = warmup.cancel;
+  const scheduleWarmup = warmup.schedule;
   // Re-read per score and once each play is live (off the startup path): an edit, which stops playback first,
   // can change the length.
   const live = transport.state === 'playing';
@@ -66,19 +80,24 @@ export function useEditorPlayback(options: Options) {
   const { start, stopAt, invalidate, stateRef } = transport;
   const { awaitRetirement } = transport;
   const beforeMutation = useCallback(async () => {
+    cancelWarmup();
     if (!['idle', 'ended', 'unavailable'].includes(stateRef.current)) await stopAt(0);
     await latest.current.beforeMutation?.();
     await awaitRetirement();
     invalidate();
-  }, [awaitRetirement, invalidate, stateRef, stopAt]);
+  }, [awaitRetirement, cancelWarmup, invalidate, stateRef, stopAt]);
   const guardScore = useCallback(
     (score: Score) => {
-      const guarded = guardPlaybackMutations(score, () =>
-        latest.current.score === guarded ? beforeMutation() : Promise.resolve(),
+      const guarded = guardPlaybackMutations(
+        score,
+        () => (latest.current.score === guarded ? beforeMutation() : Promise.resolve()),
+        () => {
+          if (latest.current.score === guarded) scheduleWarmup();
+        },
       );
       return guarded;
     },
-    [beforeMutation],
+    [beforeMutation, scheduleWarmup],
   );
   const play = useCallback(
     (fromSelection: boolean) =>

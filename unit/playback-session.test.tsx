@@ -325,3 +325,31 @@ it('finishes an empty stream instead of leaving the transport preparing', async 
   expect(hook.result.current.phase).toBe('ended');
   expect(hook.result.current.diagnostics().scheduledSources).toBe(0);
 });
+
+it('awaits an in-flight idle warmup before score destruction', async () => {
+  const prepared = deferred<boolean>();
+  const warmupPlayback = vi.fn(() => prepared.promise);
+  const destroy = vi.fn();
+  const score = Object.assign(
+    scoreFor(async () => []),
+    { warmupPlayback, destroy },
+  );
+  const hook = setup(score);
+  const guard = guardPlaybackMutations(score, async () => {
+    await hook.result.current.stopAt(0);
+  });
+  let warm!: Promise<boolean>, retired!: Promise<void>;
+  act(() => {
+    warm = hook.result.current.warmupPlayback();
+  });
+  act(() => {
+    retired = Promise.resolve(guard.destroy());
+  });
+  expect(destroy).not.toHaveBeenCalled();
+  prepared.resolve(true);
+  await act(async () => {
+    await warm;
+    await retired;
+  });
+  expect(destroy).toHaveBeenCalledOnce();
+});

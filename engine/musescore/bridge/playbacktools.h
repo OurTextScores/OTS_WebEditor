@@ -18,6 +18,7 @@
 #include "audio/engine/internal/audioengine.h"
 #include "audio/engine/internal/audioengineconfiguration.h"
 #include "audio/engine/internal/engineplayback.h"
+#include "audio/engine/internal/tracksequence.h"
 #include "audio/engine/internal/mixer.h"
 #include "audio/engine/internal/fx/fxresolver.h"
 #include "audio/engine/internal/fx/musefxresolver.h"
@@ -51,10 +52,24 @@ struct Engine {
     uint64_t soundFontGeneration = 0;
 };
 
+// Marks a prepared sequence stale on any committed edit, undo or redo of its master score. Score::changesChannel is
+// sent by endCmd/undoRedo and delivered synchronously here (single-threaded engine, SendMode::Auto).
+struct ChangeWatcher : public muse::async::Asyncable {
+    bool changed = false;
+};
+
+// A prepared sequence is reused by the next start while this key holds (Phase 8): same Score object (an excerpt is
+// its own), no committed change since preparation, same options revision and soundfont generation. Otherwise, as
+// before Phase 8, every sequence is released and the model and tracks are rebuilt.
 struct ScorePlayback {
     std::unique_ptr<mu::engraving::PlaybackModel> model;
     TrackSequenceId sequenceId = -1;
+    const mu::engraving::Score* score = nullptr;
+    int optionsRevision = -1;
+    uint64_t soundFontGeneration = 0;
+    std::unique_ptr<ChangeWatcher> watcher;
 };
+static bool reusePreparedPlayback = true;   // diagnostics can turn reuse off to compare against a fresh preparation
 
 static std::map<uintptr_t, ScorePlayback> scorePlaybacks;
 static std::unique_ptr<Engine> engineInstance;
@@ -69,6 +84,16 @@ struct SynthStream {
     size_t endFrame;
 };
 static std::optional<SynthStream> activeStream;
+
+// Where the last preparation spent its time, for local diagnostics (Phase 8 measurement); no score data.
+struct PrepareTimings {
+    double soundFontMs = 0, releaseMs = 0, scopeMs = 0, modelLoadMs = 0, tracksMs = 0, trackDataMs = 0, seekMs = 0,
+           totalMs = 0;
+    double firstBatchMs = 0;
+    int tracks = 0;
+    bool reused = false;
+};
+static PrepareTimings lastPrepare;
 static uintptr_t nextStreamHandle = 1;
 
 static void stopActiveStream()
@@ -178,24 +203,61 @@ static bool ensureSoundFont()
 static ScorePlayback* preparePlayback(uintptr_t id, mu::engraving::Score* score)
 {
     Engine* e = engine();
+    double mark = emscripten_get_now();
+    const auto lap = [&mark]() {
+        const double now = emscripten_get_now();
+        const double elapsed = now - mark;
+        mark = now;
+        return elapsed;
+    };
+    const int optionsRevision = ms47options::current(id).revision;
+    if (auto it = scorePlaybacks.find(id); reusePreparedPlayback && it != scorePlaybacks.end()) {
+        const ScorePlayback& cached = it->second;
+        if (cached.score == score && cached.watcher && !cached.watcher->changed && cached.optionsRevision == optionsRevision
+            && cached.soundFontGeneration == e->soundFontGeneration && cached.sequenceId >= 0
+            && e->playback->sequence(cached.sequenceId)) {
+            // Only the stream is retired; the caller stops and seeks the player, which flushes sounding voices.
+            stopActiveStream();
+            lastPrepare = PrepareTimings {};
+            lastPrepare.reused = true;
+            lastPrepare.releaseMs = lap();
+            return &it->second;
+        }
+    }
+    lastPrepare = PrepareTimings {};
     // The module has one offline mixer. Remove every previous sequence, including another score's,
     // before handing ownership to this render; otherwise old tracks can sound underneath it.
     releaseAllPlayback();
+    lastPrepare.releaseMs = lap();
     // Model events, the sequence duration and the caller's start time all use the project's playback options.
     ms47options::PlaybackOptionsScope scope(id, score);
+    lastPrepare.scopeMs = lap();
     ScorePlayback& sp = scorePlaybacks[id];
+    sp.score = score;
+    sp.optionsRevision = optionsRevision;
+    sp.soundFontGeneration = e->soundFontGeneration;
+    sp.watcher = std::make_unique<ChangeWatcher>();
+    ChangeWatcher* watcher = sp.watcher.get();
+    score->changesChannel().onReceive(watcher, [watcher](const mu::engraving::ScoreChanges&) { watcher->changed = true; });
     sp.model = std::make_unique<mu::engraving::PlaybackModel>(nullptr);
     sp.model->setPlayRepeats(scope.options().playRepeats);
     // PlaybackModel defaults the metronome on; desktop applies its setting (default off) before load, as here
     sp.model->setIsMetronomeEnabled(false);
     sp.model->load(score);
+    lastPrepare.modelLoadMs = lap();
     sp.sequenceId = e->playback->addSequence();
     AudioParams params;
     params.in = e->inputParams;
+    lastPrepare.tracks = 0;
+    lastPrepare.trackDataMs = 0;
     for (const mu::engraving::InstrumentTrackId& trackId : sp.model->existingTrackIdSet()) {
+        const double dataStarted = emscripten_get_now();
         muse::mpe::PlaybackData& data = sp.model->resolveTrackPlaybackData(trackId);
+        lastPrepare.trackDataMs += emscripten_get_now() - dataStarted;
         e->playback->addTrack(sp.sequenceId, trackId.instrumentId.toStdString(), data, params);
+        ++lastPrepare.tracks;
     }
+    lastPrepare.tracksMs = lap();
     // As desktop NotationPlayback/PlaybackController: total play time of the traversal plus the release tail
     const auto& repeats = scope.repeats();
     const secs_t total = secs_t(repeats.utick2utime(repeats.ticks())) + PLAYBACK_TAIL_SECS;
@@ -203,6 +265,19 @@ static ScorePlayback* preparePlayback(uintptr_t id, mu::engraving::Score* score)
         sequence->player()->setDuration(secsToMilisecs(total));
     }
     return &sp;
+}
+
+// Stop and seek so the sequence starts clean. EventAudioSource::seek flushes sounding voices only when the position
+// changes, which a reused preparation cannot rely on, so every track is flushed explicitly (patch 0003 makes a flush
+// stop voices at once). A fresh synth has nothing to flush.
+static void seekFlushed(const engine::ITrackSequencePtr& sequence, double seconds)
+{
+    sequence->player()->stop();
+    sequence->player()->seek(seconds);
+    // EnginePlayback creates every sequence as a TrackSequence; its track map is not on the ITrackSequence interface.
+    for (const auto& [id, track] : static_cast<engine::TrackSequence*>(sequence.get())->allTracks()) {
+        if (track && track->inputHandler) track->inputHandler->flush();
+    }
 }
 
 static void writeWavHeader(muse::ByteArray& out, size_t frames)
@@ -225,8 +300,7 @@ static bool renderWav(uintptr_t id, mu::engraving::Score* score, muse::ByteArray
     ScorePlayback* sp = preparePlayback(id, score);
     auto sequence = e->playback->sequence(sp->sequenceId);
     if (!sequence) return false;
-    sequence->player()->stop();
-    sequence->player()->seek(0);
+    seekFlushed(sequence, 0);
     const msecs_t duration = sequence->player()->duration();
     const size_t totalFrames = static_cast<size_t>((static_cast<uint64_t>(std::max<int64_t>(0, duration)) * SAMPLE_RATE) / 1000000ULL);
 
@@ -239,7 +313,9 @@ static bool renderWav(uintptr_t id, mu::engraving::Score* score, muse::ByteArray
     for (size_t done = 0; done < totalFrames; done += RENDER_STEP) {
         const samples_t chunk = static_cast<samples_t>(std::min<size_t>(RENDER_STEP, totalFrames - done));
         std::fill(buffer.begin(), buffer.end(), 0.f);
-        mixer->process(buffer.data(), chunk);
+        // Advance a complete synth block even when the WAV ends partway through it. FluidSynth retains an internal
+        // block cursor; a partial final render would shift the next reused stream by the leftover samples.
+        mixer->process(buffer.data(), RENDER_STEP);
         out.push_back(reinterpret_cast<const uint8_t*>(buffer.data()), chunk * CHANNELS * sizeof(float));
     }
     mixer->setIsActive(false);
@@ -260,15 +336,21 @@ struct SynthRes {
 static uintptr_t startStream(uintptr_t id, mu::engraving::Score* score, double startSeconds, double durationSeconds,
                                 const std::vector<const mu::engraving::EngravingItem*>& previewItems = {})
 {
+    const double started = emscripten_get_now();
     if (!ensureSoundFont()) return 0;
     if (nextStreamHandle > static_cast<uintptr_t>(std::numeric_limits<int32_t>::max())) return 0;
     Engine* e = engine();
+    const double fontReady = emscripten_get_now();
     ScorePlayback* sp = preparePlayback(id, score);
+    lastPrepare.firstBatchMs = 0;
+    lastPrepare.soundFontMs = fontReady - started;
     auto sequence = e->playback->sequence(sp->sequenceId);
     if (!sequence) return 0;
     const bool preview = !previewItems.empty();
-    sequence->player()->stop();
-    sequence->player()->seek(preview ? 0.0 : startSeconds);
+    const double seekStarted = emscripten_get_now();
+    seekFlushed(sequence, preview ? 0.0 : startSeconds);
+    lastPrepare.seekMs = emscripten_get_now() - seekStarted;
+    lastPrepare.totalMs = emscripten_get_now() - started;
     e->audioEngine->setMode(RenderMode::OfflineMode);
     auto mixer = e->audioEngine->mixer();
     mixer->setOutputSpec(outputSpec());
@@ -377,6 +459,28 @@ EMSCRIPTEN_KEEPALIVE bool invalidateSoundFont()
 }
 
 // Native diagnostics for real-engine lifecycle tests; no score content or raw pointers.
+// Diagnostics only: false makes every start prepare from scratch, as before Phase 8, for A/B measurement and PCM
+// identity checks. Not used by the application.
+EMSCRIPTEN_KEEPALIVE void setPlaybackReuse(bool enabled)
+{
+    ms47audio::reusePreparedPlayback = enabled;
+    if (!enabled) ms47audio::releaseAllPlayback();
+}
+
+// Prepare tracks without rendering or claiming a stream. Idle work must never supersede another mixer owner.
+EMSCRIPTEN_KEEPALIVE bool warmupPlayback(uintptr_t score_ptr, int excerptId)
+{
+    auto* score = getScore(score_ptr, excerptId);
+    if (!score || ms47audio::activeStream) return false;
+    const double began = emscripten_get_now();
+    if (!ms47audio::ensureSoundFont()) return false;
+    const double fontReady = emscripten_get_now();
+    auto* prepared = ms47audio::preparePlayback(score_ptr, score);
+    ms47audio::lastPrepare.soundFontMs = fontReady - began;
+    ms47audio::lastPrepare.totalMs = emscripten_get_now() - began;
+    return prepared && prepared->sequenceId >= 0;
+}
+
 EMSCRIPTEN_KEEPALIVE const uint8_t* playbackDiagnostics()
 {
     JsonObject state;
@@ -386,6 +490,20 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* playbackDiagnostics()
     state.set("sequences", static_cast<int>(ms47audio::scorePlaybacks.size()));
     state.set("soundFontGeneration", double(ms47audio::soundFontGeneration));
     state.set("loadedSoundFontGeneration", double(ms47audio::engineInstance ? ms47audio::engineInstance->soundFontGeneration : 0));
+    const auto& t = ms47audio::lastPrepare;
+    JsonObject prepare;
+    prepare.set("soundFontMs", t.soundFontMs);
+    prepare.set("releaseMs", t.releaseMs);
+    prepare.set("scopeMs", t.scopeMs);
+    prepare.set("modelLoadMs", t.modelLoadMs);
+    prepare.set("tracksMs", t.tracksMs);
+    prepare.set("trackDataMs", t.trackDataMs);
+    prepare.set("seekMs", t.seekMs);
+    prepare.set("totalMs", t.totalMs);
+    prepare.set("firstBatchMs", t.firstBatchMs);
+    prepare.set("tracks", t.tracks);
+    prepare.set("reused", t.reused);
+    state.set("lastPrepare", prepare);
     return response(JsonDocument(state).toJson(JsonDocument::Format::Compact));
 }
 
@@ -444,10 +562,14 @@ EMSCRIPTEN_KEEPALIVE const char* processSynth(uintptr_t fn_ptr, bool cancel)
 
 EMSCRIPTEN_KEEPALIVE const char* processSynthBatch(uintptr_t fn_ptr, int batchSize, bool cancel)
 {
+    const bool first = !cancel && ms47audio::activeStream && ms47audio::activeStream->handle == fn_ptr
+                       && ms47audio::lastPrepare.firstBatchMs == 0;
+    const double began = first ? emscripten_get_now() : 0;
     auto** results = static_cast<ms47audio::SynthRes**>(calloc(std::max(1, batchSize), sizeof(ms47audio::SynthRes*)));
     for (int i = 0; i < batchSize; ++i) {
         results[i] = ms47audio::renderChunk(fn_ptr, cancel);
     }
+    if (first) ms47audio::lastPrepare.firstBatchMs = emscripten_get_now() - began;
     return reinterpret_cast<const char*>(results);
 }
 
@@ -489,6 +611,7 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* playbackCapabilities(uintptr_t id, int excer
     caps.set("followMapSchemaVersion", 1);
 #ifdef MS47_WITH_PLAYBACK
     caps.set("streamHandlesVersion", 1);
+    caps.set("preparedPlaybackVersion", 1);
     caps.set("soundFontGeneration", true);
     JsonObject pcm;
     pcm.set("sampleRate", int(ms47audio::SAMPLE_RATE));

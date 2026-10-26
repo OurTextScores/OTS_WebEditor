@@ -1,0 +1,34 @@
+diff --git a/src/framework/audio/thirdparty/fluidsynth/fluidsynth-2.3.3/src/rvoice/fluid_rvoice.c b/src/framework/audio/thirdparty/fluidsynth/fluidsynth-2.3.3/src/rvoice/fluid_rvoice.c
+index 403a555879..25b3a91ecd 100644
+--- a/src/framework/audio/thirdparty/fluidsynth/fluidsynth-2.3.3/src/rvoice/fluid_rvoice.c
++++ b/src/framework/audio/thirdparty/fluidsynth/fluidsynth-2.3.3/src/rvoice/fluid_rvoice.c
+@@ -535,6 +535,14 @@ DECLARE_FLUID_RVOICE_FUNCTION(fluid_rvoice_reset)
+ {
+     fluid_rvoice_t *voice = obj;
+ 
++    /* OTS: a newly assigned voice starts with the same pan/send ramp as a
++     * newly allocated voice. Otherwise a reused slot skips its first 64-sample
++     * ramp, making offline restarts depend on which slots a prior stream used. */
++    for(unsigned int i = 0; i < voice->buffers.count; ++i)
++    {
++        voice->buffers.bufs[i].current_amp = 0.0f;
++    }
++
+     voice->dsp.has_looped = 0;
+     voice->envlfo.ticks = 0;
+     voice->envlfo.noteoff_ticks = 0;
+@@ -573,6 +581,14 @@ DECLARE_FLUID_RVOICE_FUNCTION(fluid_rvoice_noteoff)
+     fluid_rvoice_t *rvoice = obj;
+     unsigned int min_ticks = param[0].i;
+ 
++    /* OTS: an All Sounds Off followed by a same-key Note On can queue a
++     * Note Off for the finished old voice before its retirement is collected.
++     * Do not resurrect that voice into release in the new offline stream. */
++    if(fluid_adsr_env_get_section(&rvoice->envlfo.volenv) == FLUID_VOICE_ENVFINISHED)
++    {
++        return;
++    }
++
+     fluid_rvoice_noteoff_LOCAL(rvoice, min_ticks);
+ }
+ 

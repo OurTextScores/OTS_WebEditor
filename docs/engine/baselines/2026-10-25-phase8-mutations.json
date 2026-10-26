@@ -1,0 +1,19 @@
+{
+  "recordedDate": "2026-10-25",
+  "scope": "Optimized scratch WASM builds; canonical header and optimized build restored afterwards. Observed mutation outcomes, including the equivalent survivor.",
+  "mutations": [
+    {
+      "name": "ignore-change-watcher",
+      "caught": true,
+      "exitCode": 1,
+      "assertion": "an edit invalidates"
+    },
+    {
+      "name": "skip-explicit-flush",
+      "equivalent": true,
+      "exitCode": 0,
+      "reason": "EventAudioSource::setIsActive flushes on mixer activation transitions; explicit seekFlushed flush is defensive under the current lifecycle."
+    }
+  ],
+  "restoredWasmSha256": "1a8318fe08e5dd0e7d150d93b4c2b5631c6763b99c0af0d501d0a75d3cb2b9cc"
+}

@@ -12,8 +12,9 @@ import {
   getTransportTimeOnServer,
   subscribeTransportTime,
 } from '../../lib/playback/transport-time';
-import { PlayRepeatsToggle, TempoControl } from '../playback-controls';
+import { PlayRepeatsToggle, TempoControl, PresentationTimingControl } from '../playback-controls';
 import { Button } from '../ui/Button';
+import { PlaybackHighlightControls } from '../score-editor/score-following';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/Popover';
 import { invokeCommand } from './invokeCommand';
 import { getShellUiState, subscribeToShellUi } from './shellStore';
@@ -123,6 +124,8 @@ function PlaybackSettings({ registry, run }: { registry: CommandRegistry; run: R
           </Button>
           <FollowButton testId="settings-follow-playback" run={run} />
         </div>
+        <PresentationTimingControl testIdPrefix="settings" />
+        <PlaybackHighlightControls />
         <Button
           data-testid="settings-count-in"
           variant={click.countIn ? 'primary' : 'outline'}

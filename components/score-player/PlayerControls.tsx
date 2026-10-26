@@ -15,7 +15,7 @@ import {
 import { formatPlaybackTime } from '@/lib/playback/timeline';
 import type { Score } from '@/lib/webmscore-loader';
 import ExportVideoControl from './ExportVideoControl';
-import { PlayRepeatsToggle, TempoControl } from '../playback-controls';
+import { PlayRepeatsToggle, TempoControl, PresentationTimingControl } from '../playback-controls';
 
 type Props = {
   state: 'idle' | 'preparing' | 'playing' | 'paused' | 'ended' | 'unavailable';
@@ -61,6 +61,7 @@ function PlayerOptions({ compact }: { compact?: boolean }) {
   const prefix = compact ? 'player-menu' : 'player';
   return (
     <>
+      <PresentationTimingControl variant="quiet" triggerClassName={playerButtonClass} testIdPrefix={prefix} />
       <TempoControl variant="quiet" triggerClassName={playerButtonClass} testIdPrefix={prefix} />
       <PlayRepeatsToggle
         variant="quiet"

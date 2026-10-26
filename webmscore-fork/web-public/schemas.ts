@@ -358,3 +358,11 @@ export type InputFileFormat =
     | 'midi'
     | 'kar'              // unofficial extension of midi
     | 'gtp' | 'gp3' | 'gp4' | 'gp5' | 'gpx' | 'gp' | 'ptb' // Guitar Pro
+
+export interface PlaybackDiagnostics {
+  schemaVersion: 1;
+  activeStreams: number; retainedStreams: number; sequences: number; wasmHeapBytes: number;
+  soundFontGeneration: number; loadedSoundFontGeneration: number;
+  lastPrepare: { soundFontMs: number; releaseMs: number; scopeMs: number; modelLoadMs: number;
+    tracksMs: number; trackDataMs: number; seekMs: number; totalMs: number; firstBatchMs: number; tracks: number; reused: boolean; };
+}

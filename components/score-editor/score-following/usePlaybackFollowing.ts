@@ -56,6 +56,7 @@ export type SeekClick = {
  */
 export type PlaybackFollowing = {
   indexRef: MutableRefObject<CursorIndex | null>;
+  measureIndexRef: MutableRefObject<CursorIndex | null>;
   /** The engine's continuous map, when the engine has one and it validates; drawing falls back to `indexRef`. */
   followMapRef: MutableRefObject<FollowMapIndex | null>;
   timelineRef: MutableRefObject<PlaybackTimeline | null>;
@@ -86,6 +87,7 @@ export function usePlaybackFollowing({
   prefetchLeadMs,
 }: Options) {
   const indexRef = useRef<CursorIndex | null>(null);
+  const measureIndexRef = useRef<CursorIndex | null>(null);
   const followMapRef = useRef<FollowMapIndex | null>(null);
   const timelineRef = useRef<PlaybackTimeline | null>(null);
   const transportRef = useRef(transport);
@@ -104,6 +106,7 @@ export function usePlaybackFollowing({
     const seekListeners = new Set<(timeMs: number) => void>();
     return {
       indexRef,
+      measureIndexRef,
       followMapRef,
       timelineRef,
       transportRef,
@@ -159,6 +162,7 @@ export function usePlaybackFollowing({
     ]).then(([segments, measures, timeline, followMap]) => {
       if (!current) return;
       indexRef.current = buildCursorIndex(segments, measures);
+      measureIndexRef.current = buildCursorIndex(null, measures);
       // A wrong cursor is worse than a discrete one: the continuous map must describe the same traversal (options
       // revision and duration) as the segment map and timeline read with it, or it is not used.
       const continuous = buildFollowMapIndex(followMap);
@@ -181,6 +185,7 @@ export function usePlaybackFollowing({
 
   useEffect(() => {
     indexRef.current = null;
+    measureIndexRef.current = null;
     followMapRef.current = null;
     timelineRef.current = null;
     updateFollowState({ tracking: null });
