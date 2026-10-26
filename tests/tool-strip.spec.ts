@@ -759,8 +759,18 @@ test.describe('View ▸ Toolbar', () => {
     for (const section of ['notes', 'marks', 'text', 'layout', 'score']) {
       await page.getByTestId(`menu-item-view.toolbar.section-"${section}"`).click();
     }
+    // Let the hides apply while the menu is still open.
+    await expect(page.getByTestId('strip-group-notes-entry')).toHaveCount(0);
+    await expect(page.getByTestId('strip-group-marks-dynamics')).toHaveCount(0);
+    // View ▸ Toolbar is two menu levels; one Escape only drops the submenu, and
+    // Radix returns focus to its trigger asynchronously. Wait until no menu owns
+    // focus before driving the strip, or that late focus-return steals it back
+    // after End has already landed on link-help.
     await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu')).toHaveCount(0);
     await page.getByTestId('btn-new-score').focus();
+    await expect(page.getByTestId('btn-new-score')).toBeFocused();
     await page.keyboard.press('End');
     await expect(page.getByTestId('link-help')).toBeFocused();
   });

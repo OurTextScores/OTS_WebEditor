@@ -2,7 +2,11 @@ import { defineConfig } from 'playwright/test';
 
 const PLAYWRIGHT_PORT = Number.parseInt(process.env.PLAYWRIGHT_PORT || '3000', 10);
 const PLAYWRIGHT_BASE_URL = process.env.BASE_URL || `http://127.0.0.1:${PLAYWRIGHT_PORT}`;
-const PLAYWRIGHT_DIST_DIR = `.next-dev-playwright-${PLAYWRIGHT_PORT}`;
+const PLAYWRIGHT_BUNDLER = process.env.PLAYWRIGHT_BUNDLER || 'webpack';
+if (!['webpack', 'turbopack'].includes(PLAYWRIGHT_BUNDLER)) {
+  throw new Error(`Unsupported PLAYWRIGHT_BUNDLER: ${PLAYWRIGHT_BUNDLER}`);
+}
+const PLAYWRIGHT_DIST_DIR = `.next-dev-playwright-${PLAYWRIGHT_PORT}-${PLAYWRIGHT_BUNDLER}`;
 
 export default defineConfig({
   testDir: './tests',
@@ -26,6 +30,8 @@ export default defineConfig({
   use: {
     baseURL: PLAYWRIGHT_BASE_URL,
     headless: true,
+    trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
     // Cross-browser qualification: PLAYWRIGHT_BROWSER=firefox|webkit (default chromium).
     browserName:
       (process.env.PLAYWRIGHT_BROWSER as 'chromium' | 'firefox' | 'webkit' | undefined) ??
@@ -44,7 +50,7 @@ export default defineConfig({
       : {}),
   },
   webServer: {
-    command: `npm run check:wasm && NEXT_DIST_DIR=${PLAYWRIGHT_DIST_DIR} npx next dev --webpack --hostname 127.0.0.1 --port ${PLAYWRIGHT_PORT}`,
+    command: `npm run check:wasm && NEXT_DIST_DIR=${PLAYWRIGHT_DIST_DIR} npx next dev --${PLAYWRIGHT_BUNDLER} --hostname 127.0.0.1 --port ${PLAYWRIGHT_PORT}`,
     url: PLAYWRIGHT_BASE_URL,
     reuseExistingServer: true,
     timeout: 2 * 60 * 1000,
