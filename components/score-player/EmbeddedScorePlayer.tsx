@@ -413,6 +413,9 @@ export default function EmbeddedScorePlayer() {
   });
 
   useNoteheadColor(svgHostRef, view, currentPage, svg);
+  // React replaces the markup whenever this object is a new one (not when the string changes), and the player renders
+  // every frame while it plays: a fresh object would rebuild the page each frame and wipe the sounding note's colour.
+  const svgMarkup = useMemo(() => ({ __html: svg }), [svg]);
 
   const visibleMeasures = useMemo(
     () => positions?.elements.filter((element) => element.page === currentPage) ?? [],
@@ -790,7 +793,7 @@ export default function EmbeddedScorePlayer() {
                 ref={svgHostRef}
                 className="[&_svg]:block [&_svg]:h-auto [&_svg]:w-full"
                 data-testid="player-svg"
-                dangerouslySetInnerHTML={{ __html: svg }}
+                dangerouslySetInnerHTML={svgMarkup}
               />
               {pageSize && (
                 <PlayerOverlay

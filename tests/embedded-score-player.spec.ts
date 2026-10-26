@@ -133,6 +133,39 @@ test.describe('embedded score player', () => {
     await expect(coloured).toHaveCount(0);
   });
 
+  test('note mode keeps the sounding notehead coloured for its whole duration while playing', async ({
+    page,
+  }) => {
+    await page.goto('/?score=%2Ftest_scores%2Fbach_orig.mscz&embed=player&highlight=note');
+    await expect(page.getByTestId('player-seek')).toBeEnabled({ timeout: 60_000 });
+    await page.getByTestId('player-play').click();
+    await expect
+      .poll(async () => Number(await page.getByTestId('player-seek').inputValue()), {
+        timeout: 60_000,
+      })
+      .toBeGreaterThan(1_000);
+    // Every frame for a second: the page's SVG is the same node and a notehead is coloured. The player renders every
+    // frame while it plays; rebuilding the page's markup each time used to wipe the colour, leaving a one-frame flash.
+    const frames = await page.evaluate(async () => {
+      const host = document.querySelector('[data-testid="player-svg"]')!;
+      const first = host.querySelector(':scope > svg');
+      const seen: { same: boolean; coloured: number }[] = [];
+      const started = performance.now();
+      while (performance.now() - started < 1_000) {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        const svg = host.querySelector(':scope > svg');
+        seen.push({
+          same: svg === first,
+          coloured: svg?.querySelectorAll('[fill="rgb(8 145 178)"]').length ?? 0,
+        });
+      }
+      return seen;
+    });
+    expect(frames.length).toBeGreaterThan(3);
+    expect(frames.filter((frame) => !frame.same)).toEqual([]);
+    expect(frames.filter((frame) => frame.coloured === 0)).toEqual([]);
+  });
+
   test('exchanges versioned messages only with the configured parent origin', async ({ page }) => {
     await page.route('**/player-host.html', (route) =>
       route.fulfill({
