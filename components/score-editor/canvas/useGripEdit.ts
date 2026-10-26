@@ -39,13 +39,17 @@ export function useGripEdit(ctx: GripEditContext) {
   const [gripEdit, setGripEdit] = useState<GripEditInfo | null>(null);
 
   const gripDragCleanupRef = useRef<(() => void) | null>(null);
+  /** An engine grip edit is open (begun and not yet ended). */
+  const gripEditOpenRef = useRef(false);
 
   const closeGripEdit = useCallback(
     (commit: boolean) => {
       gripDragCleanupRef.current?.();
       gripDragCleanupRef.current = null;
       setGripEdit(null);
-      if (score?.endGripEdit) {
+      const shouldEnd = gripEditOpenRef.current;
+      gripEditOpenRef.current = false;
+      if (shouldEnd && score?.endGripEdit) {
         void Promise.resolve(score.endGripEdit(commit)).catch((err: unknown) => {
           console.warn('Ending grip edit failed:', err);
         });
@@ -59,7 +63,15 @@ export function useGripEdit(ctx: GripEditContext) {
       return;
     }
     try {
+      // End the previous native edit before starting another grip session.
+      if (gripEditOpenRef.current) {
+        gripDragCleanupRef.current?.();
+        gripDragCleanupRef.current = null;
+        gripEditOpenRef.current = false;
+        await Promise.resolve(score.endGripEdit?.(false));
+      }
       const edit = await Promise.resolve(score.beginGripEdit(pageIndex, x, y));
+      gripEditOpenRef.current = Boolean(edit);
       setGripEdit(edit?.grips?.length ? edit : null);
     } catch (err) {
       console.warn('Starting grip edit failed:', err);
@@ -117,6 +129,10 @@ export function useGripEdit(ctx: GripEditContext) {
       gripDragCleanupRef.current = null;
       const { dx, dy } = engravingDelta(upEvent.clientX, upEvent.clientY);
       let committed = false;
+      // Clear the UI and native-session guard before awaiting worker calls. The browser may emit a click
+      // immediately after pointerup; that click must not cancel this drag while endGripEdit(commit) is queued.
+      setGripEdit(null);
+      gripEditOpenRef.current = false;
       try {
         if (commit && (dx !== 0 || dy !== 0)) {
           const modifiers =
@@ -125,12 +141,12 @@ export function useGripEdit(ctx: GripEditContext) {
           committed = Boolean(updated);
         }
         await Promise.resolve(score.endGripEdit?.(committed));
-        setGripEdit(null);
         if (!committed) {
           return;
         }
         setScoreDirtySinceCheckpoint(true);
         setScoreDirtySinceXml(true);
+        await core.undoHistory.refresh('grip edit');
         if (score.relayout) {
           await Promise.resolve(score.relayout());
         }
@@ -143,6 +159,7 @@ export function useGripEdit(ctx: GripEditContext) {
         });
       } catch (err) {
         console.error('Grip drag failed:', err);
+        gripEditOpenRef.current = false;
         await Promise.resolve(score.endGripEdit?.(false)).catch(() => {});
         setGripEdit(null);
       }
@@ -159,6 +176,7 @@ export function useGripEdit(ctx: GripEditContext) {
       gripDragCleanupRef.current?.();
       gripDragCleanupRef.current = null;
       setGripEdit(null);
+      gripEditOpenRef.current = false;
       void Promise.resolve(score.endGripEdit?.(false)).catch(() => {});
     });
 

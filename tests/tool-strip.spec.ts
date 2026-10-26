@@ -1,4 +1,5 @@
 import { expect, test, type Page } from 'playwright/test';
+import { waitForCommand, waitForCommandEnabled } from './helpers/commands';
 
 /** Counts calls to an engine method on the live score, so a click can be tied to what the engine was asked to do. */
 async function spyOnEngine(page: Page, method: string) {
@@ -19,11 +20,14 @@ async function spyOnEngine(page: Page, method: string) {
 }
 
 async function open(page: Page, selectNote: boolean) {
+  await page.goto('about:blank');
   await page.goto('/?score=/test_scores/three_notes_cde.musicxml');
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
   if (selectNote) {
     await page.locator('svg .Note').first().click();
     await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
+    // The selection's follow-up work keeps edit commands off for a while on slow engines.
+    await waitForCommand(page, 'edit.delete');
   }
 }
 
@@ -119,7 +123,7 @@ test('Delete runs the engine command when something is selected', async ({ page 
   const count = await spyOnEngine(page, 'deleteSelection');
   await expect(page.getByTestId('btn-delete')).not.toHaveAttribute('aria-disabled', 'true');
   await page.getByTestId('btn-delete').click();
-  await expect.poll(count).toBe(1);
+  await expect.poll(count, { timeout: 30_000 }).toBe(1);
 });
 
 test('Delete with nothing selected does nothing and says why', async ({ page }) => {
@@ -240,9 +244,10 @@ test.describe('Notes group', () => {
       ['btn-flip-stem', 'flipStem'],
       ['btn-transpose-12', 'transpose'],
     ] as const) {
+      await waitForCommandEnabled(page, testId, { timeout: 60_000 });
       const count = await spyOnEngine(page, method);
       await page.getByTestId(testId).click();
-      await expect.poll(count, { message: testId }).toBeGreaterThanOrEqual(1);
+      await expect.poll(count, { message: testId, timeout: 30_000 }).toBeGreaterThanOrEqual(1);
     }
   });
 
@@ -273,10 +278,12 @@ test.describe('Notes group', () => {
       };
     });
     await page.getByTestId('dropdown-lines').click();
+    await waitForCommandEnabled(page, 'btn-ottava-1', { timeout: 60_000 });
     await page.getByTestId('btn-ottava-1').click();
     await expect
       .poll(() =>
         page.evaluate(() => (window as unknown as { __ottavaCalls: unknown[][] }).__ottavaCalls),
+        { timeout: 30_000 },
       )
       .toEqual([[1]]);
   });
@@ -390,10 +397,13 @@ test.describe('Marks group', () => {
     await open(page, true);
     const calls = await spyOnCalls(page, 'addArticulation');
     await page.getByTestId('dropdown-articulations-last').click();
-    await expect.poll(calls).toEqual([['articAccentAbove']]);
+    await expect.poll(calls, { timeout: 30_000 }).toEqual([['articAccentAbove']]);
     await page.getByTestId('dropdown-articulations').click();
+    await waitForCommandEnabled(page, 'btn-artic-articTenutoAbove', { timeout: 60_000 });
     await page.getByTestId('btn-artic-articTenutoAbove').click();
-    await expect.poll(calls).toEqual([['articAccentAbove'], ['articTenutoAbove']]);
+    await expect
+      .poll(calls, { timeout: 30_000 })
+      .toEqual([['articAccentAbove'], ['articTenutoAbove']]);
     // Fermatas are a separate button with its own memory.
     await expect(page.getByTestId('dropdown-fermata-last')).toHaveAccessibleName(
       'Fermatas: Fermata',
@@ -550,7 +560,10 @@ test.describe('Layout group', () => {
     await expect(page.getByRole('menu').getByRole('menuitem')).toHaveCount(15);
     await page.getByTestId('btn-keysig-2').click();
     await expect
-      .poll(() => countOf(page, /<KeySig>(?:\s*<eid>[^<]*<\/eid>)?\s*<(?:accidental|concertKey)>2<\//g), { timeout: 20_000 })
+      .poll(
+        () => countOf(page, /<KeySig>(?:\s*<eid>[^<]*<\/eid>)?\s*<(?:accidental|concertKey)>2<\//g),
+        { timeout: 20_000 },
+      )
       .toBeGreaterThan(0);
   });
 
@@ -565,6 +578,7 @@ test.describe('Layout group', () => {
     await expect(page.getByTestId('dropdown-bulk-tools')).not.toHaveAttribute(
       'aria-disabled',
       'true',
+      { timeout: 30_000 },
     );
     await page.getByTestId('dropdown-bulk-tools').click();
     await expect(page.getByRole('menu').getByRole('menuitem')).toHaveCount(4);
@@ -604,11 +618,13 @@ test.describe('Score group', () => {
     const seen = await spyOn(page, 'setClef');
     const face = page.getByTestId('dropdown-clef-last');
     await expect(face).toHaveAccessibleName('Clefs: Treble');
+    await waitForCommandEnabled(page, 'btn-clef-20', { timeout: 60_000 });
     await face.click();
-    await expect.poll(seen).toEqual([[0]]);
+    await expect.poll(seen, { timeout: 30_000 }).toEqual([[0]]);
     await page.getByTestId('dropdown-clef').click();
+    await waitForCommandEnabled(page, 'btn-clef-20', { timeout: 60_000 });
     await page.getByTestId('btn-clef-20').click(); // Bass
-    await expect.poll(seen).toEqual([[0], [20]]);
+    await expect.poll(seen, { timeout: 30_000 }).toEqual([[0], [20]]);
     await expect(face).toHaveAccessibleName('Clefs: Bass');
   });
 
@@ -659,14 +675,16 @@ test.describe('Score group', () => {
     const marker = await spyOn(page, 'addMarker');
     await page.getByTestId('dropdown-navigation').click();
     await expect(page.getByTestId('navigation-menu').getByRole('menuitem')).toHaveCount(8);
+    await waitForCommandEnabled(page, 'btn-marker-2', { timeout: 60_000 });
     await page.getByTestId('btn-marker-2').click(); // Coda
-    await expect.poll(marker).toEqual([[2]]);
+    await expect.poll(marker, { timeout: 30_000 }).toEqual([[2]]);
 
     const jump = await spyOn(page, 'addJump');
     await page.getByTestId('dropdown-jumps').click();
     await expect(page.getByRole('menu').getByRole('menuitem')).toHaveCount(15);
+    await waitForCommandEnabled(page, 'btn-jump-1', { timeout: 60_000 });
     await page.getByTestId('btn-jump-1').click(); // D.C. al Fine
-    await expect.poll(jump).toEqual([[1]]);
+    await expect.poll(jump, { timeout: 30_000 }).toEqual([[1]]);
 
     await page.getByTestId('dropdown-navigation').click();
     await page.getByTestId('btn-open-markers-palette').click();
@@ -767,10 +785,11 @@ test.describe('Bowing, articulations and voices', () => {
   test('up bow and down bow have buttons that add that bowing', async ({ page }) => {
     await open(page, true);
     const calls = await spy(page, 'addArticulation');
+    await waitForCommandEnabled(page, 'add.mark.articulation', { timeout: 60_000 });
     await page.getByTestId('btn-up-bow').click();
-    await expect.poll(calls).toEqual([['stringsUpBow']]);
+    await expect.poll(calls, { timeout: 30_000 }).toEqual([['stringsUpBow']]);
     await page.getByTestId('btn-down-bow').click();
-    await expect.poll(calls).toEqual([['stringsUpBow'], ['stringsDownBow']]);
+    await expect.poll(calls, { timeout: 30_000 }).toEqual([['stringsUpBow'], ['stringsDownBow']]);
     const xml = await page.evaluate(async () => {
       const score = (
         window as unknown as { __webmscore: { saveMsc: (f: string) => Promise<Uint8Array> } }

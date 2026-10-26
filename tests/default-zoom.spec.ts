@@ -12,6 +12,8 @@ test('a score opens fitted to the width of the view, whatever the window', async
   for (const width of [1400, 900]) {
     await page.setViewportSize({ width, height: 800 });
     await page.evaluate(() => window.localStorage.clear()).catch(() => {});
+    // A fresh load each time: WebKit treats going to the URL already shown as a reload that races the page.
+    await page.goto('about:blank');
     await openScore(page);
     // The fit lands within a few frames of the score appearing.
     await page.waitForTimeout(1200);

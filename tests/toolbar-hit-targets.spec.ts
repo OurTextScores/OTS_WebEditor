@@ -1,4 +1,5 @@
 import { expect, test } from 'playwright/test';
+import { waitForCommand } from './helpers/commands';
 import { openMenuPath } from './helpers/commands';
 
 /**
@@ -46,6 +47,7 @@ test('the Hairpins menu adds the hairpin it names', async ({ page }) => {
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
   await page.locator('svg .Note').first().click();
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
+  await waitForCommand(page, 'edit.delete');
   await page.evaluate(() => {
     const score = (
       window as unknown as { __webmscore: Record<string, (...a: unknown[]) => unknown> }

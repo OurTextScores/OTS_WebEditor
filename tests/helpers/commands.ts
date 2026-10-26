@@ -149,12 +149,30 @@ export async function openMenuPath(page: Page, path: readonly string[]): Promise
   if (path.length < 2) throw new Error('A menu path needs a menu and at least one item.');
   const [menu, ...items] = path;
   await page.getByTestId(`menu-${menu.toLowerCase()}`).click();
-  for (const [index, name] of items.entries()) {
+  for (const name of items) {
     // The label, then end of name or whitespace: a menu appends "…" for dialogs and the
     // shortcut after a space, and a short label ("D") must not match "Dynamics".
     const label = new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}…?(\\s|$)`);
     const item = page.getByRole('menuitem', { name: label }).first();
-    if (index < items.length - 1) await item.hover();
-    else await item.click();
+    await item.click();
   }
+}
+
+/**
+ * Waits until a command is registered and enabled. On a slow engine (Playwright's Firefox build has no optimizing
+ * WebAssembly compiler) a selection's follow-up work can keep commands disabled for seconds, and a click on a
+ * disabled control does nothing.
+ */
+export async function waitForCommand(
+  page: Page,
+  commandId: string,
+  { timeout = 30_000 }: RunCommandOptions = {},
+) {
+  await page.waitForFunction(
+    (id) =>
+      (window as CommandsWindow).__otsCommands?.list().some((c) => c.id === id && c.enabled) ??
+      false,
+    commandId,
+    { timeout },
+  );
 }

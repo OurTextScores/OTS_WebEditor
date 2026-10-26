@@ -49,10 +49,19 @@ const doubleClickGeometry = async (page: Page, selector: string) => {
   const geometry = page.locator(selector).first();
   const point = await geometry.evaluate((element: SVGGeometryElement) => {
     const local = element.getPointAtLength(element.getTotalLength() * 0.35);
-    const matrix = element.getScreenCTM();
-    if (!matrix) throw new Error('Line has no screen transform');
-    const screen = new DOMPoint(local.x, local.y).matrixTransform(matrix);
-    return { x: screen.x, y: screen.y };
+    // WebKit's getScreenCTM() leaves out CSS transforms on HTML ancestors (the editor's zoom), so map through the
+    // root SVG's user space and its client rect, as lib/svg-screen-matrix.ts does for the editor itself.
+    const svg = element.ownerSVGElement;
+    const toRoot = element.getCTM();
+    if (!svg || !toRoot) throw new Error('Path is not inside the score SVG');
+    const user = new DOMPoint(local.x, local.y).matrixTransform(toRoot);
+    const view = svg.viewBox.baseVal;
+    const rect = svg.getBoundingClientRect();
+    const scale = Math.min(rect.width / view.width, rect.height / view.height);
+    return {
+      x: rect.left + (rect.width - view.width * scale) / 2 + (user.x - view.x) * scale,
+      y: rect.top + (rect.height - view.height * scale) / 2 + (user.y - view.y) * scale,
+    };
   });
   await geometry.dispatchEvent('dblclick', {
     bubbles: true,

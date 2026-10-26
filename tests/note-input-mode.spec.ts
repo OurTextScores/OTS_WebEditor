@@ -1,6 +1,20 @@
 import { expect, test, type Page } from 'playwright/test';
 import { runCommand } from './helpers/commands';
 
+/** Turning note input on waits for the selection, then several engine calls: slow engines need more than 10 s. */
+const NOTE_INPUT_TIMEOUT = 30_000;
+const noteInputCommandReady = (page: Page) =>
+  page.waitForFunction(
+    () =>
+      (
+        window as unknown as { __otsCommands?: { list(): { id: string; enabled: boolean }[] } }
+      ).__otsCommands
+        ?.list()
+        .some((command) => command.id === 'add.noteInput' && command.enabled),
+    undefined,
+    { timeout: NOTE_INPUT_TIMEOUT },
+  );
+
 // Large viewport so staff geometry is comfortably clickable at fit-zoom.
 test.use({ viewport: { width: 2400, height: 1600 } });
 
@@ -112,9 +126,12 @@ test('note input mode places a note on click and exits with Escape', async ({ pa
   const placeY = noteBox.y + noteBox.height / 2 - noteBox.height;
 
   // Enter note input mode via the keyboard shortcut.
+  await noteInputCommandReady(page);
   await page.keyboard.press('n');
-  await expect(page.getByTestId('btn-note-input')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByTestId('note-input-cursor')).toBeVisible();
+  await expect(page.getByTestId('btn-note-input')).toHaveAttribute('aria-pressed', 'true', {
+    timeout: NOTE_INPUT_TIMEOUT,
+  });
+  await expect(page.getByTestId('note-input-cursor')).toBeVisible({ timeout: NOTE_INPUT_TIMEOUT });
 
   // Quarter-note input duration, then click to place a second pitch.
   await page.keyboard.press('5');
@@ -152,10 +169,13 @@ test('N resolves a logical start and advances the input cursor without a prior c
   await page.goto('/?score=/test_scores/single_note_c4.musicxml');
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
 
+  await noteInputCommandReady(page);
   await page.keyboard.press('n');
-  await expect(page.getByTestId('btn-note-input')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('btn-note-input')).toHaveAttribute('aria-pressed', 'true', {
+    timeout: NOTE_INPUT_TIMEOUT,
+  });
   const cursor = page.getByTestId('note-input-cursor');
-  await expect(cursor).toBeVisible();
+  await expect(cursor).toBeVisible({ timeout: NOTE_INPUT_TIMEOUT });
   const startBox = await cursor.boundingBox();
   if (!startBox) {
     throw new Error('Could not measure the initial note input cursor.');
@@ -226,10 +246,11 @@ test('toolbar button toggles note input mode', async ({ page }) => {
 
   const button = page.getByTestId('btn-note-input');
   await expect(button).toHaveAttribute('aria-pressed', 'false');
+  await noteInputCommandReady(page);
   await button.click();
-  await expect(button).toHaveAttribute('aria-pressed', 'true');
+  await expect(button).toHaveAttribute('aria-pressed', 'true', { timeout: NOTE_INPUT_TIMEOUT });
   await expect(button).toHaveText('Stop input');
-  await expect(page.getByTestId('note-input-cursor')).toBeVisible();
+  await expect(page.getByTestId('note-input-cursor')).toBeVisible({ timeout: NOTE_INPUT_TIMEOUT });
   await button.click();
   await expect(button).toHaveAttribute('aria-pressed', 'false');
   await expect(button).toHaveText('Input');

@@ -28,7 +28,7 @@ const callScore = (page: Page, method: string, ...args: unknown[]) =>
   );
 
 const selectAll = async (page: Page) => {
-  await page.keyboard.press('Control+a');
+  await runCommand(page, 'edit.selectAll', undefined, { timeout: 30_000 });
   await expect
     .poll(async () => {
       const boxes = (await callScore(page, 'getSelectionBoundingBoxes')) as unknown[];

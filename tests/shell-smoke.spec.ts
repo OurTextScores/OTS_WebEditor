@@ -130,14 +130,14 @@ test.describe('shell menus and palette @smoke', () => {
     await page.waitForSelector('svg .Note', { timeout: 60_000 });
     await page.getByTestId('menu-edit').click();
     // Pitch Up needs a selection.
-    await page.getByRole('menuitem', { name: 'Pitch' }).hover();
+    await page.getByRole('menuitem', { name: 'Pitch' }).click();
     await expect(page.getByTestId('menu-item-edit.pitch.up')).toHaveAttribute('data-disabled', '');
     await page.keyboard.press('Escape');
     await page.keyboard.press('Escape');
 
     await page.locator('svg .Note').first().click();
     await page.getByTestId('menu-edit').click();
-    await page.getByRole('menuitem', { name: 'Pitch' }).hover();
+    await page.getByRole('menuitem', { name: 'Pitch' }).click();
     await expect(page.getByTestId('menu-item-edit.pitch.up')).not.toHaveAttribute(
       'data-disabled',
       '',
