@@ -37,7 +37,9 @@ export function MenuButton({
   const [open, setOpen] = useState(false);
   const lastUsed = useSyncExternalStore(subscribeLastUsed, getLastUsedMap, getLastUsedMapOnServer);
   const current =
-    control.items.find((item) => item.testId === lastUsed[control.testId]) ?? control.items[0];
+    control.items.find((item) => item.testId === lastUsed[control.testId]) ??
+    control.items.find((item) => item.testId === control.initial) ??
+    control.items[0];
   const currentCommand = commandOf(control, current);
 
   // The menu opens when something in it can run; otherwise it explains the first reason it finds.
@@ -138,11 +140,15 @@ export function MenuButton({
                 }
               }}
             >
-              <ControlIcon testId={control.testId} fallback={Icon} glyph={current.glyph} />
+              <ControlIcon testId={control.testId} fallback={Icon} current={current} />
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <ControlTip label={faceLabel} reason={faceReason} />
+            <ControlTip
+              label={faceLabel}
+              shortcut={tools.shortcut(currentCommand, current.arg)}
+              reason={faceReason}
+            />
           </TooltipContent>
         </Tooltip>
         <DropdownMenuTrigger asChild>

@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronDown, PenLine, Redo2, Undo2 } from 'lucide-react';
+import { ChevronDown, Music2, PenLine, Redo2, Undo2 } from 'lucide-react';
 import React, { useRef, useState } from 'react';
 import { defaultCommandRegistry, type CommandRegistry } from '../../../lib/commands/registry';
 import { Button } from '../../ui/Button';
@@ -18,8 +18,11 @@ import {
   tupletOptions,
 } from '../../toolbar/constants';
 import { Popover, PopoverAnchor, PopoverContent } from '../../ui/Popover';
+import type { StripControlContext } from './strip/ControlButton';
 import { StripIcon } from './strip/icons/StripIcon';
 import { dotIconSpec, ICON_VIEW_WIDTH, QUICK_ROW_ICON_SPECS } from './strip/icons/stripIconSpecs';
+import { MenuButton } from './strip/MenuButton';
+import type { StripMenu } from './strip/toolbarLayout';
 import styles from './WriteToolbar.module.css';
 import { useToolbarCommands } from './useToolbarCommands';
 
@@ -34,30 +37,59 @@ const DURATION_GLYPHS: Record<number, string> = {
 };
 
 /**
- * Height of each glyph's ink centre above its baseline, in em, read from Leland's outlines
+ * Height of the quarter note's ink centre above its baseline, in em, read from Leland's outlines
  * (see WriteToolbar.module.css). The glyph is moved down by this much to centre it.
  */
-const GLYPH_LIFT: Record<string, number> = {
-  '\uE1D2': 0, // whole
-  '\uE1D3': 0.372, // half
-  '\uE1D5': 0.372, // quarter
-  '\uE1D7': 0.378, // eighth
-  '\uE1D9': 0.377, // 16th
-  '\uE1DB': 0.466, // 32nd
-  '\uE260': 0.139, // flat
-  '\uE261': 0, // natural
-  '\uE262': 0, // sharp
-};
-
-const glyphStyle = (glyph: string): React.CSSProperties =>
-  ({ '--lift': GLYPH_LIFT[glyph] ?? 0 }) as React.CSSProperties;
+const QUARTER_LIFT = { '--lift': 0.372 } as React.CSSProperties;
 
 const QUARTER = '\uE1D5';
 const AUGMENTATION_DOT = '\uE1E7';
 const LONG_PRESS_MS = 450;
 
-// The three accidentals worth a button; the rest (double, clear) stay in the dropdown.
-const QUICK_ACCIDENTALS = [1, 2, 3] as const;
+/**
+ * Durations and accidentals are split buttons, as the strip's dynamics are: the face shows and applies the one
+ * chosen last (quarter and sharp until then), the chevron opens all of them. Test ids are the ribbon's.
+ */
+const DURATION_MENU: StripMenu = {
+  kind: 'menu',
+  testId: 'dropdown-duration',
+  contentTestId: 'duration-menu',
+  label: 'Duration',
+  icon: Music2,
+  commandId: 'edit.duration.set',
+  split: true,
+  columns: durationOptions.length,
+  initial: 'btn-duration-4',
+  items: [...durationOptions].reverse().map((option) => ({
+    testId: option.testId,
+    label: option.label,
+    arg: option.value,
+    glyph: DURATION_GLYPHS[option.value],
+  })),
+};
+
+/** Flat, natural, sharp, then the doubles and clear. */
+const ACCIDENTAL_ORDER = [1, 2, 3, 5, 4, 0];
+
+const ACCIDENTAL_MENU: StripMenu = {
+  kind: 'menu',
+  testId: 'dropdown-accidental',
+  contentTestId: 'accidental-menu',
+  label: 'Accidental',
+  icon: Music2,
+  commandId: 'add.accidental',
+  split: true,
+  columns: 3,
+  initial: 'btn-acc-3',
+  items: ACCIDENTAL_ORDER.map((value) => accidentalOptions.find((o) => o.value === value)!).map(
+    (option) => ({
+      testId: `btn-acc-${option.value}`,
+      label: option.name,
+      arg: option.value,
+      ...(option.symbol ? { glyph: option.symbol } : {}),
+    }),
+  ),
+};
 
 /** Space between wrapped lines of buttons. */
 const ROW_GAP = 8;
@@ -82,9 +114,24 @@ export function WriteToolbar({
   noteInputMethod?: number;
   registry?: CommandRegistry;
 }) {
-  const { ctx, enabled, checked, run } = useToolbarCommands(registry);
+  const tools = useToolbarCommands(registry);
+  const { ctx, enabled, checked, run } = tools;
   const noteInputOn = checked('add.noteInput');
   const hasTarget = ctx.isMutable && (ctx.noteInput || ctx.selection !== 'none');
+  // The quick row is not part of the strip's roving tab order: each control is its own tab stop. An accidental
+  // also needs a note to go on.
+  const quick = (key: string): StripControlContext => ({
+    tools: {
+      ...tools,
+      enabled: (id) => enabled(id) && (id !== 'add.accidental' || hasTarget),
+      reason: (id) =>
+        id === 'add.accidental' && !hasTarget && enabled(id)
+          ? 'Select a note first'
+          : tools.reason(id),
+    },
+    activeKey: key,
+    setActiveKey: () => {},
+  });
 
   return (
     <div
@@ -134,28 +181,7 @@ export function WriteToolbar({
 
       {divider}
 
-      {[...durationOptions].reverse().map((option) => (
-        <Button
-          key={option.value}
-          data-testid={option.testId}
-          variant="outline"
-          size="xs"
-          className={styles.glyphButton}
-          aria-label={option.label}
-          title={`${option.label} (${option.shortcut})`}
-          disabled={!enabled('edit.duration.set')}
-          onClick={run('edit.duration.set', option.value)}
-        >
-          <span
-            data-testid={`duration-symbol-${option.value}`}
-            className={styles.glyph}
-            style={glyphStyle(DURATION_GLYPHS[option.value])}
-            aria-hidden="true"
-          >
-            {DURATION_GLYPHS[option.value]}
-          </span>
-        </Button>
-      ))}
+      <MenuButton control={DURATION_MENU} context={quick(DURATION_MENU.testId)} />
       <DotButton
         enabled={{
           single: enabled('edit.duration.dot'),
@@ -191,73 +217,7 @@ export function WriteToolbar({
 
       {divider}
 
-      {QUICK_ACCIDENTALS.map((value) => {
-        const option = accidentalOptions.find((o) => o.value === value)!;
-        return (
-          <Button
-            key={value}
-            data-testid={`btn-acc-${value}`}
-            variant="outline"
-            size="xs"
-            className={styles.glyphButton}
-            aria-label={option.name}
-            title={option.name}
-            disabled={!enabled('add.accidental') || !hasTarget}
-            onClick={run('add.accidental', value)}
-          >
-            <span
-              data-testid={`acc-symbol-${value}`}
-              className={styles.glyph}
-              style={glyphStyle(option.symbol)}
-              aria-hidden="true"
-            >
-              {option.symbol}
-            </span>
-          </Button>
-        );
-      })}
-      <DropdownMenu modal={false}>
-        <DropdownMenuTrigger asChild>
-          <Button
-            data-testid="dropdown-accidental"
-            variant="outline"
-            size="xs"
-            aria-label="More accidentals"
-            title="More accidentals"
-            disabled={!enabled('add.accidental') || !hasTarget}
-          >
-            <StripIcon
-              spec={QUICK_ROW_ICON_SPECS['dropdown-accidental']}
-              viewWidth={ICON_VIEW_WIDTH['dropdown-accidental']}
-            />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          {accidentalOptions
-            .filter((option) => !(QUICK_ACCIDENTALS as readonly number[]).includes(option.value))
-            .map((option) => (
-              <DropdownMenuItem
-                key={option.value}
-                data-testid={`btn-acc-${option.value}`}
-                className="min-h-9 gap-3"
-                onSelect={run('add.accidental', option.value)}
-              >
-                {option.symbol ? (
-                  <span
-                    className={styles.glyph}
-                    style={glyphStyle(option.symbol)}
-                    aria-hidden="true"
-                  >
-                    {option.symbol}
-                  </span>
-                ) : (
-                  <span className="inline-flex min-w-[1.25rem]" aria-hidden="true" />
-                )}
-                <span>{option.name}</span>
-              </DropdownMenuItem>
-            ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <MenuButton control={ACCIDENTAL_MENU} context={quick(ACCIDENTAL_MENU.testId)} />
 
       {divider}
 
@@ -433,7 +393,7 @@ function DotButton({
           >
             <span
               className={`${styles.glyph} ${styles.menuGlyph}`}
-              style={glyphStyle(QUARTER)}
+              style={QUARTER_LIFT}
               aria-hidden="true"
             >
               {QUARTER}

@@ -101,8 +101,6 @@ export const STRIP_ICON_SPECS: Readonly<Record<string, IconSpec>> = {
   'dropdown-hairpins': [glyph('\uE53E', [12, 12], 24, 20)],
   'dropdown-pedal': [glyph('\uE650', [12, 12], 22, 20)],
   'dropdown-articulations': [...note(11, 13, false, 18), glyph('\uE4A0', [11, 5.5], 24, 9, 5)],
-  'btn-up-bow': [glyph('\uE612', [12, 12], 22, 15, 12)],
-  'btn-down-bow': [glyph('\uE610', [12, 12], 22, 15, 12)],
   'dropdown-fermata': [glyph('\uE4C0', [12, 12], 24, 19)],
   'dropdown-breath': [glyph('\uE4CE', [12, 12], 48, 12, 10)],
 
@@ -167,13 +165,6 @@ export const QUICK_ROW_ICON_SPECS: Readonly<Record<string, IconSpec>> = {
     ...note(25, 9, false, 12),
     line('M10.8 10Q17 0.5 25 5.2', 1.3),
   ],
-  // More accidentals: the double sharp and an ellipsis (the quick buttons already show flat, natural and sharp).
-  'dropdown-accidental': [
-    glyph('\uE263', [8, 12], 22, 12, 7),
-    solid(
-      'M14.2 14.4a1.1 1.1 0 1 0 0.01 0zM18 14.4a1.1 1.1 0 1 0 0.01 0zM21.8 14.4a1.1 1.1 0 1 0 0.01 0z',
-    ),
-  ],
 };
 
 /** The augmentation dot, after Viritura's: a quarter note then its dots (metronome glyphs, a gap between). */
@@ -185,7 +176,34 @@ export const dotIconSpec = (dots: number): IconSpec => [
 /** Icons wider than the 24 grid: a staff needs room for its notes and sharps. */
 export const ICON_VIEW_WIDTH: Readonly<Record<string, number>> = {
   'dropdown-key': 30,
-  'dropdown-accidental': 26,
   'btn-tie': 34,
   'btn-slur': 34,
+};
+
+/**
+ * Grace notes, as the palette's pictures do: a small grace note and the full-size note it belongs to, the grace note
+ * before the note or, for the "after" kinds, after it. The acciaccatura and appoggiatura are SMuFL's own grace notes;
+ * the rest are small flagged notes (metronome glyphs) of their duration.
+ */
+const GRACE_GLYPHS: Readonly<Record<number, { glyph: string; after?: boolean }>> = {
+  1: { glyph: '' }, // graceNoteAcciaccaturaStemUp
+  2: { glyph: '' }, // graceNoteAppoggiaturaStemUp
+  8: { glyph: '' }, // metNote16thUp
+  16: { glyph: '' }, // metNote32ndUp
+  32: { glyph: '', after: true }, // metNote8thUp
+  64: { glyph: '', after: true },
+  128: { glyph: '', after: true },
+};
+
+export const graceNoteIconSpec = (value: number): IconSpec | undefined => {
+  const grace = GRACE_GLYPHS[value];
+  if (!grace) return undefined;
+  const [graceX, mainX] = grace.after ? [18, 7] : [6, 16.5];
+  return [...note(mainX, 18, true, 17), glyph(grace.glyph, [graceX, 12.5], 17, 15)];
+};
+
+/** Pedal markings: MuseScore's pedal line is a bracket under the notes; a pedal change notches it. */
+export const PEDAL_ICON_SPECS: Readonly<Record<string, IconSpec>> = {
+  'btn-pedal-line': [line('M4 8v9h16V8')],
+  'btn-pedal-split': [line('M3 8v9h6.5l2.5-5 2.5 5H21V8')],
 };

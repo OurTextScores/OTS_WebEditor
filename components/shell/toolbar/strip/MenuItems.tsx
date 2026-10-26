@@ -7,21 +7,13 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '../../../ui/DropdownMenu';
-import { BeamIcon } from '../../../toolbar/BeamIcon';
-import { GlyphIcon } from './icons/StripIcon';
+import { hasPicture, ItemPictureIcon } from './icons/ControlIcon';
 import type { ToolbarCommands } from '../useToolbarCommands';
 import type { StripItem, StripMenu } from './toolbarLayout';
 
 /** The commands every strip menu draws from: an item's own, else the menu's. */
 export const commandOf = (control: StripMenu, item: StripItem) =>
   item.commandId ?? control.commandId ?? '';
-
-const glyphOf = (item: StripItem) =>
-  item.beam !== undefined ? (
-    <BeamIcon value={item.beam} className="text-slate-800" />
-  ) : item.glyph ? (
-    <GlyphIcon glyph={item.glyph} size={22} />
-  ) : null;
 
 /**
  * The items of a strip menu: a list (with section headings, glyphs beside labels, checkable items)
@@ -60,8 +52,8 @@ export function MenuItems({
               className="h-9 w-9 justify-center p-0"
               onSelect={choose(item)}
             >
-              {item.glyph || item.beam !== undefined ? (
-                glyphOf(item)
+              {hasPicture(item) ? (
+                <ItemPictureIcon item={item} />
               ) : (
                 <span className="text-caption">{item.label}</span>
               )}
@@ -76,7 +68,7 @@ export function MenuItems({
         ) : null;
         const label = (
           <>
-            {glyphOf(item)}
+            <ItemPictureIcon item={item} />
             {item.label}
           </>
         );
@@ -103,7 +95,7 @@ export function MenuItems({
             {heading}
             <DropdownMenuItem
               data-testid={item.testId}
-              className={item.glyph || item.beam !== undefined ? 'gap-3' : undefined}
+              className={hasPicture(item) ? 'gap-3' : undefined}
               disabled={!enabled}
               onSelect={choose(item)}
             >

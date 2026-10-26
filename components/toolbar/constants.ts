@@ -230,11 +230,12 @@ export const ottavaOptions = [
   { label: '22mb', value: 5, symbol: '\uE51E', common: false },
 ] as const;
 
+// MuseScore draws the up- and down-prall with glyphs of its own font; these are SMuFL's nearest.
 export const trillOptions = [
-  { label: 'Trill line', value: 0 },
-  { label: 'Up-prall line', value: 1 },
-  { label: 'Down-prall line', value: 2 },
-  { label: 'Prall-prall line', value: 3 },
+  { label: 'Trill line', value: 0, symbol: '\uE566' }, // ornamentTrill
+  { label: 'Up-prall line', value: 1, symbol: '\uE5B5' }, // ornamentPrecompSlideTrillDAnglebert
+  { label: 'Down-prall line', value: 2, symbol: '\uE5C6' }, // ornamentPrecompMordentUpperPrefix
+  { label: 'Prall-prall line', value: 3, symbol: '\uE56E' }, // ornamentTremblement
 ] as const;
 
 export const glissandoOptions = [

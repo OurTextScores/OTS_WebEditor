@@ -21,9 +21,6 @@ const NEW_IDS = new Set([
   'dropdown-fermata',
   'dropdown-breath',
   'btn-tempo-open',
-  // Bowing buttons: the ribbon had them only inside the articulations menu.
-  'btn-up-bow',
-  'btn-down-bow',
   // Layout group: the ribbon's bar and signature inputs had a submit button but no opener.
   'btn-measures-open',
   'btn-pickup-open',
@@ -253,10 +250,14 @@ describe('split and grid menus in the layout', () => {
     }
   });
 
-  it('only split a family that is a grid of glyphs or short enough to choose from, and name its footer', () => {
+  it('only split a family whose every variant has a picture for the face, and name its footer', () => {
     for (const menu of menus.filter((candidate) => candidate.split)) {
-      expect(menu.columns, `${menu.testId} is a split button`).toBeGreaterThan(0);
+      const bare = menu.items
+        .filter((item) => !item.glyph && !item.icon && item.beam === undefined)
+        .map((item) => item.testId);
+      expect(bare, `${menu.testId} is a split button`).toEqual([]);
       expect(menu.items.length, menu.testId).toBeGreaterThan(1);
+      if (menu.initial) expect(menu.items.map((item) => item.testId)).toContain(menu.initial);
     }
     for (const menu of menus.filter((candidate) => candidate.footer)) {
       expect(menu.footer?.commandId, menu.testId).toBe('view.palette.open');

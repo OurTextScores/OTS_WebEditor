@@ -55,6 +55,8 @@ import {
 import { LAYOUT_GROUPS } from './layoutGroups';
 import { SCORE_STRIP_GROUPS } from './scoreGroups';
 import { paletteFooter, paletteGlyph } from './paletteReferences';
+import type { IconSpec } from './icons/StripIcon';
+import { graceNoteIconSpec, PEDAL_ICON_SPECS } from './icons/stripIconSpecs';
 
 /**
  * What the tool strip shows, as data (SHELL_REDESIGN_DESIGN §23). A control names the command it
@@ -74,6 +76,8 @@ export interface StripItem {
   readonly glyph?: string;
   /** A beam mode: the item shows the palette's beamed-notes picture for it (`BeamIcon`). */
   readonly beam?: number;
+  /** A drawn picture, for a variant no single glyph shows (a grace note and its note). */
+  readonly icon?: IconSpec;
   /** The command needs arguments and the menu has no form: running it opens its form dialog (`commandForms.ts`). */
   readonly opensForm?: boolean;
 }
@@ -101,8 +105,13 @@ export interface StripMenu extends StripBase {
   readonly checkable?: boolean;
   /** The ribbon gave the open menu its own test id. */
   readonly contentTestId?: string;
-  /** The icon runs the variant used last (the first until one is), and the chevron opens the menu. */
+  /**
+   * The icon shows and runs the variant used last, and the chevron opens the menu: choosing a variant sets the
+   * button going forward. Every item needs a picture (glyph, beam or icon) for the face to show.
+   */
   readonly split?: boolean;
+  /** The test id of the variant a split button starts on (default the first). */
+  readonly initial?: string;
   /** Lay the items out as a grid of this many columns (notation glyphs) rather than a list. */
   readonly columns?: number;
   /** An action under the items, such as opening the matching palette. */
@@ -311,6 +320,7 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
         testId: 'dropdown-beams',
         label: 'Beams',
         icon: Rows3,
+        split: true,
         items: familyItems(beamOptions, 'format.beam', (option) => `btn-beam-${option.value}`).map(
           (item, index) => ({ ...item, beam: beamOptions[index].value }),
         ),
@@ -320,11 +330,13 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
         testId: 'dropdown-grace-notes',
         label: 'Grace notes',
         icon: Sparkles,
+        split: true,
         items: graceNoteOptions.map((option) => ({
           testId: option.testId,
           label: option.label,
           commandId: 'add.grace',
           arg: option.value,
+          icon: graceNoteIconSpec(option.value),
         })),
       },
     ],
@@ -346,6 +358,7 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
         contentTestId: 'lines-menu',
         label: 'Lines',
         icon: Waypoints,
+        split: true,
         items: [
           ...familyItems(
             ottavaOptions,
@@ -374,6 +387,7 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
         contentTestId: 'chord-menu',
         label: 'Arpeggios and tremolos',
         icon: Layers,
+        split: true,
         items: [
           ...familyItems(
             arpeggioOptions,
@@ -485,11 +499,13 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
         testId: 'dropdown-hairpins',
         label: 'Hairpins',
         icon: Activity,
+        split: true,
         items: hairpinOptions.map((option) => ({
           testId: option.testId,
           label: option.label,
           commandId: 'add.line.hairpin',
           arg: option.value,
+          glyph: paletteGlyph('hairpin', option.value),
         })),
       },
       {
@@ -497,24 +513,37 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
         testId: 'dropdown-pedal',
         label: 'Pedal',
         icon: Footprints,
+        split: true,
         items: [
           ...pedalOptions.map((option) => ({
             testId: option.testId,
             label: option.label,
             commandId: 'add.line.pedal',
             arg: option.value,
+            // The text pedal is "Ped." and its release star (keyboardPedalPed, keyboardPedalUp).
+            ...(PEDAL_ICON_SPECS[option.testId]
+              ? { icon: PEDAL_ICON_SPECS[option.testId] }
+              : { glyph: '\uE650\uE655' }),
           })),
           {
             testId: 'btn-pedal-sostenuto',
             label: 'Sostenuto pedal',
             commandId: 'add.line.pedal.sostenuto',
+            glyph: '\uE659', // keyboardPedalSost
           },
           {
             testId: 'btn-pedal-una-corda',
             label: 'Una corda',
             commandId: 'add.line.pedal.unaCorda',
+            // SMuFL has no una corda mark; the score writes it as text.
+            glyph: 'u.c.',
           },
-          { testId: 'btn-pedal-split', label: 'Pedal change', commandId: 'add.line.pedal.split' },
+          {
+            testId: 'btn-pedal-split',
+            label: 'Pedal change',
+            commandId: 'add.line.pedal.split',
+            icon: PEDAL_ICON_SPECS['btn-pedal-split'],
+          },
         ],
       },
     ],
@@ -531,35 +560,15 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
         icon: Dot,
         split: true,
         columns: 5,
-        // The accent leads, so the button's face starts on it (the palette keeps its own order).
-        items: articulationOptions
-          .map((option, index) => ({
-            testId: `btn-artic-${option.symbol}`,
-            label: option.label,
-            commandId: 'add.mark.articulation',
-            arg: option.symbol,
-            glyph: paletteGlyph('articulation', index),
-          }))
-          .sort(
-            (a, b) => Number(b.arg === 'articAccentAbove') - Number(a.arg === 'articAccentAbove'),
-          ),
-      },
-      // Bowing is the string player's most used articulation, so it also has a button of its own.
-      {
-        kind: 'command',
-        testId: 'btn-down-bow',
-        label: 'Down bow',
-        icon: Dot,
-        commandId: 'add.mark.articulation',
-        arg: 'stringsDownBow',
-      },
-      {
-        kind: 'command',
-        testId: 'btn-up-bow',
-        label: 'Up bow',
-        icon: Dot,
-        commandId: 'add.mark.articulation',
-        arg: 'stringsUpBow',
+        // The face starts on the accent; the grid keeps the palette's order. Bowings are in the grid too.
+        initial: 'btn-artic-articAccentAbove',
+        items: articulationOptions.map((option, index) => ({
+          testId: `btn-artic-${option.symbol}`,
+          label: option.label,
+          commandId: 'add.mark.articulation',
+          arg: option.symbol,
+          glyph: paletteGlyph('articulation', index),
+        })),
       },
       {
         kind: 'menu',

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   GlyphIcon,
   placeGlyph,
+  placeRun,
   StripIcon,
 } from '../../components/shell/toolbar/strip/icons/StripIcon';
 import { GLYPH_PATHS } from '../../components/shell/toolbar/strip/icons/glyphPaths.generated';
@@ -61,7 +62,12 @@ describe('strip icons', () => {
     for (const menu of menus) for (const item of menu.items) if (item.glyph) codes.add(item.glyph);
     for (const control of controls)
       if ('glyph' in control && typeof control.glyph === 'string') codes.add(control.glyph);
+    for (const menu of menus)
+      for (const item of menu.items)
+        for (const part of item.icon ?? []) if ('glyph' in part) codes.add(part.glyph);
+    // A dynamic is a run of glyphs, one per letter: every one of them must be there.
     const missing = [...codes]
+      .flatMap((glyph) => Array.from(glyph))
       .filter((glyph) => (glyph.codePointAt(0) ?? 0) >= 0xe000)
       .filter((glyph) => !(glyph.codePointAt(0)!.toString(16).toUpperCase() in GLYPH_PATHS));
     expect(missing.map((glyph) => glyph.codePointAt(0)!.toString(16))).toEqual([]);
@@ -69,16 +75,14 @@ describe('strip icons', () => {
 
   it('keep every glyph inside its grid, so none overflows its button (the clef used to)', () => {
     const outside: string[] = [];
-    const inside = (part: Parameters<typeof placeGlyph>[0], width: number) => {
-      const placed = placeGlyph(part);
-      return (
-        !placed ||
-        (placed.bounds.left >= 0 &&
-          placed.bounds.top >= 0 &&
-          placed.bounds.right <= width &&
-          placed.bounds.bottom <= 24)
-      );
-    };
+    const isInside = (
+      bounds: { left: number; top: number; right: number; bottom: number } | undefined,
+      width: number,
+    ) =>
+      !bounds ||
+      (bounds.left >= 0 && bounds.top >= 0 && bounds.right <= width && bounds.bottom <= 24);
+    const inside = (part: Parameters<typeof placeGlyph>[0], width: number) =>
+      isInside(placeGlyph(part)?.bounds, width);
     const specs = { ...STRIP_ICON_SPECS, ...QUICK_ROW_ICON_SPECS };
     for (const [id, spec] of Object.entries(specs)) {
       for (const part of spec) {
@@ -88,7 +92,17 @@ describe('strip icons', () => {
     for (const menu of menus) {
       for (const item of menu.items) {
         if (item.glyph && (item.glyph.codePointAt(0) ?? 0) >= 0xe000) {
-          if (!inside({ glyph: item.glyph, em: 18, box: 19 }, 24)) outside.push(item.testId);
+          const fits =
+            Array.from(item.glyph).length > 1
+              ? isInside(
+                  placeRun(Array.from(item.glyph))?.bounds,
+                  placeRun(Array.from(item.glyph))?.viewWidth ?? 24,
+                )
+              : inside({ glyph: item.glyph, em: 18, box: 19 }, 24);
+          if (!fits) outside.push(item.testId);
+        }
+        for (const part of item.icon ?? []) {
+          if ('glyph' in part && !inside(part, 24)) outside.push(item.testId);
         }
       }
     }
@@ -101,6 +115,16 @@ describe('strip icons', () => {
     expect(paths).toHaveLength(1);
     expect(paths[0].getAttribute('transform')).toMatch(/^translate\(.+\) scale\(.+\)$/);
     expect(container.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('sets a dynamic as its letters side by side, every one drawn (mp used to show only its m)', () => {
+    const { container } = render(<GlyphIcon glyph={'\uE521\uE520'} />);
+    expect(container.querySelector('svg')).toHaveAttribute('data-glyph', 'E521 E520');
+    const paths = container.querySelectorAll('svg path');
+    expect(paths).toHaveLength(2);
+    // The p is set after the m, by the m's advance.
+    expect(paths[0].getAttribute('transform')).toBeNull();
+    expect(paths[1].getAttribute('transform')).toMatch(/^translate\([1-9]\d* 0\)$/);
   });
 
   it('draws a staccato on a notehead, as the palettes show it, and a key name as text', () => {

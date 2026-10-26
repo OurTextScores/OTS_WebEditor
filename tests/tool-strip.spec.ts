@@ -366,6 +366,11 @@ test.describe('Marks group', () => {
     const menu = page.getByTestId('markings-menu');
     await expect(menu.getByRole('menuitem')).toHaveCount(31);
     await expect(menu.getByTestId('btn-dynamic-8')).toHaveAttribute('aria-label', 'mf');
+    // A dynamic is drawn as all of its letters (mp used to show only its m).
+    await expect(menu.getByTestId('btn-dynamic-7').locator('svg')).toHaveAttribute(
+      'data-glyph',
+      'E521 E520',
+    );
     await page.getByTestId('btn-open-dynamics-palette').click();
     await expect(page.locator('[data-testid^="palette-item-dynamic-"]').first()).toBeVisible();
   });
@@ -793,14 +798,21 @@ test.describe('Bowing, articulations and voices', () => {
     return () => page.evaluate(() => (window as unknown as { __bowCalls: unknown[][] }).__bowCalls);
   };
 
-  test('up bow and down bow have buttons that add that bowing', async ({ page }) => {
+  test('up bow and down bow come from the articulations menu, and the face keeps the bowing', async ({
+    page,
+  }) => {
     await open(page, true);
     const calls = await spy(page, 'addArticulation');
     await waitForCommandEnabled(page, 'add.mark.articulation', { timeout: 60_000 });
-    await page.getByTestId('btn-up-bow').click();
+    await page.getByTestId('dropdown-articulations').click();
+    await page.getByTestId('btn-artic-stringsUpBow').click();
     await expect.poll(calls, { timeout: 30_000 }).toEqual([['stringsUpBow']]);
-    await page.getByTestId('btn-down-bow').click();
+    await page.getByTestId('dropdown-articulations').click();
+    await page.getByTestId('btn-artic-stringsDownBow').click();
     await expect.poll(calls, { timeout: 30_000 }).toEqual([['stringsUpBow'], ['stringsDownBow']]);
+    await expect(page.getByTestId('dropdown-articulations-last')).toHaveAccessibleName(
+      'Articulations: Down bow',
+    );
     const xml = await page.evaluate(async () => {
       const score = (
         window as unknown as { __webmscore: { saveMsc: (f: string) => Promise<Uint8Array> } }
@@ -808,8 +820,9 @@ test.describe('Bowing, articulations and voices', () => {
       return new TextDecoder().decode(await score.saveMsc('mscx'));
     });
     expect(xml).toContain('<subtype>stringsDownBow</subtype>');
-    // Pressing a bow again takes it off, as the other articulations do.
-    await page.getByTestId('btn-up-bow').click();
+    // Choosing a bow again takes it off, as the other articulations do.
+    await page.getByTestId('dropdown-articulations').click();
+    await page.getByTestId('btn-artic-stringsUpBow').click();
     await expect
       .poll(async () => {
         const text = await page.evaluate(async () => {

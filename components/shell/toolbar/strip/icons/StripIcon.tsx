@@ -116,12 +116,89 @@ export function StripIcon({
   );
 }
 
+/** The widest a run of glyphs may make its grid: a menu cell holds a 36-wide picture, a square one is 24. */
+const MAX_RUN_WIDTH = 36;
+
+/**
+ * Where a run of glyphs set side by side lands on the grid (a dynamic such as "mp" or "sfz" is one glyph per letter):
+ * each glyph's offset along the run by the font's advances, and one scale that fits the run's ink to the box, centred.
+ * A long run widens the grid (up to `MAX_RUN_WIDTH`) rather than shrinking to a speck; `viewWidth` is the grid's width.
+ * Null when any glyph was not extracted. Exported so a test can check no run overflows.
+ */
+export function placeRun(glyphs: readonly string[], { em = 18, box = DEFAULT_BOX } = {}) {
+  const entries = glyphs.map(
+    (glyph) => GLYPH_PATHS[glyph.codePointAt(0)?.toString(16).toUpperCase().padStart(4, '0') ?? ''],
+  );
+  if (entries.some((entry) => !entry)) return null;
+  let pen = 0;
+  const parts = entries.map(([d, , , , , advance]) => {
+    const part = { d, x: pen };
+    pen += advance;
+    return part;
+  });
+  const left = Math.min(...entries.map(([, l], i) => parts[i].x + l));
+  const right = Math.max(...entries.map(([, l, , w], i) => parts[i].x + l + w));
+  const top = Math.min(...entries.map(([, , t]) => t));
+  const bottom = Math.max(...entries.map(([, , t, , h]) => t + h));
+  const scale = Math.min(
+    em / 1000,
+    box / (bottom - top),
+    (MAX_RUN_WIDTH - 24 + box) / (right - left),
+  );
+  const viewWidth = Math.max(24, (right - left) * scale + 24 - box);
+  const cx = viewWidth / 2;
+  return {
+    parts,
+    scale,
+    viewWidth,
+    x: cx - ((left + right) / 2) * scale,
+    y: 12 - ((top + bottom) / 2) * scale,
+    bounds: {
+      left: cx - ((right - left) * scale) / 2,
+      right: cx + ((right - left) * scale) / 2,
+      top: 12 - ((bottom - top) * scale) / 2,
+      bottom: 12 + ((bottom - top) * scale) / 2,
+    },
+  };
+}
+
+function GlyphRun({ glyphs, size }: { glyphs: readonly string[]; size: number }) {
+  const placed = placeRun(glyphs);
+  if (!placed) return null;
+  return (
+    <svg
+      viewBox={`0 0 ${placed.viewWidth.toFixed(2)} 24`}
+      width={(size * placed.viewWidth) / 24}
+      height={size}
+      style={{ width: (size * placed.viewWidth) / 24, height: size }}
+      aria-hidden="true"
+      focusable="false"
+      data-glyph={glyphs.map((glyph) => glyph.codePointAt(0)!.toString(16).toUpperCase()).join(' ')}
+      className="shrink-0"
+    >
+      <g
+        fill="currentColor"
+        transform={`translate(${placed.x.toFixed(2)} ${placed.y.toFixed(2)}) scale(${placed.scale.toFixed(5)})`}
+      >
+        {placed.parts.map((part, index) => (
+          <path key={index} d={part.d} transform={part.x ? `translate(${part.x} 0)` : undefined} />
+        ))}
+      </g>
+    </svg>
+  );
+}
+
 /** SMuFL's articulation marks (accents, staccato, tenuto, marcato...): drawn over a notehead, as the palettes show them. */
 const isArticulationMark = (code: number) => code >= 0xe4a0 && code <= 0xe4bf;
 
-/** One glyph, fitted to a square: for menu cells and the faces of split buttons. */
+/** SMuFL's standard accidentals: small beside a whole notehead, so drawn larger than other single glyphs. */
+const isAccidental = (code: number) => code >= 0xe260 && code <= 0xe26f;
+
+/** One glyph, or a run of them (a dynamic), fitted to a square: for menu cells and the faces of split buttons. */
 export function GlyphIcon({ glyph, size = 20, em }: { glyph: string; size?: number; em?: number }) {
   const code = glyph.codePointAt(0) ?? 0;
+  const glyphs = Array.from(glyph);
+  if (glyphs.length > 1 && code >= 0xe000) return <GlyphRun glyphs={glyphs} size={size} />;
   // Not a notation symbol (the key names): plain text.
   if (code < 0xe000) {
     return (
@@ -147,7 +224,7 @@ export function GlyphIcon({ glyph, size = 20, em }: { glyph: string; size?: numb
     <StripIcon
       size={size}
       glyphCode={code.toString(16).toUpperCase()}
-      spec={[{ glyph, em: em ?? 18, box: 19, minSide: 8 }]}
+      spec={[{ glyph, em: em ?? (isAccidental(code) ? 26 : 18), box: 19, minSide: 8 }]}
     />
   );
 }
