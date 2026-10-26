@@ -13,6 +13,8 @@ public/
 webmscore-fork/
 lib/wasm/
 *.min.js
+# One glyph per line, as scripts/generate-glyph-paths.py writes it (formatted, it outgrows the debt ratchet's file cap)
+components/shell/toolbar/strip/icons/glyphPaths.generated.ts
 *.wasm
 
 # Generated data and lockfiles
