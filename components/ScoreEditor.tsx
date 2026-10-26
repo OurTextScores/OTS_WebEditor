@@ -8030,6 +8030,7 @@ export default function ScoreEditor() {
     score, transport: editorPlayback, currentPage, goToPage,
     prefetchPage: (page) => void pageNavigatorRef.current!.prefetch(page),
     prefetchLeadMs: () => 4 * pageNavigatorRef.current!.averageRenderMs(),
+    pagePrepared: (page) => pageNavigatorRef.current!.isPrepared(page),
   });
     const gestureLateInputs = useRef<CanvasGesturesLateInputs>({ updateNoteInputShadow: async () => undefined as never, refreshScoreSpatium: async () => undefined as never, clearEditorSelection: async () => undefined as never, seekPlaybackFromClick: following.seekFromClick });
   const {

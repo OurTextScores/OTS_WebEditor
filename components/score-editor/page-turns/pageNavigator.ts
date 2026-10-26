@@ -83,6 +83,12 @@ export class PageNavigator {
     this.cache.clear();
   }
 
+  /** A page that is shown or cached: turning to it needs no engine work. */
+  isPrepared(page: number): boolean {
+    const { score } = this.deps;
+    return !!score && (page === this.deps.currentPage() || this.cache.has(score, page));
+  }
+
   /** Rolling average SVG round trip, for following's prefetch lead. */
   averageRenderMs(): number {
     if (this.renderTimes.length === 0) return 0;

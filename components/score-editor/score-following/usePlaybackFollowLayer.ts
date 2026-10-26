@@ -25,6 +25,7 @@ import {
 import type { ScoreTransportState } from '../../../lib/playback/use-score-transport';
 import type { PlaybackFollowing } from './usePlaybackFollowing';
 import { useManualScrollSuspension } from './useManualScrollSuspension';
+import { useAudioFirstTurn } from './useAudioFirstTurn';
 
 export type FollowLayerOptions = {
   following: PlaybackFollowing;
@@ -93,6 +94,9 @@ export function usePlaybackFollowLayer({
   const [continuous, setContinuous] = useState(false);
   const paintBar = useRef(() => paintContinuousBar(barRef.current, following, pageRef.current));
   const pendingPageRef = useRef<number | null>(null);
+  /** The page our last navigation asked for, until React commits it (slow engines commit after the retry frame). */
+  const ownTargetRef = useRef<number | null>(null);
+  const turn = useAudioFirstTurn(following);
   const pageRef = useRef(currentPage);
   const zoomRef = useRef(zoom);
   useLayoutEffect(() => {
@@ -136,13 +140,18 @@ export function usePlaybackFollowLayer({
     if (!target?.geometry || !(reveal || (state.followEnabled && !state.suspended))) return;
     if (target.page !== visiblePage) {
       if (pendingPageRef.current === target.page) return;
+      if (!reveal && !turn.ready(target.page)) return turn.hold(target.page);
+      turn.release();
       pendingPageRef.current = target.page;
-      // The existing asynchronous page navigation (prepared page turns arrive in Phase 6).
+      ownTargetRef.current = target.page;
       void Promise.resolve(
         following.goToPageRef.current(target.page, reveal ? 'reveal' : 'playback'),
       )
-        .catch(() => undefined)
-        .finally(() => {
+        .catch(() => false)
+        .then((committed) => {
+          // Not committed (superseded or failed): a later change to that page is not ours.
+          if (committed === false && ownTargetRef.current === target.page)
+            ownTargetRef.current = null;
           // Navigation drops a request while another is in flight; allow a retry once React has committed.
           requestAnimationFrame(() => {
             if (pendingPageRef.current === target.page && pageRef.current !== target.page)
@@ -187,6 +196,10 @@ export function usePlaybackFollowLayer({
           ),
         )
       : null;
+    // A held turn goes ahead once its cushion is there, or is dropped when the cursor left that page.
+    const held = turn.deferredRef.current;
+    if (held !== null && next?.page !== held) turn.release();
+    else if (held !== null && turn.ready(held)) followCursor.current(next, false);
     if (sameCursor(cursorRef.current, next)) return;
     const pageChanged = next?.page !== cursorRef.current?.page || !cursorRef.current;
     const systemChanged = pageChanged || next?.y !== cursorRef.current?.y;
@@ -221,13 +234,11 @@ export function usePlaybackFollowLayer({
     if (pageRef.current === currentPage) return;
     pageRef.current = currentPage;
     paintBar.current();
-    if (pendingPageRef.current === currentPage) {
-      pendingPageRef.current = null;
-      if (cursorRef.current?.page === currentPage) scrollToCursor.current(cursorRef.current);
-    } else {
-      pendingPageRef.current = null;
-      suspendFollow();
-    }
+    const ours = pendingPageRef.current === currentPage || ownTargetRef.current === currentPage;
+    ownTargetRef.current = null;
+    pendingPageRef.current = null;
+    if (!ours) suspendFollow();
+    else if (cursorRef.current?.page === currentPage) scrollToCursor.current(cursorRef.current);
     updateFollowState({
       playbackPage:
         cursorRef.current?.geometry && cursorRef.current.page !== currentPage

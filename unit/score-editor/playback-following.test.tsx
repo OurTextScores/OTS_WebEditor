@@ -116,7 +116,11 @@ function Harness({
   );
 }
 
-function setup(state: ScoreTransportState = 'playing', withMap = false) {
+function setup(
+  state: ScoreTransportState = 'playing',
+  withMap = false,
+  pagePrepared?: (page: number) => boolean,
+) {
   const fake = fakeTransport(state);
   const score = fakeScore(withMap);
   const goToPage = vi.fn();
@@ -130,6 +134,7 @@ function setup(state: ScoreTransportState = 'playing', withMap = false) {
         goToPage,
         prefetchPage,
         prefetchLeadMs: () => 0,
+        pagePrepared,
       }),
     { initialProps: { page: 0 } },
   );
@@ -241,6 +246,58 @@ describe('page following', () => {
     // Judged once the scroll settles: jsdom lays nothing out, so the cursor is not in view.
     await waitFor(() => expect(getFollowState().suspended).toBe(true));
     act(() => requestReveal());
+    expect(getFollowState().suspended).toBe(true);
+  });
+});
+
+describe('audio-first page turns (Phase 9 F1)', () => {
+  it('holds an unprepared turn until scheduled audio covers its render, then turns', async () => {
+    const { tick, goToPage, transport } = setup('playing', false, (page) => page === 0);
+    await waitFor(() => expect(getFollowState().tracking).toBe('segment'));
+    tick(500);
+    // Right after a seek: 0.3 s scheduled, under the 0.8 s cushion for an untimed (400 ms) render.
+    vi.mocked(transport.bufferedAheadSeconds).mockReturnValue(0.3);
+    tick(2100);
+    expect(goToPage).not.toHaveBeenCalled();
+    expect(getFollowState().preparingPage).toBe(1);
+    vi.mocked(transport.bufferedAheadSeconds).mockReturnValue(10);
+    tick(2150);
+    expect(goToPage).toHaveBeenCalledWith(1, 'playback');
+    expect(getFollowState().preparingPage).toBeNull();
+  });
+
+  it('turns to a prepared page at once, whatever the cushion', async () => {
+    const { tick, goToPage, transport } = setup('playing', false, () => true);
+    await waitFor(() => expect(getFollowState().tracking).toBe('segment'));
+    vi.mocked(transport.bufferedAheadSeconds).mockReturnValue(0);
+    tick(500);
+    tick(2100);
+    expect(goToPage).toHaveBeenCalledWith(1, 'playback');
+  });
+});
+
+describe('our own page turn committed late (slow engines)', () => {
+  it('is not mistaken for manual paging when React commits after the retry frame', async () => {
+    const { tick, goToPage, setPage } = setup();
+    goToPage.mockResolvedValue(true);
+    await waitFor(() => expect(getFollowState().tracking).toBe('segment'));
+    tick(500);
+    tick(2100);
+    expect(goToPage).toHaveBeenCalledWith(1, 'playback');
+    // The navigation has resolved and two frames have passed before the page state commits.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    act(() => setPage(1));
+    expect(getFollowState().suspended).toBe(false);
+  });
+
+  it('still treats a later manual change to a page we failed to reach as manual', async () => {
+    const { tick, goToPage, setPage } = setup();
+    goToPage.mockResolvedValue(false);
+    await waitFor(() => expect(getFollowState().tracking).toBe('segment'));
+    tick(500);
+    tick(2100);
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    act(() => setPage(1));
     expect(getFollowState().suspended).toBe(true);
   });
 });

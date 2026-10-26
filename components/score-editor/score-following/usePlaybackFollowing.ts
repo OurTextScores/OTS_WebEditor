@@ -40,6 +40,8 @@ type Options = {
   /** Prepares a page ahead of the turn (cached, never shown), and the lead it needs. */
   prefetchPage?: (page: number) => void;
   prefetchLeadMs?: () => number;
+  /** Whether a page is already rendered (a turn to it needs no engine work). */
+  pagePrepared?: (page: number) => boolean;
   /** Page navigation with an intent: following turns pages as `playback`, Jump/Resume as `reveal`. */
   goToPage: (page: number, intent: 'playback' | 'reveal') => Promise<unknown> | void;
 };
@@ -67,7 +69,7 @@ export type PlaybackFollowing = {
   transportRef: MutableRefObject<FollowTransport>;
   currentPageRef: MutableRefObject<number>;
   goToPageRef: MutableRefObject<Options['goToPage']>;
-  prefetchRef: MutableRefObject<Pick<Options, 'prefetchPage' | 'prefetchLeadMs'>>;
+  prefetchRef: MutableRefObject<Pick<Options, 'prefetchPage' | 'prefetchLeadMs' | 'pagePrepared'>>;
   /** Bumped when a new map is installed, so the layer recomputes without a position tick (paused, tail). */
   mapListeners: Set<() => void>;
   seekListeners: Set<(timeMs: number) => void>;
@@ -89,6 +91,7 @@ export function usePlaybackFollowing({
   goToPage,
   prefetchPage,
   prefetchLeadMs,
+  pagePrepared,
 }: Options) {
   const indexRef = useRef<CursorIndex | null>(null);
   const measureIndexRef = useRef<CursorIndex | null>(null);
@@ -97,12 +100,12 @@ export function usePlaybackFollowing({
   const transportRef = useRef(transport);
   const currentPageRef = useRef(currentPage);
   const goToPageRef = useRef(goToPage);
-  const prefetchRef = useRef<Pick<Options, 'prefetchPage' | 'prefetchLeadMs'>>({});
+  const prefetchRef = useRef<Pick<Options, 'prefetchPage' | 'prefetchLeadMs' | 'pagePrepared'>>({});
   useLayoutEffect(() => {
     transportRef.current = transport;
     currentPageRef.current = currentPage;
     goToPageRef.current = goToPage;
-    prefetchRef.current = { prefetchPage, prefetchLeadMs };
+    prefetchRef.current = { prefetchPage, prefetchLeadMs, pagePrepared };
   });
 
   const following = useMemo<PlaybackFollowing>(() => {
