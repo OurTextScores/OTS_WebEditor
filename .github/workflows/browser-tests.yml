@@ -1,0 +1,74 @@
+name: Browser tests
+
+# Playwright, sharded. Pull requests and pushes to main run Chromium; the nightly
+# run (and a manual dispatch) adds Firefox and WebKit. See AGENTS.md ("Long or
+# cross-browser Playwright runs") and docs/engine/PHASE9_2026-10-25.md for what
+# each browser's results do and do not prove: Playwright's Firefox build has no
+# optimizing WebAssembly compiler, so it checks correctness, not timing.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 9 * * *' # 02:00 in Vancouver (PDT)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: browser-tests-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  playwright:
+    name: ${{ matrix.browser }} ${{ matrix.shard }}/4
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["chromium","firefox","webkit"]' || '["chromium"]') }}
+        shard: [1, 2, 3, 4]
+    env:
+      PLAYWRIGHT_BROWSER: ${{ matrix.browser }}
+      PLAYWRIGHT_PORT: '3013'
+      CI: 'true'
+    steps:
+      # The engine's WASM/data artifacts are Git LFS objects.
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Install ${{ matrix.browser }}
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+      # WebKit plays audio through GStreamer/PulseAudio; without a sound server its
+      # AudioContext never leaves "suspended" and every playback test times out.
+      - name: Audio sink for WebKit
+        if: matrix.browser == 'webkit'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pulseaudio gstreamer1.0-plugins-good gstreamer1.0-pulseaudio
+          pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=ci
+      # The soundfont is served from a CDN in production and is not in git; the
+      # playback specs load it from public/soundfonts like a local checkout.
+      - name: Soundfont
+        run: |
+          mkdir -p public/soundfonts
+          curl -fsSL --retry 3 -o public/soundfonts/default.sf3 https://cdn.ourtextscores.com/soundfonts/default.sf3
+      - name: Playwright (shard ${{ matrix.shard }}/4)
+        run: npx playwright test --shard=${{ matrix.shard }}/4
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+      - name: Failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-${{ matrix.browser }}-${{ matrix.shard }}
+          path: test-results/
+          retention-days: 7
