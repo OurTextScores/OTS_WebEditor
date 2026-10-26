@@ -120,7 +120,7 @@ export function WriteToolbar({
   const hasTarget = ctx.isMutable && (ctx.noteInput || ctx.selection !== 'none');
   // The quick row is not part of the strip's roving tab order: each control is its own tab stop. An accidental
   // also needs a note to go on.
-  const quick = (key: string): StripControlContext => ({
+  const quick: StripControlContext = {
     tools: {
       ...tools,
       enabled: (id) => enabled(id) && (id !== 'add.accidental' || hasTarget),
@@ -129,9 +129,10 @@ export function WriteToolbar({
           ? 'Select a note first'
           : tools.reason(id),
     },
-    activeKey: key,
+    activeKey: null,
     setActiveKey: () => {},
-  });
+    roving: false,
+  };
 
   return (
     <div
@@ -181,7 +182,7 @@ export function WriteToolbar({
 
       {divider}
 
-      <MenuButton control={DURATION_MENU} context={quick(DURATION_MENU.testId)} />
+      <MenuButton control={DURATION_MENU} context={quick} />
       <DotButton
         enabled={{
           single: enabled('edit.duration.dot'),
@@ -217,7 +218,7 @@ export function WriteToolbar({
 
       {divider}
 
-      <MenuButton control={ACCIDENTAL_MENU} context={quick(ACCIDENTAL_MENU.testId)} />
+      <MenuButton control={ACCIDENTAL_MENU} context={quick} />
 
       {divider}
 

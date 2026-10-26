@@ -14,6 +14,8 @@ export interface StripControlContext {
   readonly tools: ToolbarCommands;
   readonly activeKey: string | null;
   readonly setActiveKey: (key: string) => void;
+  /** False outside the strip's roving tab order (the Write quick row): the control is a tab stop of its own. */
+  readonly roving?: boolean;
 }
 
 /**

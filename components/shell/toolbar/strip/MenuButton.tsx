@@ -33,6 +33,9 @@ export function MenuButton({
   context: StripControlContext;
 }) {
   const { tools, activeKey, setActiveKey } = context;
+  const roving = context.roving !== false;
+  const tabIndex = !roving || activeKey === control.testId ? 0 : -1;
+  const stripControl = roving ? control.testId : undefined;
   const Icon = control.icon;
   const [open, setOpen] = useState(false);
   const lastUsed = useSyncExternalStore(subscribeLastUsed, getLastUsedMap, getLastUsedMapOnServer);
@@ -81,13 +84,13 @@ export function MenuButton({
             <DropdownMenuTrigger asChild>
               <Button
                 data-testid={control.testId}
-                data-strip-control={control.testId}
+                data-strip-control={stripControl}
                 variant="outline"
                 size="xs"
                 className={`h-8 gap-0.5 px-1.5 ${enabled ? '' : DISABLED_LOOK}`}
                 aria-label={control.label}
                 aria-disabled={enabled ? undefined : true}
-                tabIndex={activeKey === control.testId ? 0 : -1}
+                tabIndex={tabIndex}
                 onFocus={() => setActiveKey(control.testId)}
                 onPointerDown={blockWhenDisabled}
                 onKeyDown={(event) => {
@@ -119,14 +122,14 @@ export function MenuButton({
           <TooltipTrigger asChild>
             <Button
               data-testid={`${control.testId}-last`}
-              data-strip-control={control.testId}
+              data-strip-control={stripControl}
               variant="outline"
               size="xs"
               className={`h-8 min-w-8 rounded-r-none border-r-0 px-1.5 ${faceEnabled ? '' : DISABLED_LOOK}`}
               aria-label={faceLabel}
               aria-disabled={faceEnabled ? undefined : true}
               aria-haspopup="menu"
-              tabIndex={activeKey === control.testId ? 0 : -1}
+              tabIndex={tabIndex}
               onFocus={() => setActiveKey(control.testId)}
               onClick={() =>
                 faceEnabled

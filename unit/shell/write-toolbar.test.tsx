@@ -75,6 +75,11 @@ describe('the quick row’s duration and accidental buttons', () => {
       'data-glyph',
       'E1D5',
     );
+    // Outside the strip's roving order: each face is a tab stop of its own, and arrow keys do not walk to it.
+    for (const id of ['dropdown-duration-last', 'dropdown-accidental-last']) {
+      expect(screen.getByTestId(id)).toHaveAttribute('tabindex', '0');
+      expect(screen.getByTestId(id)).not.toHaveAttribute('data-strip-control');
+    }
     // One button each, not a row of six.
     expect(screen.queryByTestId('btn-duration-2')).toBeNull();
     expect(screen.queryByTestId('btn-acc-1')).toBeNull();

@@ -38,7 +38,9 @@ test('Write toolbar controls hit-test to themselves', async ({ page }) => {
     }
     return { bad, seen };
   });
-  expect(result.seen).toBeGreaterThan(15);
+  // The quick row rendered: input, durations, dot, tuplet, accidentals, tie, slur, voice, undo, redo (13 buttons:
+  // durations and accidentals are split buttons, a face and a chevron each).
+  expect(result.seen).toBeGreaterThanOrEqual(13);
   expect(result.bad).toEqual([]);
 });
 
