@@ -97,7 +97,18 @@ test('the cursor starts at a played selection and returns at a written repeat', 
     return (await score.playbackTimeline!())!.occurrences.map((o) => [o.measureIndex, o.startMs]);
   });
   expect(timeline.map(([measure]) => measure)).toEqual([0, 1, 0, 1, 2, 3]);
-  // Select a note of measure 2 the way a user does, on the canvas, then play from it.
+  // Select a note of measure 2 the way a user does, on the canvas, then play from it. Measure once the zoom transition
+  // has settled: WebKit is still animating the fit-to-width scale when the first note appears.
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const note = document.querySelector('svg .Note');
+        const before = note?.getBoundingClientRect().left;
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        return before !== undefined && note?.getBoundingClientRect().left === before;
+      }),
+    )
+    .toBe(true);
   const target = await page.evaluate(async () => {
     const score = (window as typeof window & { __webmscore: Score }).__webmscore;
     const box = (await score.measurePositions()).elements[1];

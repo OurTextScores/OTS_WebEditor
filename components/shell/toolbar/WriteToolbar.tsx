@@ -17,7 +17,7 @@ import {
   noteInputMethodOptions,
   tupletOptions,
 } from '../../toolbar/constants';
-import { Popover, PopoverAnchor, PopoverContent, PopoverPortal } from '../../ui/Popover';
+import { Popover, PopoverAnchor, PopoverContent } from '../../ui/Popover';
 import { StripIcon } from './strip/icons/StripIcon';
 import { dotIconSpec, ICON_VIEW_WIDTH, QUICK_ROW_ICON_SPECS } from './strip/icons/stripIconSpecs';
 import styles from './WriteToolbar.module.css';
@@ -411,40 +411,38 @@ function DotButton({
           </Button>
         </span>
       </PopoverAnchor>
-      <PopoverPortal>
-        <PopoverContent
-          role="menu"
-          align="start"
-          className="relative z-menu flex w-40 flex-col gap-0.5 p-1"
-        >
-          {(
-            [
-              [1, 'btn-dot', 'Dot', 'single'],
-              [2, 'btn-double-dot', 'Double dot', 'double'],
-            ] as const
-          ).map(([count, testId, label, key]) => (
-            <button
-              key={testId}
-              type="button"
-              role="menuitem"
-              data-testid={testId}
-              disabled={!enabled[key]}
-              onClick={() => choose(count)}
-              className="flex items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-slate-800 hover:bg-slate-100 disabled:opacity-40"
+      <PopoverContent
+        role="menu"
+        align="start"
+        className="relative z-menu flex w-40 flex-col gap-0.5 p-1"
+      >
+        {(
+          [
+            [1, 'btn-dot', 'Dot', 'single'],
+            [2, 'btn-double-dot', 'Double dot', 'double'],
+          ] as const
+        ).map(([count, testId, label, key]) => (
+          <button
+            key={testId}
+            type="button"
+            role="menuitem"
+            data-testid={testId}
+            disabled={!enabled[key]}
+            onClick={() => choose(count)}
+            className="flex items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-slate-800 hover:bg-slate-100 disabled:opacity-40"
+          >
+            <span
+              className={`${styles.glyph} ${styles.menuGlyph}`}
+              style={glyphStyle(QUARTER)}
+              aria-hidden="true"
             >
-              <span
-                className={`${styles.glyph} ${styles.menuGlyph}`}
-                style={glyphStyle(QUARTER)}
-                aria-hidden="true"
-              >
-                {QUARTER}
-                <span className={styles.dots}>{AUGMENTATION_DOT.repeat(count)}</span>
-              </span>
-              {label}
-            </button>
-          ))}
-        </PopoverContent>
-      </PopoverPortal>
+              {QUARTER}
+              <span className={styles.dots}>{AUGMENTATION_DOT.repeat(count)}</span>
+            </span>
+            {label}
+          </button>
+        ))}
+      </PopoverContent>
     </Popover>
   );
 }

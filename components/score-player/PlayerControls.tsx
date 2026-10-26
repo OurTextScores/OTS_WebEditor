@@ -1,5 +1,6 @@
 'use client';
 
+import { segmentTrackingAllowed } from '@/lib/playback/release-gates';
 import { useEffect, useRef, useState } from 'react';
 import {
   ChevronLeft,
@@ -61,7 +62,11 @@ function PlayerOptions({ compact }: { compact?: boolean }) {
   const prefix = compact ? 'player-menu' : 'player';
   return (
     <>
-      <PresentationTimingControl variant="quiet" triggerClassName={playerButtonClass} testIdPrefix={prefix} />
+      <PresentationTimingControl
+        variant="quiet"
+        triggerClassName={playerButtonClass}
+        testIdPrefix={prefix}
+      />
       <TempoControl variant="quiet" triggerClassName={playerButtonClass} testIdPrefix={prefix} />
       <PlayRepeatsToggle
         variant="quiet"
@@ -116,16 +121,18 @@ function PlayerToggles({ compact, ...props }: Props & { compact?: boolean }) {
   const noteMode = props.highlightMode === 'note';
   return (
     <>
-      <PlayerToggle
-        label="Note"
-        title={noteMode ? 'Highlight measures' : 'Highlight notes'}
-        ariaLabel="Note highlighting"
-        pressed={noteMode}
-        busy={props.highlightBusy}
-        disabled={props.disabled}
-        compact={compact}
-        onToggle={props.onToggleHighlight}
-      />
+      {segmentTrackingAllowed() && (
+        <PlayerToggle
+          label="Note"
+          title={noteMode ? 'Highlight measures' : 'Highlight notes'}
+          ariaLabel="Note highlighting"
+          pressed={noteMode}
+          busy={props.highlightBusy}
+          disabled={props.disabled}
+          compact={compact}
+          onToggle={props.onToggleHighlight}
+        />
+      )}
       <PlayerToggle
         label="Click"
         title={props.clickEnabled ? 'Turn the metronome off' : 'Turn the metronome on'}

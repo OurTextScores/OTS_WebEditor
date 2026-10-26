@@ -34,6 +34,7 @@ import { fetchJsonOrThrow } from '../lib/fetch-json';
 import { copySelectionToClipboard, pasteClipboardPayload } from '../lib/selection-clipboard';
 import type { MeasureInsertTarget, HeaderTextTarget } from './score-editor/editorProps';
 import { noPerf, startPerf, type PerfHandle } from '../lib/perf-trace';
+import { svgScreenMapping } from '../lib/svg-screen-matrix';
 import { confirmDialog, notifyError, notifyWarning, promptDialog } from './shell/notices';
 import { ShellHeader } from './shell/ShellHeader';
 import {
@@ -8012,12 +8013,13 @@ export default function ScoreEditor() {
   };
 
   const engravingToOverlayPoint = (x: number, y: number) => {
-    const matrix = scoreSvgForTarget()?.getScreenCTM();
+    const svg = scoreSvgForTarget();
+    const mapping = svg ? svgScreenMapping(svg) : null;
     const wrapperRect = scoreWrapperRef.current?.getBoundingClientRect();
-    if (!matrix || !wrapperRect) {
+    if (!mapping || !wrapperRect) {
       return { x, y };
     }
-    const point = new DOMPoint(x, y).matrixTransform(matrix);
+    const point = mapping.toClient(x, y);
     return {
       x: (point.x - wrapperRect.left) / zoom,
       y: (point.y - wrapperRect.top) / zoom,

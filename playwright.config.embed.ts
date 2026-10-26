@@ -13,6 +13,13 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:8080',
     headless: true,
+    // Cross-browser qualification: PLAYWRIGHT_BROWSER=firefox|webkit (default chromium).
+    browserName:
+      (process.env.PLAYWRIGHT_BROWSER as 'chromium' | 'firefox' | 'webkit' | undefined) ??
+      'chromium',
+    ...(process.env.PLAYWRIGHT_BROWSER === 'webkit'
+      ? { launchOptions: { env: { ...process.env, LIBGL_ALWAYS_SOFTWARE: '1' } } }
+      : {}),
   },
   webServer: {
     command: 'node test-embed/server.js',

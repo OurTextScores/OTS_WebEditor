@@ -1,4 +1,8 @@
 import {
+  continuousCursorAllowed,
+  segmentTrackingAllowed,
+} from '../../../lib/playback/release-gates';
+import {
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -155,10 +159,13 @@ export function usePlaybackFollowing({
     if (!active || !score) return;
     let current = true;
     void Promise.all([
-      score.segmentPositions().catch(() => null),
+      // Release gates (NEXT_PUBLIC_OTS_PLAYBACK_CURSOR) can cap tracking at segments or measures.
+      segmentTrackingAllowed() ? score.segmentPositions().catch(() => null) : null,
       score.measurePositions().catch(() => null),
       Promise.resolve(score.playbackTimeline?.() ?? null).catch(() => null),
-      Promise.resolve(score.playbackFollowMap?.() ?? null).catch(() => null),
+      continuousCursorAllowed()
+        ? Promise.resolve(score.playbackFollowMap?.() ?? null).catch(() => null)
+        : null,
     ]).then(([segments, measures, timeline, followMap]) => {
       if (!current) return;
       indexRef.current = buildCursorIndex(segments, measures);

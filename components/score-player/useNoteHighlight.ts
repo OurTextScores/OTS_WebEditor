@@ -1,3 +1,4 @@
+import { segmentTrackingAllowed } from '@/lib/playback/release-gates';
 import { useCallback, useMemo, useRef, useState, type MutableRefObject } from 'react';
 import {
   hasPositionGeometry,
@@ -28,11 +29,13 @@ const usable = (positions: Positions | null): Positions | null =>
  * back to measure highlighting with an inline message, never a broken player.
  */
 export function useNoteHighlight(scoreRef: MutableRefObject<Score | null>, initial: HighlightMode) {
-  const [mode, setModeState] = useState<HighlightMode>(initial);
+  // A build capped at measure tracking (NEXT_PUBLIC_OTS_PLAYBACK_CURSOR=measure) has no note mode.
+  const start: HighlightMode = segmentTrackingAllowed() ? initial : 'measure';
+  const [mode, setModeState] = useState<HighlightMode>(start);
   const [segments, setSegments] = useState<Positions | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const modeRef = useRef<HighlightMode>(initial);
+  const modeRef = useRef<HighlightMode>(start);
   const fetching = useRef(false);
 
   const setMode = useCallback((next: HighlightMode) => {
@@ -63,6 +66,7 @@ export function useNoteHighlight(scoreRef: MutableRefObject<Score | null>, initi
 
   const setPreference = useCallback(
     (next: HighlightMode) => {
+      if (next === 'note' && !segmentTrackingAllowed()) return;
       if (modeRef.current === next && (next === 'measure' || segments)) return;
       setMode(next);
       const active = scoreRef.current;

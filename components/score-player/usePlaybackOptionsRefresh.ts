@@ -1,3 +1,4 @@
+import { continuousCursorAllowed } from '@/lib/playback/release-gates';
 import { useEffect, useLayoutEffect, useRef, type MutableRefObject } from 'react';
 import type { HighlightMode } from '@/lib/playback/player-message-api';
 import { usePlaybackOptionsSync } from '@/lib/playback/use-playback-options';
@@ -52,7 +53,9 @@ export function usePlaybackOptionsRefresh(
     void Promise.all([
       Promise.resolve(score.playbackTimeline?.() ?? null).catch(() => null),
       score.measurePositions().catch(() => null),
-      Promise.resolve(score.playbackFollowMap?.() ?? null).catch(() => null),
+      continuousCursorAllowed()
+        ? Promise.resolve(score.playbackFollowMap?.() ?? null).catch(() => null)
+        : null,
     ]).then(([timeline, positions, followMap]) => {
       if (!current || scoreRef.current !== score) return;
       const { setTimeline, setPositions, setFollowMap, notes } = targetsRef.current;

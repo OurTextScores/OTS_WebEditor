@@ -13,6 +13,8 @@
 #include "engraving/dom/chord.h"
 #include "engraving/dom/excerpt.h"
 #include "global/serialization/json.h"
+#include "global/serialization/zipreader.h"
+#include "global/serialization/xmlstreamreader.h"
 #include <emscripten/emscripten.h>
 #include <cstring>
 #include <cstdlib>
@@ -93,14 +95,33 @@ int layoutsAfterCommands() { return 1; }
 EMSCRIPTEN_KEEPALIVE void setLogLevel(int level) {
     if(level>=0 && level<=2) kors::logger::Logger::instance()->setLevel(static_cast<kors::logger::Level>(level));
 }
+// Compressed MusicXML: the rootfile named by META-INF/container.xml, as upstream's extractRootfile does for files.
+// Empty when the archive or its container is not usable.
+static ByteArray mxlRootfile(const ByteArray& archive) {
+    ByteArray copy=archive; io::Buffer buffer(&copy);
+    if(!buffer.open(io::IODevice::ReadOnly)) return {};
+    ZipReader zip(&buffer);
+    XmlStreamReader e(zip.fileData("META-INF/container.xml"));
+    std::string rootfile;
+    while(rootfile.empty() && e.readNextStartElement()) {
+        if(e.name()=="rootfile") { rootfile=e.attribute("full-path").toStdString(); break; }
+        if(e.name()!="container" && e.name()!="rootfiles") e.skipCurrentElement();
+    }
+    return rootfile.empty() ? ByteArray() : zip.fileData(rootfile);
+}
+
 EMSCRIPTEN_KEEPALIVE const uint8_t* load(const char* format, const uint8_t* data, size_t length, bool layout) {
     const double loadStartMs=emscripten_get_now();
     std::string ext(format);
-    if(ext != "mscz" && ext != "mscx" && ext != "musicxml" && ext != "xml") return textResponse("Unsupported format", 1);
+    if(ext != "mscz" && ext != "mscx" && ext != "musicxml" && ext != "xml" && ext != "mxl") return textResponse("Unsupported format", 1);
     auto project = EngravingProject::create(nullptr);
     const std::string path = "score."+ext;
     project->setFileInfoProvider(std::make_shared<LocalFileInfoProvider>(path));
     ByteArray bytes(data,length);
+    if (ext == "mxl") {
+        bytes=mxlRootfile(bytes);
+        if(bytes.empty()) return textResponse("Invalid compressed MusicXML: no rootfile", 1);
+    }
     if (ext == "mscx") {
         // MscIoMode::XmlFile is MuseScore's multi-file .mscs container, not raw MSCX.
         // Wrap the raw document in an in-memory ZIP for the native project loader.

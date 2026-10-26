@@ -101,7 +101,9 @@ export default function PlayerOverlay({
             y={highlight.y}
             width={boxWidth(highlight, highlightIsNote)}
             height={highlight.height ?? highlight.sy}
-            fill={highlightIsNote ? 'none' : 'rgb(8 145 178 / 0.13)'}
+            // Note mode colours the notehead instead; the marker stays invisible but must keep its box, which Firefox
+            // reports as 0x0 for fill="none" (follow-scroll measures it).
+            fill={highlightIsNote ? 'transparent' : 'rgb(8 145 178 / 0.13)'}
             stroke={highlightIsNote ? 'none' : 'rgb(8 145 178 / 0.8)'}
             strokeWidth="2"
           />

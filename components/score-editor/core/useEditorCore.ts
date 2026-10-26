@@ -1,6 +1,7 @@
 import { useUndoHistory } from '../useUndoHistory';
 import { layoutOracleEnabled, verifyFullLayout } from '../../../lib/layout-oracle';
 import { startPerf } from '../../../lib/perf-trace';
+import { svgScreenMapping } from '../../../lib/svg-screen-matrix';
 import { Score } from '../../../lib/webmscore-loader';
 import { announce, describeEdit } from '../../shell/announcer';
 import { notify, notifyError } from '../../shell/notices';
@@ -705,12 +706,8 @@ export function useEditorCore(ctx: EditorCoreContext) {
 
   const clientToEngravingPoint = (clientX: number, clientY: number, target?: Element | null) => {
     const svg = scoreSvgForTarget(target);
-    const matrix = svg && typeof svg.getScreenCTM === 'function' ? svg.getScreenCTM() : null;
-    if (!matrix) {
-      return null;
-    }
-    const point = new DOMPoint(clientX, clientY).matrixTransform(matrix.inverse());
-    return { x: point.x, y: point.y };
+    const mapping = svg ? svgScreenMapping(svg) : null;
+    return mapping ? mapping.toEngraving(clientX, clientY) : null;
   };
 
   return {

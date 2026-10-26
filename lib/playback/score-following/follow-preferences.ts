@@ -1,4 +1,5 @@
 import { readPlayerPreference, writePlayerPreference } from '../player-preferences';
+import { autoFollowAllowed } from '../release-gates';
 
 /**
  * Editor following state as a small external store, read by the header transport, the command registry and the
@@ -27,7 +28,8 @@ const listeners = new Set<() => void>();
 let current: FollowState | null = null;
 
 const initial = (): FollowState => ({
-  followEnabled: readPlayerPreference(FOLLOW_KEY) !== '0',
+  // NEXT_PUBLIC_OTS_PLAYBACK_AUTOFOLLOW=0 turns automatic following off for the whole build.
+  followEnabled: autoFollowAllowed() && readPlayerPreference(FOLLOW_KEY) !== '0',
   suspended: false,
   active: false,
   playbackPage: null,
@@ -62,6 +64,7 @@ export function updateFollowState(patch: Partial<FollowState>): void {
 }
 
 export function setFollowEnabled(enabled: boolean): void {
+  if (enabled && !autoFollowAllowed()) return;
   writePlayerPreference(FOLLOW_KEY, enabled ? '1' : '0');
   // Turning follow on is an explicit request to follow again.
   updateFollowState({

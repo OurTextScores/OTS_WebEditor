@@ -6,6 +6,7 @@ import { defaultCommandRegistry, type CommandRegistry } from '../../lib/commands
 import { useCommandContext } from '../../lib/commands/useRegisterCommands';
 import { useClickPreferences } from '../../lib/playback/use-click-preferences';
 import { useFollowState } from '../../lib/playback/use-follow-state';
+import { autoFollowAllowed } from '../../lib/playback/release-gates';
 import { formatPlaybackTime } from '../../lib/playback/timeline';
 import {
   getTransportTime,
@@ -59,6 +60,7 @@ type Run = (id: string) => () => void;
 
 function FollowButton({ testId, run }: { testId: string; run: Run }) {
   const follow = useFollowState();
+  if (!autoFollowAllowed()) return null;
   return (
     <Button
       data-testid={testId}

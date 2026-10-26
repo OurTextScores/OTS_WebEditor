@@ -1,5 +1,6 @@
 'use client';
 
+import { continuousCursorAllowed } from '@/lib/playback/release-gates';
 import { useMemo, useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { Film } from 'lucide-react';
@@ -165,16 +166,18 @@ export default function ExportVideoControl({
               ]}
               onChange={(value) => set('audio', value)}
             />
-            <Choice
-              label="Cursor"
-              value={options.cursor}
-              disabled={running}
-              options={[
-                { value: false, text: 'None' },
-                { value: true, text: 'Moving cursor' },
-              ]}
-              onChange={(value) => set('cursor', value)}
-            />
+            {continuousCursorAllowed() && (
+              <Choice
+                label="Cursor"
+                value={options.cursor}
+                disabled={running}
+                options={[
+                  { value: false, text: 'None' },
+                  { value: true, text: 'Moving cursor' },
+                ]}
+                onChange={(value) => set('cursor', value)}
+              />
+            )}
           </div>
 
           {picker && (

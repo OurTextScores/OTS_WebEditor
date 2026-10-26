@@ -1,4 +1,5 @@
 'use client';
+import { autoFollowAllowed, continuousCursorAllowed } from '@/lib/playback/release-gates';
 import { usePresentationTimes } from '../../lib/playback/use-presentation-preferences';
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
@@ -97,7 +98,7 @@ export default function EmbeddedScorePlayer() {
   const [pageMessage, setPageMessage] = useState('');
   const [pageError, setPageError] = useState('');
   const [zoom, setZoom] = useState(1);
-  const [follow, setFollow] = useState(initialFollow);
+  const [follow, setFollow] = useState(initialFollow && autoFollowAllowed());
   const volume = useVolumePreference();
   const clickPrefs = useClickPreferences();
   const [audioMessage, setAudioMessage] = useState('');
@@ -288,9 +289,11 @@ export default function EmbeddedScorePlayer() {
         setPositions(measurePositions);
         setTimeline(nextTimeline);
         setFollowMap(
-          buildFollowMapIndex(
-            await Promise.resolve(loadedScore.playbackFollowMap?.() ?? null).catch(() => null),
-          ),
+          continuousCursorAllowed()
+            ? buildFollowMapIndex(
+                await Promise.resolve(loadedScore.playbackFollowMap?.() ?? null).catch(() => null),
+              )
+            : null,
         );
         if (controller.signal.aborted || loadGenerationRef.current !== generation) return;
         if (highlightModeRef.current === 'note') {

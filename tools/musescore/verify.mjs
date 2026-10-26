@@ -97,6 +97,19 @@ export default options => Engine({ ...options, wasmBinary: readFileSync(new URL(
   assert.equal(await WebMscore.version(), 470);
   // The editor skips its post-edit relayout on this capability; MS47_LAYOUT_ORACLE is what backs the claim
   assert.equal((await nativeModule())._layoutsAfterCommands(), 1, 'layoutsAfterCommands capability exported');
+  {
+    // Compressed MusicXML import (the 4.00 engine had it; the 4.7 bridge lacked it until Phase 9): the engine's own
+    // MXL export must load back with the same notes, and an archive without a rootfile must be rejected.
+    const source = await WebMscore.load('musicxml', new Uint8Array(await readFile(path.resolve(repo, 'public/test_scores/three_notes_cde.musicxml'))));
+    try {
+      const mxl = await source.saveMxl();
+      const back = await WebMscore.load('mxl', mxl);
+      try {
+        assert.equal((await back.saveXml()).match(/<note\b/g)?.length, (await source.saveXml()).match(/<note\b/g)?.length, 'MXL round trip keeps the notes');
+      } finally { await back.destroy(); }
+    } finally { await source.destroy(); }
+    await assert.rejects(WebMscore.load('mxl', new Uint8Array([80, 75, 3, 4, 0, 0])), /no rootfile/, 'malformed MXL is rejected');
+  }
   const scores = process.argv.slice(2);
   if (!scores.length && !process.env.MS47_ONLY_EDITS) scores.push('public/test_scores/three_notes_cde.musicxml', 'public/test_scores/bach_orig.mscz');
   function pitches(xml) {

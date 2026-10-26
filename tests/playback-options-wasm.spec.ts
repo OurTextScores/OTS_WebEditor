@@ -17,6 +17,11 @@ test('worker applies transient tempo/repeat options to audio, timeline, position
       const value: unknown = await score.saveXml!();
       return typeof value === 'string' ? value : new TextDecoder().decode(value as Uint8Array);
     };
+    // Install the soundfont explicitly, as the sibling WASM specs do: the app's background warm-up may not have
+    // finished yet on a slower engine (Playwright's Firefox has no optimizing wasm compiler).
+    const font = await fetch('/soundfonts/default.sf3');
+    if (!font.ok) throw new Error(`soundfont fetch ${font.status}`);
+    await score.setSoundFont!(new Uint8Array(await font.arrayBuffer()));
     const caps = await score.playbackCapabilities!();
     const initial = await score.playbackOptions!();
     const xml = await saveXml();

@@ -582,15 +582,32 @@ If soundfonts don't load in production:
 
 All options are set via environment variables:
 
-| Variable                            | Description                                                              | Example                                                |
-| ----------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------ |
-| `BUILD_MODE`                        | Enable static export                                                     | `embed`                                                |
-| `NEXT_PUBLIC_BUILD_MODE`            | Client-side build mode flag                                              | `embed`                                                |
-| `NEXT_PUBLIC_SOUNDFONT_CDN_URL`     | CDN URL for soundfonts                                                   | `https://cdn.ourtextscores.com/soundfonts/default.sf3` |
-| `NEXT_PUBLIC_SCORE_EDITOR_API_BASE` | Same-origin proxy base for editor API routes in embed mode (LLM + music) | `/api/score-editor`                                    |
-| `NEXT_PUBLIC_ANALYTICS_EVENTS_PATH` | Path for analytics event ingestion                                       | `/api/analytics/events`                                |
+| Variable                              | Description                                                              | Example                                                |
+| ------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------ |
+| `BUILD_MODE`                          | Enable static export                                                     | `embed`                                                |
+| `NEXT_PUBLIC_BUILD_MODE`              | Client-side build mode flag                                              | `embed`                                                |
+| `NEXT_PUBLIC_SOUNDFONT_CDN_URL`       | CDN URL for soundfonts                                                   | `https://cdn.ourtextscores.com/soundfonts/default.sf3` |
+| `NEXT_PUBLIC_SCORE_EDITOR_API_BASE`   | Same-origin proxy base for editor API routes in embed mode (LLM + music) | `/api/score-editor`                                    |
+| `NEXT_PUBLIC_ANALYTICS_EVENTS_PATH`   | Path for analytics event ingestion                                       | `/api/analytics/events`                                |
+| `NEXT_PUBLIC_OTS_PLAYBACK_CURSOR`     | Playback tracking ceiling: `continuous` (default), `segment`, `measure`  | `segment`                                              |
+| `NEXT_PUBLIC_OTS_PLAYBACK_AUTOFOLLOW` | `0` turns off automatic page turns and scrolling during playback         | `0`                                                    |
 
 See `.env.example` for more details.
+
+### Playback release escape hatches
+
+If score following misbehaves after a release, rebuild with these instead of rolling back the engine. Both are
+compile-time, like the other `NEXT_PUBLIC_*` values. Audio, speed and repeat controls are unaffected.
+
+- `NEXT_PUBLIC_OTS_PLAYBACK_CURSOR=segment` drops the smooth cursor: the editor, player and video export do not
+  read the engine's follow map, and the cursor steps from note to note. `measure` also drops note positions
+  (measure tracking only; the player's note highlighting and the export's moving cursor are hidden).
+- `NEXT_PUBLIC_OTS_PLAYBACK_AUTOFOLLOW=0` hides the Follow playback toggle; pages never turn by themselves, and
+  Jump to playback still works.
+
+`tests/playback-release-gates.spec.ts` checks a gated build:
+`NEXT_PUBLIC_OTS_PLAYBACK_CURSOR=measure NEXT_PUBLIC_OTS_PLAYBACK_AUTOFOLLOW=0 PLAYWRIGHT_PORT=3014 npx playwright test tests/playback-release-gates.spec.ts`.
+Roll back the engine only as a complete set (JS, WASM, data and resources together), never one layer.
 
 ## What Gets Included in the Build
 

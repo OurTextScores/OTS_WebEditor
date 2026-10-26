@@ -232,3 +232,9 @@ Editor Playback settings also offer independent measure and notehead highlightin
 shading. These reuse the fetched native geometry, keep the cursor visible, and preserve the score SVG's own colours.
 These preferences do not change native score times or exported video. Selection buffering/merging and render
 horizons retain their previous defaults pending slow-device qualification.
+
+## Qualification (Phase 9)
+
+[Phase 9 execution record](PHASE9_2026-10-25.md): first cross-browser runs (`PLAYWRIGHT_BROWSER=firefox|webkit`),
+release escape hatches (`NEXT_PUBLIC_OTS_PLAYBACK_CURSOR`, `NEXT_PUBLIC_OTS_PLAYBACK_AUTOFOLLOW`), compressed
+MusicXML import, and the local Linux setup needed for Playwright's WebKit and Firefox.

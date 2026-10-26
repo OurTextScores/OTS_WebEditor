@@ -1,6 +1,29 @@
 import { readFile } from 'node:fs/promises';
 import { ALL_FORMATS, BufferSource, Input } from 'mediabunny';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+// Encoding needs WebCodecs (secure contexts only, so check on the app's page, not about:blank). Playwright's Linux WebKit build has none (real Safari does); there the app explains that it
+// cannot encode, which the last test checks.
+// As the app decides: some video codec must be encodable (Playwright's WebKit has VideoEncoder but no codecs).
+const hasWebCodecs = (page: Page) =>
+  page.evaluate(async () => {
+    if (typeof VideoEncoder !== 'function') return false;
+    for (const codec of ['avc1.42001f', 'vp09.00.10.08', 'av01.0.04M.08']) {
+      try {
+        if ((await VideoEncoder.isConfigSupported({ codec, width: 640, height: 480 })).supported)
+          return true;
+      } catch {
+        /* unsupported codec string */
+      }
+    }
+    return false;
+  });
+async function requireWebCodecs(page: Page) {
+  test.skip(
+    !(await hasWebCodecs(page)),
+    'No WebCodecs video encoder for any supported codec in this browser build',
+  );
+}
 
 test.describe('player video export', () => {
   test('exports a score to a downloadable video with a video and an audio track', async ({
@@ -8,6 +31,7 @@ test.describe('player video export', () => {
   }) => {
     test.setTimeout(240_000);
     await page.goto('/?score=%2Ftest_scores%2Ftwo_chords.musicxml&embed=player');
+    await requireWebCodecs(page);
     await expect(page.getByTestId('player-seek')).toBeEnabled({ timeout: 60_000 });
     const durationMs = Number(await page.getByTestId('player-seek').getAttribute('max'));
 
@@ -48,6 +72,7 @@ test.describe('player video export', () => {
   test('cancel stops an export and downloads nothing', async ({ page }) => {
     test.setTimeout(240_000);
     await page.goto('/?score=%2Ftest_scores%2Fbach_orig.mscz&embed=player');
+    await requireWebCodecs(page);
     await expect(page.getByTestId('player-seek')).toBeEnabled({ timeout: 60_000 });
     await page.getByTestId('player-export-video').click();
     await expect(page.getByTestId('export-video-summary')).toContainText(/MP4|WEBM/i, {
@@ -68,6 +93,7 @@ test.describe('player video export', () => {
   test('is reachable on a phone, from the More menu', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 700 });
     await page.goto('/?score=%2Ftest_scores%2Ftwo_chords.musicxml&embed=player');
+    await requireWebCodecs(page);
     await expect(page.getByTestId('player-seek')).toBeEnabled({ timeout: 60_000 });
     await expect(page.getByTestId('player-export-video')).toBeHidden();
     await page.getByLabel('More player controls').click();
@@ -144,6 +170,24 @@ test.describe('player video export when the platform encoder rejects canvas fram
       window.VideoEncoder = Strict as unknown as typeof VideoEncoder;
     });
     await page.goto('/?score=%2Ftest_scores%2Ftwo_chords.musicxml&embed=player');
+    // The regression is in the H.264 path. A browser without an H.264 encoder (Playwright's Linux Firefox) correctly
+    // exports WebM instead, so the scenario does not apply there.
+    const avc = await page.evaluate(async () => {
+      try {
+        const support = await VideoEncoder.isConfigSupported({
+          codec: 'avc1.42001f',
+          width: 640,
+          height: 480,
+        });
+        return !!support.supported;
+      } catch {
+        return false;
+      }
+    });
+    test.skip(
+      !avc,
+      'No H.264 VideoEncoder in this browser; video export falls back to WebM there.',
+    );
     await expect(page.getByTestId('player-seek')).toBeEnabled({ timeout: 60_000 });
     await page.getByTestId('player-export-video').click();
     // Silent: this Linux Chromium has no AAC encoder, so only a silent video is offered as MP4.
@@ -189,6 +233,7 @@ test.describe('player video export to a chosen file', () => {
       downloaded = true;
     });
     await page.goto('/?score=%2Ftest_scores%2Ftwo_chords.musicxml&embed=player');
+    await requireWebCodecs(page);
     await expect(page.getByTestId('player-seek')).toBeEnabled({ timeout: 60_000 });
     await page.getByTestId('player-export-video').click();
     await expect(page.getByTestId('export-video-summary')).toContainText(/MP4|WEBM/i, {
@@ -229,4 +274,13 @@ test.describe('player video export to a chosen file', () => {
     expect(await input.computeDuration()).toBeGreaterThan(1.5);
     expect(downloaded).toBe(false);
   });
+});
+
+test('explains when the browser cannot encode video', async ({ page }) => {
+  await page.goto('/?score=%2Ftest_scores%2Ftwo_chords.musicxml&embed=player');
+  test.skip(await hasWebCodecs(page), 'This browser has WebCodecs');
+  await expect(page.getByTestId('player-seek')).toBeEnabled({ timeout: 60_000 });
+  await page.getByTestId('player-export-video').click();
+  await expect(page.getByTestId('export-video-summary')).toContainText('cannot encode video');
+  await expect(page.getByTestId('export-video-start')).toBeDisabled();
 });

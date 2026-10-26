@@ -124,8 +124,9 @@ test.describe('embedded score player', () => {
     await expect(page.getByTestId('active-note-highlight')).toBeAttached({ timeout: 60_000 });
     const coloured = page.locator('[data-testid="player-svg"] svg [fill="rgb(8 145 178)"]');
     await expect(coloured.first()).toBeAttached();
-    // No box is drawn over the score.
-    await expect(page.getByTestId('active-note-highlight')).toHaveAttribute('fill', 'none');
+    // No box is drawn over the score (transparent, so the marker keeps a measurable box in every browser).
+    await expect(page.getByTestId('active-note-highlight')).toHaveAttribute('fill', 'transparent');
+    await expect(page.getByTestId('active-note-highlight')).toHaveAttribute('stroke', 'none');
 
     // Leaving note mode puts the score's own colours back.
     await page.getByRole('button', { name: 'Note highlighting' }).first().click();

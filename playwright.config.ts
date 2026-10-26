@@ -26,6 +26,14 @@ export default defineConfig({
   use: {
     baseURL: PLAYWRIGHT_BASE_URL,
     headless: true,
+    // Cross-browser qualification: PLAYWRIGHT_BROWSER=firefox|webkit (default chromium).
+    browserName:
+      (process.env.PLAYWRIGHT_BROWSER as 'chromium' | 'firefox' | 'webkit' | undefined) ??
+      'chromium',
+    // WebKit (WPE) hangs on its first page under WSL without a GPU render device; software GL works.
+    ...(process.env.PLAYWRIGHT_BROWSER === 'webkit'
+      ? { launchOptions: { env: { ...process.env, LIBGL_ALWAYS_SOFTWARE: '1' } } }
+      : {}),
   },
   webServer: {
     command: `npm run check:wasm && NEXT_DIST_DIR=${PLAYWRIGHT_DIST_DIR} npx next dev --webpack --hostname 127.0.0.1 --port ${PLAYWRIGHT_PORT}`,
