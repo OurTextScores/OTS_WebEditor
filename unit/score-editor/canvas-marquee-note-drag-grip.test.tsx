@@ -408,6 +408,7 @@ describe('useGripEdit', () => {
         setScoreDirtySinceCheckpoint: vi.fn(),
         setScoreDirtySinceXml: vi.fn(),
         zoom: 1,
+        undoHistory: { refresh: vi.fn(async () => undefined) },
       }),
       refreshPageCount: vi.fn(async () => 1),
       renderScore: vi.fn(async () => true),
@@ -486,9 +487,38 @@ describe('useGripEdit', () => {
     });
     expect(score.dragGrip).toHaveBeenCalledWith(0, 5, 8, 5);
     expect(score.endGripEdit).toHaveBeenCalledWith(true);
+    expect(g.ctx.core.undoHistory.refresh).toHaveBeenCalledWith('grip edit');
     expect(score.relayout).toHaveBeenCalled();
     expect(g.result.current.gripEdit).toBeNull();
     expect(g.ctx.core.setScoreDirtySinceXml).toHaveBeenCalledWith(true);
+    expect(g.ctx.refreshSelectionFromSvg).toHaveBeenCalledWith({
+      index: null,
+      point: { page: 0, x: 15, y: 28 },
+    });
+  });
+
+  it('a click after release cannot cancel the grip commit awaiting the worker', async () => {
+    let finishDrag!: (committed: boolean) => void;
+    const pendingDrag = new Promise<boolean>((resolve) => {
+      finishDrag = resolve;
+    });
+    const score = withGrips();
+    score.dragGrip.mockImplementation(() => pendingDrag);
+    const g = setupGrip(score);
+    await act(async () => g.result.current.beginGripEditAtPoint(0, 10, 20));
+    act(() => g.result.current.handleGripPointerDown(down(), 0));
+    await windowPointer('pointerup', 15, 28);
+
+    // The browser's subsequent click closes edit mode while dragGrip is still in flight.
+    act(() => g.result.current.closeGripEdit(false));
+    expect(g.result.current.gripEdit).toBeNull();
+    expect(score.endGripEdit).not.toHaveBeenCalled();
+    expect(g.ctx.core.undoHistory.refresh).not.toHaveBeenCalled();
+
+    await act(async () => finishDrag(true));
+    expect(score.endGripEdit).toHaveBeenCalledExactlyOnceWith(true);
+    expect(g.ctx.core.undoHistory.refresh).toHaveBeenCalledExactlyOnceWith('grip edit');
+    expect(score.relayout).toHaveBeenCalledOnce();
     expect(g.ctx.refreshSelectionFromSvg).toHaveBeenCalledWith({
       index: null,
       point: { page: 0, x: 15, y: 28 },

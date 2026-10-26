@@ -67,6 +67,11 @@ describe('ScoreEditor: selection geometry and overlay refresh', () => {
     );
 
     await screen.findByTestId('selection-overlay');
+    // Selecting redraws the SVG. Wait for that redraw and use its live node for the next click;
+    // a click on the detached original never reaches the editor and made this test depend on RAF timing.
+    await waitFor(() => expect(inner).not.toBeInTheDocument());
+    const refreshedInner = screen.getByTestId('svg-container').querySelector('#inner');
+    expect(refreshedInner).toBeInTheDocument();
 
     rectSpy.current?.mockReturnValue({
       ...boundingRect,
@@ -76,8 +81,9 @@ describe('ScoreEditor: selection geometry and overlay refresh', () => {
       bottom: 0,
     } as DOMRect);
 
-    fireEvent.click(inner!);
+    fireEvent.click(refreshedInner!);
     await waitFor(() => expect(screen.queryByTestId('selection-overlay')).not.toBeInTheDocument());
+    expect(score.selectElementAtPoint).toHaveBeenCalledTimes(1);
   });
 
   // TD-04 / AC-06: kept skipped as a deterministic reproducer, with an owner, rather
