@@ -127,6 +127,8 @@ export function useEditorCore(ctx: EditorCoreContext) {
   // Bumped as each mutation starts (mutations do not take the serial queue): the layout oracle skips a check that
   // another edit overlapped
   const mutationGenerationRef = useRef(0);
+  /** Resolves once the latest requested mutation has invoked its action (start order; see performMutation). */
+  const mutationStartRef = useRef<Promise<void>>(Promise.resolve());
 
   const runSerializedScoreOperation = useCallback(
     async <T>(operation: () => Promise<T>, label: string): Promise<T> => {
@@ -488,7 +490,22 @@ export function useEditorCore(ctx: EditorCoreContext) {
       return;
     }
 
-    await lateInputs.current.beforeMutation?.();
+    // Mutations start in the order they were requested. Each waits until the previous one has invoked its action:
+    // the steps before it (stopping playback or an audition, asking the engine about the selection) take different
+    // times, and fast note entry with sound on otherwise let a later note overtake an earlier one. Only the start is
+    // ordered, so a mutation whose action triggers another one cannot wait on itself.
+    const previousStart = mutationStartRef.current;
+    let releaseStart!: () => void;
+    mutationStartRef.current = new Promise<void>((resolve) => {
+      releaseStart = resolve;
+    });
+    await previousStart;
+    try {
+      await lateInputs.current.beforeMutation?.();
+    } catch (err) {
+      releaseStart();
+      throw err;
+    }
 
     // Preserve selection state before mutation for use in fallback
     const preservedIndex = selectedIndex;
@@ -514,7 +531,9 @@ export function useEditorCore(ctx: EditorCoreContext) {
     const oracle = layoutOracleEnabled() && !options?.skipRelayout;
     try {
       console.debug(`Mutation "${label}" start`);
-      const result = await perf.time('mutation', action);
+      const pending = perf.time('mutation', action);
+      releaseStart();
+      const result = await pending;
       // Read the engine's undo stack now that it has (maybe) changed.
       void undoHistory.refresh(label);
       console.debug(`Mutation "${label}" result:`, result);

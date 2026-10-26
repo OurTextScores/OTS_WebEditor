@@ -346,6 +346,13 @@ test.describe('Embed Mode - External XML Comparison', () => {
       .toContain('measure number="2"');
 
     await page.getByTestId('btn-compare-activate-right').click();
+    // As for the left pane above: shortcuts route to the active pane, so wait for the activation to commit, and for
+    // the pane to finish the bar/export work above (note input is off while it is busy; slow engines take a while).
+    await expect(page.getByTestId('btn-compare-activate-right')).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await expect(page.getByTestId('btn-compare-note-input-right')).toBeEnabled({ timeout: 30_000 });
     await page.keyboard.press('n');
     await expect(page.getByTestId('btn-compare-note-input-right')).toHaveAttribute(
       'aria-pressed',

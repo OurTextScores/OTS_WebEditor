@@ -198,6 +198,8 @@ test.describe('Change review compare panes', () => {
     for (const side of ['left', 'right'] as const) {
       await page.getByTestId(`btn-compare-activate-${side}`).click();
       const note = page.getByTestId(`compare-pane-${side}`).locator('svg .Note').first();
+      // boundingBox() does not wait: on a slow engine the pane may still be rendering.
+      await note.waitFor({ state: 'visible', timeout: 60_000 });
       const box = await note.boundingBox();
       if (!box) throw new Error(`Expected a clickable note in the ${side} pane.`);
       await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);

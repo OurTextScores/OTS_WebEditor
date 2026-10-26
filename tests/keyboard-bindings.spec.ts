@@ -225,6 +225,14 @@ test('keys typed into a text field are not editing keys', async ({ page }) => {
 test.describe('Escape', () => {
   test('closes note input first, then clears the selection', async ({ page }) => {
     await load(page, true);
+    // On a slow engine the selection's follow-up work can still be running; N does nothing until the command is on.
+    await page.waitForFunction(() =>
+      (
+        window as unknown as { __otsCommands?: { list(): { id: string; enabled: boolean }[] } }
+      ).__otsCommands
+        ?.list()
+        .some((command) => command.id === 'add.noteInput' && command.enabled),
+    );
     await page.keyboard.press('n');
     await expect(page.getByTestId('btn-note-input')).toHaveAttribute('aria-pressed', 'true');
 
