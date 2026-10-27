@@ -14,6 +14,7 @@ import {
   QUICK_ROW_ICON_SPECS,
   STRIP_ICON_SPECS,
 } from '../../components/shell/toolbar/strip/icons/stripIconSpecs';
+import { QUICK_ROW_GROUPS } from '../../components/shell/toolbar/strip/quickRowGroups';
 import {
   flattenControls,
   STRIP_GROUPS,
@@ -22,7 +23,7 @@ import {
 
 afterEach(cleanup);
 
-const controls = flattenControls(STRIP_GROUPS);
+const controls = flattenControls([...QUICK_ROW_GROUPS, ...STRIP_GROUPS]);
 const menus = controls.filter((control): control is StripMenu => control.kind === 'menu');
 
 /** Controls that keep a Lucide icon: file, view and edit chrome with no notation in it. */

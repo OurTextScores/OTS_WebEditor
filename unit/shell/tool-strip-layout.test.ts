@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { RIBBON_MIGRATION, resolveLegacyTestId } from '../../components/shell/ribbonMigration';
 import { STRIP_SECTIONS, sectionOfGroup } from '../../components/shell/toolbar/strip/stripSections';
+import { QUICK_ROW_GROUPS } from '../../components/shell/toolbar/strip/quickRowGroups';
 import { COMMAND_FORMS } from '../../components/shell/commandForms';
 import {
   flattenControls,
@@ -30,7 +31,8 @@ const NEW_IDS = new Set([
   'dropdown-jumps',
 ]);
 
-const entries = flattenControls(STRIP_GROUPS).flatMap((control) =>
+const controls = flattenControls([...QUICK_ROW_GROUPS, ...STRIP_GROUPS]);
+const entries = controls.flatMap((control) =>
   control.kind === 'menu'
     ? [
         {
@@ -206,7 +208,7 @@ describe('ribbon parity for the shipped groups', () => {
     const inStrip = entries.some((entry) => (prefix ? entry.id.startsWith(id) : entry.id === id));
     if (inStrip) return true;
     // A form button's own submit button lives in its popover.
-    const submits = flattenControls(STRIP_GROUPS).some(
+    const submits = controls.some(
       (control) => control.kind === 'form' && COMMAND_FORMS[control.commandId]?.submitTestId === id,
     );
     if (submits) return true;
@@ -240,7 +242,7 @@ describe('ribbon parity for the shipped groups', () => {
 });
 
 describe('split and grid menus in the layout', () => {
-  const menus = flattenControls(STRIP_GROUPS).filter(
+  const menus = controls.filter(
     (control): control is Extract<typeof control, { kind: 'menu' }> => control.kind === 'menu',
   );
 
@@ -269,7 +271,7 @@ describe('split and grid menus in the layout', () => {
 
 describe('form buttons in the layout', () => {
   it('open a command that has a form, and nothing else does', () => {
-    const forms = flattenControls(STRIP_GROUPS).filter((control) => control.kind === 'form');
+    const forms = controls.filter((control) => control.kind === 'form');
     expect(forms.length).toBeGreaterThan(0);
     for (const control of forms) {
       expect(COMMAND_FORMS[control.commandId], control.testId).toBeDefined();
@@ -279,7 +281,7 @@ describe('form buttons in the layout', () => {
 
 describe('menu items that open a form', () => {
   it('name a command that has a form (otherwise they would run it with no arguments)', () => {
-    const flagged = flattenControls(STRIP_GROUPS).flatMap((control) =>
+    const flagged = controls.flatMap((control) =>
       control.kind === 'menu' ? control.items.filter((item) => item.opensForm) : [],
     );
     expect(flagged.length).toBeGreaterThan(0);

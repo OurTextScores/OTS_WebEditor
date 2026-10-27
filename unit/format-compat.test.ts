@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -19,14 +20,26 @@ interface ProbeReport {
 }
 
 function probe(fixture: string): ProbeReport {
-  const out = execFileSync(process.execPath, [path.join(root, 'scripts/format-compat-probe.mjs'), `test_scores/format-compat/${fixture}`], {
-    cwd: root,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'ignore'],
-    timeout: 120_000,
-  });
-  const line = out.trim().split('\n').pop() ?? '';
-  return JSON.parse(line) as ProbeReport;
+  // The engine's Node build expects stdout to be a file or pipe, not the socket Node uses for child-process pipes.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'format-compat-'));
+  const output = path.join(dir, 'report.txt');
+  const fd = fs.openSync(output, 'w');
+  try {
+    execFileSync(
+      process.execPath,
+      [path.join(root, 'scripts/format-compat-probe.mjs'), `test_scores/format-compat/${fixture}`],
+      {
+        cwd: root,
+        stdio: ['ignore', fd, 'pipe'],
+        timeout: 120_000,
+      },
+    );
+    const line = fs.readFileSync(output, 'utf8').trim().split('\n').pop() ?? '';
+    return JSON.parse(line) as ProbeReport;
+  } finally {
+    fs.closeSync(fd);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 describe.skipIf(!fs.existsSync(nodeBuild))('loading scores from newer MuseScore versions', () => {

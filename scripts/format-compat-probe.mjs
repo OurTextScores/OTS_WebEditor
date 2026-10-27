@@ -40,4 +40,3 @@ const report = {
   words: [...xml.matchAll(/<(?:words|credit-words)[^>]*>([^<]*)<\/(?:words|credit-words)>/g)].map((m) => unescape(m[1])),
 };
 console.log(JSON.stringify(report));
-process.exit(0);
