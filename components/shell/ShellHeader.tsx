@@ -10,6 +10,7 @@ import { MenuBar } from './MenuBar';
 import { Transport } from './Transport';
 import { invokeCommand } from './invokeCommand';
 import { registerFilePicker } from './filePickers';
+import { EmbedDialog } from './EmbedDialog';
 import { ShortcutsDialog } from './ShortcutsDialog';
 import { formatShortcut } from './shortcutDisplay';
 import { openPalette } from './shellStore';
@@ -133,6 +134,7 @@ export function ShellHeader({
       <CommandPalette registry={registry} />
       <CommandFormDialog registry={registry} />
       <ShortcutsDialog />
+      <EmbedDialog title={title || 'Score playback'} />
     </>
   );
 }

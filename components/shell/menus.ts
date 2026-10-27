@@ -81,6 +81,7 @@ export const MENUS: readonly MenuDefinition[] = [
       ),
       item('file.drive.upload'),
       item('file.shareLink'),
+      item('file.embed'),
     ],
   },
   {

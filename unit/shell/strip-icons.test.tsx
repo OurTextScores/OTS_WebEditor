@@ -31,6 +31,7 @@ const CHROME = new Set([
   'btn-new-score',
   'btn-load-scores-to-compare',
   'btn-create-share-link',
+  'btn-embed',
   'dropdown-export',
   'btn-select-all',
   'dropdown-selection-filter',

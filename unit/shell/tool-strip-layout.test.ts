@@ -18,6 +18,8 @@ const REPO = resolve(__dirname, '../..');
 const NEW_IDS = new Set([
   'btn-open-score',
   'btn-load-soundfont',
+  // Embed on a website is new with the player's embed code.
+  'btn-embed',
   'dropdown-fermata',
   'dropdown-breath',
   'btn-tempo-open',

@@ -13,12 +13,18 @@ export type EmbedOptions = {
 /**
  * The player URL to embed: this page's player with only the visitor-facing settings. The host's own parameters
  * (`playerId`, `parentOrigin`, `launchContext`) are dropped, since the page that embeds the snippet is not that host.
+ * The page may be the player or the editor: either way the snippet opens the player (`embed=player`).
  * The score URL is made absolute so it means the same thing wherever the snippet is pasted. Null when there is no
  * score, or it is not one a visitor's browser could fetch (a local `blob:` or `data:` URL).
  */
-export function embedPlayerUrl(pageHref: string, options: EmbedOptions): string | null {
+export function embedPlayerUrl(
+  pageHref: string,
+  options: EmbedOptions,
+  /** A score address to use instead of the page's own (the editor, given a Google Drive link). */
+  scoreSource?: string,
+): string | null {
   const page = new URL(pageHref);
-  const score = page.searchParams.get('score');
+  const score = scoreSource ?? page.searchParams.get('score');
   if (!score) return null;
   let scoreUrl: URL;
   try {

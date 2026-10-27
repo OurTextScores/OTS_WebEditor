@@ -64,6 +64,8 @@ export const EMPTY_SHELL_VIEW: ShellView = {
 export interface ShellUiState {
   readonly palette: { readonly open: boolean; readonly mode: PaletteMode };
   readonly shortcutsOpen: boolean;
+  /** File ▸ Embed on a Website. */
+  readonly embedOpen: boolean;
   /** The command whose argument form is showing, if any. */
   readonly form: CommandId | null;
   readonly recentScores: readonly RecentScore[];
@@ -86,6 +88,7 @@ function readStatusBarPinned(): boolean {
 const initial: ShellUiState = {
   palette: { open: false, mode: 'commands' },
   shortcutsOpen: false,
+  embedOpen: false,
   form: null,
   recentScores: [],
   view: EMPTY_SHELL_VIEW,
@@ -118,6 +121,10 @@ export const closePalette = (): void => {
 
 export const setShortcutsOpen = (open: boolean): void => {
   if (state.shortcutsOpen !== open) update({ shortcutsOpen: open });
+};
+
+export const setEmbedOpen = (open: boolean): void => {
+  if (state.embedOpen !== open) update({ embedOpen: open });
 };
 
 export const openCommandForm = (commandId: CommandId): void => update({ form: commandId });

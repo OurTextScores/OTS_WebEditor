@@ -32,6 +32,7 @@ import {
   closePalette,
   getShellUiState,
   openPalette,
+  setEmbedOpen,
   setShortcutsOpen,
   setStatusBarPinned,
 } from './shellStore';
@@ -181,6 +182,13 @@ export function buildShellOwnCommands(): AnyCommand[] {
         resumeFollowing();
         announce('Following playback');
       },
+    }),
+    defineCommand({
+      id: 'file.embed',
+      label: 'Embed on a Website',
+      opensDialog: true,
+      keywords: ['embed', 'iframe', 'html', 'website', 'share', 'player'],
+      run: () => setEmbedOpen(true),
     }),
     defineCommand({
       id: 'help.shortcuts',
