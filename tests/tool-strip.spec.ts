@@ -744,13 +744,15 @@ test.describe('View ▸ Toolbar', () => {
     for (const group of NOTES_GROUPS) {
       await expect(page.getByTestId(`strip-group-${group}`)).toHaveCount(0);
     }
-    await expect(page.getByTestId('strip-group-marks-dynamics')).toBeVisible();
+    await expect(page.getByTestId('strip-group-marks-spanners')).toBeVisible();
+    await expect(page.getByTestId('dropdown-markings')).toBeVisible();
     await expect(page.getByTestId('btn-note-input')).toBeVisible();
 
     await page.reload();
     await page.waitForSelector('svg .Note', { timeout: 60_000 });
     await expect(page.getByTestId('strip-group-notes-entry')).toHaveCount(0);
-    await expect(page.getByTestId('strip-group-marks-dynamics')).toBeVisible();
+    await expect(page.getByTestId('strip-group-marks-spanners')).toBeVisible();
+    await expect(page.getByTestId('dropdown-markings')).toBeVisible();
 
     await openToolbarMenu(page);
     await page.getByTestId('menu-item-view.toolbar.showAll').click();
@@ -765,7 +767,8 @@ test.describe('View ▸ Toolbar', () => {
     }
     // Let the hides apply while the menu is still open.
     await expect(page.getByTestId('strip-group-notes-entry')).toHaveCount(0);
-    await expect(page.getByTestId('strip-group-marks-dynamics')).toHaveCount(0);
+    await expect(page.getByTestId('strip-group-marks-spanners')).toHaveCount(0);
+    await expect(page.getByTestId('dropdown-markings')).toBeVisible();
     // View ▸ Toolbar is two menu levels; one Escape only drops the submenu, and
     // Radix returns focus to its trigger asynchronously. Wait until no menu owns
     // focus before driving the strip, or that late focus-return steals it back

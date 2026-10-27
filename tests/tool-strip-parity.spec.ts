@@ -18,6 +18,8 @@ const ELSEWHERE: Record<string, string> = {
   'btn-timesig-custom': 'the custom time signature dialog the Time menu opens',
   'input-timesig-numerator': 'the custom time signature dialog the Time menu opens',
   'input-timesig-denominator': 'the custom time signature dialog the Time menu opens',
+  'btn-new-score': 'File ▸ New Score',
+  'btn-load-scores-to-compare': 'File ▸ Compare Scores',
 };
 
 /** Escape closes an open menu or popover; with none open it would clear the selection, so only press it for one. */
@@ -79,6 +81,12 @@ test('every ribbon control is reachable from the live tool strip', async ({ page
   await page.keyboard.press('Shift+ArrowRight');
   await page.waitForTimeout(300);
   await sweep(page, seen);
+
+  // These two former ribbon buttons now live in the File menu.
+  await page.getByTestId('menu-file').click();
+  await expect(page.getByTestId('menu-item-file.new')).toBeVisible();
+  await expect(page.getByTestId('menu-item-compare.load')).toBeVisible();
+  await closeOpenThing(page);
 
   // The Instruments button opens the dock tab that holds the part controls.
   await page.getByTestId('dropdown-instruments').click();
