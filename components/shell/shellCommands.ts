@@ -28,6 +28,7 @@ import {
   TEMPO_PRESETS,
 } from '../../lib/playback/playback-options-preferences';
 import { closeTopEscapeLayer, hasEscapeLayer } from './keyboard/escapeLayers';
+import { openScoreFromLink } from './openScoreFromLink';
 import {
   closePalette,
   getShellUiState,
@@ -182,6 +183,13 @@ export function buildShellOwnCommands(): AnyCommand[] {
         resumeFollowing();
         announce('Following playback');
       },
+    }),
+    defineCommand({
+      id: 'file.openLink',
+      label: 'Open Score from Link',
+      opensDialog: true,
+      keywords: ['url', 'link', 'address', 'web', 'google drive', 'load', 'import'],
+      run: openScoreFromLink,
     }),
     defineCommand({
       id: 'file.embed',

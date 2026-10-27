@@ -60,6 +60,7 @@ export const MENUS: readonly MenuDefinition[] = [
     children: [
       item('file.new'),
       item('file.open'),
+      item('file.openLink'),
       { kind: 'recentScores' },
       item('compare.load'),
       separator,

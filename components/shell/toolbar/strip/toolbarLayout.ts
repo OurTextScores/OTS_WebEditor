@@ -166,11 +166,14 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
     label: 'File',
     controls: [
       {
-        kind: 'command',
+        kind: 'menu',
         testId: 'btn-open-score',
         label: 'Open score',
         icon: FolderOpen,
-        commandId: 'file.open',
+        items: [
+          { testId: 'btn-open-file', label: 'Open file…', commandId: 'file.open' },
+          { testId: 'btn-open-link', label: 'Open from link…', commandId: 'file.openLink' },
+        ],
       },
       {
         kind: 'command',
