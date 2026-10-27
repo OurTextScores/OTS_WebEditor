@@ -875,6 +875,7 @@ export default function EmbeddedScorePlayer() {
         highlightMode={highlight.mode}
         highlightBusy={highlight.loading}
         score={score}
+        title={title}
         onTogglePlayPause={() => void togglePlayPause()}
         onStop={() => void stopAt(startMsRef.current)}
         onSeek={handleSeek}

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { formatPlaybackTime } from '@/lib/playback/timeline';
 import type { Score } from '@/lib/webmscore-loader';
+import EmbedSnippetControl from './EmbedSnippetControl';
 import ExportVideoControl from './ExportVideoControl';
 import { PlayRepeatsToggle, TempoControl, PresentationTimingControl } from '../playback-controls';
 
@@ -47,8 +48,10 @@ type Props = {
   onToggleHighlight: () => void;
   onToggleClick: () => void;
   onToggleCountIn: () => void;
-  /** The loaded score, for Export video; the button is absent without one. */
+  /** The loaded score, for Export video and Embed; the buttons are absent without one. */
   score?: Score | null;
+  /** The score's title, for the embed code's iframe title. */
+  title?: string;
 };
 
 const controlClass =
@@ -165,6 +168,19 @@ function PlayerExport({ compact, ...props }: Props & { compact?: boolean }) {
       disabled={Boolean(props.disabled) || busy}
       disabledReason="Stop playback to export a video"
       testId={compact ? 'player-export-video-menu' : 'player-export-video'}
+    />
+  );
+}
+
+/** Embed on a website: open while playing too, since it only reads the page's address. */
+function PlayerEmbed({ compact, ...props }: Props & { compact?: boolean }) {
+  return (
+    <EmbedSnippetControl
+      title={props.title || 'Score playback'}
+      highlightMode={props.highlightMode}
+      positionMs={props.positionMs}
+      disabled={Boolean(props.disabled) || !props.score}
+      testId={compact ? 'player-embed-menu' : 'player-embed'}
     />
   );
 }
@@ -354,6 +370,7 @@ export default function PlayerControls(props: Props) {
           <PlayerOptions />
           <PlayerToggles {...props} />
           {props.score !== undefined && <PlayerExport {...props} />}
+          {props.score !== undefined && <PlayerEmbed {...props} />}
         </div>
         <details className="group relative sm:hidden">
           <summary
@@ -377,7 +394,7 @@ export default function PlayerControls(props: Props) {
                 onChange={(event) => props.onVolume(Number(event.currentTarget.value))}
               />
             </label>
-            {/* Eight round controls do not fit one row of the 16rem menu, so the row wraps. */}
+            {/* The round controls do not fit one row of the 16rem menu, so the row wraps. */}
             <div
               className="flex flex-wrap items-center justify-center gap-1"
               data-testid="player-more-controls"
@@ -422,6 +439,7 @@ export default function PlayerControls(props: Props) {
               <PlayerOptions compact />
               <PlayerToggles {...props} compact />
               {props.score !== undefined && <PlayerExport {...props} compact />}
+              {props.score !== undefined && <PlayerEmbed {...props} compact />}
             </div>
           </div>
         </details>
