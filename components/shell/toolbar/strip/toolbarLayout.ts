@@ -2,13 +2,11 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
-  Activity,
   ChevronsDown,
   ChevronsLeft,
   ChevronsRight,
   ChevronsUp,
   Code2,
-  Dot,
   Download,
   FlipVertical2,
   Footprints,
@@ -20,7 +18,6 @@ import {
   Music2,
   Metronome,
   Pause,
-  Volume2,
   Wind,
   PanelsTopLeft,
   CircleQuestionMark,
@@ -39,11 +36,8 @@ import {
   fretDiagramOptions,
   glissandoOptions,
   graceNoteOptions,
-  articulationOptions,
   breathOptions,
-  dynamicOptions,
   fermataOptions,
-  hairpinOptions,
   ottavaOptions,
   pedalOptions,
   selectionFilterOptions,
@@ -52,7 +46,7 @@ import {
 } from '../../../toolbar/constants';
 import { LAYOUT_GROUPS } from './layoutGroups';
 import { SCORE_STRIP_GROUPS } from './scoreGroups';
-import { paletteFooter, paletteGlyph } from './paletteReferences';
+import { paletteFooter } from './paletteReferences';
 import type { IconSpec } from './icons/StripIcon';
 import { graceNoteIconSpec, PEDAL_ICON_SPECS } from './icons/stripIconSpecs';
 
@@ -452,46 +446,9 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
     ],
   },
   {
-    id: 'marks-dynamics',
-    label: 'Dynamics',
-    controls: [
-      {
-        kind: 'menu',
-        testId: 'dropdown-markings',
-        contentTestId: 'markings-menu',
-        label: 'Dynamics',
-        icon: Volume2,
-        split: true,
-        columns: 6,
-        items: dynamicOptions.map((option) => ({
-          testId: `btn-dynamic-${option.value}`,
-          label: option.label,
-          commandId: 'add.mark.dynamic',
-          arg: option.value,
-          glyph: paletteGlyph('dynamic', option.value),
-        })),
-        footer: paletteFooter('btn-open-dynamics-palette', 'Dynamics'),
-      },
-    ],
-  },
-  {
     id: 'marks-spanners',
     label: 'Hairpins and pedal',
     controls: [
-      {
-        kind: 'menu',
-        testId: 'dropdown-hairpins',
-        label: 'Hairpins',
-        icon: Activity,
-        split: true,
-        items: hairpinOptions.map((option) => ({
-          testId: option.testId,
-          label: option.label,
-          commandId: 'add.line.hairpin',
-          arg: option.value,
-          glyph: paletteGlyph('hairpin', option.value),
-        })),
-      },
       {
         kind: 'menu',
         testId: 'dropdown-pedal',
@@ -536,24 +493,6 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
     id: 'marks-articulations',
     label: 'Articulations, fermatas and breaths',
     controls: [
-      {
-        kind: 'menu',
-        testId: 'dropdown-articulations',
-        contentTestId: 'articulations-menu',
-        label: 'Articulations',
-        icon: Dot,
-        split: true,
-        columns: 5,
-        // The face starts on the accent; the grid keeps the palette's order. Bowings are in the grid too.
-        initial: 'btn-artic-articAccentAbove',
-        items: articulationOptions.map((option, index) => ({
-          testId: `btn-artic-${option.symbol}`,
-          label: option.label,
-          commandId: 'add.mark.articulation',
-          arg: option.symbol,
-          glyph: paletteGlyph('articulation', index),
-        })),
-      },
       {
         kind: 'menu',
         testId: 'dropdown-fermata',

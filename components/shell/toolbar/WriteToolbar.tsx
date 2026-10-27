@@ -22,6 +22,7 @@ import type { StripControlContext } from './strip/ControlButton';
 import { StripIcon } from './strip/icons/StripIcon';
 import { dotIconSpec, ICON_VIEW_WIDTH, QUICK_ROW_ICON_SPECS } from './strip/icons/stripIconSpecs';
 import { MenuButton } from './strip/MenuButton';
+import { QUICK_ROW_GROUPS } from './strip/quickRowGroups';
 import type { StripMenu } from './strip/toolbarLayout';
 import styles from './WriteToolbar.module.css';
 import { useToolbarCommands } from './useToolbarCommands';
@@ -306,7 +307,29 @@ export function WriteToolbar({
       >
         <Redo2 size={14} aria-hidden="true" />
       </Button>
+
+      <QuickRowMenus context={quick} />
     </div>
+  );
+}
+
+function QuickRowMenus({ context }: { context: StripControlContext }) {
+  return (
+    <>
+      {QUICK_ROW_GROUPS.map((group) => (
+        <div
+          key={group.id}
+          role="group"
+          aria-label={group.label}
+          className="flex shrink-0 items-center gap-1"
+        >
+          {divider}
+          {group.controls.map((control) => (
+            <MenuButton key={control.testId} control={control} context={context} />
+          ))}
+        </div>
+      ))}
+    </>
   );
 }
 

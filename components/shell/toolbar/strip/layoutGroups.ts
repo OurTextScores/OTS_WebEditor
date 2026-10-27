@@ -1,20 +1,13 @@
 import {
   ArrowRightToLine,
   BetweenVerticalEnd,
-  Clock,
   Eraser,
   File,
-  KeyRound,
   ListX,
   Ruler,
   Scissors,
   WrapText,
 } from 'lucide-react';
-import {
-  keySignatureButtonOptionsDefault,
-  signatureOptionsDefault,
-} from '../../../toolbar/constants';
-import { scorePaletteItems } from '../../../toolbar/palette';
 import type { StripGroup } from './toolbarLayout';
 
 /**
@@ -75,52 +68,6 @@ export const LAYOUT_GROUPS: readonly StripGroup[] = [
         label: 'Remove empty trailing measures',
         icon: ListX,
         commandId: 'tools.measures.removeTrailingEmpty',
-      },
-    ],
-  },
-  {
-    id: 'layout-signatures',
-    label: 'Signatures',
-    controls: [
-      {
-        kind: 'menu',
-        testId: 'dropdown-signature',
-        label: 'Time signature',
-        icon: Clock,
-        commandId: 'add.timeSig',
-        items: [
-          ...signatureOptionsDefault.map((option) => ({
-            testId: `btn-timesig-${option.numerator}-${option.denominator}`,
-            label: option.label,
-            arg: {
-              numerator: option.numerator,
-              denominator: option.denominator,
-              timeSigType: option.timeSigType,
-            },
-          })),
-          {
-            testId: 'btn-timesig-custom-open',
-            label: 'Custom…',
-            commandId: 'add.timeSig.custom',
-            opensForm: true,
-          },
-        ],
-      },
-      {
-        kind: 'menu',
-        testId: 'dropdown-key',
-        label: 'Key signature',
-        icon: KeyRound,
-        commandId: 'add.keySig',
-        columns: 5,
-        items: keySignatureButtonOptionsDefault.map((option) => ({
-          testId: `btn-keysig-${option.fifths}`,
-          label: `${option.label} major`,
-          arg: option.fifths,
-          glyph: scorePaletteItems.find(
-            (item) => item.kind === 'keysig' && item.subtype === option.fifths,
-          )?.symbol,
-        })),
       },
     ],
   },

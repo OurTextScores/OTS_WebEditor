@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ToolStrip } from '../../components/shell/toolbar/strip/ToolStrip';
+import { flattenControls, STRIP_GROUPS } from '../../components/shell/toolbar/strip/toolbarLayout';
 import {
   resetLastUsedForTests,
   resetStripCollapsedForTests,
@@ -65,6 +66,25 @@ function setup(context: Partial<CommandContext> = { selection: 'single' }) {
 }
 
 describe('the quick row’s duration and accidental buttons', () => {
+  it('keeps the notation menus visible when tools are collapsed without duplicating them', async () => {
+    const { user } = setup();
+    const ids = [
+      'dropdown-markings',
+      'dropdown-hairpins',
+      'dropdown-articulations',
+      'dropdown-clef',
+      'dropdown-key',
+      'dropdown-signature',
+      'dropdown-repeats',
+    ];
+    await user.click(screen.getByTestId('btn-tool-strip-toggle'));
+    expect(screen.getByTestId('tool-strip')).toHaveAttribute('data-collapsed', 'true');
+    for (const id of ids) {
+      expect(screen.getByTestId(id)).toBeVisible();
+      expect(flattenControls(STRIP_GROUPS).some((control) => control.testId === id)).toBe(false);
+    }
+  });
+
   it('start on the quarter note and the sharp, drawn as their glyphs', () => {
     setup();
     expect(screen.getByTestId('dropdown-duration-last')).toHaveAccessibleName('Duration: Quarter');
