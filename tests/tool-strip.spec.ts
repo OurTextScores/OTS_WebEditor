@@ -41,8 +41,7 @@ test('the tools flow on after the quick controls in one toolbar, with no scrollb
     await expect(page.getByTestId('tool-strip')).toBeVisible();
     for (const id of [
       'btn-note-input',
-      'btn-open-score',
-      'btn-new-score',
+      'btn-load-soundfont',
       'dropdown-export',
       'btn-select-all',
       'btn-delete',
@@ -106,7 +105,7 @@ test('the tools flow on after the quick controls in one toolbar, with no scrollb
     for (const gap of sideGaps) expect(gap).toBeGreaterThanOrEqual(3);
     // The quick controls come before the tools.
     const quick = await page.getByTestId('btn-note-input').boundingBox();
-    const tool = await page.getByTestId('btn-open-score').boundingBox();
+    const tool = await page.getByTestId('btn-load-soundfont').boundingBox();
     expect(tool!.y > quick!.y + quick!.height - 1 || tool!.x > quick!.x).toBe(true);
   }
 });
@@ -196,9 +195,9 @@ test('strip controls hit-test to themselves', async ({ page }) => {
 
 test('arrow keys walk the strip, and the strip is one tab stop', async ({ page }) => {
   await open(page, true);
-  await page.getByTestId('btn-open-score').focus();
+  await page.getByTestId('btn-load-soundfont').focus();
   await page.keyboard.press('ArrowRight');
-  await expect(page.getByTestId('btn-new-score')).toBeFocused();
+  await expect(page.getByTestId('btn-create-share-link')).toBeFocused();
   await page.keyboard.press('End');
   // The last control of the last group (Notes, Marks, Text and Layout follow Home).
   await expect(page.getByTestId('dropdown-jumps')).toBeFocused();
@@ -774,8 +773,8 @@ test.describe('View ▸ Toolbar', () => {
     await page.keyboard.press('Escape');
     await page.keyboard.press('Escape');
     await expect(page.getByRole('menu')).toHaveCount(0);
-    await page.getByTestId('btn-new-score').focus();
-    await expect(page.getByTestId('btn-new-score')).toBeFocused();
+    await page.getByTestId('btn-load-soundfont').focus();
+    await expect(page.getByTestId('btn-load-soundfont')).toBeFocused();
     await page.keyboard.press('End');
     await expect(page.getByTestId('link-help')).toBeFocused();
   });

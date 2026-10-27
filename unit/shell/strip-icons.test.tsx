@@ -27,9 +27,6 @@ const menus = controls.filter((control): control is StripMenu => control.kind ==
 
 /** Controls that keep a Lucide icon: file, view and edit chrome with no notation in it. */
 const CHROME = new Set([
-  'btn-open-score',
-  'btn-new-score',
-  'btn-load-scores-to-compare',
   'btn-create-share-link',
   'btn-embed',
   'dropdown-export',

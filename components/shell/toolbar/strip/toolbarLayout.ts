@@ -10,11 +10,8 @@ import {
   Code2,
   Dot,
   Download,
-  FilePlus,
   FlipVertical2,
   Footprints,
-  FolderOpen,
-  GitCompare,
   Guitar,
   LayoutPanelLeft,
   Layers,
@@ -166,35 +163,11 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
     label: 'File',
     controls: [
       {
-        kind: 'menu',
-        testId: 'btn-open-score',
-        label: 'Open score',
-        icon: FolderOpen,
-        items: [
-          { testId: 'btn-open-file', label: 'Open file…', commandId: 'file.open' },
-          { testId: 'btn-open-link', label: 'Open from link…', commandId: 'file.openLink' },
-        ],
-      },
-      {
-        kind: 'command',
-        testId: 'btn-new-score',
-        label: 'New score',
-        icon: FilePlus,
-        commandId: 'file.new',
-      },
-      {
         kind: 'command',
         testId: 'btn-load-soundfont',
         label: 'Load SoundFont',
         icon: Music2,
         commandId: 'playback.soundfont',
-      },
-      {
-        kind: 'command',
-        testId: 'btn-load-scores-to-compare',
-        label: 'Compare scores',
-        icon: GitCompare,
-        commandId: 'compare.load',
       },
       {
         kind: 'command',

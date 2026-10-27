@@ -14,12 +14,8 @@ import { allCommandsRegistry } from '../helpers/all-commands';
 
 const REPO = resolve(__dirname, '../..');
 
-/** Test ids the ribbon never had: its Open and SoundFont controls were hidden file inputs inside labels. */
+/** Test ids the ribbon never had: its SoundFont control was a hidden file input inside a label. */
 const NEW_IDS = new Set([
-  'btn-open-score',
-  // The Open menu's two ways in.
-  'btn-open-file',
-  'btn-open-link',
   'btn-load-soundfont',
   // Embed on a website is new with the player's embed code.
   'btn-embed',

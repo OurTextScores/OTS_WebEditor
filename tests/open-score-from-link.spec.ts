@@ -2,7 +2,7 @@ import { expect, test, type Page } from 'playwright/test';
 import { openMenuPath, runCommand } from './helpers/commands';
 
 /**
- * File ▸ Open Score from Link (and the strip's Open menu): a score at a web address opens in this editor through the
+ * File ▸ Open Score from Link: a score at a web address opens in this editor through the
  * editor's own `?score=` loading, as a new history entry.
  */
 const FIRST = '/test_scores/three_notes_cde.musicxml';
@@ -15,10 +15,7 @@ async function openEditor(page: Page) {
 
 const noteCount = (page: Page) => page.locator('svg .Note').count();
 
-async function chooseOpenFromLink(page: Page) {
-  await page.getByTestId('btn-open-score').click();
-  await page.getByTestId('btn-open-link').click();
-}
+const chooseOpenFromLink = (page: Page) => openMenuPath(page, ['File', 'Open Score from Link']);
 
 async function answerPrompt(page: Page, link: string) {
   const prompt = page.getByTestId('prompt-dialog');
@@ -27,17 +24,11 @@ async function answerPrompt(page: Page, link: string) {
   await prompt.getByTestId('dialog-confirm').click();
 }
 
-test('the Open menu opens a score from a link, and Back returns to the one before', async ({
-  page,
-  baseURL,
-}) => {
+test('opens a score from a link, and Back returns to the one before', async ({ page, baseURL }) => {
   await openEditor(page);
   const before = await noteCount(page);
   expect(before).toBeLessThan(10);
 
-  await page.getByTestId('btn-open-score').click();
-  await expect(page.getByTestId('btn-open-file')).toBeVisible();
-  await page.keyboard.press('Escape');
   await chooseOpenFromLink(page);
   await answerPrompt(page, new URL(LINKED, baseURL).href);
 
@@ -56,7 +47,7 @@ test('File ▸ Open Score from Link asks for the address and turns away one that
 }) => {
   await openEditor(page);
   const before = page.url();
-  await openMenuPath(page, ['File', 'Open Score from Link']);
+  await chooseOpenFromLink(page);
   await answerPrompt(page, 'bach_orig.mscz');
   await expect(page.getByText('That is not a web address.', { exact: false })).toBeVisible();
   expect(page.url()).toBe(before);
