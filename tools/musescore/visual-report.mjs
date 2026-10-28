@@ -24,7 +24,7 @@ async function manifest(dir, label) {
   } catch (error) { warnings.push(`${label} manifest: ${error.message}`); return null; }
 }
 const a = await manifest(baseline, 'baseline'), b = await manifest(current, 'current');
-const compareKeys = ['target', 'node', 'platform', 'environment', 'playwright', 'browser', 'viewport', 'deviceScaleFactor', 'svgWidth', 'background', 'page', 'highlightSelection', 'systemFontsSha256', 'resourceTreeSha256', 'fixtureManifestSha256', 'captureCodeSha256', 'rendererCodeSha256', 'captureDriverSha256', 'directEditCodeSha256'];
+const compareKeys = ['target', 'node', 'platform', 'environment', 'playwright', 'browser', 'viewport', 'deviceScaleFactor', 'svgWidth', 'background', 'page', 'highlightSelection', 'systemFontsSha256', 'resourceTreeSha256', 'fixtureManifestSha256', 'captureCodeSha256', 'rendererCodeSha256', 'captureDriverSha256', 'directEditCodeSha256', 'staffMoveCodeSha256'];
 if (a && b) for (const key of compareKeys) {
   if (a[key] == null || b[key] == null || JSON.stringify(a[key]) !== JSON.stringify(b[key])) warnings.push(`Capture environment differs or is missing: ${key}`);
 }

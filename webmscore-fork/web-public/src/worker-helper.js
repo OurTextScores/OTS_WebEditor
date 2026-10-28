@@ -128,6 +128,7 @@ class WebMscoreW {
         // Probe native support through the worker, rather than treating JS proxy
         // presence as proof of a native export. Older packages omit this path.
         if (!capabilities?.hitTestScoreObject) Object.defineProperty(instance, 'hitTestScoreObject', { value: undefined })
+        if (!capabilities?.moveSelectedChordRestToStaff) Object.defineProperty(instance, 'moveSelectedChordRestToStaff', { value: undefined })
         if (!capabilities?.systemLocks) {
             for (const name of ['getSystemLockState', 'setSystemLock', 'moveSelectedMeasureToSystem']) {
                 Object.defineProperty(instance, name, { value: undefined })
@@ -1286,6 +1287,10 @@ class WebMscoreW {
 
     addArticulation(articulationSymbolName) {
         return this.rpc('addArticulation', [articulationSymbolName])
+    }
+
+    moveSelectedChordRestToStaff(direction) {
+        return this.rpc('moveSelectedChordRestToStaff', [direction])
     }
 
     flipStem() {

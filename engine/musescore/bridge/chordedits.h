@@ -49,6 +49,37 @@ EMSCRIPTEN_KEEPALIVE bool addNoteFromRest(uintptr_t score_ptr, int excerptId)
     return true;
 }
 
+// direction: -1 moves up, +1 moves down. Operates on whole chords/rests, as desktop does.
+EMSCRIPTEN_KEEPALIVE bool moveSelectedChordRestToStaff(uintptr_t score_ptr, int direction, int excerptId)
+{
+    auto* score = getScore(score_ptr, excerptId);
+    if (!score || (direction != -1 && direction != 1) || score->selection().isNone()) return false;
+
+    std::set<engraving::ChordRest*> targets;
+    for (engraving::EngravingItem* item : score->selection().uniqueElements()) {
+        if (!item) continue;
+        if (item->isNote()) {
+            auto* chord = engraving::toNote(item)->chord();
+            if (chord) targets.insert(chord);
+        } else if (item->isChord() || item->isRest()) {
+            targets.insert(engraving::toChordRest(item));
+        }
+    }
+    if (targets.empty()) return false;
+
+    score->startCmd(TranslatableString::untranslatable("Move chord or rest to staff"));
+    bool changed = false;
+    for (engraving::ChordRest* cr : targets) {
+        const int before = cr->staffMove();
+        if (direction < 0) score->moveUp(cr);
+        else score->moveDown(cr);
+        changed |= cr->staffMove() != before;
+    }
+    score->endCmd();
+    if (changed) layoutLinked(score);
+    return changed;
+}
+
 EMSCRIPTEN_KEEPALIVE bool flipStem(uintptr_t score_ptr, int excerptId)
 {
     auto* score = getScore(score_ptr, excerptId);

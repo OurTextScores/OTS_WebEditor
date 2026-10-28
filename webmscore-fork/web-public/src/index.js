@@ -310,6 +310,7 @@ class WebMscore {
         /** @private */
         this.excerptId = -1
         if (!Module._hitTestScoreObject) Object.defineProperty(this, 'hitTestScoreObject', { value: undefined })
+        if (!Module._moveSelectedChordRestToStaff) Object.defineProperty(this, 'moveSelectedChordRestToStaff', { value: undefined })
         if (!Module._getSystemLockState || !Module._setSystemLock || !Module._moveSelectedMeasureToSystem) {
             for (const name of ['getSystemLockState', 'setSystemLock', 'moveSelectedMeasureToSystem']) {
                 Object.defineProperty(this, name, { value: undefined })
@@ -2392,6 +2393,13 @@ class WebMscore {
      * @returns {Promise<boolean>}
      */
     /** Flip the stem direction of the selected note(s)/chord(s). */
+    /** Move selected chords/rests one staff up or down within their part. */
+    async moveSelectedChordRestToStaff(direction) {
+        if (direction !== 'up' && direction !== 'down') return false
+        return Module.ccall('moveSelectedChordRestToStaff', 'boolean', ['number', 'number', 'number'],
+            [this.scoreptr, direction === 'up' ? -1 : 1, this.excerptId])
+    }
+
     async flipStem() {
         return Module.ccall('flipStem', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
     }

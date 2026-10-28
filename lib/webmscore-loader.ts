@@ -581,6 +581,7 @@ export interface Score {
   addTempoText?: (bpm: number) => Promise<unknown> | unknown;
   addArticulation?: (articulationSymbolName: string) => Promise<unknown> | unknown;
   addSlur?: () => Promise<unknown> | unknown;
+  moveSelectedChordRestToStaff?: (direction: 'up' | 'down') => Promise<boolean> | boolean;
   flipStem?: () => Promise<boolean> | boolean;
   addTie?: () => Promise<unknown> | unknown;
   addGraceNote?: (graceType: number) => Promise<unknown> | unknown;

@@ -23,6 +23,7 @@ import { verifyNoteInput } from './verify-noteinput.mjs';
 import { verifySelection } from './verify-selection.mjs';
 import { verifyObjectGeometry } from './verify-objectgeometry.mjs';
 import { verifyFidelity } from './verify-fidelity.mjs';
+import { verifyStaffMove } from './verify-staff-move.mjs';
 import { verifyLyricExtensions } from './verify-lyric-extensions.mjs';
 import { verifyCrossEngine } from './verify-cross-engine.mjs';
 import { verifySystemLocks } from './verify-systemlocks.mjs';
@@ -244,6 +245,7 @@ export default options => Engine({ ...options, wasmBinary: readFileSync(new URL(
   const lyricExtensions = process.env.MS47_VERIFY_LYRIC_EXTENSIONS ? await verifyLyricExtensions(WebMscore) : undefined;
   const crossEngine = process.env.MS47_VERIFY_CROSS_ENGINE ? await verifyCrossEngine(WebMscore, renderer, bundle) : undefined;
   const fidelity = process.env.MS47_VERIFY_FIDELITY ? await verifyFidelity(WebMscore, renderer, output, bundle) : undefined;
+  if (process.env.MS47_VERIFY_STAFF_MOVE) await verifyStaffMove(WebMscore);
   const objectGeometry = process.env.MS47_VERIFY_OBJECT_GEOMETRY ? await verifyObjectGeometry(WebMscore, renderer, await nativeModule()) : undefined;
   const selection = process.env.MS47_VERIFY_SELECTION ? await verifySelection(WebMscore, renderer, await nativeModule()) : undefined;
   const noteInput = process.env.MS47_VERIFY_NOTEINPUT ? await verifyNoteInput(WebMscore, renderer, await nativeModule()) : undefined;

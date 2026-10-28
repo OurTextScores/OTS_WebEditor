@@ -310,6 +310,15 @@ per page; the report records omitted regions and dimensions. The default per-cha
 This compares the **same** renderer; it is not a cross-engine correctness oracle. Review changes against the checked-in baseline before accepting a new one. System font and fontconfig files are hashed
 by content; a missing inventory or an environment mismatch makes the report fail.
 
+### Moving selected notation between staves
+
+The optional `score.moveSelectedChordRestToStaff('up' | 'down')` worker API moves selected chords and rests one staff
+within their existing part, using MuseScore's native movement and staff-boundary rules. A selected note moves its whole
+chord; a range applies to its eligible chords and rests as one undo command. It returns `false` for an invalid
+direction, absent/unsupported selection or a boundary no-op. Capability-detect the method when using older engines.
+This is an engine API; it does not add an editor control. `MS47_VERIFY_STAFF_MOVE=1 npm run verify:engine --
+public/test_scores/three_notes_cde.musicxml` checks selection, no-ops, range, undo/redo, export/reload and full layout.
+
 ### Pinned visual regression check
 
 The `Engraving visual report` workflow captures the fourteen original fixtures (including both pages of the multi-page case) with the packaged browser engine in a
@@ -333,8 +342,7 @@ docker run --rm -v "$PWD:/work" -w /work \
 
 The capture also runs real engine edits: it raises a tied pitch and checks both tie endpoints; raises a slur endpoint;
 drags a cross-staff note within its displayed staff and checks its staff and voice; hides and reveals a selected notehead; and edits lyric text
-while checking the extender through export and reload. These are separate from the visual pixel comparison. Moving a
-chord between staves is not covered: the current bridge does not expose MuseScore's move-to-staff operation. The
+while checking the extender through export and reload. These are separate from the visual pixel comparison. The capture also checks moving a cross-staff chord between staves, boundary no-ops, undo/redo, layout and export/reload. The
 visibility check covers a notehead (the selected stem can remain visible), not a whole hidden chord.
 
 The baseline records the current nested-tuplet semantic failures. The visual job records them separately and is not a

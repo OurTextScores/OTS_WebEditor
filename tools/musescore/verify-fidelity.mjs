@@ -328,7 +328,8 @@ export async function verifyFidelity(WebMscore, renderer, output, bundle) {
       fixtureManifestSha256: hash(manifestBytes), captureCodeSha256: hash(await readFile(new URL('./verify-fidelity.mjs', import.meta.url))),
       rendererCodeSha256: hash(await readFile(new URL('./svgcheck.mjs', import.meta.url))),
       captureDriverSha256: hash(await readFile(new URL('./capture-visual.mjs', import.meta.url))),
-      directEditCodeSha256: hash(await readFile(new URL('./verify-fidelity-direct-edits.mjs', import.meta.url))), cases, semanticFailures: failures };
+      directEditCodeSha256: hash(await readFile(new URL('./verify-fidelity-direct-edits.mjs', import.meta.url))),
+      staffMoveCodeSha256: hash(await readFile(new URL('./verify-staff-move.mjs', import.meta.url))), cases, semanticFailures: failures };
     await writeFile(path.join(capturePath, 'manifest.json'), JSON.stringify(metadata, null, 2) + '\n', { flag: 'wx' });
   }
   await writeFile(path.join(output, 'fidelity-failures.json'), JSON.stringify(failures, null, 2) + '\n');

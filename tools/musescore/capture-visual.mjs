@@ -6,6 +6,7 @@ import path from 'node:path';
 import { createSvgRenderer } from './svgcheck.mjs';
 import { verifyFidelity } from './verify-fidelity.mjs';
 import { verifyFidelityDirectEdits } from './verify-fidelity-direct-edits.mjs';
+import { verifyStaffMove } from './verify-staff-move.mjs';
 
 const [bundleArg, captureArg, outputArg] = process.argv.slice(2);
 if (!bundleArg || !captureArg || !outputArg || process.argv.length !== 5) {
@@ -37,6 +38,7 @@ try {
     console.log(`Recorded ${failures.length} semantic failures separately from visual comparison`);
   }
   await verifyFidelityDirectEdits(WebMscore, renderer);
+  await verifyStaffMove(WebMscore);
 } finally {
   if (renderer) await renderer.close();
   await rm(emptyResources, { recursive: true, force: true });
