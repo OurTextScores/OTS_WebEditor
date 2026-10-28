@@ -327,6 +327,48 @@ describe('EmbeddedScorePlayer progressive pages', () => {
     expect(mocks.trackEvent).toHaveBeenCalledWith('score_player_seeked', expect.any(Object));
   });
 
+  it('rejects wrong sources and malformed commands and disposes its listener and score', async () => {
+    mocks.search = new URLSearchParams({
+      score: '/score.musicxml',
+      playerId: 'isolated',
+      parentOrigin: window.location.origin,
+    });
+    const loaded = makeScore();
+    mocks.loadScoreFromUrl.mockResolvedValue({ loadedScore: loaded, progressivePaging: false });
+    const view = render(<EmbeddedScorePlayer />);
+    await screen.findByTestId('player-svg');
+    const base = {
+      type: 'ots-player:command',
+      version: 1,
+      playerId: 'isolated',
+      command: 'seek',
+      value: 750,
+    };
+    const send = (
+      data: unknown,
+      source: MessageEventSource | null = window,
+      origin = window.location.origin,
+    ) => window.dispatchEvent(new MessageEvent('message', { data, source, origin }));
+    send(base, null);
+    send(base, window, 'https://untrusted.example');
+    send({ ...base, playerId: 'other' });
+    send({ ...base, version: 2 });
+    send({ ...base, value: -1 });
+    send({ ...base, value: Number.NaN });
+    send({ ...base, command: 'play', value: 1 });
+    send(null);
+    expect(mocks.transport.seek).not.toHaveBeenCalled();
+    expect(mocks.transport.togglePlayPause).not.toHaveBeenCalled();
+    send(base);
+    expect(mocks.transport.seek).toHaveBeenCalledOnce();
+    expect(mocks.transport.seek).toHaveBeenCalledWith(750);
+    view.unmount();
+    send(base);
+    expect(mocks.transport.seek).toHaveBeenCalledOnce();
+    await waitFor(() => expect(mocks.transport.dispose).toHaveBeenCalled());
+    await waitFor(() => expect(loaded.destroy).toHaveBeenCalledOnce());
+  });
+
   it('temporarily suspends follow after manual page navigation', async () => {
     mocks.search = new URLSearchParams({ score: '/score.musicxml' });
     const score = makeScore();

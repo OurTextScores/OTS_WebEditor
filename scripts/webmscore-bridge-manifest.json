@@ -16,6 +16,7 @@
       "engine/musescore/bridge/miditools.h",
       "engine/musescore/bridge/notationmarks.h",
       "engine/musescore/bridge/notationproperties.h",
+      "engine/musescore/bridge/objectgeometry.h",
       "engine/musescore/bridge/noteinput.h",
       "engine/musescore/bridge/parttools.h",
       "engine/musescore/bridge/pdfpaint.h",

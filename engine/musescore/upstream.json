@@ -7,6 +7,7 @@
     "patches/upstream-v4.7.4-noqt.patch",
     "patches/0002-soundfont-cache-invalidation.patch",
     "patches/0003-flush-stops-voices.patch",
-    "patches/0004-reused-voice-state.patch"
+    "patches/0004-reused-voice-state.patch",
+    "patches/0005-musicxml-lyric-extensions.patch"
   ]
 }

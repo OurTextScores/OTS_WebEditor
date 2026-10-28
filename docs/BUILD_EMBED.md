@@ -95,6 +95,8 @@ The build generates a static export in the `out/` directory:
 
 ## Embedding the Playback Player
 
+For the full player message contract, lifecycle and the distinct editor/scanner host surfaces, see [Embed surfaces and host contracts](EMBED_CONTRACT.md).
+
 The same static `index.html` provides a read-only playback surface. Select it with
 `embed=player`; `embed=1` remains a compatibility alias:
 

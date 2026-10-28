@@ -1,0 +1,162 @@
+--- a/src/importexport/musicxml/internal/import/importmusicxmlpass2.h
++++ b/src/importexport/musicxml/internal/import/importmusicxmlpass2.h
+@@ -192,6 +192,7 @@
+     MusicXmlLyricsExtend() {}
+     void init();
+     void addLyric(engraving::Lyrics* const lyric);
++    void stopExplicitExtend(int verse, engraving::track_idx_t track, const engraving::Fraction& tick);
+     void setExtend(const int verse, const engraving::track_idx_t track, const engraving::Fraction& tick,
+                    const engraving::Lyrics* prevAddedLyrics);
+ 
+@@ -234,6 +235,7 @@
+     MusicXmlParserLyric(const LyricNumberHandler lyricNumberHandler, muse::XmlStreamReader& e, engraving::Score* score,
+                         MusicXmlLogger* logger, bool isVoiceStaff);
+     std::set<engraving::Lyrics*> extendedLyrics() const { return m_extendedLyrics; }
++    const std::set<int>& stoppedLyrics() const { return m_stoppedLyrics; }
+     std::map<int, engraving::Lyrics*> numberedLyrics() const { return m_numberedLyrics; }
+     std::vector<engraving::Sticking*> inferredStickings() const { return m_inferredStickings; }
+     void parse(bool visibility = true);
+@@ -246,6 +248,7 @@
+     MusicXmlLogger* m_logger = nullptr;            // Error logger
+     std::map<int, engraving::Lyrics*> m_numberedLyrics;   // lyrics with valid number
+     std::set<engraving::Lyrics*> m_extendedLyrics;        // lyrics with the extend flag set
++    std::set<int> m_stoppedLyrics; // stop-only MusicXML lyric markers
+     std::vector<engraving::Sticking*> m_inferredStickings;   // stickings with valid number
+     double m_defaultY = 0.0;
+     double m_relativeY = 0.0;
+--- a/src/importexport/musicxml/internal/import/importmusicxmlpass2.cpp
++++ b/src/importexport/musicxml/internal/import/importmusicxmlpass2.cpp
+@@ -249,6 +249,26 @@
+     }
+ }
+ 
++// Stop a numbered extension at the end of its explicit stop note. Keep verses
++// and voices independent; a stop-only lyric has no Lyrics object for setExtend.
++void MusicXmlLyricsExtend::stopExplicitExtend(int verse, track_idx_t track, const Fraction& tick)
++{
++    std::vector<Lyrics*> finished;
++    for (Lyrics* lyric : m_lyrics) {
++        const EngravingItem* parent = lyric->parentItem();
++        if (!parent || !parent->isChordRest() || parent->track() != track || lyric->verse() != verse) {
++            continue;
++        }
++        const ChordRest* start = toChordRest(parent);
++        const Fraction last = lastChordTicks(lyric->segment(), tick, track);
++        if (last > Fraction(0, 1)) {
++            lyric->setTicks(tick - start->tick() - last);
++        }
++        finished.push_back(lyric);
++    }
++    for (Lyrics* lyric : finished) muse::remove(m_lyrics, lyric);
++}
++
+ //---------------------------------------------------------
+ //   MusicXmlStepAltOct2Pitch
+ //---------------------------------------------------------
+@@ -7409,6 +7429,9 @@
+     if (cr && !grace) {
+         // add lyrics and stop corresponding extends
+         addLyrics(m_logger, &m_e, cr, lyric.numberedLyrics(), lyric.extendedLyrics(), m_extendedLyrics);
++        for (int verse : lyric.stoppedLyrics()) {
++            m_extendedLyrics.stopExplicitExtend(verse, cr->track(), cr->tick() + cr->actualTicks());
++        }
+         if (rest) {
+             // stop all extends
+             m_extendedLyrics.setExtend(-1, cr->track(), cr->tick());
+@@ -8164,8 +8187,12 @@
+         }
+     }
+ 
+-    // if no lyric read (e.g. only 'extend "type=stop"'), no further action required
++    // A stop marker often has no text; retain its verse until the chord is available.
+     if (formattedText.empty()) {
++        if (hasExtend && extendType == "stop") {
++            const int verse = m_lyricNumberHandler.getLyricNo(lyricNumber);
++            if (verse >= 0 && verse <= MAX_LYRICS) m_stoppedLyrics.insert(verse);
++        }
+         return;
+     }
+ 
+--- a/src/importexport/musicxml/internal/export/exportmusicxml.cpp
++++ b/src/importexport/musicxml/internal/export/exportmusicxml.cpp
+@@ -35,6 +35,7 @@
+ 
+ #include "exportmusicxml.h"
+ 
++#include <algorithm>
+ #include <math.h>
+ #include <set>
+ 
+@@ -389,7 +390,7 @@
+     void barlineLeft(const Measure* const m, const track_idx_t track);
+     void barlineMiddle(const BarLine* bl);
+     void barlineRight(const Measure* const m, const track_idx_t strack, const track_idx_t etrack);
+-    void lyrics(const std::vector<Lyrics*>& ll, const track_idx_t trk);
++    void lyrics(const std::vector<Lyrics*>& ll, const ChordRest* cr);
+     void work(const MeasureBase* measure);
+     void calcDivMoveToTick(const Fraction& t, const Fraction& stretch = { 1, 1 });
+     void calcDivisions();
+@@ -418,6 +419,7 @@
+     static String positioningAttributesForTboxText(const PointF position, float spatium);
+     void identification(XmlWriter& xml, Score const* const score);
+ 
++    std::map<track_idx_t, std::map<int, Fraction>> m_lyricExtendEnds;
+     Score* m_score = nullptr;
+     XmlWriter m_xml;
+     SlurHandler m_sh;
+@@ -4554,7 +4556,7 @@
+         notations.etag(m_xml);
+         // write lyrics (only for first note)
+         if (!grace && (note == nl.front())) {
+-            lyrics(ll, chord->track());
++            lyrics(ll, chord);
+         }
+         m_xml.endElement();
+     }
+@@ -4704,7 +4706,7 @@
+     tupletStartStop(rest, notations, m_xml);
+     notations.etag(m_xml);
+ 
+-    lyrics(ll, rest->track());
++    lyrics(ll, rest);
+ 
+     m_xml.endElement();
+ }
+@@ -6083,8 +6085,25 @@
+ //   lyrics
+ //---------------------------------------------------------
+ 
+-void ExportMusicXml::lyrics(const std::vector<Lyrics*>& ll, const track_idx_t trk)
+-{
++void ExportMusicXml::lyrics(const std::vector<Lyrics*>& ll, const ChordRest* cr)
++{
++    const track_idx_t trk = cr->track();
++    auto& ends = m_lyricExtendEnds[trk];
++    // Emit stop-only lyrics at their endpoint. A new lyric in the same verse
++    // already ends the old extension, so avoid duplicate verse entries.
++    for (auto it = ends.begin(); it != ends.end();) {
++        if (it->second > cr->tick()) { ++it; continue; }
++        const int verse = it->first;
++        const bool hasNewLyric = std::any_of(ll.begin(), ll.end(), [verse, trk](const Lyrics* l) {
++            return l && l->track() == trk && l->verse() == verse && !l->xmlText().isEmpty();
++        });
++        if (!hasNewLyric) {
++            m_xml.startElementRaw(String(u"lyric number=\"%1\"").arg(verse + 1));
++            m_xml.tag("extend", { { "type", "stop" } });
++            m_xml.endElement();
++        }
++        it = ends.erase(it);
++    }
+     for (const Lyrics* l : ll) {
+         if (l && !l->xmlText().isEmpty()) {
+             if ((l)->track() == trk) {
+@@ -6123,7 +6142,8 @@
+                 MScoreTextToMusicXml mttm(u"text", attr, defFmt, mtf);
+                 mttm.writeTextFragments(l->fragmentList(), m_xml);
+                 if (l->ticks().isNotZero()) {
+-                    m_xml.tag("extend");
++                    m_xml.tag("extend", { { "type", "start" } });
++                    ends[l->verse()] = cr->tick() + l->ticks();
+                 }
+                 m_xml.endElement();
+             }

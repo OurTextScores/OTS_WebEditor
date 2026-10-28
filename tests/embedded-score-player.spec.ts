@@ -133,6 +133,67 @@ test.describe('embedded score player', () => {
     await expect(coloured).toHaveCount(0);
   });
 
+  test('reapplies note color after SVG replacement and restores the new base colors', async ({
+    page,
+  }) => {
+    await page.goto('/?score=%2Ftest_scores%2Ftwo_chords.musicxml&embed=player');
+    const host = page.getByTestId('player-svg');
+    await expect(host.locator('svg .Note').first()).toBeVisible({ timeout: 60_000 });
+    const original = await host
+      .locator('svg .Note')
+      .evaluateAll((nodes) =>
+        nodes.map((el) => [el.getAttribute('fill'), el.getAttribute('stroke')]),
+      );
+    await page.evaluate(() => {
+      const svg = document.querySelector('[data-testid="player-svg"] > svg')!;
+      (window as typeof window & { pristinePlayerSvg: Node }).pristinePlayerSvg =
+        svg.cloneNode(true);
+    });
+    const toggle = page.getByRole('button', { name: 'Note highlighting' }).first();
+    await toggle.click();
+    const colored = host.locator('svg [fill="rgb(8 145 178)"]');
+    await expect(colored.first()).toBeAttached();
+    await page.evaluate(() => {
+      const host = document.querySelector('[data-testid="player-svg"]')!;
+      host.replaceChild(
+        (window as typeof window & { pristinePlayerSvg: Node }).pristinePlayerSvg,
+        host.querySelector(':scope > svg')!,
+      );
+    });
+    await expect(colored.first()).toBeAttached();
+    await toggle.click();
+    await expect(colored).toHaveCount(0);
+    expect(
+      await host
+        .locator('svg .Note')
+        .evaluateAll((nodes) =>
+          nodes.map((el) => [el.getAttribute('fill'), el.getAttribute('stroke')]),
+        ),
+    ).toEqual(original);
+  });
+
+  test('note highlighting follows a backward seek across simultaneous notes', async ({ page }) => {
+    await page.goto('/?score=%2Ftest_scores%2Ftwo_chords.musicxml&embed=player&highlight=note');
+    const seek = page.getByTestId('player-seek');
+    await expect(seek).toBeEnabled({ timeout: 60_000 });
+    const highlighted = () =>
+      page
+        .locator('[data-testid="player-svg"] svg .Note')
+        .evaluateAll((notes) =>
+          notes
+            .map((note, index) => (note.getAttribute('fill') === 'rgb(8 145 178)' ? index : -1))
+            .filter((index) => index >= 0),
+        );
+    await expect.poll(highlighted).toHaveLength(2);
+    const first = await highlighted();
+    await seek.fill('600');
+    await expect.poll(highlighted).not.toEqual(first);
+    const second = await highlighted();
+    expect(second).toHaveLength(2);
+    await seek.fill('0');
+    await expect.poll(highlighted).toEqual(first);
+  });
+
   test('note mode keeps the sounding notehead coloured for its whole duration while playing', async ({
     page,
   }) => {

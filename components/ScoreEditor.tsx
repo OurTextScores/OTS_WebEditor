@@ -200,6 +200,7 @@ import { useCompareAlignment } from './score-editor/compare/useCompareAlignment'
 import { useCompareRightScoreLoading } from './score-editor/compare/useCompareRightScoreLoading';
 import { useAiModelList } from './score-editor/ai-tools/useAiModelList';
 import { ScoreCanvas } from './score-editor/canvas/ScoreCanvas';
+import { ScoreGeometryInspection } from './score-editor/geometry-inspection';
 import { ChangeReviewBarOverlay } from './score-editor/canvas/ChangeReviewBarOverlay';
 import { DragFeedbackOverlays } from './score-editor/canvas/DragFeedbackOverlays';
 import { NoteInputOverlays } from './score-editor/canvas/NoteInputOverlays';
@@ -8432,6 +8433,7 @@ export default function ScoreEditor() {
           setNewThreadContent={setChangeReviewNewThreadContent}
         />
       )}
+      {process.env.NODE_ENV !== 'production' && !compareView && <ScoreGeometryInspection score={score} page={currentPage} containerRef={containerRef} installGenerationRef={pageInstallGenerationRef} scoreWrapperRef={scoreWrapperRef} />}
       <DragFeedbackOverlays selectionRect={dragSelectionRect} noteGhost={noteDragGhost} />
       <PlaybackFollowLayer following={following} transportState={editorPlayback.state} currentPage={currentPage} zoom={zoom} scrollContainerRef={scrollContainerRef} scoreWrapperRef={scoreWrapperRef} />
       <NoteInputOverlays

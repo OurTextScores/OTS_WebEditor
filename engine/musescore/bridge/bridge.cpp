@@ -314,6 +314,7 @@ EMSCRIPTEN_KEEPALIVE bool redo(uintptr_t id,int excerpt) {
 #include "undohistory.h"
 
 #include "selection.h"
+#include "objectgeometry.h"
 
 #include "selectiongeometry.h"
 

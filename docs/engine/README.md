@@ -245,3 +245,154 @@ MusicXML import, and the local Linux setup needed for Playwright's WebKit and Fi
 smoke matrix, browser-specific fixes, focused retests and remaining qualification limits. The
 [tracked inventory](PHASE10_EDITOR_SPECS.txt) can be passed to the resumable runner's `--specs-file`.
 Chromium runs on PRs; nightly/manual CI adds Firefox and WebKit across four shards.
+
+## Read-only score object hit snapshot
+
+Engines that export `hitTestScoreObject` advertise it on the score instance; older packages leave the method
+undefined. `await score.hitTestScoreObject(page, x, y)` accepts a zero-based page and finite page-local SVG/ABI
+coordinates at 360 DPI. It uses the native selection picker's topmost selectable item and tolerance without
+changing selection. The version-1 result reports `ok` for a visible note or rest, with zero-based measure,
+staff and voice where available, and a page-local bounding rectangle (or `null` if geometry is unavailable).
+Other results are `no-hit`, `unsupported`, `invalid-input`, or `unavailable`. A hit on a different selectable
+item does not search through it for a note. Rectangles are engine bounds, not precise glyph ink outlines.
+
+The entire lookup and geometry read occur in one native call. Results contain **no native address or handle**:
+they are snapshots and may be stale after any edit, relayout, page/excerpt switch, score replacement or resource
+change. Consumers must reject responses belonging to an old score or render generation and query again; this API
+does not provide a universal generation counter or stable identity. Existing point selection behavior is unchanged.
+
+To check the actual engine implementation, in addition to the normal build and bridge checks:
+
+```bash
+MS47_VERIFY_OBJECT_GEOMETRY=1 npm run verify:engine -- public/test_scores/three_notes_cde.musicxml
+PLAYWRIGHT_PORT=3018 npx playwright test tests/score-object-geometry.spec.ts
+```
+
+For a development-only inspection overlay, open the editor with `inspectGeometry=1` in the URL and hover over
+notation while holding Alt+Shift. The outline and status show the native snapshot; hover never selects an item.
+The diagnostic is absent from production builds and compare mode. It clears on pointer input and keyboard activity,
+and re-queries after the page SVG is replaced. The displayed measure, staff and voice indices are zero-based; the
+page label is one-based. A stale, unsupported or unavailable result does not draw a box. Snapshot validity is still
+limited by the lack of a universal native mutation generation: use it as a diagnostic, not as a persistent anchor.
+
+## MusicXML fidelity and visual-review pilot
+
+Five original fixtures and their provenance live in `tools/musescore/fixtures/osmd-fidelity/`. They cover nested tuplets,
+cross-system ties, cross-staff notes, a hidden note and pickup lyrics. OSMD's BSD licence permits reuse subject to its
+conditions; individual scores and transcriptions may have separate rights or notices, so inspect each file before
+redistributing it. The pilot fixtures are original, not copies of OSMD scores.
+
+```bash
+node tools/musescore/check-fidelity-assertions.mjs
+MS47_VERIFY_FIDELITY=1 MS47_OUTPUT=/tmp/ots-fidelity-check npm run verify:engine -- public/test_scores/three_notes_cde.musicxml
+```
+
+The verifier checks source, import/export, unedited reload, title edit, export and edited reload, and checks targeted
+SVG elements as well as rendering. It writes `fidelity-failures.json` to `MS47_OUTPUT` and fails if any expectation
+fails. The nested-tuplet fixture still imports with extra rests and dots, and exports as five beats instead of four; the input needs independent musical review. A patch fixes the observed pickup lyric endpoint on import and round trip, with an additional two-verse check. The nested-tuplet failures are not suppressed or presented as a passing semantic suite.
+
+For a visual comparison, use separate, new directories; the verifier writes a capture manifest even when semantic
+assertions fail. Create the parent directory first. Run both commands on the same controlled host, with the same
+engine/resources/fonts and browser. Review semantic failures separately from image diffs.
+
+```bash
+mkdir -p .playwright-runs/osmd-visual
+MS47_VERIFY_FIDELITY=1 MS47_FIDELITY_CAPTURE="$PWD/.playwright-runs/osmd-visual/run-a" MS47_OUTPUT=/tmp/ots-fidelity-a npm run verify:engine -- public/test_scores/three_notes_cde.musicxml
+MS47_VERIFY_FIDELITY=1 MS47_FIDELITY_CAPTURE="$PWD/.playwright-runs/osmd-visual/run-b" MS47_OUTPUT=/tmp/ots-fidelity-b npm run verify:engine -- public/test_scores/three_notes_cde.musicxml
+node tools/musescore/visual-report.mjs .playwright-runs/osmd-visual/run-a .playwright-runs/osmd-visual/run-b .playwright-runs/osmd-visual/report-ab
+```
+
+Capture and report directories must not already exist. The report records commits, dirty state, engine/fixture/tool
+hashes, browser, viewport, fonts and environment; incompatible environments and missing or altered captures fail.
+It emits sorted differences, full baseline/current images, red overlays and up to six labelled changed-region crops
+per page; the report records omitted regions and dimensions. The default per-channel threshold is zero; override with
+`OSMD_VISUAL_THRESHOLD=0..255` only with a documented reason. Any visual difference or incomplete comparison exits 1.
+This compares the **same** renderer; it is not a cross-engine correctness oracle. Review changes and store an immutable
+baseline artifact before using the report as a release gate. This pilot does not yet provide a durable CI baseline,
+and the system font inventory hash covers font file paths, not font contents or fontconfig configuration.
+
+Validate fixture syntax and the nested passage duration with `python3 tools/musescore/validate-fidelity-fixtures.py` (requires lxml and the pinned MuseScore source checkout).
+
+For regression triage while the nested-tuplet discrepancy remains, run the strict command above with a fresh
+`MS47_OUTPUT` directory and then run:
+
+```bash
+node tools/musescore/check-fidelity-baseline.mjs /tmp/ots-fidelity-check/fidelity-failures.json
+```
+
+This comparator reports whether the exact, reviewed known-failure set is unchanged; it fails for new failures or
+unexpected fixes. It does not make the strict fidelity suite pass. The lyric check uses the rendered extension's
+endpoint rather than requiring a particular XML spelling. The targeted lyric test also checks independent verses and explicit stop markers over two MusicXML round trips:
+
+```bash
+MS47_VERIFY_LYRIC_EXTENSIONS=1 npm run verify:engine -- public/test_scores/three_notes_cde.musicxml
+```
+
+The pinned MuseScore MusicXML import code documents that nested tuplets are not yet supported. A pre-existing Qt-free native 4.7.4 spike reproduced both original discrepancies, but its build provenance was not independently established, and a desktop GUI comparison has not been completed.
+
+## OSMD cross-engine triage pilot
+
+This developer-only pilot runs the five original, provenance-recorded fidelity fixtures through the pinned OSMD
+checkout and the OTS MuseScore/WASM engine. It records the input's MusicXML facts, OSMD's parsed source objects,
+and MuseScore's exported MusicXML facts, then saves both renderings for human inspection. It is **not a correctness
+oracle or a pixel-diff gate**: independent engravers make different legitimate layout choices, and either reader or
+the input may be wrong. It does not test edit/export/reload or replace the separate strict fidelity suite.
+
+Build the OSMD checkout at the revision in `tools/musescore/osmd-pilot.json` using that checkout's documented build.
+The tool requires that exact revision, version and clean tracked sources; it records the actual generated bundle's
+SHA-256 and lockfile hash, but cannot independently prove that an existing bundle was built from those sources.
+Use a fresh output directory each time:
+
+```bash
+mkdir -p .playwright-runs/osmd-cross-engine
+OSMD_SOURCE="$PWD/../opensheetmusicdisplay" \
+MS47_VERIFY_CROSS_ENGINE=1 \
+MS47_CROSS_OUTPUT="$PWD/.playwright-runs/osmd-cross-engine/my-run" \
+MS47_OUTPUT=/tmp/ots-cross-engine-my-run \
+npm run verify:engine -- public/test_scores/three_notes_cde.musicxml
+```
+
+Set `MS47_BUNDLE` to a bundled engine directory to exercise its browser package through the node harness. The
+`report.json` records revision and artifact hashes, fixture hashes, OSMD diagnostics, engine resource hash, options,
+counts and artifacts; `report.md` links renderings. OSMD's XML system and page break options are enabled deliberately.
+OSMD shows all generated SVGs; MuseScore's picture is page 1 only. Different page sizes, fonts, margins and spacing
+are expected, so images should be inspected, not subtracted. The report directory is exclusive; it cannot overwrite a
+previous report. A discrepancy is reported for review without making the command fail; load/render failures make
+it fail and are recorded per fixture.
+
+The counts cover part count, common measure count, pitched note count, rests and visible pitched noteheads. Input
+and MuseScore counts come from MusicXML; OSMD counts unique source notes and checks its pinned `PrintObject` and
+`NoteHeadShape.NONE` semantics. Notehead visibility is a limited source-level approximation, not SVG ink counting.
+Unequal per-part measure counts and unpitched/nonstandard notes are marked unsupported for the relevant metrics.
+Synthetic rests, shared noteheads, hidden staves, repeats, multiple voices, percussion, pitch spelling, ties,
+lyrics, nested durations and layout can require further normalization or independent assertions. Matching counts
+cannot establish correctness. Only five small, single-part fixtures were sampled; they cannot establish a useful
+false-positive rate or justify running this comparison as an automated catalogue gate.
+
+## Local page-delivery profiling
+
+The developer scripts below measure the current editor in headless Chromium with its real worker and WASM. Start an
+isolated development server first, warm its compilation, then use new output paths (the scripts refuse to overwrite
+reports):
+
+```bash
+NEXT_DIST_DIR=.next-dev-phase7 npx next dev --webpack --hostname 127.0.0.1 --port 3037
+# In another terminal:
+node tools/musescore/page-navigation-profile.mjs http://127.0.0.1:3037/ /tmp/page-navigation.json
+node tools/musescore/page-prefetch-profile.mjs http://127.0.0.1:3037/ /tmp/page-prefetch.json
+node tools/musescore/full-layout-profile.mjs http://127.0.0.1:3037/ /tmp/full-layout.json
+```
+
+Navigation compares initial target-page misses to repeated cache hits and checks score export, selection and undo
+invariants. It records worker `saveSvg` RPC, measured SVG-container `innerHTML`, a DOM mutation commit and an
+animation-frame-plus-task paint proxy, not a physical display paint. Set `OTS_PAGE_PROFILE_GC=1` for separate forced
+main-page GC snapshots; do not compare those timings to normal runs. `OTS_PAGE_PROFILE_CONTEXTS` and
+`OTS_PAGE_PROFILE_CYCLES` adjust the sample count. The prefetch script observes an actual Bach playback turn with a
+local `public/soundfonts/default.sf3` and checks the page was rendered once before the boundary;
+`OTS_PREFETCH_CONTEXTS` controls repetitions. The full-layout script measures explicit relayout RPC on an unedited
+score; it is separate from page turns and does not replace the incremental/full layout oracle.
+
+These scripts are diagnostic, not performance gates. The JSON records fixture and WASM hashes, environment, raw
+samples, p50/p95 and scope limitations. Main-page JS heap and DOM counters do not measure worker or WASM usage; the
+playback diagnostic's WASM heap number is capacity, not used memory. Use a controlled production build, more samples
+and representative devices before making product performance claims.

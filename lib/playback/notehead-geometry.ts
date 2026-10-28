@@ -4,6 +4,11 @@ import type { Positions } from '../webmscore-loader';
 type Centre = { el: SVGElement; x: number; y: number };
 const centresBySvg = new WeakMap<SVGSVGElement, Centre[]>();
 
+/** Discard measured nodes when an SVG is edited in place or replaced. */
+export function invalidateNoteheadGeometry(svg: SVGSVGElement): void {
+  centresBySvg.delete(svg);
+}
+
 /** Measure once per engraved SVG, in score units; zoom changes do not invalidate these coordinates. */
 function noteCentres(svg: SVGSVGElement): Centre[] {
   const cached = centresBySvg.get(svg);

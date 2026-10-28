@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "id": "nested-undotted",
+      "file": "nested-undotted.musicxml",
+      "sha256": "4de0a2322e3ba2fbc8f250ec0ee5d0c296cd6c2a3c2a60e4552ba8a27cf6a905",
+      "origin": "Original minimal fixture authored for OTS_Web on 2026-10-27; no third-party score copied.",
+      "license": "GPL-3.0-only",
+      "expectation": "nested undotted eighths with 9:4 timing",
+      "edit": "setTitleText: Fidelity edit",
+      "test": "tools/musescore/verify-fidelity.mjs",
+      "inputFormat": "musicxml",
+      "inspiration": "https://github.com/opensheetmusicdisplay/opensheetmusicdisplay/issues/1840"
+    },
+    {
+      "id": "tie-system-break",
+      "file": "tie-system-break.musicxml",
+      "sha256": "b7b573306f7549dba2173668166f120c3310c6e88a3832d9f1651e91b89b5323",
+      "origin": "Original minimal fixture authored for OTS_Web on 2026-10-27; no third-party score copied.",
+      "license": "GPL-3.0-only",
+      "expectation": "C4 tie and explicit system break",
+      "edit": "setTitleText: Fidelity edit",
+      "test": "tools/musescore/verify-fidelity.mjs",
+      "inputFormat": "musicxml"
+    },
+    {
+      "id": "cross-staff",
+      "file": "cross-staff.musicxml",
+      "sha256": "5b54a4ed3e0665ca105222077baff7f1726dd2aa35062cbe80f040b1292d6a9c",
+      "origin": "Original minimal fixture authored for OTS_Web on 2026-10-27; no third-party score copied.",
+      "license": "GPL-3.0-only",
+      "expectation": "alternating staves and separate second voice",
+      "edit": "setTitleText: Fidelity edit",
+      "test": "tools/musescore/verify-fidelity.mjs",
+      "inputFormat": "musicxml"
+    },
+    {
+      "id": "hidden-note",
+      "file": "hidden-note.musicxml",
+      "sha256": "e3a9d04b7e5d4860bb4f1a8bf107f0810045466f516b9e9bc35421ed1769896e",
+      "origin": "Original minimal fixture authored for OTS_Web on 2026-10-27; no third-party score copied.",
+      "license": "GPL-3.0-only",
+      "expectation": "hidden C4 and visible D4",
+      "edit": "setTitleText: Fidelity edit",
+      "test": "tools/musescore/verify-fidelity.mjs",
+      "inputFormat": "musicxml"
+    },
+    {
+      "id": "pickup-lyrics",
+      "file": "pickup-lyrics.musicxml",
+      "sha256": "c458155deedd0f1bb10d8f9ad1a102dc14cb6dccd76d22840f8f90ba58dbfad5",
+      "origin": "Original minimal fixture authored for OTS_Web on 2026-10-27; no third-party score copied.",
+      "license": "GPL-3.0-only",
+      "expectation": "quarter pickup and lyric melisma",
+      "edit": "setTitleText: Fidelity edit",
+      "test": "tools/musescore/verify-fidelity.mjs",
+      "inputFormat": "musicxml"
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+[
+  {
+    "id": "nested-undotted",
+    "stage": "import-export",
+    "message": "no rests are inserted\n\n3 !== 0\n"
+  },
+  {
+    "id": "nested-undotted",
+    "stage": "import-timing",
+    "message": "nested passage must occupy exactly four quarter-note beats\n\n45 !== 36\n"
+  },
+  {
+    "id": "nested-undotted",
+    "stage": "import-render",
+    "message": "the fixture contains no dotted notes or rests\n\n3 !== 0\n"
+  },
+  {
+    "id": "nested-undotted",
+    "stage": "control-reload",
+    "message": "no rests are inserted\n\n3 !== 0\n"
+  },
+  {
+    "id": "nested-undotted",
+    "stage": "control-timing",
+    "message": "nested passage must occupy exactly four quarter-note beats\n\n45 !== 36\n"
+  },
+  {
+    "id": "nested-undotted",
+    "stage": "control-render",
+    "message": "the fixture contains no dotted notes or rests\n\n3 !== 0\n"
+  },
+  {
+    "id": "nested-undotted",
+    "stage": "edit-export",
+    "message": "no rests are inserted\n\n3 !== 0\n"
+  },
+  {
+    "id": "nested-undotted",
+    "stage": "edit-timing",
+    "message": "nested passage must occupy exactly four quarter-note beats\n\n45 !== 36\n"
+  },
+  {
+    "id": "nested-undotted",
+    "stage": "edit-render",
+    "message": "the fixture contains no dotted notes or rests\n\n3 !== 0\n"
+  },
+  {
+    "id": "nested-undotted",
+    "stage": "edited-reload",
+    "message": "no rests are inserted\n\n3 !== 0\n"
+  },
+  {
+    "id": "nested-undotted",
+    "stage": "reload-timing",
+    "message": "nested passage must occupy exactly four quarter-note beats\n\n45 !== 36\n"
+  },
+  {
+    "id": "nested-undotted",
+    "stage": "reload-render",
+    "message": "the fixture contains no dotted notes or rests\n\n3 !== 0\n"
+  }
+]

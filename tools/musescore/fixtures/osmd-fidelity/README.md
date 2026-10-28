@@ -1,0 +1,7 @@
+# MusicXML fidelity pilot fixtures
+
+These five small scores were written specifically for OTS_Web on 2026-10-27 and are supplied under this repository's GPL-3.0 terms. They do not copy any OSMD score. `manifest.json` records their hashes, asserted facts and test operation. The nested-tuplet case was inspired by OSMD issue #1840; it is an independent case, not the issue's attached reproduction.
+
+OSMD's BSD-3-Clause project licence does **not** categorically prohibit reuse of its fixtures. Some individual scores or transcriptions may carry additional rights or notices. Before redistributing a copied OSMD fixture, check that specific file's origin and terms and preserve all applicable notices. Local reference use and redistribution are separate questions.
+
+Run `node tools/musescore/check-fidelity-assertions.mjs` to verify that a deliberate semantic change to each original is detected. The engine round-trip gate is documented in `docs/engine/README.md`; as of 2026-10-27 it reports an unresolved nested-tuplet discrepancy; the tested overlong lyric-extension case was corrected by the tracked engine patch. The simple hidden-note fixture passes with MuseScore’s equivalent notehead/stem encoding and a visual assertion. The remaining nested-tuplet discrepancy is retained as a failing expectation; see the engine documentation and private triage notes for the investigation. XML schema validity alone does not prove the musical encoding is unambiguous.

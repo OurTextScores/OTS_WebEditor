@@ -46,6 +46,9 @@ describe('embedded content height', () => {
     expect(root.style.scrollbarGutter).toBe('auto');
     expect(document.querySelector('main')?.style.minHeight).toBe('100vh');
     expect(disconnect).toHaveBeenCalledOnce();
+    postMessage.mockClear();
+    act(() => window.dispatchEvent(new Event('resize')));
+    expect(postMessage).not.toHaveBeenCalled();
   });
 
   it('leaves standalone editors alone', () => {

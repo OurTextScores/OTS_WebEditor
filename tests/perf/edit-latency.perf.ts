@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test, type Page } from 'playwright/test';
 
@@ -35,6 +35,7 @@ const summary = (values: number[]) => {
     n: sorted.length,
     min: Math.round(sorted[0] ?? 0),
     median: Math.round(sorted[Math.floor(sorted.length / 2)] ?? 0),
+    p95: Math.round(sorted[Math.max(0, Math.ceil(sorted.length * 0.95) - 1)] ?? 0),
     max: Math.round(sorted[sorted.length - 1] ?? 0),
   };
 };
@@ -86,17 +87,32 @@ test('single-note pitch change, keystroke to paint', async ({ page }) => {
   for (let i = 0; i < 5; i += 1) {
     const before = (await history(page)).length;
     await page.evaluate(() => ((window as PerfWindow).__inputAt = []));
+    const label = i % 2 === 0 ? 'raise pitch' : 'lower pitch';
     await page.keyboard.press(i % 2 === 0 ? 'ArrowUp' : 'ArrowDown');
     await expect
-      .poll(async () => (await history(page)).length, { timeout: 60_000 })
-      .toBeGreaterThan(before);
-    const [trace] = (await history(page)).slice(-1);
+      .poll(
+        async () => (await history(page)).slice(before).some((trace) => trace.label === label),
+        {
+          timeout: 60_000,
+        },
+      )
+      .toBe(true);
+    const trace = (await history(page)).slice(before).find((item) => item.label === label)!;
+    expect(trace.phases.some((phase) => phase.name === 'mutation')).toBe(true);
+    expect(trace.phases.some((phase) => phase.name === 'saveSvg')).toBe(true);
     const [inputAt] = await page.evaluate(() => (window as PerfWindow).__inputAt ?? []);
     latencies.push(trace.endedAt - inputAt);
     for (const phase of trace.phases) (phaseTotals[phase.name] ??= []).push(phase.ms);
   }
   results.pitchChange = {
+    fixture: {
+      file: 'test_scores/faure.mscz',
+      sizeBytes: statSync(SCORE).size,
+      visiblePageCount: await page.getByTestId('page-select').locator('option').count(),
+      browser: page.context().browser()?.version() ?? null,
+    },
     keystrokeToPaintMs: summary(latencies),
+    samplesMs: latencies,
     phasesMs: Object.fromEntries(Object.entries(phaseTotals).map(([k, v]) => [k, summary(v)])),
   };
   if (ENFORCE) expect(summary(latencies).median).toBeLessThanOrEqual(150);
@@ -108,9 +124,17 @@ test('10-key burst, input to paint', async ({ page }) => {
   await page.evaluate(() => ((window as PerfWindow).__inputAt = []));
   for (let i = 0; i < 10; i += 1) await page.keyboard.press('ArrowUp');
   await expect
-    .poll(async () => (await history(page)).length, { timeout: 120_000 })
-    .toBeGreaterThanOrEqual(before + 10);
-  const traces = (await history(page)).slice(before);
+    .poll(
+      async () =>
+        (await history(page)).slice(before).filter((trace) => trace.label === 'raise pitch').length,
+      {
+        timeout: 120_000,
+      },
+    )
+    .toBeGreaterThanOrEqual(10);
+  const traces = (await history(page))
+    .slice(before)
+    .filter((trace) => trace.label === 'raise pitch');
   const [firstInput] = await page.evaluate(() => (window as PerfWindow).__inputAt ?? []);
   results.burst = {
     keys: 10,

@@ -21,6 +21,10 @@ import { verifyStubs } from './verify-stubs.mjs';
 import { installLayoutOracle } from './layout-oracle.mjs';
 import { verifyNoteInput } from './verify-noteinput.mjs';
 import { verifySelection } from './verify-selection.mjs';
+import { verifyObjectGeometry } from './verify-objectgeometry.mjs';
+import { verifyFidelity } from './verify-fidelity.mjs';
+import { verifyLyricExtensions } from './verify-lyric-extensions.mjs';
+import { verifyCrossEngine } from './verify-cross-engine.mjs';
 import { verifySystemLocks } from './verify-systemlocks.mjs';
 import { verifyInspector } from './verify-inspector.mjs';
 import { mkdtemp, readFile, writeFile, copyFile, rm, mkdir, cp } from 'node:fs/promises';
@@ -237,6 +241,10 @@ export default options => Engine({ ...options, wasmBinary: readFileSync(new URL(
   const edits = process.env.MS47_VERIFY_EDITS ? await verifyEdits(WebMscore, renderer, output) : undefined;
   const systemLocks = process.env.MS47_VERIFY_SYSTEMLOCKS ? await verifySystemLocks(WebMscore, renderer, await nativeModule()) : undefined;
   const inspector = process.env.MS47_VERIFY_INSPECTOR ? await verifyInspector(WebMscore) : undefined;
+  const lyricExtensions = process.env.MS47_VERIFY_LYRIC_EXTENSIONS ? await verifyLyricExtensions(WebMscore) : undefined;
+  const crossEngine = process.env.MS47_VERIFY_CROSS_ENGINE ? await verifyCrossEngine(WebMscore, renderer, bundle) : undefined;
+  const fidelity = process.env.MS47_VERIFY_FIDELITY ? await verifyFidelity(WebMscore, renderer, output, bundle) : undefined;
+  const objectGeometry = process.env.MS47_VERIFY_OBJECT_GEOMETRY ? await verifyObjectGeometry(WebMscore, renderer, await nativeModule()) : undefined;
   const selection = process.env.MS47_VERIFY_SELECTION ? await verifySelection(WebMscore, renderer, await nativeModule()) : undefined;
   const noteInput = process.env.MS47_VERIFY_NOTEINPUT ? await verifyNoteInput(WebMscore, renderer, await nativeModule()) : undefined;
   const measures = process.env.MS47_VERIFY_MEASURES ? await verifyMeasures(WebMscore, renderer, output, await nativeModule()) : undefined;
@@ -266,7 +274,7 @@ export default options => Engine({ ...options, wasmBinary: readFileSync(new URL(
   if (lazy) console.log(`lazy resources fetched during the run: ${[...new Set(lazy.fetched)].join(', ') || 'none'}`);
   const cache = await readFile(path.join(process.env.MS47_BUILD || path.join(workspace, 'ms47-build-wasm'), 'CMakeCache.txt'), 'utf8');
   const wasm = await readFile(bundle ? path.join(bundle, 'webmscore.lib.wasm') : path.join(temp, 'ms47_bridge.wasm'));
-  const report = { bootMs, results, edits, systemLocks, inspector, selection, noteInput, measures, timeline, spanners, misc, drag, midi, audio, playbackSafety, playbackOptions, followMap, playbackReuse, repeatCorpus, partialPositions, pdf, stubs, parts, resources, layoutOracle, build: { node: process.version, target: bundle ? 'browser-package' : 'node-harness', fastLink: /^MS47_BRIDGE_FAST_LINK:BOOL=ON$/m.test(cache), wasmBytes: wasm.length, wasmSha256: createHash('sha256').update(wasm).digest('hex') } };
+  const report = { bootMs, results, edits, systemLocks, inspector, lyricExtensions, crossEngine, fidelity, objectGeometry, selection, noteInput, measures, timeline, spanners, misc, drag, midi, audio, playbackSafety, playbackOptions, followMap, playbackReuse, repeatCorpus, partialPositions, pdf, stubs, parts, resources, layoutOracle, build: { node: process.version, target: bundle ? 'browser-package' : 'node-harness', fastLink: /^MS47_BRIDGE_FAST_LINK:BOOL=ON$/m.test(cache), wasmBytes: wasm.length, wasmSha256: createHash('sha256').update(wasm).digest('hex') } };
   await writeFile(path.join(output, 'timings.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
 } finally {

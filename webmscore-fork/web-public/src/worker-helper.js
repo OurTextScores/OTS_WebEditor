@@ -127,6 +127,7 @@ class WebMscoreW {
         const capabilities = await instance.rpc('load', [format, data, _fonts, doLayout], [data.buffer, ..._fonts.map(f => f.buffer)])
         // Probe native support through the worker, rather than treating JS proxy
         // presence as proof of a native export. Older packages omit this path.
+        if (!capabilities?.hitTestScoreObject) Object.defineProperty(instance, 'hitTestScoreObject', { value: undefined })
         if (!capabilities?.systemLocks) {
             for (const name of ['getSystemLockState', 'setSystemLock', 'moveSelectedMeasureToSystem']) {
                 Object.defineProperty(instance, name, { value: undefined })
@@ -720,6 +721,10 @@ class WebMscoreW {
      * @param {number} y
      * @returns {Promise<boolean>}
      */
+    hitTestScoreObject(pageNumber, x, y) {
+        return this.rpc('hitTestScoreObject', [pageNumber, x, y])
+    }
+
     selectElementAtPoint(pageNumber, x, y) {
         return this.rpc('selectElementAtPoint', [pageNumber, x, y])
     }

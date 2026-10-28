@@ -309,6 +309,7 @@ class WebMscore {
 
         /** @private */
         this.excerptId = -1
+        if (!Module._hitTestScoreObject) Object.defineProperty(this, 'hitTestScoreObject', { value: undefined })
         if (!Module._getSystemLockState || !Module._setSystemLock || !Module._moveSelectedMeasureToSystem) {
             for (const name of ['getSystemLockState', 'setSystemLock', 'moveSelectedMeasureToSystem']) {
                 Object.defineProperty(this, name, { value: undefined })
@@ -1327,6 +1328,17 @@ class WebMscore {
     async loadProfile() {
         const dataptr = Module.ccall('loadProfile', 'number', ['number'], [this.scoreptr])
         return JSON.parse(WasmRes.readText(dataptr))
+    }
+
+    /** Read-only hit snapshot in page-local 360-DPI coordinates. No persistent object handle is returned. */
+    async hitTestScoreObject(pageNumber, x, y) {
+        if (!Number.isSafeInteger(pageNumber) || pageNumber < 0 || pageNumber > 2147483647 || !Number.isFinite(x) || !Number.isFinite(y)) {
+            return { schemaVersion: 1, coordinateSpace: 'page-local-360dpi', status: 'invalid-input' }
+        }
+        const ptr = Module.ccall('hitTestScoreObject', 'number',
+            ['number', 'number', 'number', 'number', 'number'],
+            [this.scoreptr, pageNumber, x, y, this.excerptId])
+        return JSON.parse(WasmRes.readText(ptr))
     }
 
     /**

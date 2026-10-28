@@ -14,6 +14,13 @@ export type InputFileFormat =
   | 'gp'
   | 'ptb';
 
+/** Read-only point query; geometry and identity are valid only as a snapshot of this call. */
+export type ScoreObjectHit =
+  | { schemaVersion: 1; coordinateSpace: 'page-local-360dpi'; status: 'invalid-input' | 'unavailable' | 'no-hit' | 'unsupported' }
+  | { schemaVersion: 1; coordinateSpace: 'page-local-360dpi'; status: 'ok'; kind: 'note' | 'rest';
+      location: { measureIndex: number | null; staffIndex: number | null; voiceIndex: number };
+      geometry: { page: number; x: number; y: number; width: number; height: number } | null };
+
 /** One part's vertical extent within one laid-out system, in page coordinates. */
 export interface StaffSystemBand {
   page: number;
@@ -375,6 +382,7 @@ export interface Score {
    * Optional mutation/undo surface exposed by custom webmscore builds.
    * These methods may be undefined if the WASM bindings were not compiled with mutation support.
    */
+  hitTestScoreObject?: (pageNumber: number, x: number, y: number) => Promise<ScoreObjectHit>;
   selectElementAtPoint?: (pageNumber: number, x: number, y: number) => Promise<unknown> | unknown;
   selectMeasureAtPoint?: (pageNumber: number, x: number, y: number) => Promise<unknown> | unknown;
   extendMeasureSelectionAtPoint?: (
