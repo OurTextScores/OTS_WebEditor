@@ -1,13 +1,23 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile, mkdir, writeFile, readdir } from 'node:fs/promises';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
 
 const fixtureDir = new URL('./fixtures/osmd-fidelity/', import.meta.url);
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
+async function gitDiffHash() {
+  const digest = createHash('sha256');
+  const child = spawn('git', ['diff', '--binary'], { stdio: ['ignore', 'pipe', 'inherit'] });
+  child.stdout.on('data', chunk => digest.update(chunk));
+  await new Promise((resolve, reject) => {
+    child.on('error', reject);
+    child.on('close', code => code === 0 ? resolve() : reject(new Error(`git diff exited ${code}`)));
+  });
+  return digest.digest('hex');
+}
 async function resourceHash(root) {
   const entries = [];
   async function visit(dir) {
@@ -166,18 +176,29 @@ export async function verifyFidelity(WebMscore, renderer, output, bundle) {
     const wasm = bundle ? path.join(bundle, 'webmscore.lib.wasm') : path.join(process.env.MS47_ARTIFACTS || path.join(process.env.MS47_SOURCE || path.resolve('../ms47-spike'), 'build.artifacts'), 'ms47_bridge.wasm');
     const resourceRoot = process.env.MS47_RESOURCE_ROOT || path.resolve('../ms47-build-native/res');
     let systemFontsSha256 = null;
-    try { systemFontsSha256 = hash(execFileSync('fc-list', ['--format', '%{file}\n']).toString().split('\n').sort().join('\n')); } catch { /* recorded as unavailable */ }
+    try {
+      const fontFiles = [...new Set(execFileSync('fc-list', ['--format', '%{file}\n']).toString().split('\n').filter(Boolean))];
+      const configFiles = execFileSync('find', ['-L', '/etc/fonts', '-type', 'f', '-print0']).toString().split('\0').filter(Boolean);
+      const digest = createHash('sha256');
+      for (const file of [...new Set([...fontFiles, ...configFiles])].sort()) {
+        digest.update(file).update('\0').update(createHash('sha256').update(await readFile(file)).digest());
+      }
+      systemFontsSha256 = digest.digest('hex');
+    } catch { /* an unavailable or unreadable font inventory makes comparison fail */ }
     const metadata = { schemaVersion: 1, createdAt: new Date().toISOString(), commit: git('rev-parse', 'HEAD'),
-      dirty: !!git('status', '--porcelain'), diffSha256: hash(execFileSync('git', ['diff', '--binary'])),
+      dirty: !!git('status', '--porcelain'), diffSha256: await gitDiffHash(),
       engineWasmSha256: hash(await readFile(wasm)), target: bundle ? 'browser-package-in-node' : 'node-harness',
-      node: process.version, platform: `${os.type()} ${os.release()} ${os.arch()}`,
+      node: process.version, platform: `${os.type()} ${os.arch()}`, kernel: os.release(),
+      environment: process.env.OTS_VISUAL_ENVIRONMENT || 'uncontrolled-host',
+      engineDataSha256: bundle ? hash(await readFile(path.join(bundle, 'webmscore.lib.data'))) : null,
       playwright: JSON.parse(await readFile(new URL('../../node_modules/@playwright/test/package.json', import.meta.url))).version,
       browser: renderer.browserVersion, viewport: { width: 900, height: 1200 }, deviceScaleFactor: 1,
       svgWidth: 850, background: 'white', page: 0, highlightSelection: false,
-      fonts: 'MuseScore staged resources; system font configuration requires a controlled host',
+      fonts: 'fontconfig font and configuration file contents; engine data and resources recorded separately',
       systemFontsSha256, resourceRoot, resourceTreeSha256: await resourceHash(resourceRoot),
       fixtureManifestSha256: hash(manifestBytes), captureCodeSha256: hash(await readFile(new URL('./verify-fidelity.mjs', import.meta.url))),
-      rendererCodeSha256: hash(await readFile(new URL('./svgcheck.mjs', import.meta.url))), cases, semanticFailures: failures };
+      rendererCodeSha256: hash(await readFile(new URL('./svgcheck.mjs', import.meta.url))),
+      captureDriverSha256: hash(await readFile(new URL('./capture-visual.mjs', import.meta.url))), cases, semanticFailures: failures };
     await writeFile(path.join(capturePath, 'manifest.json'), JSON.stringify(metadata, null, 2) + '\n', { flag: 'wx' });
   }
   await writeFile(path.join(output, 'fidelity-failures.json'), JSON.stringify(failures, null, 2) + '\n');

@@ -1,0 +1,56 @@
+name: Engraving visual report
+
+on:
+  pull_request:
+    paths:
+      - 'tools/musescore/**'
+      - 'engine/musescore/**'
+      - 'webmscore-fork/web-public/**'
+      - 'public/webmscore.lib.*'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/visual-regression.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/musescore/**'
+      - 'engine/musescore/**'
+      - 'webmscore-fork/web-public/**'
+      - 'public/webmscore.lib.*'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/visual-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: engraving-visual-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  visual:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        env:
+          GIT_LFS_SKIP_SMUDGE: '1'
+      - name: Fetch packaged engine assets
+        run: git lfs pull --include='public/webmscore.lib.wasm,public/webmscore.lib.data'
+      - name: Capture and compare in pinned browser environment
+        run: |
+          docker run --rm \
+            --volume "$GITHUB_WORKSPACE:/work" --workdir /work \
+            --env OTS_VISUAL_ENVIRONMENT='mcr.microsoft.com/playwright@sha256:3bed4b1a12f2338642f3d8cba28e291deef3c66bd4a964bbeb3e57bbff511dbd' \
+            mcr.microsoft.com/playwright@sha256:3bed4b1a12f2338642f3d8cba28e291deef3c66bd4a964bbeb3e57bbff511dbd \
+            bash -c 'git config --global --add safe.directory /work && npm ci --ignore-scripts --no-audit --no-fund && bash tools/musescore/run-visual-ci.sh tools/musescore/visual-baseline visual-artifacts'
+      - name: Upload visual review artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: engraving-visual-report
+          path: visual-artifacts/
+          if-no-files-found: ignore
+          retention-days: 14

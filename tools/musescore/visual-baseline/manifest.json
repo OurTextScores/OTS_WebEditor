@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-10-28T06:47:08.043Z",
+  "commit": "b96ead2e10c9ea222af9bbfcaeac9a33594242b4",
+  "dirty": true,
+  "diffSha256": "ee3bc0f8476ac4a5a7f703f006b1547dcf0aa044fdd10d9eed44d52637778631",
+  "engineWasmSha256": "0f4ffaa4ca7169ea616229bec826c4e277ec4aa1069a5642f4fa5f7cc380bce1",
+  "target": "browser-package-in-node",
+  "node": "v24.11.1",
+  "platform": "Linux x64",
+  "kernel": "6.18.54.1-microsoft-standard-WSL2",
+  "environment": "mcr.microsoft.com/playwright@sha256:3bed4b1a12f2338642f3d8cba28e291deef3c66bd4a964bbeb3e57bbff511dbd",
+  "engineDataSha256": "ee4213e9bc985f0dce6d43b418c66cd6a717a416899872c1a8dda40f5722a206",
+  "playwright": "1.57.0",
+  "browser": "143.0.7499.4",
+  "viewport": {
+    "width": 900,
+    "height": 1200
+  },
+  "deviceScaleFactor": 1,
+  "svgWidth": 850,
+  "background": "white",
+  "page": 0,
+  "highlightSelection": false,
+  "fonts": "fontconfig font and configuration file contents; engine data and resources recorded separately",
+  "systemFontsSha256": "6012946011c43d861afa7247283e2dfa2e6d5aa2385e6de5c39d8bfbac0df309",
+  "resourceRoot": "/tmp/ots-visual-resources-MXSDWq",
+  "resourceTreeSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "fixtureManifestSha256": "8f9bab89f2e456e6dc3feea50cb7d0568b27632943d70bbc46633a58ed43e343",
+  "captureCodeSha256": "e23f13cae4d8e2c1589857ff7f5959e11efb0ad37c591fd66d59c8cd47cf72dc",
+  "rendererCodeSha256": "dd5572c506eb977d4a0992b83dbe2972351acc329f7ae60c003c3017b20859aa",
+  "captureDriverSha256": "90cf952da82d017d7330fe14e8c6196fd7c4e565d87a09b193e662e2916e91bd",
+  "cases": [
+    {
+      "id": "nested-undotted",
+      "file": "nested-undotted.png",
+      "fixtureSha256": "4de0a2322e3ba2fbc8f250ec0ee5d0c296cd6c2a3c2a60e4552ba8a27cf6a905",
+      "imageSha256": "e67c31dbc5f1aea419c3e9a6b671a6b7ea9d270e48084637130ba5cb82d18e15",
+      "page": 0
+    },
+    {
+      "id": "tie-system-break",
+      "file": "tie-system-break.png",
+      "fixtureSha256": "b7b573306f7549dba2173668166f120c3310c6e88a3832d9f1651e91b89b5323",
+      "imageSha256": "84e56a3785cfd80f522864074e0db30f15c97174c702dfd9ecc8da56a81c3a01",
+      "page": 0
+    },
+    {
+      "id": "cross-staff",
+      "file": "cross-staff.png",
+      "fixtureSha256": "5b54a4ed3e0665ca105222077baff7f1726dd2aa35062cbe80f040b1292d6a9c",
+      "imageSha256": "8b93c20ad57d2bd70f4fe0489f2370c7db2949ef6f1bfa3e2bc2aede7ef667da",
+      "page": 0
+    },
+    {
+      "id": "hidden-note",
+      "file": "hidden-note.png",
+      "fixtureSha256": "e3a9d04b7e5d4860bb4f1a8bf107f0810045466f516b9e9bc35421ed1769896e",
+      "imageSha256": "4a7f0a7a156b98c50208ff55838c8088cf8279003bb16a2a75785f7ac83b9b6f",
+      "page": 0
+    },
+    {
+      "id": "pickup-lyrics",
+      "file": "pickup-lyrics.png",
+      "fixtureSha256": "c458155deedd0f1bb10d8f9ad1a102dc14cb6dccd76d22840f8f90ba58dbfad5",
+      "imageSha256": "578992c69c4c8d524adb88512a9014a9b8c315b8057212215e6eb587da75d12c",
+      "page": 0
+    }
+  ],
+  "semanticFailures": [
+    {
+      "id": "nested-undotted",
+      "stage": "import-export",
+      "message": "no rests are inserted\n\n3 !== 0\n"
+    },
+    {
+      "id": "nested-undotted",
+      "stage": "import-timing",
+      "message": "nested passage must occupy exactly four quarter-note beats\n\n45 !== 36\n"
+    },
+    {
+      "id": "nested-undotted",
+      "stage": "import-render",
+      "message": "the fixture contains no dotted notes or rests\n\n3 !== 0\n"
+    },
+    {
+      "id": "nested-undotted",
+      "stage": "control-reload",
+      "message": "no rests are inserted\n\n3 !== 0\n"
+    },
+    {
+      "id": "nested-undotted",
+      "stage": "control-timing",
+      "message": "nested passage must occupy exactly four quarter-note beats\n\n45 !== 36\n"
+    },
+    {
+      "id": "nested-undotted",
+      "stage": "control-render",
+      "message": "the fixture contains no dotted notes or rests\n\n3 !== 0\n"
+    },
+    {
+      "id": "nested-undotted",
+      "stage": "edit-export",
+      "message": "no rests are inserted\n\n3 !== 0\n"
+    },
+    {
+      "id": "nested-undotted",
+      "stage": "edit-timing",
+      "message": "nested passage must occupy exactly four quarter-note beats\n\n45 !== 36\n"
+    },
+    {
+      "id": "nested-undotted",
+      "stage": "edit-render",
+      "message": "the fixture contains no dotted notes or rests\n\n3 !== 0\n"
+    },
+    {
+      "id": "nested-undotted",
+      "stage": "edited-reload",
+      "message": "no rests are inserted\n\n3 !== 0\n"
+    },
+    {
+      "id": "nested-undotted",
+      "stage": "reload-timing",
+      "message": "nested passage must occupy exactly four quarter-note beats\n\n45 !== 36\n"
+    },
+    {
+      "id": "nested-undotted",
+      "stage": "reload-render",
+      "message": "the fixture contains no dotted notes or rests\n\n3 !== 0\n"
+    }
+  ]
+}

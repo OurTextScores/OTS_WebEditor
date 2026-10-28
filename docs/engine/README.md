@@ -307,9 +307,36 @@ hashes, browser, viewport, fonts and environment; incompatible environments and 
 It emits sorted differences, full baseline/current images, red overlays and up to six labelled changed-region crops
 per page; the report records omitted regions and dimensions. The default per-channel threshold is zero; override with
 `OSMD_VISUAL_THRESHOLD=0..255` only with a documented reason. Any visual difference or incomplete comparison exits 1.
-This compares the **same** renderer; it is not a cross-engine correctness oracle. Review changes and store an immutable
-baseline artifact before using the report as a release gate. This pilot does not yet provide a durable CI baseline,
-and the system font inventory hash covers font file paths, not font contents or fontconfig configuration.
+This compares the **same** renderer; it is not a cross-engine correctness oracle. Review changes against the checked-in baseline before accepting a new one. System font and fontconfig files are hashed
+by content; a missing inventory or an environment mismatch makes the report fail.
+
+### Pinned visual regression check
+
+The `Engraving visual report` workflow captures the five original fixtures with the packaged browser engine in a
+Playwright container pinned by digest. It compares them with `tools/musescore/visual-baseline/` and uploads the
+current capture, full images, red overlays, crops and JSON/Markdown report on every run. It checks image hashes,
+fixture hashes, browser and Node versions, capture code and font/configuration content; environment mismatches and
+missing images fail. The kernel is recorded for diagnosis but is not used as a rendering-environment key, since the
+container shares its runner's kernel. The package's preloaded font data is used with lazy resource fetching disabled;
+this is a repeatable, limited rendering configuration, not coverage for CDN-loaded fonts.
+
+To reproduce the CI capture, use a disposable checkout: the container runs `npm ci`, which replaces that checkout's
+`node_modules`. Git LFS must have populated `public/webmscore.lib.wasm` and `public/webmscore.lib.data` first.
+Run from the checkout root, with `visual-artifacts/` absent:
+
+```bash
+docker run --rm -v "$PWD:/work" -w /work \
+  -e OTS_VISUAL_ENVIRONMENT='mcr.microsoft.com/playwright@sha256:3bed4b1a12f2338642f3d8cba28e291deef3c66bd4a964bbeb3e57bbff511dbd' \
+  mcr.microsoft.com/playwright@sha256:3bed4b1a12f2338642f3d8cba28e291deef3c66bd4a964bbeb3e57bbff511dbd \
+  bash -c 'git config --global --add safe.directory /work && npm ci --ignore-scripts --no-audit --no-fund && bash tools/musescore/run-visual-ci.sh tools/musescore/visual-baseline visual-artifacts'
+```
+
+The baseline records the current nested-tuplet semantic failures. The visual job records them separately and is not a
+passing fidelity gate; `MS47_VERIFY_FIDELITY=1` remains strict. Pixel differences are review prompts, not proof of an
+engraving defect. To update a baseline, capture into a new directory in the workflow's pinned image, compare it with
+the old baseline, review the full pages and crops, and explain each expected change in the review. Replace the
+baseline files only after that review; never overwrite a capture or report directory in place. Changes to fixtures,
+fonts, the container or capture code also require a reviewed baseline refresh.
 
 Validate fixture syntax and the nested passage duration with `python3 tools/musescore/validate-fidelity-fixtures.py` (requires lxml and the pinned MuseScore source checkout).
 
