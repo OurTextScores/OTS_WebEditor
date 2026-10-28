@@ -41,9 +41,11 @@
         compareMode: 'rows',
         compareBlock: params.get('compareBlock') || '0',
       });
+      if (params.has('parentOrigin')) editor.set('parentOrigin', params.get('parentOrigin'));
       document.getElementById('frame').src = '/score-editor/index.html?' + editor.toString();
       window.__heightReports = [];
       window.addEventListener('message', (event) => {
+        if (event.origin !== location.origin || event.source !== document.getElementById('frame').contentWindow) return;
         const value = event.data;
         if (!value || value.type !== 'ots-compare-height') return;
         if (typeof value.height !== 'number' || !Number.isFinite(value.height)) return;

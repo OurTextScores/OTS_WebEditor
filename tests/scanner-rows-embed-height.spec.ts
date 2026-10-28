@@ -61,3 +61,15 @@ test('sizes the frame to the rows, not to the editor canvas behind them', async 
   expect(Math.abs(measured.reported - measured.rowsHeight!)).toBeLessThan(64);
   expect(measured.canvasHeight).toBe(0);
 });
+
+
+test('height messages require the configured parent origin', async ({ page }) => {
+  await page.goto('/rows-host.html?parentOrigin=https%3A%2F%2Fwrong.example');
+  const frame = page.frameLocator('#frame');
+  await frame.locator('[data-testid="system-row-header"]').first().waitFor({ timeout: 60_000 });
+  await page.waitForTimeout(1000);
+  expect(await page.evaluate(() => window.__heightReports?.length)).toBe(0);
+  await page.goto(`/rows-host.html?parentOrigin=${encodeURIComponent(new URL(page.url()).origin)}`);
+  await page.frameLocator('#frame').locator('[data-testid="system-row-header"]').first().waitFor({ timeout: 60_000 });
+  await expect.poll(async () => (await page.evaluate(() => window.__heightReports?.length)) ?? 0, { timeout: 30_000 }).toBeGreaterThan(0);
+});

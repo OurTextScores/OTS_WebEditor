@@ -8,6 +8,7 @@ afterEach(() => {
   document.documentElement.style.cssText = '';
   document.body.style.cssText = '';
   document.body.innerHTML = '';
+  window.history.replaceState(null, '', '/');
 });
 
 describe('embedded content height', () => {
@@ -40,7 +41,7 @@ describe('embedded content height', () => {
     act(() => window.dispatchEvent(new Event('resize')));
     expect(root.style.overflow).toBe('hidden');
     expect(root.style.scrollbarGutter).toBe('stable');
-    expect(postMessage).toHaveBeenLastCalledWith({ type: 'ots-compare-height', height: 900 }, '*');
+    expect(postMessage).toHaveBeenLastCalledWith({ type: 'ots-compare-height', height: 900 }, window.location.origin);
     unmount();
     expect(root.style.overflow).toBe('auto');
     expect(root.style.scrollbarGutter).toBe('auto');
@@ -48,6 +49,20 @@ describe('embedded content height', () => {
     expect(disconnect).toHaveBeenCalledOnce();
     postMessage.mockClear();
     act(() => window.dispatchEvent(new Event('resize')));
+    expect(postMessage).not.toHaveBeenCalled();
+  });
+
+  it('targets only the explicitly configured cross-origin parent', () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal('parent', { postMessage });
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
+    window.history.replaceState(null, '', '/?parentOrigin=https%3A%2F%2Fhost.example');
+    const view = renderHook(() => useEmbeddedContentHeight(true));
+    expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'ots-compare-height' }), 'https://host.example');
+    view.unmount();
+    postMessage.mockClear();
+    window.history.replaceState(null, '', '/?parentOrigin=*');
+    renderHook(() => useEmbeddedContentHeight(true));
     expect(postMessage).not.toHaveBeenCalled();
   });
 

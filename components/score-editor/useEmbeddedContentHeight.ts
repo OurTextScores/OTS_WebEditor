@@ -1,4 +1,5 @@
 import { useLayoutEffect } from 'react';
+import { embeddedParentOrigin } from '@/lib/embedded-parent-origin';
 
 /** Keep content-sized embeds on the host's scrollbar once their content fits. */
 export function useEmbeddedContentHeight(enabled: boolean): void {
@@ -23,7 +24,8 @@ export function useEmbeddedContentHeight(enabled: boolean): void {
       const fits = window.innerHeight >= height;
       root.style.overflow = fits ? 'hidden' : '';
       document.body.style.overflow = fits ? 'clip' : '';
-      window.parent.postMessage({ type: 'ots-compare-height', height }, '*');
+      const origin = embeddedParentOrigin();
+      if (origin) window.parent.postMessage({ type: 'ots-compare-height', height }, origin);
     };
     const observer = new ResizeObserver(post);
     observer.observe(document.body);

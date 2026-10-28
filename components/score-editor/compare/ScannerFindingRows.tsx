@@ -1,5 +1,7 @@
 'use client';
 
+import { embeddedParentOrigin } from '@/lib/embedded-parent-origin';
+
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 
@@ -217,7 +219,8 @@ export function ScannerFindingRows({
    * page seven thousand pixels tall and asked the reviewer to find the relevant one.
    */
   const [exampleIndex, setExampleIndex] = useState(0);
-  const current = groups[Math.min(index, Math.max(0, groups.length - 1))];
+  const currentIndex = Math.min(index, Math.max(0, groups.length - 1));
+  const current = groups[currentIndex];
   const examples = current?.findings ?? [];
   const example = examples[Math.min(exampleIndex, Math.max(0, examples.length - 1))];
 
@@ -294,10 +297,12 @@ export function ScannerFindingRows({
    * controls would answer a different question from the one being shown -- which is the
    * failure the original buttons had, in a new place.
    *
-   * Same `ots-` envelope and same wildcard target as the height message beside it.
+   * The host origin must be exact, as with the height message beside it.
    */
   useEffect(() => {
     if (!current || typeof window === 'undefined' || window.parent === window) return;
+    const origin = embeddedParentOrigin();
+    if (!origin) return;
     window.parent.postMessage(
       {
         type: 'ots-finding-issue',
@@ -309,14 +314,14 @@ export function ScannerFindingRows({
         // The host derives the profile amendment from this, so it travels too. Without
         // it the "widen the profile" control could never appear.
         message: example?.message ?? '',
-        index,
+        index: currentIndex,
         total: groups.length,
         places: current.findings.length,
         exampleIndex: Math.min(exampleIndex, Math.max(0, examples.length - 1)),
       },
-      '*',
+      origin,
     );
-  }, [current, example, examples.length, exampleIndex, groups.length, index]);
+  }, [current, currentIndex, example, examples.length, exampleIndex, groups.length]);
 
   // Reflow onto the systems this kind actually touches. A reviewer who stepped to an
   // issue is not asking about the lines it does not fall on.
@@ -410,7 +415,7 @@ export function ScannerFindingRows({
           </p>
           <p className="text-xs text-slate-500">
             <span data-testid="finding-rows-position">
-              Issue {index + 1} of {groups.length}
+              Issue {currentIndex + 1} of {groups.length}
             </span>
             {' · '}
             <span data-testid="finding-rows-count">
@@ -423,8 +428,8 @@ export function ScannerFindingRows({
           <button
             type="button"
             data-testid="finding-rows-prev"
-            disabled={index === 0}
-            onClick={() => selectQuestion((value) => Math.max(0, value - 1))}
+            disabled={currentIndex === 0}
+            onClick={() => selectQuestion(() => Math.max(0, currentIndex - 1))}
             className="rounded-md border border-slate-300 px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             ← Previous issue
@@ -432,8 +437,8 @@ export function ScannerFindingRows({
           <button
             type="button"
             data-testid="finding-rows-next"
-            disabled={index >= groups.length - 1}
-            onClick={() => selectQuestion((value) => Math.min(groups.length - 1, value + 1))}
+            disabled={currentIndex >= groups.length - 1}
+            onClick={() => selectQuestion(() => Math.min(groups.length - 1, currentIndex + 1))}
             className="rounded-md border border-slate-300 px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Next issue →
