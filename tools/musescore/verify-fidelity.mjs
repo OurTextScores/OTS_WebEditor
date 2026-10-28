@@ -69,6 +69,19 @@ export function assertFidelity(id, xml) {
     }
     assert.ok(document.querySelectorAll('tuplet[type="start"]').length >= 2);
     assert.ok(document.querySelectorAll('tuplet[type="stop"]').length >= 2);
+  } else if (id === 'slur-system-break') {
+    assert.ok(document.querySelector('measure:nth-of-type(2) > print[new-system="yes"]'));
+    assert.equal(text(pitched[0], 'pitch > step'), 'C');
+    assert.ok(pitched[0].querySelector('slur[type="start"]'));
+    assert.equal(text(pitched[4], 'pitch > step'), 'G');
+    assert.ok(pitched[4].querySelector('slur[type="stop"]'));
+  } else if (id === 'dynamics-articulations') {
+    assert.ok(document.querySelector('direction-type > dynamics > f'), 'forte remains');
+    assert.ok(document.querySelector('direction-type > dynamics > p'), 'piano remains');
+    assert.equal(text(pitched[0], 'pitch > step'), 'C');
+    assert.ok(pitched[0].querySelector('articulations > accent'), 'accent remains on C');
+    assert.equal(text(pitched[1], 'pitch > step'), 'D');
+    assert.ok(pitched[1].querySelector('articulations > staccato'), 'staccato remains on D');
   } else if (id === 'pickup-lyrics') {
     assert.equal(document.querySelector('measure')?.getAttribute('implicit'), 'yes');
     assert.equal(text(pitched[0], 'lyric > text'), 'sing');
@@ -100,6 +113,12 @@ export function assertFidelityRendering(id, svg) {
     assert.ok(count('StaffLines') >= 10, 'both staves are rendered');
   } else if (id === 'hidden-note') {
     assert.equal(count('Note'), 3, 'the hidden notehead is not rendered');
+  } else if (id === 'slur-system-break') {
+    assert.ok(count('SlurSegment') >= 2, 'slur has visible segments at the system break');
+    assert.ok(count('StaffLines') >= 10, 'two systems are rendered');
+  } else if (id === 'dynamics-articulations') {
+    assert.ok(count('Dynamic') >= 2, 'both dynamics are rendered');
+    assert.ok(count('Articulation') >= 2, 'both articulations are rendered');
   } else if (id === 'pickup-lyrics') {
     assert.ok(count('Lyrics') > 0 && count('LyricsLineSegment') > 0, 'lyric and extension are rendered');
     const document = new JSDOM(svg, { contentType: 'image/svg+xml' }).window.document;
@@ -151,7 +170,21 @@ export async function verifyFidelity(WebMscore, renderer, output, bundle) {
         await writeFile(path.join(output, `${fixture.id}-control-reload.svg`), controlSvg);
         check(fixture.id, 'control-render', controlSvg, assertFidelityRendering);
       } finally { await control.destroy(); }
-      assert.equal(await score.setTitleText('Fidelity edit'), true, `${fixture.id}: title edit`);
+      if (fixture.id === 'dynamics-articulations') {
+        assert.equal(await score.selectPartMeasureByIndex(0, 1), true);
+        assert.equal(await score.selectNextChord(), true);
+        assert.equal(await score.selectPrevChord(), true);
+        const beforePitchEdit = await score.saveXml();
+        assert.equal(await score.pitchUp(), true, 'note pitch edit succeeds');
+        const afterPitchEdit = await score.saveXml();
+        const measurePitches = xml => [...new JSDOM(xml, { contentType: 'application/xml' }).window.document.querySelectorAll('measure')]
+          .map(measure => [...measure.querySelectorAll('note > pitch')].map(pitch => pitch.textContent.trim()));
+        const beforePitches = measurePitches(beforePitchEdit), afterPitches = measurePitches(afterPitchEdit);
+        assert.deepEqual(afterPitches[0], beforePitches[0], 'articulated passage is not the edit target');
+        assert.notDeepEqual(afterPitches[1], beforePitches[1], 'pitch edit changes a written pitch in measure 2');
+      } else {
+        assert.equal(await score.setTitleText('Fidelity edit'), true, `${fixture.id}: title edit`);
+      }
       const edited = await score.saveXml();
       check(fixture.id, 'edit-export', edited);
       check(fixture.id, 'edit-timing', edited, assertFidelityTiming);

@@ -9,6 +9,8 @@ const changes = {
   'cross-staff': xml => xml.replace('<staff>2</staff>', '<staff>1</staff>'),
   'hidden-note': xml => xml.replace(' print-object="no"', ''),
   'pickup-lyrics': xml => xml.replace('<extend type="start"/>', ''),
+  'slur-system-break': xml => xml.replace('<slur type="stop" number="1"/>', ''),
+  'dynamics-articulations': xml => xml.replace('<accent/>', ''),
 };
 for (const [id, mutate] of Object.entries(changes)) {
   const xml = await readFile(new URL(`./fixtures/osmd-fidelity/${id}.musicxml`, import.meta.url), 'utf8');
@@ -34,3 +36,26 @@ const nested = await readFile(new URL('./fixtures/osmd-fidelity/nested-undotted.
 assertFidelityTiming('nested-undotted', nested);
 assert.throws(() => assertFidelityTiming('nested-undotted', nested.replace('<duration>4</duration>', '<duration>5</duration>')));
 console.log('nested-undotted: changed elapsed duration detected');
+
+for (const [id, search] of [
+  ['slur-system-break', '<slur type="start" number="1"/>'],
+  ['dynamics-articulations', '<staccato/>'],
+  ['dynamics-articulations', '<dynamics><f/></dynamics>'],
+  ['dynamics-articulations', '<dynamics><p/></dynamics>'],
+]) {
+  const xml = await readFile(new URL(`./fixtures/osmd-fidelity/${id}.musicxml`, import.meta.url), 'utf8');
+  const modified = xml.replace(search, '');
+  assert.notEqual(modified, xml, `${id}: mutation applied`);
+  assert.throws(() => assertFidelity(id, modified), undefined, `${id}: assertion must detect ${search}`);
+}
+console.log('slur endpoints, dynamics and articulations: additional mutations detected');
+
+const staffLines = '<path class="StaffLines"/>'.repeat(10);
+const slurSvg = `<svg>${staffLines}<path class="SlurSegment"/><path class="SlurSegment"/></svg>`;
+assertFidelityRendering('slur-system-break', slurSvg);
+assert.throws(() => assertFidelityRendering('slur-system-break', slurSvg.replace('<path class="SlurSegment"/>', '')));
+const dynamicsSvg = '<svg><path class="Dynamic"/><path class="Dynamic"/><path class="Articulation"/><path class="Articulation"/></svg>';
+assertFidelityRendering('dynamics-articulations', dynamicsSvg);
+assert.throws(() => assertFidelityRendering('dynamics-articulations', dynamicsSvg.replace('<path class="Dynamic"/>', '')));
+assert.throws(() => assertFidelityRendering('dynamics-articulations', dynamicsSvg.replace('<path class="Articulation"/>', '')));
+console.log('slur segments, dynamics and articulations: rendering mutations detected');

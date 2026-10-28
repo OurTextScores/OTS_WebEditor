@@ -56,6 +56,28 @@
       "edit": "setTitleText: Fidelity edit",
       "test": "tools/musescore/verify-fidelity.mjs",
       "inputFormat": "musicxml"
+    },
+    {
+      "id": "slur-system-break",
+      "file": "slur-system-break.musicxml",
+      "sha256": "456e4546cefd32afc145047899ca2cc38b8617e030b3ad7a822aa01a716b7474",
+      "origin": "Original minimal fixture authored for OTS_Web on 2026-10-27; no third-party score copied.",
+      "license": "GPL-3.0-only",
+      "expectation": "slur endpoints survive an explicit system break",
+      "edit": "setTitleText: Fidelity edit",
+      "test": "tools/musescore/verify-fidelity.mjs",
+      "inputFormat": "musicxml"
+    },
+    {
+      "id": "dynamics-articulations",
+      "file": "dynamics-articulations.musicxml",
+      "sha256": "29fef90b7e11894f95598742e8812b5060fa5d439739f9d53992ea811a53db93",
+      "origin": "Original minimal fixture authored for OTS_Web on 2026-10-27; no third-party score copied.",
+      "license": "GPL-3.0-only",
+      "expectation": "forte, piano, accent and staccato survive a note-pitch edit",
+      "edit": "pitchUp a note in measure 2",
+      "test": "tools/musescore/verify-fidelity.mjs",
+      "inputFormat": "musicxml"
     }
   ]
 }
