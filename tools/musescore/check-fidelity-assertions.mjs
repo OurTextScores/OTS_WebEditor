@@ -11,6 +11,13 @@ const changes = {
   'pickup-lyrics': xml => xml.replace('<extend type="start"/>', ''),
   'slur-system-break': xml => xml.replace('<slur type="stop" number="1"/>', ''),
   'dynamics-articulations': xml => xml.replace('<accent/>', ''),
+  'octave-system-break': xml => xml.replace('type="down" size="8"', 'type="up" size="8"'),
+  'polyphony-accidentals': xml => xml.replace('<accidental>sharp</accidental>', ''),
+  'multipage-layout': xml => xml.replace('new-page="yes"', 'new-page="no"'),
+  'crowded-markings': xml => xml.replace('<dynamics><sfz/></dynamics>', ''),
+  'transposing-enharmonic': xml => xml.replace('<alter>1</alter>', '<alter>-1</alter>'),
+  'grace-ornament-clef': xml => xml.replace('<trill-mark/>', ''),
+  'multimeasure-rest': xml => xml.replace('<multiple-rest>2</multiple-rest>', '<multiple-rest>3</multiple-rest>'),
 };
 for (const [id, mutate] of Object.entries(changes)) {
   const xml = await readFile(new URL(`./fixtures/osmd-fidelity/${id}.musicxml`, import.meta.url), 'utf8');
@@ -59,3 +66,25 @@ assertFidelityRendering('dynamics-articulations', dynamicsSvg);
 assert.throws(() => assertFidelityRendering('dynamics-articulations', dynamicsSvg.replace('<path class="Dynamic"/>', '')));
 assert.throws(() => assertFidelityRendering('dynamics-articulations', dynamicsSvg.replace('<path class="Articulation"/>', '')));
 console.log('slur segments, dynamics and articulations: rendering mutations detected');
+
+const renderedCases = [
+  ['octave-system-break', '<path class="StaffLines"/>'.repeat(10) + '<path class="OttavaSegment"/>'.repeat(2), '<path class="OttavaSegment"/>'],
+  ['polyphony-accidentals', '<path class="StaffLines"/>'.repeat(10) + '<path class="Note"/>'.repeat(8) + '<path class="Accidental"/>'.repeat(2), '<path class="Accidental"/>'],
+  ['multipage-layout', '<path class="Note"/>'.repeat(4), '<path class="Note"/>'],
+  ['crowded-markings', '<path class="Dynamic"/>'.repeat(4) + '<path class="Articulation"/>'.repeat(4), '<path class="Dynamic"/>'],
+  ['transposing-enharmonic', '<path class="Note"/>'.repeat(4) + '<path class="Accidental"/>', '<path class="Accidental"/>'],
+  ['grace-ornament-clef', '<path class="Note"/>'.repeat(5) + '<path class="Clef"/>'.repeat(2) + '<path class="Ornament"/>', '<path class="Ornament"/>'],
+  ['multimeasure-rest', '<path class="MMRest"/>', '<path class="MMRest"/>'],
+];
+for (const [id, body, remove] of renderedCases) {
+  const svg = `<svg>${body}</svg>`;
+  assertFidelityRendering(id, svg);
+  assert.throws(() => assertFidelityRendering(id, svg.replace(remove, '')), undefined, `${id}: rendered feature mutation detected`);
+}
+console.log('new fixture rendering mutations detected');
+const octaveInput = await readFile(new URL('./fixtures/osmd-fidelity/octave-system-break.musicxml', import.meta.url), 'utf8');
+const octaveStop = '<direction placement="below"><direction-type><octave-shift type="stop" size="8" number="1"/></direction-type></direction>';
+const movedStop = octaveInput.replace(octaveStop, '').replace('<measure number="3">', `<measure number="3">${octaveStop}`);
+assert.notEqual(movedStop, octaveInput);
+assert.throws(() => assertFidelity('octave-system-break', movedStop), undefined, 'octave stop must stay in its original measure');
+console.log('octave endpoint moved to another measure detected');

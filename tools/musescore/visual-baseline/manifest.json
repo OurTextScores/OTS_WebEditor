@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "createdAt": "2026-10-28T06:58:04.024Z",
-  "commit": "5da5bf5ebe94bd858f50e97c3b7cde02c7a0707f",
+  "createdAt": "2026-10-28T07:22:33.463Z",
+  "commit": "823c0b1c5e0cd992f50b7eeb79d08958e60e10d8",
   "dirty": true,
-  "diffSha256": "47907ffe079785238e23ab117976a6b170f5229b20c6e871e94ac63f1bc89ce4",
+  "diffSha256": "e883a463949eead149deb572a7a59a732de2af88024c90e0fe9f2f399835d8d4",
   "engineWasmSha256": "0f4ffaa4ca7169ea616229bec826c4e277ec4aa1069a5642f4fa5f7cc380bce1",
   "target": "browser-package-in-node",
   "node": "v24.11.1",
@@ -24,10 +24,10 @@
   "highlightSelection": false,
   "fonts": "fontconfig font and configuration file contents; engine data and resources recorded separately",
   "systemFontsSha256": "6012946011c43d861afa7247283e2dfa2e6d5aa2385e6de5c39d8bfbac0df309",
-  "resourceRoot": "/tmp/ots-visual-resources-34REOA",
+  "resourceRoot": "/tmp/ots-visual-resources-j7rbcc",
   "resourceTreeSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-  "fixtureManifestSha256": "aca3e89c5d4a0b0f9e1631d668ad83c5e237af4d7b1c219f52ab4cefb5295637",
-  "captureCodeSha256": "0c8e9b58e9cec2615c3f1f26a0d3da8a23e904e55eec4c4fe106e74c281dd23e",
+  "fixtureManifestSha256": "0dfe20ecca2be3b3f01eff31bbaa6cf52bd3ea5de1594efecbf512f6ceac05dc",
+  "captureCodeSha256": "a9aa9f64ffd15932d29fa3bae94dea12f3cd8eda8ce1417a4899cf599286063c",
   "rendererCodeSha256": "dd5572c506eb977d4a0992b83dbe2972351acc329f7ae60c003c3017b20859aa",
   "captureDriverSha256": "90cf952da82d017d7330fe14e8c6196fd7c4e565d87a09b193e662e2916e91bd",
   "cases": [
@@ -78,6 +78,62 @@
       "file": "dynamics-articulations.png",
       "fixtureSha256": "29fef90b7e11894f95598742e8812b5060fa5d439739f9d53992ea811a53db93",
       "imageSha256": "1eb30338c20d6bbc04e0d178a57f71f6dceb66c46c0fe3dd604d2be3524604c3",
+      "page": 0
+    },
+    {
+      "id": "octave-system-break",
+      "file": "octave-system-break.png",
+      "fixtureSha256": "3f155691420542eecffda13c64a9ef9ec3e92f12f0405a7f408573b051371660",
+      "imageSha256": "2fed8f1d7233013e989783e118ba9610ac28e8ca3ba5273677f80cc040c87c85",
+      "page": 0
+    },
+    {
+      "id": "polyphony-accidentals",
+      "file": "polyphony-accidentals.png",
+      "fixtureSha256": "b81596b7ce9dd1907e4d25e7e217ec01c924ee9c7d87cf487d5b17fd0308a123",
+      "imageSha256": "7a96603655ac77bd1bf5ada86aeef20c2e3f3092e66031c96351f2e61eea78a7",
+      "page": 0
+    },
+    {
+      "id": "multipage-layout",
+      "file": "multipage-layout.png",
+      "fixtureSha256": "fde46210c7081f7102dca2597c3982a5446f5e984b830cde1186a4c2dd6e5c1e",
+      "imageSha256": "e4fc79c1f6515deee06b5d66812c9f696d39ef95a9f175e3f69319df8bce4d7a",
+      "page": 0
+    },
+    {
+      "id": "multipage-layout-page-2",
+      "file": "multipage-layout-page-2.png",
+      "fixtureSha256": "fde46210c7081f7102dca2597c3982a5446f5e984b830cde1186a4c2dd6e5c1e",
+      "imageSha256": "6a81421ccc9cac0b29a584c5f344a845ba9e49d59a5acf8cdbb82e9de2da63eb",
+      "page": 1
+    },
+    {
+      "id": "crowded-markings",
+      "file": "crowded-markings.png",
+      "fixtureSha256": "6d8ae01392d36b176e4ee1733dfa6fd610eca883287a0dc9567b7cb9f6d8f63d",
+      "imageSha256": "8aa2d4cd15512db181005bfc9797bb9eeeb55e0a652b44f6ec90896c02d72220",
+      "page": 0
+    },
+    {
+      "id": "transposing-enharmonic",
+      "file": "transposing-enharmonic.png",
+      "fixtureSha256": "d8fad14969c3c5d6b7d5bac1be183af0ee9164c490fa847506ab4d8def759228",
+      "imageSha256": "b49979e58517780c69cae94b45ab6a482b5109b7499034db34e3dcd50eb6545f",
+      "page": 0
+    },
+    {
+      "id": "grace-ornament-clef",
+      "file": "grace-ornament-clef.png",
+      "fixtureSha256": "be49490bcb70ff6408715f8b9f39d23478ea4c714eacb25556e26908e5be2b48",
+      "imageSha256": "cc03f626b6bc4eb9a365d6dceb2929dff0e3672afc387ecfdd6c1457f6b1fb0f",
+      "page": 0
+    },
+    {
+      "id": "multimeasure-rest",
+      "file": "multimeasure-rest.png",
+      "fixtureSha256": "1fc24e69e82af9df356f387bd3548769ddd885f4e6afce34525a723c67382d17",
+      "imageSha256": "7ac1057134a584e8b545a758db8e14df62f9307612eabaa3b917f4892076db94",
       "page": 0
     }
   ],

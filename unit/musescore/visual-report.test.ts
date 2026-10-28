@@ -20,7 +20,7 @@ describe('visual report', () => {
     const env = { schemaVersion: 1, target: 'test', node: 'test', platform: 'test', environment: 'test', playwright: 'test', browser: 'test', viewport: {}, deviceScaleFactor: 1, svgWidth: 30, background: 'white', page: 0, highlightSelection: false, systemFontsSha256: 'a', resourceTreeSha256: 'b', fixtureManifestSha256: 'c', captureCodeSha256: 'd', rendererCodeSha256: 'e', captureDriverSha256: 'f' };
     for (const [dir, bytes] of [[a, base], [b, changed]] as const) {
       await writeFile(path.join(dir, 'case.png'), bytes);
-      await writeFile(path.join(dir, 'manifest.json'), JSON.stringify({ ...env, cases: [{ id: 'case', file: 'case.png', fixtureSha256: 'f'.repeat(64), imageSha256: digest(bytes) }] }));
+      await writeFile(path.join(dir, 'manifest.json'), JSON.stringify({ ...env, cases: [{ id: 'case', file: 'case.png', fixtureSha256: 'f'.repeat(64), imageSha256: digest(bytes), page: 0 }] }));
     }
     const run = (output: string) => spawnSync(process.execPath, ['tools/musescore/visual-report.mjs', a, b, output], { cwd: process.cwd(), encoding: 'utf8' });
     const identical = path.join(root, 'identical');
@@ -33,6 +33,12 @@ describe('visual report', () => {
     expect(result.rows[0].crops).toBe(1);
     expect((await readFile(path.join(reportDir, 'case', 'crop-1.png'))).length).toBeGreaterThan(0);
     const currentManifest = JSON.parse(await readFile(path.join(b, 'manifest.json'), 'utf8'));
+    currentManifest.cases[0].page = 1;
+    await writeFile(path.join(b, 'manifest.json'), JSON.stringify(currentManifest));
+    const wrongPage = path.join(root, 'wrong-page');
+    expect(run(wrongPage).status).toBe(1);
+    expect(JSON.parse(await readFile(path.join(wrongPage, 'report.json'), 'utf8')).warnings.join(' ')).toContain('page numbers differ');
+    currentManifest.cases[0].page = 0;
     currentManifest.systemFontsSha256 = 'different-fonts';
     await writeFile(path.join(b, 'manifest.json'), JSON.stringify(currentManifest));
     const incompatible = path.join(root, 'incompatible');

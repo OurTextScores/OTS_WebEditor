@@ -31,7 +31,7 @@ if (a && b) for (const key of compareKeys) {
 const byId = (m, label) => {
   const map = new Map();
   for (const item of m?.cases || []) {
-    if (!/^[a-z0-9-]+$/.test(item.id || '') || item.file !== `${item.id}.png` || !/^[0-9a-f]{64}$/.test(item.fixtureSha256 || '') || !/^[0-9a-f]{64}$/.test(item.imageSha256 || '') || map.has(item.id)) warnings.push(`${label}: invalid or duplicate case ${item.id}`);
+    if (!/^[a-z0-9-]+$/.test(item.id || '') || item.file !== `${item.id}.png` || !Number.isInteger(item.page) || item.page < 0 || !/^[0-9a-f]{64}$/.test(item.fixtureSha256 || '') || !/^[0-9a-f]{64}$/.test(item.imageSha256 || '') || map.has(item.id)) warnings.push(`${label}: invalid or duplicate case ${item.id}`);
     else map.set(item.id, item);
   }
   return map;
@@ -44,6 +44,7 @@ if (!Number.isInteger(threshold) || threshold < 0 || threshold > 255) throw new 
 for (const id of ids) {
   const old = left.get(id), now = right.get(id);
   if (!old || !now) { warnings.push(`${id}: missing from ${old ? 'current' : 'baseline'} manifest`); continue; }
+  if (old.page !== now.page) { warnings.push(`${id}: page numbers differ`); continue; }
   if (old.fixtureSha256 !== now.fixtureSha256) { warnings.push(`${id}: fixture hashes differ`); continue; }
   try {
     const [oldBytes, nowBytes] = await Promise.all([readFile(path.join(baseline, old.file)), readFile(path.join(current, now.file))]);

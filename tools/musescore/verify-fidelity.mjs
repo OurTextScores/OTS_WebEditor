@@ -36,7 +36,7 @@ async function resourceHash(root) {
 const text = (element, selector) => element.querySelector(selector)?.textContent?.trim() ?? null;
 
 // Assert the notation facts separately from serialization, title and benign formatting changes.
-export function assertFidelity(id, xml) {
+export function assertFidelity(id, xml, { transposed = false } = {}) {
   const document = new JSDOM(xml, { contentType: 'application/xml' }).window.document;
   const notes = [...document.querySelectorAll('note')];
   const pitched = notes.filter(n => n.querySelector('pitch'));
@@ -82,6 +82,54 @@ export function assertFidelity(id, xml) {
     assert.ok(pitched[0].querySelector('articulations > accent'), 'accent remains on C');
     assert.equal(text(pitched[1], 'pitch > step'), 'D');
     assert.ok(pitched[1].querySelector('articulations > staccato'), 'staccato remains on D');
+  } else if (id === 'octave-system-break') {
+    const shifts = [...document.querySelectorAll('octave-shift')];
+    assert.deepEqual(shifts.map(shift => [shift.getAttribute('type'), shift.getAttribute('size')]), [['down', '8'], ['stop', '8']]);
+    assert.deepEqual(shifts.map(shift => shift.closest('measure')?.getAttribute('number')), ['1', '2'], 'octave line endpoints stay in their measures');
+    assert.ok(document.querySelector('measure:nth-of-type(2) > print[new-system="yes"]'));
+    assert.equal(pitched.length, 12);
+    assert.equal(text(pitched[0], 'pitch > step'), 'C');
+    assert.equal(text(pitched[4], 'pitch > step'), 'G');
+  } else if (id === 'polyphony-accidentals') {
+    assert.deepEqual(pitched.map(note => text(note, 'staff')), ['1','2','1','2','2','2','2','2']);
+    assert.deepEqual(pitched.map(note => text(note, 'pitch > step')), ['C','D','E','F','G','A','B','C']);
+    assert.equal(text(pitched[0], 'pitch > alter'), '1');
+    assert.equal(text(pitched[2], 'pitch > alter'), '-1');
+    assert.equal(text(pitched[0], 'accidental'), 'sharp');
+    assert.equal(text(pitched[2], 'accidental'), 'flat');
+    assert.ok(pitched.slice(0, 4).every(note => text(note, 'voice') === text(pitched[0], 'voice')));
+    assert.ok(pitched.slice(4).every(note => text(note, 'voice') === text(pitched[4], 'voice')));
+    assert.notEqual(text(pitched[0], 'voice'), text(pitched[4], 'voice'));
+    assert.equal(text(document, 'clef[number="2"] > sign'), 'F');
+  } else if (id === 'multipage-layout') {
+    assert.ok(document.querySelector('measure:nth-of-type(2) > print[new-page="yes"]'));
+    assert.equal(pitched.length, 8);
+    assert.deepEqual([text(pitched[0], 'pitch > step'), text(pitched[4], 'pitch > step')], ['C', 'G']);
+  } else if (id === 'crowded-markings') {
+    assert.equal(pitched.length, 16);
+    assert.ok(pitched.every(note => text(note, 'type') === '16th'), 'sixteenth-note passage remains dense');
+    assert.deepEqual([...document.querySelectorAll('direction-type > dynamics')].map(d => d.firstElementChild?.tagName), ['ff', 'p', 'sfz', 'mf']);
+    for (const [index, name] of ['accent', 'staccato', 'tenuto', 'staccatissimo'].entries())
+      assert.ok(pitched[index].querySelector(`articulations > ${name}`), `${name} remains on its note`);
+  } else if (id === 'transposing-enharmonic') {
+    assert.equal(text(document, 'transpose > diatonic'), '-1');
+    assert.equal(text(document, 'transpose > chromatic'), '-2');
+    const pitches = pitched.map(note => [text(note, 'pitch > step'), text(note, 'pitch > alter') || '0']);
+    assert.deepEqual(pitches, transposed ? [['D','1'],['E','-1'],['F','1'],['G','0']] : [['C','1'],['D','-1'],['E','0'],['F','0']]);
+  } else if (id === 'grace-ornament-clef') {
+    assert.equal(text(pitched[0], 'pitch > step'), 'B');
+    assert.ok(pitched[0].querySelector('grace[slash="yes"]'));
+    assert.equal(text(pitched[1], 'pitch > step'), 'C');
+    assert.ok(pitched[1].querySelector('ornaments > trill-mark'));
+    assert.deepEqual([...document.querySelectorAll('clef > sign')].map(clef => clef.textContent), ['G','F']);
+    const bassAttributes = [...document.querySelectorAll('measure > attributes')].find(a => text(a, 'clef > sign') === 'F');
+    assert.ok(bassAttributes, 'bass clef is present');
+    const measureItems = [...bassAttributes.parentElement.children];
+    assert.equal(measureItems.slice(0, measureItems.indexOf(bassAttributes)).filter(e => e.tagName === 'note' && !e.querySelector('grace')).length, 2, 'bass clef is mid-measure');
+  } else if (id === 'multimeasure-rest') {
+    assert.equal(text(document, 'measure-style > multiple-rest'), '2');
+    assert.equal(document.querySelectorAll('note > rest').length, 2);
+    assert.equal(pitched.length, 4);
   } else if (id === 'pickup-lyrics') {
     assert.equal(document.querySelector('measure')?.getAttribute('implicit'), 'yes');
     assert.equal(text(pitched[0], 'lyric > text'), 'sing');
@@ -119,6 +167,20 @@ export function assertFidelityRendering(id, svg) {
   } else if (id === 'dynamics-articulations') {
     assert.ok(count('Dynamic') >= 2, 'both dynamics are rendered');
     assert.ok(count('Articulation') >= 2, 'both articulations are rendered');
+  } else if (id === 'octave-system-break') {
+    assert.ok(count('OttavaSegment') >= 2 && count('StaffLines') >= 10, 'octave line crosses systems');
+  } else if (id === 'polyphony-accidentals') {
+    assert.equal(count('Note'), 8); assert.ok(count('Accidental') >= 2 && count('StaffLines') >= 10);
+  } else if (id === 'multipage-layout') {
+    assert.equal(count('Note'), 4, 'first page has four notes');
+  } else if (id === 'crowded-markings') {
+    assert.ok(count('Dynamic') >= 4 && count('Articulation') >= 4);
+  } else if (id === 'transposing-enharmonic') {
+    assert.equal(count('Note'), 4); assert.ok(count('Accidental') >= 1);
+  } else if (id === 'grace-ornament-clef') {
+    assert.equal(count('Note'), 5); assert.ok(count('Clef') >= 2 && count('Ornament') >= 1);
+  } else if (id === 'multimeasure-rest') {
+    assert.ok(count('MMRest') > 0, 'multi-measure rest is rendered');
   } else if (id === 'pickup-lyrics') {
     assert.ok(count('Lyrics') > 0 && count('LyricsLineSegment') > 0, 'lyric and extension are rendered');
     const document = new JSDOM(svg, { contentType: 'image/svg+xml' }).window.document;
@@ -143,7 +205,7 @@ export async function verifyFidelity(WebMscore, renderer, output, bundle) {
   const cases = [];
   const failures = [];
   const check = (id, stage, value, assertion = assertFidelity) => {
-    try { assertion(id, value); } catch (error) { failures.push({ id, stage, message: error.message }); }
+    try { assertion(id, value, { transposed: id === 'transposing-enharmonic' && ['edit-export', 'edited-reload'].includes(stage) }); } catch (error) { failures.push({ id, stage, message: error.message }); }
   };
   for (const fixture of manifest.cases) {
     const bytes = await readFile(new URL(fixture.file, fixtureDir));
@@ -161,6 +223,27 @@ export async function verifyFidelity(WebMscore, renderer, output, bundle) {
       check(fixture.id, 'import-render', svg, assertFidelityRendering);
       const image = await renderer.render(svg);
       if (capturePath) await writeFile(path.join(capturePath, `${fixture.id}.png`), image.png, { flag: 'wx' });
+      cases.push({ id: fixture.id, file: `${fixture.id}.png`, fixtureSha256: fixture.sha256, imageSha256: hash(image.png), page: 0 });
+      const pages = fixture.pages || [0];
+      assert.ok(Array.isArray(pages) && pages.length > 0 && pages[0] === 0 && pages.every((page, index) => Number.isInteger(page) && page >= 0 && (index === 0 || page > pages[index - 1])), `${fixture.id}: valid ascending page list`);
+      const pageCount = await score.npages();
+      assert.ok(pageCount > pages.at(-1), `${fixture.id}: requested page must exist (got ${pageCount})`);
+      for (const page of pages.slice(1)) {
+        const pageSvg = await score.saveSvg(page, true, false);
+        assert.ok(/class="Note"/.test(pageSvg), `${fixture.id}: page ${page + 1} has visible notes`);
+        const pageImage = await renderer.render(pageSvg);
+        const id = `${fixture.id}-page-${page + 1}`;
+        if (capturePath) await writeFile(path.join(capturePath, `${id}.png`), pageImage.png, { flag: 'wx' });
+        cases.push({ id, file: `${id}.png`, fixtureSha256: fixture.sha256, imageSha256: hash(pageImage.png), page });
+      }
+      const verifyExtraPages = async (candidate, stage) => {
+        for (const page of pages.slice(1)) {
+          assert.ok(await candidate.npages() > page, `${fixture.id}: ${stage} page ${page + 1} exists`);
+          const pageSvg = await candidate.saveSvg(page, true, false);
+          assert.equal((pageSvg.match(/class="Note"/g) || []).length, 4, `${fixture.id}: ${stage} page ${page + 1} notes`);
+          await renderer.render(pageSvg);
+        }
+      };
       const control = await WebMscore.load('musicxml', new TextEncoder().encode(imported));
       try {
         const controlXml = await control.saveXml();
@@ -169,9 +252,13 @@ export async function verifyFidelity(WebMscore, renderer, output, bundle) {
         const controlSvg = await control.saveSvg(0, true, false);
         await writeFile(path.join(output, `${fixture.id}-control-reload.svg`), controlSvg);
         check(fixture.id, 'control-render', controlSvg, assertFidelityRendering);
+        await verifyExtraPages(control, 'control reload');
       } finally { await control.destroy(); }
-      if (fixture.id === 'dynamics-articulations') {
-        assert.equal(await score.selectPartMeasureByIndex(0, 1), true);
+      if (fixture.id === 'transposing-enharmonic') {
+        assert.equal(await score.transpose(1, 0, 0, 4, true, true, false), true, 'transpose up a major second');
+      } else if (fixture.id === 'dynamics-articulations' || fixture.id === 'octave-system-break') {
+        const targetMeasure = fixture.id === 'octave-system-break' ? 2 : 1;
+        assert.equal(await score.selectPartMeasureByIndex(0, targetMeasure), true);
         assert.equal(await score.selectNextChord(), true);
         assert.equal(await score.selectPrevChord(), true);
         const beforePitchEdit = await score.saveXml();
@@ -180,8 +267,8 @@ export async function verifyFidelity(WebMscore, renderer, output, bundle) {
         const measurePitches = xml => [...new JSDOM(xml, { contentType: 'application/xml' }).window.document.querySelectorAll('measure')]
           .map(measure => [...measure.querySelectorAll('note > pitch')].map(pitch => pitch.textContent.trim()));
         const beforePitches = measurePitches(beforePitchEdit), afterPitches = measurePitches(afterPitchEdit);
-        assert.deepEqual(afterPitches[0], beforePitches[0], 'articulated passage is not the edit target');
-        assert.notDeepEqual(afterPitches[1], beforePitches[1], 'pitch edit changes a written pitch in measure 2');
+        assert.deepEqual(afterPitches.slice(0, targetMeasure), beforePitches.slice(0, targetMeasure), 'protected passage is not the edit target');
+        assert.notDeepEqual(afterPitches[targetMeasure], beforePitches[targetMeasure], 'pitch edit changes the target measure');
       } else {
         assert.equal(await score.setTitleText('Fidelity edit'), true, `${fixture.id}: title edit`);
       }
@@ -191,6 +278,7 @@ export async function verifyFidelity(WebMscore, renderer, output, bundle) {
       const editedSvg = await score.saveSvg(0, true, false);
       check(fixture.id, 'edit-render', editedSvg, assertFidelityRendering);
       await renderer.render(editedSvg);
+      await verifyExtraPages(score, 'edited');
       const reloaded = await WebMscore.load('musicxml', new TextEncoder().encode(edited));
       try {
         const reloadedXml = await reloaded.saveXml();
@@ -199,9 +287,10 @@ export async function verifyFidelity(WebMscore, renderer, output, bundle) {
         const reloadedSvg = await reloaded.saveSvg(0, true, false);
         check(fixture.id, 'reload-render', reloadedSvg, assertFidelityRendering);
         await renderer.render(reloadedSvg);
+        await verifyExtraPages(reloaded, 'edited reload');
       }
       finally { await reloaded.destroy(); }
-      cases.push({ id: fixture.id, file: `${fixture.id}.png`, fixtureSha256: fixture.sha256, imageSha256: hash(image.png), page: 0 });
+
     } finally { await score.destroy(); }
   }
   if (capturePath) {

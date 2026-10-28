@@ -78,6 +78,87 @@
       "edit": "pitchUp a note in measure 2",
       "test": "tools/musescore/verify-fidelity.mjs",
       "inputFormat": "musicxml"
+    },
+    {
+      "id": "octave-system-break",
+      "file": "octave-system-break.musicxml",
+      "sha256": "3f155691420542eecffda13c64a9ef9ec3e92f12f0405a7f408573b051371660",
+      "origin": "Original minimal fixture authored for OTS_Web on 2026-10-28; no third-party score copied.",
+      "license": "GPL-3.0-only",
+      "expectation": "octave shift across a system break",
+      "edit": "pitchUp a note in measure 3, outside the octave line",
+      "test": "tools/musescore/verify-fidelity.mjs",
+      "inputFormat": "musicxml"
+    },
+    {
+      "id": "polyphony-accidentals",
+      "file": "polyphony-accidentals.musicxml",
+      "sha256": "b81596b7ce9dd1907e4d25e7e217ec01c924ee9c7d87cf487d5b17fd0308a123",
+      "origin": "Original minimal fixture authored for OTS_Web on 2026-10-28; no third-party score copied.",
+      "license": "GPL-3.0-only",
+      "expectation": "cross-staff polyphony and explicit sharp and flat accidentals",
+      "edit": "setTitleText: Fidelity edit",
+      "test": "tools/musescore/verify-fidelity.mjs",
+      "inputFormat": "musicxml"
+    },
+    {
+      "id": "multipage-layout",
+      "file": "multipage-layout.musicxml",
+      "sha256": "fde46210c7081f7102dca2597c3982a5446f5e984b830cde1186a4c2dd6e5c1e",
+      "origin": "Original minimal fixture authored for OTS_Web on 2026-10-28; no third-party score copied.",
+      "license": "GPL-3.0-only",
+      "expectation": "two pages with an explicit page break",
+      "edit": "setTitleText: Fidelity edit",
+      "test": "tools/musescore/verify-fidelity.mjs",
+      "inputFormat": "musicxml",
+      "pages": [
+        0,
+        1
+      ]
+    },
+    {
+      "id": "crowded-markings",
+      "file": "crowded-markings.musicxml",
+      "sha256": "6d8ae01392d36b176e4ee1733dfa6fd610eca883287a0dc9567b7cb9f6d8f63d",
+      "origin": "Original minimal fixture authored for OTS_Web on 2026-10-28; no third-party score copied.",
+      "license": "GPL-3.0-only",
+      "expectation": "four adjacent dynamics and articulations among sixteen sixteenth notes",
+      "edit": "setTitleText: Fidelity edit",
+      "test": "tools/musescore/verify-fidelity.mjs",
+      "inputFormat": "musicxml"
+    },
+    {
+      "id": "transposing-enharmonic",
+      "file": "transposing-enharmonic.musicxml",
+      "sha256": "d8fad14969c3c5d6b7d5bac1be183af0ee9164c490fa847506ab4d8def759228",
+      "origin": "Original minimal fixture authored for OTS_Web on 2026-10-28; no third-party score copied.",
+      "license": "GPL-3.0-only",
+      "expectation": "written C-sharp and D-flat in a B-flat transposing instrument",
+      "edit": "transpose score up a major second",
+      "test": "tools/musescore/verify-fidelity.mjs",
+      "inputFormat": "musicxml"
+    },
+    {
+      "id": "grace-ornament-clef",
+      "file": "grace-ornament-clef.musicxml",
+      "sha256": "be49490bcb70ff6408715f8b9f39d23478ea4c714eacb25556e26908e5be2b48",
+      "origin": "Original minimal fixture authored for OTS_Web on 2026-10-28; no third-party score copied.",
+      "license": "GPL-3.0-only",
+      "expectation": "grace note, trill and mid-measure clef",
+      "edit": "setTitleText: Fidelity edit",
+      "test": "tools/musescore/verify-fidelity.mjs",
+      "inputFormat": "musicxml"
+    },
+    {
+      "id": "multimeasure-rest",
+      "file": "multimeasure-rest.musicxml",
+      "sha256": "1fc24e69e82af9df356f387bd3548769ddd885f4e6afce34525a723c67382d17",
+      "origin": "Original minimal fixture authored for OTS_Web on 2026-10-28; no third-party score copied.",
+      "license": "GPL-3.0-only",
+      "expectation": "two-measure rest followed by notes",
+      "edit": "setTitleText: Fidelity edit",
+      "test": "tools/musescore/verify-fidelity.mjs",
+      "inputFormat": "musicxml"
     }
   ]
 }

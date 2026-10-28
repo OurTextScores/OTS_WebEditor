@@ -277,8 +277,8 @@ limited by the lack of a universal native mutation generation: use it as a diagn
 
 ## MusicXML fidelity and visual-review pilot
 
-Seven original fixtures and their provenance live in `tools/musescore/fixtures/osmd-fidelity/`. They cover nested tuplets,
-cross-system ties and slurs, cross-staff notes, a hidden note, pickup lyrics, and dynamics with articulations. OSMD's BSD licence permits reuse subject to its
+Fourteen original fixtures and their provenance live in `tools/musescore/fixtures/osmd-fidelity/`. They cover nested tuplets,
+cross-system ties, slurs and octave lines; cross-staff polyphony and accidentals; hidden notes; pickup lyrics; dynamics and articulations; transposition and enharmonic spelling; grace notes, ornaments and a mid-measure clef; multi-measure rests; and a two-page layout. OSMD's BSD licence permits reuse subject to its
 conditions; individual scores and transcriptions may have separate rights or notices, so inspect each file before
 redistributing it. The pilot fixtures are original, not copies of OSMD scores.
 
@@ -288,7 +288,7 @@ MS47_VERIFY_FIDELITY=1 MS47_OUTPUT=/tmp/ots-fidelity-check npm run verify:engine
 ```
 
 The verifier checks source, import/export, unedited reload, an edit, export and edited reload, and checks targeted
-SVG elements as well as rendering. Most cases use a title edit; the dynamics and articulations case edits a note pitch in a separate measure. It writes `fidelity-failures.json` to `MS47_OUTPUT` and fails if any expectation
+SVG elements as well as rendering. Most cases use a title edit; the dynamics and octave-line cases edit a note pitch in a separate measure, and the transposition case transposes the score by a major second. It writes `fidelity-failures.json` to `MS47_OUTPUT` and fails if any expectation
 fails. The nested-tuplet fixture still imports with extra rests and dots, and exports as five beats instead of four; the input needs independent musical review. A patch fixes the observed pickup lyric endpoint on import and round trip, with an additional two-verse check. The nested-tuplet failures are not suppressed or presented as a passing semantic suite.
 
 For a visual comparison, use separate, new directories; the verifier writes a capture manifest even when semantic
@@ -312,7 +312,7 @@ by content; a missing inventory or an environment mismatch makes the report fail
 
 ### Pinned visual regression check
 
-The `Engraving visual report` workflow captures the seven original fixtures with the packaged browser engine in a
+The `Engraving visual report` workflow captures the fourteen original fixtures (including both pages of the multi-page case) with the packaged browser engine in a
 Playwright container pinned by digest. It compares them with `tools/musescore/visual-baseline/` and uploads the
 current capture, full images, red overlays, crops and JSON/Markdown report on every run. It checks image hashes,
 fixture hashes, browser and Node versions, capture code and font/configuration content; environment mismatches and
