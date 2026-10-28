@@ -331,6 +331,12 @@ docker run --rm -v "$PWD:/work" -w /work \
   bash -c 'git config --global --add safe.directory /work && npm ci --ignore-scripts --no-audit --no-fund && bash tools/musescore/run-visual-ci.sh tools/musescore/visual-baseline visual-artifacts'
 ```
 
+The capture also runs real engine edits: it raises a tied pitch and checks both tie endpoints; raises a slur endpoint;
+drags a cross-staff note within its displayed staff and checks its staff and voice; hides and reveals a selected notehead; and edits lyric text
+while checking the extender through export and reload. These are separate from the visual pixel comparison. Moving a
+chord between staves is not covered: the current bridge does not expose MuseScore's move-to-staff operation. The
+visibility check covers a notehead (the selected stem can remain visible), not a whole hidden chord.
+
 The baseline records the current nested-tuplet semantic failures. The visual job records them separately and is not a
 passing fidelity gate; `MS47_VERIFY_FIDELITY=1` remains strict. Pixel differences are review prompts, not proof of an
 engraving defect. To update a baseline, capture into a new directory in the workflow's pinned image, compare it with

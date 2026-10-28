@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createSvgRenderer } from './svgcheck.mjs';
 import { verifyFidelity } from './verify-fidelity.mjs';
+import { verifyFidelityDirectEdits } from './verify-fidelity-direct-edits.mjs';
 
 const [bundleArg, captureArg, outputArg] = process.argv.slice(2);
 if (!bundleArg || !captureArg || !outputArg || process.argv.length !== 5) {
@@ -35,6 +36,7 @@ try {
     if (!failures.length || JSON.stringify(manifest.semanticFailures) !== JSON.stringify(failures)) throw error;
     console.log(`Recorded ${failures.length} semantic failures separately from visual comparison`);
   }
+  await verifyFidelityDirectEdits(WebMscore, renderer);
 } finally {
   if (renderer) await renderer.close();
   await rm(emptyResources, { recursive: true, force: true });

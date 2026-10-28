@@ -17,7 +17,7 @@ describe('visual report', () => {
     const image = async (color: string) => sharp({ create: { width: 30, height: 30, channels: 4, background: color } }).png().toBuffer();
     const base = await image('white'), changed = await image('red');
     const digest = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');
-    const env = { schemaVersion: 1, target: 'test', node: 'test', platform: 'test', environment: 'test', playwright: 'test', browser: 'test', viewport: {}, deviceScaleFactor: 1, svgWidth: 30, background: 'white', page: 0, highlightSelection: false, systemFontsSha256: 'a', resourceTreeSha256: 'b', fixtureManifestSha256: 'c', captureCodeSha256: 'd', rendererCodeSha256: 'e', captureDriverSha256: 'f' };
+    const env = { schemaVersion: 1, target: 'test', node: 'test', platform: 'test', environment: 'test', playwright: 'test', browser: 'test', viewport: {}, deviceScaleFactor: 1, svgWidth: 30, background: 'white', page: 0, highlightSelection: false, systemFontsSha256: 'a', resourceTreeSha256: 'b', fixtureManifestSha256: 'c', captureCodeSha256: 'd', rendererCodeSha256: 'e', captureDriverSha256: 'f', directEditCodeSha256: 'g' };
     for (const [dir, bytes] of [[a, base], [b, changed]] as const) {
       await writeFile(path.join(dir, 'case.png'), bytes);
       await writeFile(path.join(dir, 'manifest.json'), JSON.stringify({ ...env, cases: [{ id: 'case', file: 'case.png', fixtureSha256: 'f'.repeat(64), imageSha256: digest(bytes), page: 0 }] }));
