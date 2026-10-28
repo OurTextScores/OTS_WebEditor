@@ -288,7 +288,7 @@ MS47_VERIFY_FIDELITY=1 MS47_OUTPUT=/tmp/ots-fidelity-check npm run verify:engine
 ```
 
 The verifier checks source, import/export, unedited reload, an edit, export and edited reload, and checks targeted
-SVG elements as well as rendering. Most cases use a title edit; the dynamics and octave-line cases edit a note pitch in a separate measure, and the transposition case transposes the score by a major second. It writes `fidelity-failures.json` to `MS47_OUTPUT` and fails if any expectation
+SVG elements as well as rendering. The tie, slur, cross-staff, hidden-note, lyric, dynamics and octave-line cases edit a note pitch in a separate measure; the transposition case transposes the score by a major second. Other cases use a title edit. It writes `fidelity-failures.json` to `MS47_OUTPUT` and fails if any expectation
 fails. The nested-tuplet fixture still imports with extra rests and dots, and exports as five beats instead of four; the input needs independent musical review. A patch fixes the observed pickup lyric endpoint on import and round trip, with an additional two-verse check. The nested-tuplet failures are not suppressed or presented as a passing semantic suite.
 
 For a visual comparison, use separate, new directories; the verifier writes a capture manifest even when semantic

@@ -54,7 +54,7 @@ export function assertFidelity(id, xml, { transposed = false } = {}) {
     assert.ok(pitched[1].querySelector('tie[type="stop"]'));
     assert.ok(document.querySelector('measure:nth-of-type(2) > print[new-system="yes"]'));
   } else if (id === 'cross-staff') {
-    assert.deepEqual(pitched.map(n => [text(n, 'pitch > step'), text(n, 'staff')]), [['C','1'],['D','2'],['E','1'],['F','2']]);
+    assert.deepEqual(pitched.slice(0, 4).map(n => [text(n, 'pitch > step'), text(n, 'staff')]), [['C','1'],['D','2'],['E','1'],['F','2']]);
     assert.ok(document.querySelector('clef[number="1"] sign'));
     assert.equal(document.querySelector('clef[number="2"] sign')?.textContent, 'F');
     assert.ok(notes.some(n => n.querySelector('rest') && text(n, 'staff') === '2' && text(n, 'voice') !== text(pitched[0], 'voice')));
@@ -157,10 +157,10 @@ export function assertFidelityRendering(id, svg) {
     assert.ok(count('TieSegment') >= 2, 'tie has visible segments at the system break');
     assert.ok(count('StaffLines') >= 10, 'two systems are rendered');
   } else if (id === 'cross-staff') {
-    assert.equal(count('Note'), 4, 'all cross-staff notes are rendered');
+    assert.equal(count('Note'), 8, 'all cross-staff and edit-target notes are rendered');
     assert.ok(count('StaffLines') >= 10, 'both staves are rendered');
   } else if (id === 'hidden-note') {
-    assert.equal(count('Note'), 3, 'the hidden notehead is not rendered');
+    assert.equal(count('Note'), 7, 'the hidden notehead is not rendered');
   } else if (id === 'slur-system-break') {
     assert.ok(count('SlurSegment') >= 2, 'slur has visible segments at the system break');
     assert.ok(count('StaffLines') >= 10, 'two systems are rendered');
@@ -254,21 +254,27 @@ export async function verifyFidelity(WebMscore, renderer, output, bundle) {
         check(fixture.id, 'control-render', controlSvg, assertFidelityRendering);
         await verifyExtraPages(control, 'control reload');
       } finally { await control.destroy(); }
+      let expectedEditedPitches;
+      const measurePitches = xml => [...new JSDOM(xml, { contentType: 'application/xml' }).window.document.querySelectorAll('measure')]
+        .map(measure => [...measure.querySelectorAll('note > pitch')].map(pitch => pitch.textContent.trim()));
+      const pitchEditMeasures = { 'tie-system-break': 2, 'slur-system-break': 2, 'cross-staff': 1, 'hidden-note': 1, 'pickup-lyrics': 2, 'dynamics-articulations': 1, 'octave-system-break': 2 };
       if (fixture.id === 'transposing-enharmonic') {
         assert.equal(await score.transpose(1, 0, 0, 4, true, true, false), true, 'transpose up a major second');
-      } else if (fixture.id === 'dynamics-articulations' || fixture.id === 'octave-system-break') {
-        const targetMeasure = fixture.id === 'octave-system-break' ? 2 : 1;
-        assert.equal(await score.selectPartMeasureByIndex(0, targetMeasure), true);
+      } else if (Object.hasOwn(pitchEditMeasures, fixture.id)) {
+        const targetMeasure = pitchEditMeasures[fixture.id];
+        assert.equal(await score.selectPartMeasureByIndex(0, targetMeasure), true, `${fixture.id}: select edit-target measure`);
         assert.equal(await score.selectNextChord(), true);
         assert.equal(await score.selectPrevChord(), true);
         const beforePitchEdit = await score.saveXml();
+        const beforeUndo = await score.getUndoInfo();
         assert.equal(await score.pitchUp(), true, 'note pitch edit succeeds');
+        assert.equal((await score.getUndoInfo()).index, beforeUndo.index + 1, 'pitch edit creates one undo entry');
         const afterPitchEdit = await score.saveXml();
-        const measurePitches = xml => [...new JSDOM(xml, { contentType: 'application/xml' }).window.document.querySelectorAll('measure')]
-          .map(measure => [...measure.querySelectorAll('note > pitch')].map(pitch => pitch.textContent.trim()));
         const beforePitches = measurePitches(beforePitchEdit), afterPitches = measurePitches(afterPitchEdit);
         assert.deepEqual(afterPitches.slice(0, targetMeasure), beforePitches.slice(0, targetMeasure), 'protected passage is not the edit target');
         assert.notDeepEqual(afterPitches[targetMeasure], beforePitches[targetMeasure], 'pitch edit changes the target measure');
+        expectedEditedPitches = afterPitches;
+        assert.equal(await score.clearSelection(), true, 'clear selection before comparing the edited rendering');
       } else {
         assert.equal(await score.setTitleText('Fidelity edit'), true, `${fixture.id}: title edit`);
       }
@@ -282,6 +288,7 @@ export async function verifyFidelity(WebMscore, renderer, output, bundle) {
       const reloaded = await WebMscore.load('musicxml', new TextEncoder().encode(edited));
       try {
         const reloadedXml = await reloaded.saveXml();
+        if (expectedEditedPitches) assert.deepEqual(measurePitches(reloadedXml), expectedEditedPitches, `${fixture.id}: edited pitches survive reload`);
         check(fixture.id, 'edited-reload', reloadedXml);
         check(fixture.id, 'reload-timing', reloadedXml, assertFidelityTiming);
         const reloadedSvg = await reloaded.saveSvg(0, true, false);
