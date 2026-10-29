@@ -319,6 +319,28 @@ static bool elementPropertyFromToken(engraving::P_TYPE type, const String& token
     }
 }
 
+// Every property with this name: names are not unique (TREMOLO_TYPE is written "subtype", like SUBTYPE), so an
+// element is asked for whichever of them it has.
+static std::vector<engraving::Pid> pidsNamed(const String& name)
+{
+    std::vector<engraving::Pid> pids;
+    const std::string ascii = name.toStdString();
+    for (int i = 0; i < int(engraving::Pid::END); ++i) {
+        const auto pid = engraving::Pid(i);
+        if (ascii == engraving::propertyName(pid)) pids.push_back(pid);
+    }
+    return pids;
+}
+
+// The property of that name this element has, or Pid::END.
+static engraving::Pid elementPidNamed(const engraving::EngravingItem* target, const std::vector<engraving::Pid>& pids)
+{
+    for (auto pid : pids) {
+        if (target->getProperty(pid).isValid()) return pid;
+    }
+    return engraving::Pid::END;
+}
+
 extern "C" {
 
 // {"<name>": {value, mixed, applicableCount, default}} over the selection's elements that have the property.
@@ -331,13 +353,15 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* getElementPropertyValues(uintptr_t score_ptr
     JsonObject result;
     for (size_t i = 0; i < names.size(); ++i) {
         const String name = names.at(i).toString();
-        const engraving::Pid pid = engraving::propertyId(name.toAscii().constChar());
-        if (pid == engraving::Pid::END) continue;
-        const engraving::P_TYPE type = engraving::propertyType(pid);
+        const auto pids = pidsNamed(name);
+        if (pids.empty()) continue;
         String first, def;
         bool mixed = false;
         int count = 0;
         for (auto* target : targets) {
+            const engraving::Pid pid = elementPidNamed(target, pids);
+            if (pid == engraving::Pid::END) continue;
+            const engraving::P_TYPE type = engraving::propertyType(pid);
             const auto value = target->getProperty(pid);
             String token;
             if (!value.isValid() || !elementPropertyToToken(type, value, token)) continue;
@@ -367,19 +391,25 @@ EMSCRIPTEN_KEEPALIVE bool setElementPropertyValue(uintptr_t score_ptr, const cha
 {
     auto* score = getScore(score_ptr, excerptId);
     if (!score || !name) return false;
-    const engraving::Pid pid = engraving::propertyId(name);
-    if (pid == engraving::Pid::END) return false;
-    engraving::PropertyValue value;
-    if (!reset && !elementPropertyFromToken(engraving::propertyType(pid), String::fromUtf8(token ? token : ""), value)) return false;
-    std::vector<engraving::EngravingItem*> applicable;
+    const auto pids = pidsNamed(String::fromUtf8(name));
+    if (pids.empty()) return false;
+    const String text = String::fromUtf8(token ? token : "");
+    std::vector<std::pair<engraving::EngravingItem*, engraving::Pid>> applicable;
+    std::vector<engraving::PropertyValue> values;
     for (auto* target : selectedInspectorTargets(score)) {
-        if (target->getProperty(pid).isValid()) applicable.push_back(target);
+        const engraving::Pid pid = elementPidNamed(target, pids);
+        if (pid == engraving::Pid::END) continue;
+        engraving::PropertyValue value;
+        if (!reset && !elementPropertyFromToken(engraving::propertyType(pid), text, value)) return false;
+        applicable.emplace_back(target, pid);
+        values.push_back(value);
     }
     if (applicable.empty()) return false;
     score->startCmd(TranslatableString::untranslatable("Edit property"));
-    for (auto* target : applicable) {
+    for (size_t i = 0; i < applicable.size(); ++i) {
+        auto [target, pid] = applicable[i];
         if (reset) target->undoResetProperty(pid);
-        else target->undoChangeProperty(pid, value);
+        else target->undoChangeProperty(pid, values[i]);
     }
     score->endCmd();
     layoutLinked(score);

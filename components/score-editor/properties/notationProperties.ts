@@ -50,6 +50,54 @@ export const NOTATION_PROPERTIES: Readonly<Record<string, { readonly title: stri
       },
       { name: 'ornamentShowCueNote', label: 'Show cue note', kind: 'select', options: AUTO_ON_OFF },
       { name: 'startOnUpperNote', label: 'Start on upper note', kind: 'boolean' },
+      { name: 'play', label: 'Play', kind: 'boolean' },
+    ],
+  },
+  // Tremolo type and stroke style are plain integers in the engine (TremoloType, TremoloStyle); their meanings
+  // live here only, labelled, so the panel still shows names.
+  TremoloSingleChord: {
+    title: 'Tremolo',
+    properties: [
+      {
+        name: 'subtype',
+        label: 'Type',
+        kind: 'select',
+        options: [
+          { value: '0', label: 'Eighth' },
+          { value: '1', label: '16th' },
+          { value: '2', label: '32nd' },
+          { value: '3', label: '64th' },
+          { value: '4', label: 'Buzz roll' },
+        ],
+      },
+      { name: 'play', label: 'Play', kind: 'boolean' },
+    ],
+  },
+  TremoloTwoChord: {
+    title: 'Two-note tremolo',
+    properties: [
+      {
+        name: 'subtype',
+        label: 'Type',
+        kind: 'select',
+        options: [
+          { value: '5', label: 'Eighth' },
+          { value: '6', label: '16th' },
+          { value: '7', label: '32nd' },
+          { value: '8', label: '64th' },
+        ],
+      },
+      {
+        name: 'strokeStyle',
+        label: 'Stroke style (half notes)',
+        kind: 'select',
+        options: [
+          { value: '0', label: 'Default' },
+          { value: '1', label: 'Traditional' },
+          { value: '2', label: 'Traditional alternate' },
+        ],
+      },
+      { name: 'play', label: 'Play', kind: 'boolean' },
     ],
   },
   Dynamic: {

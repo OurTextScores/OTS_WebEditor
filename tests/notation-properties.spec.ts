@@ -71,3 +71,15 @@ test('a dynamic’s voice assignment is edited from the panel, and undo restores
   await runCommand(page, 'edit.undo');
   await expect.poll(() => propertyValue(page, 'voiceAssignment')).toBe('allInInstrument');
 });
+
+test('a tremolo’s type is changed from the panel', async ({ page }) => {
+  const note = await centre(page, 'svg .Note', 0);
+  await page.mouse.click(note.x, note.y);
+  await runCommand(page, 'add.mark.tremolo', 0);
+  await page.waitForSelector('svg .TremoloSingleChord', { state: 'attached', timeout: 20_000 });
+
+  await selectAndInspect(page, 'svg .TremoloSingleChord', 'TremoloSingleChord');
+  await expect(page.getByTestId('notation-subtype')).toHaveValue('0');
+  await page.getByTestId('notation-subtype').selectOption('1');
+  await expect.poll(() => propertyValue(page, 'subtype')).toBe('1');
+});

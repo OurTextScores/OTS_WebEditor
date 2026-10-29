@@ -19,6 +19,7 @@ describe('notation property descriptors (E09)', () => {
   it('asks the engine about the properties of the selected element type only', () => {
     expect(notationPropertyNames('Ornament')).toContain('intervalAbove');
     expect(notationPropertyNames('Dynamic')).toContain('voiceAssignment');
+    expect(notationPropertyNames('TremoloTwoChord')).toEqual(['subtype', 'strokeStyle', 'play']);
     expect(notationPropertyNames('Note')).toEqual([]);
     expect(notationPropertyNames(null)).toEqual([]);
   });
