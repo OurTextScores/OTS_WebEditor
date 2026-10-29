@@ -33,6 +33,7 @@ import { type AiEditProposal } from '../lib/ai-edit-proposal';
 import { fetchJsonOrThrow } from '../lib/fetch-json';
 import { copySelectionToClipboard, pasteClipboardPayload, swapSelectionWithClipboard } from '../lib/selection-clipboard';
 import { ScoreContextMenu, useScoreContextMenu } from './score-editor/context-menu';
+import { ScoreDialog, dialogEngineFor, openScoreDialog } from './score-editor/score-dialogs';
 import type { MeasureInsertTarget, HeaderTextTarget } from './score-editor/editorProps';
 import { noPerf, startPerf, type PerfHandle } from '../lib/perf-trace';
 import { svgScreenMapping } from '../lib/svg-screen-matrix';
@@ -97,6 +98,8 @@ import {
   runRangeToolOnSelection,
   selectSimilar,
   addFrameText,
+  applyScoreDialog,
+  loadStyleFile,
   addFretboardForHarmony,
   toggleSnap,
   setAccidental,
@@ -8253,6 +8256,7 @@ export default function ScoreEditor() {
     }
   }
 
+  const dialogEngine = useMemo(() => dialogEngineFor(score), [score]);
   const scoreContextMenu = useScoreContextMenu({
     score,
     enabled: Boolean(score) && interactionReady && !compareView,
@@ -8436,6 +8440,10 @@ export default function ScoreEditor() {
   const renderCanvas = (insets: WorkspaceInsets) => (
     <>
     <ScoreContextMenu menu={scoreContextMenu.menu} onClose={scoreContextMenu.close} />
+    <ScoreDialog
+      engine={dialogEngine}
+      onApply={(kind, apply) => applyScoreDialog(core, { setHasBackendHighlighting, refreshSelectionFromSvg }, kind, apply)}
+    />
     <ScoreCanvas
       scrollContainerRef={scrollContainerRef}
       scoreWrapperRef={scoreWrapperRef}
@@ -9395,6 +9403,8 @@ export default function ScoreEditor() {
     onAddFrameText: interactiveMutationEnabled && score?.addFrameText ? (kind) => addFrameText(core, kind) : undefined,
     onAddFretboardForHarmony: interactiveMutationEnabled && score?.addFretboardDiagramForHarmony ? () => addFretboardForHarmony(core) : undefined,
     onToggleSnap: interactiveMutationEnabled && score?.toggleSnap ? (which) => toggleSnap(core, which) : undefined,
+    onOpenScoreDialog: interactiveMutationEnabled && score?.getStyleValues ? (kind, context) => openScoreDialog(kind, context ?? {}) : undefined,
+    onLoadStyle: interactiveMutationEnabled && score?.loadStyle ? (file) => loadStyleFile(core, file) : undefined,
     onSelectSimilar: interactionReady && score?.selectSimilar ? (scope, at) => selectSimilar(core, { setHasBackendHighlighting, refreshSelectionFromSvg }, scope, at) : undefined,
     onOpenContextMenu: canEditScore && !compareView ? scoreContextMenu.openAtSelection : undefined,
     onRemoveTrailingEmptyMeasures: handleRemoveTrailingEmptyMeasures,

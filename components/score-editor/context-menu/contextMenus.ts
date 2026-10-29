@@ -100,17 +100,20 @@ const clipboardItems = (): MenuNode[] => [
 /** `makeSelectItems`: by selection shape; an empty submenu is pruned. */
 function selectItems(target: ContextMenuTarget): MenuNode[] {
   const at = target.similarAt ? { arg: target.similarAt } : {};
+  const more = item('edit.select.more', 'More', {
+    arg: { at: target.similarAt, note: target.menuType === 'Note' },
+  });
   if (target.selection.kind === 'single') {
     return [
       item('edit.select.similar', 'Similar', at),
       item('edit.select.similarStaff', 'Similar on This Staff', at),
-      item('edit.select.more'),
+      more,
     ];
   }
   if (target.selection.kind === 'range') {
-    return [item('edit.select.similarRange', 'Similar in This Range', at), item('edit.select.more')];
+    return [item('edit.select.similarRange', 'Similar in This Range', at), more];
   }
-  return [item('edit.select.more')];
+  return [more];
 }
 
 /** `makeElementItems`: the menu for every type without one of its own. */

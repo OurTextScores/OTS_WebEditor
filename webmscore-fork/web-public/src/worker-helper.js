@@ -129,6 +129,9 @@ class WebMscoreW {
         // presence as proof of a native export. Older packages omit this path.
         if (!capabilities?.hitTestScoreObject) Object.defineProperty(instance, 'hitTestScoreObject', { value: undefined })
         if (!capabilities?.moveSelectedChordRestToStaff) Object.defineProperty(instance, 'moveSelectedChordRestToStaff', { value: undefined })
+        if (!capabilities?.scoreDialogs) {
+            for (const name of ['getStyleValues', 'setStyleValues', 'loadStyle', 'getMeasureProperties', 'setMeasureProperties', 'selectWithOptions', 'realizeChordSymbols']) Object.defineProperty(instance, name, { value: undefined })
+        }
         if (!capabilities?.contextMenuEdits) {
             for (const name of ['toggleSnap', 'removeNoteAtPoint', 'addFretboardDiagramForHarmony', 'addFrameText']) Object.defineProperty(instance, name, { value: undefined })
         }
@@ -322,6 +325,34 @@ class WebMscoreW {
 
     contextSelectionInfo() {
         return this.rpc('contextSelectionInfo')
+    }
+
+    getStyleValues(keys) {
+        return this.rpc('getStyleValues', [keys])
+    }
+
+    setStyleValues(values) {
+        return this.rpc('setStyleValues', [values])
+    }
+
+    loadStyle(data) {
+        return this.rpc('loadStyle', [data])
+    }
+
+    getMeasureProperties() {
+        return this.rpc('getMeasureProperties')
+    }
+
+    setMeasureProperties(values) {
+        return this.rpc('setMeasureProperties', [values])
+    }
+
+    selectWithOptions(pageNumber, x, y, options) {
+        return this.rpc('selectWithOptions', [pageNumber, x, y, options])
+    }
+
+    realizeChordSymbols(literal, voicing, duration) {
+        return this.rpc('realizeChordSymbols', [literal, voicing, duration])
     }
 
     toggleSnap(which) {

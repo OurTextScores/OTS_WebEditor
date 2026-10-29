@@ -179,6 +179,10 @@ export async function handleScoreClickImpl(
         index: null,
         point: { page: pageIndex, x: scorePoint.x, y: scorePoint.y },
       };
+      // The engine hit-tests in the page's engraving coordinates, as the element path below and the right-click
+      // do; `scorePoint` is the overlay's (container) space, off by the page's offset, which misses thin targets
+      // such as a hairpin. The overlay keeps `scorePoint`.
+      const enginePoint = clientToEngravingPoint(e.clientX, e.clientY, target) ?? scorePoint;
 
       // Try selectElementAtPoint first, then fall back to selectMeasureAtPoint
       // Desktop MuseScore's Ctrl+Click on empty bar space does not build a list
@@ -207,8 +211,8 @@ export async function handleScoreClickImpl(
         if (isShiftClick && score.extendMeasureSelectionAtPoint) {
           const extended = await score.extendMeasureSelectionAtPoint(
             pageIndex,
-            scorePoint.x,
-            scorePoint.y,
+            enginePoint.x,
+            enginePoint.y,
           );
           if (extended) {
             return true;
@@ -217,8 +221,8 @@ export async function handleScoreClickImpl(
         if (score.selectElementAtPoint) {
           const elementSelected = await score.selectElementAtPoint(
             pageIndex,
-            scorePoint.x,
-            scorePoint.y,
+            enginePoint.x,
+            enginePoint.y,
           );
           if (elementSelected) {
             return true;
@@ -242,8 +246,8 @@ export async function handleScoreClickImpl(
 
           const measureSelected = await score.selectMeasureAtPoint(
             pageIndex,
-            scorePoint.x,
-            scorePoint.y,
+            enginePoint.x,
+            enginePoint.y,
           );
           if (!measureSelected) {
             return false;
@@ -277,6 +281,15 @@ export async function handleScoreClickImpl(
           if (selected === false || selected === 'cleared') {
             clearSelectionState();
             return 'miss';
+          }
+
+          // Commands re-project the remembered selection point into the engine. The engine resolved this click to
+          // an element the SVG walk could not (a spanner, a frame), so remember the clicked point, which selects it
+          // again; the old point is some earlier element's. A range keeps its own (re-projection skips ranges).
+          try {
+            if (!(await score.isSelectionRange?.())) setSelectedPoint(fallback.point);
+          } catch {
+            // An engine without isSelectionRange keeps the old behaviour.
           }
 
           // Get selection bounding boxes for keyboard/button enablement

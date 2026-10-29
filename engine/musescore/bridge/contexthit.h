@@ -11,6 +11,10 @@
 #include "engraving/dom/harmony.h"
 #include "engraving/dom/instrument.h"
 #include "engraving/dom/part.h"
+#include "engraving/dom/system.h"
+#include "engraving/dom/rest.h"
+#include "engraving/dom/chord.h"
+#include "engraving/dom/note.h"
 
 // What MuseScore's hitElement() returns at a point: the topmost selectable item, with staff
 // lines and empty staff space standing for their bar, as a click there selects it.
@@ -171,6 +175,97 @@ EMSCRIPTEN_KEEPALIVE bool selectSimilar(uintptr_t score_ptr, int mode, int pageN
     }
     score->setSelectionChanged(true);
     return !score->selection().isNone();
+}
+
+// Select ▸ More… (MuseScore's SelectDialog, and SelectNoteDialog for a note): elements like the pattern
+// (the one at the point, else the single selection), filtered as the dialog's checkboxes say, then
+// replacing, added to or taken from the selection. Options, all optional booleans unless noted:
+//   sameStaff, inSelection (the selection's staves), sameSubtype, sameVoice, sameSystem, sameMeasure,
+//   sameBeat, sameDuration; for notes samePitch, sameNotehead, sameNoteType, sameString;
+//   fromSelection (search only among the selected elements); mode: "replace" | "add" | "subtract".
+EMSCRIPTEN_KEEPALIVE bool selectWithOptions(uintptr_t score_ptr, int pageNumber, double x, double y,
+                                            const char* optionsJson, int excerptId)
+{
+    x = fromAbi(x); y = fromAbi(y);   // ABI units (bridge.cpp)
+    auto* score = getScore(score_ptr, excerptId);
+    if (!score) return false;
+    engraving::EngravingItem* e = nullptr;
+    if (pageNumber >= 0) {
+        engraving::staff_idx_t staffIdx = muse::nidx;
+        e = contextHitItem(score, pageNumber, muse::PointF(x, y), staffIdx);
+        if (e && e->isMeasure()) e = nullptr;
+    } else if (score->selection().isSingle()) {
+        e = score->selection().element();
+    }
+    if (!e) return false;
+    const JsonObject o = JsonDocument::fromJson(ByteArray(optionsJson ? optionsJson : "{}")).rootObject();
+    auto on = [&o](const char* key) { return o.contains(key) && o.value(key).toBool(); };
+    const Selection& selection = score->selection();
+
+    auto fill = [&](engraving::ElementPattern& p) {
+        p.type = int(e->type());
+        p.subtype = e->subtype();
+        p.subtypeValid = on("sameSubtype");
+        if (on("sameStaff")) {
+            p.staffStart = e->staffIdx();
+            p.staffEnd = e->staffIdx() + 1;
+        } else if (on("inSelection")) {
+            p.staffStart = selection.staffStart();
+            p.staffEnd = selection.staffEnd();
+        } else {
+            p.staffStart = muse::nidx;
+            p.staffEnd = muse::nidx;
+        }
+        p.voice = on("sameVoice") ? e->voice() : muse::nidx;
+        if (on("sameSystem")) {
+            for (auto* ee = e; ee; ee = ee->parentItem()) {
+                if (ee->isSystem()) { p.system = engraving::toSystem(ee); break; }
+            }
+        }
+        if (on("sameMeasure")) p.measure = e->findMeasure();
+        if (on("sameBeat")) p.beat = e->beat();
+        if (on("sameDuration") && e->isRest()) p.durationTicks = engraving::toRest(e)->actualTicks();
+    };
+
+    std::vector<engraving::EngravingItem*> matches;
+    const bool fromSelection = on("fromSelection");
+    const std::vector<engraving::EngravingItem*> selected = selection.elements();
+    if (e->isNote()) {
+        const engraving::Note* n = engraving::toNote(e);
+        engraving::NotePattern p;
+        fill(p);
+        p.type = engraving::NoteType::INVALID;
+        if (on("samePitch")) p.pitch = n->pitch();
+        if (on("sameNotehead")) p.notehead = n->headGroup();
+        if (on("sameNoteType")) p.type = n->noteType();
+        if (on("sameString")) p.string = n->string();
+        if (on("sameDuration")) p.durationTicks = n->chord()->actualTicks();
+        if (fromSelection) {
+            for (auto* item : selected) engraving::Score::collectNoteMatch(&p, item);
+        } else {
+            score->scanElements([&p](engraving::EngravingItem* item) { engraving::Score::collectNoteMatch(&p, item); });
+        }
+        matches.assign(p.el.begin(), p.el.end());
+    } else {
+        engraving::ElementPattern p;
+        fill(p);
+        if (fromSelection) {
+            for (auto* item : selected) engraving::Score::collectMatch(&p, item);
+        } else {
+            score->scanElements([&p](engraving::EngravingItem* item) { engraving::Score::collectMatch(&p, item); });
+        }
+        matches = p.el;
+    }
+
+    const String mode = o.contains("mode") ? o.value("mode").toString() : String(u"replace");
+    if (mode == u"subtract") {
+        for (auto* item : matches) score->deselect(item);
+    } else {
+        if (mode != u"add") score->deselectAll();
+        if (!matches.empty()) score->select(matches, engraving::SelectType::ADD, 0);
+    }
+    score->setSelectionChanged(true);
+    return !matches.empty();
 }
 
 }

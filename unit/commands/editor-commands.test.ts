@@ -193,6 +193,7 @@ describe('every ribbon handler is reachable from a command', () => {
       'instruments.part.remove': { index: 0 },
       'file.open': new File(['x'], 'a.mscz'),
       'playback.soundfont': new File(['x'], 'a.sf2'),
+      'format.loadStyle': new File(['x'], 'a.mss'),
     };
     vi.stubGlobal('open', vi.fn());
     for (const entry of idle(props)) {

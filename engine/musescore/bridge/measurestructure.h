@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #pragma once
 #include "engraving/dom/spacer.h"
+#include "engraving/editing/editstaff.h"
+#include "engraving/dom/part.h"
 
 enum class InsertMeasuresTarget {
     AfterSelection = 0,
@@ -322,6 +324,94 @@ EMSCRIPTEN_KEEPALIVE bool setMeasureSpacer(uintptr_t id, int measureIndex, int s
         spacer->setGap(Spatium(gap)); score->undoAddElement(spacer);
     }
     score->endCmd(); layoutLinked(score); return true;
+}
+
+// MuseScore's Measure Properties dialog (MeasurePropertiesDialog), for the measure the selection starts in.
+static engraving::Measure* selectedPropertiesMeasure(Score* score)
+{
+    const auto& selection = score->selection();
+    if (selection.isRange()) return selection.startSegment() ? selection.startSegment()->measure() : nullptr;
+    if (auto* element = selection.element()) {
+        if (element->isMeasure()) return engraving::toMeasure(element);
+        return element->findMeasure();
+    }
+    return nullptr;
+}
+
+// {index, actual: [n, d], nominal: [n, d], irregular, repeatCount, breakMmr, stretch, numberMode, numberOffset,
+//  staves: [{name, visible, stemless}]}, or {} with nothing usable selected.
+EMSCRIPTEN_KEEPALIVE const uint8_t* getMeasureProperties(uintptr_t score_ptr, int excerptId)
+{
+    auto* score = getScore(score_ptr, excerptId);
+    if (!score) return textResponse("Invalid score", 1);
+    JsonObject result;
+    if (engraving::Measure* m = selectedPropertiesMeasure(score)) {
+        auto fraction = [](const Fraction& f) {
+            JsonArray a;
+            a.append(f.numerator());
+            a.append(f.denominator());
+            return a;
+        };
+        result.set("index", m->index());
+        result.set("actual", fraction(m->ticks()));
+        result.set("nominal", fraction(m->timesig()));
+        result.set("irregular", m->getProperty(engraving::Pid::IRREGULAR).toBool());
+        result.set("repeatCount", m->getProperty(engraving::Pid::REPEAT_COUNT).toInt());
+        result.set("breakMmr", m->getProperty(engraving::Pid::BREAK_MMR).toBool());
+        result.set("stretch", m->getProperty(engraving::Pid::USER_STRETCH).toReal());
+        result.set("numberMode", m->getProperty(engraving::Pid::MEASURE_NUMBER_MODE).toInt());
+        result.set("numberOffset", m->getProperty(engraving::Pid::NO_OFFSET).toInt());
+        JsonArray staves;
+        for (engraving::staff_idx_t i = 0; i < score->nstaves(); ++i) {
+            JsonObject staff;
+            staff.set("name", score->staff(i)->part()->partName());
+            staff.set("visible", m->visible(i));
+            staff.set("stemless", m->stemless(i));
+            staves.append(staff);
+        }
+        result.set("staves", staves);
+    }
+    return response(JsonDocument(result).toJson(JsonDocument::Format::Compact));
+}
+
+// Applies the keys present in the JSON (same names as getMeasureProperties) as one undoable edit.
+EMSCRIPTEN_KEEPALIVE bool setMeasureProperties(uintptr_t score_ptr, const char* json, int excerptId)
+{
+    auto* score = getScore(score_ptr, excerptId);
+    if (!score) return false;
+    engraving::Measure* m = selectedPropertiesMeasure(score);
+    if (!m) return false;
+    const JsonObject values = JsonDocument::fromJson(ByteArray(json ? json : "{}")).rootObject();
+
+    score->startCmd(TranslatableString::untranslatable("Edit measure properties"));
+    if (values.contains("staves")) {
+        const JsonArray staves = values.value("staves").toArray();
+        for (size_t i = 0; i < staves.size() && i < score->nstaves(); ++i) {
+            const JsonObject staff = staves.at(i).toObject();
+            const bool v = staff.contains("visible") ? staff.value("visible").toBool() : m->visible(i);
+            const bool st = staff.contains("stemless") ? staff.value("stemless").toBool() : m->stemless(i);
+            if (m->visible(i) != v || m->stemless(i) != st) {
+                score->undo(new engraving::ChangeMStaffProperties(m, static_cast<int>(i), v, st));
+            }
+        }
+    }
+    if (values.contains("repeatCount")) m->undoChangeProperty(engraving::Pid::REPEAT_COUNT, values.value("repeatCount").toInt());
+    if (values.contains("breakMmr")) m->undoChangeProperty(engraving::Pid::BREAK_MMR, values.value("breakMmr").toBool());
+    if (values.contains("stretch")) m->undoChangeProperty(engraving::Pid::USER_STRETCH, values.value("stretch").toDouble());
+    if (values.contains("numberMode")) m->undoChangeProperty(engraving::Pid::MEASURE_NUMBER_MODE, values.value("numberMode").toInt());
+    if (values.contains("numberOffset")) m->undoChangeProperty(engraving::Pid::NO_OFFSET, values.value("numberOffset").toInt());
+    if (values.contains("irregular")) m->undoChangeProperty(engraving::Pid::IRREGULAR, values.value("irregular").toBool());
+    if (values.contains("actual")) {
+        const JsonArray a = values.value("actual").toArray();
+        if (a.size() == 2 && a.at(0).toInt() > 0 && a.at(1).toInt() > 0) {
+            const Fraction len(a.at(0).toInt(), a.at(1).toInt());
+            if (m->ticks() != len) m->adjustToLen(len);
+        }
+    }
+    m->triggerLayout();
+    score->endCmd();
+    layoutLinked(score);
+    return true;
 }
 
 }

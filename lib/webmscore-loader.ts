@@ -21,30 +21,14 @@ export type ScoreObjectHit =
       location: { measureIndex: number | null; staffIndex: number | null; voiceIndex: number };
       geometry: { page: number; x: number; y: number; width: number; height: number } | null };
 
-/**
- * What the score's right-click menu reads about the element under the pointer and the selection, without
- * changing either (`contextHitAtPoint`, engine/musescore/bridge/contexthit.h). `type` is the engine's type
- * name; blank staff space reports its bar ("Measure"). `selected` follows the SVG's "selected" class, widened
- * to a point inside the selected range.
- */
-export interface ContextHitReport {
-  hit: {
-    type: string;
-    selected: boolean;
-    editable: boolean;
-    staffIdx: number | null;
-    drumStaff: boolean;
-    flags: {
-      inFretBox?: boolean;
-      harmonyHasFretDiagram?: boolean;
-      fretHasHarmony?: boolean;
-      snapBefore?: boolean;
-      snapAfter?: boolean;
-      parentIsBarline?: boolean;
-    };
-  } | null;
-  selection: { kind: 'none' | 'single' | 'list' | 'range'; type: string | null };
-}
+import type {
+  ContextHitReport,
+  MeasureProperties,
+  SelectOptions,
+  StyleValue,
+} from './webmscore-score-settings-types';
+
+export type { ContextHitReport, MeasureProperties, SelectOptions, StyleValue };
 
 /** One part's vertical extent within one laid-out system, in page coordinates. */
 export interface StaffSystemBand {
@@ -412,6 +396,26 @@ export interface Score {
   contextSelectionInfo?: () => Promise<ContextHitReport>;
   /** Snap to previous (0) / next (1) for the selected hairpins and gradual tempo changes. */
   toggleSnap?: (which: 0 | 1) => Promise<boolean> | boolean;
+  getStyleValues?: (keys: string[]) => Promise<Record<string, StyleValue>>;
+  /** One undoable edit; false (nothing changed) for an unknown or mistyped key. */
+  setStyleValues?: (values: Record<string, StyleValue>) => Promise<boolean> | boolean;
+  /** A MuseScore style file (.mss) replaces the score's style. */
+  loadStyle?: (data: Uint8Array) => Promise<boolean> | boolean;
+  getMeasureProperties?: () => Promise<Partial<MeasureProperties>>;
+  setMeasureProperties?: (values: Partial<MeasureProperties>) => Promise<boolean> | boolean;
+  /** Select ▸ More…: pageNumber < 0 patterns on the single selection. */
+  selectWithOptions?: (
+    pageNumber: number,
+    x: number,
+    y: number,
+    options: SelectOptions,
+  ) => Promise<boolean> | boolean;
+  /** Voicing and duration -1 keep each chord symbol's own setting. */
+  realizeChordSymbols?: (
+    literal: boolean,
+    voicing: number,
+    duration: number,
+  ) => Promise<boolean> | boolean;
   /** Note input's right-click: the note at the point becomes a rest (MuseScore's remove-note). */
   removeNoteAtPoint?: (pageNumber: number, x: number, y: number) => Promise<boolean> | boolean;
   /** Add fretboard diagram on the selected chord symbols (a diagram of each chord, the symbol on it). */

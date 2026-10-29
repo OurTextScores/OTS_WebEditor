@@ -232,6 +232,13 @@ export interface EditorCommandProps {
   onAddFretboardForHarmony?: () => Promise<unknown> | void;
   /** Snap to previous (0) / next (1) for the selected hairpins and tempo changes. */
   onToggleSnap?: (which: 0 | 1) => Promise<unknown> | void;
+  /** Opens one of the score's settings dialogs; set when the engine provides them. */
+  onOpenScoreDialog?: (
+    kind: 'pageSettings' | 'style' | 'measureProperties' | 'selectMore' | 'realizeHarmony',
+    context?: { at?: { page: number; x: number; y: number }; note?: boolean },
+  ) => void;
+  /** Load Style: a MuseScore style file (.mss) replaces the score's style. */
+  onLoadStyle?: (file: File) => Promise<unknown> | void;
   /** Open the score's context menu at the selection (Shift+F10, the Menu key). */
   onOpenContextMenu?: () => Promise<unknown> | void;
   parts?: PartSummary[];

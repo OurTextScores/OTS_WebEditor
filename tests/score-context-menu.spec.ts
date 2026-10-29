@@ -45,9 +45,12 @@ async function open(page: Page) {
 
 /** Centre of the n-th notehead. */
 async function noteCentre(page: Page, index: number) {
-  const box = await page.locator('svg .Note').nth(index).boundingBox();
-  if (!box) throw new Error(`note ${index} has no box`);
-  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  // A selection change re-renders the SVG; read the box once the new note element is in place.
+  let box: Awaited<ReturnType<ReturnType<Page['locator']>['boundingBox']>> = null;
+  await expect
+    .poll(async () => (box = await page.locator('svg .Note').nth(index).boundingBox()) !== null)
+    .toBe(true);
+  return { x: box!.x + box!.width / 2, y: box!.y + box!.height / 2 };
 }
 
 /** Empty staff space in bar `n` (0-based, 0..2): between its note and the next bar's. */
@@ -133,7 +136,7 @@ test('a right-click on blank paper keeps the selection and opens its menu', asyn
   expect(await engineSelection(page)).toMatchObject({ count: 1, type: 'Note' });
 });
 
-test('blank paper with nothing selected opens no menu, and not the browser’s', async ({ page }) => {
+test('blank paper with nothing selected opens the page menu, and not the browser’s', async ({ page }) => {
   await open(page);
   await runCommand(page, 'edit.deselect').catch(() => undefined);
   const paper = await blankPaper(page);
@@ -145,8 +148,10 @@ test('blank paper with nothing selected opens no menu, and not the browser’s',
   );
   await page.mouse.click(paper.x, paper.y, { button: 'right' });
   expect(await prevented).toBe(true);
-  await page.waitForTimeout(500);
-  await expect(menu(page)).toHaveCount(0);
+  await expect(menu(page)).toBeVisible();
+  for (const id of ['format.style', 'format.pageSettings', 'format.loadStyle']) {
+    await expect(page.getByTestId(`context-item-${id}`)).toBeVisible();
+  }
 });
 
 test('Shift+F10 opens the menu at the selection', async ({ page }) => {

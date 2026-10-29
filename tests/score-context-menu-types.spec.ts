@@ -149,3 +149,22 @@ test('Delete in a hairpin’s menu deletes the hairpin, not the note selected be
   await expect(page.locator('svg .HairpinSegment')).toHaveCount(0, { timeout: 20_000 });
   expect(await readPitches(page)).toEqual(['F4', 'A4', 'C5', 'E5']);
 });
+
+test('a left-click on a hairpin, then Delete, deletes the hairpin, not the note clicked before', async ({ page }) => {
+  await open(page);
+  const note = await centre(page, 'svg .Note', 0);
+  await page.mouse.click(note.x, note.y);
+  await runCommand(page, 'add.line.hairpin', 0);
+  await page.waitForSelector('svg .HairpinSegment', { timeout: 20_000 });
+
+  const hairpin = await centre(page, 'svg .HairpinSegment');
+  await page.mouse.click(note.x, note.y);
+  await page.mouse.click(hairpin.x, hairpin.y);
+  // The click selects the hairpin in the engine (it is selected as its spanner).
+  await expect
+    .poll(async () => (await selectionReport(page)).selection)
+    .toEqual({ kind: 'single', type: 'HairpinSegment' });
+  await runCommand(page, 'edit.delete');
+  await expect(page.locator('svg .HairpinSegment')).toHaveCount(0, { timeout: 20_000 });
+  expect(await readPitches(page)).toEqual(['F4', 'A4', 'C5', 'E5']);
+});

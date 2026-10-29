@@ -46,6 +46,7 @@ describe('menu tree', () => {
     'format.elementProperties': 'the score context menu (… Properties on text and time signatures), as in MuseScore',
     'format.snap.previous': 'the context menu of a hairpin, as in MuseScore',
     'format.snap.next': 'the context menu of a hairpin or tempo change, as in MuseScore',
+    'measure.properties': 'the context menu of a bar, as in MuseScore',
   };
 
   it('reaches every other command from a menu', () => {

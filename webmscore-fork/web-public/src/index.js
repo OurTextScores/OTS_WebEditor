@@ -311,6 +311,10 @@ class WebMscore {
         this.excerptId = -1
         if (!Module._hitTestScoreObject) Object.defineProperty(this, 'hitTestScoreObject', { value: undefined })
         if (!Module._moveSelectedChordRestToStaff) Object.defineProperty(this, 'moveSelectedChordRestToStaff', { value: undefined })
+        if (!Module._getStyleValues || !Module._setStyleValues || !Module._loadStyle || !Module._getMeasureProperties
+            || !Module._setMeasureProperties || !Module._selectWithOptions || !Module._realizeChordSymbols) {
+            for (const name of ['getStyleValues', 'setStyleValues', 'loadStyle', 'getMeasureProperties', 'setMeasureProperties', 'selectWithOptions', 'realizeChordSymbols']) Object.defineProperty(this, name, { value: undefined })
+        }
         if (!Module._toggleSnap || !Module._removeNoteAtPoint || !Module._addFretboardDiagramForHarmony || !Module._addFrameText) {
             for (const name of ['toggleSnap', 'removeNoteAtPoint', 'addFretboardDiagramForHarmony', 'addFrameText']) Object.defineProperty(this, name, { value: undefined })
         }
@@ -518,6 +522,94 @@ class WebMscore {
     async removeNoteAtPoint(pageNumber, x, y) {
         return Module.ccall('removeNoteAtPoint', 'boolean', ['number', 'number', 'number', 'number', 'number'],
             [this.scoreptr, pageNumber, x, y, this.excerptId])
+    }
+
+    /**
+     * Style values by MuseScore key name (`pageWidth`, `spatium`, …), raw as the engine stores them.
+     * @param {string[]} keys
+     * @returns {Promise<Record<string, number | boolean | string>>} unknown or non-scalar keys left out
+     */
+    async getStyleValues(keys) {
+        const strptr = getStrPtr(JSON.stringify(keys || []))
+        try {
+            const dataptr = Module.ccall('getStyleValues', 'number', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
+            return JSON.parse(WasmRes.readText(dataptr))
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    /**
+     * Sets style values by key name as one undoable edit; false (changing nothing) for an unknown or mistyped key.
+     * @param {Record<string, number | boolean | string>} values
+     * @returns {Promise<boolean>}
+     */
+    async setStyleValues(values) {
+        const strptr = getStrPtr(JSON.stringify(values || {}))
+        try {
+            return Module.ccall('setStyleValues', 'boolean', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    /**
+     * Replaces the score's style with a MuseScore style file (.mss), as one undoable edit.
+     * @param {Uint8Array} data
+     * @returns {Promise<boolean>}
+     */
+    async loadStyle(data) {
+        const dataPtr = getTypedArrayPtr(data)
+        try {
+            return Module.ccall('loadStyle', 'boolean', ['number', 'number', 'number', 'number'], [this.scoreptr, dataPtr, data.byteLength, this.excerptId])
+        } finally {
+            freePtr(dataPtr)
+        }
+    }
+
+    /**
+     * The measure properties of the measure the selection starts in ({} with none).
+     * @returns {Promise<object>}
+     */
+    async getMeasureProperties() {
+        const dataptr = Module.ccall('getMeasureProperties', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])
+        return JSON.parse(WasmRes.readText(dataptr))
+    }
+
+    /**
+     * Applies measure properties (the keys present) as one undoable edit.
+     * @returns {Promise<boolean>}
+     */
+    async setMeasureProperties(values) {
+        const strptr = getStrPtr(JSON.stringify(values || {}))
+        try {
+            return Module.ccall('setMeasureProperties', 'boolean', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    /**
+     * Select ▸ More…: elements like the one at a page point (pageNumber < 0: the single selection), filtered by options.
+     * @returns {Promise<boolean>} whether anything matched
+     */
+    async selectWithOptions(pageNumber, x, y, options) {
+        const strptr = getStrPtr(JSON.stringify(options || {}))
+        try {
+            return Module.ccall('selectWithOptions', 'boolean', ['number', 'number', 'number', 'number', 'number', 'number'],
+                [this.scoreptr, pageNumber, x, y, strptr, this.excerptId])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    /**
+     * Realize the selected chord symbols as notes. voicing / duration -1: each symbol's own setting.
+     * @returns {Promise<boolean>}
+     */
+    async realizeChordSymbols(literal, voicing, duration) {
+        return Module.ccall('realizeChordSymbols', 'boolean', ['number', 'boolean', 'number', 'number', 'number'],
+            [this.scoreptr, literal, voicing, duration, this.excerptId])
     }
 
     async setSelectedElementProperty(propertyName, value) {

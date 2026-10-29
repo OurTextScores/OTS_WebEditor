@@ -109,6 +109,7 @@ export const MENUS: readonly MenuDefinition[] = [
         item('edit.select.similar'),
         item('edit.select.similarStaff'),
         item('edit.select.similarRange'),
+        item('edit.select.more'),
       ),
       submenu(
         'Move Selection',
@@ -284,6 +285,10 @@ export const MENUS: readonly MenuDefinition[] = [
     id: 'format',
     label: 'Format',
     children: [
+      item('format.style'),
+      item('format.pageSettings'),
+      item('format.loadStyle'),
+      separator,
       submenu('Breaks', item('format.break.line'), item('format.break.page')),
       family('format.beam', 'Beams'),
       item('format.flip'),
@@ -307,6 +312,7 @@ export const MENUS: readonly MenuDefinition[] = [
       item('tools.implode'),
       item('tools.regroup'),
       item('tools.resequence'),
+      item('tools.realizeHarmony'),
       separator,
       item('tools.relayout'),
       submenu(

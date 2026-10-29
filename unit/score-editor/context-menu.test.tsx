@@ -55,6 +55,18 @@ const target = (overrides: Partial<ContextMenuTarget>): ContextMenuTarget => ({
 
 const registered = (t: ContextMenuTarget) => shape(pruneMenuNodes(contextMenuFor(t), allCommandsRegistry()));
 
+/** Select ▸ for one element; More… carries whether the pattern is a note (MuseScore's Select Note dialog). */
+const selectFor = (note: boolean) => ({
+  Select: [
+    'edit.select.similar:Similar',
+    'edit.select.similarStaff:Similar on This Staff',
+    `edit.select.more(${JSON.stringify({ note })}):More`,
+  ],
+});
+const CLIPBOARD = ['edit.cut', 'edit.copy', 'edit.paste', 'edit.swapClipboard', 'edit.delete'];
+/** `makeElementItems` in full, for a note (the default target) or another element. */
+const elementMenu = (note: boolean) => [...CLIPBOARD, selectFor(note), '—', 'edit.element', '—', 'format.style'];
+
 describe('which menu a right-click opens (MuseScore selectionType)', () => {
   it('follows the hit element over the selection', () => {
     expect(menuTypeFor('Note', range)).toBe('Note');
@@ -135,24 +147,15 @@ describe('selection on right-click (mousePress_considerSelect)', () => {
 });
 
 describe('menu contents (NotationContextMenuModel), as registered in OTS today', () => {
-  it('gives an element the clipboard block, Select, Edit Element and nothing unregistered', () => {
-    expect(registered(target({}))).toEqual([
-      'edit.cut',
-      'edit.copy',
-      'edit.paste',
-      'edit.swapClipboard',
-      'edit.delete',
-      { Select: ['edit.select.similar:Similar', 'edit.select.similarStaff:Similar on This Staff'] },
-      '—',
-      'edit.element',
-    ]);
+  it('gives an element the clipboard block, Select, Edit Element and Style', () => {
+    expect(registered(target({}))).toEqual(elementMenu(true));
   });
 
-  it('offers Similar in This Range for a range, and only More… (not yet in OTS) for a list', () => {
+  it('offers Similar in This Range for a range, and only More… for a list', () => {
     expect(registered(target({ selection: range }))).toContainEqual({
-      Select: ['edit.select.similarRange:Similar in This Range'],
+      Select: ['edit.select.similarRange:Similar in This Range', 'edit.select.more({"note":true}):More'],
     });
-    expect(JSON.stringify(registered(target({ selection: list })))).not.toContain('Select');
+    expect(registered(target({ selection: list }))).toContainEqual({ Select: ['edit.select.more({"note":true}):More'] });
   });
 
   it('patterns Select ▸ Similar on the right-clicked element', () => {
@@ -214,11 +217,17 @@ describe('menu contents (NotationContextMenuModel), as registered in OTS today',
         ],
       },
       'format.system.fromSelection',
+      '—',
+      'measure.properties',
     ]);
   });
 
-  it('has nothing for blank paper until OTS has page settings, so no menu opens', () => {
-    expect(registered(target({ menuType: 'Page', selection: none, editable: false }))).toEqual([]);
+  it('gives blank paper MuseScore’s page menu', () => {
+    expect(registered(target({ menuType: 'Page', selection: none, editable: false }))).toEqual([
+      'format.style',
+      'format.pageSettings',
+      'format.loadStyle',
+    ]);
   });
 
   it('presets each Insert Measures entry’s position for the form', () => {
@@ -231,21 +240,13 @@ describe('menu contents (NotationContextMenuModel), as registered in OTS today',
 });
 
 describe('type-specific menus (makeItemsByElementType), as registered in OTS today', () => {
-  const ELEMENT = [
-    'edit.cut',
-    'edit.copy',
-    'edit.paste',
-    'edit.swapClipboard',
-    'edit.delete',
-    { Select: ['edit.select.similar:Similar', 'edit.select.similarStaff:Similar on This Staff'] },
-    '—',
-    'edit.element',
-  ];
+  const ELEMENT = elementMenu(false);
   const menu = (menuType: string, over: Partial<ContextMenuTarget> = {}) =>
     registered(target({ menuType, ...over }));
 
   it('opens the Properties panel for the "…Properties" dialogs OTS does not have yet', () => {
     expect(menu('StaffText')).toEqual([...ELEMENT, '—', 'format.elementProperties:Staff Text Properties']);
+    expect(menu('Note').at(-1)).toBe('format.style');
     expect(menu('SystemText').at(-1)).toBe('format.elementProperties:System Text Properties');
     expect(menu('TripletFeel').at(-1)).toBe('format.elementProperties:System Text Properties');
     expect(menu('TimeSig').at(-1)).toBe('format.elementProperties:Time Signature Properties');
@@ -253,8 +254,11 @@ describe('type-specific menus (makeItemsByElementType), as registered in OTS tod
   });
 
   it('offers Add Fretboard Diagram on a chord symbol not already on one', () => {
-    expect(menu('Harmony', { flags: {} }).at(-1)).toBe('add.fretboardForHarmony:Add Fretboard Diagram');
-    expect(menu('Harmony', { flags: { harmonyHasFretDiagram: true } })).toEqual(ELEMENT);
+    expect(menu('Harmony', { flags: {} }).slice(-2)).toEqual([
+      'add.fretboardForHarmony:Add Fretboard Diagram',
+      'tools.realizeHarmony',
+    ]);
+    expect(menu('Harmony', { flags: { harmonyHasFretDiagram: true } })).toEqual([...ELEMENT, '—', 'tools.realizeHarmony']);
   });
 
   it('offers Add Chord Symbol on a diagram without one', () => {
@@ -263,12 +267,7 @@ describe('type-specific menus (makeItemsByElementType), as registered in OTS tod
   });
 
   it('gives a chord symbol or diagram in a fretboard-diagram frame Copy, Hide and Select only', () => {
-    const fretBox = [
-      'edit.copy',
-      'edit.delete:Hide',
-      '—',
-      { Select: ['edit.select.similar:Similar', 'edit.select.similarStaff:Similar on This Staff'] },
-    ];
+    const fretBox = ['edit.copy', 'edit.delete:Hide', '—', selectFor(false), '—', 'format.style'];
     expect(menu('Harmony', { flags: { inFretBox: true } })).toEqual(fretBox);
     expect(menu('FretDiagram', { flags: { inFretBox: true } })).toEqual(fretBox);
   });
@@ -296,9 +295,7 @@ describe('type-specific menus (makeItemsByElementType), as registered in OTS tod
   });
 
   it('gives play-count text on a barline Select only, and nothing while it is being edited', () => {
-    expect(menu('Text', { flags: { parentIsBarline: true } })).toEqual([
-      { Select: ['edit.select.similar:Similar', 'edit.select.similarStaff:Similar on This Staff'] },
-    ]);
+    expect(menu('Text', { flags: { parentIsBarline: true } })).toEqual([selectFor(false), '—', 'format.style']);
     expect(menu('Text', { flags: { parentIsBarline: true }, textEditing: true })).toEqual([]);
     expect(menu('Text', { flags: {} })).toEqual(ELEMENT);
   });

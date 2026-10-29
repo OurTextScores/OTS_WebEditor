@@ -1,5 +1,7 @@
 import {
   READ_ONLY_REASON,
+  mutable,
+  needsBarTarget,
   needsRange,
   needsSelection,
   needsSelectionOutsideInput,
@@ -13,6 +15,7 @@ import {
   type Enabled,
 } from '../../lib/commands/types';
 import { FRAME_TEXT_KINDS, type FrameTextKind } from './commands/context-menu-edits';
+import { pickFile } from './file-picker';
 import type { EditorCommandProps } from './editorProps';
 
 /**
@@ -136,6 +139,58 @@ export function buildContextMenuCommands(getProps: () => EditorCommandProps): An
         },
       }),
     ),
+    // The settings dialogs (docs/private/RIGHT_CLICK_CONTEXT_MENU_DESIGN_2026-10-28.md, Phase 4).
+    ...(
+      [
+        ['format.style', 'Style', 'style', ['engraving', 'spacing', 'font', 'music font']],
+        ['format.pageSettings', 'Page Settings', 'pageSettings', ['page size', 'margins', 'staff space']],
+      ] as const
+    ).map(([id, label, kind, keywords]) =>
+      defineCommand({
+        id,
+        label,
+        opensDialog: true,
+        keywords,
+        enabled: withCheck(mutable, has('onOpenScoreDialog')),
+        run: () => getProps().onOpenScoreDialog?.(kind),
+      }),
+    ),
+    defineCommand<File | undefined>({
+      id: 'format.loadStyle',
+      label: 'Load Style',
+      opensDialog: true,
+      keywords: ['mss', 'style file'],
+      enabled: withCheck(mutable, has('onLoadStyle')),
+      run: async (_ctx, file) => {
+        const chosen = file ?? (await pickFile('.mss'));
+        if (chosen) await getProps().onLoadStyle?.(chosen);
+      },
+    }),
+    defineCommand({
+      id: 'measure.properties',
+      label: 'Measure Properties',
+      opensDialog: true,
+      keywords: ['bar properties', 'irregular', 'actual duration', 'pickup'],
+      enabled: withCheck(needsBarTarget, has('onOpenScoreDialog')),
+      run: () => getProps().onOpenScoreDialog?.('measureProperties'),
+    }),
+    defineCommand<{ at?: { page: number; x: number; y: number }; note?: boolean } | undefined>({
+      id: 'edit.select.more',
+      label: 'Select More',
+      opensDialog: true,
+      keywords: ['select similar', 'filter', 'same pitch'],
+      // Patterned on the right-clicked element, else the single selection (the engine refuses neither).
+      enabled: withCheck(needsSelection, has('onOpenScoreDialog')),
+      run: (_ctx, context) => getProps().onOpenScoreDialog?.('selectMore', context ?? {}),
+    }),
+    defineCommand({
+      id: 'tools.realizeHarmony',
+      label: 'Realize Chord Symbols',
+      opensDialog: true,
+      keywords: ['chord symbols to notes', 'harmony'],
+      enabled: withCheck(needsSelection, has('onOpenScoreDialog')),
+      run: () => getProps().onOpenScoreDialog?.('realizeHarmony'),
+    }),
     defineCommand({
       id: 'shell.contextMenu',
       label: 'Context Menu',

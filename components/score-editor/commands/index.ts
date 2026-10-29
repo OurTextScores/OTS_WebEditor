@@ -5,3 +5,4 @@ export * from './pitch-and-duration';
 export * from './text-annotations';
 export * from './select-similar';
 export * from './context-menu-edits';
+export * from './score-dialog-apply';
