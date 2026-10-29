@@ -1,6 +1,7 @@
 import { useLayoutEffect, useMemo } from 'react';
 import { useProvideCommandContext, useRegisterCommands } from '../../lib/commands';
 import { useLatestCallbackFacade } from '../../lib/use-latest-callback-facade';
+import { buildContextMenuCommands } from './contextMenuCommands';
 import type { EditorCommandProps } from './editorProps';
 import { buildEditorCommands, deriveRibbonCommandContext } from './editorCommands';
 
@@ -16,7 +17,10 @@ export function useEditorCommands(props: EditorCommandProps): void {
     propsRef.current = () => props;
   });
 
-  const commands = useMemo(() => buildEditorCommands(getProps), [getProps]);
+  const commands = useMemo(
+    () => [...buildEditorCommands(getProps), ...buildContextMenuCommands(getProps)],
+    [getProps],
+  );
   useRegisterCommands('global', commands);
 
   // Rebuilt every render, but `useProvideCommandContext` compares field by field and only

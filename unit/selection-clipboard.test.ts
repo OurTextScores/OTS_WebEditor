@@ -3,6 +3,8 @@ import {
   copySelectionToClipboard,
   pasteClipboardPayload,
   readSelectionPayload,
+  swapSelectionWithClipboard,
+  type SelectionClipboardPayload,
 } from '../lib/selection-clipboard';
 
 describe('readSelectionPayload', () => {
@@ -197,6 +199,61 @@ describe('copySelectionToClipboard', () => {
         store,
       }),
     ).toBe(false);
+    expect(store).not.toHaveBeenCalled();
+  });
+});
+
+describe('swapSelectionWithClipboard (MuseScore swapSelection)', () => {
+  const payload = (mimeType: string) => ({ mimeType, data: new Uint8Array([1]) });
+
+  it('pastes the clipboard, then leaves the replaced selection on it', async () => {
+    let clipboard: SelectionClipboardPayload | null = payload('old');
+    const order: string[] = [];
+    const swapped = await swapSelectionWithClipboard({
+      readPayload: () => clipboard,
+      copy: async (store) => {
+        order.push('copy');
+        store(payload('replaced'));
+        return true;
+      },
+      paste: async () => {
+        order.push(`paste ${clipboard?.mimeType}`);
+      },
+      store: (next) => {
+        clipboard = next;
+      },
+    });
+    expect(swapped).toBe(true);
+    expect(order).toEqual(['copy', 'paste old']);
+    expect(clipboard).toEqual(payload('replaced'));
+  });
+
+  it('does nothing, and says so, with an empty clipboard', async () => {
+    const onEmpty = vi.fn();
+    const paste = vi.fn();
+    const swapped = await swapSelectionWithClipboard({
+      readPayload: () => null,
+      copy: async () => true,
+      paste,
+      store: vi.fn(),
+      onEmpty,
+    });
+    expect(swapped).toBe(false);
+    expect(onEmpty).toHaveBeenCalled();
+    expect(paste).not.toHaveBeenCalled();
+  });
+
+  it('keeps the clipboard when the selection cannot be copied', async () => {
+    const store = vi.fn();
+    const paste = vi.fn();
+    const swapped = await swapSelectionWithClipboard({
+      readPayload: () => payload('old'),
+      copy: async () => false,
+      paste,
+      store,
+    });
+    expect(swapped).toBe(false);
+    expect(paste).not.toHaveBeenCalled();
     expect(store).not.toHaveBeenCalled();
   });
 });

@@ -21,6 +21,31 @@ export type ScoreObjectHit =
       location: { measureIndex: number | null; staffIndex: number | null; voiceIndex: number };
       geometry: { page: number; x: number; y: number; width: number; height: number } | null };
 
+/**
+ * What the score's right-click menu reads about the element under the pointer and the selection, without
+ * changing either (`contextHitAtPoint`, engine/musescore/bridge/contexthit.h). `type` is the engine's type
+ * name; blank staff space reports its bar ("Measure"). `selected` follows the SVG's "selected" class, widened
+ * to a point inside the selected range.
+ */
+export interface ContextHitReport {
+  hit: {
+    type: string;
+    selected: boolean;
+    editable: boolean;
+    staffIdx: number | null;
+    drumStaff: boolean;
+    flags: {
+      inFretBox?: boolean;
+      harmonyHasFretDiagram?: boolean;
+      fretHasHarmony?: boolean;
+      snapBefore?: boolean;
+      snapAfter?: boolean;
+      parentIsBarline?: boolean;
+    };
+  } | null;
+  selection: { kind: 'none' | 'single' | 'list' | 'range'; type: string | null };
+}
+
 /** One part's vertical extent within one laid-out system, in page coordinates. */
 export interface StaffSystemBand {
   page: number;
@@ -383,6 +408,15 @@ export interface Score {
    * These methods may be undefined if the WASM bindings were not compiled with mutation support.
    */
   hitTestScoreObject?: (pageNumber: number, x: number, y: number) => Promise<ScoreObjectHit>;
+  contextHitAtPoint?: (pageNumber: number, x: number, y: number) => Promise<ContextHitReport>;
+  contextSelectionInfo?: () => Promise<ContextHitReport>;
+  /** Select ▸ Similar (0), on this staff (1), in this range (2); pageNumber < 0 patterns on the single selection. */
+  selectSimilar?: (
+    mode: 0 | 1 | 2,
+    pageNumber: number,
+    x: number,
+    y: number,
+  ) => Promise<boolean> | boolean;
   selectElementAtPoint?: (pageNumber: number, x: number, y: number) => Promise<unknown> | unknown;
   selectMeasureAtPoint?: (pageNumber: number, x: number, y: number) => Promise<unknown> | unknown;
   extendMeasureSelectionAtPoint?: (

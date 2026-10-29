@@ -68,6 +68,8 @@ export interface ShellUiState {
   readonly embedOpen: boolean;
   /** The command whose argument form is showing, if any. */
   readonly form: CommandId | null;
+  /** Values the form opens with in place of its fields' defaults (a context-menu entry's preset). */
+  readonly formDefaults: Readonly<Record<string, string>> | null;
   readonly recentScores: readonly RecentScore[];
   readonly view: ShellView;
   /** Whether the status bar is pinned; when not, it peeks while the pointer is at the edge. */
@@ -90,6 +92,7 @@ const initial: ShellUiState = {
   shortcutsOpen: false,
   embedOpen: false,
   form: null,
+  formDefaults: null,
   recentScores: [],
   view: EMPTY_SHELL_VIEW,
   statusBarPinned: readStatusBarPinned(),
@@ -127,9 +130,12 @@ export const setEmbedOpen = (open: boolean): void => {
   if (state.embedOpen !== open) update({ embedOpen: open });
 };
 
-export const openCommandForm = (commandId: CommandId): void => update({ form: commandId });
+export const openCommandForm = (
+  commandId: CommandId,
+  formDefaults: Readonly<Record<string, string>> | null = null,
+): void => update({ form: commandId, formDefaults });
 export const closeCommandForm = (): void => {
-  if (state.form !== null) update({ form: null });
+  if (state.form !== null) update({ form: null, formDefaults: null });
 };
 
 /** Replaces the list only when it actually changed, so a re-render does not notify. */

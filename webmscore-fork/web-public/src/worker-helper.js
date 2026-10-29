@@ -129,6 +129,9 @@ class WebMscoreW {
         // presence as proof of a native export. Older packages omit this path.
         if (!capabilities?.hitTestScoreObject) Object.defineProperty(instance, 'hitTestScoreObject', { value: undefined })
         if (!capabilities?.moveSelectedChordRestToStaff) Object.defineProperty(instance, 'moveSelectedChordRestToStaff', { value: undefined })
+        if (!capabilities?.contextMenu) {
+            for (const name of ['contextHitAtPoint', 'contextSelectionInfo', 'selectSimilar']) Object.defineProperty(instance, name, { value: undefined })
+        }
         if (!capabilities?.systemLocks) {
             for (const name of ['getSystemLockState', 'setSystemLock', 'moveSelectedMeasureToSystem']) {
                 Object.defineProperty(instance, name, { value: undefined })
@@ -308,6 +311,18 @@ class WebMscoreW {
 
     setSelectedElementProperty(propertyName, value) {
         return this.rpc('setSelectedElementProperty', [propertyName, value])
+    }
+
+    contextHitAtPoint(pageNumber, x, y) {
+        return this.rpc('contextHitAtPoint', [pageNumber, x, y])
+    }
+
+    contextSelectionInfo() {
+        return this.rpc('contextSelectionInfo')
+    }
+
+    selectSimilar(mode, pageNumber, x, y) {
+        return this.rpc('selectSimilar', [mode, pageNumber, x, y])
     }
 
     addFretDiagram(pattern) {

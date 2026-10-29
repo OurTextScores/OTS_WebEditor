@@ -25,6 +25,7 @@ export type MutationMethods = Pick<
   | 'dragGrip'
   | 'endGripEdit'
   | 'selectAll'
+  | 'selectSimilar'
   | 'getSelectionBoundingBox'
   | 'getSelectionBoundingBoxes'
   | 'clearSelection'

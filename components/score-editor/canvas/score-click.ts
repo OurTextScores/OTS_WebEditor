@@ -30,8 +30,27 @@ export type ScoreClickContext = Pick<
   closeGripEdit: (commit: boolean) => void;
 };
 
-/** A click on the score canvas: selecting an element, a bar or a range, text editing, note input, and everything a click can mean in each mode. */
-export function handleScoreClickImpl(ctx: ScoreClickContext, e: React.MouseEvent) {
+/** What a click did: selected something, hit nothing selectable, moved playback, or was not handled. */
+export type ScoreClickOutcome = 'selected' | 'miss' | 'seek' | 'ignored';
+
+export interface ScoreClickOptions {
+  /**
+   * A right-click selecting before its context menu opens (MuseScore's
+   * `mousePress_considerSelect` for the right button): a miss leaves the selection alone, a
+   * modifier never toggles anything off, and note input is the caller's to handle.
+   */
+  readonly secondary?: boolean;
+}
+
+/**
+ * A click on the score canvas: selecting an element, a bar or a range, text editing, note input, and everything a click can mean in each mode.
+ * Resolves once the engine selection has settled, with what the click did.
+ */
+export async function handleScoreClickImpl(
+  ctx: ScoreClickContext,
+  e: React.MouseEvent,
+  { secondary = false }: ScoreClickOptions = {},
+): Promise<ScoreClickOutcome> {
   const {
     core,
     clientToScorePoint,
@@ -67,16 +86,17 @@ export function handleScoreClickImpl(ctx: ScoreClickContext, e: React.MouseEvent
   } = core;
 
   if (!interactionReady) {
-    return;
+    return 'ignored';
   }
   if (gripEdit) {
     closeGripEdit(false);
   }
-  if (ignoreNextClickRef.current) {
+  // The click that ends a drag; a right-click is never that click.
+  if (!secondary && ignoreNextClickRef.current) {
     ignoreNextClickRef.current = false;
-    return;
+    return 'ignored';
   }
-  if (!containerRef.current || !score) return;
+  if (!containerRef.current || !score) return 'ignored';
 
   // Decided before any selection or note-input work: a seek never changes the editing selection.
   if (
@@ -87,7 +107,7 @@ export function handleScoreClickImpl(ctx: ScoreClickContext, e: React.MouseEvent
       noteInputActive: noteInputActiveRef.current,
     })
   ) {
-    return;
+    return 'seek';
   }
 
   // Invalidate any overlay refresh scheduled by a previous click (double-RAF
@@ -100,15 +120,19 @@ export function handleScoreClickImpl(ctx: ScoreClickContext, e: React.MouseEvent
   selectionOverlayGenerationRef.current += 1;
 
   if (noteInputActiveRef.current && interactiveMutationEnabled) {
+    if (secondary) return 'ignored';
     const scorePoint = clientToScorePoint(e.clientX, e.clientY);
     if (scorePoint) {
       const pageIndex = resolvePageIndex(e.target as Element | null);
       void handlePutNoteAtPoint(pageIndex, scorePoint.x, scorePoint.y);
     }
-    return;
+    return 'ignored';
   }
 
-  const clearSelectionState = gestureLateInputs.current.clearEditorSelection;
+  // A right-click on nothing keeps the selection, as in MuseScore.
+  const clearSelectionState = secondary
+    ? () => undefined
+    : gestureLateInputs.current.clearEditorSelection;
 
   const additiveSelection = e.metaKey || e.ctrlKey || e.shiftKey;
   const isShiftClick = e.shiftKey && !e.metaKey && !e.ctrlKey;
@@ -148,7 +172,7 @@ export function handleScoreClickImpl(ctx: ScoreClickContext, e: React.MouseEvent
       const scorePoint = clientToScorePoint(e.clientX, e.clientY);
       if (!scorePoint) {
         clearSelectionState();
-        return;
+        return 'miss';
       }
       const pageIndex = resolvePageIndex(target);
       const fallback: SelectionFallback = {
@@ -167,7 +191,7 @@ export function handleScoreClickImpl(ctx: ScoreClickContext, e: React.MouseEvent
       // outright, so there is no "add this bar too, keep the others" to build.
       // The only behaviour that isn't already the default replace-click is the
       // toggle-off, handled below.
-      const isCtrlClick = (e.ctrlKey || e.metaKey) && !e.shiftKey;
+      const isCtrlClick = !secondary && (e.ctrlKey || e.metaKey) && !e.shiftKey;
 
       const trySelect = async (): Promise<boolean | 'cleared'> => {
         // Desktop MuseScore maps Shift+Click to SelectType::RANGE and plain
@@ -248,11 +272,11 @@ export function handleScoreClickImpl(ctx: ScoreClickContext, e: React.MouseEvent
         return false;
       };
 
-      trySelect()
-        .then(async (selected) => {
+      return trySelect()
+        .then(async (selected): Promise<ScoreClickOutcome> => {
           if (selected === false || selected === 'cleared') {
             clearSelectionState();
-            return;
+            return 'miss';
           }
 
           // Get selection bounding boxes for keyboard/button enablement
@@ -303,15 +327,16 @@ export function handleScoreClickImpl(ctx: ScoreClickContext, e: React.MouseEvent
               reselect: true,
             });
           }
+          return 'selected';
         })
-        .catch((err) => {
+        .catch((err): ScoreClickOutcome => {
           console.warn('selectMeasureAtPoint/selectElementAtPoint not available or failed:', err);
           clearSelectionState();
+          return 'miss';
         });
-      return;
     }
     clearSelectionState();
-    return;
+    return 'miss';
   }
 
   const targetElement = element;
@@ -378,6 +403,7 @@ export function handleScoreClickImpl(ctx: ScoreClickContext, e: React.MouseEvent
 
     const canModeSelect = Boolean(score?.selectElementAtPointWithMode);
     const alreadySelected =
+      !secondary &&
       additiveSelection &&
       box.index !== null &&
       selectionBoxes.some((existing) => existing.index === box.index);
@@ -409,10 +435,12 @@ export function handleScoreClickImpl(ctx: ScoreClickContext, e: React.MouseEvent
         )
       : score.selectElementAtPoint?.(pageIndex, selectionX, selectionY);
 
+    let settled: Promise<ScoreClickOutcome> = Promise.resolve('selected');
     if (selectionPromise !== undefined) {
       const selectionRun = Promise.resolve(selectionPromise);
       selectionInFlightRef.current = selectionRun;
-      void selectionRun
+      let outcome: ScoreClickOutcome = 'selected';
+      settled = selectionRun
         .then((selected) => {
           if (selected === false) {
             throw new Error('selectElementAtPoint returned false');
@@ -431,6 +459,7 @@ export function handleScoreClickImpl(ctx: ScoreClickContext, e: React.MouseEvent
         })
         .catch((err) => {
           console.warn('selectElementAtPoint not available or failed:', err);
+          outcome = 'miss';
           setSelectedElement(null);
           setSelectionBoxes([]);
           setSelectedPoint(null);
@@ -442,7 +471,8 @@ export function handleScoreClickImpl(ctx: ScoreClickContext, e: React.MouseEvent
           if (selectionInFlightRef.current === selectionRun) {
             selectionInFlightRef.current = null;
           }
-        });
+        })
+        .then(() => outcome);
     }
 
     if (!additiveSelection) {
@@ -450,7 +480,7 @@ export function handleScoreClickImpl(ctx: ScoreClickContext, e: React.MouseEvent
       setSelectedElement({ x, y, w, h });
       setSelectedIndex(box.index);
       setSelectedPoint({ page: pageIndex, x: centerX, y: centerY });
-      return;
+      return settled;
     }
 
     if (alreadySelected && box.index !== null) {
@@ -478,7 +508,7 @@ export function handleScoreClickImpl(ctx: ScoreClickContext, e: React.MouseEvent
           setSelectedIndex(nextPrimary.index);
         }
       }
-      return;
+      return settled;
     }
 
     // Additive selection: add clicked element as the new primary.
@@ -486,7 +516,9 @@ export function handleScoreClickImpl(ctx: ScoreClickContext, e: React.MouseEvent
     setSelectedElement({ x, y, w, h });
     setSelectedIndex(box.index);
     setSelectedPoint({ page: pageIndex, x: centerX, y: centerY });
-  } else {
+    return settled;
+  }
+  if (!secondary) {
     setSelectedElement(null);
     setSelectionBoxes([]);
     setSelectedPoint(null);
@@ -494,4 +526,5 @@ export function handleScoreClickImpl(ctx: ScoreClickContext, e: React.MouseEvent
     setSelectedElementClasses('');
     setSelectedLayoutBreakSubtype(null);
   }
+  return 'miss';
 }

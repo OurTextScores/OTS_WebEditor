@@ -13,13 +13,15 @@ import { closeCommandForm, getShellUiState, subscribeToShellUi } from './shellSt
 function FormBody({
   commandId,
   form,
+  defaults,
   registry,
 }: {
   commandId: string;
   form: CommandForm;
+  defaults: Readonly<Record<string, string>> | null;
   registry: CommandRegistry;
 }) {
-  const [values, setValues] = useFormValues(form);
+  const [values, setValues] = useFormValues(form, defaults);
 
   return (
     <form
@@ -61,13 +63,24 @@ export function CommandFormDialog({
     () => getShellUiState().form,
     () => getShellUiState().form,
   );
+  const defaults = useSyncExternalStore(
+    subscribeToShellUi,
+    () => getShellUiState().formDefaults,
+    () => getShellUiState().formDefaults,
+  );
   const form = commandId ? COMMAND_FORMS[commandId] : undefined;
 
   return (
     <Dialog open={Boolean(commandId && form)} onOpenChange={(open) => !open && closeCommandForm()}>
       {commandId && form && (
         <DialogContent className="max-w-sm" data-testid="command-form">
-          <FormBody key={commandId} commandId={commandId} form={form} registry={registry} />
+          <FormBody
+            key={`${commandId}${JSON.stringify(defaults)}`}
+            commandId={commandId}
+            form={form}
+            defaults={defaults}
+            registry={registry}
+          />
         </DialogContent>
       )}
     </Dialog>

@@ -6,7 +6,7 @@ import type { OtsModeKind } from '../shell/workspaceMode';
  * the specs' `runCommand` all reach the editor through them, never through these props.
  */
 
-export type MeasureInsertTarget = 'beginning' | 'after-selection' | 'end';
+export type MeasureInsertTarget = 'beginning' | 'before-selection' | 'after-selection' | 'end';
 export type HeaderTextTarget = 'title' | 'subtitle' | 'composer' | 'lyricist';
 export type HeaderEditorPoint = { clientX: number; clientY: number };
 
@@ -212,6 +212,22 @@ export interface EditorCommandProps {
   onRemoveContainingMeasures?: () => void;
   onRemoveTrailingEmptyMeasures?: () => void;
   insertMeasuresDisabled?: boolean;
+  /** Move the selected bars onto the previous or next system (MuseScore's system locks). */
+  onMoveMeasureToSystem?: (direction: 'previous' | 'next') => Promise<unknown> | void;
+  /** Lock the selected bars into one system: MuseScore's Create System from Selection. */
+  onCreateSystemFromSelection?: () => Promise<unknown> | void;
+  /** Open an element for editing (text or handles): at a right-clicked point, else the selection. */
+  onEditElement?: (at?: { clientX: number; clientY: number }) => Promise<unknown> | void;
+  /**
+   * Select ▸ Similar: every element like the pattern, in the score, on its staff, or in the selected range.
+   * The pattern is the element at `at` (the right-clicked one), else the single selection.
+   */
+  onSelectSimilar?: (
+    scope: 'all' | 'staff' | 'range',
+    at?: { page: number; x: number; y: number },
+  ) => Promise<unknown> | void;
+  /** Open the score's context menu at the selection (Shift+F10, the Menu key). */
+  onOpenContextMenu?: () => Promise<unknown> | void;
   parts?: PartSummary[];
   instrumentGroups?: InstrumentTemplateGroup[];
   onAddPart?: (instrumentId: string) => void;

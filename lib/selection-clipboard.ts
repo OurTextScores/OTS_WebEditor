@@ -107,3 +107,30 @@ export async function copySelectionToClipboard(options: {
   store(payload);
   return true;
 }
+
+/**
+ * MuseScore's swapSelection: pastes the clipboard over the selection and leaves on the
+ * clipboard what the paste replaced. The selection is read before the paste, so the stored
+ * payload is the replaced music, not the pasted one. Returns whether the swap happened.
+ */
+export async function swapSelectionWithClipboard(options: {
+  readPayload: () => SelectionClipboardPayload | null;
+  copy: (store: (payload: SelectionClipboardPayload) => void) => Promise<boolean>;
+  paste: () => Promise<unknown>;
+  store: (payload: SelectionClipboardPayload) => void;
+  onEmpty?: () => void;
+}): Promise<boolean> {
+  const { readPayload, copy, paste, store, onEmpty } = options;
+  if (!readPayload()) {
+    onEmpty?.();
+    return false;
+  }
+  let replaced: SelectionClipboardPayload | null = null;
+  const copied = await copy((payload) => {
+    replaced = payload;
+  });
+  if (!copied || !replaced) return false;
+  await paste();
+  store(replaced);
+  return true;
+}

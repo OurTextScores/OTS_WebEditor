@@ -15,6 +15,8 @@ export type MenuNode =
       readonly id: CommandId;
       readonly label?: string;
       readonly arg?: unknown;
+      /** For a command with an argument form: the values it opens with (Insert Measures ▸ Before Selection). */
+      readonly formDefaults?: Readonly<Record<string, string>>;
     }
   /** Every variant of a family: a submenu, or inline items when `inline` is set. */
   | {
@@ -92,12 +94,20 @@ export const MENUS: readonly MenuDefinition[] = [
       item('edit.undo'),
       item('edit.redo'),
       separator,
+      item('edit.cut'),
       item('edit.copy'),
       item('edit.paste'),
+      item('edit.swapClipboard'),
       item('edit.delete'),
       separator,
       item('edit.selectAll'),
       item('edit.deselect'),
+      submenu(
+        'Select Similar',
+        item('edit.select.similar'),
+        item('edit.select.similarStaff'),
+        item('edit.select.similarRange'),
+      ),
       submenu(
         'Move Selection',
         item('edit.select.nextChord'),
@@ -275,6 +285,12 @@ export const MENUS: readonly MenuDefinition[] = [
       item('format.flip'),
       item('format.staff.up'),
       item('format.staff.down'),
+      submenu(
+        'Systems',
+        item('format.measure.toPrevSystem'),
+        item('format.measure.toNextSystem'),
+        item('format.system.fromSelection'),
+      ),
     ],
   },
   {

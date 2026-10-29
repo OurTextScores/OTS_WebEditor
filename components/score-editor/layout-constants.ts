@@ -12,6 +12,7 @@ export const LAYOUT_MODES = {
 
 export const measureInsertTargetMap: Record<MeasureInsertTarget, number> = {
   beginning: 2,
+  'before-selection': 1,
   'after-selection': 0,
   end: 3,
 };

@@ -27,6 +27,8 @@ function setup(over: Partial<ShellEditorBindings> = {}, ctx: Partial<CommandCont
     saveCheckpoint: vi.fn(),
     copy: vi.fn(),
     paste: vi.fn(),
+    cut: vi.fn(),
+    swap: vi.fn(),
     openScore: vi.fn(),
     toggleProgressive: vi.fn(),
     undoTo: vi.fn(async () => {}),
@@ -57,6 +59,8 @@ function setup(over: Partial<ShellEditorBindings> = {}, ctx: Partial<CommandCont
     saveCheckpoint: calls.saveCheckpoint,
     copySelection: calls.copy,
     pasteSelection: calls.paste,
+    cutSelection: calls.cut,
+    swapWithClipboard: calls.swap,
     scoreSummaries: [{ scoreId: 'a', title: 'A', lastUpdated: 1, count: 1 }],
     openScoreFromSummary: calls.openScore,
     zoom: 1,
@@ -280,6 +284,21 @@ describe('checkpoints, recents and clipboard', () => {
     expect(await none.registry.run('edit.paste')).toBe('disabled');
   });
 
+  it('cuts and swaps through the editor’s handlers, on an editable selection only', async () => {
+    const { registry, calls } = setup();
+    await registry.run('edit.cut');
+    await registry.run('edit.swapClipboard');
+    expect(calls.cut).toHaveBeenCalledOnce();
+    expect(calls.swap).toHaveBeenCalledOnce();
+
+    const none = setup({}, { selection: 'none' });
+    expect(await none.registry.run('edit.cut')).toBe('disabled');
+    expect(await none.registry.run('edit.swapClipboard')).toBe('disabled');
+    const readOnly = setup({}, { isMutable: false });
+    expect(await readOnly.registry.run('edit.cut')).toBe('disabled');
+    expect(await readOnly.registry.run('edit.swapClipboard')).toBe('disabled');
+  });
+
   it('will not paste into a read-only surface', async () => {
     const { registry } = setup({}, { isMutable: false });
     expect(await registry.run('edit.paste')).toBe('disabled');
@@ -433,6 +452,16 @@ describe('left dock commands', () => {
     expect(calls.setPanelsVisible).toHaveBeenCalledWith(true);
     // Not the legacy sidebar's state.
     expect(calls.setInspectorOpen).not.toHaveBeenCalled();
+  });
+
+  it('Staff/Part Properties opens the Instruments tab and never closes it', async () => {
+    const dock = dockOf({ isShowing: vi.fn((tab: string) => tab === 'instruments') });
+    const { registry, calls } = setup({ dock: dock as never });
+    await registry.run('instruments.staffProperties');
+    expect(dock.show).toHaveBeenCalledWith('instruments');
+    expect(dock.toggle).not.toHaveBeenCalled();
+    expect(calls.setPanelsVisible).toHaveBeenCalledWith(true);
+    expect(await setup({ dock: null }).registry.run('instruments.staffProperties')).toBe('disabled');
   });
 
   it('Properties does not reveal panels when it is closing the tab', async () => {

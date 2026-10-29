@@ -36,8 +36,11 @@ With a selection, or in note input. Each acts on what is selected.
 | Undo | `Ctrl/Cmd+Z` |
 | Redo | `Ctrl/Cmd+Shift+Z` · `Ctrl/Cmd+Y` |
 | Select All | `Ctrl/Cmd+A` |
+| Cut | `Ctrl/Cmd+X` |
 | Copy | `Ctrl/Cmd+C` |
 | Paste | `Ctrl/Cmd+V` |
+| Swap with Clipboard | `Ctrl/Cmd+Shift+X` |
+| Context Menu | `Shift+F10` · `Ctrl/Cmd+Shift+F10` · `ContextMenu` |
 | Note Input | `N` |
 | Enter a note by letter (Shift adds it to the chord) | `C` · `Shift+C` · `D` · `Shift+D` · `E` · `Shift+E` · `F` · `Shift+F` · `G` · `Shift+G` · `A` · `Shift+A` · `B` · `Shift+B` |
 | Rest | `0` |
@@ -75,6 +78,11 @@ With a selection, or in note input. Each acts on what is selected.
 | Shorter | `Q` |
 | Line Break | `Enter` |
 | Page Break | `Ctrl/Cmd+Enter` |
+| Edit Element | `F2` · `Alt+Shift+E` |
+| Remove Selected Measures | `Ctrl/Cmd+Delete` · `Ctrl/Cmd+Backspace` |
+| Move Measure to Previous System | `Alt+ArrowUp` |
+| Move Measure to Next System | `Alt+ArrowDown` |
+| Create System from Selection | `Alt+S` |
 | Pitch Up | `ArrowUp` |
 | Pitch Down | `ArrowDown` |
 | Up an Octave | `Ctrl/Cmd+ArrowUp` |

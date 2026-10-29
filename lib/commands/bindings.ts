@@ -266,8 +266,13 @@ export const BINDINGS: readonly Binding[] = [
     swallowWhenDisabled: true,
     desktop: 'notation-select-all',
   }),
+  key('Mod+X', 'edit.cut', 'edit', { swallowWhenDisabled: true, desktop: 'action://cut' }),
   key('Mod+C', 'edit.copy', 'edit', { swallowWhenDisabled: true, desktop: 'action://copy' }),
   key('Mod+V', 'edit.paste', 'edit', { swallowWhenDisabled: true, desktop: 'action://paste' }),
+  key('Mod+Shift+X', 'edit.swapClipboard', 'edit', { desktop: 'notation-swap' }),
+  key('Shift+F10', 'shell.contextMenu', 'edit', { desktop: 'notation-context-menu' }),
+  key('Mod+Shift+F10', 'shell.contextMenu', 'edit', { desktop: 'notation-context-menu' }),
+  key('ContextMenu', 'shell.contextMenu', 'edit'),
   key('N', 'add.noteInput', 'edit', { desktop: 'note-input-by-note-name' }),
   ...LETTERS.flatMap((letter, step) => [
     key(letter, 'add.note.step', 'edit', {
@@ -334,6 +339,17 @@ export const BINDINGS: readonly Binding[] = [
   key('Q', 'edit.duration.shorter', 'normal', { desktop: 'half-duration' }),
   key('Enter', 'format.break.line', 'normal', { desktop: 'system-break' }),
   key('Mod+Enter', 'format.break.page', 'normal', { desktop: 'page-break' }),
+  key('F2', 'edit.element', 'normal', { desktop: 'edit-element' }),
+  key('Alt+Shift+E', 'edit.element', 'normal', { desktop: 'edit-element' }),
+  key('Mod+Delete', 'tools.measures.removeSelected', 'normal', { desktop: 'time-delete' }),
+  key('Mod+Backspace', 'tools.measures.removeSelected', 'normal', { desktop: 'time-delete' }),
+  key('Alt+ArrowUp', 'format.measure.toPrevSystem', 'normal', {
+    desktop: 'move-measure-to-prev-system',
+  }),
+  key('Alt+ArrowDown', 'format.measure.toNextSystem', 'normal', {
+    desktop: 'move-measure-to-next-system',
+  }),
+  key('Alt+S', 'format.system.fromSelection', 'normal', { desktop: 'make-into-system' }),
   key('ArrowUp', 'edit.pitch.up', 'normal', { desktop: 'pitch-up' }),
   key('ArrowDown', 'edit.pitch.down', 'normal', { desktop: 'pitch-down' }),
   key('Mod+ArrowUp', 'edit.pitch.octaveUp', 'normal', { desktop: 'pitch-up-octave' }),

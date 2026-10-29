@@ -182,21 +182,26 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* saveMxl(uintptr_t id,int excerpt) {
 
 // As upstream SvgWriter (and the 4.00 fork's): staff lines joined per system, then the page's elements in z order, each
 // drawn under its own class (type name, plus "selected" as in the 4.00 bridge) so the editor can hit-test the SVG
-static std::string svgClass(const EngravingItem* item, const Selection& selection)
+// Exactly the 4.00 fork's rule (svggenerator getClass): the item itself is the single selection, or a member of a
+// list or copyable range selection. Not item->selected(): segments of a selected spanner would be marked, and the
+// editor treats a click on a "selected" element as a click on the current selection (it keeps it). The context
+// menu's hit report (contexthit.h) uses the same rule, so what the SVG shows and what the menu keeps agree.
+static bool drawnAsSelected(const EngravingItem* item, const Selection& selection)
 {
-    std::string cls = item->typeName();
-    // Exactly the 4.00 fork's rule (svggenerator getClass): the item itself is the single selection, or a member of a
-    // list or copyable range selection. Not item->selected(): segments of a selected spanner would be marked, and the
-    // editor treats a click on a "selected" element as a click on the current selection (it keeps it).
     const auto& elements = selection.elements();
     const bool member = std::find(elements.begin(), elements.end(), item) != elements.end();
     // A single selected spanner (4.7 selects the Ottava where 4.00 selected the segment) is drawn as its segments
     const bool singleSpanner = selection.isSingle() && item->isSpannerSegment()
                                && toSpannerSegment(item)->spanner() == selection.element();
-    const bool selected = selection.isSingle() ? selection.element() == item || singleSpanner
-                          : selection.isRange() ? selection.canCopy() && member
-                          : selection.isList() && member;
-    if (selected) cls += " selected";
+    return selection.isSingle() ? selection.element() == item || singleSpanner
+           : selection.isRange() ? selection.canCopy() && member
+           : selection.isList() && member;
+}
+
+static std::string svgClass(const EngravingItem* item, const Selection& selection)
+{
+    std::string cls = item->typeName();
+    if (drawnAsSelected(item, selection)) cls += " selected";
     return cls;
 }
 
@@ -314,6 +319,7 @@ EMSCRIPTEN_KEEPALIVE bool redo(uintptr_t id,int excerpt) {
 #include "undohistory.h"
 
 #include "selection.h"
+#include "contexthit.h"
 #include "objectgeometry.h"
 
 #include "selectiongeometry.h"

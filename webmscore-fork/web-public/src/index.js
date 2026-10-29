@@ -311,6 +311,9 @@ class WebMscore {
         this.excerptId = -1
         if (!Module._hitTestScoreObject) Object.defineProperty(this, 'hitTestScoreObject', { value: undefined })
         if (!Module._moveSelectedChordRestToStaff) Object.defineProperty(this, 'moveSelectedChordRestToStaff', { value: undefined })
+        if (!Module._contextHitAtPoint || !Module._contextSelectionInfo || !Module._selectSimilar) {
+            for (const name of ['contextHitAtPoint', 'contextSelectionInfo', 'selectSimilar']) Object.defineProperty(this, name, { value: undefined })
+        }
         if (!Module._getSystemLockState || !Module._setSystemLock || !Module._moveSelectedMeasureToSystem) {
             for (const name of ['getSystemLockState', 'setSystemLock', 'moveSelectedMeasureToSystem']) {
                 Object.defineProperty(this, name, { value: undefined })
@@ -464,6 +467,35 @@ class WebMscore {
     async getSelectedElementProperties() {
         const dataptr = Module.ccall('getSelectedElementProperties', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])
         return JSON.parse(WasmRes.readText(dataptr))
+    }
+
+    /**
+     * The element under a right-click and the selection, without changing either (the
+     * score's context menu). Page-relative point, as selectElementAtPoint.
+     * @returns {Promise<{ hit: object | null, selection: { kind: string, type: string | null } }>}
+     */
+    async contextHitAtPoint(pageNumber, x, y) {
+        const dataptr = Module.ccall('contextHitAtPoint', 'number', ['number', 'number', 'number', 'number', 'number'],
+            [this.scoreptr, pageNumber, x, y, this.excerptId])
+        return JSON.parse(WasmRes.readText(dataptr))
+    }
+
+    /**
+     * contextHitAtPoint's report for the single selected element (the keyboard's context menu).
+     */
+    async contextSelectionInfo() {
+        const dataptr = Module.ccall('contextSelectionInfo', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])
+        return JSON.parse(WasmRes.readText(dataptr))
+    }
+
+    /**
+     * Select ▸ Similar (mode 0), Similar on this staff (1), Similar in this range (2), patterned on
+     * the element at a page-relative point, or with pageNumber < 0 on the single selection.
+     * @returns {Promise<boolean>} whether anything is selected afterwards
+     */
+    async selectSimilar(mode, pageNumber, x, y) {
+        return Module.ccall('selectSimilar', 'boolean', ['number', 'number', 'number', 'number', 'number', 'number'],
+            [this.scoreptr, mode, pageNumber, x, y, this.excerptId])
     }
 
     async setSelectedElementProperty(propertyName, value) {

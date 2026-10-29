@@ -80,6 +80,7 @@ export const COMMAND_FORMS: Readonly<Record<CommandId, CommandForm>> = {
         defaultValue: 'after-selection',
         options: [
           { value: 'beginning', label: 'Beginning' },
+          { value: 'before-selection', label: 'Before Selection' },
           { value: 'after-selection', label: 'After Selection' },
           { value: 'end', label: 'End' },
         ],

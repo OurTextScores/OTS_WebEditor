@@ -31,7 +31,8 @@ import { type CodeEditorThemeMode } from './CodeMirrorEditor';
 import { asRecord } from '../lib/as-record';
 import { type AiEditProposal } from '../lib/ai-edit-proposal';
 import { fetchJsonOrThrow } from '../lib/fetch-json';
-import { copySelectionToClipboard, pasteClipboardPayload } from '../lib/selection-clipboard';
+import { copySelectionToClipboard, pasteClipboardPayload, swapSelectionWithClipboard } from '../lib/selection-clipboard';
+import { ScoreContextMenu, useScoreContextMenu } from './score-editor/context-menu';
 import type { MeasureInsertTarget, HeaderTextTarget } from './score-editor/editorProps';
 import { noPerf, startPerf, type PerfHandle } from '../lib/perf-trace';
 import { svgScreenMapping } from '../lib/svg-screen-matrix';
@@ -93,6 +94,7 @@ import {
   removeContainingMeasures,
   removeTrailingEmptyMeasures,
   runRangeToolOnSelection,
+  selectSimilar,
   setAccidental,
   setBarLineType,
   setBeamMode,
@@ -298,7 +300,7 @@ import { requestAiPatch } from './score-editor/ai-patch-request';
 import { undoAvailability } from './score-editor/undoHistory';
 import { useEditorCore, type EditorCoreLateInputs } from './score-editor/core';
 import { promptForText } from './score-editor/prompt-for-text';
-import { useCanvasGestures, type CanvasGesturesLateInputs } from './score-editor/canvas';
+import { editPointerFor, useCanvasGestures, type CanvasGesturesLateInputs, type EditPointer } from './score-editor/canvas';
 import { comparePaneClick, compareScoreClick, refreshCompareSelectionGeometryImpl, setCompareNoteInputModeImpl } from './score-editor/compare/compare-pane-clicks';
 import { acceptAllAiChanges, compareKeyboardShortcut, compareOverwriteBlock, saveCompareCheckpoint } from './score-editor/compare/compare-actions';
 import { sendDiffFeedback, updateAiOutputImpl } from './score-editor/ai-diff-feedback';
@@ -7313,15 +7315,19 @@ export default function ScoreEditor() {
     await refreshScoreMetadata(score);
   };
 
+  const selectionReaders = () => ({
+    getType: score
+      ? (requireMutation('selectionMimeType') as (() => Promise<string>) | null)
+      : null,
+    getData: score
+      ? (requireMutation('selectionMimeData') as (() => Promise<Uint8Array>) | null)
+      : null,
+    ensureSelection: ensureSelectionInWasm,
+  });
+
   const handleCopySelection = () => {
     const run = copySelectionToClipboard({
-      getType: score
-        ? (requireMutation('selectionMimeType') as (() => Promise<string>) | null)
-        : null,
-      getData: score
-        ? (requireMutation('selectionMimeData') as (() => Promise<Uint8Array>) | null)
-        : null,
-      ensureSelection: ensureSelectionInWasm,
+      ...selectionReaders(),
       store: (payload) => {
         clipboardRef.current = payload;
       },
@@ -7346,6 +7352,22 @@ export default function ScoreEditor() {
     });
     return performMutation('paste selection', () => pastePromise, { skipWasmReselect: true });
   };
+
+  // MuseScore's cutSelection: copy, then delete what was copied.
+  const handleCutSelection = async () => {
+    if (await handleCopySelection()) await handleDeleteOrBreak();
+  };
+
+  const handleSwapWithClipboard = () =>
+    swapSelectionWithClipboard({
+      readPayload: () => clipboardRef.current,
+      copy: (store) => copySelectionToClipboard({ ...selectionReaders(), store }),
+      paste: async () => handlePasteSelection(),
+      store: (payload) => {
+        clipboardRef.current = payload;
+      },
+      onEmpty: () => notifyWarning('Nothing copied yet.'),
+    });
 
   const handleCompareKeyboardShortcut = useCallback((event: KeyboardEvent) => compareKeyboardShortcut({
       queueCompareKeyboardOperation,
@@ -8052,6 +8074,7 @@ export default function ScoreEditor() {
     gripEdit,
     handleGripPointerDown,
     handleScoreClick,
+    selectForContextMenu,
     handleScoreMouseDown,
     handleScoreMouseMove,
     handleScoreMouseUp,
@@ -8081,7 +8104,8 @@ export default function ScoreEditor() {
 
   useEscapeLayer(Boolean(gripEdit), ESCAPE_PRIORITY.gripEdit, () => closeGripEdit(false));
 
-    const handleScoreDoubleClick = (event: React.MouseEvent) => {
+  /** Double-click and Edit Element (F2): text opens in the inline editor, anything else shows its handles. */
+  const editElementAt = (event: EditPointer) => {
     const target = event.target as Element | null;
     let textTarget = target;
     while (textTarget && textTarget !== containerRef.current) {
@@ -8097,6 +8121,12 @@ export default function ScoreEditor() {
     }
     event.preventDefault();
     void beginGripEditAtPoint(resolvePageIndex(target), point.x, point.y);
+  };
+  const handleScoreDoubleClick = (event: React.MouseEvent) => editElementAt(event);
+
+  const handleEditElement = async (at?: { clientX: number; clientY: number }) => {
+    const pointer = await editPointerFor(containerRef.current, at);
+    if (pointer) editElementAt(pointer);
   };
 
     const updateNoteInputShadow = (clientX: number, clientY: number, target: Element | null) => updateNoteInputShadowImpl({
@@ -8151,7 +8181,7 @@ export default function ScoreEditor() {
 
   gestureLateInputs.current = { updateNoteInputShadow, refreshScoreSpatium, clearEditorSelection, seekPlaybackFromClick: following.seekFromClick };
 
-    async function openTextEditorFromEvent(e: React.MouseEvent) {
+    async function openTextEditorFromEvent(e: EditPointer) {
     if (!containerRef.current || !score) {
       return;
     }
@@ -8219,9 +8249,23 @@ export default function ScoreEditor() {
     }
   }
 
-  const handleScoreContextMenu = (e: React.MouseEvent) => {
-    void openTextEditorFromEvent(e);
-  };
+  const scoreContextMenu = useScoreContextMenu({
+    score,
+    enabled: Boolean(score) && interactionReady && !compareView,
+    noteInputActiveRef,
+    containerRef,
+    selectionBoxes,
+    hasBackendHighlighting,
+    textEditing: Boolean(textEditorPosition),
+    clientToScorePoint,
+    engravingPointAt: (clientX, clientY, target) => {
+      const point = clientToEngravingPoint(clientX, clientY, target);
+      return point ? { page: resolvePageIndex(target), x: point.x, y: point.y } : null;
+    },
+    selectForContextMenu,
+    runSerializedScoreOperation,
+  });
+  const handleScoreContextMenu = (e: React.MouseEvent) => void scoreContextMenu.openFromPointer(e);
 
   const closeTextEditor = () => {
     setTextEditorPosition(null);
@@ -8312,7 +8356,7 @@ export default function ScoreEditor() {
     aiToolsOpen: aiToolsSidebarOpen, setAiTool: setXmlSidebarTab, setPanelsVisible,
     setAiToolsOpen: (open) => setXmlSidebarMode(open ? 'open' : 'closed'),
     saveCheckpoint: handleSaveCheckpoint, copySelection: handleCopySelection,
-    pasteSelection: handlePasteSelection, scoreSummaries, openScoreFromSummary: handleOpenScoreFromSummary,
+    pasteSelection: handlePasteSelection, cutSelection: handleCutSelection, swapWithClipboard: handleSwapWithClipboard, scoreSummaries, openScoreFromSummary: handleOpenScoreFromSummary,
     zoom, isPlaying, isPaused, audioBusy, audioPreparing: editorPlayback.busy, interactionPreparing, dirty: scoreDirtySinceCheckpoint,
     checkpointCount: checkpoints.length, progressiveLoadEnabled,
     pageCountIsFloor: progressivePagingActive && progressiveHasMorePages,
@@ -8378,6 +8422,8 @@ export default function ScoreEditor() {
   const reviewsScore = traits.interaction === 'review';
   const growsToContent = traits.layout === 'content';
   const renderCanvas = (insets: WorkspaceInsets) => (
+    <>
+    <ScoreContextMenu menu={scoreContextMenu.menu} onClose={scoreContextMenu.close} />
     <ScoreCanvas
       scrollContainerRef={scrollContainerRef}
       scoreWrapperRef={scoreWrapperRef}
@@ -8480,6 +8526,7 @@ export default function ScoreEditor() {
         />
       )}
     </ScoreCanvas>
+    </>
   );
 
   const notaGen = useNotaGenTool({
@@ -9330,6 +9377,11 @@ export default function ScoreEditor() {
     onInsertMeasures: handleInsertMeasures,
     onAddPickup: handleAddPickup,
     onRemoveContainingMeasures: handleRemoveContainingMeasures,
+    onMoveMeasureToSystem: interactiveMutationEnabled && systemLocks.supported ? (direction) => systemLocks.mutate(direction) : undefined,
+    onCreateSystemFromSelection: interactiveMutationEnabled && systemLocks.supported ? () => systemLocks.mutate(true) : undefined,
+    onEditElement: interactiveMutationEnabled ? handleEditElement : undefined,
+    onSelectSimilar: interactionReady && score?.selectSimilar ? (scope, at) => selectSimilar(core, { setHasBackendHighlighting, refreshSelectionFromSvg }, scope, at) : undefined,
+    onOpenContextMenu: canEditScore && !compareView ? scoreContextMenu.openAtSelection : undefined,
     onRemoveTrailingEmptyMeasures: handleRemoveTrailingEmptyMeasures,
     insertMeasuresDisabled: !score?.insertMeasures,
     parts: scoreParts,

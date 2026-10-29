@@ -1,3 +1,4 @@
+import { buildContextMenuCommands } from '../../components/score-editor/contextMenuCommands';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -49,7 +50,11 @@ function liveProps(overrides: Partial<EditorCommandProps> = {}): {
   return { props, handlers };
 }
 
-const idle = (props: EditorCommandProps) => buildEditorCommands(() => props);
+/** Every command built over `EditorCommandProps`, as `useEditorCommands` registers them. */
+const idle = (props: EditorCommandProps) => [
+  ...buildEditorCommands(() => props),
+  ...buildContextMenuCommands(() => props),
+];
 
 const find = (commands: AnyCommand[], id: string) => {
   const entry = commands.find((command) => command.id === id);

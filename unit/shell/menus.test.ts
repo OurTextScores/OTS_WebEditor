@@ -40,6 +40,9 @@ describe('menu tree', () => {
     'view.goto.page': 'reached through the palette (p3) and the Go to prompt',
     'view.goto.bar': 'reached through the palette (m125) and the Go to prompt',
     'view.goto.rehearsal': 'reached through the palette (rA) and the Go to prompt',
+    'edit.element': 'the score context menu, F2 and double-click (MuseScore has no menu-bar entry)',
+    'shell.contextMenu': 'the right mouse button, Shift+F10 and the Menu key',
+    'instruments.staffProperties': 'the score context menu (right-click a bar), as in MuseScore',
   };
 
   it('reaches every other command from a menu', () => {

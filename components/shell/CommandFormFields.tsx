@@ -3,13 +3,18 @@
 import React, { useState } from 'react';
 import type { CommandForm } from './commandForms';
 
-/** The values a form starts with: each field's default, as the text a field holds. */
-export const initialFormValues = (form: CommandForm): Record<string, string> =>
-  Object.fromEntries(form.fields.map((field) => [field.name, String(field.defaultValue)]));
+/** The values a form starts with: each field's default, as the text a field holds, unless `defaults` gives one. */
+export const initialFormValues = (
+  form: CommandForm,
+  defaults?: Readonly<Record<string, string>> | null,
+): Record<string, string> =>
+  Object.fromEntries(
+    form.fields.map((field) => [field.name, defaults?.[field.name] ?? String(field.defaultValue)]),
+  );
 
 /** The state of a command form's fields. */
-export function useFormValues(form: CommandForm) {
-  return useState<Record<string, string>>(() => initialFormValues(form));
+export function useFormValues(form: CommandForm, defaults?: Readonly<Record<string, string>> | null) {
+  return useState<Record<string, string>>(() => initialFormValues(form, defaults));
 }
 
 /**

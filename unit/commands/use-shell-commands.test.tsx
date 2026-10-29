@@ -43,6 +43,8 @@ const bindings = (over: Partial<ShellEditorBindings> = {}): ShellEditorBindings 
   saveCheckpoint: vi.fn(),
   copySelection: vi.fn(),
   pasteSelection: vi.fn(),
+  cutSelection: vi.fn(),
+  swapWithClipboard: vi.fn(),
   scoreSummaries: [],
   openScoreFromSummary: vi.fn(),
   ...over,

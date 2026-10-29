@@ -54,6 +54,10 @@ export interface ShellEditorBindings {
   readonly saveCheckpoint: () => Promise<void> | void;
   readonly copySelection: () => Promise<unknown> | unknown;
   readonly pasteSelection: () => Promise<unknown> | unknown;
+  /** Copy, then delete what was copied (MuseScore's cutSelection). */
+  readonly cutSelection: () => Promise<unknown> | unknown;
+  /** Paste the clipboard over the selection and keep what it replaced (MuseScore's swapSelection). */
+  readonly swapWithClipboard: () => Promise<unknown> | unknown;
   readonly scoreSummaries: readonly ScoreSummary[];
   readonly openScoreFromSummary: (summary: ScoreSummary) => void;
 }
@@ -200,6 +204,20 @@ export function buildShellEditorCommands(getBindings: GetBindings): AnyCommand[]
         dock.toggle('instruments');
       },
     }),
+    // Until OTS has MuseScore's Staff/Part Properties dialog, its context-menu entry opens the
+    // Instruments panel (design doc, decision 3). Opens, never toggles: the panel may be up already.
+    defineCommand({
+      id: 'instruments.staffProperties',
+      label: 'Staff/Part Properties',
+      keywords: ['staff', 'part', 'instrument'],
+      enabled: () => b().dock !== null,
+      run: () => {
+        const dock = b().dock;
+        if (!dock) return;
+        b().setPanelsVisible(true);
+        dock.show('instruments');
+      },
+    }),
     defineCommand<number>({
       id: 'edit.undo.to',
       label: 'Undo To',
@@ -316,6 +334,14 @@ export function buildShellEditorCommands(getBindings: GetBindings): AnyCommand[]
       },
     }),
     defineCommand({
+      id: 'edit.cut',
+      label: 'Cut',
+      enabled: (ctx) => ctx.isMutable && ctx.selection !== 'none',
+      run: async () => {
+        await b().cutSelection();
+      },
+    }),
+    defineCommand({
       id: 'edit.copy',
       label: 'Copy',
       enabled: (ctx) => ctx.hasScore && ctx.selection !== 'none',
@@ -329,6 +355,15 @@ export function buildShellEditorCommands(getBindings: GetBindings): AnyCommand[]
       enabled: (ctx) => ctx.isMutable && ctx.selection !== 'none',
       run: async () => {
         await b().pasteSelection();
+      },
+    }),
+    defineCommand({
+      id: 'edit.swapClipboard',
+      label: 'Swap with Clipboard',
+      keywords: ['paste', 'exchange'],
+      enabled: (ctx) => ctx.isMutable && ctx.selection !== 'none',
+      run: async () => {
+        await b().swapWithClipboard();
       },
     }),
 

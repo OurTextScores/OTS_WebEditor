@@ -493,7 +493,10 @@ export function useCanvasGestures(ctx: CanvasGesturesContext) {
   };
 
   const handleScoreClick = (e: React.MouseEvent) =>
-    handleScoreClickImpl({ ...ctx, gripEdit, closeGripEdit }, e);
+    void handleScoreClickImpl({ ...ctx, gripEdit, closeGripEdit }, e);
+  /** A right-click's selection, before its context menu opens. */
+  const selectForContextMenu = (e: React.MouseEvent) =>
+    handleScoreClickImpl({ ...ctx, gripEdit, closeGripEdit }, e, { secondary: true });
 
   return {
     beginGripEditAtPoint,
@@ -503,6 +506,7 @@ export function useCanvasGestures(ctx: CanvasGesturesContext) {
     gripEdit,
     handleGripPointerDown,
     handleScoreClick,
+    selectForContextMenu,
     handleScoreMouseDown,
     handleScoreMouseMove,
     handleScoreMouseUp,

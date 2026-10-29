@@ -14,9 +14,10 @@ export async function invokeCommand(
   id: CommandId,
   arg?: unknown,
   registry: CommandRegistry = defaultCommandRegistry,
+  formDefaults?: Readonly<Record<string, string>>,
 ): Promise<void> {
   if (arg === undefined && COMMAND_FORMS[id]) {
-    openCommandForm(id);
+    openCommandForm(id, formDefaults);
     return;
   }
   try {
