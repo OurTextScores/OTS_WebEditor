@@ -130,6 +130,18 @@ static engraving::EngravingItem* pickTopmostSelectableItem(std::vector<engraving
     return boxFallback;
 }
 
+// MuseScore's hitElements keeps only the items whose shape contains the point, then takes the topmost; a box test
+// alone lets a note win over the tie or l.v. drawn inside its box. Prefer shape hits, keep box hits if none.
+static std::vector<engraving::EngravingItem*> preferShapeHits(std::vector<engraving::EngravingItem*> items,
+                                                              const muse::PointF& pt)
+{
+    std::vector<engraving::EngravingItem*> hit;
+    for (auto* item : items) {
+        if (item && item->hitShapeContains(pt)) hit.push_back(item);
+    }
+    return hit.empty() ? items : hit;
+}
+
 static std::vector<engraving::EngravingItem*> selectableItemsAtPoint(engraving::Page* page, const muse::PointF& pt)
 {
     if (!page) {
@@ -138,13 +150,13 @@ static std::vector<engraving::EngravingItem*> selectableItemsAtPoint(engraving::
 
     auto items = page->items(pt);
     if (!items.empty()) {
-        return items;
+        return preferShapeHits(std::move(items), pt);
     }
 
     const muse::PointF localPt = pt - page->pos();
     items = page->items(localPt);
     if (!items.empty()) {
-        return items;
+        return preferShapeHits(std::move(items), localPt);
     }
 
     constexpr double kHitRadii[] = { 1.5, 3.0, 6.0, 10.0 };
