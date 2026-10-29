@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "createdAt": "2026-10-29T02:07:20.507Z",
-  "commit": "872f2cefb857c65732aaf1815d9cd913e882326d",
+  "createdAt": "2026-10-29T02:10:59.216Z",
+  "commit": "b87461233a7b34a5a1ad6bdeb532368d5ef55c1a",
   "dirty": true,
-  "diffSha256": "c8bb872f14bba5ff0d56bf07ad6f5196453014193447d6b5e4cc657141a6f631",
+  "diffSha256": "10763d4406d4f753a76e916cd3e50bf9d762b93a097058a3d043f96e007a7f25",
   "engineWasmSha256": "87ef39a213fdc1d329f8960710b2aba48550ef17627f03548a7d1d15aba8ad45",
   "target": "browser-package-in-node",
   "node": "v24.11.1",
@@ -24,10 +24,10 @@
   "highlightSelection": false,
   "fonts": "fontconfig font and configuration file contents; engine data and resources recorded separately",
   "systemFontsSha256": "6012946011c43d861afa7247283e2dfa2e6d5aa2385e6de5c39d8bfbac0df309",
-  "resourceRoot": "/tmp/ots-visual-resources-gojfWa",
+  "resourceRoot": "/tmp/ots-visual-resources-ubPMkp",
   "resourceTreeSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-  "fixtureManifestSha256": "5ddb546368b993359e58142da2e6844c7ad543256614ff84901a0fdfdc77f765",
-  "captureCodeSha256": "4e9c3d152ea9301a0afb6945a766956532c97824e4fc9b7085033eef021da734",
+  "fixtureManifestSha256": "4a360d077266e4164765dd1fd7b87039b8739e712918d4d9e8e62768580c3259",
+  "captureCodeSha256": "befaf595714991c3668044b06746a224aa934103d6c5c37457b88ec3249caec9",
   "rendererCodeSha256": "dd5572c506eb977d4a0992b83dbe2972351acc329f7ae60c003c3017b20859aa",
   "captureDriverSha256": "23c4cd57ee46cac49a34537465c0c24a9689b199238dea6abc65483250563bad",
   "directEditCodeSha256": "a7f44b8b6a64ef0b90c3a3f012b5eab20dba1fd2570af8b9ec259b7375820780",
@@ -150,6 +150,20 @@
       "file": "repeat-endings.png",
       "fixtureSha256": "be0fe302719c1f5e469cecc435d129be21ecba1c0aec0e4754b958a2bd6d2c99",
       "imageSha256": "e66ad6e1e5116acc2cb4c5f299e60ab99218b12ba6aa9b1b8b86cd5edca28092",
+      "page": 0
+    },
+    {
+      "id": "hairpin-system-break",
+      "file": "hairpin-system-break.png",
+      "fixtureSha256": "d2079203fae76b1c80117249a86c4f9576975cff08eccd864d43d58a459618be",
+      "imageSha256": "f47b48400dc76c898b819352329b8044e3032679f9fd51aa3874672d39ca32ff",
+      "page": 0
+    },
+    {
+      "id": "pedal-system-break",
+      "file": "pedal-system-break.png",
+      "fixtureSha256": "ff24a40c19a25b08733a4dd68e8b6e73d3ca9899b78edca2a3f5aa7919332b66",
+      "imageSha256": "c6f4d175b1c61a81c3caa7be1c36382fac5f6d8050a406896183fe42e04f9deb",
       "page": 0
     }
   ],

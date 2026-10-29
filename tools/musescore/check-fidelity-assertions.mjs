@@ -20,6 +20,8 @@ const changes = {
   'multimeasure-rest': xml => xml.replace('<multiple-rest>2</multiple-rest>', '<multiple-rest>3</multiple-rest>'),
   'meter-key-change': xml => xml.replace('<fifths>2</fifths>', '<fifths>1</fifths>'),
   'repeat-endings': xml => xml.replace('direction="backward"', 'direction="forward"'),
+  'hairpin-system-break': xml => xml.replace('type="crescendo"', 'type="diminuendo"'),
+  'pedal-system-break': xml => xml.replace('type="stop" line="yes"', 'type="change" line="yes"'),
 };
 for (const [id, mutate] of Object.entries(changes)) {
   const xml = await readFile(new URL(`./fixtures/osmd-fidelity/${id}.musicxml`, import.meta.url), 'utf8');
@@ -84,6 +86,8 @@ const renderedCases = [
   ['meter-key-change', '<path class="TimeSig"/>'.repeat(2) + '<path class="KeySig"/>', '<path class="TimeSig"/>'],
   ['meter-key-change', '<path class="TimeSig"/>'.repeat(2) + '<path class="KeySig"/>', '<path class="KeySig"/>'],
   ['repeat-endings', '<path class="VoltaSegment"/>'.repeat(2), '<path class="VoltaSegment"/>'],
+  ['hairpin-system-break', '<path class="StaffLines"/>'.repeat(10) + '<path class="HairpinSegment"/>'.repeat(2), '<path class="HairpinSegment"/>'],
+  ['pedal-system-break', '<path class="StaffLines"/>'.repeat(10) + '<path class="PedalSegment"/>'.repeat(2), '<path class="PedalSegment"/>'],
 ];
 for (const [id, body, remove] of renderedCases) {
   const svg = `<svg>${body}</svg>`;
@@ -105,3 +109,16 @@ assertRepeatTraversal('repeat-endings', { repeated: [0, 1, 0, 2, 3], linear: [0,
 assert.throws(() => assertRepeatTraversal('repeat-endings', { repeated: [0, 1, 2, 3], linear: [0, 1, 2, 3] }));
 assert.throws(() => assertRepeatTraversal('repeat-endings', { repeated: [0, 1, 0, 2, 3], linear: [0, 1, 0, 2, 3] }));
 console.log('repeat playback: incorrect enabled and disabled traversal detected');
+
+for (const [id, endpoint] of [
+  ['hairpin-system-break', '<direction placement="below"><direction-type><wedge type="stop" number="1"/></direction-type></direction>'],
+  ['pedal-system-break', '<direction placement="below"><direction-type><pedal type="stop" line="yes" number="1"/></direction-type></direction>'],
+]) {
+  const xml = await readFile(new URL(`./fixtures/osmd-fidelity/${id}.musicxml`, import.meta.url), 'utf8');
+  const moved = xml.replace(endpoint, '').replace('<measure number="3">', `<measure number="3">${endpoint}`);
+  assert.notEqual(moved, xml);
+  assert.throws(() => assertFidelity(id, moved), undefined, `${id}: endpoint stays in measure 2`);
+}
+const pedalInput = await readFile(new URL('./fixtures/osmd-fidelity/pedal-system-break.musicxml', import.meta.url), 'utf8');
+assert.throws(() => assertFidelity('pedal-system-break', pedalInput.replace('line="yes"', 'line="no"')));
+console.log('hairpin and pedal: endpoint and pedal style mutations detected');

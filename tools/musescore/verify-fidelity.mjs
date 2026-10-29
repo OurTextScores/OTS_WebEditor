@@ -103,6 +103,16 @@ export function assertFidelity(id, xml, { transposed = false } = {}) {
       assert.ok(measures[index].querySelector(`barline[location="left"] > ending[number="${number}"][type="start"]`));
       assert.ok(measures[index].querySelector(`barline[location="right"] > ending[number="${number}"][type="stop"]`));
     }
+  } else if (id === 'hairpin-system-break' || id === 'pedal-system-break') {
+    const isHairpin = id === 'hairpin-system-break';
+    const spanners = [...document.querySelectorAll(isHairpin ? 'wedge' : 'pedal')];
+    assert.deepEqual(spanners.map(element => element.getAttribute('type')), [isHairpin ? 'crescendo' : 'start', 'stop']);
+    assert.deepEqual(spanners.map(element => element.closest('measure')?.getAttribute('number')), ['1', '2'], 'spanner endpoints stay in their measures');
+    if (!isHairpin) assert.equal(spanners[0].getAttribute('line'), 'yes', 'pedal remains a line');
+    assert.ok(document.querySelector('measure:nth-of-type(2) > print[new-system="yes"]'));
+    assert.equal(pitched.length, 12);
+    assert.equal(text(pitched[0], 'pitch > step'), 'C');
+    assert.equal(text(pitched[4], 'pitch > step'), 'G');
   } else if (id === 'octave-system-break') {
     const shifts = [...document.querySelectorAll('octave-shift')];
     assert.deepEqual(shifts.map(shift => [shift.getAttribute('type'), shift.getAttribute('size')]), [['down', '8'], ['stop', '8']]);
@@ -209,6 +219,10 @@ export function assertFidelityRendering(id, svg) {
     assert.ok(count('KeySig') >= 1, 'the changed key signature is rendered');
   } else if (id === 'repeat-endings') {
     assert.ok(count('VoltaSegment') >= 2, 'both endings are rendered');
+  } else if (id === 'hairpin-system-break') {
+    assert.ok(count('HairpinSegment') >= 2 && count('StaffLines') >= 10, 'hairpin crosses systems');
+  } else if (id === 'pedal-system-break') {
+    assert.ok(count('PedalSegment') >= 2 && count('StaffLines') >= 10, 'pedal line crosses systems');
   } else if (id === 'octave-system-break') {
     assert.ok(count('OttavaSegment') >= 2 && count('StaffLines') >= 10, 'octave line crosses systems');
   } else if (id === 'polyphony-accidentals') {
@@ -301,7 +315,7 @@ export async function verifyFidelity(WebMscore, renderer, output, bundle) {
       let expectedEditedPitches;
       const measurePitches = xml => [...new JSDOM(xml, { contentType: 'application/xml' }).window.document.querySelectorAll('measure')]
         .map(measure => [...measure.querySelectorAll('note > pitch')].map(pitch => pitch.textContent.trim()));
-      const pitchEditMeasures = { 'tie-system-break': 2, 'slur-system-break': 2, 'cross-staff': 1, 'hidden-note': 1, 'pickup-lyrics': 2, 'dynamics-articulations': 1, 'octave-system-break': 2, 'meter-key-change': 2, 'repeat-endings': 3 };
+      const pitchEditMeasures = { 'tie-system-break': 2, 'slur-system-break': 2, 'cross-staff': 1, 'hidden-note': 1, 'pickup-lyrics': 2, 'dynamics-articulations': 1, 'octave-system-break': 2, 'meter-key-change': 2, 'repeat-endings': 3, 'hairpin-system-break': 2, 'pedal-system-break': 2 };
       if (fixture.id === 'transposing-enharmonic') {
         assert.equal(await score.transpose(1, 0, 0, 4, true, true, false), true, 'transpose up a major second');
       } else if (Object.hasOwn(pitchEditMeasures, fixture.id)) {
