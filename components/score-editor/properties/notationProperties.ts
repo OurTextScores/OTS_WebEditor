@@ -14,7 +14,17 @@ export type NotationPropertyDescriptor =
       readonly options: readonly { readonly value: string; readonly label: string }[];
     }
   /** An ornament interval: a step and a quality, joined as the engine writes them ("third,minor"). */
-  | { readonly name: string; readonly label: string; readonly kind: 'interval' };
+  | { readonly name: string; readonly label: string; readonly kind: 'interval' }
+  /** A number the engine writes as a decimal token (a size, a length in spatium). */
+  | {
+      readonly name: string;
+      readonly label: string;
+      readonly kind: 'number';
+      readonly min: number;
+      readonly max: number;
+      readonly step: number;
+      readonly unit?: string;
+    };
 
 const AUTO_ON_OFF = [
   { value: 'auto', label: 'Auto' },
@@ -107,6 +117,8 @@ export const NOTATION_PROPERTIES: Readonly<Record<string, { readonly title: stri
       { name: 'centerBetweenStaves', label: 'Center between staves', kind: 'select', options: AUTO_ON_OFF },
       { name: 'centerOnNotehead', label: 'Align with notehead', kind: 'boolean' },
       { name: 'anchorToEndOfPrevious', label: 'Anchor to end of previous', kind: 'boolean' },
+      { name: 'avoidBarlines', label: 'Avoid barlines', kind: 'boolean' },
+      { name: 'velocity', label: 'Playback velocity', kind: 'number', min: 0, max: 127, step: 1 },
     ],
   },
   Tie: {
@@ -136,7 +148,7 @@ export const NOTATION_PROPERTIES: Readonly<Record<string, { readonly title: stri
           { value: 'inside', label: 'Inside' },
           { value: 'outside', label: 'Outside' },
         ],
-      },
+      },      { name: 'minLength', label: 'Minimum length', kind: 'number', min: 0, max: 20, step: 0.1, unit: 'sp' },
     ],
   },
   Hairpin: {

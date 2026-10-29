@@ -66,3 +66,21 @@ describe('the notation section', () => {
     expect(container).toBeEmptyDOMElement();
   });
 });
+
+describe('number properties', () => {
+  it('commits a clamped number on blur, as the engine token', () => {
+    const m = model('Dynamic', { velocity: state('96', '96') });
+    render(<NotationPropertiesSection disabled={false} model={m} />);
+    const input = screen.getByTestId('notation-velocity');
+    fireEvent.change(input, { target: { value: '300' } });
+    fireEvent.blur(input);
+    expect(m.set).toHaveBeenCalledWith('velocity', '127');
+  });
+
+  it('does not write an unchanged value', () => {
+    const m = model('Dynamic', { velocity: state('80', '96') });
+    render(<NotationPropertiesSection disabled={false} model={m} />);
+    fireEvent.blur(screen.getByTestId('notation-velocity'));
+    expect(m.set).not.toHaveBeenCalled();
+  });
+});

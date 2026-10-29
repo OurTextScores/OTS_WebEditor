@@ -72,6 +72,18 @@ test('a dynamic’s voice assignment is edited from the panel, and undo restores
   await expect.poll(() => propertyValue(page, 'voiceAssignment')).toBe('allInInstrument');
 });
 
+test('a dynamic’s playback velocity is a number in the panel', async ({ page }) => {
+  const note = await centre(page, 'svg .Note', 1);
+  await page.mouse.click(note.x, note.y);
+  await runCommand(page, 'add.mark.dynamic', 9);
+  await page.waitForSelector('svg .Dynamic', { state: 'attached', timeout: 20_000 });
+
+  await selectAndInspect(page, 'svg .Dynamic', 'Dynamic');
+  await page.getByTestId('notation-velocity').fill('70');
+  await page.getByTestId('notation-velocity').press('Enter');
+  await expect.poll(() => propertyValue(page, 'velocity')).toBe('70');
+});
+
 test('a tremolo’s type is changed from the panel', async ({ page }) => {
   const note = await centre(page, 'svg .Note', 0);
   await page.mouse.click(note.x, note.y);

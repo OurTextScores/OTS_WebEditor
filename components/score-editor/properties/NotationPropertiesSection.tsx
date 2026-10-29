@@ -46,6 +46,35 @@ function Control({
       </select>
     );
   }
+  if (property.kind === 'number') {
+    return (
+      <span className="flex items-center gap-1">
+        <input
+          // Remount on a new engine value: the field is uncontrolled while typing, and commits on Enter or blur.
+          key={`${state.value}-${state.mixed}`}
+          type="number"
+          data-testid={testId}
+          className={`${selectClass} w-20`}
+          min={property.min}
+          max={property.max}
+          step={property.step}
+          defaultValue={state.mixed ? '' : Number(state.value)}
+          placeholder={state.mixed ? 'Mixed' : undefined}
+          disabled={disabled}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') event.currentTarget.blur();
+          }}
+          onBlur={(event) => {
+            const value = event.currentTarget.valueAsNumber;
+            if (!Number.isFinite(value)) return;
+            const clamped = Math.min(property.max, Math.max(property.min, value));
+            if (String(clamped) !== state.value) set(String(clamped));
+          }}
+        />
+        {property.unit ? <span className="text-xs text-slate-500">{property.unit}</span> : null}
+      </span>
+    );
+  }
   const { step, type } = splitInterval(state.value);
   return (
     <span className="flex gap-1">
