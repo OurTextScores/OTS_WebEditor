@@ -400,6 +400,8 @@ export interface Score {
   toggleSnap?: (which: 0 | 1) => Promise<boolean> | boolean;
   /** l.v. on the selected notes (Score::cmdToggleLaissezVib). */
   toggleLaissezVib?: () => Promise<boolean> | boolean;
+  /** Enclose the selection: 0 brackets, 1 parentheses, 2 braces. */
+  addBrackets?: (kind: 0 | 1 | 2) => Promise<boolean> | boolean;
   /** Typed element properties by MuseScore name (roadmap E09); values are engine tokens. */
   getElementPropertyValues?: (names: string[]) => Promise<Record<string, ElementPropertyState>>;
   /** One undoable edit; `reset` returns the property to its style default. */

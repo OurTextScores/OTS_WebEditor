@@ -47,6 +47,14 @@ report.afterReset = await score.getElementPropertyValues(['intervalAbove']);
 await score.undo();
 report.undone = await score.getElementPropertyValues(['intervalAbove']);
 
+// Enclosures (E14): parentheses on bar 4's note, then a second toggle takes them off.
+await score.selectPartMeasureByIndex(0, 3);
+await score.selectNextChord();
+report.parenthesesOn = await score.addBrackets(1);
+report.parenthesizedInXml = ((await score.saveXml()).match(/parentheses="yes"/g) ?? []).length;
+report.parenthesesOff = await score.addBrackets(1);
+report.parenthesizedAfterToggle = ((await score.saveXml()).match(/parentheses="yes"/g) ?? []).length;
+
 console.log = log;
 console.log(JSON.stringify(report));
 process.exit(0);

@@ -311,6 +311,7 @@ class WebMscore {
         this.excerptId = -1
         if (!Module._hitTestScoreObject) Object.defineProperty(this, 'hitTestScoreObject', { value: undefined })
         if (!Module._moveSelectedChordRestToStaff) Object.defineProperty(this, 'moveSelectedChordRestToStaff', { value: undefined })
+        if (!Module._addBrackets) Object.defineProperty(this, 'addBrackets', { value: undefined })
         if (!Module._toggleLaissezVib) Object.defineProperty(this, 'toggleLaissezVib', { value: undefined })
         if (!Module._getElementPropertyValues || !Module._setElementPropertyValue) {
             for (const name of ['getElementPropertyValues', 'setElementPropertyValue']) Object.defineProperty(this, name, { value: undefined })
@@ -706,6 +707,14 @@ class WebMscore {
      * l.v. (laissez vibrer) on the selected notes, as MuseScore's toggle.
      * @returns {Promise<boolean>}
      */
+    /**
+     * Enclose the selection: 0 brackets, 1 parentheses, 2 braces (MuseScore's add-brackets / -parentheses / -braces).
+     * @returns {Promise<boolean>}
+     */
+    async addBrackets(kind) {
+        return Module.ccall('addBrackets', 'boolean', ['number', 'number', 'number'], [this.scoreptr, kind, this.excerptId])
+    }
+
     async toggleLaissezVib() {
         return Module.ccall('toggleLaissezVib', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
     }

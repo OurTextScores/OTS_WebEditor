@@ -83,3 +83,14 @@ export function toggleLaissezVib(core: EditorCore) {
     return fn();
   });
 }
+
+/** Encloses the selection: 0 brackets, 1 parentheses (a toggle on notes), 2 braces, as MuseScore's actions. */
+export function addBrackets(core: EditorCore, kind: 0 | 1 | 2) {
+  const { ensureSelectionInWasm, performMutation, requireMutation } = core;
+  return performMutation(kind === 1 ? 'add parentheses' : kind === 2 ? 'add braces' : 'add brackets', async () => {
+    await ensureSelectionInWasm();
+    const fn = requireMutation('addBrackets');
+    if (!fn) return false;
+    return fn(kind);
+  });
+}

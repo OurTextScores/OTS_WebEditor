@@ -112,3 +112,18 @@ test('Laissez Vibrer adds an l.v. tie, whose placement is a typed property', asy
   });
   expect(placement).toBe('outside');
 });
+
+test('Enclose ▸ Parentheses puts the selected note in parentheses', async ({ page }) => {
+  const note = await centre(page, 'svg .Note', 3);
+  await page.mouse.click(note.x, note.y);
+  await expect.poll(() => selectedType(page)).toBe('Note');
+  await runCommand(page, 'format.enclose', 1);
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const xml: string = await (window as unknown as { __webmscore: { saveXml(): Promise<string> } }).__webmscore.saveXml();
+        return (xml.match(/parentheses="yes"/g) ?? []).length;
+      }),
+    )
+    .toBe(1);
+});

@@ -105,6 +105,7 @@ import {
   addFretboardForHarmony,
   toggleSnap,
   toggleLaissezVib,
+  addBrackets,
   setAccidental,
   setBarLineType,
   setBeamMode,
@@ -9407,6 +9408,7 @@ export default function ScoreEditor() {
     onEditElement: interactiveMutationEnabled ? handleEditElement : undefined,
     onAddFrameText: interactiveMutationEnabled && score?.addFrameText ? (kind) => addFrameText(core, kind) : undefined,
     onAddFretboardForHarmony: interactiveMutationEnabled && score?.addFretboardDiagramForHarmony ? () => addFretboardForHarmony(core) : undefined,
+    onAddBrackets: interactiveMutationEnabled && score?.addBrackets ? (kind) => addBrackets(core, kind) : undefined,
     onToggleLaissezVib: interactiveMutationEnabled && score?.toggleLaissezVib ? () => toggleLaissezVib(core) : undefined,
     onToggleSnap: interactiveMutationEnabled && score?.toggleSnap ? (which) => toggleSnap(core, which) : undefined,
     onOpenScoreDialog: interactiveMutationEnabled && dialogEngine ? (kind, context) => openScoreDialog(kind, {

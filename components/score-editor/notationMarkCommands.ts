@@ -20,11 +20,24 @@ export const ORNAMENTS = [
 ] as const;
 
 /**
- * Notation marks added since the ribbon (roadmap E10 ornaments, E12 l.v. ties). Registered beside
+ * Notation marks added since the ribbon (roadmap E10 ornaments, E12 l.v. ties, E14 enclosures). Registered beside
  * `buildEditorCommands` (useEditorCommands, commandCatalog).
  */
 export function buildNotationMarkCommands(getProps: () => EditorCommandProps): AnyCommand[] {
   return [
+    defineFamily<0 | 1 | 2>({
+      id: 'format.enclose',
+      label: 'Enclose',
+      variants: [
+        { arg: 1, label: 'Parentheses' },
+        { arg: 0, label: 'Brackets' },
+        { arg: 2, label: 'Braces' },
+      ],
+      enabled: withCheck(needsSelection, () => Boolean(getProps().onAddBrackets)),
+      run: async (_ctx, kind) => {
+        await getProps().onAddBrackets?.(kind);
+      },
+    }),
     defineCommand({
       id: 'add.line.laissezVib',
       label: 'Laissez Vibrer',

@@ -76,4 +76,13 @@ describe.skipIf(!fs.existsSync(nodeBuild))('typed element properties in the engi
     expect(report.afterReset.intervalAbove.value).toBe('second,auto');
     expect(report.undone.intervalAbove.value).toBe('third,minor');
   });
+
+  it('toggles parentheses on the selected note (E14), as MusicXML shows', () => {
+    expect(report).toMatchObject({
+      parenthesesOn: true,
+      parenthesizedInXml: 1,
+      parenthesesOff: true,
+      parenthesizedAfterToggle: 0,
+    });
+  });
 });

@@ -30,6 +30,7 @@ export type MutationMethods = Pick<
   | 'setStyleValues'
   | 'setElementPropertyValue'
   | 'toggleLaissezVib'
+  | 'addBrackets'
   | 'changeInstrumentAt'
   | 'setStaffProperties'
   | 'addImageToFrame'

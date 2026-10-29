@@ -891,4 +891,19 @@ EMSCRIPTEN_KEEPALIVE bool toggleLaissezVib(uintptr_t score_ptr, int excerptId)
     return true;
 }
 
+// MuseScore's enclosure actions on the selection (NotationInteraction::addBracketsToSelection): 0 brackets
+// (Score::cmdAddBracket), 1 parentheses (cmdToggleParentheses), 2 braces (cmdAddBraces), each one undoable edit.
+EMSCRIPTEN_KEEPALIVE bool addBrackets(uintptr_t score_ptr, int kind, int excerptId)
+{
+    auto* score = getScore(score_ptr, excerptId);
+    if (!score || kind < 0 || kind > 2 || score->selection().isNone()) return false;
+    score->startCmd(TranslatableString::untranslatable(kind == 1 ? "Add parentheses" : kind == 2 ? "Add braces" : "Add brackets"));
+    if (kind == 0) score->cmdAddBracket();
+    else if (kind == 1) score->cmdToggleParentheses();
+    else score->cmdAddBraces();
+    score->endCmd();
+    layoutLinked(score);
+    return true;
+}
+
 } // extern "C"
