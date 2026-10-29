@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { noticeTitles, runEditorCommand, setupScoreEditorTest, testGlobals } from './test-harness';
@@ -19,6 +20,45 @@ import ScoreEditor from '../../components/ScoreEditor';
 
 describe('ScoreEditor: loading, format detection and progressive layout', () => {
   const { params } = setupScoreEditorTest(mocked, mockedNavigation);
+
+  it('ignores a superseded comparison fetch before loading a score', async () => {
+    params.values = { compareLeft: '/left.musicxml', compareRight: '/right.musicxml' };
+    const pending: Array<{
+      signal: AbortSignal;
+      resolve: (value: { ok: boolean; text: () => Promise<string> }) => void;
+    }> = [];
+    testGlobals.fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (!String(input).endsWith('.musicxml')) return Promise.resolve({ ok: false });
+      return new Promise((resolve) => pending.push({ signal: init!.signal!, resolve }));
+    });
+    const score = {
+      destroy: vi.fn(),
+      saveSvg: vi.fn(async () => '<svg/>'),
+      metadata: vi.fn(async () => ({})),
+      npages: vi.fn(async () => 1),
+      measurePositions: vi.fn(async () => ({ elements: [], events: [], pageSize: { width: 100, height: 40 } })),
+      segmentPositions: vi.fn(async () => ({})),
+    };
+    const load = vi.fn(async () => score);
+    mocked.loadWebMscore.mockResolvedValue({ ready: Promise.resolve(), load });
+    const response = { ok: true, text: async () => '<score-partwise />' };
+
+    const { unmount } = render(<StrictMode><ScoreEditor /></StrictMode>);
+    await waitFor(() => expect(pending).toHaveLength(4));
+    expect(pending.slice(0, 2).every(({ signal }) => signal.aborted)).toBe(true);
+    await act(async () => {
+      pending[0].resolve(response);
+      pending[1].resolve(response);
+    });
+    expect(load).not.toHaveBeenCalled();
+
+    await act(async () => {
+      pending[2].resolve(response);
+      pending[3].resolve(response);
+    });
+    await waitFor(() => expect(load).toHaveBeenCalled());
+    unmount();
+  });
 
   it('loads a score from file upload, supports selection, and applies clef', async () => {
     const user = userEvent.setup();

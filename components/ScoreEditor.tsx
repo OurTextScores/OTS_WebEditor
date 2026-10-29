@@ -1268,14 +1268,17 @@ export default function ScoreEditor() {
     if (!compareLeftUrl) return;
     if (!compareRightUrl && hostKind !== 'host-scanner-findings') return;
 
+    const controller = new AbortController();
     const loadExternalCompare = async () => {
       setCheckpointBusy(true);
       try {
         // Load both files in parallel
         const [leftResponse, rightResponse] = await Promise.all([
-          fetch(compareLeftUrl),
-          compareRightUrl ? fetch(compareRightUrl) : Promise.resolve(null),
+          fetch(compareLeftUrl, { signal: controller.signal }),
+          compareRightUrl ? fetch(compareRightUrl, { signal: controller.signal }) : Promise.resolve(null),
         ]);
+
+        if (controller.signal.aborted) return;
 
         if (!leftResponse.ok || (rightResponse && !rightResponse.ok)) {
           throw new Error('Failed to fetch files');
@@ -1283,17 +1286,19 @@ export default function ScoreEditor() {
 
         const leftXml = await leftResponse.text();
         const rightXml = rightResponse ? await rightResponse.text() : '';
+        if (controller.signal.aborted) return;
 
         // The score the editor works on. With two readings that is the right-hand one,
         // which the reviewer merges into; with one it is the only one there is.
         const mainXml = rightResponse ? rightXml : leftXml;
         const mainBlob = new Blob([mainXml], { type: 'application/xml' });
         const mainFile = new File([mainBlob], rightResponse ? 'right.xml' : 'reading.xml');
-        await handleFileUpload(mainFile, {
+        const loaded = await handleFileUpload(mainFile, {
           preserveScoreId: false,
           updateUrl: false,
           telemetrySource: rightResponse ? 'compare_load_right' : 'findings_load_reading',
         });
+        if (controller.signal.aborted || !loaded) return;
 
         // Set up compare view
         setCompareView({
@@ -1304,15 +1309,17 @@ export default function ScoreEditor() {
           checkpointLabel: leftLabel,
         });
       } catch (err) {
+        if (controller.signal.aborted) return;
         console.error('Failed to load comparison:', err);
         const message = err instanceof Error ? err.message : 'Unknown error';
         notifyError(`Failed to load files:\n${message}`);
       } finally {
-        setCheckpointBusy(false);
+        if (!controller.signal.aborted) setCheckpointBusy(false);
       }
     };
 
     loadExternalCompare();
+    return () => controller.abort();
     // TD-02 classification 3 (one-time initialization). This effect keys on the
     // compare URLs only. handleFileUpload and the setters it closes over would
     // re-run the fetch and replace the live score on every editor state change,
