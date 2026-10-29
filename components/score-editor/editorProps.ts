@@ -158,6 +158,8 @@ export interface EditorCommandProps {
   onAddArticulation?: (articulationSymbolName: string) => void;
   onAddSlur?: () => void;
   onFlipStem?: () => void;
+  onMoveStaffUp?: () => void;
+  onMoveStaffDown?: () => void;
   onAddTie?: () => void;
   onAddGraceNote?: (graceType: number) => void;
   onAddTuplet?: (tupletCount: number) => void;

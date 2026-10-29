@@ -50,6 +50,7 @@ const DESCRIPTIONS: Readonly<Record<string, string>> = {
   toggleRepeatStart: 'Start repeat',
   toggleRepeatEnd: 'End repeat',
   flipStem: 'Flip direction',
+  moveSelectedChordRestToStaff: 'Move to another staff',
   putNote: 'Add note',
   enterRest: 'Add rest',
   addPitchByStep: 'Add note',

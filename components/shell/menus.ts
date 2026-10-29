@@ -273,6 +273,8 @@ export const MENUS: readonly MenuDefinition[] = [
       submenu('Breaks', item('format.break.line'), item('format.break.page')),
       family('format.beam', 'Beams'),
       item('format.flip'),
+      item('format.staff.up'),
+      item('format.staff.down'),
     ],
   },
   {

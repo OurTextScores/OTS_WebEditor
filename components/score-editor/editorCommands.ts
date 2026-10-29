@@ -1,3 +1,4 @@
+import { buildStaffMoveCommands } from './staffMoveCommands';
 import type { MeasureInsertTarget } from './editorProps';
 import type { EditorCommandProps } from './editorProps';
 import {
@@ -567,7 +568,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
     defineFamily<number>({
       id: 'tools.voice',
       label: 'Voice',
-      // The argument is the engine's zero-based voice index; the label and test id are one-based.
+      // Engine voice indices are zero-based.
       variants: [1, 2, 3, 4].map((voice) => ({
         arg: voice - 1,
         label: `Voice ${voice}`,
@@ -580,6 +581,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       testId: 'btn-slur',
     }),
     action('add.line.tie', 'Tie', 'onAddTie', needsSelection, { testId: 'btn-tie' }),
+    ...buildStaffMoveCommands(p),
     action('format.flip', 'Flip Direction', 'onFlipStem', needsSelection, {
       testId: 'btn-flip-stem',
       keywords: ['flip stem'],

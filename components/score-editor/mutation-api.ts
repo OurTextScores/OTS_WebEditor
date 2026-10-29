@@ -71,6 +71,7 @@ export type MutationMethods = Pick<
   | 'addTempoText'
   | 'addArticulation'
   | 'addSlur'
+  | 'moveSelectedChordRestToStaff'
   | 'flipStem'
   | 'addTie'
   | 'addGraceNote'

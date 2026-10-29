@@ -238,6 +238,14 @@ const TABLE: Row[] = [
     { label: 'set beam mode', options: null, ensured: 1, engine: [['require:setBeamMode', 2]] },
   ],
   [
+    'pitch', 'moveToStaff', ['up'],
+    { label: 'move to staff above', options: { skipWasmReselect: true, skipSelectionFallback: true }, ensured: 1, engine: [['require:moveSelectedChordRestToStaff', 'up']] },
+  ],
+  [
+    'pitch', 'moveToStaff', ['down'],
+    { label: 'move to staff below', options: { skipWasmReselect: true, skipSelectionFallback: true }, ensured: 1, engine: [['require:moveSelectedChordRestToStaff', 'down']] },
+  ],
+  [
     'pitch',
     'flipStem',
     [],
@@ -796,6 +804,13 @@ describe('editor commands', () => {
 });
 
 describe('commands that do more than forward one call', () => {
+  it('explains a staff-boundary or unsupported-selection no-op', async () => {
+    notices.notifyWarning.mockClear();
+    const { core } = recordingCore({ requireMutation: (() => () => false) as EditorCore['requireMutation'] });
+    await pitch.moveToStaff(core, 'up');
+    expect(notices.notifyWarning).toHaveBeenCalledWith('The selected notes or rests cannot move to that staff.');
+  });
+
   it('transposeEx forwards all seven arguments to the engine', async () => {
     const { core, rec } = recordingCore();
     await pitch.transposeEx(core, 1, 2, 3, 4, true, false, true);

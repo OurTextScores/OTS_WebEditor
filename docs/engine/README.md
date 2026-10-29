@@ -316,7 +316,8 @@ The optional `score.moveSelectedChordRestToStaff('up' | 'down')` worker API move
 within their existing part, using MuseScore's native movement and staff-boundary rules. A selected note moves its whole
 chord; a range applies to its eligible chords and rests as one undo command. It returns `false` for an invalid
 direction, absent/unsupported selection or a boundary no-op. Capability-detect the method when using older engines.
-This is an engine API; it does not add an editor control. `MS47_VERIFY_STAFF_MOVE=1 npm run verify:engine --
+The editor exposes the operation as **Move to staff above/below** in the toolbar and Format menu; a selected note
+moves its whole chord. `MS47_VERIFY_STAFF_MOVE=1 npm run verify:engine --
 public/test_scores/three_notes_cde.musicxml` checks selection, no-ops, range, undo/redo, export/reload and full layout.
 
 ### Pinned visual regression check

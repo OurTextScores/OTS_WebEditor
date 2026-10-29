@@ -5,6 +5,16 @@ import { guardPlaybackMutations } from '../components/score-editor/playback-sess
 import type { Score, SynthAudioBatchIterator } from '../lib/webmscore-loader';
 import { fakeAudioContext, block } from './helpers/fake-audio';
 
+it('stops playback before moving notation to another staff', async () => {
+  const order: string[] = [];
+  const score = { moveSelectedChordRestToStaff: vi.fn(async (direction: 'up' | 'down') => {
+    order.push(`move:${direction}`); return true;
+  }) } as unknown as Score;
+  const guarded = guardPlaybackMutations(score, async () => { order.push('stop'); });
+  expect(await guarded.moveSelectedChordRestToStaff?.('up')).toBe(true);
+  expect(order).toEqual(['stop', 'move:up']);
+});
+
 const deferred = <T,>() => {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((done) => {

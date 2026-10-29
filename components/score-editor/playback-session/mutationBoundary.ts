@@ -47,6 +47,7 @@ export const PLAYBACK_MUTATION_METHODS = [
   'addTempoText',
   'addArticulation',
   'addSlur',
+  'moveSelectedChordRestToStaff',
   'flipStem',
   'addTie',
   'addGraceNote',

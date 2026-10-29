@@ -88,6 +88,7 @@ import {
   exportPdf,
   exportSvg,
   flipStem,
+  moveToStaff,
   insertMeasures,
   removeContainingMeasures,
   removeTrailingEmptyMeasures,
@@ -7049,6 +7050,8 @@ export default function ScoreEditor() {
   const handleAddSlur = () => addSlur(core);
 
   const handleFlipStem = () => flipStem(core);
+  const handleMoveStaffUp = () => moveToStaff(core, 'up');
+  const handleMoveStaffDown = () => moveToStaff(core, 'down');
 
   const handleAddTie = () => addTie(core);
 
@@ -9265,6 +9268,8 @@ export default function ScoreEditor() {
     onAddArticulation: handleAddArticulation,
     onAddSlur: handleAddSlur,
     onFlipStem: handleFlipStem,
+    onMoveStaffUp: score?.moveSelectedChordRestToStaff ? handleMoveStaffUp : undefined,
+    onMoveStaffDown: score?.moveSelectedChordRestToStaff ? handleMoveStaffDown : undefined,
     onAddTie: handleAddTie,
     onAddGraceNote: handleAddGraceNote,
     onToggleNoteInput: toggleNoteInputMode,

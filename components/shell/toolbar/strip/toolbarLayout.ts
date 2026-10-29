@@ -325,6 +325,20 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
     controls: [
       {
         kind: 'command',
+        testId: 'btn-move-staff-up',
+        label: 'Move to staff above',
+        icon: ArrowUp,
+        commandId: 'format.staff.up',
+      },
+      {
+        kind: 'command',
+        testId: 'btn-move-staff-down',
+        label: 'Move to staff below',
+        icon: ArrowDown,
+        commandId: 'format.staff.down',
+      },
+      {
+        kind: 'command',
         testId: 'btn-flip-stem',
         label: 'Flip direction',
         icon: FlipVertical2,

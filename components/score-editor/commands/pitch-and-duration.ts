@@ -308,6 +308,23 @@ export function setBeamMode(core: EditorCore, beamMode: number) {
   });
 }
 
+export function moveToStaff(core: EditorCore, direction: 'up' | 'down') {
+  const { ensureSelectionInWasm, performMutation, requireMutation } = core;
+  return performMutation(
+    direction === 'up' ? 'move to staff above' : 'move to staff below',
+    async () => {
+      await ensureSelectionInWasm();
+      const move = requireMutation('moveSelectedChordRestToStaff');
+      if (!move) return false;
+      const changed = await move(direction);
+      if (!changed) notifyWarning('The selected notes or rests cannot move to that staff.');
+      return changed;
+    },
+    // The selected chord has moved; selecting again at its old point could select a different item.
+    { skipWasmReselect: true, skipSelectionFallback: true },
+  );
+}
+
 export function flipStem(core: EditorCore) {
   const { ensureSelectionInWasm, performMutation, requireMutation } = core;
   return performMutation(

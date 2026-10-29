@@ -66,6 +66,8 @@ export const STRIP_ICON_SPECS: Readonly<Record<string, IconSpec>> = {
   'dropdown-grace-notes': [glyph('\uE560', [12, 12], 24, 20)],
 
   // Notes: connect
+  'btn-move-staff-up': [staff(3, 2.2, 2, 14), staff(15, 2.2, 2, 14), glyph(NOTEHEAD, [8, 17], 11), line('M19 20V5M16 8l3-3 3 3', 1.4)],
+  'btn-move-staff-down': [staff(3, 2.2, 2, 14), staff(15, 2.2, 2, 14), glyph(NOTEHEAD, [8, 7], 11), line('M19 4v15M16 16l3 3 3-3', 1.4)],
   'btn-flip-stem': [glyph(NOTE_UP, [7, 12], 17, 16), glyph(NOTE_DOWN, [17, 12], 17, 16)],
   'dropdown-lines': [glyph('\uE511', [12, 12], 20, 20)],
   'dropdown-chord': [

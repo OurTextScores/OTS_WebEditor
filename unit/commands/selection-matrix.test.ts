@@ -22,6 +22,8 @@ const MATRIX: Array<[id: string, available: [boolean, boolean, boolean, boolean]
   ['add.line.tie', [false, true, true, true]],
   ['add.line.hairpin', [false, true, true, true]],
   ['format.flip', [false, true, true, true]],
+  ['format.staff.up', [false, true, true, true]],
+  ['format.staff.down', [false, true, true, true]],
   ['tools.explode', [false, false, false, true], 'range tools'],
   ['tools.implode', [false, false, false, true], 'range tools'],
   ['tools.regroup', [false, false, false, true], 'range tools'],
@@ -64,6 +66,14 @@ describe('selection matrix over the real editor commands', () => {
 
   it.each(MATRIX)('%s by selection kind', (id, available) => {
     expect(KINDS.map((kind) => instance.isEnabled(id, context(kind)))).toEqual(available);
+  });
+
+  it('staff movement needs the engine capability and is unavailable during note input', () => {
+    const unavailable = registry({ onMoveStaffUp: undefined, onMoveStaffDown: undefined });
+    for (const id of ['format.staff.up', 'format.staff.down']) {
+      expect(unavailable.isEnabled(id, context('single'))).toBe(false);
+      expect(instance.isEnabled(id, context('single', { noteInput: true }))).toBe(false);
+    }
   });
 
   it('dynamics and durations (single only in the bridge) are also single only as families', () => {
