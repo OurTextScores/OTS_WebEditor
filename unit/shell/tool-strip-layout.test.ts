@@ -17,6 +17,8 @@ const REPO = resolve(__dirname, '../..');
 
 /** Test ids the ribbon never had: its SoundFont control was a hidden file input inside a label. */
 const NEW_IDS = new Set([
+  'btn-move-staff-up',
+  'btn-move-staff-down',
   'btn-load-soundfont',
   // Embed on a website is new with the player's embed code.
   'btn-embed',
