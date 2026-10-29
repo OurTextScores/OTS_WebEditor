@@ -151,6 +151,15 @@ export const NOTATION_PROPERTIES: Readonly<Record<string, { readonly title: stri
       },      { name: 'minLength', label: 'Minimum length', kind: 'number', min: 0, max: 20, step: 0.1, unit: 'sp' },
     ],
   },
+  // Roadmap E15: feathered beams (each end's spacing as a multiple of normal) and a flat beam.
+  Beam: {
+    title: 'Beam',
+    properties: [
+      { name: 'growLeft', label: 'Feathering, left end', kind: 'number', min: 0, max: 4, step: 0.1, unit: '×' },
+      { name: 'growRight', label: 'Feathering, right end', kind: 'number', min: 0, max: 4, step: 0.1, unit: '×' },
+      { name: 'noSlope', label: 'Force horizontal', kind: 'boolean' },
+    ],
+  },
   Hairpin: {
     title: 'Hairpin',
     properties: [

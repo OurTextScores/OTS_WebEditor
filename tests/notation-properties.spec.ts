@@ -127,3 +127,15 @@ test('Enclose ▸ Parentheses puts the selected note in parentheses', async ({ p
     )
     .toBe(1);
 });
+
+test('a beam is feathered and flattened from the panel', async ({ page }) => {
+  await page.goto('/?score=/test_scores/men-base.musicxml');
+  await page.waitForSelector('svg .Beam', { state: 'attached', timeout: 60_000 });
+  await selectAndInspect(page, 'svg .Beam', 'Beam');
+  await page.getByTestId('notation-growRight').fill('2');
+  await page.getByTestId('notation-growRight').press('Enter');
+  await expect.poll(() => propertyValue(page, 'growRight')).toBe('2');
+  // The checkbox follows the engine's value, which updates after the edit; click, then read the engine.
+  await page.getByTestId('notation-noSlope').click();
+  await expect.poll(() => propertyValue(page, 'noSlope')).toBe('true');
+});
