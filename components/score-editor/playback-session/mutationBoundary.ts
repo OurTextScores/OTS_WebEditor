@@ -28,6 +28,7 @@ export const PLAYBACK_MUTATION_METHODS = [
   'removeNoteAtPoint',
   'toggleSnap',
   'setStyleValues',
+  'setElementPropertyValue',
   'changeInstrumentAt',
   'setStaffProperties',
   'addImageToFrame',

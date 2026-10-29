@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #pragma once
 // Adapted from the OTS 4.00 bridge.
+#include "engraving/dom/ornament.h"
 #include "engraving/dom/timesig.h"
 #include "engraving/dom/clef.h"
 #include "engraving/dom/keysig.h"
@@ -327,6 +328,7 @@ EMSCRIPTEN_KEEPALIVE bool addArticulation(uintptr_t score_ptr, const char* artic
                           || articulationSymbolId == engraving::SymId::articTenutoAbove
                           || articulationSymbolId == engraving::SymId::articStaccatoAbove;
 
+    const bool isOrnamentSymbol = std::string_view(articulationSymbolName).rfind("ornament", 0) == 0;
     score->startCmd(TranslatableString::untranslatable("add Articulation"));
     for (engraving::Chord* chord : chords) {
         if (combines) {
@@ -336,7 +338,11 @@ EMSCRIPTEN_KEEPALIVE bool addArticulation(uintptr_t score_ptr, const char* artic
         const std::set<engraving::SymId> present = chord->articulationSymbolIds();
         const bool chordHas = present.find(articulationSymbolId) != present.end();
         if (chordHas == allHave) {
-            engraving::Articulation* articulation = engraving::Factory::createArticulation(score->dummy()->chord());
+            // SMuFL ornament symbols become Ornaments, as MuseScore's palette makes them (Score::toggleOrnament), so they
+            // carry the 4.1+ ornament properties (interval above/below, accidental and cue-note display).
+            engraving::Articulation* articulation = isOrnamentSymbol
+                                                    ? engraving::Factory::createOrnament(score->dummy()->chord())
+                                                    : engraving::Factory::createArticulation(score->dummy()->chord());
             articulation->setSymId(articulationSymbolId);
             score->toggleArticulation(chord, articulation);
         }

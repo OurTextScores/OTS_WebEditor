@@ -12,6 +12,8 @@ import { FretboardEditor } from './FretboardEditor';
 interface InspectorPanelProps {
   data: SelectedElementProperties | null;
   systemLayout?: React.ReactNode;
+  /** Typed notation properties of the selection (ornament, dynamic, hairpin). */
+  notation?: React.ReactNode;
   loading?: boolean;
   disabled?: boolean;
   onChange: (property: InspectorPropertyName, value: boolean | number | string) => void;
@@ -67,6 +69,7 @@ const propertyOrder: InspectorPropertyName[] = [
 export function InspectorPanel({
   data,
   systemLayout,
+  notation,
   loading = false,
   disabled = false,
   onChange,
@@ -227,6 +230,7 @@ export function InspectorPanel({
           );
         })}
       </div>
+      {notation}
       {systemLayout}
       {fretDiagram && onFretDiagramChange && (
         <FretboardEditor data={fretDiagram} disabled={disabled} onChange={onFretDiagramChange} />

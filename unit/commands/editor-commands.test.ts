@@ -1,3 +1,4 @@
+import { buildOrnamentCommands } from '../../components/score-editor/ornamentCommands';
 import { buildContextMenuCommands } from '../../components/score-editor/contextMenuCommands';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -54,6 +55,7 @@ function liveProps(overrides: Partial<EditorCommandProps> = {}): {
 const idle = (props: EditorCommandProps) => [
   ...buildEditorCommands(() => props),
   ...buildContextMenuCommands(() => props),
+  ...buildOrnamentCommands(() => props),
 ];
 
 const find = (commands: AnyCommand[], id: string) => {

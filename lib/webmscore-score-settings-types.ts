@@ -79,3 +79,13 @@ export interface StaffProperties {
   /** 0 auto, 1 always, 2 never (AutoOnOff). */
   hideWhenEmpty: number;
 }
+
+/** One typed element property over the selection (`getElementPropertyValues`): engine tokens, never numeric enums. */
+export interface ElementPropertyState {
+  /** Null when the selected elements disagree. */
+  value: string | null;
+  mixed: boolean;
+  applicableCount: number;
+  /** The style default, for reset. */
+  default: string;
+}

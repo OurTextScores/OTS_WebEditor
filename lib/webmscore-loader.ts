@@ -23,13 +23,14 @@ export type ScoreObjectHit =
 
 import type {
   ContextHitReport,
+  ElementPropertyState,
   MeasureProperties,
   SelectOptions,
   StaffProperties,
   StyleValue,
 } from './webmscore-score-settings-types';
 
-export type { ContextHitReport, MeasureProperties, SelectOptions, StaffProperties, StyleValue };
+export type { ContextHitReport, ElementPropertyState, MeasureProperties, SelectOptions, StaffProperties, StyleValue };
 
 /** One part's vertical extent within one laid-out system, in page coordinates. */
 export interface StaffSystemBand {
@@ -397,6 +398,10 @@ export interface Score {
   contextSelectionInfo?: () => Promise<ContextHitReport>;
   /** Snap to previous (0) / next (1) for the selected hairpins and gradual tempo changes. */
   toggleSnap?: (which: 0 | 1) => Promise<boolean> | boolean;
+  /** Typed element properties by MuseScore name (roadmap E09); values are engine tokens. */
+  getElementPropertyValues?: (names: string[]) => Promise<Record<string, ElementPropertyState>>;
+  /** One undoable edit; `reset` returns the property to its style default. */
+  setElementPropertyValue?: (name: string, token: string, reset?: boolean) => Promise<boolean> | boolean;
   /** Select instrument… on the selected instrument change. */
   changeInstrumentAt?: (instrumentId: string) => Promise<boolean> | boolean;
   getStaffProperties?: (staffIdx: number) => Promise<Partial<StaffProperties>>;

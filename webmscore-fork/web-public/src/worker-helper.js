@@ -129,6 +129,9 @@ class WebMscoreW {
         // presence as proof of a native export. Older packages omit this path.
         if (!capabilities?.hitTestScoreObject) Object.defineProperty(instance, 'hitTestScoreObject', { value: undefined })
         if (!capabilities?.moveSelectedChordRestToStaff) Object.defineProperty(instance, 'moveSelectedChordRestToStaff', { value: undefined })
+        if (!capabilities?.elementProperties) {
+            for (const name of ['getElementPropertyValues', 'setElementPropertyValue']) Object.defineProperty(instance, name, { value: undefined })
+        }
         if (!capabilities?.staffDialogs) {
             for (const name of ['changeInstrumentAt', 'getStaffProperties', 'setStaffProperties', 'addImageToFrame']) Object.defineProperty(instance, name, { value: undefined })
         }
@@ -328,6 +331,14 @@ class WebMscoreW {
 
     contextSelectionInfo() {
         return this.rpc('contextSelectionInfo')
+    }
+
+    getElementPropertyValues(names) {
+        return this.rpc('getElementPropertyValues', [names])
+    }
+
+    setElementPropertyValue(name, token, reset = false) {
+        return this.rpc('setElementPropertyValue', [name, token, reset])
     }
 
     changeInstrumentAt(instrumentId) {

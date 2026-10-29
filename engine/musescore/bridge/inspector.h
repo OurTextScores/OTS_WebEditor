@@ -2,6 +2,7 @@
 #pragma once
 #include "global/serialization/json.h"
 #include "engraving/dom/spanner.h"
+#include "engraving/types/typesconv.h"
 static std::vector<engraving::EngravingItem*> selectedInspectorTargets(Score* score)
 {
     std::vector<engraving::EngravingItem*> targets;
@@ -253,3 +254,136 @@ extern "C" EMSCRIPTEN_KEEPALIVE bool setSelectedElementProperty(uintptr_t score_
     return true;
 }
 
+
+// Typed element properties by MuseScore's property name (roadmap E09): `intervalAbove`, `voiceAssignment`,
+// `centerBetweenStaves`, … Values travel as the engine's own MSCX tokens ("third,major", "allInStaff", "auto"), never
+// as numeric enums, and each comes with its default so a control can reset to style. Only the reviewed value types
+// below are offered; a property of any other type is reported unsupported (left out).
+static bool elementPropertyToToken(engraving::P_TYPE type, const engraving::PropertyValue& v, String& out)
+{
+    switch (type) {
+    case engraving::P_TYPE::BOOL: out = v.toBool() ? u"true" : u"false"; return true;
+    case engraving::P_TYPE::INT: out = String::number(v.toInt()); return true;
+    case engraving::P_TYPE::REAL: out = String::number(v.toReal()); return true;
+    case engraving::P_TYPE::SPATIUM: out = String::number(v.value<engraving::Spatium>().val()); return true;
+    case engraving::P_TYPE::AUTO_ON_OFF:
+        out = String::fromAscii(engraving::TConv::toXml(v.value<engraving::AutoOnOff>()).ascii()); return true;
+    case engraving::P_TYPE::VOICE_ASSIGNMENT:
+        out = String::fromAscii(engraving::TConv::toXml(v.value<engraving::VoiceAssignment>()).ascii()); return true;
+    case engraving::P_TYPE::ORNAMENT_INTERVAL: out = engraving::TConv::toXml(v.value<engraving::OrnamentInterval>()); return true;
+    case engraving::P_TYPE::ORNAMENT_SHOW_ACCIDENTAL: {
+        static const char16_t* names[] = { u"default", u"anyAlteration", u"always" };
+        const int i = static_cast<int>(v.value<engraving::OrnamentShowAccidental>());
+        if (i < 0 || i > 2) return false;
+        out = names[i];
+        return true;
+    }
+    default: return false;
+    }
+}
+
+static bool elementPropertyFromToken(engraving::P_TYPE type, const String& token, engraving::PropertyValue& out)
+{
+    switch (type) {
+    case engraving::P_TYPE::BOOL:
+        if (token != u"true" && token != u"false") return false;
+        out = token == u"true"; return true;
+    case engraving::P_TYPE::INT: { bool ok = false; const int i = token.toInt(&ok); if (!ok) return false; out = i; return true; }
+    case engraving::P_TYPE::REAL: { bool ok = false; const double d = token.toDouble(&ok); if (!ok) return false; out = d; return true; }
+    case engraving::P_TYPE::SPATIUM: {
+        bool ok = false; const double d = token.toDouble(&ok); if (!ok) return false; out = engraving::Spatium(d); return true;
+    }
+    case engraving::P_TYPE::AUTO_ON_OFF:
+        if (token != u"auto" && token != u"on" && token != u"off") return false;
+        { const std::string ascii = token.toStdString();
+          out = engraving::PropertyValue::fromValue(engraving::TConv::fromXml(muse::AsciiStringView(ascii), engraving::AutoOnOff::AUTO)); }
+        return true;
+    case engraving::P_TYPE::VOICE_ASSIGNMENT:
+        if (token != u"allInInstrument" && token != u"allInStaff" && token != u"currentVoiceOnly") return false;
+        { const std::string ascii = token.toStdString();
+          out = engraving::PropertyValue::fromValue(
+              engraving::TConv::fromXml(muse::AsciiStringView(ascii), engraving::VoiceAssignment::ALL_VOICE_IN_INSTRUMENT)); }
+        return true;
+    case engraving::P_TYPE::ORNAMENT_INTERVAL: {
+        if (token.split(u',').size() != 2) return false;
+        out = engraving::PropertyValue::fromValue(engraving::TConv::fromXml(token, engraving::OrnamentInterval()));
+        return true;
+    }
+    case engraving::P_TYPE::ORNAMENT_SHOW_ACCIDENTAL: {
+        const int i = token == u"default" ? 0 : token == u"anyAlteration" ? 1 : token == u"always" ? 2 : -1;
+        if (i < 0) return false;
+        out = engraving::PropertyValue::fromValue(engraving::OrnamentShowAccidental(i));
+        return true;
+    }
+    default: return false;
+    }
+}
+
+extern "C" {
+
+// {"<name>": {value, mixed, applicableCount, default}} over the selection's elements that have the property.
+EMSCRIPTEN_KEEPALIVE const uint8_t* getElementPropertyValues(uintptr_t score_ptr, const char* namesJson, int excerptId)
+{
+    auto* score = getScore(score_ptr, excerptId);
+    if (!score) return textResponse("Invalid score", 1);
+    const JsonArray names = JsonDocument::fromJson(ByteArray(namesJson ? namesJson : "[]")).rootArray();
+    const auto targets = selectedInspectorTargets(score);
+    JsonObject result;
+    for (size_t i = 0; i < names.size(); ++i) {
+        const String name = names.at(i).toString();
+        const engraving::Pid pid = engraving::propertyId(name.toAscii().constChar());
+        if (pid == engraving::Pid::END) continue;
+        const engraving::P_TYPE type = engraving::propertyType(pid);
+        String first, def;
+        bool mixed = false;
+        int count = 0;
+        for (auto* target : targets) {
+            const auto value = target->getProperty(pid);
+            String token;
+            if (!value.isValid() || !elementPropertyToToken(type, value, token)) continue;
+            if (count == 0) {
+                first = token;
+                elementPropertyToToken(type, target->propertyDefault(pid), def);
+            } else if (token != first) {
+                mixed = true;
+            }
+            ++count;
+        }
+        if (count == 0) continue;
+        JsonObject property;
+        property.set("value", mixed ? JsonValue() : JsonValue(first));
+        property.set("mixed", mixed);
+        property.set("applicableCount", count);
+        property.set("default", def);
+        result.set(name.toStdString(), property);
+    }
+    return response(JsonDocument(result).toJson(JsonDocument::Format::Compact));
+}
+
+// Sets (or, with reset, returns to its default) one named property on every selected element that has it, as one
+// undoable edit. False, changing nothing, for an unknown property, a mistyped token or no element that has it.
+EMSCRIPTEN_KEEPALIVE bool setElementPropertyValue(uintptr_t score_ptr, const char* name, const char* token, bool reset,
+                                                  int excerptId)
+{
+    auto* score = getScore(score_ptr, excerptId);
+    if (!score || !name) return false;
+    const engraving::Pid pid = engraving::propertyId(name);
+    if (pid == engraving::Pid::END) return false;
+    engraving::PropertyValue value;
+    if (!reset && !elementPropertyFromToken(engraving::propertyType(pid), String::fromUtf8(token ? token : ""), value)) return false;
+    std::vector<engraving::EngravingItem*> applicable;
+    for (auto* target : selectedInspectorTargets(score)) {
+        if (target->getProperty(pid).isValid()) applicable.push_back(target);
+    }
+    if (applicable.empty()) return false;
+    score->startCmd(TranslatableString::untranslatable("Edit property"));
+    for (auto* target : applicable) {
+        if (reset) target->undoResetProperty(pid);
+        else target->undoChangeProperty(pid, value);
+    }
+    score->endCmd();
+    layoutLinked(score);
+    return true;
+}
+
+} // extern "C"

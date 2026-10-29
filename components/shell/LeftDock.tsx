@@ -46,7 +46,7 @@ export interface LeftDockProps {
   edits: EditsPanelProps;
   inspector: Pick<
     InspectorProps,
-    'loading' | 'disabled' | 'onChange' | 'fretDiagram' | 'onFretDiagramChange' | 'systemLayout'
+    'loading' | 'disabled' | 'onChange' | 'fretDiagram' | 'onFretDiagramChange' | 'systemLayout' | 'notation'
   > & { data: SelectedElementProperties | null };
 }
 

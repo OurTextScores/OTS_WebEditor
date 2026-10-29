@@ -1,6 +1,7 @@
 import type { AnyCommand } from '../../lib/commands/types';
 import { buildShellOwnCommands, buildStatusBarCommands } from '../shell/shellCommands';
 import { buildContextMenuCommands } from './contextMenuCommands';
+import { buildOrnamentCommands } from './ornamentCommands';
 import { buildEditorCommands } from './editorCommands';
 import { buildShellEditorCommands } from './shellCommands';
 
@@ -13,6 +14,7 @@ export function buildCommandCatalog(): AnyCommand[] {
   return [
     ...buildEditorCommands(() => ({}) as never),
     ...buildContextMenuCommands(() => ({}) as never),
+    ...buildOrnamentCommands(() => ({}) as never),
     ...buildShellEditorCommands(() => ({}) as never),
     ...buildShellOwnCommands(),
     ...buildStatusBarCommands(),

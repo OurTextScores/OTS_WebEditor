@@ -28,6 +28,7 @@ export type MutationMethods = Pick<
   | 'selectSimilar'
   | 'toggleSnap'
   | 'setStyleValues'
+  | 'setElementPropertyValue'
   | 'changeInstrumentAt'
   | 'setStaffProperties'
   | 'addImageToFrame'

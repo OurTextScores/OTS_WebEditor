@@ -311,6 +311,9 @@ class WebMscore {
         this.excerptId = -1
         if (!Module._hitTestScoreObject) Object.defineProperty(this, 'hitTestScoreObject', { value: undefined })
         if (!Module._moveSelectedChordRestToStaff) Object.defineProperty(this, 'moveSelectedChordRestToStaff', { value: undefined })
+        if (!Module._getElementPropertyValues || !Module._setElementPropertyValue) {
+            for (const name of ['getElementPropertyValues', 'setElementPropertyValue']) Object.defineProperty(this, name, { value: undefined })
+        }
         if (!Module._changeInstrumentAt || !Module._getStaffProperties || !Module._setStaffProperties || !Module._addImageToFrame) {
             for (const name of ['changeInstrumentAt', 'getStaffProperties', 'setStaffProperties', 'addImageToFrame']) Object.defineProperty(this, name, { value: undefined })
         }
@@ -664,6 +667,37 @@ class WebMscore {
         } finally {
             freePtr(strptr)
             freePtr(dataPtr)
+        }
+    }
+
+    /**
+     * Typed element properties by MuseScore property name, as engine tokens, over the selection.
+     * @param {string[]} names e.g. ['intervalAbove', 'voiceAssignment']
+     * @returns {Promise<Record<string, {value: string | null, mixed: boolean, applicableCount: number, default: string}>>}
+     */
+    async getElementPropertyValues(names) {
+        const strptr = getStrPtr(JSON.stringify(names || []))
+        try {
+            const dataptr = Module.ccall('getElementPropertyValues', 'number', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
+            return JSON.parse(WasmRes.readText(dataptr))
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    /**
+     * Sets one named property (an engine token) on the selected elements that have it, or resets it to its default.
+     * @returns {Promise<boolean>}
+     */
+    async setElementPropertyValue(name, token, reset = false) {
+        const nameptr = getStrPtr(String(name))
+        const tokenptr = getStrPtr(token == null ? '' : String(token))
+        try {
+            return Module.ccall('setElementPropertyValue', 'boolean', ['number', 'number', 'number', 'boolean', 'number'],
+                [this.scoreptr, nameptr, tokenptr, Boolean(reset), this.excerptId])
+        } finally {
+            freePtr(nameptr)
+            freePtr(tokenptr)
         }
     }
 

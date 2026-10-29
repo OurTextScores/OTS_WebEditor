@@ -33,6 +33,7 @@ import { type AiEditProposal } from '../lib/ai-edit-proposal';
 import { fetchJsonOrThrow } from '../lib/fetch-json';
 import { copySelectionToClipboard, pasteClipboardPayload, swapSelectionWithClipboard } from '../lib/selection-clipboard';
 import { ScoreContextMenu, useScoreContextMenu } from './score-editor/context-menu';
+import { NotationPropertiesSection, useNotationProperties } from './score-editor/properties';
 import { ScoreDialog, dialogEngineFor, openScoreDialog } from './score-editor/score-dialogs';
 import type { MeasureInsertTarget, HeaderTextTarget } from './score-editor/editorProps';
 import { noPerf, startPerf, type PerfHandle } from '../lib/perf-trace';
@@ -1568,6 +1569,7 @@ export default function ScoreEditor() {
   const undoIndex = core.undoHistory.history.index;
   const systemLockRevision = useMemo(() => ({ inspectorData, undoIndex }), [inspectorData, undoIndex]);
   const systemLocks = useSystemLocks(core, systemLockRevision);
+  const notationProperties = useNotationProperties(core, inspectorData?.elementType, systemLockRevision);
   useSelectionAnnouncer(inspectorData);
 
   const ensureScoreId = useCallback(
@@ -8721,6 +8723,7 @@ export default function ScoreEditor() {
   );
 
   const inspectorProps: LeftDockProps['inspector'] = {
+    notation: <NotationPropertiesSection model={notationProperties} disabled={!interactiveMutationEnabled} />,
     systemLayout: <SystemLocksPanel model={systemLocks} disabled={!interactiveMutationEnabled} />,
     data: inspectorData,
     loading: inspectorLoading,

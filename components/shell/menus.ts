@@ -260,6 +260,7 @@ export const MENUS: readonly MenuDefinition[] = [
         'Marks',
         family('add.mark.dynamic', 'Dynamics'),
         family('add.mark.articulation', 'Articulations'),
+        family('add.mark.ornament', 'Ornaments'),
         family('add.mark.fermata', 'Fermatas'),
         family('add.mark.breath', 'Breaths & Caesuras'),
         family('add.mark.arpeggio', 'Arpeggios'),
