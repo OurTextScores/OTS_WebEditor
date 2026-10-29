@@ -420,18 +420,9 @@ export interface Score {
   getMeasureProperties?: () => Promise<Partial<MeasureProperties>>;
   setMeasureProperties?: (values: Partial<MeasureProperties>) => Promise<boolean> | boolean;
   /** Select ▸ More…: pageNumber < 0 patterns on the single selection. */
-  selectWithOptions?: (
-    pageNumber: number,
-    x: number,
-    y: number,
-    options: SelectOptions,
-  ) => Promise<boolean> | boolean;
+  selectWithOptions?: (pageNumber: number, x: number, y: number, options: SelectOptions) => Promise<boolean> | boolean;
   /** Voicing and duration -1 keep each chord symbol's own setting. */
-  realizeChordSymbols?: (
-    literal: boolean,
-    voicing: number,
-    duration: number,
-  ) => Promise<boolean> | boolean;
+  realizeChordSymbols?: (literal: boolean, voicing: number, duration: number) => Promise<boolean> | boolean;
   /** Note input's right-click: the note at the point becomes a rest (MuseScore's remove-note). */
   removeNoteAtPoint?: (pageNumber: number, x: number, y: number) => Promise<boolean> | boolean;
   /** Add fretboard diagram on the selected chord symbols (a diagram of each chord, the symbol on it). */
@@ -439,12 +430,7 @@ export interface Score {
   /** Text into the selected frame: 0 frame text, 1 title, 2 subtitle, 3 composer, 4 lyricist, 5 part name. */
   addFrameText?: (kind: 0 | 1 | 2 | 3 | 4 | 5, text: string) => Promise<boolean> | boolean;
   /** Select ▸ Similar (0), on this staff (1), in this range (2); pageNumber < 0 patterns on the single selection. */
-  selectSimilar?: (
-    mode: 0 | 1 | 2,
-    pageNumber: number,
-    x: number,
-    y: number,
-  ) => Promise<boolean> | boolean;
+  selectSimilar?: (mode: 0 | 1 | 2, pageNumber: number, x: number, y: number) => Promise<boolean> | boolean;
   selectElementAtPoint?: (pageNumber: number, x: number, y: number) => Promise<unknown> | unknown;
   selectMeasureAtPoint?: (pageNumber: number, x: number, y: number) => Promise<unknown> | unknown;
   extendMeasureSelectionAtPoint?: (
