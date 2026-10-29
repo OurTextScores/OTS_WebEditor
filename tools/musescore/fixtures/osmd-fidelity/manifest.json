@@ -181,6 +181,28 @@
       "edit": "pitchUp a note in separate measure 4",
       "test": "tools/musescore/verify-fidelity.mjs",
       "inputFormat": "musicxml"
+    },
+    {
+      "id": "hairpin-system-break",
+      "file": "hairpin-system-break.musicxml",
+      "sha256": "d2079203fae76b1c80117249a86c4f9576975cff08eccd864d43d58a459618be",
+      "origin": "Original minimal fixture derived from the OTS-authored octave-system-break fixture; no third-party score copied.",
+      "license": "GPL-3.0-only",
+      "expectation": "crescendo hairpin across a system break",
+      "edit": "pitchUp a note in separate measure 3",
+      "test": "tools/musescore/verify-fidelity.mjs",
+      "inputFormat": "musicxml"
+    },
+    {
+      "id": "pedal-system-break",
+      "file": "pedal-system-break.musicxml",
+      "sha256": "ff24a40c19a25b08733a4dd68e8b6e73d3ca9899b78edca2a3f5aa7919332b66",
+      "origin": "Original minimal fixture derived from the OTS-authored octave-system-break fixture; no third-party score copied.",
+      "license": "GPL-3.0-only",
+      "expectation": "piano pedal line across a system break",
+      "edit": "pitchUp a note in separate measure 3",
+      "test": "tools/musescore/verify-fidelity.mjs",
+      "inputFormat": "musicxml"
     }
   ]
 }
