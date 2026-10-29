@@ -197,3 +197,16 @@ test('Style… turns courtesy clefs off', async ({ page }) => {
   await submit(page);
   await expect.poll(async () => (await style(page, ['genCourtesyClef'])).genCourtesyClef).toBe(false);
 });
+
+test('Style… numbers every second measure instead of each system', async ({ page }) => {
+  await open(page);
+  await rightClick(page, await paper(page));
+  await page.getByTestId('context-item-format.style').click();
+  await page.getByTestId('score-dialog-measureNumberSystem').uncheck();
+  await page.getByTestId('score-dialog-measureNumberInterval').fill('2');
+  await submit(page);
+  await expect.poll(() => style(page, ['measureNumberSystem', 'measureNumberInterval'])).toEqual({
+    measureNumberInterval: 2,
+    measureNumberSystem: false,
+  });
+});

@@ -169,3 +169,15 @@ describe('Select Instrument…', () => {
     expect(e.changeInstrumentAt).toHaveBeenCalledWith('flute');
   });
 });
+
+describe('Style: measure numbers and multimeasure rests (E16)', () => {
+  it('offers the measure-number keys the engine knows, and writes whole numbers back', async () => {
+    const e = engine({ showMeasureNumber: true, measureNumberInterval: 5, measureNumberSystem: true });
+    const { fields } = await styleDialog.load(e, {});
+    expect(fields.map((f) => f.key)).toEqual(
+      expect.arrayContaining(['measureNumbers', 'showMeasureNumber', 'measureNumberInterval', 'measureNumberSystem']),
+    );
+    await styleDialog.apply(e, { measureNumberInterval: 4, measureNumberSystem: false }, {});
+    expect(e.setStyleValues).toHaveBeenCalledWith({ measureNumberInterval: 4, measureNumberSystem: false });
+  });
+});
