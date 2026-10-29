@@ -194,6 +194,7 @@ describe('every ribbon handler is reachable from a command', () => {
       'file.open': new File(['x'], 'a.mscz'),
       'playback.soundfont': new File(['x'], 'a.sf2'),
       'format.loadStyle': new File(['x'], 'a.mss'),
+      'add.image': new File(['x'], 'a.png'),
     };
     vi.stubGlobal('open', vi.fn());
     for (const entry of idle(props)) {

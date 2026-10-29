@@ -322,6 +322,7 @@ EMSCRIPTEN_KEEPALIVE bool redo(uintptr_t id,int excerpt) {
 #include "contexthit.h"
 #include "scorestyle.h"
 #include "harmonyrealize.h"
+#include "frameimage.h"
 #include "objectgeometry.h"
 
 #include "selectiongeometry.h"

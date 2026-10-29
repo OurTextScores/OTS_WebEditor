@@ -76,6 +76,8 @@ export interface ContextMenuTarget {
   readonly flags?: ContextFlags;
   /** The hit staff's instrument has a drumset: MuseScore adds Customize kit… to the bar menu. */
   readonly drumStaff?: boolean;
+  /** The hit element's staff, for Staff/Part Properties. */
+  readonly staffIdx?: number | null;
 }
 
 export type ContextFlags = NonNullable<ContextHitReport['hit']>['flags'];
@@ -128,7 +130,11 @@ function elementItems(target: ContextMenuTarget): MenuNode[] {
   return items;
 }
 
-/** `makeMeasureItems`. Customize kit and Measure properties have no OTS counterpart yet. */
+/** Staff/Part Properties, for the clicked staff when the engine said which. */
+const staffPropertiesItem = (target: ContextMenuTarget): MenuNode =>
+  item('instruments.staffProperties', undefined, target.staffIdx == null ? {} : { arg: { staffIdx: target.staffIdx } });
+
+/** `makeMeasureItems`. Customize kit has no OTS counterpart yet (roadmap E22). */
 function measureItems(target: ContextMenuTarget): MenuNode[] {
   return [
     ...clipboardItems(),
@@ -137,7 +143,7 @@ function measureItems(target: ContextMenuTarget): MenuNode[] {
     item('tools.measures.removeSelected', 'Delete Measures'),
     separator,
     ...(target.drumStaff ? [item('instruments.customizeKit')] : []),
-    item('instruments.staffProperties'),
+    staffPropertiesItem(target),
     separator,
     submenu(
       'Insert Measures',
@@ -245,7 +251,7 @@ export function contextMenuFor(target: ContextMenuTarget): MenuNode[] {
     case 'TimeSig':
       return elementThen(target, item('format.elementProperties', 'Time Signature Properties'));
     case 'InstrumentName':
-      return elementThen(target, item('instruments.staffProperties'));
+      return elementThen(target, staffPropertiesItem(target));
     case 'Harmony':
       return harmonyItems(target);
     case 'FretDiagram':
@@ -332,6 +338,7 @@ export interface ResolvedContext {
   readonly editable: boolean;
   readonly flags?: ContextFlags;
   readonly drumStaff?: boolean;
+  readonly staffIdx?: number | null;
 }
 
 /** The engine's own answer (`contextHitAtPoint` / `contextSelectionInfo`). */
@@ -341,4 +348,5 @@ export const contextFromReport = (report: ContextHitReport): ResolvedContext => 
   editable: report.hit?.editable ?? false,
   flags: report.hit?.flags,
   drumStaff: report.hit?.drumStaff,
+  staffIdx: report.hit?.staffIdx,
 });

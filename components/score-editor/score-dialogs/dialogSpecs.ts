@@ -1,4 +1,4 @@
-import type { MeasureProperties, SelectOptions, StyleValue } from '../../../lib/webmscore-loader';
+import type { MeasureProperties, SelectOptions, StaffProperties, StyleValue } from '../../../lib/webmscore-loader';
 
 /**
  * The score's settings dialogs, as data: MuseScore's Page Settings, Style (a curated first set, roadmap E08),
@@ -21,6 +21,7 @@ export type DialogField =
       readonly unit?: string;
     }
   | { readonly kind: 'boolean'; readonly key: string; readonly label: string }
+  | { readonly kind: 'text'; readonly key: string; readonly label: string }
   | {
       readonly kind: 'select';
       readonly key: string;
@@ -37,6 +38,11 @@ export interface DialogEngine {
   setMeasureProperties(values: Partial<MeasureProperties>): Promise<boolean> | boolean;
   selectWithOptions(page: number, x: number, y: number, options: SelectOptions): Promise<boolean> | boolean;
   realizeChordSymbols(literal: boolean, voicing: number, duration: number): Promise<boolean> | boolean;
+  getStaffProperties(staffIdx: number): Promise<Partial<StaffProperties>>;
+  setStaffProperties(staffIdx: number, values: Partial<StaffProperties>): Promise<boolean> | boolean;
+  changeInstrumentAt(instrumentId: string): Promise<boolean> | boolean;
+  /** The staff the single selection is on, or null. */
+  selectedStaffIdx(): Promise<number | null>;
 }
 
 /** Where Select ▸ More… takes its pattern: the right-clicked element, or (absent) the single selection. */
@@ -44,6 +50,10 @@ export interface DialogContext {
   readonly at?: { readonly page: number; readonly x: number; readonly y: number };
   /** The pattern is a note: MuseScore's Select Note dialog, with the note filters. */
   readonly note?: boolean;
+  /** Staff/Part Properties: the right-clicked staff, else the selection's. */
+  readonly staffIdx?: number;
+  /** Select Instrument…: the instruments to offer (the editor's loaded templates). */
+  readonly instruments?: readonly { readonly id: string; readonly name: string; readonly group: string }[];
 }
 
 export interface DialogSpec {
@@ -56,7 +66,14 @@ export interface DialogSpec {
   apply(engine: DialogEngine, values: Record<string, FieldValue>, context: DialogContext): Promise<boolean>;
 }
 
-export type ScoreDialogKind = 'pageSettings' | 'style' | 'measureProperties' | 'selectMore' | 'realizeHarmony';
+export type ScoreDialogKind =
+  | 'pageSettings'
+  | 'style'
+  | 'measureProperties'
+  | 'selectMore'
+  | 'realizeHarmony'
+  | 'staffProperties'
+  | 'changeInstrument';
 
 const MM_PER_INCH = 25.4;
 /** The engine stores spatium in 1/1200 inch (MScore::DPI). */
@@ -318,7 +335,100 @@ export const realizeHarmonyDialog: DialogSpec = {
   },
 };
 
+const staffOf = async (engine: DialogEngine, context: DialogContext) => {
+  const staffIdx = context.staffIdx ?? (await engine.selectedStaffIdx());
+  if (staffIdx === null || staffIdx === undefined) throw new Error('Select something on a staff first.');
+  return staffIdx;
+};
+
+/** MuseScore's Staff/Part Properties (EditStaff): the part's names and the staff's settings. */
+export const staffPropertiesDialog: DialogSpec = {
+  title: 'Staff/Part Properties',
+  submitLabel: 'Apply',
+  async load(engine, context) {
+    const p = await engine.getStaffProperties(await staffOf(engine, context));
+    if (p.visible === undefined) throw new Error('That staff no longer exists.');
+    return {
+      fields: [
+        { kind: 'heading', key: 'part', label: 'Part' },
+        { kind: 'text', key: 'partName', label: 'Part name' },
+        { kind: 'text', key: 'longName', label: 'Long instrument name' },
+        { kind: 'text', key: 'shortName', label: 'Short instrument name' },
+        { kind: 'heading', key: 'staff', label: 'Staff' },
+        { kind: 'boolean', key: 'visible', label: 'Visible' },
+        { kind: 'boolean', key: 'small', label: 'Small staff' },
+        { kind: 'number', key: 'lines', label: 'Lines', min: 1, max: 14, step: 1 },
+        { kind: 'boolean', key: 'invisibleLines', label: 'Invisible staff lines' },
+        { kind: 'boolean', key: 'cutaway', label: 'Cutaway (hide empty measures)' },
+        {
+          kind: 'select',
+          key: 'hideWhenEmpty',
+          label: 'Hide when empty',
+          options: [
+            { value: '0', label: 'Auto' },
+            { value: '1', label: 'Always' },
+            { value: '2', label: 'Never' },
+          ],
+        },
+      ],
+      values: {
+        partName: p.partName ?? '',
+        longName: p.longName ?? '',
+        shortName: p.shortName ?? '',
+        visible: Boolean(p.visible),
+        small: Boolean(p.small),
+        lines: p.lines ?? 5,
+        invisibleLines: Boolean(p.invisibleLines),
+        cutaway: Boolean(p.cutaway),
+        hideWhenEmpty: String(p.hideWhenEmpty ?? 0),
+      },
+    };
+  },
+  async apply(engine, values, context) {
+    return Boolean(
+      await engine.setStaffProperties(await staffOf(engine, context), {
+        partName: String(values.partName),
+        longName: String(values.longName),
+        shortName: String(values.shortName),
+        visible: Boolean(values.visible),
+        small: Boolean(values.small),
+        lines: Math.min(14, Math.max(1, Math.floor(Number(values.lines)))),
+        invisibleLines: Boolean(values.invisibleLines),
+        cutaway: Boolean(values.cutaway),
+        hideWhenEmpty: Number(values.hideWhenEmpty),
+      }),
+    );
+  },
+};
+
+/** MuseScore's Select instrument… on an instrument change: the instrument it changes to. */
+export const changeInstrumentDialog: DialogSpec = {
+  title: 'Select Instrument',
+  submitLabel: 'Change',
+  description: 'The instrument change switches the part to this instrument, with its clefs and transposition.',
+  async load(_engine, context) {
+    const instruments = context.instruments ?? [];
+    if (!instruments.length) throw new Error('The instrument list is not loaded yet.');
+    return {
+      fields: [
+        {
+          kind: 'select',
+          key: 'instrument',
+          label: 'Instrument',
+          options: instruments.map(({ id, name, group }) => ({ value: id, label: group ? `${group}: ${name}` : name })),
+        },
+      ],
+      values: { instrument: instruments[0].id },
+    };
+  },
+  async apply(engine, values) {
+    return Boolean(await engine.changeInstrumentAt(String(values.instrument)));
+  },
+};
+
 export const DIALOG_SPECS: Record<ScoreDialogKind, DialogSpec> = {
+  staffProperties: staffPropertiesDialog,
+  changeInstrument: changeInstrumentDialog,
   pageSettings: pageSettingsDialog,
   style: styleDialog,
   measureProperties: measurePropertiesDialog,

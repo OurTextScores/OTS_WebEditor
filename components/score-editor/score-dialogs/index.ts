@@ -5,6 +5,8 @@
 export {
   DIALOG_SPECS,
   MUSIC_FONTS,
+  changeInstrumentDialog,
+  staffPropertiesDialog,
   measurePropertiesDialog,
   pageSettingsDialog,
   realizeHarmonyDialog,

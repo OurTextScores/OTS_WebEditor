@@ -65,3 +65,17 @@ export interface SelectOptions {
   fromSelection?: boolean;
   mode?: 'replace' | 'add' | 'subtract';
 }
+
+/** MuseScore's Staff/Part Properties for one staff (`getStaffProperties`). */
+export interface StaffProperties {
+  partName: string;
+  longName: string;
+  shortName: string;
+  visible: boolean;
+  small: boolean;
+  lines: number;
+  invisibleLines: boolean;
+  cutaway: boolean;
+  /** 0 auto, 1 always, 2 never (AutoOnOff). */
+  hideWhenEmpty: number;
+}

@@ -311,6 +311,9 @@ class WebMscore {
         this.excerptId = -1
         if (!Module._hitTestScoreObject) Object.defineProperty(this, 'hitTestScoreObject', { value: undefined })
         if (!Module._moveSelectedChordRestToStaff) Object.defineProperty(this, 'moveSelectedChordRestToStaff', { value: undefined })
+        if (!Module._changeInstrumentAt || !Module._getStaffProperties || !Module._setStaffProperties || !Module._addImageToFrame) {
+            for (const name of ['changeInstrumentAt', 'getStaffProperties', 'setStaffProperties', 'addImageToFrame']) Object.defineProperty(this, name, { value: undefined })
+        }
         if (!Module._getStyleValues || !Module._setStyleValues || !Module._loadStyle || !Module._getMeasureProperties
             || !Module._setMeasureProperties || !Module._selectWithOptions || !Module._realizeChordSymbols) {
             for (const name of ['getStyleValues', 'setStyleValues', 'loadStyle', 'getMeasureProperties', 'setMeasureProperties', 'selectWithOptions', 'realizeChordSymbols']) Object.defineProperty(this, name, { value: undefined })
@@ -610,6 +613,58 @@ class WebMscore {
     async realizeChordSymbols(literal, voicing, duration) {
         return Module.ccall('realizeChordSymbols', 'boolean', ['number', 'boolean', 'number', 'number', 'number'],
             [this.scoreptr, literal, voicing, duration, this.excerptId])
+    }
+
+    /**
+     * Select instrument… on the selected instrument change: it takes the template's instrument.
+     * @param {string} instrumentId an instrument template id
+     * @returns {Promise<boolean>}
+     */
+    async changeInstrumentAt(instrumentId) {
+        const strptr = getStrPtr(String(instrumentId))
+        try {
+            return Module.ccall('changeInstrumentAt', 'boolean', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    /**
+     * Staff/Part Properties of a staff ({} if it does not exist).
+     * @returns {Promise<object>}
+     */
+    async getStaffProperties(staffIdx) {
+        const dataptr = Module.ccall('getStaffProperties', 'number', ['number', 'number', 'number'], [this.scoreptr, staffIdx, this.excerptId])
+        return JSON.parse(WasmRes.readText(dataptr))
+    }
+
+    /**
+     * Applies Staff/Part Properties (the keys present) as one undoable edit.
+     * @returns {Promise<boolean>}
+     */
+    async setStaffProperties(staffIdx, values) {
+        const strptr = getStrPtr(JSON.stringify(values || {}))
+        try {
+            return Module.ccall('setStaffProperties', 'boolean', ['number', 'number', 'number', 'number'], [this.scoreptr, staffIdx, strptr, this.excerptId])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    /**
+     * Add ▸ Image: an image file's bytes into the selected frame, typed by its suffix (svg, png, jpg, …).
+     * @returns {Promise<boolean>}
+     */
+    async addImageToFrame(suffix, data) {
+        const strptr = getStrPtr(String(suffix))
+        const dataPtr = getTypedArrayPtr(data)
+        try {
+            return Module.ccall('addImageToFrame', 'boolean', ['number', 'number', 'number', 'number', 'number'],
+                [this.scoreptr, strptr, dataPtr, data.byteLength, this.excerptId])
+        } finally {
+            freePtr(strptr)
+            freePtr(dataPtr)
+        }
     }
 
     async setSelectedElementProperty(propertyName, value) {

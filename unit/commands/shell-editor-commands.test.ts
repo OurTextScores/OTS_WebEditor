@@ -454,16 +454,6 @@ describe('left dock commands', () => {
     expect(calls.setInspectorOpen).not.toHaveBeenCalled();
   });
 
-  it('Staff/Part Properties opens the Instruments tab and never closes it', async () => {
-    const dock = dockOf({ isShowing: vi.fn((tab: string) => tab === 'instruments') });
-    const { registry, calls } = setup({ dock: dock as never });
-    await registry.run('instruments.staffProperties');
-    expect(dock.show).toHaveBeenCalledWith('instruments');
-    expect(dock.toggle).not.toHaveBeenCalled();
-    expect(calls.setPanelsVisible).toHaveBeenCalledWith(true);
-    expect(await setup({ dock: null }).registry.run('instruments.staffProperties')).toBe('disabled');
-  });
-
   it('Properties does not reveal panels when it is closing the tab', async () => {
     const dock = dockOf({ isShowing: vi.fn((tab: string) => tab === 'properties') });
     const { registry, calls } = setup({ dock: dock as never });

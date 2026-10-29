@@ -11,6 +11,10 @@ export function dialogEngineFor(score: Score | null): DialogEngine | null {
     setMeasureProperties,
     selectWithOptions,
     realizeChordSymbols,
+    getStaffProperties,
+    setStaffProperties,
+    changeInstrumentAt,
+    contextSelectionInfo,
   } = score;
   if (
     !getStyleValues ||
@@ -18,7 +22,11 @@ export function dialogEngineFor(score: Score | null): DialogEngine | null {
     !getMeasureProperties ||
     !setMeasureProperties ||
     !selectWithOptions ||
-    !realizeChordSymbols
+    !realizeChordSymbols ||
+    !getStaffProperties ||
+    !setStaffProperties ||
+    !changeInstrumentAt ||
+    !contextSelectionInfo
   ) {
     return null;
   }
@@ -29,5 +37,9 @@ export function dialogEngineFor(score: Score | null): DialogEngine | null {
     setMeasureProperties: (values) => setMeasureProperties.call(score, values),
     selectWithOptions: (page, x, y, options) => selectWithOptions.call(score, page, x, y, options),
     realizeChordSymbols: (literal, voicing, duration) => realizeChordSymbols.call(score, literal, voicing, duration),
+    getStaffProperties: (staffIdx) => getStaffProperties.call(score, staffIdx),
+    setStaffProperties: (staffIdx, values) => setStaffProperties.call(score, staffIdx, values),
+    changeInstrumentAt: (instrumentId) => changeInstrumentAt.call(score, instrumentId),
+    selectedStaffIdx: async () => (await contextSelectionInfo.call(score)).hit?.staffIdx ?? null,
   };
 }

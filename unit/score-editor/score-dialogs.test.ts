@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  changeInstrumentDialog,
   measurePropertiesDialog,
+  staffPropertiesDialog,
   pageSettingsDialog,
   realizeHarmonyDialog,
   selectMoreDialog,
@@ -30,6 +32,20 @@ function engine(style: Record<string, number | boolean | string> = {}): DialogEn
     setMeasureProperties: vi.fn(async () => true),
     selectWithOptions: vi.fn(async () => true),
     realizeChordSymbols: vi.fn(async () => true),
+    getStaffProperties: vi.fn(async () => ({
+      partName: 'Piano',
+      longName: 'Piano',
+      shortName: 'Pno.',
+      visible: true,
+      small: false,
+      lines: 5,
+      invisibleLines: false,
+      cutaway: false,
+      hideWhenEmpty: 0,
+    })),
+    setStaffProperties: vi.fn(async () => true),
+    changeInstrumentAt: vi.fn(async () => true),
+    selectedStaffIdx: vi.fn(async () => 1),
   };
 }
 
@@ -122,5 +138,34 @@ describe('Realize Chord Symbols', () => {
     const e = engine();
     await realizeHarmonyDialog.apply(e, { literal: false, voicing: '2', duration: '1' }, {});
     expect(e.realizeChordSymbols).toHaveBeenCalledWith(false, 2, 1);
+  });
+});
+
+describe('Staff/Part Properties', () => {
+  it('edits the right-clicked staff, else the selection’s', async () => {
+    const e = engine();
+    await staffPropertiesDialog.load(e, { staffIdx: 3 });
+    expect(e.getStaffProperties).toHaveBeenCalledWith(3);
+    const { values } = await staffPropertiesDialog.load(e, {});
+    expect(e.getStaffProperties).toHaveBeenLastCalledWith(1);
+    await staffPropertiesDialog.apply(e, { ...values, shortName: 'Pf.', lines: 40, small: true }, {});
+    expect(e.setStaffProperties).toHaveBeenCalledWith(1, expect.objectContaining({ shortName: 'Pf.', lines: 14, small: true }));
+  });
+
+  it('says to select a staff when nothing is on one', async () => {
+    const e = engine();
+    e.selectedStaffIdx.mockResolvedValueOnce(null);
+    await expect(staffPropertiesDialog.load(e, {})).rejects.toThrow('Select something on a staff first.');
+  });
+});
+
+describe('Select Instrument…', () => {
+  it('offers the loaded instruments and changes to the chosen one', async () => {
+    const e = engine();
+    const context = { instruments: [{ id: 'flute', name: 'Flute', group: 'Woodwinds' }] };
+    const { fields, values } = await changeInstrumentDialog.load(e, context);
+    expect(fields[0]).toMatchObject({ options: [{ value: 'flute', label: 'Woodwinds: Flute' }] });
+    await changeInstrumentDialog.apply(e, values, context);
+    expect(e.changeInstrumentAt).toHaveBeenCalledWith('flute');
   });
 });

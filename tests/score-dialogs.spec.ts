@@ -14,6 +14,7 @@ interface DialogWindow {
   __webmscore: {
     getStyleValues(keys: string[]): Promise<Record<string, number | boolean | string>>;
     getSelectedElementProperties(): Promise<{ selectionCount: number; elementType: string }>;
+    getStaffProperties(staffIdx: number): Promise<{ shortName?: string; small?: boolean }>;
   };
 }
 
@@ -139,4 +140,50 @@ test('Realize Chord Symbols… turns a chord symbol into notes', async ({ page }
   await page.getByTestId('score-dialog-duration').selectOption('1');
   await submit(page);
   await expect.poll(() => noteCount(page)).toBe(before + 3);
+});
+
+test('Staff/Part Properties… from the instrument name edits that staff', async ({ page }) => {
+  await open(page);
+  await rightClick(page, await centre(page, 'svg .InstrumentName'));
+  await page.getByTestId('context-item-instruments.staffProperties').click();
+  await expect(page.getByTestId('score-dialog-longName')).toHaveValue('Piano');
+  await page.getByTestId('score-dialog-shortName').fill('Pf.');
+  await page.getByTestId('score-dialog-small').check();
+  await submit(page);
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as DialogWindow).__webmscore.getStaffProperties(0)))
+    .toMatchObject({ shortName: 'Pf.', small: true });
+});
+
+test('Select Instrument… on an instrument change switches the part from there', async ({ page }) => {
+  await open(page);
+  const note = await centre(page, 'svg .Note', 2);
+  await page.mouse.click(note.x, note.y);
+  await runCommandAnsweringPrompt(page, 'add.text.instrumentChange', 'To flute');
+  await page.waitForSelector('svg .InstrumentChange', { state: 'attached', timeout: 20_000 });
+
+  await rightClick(page, await centre(page, 'svg .InstrumentChange'));
+  await page.getByTestId('context-item-instruments.changeAt').click();
+  await page.getByTestId('score-dialog-instrument').selectOption('flute');
+  await submit(page);
+  await expect.poll(async () => (await readXml(page)).includes('<instrument-name>Flute</instrument-name>')).toBe(true);
+});
+
+test('a frame’s Add ▸ Image puts the image in the frame', async ({ page }) => {
+  await page.goto('/?score=/test_scores/credits_small_staff.musicxml');
+  await page.waitForSelector('svg .Note', { timeout: 60_000 });
+  // Blank frame space level with the centred subtitle (the tallest text), at the staff's left edge.
+  const texts = await page.locator('svg .Text').evaluateAll((nodes) =>
+    nodes.map((node) => node.getBoundingClientRect()).map((r) => ({ y: r.top + r.height / 2, h: r.height })),
+  );
+  const staff = await page.locator('svg .StaffLines').first().boundingBox();
+  if (!texts.length || !staff) throw new Error('no subtitle or staff');
+  const subtitle = texts.reduce((tallest, text) => (text.h > tallest.h ? text : tallest));
+  await rightClick(page, { x: staff.x + 5, y: subtitle.y });
+
+  await page.getByTestId('context-sub-add').click();
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByTestId('context-item-add.image').click();
+  await (await chooser).setFiles(path.join(__dirname, '../public/test_scores/images/square.png'));
+  await page.waitForSelector('svg .Image', { state: 'attached', timeout: 20_000 });
 });

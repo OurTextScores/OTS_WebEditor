@@ -60,6 +60,20 @@ describe.skipIf(!fs.existsSync(nodeBuild))('score dialogs in the engine', () => 
     expect(report.sameMeasureCount).toBe(1);
   });
 
+  it('reads and edits Staff/Part Properties as one undoable edit', () => {
+    expect(report.staffBefore).toMatchObject({ partName: 'Piano', shortName: '', small: false, lines: 5, visible: true });
+    expect(report.staffSet).toBe(true);
+    expect(report.staffAfter).toMatchObject({ shortName: 'Pf.', small: true, lines: 4 });
+    expect(report.staffUndone).toMatchObject({ shortName: '', small: false, lines: 5 });
+    expect(report.staffMissing).toEqual({});
+  });
+
+  it('changes the instrument at an instrument change', () => {
+    expect(report.changeAdded).toBe(true);
+    expect(report.changeInstrument).toBe(true);
+    expect(report.instrumentsInXml).toContain('Flute');
+  });
+
   it('realizes a selected chord symbol as notes', () => {
     expect(report.realize).toBe(true);
     expect(report.notesAdded).toBe(3);

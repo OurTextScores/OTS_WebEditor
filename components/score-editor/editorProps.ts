@@ -1,3 +1,4 @@
+import type { DialogContext, ScoreDialogKind } from './score-dialogs';
 import type { OtsModeKind } from '../shell/workspaceMode';
 
 /**
@@ -233,10 +234,9 @@ export interface EditorCommandProps {
   /** Snap to previous (0) / next (1) for the selected hairpins and tempo changes. */
   onToggleSnap?: (which: 0 | 1) => Promise<unknown> | void;
   /** Opens one of the score's settings dialogs; set when the engine provides them. */
-  onOpenScoreDialog?: (
-    kind: 'pageSettings' | 'style' | 'measureProperties' | 'selectMore' | 'realizeHarmony',
-    context?: { at?: { page: number; x: number; y: number }; note?: boolean },
-  ) => void;
+  onOpenScoreDialog?: (kind: ScoreDialogKind, context?: DialogContext) => void;
+  /** Add ▸ Image: an image file into the selected frame. */
+  onAddImageToFrame?: (file: File) => Promise<unknown> | void;
   /** Load Style: a MuseScore style file (.mss) replaces the score's style. */
   onLoadStyle?: (file: File) => Promise<unknown> | void;
   /** Open the score's context menu at the selection (Shift+F10, the Menu key). */

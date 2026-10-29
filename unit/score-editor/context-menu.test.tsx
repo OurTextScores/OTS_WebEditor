@@ -114,6 +114,7 @@ describe('selection on right-click (mousePress_considerSelect)', () => {
       editable: true,
       flags: {},
       drumStaff: false,
+      staffIdx: 0,
     });
     expect(contextFromReport({ hit: null, selection: { kind: 'range', type: null } })).toMatchObject({
       hitType: null,
@@ -274,9 +275,9 @@ describe('type-specific menus (makeItemsByElementType), as registered in OTS tod
 
   it('adds every header text to a vertical frame, and plain text to a horizontal one', () => {
     expect(menu('VBox').at(-1)).toEqual({
-      Add: [0, 1, 2, 3, 4, 5].map((kind) => `add.frameText(${kind})`),
+      Add: [...[0, 1, 2, 3, 4, 5].map((kind) => `add.frameText(${kind})`), 'add.image'],
     });
-    expect(menu('HBox').at(-1)).toEqual({ Add: ['add.frameText(0)'] });
+    expect(menu('HBox').at(-1)).toEqual({ Add: ['add.frameText(0)', 'add.image'] });
   });
 
   it('shows a hairpin’s snaps checked as they stand, and a tempo change’s Snap to Next only', () => {

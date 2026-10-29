@@ -61,6 +61,23 @@ await score.selectAll();
 report.realize = await score.realizeChordSymbols(true, -1, -1);
 report.notesAdded = notesIn(await score.saveXml()) - notesBefore;
 
+// Staff/Part Properties on staff 0: read, set as one edit, undo.
+report.staffBefore = await score.getStaffProperties(0);
+report.staffSet = await score.setStaffProperties(0, { shortName: 'Pf.', small: true, lines: 4 });
+report.staffAfter = await score.getStaffProperties(0);
+await score.undo();
+report.staffUndone = await score.getStaffProperties(0);
+report.staffMissing = await score.getStaffProperties(9);
+
+// Select Instrument… on an instrument change: the part's sound and name change from there.
+await score.selectPartMeasureByIndex(0, 2);
+await score.selectNextChord();
+report.changeTarget = (await score.getSelectedElementProperties()).elementType;
+report.changeAdded = await score.addInstrumentChangeText('To flute');
+await score.selectAll();
+report.changeInstrument = await score.changeInstrumentAt('flute');
+report.instrumentsInXml = [...(await score.saveXml()).matchAll(/<instrument-name>([^<]*)<\/instrument-name>/g)].map((m) => m[1]);
+
 console.log = log;
 console.log(JSON.stringify(report));
 process.exit(0);

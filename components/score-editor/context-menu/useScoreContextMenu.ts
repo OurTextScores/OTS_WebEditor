@@ -173,6 +173,7 @@ export function useScoreContextMenu(inputs: ScoreContextMenuInputs) {
         similarAt: pointer?.similarAt ?? undefined,
         flags: context.flags,
         drumStaff: context.drumStaff,
+        staffIdx: context.staffIdx,
       });
       const nodes = pruneMenuNodes(tree, defaultCommandRegistry);
       // Nothing to offer (blank paper, until OTS has page settings): no menu at all.

@@ -7,6 +7,8 @@ const LABELS: Record<ScoreDialogKind, string> = {
   measureProperties: 'edit measure properties',
   selectMore: 'select more',
   realizeHarmony: 'realize chord symbols',
+  staffProperties: 'edit staff properties',
+  changeInstrument: 'change instrument',
 };
 
 /**
@@ -38,4 +40,19 @@ export async function loadStyleFile(core: Pick<EditorCore, 'performMutation' | '
     if (!fn) return false;
     return fn(data);
   });
+}
+
+/** Add ▸ Image: an image file into the selected frame, typed by its extension. */
+export async function addImageToFrame(core: Pick<EditorCore, 'performMutation' | 'requireMutation'>, file: File) {
+  const suffix = file.name.split('.').pop()?.toLowerCase() ?? '';
+  const data = new Uint8Array(await file.arrayBuffer());
+  return core.performMutation(
+    'add image',
+    async () => {
+      const fn = core.requireMutation('addImageToFrame');
+      if (!fn) return false;
+      return fn(suffix, data);
+    },
+    { skipWasmReselect: true, skipSelectionFallback: true },
+  );
 }

@@ -12,6 +12,11 @@
 #include "engraving/dom/instrtemplate.h"
 #include "engraving/dom/masterscore.h"
 #include "engraving/dom/part.h"
+#include "engraving/editing/editstaff.h"
+#include "engraving/editing/editpart.h"
+#include "engraving/dom/stafftype.h"
+#include "engraving/dom/staff.h"
+#include "engraving/dom/instrchange.h"
 
 // Family and style of a TrueType/OpenType font from its own tables (name ID 1, OS/2 fsSelection), so a font file can
 // be registered without knowing its family. 4.00 left this to Qt (QFontDatabase::addApplicationFont).
@@ -215,6 +220,104 @@ EMSCRIPTEN_KEEPALIVE bool addFont(const char* fontPath)
         layoutAllLinked(project->masterScore());
     }
     LOGI() << "addFont: " << info.family << " from " << path;
+    return true;
+}
+
+// MuseScore's Select instrument… on an instrument change (NotationInteraction::selectInstrument): the selected
+// instrument change takes the instrument template's instrument, with its clefs, key and transposition.
+EMSCRIPTEN_KEEPALIVE bool changeInstrumentAt(uintptr_t score_ptr, const char* instrumentId, int excerptId)
+{
+    auto* score = getScore(score_ptr, excerptId);
+    if (!score || !instrumentId) return false;
+    // The single selection, else the one instrument change in a list or range (as Realize takes chord symbols).
+    engraving::EngravingItem* element = score->selection().element();
+    if (!element || !element->isInstrumentChange()) {
+        element = nullptr;
+        for (auto* e : score->selection().elements()) {
+            if (e && e->isInstrumentChange()) { element = e; break; }
+        }
+    }
+    if (!element) return false;
+    const engraving::InstrumentTemplate* templ = engraving::searchTemplate(String::fromUtf8(instrumentId));
+    if (!templ) return false;
+    engraving::Instrument instrument = engraving::Instrument::fromTemplate(templ);
+    auto* change = engraving::toInstrumentChange(element);
+    score->startCmd(TranslatableString::untranslatable("Change instrument"));
+    change->setInit(true);
+    change->setupInstrument(&instrument);
+    score->endCmd();
+    layoutLinked(score);
+    return true;
+}
+
+// MuseScore's Staff/Part Properties (EditStaff), for staff `staffIdx`: its part's names and the staff's settings.
+// {partName, longName, shortName, visible, small, lines, invisibleLines, cutaway, hideWhenEmpty (0 auto, 1 always,
+// 2 never)}, or {} for a staff that does not exist.
+EMSCRIPTEN_KEEPALIVE const uint8_t* getStaffProperties(uintptr_t score_ptr, int staffIdx, int excerptId)
+{
+    auto* score = getScore(score_ptr, excerptId);
+    if (!score) return textResponse("Invalid score", 1);
+    JsonObject result;
+    if (staffIdx >= 0 && static_cast<size_t>(staffIdx) < score->nstaves()) {
+        engraving::Staff* staff = score->staff(staffIdx);
+        engraving::Part* part = staff->part();
+        const engraving::StaffType* type = staff->staffType(Fraction(0, 1));
+        const auto& longs = part->longNames();
+        const auto& shorts = part->shortNames();
+        result.set("partName", part->partName());
+        result.set("longName", longs.empty() ? String() : longs.front().toPlainText());
+        result.set("shortName", shorts.empty() ? String() : shorts.front().toPlainText());
+        result.set("visible", staff->visible());
+        result.set("small", type->isSmall());
+        result.set("lines", type->lines());
+        result.set("invisibleLines", type->invisible());
+        result.set("cutaway", staff->cutaway());
+        result.set("hideWhenEmpty", static_cast<int>(staff->hideWhenEmpty()));
+    }
+    return response(JsonDocument(result).toJson(JsonDocument::Format::Compact));
+}
+
+// Applies the keys present (as getStaffProperties names them) as one undoable edit, as EditStaff does.
+EMSCRIPTEN_KEEPALIVE bool setStaffProperties(uintptr_t score_ptr, int staffIdx, const char* json, int excerptId)
+{
+    auto* score = getScore(score_ptr, excerptId);
+    if (!score || staffIdx < 0 || static_cast<size_t>(staffIdx) >= score->nstaves()) return false;
+    const JsonObject o = JsonDocument::fromJson(ByteArray(json ? json : "{}")).rootObject();
+    engraving::Staff* staff = score->staff(staffIdx);
+    engraving::Part* part = staff->part();
+    const Fraction tick(0, 1);
+
+    score->startCmd(TranslatableString::untranslatable("Edit staff properties"));
+    if (o.contains("longName")) {
+        score->undo(new engraving::ChangeInstrumentLong(tick, part, { engraving::StaffName(o.value("longName").toString()) }));
+    }
+    if (o.contains("shortName")) {
+        score->undo(new engraving::ChangeInstrumentShort(tick, part, { engraving::StaffName(o.value("shortName").toString()) }));
+    }
+    if (o.contains("partName")) {
+        score->undo(new engraving::ChangePart(part, new engraving::Instrument(*part->instrument()), o.value("partName").toString()));
+    }
+    if (o.contains("visible") || o.contains("cutaway")) {
+        score->undo(new engraving::ChangeStaff(staff,
+                                               o.contains("visible") ? o.value("visible").toBool() : staff->visible(),
+                                               staff->defaultClefType(), staff->userDist(),
+                                               o.contains("cutaway") ? o.value("cutaway").toBool() : staff->cutaway(),
+                                               staff->hideSystemBarLine(), staff->mergeMatchingRests(),
+                                               staff->reflectTranspositionInLinkedTab()));
+    }
+    if (o.contains("hideWhenEmpty")) {
+        staff->undoChangeProperty(engraving::Pid::HIDE_WHEN_EMPTY,
+                                  engraving::PropertyValue::fromValue(engraving::AutoOnOff(o.value("hideWhenEmpty").toInt())));
+    }
+    if (o.contains("small") || o.contains("lines") || o.contains("invisibleLines")) {
+        engraving::StaffType type = *staff->staffType(tick);
+        if (o.contains("small")) type.setSmall(o.value("small").toBool());
+        if (o.contains("lines")) type.setLines(std::max(1, std::min(14, o.value("lines").toInt())));
+        if (o.contains("invisibleLines")) type.setInvisible(o.value("invisibleLines").toBool());
+        score->undo(new engraving::ChangeStaffType(staff, type));
+    }
+    score->endCmd();
+    layoutLinked(score);
     return true;
 }
 

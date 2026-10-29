@@ -129,6 +129,9 @@ class WebMscoreW {
         // presence as proof of a native export. Older packages omit this path.
         if (!capabilities?.hitTestScoreObject) Object.defineProperty(instance, 'hitTestScoreObject', { value: undefined })
         if (!capabilities?.moveSelectedChordRestToStaff) Object.defineProperty(instance, 'moveSelectedChordRestToStaff', { value: undefined })
+        if (!capabilities?.staffDialogs) {
+            for (const name of ['changeInstrumentAt', 'getStaffProperties', 'setStaffProperties', 'addImageToFrame']) Object.defineProperty(instance, name, { value: undefined })
+        }
         if (!capabilities?.scoreDialogs) {
             for (const name of ['getStyleValues', 'setStyleValues', 'loadStyle', 'getMeasureProperties', 'setMeasureProperties', 'selectWithOptions', 'realizeChordSymbols']) Object.defineProperty(instance, name, { value: undefined })
         }
@@ -325,6 +328,22 @@ class WebMscoreW {
 
     contextSelectionInfo() {
         return this.rpc('contextSelectionInfo')
+    }
+
+    changeInstrumentAt(instrumentId) {
+        return this.rpc('changeInstrumentAt', [instrumentId])
+    }
+
+    getStaffProperties(staffIdx) {
+        return this.rpc('getStaffProperties', [staffIdx])
+    }
+
+    setStaffProperties(staffIdx, values) {
+        return this.rpc('setStaffProperties', [staffIdx, values])
+    }
+
+    addImageToFrame(suffix, data) {
+        return this.rpc('addImageToFrame', [suffix, data])
     }
 
     getStyleValues(keys) {

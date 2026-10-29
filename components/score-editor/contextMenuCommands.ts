@@ -183,6 +183,34 @@ export function buildContextMenuCommands(getProps: () => EditorCommandProps): An
       enabled: withCheck(needsSelection, has('onOpenScoreDialog')),
       run: (_ctx, context) => getProps().onOpenScoreDialog?.('selectMore', context ?? {}),
     }),
+    defineCommand<{ staffIdx?: number | null } | undefined>({
+      id: 'instruments.staffProperties',
+      label: 'Staff/Part Properties',
+      opensDialog: true,
+      keywords: ['staff', 'part', 'instrument name', 'small staff', 'lines'],
+      enabled: withCheck(mutable, has('onOpenScoreDialog')),
+      run: (_ctx, arg) =>
+        getProps().onOpenScoreDialog?.('staffProperties', arg?.staffIdx == null ? {} : { staffIdx: arg.staffIdx }),
+    }),
+    defineCommand({
+      id: 'instruments.changeAt',
+      label: 'Select Instrument',
+      opensDialog: true,
+      keywords: ['instrument change', 'change instrument'],
+      enabled: singleElement(has('onOpenScoreDialog')),
+      run: () => getProps().onOpenScoreDialog?.('changeInstrument'),
+    }),
+    defineCommand<File | undefined>({
+      id: 'add.image',
+      label: 'Image',
+      opensDialog: true,
+      keywords: ['picture', 'logo', 'frame'],
+      enabled: singleElement(has('onAddImageToFrame')),
+      run: async (_ctx, file) => {
+        const chosen = file ?? (await pickFile('.png,.jpg,.jpeg,.svg,.bmp,.tif,.tiff'));
+        if (chosen) await getProps().onAddImageToFrame?.(chosen);
+      },
+    }),
     defineCommand({
       id: 'tools.realizeHarmony',
       label: 'Realize Chord Symbols',

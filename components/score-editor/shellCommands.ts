@@ -204,20 +204,6 @@ export function buildShellEditorCommands(getBindings: GetBindings): AnyCommand[]
         dock.toggle('instruments');
       },
     }),
-    // Until OTS has MuseScore's Staff/Part Properties dialog, its context-menu entry opens the
-    // Instruments panel (design doc, decision 3). Opens, never toggles: the panel may be up already.
-    defineCommand({
-      id: 'instruments.staffProperties',
-      label: 'Staff/Part Properties',
-      keywords: ['staff', 'part', 'instrument'],
-      enabled: () => b().dock !== null,
-      run: () => {
-        const dock = b().dock;
-        if (!dock) return;
-        b().setPanelsVisible(true);
-        dock.show('instruments');
-      },
-    }),
     // MuseScore's Staff text / System text / Time signature properties dialogs, until OTS has them:
     // the context menu opens the Properties panel on the clicked element (decision 3). Opens, never toggles.
     defineCommand({

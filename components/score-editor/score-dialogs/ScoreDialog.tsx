@@ -40,7 +40,15 @@ function Field({
     <label className="flex items-center justify-between gap-3 text-sm text-slate-700">
       <span>{field.label}</span>
       <span className="flex items-center gap-1">
-        {field.kind === 'number' ? (
+        {field.kind === 'text' ? (
+          <input
+            type="text"
+            data-testid={testId}
+            className={`${inputClass} w-48`}
+            value={String(value ?? '')}
+            onChange={(e) => onChange(e.currentTarget.value)}
+          />
+        ) : field.kind === 'number' ? (
           <input
             type="number"
             data-testid={testId}

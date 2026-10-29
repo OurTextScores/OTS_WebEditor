@@ -25,10 +25,11 @@ import type {
   ContextHitReport,
   MeasureProperties,
   SelectOptions,
+  StaffProperties,
   StyleValue,
 } from './webmscore-score-settings-types';
 
-export type { ContextHitReport, MeasureProperties, SelectOptions, StyleValue };
+export type { ContextHitReport, MeasureProperties, SelectOptions, StaffProperties, StyleValue };
 
 /** One part's vertical extent within one laid-out system, in page coordinates. */
 export interface StaffSystemBand {
@@ -396,6 +397,12 @@ export interface Score {
   contextSelectionInfo?: () => Promise<ContextHitReport>;
   /** Snap to previous (0) / next (1) for the selected hairpins and gradual tempo changes. */
   toggleSnap?: (which: 0 | 1) => Promise<boolean> | boolean;
+  /** Select instrument… on the selected instrument change. */
+  changeInstrumentAt?: (instrumentId: string) => Promise<boolean> | boolean;
+  getStaffProperties?: (staffIdx: number) => Promise<Partial<StaffProperties>>;
+  setStaffProperties?: (staffIdx: number, values: Partial<StaffProperties>) => Promise<boolean> | boolean;
+  /** Add ▸ Image into the selected frame; `suffix` types the bytes (svg, png, jpg, …). */
+  addImageToFrame?: (suffix: string, data: Uint8Array) => Promise<boolean> | boolean;
   getStyleValues?: (keys: string[]) => Promise<Record<string, StyleValue>>;
   /** One undoable edit; false (nothing changed) for an unknown or mistyped key. */
   setStyleValues?: (values: Record<string, StyleValue>) => Promise<boolean> | boolean;

@@ -47,6 +47,8 @@ describe('menu tree', () => {
     'format.snap.previous': 'the context menu of a hairpin, as in MuseScore',
     'format.snap.next': 'the context menu of a hairpin or tempo change, as in MuseScore',
     'measure.properties': 'the context menu of a bar, as in MuseScore',
+    'instruments.changeAt': 'the context menu of an instrument change, as in MuseScore',
+    'add.image': 'a frame’s context menu (Add ▸ Image), as in MuseScore',
   };
 
   it('reaches every other command from a menu', () => {
