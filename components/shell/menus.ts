@@ -244,6 +244,7 @@ export const MENUS: readonly MenuDefinition[] = [
         'Lines',
         item('add.line.slur'),
         item('add.line.tie'),
+        item('add.line.laissezVib'),
         family('add.line.hairpin', 'Hairpins'),
         submenu(
           'Pedal',

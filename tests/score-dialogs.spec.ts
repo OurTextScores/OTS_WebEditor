@@ -187,3 +187,13 @@ test('a frame’s Add ▸ Image puts the image in the frame', async ({ page }) =
   await (await chooser).setFiles(path.join(__dirname, '../public/test_scores/images/square.png'));
   await page.waitForSelector('svg .Image', { state: 'attached', timeout: 20_000 });
 });
+
+test('Style… turns courtesy clefs off', async ({ page }) => {
+  await open(page);
+  await rightClick(page, await paper(page));
+  await page.getByTestId('context-item-format.style').click();
+  await expect(page.getByTestId('score-dialog-genCourtesyClef')).toBeChecked();
+  await page.getByTestId('score-dialog-genCourtesyClef').uncheck();
+  await submit(page);
+  await expect.poll(async () => (await style(page, ['genCourtesyClef'])).genCourtesyClef).toBe(false);
+});

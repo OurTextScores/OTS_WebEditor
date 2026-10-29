@@ -29,6 +29,7 @@ export type MutationMethods = Pick<
   | 'toggleSnap'
   | 'setStyleValues'
   | 'setElementPropertyValue'
+  | 'toggleLaissezVib'
   | 'changeInstrumentAt'
   | 'setStaffProperties'
   | 'addImageToFrame'

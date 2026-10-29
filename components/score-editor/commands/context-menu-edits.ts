@@ -73,3 +73,13 @@ export function removeNoteAtPoint(core: EditorCore, page: number, x: number, y: 
     ENGINE_SELECTION,
   );
 }
+
+/** l.v. on the selected notes: MuseScore's toggle, its own undoable command in the engine. */
+export function toggleLaissezVib(core: EditorCore) {
+  const { performMutation, requireMutation } = core;
+  return performMutation('toggle laissez vibrer', async () => {
+    const fn = requireMutation('toggleLaissezVib');
+    if (!fn) return false;
+    return fn();
+  });
+}

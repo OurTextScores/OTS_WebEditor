@@ -2,7 +2,7 @@ import { useLayoutEffect, useMemo } from 'react';
 import { useProvideCommandContext, useRegisterCommands } from '../../lib/commands';
 import { useLatestCallbackFacade } from '../../lib/use-latest-callback-facade';
 import { buildContextMenuCommands } from './contextMenuCommands';
-import { buildOrnamentCommands } from './ornamentCommands';
+import { buildNotationMarkCommands } from './notationMarkCommands';
 import type { EditorCommandProps } from './editorProps';
 import { buildEditorCommands, deriveRibbonCommandContext } from './editorCommands';
 
@@ -19,7 +19,7 @@ export function useEditorCommands(props: EditorCommandProps): void {
   });
 
   const commands = useMemo(
-    () => [...buildEditorCommands(getProps), ...buildContextMenuCommands(getProps), ...buildOrnamentCommands(getProps)],
+    () => [...buildEditorCommands(getProps), ...buildContextMenuCommands(getProps), ...buildNotationMarkCommands(getProps)],
     [getProps],
   );
   useRegisterCommands('global', commands);

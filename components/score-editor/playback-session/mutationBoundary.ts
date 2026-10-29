@@ -29,6 +29,7 @@ export const PLAYBACK_MUTATION_METHODS = [
   'toggleSnap',
   'setStyleValues',
   'setElementPropertyValue',
+  'toggleLaissezVib',
   'changeInstrumentAt',
   'setStaffProperties',
   'addImageToFrame',

@@ -83,3 +83,20 @@ test('a tremolo’s type is changed from the panel', async ({ page }) => {
   await page.getByTestId('notation-subtype').selectOption('1');
   await expect.poll(() => propertyValue(page, 'subtype')).toBe('1');
 });
+
+test('Laissez Vibrer adds an l.v. tie, whose placement is a typed property', async ({ page }) => {
+  const note = await centre(page, 'svg .Note', 2);
+  await page.mouse.click(note.x, note.y);
+  await runCommand(page, 'add.line.laissezVib');
+  await page.waitForSelector('svg .LaissezVibSegment', { state: 'attached', timeout: 20_000 });
+
+  // Clicking the l.v. tie itself selects its note in OTS today (a hit-testing follow-up), so reach it through a
+  // range selection, where the typed property applies to whichever selected elements have it.
+  const placement = await page.evaluate(async () => {
+    const score = (window as unknown as { __webmscore: Record<string, (...args: unknown[]) => Promise<unknown>> }).__webmscore;
+    await score.selectAll();
+    await score.setElementPropertyValue('tiePlacement', 'outside');
+    return ((await score.getElementPropertyValues(['tiePlacement'])) as Record<string, { value: string }>).tiePlacement?.value;
+  });
+  expect(placement).toBe('outside');
+});

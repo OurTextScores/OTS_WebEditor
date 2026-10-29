@@ -1,5 +1,5 @@
 import { needsSelection, withCheck } from '../../lib/commands/selectionGates';
-import { defineFamily, type AnyCommand } from '../../lib/commands/types';
+import { defineCommand, defineFamily, type AnyCommand } from '../../lib/commands/types';
 import type { EditorCommandProps } from './editorProps';
 
 /**
@@ -19,9 +19,21 @@ export const ORNAMENTS = [
   { label: 'Haydn', symbol: 'ornamentHaydn' },
 ] as const;
 
-/** Registered beside `buildEditorCommands` (useEditorCommands, commandCatalog). */
-export function buildOrnamentCommands(getProps: () => EditorCommandProps): AnyCommand[] {
+/**
+ * Notation marks added since the ribbon (roadmap E10 ornaments, E12 l.v. ties). Registered beside
+ * `buildEditorCommands` (useEditorCommands, commandCatalog).
+ */
+export function buildNotationMarkCommands(getProps: () => EditorCommandProps): AnyCommand[] {
   return [
+    defineCommand({
+      id: 'add.line.laissezVib',
+      label: 'Laissez Vibrer',
+      keywords: ['l.v.', 'let ring', 'tie'],
+      enabled: withCheck(needsSelection, () => Boolean(getProps().onToggleLaissezVib)),
+      run: async () => {
+        await getProps().onToggleLaissezVib?.();
+      },
+    }),
     defineFamily<string>({
       id: 'add.mark.ornament',
       label: 'Ornament',

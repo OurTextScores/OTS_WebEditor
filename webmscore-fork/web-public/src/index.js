@@ -311,6 +311,7 @@ class WebMscore {
         this.excerptId = -1
         if (!Module._hitTestScoreObject) Object.defineProperty(this, 'hitTestScoreObject', { value: undefined })
         if (!Module._moveSelectedChordRestToStaff) Object.defineProperty(this, 'moveSelectedChordRestToStaff', { value: undefined })
+        if (!Module._toggleLaissezVib) Object.defineProperty(this, 'toggleLaissezVib', { value: undefined })
         if (!Module._getElementPropertyValues || !Module._setElementPropertyValue) {
             for (const name of ['getElementPropertyValues', 'setElementPropertyValue']) Object.defineProperty(this, name, { value: undefined })
         }
@@ -699,6 +700,14 @@ class WebMscore {
             freePtr(nameptr)
             freePtr(tokenptr)
         }
+    }
+
+    /**
+     * l.v. (laissez vibrer) on the selected notes, as MuseScore's toggle.
+     * @returns {Promise<boolean>}
+     */
+    async toggleLaissezVib() {
+        return Module.ccall('toggleLaissezVib', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
     }
 
     async setSelectedElementProperty(propertyName, value) {

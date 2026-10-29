@@ -109,6 +109,36 @@ export const NOTATION_PROPERTIES: Readonly<Record<string, { readonly title: stri
       { name: 'anchorToEndOfPrevious', label: 'Anchor to end of previous', kind: 'boolean' },
     ],
   },
+  Tie: {
+    title: 'Tie',
+    properties: [
+      {
+        name: 'tiePlacement',
+        label: 'Placement',
+        kind: 'select',
+        options: [
+          { value: 'auto', label: 'Auto' },
+          { value: 'inside', label: 'Inside' },
+          { value: 'outside', label: 'Outside' },
+        ],
+      },
+    ],
+  },
+  LaissezVib: {
+    title: 'Laissez vibrer',
+    properties: [
+      {
+        name: 'tiePlacement',
+        label: 'Placement',
+        kind: 'select',
+        options: [
+          { value: 'auto', label: 'Auto' },
+          { value: 'inside', label: 'Inside' },
+          { value: 'outside', label: 'Outside' },
+        ],
+      },
+    ],
+  },
   Hairpin: {
     title: 'Hairpin',
     properties: [

@@ -271,6 +271,8 @@ static bool elementPropertyToToken(engraving::P_TYPE type, const engraving::Prop
     case engraving::P_TYPE::VOICE_ASSIGNMENT:
         out = String::fromAscii(engraving::TConv::toXml(v.value<engraving::VoiceAssignment>()).ascii()); return true;
     case engraving::P_TYPE::ORNAMENT_INTERVAL: out = engraving::TConv::toXml(v.value<engraving::OrnamentInterval>()); return true;
+    case engraving::P_TYPE::TIE_PLACEMENT:
+        out = String::fromAscii(engraving::TConv::toXml(v.value<engraving::TiePlacement>()).ascii()); return true;
     case engraving::P_TYPE::ORNAMENT_SHOW_ACCIDENTAL: {
         static const char16_t* names[] = { u"default", u"anyAlteration", u"always" };
         const int i = static_cast<int>(v.value<engraving::OrnamentShowAccidental>());
@@ -303,6 +305,11 @@ static bool elementPropertyFromToken(engraving::P_TYPE type, const String& token
         { const std::string ascii = token.toStdString();
           out = engraving::PropertyValue::fromValue(
               engraving::TConv::fromXml(muse::AsciiStringView(ascii), engraving::VoiceAssignment::ALL_VOICE_IN_INSTRUMENT)); }
+        return true;
+    case engraving::P_TYPE::TIE_PLACEMENT:
+        if (token != u"auto" && token != u"inside" && token != u"outside") return false;
+        { const std::string ascii = token.toStdString();
+          out = engraving::PropertyValue::fromValue(engraving::TConv::fromXml(muse::AsciiStringView(ascii), engraving::TiePlacement::AUTO)); }
         return true;
     case engraving::P_TYPE::ORNAMENT_INTERVAL: {
         if (token.split(u',').size() != 2) return false;

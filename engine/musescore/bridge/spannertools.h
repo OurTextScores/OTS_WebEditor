@@ -880,4 +880,15 @@ EMSCRIPTEN_KEEPALIVE bool toggleSnap(uintptr_t score_ptr, int which, int excerpt
     return true;
 }
 
+// MuseScore's l.v. (laissez vibrer) toggle on the selected notes (Score::cmdToggleLaissezVib, which is its own
+// undoable command): each note without one gets an l.v. tie, and notes that all have one lose it.
+EMSCRIPTEN_KEEPALIVE bool toggleLaissezVib(uintptr_t score_ptr, int excerptId)
+{
+    auto* score = getScore(score_ptr, excerptId);
+    if (!score || score->selection().noteList().empty()) return false;
+    score->cmdToggleLaissezVib();
+    layoutLinked(score);
+    return true;
+}
+
 } // extern "C"

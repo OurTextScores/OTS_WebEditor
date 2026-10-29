@@ -233,6 +233,8 @@ export interface EditorCommandProps {
   onAddFretboardForHarmony?: () => Promise<unknown> | void;
   /** Snap to previous (0) / next (1) for the selected hairpins and tempo changes. */
   onToggleSnap?: (which: 0 | 1) => Promise<unknown> | void;
+  /** l.v. (laissez vibrer) on the selected notes, as MuseScore's toggle. */
+  onToggleLaissezVib?: () => Promise<unknown> | void;
   /** Opens one of the score's settings dialogs; set when the engine provides them. */
   onOpenScoreDialog?: (kind: ScoreDialogKind, context?: DialogContext) => void;
   /** Add ▸ Image: an image file into the selected frame. */

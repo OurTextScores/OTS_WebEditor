@@ -129,6 +129,7 @@ class WebMscoreW {
         // presence as proof of a native export. Older packages omit this path.
         if (!capabilities?.hitTestScoreObject) Object.defineProperty(instance, 'hitTestScoreObject', { value: undefined })
         if (!capabilities?.moveSelectedChordRestToStaff) Object.defineProperty(instance, 'moveSelectedChordRestToStaff', { value: undefined })
+        if (!capabilities?.laissezVib) Object.defineProperty(instance, 'toggleLaissezVib', { value: undefined })
         if (!capabilities?.elementProperties) {
             for (const name of ['getElementPropertyValues', 'setElementPropertyValue']) Object.defineProperty(instance, name, { value: undefined })
         }
@@ -331,6 +332,10 @@ class WebMscoreW {
 
     contextSelectionInfo() {
         return this.rpc('contextSelectionInfo')
+    }
+
+    toggleLaissezVib() {
+        return this.rpc('toggleLaissezVib')
     }
 
     getElementPropertyValues(names) {
