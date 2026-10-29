@@ -181,3 +181,14 @@ describe('Style: measure numbers and multimeasure rests (E16)', () => {
     expect(e.setStyleValues).toHaveBeenCalledWith({ measureNumberInterval: 4, measureNumberSystem: false });
   });
 });
+
+describe('Style: chord symbols (E13)', () => {
+  it('offers the chord-symbol presentation keys the engine knows', async () => {
+    const e = engine({ verticallyStackModifiers: false, chordModifierMag: 1, lowerCaseMinorChords: false });
+    const keys = (await styleDialog.load(e, {})).fields.map((f) => f.key);
+    expect(keys).toEqual(
+      expect.arrayContaining(['chordSymbols', 'verticallyStackModifiers', 'chordModifierMag', 'lowerCaseMinorChords']),
+    );
+    expect(keys).not.toContain('chordBassNoteStagger');
+  });
+});

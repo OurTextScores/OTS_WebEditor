@@ -210,3 +210,16 @@ test('Style… numbers every second measure instead of each system', async ({ pa
     measureNumberSystem: false,
   });
 });
+
+test('Style… stacks chord-symbol modifiers', async ({ page }) => {
+  await open(page);
+  await rightClick(page, await paper(page));
+  await page.getByTestId('context-item-format.style').click();
+  await page.getByTestId('score-dialog-verticallyStackModifiers').check();
+  await page.getByTestId('score-dialog-lowerCaseMinorChords').check();
+  await submit(page);
+  await expect.poll(() => style(page, ['verticallyStackModifiers', 'lowerCaseMinorChords'])).toEqual({
+    lowerCaseMinorChords: true,
+    verticallyStackModifiers: true,
+  });
+});
