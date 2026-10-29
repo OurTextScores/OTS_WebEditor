@@ -310,6 +310,35 @@ per page; the report records omitted regions and dimensions. The default per-cha
 This compares the **same** renderer; it is not a cross-engine correctness oracle. Review changes against the checked-in baseline before accepting a new one. System font and fontconfig files are hashed
 by content; a missing inventory or an environment mismatch makes the report fail.
 
+To combine the visual report with the captured fidelity results for review, run:
+
+```bash
+node tools/musescore/review-report.mjs .playwright-runs/osmd-visual/report-ab
+```
+
+Open `report-ab/review.html`. It groups pages under the 14 fixtures, links full pages and crops,
+and identifies current fidelity failures as known or new against `known-failures.json`. Previously
+known failures no longer observed are shown separately for investigation, not automatically removed.
+Missing semantic results are shown as unknown. Capture warnings and provenance remain visible.
+The HTML and JSON are review aids; they do not change the visual comparison exit code or the strict
+fidelity gate. Direct-edit and staff-movement checks can stop capture before a report is produced;
+their results are not represented by the fidelity failure list.
+
+The generator also writes `review-template.json`. Copy it outside the report directory, set each
+reviewed fixture's `status` to `expected` or `defect`, and add a nonempty `rationale`; leave other
+items as `needs-review`. Keep the `evidenceSha256` unchanged. To apply that versioned JSON record,
+generate a fresh visual report directory from the same captures and run:
+
+```bash
+node tools/musescore/review-report.mjs path/to/new-visual-report path/to/review-decisions.json
+```
+
+Records are validated and never alter a baseline or gate. A decision is shown as stale if the
+fixture's evidence, capture provenance, or warnings differ. The generator writes new files only;
+it does not overwrite prior reviews. For the pinned CI script, optionally set
+`OTS_VISUAL_REVIEW_DECISIONS` to a record available inside the container. The report is uploaded
+with the visual artifacts even when a visual difference makes that check fail.
+
 ### Moving selected notation between staves
 
 The optional `score.moveSelectedChordRestToStaff('up' | 'down')` worker API moves selected chords and rests one staff

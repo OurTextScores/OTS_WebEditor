@@ -69,10 +69,11 @@ for (const id of ids) {
     }
     const row = { id, changedPixels: count, baselineSize: [before.info.width, before.info.height], currentSize: [after.info.width, after.info.height], bounds: count ? [minX, minY, maxX, maxY] : null, crops: 0, omittedRegions: 0, truncatedRegions: 0 };
     rows.push(row);
-    if (!count) continue;
     const dir = path.join(output, id); await mkdir(dir);
     await copyFile(path.join(baseline, old.file), path.join(dir, 'before.png'));
     await copyFile(path.join(current, now.file), path.join(dir, 'current.png'));
+    row.imagesCopied = true;
+    if (!count) continue;
     await sharp(overlay, { raw: { width: w, height: h, channels: 4 } }).png().toFile(path.join(dir, 'overlay.png'));
     // Group adjacent changed rows; keep at most six crops, but report all regions and keep full images.
     const regions = [];

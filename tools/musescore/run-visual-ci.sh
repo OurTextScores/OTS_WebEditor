@@ -13,4 +13,12 @@ mkdir -p "$tmp/build/browser"
 cp webmscore-fork/web-public/webmscore.lib.js public/webmscore.lib.wasm public/webmscore.lib.data "$tmp/build/browser/"
 node tools/musescore/bundle.mjs "$tmp/bundle" "$tmp/build"
 node tools/musescore/capture-visual.mjs "$tmp/bundle" "$output/current" "$output/fidelity"
-node tools/musescore/visual-report.mjs "$baseline" "$output/current" "$output/report"
+visual_status=0
+node tools/musescore/visual-report.mjs "$baseline" "$output/current" "$output/report" || visual_status=$?
+# Generate review artifacts even when the visual gate detects a difference.
+review_status=0
+review_args=()
+if [[ -n ${OTS_VISUAL_REVIEW_DECISIONS:-} ]]; then review_args+=("$OTS_VISUAL_REVIEW_DECISIONS"); fi
+node tools/musescore/review-report.mjs "$output/report" "${review_args[@]}" || review_status=$?
+if (( visual_status != 0 )); then exit "$visual_status"; fi
+exit "$review_status"
