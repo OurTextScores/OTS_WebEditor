@@ -167,6 +167,8 @@ test('in note input, a right-click opens no menu', async ({ page }) => {
   const note = await noteCentre(page, 0);
   await page.mouse.click(note.x, note.y);
   await runCommand(page, 'add.noteInput');
+  // The command resolves before the editor's note-input state is set.
+  await expect(page.locator('button', { hasText: 'Stop input' })).toBeVisible();
   const space = await barSpace(page, 1);
   await page.mouse.click(space.x, space.y, { button: 'right' });
   await page.waitForTimeout(500);

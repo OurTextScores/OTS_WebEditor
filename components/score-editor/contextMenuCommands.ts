@@ -1,10 +1,18 @@
 import {
   READ_ONLY_REASON,
   needsRange,
+  needsSelection,
   needsSelectionOutsideInput,
   withCheck,
 } from '../../lib/commands/selectionGates';
-import { defineCommand, type AnyCommand, type CommandContext, type Enabled } from '../../lib/commands/types';
+import {
+  defineCommand,
+  defineFamily,
+  type AnyCommand,
+  type CommandContext,
+  type Enabled,
+} from '../../lib/commands/types';
+import { FRAME_TEXT_KINDS, type FrameTextKind } from './commands/context-menu-edits';
 import type { EditorCommandProps } from './editorProps';
 
 /**
@@ -92,6 +100,42 @@ export function buildContextMenuCommands(getProps: () => EditorCommandProps): An
         await getProps().onCreateSystemFromSelection?.();
       },
     }),
+    // A frame's Add ▸ menu. The engine takes the selected frame; title and the other header texts
+    // need a vertical one, which the menu offers them on.
+    defineFamily<FrameTextKind>({
+      id: 'add.frameText',
+      label: 'Frame Text',
+      variants: FRAME_TEXT_KINDS.map(({ kind, label }) => ({ arg: kind, label })),
+      enabled: singleElement(has('onAddFrameText')),
+      run: async (_ctx, kind) => {
+        await getProps().onAddFrameText?.(kind);
+      },
+    }),
+    defineCommand({
+      id: 'add.fretboardForHarmony',
+      label: 'Fretboard Diagram from Chord Symbol',
+      keywords: ['chord diagram', 'guitar', 'harmony'],
+      enabled: withCheck(needsSelection, has('onAddFretboardForHarmony')),
+      run: async () => {
+        await getProps().onAddFretboardForHarmony?.();
+      },
+    }),
+    ...(
+      [
+        ['format.snap.previous', 'Snap to Previous', 0],
+        ['format.snap.next', 'Snap to Next', 1],
+      ] as const
+    ).map(([id, label, which]) =>
+      defineCommand({
+        id,
+        label,
+        keywords: ['hairpin', 'tempo change', 'attach'],
+        enabled: withCheck(needsSelection, has('onToggleSnap')),
+        run: async () => {
+          await getProps().onToggleSnap?.(which);
+        },
+      }),
+    ),
     defineCommand({
       id: 'shell.contextMenu',
       label: 'Context Menu',

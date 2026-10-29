@@ -237,25 +237,22 @@ EMSCRIPTEN_KEEPALIVE bool toggleInputDot(uintptr_t score_ptr, int excerptId)
     return true;
 }
 
-EMSCRIPTEN_KEEPALIVE bool putNote(uintptr_t score_ptr, int pageNumber, double x, double y, bool replace, bool insert, int excerptId)
+// Score::getPosition expects canvas coordinates; accept either canvas or page-local input (mirrors the
+// tolerant hit-testing used for selection). False when the page does not exist or note input is off.
+static bool noteInputCanvasPoint(Score* score, int pageNumber, double x, double y, const char* caller,
+                                 muse::PointF& pos)
 {
-    auto* score = getScore(score_ptr, excerptId);
-    if (!score) return false;
     const auto& pages = score->pages();
-
     if (pageNumber < 0 || pageNumber >= (int)pages.size()) {
-        LOGW() << "putNote: invalid page index " << pageNumber;
+        LOGW() << caller << ": invalid page index " << pageNumber;
         return false;
     }
     if (!score->inputState().noteEntryMode()) {
-        LOGW() << "putNote: not in note entry mode";
+        LOGW() << caller << ": not in note entry mode";
         return false;
     }
-
     engraving::Page* page = pages.at(pageNumber);
-    // Score::getPosition expects canvas coordinates; accept either canvas or
-    // page-local input (mirrors the tolerant hit-testing used for selection).
-    muse::PointF pos(fromAbi(x), fromAbi(y));
+    pos = muse::PointF(fromAbi(x), fromAbi(y));
     const muse::RectF canvasRect = page->ldata()->bbox().translated(page->pos());
     if (!canvasRect.contains(pos)) {
         const muse::PointF shifted = pos + page->pos();
@@ -263,9 +260,38 @@ EMSCRIPTEN_KEEPALIVE bool putNote(uintptr_t score_ptr, int pageNumber, double x,
             pos = shifted;
         }
     }
+    return true;
+}
+
+EMSCRIPTEN_KEEPALIVE bool putNote(uintptr_t score_ptr, int pageNumber, double x, double y, bool replace, bool insert, int excerptId)
+{
+    auto* score = getScore(score_ptr, excerptId);
+    if (!score) return false;
+    muse::PointF pos;
+    if (!noteInputCanvasPoint(score, pageNumber, x, y, "putNote", pos)) return false;
 
     score->startCmd(TranslatableString::untranslatable("Enter note"));
     const auto ret = score->putNote(pos, replace, insert);
+    score->endCmd();
+    layoutLinked(score);
+    return ret.success();
+}
+
+// MuseScore's right-click in note input (NotationNoteInput::removeNote): put at the point with rest mode
+// inverted, so a note becomes a rest (and, in rest mode, a rest becomes the input pitch).
+EMSCRIPTEN_KEEPALIVE bool removeNoteAtPoint(uintptr_t score_ptr, int pageNumber, double x, double y, int excerptId)
+{
+    auto* score = getScore(score_ptr, excerptId);
+    if (!score) return false;
+    muse::PointF pos;
+    if (!noteInputCanvasPoint(score, pageNumber, x, y, "removeNoteAtPoint", pos)) return false;
+
+    auto& inputState = score->inputState();
+    const bool restMode = inputState.rest();
+    score->startCmd(TranslatableString::untranslatable("Delete note"));
+    inputState.setRest(!restMode);
+    const auto ret = score->putNote(pos, false, false);
+    inputState.setRest(restMode);
     score->endCmd();
     layoutLinked(score);
     return ret.success();

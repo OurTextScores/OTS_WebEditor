@@ -93,8 +93,12 @@ import {
   insertMeasures,
   removeContainingMeasures,
   removeTrailingEmptyMeasures,
+  removeNoteAtPoint,
   runRangeToolOnSelection,
   selectSimilar,
+  addFrameText,
+  addFretboardForHarmony,
+  toggleSnap,
   setAccidental,
   setBarLineType,
   setBeamMode,
@@ -8263,6 +8267,14 @@ export default function ScoreEditor() {
       return point ? { page: resolvePageIndex(target), x: point.x, y: point.y } : null;
     },
     selectForContextMenu,
+    rememberSelectionPoint: (page, clientX, clientY) => {
+      const point = clientToScorePoint(clientX, clientY);
+      if (point) setSelectedPoint({ page, x: point.x, y: point.y });
+    },
+    removeNoteAtPoint:
+      interactiveMutationEnabled && score?.removeNoteAtPoint
+        ? (page, x, y) => removeNoteAtPoint(core, page, x, y)
+        : undefined,
     runSerializedScoreOperation,
   });
   const handleScoreContextMenu = (e: React.MouseEvent) => void scoreContextMenu.openFromPointer(e);
@@ -9380,6 +9392,9 @@ export default function ScoreEditor() {
     onMoveMeasureToSystem: interactiveMutationEnabled && systemLocks.supported ? (direction) => systemLocks.mutate(direction) : undefined,
     onCreateSystemFromSelection: interactiveMutationEnabled && systemLocks.supported ? () => systemLocks.mutate(true) : undefined,
     onEditElement: interactiveMutationEnabled ? handleEditElement : undefined,
+    onAddFrameText: interactiveMutationEnabled && score?.addFrameText ? (kind) => addFrameText(core, kind) : undefined,
+    onAddFretboardForHarmony: interactiveMutationEnabled && score?.addFretboardDiagramForHarmony ? () => addFretboardForHarmony(core) : undefined,
+    onToggleSnap: interactiveMutationEnabled && score?.toggleSnap ? (which) => toggleSnap(core, which) : undefined,
     onSelectSimilar: interactionReady && score?.selectSimilar ? (scope, at) => selectSimilar(core, { setHasBackendHighlighting, refreshSelectionFromSvg }, scope, at) : undefined,
     onOpenContextMenu: canEditScore && !compareView ? scoreContextMenu.openAtSelection : undefined,
     onRemoveTrailingEmptyMeasures: handleRemoveTrailingEmptyMeasures,

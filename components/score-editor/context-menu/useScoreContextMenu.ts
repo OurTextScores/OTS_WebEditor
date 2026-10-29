@@ -34,6 +34,10 @@ export interface ScoreContextMenuInputs {
   readonly clientToScorePoint: (clientX: number, clientY: number) => { x: number; y: number } | null;
   /** A client point as the engine hit-tests it: its page and page-relative engraving coordinates. */
   readonly engravingPointAt: (clientX: number, clientY: number, target: Element | null) => SimilarPattern | null;
+  /** Note input's right-click (MuseScore's remove-note); absent where the engine lacks it or editing is off. */
+  readonly removeNoteAtPoint?: (page: number, x: number, y: number) => Promise<unknown>;
+  /** Makes a client point on `page` the editor's remembered selection point (what commands re-project). */
+  readonly rememberSelectionPoint: (page: number, clientX: number, clientY: number) => void;
   /** The left-click selection path in its right-button mode (`score-click.ts`). */
   readonly selectForContextMenu: (event: React.MouseEvent) => Promise<ScoreClickOutcome>;
   readonly runSerializedScoreOperation: <T>(operation: () => Promise<T>, label: string) => Promise<T>;
@@ -132,6 +136,12 @@ export function useScoreContextMenu(inputs: ScoreContextMenuInputs) {
         if (outcome === 'ignored' || run !== generation.current) return null;
         if (outcome === 'selected') report = await readHit();
       }
+      // Commands re-project the editor's remembered selection point into the engine. After an edit
+      // (a hairpin just added) or a click on an element the SVG cannot resolve, that point can be a
+      // different element's, so make it the point the engine just resolved to this one.
+      if (report.hit && report.hit.selected && report.selection.kind === 'single') {
+        latest.current.rememberSelectionPoint(at.page, event.clientX, event.clientY);
+      }
       const context = contextFromReport(report);
       // No hit: MuseScore's currentElement() falls back to the single selection, so Edit Element
       // follows whether that element edits.
@@ -161,6 +171,8 @@ export function useScoreContextMenu(inputs: ScoreContextMenuInputs) {
         textEditing: latest.current.textEditing,
         editAt: pointer?.editAt,
         similarAt: pointer?.similarAt ?? undefined,
+        flags: context.flags,
+        drumStaff: context.drumStaff,
       });
       const nodes = pruneMenuNodes(tree, defaultCommandRegistry);
       // Nothing to offer (blank paper, until OTS has page settings): no menu at all.
@@ -198,8 +210,12 @@ export function useScoreContextMenu(inputs: ScoreContextMenuInputs) {
       event.preventDefault();
       const inputs = latest.current;
       if (!inputs.enabled || !inputs.score) return;
-      // MuseScore's right-click in note input removes a note, and no menu opens.
-      if (inputs.noteInputActiveRef.current) return;
+      // MuseScore's right-click in note input removes the note there (a rest takes its place), and no menu opens.
+      if (inputs.noteInputActiveRef.current) {
+        const at = inputs.engravingPointAt(event.clientX, event.clientY, target);
+        if (at) await inputs.removeNoteAtPoint?.(at.page, at.x, at.y);
+        return;
+      }
       // The Menu key and Shift+F10 arrive here as a pointerless contextmenu event.
       if ((event.nativeEvent as PointerEvent).pointerType === '') {
         await openAtSelection();

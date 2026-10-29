@@ -8,6 +8,7 @@
 #include "global/serialization/json.h"
 #include "engraving/dom/factory.h"
 #include "engraving/dom/fret.h"
+#include "engraving/dom/harmony.h"
 #include "engraving/dom/segment.h"
 
 static engraving::FretDiagram* selectedFretDiagram(Score* score)
@@ -224,6 +225,45 @@ EMSCRIPTEN_KEEPALIVE bool addFretDiagram(uintptr_t score_ptr, const char* patter
     score->undoAddElement(diagram);
     score->endCmd();
     score->select(diagram, engraving::SelectType::SINGLE, diagram->staffIdx());
+    layoutLinked(score);
+    return true;
+}
+
+// MuseScore's Add fretboard diagram on a chord symbol (NotationInteraction::addFretboardDiagram): for each
+// selected harmony not already on a diagram, a diagram of that chord is created in its place and the
+// harmony moves onto it.
+EMSCRIPTEN_KEEPALIVE bool addFretboardDiagramForHarmony(uintptr_t score_ptr, int excerptId)
+{
+    auto* score = getScore(score_ptr, excerptId);
+    if (!score) return false;
+    std::vector<engraving::EngravingItem*> selected;
+    if (auto* element = score->selection().element()) {
+        selected = { element };
+    } else {
+        selected = score->selection().elements();
+    }
+    std::vector<engraving::Harmony*> harmonies;
+    for (auto* element : selected) {
+        if (element && element->isHarmony() && !element->explicitParent()->isFretDiagram()) {
+            harmonies.push_back(engraving::toHarmony(element));
+        }
+    }
+    if (harmonies.empty()) return false;
+
+    score->startCmd(TranslatableString::untranslatable("Add fretboard diagram"));
+    std::vector<engraving::FretDiagram*> created;
+    for (auto* harmony : harmonies) {
+        engraving::FretDiagram* diagram = engraving::Factory::createFretDiagram(score->dummy()->segment());
+        diagram->setTrack(harmony->track());
+        diagram->updateDiagram(harmony->harmonyName());
+        diagram->setParent(harmony->parent());
+        score->undoAddElement(diagram);
+        created.push_back(diagram);
+    }
+    for (int i = static_cast<int>(created.size()) - 1; i >= 0; --i) {
+        score->undoChangeParent(harmonies[i], created[i], engraving::track2staff(harmonies[i]->track()));
+    }
+    score->endCmd();
     layoutLinked(score);
     return true;
 }

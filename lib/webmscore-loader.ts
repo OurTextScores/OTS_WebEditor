@@ -410,6 +410,14 @@ export interface Score {
   hitTestScoreObject?: (pageNumber: number, x: number, y: number) => Promise<ScoreObjectHit>;
   contextHitAtPoint?: (pageNumber: number, x: number, y: number) => Promise<ContextHitReport>;
   contextSelectionInfo?: () => Promise<ContextHitReport>;
+  /** Snap to previous (0) / next (1) for the selected hairpins and gradual tempo changes. */
+  toggleSnap?: (which: 0 | 1) => Promise<boolean> | boolean;
+  /** Note input's right-click: the note at the point becomes a rest (MuseScore's remove-note). */
+  removeNoteAtPoint?: (pageNumber: number, x: number, y: number) => Promise<boolean> | boolean;
+  /** Add fretboard diagram on the selected chord symbols (a diagram of each chord, the symbol on it). */
+  addFretboardDiagramForHarmony?: () => Promise<boolean> | boolean;
+  /** Text into the selected frame: 0 frame text, 1 title, 2 subtitle, 3 composer, 4 lyricist, 5 part name. */
+  addFrameText?: (kind: 0 | 1 | 2 | 3 | 4 | 5, text: string) => Promise<boolean> | boolean;
   /** Select ▸ Similar (0), on this staff (1), in this range (2); pageNumber < 0 patterns on the single selection. */
   selectSimilar?: (
     mode: 0 | 1 | 2,

@@ -129,6 +129,9 @@ class WebMscoreW {
         // presence as proof of a native export. Older packages omit this path.
         if (!capabilities?.hitTestScoreObject) Object.defineProperty(instance, 'hitTestScoreObject', { value: undefined })
         if (!capabilities?.moveSelectedChordRestToStaff) Object.defineProperty(instance, 'moveSelectedChordRestToStaff', { value: undefined })
+        if (!capabilities?.contextMenuEdits) {
+            for (const name of ['toggleSnap', 'removeNoteAtPoint', 'addFretboardDiagramForHarmony', 'addFrameText']) Object.defineProperty(instance, name, { value: undefined })
+        }
         if (!capabilities?.contextMenu) {
             for (const name of ['contextHitAtPoint', 'contextSelectionInfo', 'selectSimilar']) Object.defineProperty(instance, name, { value: undefined })
         }
@@ -319,6 +322,22 @@ class WebMscoreW {
 
     contextSelectionInfo() {
         return this.rpc('contextSelectionInfo')
+    }
+
+    toggleSnap(which) {
+        return this.rpc('toggleSnap', [which])
+    }
+
+    removeNoteAtPoint(pageNumber, x, y) {
+        return this.rpc('removeNoteAtPoint', [pageNumber, x, y])
+    }
+
+    addFretboardDiagramForHarmony() {
+        return this.rpc('addFretboardDiagramForHarmony')
+    }
+
+    addFrameText(kind, text) {
+        return this.rpc('addFrameText', [kind, text])
     }
 
     selectSimilar(mode, pageNumber, x, y) {

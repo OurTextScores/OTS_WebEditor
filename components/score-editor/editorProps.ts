@@ -226,6 +226,12 @@ export interface EditorCommandProps {
     scope: 'all' | 'staff' | 'range',
     at?: { page: number; x: number; y: number },
   ) => Promise<unknown> | void;
+  /** A frame's Add ▸ text: 0 frame text, 1 title, 2 subtitle, 3 composer, 4 lyricist, 5 part name. */
+  onAddFrameText?: (kind: 0 | 1 | 2 | 3 | 4 | 5) => Promise<unknown> | void;
+  /** Add fretboard diagram on the selected chord symbols. */
+  onAddFretboardForHarmony?: () => Promise<unknown> | void;
+  /** Snap to previous (0) / next (1) for the selected hairpins and tempo changes. */
+  onToggleSnap?: (which: 0 | 1) => Promise<unknown> | void;
   /** Open the score's context menu at the selection (Shift+F10, the Menu key). */
   onOpenContextMenu?: () => Promise<unknown> | void;
   parts?: PartSummary[];

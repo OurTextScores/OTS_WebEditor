@@ -17,6 +17,8 @@ export type MenuNode =
       readonly arg?: unknown;
       /** For a command with an argument form: the values it opens with (Insert Measures ▸ Before Selection). */
       readonly formDefaults?: Readonly<Record<string, string>>;
+      /** Shown as a check item in this state: a toggle whose state is the clicked element's (Snap to Next). */
+      readonly checked?: boolean;
     }
   /** Every variant of a family: a submenu, or inline items when `inline` is set. */
   | {
@@ -218,6 +220,7 @@ export const MENUS: readonly MenuDefinition[] = [
         item('add.text.subtitle'),
         item('add.text.composer'),
         item('add.text.lyricist'),
+        family('add.frameText'),
         separator,
         item('add.text.staff'),
         item('add.text.system'),
@@ -261,6 +264,7 @@ export const MENUS: readonly MenuDefinition[] = [
         family('add.mark.arpeggio', 'Arpeggios'),
         family('add.mark.tremolo', 'Tremolos'),
         family('add.mark.fretboard', 'Fretboard Diagrams'),
+        item('add.fretboardForHarmony'),
       ),
       submenu(
         'Repeats & Jumps',

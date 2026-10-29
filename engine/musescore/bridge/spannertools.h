@@ -6,6 +6,8 @@
 #include "engraving/dom/ambitus.h"
 #include "engraving/dom/factory.h"
 #include "engraving/dom/glissando.h"
+#include "engraving/dom/gradualtempochange.h"
+#include "engraving/dom/hairpin.h"
 #include "engraving/dom/measure.h"
 #include "engraving/dom/navigate.h"
 #include "engraving/dom/part.h"
@@ -823,6 +825,55 @@ EMSCRIPTEN_KEEPALIVE bool resequenceRehearsalMarks(uintptr_t score_ptr, int exce
     for (size_t index = 1; index < rehearsalMarks.size(); ++index) {
         auto* current = rehearsalMarks[index];
         current->undoChangeProperty(engraving::Pid::TEXT, nextText(rehearsalMarks[index - 1], current));
+    }
+    score->endCmd();
+    layoutLinked(score);
+    return true;
+}
+
+// MuseScore's Snap to previous (which 0) and Snap to next (which 1), the hairpin and gradual tempo change
+// context-menu toggles (NotationInteraction::toggleSnapToPrevious/Next): over every selected hairpin (and,
+// for next, tempo change), set the snap on unless all already have it, then off.
+EMSCRIPTEN_KEEPALIVE bool toggleSnap(uintptr_t score_ptr, int which, int excerptId)
+{
+    auto* score = getScore(score_ptr, excerptId);
+    if (!score || which < 0 || which > 1) return false;
+    const bool next = which == 1;
+    std::set<engraving::Hairpin*> hairpins;
+    std::set<engraving::GradualTempoChange*> tempoChanges;
+    bool newValue = false;
+    auto consider = [&](engraving::EngravingItem* e) {
+        if (!e) return;
+        // A single click selects the segment, a list may hold the spanner itself: accept both.
+        engraving::Hairpin* h = e->isHairpinSegment() ? engraving::toHairpinSegment(e)->hairpin()
+                                : e->isHairpin() ? engraving::toHairpin(e) : nullptr;
+        if (h) {
+            if (!(next ? h->snapToItemAfter() : h->snapToItemBefore())) newValue = true;
+            hairpins.insert(h);
+            return;
+        }
+        if (!next) return;
+        engraving::GradualTempoChange* g = e->isGradualTempoChangeSegment()
+                                           ? engraving::toGradualTempoChangeSegment(e)->tempoChange()
+                                           : e->isGradualTempoChange() ? engraving::toGradualTempoChange(e) : nullptr;
+        if (g) {
+            if (!g->snapToItemAfter()) newValue = true;
+            tempoChanges.insert(g);
+        }
+    };
+    consider(score->selection().element());
+    for (auto* e : score->selection().elements()) consider(e);
+    if (hairpins.empty() && tempoChanges.empty()) return false;
+
+    const engraving::Pid pid = next ? engraving::Pid::SNAP_AFTER : engraving::Pid::SNAP_BEFORE;
+    score->startCmd(TranslatableString::untranslatable(next ? "Toggle snap to next" : "Toggle snap to previous"));
+    for (auto* h : hairpins) {
+        if ((next ? h->snapToItemAfter() : h->snapToItemBefore()) != newValue) {
+            h->undoChangeProperty(pid, engraving::PropertyValue(newValue));
+        }
+    }
+    for (auto* g : tempoChanges) {
+        if (g->snapToItemAfter() != newValue) g->undoChangeProperty(pid, engraving::PropertyValue(newValue));
     }
     score->endCmd();
     layoutLinked(score);

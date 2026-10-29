@@ -311,6 +311,9 @@ class WebMscore {
         this.excerptId = -1
         if (!Module._hitTestScoreObject) Object.defineProperty(this, 'hitTestScoreObject', { value: undefined })
         if (!Module._moveSelectedChordRestToStaff) Object.defineProperty(this, 'moveSelectedChordRestToStaff', { value: undefined })
+        if (!Module._toggleSnap || !Module._removeNoteAtPoint || !Module._addFretboardDiagramForHarmony || !Module._addFrameText) {
+            for (const name of ['toggleSnap', 'removeNoteAtPoint', 'addFretboardDiagramForHarmony', 'addFrameText']) Object.defineProperty(this, name, { value: undefined })
+        }
         if (!Module._contextHitAtPoint || !Module._contextSelectionInfo || !Module._selectSimilar) {
             for (const name of ['contextHitAtPoint', 'contextSelectionInfo', 'selectSimilar']) Object.defineProperty(this, name, { value: undefined })
         }
@@ -496,6 +499,25 @@ class WebMscore {
     async selectSimilar(mode, pageNumber, x, y) {
         return Module.ccall('selectSimilar', 'boolean', ['number', 'number', 'number', 'number', 'number', 'number'],
             [this.scoreptr, mode, pageNumber, x, y, this.excerptId])
+    }
+
+    /**
+     * Snap to previous (which 0) or Snap to next (1) for the selected hairpins and gradual tempo
+     * changes, as MuseScore's context-menu toggles do.
+     * @returns {Promise<boolean>} whether anything changed
+     */
+    async toggleSnap(which) {
+        return Module.ccall('toggleSnap', 'boolean', ['number', 'number', 'number'], [this.scoreptr, which, this.excerptId])
+    }
+
+    /**
+     * MuseScore's right-click in note input: replace the note at a page-relative point with a rest
+     * (in rest mode, the rest with the input pitch).
+     * @returns {Promise<boolean>}
+     */
+    async removeNoteAtPoint(pageNumber, x, y) {
+        return Module.ccall('removeNoteAtPoint', 'boolean', ['number', 'number', 'number', 'number', 'number'],
+            [this.scoreptr, pageNumber, x, y, this.excerptId])
     }
 
     async setSelectedElementProperty(propertyName, value) {
@@ -2230,6 +2252,28 @@ class WebMscore {
      * @param {string} text
      * @returns {Promise<boolean>}
      */
+    /**
+     * Add fretboard diagram on the selected chord symbols: a diagram of each chord, with the symbol on it.
+     * @returns {Promise<boolean>}
+     */
+    async addFretboardDiagramForHarmony() {
+        return Module.ccall('addFretboardDiagramForHarmony', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
+    }
+
+    /**
+     * Text into the selected frame: kind 0 frame text (any box), 1 title, 2 subtitle, 3 composer,
+     * 4 lyricist, 5 part name (a vertical frame).
+     * @returns {Promise<boolean>}
+     */
+    async addFrameText(kind, text) {
+        const strptr = getStrPtr(text == null ? '' : String(text))
+        try {
+            return Module.ccall('addFrameText', 'boolean', ['number', 'number', 'number', 'number'], [this.scoreptr, kind, strptr, this.excerptId])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
     async addStaffText(text) {
         const strptr = getStrPtr(text == null ? '' : String(text))
         try {

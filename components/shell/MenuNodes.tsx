@@ -189,13 +189,14 @@ function NodeView({ node, render }: { node: MenuNode; render: MenuRenderContext 
       render.registry,
       node.kind === 'item' ? node.formDefaults : undefined,
     );
-  if (command.checked) {
+  const checked = node.kind === 'item' && node.checked !== undefined ? node.checked : command.checked?.(render.ctx);
+  if (checked !== undefined) {
     return (
       <CheckboxItem
         className={menuItemClass}
         data-testid={testId}
         disabled={!enabled}
-        checked={command.checked(render.ctx)}
+        checked={checked}
         onSelect={run}
       >
         <span>{display(command, render.ctx, label)}</span>

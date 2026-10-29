@@ -63,6 +63,18 @@ EMSCRIPTEN_KEEPALIVE bool addHarmonyText(uintptr_t id,int variant,const char* te
     auto style=variant==1?TextStyleType::HARMONY_ROMAN:variant==2?TextStyleType::HARMONY_NASHVILLE:TextStyleType::HARMONY_A;
     return addStyledText(id,excerpt,text,style);
 }
+// A frame's Add ▸ menu (MuseScore's frame-text, title-text, subtitle-text, composer-text, poet-text, part-text):
+// the text goes into the selected frame, as Score::addText does for a box destination. Title and the other
+// header texts need a vertical frame; plain frame text takes any box.
+EMSCRIPTEN_KEEPALIVE bool addFrameText(uintptr_t id,int kind,const char* text,int excerpt) {
+    static const TextStyleType styles[]={TextStyleType::FRAME,TextStyleType::TITLE,TextStyleType::SUBTITLE,
+        TextStyleType::COMPOSER,TextStyleType::LYRICIST,TextStyleType::INSTRUMENT_EXCERPT};
+    if(kind<0||kind>5) return false;
+    auto* score=getScore(id,excerpt); if(!score) return false;
+    auto* frame=score->selection().element();
+    if(!frame||!frame->isBox()||(kind>0&&!frame->isVBox())) return false;
+    return addStyledText(id,excerpt,text,styles[kind]);
+}
 EMSCRIPTEN_KEEPALIVE bool addFiguredBassText(uintptr_t id,const char* text,int excerpt) {
     auto* score=getScore(id,excerpt); if(!score) return false;
     score->startCmd(TranslatableString::untranslatable("Add figured bass"));

@@ -36,7 +36,11 @@ function shape(nodes: readonly MenuNode[]): unknown[] {
   return nodes.map((node) => {
     if (node.kind === 'separator') return '—';
     if (node.kind === 'submenu') return { [node.label]: shape(node.children) };
-    if (node.kind === 'item') return node.label ? `${node.id}:${node.label}` : node.id;
+    if (node.kind === 'item') {
+      const id = node.arg === undefined ? node.id : `${node.id}(${JSON.stringify(node.arg)})`;
+      const checked = node.checked === undefined ? '' : node.checked ? ' ☑' : ' ☐';
+      return `${node.label ? `${id}:${node.label}` : id}${checked}`;
+    }
     return node.kind;
   });
 }
@@ -92,8 +96,14 @@ describe('selection on right-click (mousePress_considerSelect)', () => {
         hit: { type: 'HairpinSegment', selected: true, editable: true, staffIdx: 0, drumStaff: false, flags: {} },
         selection: { kind: 'single', type: 'HairpinSegment' },
       }),
-    ).toEqual({ hitType: 'HairpinSegment', selection: single('HairpinSegment'), editable: true });
-    expect(contextFromReport({ hit: null, selection: { kind: 'range', type: null } })).toEqual({
+    ).toEqual({
+      hitType: 'HairpinSegment',
+      selection: single('HairpinSegment'),
+      editable: true,
+      flags: {},
+      drumStaff: false,
+    });
+    expect(contextFromReport({ hit: null, selection: { kind: 'range', type: null } })).toMatchObject({
       hitType: null,
       selection: range,
       editable: false,
@@ -220,6 +230,80 @@ describe('menu contents (NotationContextMenuModel), as registered in OTS today',
   });
 });
 
+describe('type-specific menus (makeItemsByElementType), as registered in OTS today', () => {
+  const ELEMENT = [
+    'edit.cut',
+    'edit.copy',
+    'edit.paste',
+    'edit.swapClipboard',
+    'edit.delete',
+    { Select: ['edit.select.similar:Similar', 'edit.select.similarStaff:Similar on This Staff'] },
+    '—',
+    'edit.element',
+  ];
+  const menu = (menuType: string, over: Partial<ContextMenuTarget> = {}) =>
+    registered(target({ menuType, ...over }));
+
+  it('opens the Properties panel for the "…Properties" dialogs OTS does not have yet', () => {
+    expect(menu('StaffText')).toEqual([...ELEMENT, '—', 'format.elementProperties:Staff Text Properties']);
+    expect(menu('SystemText').at(-1)).toBe('format.elementProperties:System Text Properties');
+    expect(menu('TripletFeel').at(-1)).toBe('format.elementProperties:System Text Properties');
+    expect(menu('TimeSig').at(-1)).toBe('format.elementProperties:Time Signature Properties');
+    expect(menu('InstrumentName', { editable: false }).at(-1)).toBe('instruments.staffProperties');
+  });
+
+  it('offers Add Fretboard Diagram on a chord symbol not already on one', () => {
+    expect(menu('Harmony', { flags: {} }).at(-1)).toBe('add.fretboardForHarmony:Add Fretboard Diagram');
+    expect(menu('Harmony', { flags: { harmonyHasFretDiagram: true } })).toEqual(ELEMENT);
+  });
+
+  it('offers Add Chord Symbol on a diagram without one', () => {
+    expect(menu('FretDiagram', { flags: {} }).at(-1)).toBe('add.text.harmony(0):Add Chord Symbol');
+    expect(menu('FretDiagram', { flags: { fretHasHarmony: true } })).toEqual(ELEMENT);
+  });
+
+  it('gives a chord symbol or diagram in a fretboard-diagram frame Copy, Hide and Select only', () => {
+    const fretBox = [
+      'edit.copy',
+      'edit.delete:Hide',
+      '—',
+      { Select: ['edit.select.similar:Similar', 'edit.select.similarStaff:Similar on This Staff'] },
+    ];
+    expect(menu('Harmony', { flags: { inFretBox: true } })).toEqual(fretBox);
+    expect(menu('FretDiagram', { flags: { inFretBox: true } })).toEqual(fretBox);
+  });
+
+  it('adds every header text to a vertical frame, and plain text to a horizontal one', () => {
+    expect(menu('VBox').at(-1)).toEqual({
+      Add: [0, 1, 2, 3, 4, 5].map((kind) => `add.frameText(${kind})`),
+    });
+    expect(menu('HBox').at(-1)).toEqual({ Add: ['add.frameText(0)'] });
+  });
+
+  it('shows a hairpin’s snaps checked as they stand, and a tempo change’s Snap to Next only', () => {
+    expect(menu('HairpinSegment', { flags: { snapBefore: true, snapAfter: false } }).slice(-2)).toEqual([
+      'format.snap.previous ☑',
+      'format.snap.next ☐',
+    ]);
+    expect(menu('GradualTempoChangeSegment', { flags: { snapAfter: true } }).slice(-2)).toEqual([
+      '—',
+      'format.snap.next ☑',
+    ]);
+  });
+
+  it('offers the snaps for one selected line only', () => {
+    expect(menu('HairpinSegment', { selection: list, flags: {} })).not.toContain('format.snap.next ☐');
+  });
+
+  it('gives play-count text on a barline Select only, and nothing while it is being edited', () => {
+    expect(menu('Text', { flags: { parentIsBarline: true } })).toEqual([
+      { Select: ['edit.select.similar:Similar', 'edit.select.similarStaff:Similar on This Staff'] },
+    ]);
+    expect(menu('Text', { flags: { parentIsBarline: true }, textEditing: true })).toEqual([]);
+    expect(menu('Text', { flags: {} })).toEqual(ELEMENT);
+  });
+});
+
 describe('the context menu component', () => {
   beforeEach(() => {
     vi.stubGlobal(
@@ -241,6 +325,7 @@ describe('the context menu component', () => {
     const registry = new CommandRegistry();
     registry.register('global', [
       defineCommand({ id: 'edit.copy', label: 'Copy', run: () => run('copy') }),
+      defineCommand({ id: 'format.snap.next', label: 'Snap to Next', run: () => run('snap') }),
       defineCommand<unknown>({ id: 'edit.element', label: 'Edit Element', run: (_ctx, arg) => run(arg) }),
       defineCommand<unknown>({
         id: 'add.measures',
@@ -318,6 +403,19 @@ describe('the context menu component', () => {
     await userEvent.click(await screen.findByTestId('context-item-edit.copy'));
     expect(canvasClick).not.toHaveBeenCalled();
     expect(canvasPointerDown).not.toHaveBeenCalled();
+  });
+
+  it('shows a toggle in the clicked element’s state', async () => {
+    render(
+      <ScoreContextMenu
+        registry={registryWith(vi.fn())}
+        onClose={vi.fn()}
+        menu={{ x: 0, y: 0, nodes: [{ kind: 'item', id: 'format.snap.next', checked: true }] }}
+      />,
+    );
+    const entry = await screen.findByTestId('context-item-format.snap.next');
+    expect(entry).toHaveAttribute('role', 'menuitemcheckbox');
+    expect(entry).toHaveAttribute('aria-checked', 'true');
   });
 
   it('renders nothing without a menu', () => {

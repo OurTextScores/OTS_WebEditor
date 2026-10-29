@@ -72,7 +72,13 @@ export interface ContextMenuTarget {
   readonly editAt?: { readonly clientX: number; readonly clientY: number };
   /** The right-clicked element's page point: Select ▸ Similar's pattern (MuseScore's last hit). */
   readonly similarAt?: { readonly page: number; readonly x: number; readonly y: number };
+  /** The per-type conditions the engine reports (fret box, linked diagram, snaps, barline text). */
+  readonly flags?: ContextFlags;
+  /** The hit staff's instrument has a drumset: MuseScore adds Customize kit… to the bar menu. */
+  readonly drumStaff?: boolean;
 }
+
+export type ContextFlags = NonNullable<ContextHitReport['hit']>['flags'];
 
 const item = (id: CommandId, label?: string, extra: Partial<MenuNode> = {}): MenuNode =>
   ({ kind: 'item', id, ...(label ? { label } : {}), ...extra }) as MenuNode;
@@ -120,13 +126,14 @@ function elementItems(target: ContextMenuTarget): MenuNode[] {
 }
 
 /** `makeMeasureItems`. Customize kit and Measure properties have no OTS counterpart yet. */
-function measureItems(): MenuNode[] {
+function measureItems(target: ContextMenuTarget): MenuNode[] {
   return [
     ...clipboardItems(),
     separator,
     item('edit.delete', 'Clear Measures'),
     item('tools.measures.removeSelected', 'Delete Measures'),
     separator,
+    ...(target.drumStaff ? [item('instruments.customizeKit')] : []),
     item('instruments.staffProperties'),
     separator,
     submenu(
@@ -154,13 +161,104 @@ function pageItems(): MenuNode[] {
   return [item('format.style'), item('format.pageSettings'), item('format.loadStyle')];
 }
 
-/** `makeItemsByElementType`. The type-specific menus arrive in Phase 3. */
+/** The element menu, then MuseScore's type-specific entries after a separator. */
+const elementThen = (target: ContextMenuTarget, ...extra: MenuNode[]): MenuNode[] => [
+  ...elementItems(target),
+  separator,
+  ...extra,
+];
+
+/** `makeElementInFretBoxItems`: a chord symbol or diagram in a fretboard-diagram frame. */
+function fretBoxItems(target: ContextMenuTarget): MenuNode[] {
+  return [
+    item('edit.copy'),
+    item('edit.delete', 'Hide'),
+    separator,
+    submenu('Select', ...selectItems(target)),
+    separator,
+    item('format.style'),
+  ];
+}
+
+/** `makeHarmonyItems`. Realize chord symbols needs its options dialog, not in OTS yet. */
+function harmonyItems(target: ContextMenuTarget): MenuNode[] {
+  if (target.flags?.inFretBox) return fretBoxItems(target);
+  return elementThen(
+    target,
+    ...(target.flags?.harmonyHasFretDiagram
+      ? []
+      : [item('add.fretboardForHarmony', 'Add Fretboard Diagram')]),
+    item('tools.realizeHarmony'),
+  );
+}
+
+/** `makeFretboardDiagramItems`. */
+function fretDiagramItems(target: ContextMenuTarget): MenuNode[] {
+  if (target.flags?.inFretBox) return fretBoxItems(target);
+  if (target.flags?.fretHasHarmony) return elementItems(target);
+  return elementThen(target, item('add.text.harmony', 'Add Chord Symbol', { arg: 0 }));
+}
+
+/** `makeVerticalBoxItems` / `makeHorizontalBoxItems`: Add ▸ texts (all for a vertical frame) and an image. */
+function frameItems(target: ContextMenuTarget, vertical: boolean): MenuNode[] {
+  const texts = (vertical ? [0, 1, 2, 3, 4, 5] : [0]).map((kind) => item('add.frameText', undefined, { arg: kind }));
+  return elementThen(target, submenu('Add', ...texts, item('add.image')));
+}
+
+/** `makeHairpinItems` / `makeGradualTempoChangeItems`: the snaps, for one selected line only. */
+function snapItems(target: ContextMenuTarget, previous: boolean): MenuNode[] {
+  if (target.selection.kind !== 'single') return elementItems(target);
+  return elementThen(
+    target,
+    ...(previous
+      ? [item('format.snap.previous', undefined, { checked: Boolean(target.flags?.snapBefore) })]
+      : []),
+    item('format.snap.next', undefined, { checked: Boolean(target.flags?.snapAfter) }),
+  );
+}
+
+/** `makeTextItems`: a play-count text on a barline gets only Select ▸ and Style…. */
+function textItems(target: ContextMenuTarget): MenuNode[] {
+  if (!target.flags?.parentIsBarline) return elementItems(target);
+  if (target.textEditing) return [];
+  return [submenu('Select', ...selectItems(target)), separator, item('format.style')];
+}
+
+/**
+ * `makeItemsByElementType`. The "…Properties" dialogs MuseScore opens are the Properties panel in
+ * OTS until they exist (design doc, decision 3).
+ */
 export function contextMenuFor(target: ContextMenuTarget): MenuNode[] {
   switch (target.menuType) {
     case MEASURE:
-      return measureItems();
+      return measureItems(target);
     case PAGE:
       return pageItems();
+    case 'StaffText':
+      return elementThen(target, item('format.elementProperties', 'Staff Text Properties'));
+    case 'SystemText':
+    case 'TripletFeel':
+      return elementThen(target, item('format.elementProperties', 'System Text Properties'));
+    case 'TimeSig':
+      return elementThen(target, item('format.elementProperties', 'Time Signature Properties'));
+    case 'InstrumentName':
+      return elementThen(target, item('instruments.staffProperties'));
+    case 'Harmony':
+      return harmonyItems(target);
+    case 'FretDiagram':
+      return fretDiagramItems(target);
+    case 'InstrumentChange':
+      return elementThen(target, item('instruments.changeAt'));
+    case 'VBox':
+      return frameItems(target, true);
+    case 'HBox':
+      return frameItems(target, false);
+    case 'HairpinSegment':
+      return snapItems(target, true);
+    case 'GradualTempoChangeSegment':
+      return snapItems(target, false);
+    case 'Text':
+      return textItems(target);
     default:
       return elementItems(target);
   }
@@ -229,6 +327,8 @@ export interface ResolvedContext {
   readonly hitType: string | null;
   readonly selection: EngineSelection;
   readonly editable: boolean;
+  readonly flags?: ContextFlags;
+  readonly drumStaff?: boolean;
 }
 
 /** The engine's own answer (`contextHitAtPoint` / `contextSelectionInfo`). */
@@ -236,4 +336,6 @@ export const contextFromReport = (report: ContextHitReport): ResolvedContext => 
   hitType: report.hit?.type ?? null,
   selection: report.selection,
   editable: report.hit?.editable ?? false,
+  flags: report.hit?.flags,
+  drumStaff: report.hit?.drumStaff,
 });
