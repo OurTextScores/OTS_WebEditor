@@ -322,6 +322,8 @@ export const noteInputMethodOptions = [
   { label: 'Repitch', value: 2 },
   { label: 'Rhythm', value: 3 },
   { label: 'Timewise (insert)', value: 6 },
+  // MuseScore 4.5: a letter sets the pitch, the duration key enters it (roadmap E11).
+  { label: 'By duration', value: 7 },
 ] as const;
 
 /** Palette categories the ribbon's "Open … Palette" links open, with their legacy test ids. */

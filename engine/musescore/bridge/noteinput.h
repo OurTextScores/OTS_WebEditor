@@ -223,7 +223,17 @@ EMSCRIPTEN_KEEPALIVE bool setInputDurationType(uintptr_t score_ptr, int duration
         return false;
     }
 
-    score->inputState().setDuration(d);
+    // Input by duration: the duration key enters the input pitch with it (Score::padToggle in that mode).
+    auto& input = score->inputState();
+    if (input.noteEntryMode() && input.usingNoteEntryMethod(engraving::NoteEntryMethod::BY_DURATION) && input.segment()) {
+        score->startCmd(TranslatableString::untranslatable("Enter note"));
+        score->padToggle(static_cast<engraving::Pad>(durationType));
+        score->endCmd();
+        layoutLinked(score);
+        return true;
+    }
+
+    input.setDuration(d);
     return true;
 }
 
@@ -350,7 +360,9 @@ EMSCRIPTEN_KEEPALIVE bool setNoteEntryMethod(uintptr_t id, int method, int excer
         engraving::NoteEntryMethod::UNKNOWN, engraving::NoteEntryMethod::BY_NOTE_NAME,
         engraving::NoteEntryMethod::REPITCH, engraving::NoteEntryMethod::RHYTHM,
         engraving::NoteEntryMethod::REALTIME_AUTO, engraving::NoteEntryMethod::REALTIME_MANUAL,
-        engraving::NoteEntryMethod::TIMEWISE
+        engraving::NoteEntryMethod::TIMEWISE,
+        // Appended, as the 4.00 ABI numbers the others: MuseScore 4.5's input by duration.
+        engraving::NoteEntryMethod::BY_DURATION
     };
     if (!score || method < 0 || method >= int(std::size(methods))) return false;
     score->inputState().setNoteEntryMethod(methods[method]);
@@ -369,6 +381,32 @@ EMSCRIPTEN_KEEPALIVE bool addPitchByStep(uintptr_t id, int note, bool addToChord
         if (params.drumPitch < 0) return false;
     } else if (!score->resolveNoteInputParams(note, addToChord, params)) {
         return false;
+    }
+    // Input by duration (MuseScore 4.5): a letter only sets the pitch the next duration enters, as
+    // NotationActionController::addNote → NotationNoteInput::setInputNote does.
+    if (input.usingNoteEntryMethod(engraving::NoteEntryMethod::BY_DURATION) && !addToChord) {
+        engraving::NoteVal nval;
+        const engraving::Staff* staff = input.staff();
+        const Fraction tick = input.tick();
+        if (staff && staff->isDrumStaff(tick)) {
+            const auto* drums = input.drumset();
+            if (!drums || !drums->isValid(params.drumPitch)) return false;
+            nval.pitch = params.drumPitch;
+            nval.headGroup = drums->noteHead(params.drumPitch);
+            input.setDrumNote(nval.pitch);
+            input.setVoice(drums->voice(nval.pitch));
+        } else if (staff) {
+            engraving::Position pos;
+            pos.segment = input.segment();
+            pos.staffIdx = input.staffIdx();
+            pos.line = engraving::relStep(params.step, staff->clef(tick));
+            bool error = false;
+            nval = score->noteValForPosition(pos, input.accidentalType(), error);
+            if (error) return false;
+        }
+        if (nval.pitch <= 0) return false;
+        input.setNotes({ nval });
+        return true;
     }
     score->startCmd(TranslatableString::untranslatable(addToChord ? "Add note to chord" : "Enter note"));
     score->cmdAddPitch(params, addToChord, insert);

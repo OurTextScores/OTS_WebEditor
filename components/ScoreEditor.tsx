@@ -6885,7 +6885,7 @@ export default function ScoreEditor() {
   };
 
   // Input-state setters only touch the engine InputState — no relayout needed.
-  const handleSetInputDuration = (durationType: number) => setInputDuration(core, durationType);
+  const handleSetInputDuration = (durationType: number) => setInputDuration(core, durationType, noteInputMethod);
 
   const handleToggleInputDotState = () => toggleInputDotState(core);
 

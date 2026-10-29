@@ -190,10 +190,22 @@ export function enterRest(core: EditorCore) {
 }
 
 // Input-state setters only touch the engine InputState — no relayout needed.
-export async function setInputDuration(core: EditorCore, durationType: number) {
+/** Note input's duration (MuseScore's input by duration, method 7): the key enters the input pitch with it. */
+const INPUT_BY_DURATION = 7;
+
+export async function setInputDuration(core: EditorCore, durationType: number, method = 1) {
   const { score } = core;
   const fn = score?.setInputDurationType;
   if (!fn) {
+    return;
+  }
+  // Input by duration enters a note, so it is an edit: redraw, undo history and the playback guard.
+  if (method === INPUT_BY_DURATION) {
+    await core.performMutation(
+      'enter note',
+      () => Promise.resolve(fn.call(score, durationType)),
+      { skipWasmReselect: true, skipSelectionFallback: true },
+    );
     return;
   }
   try {
