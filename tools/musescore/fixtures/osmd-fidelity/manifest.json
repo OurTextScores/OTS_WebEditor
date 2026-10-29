@@ -159,6 +159,28 @@
       "edit": "setTitleText: Fidelity edit",
       "test": "tools/musescore/verify-fidelity.mjs",
       "inputFormat": "musicxml"
+    },
+    {
+      "id": "meter-key-change",
+      "file": "meter-key-change.musicxml",
+      "sha256": "45b57c74bfca0b1840d85c594c1f9ce1795be59b7801e052cd44a800acbe9fc0",
+      "origin": "Original minimal fixture authored for OTS_Web; no third-party score copied.",
+      "license": "GPL-3.0-only",
+      "expectation": "change from C major and 4/4 to D major and 3/4",
+      "edit": "pitchUp a note in separate measure 3",
+      "test": "tools/musescore/verify-fidelity.mjs",
+      "inputFormat": "musicxml"
+    },
+    {
+      "id": "repeat-endings",
+      "file": "repeat-endings.musicxml",
+      "sha256": "be0fe302719c1f5e469cecc435d129be21ecba1c0aec0e4754b958a2bd6d2c99",
+      "origin": "Original minimal fixture authored for OTS_Web; no third-party score copied.",
+      "license": "GPL-3.0-only",
+      "expectation": "forward and backward repeat with first and second endings",
+      "edit": "pitchUp a note in separate measure 4",
+      "test": "tools/musescore/verify-fidelity.mjs",
+      "inputFormat": "musicxml"
     }
   ]
 }

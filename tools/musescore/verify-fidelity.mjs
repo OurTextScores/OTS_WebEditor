@@ -82,6 +82,27 @@ export function assertFidelity(id, xml, { transposed = false } = {}) {
     assert.ok(pitched[0].querySelector('articulations > accent'), 'accent remains on C');
     assert.equal(text(pitched[1], 'pitch > step'), 'D');
     assert.ok(pitched[1].querySelector('articulations > staccato'), 'staccato remains on D');
+  } else if (id === 'meter-key-change') {
+    const measures = [...document.querySelectorAll('part > measure')];
+    assert.equal(measures.length, 3);
+    assert.deepEqual(measures.slice(0, 2).map(m => text(m, 'key > fifths')), ['0', '2']);
+    assert.deepEqual(measures.slice(0, 2).map(m => [text(m, 'time > beats'), text(m, 'time > beat-type')]), [['4', '4'], ['3', '4']]);
+    const changedMeasureNotes = [...measures[1].querySelectorAll('note')].filter(n => n.querySelector('pitch'));
+    assert.deepEqual(changedMeasureNotes.map(n => text(n, 'pitch > step')), ['F', 'G', 'A']);
+    assert.equal(text(changedMeasureNotes[0], 'pitch > alter'), '1');
+    for (const [index, beats] of [4, 3, 3].entries()) {
+      const divisions = Number(text(measures[0], 'divisions'));
+      assert.equal([...measures[index].querySelectorAll('note > duration')].reduce((sum, n) => sum + Number(n.textContent), 0), divisions * beats, `measure ${index + 1} duration`);
+    }
+  } else if (id === 'repeat-endings') {
+    const measures = [...document.querySelectorAll('part > measure')];
+    assert.equal(measures.length, 4);
+    assert.ok(measures[0].querySelector('barline[location="left"] > repeat[direction="forward"]'));
+    assert.ok(measures[1].querySelector('barline[location="right"] > repeat[direction="backward"]'));
+    for (const [index, number] of [[1, '1'], [2, '2']]) {
+      assert.ok(measures[index].querySelector(`barline[location="left"] > ending[number="${number}"][type="start"]`));
+      assert.ok(measures[index].querySelector(`barline[location="right"] > ending[number="${number}"][type="stop"]`));
+    }
   } else if (id === 'octave-system-break') {
     const shifts = [...document.querySelectorAll('octave-shift')];
     assert.deepEqual(shifts.map(shift => [shift.getAttribute('type'), shift.getAttribute('size')]), [['down', '8'], ['stop', '8']]);
@@ -148,6 +169,22 @@ export function assertFidelityTiming(id, xml) {
   assert.equal(total, divisions * 4, 'nested passage must occupy exactly four quarter-note beats');
 }
 
+// Expected measure traversal with the first ending on pass one and the second
+// ending on pass two. Disabling repeats plays the written measures once.
+export function assertRepeatTraversal(_id, actual) {
+  assert.deepEqual(actual.repeated, [0, 1, 0, 2, 3], 'repeat playback follows both endings');
+  assert.deepEqual(actual.linear, [0, 1, 2, 3], 'repeats disabled follows written order');
+}
+
+async function repeatTraversal(score) {
+  const sequence = timeline => timeline.occurrences.map(occurrence => occurrence.measureIndex);
+  const repeated = sequence(await score.playbackTimeline());
+  await score.setPlaybackOptions({ tempoMultiplier: 1, playRepeats: false });
+  const linear = sequence(await score.playbackTimeline());
+  await score.setPlaybackOptions({ tempoMultiplier: 1, playRepeats: true });
+  return { repeated, linear };
+}
+
 export function assertFidelityRendering(id, svg) {
   const count = name => [...svg.matchAll(new RegExp(`class="${name}"`, 'g'))].length;
   if (id === 'nested-undotted') {
@@ -167,6 +204,11 @@ export function assertFidelityRendering(id, svg) {
   } else if (id === 'dynamics-articulations') {
     assert.ok(count('Dynamic') >= 2, 'both dynamics are rendered');
     assert.ok(count('Articulation') >= 2, 'both articulations are rendered');
+  } else if (id === 'meter-key-change') {
+    assert.ok(count('TimeSig') >= 2, 'both time signatures are rendered');
+    assert.ok(count('KeySig') >= 1, 'the changed key signature is rendered');
+  } else if (id === 'repeat-endings') {
+    assert.ok(count('VoltaSegment') >= 2, 'both endings are rendered');
   } else if (id === 'octave-system-break') {
     assert.ok(count('OttavaSegment') >= 2 && count('StaffLines') >= 10, 'octave line crosses systems');
   } else if (id === 'polyphony-accidentals') {
@@ -214,6 +256,7 @@ export async function verifyFidelity(WebMscore, renderer, output, bundle) {
     check(fixture.id, 'input-timing', bytes.toString(), assertFidelityTiming);
     const score = await WebMscore.load('musicxml', new Uint8Array(bytes));
     try {
+      if (fixture.id === 'repeat-endings') check(fixture.id, 'import-playback', await repeatTraversal(score), assertRepeatTraversal);
       const imported = await score.saveXml();
       await writeFile(path.join(output, `${fixture.id}-imported.musicxml`), imported);
       check(fixture.id, 'import-export', imported);
@@ -246,6 +289,7 @@ export async function verifyFidelity(WebMscore, renderer, output, bundle) {
       };
       const control = await WebMscore.load('musicxml', new TextEncoder().encode(imported));
       try {
+        if (fixture.id === 'repeat-endings') check(fixture.id, 'control-playback', await repeatTraversal(control), assertRepeatTraversal);
         const controlXml = await control.saveXml();
         check(fixture.id, 'control-reload', controlXml);
         check(fixture.id, 'control-timing', controlXml, assertFidelityTiming);
@@ -257,7 +301,7 @@ export async function verifyFidelity(WebMscore, renderer, output, bundle) {
       let expectedEditedPitches;
       const measurePitches = xml => [...new JSDOM(xml, { contentType: 'application/xml' }).window.document.querySelectorAll('measure')]
         .map(measure => [...measure.querySelectorAll('note > pitch')].map(pitch => pitch.textContent.trim()));
-      const pitchEditMeasures = { 'tie-system-break': 2, 'slur-system-break': 2, 'cross-staff': 1, 'hidden-note': 1, 'pickup-lyrics': 2, 'dynamics-articulations': 1, 'octave-system-break': 2 };
+      const pitchEditMeasures = { 'tie-system-break': 2, 'slur-system-break': 2, 'cross-staff': 1, 'hidden-note': 1, 'pickup-lyrics': 2, 'dynamics-articulations': 1, 'octave-system-break': 2, 'meter-key-change': 2, 'repeat-endings': 3 };
       if (fixture.id === 'transposing-enharmonic') {
         assert.equal(await score.transpose(1, 0, 0, 4, true, true, false), true, 'transpose up a major second');
       } else if (Object.hasOwn(pitchEditMeasures, fixture.id)) {
@@ -279,6 +323,7 @@ export async function verifyFidelity(WebMscore, renderer, output, bundle) {
         assert.equal(await score.setTitleText('Fidelity edit'), true, `${fixture.id}: title edit`);
       }
       const edited = await score.saveXml();
+      if (fixture.id === 'repeat-endings') check(fixture.id, 'edit-playback', await repeatTraversal(score), assertRepeatTraversal);
       check(fixture.id, 'edit-export', edited);
       check(fixture.id, 'edit-timing', edited, assertFidelityTiming);
       const editedSvg = await score.saveSvg(0, true, false);
@@ -287,6 +332,7 @@ export async function verifyFidelity(WebMscore, renderer, output, bundle) {
       await verifyExtraPages(score, 'edited');
       const reloaded = await WebMscore.load('musicxml', new TextEncoder().encode(edited));
       try {
+        if (fixture.id === 'repeat-endings') check(fixture.id, 'reload-playback', await repeatTraversal(reloaded), assertRepeatTraversal);
         const reloadedXml = await reloaded.saveXml();
         if (expectedEditedPitches) assert.deepEqual(measurePitches(reloadedXml), expectedEditedPitches, `${fixture.id}: edited pitches survive reload`);
         check(fixture.id, 'edited-reload', reloadedXml);

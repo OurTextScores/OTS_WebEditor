@@ -33,7 +33,8 @@ it('combines actual fixture captures, semantic changes, and evidence-bound revie
   const first = visual('report');
   expect(run('review-report', first).status).toBe(0);
   const summary = JSON.parse(await readFile(path.join(first, 'review-summary.json'), 'utf8'));
-  expect(summary.fixtures).toHaveLength(14);
+  const fixtureManifest = JSON.parse(await readFile(path.join(process.cwd(), 'tools/musescore/fixtures/osmd-fidelity/manifest.json'), 'utf8'));
+  expect(summary.fixtures).toHaveLength(fixtureManifest.cases.length);
   expect(summary.fixtures.find((f: { id: string }) => f.id === 'cross-staff').pages[0].row.changedPixels).toBeGreaterThan(0);
   const nested = summary.fixtures.find((f: { id: string }) => f.id === 'nested-undotted');
   expect(nested.observed).toHaveLength(11);

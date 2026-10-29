@@ -1,7 +1,7 @@
 // Mutation checks: each fixture's musical expectation must reject an intentionally damaged input.
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { assertFidelity, assertFidelityRendering, assertFidelityTiming } from './verify-fidelity.mjs';
+import { assertFidelity, assertFidelityRendering, assertFidelityTiming, assertRepeatTraversal } from './verify-fidelity.mjs';
 
 const changes = {
   'nested-undotted': xml => xml.replace('<type>eighth</type>', '<type>eighth</type><dot/>'),
@@ -18,6 +18,8 @@ const changes = {
   'transposing-enharmonic': xml => xml.replace('<alter>1</alter>', '<alter>-1</alter>'),
   'grace-ornament-clef': xml => xml.replace('<trill-mark/>', ''),
   'multimeasure-rest': xml => xml.replace('<multiple-rest>2</multiple-rest>', '<multiple-rest>3</multiple-rest>'),
+  'meter-key-change': xml => xml.replace('<fifths>2</fifths>', '<fifths>1</fifths>'),
+  'repeat-endings': xml => xml.replace('direction="backward"', 'direction="forward"'),
 };
 for (const [id, mutate] of Object.entries(changes)) {
   const xml = await readFile(new URL(`./fixtures/osmd-fidelity/${id}.musicxml`, import.meta.url), 'utf8');
@@ -49,6 +51,10 @@ for (const [id, search] of [
   ['dynamics-articulations', '<staccato/>'],
   ['dynamics-articulations', '<dynamics><f/></dynamics>'],
   ['dynamics-articulations', '<dynamics><p/></dynamics>'],
+  ['meter-key-change', '<time><beats>3</beats><beat-type>4</beat-type></time>'],
+  ['repeat-endings', '<repeat direction="forward"/>'],
+  ['repeat-endings', '<ending number="1" type="start"/>'],
+  ['repeat-endings', '<ending number="2" type="stop"/>'],
 ]) {
   const xml = await readFile(new URL(`./fixtures/osmd-fidelity/${id}.musicxml`, import.meta.url), 'utf8');
   const modified = xml.replace(search, '');
@@ -75,6 +81,9 @@ const renderedCases = [
   ['transposing-enharmonic', '<path class="Note"/>'.repeat(4) + '<path class="Accidental"/>', '<path class="Accidental"/>'],
   ['grace-ornament-clef', '<path class="Note"/>'.repeat(5) + '<path class="Clef"/>'.repeat(2) + '<path class="Ornament"/>', '<path class="Ornament"/>'],
   ['multimeasure-rest', '<path class="MMRest"/>', '<path class="MMRest"/>'],
+  ['meter-key-change', '<path class="TimeSig"/>'.repeat(2) + '<path class="KeySig"/>', '<path class="TimeSig"/>'],
+  ['meter-key-change', '<path class="TimeSig"/>'.repeat(2) + '<path class="KeySig"/>', '<path class="KeySig"/>'],
+  ['repeat-endings', '<path class="VoltaSegment"/>'.repeat(2), '<path class="VoltaSegment"/>'],
 ];
 for (const [id, body, remove] of renderedCases) {
   const svg = `<svg>${body}</svg>`;
@@ -88,3 +97,11 @@ const movedStop = octaveInput.replace(octaveStop, '').replace('<measure number="
 assert.notEqual(movedStop, octaveInput);
 assert.throws(() => assertFidelity('octave-system-break', movedStop), undefined, 'octave stop must stay in its original measure');
 console.log('octave endpoint moved to another measure detected');
+
+const meterInput = await readFile(new URL('./fixtures/osmd-fidelity/meter-key-change.musicxml', import.meta.url), 'utf8');
+assert.throws(() => assertFidelity('meter-key-change', meterInput.replace('<duration>4</duration>', '<duration>5</duration>')));
+console.log('meter change: incorrect measure duration detected');
+assertRepeatTraversal('repeat-endings', { repeated: [0, 1, 0, 2, 3], linear: [0, 1, 2, 3] });
+assert.throws(() => assertRepeatTraversal('repeat-endings', { repeated: [0, 1, 2, 3], linear: [0, 1, 2, 3] }));
+assert.throws(() => assertRepeatTraversal('repeat-endings', { repeated: [0, 1, 0, 2, 3], linear: [0, 1, 0, 2, 3] }));
+console.log('repeat playback: incorrect enabled and disabled traversal detected');

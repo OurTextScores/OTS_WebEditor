@@ -1,6 +1,6 @@
 # MusicXML fidelity pilot fixtures
 
-These five small scores were written specifically for OTS_Web on 2026-10-27 and are supplied under this repository's GPL-3.0 terms. They do not copy any OSMD score. `manifest.json` records their hashes, asserted facts and test operation. The nested-tuplet case was inspired by OSMD issue #1840; it is an independent case, not the issue's attached reproduction.
+These small scores were written specifically for OTS_Web and are supplied under this repository's GPL-3.0 terms. They do not copy any OSMD score. `manifest.json` records their hashes, asserted facts and test operation. The nested-tuplet case was inspired by OSMD issue #1840; it is an independent case, not the issue's attached reproduction.
 
 OSMD's BSD-3-Clause project licence does **not** categorically prohibit reuse of its fixtures. Some individual scores or transcriptions may carry additional rights or notices. Before redistributing a copied OSMD fixture, check that specific file's origin and terms and preserve all applicable notices. Local reference use and redistribution are separate questions.
 
