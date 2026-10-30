@@ -73,6 +73,8 @@ svg .ots-playback-notehead {
   --ots-z-activity: 105;
   --ots-z-header: 110;
   --ots-z-float: 120;
+  /* Dialogs cover the whole shell (header and toolbars too); menus and toasts still open above them. */
+  --ots-z-modal: 200;
   --ots-z-toast: 300;
   --ots-z-menu: 400;
   --ots-z-palette: 450;
@@ -153,6 +155,9 @@ svg .ots-playback-notehead {
 }
 @utility z-float {
   z-index: var(--ots-z-float);
+}
+@utility z-modal {
+  z-index: var(--ots-z-modal);
 }
 @utility z-toast {
   z-index: var(--ots-z-toast);

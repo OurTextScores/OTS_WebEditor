@@ -46,6 +46,7 @@ test('the layer tokens are ordered the way the shell stacks', async ({ page }) =
       'activity',
       'header',
       'float',
+      'modal',
       'toast',
       'menu',
       'palette',

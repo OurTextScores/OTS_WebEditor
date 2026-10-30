@@ -311,6 +311,7 @@ class WebMscore {
         this.excerptId = -1
         if (!Module._hitTestScoreObject) Object.defineProperty(this, 'hitTestScoreObject', { value: undefined })
         if (!Module._moveSelectedChordRestToStaff) Object.defineProperty(this, 'moveSelectedChordRestToStaff', { value: undefined })
+        if (!Module._getStyleDefaults) Object.defineProperty(this, 'getStyleDefaults', { value: undefined })
         if (!Module._getStaffTextSwing || !Module._setStaffTextSwing) {
             for (const name of ['getStaffTextSwing', 'setStaffTextSwing']) Object.defineProperty(this, name, { value: undefined })
         }
@@ -547,6 +548,21 @@ class WebMscore {
      * @param {string[]} keys
      * @returns {Promise<Record<string, number | boolean | string>>} unknown or non-scalar keys left out
      */
+    /**
+     * MuseScore's default for each named style key, for the Style dialog's reset buttons.
+     * @param {string[]} keys
+     * @returns {Promise<Record<string, number | boolean | string>>}
+     */
+    async getStyleDefaults(keys) {
+        const strptr = getStrPtr(JSON.stringify(keys || []))
+        try {
+            const dataptr = Module.ccall('getStyleDefaults', 'number', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
+            return JSON.parse(WasmRes.readText(dataptr))
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
     async getStyleValues(keys) {
         const strptr = getStrPtr(JSON.stringify(keys || []))
         try {

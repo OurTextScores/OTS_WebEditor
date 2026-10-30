@@ -120,6 +120,8 @@ export interface StaffTextSwing {
 
 /** Score methods behind the score dialogs that live outside `Score`'s own body (line budget). */
 export interface ScoreDialogMethods {
+  /** MuseScore's defaults for the named style keys (the Style dialog's reset). */
+  getStyleDefaults?: (keys: string[]) => Promise<Record<string, StyleValue>>;
   getStaffTextSwing?: () => Promise<Partial<StaffTextSwing>>;
   setStaffTextSwing?: (values: Omit<StaffTextSwing, 'system'>) => Promise<boolean> | boolean;
   getTimeSigProperties?: () => Promise<Partial<TimeSigProperties>>;

@@ -10,17 +10,24 @@ import {
   pageSettingsDialog,
   realizeHarmonyDialog,
   selectMoreDialog,
+  STYLE_PAGES,
   styleDialog,
   textFontFor,
   type DialogEngine,
 } from '../../components/score-editor/score-dialogs';
 
-function engine(style: Record<string, number | boolean | string> = {}): DialogEngine & {
+function engine(
+  style: Record<string, number | boolean | string> = {},
+  defaults: Record<string, number | boolean | string> = {},
+): DialogEngine & {
   [K in keyof DialogEngine]: ReturnType<typeof vi.fn>;
 } {
   return {
     getStyleValues: vi.fn(async (keys: string[]) => Object.fromEntries(keys.filter((k) => k in style).map((k) => [k, style[k]]))),
     setStyleValues: vi.fn(async () => true),
+    getStyleDefaults: vi.fn(async (keys: string[]) =>
+      Object.fromEntries(keys.filter((k) => k in defaults).map((k) => [k, defaults[k]])),
+    ),
     getMeasureProperties: vi.fn(async () => ({
       index: 1,
       actual: [4, 4] as [number, number],
@@ -101,8 +108,10 @@ describe('Page Settings', () => {
 describe('Style', () => {
   it('offers only the keys this engine knows', async () => {
     const { fields } = await styleDialog.load(engine({ staffDistance: 6.5, musicalSymbolFont: 'Leland' }), {});
-    const keys = fields.filter((f) => f.kind !== 'heading').map((f) => f.key);
+    const keys = fields.filter((f) => f.kind !== 'heading' && f.kind !== 'page').map((f) => f.key);
     expect(keys).toEqual(['musicalSymbolFont', 'staffDistance']);
+    // One page each, in MuseScore's order: Score, then Spacing.
+    expect(fields.filter((f) => f.kind === 'page').map((f) => f.label)).toEqual(['Score', 'Spacing']);
   });
 
   it('switches the text font with the music font, as MuseScore pairs them', async () => {
@@ -110,6 +119,48 @@ describe('Style', () => {
     await styleDialog.apply(e, { musicalSymbolFont: 'Emmentaler' }, {});
     expect(e.setStyleValues).toHaveBeenCalledWith({ musicalSymbolFont: 'Emmentaler', musicalTextFont: 'MScore Text' });
     expect(textFontFor('Petaluma')).toBe('Petaluma Text');
+  });
+});
+
+describe('Style: MuseScore’s pages (E08)', () => {
+  it('is generated from MuseScore’s Style dialog, page by page in its order', () => {
+    const codes = STYLE_PAGES.map((p) => p.code);
+    expect(codes.slice(0, 3)).toEqual(['score', 'spacing', 'sizes']);
+    expect(codes.indexOf('measure-number')).toBeLessThan(codes.indexOf('system'));
+    expect(STYLE_PAGES.reduce((n, p) => n + p.fields.length, 0)).toBeGreaterThan(200);
+    // Concert pitch is a command in MuseScore (it transposes), not a plain style value.
+    expect(STYLE_PAGES.flatMap((p) => p.fields).some((f) => f.key === 'concertPitch')).toBe(false);
+  });
+
+  it('shows percentages and returns fractions, and gives each setting its default for reset', async () => {
+    const e = engine({ swingRatio: 60, lyricsDashMaxLength: 0.8 }, { lyricsDashMaxLength: 0.8 });
+    const percentKey = STYLE_PAGES.flatMap((p) => p.fields).find((f) => f.percent)!.key;
+    const e2 = engine({ [percentKey]: 0.5 }, { [percentKey]: 1 });
+    const loaded = await styleDialog.load(e2, {});
+    expect(loaded.values[percentKey]).toBe(50);
+    expect(loaded.defaults?.[percentKey]).toBe(100);
+    await styleDialog.apply(e2, { ...loaded.values, [percentKey]: 75 }, {});
+    expect(e2.setStyleValues).toHaveBeenCalledWith({ [percentKey]: 0.75 });
+    expect((await styleDialog.load(e, {})).defaults).toEqual({ lyricsDashMaxLength: 0.8 });
+  });
+
+  it('heads a group once, but not the page’s own box nor a box that is itself a checkbox', async () => {
+    const e = engine({ musicalSymbolFont: 'Leland', hideEmptyStaves: true, dontHideStavesInFirstSystem: false, hideInstrumentNameIfOneInstrument: true });
+    const { fields } = await styleDialog.load(e, {});
+    const headings = fields.filter((f) => f.kind === 'heading').map((f) => f.label);
+    expect(headings).toEqual(['Instrument names']);
+  });
+
+  it('sends only the settings that changed, with choices as the engine’s numbers', async () => {
+    const e = engine({ tupletBracketType: 0, hideEmptyStaves: false, staffDistance: 6.5 });
+    const loaded = await styleDialog.load(e, {});
+    const tuplet = loaded.fields.find((f) => f.key === 'tupletBracketType');
+    expect(tuplet).toMatchObject({ kind: 'select' });
+    await styleDialog.apply(e, { ...loaded.values, tupletBracketType: '2' }, {});
+    expect(e.setStyleValues).toHaveBeenCalledWith({ tupletBracketType: 2 });
+    e.setStyleValues.mockClear();
+    await styleDialog.apply(e, loaded.values, {});
+    expect(e.setStyleValues).not.toHaveBeenCalled();
   });
 });
 
@@ -194,7 +245,7 @@ describe('Style: measure numbers and multimeasure rests (E16)', () => {
     const e = engine({ showMeasureNumber: true, measureNumberInterval: 5, measureNumberSystem: true });
     const { fields } = await styleDialog.load(e, {});
     expect(fields.map((f) => f.key)).toEqual(
-      expect.arrayContaining(['measureNumbers', 'showMeasureNumber', 'measureNumberInterval', 'measureNumberSystem']),
+      expect.arrayContaining(['measure-number', 'showMeasureNumber', 'measureNumberInterval', 'measureNumberSystem']),
     );
     await styleDialog.apply(e, { measureNumberInterval: 4, measureNumberSystem: false }, {});
     expect(e.setStyleValues).toHaveBeenCalledWith({ measureNumberInterval: 4, measureNumberSystem: false });
@@ -206,7 +257,7 @@ describe('Style: chord symbols (E13)', () => {
     const e = engine({ verticallyStackModifiers: false, chordModifierMag: 1, lowerCaseMinorChords: false });
     const keys = (await styleDialog.load(e, {})).fields.map((f) => f.key);
     expect(keys).toEqual(
-      expect.arrayContaining(['chordSymbols', 'verticallyStackModifiers', 'chordModifierMag', 'lowerCaseMinorChords']),
+      expect.arrayContaining(['chord-symbols', 'verticallyStackModifiers', 'chordModifierMag', 'lowerCaseMinorChords']),
     );
     expect(keys).not.toContain('chordBassNoteStagger');
   });

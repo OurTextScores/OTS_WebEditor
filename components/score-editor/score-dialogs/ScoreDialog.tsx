@@ -1,17 +1,25 @@
 'use client';
 
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import React, { useEffect, useState, useSyncExternalStore } from 'react';
+import { RotateCcw } from 'lucide-react';
+import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { Button } from '../../ui/Button';
+import { IconButton } from '../../ui/IconButton';
 import { Dialog, DialogContent } from '../../ui/Dialog';
 import {
   DIALOG_SPECS,
   type DialogEngine,
   type DialogField,
   type FieldValue,
+  type LoadedDialog,
   type ScoreDialogKind,
 } from './dialogSpecs';
-import { closeScoreDialog, getOpenScoreDialog, subscribeToScoreDialog, type OpenScoreDialog } from './scoreDialogStore';
+import {
+  closeScoreDialog,
+  getOpenScoreDialog,
+  subscribeToScoreDialog,
+  type OpenScoreDialog,
+} from './scoreDialogStore';
 
 const inputClass = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm';
 
@@ -66,28 +74,77 @@ function BeamGroupRow({
   );
 }
 
-function Field({
+/** Reset to the default, shown while the value differs from it (MuseScore's per-setting reset buttons). */
+function ResetButton({
   field,
   value,
+  defaultValue,
   onChange,
 }: {
   field: DialogField;
   value: FieldValue | undefined;
+  defaultValue: FieldValue | undefined;
+  onChange: (value: FieldValue) => void;
+}) {
+  if (defaultValue === undefined) return null;
+  const differs =
+    typeof defaultValue === 'number'
+      ? Math.abs(Number(value) - defaultValue) > 1e-9
+      : String(value) !== String(defaultValue);
+  return (
+    <IconButton
+      label={`Reset ${field.label} to default`}
+      data-testid={`score-dialog-${field.key}-reset`}
+      className={differs ? '' : 'invisible'}
+      onClick={() => onChange(field.kind === 'select' ? String(defaultValue) : defaultValue)}
+    >
+      <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+    </IconButton>
+  );
+}
+
+function Field({
+  field,
+  value,
+  defaultValue,
+  onChange,
+}: {
+  field: DialogField;
+  value: FieldValue | undefined;
+  defaultValue?: FieldValue;
   onChange: (value: FieldValue) => void;
 }) {
   const testId = `score-dialog-${field.key}`;
+  const reset = (
+    <ResetButton field={field} value={value} defaultValue={defaultValue} onChange={onChange} />
+  );
+  if (field.kind === 'page') return null;
   if (field.kind === 'heading') {
-    return <h3 className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{field.label}</h3>;
+    return (
+      <h3 className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        {field.label}
+      </h3>
+    );
   }
   if (field.kind === 'beamGroups') {
-    return <BeamGroupRow field={field} value={String(value ?? '')} onChange={onChange} testId={testId} />;
+    return (
+      <BeamGroupRow field={field} value={String(value ?? '')} onChange={onChange} testId={testId} />
+    );
   }
   if (field.kind === 'boolean') {
     return (
-      <label className="flex items-center gap-2 text-sm text-slate-700">
-        <input type="checkbox" data-testid={testId} checked={Boolean(value)} onChange={(e) => onChange(e.currentTarget.checked)} />
-        {field.label}
-      </label>
+      <span className="flex items-center justify-between gap-2">
+        <label className="flex items-center gap-2 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            data-testid={testId}
+            checked={Boolean(value)}
+            onChange={(e) => onChange(e.currentTarget.checked)}
+          />
+          {field.label}
+        </label>
+        {reset}
+      </span>
     );
   }
   return (
@@ -114,7 +171,12 @@ function Field({
             onChange={(e) => onChange(e.currentTarget.valueAsNumber)}
           />
         ) : field.kind === 'select' ? (
-          <select data-testid={testId} className={inputClass} value={String(value ?? '')} onChange={(e) => onChange(e.currentTarget.value)}>
+          <select
+            data-testid={testId}
+            className={inputClass}
+            value={String(value ?? '')}
+            onChange={(e) => onChange(e.currentTarget.value)}
+          >
             {field.options.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -122,7 +184,10 @@ function Field({
             ))}
           </select>
         ) : null}
-        {field.kind === 'number' && field.unit ? <span className="w-6 text-xs text-slate-500">{field.unit}</span> : null}
+        {field.kind === 'number' && field.unit ? (
+          <span className="w-6 text-xs text-slate-500">{field.unit}</span>
+        ) : null}
+        {reset}
       </span>
     </label>
   );
@@ -138,7 +203,19 @@ function DialogBody({
   onApply: (kind: ScoreDialogKind, apply: () => Promise<boolean>) => Promise<unknown>;
 }) {
   const spec = DIALOG_SPECS[open.kind];
-  const [loaded, setLoaded] = useState<{ fields: DialogField[]; values: Record<string, FieldValue> } | null>(null);
+  const [loaded, setLoaded] = useState<LoadedDialog | null>(null);
+  const [pageKey, setPageKey] = useState<string | null>(null);
+  // A dialog with pages (MuseScore's Style dialog): the page list, and the fields of the page shown.
+  const pages = useMemo(() => {
+    const result: { key: string; label: string; fields: DialogField[] }[] = [];
+    for (const field of loaded?.fields ?? []) {
+      if (field.kind === 'page') result.push({ key: field.key, label: field.label, fields: [] });
+      else result.at(-1)?.fields.push(field);
+    }
+    return result;
+  }, [loaded]);
+  const page = pages.find((p) => p.key === pageKey) ?? pages[0];
+  const shownFields = pages.length ? (page?.fields ?? []) : (loaded?.fields ?? []);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -164,26 +241,70 @@ function DialogBody({
         void onApply(open.kind, () => spec.apply(engine, values, open.context));
       }}
     >
-      <DialogPrimitive.Title className="text-base font-semibold text-slate-900">{spec.title}</DialogPrimitive.Title>
-      <DialogPrimitive.Description className={spec.description ? 'mt-1 text-sm text-slate-600' : 'sr-only'}>
+      <DialogPrimitive.Title className="text-base font-semibold text-slate-900">
+        {spec.title}
+      </DialogPrimitive.Title>
+      <DialogPrimitive.Description
+        className={spec.description ? 'mt-1 text-sm text-slate-600' : 'sr-only'}
+      >
         {spec.description ?? `Edit ${spec.title}.`}
       </DialogPrimitive.Description>
-      <div className="mt-3 flex max-h-[60vh] flex-col gap-2 overflow-y-auto pr-1">
-        {error ? <p className="text-sm text-red-700" data-testid="score-dialog-error">{error}</p> : null}
-        {loaded?.fields.map((field) => (
-          <Field
-            key={field.key}
-            field={field}
-            value={loaded.values[field.key]}
-            onChange={(value) => setLoaded((prev) => (prev ? { ...prev, values: { ...prev.values, [field.key]: value } } : prev))}
-          />
-        ))}
+      <div className="mt-3 flex gap-3">
+        {pages.length ? (
+          <nav
+            aria-label={`${spec.title} pages`}
+            className="flex max-h-[60vh] w-48 shrink-0 flex-col overflow-y-auto border-r border-slate-200 pr-2"
+          >
+            {pages.map((p) => (
+              <Button
+                key={p.key}
+                type="button"
+                variant={p === page ? 'neutral' : 'quiet'}
+                size="sm"
+                className="justify-start text-left"
+                aria-current={p === page ? 'page' : undefined}
+                data-testid={`score-dialog-page-${p.key}`}
+                onClick={() => setPageKey(p.key)}
+              >
+                {p.label}
+              </Button>
+            ))}
+          </nav>
+        ) : null}
+        <div className="flex max-h-[60vh] min-w-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
+          {error ? (
+            <p className="text-sm text-red-700" data-testid="score-dialog-error">
+              {error}
+            </p>
+          ) : null}
+          {loaded
+            ? shownFields.map((field) => (
+                <Field
+                  key={field.key}
+                  field={field}
+                  value={loaded.values[field.key]}
+                  defaultValue={loaded.defaults?.[field.key]}
+                  onChange={(value) =>
+                    setLoaded((prev) =>
+                      prev ? { ...prev, values: { ...prev.values, [field.key]: value } } : prev,
+                    )
+                  }
+                />
+              ))
+            : null}
+        </div>
       </div>
       <div className="mt-5 flex justify-end gap-2">
         <Button type="button" variant="outline" size="md" onClick={closeScoreDialog}>
           Cancel
         </Button>
-        <Button type="submit" size="md" variant="primary" disabled={!loaded} data-testid="score-dialog-submit">
+        <Button
+          type="submit"
+          size="md"
+          variant="primary"
+          disabled={!loaded}
+          data-testid="score-dialog-submit"
+        >
           {spec.submitLabel}
         </Button>
       </div>
@@ -206,7 +327,10 @@ export function ScoreDialog({
   return (
     <Dialog open={Boolean(open && engine)} onOpenChange={(next) => !next && closeScoreDialog()}>
       {open && engine ? (
-        <DialogContent className="max-w-md" data-testid="score-dialog">
+        <DialogContent
+          className={open.kind === 'style' ? 'max-w-3xl' : 'max-w-md'}
+          data-testid="score-dialog"
+        >
           <DialogBody key={`${open.kind}`} open={open} engine={engine} onApply={onApply} />
         </DialogContent>
       ) : null}

@@ -4,7 +4,6 @@
  */
 export {
   DIALOG_SPECS,
-  MUSIC_FONTS,
   changeInstrumentDialog,
   harpPedalsDialog,
   staffPropertiesDialog,
@@ -12,16 +11,16 @@ export {
   pageSettingsDialog,
   realizeHarmonyDialog,
   selectMoreDialog,
-  styleDialog,
-  textFontFor,
   type DialogContext,
   type DialogEngine,
   type DialogField,
   type DialogSpec,
   type FieldValue,
+  type LoadedDialog,
   type ScoreDialogKind,
 } from './dialogSpecs';
 export { ScoreDialog } from './ScoreDialog';
+export { MUSIC_FONTS, STYLE_PAGES, styleDialog, textFontFor } from './styleDialog';
 export { staffTextPropertiesDialog, systemTextPropertiesDialog } from './staffTextDialog';
 export { timeSigPropertiesDialog, type TimeSigUpdate } from './timeSigDialog';
 export { closeScoreDialog, getOpenScoreDialog, openScoreDialog, type OpenScoreDialog } from './scoreDialogStore';

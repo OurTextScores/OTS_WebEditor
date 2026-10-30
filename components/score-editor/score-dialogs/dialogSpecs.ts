@@ -1,6 +1,7 @@
 import type { MeasureProperties, SelectOptions, StaffProperties, StyleValue } from '../../../lib/webmscore-loader';
 import type { StaffTextSwing, TimeSigProperties } from '../../../lib/webmscore-score-settings-types';
 import { staffTextPropertiesDialog, systemTextPropertiesDialog } from './staffTextDialog';
+import { styleDialog } from './styleDialog';
 import { timeSigPropertiesDialog, type TimeSigUpdate } from './timeSigDialog';
 
 /**
@@ -32,6 +33,8 @@ export type DialogField =
       readonly options: readonly { readonly value: string; readonly label: string }[];
     }
   | { readonly kind: 'heading'; readonly key: string; readonly label: string }
+  /** Starts a page: a dialog with pages shows a page list and one page at a time (MuseScore's Style dialog). */
+  | { readonly kind: 'page'; readonly key: string; readonly label: string }
   | {
       /**
        * One row of MuseScore's beam-group editor: the value holds a digit per note (0 beamed to the previous note,
@@ -47,6 +50,7 @@ export type DialogField =
 export interface DialogEngine {
   getStyleValues(keys: string[]): Promise<Record<string, StyleValue>>;
   setStyleValues(values: Record<string, StyleValue>): Promise<boolean> | boolean;
+  getStyleDefaults(keys: string[]): Promise<Record<string, StyleValue>>;
   getMeasureProperties(): Promise<Partial<MeasureProperties>>;
   setMeasureProperties(values: Partial<MeasureProperties>): Promise<boolean> | boolean;
   selectWithOptions(page: number, x: number, y: number, options: SelectOptions): Promise<boolean> | boolean;
@@ -75,12 +79,19 @@ export interface DialogContext {
   readonly instruments?: readonly { readonly id: string; readonly name: string; readonly group: string }[];
 }
 
+export interface LoadedDialog {
+  fields: DialogField[];
+  values: Record<string, FieldValue>;
+  /** Defaults by key: a field with one gets a reset button while its value differs. */
+  defaults?: Record<string, FieldValue>;
+}
+
 export interface DialogSpec {
   readonly title: string;
   readonly submitLabel: string;
   /** Says the edit is lossy or what it acts on, where MuseScore's dialog does. */
   readonly description?: string;
-  load(engine: DialogEngine, context: DialogContext): Promise<{ fields: DialogField[]; values: Record<string, FieldValue> }>;
+  load(engine: DialogEngine, context: DialogContext): Promise<LoadedDialog>;
   /** Writes the values back; false when the engine refused them. */
   apply(engine: DialogEngine, values: Record<string, FieldValue>, context: DialogContext): Promise<boolean>;
 }
@@ -142,72 +153,6 @@ export const pageSettingsDialog: DialogSpec = {
 };
 
 /** The music fonts the engine registers (roadmap E24), and each one's text font as MuseScore pairs them. */
-export const MUSIC_FONTS = [
-  'Leland',
-  'Bravura',
-  'Emmentaler',
-  'Gootville',
-  'MuseJazz',
-  'Petaluma',
-  'Finale Maestro',
-  'Finale Broadway',
-] as const;
-export const textFontFor = (font: string) => (font === 'Emmentaler' ? 'MScore Text' : `${font} Text`);
-
-/** The reviewed first set of MuseScore's Style dialog (E08): spatium-valued spacing, layout switches, the font. */
-const STYLE_FIELDS: readonly DialogField[] = [
-  { kind: 'heading', key: 'score', label: 'Score' },
-  { kind: 'select', key: 'musicalSymbolFont', label: 'Musical symbols font', options: MUSIC_FONTS.map((f) => ({ value: f, label: f })) },
-  { kind: 'boolean', key: 'hideEmptyStaves', label: 'Hide empty staves within systems' },
-  { kind: 'boolean', key: 'dontHideStavesInFirstSystem', label: 'Never hide staves in the first system' },
-  { kind: 'boolean', key: 'createMultiMeasureRests', label: 'Multimeasure rests' },
-  { kind: 'number', key: 'minEmptyMeasures', label: 'Minimum empty measures for a multimeasure rest', min: 1, step: 1 },
-  { kind: 'heading', key: 'measureNumbers', label: 'Measure numbers (roadmap E16)' },
-  { kind: 'boolean', key: 'showMeasureNumber', label: 'Show measure numbers' },
-  { kind: 'boolean', key: 'showMeasureNumberOne', label: 'Number the first measure' },
-  { kind: 'boolean', key: 'measureNumberSystem', label: 'At the start of every system' },
-  { kind: 'number', key: 'measureNumberInterval', label: 'Every n measures (when not per system)', min: 1, step: 1 },
-  { kind: 'heading', key: 'courtesy', label: 'Courtesy signs (roadmap E12)' },
-  { kind: 'boolean', key: 'genCourtesyTimesig', label: 'Courtesy time signatures' },
-  { kind: 'boolean', key: 'genCourtesyKeysig', label: 'Courtesy key signatures' },
-  { kind: 'boolean', key: 'genCourtesyClef', label: 'Courtesy clefs' },
-  { kind: 'heading', key: 'chordSymbols', label: 'Chord symbols (roadmap E13)' },
-  { kind: 'boolean', key: 'verticallyStackModifiers', label: 'Stack modifiers vertically' },
-  { kind: 'number', key: 'chordStackedModifierMag', label: 'Stacked modifier size', min: 0.1, step: 0.05 },
-  { kind: 'boolean', key: 'chordBassNoteStagger', label: 'Stagger the bass note' },
-  { kind: 'number', key: 'chordModifierMag', label: 'Modifier size', min: 0.1, step: 0.05 },
-  { kind: 'boolean', key: 'lowerCaseMinorChords', label: 'Lower-case minor chords' },
-  { kind: 'boolean', key: 'lowerCaseBassNotes', label: 'Lower-case bass notes' },
-  { kind: 'boolean', key: 'allCapsNoteNames', label: 'All-caps note names' },
-  { kind: 'number', key: 'harmonyFretDist', label: 'Distance to fretboard diagram', min: 0, step: 0.1, unit: 'sp' },
-  { kind: 'heading', key: 'system', label: 'System' },
-  { kind: 'number', key: 'staffDistance', label: 'Distance between staves', min: 0, step: 0.1, unit: 'sp' },
-  { kind: 'number', key: 'akkoladeDistance', label: 'Distance between grand staff staves', min: 0, step: 0.1, unit: 'sp' },
-  { kind: 'number', key: 'minSystemDistance', label: 'Minimum system distance', min: 0, step: 0.1, unit: 'sp' },
-  { kind: 'number', key: 'maxSystemDistance', label: 'Maximum system distance', min: 0, step: 0.1, unit: 'sp' },
-  { kind: 'heading', key: 'measure', label: 'Measure' },
-  { kind: 'number', key: 'measureSpacing', label: 'Spacing (1 = tight)', min: 1, step: 0.05 },
-  { kind: 'number', key: 'minNoteDistance', label: 'Minimum note distance', min: 0, step: 0.05, unit: 'sp' },
-  { kind: 'number', key: 'minMeasureWidth', label: 'Minimum measure width', min: 0, step: 0.1, unit: 'sp' },
-];
-
-export const styleDialog: DialogSpec = {
-  title: 'Style',
-  submitLabel: 'Apply',
-  async load(engine) {
-    const keys = STYLE_FIELDS.filter((field) => field.kind !== 'heading').map((field) => field.key);
-    const raw = await engine.getStyleValues(keys);
-    // Only what this engine has: a key it does not know is not offered.
-    const fields = STYLE_FIELDS.filter((field) => field.kind === 'heading' || field.key in raw);
-    return { fields, values: { ...raw } };
-  },
-  async apply(engine, values) {
-    const raw: Record<string, StyleValue> = { ...values };
-    if (typeof values.musicalSymbolFont === 'string') raw.musicalTextFont = textFontFor(values.musicalSymbolFont);
-    return Boolean(await engine.setStyleValues(raw));
-  },
-};
-
 const NUMBER_MODES = [
   { value: '0', label: 'Auto' },
   { value: '1', label: 'Always show' },

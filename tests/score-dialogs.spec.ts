@@ -69,8 +69,10 @@ test('Style… from the page menu changes a style value', async ({ page }) => {
   await rightClick(page, await paper(page));
   await page.getByTestId('context-item-format.style').click();
   await expect(dialog(page)).toBeVisible();
-  await page.getByTestId('score-dialog-minNoteDistance').fill('0.8');
+  // The dialog opens on MuseScore's first page, Score.
   await page.getByTestId('score-dialog-hideEmptyStaves').check();
+  await page.getByTestId('score-dialog-page-spacing').click();
+  await page.getByTestId('score-dialog-minNoteDistance').fill('0.8');
   await submit(page);
   await expect.poll(() => style(page, ['minNoteDistance', 'hideEmptyStaves'])).toEqual({
     hideEmptyStaves: true,
@@ -192,6 +194,7 @@ test('Style… turns courtesy clefs off', async ({ page }) => {
   await open(page);
   await rightClick(page, await paper(page));
   await page.getByTestId('context-item-format.style').click();
+  await page.getByTestId('score-dialog-page-clefs-key-and-time-signatures').click();
   await expect(page.getByTestId('score-dialog-genCourtesyClef')).toBeChecked();
   await page.getByTestId('score-dialog-genCourtesyClef').uncheck();
   await submit(page);
@@ -202,6 +205,7 @@ test('Style… numbers every second measure instead of each system', async ({ pa
   await open(page);
   await rightClick(page, await paper(page));
   await page.getByTestId('context-item-format.style').click();
+  await page.getByTestId('score-dialog-page-measure-number').click();
   await page.getByTestId('score-dialog-measureNumberSystem').uncheck();
   await page.getByTestId('score-dialog-measureNumberInterval').fill('2');
   await submit(page);
@@ -215,6 +219,7 @@ test('Style… stacks chord-symbol modifiers', async ({ page }) => {
   await open(page);
   await rightClick(page, await paper(page));
   await page.getByTestId('context-item-format.style').click();
+  await page.getByTestId('score-dialog-page-chord-symbols').click();
   await page.getByTestId('score-dialog-verticallyStackModifiers').check();
   await page.getByTestId('score-dialog-lowerCaseMinorChords').check();
   await submit(page);
@@ -299,4 +304,24 @@ test('System Text Properties sets swing on a system text, as MuseScore’s dialo
       ),
     )
     .toEqual({ system: true, swing: true, unit: 'eighth', ratio: 66 });
+});
+
+test('Style… pages: a tuplet choice is applied, and a reset button returns a setting to its default (E08)', async ({ page }) => {
+  await open(page);
+  await rightClick(page, await paper(page));
+  await page.getByTestId('context-item-format.style').click();
+  await page.getByTestId('score-dialog-page-tuplets').click();
+  await page.getByTestId('score-dialog-tupletBracketType').selectOption({ label: 'None' });
+  await submit(page);
+  await expect.poll(async () => (await style(page, ['tupletBracketType'])).tupletBracketType).toBe(2);
+
+  await rightClick(page, await paper(page));
+  await page.getByTestId('context-item-format.style').click();
+  await page.getByTestId('score-dialog-page-tuplets').click();
+  // Changed from the default, so its reset button shows; resetting hides it again.
+  await expect(page.getByTestId('score-dialog-tupletBracketType-reset')).toBeVisible();
+  await page.getByTestId('score-dialog-tupletBracketType-reset').click();
+  await expect(page.getByTestId('score-dialog-tupletBracketType-reset')).toBeHidden();
+  await submit(page);
+  await expect.poll(async () => (await style(page, ['tupletBracketType'])).tupletBracketType).toBe(0);
 });

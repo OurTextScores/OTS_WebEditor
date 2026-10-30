@@ -89,6 +89,7 @@ describe('design tokens: structure', () => {
       'activity',
       'header',
       'float',
+      'modal',
       'toast',
       'menu',
       'palette',

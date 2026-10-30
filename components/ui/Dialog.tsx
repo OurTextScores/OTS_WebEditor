@@ -13,7 +13,8 @@ export const DialogOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
-    className={cn('fixed inset-0 z-50 bg-black/40', className)}
+    // The modal layer: above the shell's header and toolbars (app/globals.css), which z-50 sat under.
+    className={cn('fixed inset-0 z-modal bg-black/40', className)}
     {...props}
   />
 ));
@@ -28,7 +29,7 @@ export const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed left-1/2 top-1/2 z-50 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded bg-white p-6 shadow-modal outline-none',
+        'fixed left-1/2 top-1/2 z-modal w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded bg-white p-6 shadow-modal outline-none',
         className,
       )}
       {...props}

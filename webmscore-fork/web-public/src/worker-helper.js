@@ -129,6 +129,7 @@ class WebMscoreW {
         // presence as proof of a native export. Older packages omit this path.
         if (!capabilities?.hitTestScoreObject) Object.defineProperty(instance, 'hitTestScoreObject', { value: undefined })
         if (!capabilities?.moveSelectedChordRestToStaff) Object.defineProperty(instance, 'moveSelectedChordRestToStaff', { value: undefined })
+        if (!capabilities?.styleDefaults) Object.defineProperty(instance, 'getStyleDefaults', { value: undefined })
         if (!capabilities?.staffTextSwing) {
             for (const name of ['getStaffTextSwing', 'setStaffTextSwing']) Object.defineProperty(instance, name, { value: undefined })
         }
@@ -355,6 +356,10 @@ class WebMscoreW {
 
     setHarpPedalState(state) {
         return this.rpc('setHarpPedalState', [state])
+    }
+
+    getStyleDefaults(keys) {
+        return this.rpc('getStyleDefaults', [keys])
     }
 
     getStaffTextSwing() {
