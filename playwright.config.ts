@@ -50,6 +50,9 @@ export default defineConfig({
       : {}),
   },
   webServer: {
+    // Next's dev manifest loader occasionally receives incomplete JSON in CI.
+    // Instrument this server only; preserve any NODE_OPTIONS supplied by CI.
+    ...(process.env.CI ? { env: { NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --require=./scripts/diagnose-next-manifest.cjs` } } : {}),
     command: `npm run check:wasm && NEXT_DIST_DIR=${PLAYWRIGHT_DIST_DIR} npx next dev --${PLAYWRIGHT_BUNDLER} --hostname 127.0.0.1 --port ${PLAYWRIGHT_PORT}`,
     url: PLAYWRIGHT_BASE_URL,
     reuseExistingServer: true,

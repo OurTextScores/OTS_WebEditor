@@ -12,6 +12,17 @@ on:
   schedule:
     - cron: '0 9 * * *' # 02:00 in Vancouver (PDT)
   workflow_dispatch:
+    inputs:
+      browser:
+        description: Browser to run; all preserves the full manual matrix
+        type: choice
+        options: [all, chromium, firefox, webkit]
+        default: all
+      shard:
+        description: Shard to run; all preserves the full manual matrix
+        type: choice
+        options: [all, '1', '2', '3', '4']
+        default: all
 
 permissions:
   contents: read
@@ -28,8 +39,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        browser: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["chromium","firefox","webkit"]' || '["chromium"]') }}
-        shard: [1, 2, 3, 4]
+        browser: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.browser != '' && inputs.browser != 'all' && format('["{0}"]', inputs.browser) || (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["chromium","firefox","webkit"]' || '["chromium"]') }}
+        shard: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.shard != '' && inputs.shard != 'all' && format('[{0}]', inputs.shard) || '[1,2,3,4]') }}
     env:
       PLAYWRIGHT_BROWSER: ${{ matrix.browser }}
       PLAYWRIGHT_PORT: '3013'
