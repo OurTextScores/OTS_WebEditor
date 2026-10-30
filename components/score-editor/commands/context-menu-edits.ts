@@ -94,3 +94,17 @@ export function addBrackets(core: EditorCore, kind: 0 | 1 | 2) {
     return fn(kind);
   });
 }
+
+/** A harp pedal diagram (asText: its text form) on the selected note or rest; it is then selected. */
+export function addHarpPedalDiagram(core: EditorCore, asText: boolean) {
+  const { performMutation, requireMutation } = core;
+  return performMutation(
+    'add harp pedal diagram',
+    async () => {
+      const fn = requireMutation('addHarpPedalDiagram');
+      if (!fn) return false;
+      return fn(asText);
+    },
+    { skipWasmReselect: true, skipSelectionFallback: true },
+  );
+}

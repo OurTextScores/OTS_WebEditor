@@ -139,3 +139,31 @@ test('a beam is feathered and flattened from the panel', async ({ page }) => {
   await page.getByTestId('notation-noSlope').click();
   await expect.poll(() => propertyValue(page, 'noSlope')).toBe('true');
 });
+
+test('Ctrl+click reaches an l.v. tie under its note, and Delete then removes only the tie', async ({ page }) => {
+  const note = await centre(page, 'svg .Note', 2);
+  await page.mouse.click(note.x, note.y);
+  await runCommand(page, 'add.line.laissezVib');
+  await page.waitForSelector('svg .LaissezVibSegment', { state: 'attached', timeout: 20_000 });
+  await runCommand(page, 'view.zoom.preset', 1);
+  await page.waitForTimeout(500);
+
+  // At 100% the score is wider than the view: bring the tie on screen before reading its position.
+  await page.locator('svg .LaissezVibSegment').first().scrollIntoViewIfNeeded();
+  await runCommand(page, 'edit.deselect').catch(() => undefined);
+  // A point in the tie's body, which lies inside its note's shape: a click selects the note, as in MuseScore.
+  const tie = await page.locator('svg .LaissezVibSegment').first().boundingBox();
+  if (!tie) throw new Error('no l.v. tie');
+  const onCurve = { x: tie.x + tie.width * 0.8, y: tie.y + tie.height / 2 };
+  await page.mouse.click(onCurve.x, onCurve.y);
+  await expect.poll(() => selectedType(page)).toBe('Note');
+
+  await page.keyboard.down('Control');
+  await page.mouse.click(onCurve.x, onCurve.y);
+  await page.keyboard.up('Control');
+  await expect.poll(() => selectedType(page)).toBe('LaissezVib');
+
+  await runCommand(page, 'edit.delete');
+  await expect(page.locator('svg .LaissezVibSegment')).toHaveCount(0, { timeout: 20_000 });
+  await expect(page.locator('svg .Note')).toHaveCount(4);
+});

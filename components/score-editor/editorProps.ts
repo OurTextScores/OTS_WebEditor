@@ -235,6 +235,8 @@ export interface EditorCommandProps {
   onToggleSnap?: (which: 0 | 1) => Promise<unknown> | void;
   /** l.v. (laissez vibrer) on the selected notes, as MuseScore's toggle. */
   onToggleLaissezVib?: () => Promise<unknown> | void;
+  /** A harp pedal diagram (asText: its text form) on the selected note or rest. */
+  onAddHarpPedalDiagram?: (asText: boolean) => Promise<unknown> | void;
   /** Enclose the selection: 0 brackets, 1 parentheses, 2 braces. */
   onAddBrackets?: (kind: 0 | 1 | 2) => Promise<unknown> | void;
   /** Opens one of the score's settings dialogs; set when the engine provides them. */

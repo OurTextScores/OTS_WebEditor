@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   changeInstrumentDialog,
+  harpPedalsDialog,
+  timeSigPropertiesDialog,
   measurePropertiesDialog,
   staffPropertiesDialog,
   pageSettingsDialog,
@@ -30,6 +32,19 @@ function engine(style: Record<string, number | boolean | string> = {}): DialogEn
       staves: [{ name: 'Piano', visible: true, stemless: false }],
     })),
     setMeasureProperties: vi.fn(async () => true),
+    getHarpPedalState: vi.fn(async () => ({ pedals: ['natural', 'natural', 'natural', 'natural', 'natural', 'natural', 'natural'], isDiagram: true })),
+    setHarpPedalState: vi.fn(async () => true),
+    getTimeSigProperties: vi.fn(async () => ({
+      type: 'normal' as const,
+      numerator: 4,
+      denominator: 4,
+      numeratorText: '',
+      denominatorText: '',
+      showCourtesy: true,
+      groups: { eighth: '10001000', sixteenth: '1000100010001000', thirtySecond: '10001000100010001000100010001000' },
+      defaultGroups: { eighth: '10001000', sixteenth: '1000100010001000', thirtySecond: '10001000100010001000100010001000' },
+    })),
+    setTimeSigProperties: vi.fn(async () => true),
     selectWithOptions: vi.fn(async () => true),
     realizeChordSymbols: vi.fn(async () => true),
     getStaffProperties: vi.fn(async () => ({
@@ -190,5 +205,62 @@ describe('Style: chord symbols (E13)', () => {
       expect.arrayContaining(['chordSymbols', 'verticallyStackModifiers', 'chordModifierMag', 'lowerCaseMinorChords']),
     );
     expect(keys).not.toContain('chordBassNoteStagger');
+  });
+});
+
+describe('Harp Pedals (E21)', () => {
+  it('reads the pedals in MuseScore’s D C B | E F G A order and writes them back with the form', async () => {
+    const e = engine();
+    e.getHarpPedalState.mockResolvedValue({
+      pedals: ['flat', 'natural', 'sharp', 'natural', 'natural', 'natural', 'flat'],
+      isDiagram: true,
+    });
+    const { fields, values } = await harpPedalsDialog.load(e, {});
+    expect(fields.filter((f) => f.kind === 'select').map((f) => f.label)).toEqual(['D', 'C', 'B', 'E', 'F', 'G', 'A']);
+    expect(values).toMatchObject({ pedalD: 'flat', pedalB: 'sharp', pedalA: 'flat', isDiagram: true });
+    await harpPedalsDialog.apply(e, { ...values, pedalC: 'sharp', isDiagram: false }, {});
+    expect(e.setHarpPedalState).toHaveBeenCalledWith({
+      pedals: ['flat', 'sharp', 'sharp', 'natural', 'natural', 'natural', 'flat'],
+      isDiagram: false,
+    });
+  });
+
+  it('says to select a diagram when none is selected', async () => {
+    const e = engine();
+    e.getHarpPedalState.mockResolvedValue({});
+    await expect(harpPedalsDialog.load(e, {})).rejects.toThrow(/harp pedal diagram/);
+  });
+});
+
+describe('Time Signature Properties', () => {
+  it('shows the appearance, courtesy and a beam-group row per note value', async () => {
+    const e = engine();
+    const { fields, values } = await timeSigPropertiesDialog.load(e, {});
+    expect(fields.filter((f) => f.kind === 'beamGroups').map((f) => f.key)).toEqual(['eighth', 'sixteenth', 'thirtySecond']);
+    expect(values).toMatchObject({ type: 'normal', showCourtesy: true, eighth: '10001000', resetGroups: false });
+  });
+
+  it('writes untouched groups as the defaults, so applying adds no explicit grouping', async () => {
+    const e = engine();
+    const { values } = await timeSigPropertiesDialog.load(e, {});
+    await timeSigPropertiesDialog.apply(e, { ...values, type: 'common' }, {});
+    expect(e.setTimeSigProperties).toHaveBeenCalledWith(expect.objectContaining({ type: 'common', groups: 'default' }));
+  });
+
+  it('writes edited groups as rows, and Reset as the defaults', async () => {
+    const e = engine();
+    const { values } = await timeSigPropertiesDialog.load(e, {});
+    await timeSigPropertiesDialog.apply(e, { ...values, eighth: '10101010' }, {});
+    expect(e.setTimeSigProperties).toHaveBeenLastCalledWith(
+      expect.objectContaining({ groups: expect.objectContaining({ eighth: '10101010' }) }),
+    );
+    await timeSigPropertiesDialog.apply(e, { ...values, eighth: '10101010', resetGroups: true }, {});
+    expect(e.setTimeSigProperties).toHaveBeenLastCalledWith(expect.objectContaining({ groups: 'default' }));
+  });
+
+  it('says to select a time signature when none is selected', async () => {
+    const e = engine();
+    e.getTimeSigProperties.mockResolvedValue({});
+    await expect(timeSigPropertiesDialog.load(e, {})).rejects.toThrow(/time signature/);
   });
 });

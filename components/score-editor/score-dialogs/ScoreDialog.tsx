@@ -15,6 +15,57 @@ import { closeScoreDialog, getOpenScoreDialog, subscribeToScoreDialog, type Open
 
 const inputClass = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm';
 
+const GAP_LABELS = ['beamed', 'new beam', 'new 16th sub-beam', 'new 32nd sub-beam'];
+const GAP_MARKS = ['⁀', '|', '¦', '┊'];
+
+/** A row of MuseScore's beam-group editor: a note per digit, and a toggle in each gap between two notes. */
+function BeamGroupRow({
+  field,
+  value,
+  onChange,
+  testId,
+}: {
+  field: Extract<DialogField, { kind: 'beamGroups' }>;
+  value: string;
+  onChange: (value: FieldValue) => void;
+  testId: string;
+}) {
+  const digits = value.split('').map((d) => Math.min(Number(d) || 0, field.maxState));
+  const toggle = (index: number) => {
+    const next = [...digits];
+    next[index] = (next[index] + 1) % (field.maxState + 1);
+    onChange(next.join(''));
+  };
+  return (
+    <div className="flex flex-col gap-1 text-sm text-slate-700" data-testid={testId}>
+      <span>{field.label}</span>
+      <div className="flex flex-wrap items-center gap-0.5">
+        {digits.map((state, index) => (
+          <React.Fragment key={index}>
+            {index > 0 ? (
+              <Button
+                type="button"
+                variant={state ? 'neutral' : 'quiet'}
+                size="bar"
+                data-testid={`${testId}-${index}`}
+                data-state={state}
+                aria-label={`Between notes ${index} and ${index + 1}: ${GAP_LABELS[state]}`}
+                title={GAP_LABELS[state]}
+                onClick={() => toggle(index)}
+              >
+                {GAP_MARKS[state]}
+              </Button>
+            ) : null}
+            <span aria-hidden className="w-3 text-center">
+              ♪
+            </span>
+          </React.Fragment>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Field({
   field,
   value,
@@ -27,6 +78,9 @@ function Field({
   const testId = `score-dialog-${field.key}`;
   if (field.kind === 'heading') {
     return <h3 className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{field.label}</h3>;
+  }
+  if (field.kind === 'beamGroups') {
+    return <BeamGroupRow field={field} value={String(value ?? '')} onChange={onChange} testId={testId} />;
   }
   if (field.kind === 'boolean') {
     return (
@@ -59,7 +113,7 @@ function Field({
             value={value === undefined ? '' : Number(value)}
             onChange={(e) => onChange(e.currentTarget.valueAsNumber)}
           />
-        ) : (
+        ) : field.kind === 'select' ? (
           <select data-testid={testId} className={inputClass} value={String(value ?? '')} onChange={(e) => onChange(e.currentTarget.value)}>
             {field.options.map((option) => (
               <option key={option.value} value={option.value}>
@@ -67,7 +121,7 @@ function Field({
               </option>
             ))}
           </select>
-        )}
+        ) : null}
         {field.kind === 'number' && field.unit ? <span className="w-6 text-xs text-slate-500">{field.unit}</span> : null}
       </span>
     </label>

@@ -121,6 +121,21 @@ describe('webmscore bridge audit', () => {
     expect(result.report?.counts.scoreMembers).toBe(1);
   });
 
+  it('counts the members of interfaces Score extends, declared in the TypeScript layer', () => {
+    const typescript = `
+export interface Score extends ScoreDialogMethods {
+  getInfo?: () => Promise<number>;
+}
+export interface ScoreDialogMethods {
+  pitchUp?: () => Promise<void>;
+}
+`;
+    const result = analyze({ ...baseSources(), typescript }, { ...manifest, typescriptOnlyMembers: { getInfo: 'test' } });
+
+    expect(result.failures).toEqual([]);
+    expect(result.report?.counts.scoreMembers).toBe(2);
+  });
+
   it('does not read the properties of a method\u2019s parameter object type as members (Prettier layout)', () => {
     const typescript = `
 export interface Score {

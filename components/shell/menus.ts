@@ -239,6 +239,7 @@ export const MENUS: readonly MenuDefinition[] = [
         separator,
         item('add.text.sticking'),
         item('add.text.instrumentChange'),
+        family('add.text.harpPedalDiagram'),
       ),
       submenu(
         'Lines',

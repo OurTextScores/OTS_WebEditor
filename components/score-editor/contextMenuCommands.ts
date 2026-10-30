@@ -167,6 +167,14 @@ export function buildContextMenuCommands(getProps: () => EditorCommandProps): An
       },
     }),
     defineCommand({
+      id: 'format.timeSigProperties',
+      label: 'Time Signature Properties',
+      opensDialog: true,
+      keywords: ['beam groups', 'beaming', 'common time', 'cut time', 'courtesy'],
+      enabled: withCheck(needsSelection, has('onOpenScoreDialog')),
+      run: () => getProps().onOpenScoreDialog?.('timeSigProperties'),
+    }),
+    defineCommand({
       id: 'measure.properties',
       label: 'Measure Properties',
       opensDialog: true,

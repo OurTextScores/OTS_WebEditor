@@ -25,6 +25,7 @@ import type {
   ContextHitReport,
   ElementPropertyState,
   MeasureProperties,
+  ScoreDialogMethods,
   SelectOptions,
   StaffProperties,
   StyleValue,
@@ -303,7 +304,7 @@ export interface SystemLockState {
   canMoveNext: boolean;
 }
 
-export interface Score {
+export interface Score extends ScoreDialogMethods {
   /** True when every mutating export leaves the score fully laid out (the 4.7 engine), so no relayout is needed. */
   layoutsAfterCommands?: () => Promise<boolean> | boolean;
   getSystemLockState?: () => Promise<SystemLockState | null>;
@@ -400,6 +401,13 @@ export interface Score {
   toggleSnap?: (which: 0 | 1) => Promise<boolean> | boolean;
   /** l.v. on the selected notes (Score::cmdToggleLaissezVib). */
   toggleLaissezVib?: () => Promise<boolean> | boolean;
+  /** Harp pedal diagram (asText: text form) on the selected note or rest (roadmap E21). */
+  addHarpPedalDiagram?: (asText: boolean) => Promise<boolean> | boolean;
+  /** Pedals D C B | E F G A as flat/natural/sharp, and the form; {} unless a diagram is selected. */
+  getHarpPedalState?: () => Promise<{ pedals?: string[]; isDiagram?: boolean }>;
+  setHarpPedalState?: (state: { pedals?: string[]; isDiagram?: boolean }) => Promise<boolean> | boolean;
+  /** Ctrl+click: cycle to the next overlapping element at a page point; false with fewer than two. */
+  cycleSelectionAtPoint?: (pageNumber: number, x: number, y: number) => Promise<boolean> | boolean;
   /** Enclose the selection: 0 brackets, 1 parentheses, 2 braces. */
   addBrackets?: (kind: 0 | 1 | 2) => Promise<boolean> | boolean;
   /** Typed element properties by MuseScore name (roadmap E09); values are engine tokens. */

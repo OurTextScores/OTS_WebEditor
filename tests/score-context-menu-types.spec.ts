@@ -65,11 +65,12 @@ test('in note input, a right-click turns the note there into a rest, and opens n
   await expect(menu(page)).toHaveCount(0);
 });
 
-test('a time signature’s menu opens the Properties panel', async ({ page }) => {
+test('a time signature’s menu opens Time Signature Properties', async ({ page }) => {
   await open(page);
   await rightClick(page, await centre(page, 'svg .TimeSig'));
-  await page.getByTestId('context-item-format.elementProperties-time-signature-properties').click();
-  await expect(page.getByTestId('inspector-panel')).toBeVisible();
+  await page.getByTestId('context-item-format.timeSigProperties').click();
+  await expect(page.getByTestId('score-dialog')).toContainText('Time Signature Properties');
+  await expect(page.getByTestId('score-dialog-eighth')).toBeVisible();
 });
 
 test('a hairpin’s Snap to Next shows its state and toggles it', async ({ page }) => {

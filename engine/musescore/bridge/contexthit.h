@@ -268,4 +268,44 @@ EMSCRIPTEN_KEEPALIVE bool selectWithOptions(uintptr_t score_ptr, int pageNumber,
     return !matches.empty();
 }
 
+// MuseScore's Ctrl+click on overlapping elements (NotationViewInputController::cycleOverlappingHitElements): with
+// two or more elements under the point, the one after the selected one (in stacking order, cyclically) replaces it,
+// so a click can reach an l.v. tie drawn inside its note's shape. Staff lines and bars are not candidates. False,
+// changing nothing, when fewer than two elements are there (the caller then adds to the selection as usual).
+EMSCRIPTEN_KEEPALIVE bool cycleSelectionAtPoint(uintptr_t score_ptr, int pageNumber, double x, double y, int excerptId)
+{
+    x = fromAbi(x); y = fromAbi(y);   // ABI units (bridge.cpp)
+    auto* score = getScore(score_ptr, excerptId);
+    if (!score || pageNumber < 0 || pageNumber >= static_cast<int>(score->pages().size())) return false;
+    auto items = selectableItemsAtPoint(score->pages().at(pageNumber), muse::PointF(x, y));
+    std::vector<engraving::EngravingItem*> hits;
+    for (auto* item : items) {
+        if (item && item->selectable() && !item->isPage() && !item->isStaffLines() && !item->isMeasure()) hits.push_back(item);
+    }
+    if (hits.size() < 2) return false;
+    std::sort(hits.begin(), hits.end(), elementLower);   // topmost last
+
+    const size_t n = hits.size();
+    size_t top = n - 1;
+    engraving::EngravingItem* next = hits[top];
+    std::set<engraving::EngravingItem*> selectedHere;
+    bool found = false;
+    for (size_t i = 0; i <= n; ++i) {
+        if (found) {
+            next = hits[top];
+            break;
+        } else if (hits[top]->selected()) {
+            found = true;
+            selectedHere.insert(hits[top]);
+            next = nullptr;
+        }
+        top = (top + 1) % n;
+    }
+    if (!next || next->selected()) return true;   // nothing new to reach; the selection stays
+    for (auto* item : selectedHere) score->deselect(item);
+    score->select(next, engraving::SelectType::ADD, next->staffIdx());
+    score->setSelectionChanged(true);
+    return true;
+}
+
 }

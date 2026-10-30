@@ -323,6 +323,8 @@ EMSCRIPTEN_KEEPALIVE bool redo(uintptr_t id,int excerpt) {
 #include "scorestyle.h"
 #include "harmonyrealize.h"
 #include "frameimage.h"
+#include "harptools.h"
+#include "timesigtools.h"
 #include "objectgeometry.h"
 
 #include "selectiongeometry.h"

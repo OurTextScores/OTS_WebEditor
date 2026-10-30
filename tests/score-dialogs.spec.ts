@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { expect, test, type Page } from 'playwright/test';
 import type { BrowserScoreWindow } from './browser-score-types';
-import { runCommandAnsweringPrompt } from './helpers/commands';
+import { runCommand, runCommandAnsweringPrompt } from './helpers/commands';
 
 /**
  * The score's settings dialogs, opened from the right-click menu as in MuseScore
@@ -222,4 +222,58 @@ test('Style… stacks chord-symbol modifiers', async ({ page }) => {
     lowerCaseMinorChords: true,
     verticallyStackModifiers: true,
   });
+});
+
+test('a harp pedal diagram’s menu opens Harp Pedals, which sets the pedals and the form (E21)', async ({ page }) => {
+  await open(page);
+  const note = await centre(page, 'svg .Note', 0);
+  await page.mouse.click(note.x, note.y);
+  await runCommand(page, 'add.text.harpPedalDiagram', false);
+  await page.waitForSelector('svg .HarpPedalDiagram', { state: 'attached', timeout: 20_000 });
+
+  await rightClick(page, await centre(page, 'svg .HarpPedalDiagram'));
+  await page.getByTestId('context-item-format.harpPedals').click();
+  await expect(dialog(page)).toBeVisible();
+  await page.getByTestId('score-dialog-pedalD').selectOption('flat');
+  await page.getByTestId('score-dialog-pedalG').selectOption('sharp');
+  await page.getByTestId('score-dialog-isDiagram').uncheck();
+  await submit(page);
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (window as unknown as { __webmscore: { getHarpPedalState(): Promise<unknown> } }).__webmscore.getHarpPedalState(),
+      ),
+    )
+    .toEqual({ pedals: ['flat', 'natural', 'natural', 'natural', 'natural', 'sharp', 'natural'], isDiagram: false });
+});
+
+test('Time Signature Properties: beaming eighths across the beats re-beams the score', async ({ page }) => {
+  await page.goto('/?score=/test_scores/men-base.musicxml');
+  await page.waitForSelector('svg .Beam', { state: 'attached', timeout: 60_000 });
+  const beams = () => page.locator('svg .Beam').count();
+  // MusicXML import stores each chord's beam mode; beam groups apply to chords on Auto beam, as in MuseScore.
+  await runCommand(page, 'edit.selectAll');
+  await runCommand(page, 'format.beam', 0);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(500);
+  const before = await beams();
+
+  await rightClick(page, await centre(page, 'svg .TimeSig'));
+  await page.getByTestId('context-item-format.timeSigProperties').click();
+  await expect(dialog(page)).toBeVisible();
+  // In 3/4 the defaults beam eighths in pairs, a beam per beat: join the beats into one beam per bar.
+  await expect(page.getByTestId('score-dialog-eighth-2')).toHaveAttribute('data-state', '1');
+  await page.getByTestId('score-dialog-eighth-2').click();
+  await page.getByTestId('score-dialog-eighth-4').click();
+  await submit(page);
+
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const w = window as unknown as { __webmscore: { getTimeSigProperties(): Promise<{ groups?: { eighth: string } }> } };
+        return (await w.__webmscore.getTimeSigProperties()).groups?.eighth;
+      }),
+    )
+    .toBe('000000');
+  await expect.poll(beams).toBeLessThan(before);
 });

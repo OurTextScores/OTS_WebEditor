@@ -89,3 +89,31 @@ export interface ElementPropertyState {
   /** The style default, for reset. */
   default: string;
 }
+
+/** Beam groups by row, one digit per note: 0 beamed on, 1 new beam, 2 new 16th sub-beam, 3 new 32nd sub-beam. */
+export interface BeamGroupRows {
+  eighth: string;
+  sixteenth: string;
+  thirtySecond: string;
+}
+
+/** MuseScore's Time Signature Properties for the selected time signature (`getTimeSigProperties`). */
+export interface TimeSigProperties {
+  type: 'normal' | 'common' | 'cut' | 'cutBach' | 'cutTriple';
+  numerator: number;
+  denominator: number;
+  numeratorText: string;
+  denominatorText: string;
+  showCourtesy: boolean;
+  groups: BeamGroupRows;
+  defaultGroups: BeamGroupRows;
+}
+
+/** Score methods behind the score dialogs that live outside `Score`'s own body (line budget). */
+export interface ScoreDialogMethods {
+  getTimeSigProperties?: () => Promise<Partial<TimeSigProperties>>;
+  /** groups: the rows, or 'default' for MuseScore's defaults. Applies to the time signature on every staff. */
+  setTimeSigProperties?: (
+    values: Partial<Omit<TimeSigProperties, 'groups' | 'defaultGroups'>> & { groups?: BeamGroupRows | 'default' },
+  ) => Promise<boolean> | boolean;
+}

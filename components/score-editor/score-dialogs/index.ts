@@ -6,6 +6,7 @@ export {
   DIALOG_SPECS,
   MUSIC_FONTS,
   changeInstrumentDialog,
+  harpPedalsDialog,
   staffPropertiesDialog,
   measurePropertiesDialog,
   pageSettingsDialog,
@@ -21,5 +22,6 @@ export {
   type ScoreDialogKind,
 } from './dialogSpecs';
 export { ScoreDialog } from './ScoreDialog';
+export { timeSigPropertiesDialog, type TimeSigUpdate } from './timeSigDialog';
 export { closeScoreDialog, getOpenScoreDialog, openScoreDialog, type OpenScoreDialog } from './scoreDialogStore';
 export { dialogEngineFor } from './dialogEngine';

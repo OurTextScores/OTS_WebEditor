@@ -9,6 +9,8 @@ const LABELS: Record<ScoreDialogKind, string> = {
   realizeHarmony: 'realize chord symbols',
   staffProperties: 'edit staff properties',
   changeInstrument: 'change instrument',
+  harpPedals: 'edit harp pedals',
+  timeSigProperties: 'edit time signature properties',
 };
 
 /**

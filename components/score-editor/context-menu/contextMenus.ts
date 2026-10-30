@@ -249,7 +249,7 @@ export function contextMenuFor(target: ContextMenuTarget): MenuNode[] {
     case 'TripletFeel':
       return elementThen(target, item('format.elementProperties', 'System Text Properties'));
     case 'TimeSig':
-      return elementThen(target, item('format.elementProperties', 'Time Signature Properties'));
+      return elementThen(target, item('format.timeSigProperties'));
     case 'InstrumentName':
       return elementThen(target, staffPropertiesItem(target));
     case 'Harmony':
@@ -268,6 +268,8 @@ export function contextMenuFor(target: ContextMenuTarget): MenuNode[] {
       return snapItems(target, false);
     case 'Text':
       return textItems(target);
+    case 'HarpPedalDiagram':
+      return elementThen(target, item('format.harpPedals'));
     default:
       return elementItems(target);
   }

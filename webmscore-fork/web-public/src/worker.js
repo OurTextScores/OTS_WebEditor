@@ -73,7 +73,7 @@ self.onmessage = async (e) => {
             case 'load':
                 await WebMscore.ready
                 score = await WebMscore.load.apply(undefined, params)
-                rpcRes(id, { systemLocks: typeof score.getSystemLockState === 'function', hitTestScoreObject: typeof score.hitTestScoreObject === 'function', moveSelectedChordRestToStaff: typeof score.moveSelectedChordRestToStaff === 'function', contextMenu: typeof score.contextHitAtPoint === 'function', contextMenuEdits: typeof score.toggleSnap === 'function', scoreDialogs: typeof score.getStyleValues === 'function', staffDialogs: typeof score.getStaffProperties === 'function', elementProperties: typeof score.getElementPropertyValues === 'function', laissezVib: typeof score.toggleLaissezVib === 'function', brackets: typeof score.addBrackets === 'function' })
+                rpcRes(id, { systemLocks: typeof score.getSystemLockState === 'function', hitTestScoreObject: typeof score.hitTestScoreObject === 'function', moveSelectedChordRestToStaff: typeof score.moveSelectedChordRestToStaff === 'function', contextMenu: typeof score.contextHitAtPoint === 'function', contextMenuEdits: typeof score.toggleSnap === 'function', scoreDialogs: typeof score.getStyleValues === 'function', staffDialogs: typeof score.getStaffProperties === 'function', elementProperties: typeof score.getElementPropertyValues === 'function', laissezVib: typeof score.toggleLaissezVib === 'function', brackets: typeof score.addBrackets === 'function', cycleSelection: typeof score.cycleSelectionAtPoint === 'function', harp: typeof score.getHarpPedalState === 'function', timeSig: typeof score.getTimeSigProperties === 'function' })
                 break;
 
             case 'setLogLevel':

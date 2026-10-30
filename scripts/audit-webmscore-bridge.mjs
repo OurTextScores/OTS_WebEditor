@@ -65,13 +65,9 @@ const parseStructReturningExports = (source) => {
 const parseRpcTargets = (source) =>
   new Set([...source.matchAll(/\.rpc\(\s*'([^']+)'/g)].map((match) => match[1]));
 
-/**
- * Member names of the exported Score interface: the lines indented exactly two spaces. Prettier puts a method's
- * parameter object types on following lines at four, so a wider match read their properties (`x`, `value`,
- * `startTime`...) as methods and the audit failed on all of them.
- */
-const parseScoreInterface = (source) => {
-  const header = /export interface Score\s*\{/.exec(source);
+/** The two-space-indented member names of `export interface <name> [extends ...] {`, plus what it extends. */
+const parseInterfaceBody = (source, name) => {
+  const header = new RegExp(`export interface ${name}(?:\\s+extends\\s+([\\w\\s,]+?))?\\s*\\{`).exec(source);
   if (!header) return null;
   let depth = 0;
   let end = -1;
@@ -87,9 +83,27 @@ const parseScoreInterface = (source) => {
   }
   if (end < 0) return null;
   const body = source.slice(header.index + header[0].length, end);
-  return new Set(
-    [...body.matchAll(/^ {2}([a-zA-Z_$][\w$]*)\??\s*[:(]/gm)].map((match) => match[1]),
-  );
+  return {
+    members: [...body.matchAll(/^ {2}([a-zA-Z_$][\w$]*)\??\s*[:(]/gm)].map((match) => match[1]),
+    bases: header[1] ? header[1].split(',').map((base) => base.trim()).filter(Boolean) : [],
+  };
+};
+
+/**
+ * Member names of the exported Score interface: the lines indented exactly two spaces. Prettier puts a method's
+ * parameter object types on following lines at four, so a wider match read their properties (`x`, `value`,
+ * `startTime`...) as methods and the audit failed on all of them. Members of interfaces Score extends count too,
+ * when they are declared in the TypeScript layer's files (webmscore-loader.ts keeps some in a side file for its
+ * line budget).
+ */
+const parseScoreInterface = (source) => {
+  const score = parseInterfaceBody(source, 'Score');
+  if (!score) return null;
+  const members = new Set(score.members);
+  for (const base of score.bases) {
+    for (const member of parseInterfaceBody(source, base)?.members ?? []) members.add(member);
+  }
+  return members;
 };
 
 /**

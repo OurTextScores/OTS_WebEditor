@@ -10,6 +10,8 @@
       "engine/musescore/bridge/frameimage.h",
       "engine/musescore/bridge/frettools.h",
       "engine/musescore/bridge/harmonyrealize.h",
+      "engine/musescore/bridge/harptools.h",
+      "engine/musescore/bridge/timesigtools.h",
       "engine/musescore/bridge/inspector.h",
       "engine/musescore/bridge/layouttools.h",
       "engine/musescore/bridge/measuredata.h",
@@ -40,7 +42,7 @@
     ],
     "mainThread": "webmscore-fork/web-public/src/index.js",
     "worker": "webmscore-fork/web-public/src/worker-helper.js",
-    "typescript": "lib/webmscore-loader.ts"
+    "typescript": ["lib/webmscore-loader.ts", "lib/webmscore-score-settings-types.ts"]
   },
   "_generatedComment": "Production native declarations (the ordered aggregate in layers.native), JS wrappers, worker RPC and TypeScript are hand maintained. Generated glue and the committed webpack bundle must contain their exports/methods. The served public WASM/data must exactly match local package outputs when present; CI without local outputs reports unverifiable sync. Install a complete build with install:engine rather than mixing old JS, WASM or resource artifacts.",
   "generated": {

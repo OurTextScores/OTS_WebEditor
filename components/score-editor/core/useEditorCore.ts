@@ -188,6 +188,20 @@ export function useEditorCore(ctx: EditorCoreContext) {
     } catch {
       // Older build without the export: fall through to the point re-select.
     }
+    // The engine is the source of truth for the selection, as in MuseScore: when it already holds one and the UI
+    // has not moved the selection on its own (advanceSelectionOverlay flags that), re-projecting the remembered
+    // point would only replace it with whatever is topmost there (a note over its l.v. tie, a bar under a hairpin's
+    // empty middle).
+    if (!selectionProjectionNeededRef.current) {
+      try {
+        const engineSelection = await score.getSelectedElementProperties?.();
+        if (engineSelection && engineSelection.selectionCount > 0) {
+          return;
+        }
+      } catch {
+        // Older build without the export: fall through to the point re-select.
+      }
+    }
 
     try {
       const { page, x, y } = selectedPoint;

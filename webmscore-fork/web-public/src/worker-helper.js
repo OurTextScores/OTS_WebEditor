@@ -129,6 +129,13 @@ class WebMscoreW {
         // presence as proof of a native export. Older packages omit this path.
         if (!capabilities?.hitTestScoreObject) Object.defineProperty(instance, 'hitTestScoreObject', { value: undefined })
         if (!capabilities?.moveSelectedChordRestToStaff) Object.defineProperty(instance, 'moveSelectedChordRestToStaff', { value: undefined })
+        if (!capabilities?.timeSig) {
+            for (const name of ['getTimeSigProperties', 'setTimeSigProperties']) Object.defineProperty(instance, name, { value: undefined })
+        }
+        if (!capabilities?.harp) {
+            for (const name of ['addHarpPedalDiagram', 'getHarpPedalState', 'setHarpPedalState']) Object.defineProperty(instance, name, { value: undefined })
+        }
+        if (!capabilities?.cycleSelection) Object.defineProperty(instance, 'cycleSelectionAtPoint', { value: undefined })
         if (!capabilities?.brackets) Object.defineProperty(instance, 'addBrackets', { value: undefined })
         if (!capabilities?.laissezVib) Object.defineProperty(instance, 'toggleLaissezVib', { value: undefined })
         if (!capabilities?.elementProperties) {
@@ -333,6 +340,30 @@ class WebMscoreW {
 
     contextSelectionInfo() {
         return this.rpc('contextSelectionInfo')
+    }
+
+    addHarpPedalDiagram(asText) {
+        return this.rpc('addHarpPedalDiagram', [asText])
+    }
+
+    getHarpPedalState() {
+        return this.rpc('getHarpPedalState')
+    }
+
+    setHarpPedalState(state) {
+        return this.rpc('setHarpPedalState', [state])
+    }
+
+    getTimeSigProperties() {
+        return this.rpc('getTimeSigProperties')
+    }
+
+    setTimeSigProperties(values) {
+        return this.rpc('setTimeSigProperties', [values])
+    }
+
+    cycleSelectionAtPoint(pageNumber, x, y) {
+        return this.rpc('cycleSelectionAtPoint', [pageNumber, x, y])
     }
 
     addBrackets(kind) {

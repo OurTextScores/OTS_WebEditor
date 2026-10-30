@@ -311,6 +311,13 @@ class WebMscore {
         this.excerptId = -1
         if (!Module._hitTestScoreObject) Object.defineProperty(this, 'hitTestScoreObject', { value: undefined })
         if (!Module._moveSelectedChordRestToStaff) Object.defineProperty(this, 'moveSelectedChordRestToStaff', { value: undefined })
+        if (!Module._getTimeSigProperties || !Module._setTimeSigProperties) {
+            for (const name of ['getTimeSigProperties', 'setTimeSigProperties']) Object.defineProperty(this, name, { value: undefined })
+        }
+        if (!Module._addHarpPedalDiagram || !Module._getHarpPedalState || !Module._setHarpPedalState) {
+            for (const name of ['addHarpPedalDiagram', 'getHarpPedalState', 'setHarpPedalState']) Object.defineProperty(this, name, { value: undefined })
+        }
+        if (!Module._cycleSelectionAtPoint) Object.defineProperty(this, 'cycleSelectionAtPoint', { value: undefined })
         if (!Module._addBrackets) Object.defineProperty(this, 'addBrackets', { value: undefined })
         if (!Module._toggleLaissezVib) Object.defineProperty(this, 'toggleLaissezVib', { value: undefined })
         if (!Module._getElementPropertyValues || !Module._setElementPropertyValue) {
@@ -711,6 +718,65 @@ class WebMscore {
      * Enclose the selection: 0 brackets, 1 parentheses, 2 braces (MuseScore's add-brackets / -parentheses / -braces).
      * @returns {Promise<boolean>}
      */
+    /**
+     * Ctrl+click on overlapping elements: the next one under a page point replaces the selected one there.
+     * @returns {Promise<boolean>} false when fewer than two elements are there
+     */
+    /**
+     * A harp pedal diagram (asText: its text form) on the selected note or rest.
+     * @returns {Promise<boolean>}
+     */
+    async addHarpPedalDiagram(asText) {
+        return Module.ccall('addHarpPedalDiagram', 'boolean', ['number', 'boolean', 'number'], [this.scoreptr, Boolean(asText), this.excerptId])
+    }
+
+    /**
+     * The selected harp diagram's pedals (D C B | E F G A) and form, or {}.
+     * @returns {Promise<{pedals?: string[], isDiagram?: boolean}>}
+     */
+    async getHarpPedalState() {
+        return JSON.parse(WasmRes.readText(Module.ccall('getHarpPedalState', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])))
+    }
+
+    /**
+     * Sets the selected harp diagram's pedals and/or form as one undoable edit.
+     * @returns {Promise<boolean>}
+     */
+    async setHarpPedalState(state) {
+        const strptr = getStrPtr(JSON.stringify(state || {}))
+        try {
+            return Module.ccall('setHarpPedalState', 'boolean', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    /**
+     * The selected time signature's Time Signature Properties values, or {}.
+     * @returns {Promise<object>}
+     */
+    async getTimeSigProperties() {
+        return JSON.parse(WasmRes.readText(Module.ccall('getTimeSigProperties', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])))
+    }
+
+    /**
+     * Applies Time Signature Properties values to the selected time signature (and its partners on other staves).
+     * @returns {Promise<boolean>}
+     */
+    async setTimeSigProperties(values) {
+        const strptr = getStrPtr(JSON.stringify(values || {}))
+        try {
+            return Module.ccall('setTimeSigProperties', 'boolean', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    async cycleSelectionAtPoint(pageNumber, x, y) {
+        return Module.ccall('cycleSelectionAtPoint', 'boolean', ['number', 'number', 'number', 'number', 'number'],
+            [this.scoreptr, pageNumber, x, y, this.excerptId])
+    }
+
     async addBrackets(kind) {
         return Module.ccall('addBrackets', 'boolean', ['number', 'number', 'number'], [this.scoreptr, kind, this.excerptId])
     }

@@ -43,12 +43,14 @@ describe('menu tree', () => {
     'edit.element': 'the score context menu, F2 and double-click (MuseScore has no menu-bar entry)',
     'shell.contextMenu': 'the right mouse button, Shift+F10 and the Menu key',
     'instruments.staffProperties': 'the score context menu (right-click a bar), as in MuseScore',
-    'format.elementProperties': 'the score context menu (… Properties on text and time signatures), as in MuseScore',
+    'format.elementProperties': 'the score context menu (Staff and System Text Properties), as in MuseScore',
     'format.snap.previous': 'the context menu of a hairpin, as in MuseScore',
     'format.snap.next': 'the context menu of a hairpin or tempo change, as in MuseScore',
     'measure.properties': 'the context menu of a bar, as in MuseScore',
     'instruments.changeAt': 'the context menu of an instrument change, as in MuseScore',
     'add.image': 'a frame’s context menu (Add ▸ Image), as in MuseScore',
+    'format.timeSigProperties': 'a time signature’s context menu, as in MuseScore',
+    'format.harpPedals': 'a harp pedal diagram’s context menu (MuseScore opens its popup on selection)',
   };
 
   it('reaches every other command from a menu', () => {

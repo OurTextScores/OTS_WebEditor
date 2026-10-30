@@ -20,7 +20,7 @@ export const ORNAMENTS = [
 ] as const;
 
 /**
- * Notation marks added since the ribbon (roadmap E10 ornaments, E12 l.v. ties, E14 enclosures). Registered beside
+ * Notation marks added since the ribbon (roadmap E10 ornaments, E12 l.v. ties, E14 enclosures, E21 harp pedals). Registered beside
  * `buildEditorCommands` (useEditorCommands, commandCatalog).
  */
 export function buildNotationMarkCommands(getProps: () => EditorCommandProps): AnyCommand[] {
@@ -37,6 +37,26 @@ export function buildNotationMarkCommands(getProps: () => EditorCommandProps): A
       run: async (_ctx, kind) => {
         await getProps().onAddBrackets?.(kind);
       },
+    }),
+    defineFamily<boolean>({
+      id: 'add.text.harpPedalDiagram',
+      label: 'Harp Pedal Diagram',
+      variants: [
+        { arg: false, label: 'Diagram' },
+        { arg: true, label: 'Text' },
+      ],
+      enabled: withCheck(needsSelection, () => Boolean(getProps().onAddHarpPedalDiagram)),
+      run: async (_ctx, asText) => {
+        await getProps().onAddHarpPedalDiagram?.(asText);
+      },
+    }),
+    defineCommand({
+      id: 'format.harpPedals',
+      label: 'Harp Pedals',
+      opensDialog: true,
+      keywords: ['harp', 'pedal diagram'],
+      enabled: withCheck(needsSelection, () => Boolean(getProps().onOpenScoreDialog)),
+      run: () => getProps().onOpenScoreDialog?.('harpPedals'),
     }),
     defineCommand({
       id: 'add.line.laissezVib',

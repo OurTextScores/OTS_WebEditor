@@ -129,6 +129,19 @@ export async function handleScoreClickImpl(
     return 'ignored';
   }
 
+  // Ctrl/Cmd+click on overlapping elements cycles to the next one there, as MuseScore's
+  // cycleOverlappingHitElements does (an l.v. tie lies inside its note's shape); with fewer than two
+  // elements there the engine declines and the click adds to the selection as usual.
+  if (!secondary && (e.ctrlKey || e.metaKey) && !e.shiftKey && score.cycleSelectionAtPoint) {
+    const target = e.target as Element | null;
+    const point = clientToEngravingPoint(e.clientX, e.clientY, target);
+    if (point && (await score.cycleSelectionAtPoint(resolvePageIndex(target), point.x, point.y))) {
+      setHasBackendHighlighting(false);
+      await refreshSelectionFromSvg();
+      return 'selected';
+    }
+  }
+
   // A right-click on nothing keeps the selection, as in MuseScore.
   const clearSelectionState = secondary
     ? () => undefined

@@ -1,4 +1,6 @@
 import type { MeasureProperties, SelectOptions, StaffProperties, StyleValue } from '../../../lib/webmscore-loader';
+import type { TimeSigProperties } from '../../../lib/webmscore-score-settings-types';
+import { timeSigPropertiesDialog, type TimeSigUpdate } from './timeSigDialog';
 
 /**
  * The score's settings dialogs, as data: MuseScore's Page Settings, Style (a curated first set, roadmap E08),
@@ -28,7 +30,17 @@ export type DialogField =
       readonly label: string;
       readonly options: readonly { readonly value: string; readonly label: string }[];
     }
-  | { readonly kind: 'heading'; readonly key: string; readonly label: string };
+  | { readonly kind: 'heading'; readonly key: string; readonly label: string }
+  | {
+      /**
+       * One row of MuseScore's beam-group editor: the value holds a digit per note (0 beamed to the previous note,
+       * 1 new beam, 2 new 16th sub-beam, 3 new 32nd sub-beam), and each gap toggles through 0..maxState.
+       */
+      readonly kind: 'beamGroups';
+      readonly key: string;
+      readonly label: string;
+      readonly maxState: 1 | 2 | 3;
+    };
 
 /** What the dialogs need from the engine: the `Score` methods behind them. */
 export interface DialogEngine {
@@ -43,6 +55,10 @@ export interface DialogEngine {
   changeInstrumentAt(instrumentId: string): Promise<boolean> | boolean;
   /** The staff the single selection is on, or null. */
   selectedStaffIdx(): Promise<number | null>;
+  getTimeSigProperties(): Promise<Partial<TimeSigProperties>>;
+  setTimeSigProperties(values: TimeSigUpdate): Promise<boolean> | boolean;
+  getHarpPedalState(): Promise<{ pedals?: string[]; isDiagram?: boolean }>;
+  setHarpPedalState(state: { pedals?: string[]; isDiagram?: boolean }): Promise<boolean> | boolean;
 }
 
 /** Where Select ▸ More… takes its pattern: the right-clicked element, or (absent) the single selection. */
@@ -73,7 +89,9 @@ export type ScoreDialogKind =
   | 'selectMore'
   | 'realizeHarmony'
   | 'staffProperties'
-  | 'changeInstrument';
+  | 'changeInstrument'
+  | 'harpPedals'
+  | 'timeSigProperties';
 
 const MM_PER_INCH = 25.4;
 /** The engine stores spatium in 1/1200 inch (MScore::DPI). */
@@ -447,7 +465,50 @@ export const changeInstrumentDialog: DialogSpec = {
   },
 };
 
+/** The harp's strings in MuseScore's pedal order: the left foot's D C B, then the right foot's E F G A. */
+const HARP_STRINGS = ['D', 'C', 'B', 'E', 'F', 'G', 'A'] as const;
+const PEDAL_OPTIONS = [
+  { value: 'flat', label: '♭ Flat' },
+  { value: 'natural', label: '♮ Natural' },
+  { value: 'sharp', label: '♯ Sharp' },
+];
+
+/** MuseScore's harp pedal popup (roadmap E21): each string's pedal, and diagram or text form. */
+export const harpPedalsDialog: DialogSpec = {
+  title: 'Harp Pedals',
+  submitLabel: 'Apply',
+  async load(engine) {
+    const state = await engine.getHarpPedalState();
+    if (!state.pedals || state.pedals.length !== HARP_STRINGS.length) throw new Error('Select a harp pedal diagram first.');
+    const values: Record<string, FieldValue> = { isDiagram: Boolean(state.isDiagram) };
+    HARP_STRINGS.forEach((string, i) => {
+      values[`pedal${string}`] = state.pedals![i];
+    });
+    return {
+      fields: [
+        { kind: 'heading', key: 'left', label: 'Left foot' },
+        ...HARP_STRINGS.slice(0, 3).map((s): DialogField => ({ kind: 'select', key: `pedal${s}`, label: s, options: PEDAL_OPTIONS })),
+        { kind: 'heading', key: 'right', label: 'Right foot' },
+        ...HARP_STRINGS.slice(3).map((s): DialogField => ({ kind: 'select', key: `pedal${s}`, label: s, options: PEDAL_OPTIONS })),
+        { kind: 'heading', key: 'form', label: 'Display' },
+        { kind: 'boolean', key: 'isDiagram', label: 'Show as diagram (otherwise as text)' },
+      ],
+      values,
+    };
+  },
+  async apply(engine, values) {
+    return Boolean(
+      await engine.setHarpPedalState({
+        pedals: HARP_STRINGS.map((s) => String(values[`pedal${s}`])),
+        isDiagram: Boolean(values.isDiagram),
+      }),
+    );
+  },
+};
+
 export const DIALOG_SPECS: Record<ScoreDialogKind, DialogSpec> = {
+  harpPedals: harpPedalsDialog,
+  timeSigProperties: timeSigPropertiesDialog,
   staffProperties: staffPropertiesDialog,
   changeInstrument: changeInstrumentDialog,
   pageSettings: pageSettingsDialog,

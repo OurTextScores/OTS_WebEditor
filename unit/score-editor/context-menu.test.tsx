@@ -250,7 +250,7 @@ describe('type-specific menus (makeItemsByElementType), as registered in OTS tod
     expect(menu('Note').at(-1)).toBe('format.style');
     expect(menu('SystemText').at(-1)).toBe('format.elementProperties:System Text Properties');
     expect(menu('TripletFeel').at(-1)).toBe('format.elementProperties:System Text Properties');
-    expect(menu('TimeSig').at(-1)).toBe('format.elementProperties:Time Signature Properties');
+    expect(menu('TimeSig').at(-1)).toBe('format.timeSigProperties');
     expect(menu('InstrumentName', { editable: false }).at(-1)).toBe('instruments.staffProperties');
   });
 
