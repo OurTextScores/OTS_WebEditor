@@ -19,6 +19,8 @@ export function dialogEngineFor(score: Score | null): DialogEngine | null {
     setHarpPedalState,
     getTimeSigProperties,
     setTimeSigProperties,
+    getStaffTextSwing,
+    setStaffTextSwing,
   } = score;
   if (
     !getStyleValues ||
@@ -34,7 +36,9 @@ export function dialogEngineFor(score: Score | null): DialogEngine | null {
     !getHarpPedalState ||
     !setHarpPedalState ||
     !getTimeSigProperties ||
-    !setTimeSigProperties
+    !setTimeSigProperties ||
+    !getStaffTextSwing ||
+    !setStaffTextSwing
   ) {
     return null;
   }
@@ -49,6 +53,8 @@ export function dialogEngineFor(score: Score | null): DialogEngine | null {
     setStaffProperties: (staffIdx, values) => setStaffProperties.call(score, staffIdx, values),
     changeInstrumentAt: (instrumentId) => changeInstrumentAt.call(score, instrumentId),
     selectedStaffIdx: async () => (await contextSelectionInfo.call(score)).hit?.staffIdx ?? null,
+    getStaffTextSwing: () => getStaffTextSwing.call(score),
+    setStaffTextSwing: (values) => setStaffTextSwing.call(score, values),
     getTimeSigProperties: () => getTimeSigProperties.call(score),
     setTimeSigProperties: (values) => setTimeSigProperties.call(score, values),
     getHarpPedalState: () => getHarpPedalState.call(score),

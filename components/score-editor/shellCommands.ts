@@ -204,20 +204,6 @@ export function buildShellEditorCommands(getBindings: GetBindings): AnyCommand[]
         dock.toggle('instruments');
       },
     }),
-    // MuseScore's Staff text / System text / Time signature properties dialogs, until OTS has them:
-    // the context menu opens the Properties panel on the clicked element (decision 3). Opens, never toggles.
-    defineCommand({
-      id: 'format.elementProperties',
-      label: 'Element Properties',
-      keywords: ['inspector', 'properties'],
-      enabled: hasScore,
-      run: () => {
-        const { dock } = b();
-        b().setPanelsVisible(true);
-        if (dock) dock.show('properties');
-        else b().setInspectorOpen(true);
-      },
-    }),
     defineCommand<number>({
       id: 'edit.undo.to',
       label: 'Undo To',

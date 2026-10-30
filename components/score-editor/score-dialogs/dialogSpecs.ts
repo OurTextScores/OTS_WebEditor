@@ -1,5 +1,6 @@
 import type { MeasureProperties, SelectOptions, StaffProperties, StyleValue } from '../../../lib/webmscore-loader';
-import type { TimeSigProperties } from '../../../lib/webmscore-score-settings-types';
+import type { StaffTextSwing, TimeSigProperties } from '../../../lib/webmscore-score-settings-types';
+import { staffTextPropertiesDialog, systemTextPropertiesDialog } from './staffTextDialog';
 import { timeSigPropertiesDialog, type TimeSigUpdate } from './timeSigDialog';
 
 /**
@@ -55,6 +56,8 @@ export interface DialogEngine {
   changeInstrumentAt(instrumentId: string): Promise<boolean> | boolean;
   /** The staff the single selection is on, or null. */
   selectedStaffIdx(): Promise<number | null>;
+  getStaffTextSwing(): Promise<Partial<StaffTextSwing>>;
+  setStaffTextSwing(values: Omit<StaffTextSwing, 'system'>): Promise<boolean> | boolean;
   getTimeSigProperties(): Promise<Partial<TimeSigProperties>>;
   setTimeSigProperties(values: TimeSigUpdate): Promise<boolean> | boolean;
   getHarpPedalState(): Promise<{ pedals?: string[]; isDiagram?: boolean }>;
@@ -91,7 +94,9 @@ export type ScoreDialogKind =
   | 'staffProperties'
   | 'changeInstrument'
   | 'harpPedals'
-  | 'timeSigProperties';
+  | 'timeSigProperties'
+  | 'staffTextProperties'
+  | 'systemTextProperties';
 
 const MM_PER_INCH = 25.4;
 /** The engine stores spatium in 1/1200 inch (MScore::DPI). */
@@ -509,6 +514,8 @@ export const harpPedalsDialog: DialogSpec = {
 export const DIALOG_SPECS: Record<ScoreDialogKind, DialogSpec> = {
   harpPedals: harpPedalsDialog,
   timeSigProperties: timeSigPropertiesDialog,
+  staffTextProperties: staffTextPropertiesDialog,
+  systemTextProperties: systemTextPropertiesDialog,
   staffProperties: staffPropertiesDialog,
   changeInstrument: changeInstrumentDialog,
   pageSettings: pageSettingsDialog,

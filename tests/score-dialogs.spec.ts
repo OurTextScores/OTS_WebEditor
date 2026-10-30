@@ -277,3 +277,26 @@ test('Time Signature Properties: beaming eighths across the beats re-beams the s
     .toBe('000000');
   await expect.poll(beams).toBeLessThan(before);
 });
+
+test('System Text Properties sets swing on a system text, as MuseScore’s dialog does', async ({ page }) => {
+  await open(page);
+  const note = await centre(page, 'svg .Note', 0);
+  await page.mouse.click(note.x, note.y);
+  await runCommandAnsweringPrompt(page, 'add.text.system', 'Swing');
+  await page.waitForSelector('svg .SystemText', { state: 'attached', timeout: 20_000 });
+
+  await rightClick(page, await centre(page, 'svg .SystemText'));
+  await page.getByTestId('context-item-format.systemTextProperties').click();
+  await expect(dialog(page)).toContainText('System Text Properties');
+  await page.getByTestId('score-dialog-swing').check();
+  await page.getByTestId('score-dialog-unit').selectOption('eighth');
+  await page.getByTestId('score-dialog-ratio').fill('66');
+  await submit(page);
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (window as unknown as { __webmscore: { getStaffTextSwing(): Promise<unknown> } }).__webmscore.getStaffTextSwing(),
+      ),
+    )
+    .toEqual({ system: true, swing: true, unit: 'eighth', ratio: 66 });
+});

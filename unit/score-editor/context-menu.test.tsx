@@ -246,10 +246,10 @@ describe('type-specific menus (makeItemsByElementType), as registered in OTS tod
     registered(target({ menuType, ...over }));
 
   it('opens the Properties panel for the "…Properties" dialogs OTS does not have yet', () => {
-    expect(menu('StaffText')).toEqual([...ELEMENT, '—', 'format.elementProperties:Staff Text Properties']);
+    expect(menu('StaffText')).toEqual([...ELEMENT, '—', 'format.staffTextProperties']);
     expect(menu('Note').at(-1)).toBe('format.style');
-    expect(menu('SystemText').at(-1)).toBe('format.elementProperties:System Text Properties');
-    expect(menu('TripletFeel').at(-1)).toBe('format.elementProperties:System Text Properties');
+    expect(menu('SystemText').at(-1)).toBe('format.systemTextProperties');
+    expect(menu('TripletFeel').at(-1)).toBe('format.systemTextProperties');
     expect(menu('TimeSig').at(-1)).toBe('format.timeSigProperties');
     expect(menu('InstrumentName', { editable: false }).at(-1)).toBe('instruments.staffProperties');
   });

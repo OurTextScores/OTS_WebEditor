@@ -3,6 +3,8 @@ import {
   changeInstrumentDialog,
   harpPedalsDialog,
   timeSigPropertiesDialog,
+  staffTextPropertiesDialog,
+  systemTextPropertiesDialog,
   measurePropertiesDialog,
   staffPropertiesDialog,
   pageSettingsDialog,
@@ -45,6 +47,8 @@ function engine(style: Record<string, number | boolean | string> = {}): DialogEn
       defaultGroups: { eighth: '10001000', sixteenth: '1000100010001000', thirtySecond: '10001000100010001000100010001000' },
     })),
     setTimeSigProperties: vi.fn(async () => true),
+    getStaffTextSwing: vi.fn(async () => ({ system: false, swing: false, unit: 'eighth' as const, ratio: 60 })),
+    setStaffTextSwing: vi.fn(async () => true),
     selectWithOptions: vi.fn(async () => true),
     realizeChordSymbols: vi.fn(async () => true),
     getStaffProperties: vi.fn(async () => ({
@@ -262,5 +266,33 @@ describe('Time Signature Properties', () => {
     const e = engine();
     e.getTimeSigProperties.mockResolvedValue({});
     await expect(timeSigPropertiesDialog.load(e, {})).rejects.toThrow(/time signature/);
+  });
+});
+
+describe('Staff/System Text Properties: swing', () => {
+  it('reads a text without swing as unset, at MuseScore’s 60%', async () => {
+    const e = engine();
+    const { fields, values } = await staffTextPropertiesDialog.load(e, {});
+    expect(fields.map((f) => f.key)).toEqual(['swing', 'unit', 'ratio']);
+    expect(values).toEqual({ swing: false, unit: 'eighth', ratio: 60 });
+  });
+
+  it('writes eighth swing, clamping the ratio to the dialog’s 25–99%', async () => {
+    const e = engine();
+    await systemTextPropertiesDialog.apply(e, { swing: true, unit: 'eighth', ratio: 120 }, {});
+    expect(e.setStaffTextSwing).toHaveBeenCalledWith({ swing: true, unit: 'eighth', ratio: 99 });
+    await systemTextPropertiesDialog.apply(e, { swing: true, unit: 'sixteenth', ratio: 10 }, {});
+    expect(e.setStaffTextSwing).toHaveBeenLastCalledWith({ swing: true, unit: 'sixteenth', ratio: 25 });
+  });
+
+  it('titles the dialog by the text’s kind, as MuseScore does', () => {
+    expect(staffTextPropertiesDialog.title).toBe('Staff Text Properties');
+    expect(systemTextPropertiesDialog.title).toBe('System Text Properties');
+  });
+
+  it('says to select a staff or system text when none is selected', async () => {
+    const e = engine();
+    e.getStaffTextSwing.mockResolvedValue({});
+    await expect(staffTextPropertiesDialog.load(e, {})).rejects.toThrow(/staff or system text/);
   });
 });

@@ -34,6 +34,7 @@ export const PLAYBACK_MUTATION_METHODS = [
   'addHarpPedalDiagram',
   'setHarpPedalState',
   'setTimeSigProperties',
+  'setStaffTextSwing',
   'changeInstrumentAt',
   'setStaffProperties',
   'addImageToFrame',

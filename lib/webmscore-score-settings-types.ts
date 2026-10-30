@@ -109,8 +109,19 @@ export interface TimeSigProperties {
   defaultGroups: BeamGroupRows;
 }
 
+/** MuseScore 4.7's Staff/System Text Properties: the text's swing settings (`getStaffTextSwing`). */
+export interface StaffTextSwing {
+  system: boolean;
+  swing: boolean;
+  unit: 'off' | 'eighth' | 'sixteenth';
+  /** Percent, 25–99. */
+  ratio: number;
+}
+
 /** Score methods behind the score dialogs that live outside `Score`'s own body (line budget). */
 export interface ScoreDialogMethods {
+  getStaffTextSwing?: () => Promise<Partial<StaffTextSwing>>;
+  setStaffTextSwing?: (values: Omit<StaffTextSwing, 'system'>) => Promise<boolean> | boolean;
   getTimeSigProperties?: () => Promise<Partial<TimeSigProperties>>;
   /** groups: the rows, or 'default' for MuseScore's defaults. Applies to the time signature on every staff. */
   setTimeSigProperties?: (

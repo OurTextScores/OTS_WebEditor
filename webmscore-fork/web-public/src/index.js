@@ -311,6 +311,9 @@ class WebMscore {
         this.excerptId = -1
         if (!Module._hitTestScoreObject) Object.defineProperty(this, 'hitTestScoreObject', { value: undefined })
         if (!Module._moveSelectedChordRestToStaff) Object.defineProperty(this, 'moveSelectedChordRestToStaff', { value: undefined })
+        if (!Module._getStaffTextSwing || !Module._setStaffTextSwing) {
+            for (const name of ['getStaffTextSwing', 'setStaffTextSwing']) Object.defineProperty(this, name, { value: undefined })
+        }
         if (!Module._getTimeSigProperties || !Module._setTimeSigProperties) {
             for (const name of ['getTimeSigProperties', 'setTimeSigProperties']) Object.defineProperty(this, name, { value: undefined })
         }
@@ -746,6 +749,31 @@ class WebMscore {
         const strptr = getStrPtr(JSON.stringify(state || {}))
         try {
             return Module.ccall('setHarpPedalState', 'boolean', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    /**
+     * The selected time signature's Time Signature Properties values, or {}.
+     * @returns {Promise<object>}
+     */
+    /**
+     * The selected staff or system text's swing settings, or {}.
+     * @returns {Promise<object>}
+     */
+    async getStaffTextSwing() {
+        return JSON.parse(WasmRes.readText(Module.ccall('getStaffTextSwing', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])))
+    }
+
+    /**
+     * Sets the selected staff or system text's swing ({swing, unit: 'off'|'eighth'|'sixteenth', ratio}).
+     * @returns {Promise<boolean>}
+     */
+    async setStaffTextSwing(values) {
+        const strptr = getStrPtr(JSON.stringify(values || {}))
+        try {
+            return Module.ccall('setStaffTextSwing', 'boolean', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
         } finally {
             freePtr(strptr)
         }

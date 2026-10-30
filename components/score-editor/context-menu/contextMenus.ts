@@ -244,10 +244,10 @@ export function contextMenuFor(target: ContextMenuTarget): MenuNode[] {
     case PAGE:
       return pageItems();
     case 'StaffText':
-      return elementThen(target, item('format.elementProperties', 'Staff Text Properties'));
+      return elementThen(target, item('format.staffTextProperties'));
     case 'SystemText':
     case 'TripletFeel':
-      return elementThen(target, item('format.elementProperties', 'System Text Properties'));
+      return elementThen(target, item('format.systemTextProperties'));
     case 'TimeSig':
       return elementThen(target, item('format.timeSigProperties'));
     case 'InstrumentName':

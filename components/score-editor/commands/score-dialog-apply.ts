@@ -11,6 +11,8 @@ const LABELS: Record<ScoreDialogKind, string> = {
   changeInstrument: 'change instrument',
   harpPedals: 'edit harp pedals',
   timeSigProperties: 'edit time signature properties',
+  staffTextProperties: 'edit staff text properties',
+  systemTextProperties: 'edit system text properties',
 };
 
 /**

@@ -22,6 +22,7 @@ export {
   type ScoreDialogKind,
 } from './dialogSpecs';
 export { ScoreDialog } from './ScoreDialog';
+export { staffTextPropertiesDialog, systemTextPropertiesDialog } from './staffTextDialog';
 export { timeSigPropertiesDialog, type TimeSigUpdate } from './timeSigDialog';
 export { closeScoreDialog, getOpenScoreDialog, openScoreDialog, type OpenScoreDialog } from './scoreDialogStore';
 export { dialogEngineFor } from './dialogEngine';

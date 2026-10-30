@@ -39,6 +39,36 @@ const singleElement = (present: () => boolean): Enabled =>
             : 'Not available for this score',
   });
 
+/** MuseScore's element "… Properties" dialogs, opened from the element's context menu. */
+function elementDialogCommands(getProps: () => EditorCommandProps): AnyCommand[] {
+  const hasDialogs = () => Boolean(getProps().onOpenScoreDialog);
+  return [
+    ...(
+      [
+        ['format.staffTextProperties', 'Staff Text Properties', 'staffTextProperties'],
+        ['format.systemTextProperties', 'System Text Properties', 'systemTextProperties'],
+      ] as const
+    ).map(([id, label, dialog]) =>
+      defineCommand({
+        id,
+        label,
+        opensDialog: true,
+        keywords: ['swing', 'swing ratio', 'playback'],
+        enabled: withCheck(needsSelection, hasDialogs),
+        run: () => getProps().onOpenScoreDialog?.(dialog),
+      }),
+    ),
+    defineCommand({
+      id: 'format.timeSigProperties',
+      label: 'Time Signature Properties',
+      opensDialog: true,
+      keywords: ['beam groups', 'beaming', 'common time', 'cut time', 'courtesy'],
+      enabled: withCheck(needsSelection, hasDialogs),
+      run: () => getProps().onOpenScoreDialog?.('timeSigProperties'),
+    }),
+  ];
+}
+
 export function buildContextMenuCommands(getProps: () => EditorCommandProps): AnyCommand[] {
   const has = (key: keyof EditorCommandProps) => () => Boolean(getProps()[key]);
   return [
@@ -143,7 +173,12 @@ export function buildContextMenuCommands(getProps: () => EditorCommandProps): An
     ...(
       [
         ['format.style', 'Style', 'style', ['engraving', 'spacing', 'font', 'music font']],
-        ['format.pageSettings', 'Page Settings', 'pageSettings', ['page size', 'margins', 'staff space']],
+        [
+          'format.pageSettings',
+          'Page Settings',
+          'pageSettings',
+          ['page size', 'margins', 'staff space'],
+        ],
       ] as const
     ).map(([id, label, kind, keywords]) =>
       defineCommand({
@@ -166,14 +201,7 @@ export function buildContextMenuCommands(getProps: () => EditorCommandProps): An
         if (chosen) await getProps().onLoadStyle?.(chosen);
       },
     }),
-    defineCommand({
-      id: 'format.timeSigProperties',
-      label: 'Time Signature Properties',
-      opensDialog: true,
-      keywords: ['beam groups', 'beaming', 'common time', 'cut time', 'courtesy'],
-      enabled: withCheck(needsSelection, has('onOpenScoreDialog')),
-      run: () => getProps().onOpenScoreDialog?.('timeSigProperties'),
-    }),
+    ...elementDialogCommands(getProps),
     defineCommand({
       id: 'measure.properties',
       label: 'Measure Properties',
@@ -198,7 +226,10 @@ export function buildContextMenuCommands(getProps: () => EditorCommandProps): An
       keywords: ['staff', 'part', 'instrument name', 'small staff', 'lines'],
       enabled: withCheck(mutable, has('onOpenScoreDialog')),
       run: (_ctx, arg) =>
-        getProps().onOpenScoreDialog?.('staffProperties', arg?.staffIdx == null ? {} : { staffIdx: arg.staffIdx }),
+        getProps().onOpenScoreDialog?.(
+          'staffProperties',
+          arg?.staffIdx == null ? {} : { staffIdx: arg.staffIdx },
+        ),
     }),
     defineCommand({
       id: 'instruments.changeAt',
