@@ -8,9 +8,33 @@ if (process.env.CI && process.env.NEXT_DIST_DIR) {
   const path = require('node:path');
   const crypto = require('node:crypto');
   const root = path.resolve(process.env.NEXT_DIST_DIR) + path.sep;
+  const fontManifest = path.join(root, 'dev', 'server', 'next-font-manifest.json');
   const readFileSync = fs.readFileSync;
+  const writeFile = fs.writeFile;
   const parse = JSON.parse;
   let latest = null;
+  let writeSequence = 0;
+
+  // Webpack emits this asset with fs.writeFile, which truncates the target
+  // before writing. Keep the last complete manifest visible until the new one
+  // is fully written, then replace it atomically on the same filesystem.
+  fs.writeFile = function (file, data, ...rest) {
+    const callback = rest.at(-1);
+    const resolved = typeof file === 'string' ? path.resolve(file) : '';
+    if (resolved !== fontManifest || typeof callback !== 'function') {
+      return writeFile.call(this, file, data, ...rest);
+    }
+    const temp = `${resolved}.atomic-${process.pid}-${writeSequence++}`;
+    const options = rest.slice(0, -1);
+    const done = error => {
+      if (!error) return callback(null);
+      fs.unlink(temp, () => callback(error));
+    };
+    return writeFile.call(this, temp, data, ...options, error => {
+      if (error) return done(error);
+      fs.rename(temp, resolved, done);
+    });
+  };
 
   fs.readFileSync = function (...args) {
     const result = readFileSync.apply(this, args);

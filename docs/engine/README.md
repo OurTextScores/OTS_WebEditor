@@ -251,7 +251,10 @@ preserves the full matrix. In CI, the Playwright-managed Next.js development ser
 `scripts/diagnose-next-manifest.cjs`. If Next's manifest loader fails to parse a manifest it just
 read from the Playwright output directory, the server logs `[playwright-manifest-diagnostic]`
 with the path, bytes read, SHA-256, and current file metadata. It does not log file contents or
-retry the request. The diagnostic is not active for production or non-CI development servers.
+retry the request. For the same CI server, webpack writes `next-font-manifest.json` to a temporary
+file and renames it over the old manifest once complete, avoiding reads of a truncated destination.
+The workaround is limited to that file in the Playwright output directory; write errors are still
+reported to webpack. Neither the workaround nor the diagnostic is active for production or non-CI development servers.
 It requires Playwright to start the server; an already-running server is not instrumented.
 
 ## Read-only score object hit snapshot

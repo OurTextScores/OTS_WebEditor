@@ -44,3 +44,62 @@ it('reports only failed Next manifest reads in CI without printing their content
   expect(good.stdout.trim()).toBe('valid');
   expect(good.stderr).toBe('');
 });
+
+it('keeps the previous font manifest readable until an asynchronous replacement is complete', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'ots-manifest-atomic-')); roots.push(root);
+  const dist = path.join(root, '.next-test');
+  const dir = path.join(dist, 'dev', 'server');
+  await mkdir(dir, { recursive: true });
+  const file = path.join(dir, 'next-font-manifest.json');
+  await writeFile(file, '{"version":"old"}');
+  const preload = path.resolve('scripts/diagnose-next-manifest.cjs');
+  const loader = require.resolve('next/dist/server/load-manifest.external.js');
+  const source = `
+    const fs = require('node:fs');
+    const actualWrite = fs.writeFile;
+    fs.writeFile = function(file, data, ...rest) {
+      fs.writeFileSync(file, '');
+      setTimeout(() => actualWrite.call(this, file, data, ...rest), 50);
+    };
+    require(${JSON.stringify(preload)});
+    const loader = require(${JSON.stringify(loader)});
+    const file = ${JSON.stringify(file)};
+    fs.writeFile(file, '{"version":"new"}', error => {
+      if (error) throw error;
+      console.log('after', loader.loadManifest(file, false).version);
+    });
+    console.log('during', loader.loadManifest(file, false).version);
+  `;
+  const result = spawnSync(process.execPath, ['-e', source], {
+    env: { ...process.env, CI: 'true', NEXT_DIST_DIR: dist }, encoding: 'utf8',
+  });
+  expect(result.status, result.stderr).toBe(0);
+  expect(result.stdout.trim().split('\n')).toEqual(['during old', 'after new']);
+  expect(result.stderr).not.toContain('playwright-manifest-diagnostic');
+});
+
+it('preserves the existing manifest and propagates replacement failures', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'ots-manifest-failure-')); roots.push(root);
+  const dist = path.join(root, '.next-test');
+  const dir = path.join(dist, 'dev', 'server');
+  await mkdir(dir, { recursive: true });
+  const file = path.join(dir, 'next-font-manifest.json');
+  await writeFile(file, '{"version":"old"}');
+  const preload = path.resolve('scripts/diagnose-next-manifest.cjs');
+  const source = `
+    const fs = require('node:fs');
+    fs.rename = (_from, _to, callback) => setImmediate(() => callback(new Error('rename failed')));
+    require(${JSON.stringify(preload)});
+    const file = ${JSON.stringify(file)};
+    fs.writeFile(file, '{"version":"new"}', error => {
+      console.log(error.message);
+      console.log(fs.readFileSync(file, 'utf8'));
+      console.log(fs.readdirSync(${JSON.stringify(dir)}).join(','));
+    });
+  `;
+  const result = spawnSync(process.execPath, ['-e', source], {
+    env: { ...process.env, CI: 'true', NEXT_DIST_DIR: dist }, encoding: 'utf8',
+  });
+  expect(result.status, result.stderr).toBe(0);
+  expect(result.stdout.trim().split('\n')).toEqual(['rename failed', '{"version":"old"}', 'next-font-manifest.json']);
+});
