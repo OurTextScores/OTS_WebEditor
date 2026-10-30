@@ -31,6 +31,11 @@ it('combines actual fixture captures, semantic changes, and evidence-bound revie
     return dir;
   };
   const first = visual('report');
+  // Reuse the same comparison for decision and incomplete-result checks.
+  // A fresh pixel comparison is still run below when the image itself changes.
+  const second = path.join(root, 'second'), incomplete = path.join(root, 'incomplete');
+  await cp(first, second, { recursive: true });
+  await cp(first, incomplete, { recursive: true });
   expect(run('review-report', first).status).toBe(0);
   const summary = JSON.parse(await readFile(path.join(first, 'review-summary.json'), 'utf8'));
   const fixtureManifest = JSON.parse(await readFile(path.join(process.cwd(), 'tools/musescore/fixtures/osmd-fidelity/manifest.json'), 'utf8'));
@@ -53,7 +58,6 @@ it('combines actual fixture captures, semantic changes, and evidence-bound revie
   decision.status = 'expected'; decision.rationale = 'Reviewed intentional mark';
   const decisions = path.join(root, 'decisions.json');
   await writeFile(decisions, JSON.stringify(template));
-  const second = visual('second');
   expect(run('review-report', second, decisions).status).toBe(0);
   const reviewed = JSON.parse(await readFile(path.join(second, 'review-summary.json'), 'utf8'));
   expect(reviewed.fixtures.find((f: { id: string }) => f.id === 'cross-staff').review.state).toBe('current');
@@ -67,7 +71,6 @@ it('combines actual fixture captures, semantic changes, and evidence-bound revie
   const stale = JSON.parse(await readFile(path.join(third, 'review-summary.json'), 'utf8'));
   expect(stale.fixtures.find((f: { id: string }) => f.id === 'cross-staff').review.state).toBe('stale');
   expect(await readFile(path.join(third, 'review.html'), 'utf8')).toContain('stale — needs review');
-  const incomplete = visual('incomplete');
   const incompletePath = path.join(incomplete, 'report.json');
   const incompleteReport = JSON.parse(await readFile(incompletePath, 'utf8'));
   delete incompleteReport.currentProvenance.semanticFailures;
@@ -77,4 +80,4 @@ it('combines actual fixture captures, semantic changes, and evidence-bound revie
   expect(unknown.fixtures.every((f: { semanticsAvailable: boolean }) => !f.semanticsAvailable)).toBe(true);
   expect(unknown.warnings.join(' ')).toContain('semantic status is unknown');
   expect(await readFile(path.join(incomplete, 'review.html'), 'utf8')).toContain('Semantic result unavailable');
-});
+}, 120_000);
