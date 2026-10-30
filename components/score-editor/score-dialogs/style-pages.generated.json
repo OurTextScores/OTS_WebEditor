@@ -18,12 +18,13 @@
   {"code": "spacing", "title": "Spacing", "fields": [
     {"key":"staffLowerBorder","group":"Vertical spacing","kind":"number","label":"Music bottom margin","min":-1000,"max":1000,"step":0.5,"unit":"sp"},
     {"key":"staffUpperBorder","group":"Vertical spacing","kind":"number","label":"Music top margin","min":-1000,"max":1000,"step":0.5,"unit":"sp"},
+    {"key":"enableVerticalSpread","kind":"boolean","label":"Enable vertical justification of staves"},
     {"key":"spreadCurlyBracket","group":"Vertical spacing","kind":"number","label":"Factor for distance above/below brace","min":1,"max":1000,"step":0.5},
     {"key":"spreadSystem","group":"Vertical spacing","kind":"number","label":"Factor for distance between systems","min":1,"max":1000,"step":0.5},
     {"key":"spreadSquareBracket","group":"Vertical spacing","kind":"number","label":"Factor for distance above/below bracket","min":1,"max":1000,"step":0.5},
     {"key":"minStaffSpread","group":"Vertical spacing","kind":"number","label":"Min. staff distance","min":0,"max":1000,"step":0.5,"unit":"sp"},
-    {"key":"maxSystemSpread","group":"Vertical spacing","kind":"number","label":"Max. system distance","min":0,"max":1000,"step":0.5,"unit":"sp"},
-    {"key":"minSystemSpread","group":"Vertical spacing","kind":"number","label":"Min. system distance","min":0,"max":1000,"step":0.5,"unit":"sp"},
+    {"key":"maxSystemSpread","group":"Vertical spacing","kind":"number","label":"Max. system distance (vertical justification)","min":0,"max":1000,"step":0.5,"unit":"sp"},
+    {"key":"minSystemSpread","group":"Vertical spacing","kind":"number","label":"Min. system distance (vertical justification)","min":0,"max":1000,"step":0.5,"unit":"sp"},
     {"key":"maxStaffSpread","group":"Vertical spacing","kind":"number","label":"Max. staff distance","min":0,"max":1000,"step":0.5,"unit":"sp"},
     {"key":"maxAkkoladeDistance","group":"Vertical spacing","kind":"number","label":"Max. grand staff distance","min":0,"max":1000,"step":0.5,"unit":"sp"},
     {"key":"maxPageFillSpread","group":"Vertical spacing","kind":"number","label":"Max. page fill distance","min":0,"max":99,"step":0.5,"unit":"sp"},
@@ -67,9 +68,35 @@
     {"key":"showHeader","kind":"boolean","label":"Header"},
     {"key":"headerFirstPage","group":"Header","kind":"boolean","label":"Show on first page"},
     {"key":"headerOddEven","group":"Header","kind":"boolean","label":"Different odd/even pages"},
+    {"key":"oddHeaderR","group":"Header","kind":"text","label":"Odd (Right)"},
+    {"key":"evenHeaderL","group":"Header","kind":"text","label":"Even (Left)"},
+    {"key":"oddHeaderL","group":"Header","kind":"text","label":"Odd (Left)"},
+    {"key":"evenHeaderR","group":"Header","kind":"text","label":"Even (Right)"},
+    {"key":"oddHeaderC","group":"Header","kind":"text","label":"Odd (Middle)"},
+    {"key":"evenHeaderC","group":"Header","kind":"text","label":"Even (Middle)"},
     {"key":"showFooter","kind":"boolean","label":"Footer"},
     {"key":"footerFirstPage","group":"Footer","kind":"boolean","label":"Show on first page"},
-    {"key":"footerOddEven","group":"Footer","kind":"boolean","label":"Different odd/even pages"}
+    {"key":"footerOddEven","group":"Footer","kind":"boolean","label":"Different odd/even pages"},
+    {"key":"oddFooterL","group":"Footer","kind":"text","label":"Odd (Left)"},
+    {"key":"oddFooterC","group":"Footer","kind":"text","label":"Odd (Middle)"},
+    {"key":"evenFooterL","group":"Footer","kind":"text","label":"Even (Left)"},
+    {"key":"evenFooterC","group":"Footer","kind":"text","label":"Even (Middle)"},
+    {"key":"evenFooterR","group":"Footer","kind":"text","label":"Even (Right)"},
+    {"key":"oddFooterR","group":"Footer","kind":"text","label":"Odd (Right)"}
+  ]},
+  {"code": "measure-number", "title": "Measure numbers", "fields": [
+    {"key":"showMeasureNumber","group":"Measure numbers","kind":"boolean","label":"Show measure numbers"},
+    {"key":"showMeasureNumberOne","group":"Measure numbers","kind":"boolean","label":"Show initial measure number"},
+    {"key":"measureNumberSystem","group":"Frequency","kind":"boolean","label":"Start of each system"},
+    {"key":"measureNumberInterval","kind":"number","label":"Frequency","min":1,"max":99,"step":1},
+    {"key":"measureNumberAlignToBarline","group":"Position","kind":"select","label":"Align","options":[{"value":true,"label":"To the barline"},{"value":false,"label":"To the measure"}]},
+    {"key":"measureNumberHPlacement","group":"Position","kind":"select","label":"Alignment","options":[{"value":0,"label":"Left"},{"value":2,"label":"Center"},{"value":1,"label":"Right"}]},
+    {"key":"measureNumberPlacementMode","group":"Position","kind":"select","label":"Show","options":[{"value":0,"label":"Above system"},{"value":1,"label":"Below system"},{"value":2,"label":"At system marking positions"},{"value":3,"label":"On all staves"}]},
+    {"key":"measureNumberVPlacement","kind":"select","label":"Position","options":[{"value":0,"label":"Above"},{"value":1,"label":"Below"}]},
+    {"key":"mmRestShowMeasureNumberRange","group":"Measure number range at multimeasure rests","kind":"boolean","label":"Show measure number ranges"},
+    {"key":"mmRestRangeBracketType","group":"Measure number range at multimeasure rests","kind":"select","label":"Bracket type","options":[{"value":0,"label":"Brackets"},{"value":1,"label":"Parentheses"},{"value":2,"label":"None"}]},
+    {"key":"mmRestRangeHPlacement","group":"Measure number range at multimeasure rests","kind":"select","label":"Alignment","options":[{"value":0,"label":"Left"},{"value":2,"label":"Center"},{"value":1,"label":"Right"}]},
+    {"key":"mmRestRangeVPlacement","group":"Measure number range at multimeasure rests","kind":"select","label":"Position","options":[{"value":0,"label":"Above"},{"value":1,"label":"Below"}]}
   ]},
   {"code": "system", "title": "System", "fields": [
     {"key":"bracketWidth","group":"System brackets","kind":"number","label":"Bracket thickness","min":-1000,"max":1000,"step":0.1,"unit":"sp"},
@@ -85,6 +112,31 @@
     {"key":"dividerRightY","group":"Right","kind":"number","label":"Vertical offset","min":-99,"max":99,"step":0.01,"unit":"sp"},
     {"key":"dividerRightSize","group":"Right","kind":"number","label":"Scale","min":0,"max":1000,"step":1,"unit":"%","percent":true}
   ]},
+  {"code": "clefs-key-and-time-signatures", "title": "Clefs, key & time signatures", "fields": [
+    {"key":"genClef","group":"Clefs","kind":"select","label":"Visibility","options":[{"value":true,"label":"Show all clefs on every system"},{"value":false,"label":"Hide all clefs after the first system where they appear"}]},
+    {"key":"hideTabClefAfterFirst","group":"Clefs","kind":"boolean","label":"Hide TAB clefs after the first system where they appear"},
+    {"key":"genCourtesyClef","group":"Clefs","kind":"boolean","label":"Show courtesy clefs"},
+    {"key":"tabClef","kind":"select","label":"Default TAB clef","options":[{"value":31,"label":"Standard TAB clef"},{"value":33,"label":"Serif TAB clef"}]},
+    {"key":"timeSigPlacement","group":"Time signatures","kind":"select","label":"Position","options":[{"value":0,"label":"On all staves"},{"value":1,"label":"Above staves"},{"value":2,"label":"Across staves"}]},
+    {"key":"genCourtesyTimesig","group":"Time signatures","kind":"boolean","label":"Show courtesy time signatures"},
+    {"key":"timeSigCenterOnBarline","group":"Time signatures","kind":"boolean","label":"Hang into page margin"},
+    {"key":"genKeysig","group":"Key signatures","kind":"select","label":"Visibility","options":[{"value":true,"label":"Show on every system"},{"value":false,"label":"Hide after the first system where they appear"}]},
+    {"key":"genCourtesyKeysig","group":"Key signatures","kind":"boolean","label":"Show courtesy key signatures"},
+    {"key":"keySigNaturals","kind":"select","label":"When changing to a key signature containing fewer sharps or flats","options":[{"value":0,"label":"Don’t show any naturals"},{"value":1,"label":"Show naturals before the new key signature"},{"value":2,"label":"Show naturals after the new key signature"}]},
+    {"key":"keySigShowNaturalsChangingSharpsFlats","group":"When changing to a key signature containing fewer sharps or flats","kind":"boolean","label":"Show naturals when switching between sharps and flats"},
+    {"key":"changesBeforeBarlineRepeats","group":"Changes that apply to both the repeat/jump and the subsequent measure","kind":"boolean","label":"At repeats, only show changes before the barline"},
+    {"key":"changesBeforeBarlineOtherJumps","group":"Changes that apply to both the repeat/jump and the subsequent measure","kind":"boolean","label":"At all other jumps, only show changes before the barline"},
+    {"key":"placeClefsBeforeRepeats","kind":"select","label":"Changes that apply only after repeats and jumps","options":[{"value":true,"label":"Place clefs before repeats"},{"value":false,"label":"Place clefs after repeats"}]},
+    {"key":"changesBetweenEndStartRepeat","group":"Changes that apply only after repeats and jumps","kind":"boolean","label":"Allow changes between end-start repeats"},
+    {"key":"smallParens","group":"Courtesies","kind":"boolean","label":"Small parentheses"}
+  ]},
+  {"code": "accidentals", "title": "Accidentals", "fields": [
+    {"key":"bracketedAccidentalPadding","group":"Accidentals","kind":"number","label":"Padding inside parentheses","min":-10,"max":10,"step":0.1,"unit":"sp"},
+    {"key":"accidentalOrderFollowsNoteDisplacement","group":"Multiple accidentals in chords","kind":"boolean","label":"Keep accidentals close to offset notes"},
+    {"key":"keepAccidentalSecondsTogether","group":"Multiple accidentals in chords","kind":"boolean","label":"Pair accidentals on seconds"},
+    {"key":"alignAccidentalOctavesAcrossSubChords","group":"Multiple accidentals in chords","kind":"boolean","label":"Align accidentals an octave apart across subchords"},
+    {"key":"alignOffsetOctaveAccidentals","group":"Multiple accidentals in chords","kind":"boolean","label":"Align accidentals on offset octaves"}
+  ]},
   {"code": "barlines", "title": "Barlines", "fields": [
     {"key":"doubleBarDistance","group":"Barlines","kind":"number","label":"Double barline distance","min":0,"max":99,"step":0.01,"unit":"sp"},
     {"key":"endBarDistance","group":"Barlines","kind":"number","label":"Thick barline distance","min":0,"max":99,"step":0.01,"unit":"sp"},
@@ -96,7 +148,10 @@
     {"key":"repeatBarlineDotSeparation","group":"Barlines","kind":"number","label":"Repeat barline to dots distance","min":0,"max":99,"step":0.01,"unit":"sp"},
     {"key":"repeatBarTips","group":"Barlines","kind":"boolean","label":"Show repeat barline tips (“winged” repeats)"},
     {"key":"barWidth","group":"Barlines","kind":"number","label":"Thin barline thickness","min":0,"max":99,"step":0.01,"unit":"sp"},
-    {"key":"maskBarlinesForText","group":"Barlines","kind":"boolean","label":"Mask barlines when intersecting text"}
+    {"key":"maskBarlinesForText","group":"Barlines","kind":"boolean","label":"Mask barlines when intersecting text"},
+    {"key":"barlineBeforeSigChange","kind":"boolean","label":"Show barline before key and time signature changes"},
+    {"key":"doubleBarlineBeforeKeySig","kind":"boolean","label":"Use double barline before key signatures"},
+    {"key":"doubleBarlineBeforeTimeSig","kind":"boolean","label":"Use double barline before time signatures"}
   ]},
   {"code": "notes", "title": "Notes", "fields": [
     {"key":"stemWidth","group":"Notes","kind":"number","label":"Stem thickness","min":0,"max":99,"step":0.1,"unit":"sp"},
@@ -109,7 +164,8 @@
     {"key":"dotMag","group":"Notes","kind":"number","label":"Dot size","min":50,"max":200,"step":10,"unit":"%","percent":true},
     {"key":"shortenStem","kind":"boolean","label":"Shorten stems"},
     {"key":"shortestStem","group":"Shorten stems","kind":"number","label":"Shortest stem","min":1,"max":99,"step":0.25,"unit":"sp"},
-    {"key":"combineVoice","group":"Alignment in chords","kind":"boolean","label":"Combine voices that share the same stem direction"}
+    {"key":"combineVoice","group":"Alignment in chords","kind":"boolean","label":"Combine voices that share the same stem direction"},
+    {"key":"useStraightNoteFlags","kind":"select","label":"Flag style","options":[{"value":false,"label":"Traditional"},{"value":true,"label":"Straight"}]}
   ]},
   {"code": "rests", "title": "Rests", "fields": [
     {"key":"createMultiMeasureRests","kind":"boolean","label":"Multimeasure rests"},
@@ -126,7 +182,26 @@
     {"key":"multiMeasureRestMargin","group":"H-bar","kind":"number","label":"Margin within barlines","min":0,"max":99,"step":0.1,"unit":"sp"},
     {"key":"mmRestHBarThickness","group":"H-bar","kind":"number","label":"Horizontal stroke thickness","min":0,"max":4,"step":0.1,"unit":"sp"},
     {"key":"mmRestHBarVStrokeThickness","group":"H-bar","kind":"number","label":"Vertical stroke thickness","min":0,"max":4,"step":0.05,"unit":"sp"},
-    {"key":"mmRestHBarVStrokeHeight","group":"H-bar","kind":"number","label":"Vertical stroke height","min":0,"max":10,"step":0.5,"unit":"sp"}
+    {"key":"mmRestHBarVStrokeHeight","group":"H-bar","kind":"number","label":"Vertical stroke height","min":0,"max":10,"step":0.5,"unit":"sp"},
+    {"key":"multiVoiceRestTwoSpaceOffset","kind":"select","label":"Rests (multiple voices)","options":[{"value":false,"label":"1 space"},{"value":true,"label":"2 spaces"}]},
+    {"key":"mergeMatchingRests","kind":"boolean","label":"Merge matching rests"}
+  ]},
+  {"code": "repeats", "title": "Repeats", "fields": [
+    {"key":"measureRepeatNumberPos","group":"Measure repeats","kind":"number","label":"Number position","min":-99,"max":99,"step":0.5,"unit":"sp"},
+    {"key":"oneMeasureRepeatShow1","group":"Measure repeats","kind":"boolean","label":"Show ‘1’ on 1-measure repeats"},
+    {"key":"fourMeasureRepeatShowExtenders","group":"Measure repeats","kind":"boolean","label":"Show extenders on 4-measure repeats"},
+    {"key":"mrNumberSeries","group":"Measure repeats","kind":"boolean","label":"Number consecutive measure repeats"},
+    {"key":"mrNumberEveryXMeasures","group":"Measure repeats","kind":"number","label":"Every","min":0,"max":99,"step":1},
+    {"key":"mrNumberSeriesWithParentheses","group":"Measure repeats","kind":"boolean","label":"With parentheses"},
+    {"key":"repeatPlayCountShow","group":"Repeat play count text","kind":"boolean","label":"Automatically show text at repeat barlines"},
+    {"key":"repeatPlayCountShowSingleRepeats","group":"Repeat play count text","kind":"boolean","label":"Show for single repeats (e.g. “x2”)"}
+  ]},
+  {"code": "beams", "title": "Beams", "fields": [
+    {"key":"useWideBeams","kind":"select","label":"Beam distance","options":[{"value":false,"label":"Regular"},{"value":true,"label":"Wide"}]},
+    {"key":"beamWidth","kind":"number","label":"Beam thickness","min":0,"max":99,"step":0.01,"unit":"sp"},
+    {"key":"beamMinLen","kind":"number","label":"Broken beam minimum length","min":0,"max":99,"step":0.05,"unit":"sp"},
+    {"key":"beamNoSlope","kind":"boolean","label":"Flatten all beams"},
+    {"key":"frenchStyleBeams","kind":"select","label":"Beam style","options":[{"value":false,"label":"Draw inner stems through beams"},{"value":true,"label":"Draw inner stems to nearest beam (“French” style)"}]}
   ]},
   {"code": "tuplets", "title": "Tuplets", "fields": [
     {"key":"tupletMaxSlope","group":"Vertical distance from notes","kind":"number","label":"Maximum slope","min":0,"max":100,"step":5,"unit":"%","percent":true},
@@ -142,7 +217,8 @@
     {"key":"tupletNoteLeftDistance","group":"Horizontal distance from notes","kind":"number","label":"Distance before head of first note","min":-5,"max":5,"step":0.05,"unit":"sp"},
     {"key":"tupletStemLeftDistance","group":"Horizontal distance from notes","kind":"number","label":"Distance before stem of first note","min":-5,"max":5,"step":0.05,"unit":"sp"},
     {"key":"tupletStemRightDistance","group":"Horizontal distance from notes","kind":"number","label":"Distance after stem of last note","min":-5,"max":5,"step":0.05,"unit":"sp"},
-    {"key":"tupletNoteRightDistance","group":"Horizontal distance from notes","kind":"number","label":"Distance after head of last note","min":-5,"max":5,"step":0.05,"unit":"sp"}
+    {"key":"tupletNoteRightDistance","group":"Horizontal distance from notes","kind":"number","label":"Distance after head of last note","min":-5,"max":5,"step":0.05,"unit":"sp"},
+    {"key":"tupletNumberRythmicCenter","kind":"select","label":"Number alignment","options":[{"value":false,"label":"Graphical center"},{"value":true,"label":"Rhythmic center"}]}
   ]},
   {"code": "arpeggios", "title": "Arpeggios", "fields": [
     {"key":"arpeggioHiddenInStdIfTab","group":"Arpeggios","kind":"boolean","label":"Do not show arpeggios in standard notation when displayed in tablature"},
@@ -154,42 +230,101 @@
     {"key":"chordBracketNoteDistance","group":"Chord brackets","kind":"number","label":"Distance to note","min":0,"max":99,"step":0.1,"unit":"sp"},
     {"key":"chordBracketLineWidth","group":"Chord brackets","kind":"number","label":"Line thickness","min":0,"max":99,"step":0.01,"unit":"sp"}
   ]},
+  {"code": "slurs-and-ties", "title": "Slurs & ties", "fields": [
+    {"key":"slurEndWidth","group":"Slurs","kind":"number","label":"Line thickness at end","min":0,"max":99.99,"step":0.05,"unit":"sp"},
+    {"key":"slurMidWidth","group":"Slurs","kind":"number","label":"Line thickness middle","min":0,"max":99.99,"step":0.05,"unit":"sp"},
+    {"key":"slurDottedWidth","group":"Slurs","kind":"number","label":"Dotted line thickness","min":0,"max":99.99,"step":0.05,"unit":"sp"},
+    {"key":"slurMinDistance","group":"Slurs","kind":"number","label":"Autoplace min. distance","min":0,"max":99.99,"step":0.5,"unit":"sp"},
+    {"key":"angleHangingSlursAwayFromStaff","group":"Slurs","kind":"select","label":"Partial slurs across repeats and breaks","options":[{"value":false,"label":"Follow contour of notes"},{"value":true,"label":"Angle away from staff"}]},
+    {"key":"tieEndWidth","group":"Ties","kind":"number","label":"Line thickness at end","min":0,"max":99.99,"step":0.05,"unit":"sp"},
+    {"key":"tieMidWidth","group":"Ties","kind":"number","label":"Line thickness middle","min":0,"max":99.99,"step":0.05,"unit":"sp"},
+    {"key":"tieDottedWidth","group":"Ties","kind":"number","label":"Dotted line thickness","min":0,"max":99.99,"step":0.05,"unit":"sp"},
+    {"key":"tieMinDistance","group":"Ties","kind":"number","label":"Autoplace min. distance","min":0,"max":99.99,"step":0.5,"unit":"sp"},
+    {"key":"minTieLength","group":"Ties","kind":"number","label":"Minimum tie length","min":0,"max":99.99,"step":0.1,"unit":"sp"},
+    {"key":"minHangingTieLength","group":"Ties","kind":"number","label":"Minimum hanging tie length","min":0,"max":99.99,"step":0.1,"unit":"sp"},
+    {"key":"tiePlacementSingleNote","group":"Ties","kind":"select","label":"Placement on single notes","options":[{"value":1,"label":"Inside"},{"value":2,"label":"Outside"}]},
+    {"key":"tiePlacementChord","group":"Ties","kind":"select","label":"Placement on chords","options":[{"value":1,"label":"Inside"},{"value":2,"label":"Outside"}]},
+    {"key":"tieDotsPlacement","group":"Ties","kind":"select","label":"Placement of inner ties with respect to augmentation dots","options":[{"value":0,"label":"Auto"},{"value":1,"label":"Always before dots"},{"value":2,"label":"Always after dots"}]},
+    {"key":"minLaissezVibLength","group":"Laissez vibrer","kind":"number","label":"Minimum laissez vibrer length","min":0,"max":99.99,"step":0.1,"unit":"sp"},
+    {"key":"laissezVibUseSmuflSym","group":"Laissez vibrer","kind":"boolean","label":"Use SMuFL symbols"}
+  ]},
   {"code": "dynamics-hairpins", "title": "Dynamics & hairpins", "fields": [
     {"key":"dynamicsHairpinsAboveForVocalStaves","group":"Default positions of dynamics and hairpins","kind":"boolean","label":"Place above the staff on vocal instruments"},
     {"key":"dynamicsHairpinsAutoCenterOnGrandStaff","group":"Default positions of dynamics and hairpins","kind":"boolean","label":"Center on grand staff instruments automatically"},
+    {"key":"dynamicsPosAbove","group":"Dynamics","kind":"point","label":"Offset above","unit":"sp"},
     {"key":"dynamicsSize","group":"Dynamics","kind":"number","label":"Scale","min":0,"max":1000,"step":1,"unit":"%","percent":true},
     {"key":"dynamicsMinDistance","group":"Dynamics","kind":"number","label":"Autoplace min. distance","min":0,"max":1000,"step":0.2,"unit":"sp"},
     {"key":"avoidBarLines","group":"Dynamics","kind":"boolean","label":"Avoid barlines"},
+    {"key":"dynamicsPosBelow","group":"Dynamics","kind":"point","label":"Offset below","unit":"sp"},
     {"key":"dynamicsOverrideFont","kind":"boolean","label":"Override score font"},
     {"key":"hairpinHeight","group":"Hairpins","kind":"number","label":"Height","min":0,"max":99,"step":0.1,"unit":"sp"},
+    {"key":"hairpinPosAbove","group":"Hairpins","kind":"point","label":"Offset above","unit":"sp"},
     {"key":"autoplaceHairpinDynamicsDistance","group":"Hairpins","kind":"number","label":"Autoplace, distance to dynamics","min":0,"max":99,"step":0.1,"unit":"sp"},
+    {"key":"hairpinPosBelow","group":"Hairpins","kind":"point","label":"Offset below","unit":"sp"},
     {"key":"hairpinLineWidth","group":"Hairpins","kind":"number","label":"Line thickness","min":0,"max":99,"step":0.01,"unit":"sp"},
     {"key":"hairpinContHeight","group":"Hairpins","kind":"number","label":"Continue height","min":0,"max":99,"step":0.1,"unit":"sp"}
   ]},
+  {"code": "volta", "title": "Voltas", "fields": [
+    {"key":"voltaPosAbove","group":"Voltas","kind":"number","label":"Vertical position","min":-100,"max":0,"step":0.25,"unit":"sp"},
+    {"key":"voltaHook","group":"Voltas","kind":"number","label":"Hook height","min":0,"max":99,"step":0.01,"unit":"sp"},
+    {"key":"voltaLineWidth","group":"Voltas","kind":"number","label":"Line thickness","min":0,"max":99,"step":0.01,"unit":"sp"},
+    {"key":"voltaLineStyle","group":"Voltas","kind":"select","label":"Line style","options":[{"value":0,"label":"Normal"},{"value":1,"label":"Dashed"},{"value":2,"label":"Dotted"}]},
+    {"key":"voltaDashLineLen","group":"Voltas","kind":"number","label":"Dash","min":0,"max":99,"step":0.01},
+    {"key":"voltaDashGapLen","group":"Voltas","kind":"number","label":"Gap","min":0,"max":99,"step":0.01},
+    {"key":"voltaAlignStartBeforeKeySig","group":"Alignment","kind":"select","label":"At start of system, start volta","options":[{"value":false,"label":"After key signature"},{"value":true,"label":"On key signature"}]},
+    {"key":"voltaAlignEndLeftOfBarline","group":"Alignment","kind":"select","label":"Align start hook","options":[{"value":false,"label":"To right side of barlines"},{"value":true,"label":"To left side of barlines"}]}
+  ]},
   {"code": "ottava", "title": "Ottavas", "fields": [
     {"key":"ottavaHookBelow","group":"Ottavas","kind":"number","label":"Hook height below","min":-99,"max":99,"step":0.01,"unit":"sp"},
-    {"key":"ottavaLineStyle","group":"Ottavas","kind":"select","label":"Dash size","options":[{"value":0,"label":"Continuous"},{"value":1,"label":"Dashed"},{"value":2,"label":"Dotted"},{"value":3,"label":"Dash-dotted"},{"value":4,"label":"Dash-dot-dotted"}]},
+    {"key":"ottavaLineStyle","group":"Ottavas","kind":"select","label":"Line style","options":[{"value":0,"label":"Continuous"},{"value":1,"label":"Dashed"},{"value":2,"label":"Dotted"},{"value":3,"label":"Dash-dotted"},{"value":4,"label":"Dash-dot-dotted"}]},
     {"key":"ottavaNumbersOnly","group":"Ottavas","kind":"boolean","label":"Numbers only"},
     {"key":"ottavaHookAbove","group":"Ottavas","kind":"number","label":"Hook height above","min":-99,"max":99,"step":0.01,"unit":"sp"},
+    {"key":"ottavaPosBelow","group":"Ottavas","kind":"point","label":"Offset below","unit":"sp"},
     {"key":"ottavaLineWidth","group":"Ottavas","kind":"number","label":"Line thickness","min":0,"max":99,"step":0.01,"unit":"sp"},
+    {"key":"ottavaPosAbove","group":"Ottavas","kind":"point","label":"Offset above","unit":"sp"},
     {"key":"ottavaDashLineLen","group":"Ottavas","kind":"number","label":"Dash size","min":0.1,"max":100,"step":0.1},
     {"key":"ottavaDashGapLen","group":"Ottavas","kind":"number","label":"Gap size","min":0.1,"max":100,"step":0.1}
   ]},
   {"code": "pedal", "title": "Pedal lines", "fields": [
     {"key":"pedalPlacement","group":"Pedal lines","kind":"select","label":"Position","options":[{"value":0,"label":"Above"},{"value":1,"label":"Below"}]},
     {"key":"pedalLineWidth","group":"Pedal lines","kind":"number","label":"Line thickness","min":0,"max":99,"step":0.01,"unit":"sp"},
+    {"key":"pedalPosBelow","group":"Pedal lines","kind":"point","label":"Offset below","unit":"sp"},
     {"key":"pedalLineStyle","group":"Pedal lines","kind":"select","label":"Line style","options":[{"value":0,"label":"Continuous"},{"value":1,"label":"Dashed"},{"value":2,"label":"Dotted"},{"value":3,"label":"Dash-dotted"},{"value":4,"label":"Dash-dot-dotted"}]},
+    {"key":"pedalPosAbove","group":"Pedal lines","kind":"point","label":"Offset above","unit":"sp"},
     {"key":"pedalDashLineLen","group":"Pedal lines","kind":"number","label":"Dash size","min":0.1,"max":100,"step":0.1},
     {"key":"pedalDashGapLen","group":"Pedal lines","kind":"number","label":"Gap size","min":0.1,"max":100,"step":0.1}
   ]},
   {"code": "trill", "title": "Trill lines", "fields": [
-    {"key":"trillPlacement","group":"Trill lines","kind":"select","label":"Position","options":[{"value":0,"label":"Above"},{"value":1,"label":"Below"}]}
+    {"key":"trillPlacement","group":"Trill lines","kind":"select","label":"Position","options":[{"value":0,"label":"Above"},{"value":1,"label":"Below"}]},
+    {"key":"trillPosAbove","group":"Trill lines","kind":"point","label":"Offset above","unit":"sp"},
+    {"key":"trillPosBelow","group":"Trill lines","kind":"point","label":"Offset below","unit":"sp"}
   ]},
   {"code": "vibrato", "title": "Vibrato lines", "fields": [
-    {"key":"vibratoPlacement","group":"Vibrato lines","kind":"select","label":"Position","options":[{"value":0,"label":"Above"},{"value":1,"label":"Below"}]}
+    {"key":"vibratoPlacement","group":"Vibrato lines","kind":"select","label":"Position","options":[{"value":0,"label":"Above"},{"value":1,"label":"Below"}]},
+    {"key":"vibratoPosAbove","group":"Vibrato lines","kind":"point","label":"Offset above","unit":"sp"},
+    {"key":"vibratoPosBelow","group":"Vibrato lines","kind":"point","label":"Offset below","unit":"sp"}
+  ]},
+  {"code": "glissando-note-line", "title": "Glissandos & note-anchored lines", "fields": [
+    {"key":"glissandoType","kind":"select","label":"Line type","options":[{"value":0,"label":"Straight"},{"value":1,"label":"Wavy"}]},
+    {"key":"glissandoShowText","kind":"boolean","label":"Show text"}
+  ]},
+  {"code": "bend", "title": "Bends & dives", "fields": [
+    {"key":"guitarBendLineWidth","group":"Standard staff","kind":"number","label":"Bend line thickness","min":0,"max":99,"step":0.01,"unit":"sp"},
+    {"key":"guitarBendLineWidthTab","group":"Tablature staff","kind":"number","label":"Bend line thickness","min":0,"max":99,"step":0.01,"unit":"sp"},
+    {"key":"guitarBendArrowWidth","group":"Tablature staff","kind":"number","label":"Arrow width","min":0,"max":99,"step":0.1,"unit":"sp"},
+    {"key":"guitarBendArrowHeight","group":"Tablature staff","kind":"number","label":"Arrow height","min":0,"max":99,"step":0.1,"unit":"sp"},
+    {"key":"guitarBendUseFull","group":"Tablature staff","kind":"select","label":"Label for full bends","options":[{"value":false,"label":"1"},{"value":true,"label":"full"}]},
+    {"key":"guitarDiveLineWidth","group":"Standard staff","kind":"number","label":"Dive line thickness","min":0,"max":99,"step":0.01,"unit":"sp"},
+    {"key":"guitarDivesAboveStaff","group":"Tablature staff","kind":"select","label":"Show dive lines","options":[{"value":false,"label":"On the staff"},{"value":true,"label":"Above the staff"}]},
+    {"key":"guitarDiveLineWidthTab","group":"Tablature staff","kind":"number","label":"Dive line thickness","min":0,"max":99,"step":0.01,"unit":"sp"},
+    {"key":"useCueSizeFretForGraceBends","group":"Grace note bends/dives on tablature","kind":"boolean","label":"Use cue sized fret numbers"},
+    {"key":"alignPreBendAndPreDiveToGraceNote","group":"Grace note bends/dives on tablature","kind":"select","label":"Align pre-bends and pre-dives","options":[{"value":false,"label":"To the main note"},{"value":true,"label":"To the grace note"}]},
+    {"key":"useFractionCharacters","kind":"select","label":"Interval labels","options":[{"value":true,"label":"Diagonal"},{"value":false,"label":"Level"}]}
   ]},
   {"code": "text-line", "title": "Text lines", "fields": [
     {"key":"textLinePlacement","group":"Text lines","kind":"select","label":"Position","options":[{"value":0,"label":"Above"},{"value":1,"label":"Below"}]},
+    {"key":"textLinePosAbove","group":"Text lines","kind":"point","label":"Offset above","unit":"sp"},
+    {"key":"textLinePosBelow","group":"Text lines","kind":"point","label":"Offset below","unit":"sp"},
     {"key":"textLineLineWidth","group":"Text lines","kind":"number","label":"Line thickness","min":0,"max":99,"step":0.1,"unit":"sp"},
     {"key":"textLineLineStyle","group":"Text lines","kind":"select","label":"Line style","options":[{"value":0,"label":"Continuous"},{"value":1,"label":"Dashed"},{"value":2,"label":"Dotted"},{"value":3,"label":"Dash-dotted"},{"value":4,"label":"Dash-dot-dotted"}]},
     {"key":"textLineDashLineLen","group":"Text lines","kind":"number","label":"Dash size","min":0.1,"max":100,"step":0.1},
@@ -197,6 +332,8 @@
   ]},
   {"code": "system-text-line", "title": "System text lines", "fields": [
     {"key":"systemTextLinePlacement","group":"System text lines","kind":"select","label":"Position","options":[{"value":0,"label":"Above"},{"value":1,"label":"Below"}]},
+    {"key":"systemTextLinePosAbove","group":"System text lines","kind":"point","label":"Offset above","unit":"sp"},
+    {"key":"systemTextLinePosBelow","group":"System text lines","kind":"point","label":"Offset below","unit":"sp"},
     {"key":"systemTextLineLineWidth","group":"System text lines","kind":"number","label":"Line thickness","min":0,"max":99,"step":0.1,"unit":"sp"},
     {"key":"systemTextLineLineStyle","group":"System text lines","kind":"select","label":"Line style","options":[{"value":0,"label":"Continuous"},{"value":1,"label":"Dashed"},{"value":2,"label":"Dotted"},{"value":3,"label":"Dash-dotted"},{"value":4,"label":"Dash-dot-dotted"}]},
     {"key":"systemTextLineDashLineLen","group":"System text lines","kind":"number","label":"Dash size","min":0.1,"max":100,"step":0.1},
@@ -209,16 +346,37 @@
     {"key":"propertyDistanceStem","group":"Articulations && ornaments","kind":"number","label":"Distance from stem","min":0,"max":99,"step":0.1,"unit":"sp"},
     {"key":"articulationMinDistance","group":"Articulations && ornaments","kind":"number","label":"Minimum vertical distance","min":0,"max":99,"step":0.1,"unit":"sp"}
   ]},
+  {"code": "hammer-ons-pull-offs-and-tapping", "title": "Hammer-ons, pull-offs & tapping", "fields": [
+    {"key":"hopoShowOnStandardStaves","group":"Visibility","kind":"boolean","label":"Standard staves"},
+    {"key":"hopoShowOnTabStaves","group":"Visibility","kind":"boolean","label":"Tablature staves"},
+    {"key":"hopoUpperCase","kind":"select","label":"Case","options":[{"value":true,"label":"Upper case"},{"value":false,"label":"Lower case"}]},
+    {"key":"hopoAlignLettersStandardStaves","group":"Alignment","kind":"boolean","label":"Standard staves"},
+    {"key":"hopoAlignLettersTabStaves","group":"Alignment","kind":"boolean","label":"Tablature staves"},
+    {"key":"hopoShowAll","kind":"select","label":"Consecutive hammer-ons/pull-offs","options":[{"value":true,"label":"Show ‘H’ or ‘P’ between each pair of notes"},{"value":false,"label":"Show ‘H’ or ‘P’ once per group of ascending/descending notes"}]},
+    {"key":"lhTappingShowItemsNormalStave","group":"Left-hand tapping","kind":"select","label":"Show on standard staves","options":[{"value":0,"label":"Half slur"},{"value":1,"label":"Symbol"},{"value":2,"label":"Both"}]},
+    {"key":"lhTappingSymbolNormalStave","group":"Left-hand tapping","kind":"select","label":"Symbol on standard staves","options":[{"value":1,"label":"Circled T"},{"value":0,"label":"Dot"}]},
+    {"key":"lhTappingShowItemsTab","group":"Left-hand tapping","kind":"select","label":"Show on tablature staves","options":[{"value":0,"label":"Half slur"},{"value":1,"label":"Symbol"},{"value":2,"label":"Both"}]},
+    {"key":"lhTappingSymbolTab","group":"Left-hand tapping","kind":"select","label":"Symbol on tablature staves","options":[{"value":1,"label":"Circled T"},{"value":0,"label":"Dot"}]},
+    {"key":"lhTappingSlurTopAndBottomNoteOnTab","group":"Left-hand tapping","kind":"boolean","label":"Slur top and bottom notes in chords"},
+    {"key":"rhTappingSymbolNormalStave","group":"Right-hand tapping","kind":"select","label":"Symbol (standard staff)","options":[{"value":1,"label":"+"},{"value":0,"label":"T"}]},
+    {"key":"rhTappingSymbolTab","group":"Right-hand tapping","kind":"select","label":"Symbol (tablature staff)","options":[{"value":1,"label":"+"},{"value":0,"label":"T"}]}
+  ]},
   {"code": "fermatas", "title": "Fermatas", "fields": [
-    {"key":"fermataMinDistance","group":"Fermatas","kind":"number","label":"Autoplace min. distance","min":0,"max":1000,"step":0.2,"unit":"sp"}
+    {"key":"fermataMinDistance","group":"Fermatas","kind":"number","label":"Autoplace min. distance","min":0,"max":1000,"step":0.2,"unit":"sp"},
+    {"key":"fermataPosBelow","group":"Fermatas","kind":"point","label":"Offset below","unit":"sp"},
+    {"key":"fermataPosAbove","group":"Fermatas","kind":"point","label":"Offset above","unit":"sp"}
   ]},
   {"code": "staff-text", "title": "Staff text", "fields": [
     {"key":"staffTextMinDistance","group":"Staff text","kind":"number","label":"Autoplace min. distance","min":-100,"max":99,"step":0.5,"unit":"sp"},
+    {"key":"staffTextPosAbove","group":"Staff text","kind":"point","label":"Offset above","unit":"sp"},
+    {"key":"staffTextPosBelow","group":"Staff text","kind":"point","label":"Offset below","unit":"sp"},
     {"key":"staffTextPlacement","group":"Staff text","kind":"select","label":"Position","options":[{"value":0,"label":"Above"},{"value":1,"label":"Below"}]}
   ]},
   {"code": "tempo-text", "title": "Tempo text", "fields": [
     {"key":"tempoPlacement","group":"Tempo text","kind":"select","label":"Position","options":[{"value":0,"label":"Above"},{"value":1,"label":"Below"}]},
-    {"key":"tempoMinDistance","group":"Tempo text","kind":"number","label":"Autoplace min. distance","min":-100,"max":99,"step":0.5,"unit":"sp"}
+    {"key":"tempoMinDistance","group":"Tempo text","kind":"number","label":"Autoplace min. distance","min":-100,"max":99,"step":0.5,"unit":"sp"},
+    {"key":"tempoPosAbove","group":"Tempo text","kind":"point","label":"Offset above","unit":"sp"},
+    {"key":"tempoPosBelow","group":"Tempo text","kind":"point","label":"Offset below","unit":"sp"}
   ]},
   {"code": "lyrics", "title": "Lyrics", "fields": [
     {"key":"lyricsMinTopDistance","group":"Lyrics text","kind":"number","label":"Min. margin to current staff","min":-100,"max":99,"step":0.5,"unit":"sp"},
@@ -250,42 +408,85 @@
   ]},
   {"code": "rehearsal-marks", "title": "Rehearsal marks", "fields": [
     {"key":"rehearsalMarkPlacement","group":"Rehearsal marks","kind":"select","label":"Position","options":[{"value":0,"label":"Above"},{"value":1,"label":"Below"}]},
-    {"key":"rehearsalMarkMinDistance","group":"Rehearsal marks","kind":"number","label":"Autoplace min. distance","min":-100,"max":99,"step":0.5,"unit":"sp"}
+    {"key":"rehearsalMarkMinDistance","group":"Rehearsal marks","kind":"number","label":"Autoplace min. distance","min":-100,"max":99,"step":0.5,"unit":"sp"},
+    {"key":"rehearsalMarkPosAbove","group":"Rehearsal marks","kind":"point","label":"Offset above","unit":"sp"},
+    {"key":"rehearsalMarkPosBelow","group":"Rehearsal marks","kind":"point","label":"Offset below","unit":"sp"}
   ]},
   {"code": "figured-bass", "title": "Figured bass", "fields": [
     {"key":"figuredBassFontSize","group":"Figured bass","kind":"number","label":"Size","min":5,"max":99,"step":0.1,"unit":"pt"},
     {"key":"figuredBassYOffset","group":"Figured bass","kind":"number","label":"Vertical position","min":-25,"max":25,"step":0.5,"unit":"sp"},
     {"key":"figuredBassLineHeight","group":"Figured bass","kind":"number","label":"Line height","min":1,"max":500,"step":10,"unit":"%","percent":true}
   ]},
+  {"code": "chord-symbols", "title": "Chord symbols", "fields": [
+    {"key":"chordSymbolSpelling","kind":"select","label":"Spelling","options":[{"value":0,"label":"Standard"},{"value":1,"label":"German"},{"value":2,"label":"Full German"},{"value":3,"label":"Solfeggio"},{"value":4,"label":"French"}]},
+    {"key":"automaticCapitalization","group":"Capitalization","kind":"boolean","label":"Automatically capitalize note names"},
+    {"key":"lowerCaseMinorChords","group":"Capitalization","kind":"boolean","label":"Lowercase minor chords"},
+    {"key":"lowerCaseBassNotes","group":"Capitalization","kind":"boolean","label":"Lowercase bass notes"},
+    {"key":"allCapsNoteNames","group":"Capitalization","kind":"boolean","label":"All caps (for Solfeggio and French)"},
+    {"key":"chordExtensionMag","group":"Extensions (e.g. 7, 11)","kind":"number","label":"Scale","min":0,"max":999,"step":1},
+    {"key":"chordExtensionAdjust","group":"Extensions (e.g. 7, 11)","kind":"number","label":"Vertical offset","min":-999,"max":999,"step":1},
+    {"key":"chordModifierMag","group":"Modifiers (e.g. sus4, no 3)","kind":"number","label":"Scale","min":0,"max":999,"step":1},
+    {"key":"chordModifierAdjust","group":"Modifiers (e.g. sus4, no 3)","kind":"number","label":"Vertical offset","min":-999,"max":999,"step":1},
+    {"key":"verticallyStackModifiers","group":"Modifiers (e.g. sus4, no 3)","kind":"boolean","label":"Vertically stack modifiers"},
+    {"key":"chordBassNoteStagger","group":"Altered bass notes (e.g. A7/G)","kind":"select","label":"Style","options":[{"value":false,"label":"Aligned"},{"value":true,"label":"Staggered"}]},
+    {"key":"chordBassNoteScale","group":"Altered bass notes (e.g. A7/G)","kind":"number","label":"Bass note scale","min":0,"max":999,"step":1},
+    {"key":"polychordDividerThickness","group":"Polychords (e.g. C|F♯)","kind":"number","label":"Divider thickness","min":0,"max":99,"step":0.01,"unit":"sp"},
+    {"key":"polychordDividerSpacing","group":"Polychords (e.g. C|F♯)","kind":"number","label":"Divider spacing","min":0,"max":99,"step":0.01,"unit":"sp"},
+    {"key":"verticallyAlignChordSymbols","group":"Alignment","kind":"boolean","label":"Vertically align chord symbols and fretboard diagrams on the same system"},
+    {"key":"chordAlignmentToFretboard","group":"Alignment","kind":"select","label":"Alignment to fretboard diagram","options":[{"value":0,"label":"Left"},{"value":2,"label":"Center"},{"value":1,"label":"Right"}]},
+    {"key":"chordAlignmentExcludeModifiers","group":"Alignment","kind":"boolean","label":"Exclude modifiers from horizontal alignment"},
+    {"key":"harmonyFretDist","group":"Positioning","kind":"number","label":"Min. space to fretboard diagram","min":0,"max":99,"step":0.05,"unit":"sp"},
+    {"key":"minHarmonyDistance","group":"Positioning","kind":"number","label":"Min. space to other notation","min":0,"max":99,"step":0.05,"unit":"sp"},
+    {"key":"harmonyHarmonyDistance","group":"Positioning","kind":"number","label":"Min. space between chord symbols","min":0,"max":99,"step":0.05,"unit":"sp"},
+    {"key":"displayCapoChords","kind":"select","label":"Capo","options":[{"value":0,"label":"Don’t show chord symbols transposed by capo"},{"value":1,"label":"Show chord symbols & transposed symbols"},{"value":2,"label":"Show transposed symbols only"}]},
+    {"key":"capoPosition","group":"Capo","kind":"number","label":"Capo fret position","min":0,"max":11,"step":1}
+  ]},
+  {"code": "fretboard-diagrams", "title": "Fretboard diagrams", "fields": [
+    {"key":"fretY","group":"Fretboard diagrams","kind":"number","label":"Position above staff","min":0,"max":99,"step":0.05,"unit":"sp"},
+    {"key":"fretMinDistance","group":"Fretboard diagrams","kind":"number","label":"Min. space to notation","min":0,"max":99,"step":0.05,"unit":"sp"},
+    {"key":"fretMag","group":"Fretboard diagrams","kind":"number","label":"Scale","min":0,"max":99,"step":0.01,"percent":true},
+    {"key":"fretOrientation","group":"Fretboard diagrams","kind":"select","label":"Orientation","options":[{"value":0,"label":"Vertical"},{"value":1,"label":"Horizontal"}]},
+    {"key":"fretNutThickness","group":"Fretboard diagrams","kind":"number","label":"Nut line thickness","min":0,"max":99,"step":0.01,"unit":"sp"},
+    {"key":"fretNumPos","group":"Fret number","kind":"select","label":"Position","options":[{"value":0,"label":"Left"},{"value":1,"label":"Right"}]},
+    {"key":"fretUseCustomSuffix","kind":"select","label":"Format","options":[{"value":false,"label":"Number only"},{"value":true,"label":"Custom suffix"}]},
+    {"key":"fretCustomSuffix","kind":"text","label":"Custom suffix"},
+    {"key":"fretDotSpatiumSize","group":"Fretboard diagrams","kind":"number","label":"Dot size","min":0,"max":99,"step":0.01,"unit":"sp"},
+    {"key":"barreAppearanceSlur","group":"Barré","kind":"select","label":"Appearance","options":[{"value":false,"label":"Line"},{"value":true,"label":"Slur"}]},
+    {"key":"barreLineWidth","group":"Barré","kind":"number","label":"Line thickness","min":0,"max":99,"step":0.01,"percent":true},
+    {"key":"fretShowFingerings","group":"Fretboard diagrams","kind":"boolean","label":"Show fingerings"},
+    {"key":"fretStyleExtended","group":"Fretboard diagrams","kind":"select","label":"Fretboard style","options":[{"value":false,"label":"Trimmed"},{"value":true,"label":"Extended"}]},
+    {"key":"fretStringSpacing","group":"Fretboard diagrams","kind":"number","label":"String spacing","min":0,"max":99,"step":0.01,"unit":"sp"},
+    {"key":"fretFretSpacing","group":"Fretboard diagrams","kind":"number","label":"Fret spacing","min":0,"max":99,"step":0.01,"unit":"sp"}
+  ]},
   {"code": "tablature-styles", "title": "Tablature", "fields": [
-    {"key":"accentShowTabCommon","group":"Tablature","kind":"boolean","label":""},
-    {"key":"turnShowTabCommon","group":"Tablature","kind":"boolean","label":""},
-    {"key":"slurShowTabSimple","group":"Tablature","kind":"boolean","label":""},
-    {"key":"golpeShowTabSimple","group":"Tablature","kind":"boolean","label":""},
-    {"key":"palmMuteShowTabSimple","group":"Tablature","kind":"boolean","label":""},
-    {"key":"letRingShowTabCommon","group":"Tablature","kind":"boolean","label":""},
-    {"key":"hairpinShowTabSimple","group":"Tablature","kind":"boolean","label":""},
-    {"key":"mordentShowTabSimple","group":"Tablature","kind":"boolean","label":""},
-    {"key":"golpeShowTabCommon","group":"Tablature","kind":"boolean","label":""},
-    {"key":"hairpinShowTabCommon","group":"Tablature","kind":"boolean","label":""},
-    {"key":"accentShowTabSimple","group":"Tablature","kind":"boolean","label":""},
-    {"key":"mordentShowTabCommon","group":"Tablature","kind":"boolean","label":""},
-    {"key":"fermataShowTabCommon","group":"Tablature","kind":"boolean","label":""},
-    {"key":"turnShowTabSimple","group":"Tablature","kind":"boolean","label":""},
-    {"key":"wahShowTabSimple","group":"Tablature","kind":"boolean","label":""},
-    {"key":"dynamicsShowTabSimple","group":"Tablature","kind":"boolean","label":""},
-    {"key":"rasgueadoShowTabSimple","group":"Tablature","kind":"boolean","label":""},
-    {"key":"dynamicsShowTabCommon","group":"Tablature","kind":"boolean","label":""},
-    {"key":"slurShowTabCommon","group":"Tablature","kind":"boolean","label":""},
-    {"key":"palmMuteShowTabCommon","group":"Tablature","kind":"boolean","label":""},
-    {"key":"staccatoShowTabSimple","group":"Tablature","kind":"boolean","label":""},
-    {"key":"rasgueadoShowTabCommon","group":"Tablature","kind":"boolean","label":""},
-    {"key":"staccatoShowTabCommon","group":"Tablature","kind":"boolean","label":""},
-    {"key":"letRingShowTabSimple","group":"Tablature","kind":"boolean","label":""},
-    {"key":"fermataShowTabSimple","group":"Tablature","kind":"boolean","label":""},
-    {"key":"harmonicMarkShowTabCommon","group":"Tablature","kind":"boolean","label":""},
-    {"key":"wahShowTabCommon","group":"Tablature","kind":"boolean","label":""},
-    {"key":"harmonicMarkShowTabSimple","group":"Tablature","kind":"boolean","label":""},
+    {"key":"accentShowTabCommon","group":"Tablature","kind":"boolean","label":"Accent and marcato marks (Common)"},
+    {"key":"turnShowTabCommon","group":"Tablature","kind":"boolean","label":"Turns (Common)"},
+    {"key":"slurShowTabSimple","group":"Tablature","kind":"boolean","label":"Slurs (Simple)"},
+    {"key":"golpeShowTabSimple","group":"Tablature","kind":"boolean","label":"Golpe (Simple)"},
+    {"key":"palmMuteShowTabSimple","group":"Tablature","kind":"boolean","label":"Palm mute (P.M.) (Simple)"},
+    {"key":"letRingShowTabCommon","group":"Tablature","kind":"boolean","label":"Let ring (Common)"},
+    {"key":"hairpinShowTabSimple","group":"Tablature","kind":"boolean","label":"Crescendo and diminuendo lines (Simple)"},
+    {"key":"mordentShowTabSimple","group":"Tablature","kind":"boolean","label":"Mordents (Simple)"},
+    {"key":"golpeShowTabCommon","group":"Tablature","kind":"boolean","label":"Golpe (Common)"},
+    {"key":"hairpinShowTabCommon","group":"Tablature","kind":"boolean","label":"Crescendo and diminuendo lines (Common)"},
+    {"key":"accentShowTabSimple","group":"Tablature","kind":"boolean","label":"Accent and marcato marks (Simple)"},
+    {"key":"mordentShowTabCommon","group":"Tablature","kind":"boolean","label":"Mordents (Common)"},
+    {"key":"fermataShowTabCommon","group":"Tablature","kind":"boolean","label":"Fermatas (Common)"},
+    {"key":"turnShowTabSimple","group":"Tablature","kind":"boolean","label":"Turns (Simple)"},
+    {"key":"wahShowTabSimple","group":"Tablature","kind":"boolean","label":"Wah open/close (Simple)"},
+    {"key":"dynamicsShowTabSimple","group":"Tablature","kind":"boolean","label":"Dynamics (Simple)"},
+    {"key":"rasgueadoShowTabSimple","group":"Tablature","kind":"boolean","label":"Rasgueado (Simple)"},
+    {"key":"dynamicsShowTabCommon","group":"Tablature","kind":"boolean","label":"Dynamics (Common)"},
+    {"key":"slurShowTabCommon","group":"Tablature","kind":"boolean","label":"Slurs (Common)"},
+    {"key":"palmMuteShowTabCommon","group":"Tablature","kind":"boolean","label":"Palm mute (P.M.) (Common)"},
+    {"key":"staccatoShowTabSimple","group":"Tablature","kind":"boolean","label":"Staccato (Simple)"},
+    {"key":"rasgueadoShowTabCommon","group":"Tablature","kind":"boolean","label":"Rasgueado (Common)"},
+    {"key":"staccatoShowTabCommon","group":"Tablature","kind":"boolean","label":"Staccato (Common)"},
+    {"key":"letRingShowTabSimple","group":"Tablature","kind":"boolean","label":"Let ring (Simple)"},
+    {"key":"fermataShowTabSimple","group":"Tablature","kind":"boolean","label":"Fermatas (Simple)"},
+    {"key":"harmonicMarkShowTabCommon","group":"Tablature","kind":"boolean","label":"Harmonic marks (Common)"},
+    {"key":"wahShowTabCommon","group":"Tablature","kind":"boolean","label":"Wah open/close (Common)"},
+    {"key":"harmonicMarkShowTabSimple","group":"Tablature","kind":"boolean","label":"Harmonic marks (Simple)"},
     {"key":"parenthesizeTiedFretIfArticulation","group":"Parentheses indicating ties","kind":"boolean","label":"Always show parenthesized fret marks when articulation markings are present"}
   ]},
   {"code": "text-styles", "title": "Text styles", "fields": [

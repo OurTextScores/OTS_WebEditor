@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Style dialog probe (roadmap E08, docs/private/MS47_EDITOR_OPPORTUNITIES_ROADMAP.md): through the Node build,
-// which generated Style-page keys the engine reads, their MuseScore defaults, and enum-typed keys (placement,
-// direction, line style) written as ints and read back, then undone. One JSON line. One load per process.
+// which generated Style-page keys the engine reads, their MuseScore defaults, enum-typed keys (placement,
+// direction, line style) written as ints, and a point offset written as [x, y], each read back, then undone. One JSON line. One load per process.
 //
 //   node scripts/style-pages-probe.mjs    (prints JSON)
 import fs from 'node:fs';
@@ -32,9 +32,27 @@ const report = {
   set: await score.setStyleValues({ tupletDirection: 1, pedalPlacement: 0, ottavaLineStyle: 2 }),
 };
 report.enumsAfter = await score.getStyleValues(enums);
+report.pointBefore = (await score.getStyleValues(['hairpinPosAbove'])).hairpinPosAbove;
+report.pointSet = await score.setStyleValues({ hairpinPosAbove: [0.5, -4] });
+report.pointAfter = (await score.getStyleValues(['hairpinPosAbove'])).hairpinPosAbove;
+report.badPoint = await score.setStyleValues({ hairpinPosAbove: [1] });
+await score.undo();
+report.pointAfterUndo = (await score.getStyleValues(['hairpinPosAbove'])).hairpinPosAbove;
 report.badEnum = await score.setStyleValues({ pedalPlacement: 'above' });
 await score.undo();
 report.enumsAfterUndo = await score.getStyleValues(enums);
+
+// The Text styles page: the catalogue, every key readable, and a colour (with alpha) and an alignment written back.
+const catalog = await score.getTextStyleCatalog();
+const catalogKeys = catalog.flatMap((entry) => Object.values(entry.keys));
+const catalogValues = await score.getStyleValues(catalogKeys);
+report.textStyles = catalog.length;
+report.firstTextStyle = catalog[0]?.name;
+report.textStyleUnreadable = catalogKeys.filter((k) => !(k in catalogValues));
+report.titleBefore = await score.getStyleValues(['titleColor', 'titleAlign']);
+report.titleSet = await score.setStyleValues({ titleColor: '#FF000080', titleAlign: [0, 3] });
+report.titleAfter = await score.getStyleValues(['titleColor', 'titleAlign']);
+report.badColor = await score.setStyleValues({ titleColor: 'red' });
 
 console.log = log;
 console.log(JSON.stringify(report));

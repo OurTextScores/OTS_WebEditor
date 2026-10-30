@@ -12,7 +12,7 @@ const SCORE = '/?score=/test_scores/four_measures.musicxml';
 
 interface DialogWindow {
   __webmscore: {
-    getStyleValues(keys: string[]): Promise<Record<string, number | boolean | string>>;
+    getStyleValues(keys: string[]): Promise<Record<string, number | boolean | string | number[]>>;
     getSelectedElementProperties(): Promise<{ selectionCount: number; elementType: string }>;
     getStaffProperties(staffIdx: number): Promise<{ shortName?: string; small?: boolean }>;
   };
@@ -324,4 +324,33 @@ test('Style… pages: a tuplet choice is applied, and a reset button returns a s
   await expect(page.getByTestId('score-dialog-tupletBracketType-reset')).toBeHidden();
   await submit(page);
   await expect.poll(async () => (await style(page, ['tupletBracketType'])).tupletBracketType).toBe(0);
+});
+
+test('Style… QML pages and offsets: a beam-style choice and a hairpin offset are applied (E08)', async ({ page }) => {
+  await open(page);
+  await rightClick(page, await paper(page));
+  await page.getByTestId('context-item-format.style').click();
+  await page.getByTestId('score-dialog-page-beams').click();
+  await page.getByTestId('score-dialog-frenchStyleBeams').selectOption({ label: 'Draw inner stems to nearest beam (“French” style)' });
+  await page.getByTestId('score-dialog-page-dynamics-hairpins').click();
+  await page.getByTestId('score-dialog-hairpinPosAbove:y').fill('-3');
+  await submit(page);
+  await expect
+    .poll(() => style(page, ['frenchStyleBeams', 'hairpinPosAbove']))
+    .toEqual({ frenchStyleBeams: true, hairpinPosAbove: [0, -3] });
+});
+
+test('Style… text styles: the Title style’s size, bold and colour are applied (E08)', async ({ page }) => {
+  await open(page);
+  await rightClick(page, await paper(page));
+  await page.getByTestId('context-item-format.style').click();
+  await page.getByTestId('score-dialog-page-text-style-0').click();
+  await expect(page.getByTestId('score-dialog-titleFontFace')).toHaveValue(/.+/);
+  await page.getByTestId('score-dialog-titleFontSize').fill('26');
+  await page.getByTestId('score-dialog-titleFontStyle:bold').check();
+  await page.getByTestId('score-dialog-titleColor').fill('#336699');
+  await submit(page);
+  await expect
+    .poll(() => style(page, ['titleFontSize', 'titleFontStyle', 'titleColor']))
+    .toEqual({ titleFontSize: 26, titleFontStyle: 1, titleColor: '#336699FF' });
 });

@@ -119,6 +119,29 @@ function Field({
     <ResetButton field={field} value={value} defaultValue={defaultValue} onChange={onChange} />
   );
   if (field.kind === 'page') return null;
+  if (field.kind === 'color') {
+    const hex = String(value ?? '#000000FF');
+    return (
+      <label className="flex items-center justify-between gap-3 text-sm text-slate-700">
+        <span>{field.label}</span>
+        <span className="flex items-center gap-1">
+          <input
+            type="color"
+            data-testid={testId}
+            className="h-7 w-12 rounded border border-slate-300 bg-white"
+            value={hex.slice(0, 7)}
+            // The picker has no alpha: keep it, and make a transparent colour opaque once one is chosen.
+            onChange={(e) =>
+              onChange(
+                `${e.currentTarget.value.toUpperCase()}${hex.slice(7) === '00' ? 'FF' : hex.slice(7) || 'FF'}`,
+              )
+            }
+          />
+          {reset}
+        </span>
+      </label>
+    );
+  }
   if (field.kind === 'heading') {
     return (
       <h3 className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -207,9 +230,10 @@ function DialogBody({
   const [pageKey, setPageKey] = useState<string | null>(null);
   // A dialog with pages (MuseScore's Style dialog): the page list, and the fields of the page shown.
   const pages = useMemo(() => {
-    const result: { key: string; label: string; fields: DialogField[] }[] = [];
+    const result: { key: string; label: string; level: number; fields: DialogField[] }[] = [];
     for (const field of loaded?.fields ?? []) {
-      if (field.kind === 'page') result.push({ key: field.key, label: field.label, fields: [] });
+      if (field.kind === 'page')
+        result.push({ key: field.key, label: field.label, level: field.level ?? 0, fields: [] });
       else result.at(-1)?.fields.push(field);
     }
     return result;
@@ -261,7 +285,7 @@ function DialogBody({
                 type="button"
                 variant={p === page ? 'neutral' : 'quiet'}
                 size="sm"
-                className="justify-start text-left"
+                className={`justify-start text-left ${p.level ? 'pl-6' : ''}`}
                 aria-current={p === page ? 'page' : undefined}
                 data-testid={`score-dialog-page-${p.key}`}
                 onClick={() => setPageKey(p.key)}

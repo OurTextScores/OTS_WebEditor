@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { StyleValue } from '../../lib/webmscore-loader';
+import type { TextStyleEntry } from '../../lib/webmscore-score-settings-types';
 import {
   changeInstrumentDialog,
   harpPedalsDialog,
@@ -17,14 +19,15 @@ import {
 } from '../../components/score-editor/score-dialogs';
 
 function engine(
-  style: Record<string, number | boolean | string> = {},
-  defaults: Record<string, number | boolean | string> = {},
+  style: Record<string, StyleValue> = {},
+  defaults: Record<string, StyleValue> = {},
 ): DialogEngine & {
   [K in keyof DialogEngine]: ReturnType<typeof vi.fn>;
 } {
   return {
     getStyleValues: vi.fn(async (keys: string[]) => Object.fromEntries(keys.filter((k) => k in style).map((k) => [k, style[k]]))),
     setStyleValues: vi.fn(async () => true),
+    getTextStyleCatalog: vi.fn(async (): Promise<TextStyleEntry[]> => []),
     getStyleDefaults: vi.fn(async (keys: string[]) =>
       Object.fromEntries(keys.filter((k) => k in defaults).map((k) => [k, defaults[k]])),
     ),
@@ -149,6 +152,33 @@ describe('Style: MuseScore’s pages (E08)', () => {
     const { fields } = await styleDialog.load(e, {});
     const headings = fields.filter((f) => f.kind === 'heading').map((f) => f.label);
     expect(headings).toEqual(['Instrument names']);
+  });
+
+  it('shows an offset as two number fields, and writes back both axes, keeping the one not edited', async () => {
+    const e = engine({ hairpinPosAbove: [0, -1.75] }, { hairpinPosAbove: [0, -2] });
+    const loaded = await styleDialog.load(e, {});
+    const keys = loaded.fields.map((f) => f.key);
+    expect(keys).toEqual(expect.arrayContaining(['hairpinPosAbove:x', 'hairpinPosAbove:y']));
+    expect(loaded.values['hairpinPosAbove:y']).toBe(-1.75);
+    expect(loaded.defaults?.['hairpinPosAbove:y']).toBe(-2);
+    await styleDialog.apply(e, { ...loaded.values, 'hairpinPosAbove:y': -3 }, {});
+    expect(e.setStyleValues).toHaveBeenCalledWith({ hairpinPosAbove: [0, -3] });
+  });
+
+  it('edits only the y of a point MuseScore shows as one number (volta position)', async () => {
+    const e = engine({ voltaPosAbove: [0, -3] });
+    const loaded = await styleDialog.load(e, {});
+    expect(loaded.values.voltaPosAbove).toBe(-3);
+    await styleDialog.apply(e, { ...loaded.values, voltaPosAbove: -2.5 }, {});
+    expect(e.setStyleValues).toHaveBeenCalledWith({ voltaPosAbove: [0, -2.5] });
+  });
+
+  it('writes a two-way choice (MuseScore’s radio pairs) as a boolean', async () => {
+    const e = engine({ frenchStyleBeams: false });
+    const loaded = await styleDialog.load(e, {});
+    expect(loaded.fields.find((f) => f.key === 'frenchStyleBeams')).toMatchObject({ kind: 'select' });
+    await styleDialog.apply(e, { ...loaded.values, frenchStyleBeams: 'true' }, {});
+    expect(e.setStyleValues).toHaveBeenCalledWith({ frenchStyleBeams: true });
   });
 
   it('sends only the settings that changed, with choices as the engine’s numbers', async () => {
@@ -345,5 +375,72 @@ describe('Staff/System Text Properties: swing', () => {
     const e = engine();
     e.getStaffTextSwing.mockResolvedValue({});
     await expect(staffTextPropertiesDialog.load(e, {})).rejects.toThrow(/staff or system text/);
+  });
+});
+
+describe('Style: text styles (E08)', () => {
+  const TITLE: TextStyleEntry = {
+    name: 'Title',
+    keys: {
+      fontFace: 'titleFontFace',
+      fontSize: 'titleFontSize',
+      fontStyle: 'titleFontStyle',
+      align: 'titleAlign',
+      offset: 'titleOffset',
+      color: 'titleColor',
+      frameType: 'titleFrameType',
+    },
+  };
+  const TITLE_VALUES: Record<string, StyleValue> = {
+    titleFontFace: 'Edwin',
+    titleFontSize: 22,
+    titleFontStyle: 1,
+    titleAlign: [2, 0],
+    titleOffset: [0, 0],
+    titleColor: '#000000FF',
+    titleFrameType: 0,
+  };
+
+  it('adds a sub-page per text style, with MuseScore’s controls for each part', async () => {
+    const e = engine(TITLE_VALUES, { ...TITLE_VALUES, titleFontStyle: 0 });
+    e.getTextStyleCatalog.mockResolvedValue([TITLE]);
+    const loaded = await styleDialog.load(e, {});
+    expect(loaded.fields.find((f) => f.kind === 'page' && f.label === 'Title')).toMatchObject({ level: 1 });
+    expect(loaded.values).toMatchObject({
+      titleFontFace: 'Edwin',
+      titleFontSize: 22,
+      'titleFontStyle:bold': true,
+      'titleFontStyle:italic': false,
+      'titleAlign:h': '2',
+      'titleAlign:v': '0',
+      titleColor: '#000000FF',
+      titleFrameType: '0',
+    });
+    expect(loaded.defaults?.['titleFontStyle:bold']).toBe(false);
+  });
+
+  it('writes parts back into their style keys, typed as the engine stores them', async () => {
+    const e = engine(TITLE_VALUES);
+    e.getTextStyleCatalog.mockResolvedValue([TITLE]);
+    const loaded = await styleDialog.load(e, {});
+    await styleDialog.apply(
+      e,
+      {
+        ...loaded.values,
+        'titleFontStyle:italic': true,
+        'titleAlign:v': '3',
+        titleFontSize: 24,
+        titleColor: '#FF0000FF',
+        titleFrameType: '1',
+      },
+      {},
+    );
+    expect(e.setStyleValues).toHaveBeenCalledWith({
+      titleFontStyle: 3,
+      titleAlign: [2, 3],
+      titleFontSize: 24,
+      titleColor: '#FF0000FF',
+      titleFrameType: 1,
+    });
   });
 });

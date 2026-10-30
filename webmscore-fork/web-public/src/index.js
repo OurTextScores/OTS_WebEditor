@@ -311,6 +311,7 @@ class WebMscore {
         this.excerptId = -1
         if (!Module._hitTestScoreObject) Object.defineProperty(this, 'hitTestScoreObject', { value: undefined })
         if (!Module._moveSelectedChordRestToStaff) Object.defineProperty(this, 'moveSelectedChordRestToStaff', { value: undefined })
+        if (!Module._getTextStyleCatalog) Object.defineProperty(this, 'getTextStyleCatalog', { value: undefined })
         if (!Module._getStyleDefaults) Object.defineProperty(this, 'getStyleDefaults', { value: undefined })
         if (!Module._getStaffTextSwing || !Module._setStaffTextSwing) {
             for (const name of ['getStaffTextSwing', 'setStaffTextSwing']) Object.defineProperty(this, name, { value: undefined })
@@ -553,6 +554,14 @@ class WebMscore {
      * @param {string[]} keys
      * @returns {Promise<Record<string, number | boolean | string>>}
      */
+    /**
+     * MuseScore's Text styles page: each editable text style's name and style keys by property.
+     * @returns {Promise<{name: string, keys: Record<string, string>}[]>}
+     */
+    async getTextStyleCatalog() {
+        return JSON.parse(WasmRes.readText(Module.ccall('getTextStyleCatalog', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])))
+    }
+
     async getStyleDefaults(keys) {
         const strptr = getStrPtr(JSON.stringify(keys || []))
         try {

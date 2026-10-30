@@ -1,12 +1,19 @@
 import type { StyleValue } from '../../../lib/webmscore-loader';
 import type { DialogField, DialogSpec, FieldValue } from './dialogSpecs';
 import generated from './style-pages.generated.json';
+import {
+  mergePart,
+  partKey,
+  type PartKind,
+  textStyleControls,
+  textStyleKeys,
+} from './textStylePages';
 
 /**
  * MuseScore's Style dialog (roadmap E08), page by page in MuseScore's order. The pages MuseScore builds from widgets
- * are generated from its editstyle.{cpp,ui} (tools/musescore/gen-style-dialog-pages.mjs); the pages it builds in QML
- * are written here, with the settings OTS has reviewed so far. Only the keys this engine knows are shown, and each
- * setting can be reset to MuseScore's default.
+ * and in QML are generated from its sources (tools/musescore/gen-style-dialog-pages.mjs: editstyle.{cpp,ui} and the
+ * styledialog QML pages with their models). Only the keys this engine knows are shown, and each setting can be reset
+ * to MuseScore's default.
  */
 
 export const MUSIC_FONTS = [
@@ -24,7 +31,8 @@ export const textFontFor = (font: string) =>
 
 interface StyleFieldSpec {
   key: string;
-  kind: 'boolean' | 'number' | 'select' | 'text';
+  /** point: an x/y offset in sp (MuseScore's OffsetSelect), shown as two number fields. */
+  kind: 'boolean' | 'number' | 'select' | 'text' | 'point';
   label: string;
   group?: string;
   min?: number;
@@ -33,7 +41,7 @@ interface StyleFieldSpec {
   unit?: string;
   /** MuseScore shows the stored fraction as a percentage. */
   percent?: boolean;
-  options?: { value: number | string; label: string }[];
+  options?: { value: number | string | boolean; label: string }[];
 }
 interface StylePage {
   code: string;
@@ -41,125 +49,22 @@ interface StylePage {
   fields: StyleFieldSpec[];
 }
 
-/** MuseScore's pages in its order (ALL_PAGE_CODES); a page with nothing this engine offers is left out. */
-const PAGE_ORDER = [
-  'score',
-  'spacing',
-  'sizes',
-  'header-and-footer',
-  'measure-number',
-  'system',
-  'clefs-key-and-time-signatures',
-  'accidentals',
-  'barlines',
-  'notes',
-  'rests',
-  'repeats',
-  'beams',
-  'tuplets',
-  'arpeggios',
-  'chord-brackets',
-  'slurs-ties',
-  'dynamics-hairpins',
-  'volta',
-  'ottava',
-  'pedal',
-  'trill',
-  'vibrato',
-  'glissando-note-line',
-  'bend',
-  'text-line',
-  'system-text-line',
-  'articulations-and-ornaments',
-  'hammer-ons-pull-offs-and-tapping',
-  'fermatas',
-  'staff-text',
-  'tempo-text',
-  'lyrics',
-  'expression',
-  'rehearsal-marks',
-  'figured-bass',
-  'chord-symbols',
-  'fretboard-diagrams',
-  'tablature-styles',
-  'text-styles',
-];
-
-/** Pages MuseScore draws in QML, with the settings reviewed so far (E12, E13, E16). */
-const QML_PAGES: StylePage[] = [
-  {
-    code: 'measure-number',
-    title: 'Measure numbers',
-    fields: [
-      { kind: 'boolean', key: 'showMeasureNumber', label: 'Show measure numbers' },
-      { kind: 'boolean', key: 'showMeasureNumberOne', label: 'Number the first measure' },
-      { kind: 'boolean', key: 'measureNumberSystem', label: 'At the start of every system' },
-      {
-        kind: 'number',
-        key: 'measureNumberInterval',
-        label: 'Every n measures (when not per system)',
-        min: 1,
-        max: 99,
-        step: 1,
-      },
-    ],
-  },
-  {
-    code: 'clefs-key-and-time-signatures',
-    title: 'Clefs, key & time signatures',
-    fields: [
-      {
-        kind: 'boolean',
-        key: 'genCourtesyTimesig',
-        label: 'Courtesy time signatures',
-        group: 'Courtesy signs',
-      },
-      {
-        kind: 'boolean',
-        key: 'genCourtesyKeysig',
-        label: 'Courtesy key signatures',
-        group: 'Courtesy signs',
-      },
-      { kind: 'boolean', key: 'genCourtesyClef', label: 'Courtesy clefs', group: 'Courtesy signs' },
-    ],
-  },
-  {
-    code: 'chord-symbols',
-    title: 'Chord symbols',
-    fields: [
-      { kind: 'boolean', key: 'verticallyStackModifiers', label: 'Stack modifiers vertically' },
-      {
-        kind: 'number',
-        key: 'chordStackedModifierMag',
-        label: 'Stacked modifier size',
-        min: 0.1,
-        max: 5,
-        step: 0.05,
-      },
-      { kind: 'boolean', key: 'chordBassNoteStagger', label: 'Stagger the bass note' },
-      {
-        kind: 'number',
-        key: 'chordModifierMag',
-        label: 'Modifier size',
-        min: 0.1,
-        max: 5,
-        step: 0.05,
-      },
-      { kind: 'boolean', key: 'lowerCaseMinorChords', label: 'Lower-case minor chords' },
-      { kind: 'boolean', key: 'lowerCaseBassNotes', label: 'Lower-case bass notes' },
-      { kind: 'boolean', key: 'allCapsNoteNames', label: 'All-caps note names' },
-      {
-        kind: 'number',
-        key: 'harmonyFretDist',
-        label: 'Distance to fretboard diagram',
-        min: 0,
-        max: 99,
-        step: 0.1,
-        unit: 'sp',
-      },
-    ],
-  },
-];
+/**
+ * Settings OTS offers that MuseScore 4.7's dialog does not show, kept from earlier reviewed slices (E13): the size of
+ * stacked chord-symbol modifiers, which MuseScore applies but has no control for.
+ */
+const OTS_ADDITIONS: Record<string, StyleFieldSpec[]> = {
+  'chord-symbols': [
+    {
+      kind: 'number',
+      key: 'chordStackedModifierMag',
+      label: 'Stacked modifier scale',
+      min: 0.1,
+      max: 5,
+      step: 0.05,
+    },
+  ],
+};
 
 /**
  * Keys MuseScore changes through a command rather than as a plain style value: concert pitch transposes the score
@@ -167,15 +72,20 @@ const QML_PAGES: StylePage[] = [
  */
 const COMMAND_KEYS = new Set(['concertPitch']);
 
-export const STYLE_PAGES: StylePage[] = [...(generated.pages as StylePage[]), ...QML_PAGES]
-  .map((page) => ({ ...page, fields: page.fields.filter((f) => !COMMAND_KEYS.has(f.key)) }))
-  .sort((a, b) => PAGE_ORDER.indexOf(a.code) - PAGE_ORDER.indexOf(b.code));
+/** The generated pages, in MuseScore's order (the generator keeps it), with OTS's additions after each page. */
+export const STYLE_PAGES: StylePage[] = (generated.pages as StylePage[]).map((page) => ({
+  ...page,
+  fields: [...page.fields, ...(OTS_ADDITIONS[page.code] ?? [])].filter(
+    (f) => !COMMAND_KEYS.has(f.key),
+  ),
+}));
 
 const ALL_FIELDS = STYLE_PAGES.flatMap((page) => page.fields);
 const FIELD_BY_KEY = new Map(ALL_FIELDS.map((f) => [f.key, f]));
 
 /** The engine's value as the dialog shows it: percentages scaled, numbers rounded off float noise. */
 function toDisplay(field: StyleFieldSpec, value: StyleValue): FieldValue {
+  if (Array.isArray(value)) return toDisplay(field, value[1]);
   if (typeof value !== 'number') return value;
   const shown = field.percent ? value * 100 : value;
   return Math.round(shown * 1e6) / 1e6;
@@ -185,8 +95,12 @@ function fromDisplay(
   value: FieldValue,
   engineValue: StyleValue | undefined,
 ): StyleValue {
-  // A choice is the engine's int, except for string-valued keys (font names).
-  if (field.kind === 'select') return typeof engineValue !== 'string' && /^-?\d+$/.test(String(value)) ? Number(value) : value;
+  // A choice is the engine's int or boolean (MuseScore's radio pairs), except for string-valued keys (font names).
+  if (field.kind === 'select') {
+    if (typeof engineValue === 'boolean' || value === 'true' || value === 'false')
+      return String(value) === 'true';
+    return typeof engineValue !== 'string' && /^-?\d+$/.test(String(value)) ? Number(value) : value;
+  }
   if (field.kind === 'number') return field.percent ? Number(value) / 100 : Number(value);
   return value;
 }
@@ -214,6 +128,7 @@ function dialogField(field: StyleFieldSpec, value: StyleValue): DialogField {
         options: optionsFor(field, value),
       };
     case 'number':
+    case 'point': // as its y alone; load() gives a point with an [x, y] value one field per axis
       return {
         kind: 'number',
         key: field.key,
@@ -228,6 +143,23 @@ function dialogField(field: StyleFieldSpec, value: StyleValue): DialogField {
 
 /** The loaded values, kept with the dialog's values so apply sends only what the user changed. */
 const LOADED = '__loaded';
+/**
+ * The engine values behind fields that are not one generated setting: a point or alignment edited per part, and the
+ * text styles' keys. Apply merges a part into its value, and types a text style value as the engine had it.
+ */
+const RAW = '__raw';
+const AXES = [
+  ['x', 0, 'horizontal'],
+  ['y', 1, 'vertical'],
+] as const;
+const round = (value: number) => Math.round(value * 1e6) / 1e6;
+
+/** A text style value back from the dialog, typed as the engine had it. */
+function rawFromDisplay(value: FieldValue, engineValue: StyleValue): StyleValue {
+  if (typeof engineValue === 'number') return Number(value);
+  if (typeof engineValue === 'boolean') return value === true || value === 'true';
+  return String(value);
+}
 
 export const styleDialog: DialogSpec = {
   title: 'Style',
@@ -240,6 +172,7 @@ export const styleDialog: DialogSpec = {
     ]);
     const fields: DialogField[] = [];
     const values: Record<string, FieldValue> = {};
+    const rawValues: Record<string, StyleValue> = {};
     const defaults: Record<string, FieldValue> = {};
     for (const page of STYLE_PAGES) {
       // Only what this engine has: a key it does not know (or cannot type) is not offered.
@@ -256,22 +189,80 @@ export const styleDialog: DialogSpec = {
           headed.add(group.toLowerCase());
           fields.push({ kind: 'heading', key: `${page.code}/${group}`, label: group });
         }
-        fields.push(dialogField(field, raw[field.key]));
-        values[field.key] = toDisplay(field, raw[field.key]);
-        if (field.key in rawDefaults)
-          defaults[field.key] = toDisplay(field, rawDefaults[field.key]);
+        const value = raw[field.key];
+        const fallback = rawDefaults[field.key];
+        if (Array.isArray(value)) rawValues[field.key] = value;
+        if (field.kind === 'point' && Array.isArray(value)) {
+          // An offset: one number field per axis, each with its own reset.
+          for (const [axis, i, name] of AXES) {
+            const key = partKey(field.key, axis);
+            fields.push({
+              kind: 'number',
+              key,
+              label: `${field.label} (${name})`,
+              min: -99,
+              max: 99,
+              step: 0.1,
+              unit: field.unit,
+            });
+            values[key] = round(value[i]);
+            if (Array.isArray(fallback)) defaults[key] = round(fallback[i]);
+          }
+          continue;
+        }
+        // A number MuseScore edits as a point's y (lyricsPosAbove) reads and writes y alone.
+        fields.push(dialogField(field, value));
+        values[field.key] = toDisplay(field, value);
+        if (fallback !== undefined) defaults[field.key] = toDisplay(field, fallback);
       }
     }
-    return { fields, values: { ...values, [LOADED]: JSON.stringify(values) }, defaults };
+    // MuseScore's Text styles page: a sub-page per editable text style.
+    const catalog = (await engine.getTextStyleCatalog()) ?? [];
+    if (catalog.length) {
+      const styleKeys = textStyleKeys(catalog);
+      const [styleRaw, styleDefaults] = await Promise.all([
+        engine.getStyleValues(styleKeys),
+        engine.getStyleDefaults(styleKeys),
+      ]);
+      catalog.forEach((entry, index) => {
+        const controls = textStyleControls(entry, styleRaw, styleDefaults);
+        if (!controls.length) return;
+        fields.push({ kind: 'page', key: `text-style-${index}`, label: entry.name, level: 1 });
+        for (const control of controls) {
+          fields.push(control.field);
+          values[control.field.key] = control.value;
+          if (control.defaultValue !== undefined)
+            defaults[control.field.key] = control.defaultValue;
+          rawValues[control.styleKey] = styleRaw[control.styleKey];
+        }
+      });
+    }
+    return {
+      fields,
+      values: { ...values, [LOADED]: JSON.stringify(values), [RAW]: JSON.stringify(rawValues) },
+      defaults,
+    };
   },
   async apply(engine, values) {
     const loaded: Record<string, FieldValue> =
       typeof values[LOADED] === 'string' ? JSON.parse(values[LOADED]) : {};
+    const rawValues: Record<string, StyleValue> =
+      typeof values[RAW] === 'string' ? JSON.parse(values[RAW]) : {};
     const changed: Record<string, StyleValue> = {};
     for (const [key, value] of Object.entries(values)) {
-      const field = FIELD_BY_KEY.get(key);
-      if (!field || (key in loaded && loaded[key] === value)) continue;
-      changed[key] = fromDisplay(field, value, loaded[key]);
+      if (key.startsWith('__') || (key in loaded && loaded[key] === value)) continue;
+      const [base, named] = key.split(':') as [string, PartKind | undefined];
+      const field = FIELD_BY_KEY.get(base);
+      const raw = rawValues[base];
+      if (!field && raw === undefined) continue;
+      // A part (one axis, one alignment, one font-style flag; or the y a plain number edits of a point): merged into
+      // what changed so far, else the loaded value.
+      const part: PartKind | undefined = named ?? (Array.isArray(raw) ? 'y' : undefined);
+      if (part && raw !== undefined) {
+        changed[base] = mergePart(changed[base] ?? raw, part, value);
+        continue;
+      }
+      changed[base] = field ? fromDisplay(field, value, loaded[key]) : rawFromDisplay(value, raw);
     }
     // MuseScore pairs the text font with the music font, unless the text font was chosen too.
     if (typeof changed.musicalSymbolFont === 'string' && !('musicalTextFont' in changed)) {

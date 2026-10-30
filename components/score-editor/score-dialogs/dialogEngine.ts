@@ -8,6 +8,7 @@ export function dialogEngineFor(score: Score | null): DialogEngine | null {
     getStyleValues,
     setStyleValues,
     getStyleDefaults,
+    getTextStyleCatalog,
     getMeasureProperties,
     setMeasureProperties,
     selectWithOptions,
@@ -27,6 +28,7 @@ export function dialogEngineFor(score: Score | null): DialogEngine | null {
     !getStyleValues ||
     !setStyleValues ||
     !getStyleDefaults ||
+    !getTextStyleCatalog ||
     !getMeasureProperties ||
     !setMeasureProperties ||
     !selectWithOptions ||
@@ -48,6 +50,7 @@ export function dialogEngineFor(score: Score | null): DialogEngine | null {
     getStyleValues: (keys) => getStyleValues.call(score, keys),
     setStyleValues: (values) => setStyleValues.call(score, values),
     getStyleDefaults: (keys) => getStyleDefaults.call(score, keys),
+    getTextStyleCatalog: () => getTextStyleCatalog.call(score),
     getMeasureProperties: () => getMeasureProperties.call(score),
     setMeasureProperties: (values) => setMeasureProperties.call(score, values),
     selectWithOptions: (page, x, y, options) => selectWithOptions.call(score, page, x, y, options),

@@ -31,8 +31,8 @@ function probe(): Record<string, unknown> {
 describe.skipIf(!fs.existsSync(nodeBuild))('Style dialog pages in the engine', () => {
   const report = fs.existsSync(nodeBuild) ? probe() : {};
 
-  it('reads every generated key except the two point offsets, each with a MuseScore default', () => {
-    expect(report.unreadable).toEqual(['lyricsPosAbove', 'lyricsPosBelow']);
+  it('reads every generated key, each with a MuseScore default', () => {
+    expect(report.unreadable).toEqual([]);
     expect(report.withoutDefault).toEqual([]);
     expect(report.enumDefaults).toEqual(report.enumsBefore);
   });
@@ -42,5 +42,21 @@ describe.skipIf(!fs.existsSync(nodeBuild))('Style dialog pages in the engine', (
     expect(report.enumsAfter).toEqual({ ottavaLineStyle: 2, pedalPlacement: 0, tupletDirection: 1 });
     expect(report.badEnum).toBe(false);
     expect(report.enumsAfterUndo).toEqual(report.enumsBefore);
+  });
+
+  it('writes a point offset as [x, y], refuses a malformed one, and undoes', () => {
+    expect(report.pointSet).toBe(true);
+    expect(report.pointAfter).toEqual([0.5, -4]);
+    expect(report.badPoint).toBe(false);
+    expect(report.pointAfterUndo).toEqual(report.pointBefore);
+  });
+
+  it('lists MuseScore’s text styles, all readable, and writes a colour with alpha and an alignment', () => {
+    expect(report.textStyles as number).toBeGreaterThan(50);
+    expect(report.firstTextStyle).toBe('Title');
+    expect(report.textStyleUnreadable).toEqual([]);
+    expect(report.titleSet).toBe(true);
+    expect(report.titleAfter).toEqual({ titleColor: '#FF000080', titleAlign: [0, 3] });
+    expect(report.badColor).toBe(false);
   });
 });

@@ -30,7 +30,7 @@ export interface ContextHitReport {
 }
 
 /** A style value as the engine stores it (`getStyleValues`): page sizes in inches, spatium in 1/1200 inch. */
-export type StyleValue = number | boolean | string;
+export type StyleValue = number | boolean | string | [number, number];
 
 /** MuseScore's Measure Properties for the measure the selection starts in (`getMeasureProperties`). */
 export interface MeasureProperties {
@@ -118,10 +118,36 @@ export interface StaffTextSwing {
   ratio: number;
 }
 
+/** One of MuseScore's editable text styles (`getTextStyleCatalog`): its display name and style keys by property. */
+export interface TextStyleEntry {
+  name: string;
+  keys: Partial<Record<TextStyleProperty, string>>;
+}
+export type TextStyleProperty =
+  | 'fontFace'
+  | 'fontSize'
+  | 'lineSpacing'
+  | 'sizeSpatiumDependent'
+  | 'fontStyle'
+  | 'color'
+  | 'align'
+  | 'offset'
+  | 'frameType'
+  | 'framePadding'
+  | 'frameWidth'
+  | 'frameRound'
+  | 'frameBorderColor'
+  | 'frameFillColor'
+  | 'musicalSymbolsScale'
+  | 'musicalSymbolsSize'
+  | 'position';
+
 /** Score methods behind the score dialogs that live outside `Score`'s own body (line budget). */
 export interface ScoreDialogMethods {
   /** MuseScore's defaults for the named style keys (the Style dialog's reset). */
   getStyleDefaults?: (keys: string[]) => Promise<Record<string, StyleValue>>;
+  /** MuseScore's Text styles page: each editable text style and its style keys by property (fontFace, color, …). */
+  getTextStyleCatalog?: () => Promise<TextStyleEntry[]>;
   getStaffTextSwing?: () => Promise<Partial<StaffTextSwing>>;
   setStaffTextSwing?: (values: Omit<StaffTextSwing, 'system'>) => Promise<boolean> | boolean;
   getTimeSigProperties?: () => Promise<Partial<TimeSigProperties>>;

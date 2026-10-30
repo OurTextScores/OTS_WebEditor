@@ -4,22 +4,66 @@
 // PageSettings, EditStyle and "load-style"). Values are read and written by MuseScore's style key names
 // (MStyle::valueName), raw as the engine stores them: page sizes and margins in inches, spatium in
 // engine units (DPI 1200). Scalar types are offered, and the enum types the Style dialog's choices use, as their
-// int values (MuseScore's own combo boxes hold those ints); anything else is reported as unsupported.
+// int values (MuseScore's own combo boxes hold those ints), points as [x, y], alignments as [horizontal, vertical]
+// ints, and colours as "#RRGGBBAA"; anything else is unsupported.
 #include "global/serialization/json.h"
 #include "global/io/buffer.h"
 #include "engraving/editing/editstyle.h"
 #include "engraving/style/style.h"
 #include "engraving/style/defaultstyle.h"
+#include "engraving/style/textstyle.h"
 
-static bool styleValueToJson(const engraving::PropertyValue& value, engraving::P_TYPE type, JsonValue& out)
+// "#RRGGBBAA": the alpha too (a text frame's fill is often transparent), which Color::toString leaves out.
+static std::string colorHex(const Color& c)
 {
+    char hex[10];
+    std::snprintf(hex, sizeof(hex), "#%02X%02X%02X%02X", c.red(), c.green(), c.blue(), c.alpha());
+    return hex;
+}
+static bool colorFromHex(const String& text, Color& out)
+{
+    const std::string s = text.toStdString();
+    if ((s.size() != 7 && s.size() != 9) || s[0] != '#') return false;
+    unsigned v[4] = { 0, 0, 0, 255 };
+    for (size_t i = 0; i * 2 + 1 < s.size(); ++i) {
+        const std::string byte = s.substr(1 + i * 2, 2);
+        if (byte.find_first_not_of("0123456789abcdefABCDEF") != std::string::npos) return false;
+        v[i] = static_cast<unsigned>(std::stoul(byte, nullptr, 16));
+    }
+    out = Color(int(v[0]), int(v[1]), int(v[2]), int(v[3]));
+    return true;
+}
+
+// Sets result[key] to the value as JSON; false, setting nothing, for a type the dialogs do not offer.
+static bool setStyleJson(JsonObject& result, const std::string& key, const engraving::PropertyValue& value,
+                         engraving::P_TYPE type)
+{
+    JsonValue out;
     switch (type) {
-    case engraving::P_TYPE::BOOL: out = JsonValue(value.toBool()); return true;
-    case engraving::P_TYPE::INT: out = JsonValue(value.toInt()); return true;
-    case engraving::P_TYPE::REAL: out = JsonValue(value.toReal()); return true;
-    case engraving::P_TYPE::SPATIUM: out = JsonValue(value.value<engraving::Spatium>().val()); return true;
-    case engraving::P_TYPE::MILLIMETRE: out = JsonValue(value.value<engraving::Millimetre>().val()); return true;
-    case engraving::P_TYPE::STRING: out = JsonValue(value.value<String>()); return true;
+    case engraving::P_TYPE::BOOL: out = JsonValue(value.toBool()); break;
+    case engraving::P_TYPE::INT: out = JsonValue(value.toInt()); break;
+    case engraving::P_TYPE::REAL: out = JsonValue(value.toReal()); break;
+    case engraving::P_TYPE::SPATIUM: out = JsonValue(value.value<engraving::Spatium>().val()); break;
+    case engraving::P_TYPE::MILLIMETRE: out = JsonValue(value.value<engraving::Millimetre>().val()); break;
+    case engraving::P_TYPE::STRING: out = JsonValue(value.value<String>()); break;
+    // A point (the Style dialog's offsets, in sp) as [x, y].
+    case engraving::P_TYPE::POINT: {
+        const engraving::PointF p = value.value<engraving::PointF>();
+        JsonArray xy;
+        xy.append(p.x());
+        xy.append(p.y());
+        result.set(key, xy);
+        return true;
+    }
+    case engraving::P_TYPE::ALIGN: {
+        const engraving::Align a = value.value<engraving::Align>();
+        JsonArray hv;
+        hv.append(int(a.horizontal));
+        hv.append(int(a.vertical));
+        result.set(key, hv);
+        return true;
+    }
+    case engraving::P_TYPE::COLOR: out = JsonValue(colorHex(value.value<Color>())); break;
     // Enums read as ints through PropertyValue's enum-to-int conversion.
     case engraving::P_TYPE::GLISS_STYLE: case engraving::P_TYPE::GLISS_TYPE: case engraving::P_TYPE::ALIGN_H:
     case engraving::P_TYPE::PLACEMENT_V: case engraving::P_TYPE::PLACEMENT_H: case engraving::P_TYPE::DIRECTION_V:
@@ -27,9 +71,13 @@ static bool styleValueToJson(const engraving::PropertyValue& value, engraving::P
     case engraving::P_TYPE::TIE_DOTS_PLACEMENT: case engraving::P_TYPE::TIMESIG_PLACEMENT:
     case engraving::P_TYPE::TIMESIG_STYLE: case engraving::P_TYPE::TIMESIG_MARGIN:
     case engraving::P_TYPE::NOTE_SPELLING_TYPE: case engraving::P_TYPE::LINE_TYPE:
-        out = JsonValue(value.toInt()); return true;
+    case engraving::P_TYPE::MEASURE_NUMBER_PLACEMENT: case engraving::P_TYPE::LH_TAPPING_SYMBOL:
+    case engraving::P_TYPE::RH_TAPPING_SYMBOL:
+        out = JsonValue(value.toInt()); break;
     default: return false;
     }
+    result.set(key, out);
+    return true;
 }
 
 // An enum style value from its int, typed as the style key stores it (MuseScore's PropertyValue::fromQVariant,
@@ -53,6 +101,9 @@ static bool styleEnumFromInt(engraving::P_TYPE type, int v, engraving::PropertyV
     case P_TYPE::TIMESIG_MARGIN: out = PropertyValue(TimeSigVSMargin(v)); return true;
     case P_TYPE::NOTE_SPELLING_TYPE: out = PropertyValue(NoteSpellingType(v)); return true;
     case P_TYPE::LINE_TYPE: out = PropertyValue(LineType(v)); return true;
+    case P_TYPE::MEASURE_NUMBER_PLACEMENT: out = PropertyValue(MeasureNumberPlacement(v)); return true;
+    case P_TYPE::LH_TAPPING_SYMBOL: out = PropertyValue(LHTappingSymbol(v)); return true;
+    case P_TYPE::RH_TAPPING_SYMBOL: out = PropertyValue(RHTappingSymbol(v)); return true;
     default: return false;
     }
 }
@@ -68,6 +119,28 @@ static bool styleValueFromJson(const JsonValue& json, engraving::P_TYPE type, en
     case engraving::P_TYPE::MILLIMETRE:
         if (!json.isNumber()) return false; out = engraving::Millimetre(json.toDouble()); return true;
     case engraving::P_TYPE::STRING: if (!json.isString()) return false; out = json.toString(); return true;
+    case engraving::P_TYPE::POINT: {
+        if (!json.isArray()) return false;
+        const JsonArray xy = json.toArray();
+        if (xy.size() != 2 || !xy.at(0).isNumber() || !xy.at(1).isNumber()) return false;
+        out = engraving::PropertyValue(engraving::PointF(xy.at(0).toDouble(), xy.at(1).toDouble()));
+        return true;
+    }
+    case engraving::P_TYPE::ALIGN: {
+        if (!json.isArray()) return false;
+        const JsonArray hv = json.toArray();
+        if (hv.size() != 2 || !hv.at(0).isNumber() || !hv.at(1).isNumber()) return false;
+        const int h = hv.at(0).toInt(), v = hv.at(1).toInt();
+        if (h < 0 || h > 3 || v < 0 || v > 3) return false;
+        out = engraving::PropertyValue(engraving::Align(engraving::AlignH(h), engraving::AlignV(v)));
+        return true;
+    }
+    case engraving::P_TYPE::COLOR: {
+        Color c;
+        if (!json.isString() || !colorFromHex(json.toString(), c)) return false;
+        out = engraving::PropertyValue::fromValue(c);
+        return true;
+    }
     default: return json.isNumber() && styleEnumFromInt(type, json.toInt(), out);
     }
 }
@@ -85,10 +158,7 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* getStyleValues(uintptr_t score_ptr, const ch
         const String name = keys.at(i).toString();
         const engraving::Sid sid = engraving::MStyle::styleIdx(name);
         if (sid == engraving::Sid::NOSTYLE) continue;
-        JsonValue value;
-        if (styleValueToJson(score->style().styleV(sid), engraving::MStyle::valueType(sid), value)) {
-            result.set(name.toStdString(), value);
-        }
+        setStyleJson(result, name.toStdString(), score->style().styleV(sid), engraving::MStyle::valueType(sid));
     }
     return response(JsonDocument(result).toJson(JsonDocument::Format::Compact));
 }
@@ -106,12 +176,47 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* getStyleDefaults(uintptr_t score_ptr, const 
         const String name = keys.at(i).toString();
         const engraving::Sid sid = engraving::MStyle::styleIdx(name);
         if (sid == engraving::Sid::NOSTYLE) continue;
-        JsonValue value;
-        if (styleValueToJson(defaults.styleV(sid), engraving::MStyle::valueType(sid), value)) {
-            result.set(name.toStdString(), value);
-        }
+        setStyleJson(result, name.toStdString(), defaults.styleV(sid), engraving::MStyle::valueType(sid));
     }
     return response(JsonDocument(result).toJson(JsonDocument::Format::Compact));
+}
+
+// MuseScore's Text styles page (EditStyle's textStyles list, editableTextStyles()): each style's display name and
+// its style keys by property, [{name, keys: {fontFace: "titleFontFace", …}}]. Properties a style does not have, or
+// keeps in a placeholder key ("dummy…"), are left out.
+EMSCRIPTEN_KEEPALIVE const uint8_t* getTextStyleCatalog(uintptr_t score_ptr, int excerptId)
+{
+    auto* score = getScore(score_ptr, excerptId);
+    if (!score) return textResponse("Invalid score", 1);
+    using P = engraving::TextStylePropertyType;
+    static const std::pair<P, const char*> names[] = {
+        { P::FontFace, "fontFace" }, { P::FontSize, "fontSize" }, { P::LineSpacing, "lineSpacing" },
+        { P::SizeSpatiumDependent, "sizeSpatiumDependent" }, { P::FontStyle, "fontStyle" }, { P::Color, "color" },
+        { P::TextAlign, "align" }, { P::Offset, "offset" }, { P::FrameType, "frameType" },
+        { P::FramePadding, "framePadding" }, { P::FrameWidth, "frameWidth" }, { P::FrameRound, "frameRound" },
+        { P::FrameBorderColor, "frameBorderColor" }, { P::FrameFillColor, "frameFillColor" },
+        { P::MusicalSymbolsScale, "musicalSymbolsScale" }, { P::MusicalSymbolsSize, "musicalSymbolsSize" },
+        { P::Position, "position" },
+    };
+    JsonArray styles;
+    for (engraving::TextStyleType tid : engraving::editableTextStyles()) {
+        const engraving::TextStyle* ts = engraving::textStyle(tid);
+        if (!ts) continue;
+        JsonObject keys;
+        for (const auto& prop : *ts) {
+            if (prop.type == P::Undefined || prop.sid == engraving::Sid::NOSTYLE) continue;   // an unused slot
+            const String key = String::fromAscii(engraving::MStyle::valueName(prop.sid));
+            if (key.startsWith(u"dummy")) continue;
+            for (const auto& [type, name] : names) {
+                if (type == prop.type) keys.set(name, key);
+            }
+        }
+        JsonObject entry;
+        entry.set("name", score->getTextStyleUserName(tid).str);
+        entry.set("keys", keys);
+        styles.append(entry);
+    }
+    return response(JsonDocument(styles).toJson(JsonDocument::Format::Compact));
 }
 
 // Sets the given keys as one undoable edit. False, changing nothing, if any key is unknown or mistyped.

@@ -1,5 +1,5 @@
 import type { MeasureProperties, SelectOptions, StaffProperties, StyleValue } from '../../../lib/webmscore-loader';
-import type { StaffTextSwing, TimeSigProperties } from '../../../lib/webmscore-score-settings-types';
+import type { StaffTextSwing, TextStyleEntry, TimeSigProperties } from '../../../lib/webmscore-score-settings-types';
 import { staffTextPropertiesDialog, systemTextPropertiesDialog } from './staffTextDialog';
 import { styleDialog } from './styleDialog';
 import { timeSigPropertiesDialog, type TimeSigUpdate } from './timeSigDialog';
@@ -34,7 +34,15 @@ export type DialogField =
     }
   | { readonly kind: 'heading'; readonly key: string; readonly label: string }
   /** Starts a page: a dialog with pages shows a page list and one page at a time (MuseScore's Style dialog). */
-  | { readonly kind: 'page'; readonly key: string; readonly label: string }
+  | {
+      readonly kind: 'page';
+      readonly key: string;
+      readonly label: string;
+      /** 1: a sub-page, indented under the page before it (MuseScore's text styles under Text styles). */
+      readonly level?: 1;
+    }
+  /** A colour as "#RRGGBBAA"; the picker edits the RGB and keeps the alpha. */
+  | { readonly kind: 'color'; readonly key: string; readonly label: string }
   | {
       /**
        * One row of MuseScore's beam-group editor: the value holds a digit per note (0 beamed to the previous note,
@@ -51,6 +59,7 @@ export interface DialogEngine {
   getStyleValues(keys: string[]): Promise<Record<string, StyleValue>>;
   setStyleValues(values: Record<string, StyleValue>): Promise<boolean> | boolean;
   getStyleDefaults(keys: string[]): Promise<Record<string, StyleValue>>;
+  getTextStyleCatalog(): Promise<TextStyleEntry[]>;
   getMeasureProperties(): Promise<Partial<MeasureProperties>>;
   setMeasureProperties(values: Partial<MeasureProperties>): Promise<boolean> | boolean;
   selectWithOptions(page: number, x: number, y: number, options: SelectOptions): Promise<boolean> | boolean;
