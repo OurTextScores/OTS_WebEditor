@@ -103,6 +103,26 @@ export function assertFidelity(id, xml, { transposed = false } = {}) {
       assert.ok(measures[index].querySelector(`barline[location="left"] > ending[number="${number}"][type="start"]`));
       assert.ok(measures[index].querySelector(`barline[location="right"] > ending[number="${number}"][type="stop"]`));
     }
+  } else if (id === 'chord-ties-system-break') {
+    const chordNotes = pitched.slice(0, 4);
+    assert.deepEqual(chordNotes.map(note => text(note, 'pitch > step')), ['C', 'E', 'C', 'E']);
+    assert.deepEqual(chordNotes.map(note => text(note, 'pitch > octave')), ['4', '4', '4', '4']);
+    assert.deepEqual(chordNotes.map(note => note.closest('measure')?.getAttribute('number')), ['1', '1', '2', '2']);
+    assert.deepEqual(chordNotes.map(note => Boolean(note.querySelector('chord'))), [false, true, false, true]);
+    assert.deepEqual(chordNotes.map(note => note.querySelector('tie')?.getAttribute('type')), ['start', 'start', 'stop', 'stop']);
+    assert.deepEqual(chordNotes.map(note => note.querySelector('notations > tied')?.getAttribute('type')), ['start', 'start', 'stop', 'stop']);
+    assert.ok(document.querySelector('measure:nth-of-type(2) > print[new-system="yes"]'));
+    assert.equal(pitched.length, 8);
+  } else if (id === 'two-part-independence') {
+    const parts = [...document.querySelectorAll('score-partwise > part')];
+    assert.equal(parts.length, 2);
+    assert.deepEqual(parts.map(part => part.querySelectorAll('measure').length), [2, 2]);
+    assert.deepEqual(parts.map(part => text(part, 'clef > sign')), ['G', 'F']);
+    const firstMeasure = part => [...part.querySelector('measure').querySelectorAll('note')].map(note => [text(note, 'pitch > step'), text(note, 'pitch > octave'), text(note, 'type')]);
+    assert.deepEqual(firstMeasure(parts[0]), [['C','5','quarter'],['D','5','quarter'],['E','5','quarter'],['F','5','quarter']]);
+    assert.deepEqual(firstMeasure(parts[1]), [['C','3','half'],['G','2','half']]);
+    const lowerSecond = [...parts[1].querySelectorAll('measure')][1];
+    assert.deepEqual([...lowerSecond.querySelectorAll('note')].map(note => [text(note, 'pitch > step'), text(note, 'pitch > octave'), text(note, 'type')]), [['D','3','half'],['G','2','half']]);
   } else if (id === 'hairpin-system-break' || id === 'pedal-system-break') {
     const isHairpin = id === 'hairpin-system-break';
     const spanners = [...document.querySelectorAll(isHairpin ? 'wedge' : 'pedal')];
@@ -223,6 +243,12 @@ export function assertFidelityRendering(id, svg) {
     assert.ok(count('HairpinSegment') >= 2 && count('StaffLines') >= 10, 'hairpin crosses systems');
   } else if (id === 'pedal-system-break') {
     assert.ok(count('PedalSegment') >= 2 && count('StaffLines') >= 10, 'pedal line crosses systems');
+  } else if (id === 'chord-ties-system-break') {
+    assert.ok(count('TieSegment') >= 4 && count('StaffLines') >= 10, 'both chord ties cross systems');
+    assert.equal(count('Note'), 8);
+  } else if (id === 'two-part-independence') {
+    assert.equal(count('Note'), 12, 'both parts render their notes');
+    assert.ok(count('StaffLines') >= 10, 'both parts render staves');
   } else if (id === 'octave-system-break') {
     assert.ok(count('OttavaSegment') >= 2 && count('StaffLines') >= 10, 'octave line crosses systems');
   } else if (id === 'polyphony-accidentals') {
@@ -315,7 +341,7 @@ export async function verifyFidelity(WebMscore, renderer, output, bundle) {
       let expectedEditedPitches;
       const measurePitches = xml => [...new JSDOM(xml, { contentType: 'application/xml' }).window.document.querySelectorAll('measure')]
         .map(measure => [...measure.querySelectorAll('note > pitch')].map(pitch => pitch.textContent.trim()));
-      const pitchEditMeasures = { 'tie-system-break': 2, 'slur-system-break': 2, 'cross-staff': 1, 'hidden-note': 1, 'pickup-lyrics': 2, 'dynamics-articulations': 1, 'octave-system-break': 2, 'meter-key-change': 2, 'repeat-endings': 3, 'hairpin-system-break': 2, 'pedal-system-break': 2 };
+      const pitchEditMeasures = { 'tie-system-break': 2, 'slur-system-break': 2, 'cross-staff': 1, 'hidden-note': 1, 'pickup-lyrics': 2, 'dynamics-articulations': 1, 'octave-system-break': 2, 'meter-key-change': 2, 'repeat-endings': 3, 'hairpin-system-break': 2, 'pedal-system-break': 2, 'chord-ties-system-break': 2, 'two-part-independence': 1 };
       if (fixture.id === 'transposing-enharmonic') {
         assert.equal(await score.transpose(1, 0, 0, 4, true, true, false), true, 'transpose up a major second');
       } else if (Object.hasOwn(pitchEditMeasures, fixture.id)) {
@@ -330,6 +356,7 @@ export async function verifyFidelity(WebMscore, renderer, output, bundle) {
         const afterPitchEdit = await score.saveXml();
         const beforePitches = measurePitches(beforePitchEdit), afterPitches = measurePitches(afterPitchEdit);
         assert.deepEqual(afterPitches.slice(0, targetMeasure), beforePitches.slice(0, targetMeasure), 'protected passage is not the edit target');
+        assert.deepEqual(afterPitches.slice(targetMeasure + 1), beforePitches.slice(targetMeasure + 1), 'other measures and parts are not changed');
         assert.notDeepEqual(afterPitches[targetMeasure], beforePitches[targetMeasure], 'pitch edit changes the target measure');
         expectedEditedPitches = afterPitches;
         assert.equal(await score.clearSelection(), true, 'clear selection before comparing the edited rendering');

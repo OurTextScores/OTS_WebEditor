@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "createdAt": "2026-10-29T02:10:59.216Z",
-  "commit": "b87461233a7b34a5a1ad6bdeb532368d5ef55c1a",
+  "createdAt": "2026-10-29T06:01:41.374Z",
+  "commit": "dd41b607bb1f5f4a6b08e5bde4e170b5d6e2dc1d",
   "dirty": true,
-  "diffSha256": "10763d4406d4f753a76e916cd3e50bf9d762b93a097058a3d043f96e007a7f25",
-  "engineWasmSha256": "87ef39a213fdc1d329f8960710b2aba48550ef17627f03548a7d1d15aba8ad45",
+  "diffSha256": "33bfb634a1c4175419e7af2d6b41ed114ea6b0c7d8a33d8b7b43df65dfcd03c3",
+  "engineWasmSha256": "f4c1fc8592626104fba8cbe3bec5d0aa8b7568e126c12fd5432ec6e7be195171",
   "target": "browser-package-in-node",
   "node": "v24.11.1",
   "platform": "Linux x64",
@@ -24,10 +24,10 @@
   "highlightSelection": false,
   "fonts": "fontconfig font and configuration file contents; engine data and resources recorded separately",
   "systemFontsSha256": "6012946011c43d861afa7247283e2dfa2e6d5aa2385e6de5c39d8bfbac0df309",
-  "resourceRoot": "/tmp/ots-visual-resources-ubPMkp",
+  "resourceRoot": "/tmp/ots-visual-resources-vNB8cr",
   "resourceTreeSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-  "fixtureManifestSha256": "4a360d077266e4164765dd1fd7b87039b8739e712918d4d9e8e62768580c3259",
-  "captureCodeSha256": "befaf595714991c3668044b06746a224aa934103d6c5c37457b88ec3249caec9",
+  "fixtureManifestSha256": "2b8f3180602057fb8c0ee4e33b44db7dc5e16b491f15d6d9113f5cd7f979e53a",
+  "captureCodeSha256": "04ba82329aafd7a0151f9ddbc6512c8482494927047e48a69ca3985bed4655d8",
   "rendererCodeSha256": "dd5572c506eb977d4a0992b83dbe2972351acc329f7ae60c003c3017b20859aa",
   "captureDriverSha256": "23c4cd57ee46cac49a34537465c0c24a9689b199238dea6abc65483250563bad",
   "directEditCodeSha256": "a7f44b8b6a64ef0b90c3a3f012b5eab20dba1fd2570af8b9ec259b7375820780",
@@ -164,6 +164,20 @@
       "file": "pedal-system-break.png",
       "fixtureSha256": "ff24a40c19a25b08733a4dd68e8b6e73d3ca9899b78edca2a3f5aa7919332b66",
       "imageSha256": "c6f4d175b1c61a81c3caa7be1c36382fac5f6d8050a406896183fe42e04f9deb",
+      "page": 0
+    },
+    {
+      "id": "chord-ties-system-break",
+      "file": "chord-ties-system-break.png",
+      "fixtureSha256": "2826d8bbf244dd2442f24ed1999fcfe7223c03c1a2e70443f2c16f7138474f1d",
+      "imageSha256": "f53f930b3ad6896feb3de995d906ee46036ca497f14fb8886e1e1de604b8f526",
+      "page": 0
+    },
+    {
+      "id": "two-part-independence",
+      "file": "two-part-independence.png",
+      "fixtureSha256": "18cced37b289236288f9d9789cdbdba2f79ff746620419b154c1a52292d44f3a",
+      "imageSha256": "188d7c4f6e7958d3281016f179cc9a1583f49251a1d84808e79fd8a5689da2f8",
       "page": 0
     }
   ],
