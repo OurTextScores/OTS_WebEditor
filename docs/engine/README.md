@@ -277,8 +277,8 @@ limited by the lack of a universal native mutation generation: use it as a diagn
 
 ## MusicXML fidelity and visual-review pilot
 
-Eighteen original fixtures and their provenance live in `tools/musescore/fixtures/osmd-fidelity/`. They cover nested tuplets,
-cross-system ties, slurs, octave lines, hairpins and pedal lines; cross-staff polyphony and accidentals; hidden notes; pickup lyrics; dynamics and articulations; transposition and enharmonic spelling; grace notes, ornaments and a mid-measure clef; multi-measure rests; meter and key changes; repeat endings; and a two-page layout. OSMD's BSD licence permits reuse subject to its
+Twenty original fixtures and their provenance live in `tools/musescore/fixtures/osmd-fidelity/`. They cover nested tuplets,
+cross-system ties (including chords), slurs, octave lines, hairpins and pedal lines; cross-staff polyphony and accidentals; independent parts; hidden notes; pickup lyrics; dynamics and articulations; transposition and enharmonic spelling; grace notes, ornaments and a mid-measure clef; multi-measure rests; meter and key changes; repeat endings; and a two-page layout. OSMD's BSD licence permits reuse subject to its
 conditions; individual scores and transcriptions may have separate rights or notices, so inspect each file before
 redistributing it. The pilot fixtures are original, not copies of OSMD scores.
 
@@ -288,7 +288,7 @@ MS47_VERIFY_FIDELITY=1 MS47_OUTPUT=/tmp/ots-fidelity-check npm run verify:engine
 ```
 
 The verifier checks source, import/export, unedited reload, an edit, export and edited reload, and checks targeted
-SVG elements as well as rendering. The tie, slur, cross-staff, hidden-note, lyric, dynamics, octave-line, hairpin, pedal, meter/key-change and repeat-ending cases edit a note pitch in a separate measure; the transposition case transposes the score by a major second. Other cases use a title edit. It writes `fidelity-failures.json` to `MS47_OUTPUT` and fails if any expectation
+SVG elements as well as rendering. The tie, chord-tie, slur, cross-staff, hidden-note, lyric, dynamics, octave-line, hairpin, pedal, meter/key-change and repeat-ending cases edit a note pitch in a separate measure. The two-part case edits the first part while checking the second remains unchanged; the transposition case transposes the score by a major second. Other cases use a title edit. It writes `fidelity-failures.json` to `MS47_OUTPUT` and fails if any expectation
 fails. The nested-tuplet fixture still imports with extra rests and dots, and exports as five beats instead of four; the input needs independent musical review. A patch fixes the observed pickup lyric endpoint on import and round trip, with an additional two-verse check. The nested-tuplet failures are not suppressed or presented as a passing semantic suite.
 
 The repeat-endings case also checks the engine's playback timeline after import, unedited reload,
@@ -356,7 +356,7 @@ public/test_scores/three_notes_cde.musicxml` checks selection, no-ops, range, un
 
 ### Pinned visual regression check
 
-The `Engraving visual report` workflow captures the eighteen original fixtures (including both pages of the multi-page case) with the packaged browser engine in a
+The `Engraving visual report` workflow captures the twenty original fixtures (including both pages of the multi-page case) with the packaged browser engine in a
 Playwright container pinned by digest. It compares them with `tools/musescore/visual-baseline/` and uploads the
 current capture, full images, red overlays, crops and JSON/Markdown report on every run. It checks image hashes,
 fixture hashes, browser and Node versions, capture code and font/configuration content; environment mismatches and

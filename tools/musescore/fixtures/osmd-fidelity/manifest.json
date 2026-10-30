@@ -203,6 +203,28 @@
       "edit": "pitchUp a note in separate measure 3",
       "test": "tools/musescore/verify-fidelity.mjs",
       "inputFormat": "musicxml"
+    },
+    {
+      "id": "chord-ties-system-break",
+      "file": "chord-ties-system-break.musicxml",
+      "sha256": "2826d8bbf244dd2442f24ed1999fcfe7223c03c1a2e70443f2c16f7138474f1d",
+      "origin": "Original minimal fixture authored for OTS_Web; no third-party score copied.",
+      "license": "GPL-3.0-only",
+      "expectation": "two simultaneous chord ties across a system break",
+      "edit": "pitchUp a note in separate measure 3",
+      "test": "tools/musescore/verify-fidelity.mjs",
+      "inputFormat": "musicxml"
+    },
+    {
+      "id": "two-part-independence",
+      "file": "two-part-independence.musicxml",
+      "sha256": "18cced37b289236288f9d9789cdbdba2f79ff746620419b154c1a52292d44f3a",
+      "origin": "Original minimal fixture authored for OTS_Web; no third-party score copied.",
+      "license": "GPL-3.0-only",
+      "expectation": "two aligned parts with distinct clefs, pitches and rhythms",
+      "edit": "pitchUp a note in part 1 measure 2",
+      "test": "tools/musescore/verify-fidelity.mjs",
+      "inputFormat": "musicxml"
     }
   ]
 }

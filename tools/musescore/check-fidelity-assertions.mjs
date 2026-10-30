@@ -22,6 +22,8 @@ const changes = {
   'repeat-endings': xml => xml.replace('direction="backward"', 'direction="forward"'),
   'hairpin-system-break': xml => xml.replace('type="crescendo"', 'type="diminuendo"'),
   'pedal-system-break': xml => xml.replace('type="stop" line="yes"', 'type="change" line="yes"'),
+  'chord-ties-system-break': xml => xml.replace('<tie type="start"/>', ''),
+  'two-part-independence': xml => xml.replace('<sign>F</sign>', '<sign>G</sign>'),
 };
 for (const [id, mutate] of Object.entries(changes)) {
   const xml = await readFile(new URL(`./fixtures/osmd-fidelity/${id}.musicxml`, import.meta.url), 'utf8');
@@ -88,6 +90,8 @@ const renderedCases = [
   ['repeat-endings', '<path class="VoltaSegment"/>'.repeat(2), '<path class="VoltaSegment"/>'],
   ['hairpin-system-break', '<path class="StaffLines"/>'.repeat(10) + '<path class="HairpinSegment"/>'.repeat(2), '<path class="HairpinSegment"/>'],
   ['pedal-system-break', '<path class="StaffLines"/>'.repeat(10) + '<path class="PedalSegment"/>'.repeat(2), '<path class="PedalSegment"/>'],
+  ['chord-ties-system-break', '<path class="StaffLines"/>'.repeat(10) + '<path class="TieSegment"/>'.repeat(4) + '<path class="Note"/>'.repeat(8), '<path class="TieSegment"/>'],
+  ['two-part-independence', '<path class="StaffLines"/>'.repeat(10) + '<path class="Note"/>'.repeat(12), '<path class="Note"/>'],
 ];
 for (const [id, body, remove] of renderedCases) {
   const svg = `<svg>${body}</svg>`;
@@ -122,3 +126,21 @@ for (const [id, endpoint] of [
 const pedalInput = await readFile(new URL('./fixtures/osmd-fidelity/pedal-system-break.musicxml', import.meta.url), 'utf8');
 assert.throws(() => assertFidelity('pedal-system-break', pedalInput.replace('line="yes"', 'line="no"')));
 console.log('hairpin and pedal: endpoint and pedal style mutations detected');
+
+const chordTies = await readFile(new URL('./fixtures/osmd-fidelity/chord-ties-system-break.musicxml', import.meta.url), 'utf8');
+for (const [before, after] of [
+  ['<step>E</step><octave>4</octave></pitch><duration>16</duration><tie type="start"/>', '<step>E</step><octave>4</octave></pitch><duration>16</duration>'],
+  ['<step>E</step><octave>4</octave></pitch><duration>16</duration><tie type="stop"/>', '<step>E</step><octave>4</octave></pitch><duration>16</duration>'],
+  ['<note><chord/><pitch><step>E</step>', '<note><pitch><step>E</step>'],
+  ['<tied type="stop"/>', ''],
+  ['<step>E</step><octave>4</octave>', '<step>E</step><octave>5</octave>'],
+]) {
+  const changed = chordTies.replace(before, after);
+  assert.notEqual(changed, chordTies);
+  assert.throws(() => assertFidelity('chord-ties-system-break', changed));
+}
+const twoParts = await readFile(new URL('./fixtures/osmd-fidelity/two-part-independence.musicxml', import.meta.url), 'utf8');
+const changedLowerPart = twoParts.replace('<step>D</step><octave>3</octave>', '<step>E</step><octave>3</octave>');
+assert.notEqual(changedLowerPart, twoParts);
+assert.throws(() => assertFidelity('two-part-independence', changedLowerPart));
+console.log('chord ties and independent part mutations detected');
