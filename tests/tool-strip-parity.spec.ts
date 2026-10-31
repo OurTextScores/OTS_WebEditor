@@ -20,6 +20,7 @@ const ELSEWHERE: Record<string, string> = {
   'input-timesig-denominator': 'the custom time signature dialog the Time menu opens',
   'btn-new-score': 'File ▸ New Score',
   'btn-load-scores-to-compare': 'File ▸ Compare Scores',
+  'btn-toggle-palettes': 'the Palettes icon in the activity bar (also View ▸ Palettes and F9)',
 };
 
 /** Escape closes an open menu or popover; with none open it would clear the selection, so only press it for one. */

@@ -34,7 +34,6 @@ const CHROME = new Set([
   'btn-select-all',
   'dropdown-selection-filter',
   'btn-delete',
-  'btn-toggle-palettes',
   'btn-toggle-panels',
   'link-help',
   // The palette's own beamed-notes picture (BeamIcon), not a drawing of ours.

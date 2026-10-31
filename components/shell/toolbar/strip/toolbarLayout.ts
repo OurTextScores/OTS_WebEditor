@@ -11,7 +11,6 @@ import {
   FlipVertical2,
   Footprints,
   Guitar,
-  LayoutPanelLeft,
   Layers,
   Link2,
   ListFilter,
@@ -247,13 +246,6 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
     id: 'view',
     label: 'View',
     controls: [
-      {
-        kind: 'command',
-        testId: 'btn-toggle-palettes',
-        label: 'Palettes',
-        icon: LayoutPanelLeft,
-        commandId: 'view.panel.palettes',
-      },
       {
         kind: 'command',
         testId: 'btn-toggle-panels',
