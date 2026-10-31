@@ -46,10 +46,10 @@ jobs:
       - run: npm ci
       - name: Install ${{ matrix.browser }}
         run: npx playwright install --with-deps ${{ matrix.browser }}
-      # WebKit plays audio through GStreamer/PulseAudio; without a sound server its
-      # AudioContext never leaves "suspended" and every playback test times out.
-      - name: Audio sink for WebKit
-        if: matrix.browser == 'webkit'
+      # Firefox and WebKit need an audio output on headless runners for their
+      # AudioContext to resume. Chromium supplies its own fake output.
+      - name: Audio sink for Firefox and WebKit
+        if: matrix.browser == 'firefox' || matrix.browser == 'webkit'
         run: |
           sudo apt-get update
           sudo apt-get install -y pulseaudio gstreamer1.0-plugins-good gstreamer1.0-pulseaudio
