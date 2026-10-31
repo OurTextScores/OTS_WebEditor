@@ -1,6 +1,18 @@
-import { Bot, Columns2, FileCode, History, Pencil, type LucideIcon } from 'lucide-react';
+import {
+  Bot,
+  Columns2,
+  FileCode,
+  History,
+  Palette,
+  Pencil,
+  Piano,
+  SlidersHorizontal,
+  Undo2,
+  type LucideIcon,
+} from 'lucide-react';
 import type { CommandId } from '../../lib/commands/types';
 import type { ShellView } from './shellStore';
+import type { DockTab } from './useWorkspaceDock';
 import type { OtsActiveActivity } from './workspaceMode';
 
 /**
@@ -19,6 +31,44 @@ export const ACTIVITIES: readonly ActivityDefinition[] = [
   { id: 'write', label: 'Write', icon: Pencil, commandId: 'shell.activity.write' },
   { id: 'compare', label: 'Compare', icon: Columns2, commandId: 'shell.activity.compare' },
   { id: 'history', label: 'History', icon: History, commandId: 'shell.activity.history' },
+];
+
+/**
+ * The left dock's panels, one icon each (VS Code's side bar): a click shows that panel, and on the panel that is
+ * showing, closes the dock. Pressed while its panel shows; Palettes also while they float.
+ */
+export interface DockPanelDefinition {
+  readonly id: DockTab;
+  readonly label: string;
+  readonly icon: LucideIcon;
+  readonly commandId: CommandId;
+  /** Its keyboard shortcut, for the tooltip. */
+  readonly shortcut?: string;
+}
+
+export const DOCK_PANELS: readonly DockPanelDefinition[] = [
+  {
+    id: 'palettes',
+    label: 'Palettes',
+    icon: Palette,
+    commandId: 'view.panel.palettes',
+    shortcut: 'F9',
+  },
+  {
+    id: 'instruments',
+    label: 'Instruments',
+    icon: Piano,
+    commandId: 'view.panel.instruments',
+    shortcut: 'F7',
+  },
+  {
+    id: 'properties',
+    label: 'Properties',
+    icon: SlidersHorizontal,
+    commandId: 'view.panel.properties',
+    shortcut: 'F8',
+  },
+  { id: 'edits', label: 'Edits', icon: Undo2, commandId: 'view.panel.undoHistory' },
 ];
 
 /** The published view flags that say a side panel is open. */

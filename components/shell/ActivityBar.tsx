@@ -3,7 +3,7 @@
 import type { LucideIcon } from 'lucide-react';
 import React, { useRef, useSyncExternalStore } from 'react';
 import { defaultCommandRegistry, type CommandRegistry } from '../../lib/commands/registry';
-import { ACTIVITIES, PANEL_TOGGLES } from './activities';
+import { ACTIVITIES, DOCK_PANELS, PANEL_TOGGLES } from './activities';
 import { invokeCommand } from './invokeCommand';
 import { getShellUiState, subscribeToShellUi } from './shellStore';
 import { useToolbarCommands } from './toolbar/useToolbarCommands';
@@ -12,8 +12,10 @@ import type { OtsActiveActivity } from './workspaceMode';
 /**
  * What the user is doing: Write, Compare or History. A vertical strip of icon buttons with
  * the current one pressed; each runs its `shell.activity.*` command, so the palette and the
- * menus reach the same switches. Below a divider are the panel toggles (AI Tools, Score source),
- * each pressed while its panel is open. Arrow keys move focus along the whole strip.
+ * menus reach the same switches. Below a divider are the left dock's panels (Palettes,
+ * Instruments, Properties, Edits), one icon each, and below another the panels beside the score
+ * (AI Tools, Score source), each pressed while its panel is open. Arrow keys move focus along the
+ * whole strip.
  */
 export function ActivityBar({
   active,
@@ -28,7 +30,7 @@ export function ActivityBar({
   // panel does, however it was closed (its own X as well as this button): a command's `checked`
   // is only read when something else re-renders the bar.
   const { view } = useSyncExternalStore(subscribeToShellUi, getShellUiState, getShellUiState);
-  const total = ACTIVITIES.length + PANEL_TOGGLES.length;
+  const total = ACTIVITIES.length + DOCK_PANELS.length + PANEL_TOGGLES.length;
 
   const onKeyDown = (event: React.KeyboardEvent, index: number) => {
     const step = event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0;
@@ -61,8 +63,28 @@ export function ActivityBar({
         />
       ))}
       <span aria-hidden="true" className="my-1 h-px w-6 shrink-0 bg-slate-200" />
-      {PANEL_TOGGLES.map(({ id, label, icon, commandId, openKey }, offset) => {
+      {DOCK_PANELS.map(({ id, label, icon, commandId, shortcut }, offset) => {
         const index = ACTIVITIES.length + offset;
+        return (
+          <BarButton
+            key={id}
+            testId={`dock-panel-${id}`}
+            label={label}
+            title={shortcut ? `${label} (${shortcut})` : label}
+            icon={icon}
+            pressed={id === 'palettes' ? view.palettesVisible : view.dockPanel === id}
+            disabled={!registry.has(commandId) || !tools.enabled(commandId)}
+            register={(element) => {
+              buttons.current[index] = element;
+            }}
+            onClick={() => void invokeCommand(commandId, undefined, registry)}
+            onKeyDown={(event) => onKeyDown(event, index)}
+          />
+        );
+      })}
+      <span aria-hidden="true" className="my-1 h-px w-6 shrink-0 bg-slate-200" />
+      {PANEL_TOGGLES.map(({ id, label, icon, commandId, openKey }, offset) => {
+        const index = ACTIVITIES.length + DOCK_PANELS.length + offset;
         return (
           <BarButton
             key={id}
@@ -87,6 +109,7 @@ export function ActivityBar({
 function BarButton({
   testId,
   label,
+  title = label,
   icon: Icon,
   pressed,
   disabled,
@@ -96,6 +119,8 @@ function BarButton({
 }: {
   testId: string;
   label: string;
+  /** The tooltip: the label, with a shortcut where there is one. */
+  title?: string;
   icon: LucideIcon;
   pressed: boolean;
   disabled: boolean;
@@ -110,7 +135,7 @@ function BarButton({
       data-testid={testId}
       aria-pressed={pressed}
       aria-label={label}
-      title={label}
+      title={title}
       disabled={disabled}
       onClick={onClick}
       onKeyDown={onKeyDown}

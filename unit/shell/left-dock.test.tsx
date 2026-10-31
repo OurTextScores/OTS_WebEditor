@@ -71,31 +71,20 @@ const props = (dock: WorkspaceDock, over: Partial<LeftDockProps> = {}): LeftDock
 });
 
 describe('LeftDock', () => {
-  it('has a tab per panel, with its shortcut, and marks the selected one', () => {
+  it('has no tabs: its header names the panel showing, with its shortcut', () => {
     render(<LeftDock {...props(dockWith('instruments'))} />);
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual([
-      'Palettes',
-      'Instruments',
-      'Properties',
-      'Edits',
-    ]);
-    expect(screen.getByRole('tab', { name: 'Instruments' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
-    expect(screen.getByRole('tab', { name: 'Palettes' })).toHaveAttribute('title', 'Palettes (F9)');
-    expect(screen.getByRole('tab', { name: 'Properties' })).toHaveAttribute(
-      'title',
-      'Properties (F8)',
-    );
-    expect(screen.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', 'dock-tab-instruments');
+    expect(screen.queryAllByRole('tab')).toEqual([]);
+    expect(screen.getByTestId('dock-title')).toHaveTextContent('Instruments');
+    expect(screen.getByTestId('dock-title')).toHaveAttribute('title', 'Instruments (F7)');
+    expect(screen.getByRole('region', { name: 'Instruments' })).toBeInTheDocument();
+    expect(screen.getByTestId('left-dock')).toHaveAccessibleName('Instruments panel');
   });
 
-  it('switches tab and closes', async () => {
-    const dock = dockWith('palettes');
+  it('names the Edits panel, which has no shortcut, and closes', () => {
+    const dock = dockWith('edits');
     render(<LeftDock {...props(dock)} />);
-    await userEvent.setup().click(screen.getByRole('tab', { name: 'Properties' }));
-    expect(dock.show).toHaveBeenCalledWith('properties');
+    expect(screen.getByTestId('dock-title')).toHaveTextContent('Edits');
+    expect(screen.getByTestId('dock-title')).toHaveAttribute('title', 'Edits');
     screen.getByTestId('btn-dock-close').click();
     expect(dock.close).toHaveBeenCalledOnce();
   });
@@ -164,7 +153,7 @@ describe('LeftDock', () => {
 
   it('is a labelled landmark with a resize handle', () => {
     render(<LeftDock {...props(dockWith('palettes'))} />);
-    expect(screen.getByRole('complementary', { name: 'Side panel' })).toBeInTheDocument();
+    expect(screen.getByRole('complementary', { name: 'Palettes panel' })).toBeInTheDocument();
     expect(screen.getByTestId('left-dock-resize')).toBeInTheDocument();
   });
 });

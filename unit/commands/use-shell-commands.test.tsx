@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useShellCommands } from '../../components/score-editor/useShellCommands';
 import type { ShellEditorBindings } from '../../components/score-editor/shellCommands';
 import { getShellUiState, resetShellUiForTests } from '../../components/shell/shellStore';
+import type { WorkspaceDock } from '../../components/shell/useWorkspaceDock';
 import { defaultCommandRegistry } from '../../lib/commands/registry';
 import type { Score } from '../../lib/webmscore-loader';
 
@@ -98,7 +99,28 @@ describe('useShellCommands', () => {
       hasScore: true,
       aiToolsOpen: false,
       musicXmlOpen: false,
+      dockPanel: null,
+      palettesVisible: false,
     });
+  });
+
+  it('publishes which dock panel shows, and whether the palettes are visible, for the activity bar', () => {
+    const dock: WorkspaceDock = {
+      open: true,
+      tab: 'properties',
+      poppedOut: false,
+      palettesDocked: true,
+      palettesVisible: false,
+      isShowing: (tab) => tab === 'properties',
+      show: vi.fn(),
+      toggle: vi.fn(),
+      close: vi.fn(),
+      setPoppedOut: vi.fn(),
+      togglePalettes: vi.fn(),
+      openPalette: vi.fn(),
+    };
+    render(<Host value={bindings({ dock })} />);
+    expect(getShellUiState().view).toMatchObject({ dockPanel: 'properties', palettesVisible: false });
   });
 
   it('publishes whether the AI Tools and Score source panels are open, and follows them closing', () => {

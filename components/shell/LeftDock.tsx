@@ -11,16 +11,10 @@ import { EditsPanel, type EditsPanelProps } from './EditsPanel';
 import { InstrumentsPanel } from './InstrumentsPanel';
 import { PANEL_LIMITS } from './useShellPanels';
 import { Panel } from './vendor/viritura';
-import type { DockTab, WorkspaceDock } from './useWorkspaceDock';
+import { DOCK_PANELS } from './activities';
+import type { WorkspaceDock } from './useWorkspaceDock';
 import { Button } from '../ui/Button';
 import { IconButton } from '../ui/IconButton';
-
-const TABS: readonly { tab: DockTab; label: string; shortcut: string }[] = [
-  { tab: 'palettes', label: 'Palettes', shortcut: 'F9' },
-  { tab: 'instruments', label: 'Instruments', shortcut: 'F7' },
-  { tab: 'properties', label: 'Properties', shortcut: 'F8' },
-  { tab: 'edits', label: 'Edits', shortcut: '' },
-];
 
 type InspectorProps = React.ComponentProps<typeof InspectorPanel>;
 
@@ -46,14 +40,20 @@ export interface LeftDockProps {
   edits: EditsPanelProps;
   inspector: Pick<
     InspectorProps,
-    'loading' | 'disabled' | 'onChange' | 'fretDiagram' | 'onFretDiagramChange' | 'systemLayout' | 'notation'
+    | 'loading'
+    | 'disabled'
+    | 'onChange'
+    | 'fretDiagram'
+    | 'onFretDiagramChange'
+    | 'systemLayout'
+    | 'notation'
   > & { data: SelectedElementProperties | null };
 }
 
 /**
- * The left panel of the Write mode (SHELL_REDESIGN_DESIGN §8.3): Palettes, Instruments,
- * Properties (toggled by F9, F7 and F8) and the Edits history as tabs in one dock. Palettes can pop out into the
- * floating overlay and dock back.
+ * The left panel of the Write mode (SHELL_REDESIGN_DESIGN §8.3): Palettes, Instruments, Properties (F9, F7, F8) or
+ * the Edits history, one at a time, each chosen by its icon in the activity bar (as VS Code's side bar). The header
+ * names the panel showing. Palettes can pop out into the floating overlay and dock back.
  */
 export function LeftDock({
   side,
@@ -67,6 +67,7 @@ export function LeftDock({
   inspector,
   edits,
 }: LeftDockProps) {
+  const current = DOCK_PANELS.find((panel) => panel.id === dock.tab);
   return (
     <Panel
       side={side}
@@ -76,45 +77,29 @@ export function LeftDock({
       min={min}
       max={PANEL_LIMITS.left.max}
       onCollapse={dock.close}
-      ariaLabel="Side panel"
+      ariaLabel={current ? `${current.label} panel` : 'Side panel'}
       testId="left-dock"
       resizeTestId="left-dock-resize"
     >
-      <div className="flex shrink-0 items-center border-b border-slate-200 px-0.5 pt-1">
-        <div role="tablist" aria-label="Side panel" className="flex min-w-0 flex-1 overflow-x-auto">
-          {TABS.map(({ tab, label, shortcut }) => {
-            const selected = dock.tab === tab;
-            return (
-              <button
-                key={tab}
-                type="button"
-                role="tab"
-                id={`dock-tab-${tab}`}
-                aria-selected={selected}
-                aria-controls={`dock-tabpanel-${tab}`}
-                data-testid={`dock-tab-${tab}`}
-                title={shortcut ? `${label} (${shortcut})` : label}
-                onClick={() => dock.show(tab)}
-                className={`shrink-0 rounded-t px-1.5 py-1.5 text-xs font-medium ${
-                  selected
-                    ? 'border-b-2 border-accent text-slate-900'
-                    : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
+      <div className="flex shrink-0 items-center justify-between border-b border-slate-200 py-1 pl-3 pr-0.5">
+        <h2
+          id={`dock-title-${dock.tab}`}
+          data-testid="dock-title"
+          title={current?.shortcut ? `${current.label} (${current.shortcut})` : current?.label}
+          className="text-xs font-semibold uppercase tracking-wide text-slate-600"
+        >
+          {current?.label}
+        </h2>
         <IconButton label="Close side panel" data-testid="btn-dock-close" onClick={dock.close}>
           ✕
         </IconButton>
       </div>
 
       <div
-        role="tabpanel"
-        id={`dock-tabpanel-${dock.tab}`}
-        aria-labelledby={`dock-tab-${dock.tab}`}
+        role="region"
+        id={`dock-panel-${dock.tab}`}
+        aria-labelledby={`dock-title-${dock.tab}`}
+        data-testid={`dock-panel-body-${dock.tab}`}
         className="flex min-h-0 flex-1 flex-col"
       >
         {dock.tab === 'palettes' && dock.poppedOut && (

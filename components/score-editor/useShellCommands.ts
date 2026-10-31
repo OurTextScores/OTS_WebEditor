@@ -36,7 +36,11 @@ export function useShellCommands(bindings: ShellEditorBindings): void {
     audioPreparing,
     aiToolsOpen,
     musicXmlOpen,
+    dock,
   } = bindings;
+  const DOCK_TABS = ['palettes', 'instruments', 'properties', 'edits'] as const;
+  const dockPanel = dock ? (DOCK_TABS.find((tab) => dock.isShowing(tab)) ?? null) : null;
+  const palettesVisible = Boolean(dock?.palettesVisible);
   useLayoutEffect(() => {
     setShellView({
       zoom,
@@ -50,10 +54,12 @@ export function useShellCommands(bindings: ShellEditorBindings): void {
       isPlaying,
       isPaused,
       audioBusy,
-    audioPreparing,
+      audioPreparing,
       hasScore: Boolean(score),
       aiToolsOpen,
       musicXmlOpen,
+      dockPanel,
+      palettesVisible,
     });
   }, [
     score,
@@ -71,6 +77,8 @@ export function useShellCommands(bindings: ShellEditorBindings): void {
     audioPreparing,
     aiToolsOpen,
     musicXmlOpen,
+    dockPanel,
+    palettesVisible,
   ]);
 
   const { scoreSummaries } = bindings;

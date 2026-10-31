@@ -27,17 +27,13 @@ test.describe('left dock @smoke', () => {
   }) => {
     await load(page);
     await expect(page.getByTestId('left-dock')).toBeVisible();
-    await expect(page.getByRole('tab', { name: 'Palettes' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
+    await expect(page.getByTestId('dock-panel-palettes')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('dock-title')).toHaveText('Palettes');
     await expect(page.getByTestId('palette-search')).toBeVisible();
 
     await page.keyboard.press('F8');
-    await expect(page.getByRole('tab', { name: 'Properties' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
+    await expect(page.getByTestId('dock-panel-properties')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('dock-panel-palettes')).toHaveAttribute('aria-pressed', 'false');
     await expect(page.getByTestId('inspector-panel')).toBeVisible();
 
     await page.keyboard.press('F7');
@@ -51,6 +47,29 @@ test.describe('left dock @smoke', () => {
     await page.keyboard.press('F9');
     await expect(page.getByTestId('left-dock')).toBeVisible();
     await expect(page.getByTestId('palette-search')).toBeVisible();
+  });
+
+  test('each panel is an icon in the activity bar: a click shows it, and on the panel showing closes the dock', async ({
+    page,
+  }) => {
+    await load(page);
+    await expect(page.getByRole('tab')).toHaveCount(0);
+    for (const [id, title, body] of [
+      ['instruments', 'Instruments', 'instruments-panel'],
+      ['properties', 'Properties', 'inspector-panel'],
+      ['edits', 'Edits', 'dock-panel-body-edits'],
+      ['palettes', 'Palettes', 'palette-search'],
+    ] as const) {
+      await page.getByTestId(`dock-panel-${id}`).click();
+      await expect(page.getByTestId('dock-title')).toHaveText(title);
+      await expect(page.getByTestId(body)).toBeVisible();
+      await expect(page.getByTestId(`dock-panel-${id}`)).toHaveAttribute('aria-pressed', 'true');
+    }
+    await page.getByTestId('dock-panel-palettes').click();
+    await expect(page.getByTestId('left-dock')).toHaveCount(0);
+    await expect(page.getByTestId('dock-panel-palettes')).toHaveAttribute('aria-pressed', 'false');
+    await page.getByTestId('dock-panel-properties').click();
+    await expect(page.getByTestId('inspector-panel')).toBeVisible();
   });
 
   test('Mod+\\ hides every panel and an edge handle brings them back', async ({ page }) => {

@@ -91,7 +91,9 @@ describe('ScoreEditor system-lock wiring', () => {
       );
       fireEvent.click(screen.getByTestId('svg-container').querySelector('.Note')!);
       await screen.findByTestId('selection-overlay');
-      fireEvent.click(screen.getByRole('tab', { name: 'Properties' }));
+      // Properties is an activity-bar icon now; the editor alone (no shell) opens it by its command, which toggles,
+      // and the dock remembers the panel from the case before.
+      if (!screen.queryByTestId('inspector-panel')) await runEditorCommand('view.panel.properties');
       if (!supported) {
         expect(screen.queryByRole('region', { name: 'System layout' })).toBeNull();
         return;

@@ -13,13 +13,22 @@ import {
 function setup(
   active: 'write' | 'compare' | 'history',
   withCommands = true,
-  panels: { aiTools?: boolean; scoreSource?: boolean; aiEnabled?: boolean } = {},
+  panels: {
+    aiTools?: boolean;
+    scoreSource?: boolean;
+    aiEnabled?: boolean;
+    dockPanel?: 'palettes' | 'instruments' | 'properties' | 'edits' | null;
+    palettesVisible?: boolean;
+    dock?: boolean;
+  } = {},
 ) {
   resetShellUiForTests();
   setShellView({
     ...EMPTY_SHELL_VIEW,
     aiToolsOpen: Boolean(panels.aiTools),
     musicXmlOpen: Boolean(panels.scoreSource),
+    dockPanel: panels.dockPanel ?? null,
+    palettesVisible: Boolean(panels.palettesVisible),
   });
   const registry = new CommandRegistry();
   registry.setContextSource(() => ({ ...DEFAULT_COMMAND_CONTEXT, hasScore: true }));
@@ -29,6 +38,10 @@ function setup(
     history: vi.fn(),
     aiTools: vi.fn(),
     scoreSource: vi.fn(),
+    palettes: vi.fn(),
+    instruments: vi.fn(),
+    properties: vi.fn(),
+    edits: vi.fn(),
   };
   if (withCommands) {
     registry.register('global', [
@@ -42,6 +55,16 @@ function setup(
         checked: () => Boolean(panels.aiTools),
         run: runs.aiTools,
       }),
+      ...(
+        [
+          ['palettes', 'view.panel.palettes'],
+          ['instruments', 'view.panel.instruments'],
+          ['properties', 'view.panel.properties'],
+          ['edits', 'view.panel.undoHistory'],
+        ] as const
+      ).map(([key, id]) =>
+        defineCommand({ id, label: key, enabled: () => panels.dock !== false, run: runs[key] }),
+      ),
       defineCommand({
         id: 'view.panel.scoreSource',
         label: 'Score Source',
@@ -78,12 +101,16 @@ describe('ActivityBar', () => {
     }
   });
 
-  it('moves focus with the arrow keys down the activities and the panel toggles, wrapping at the ends', () => {
+  it('moves focus with the arrow keys down the activities, the dock panels and the panel toggles, wrapping at the ends', () => {
     setup('write');
     const order = [
       'activity-write',
       'activity-compare',
       'activity-history',
+      'dock-panel-palettes',
+      'dock-panel-instruments',
+      'dock-panel-properties',
+      'dock-panel-edits',
       'panel-ai-tools',
       'panel-score-source',
     ];
@@ -104,7 +131,7 @@ describe('ActivityBar', () => {
   });
 
   describe('panel toggles', () => {
-    it('offers AI Tools and Score source below the activities, named for assistive tech', () => {
+    it('offers AI Tools and Score source below the activities and the dock panels, named for assistive tech', () => {
       setup('write');
       expect(screen.getByRole('button', { name: 'AI Tools' })).toHaveAttribute('title', 'AI Tools');
       expect(screen.getByRole('button', { name: 'Score source (XML)' })).toBeInTheDocument();
@@ -114,6 +141,10 @@ describe('ActivityBar', () => {
         'activity-write',
         'activity-compare',
         'activity-history',
+        'dock-panel-palettes',
+        'dock-panel-instruments',
+        'dock-panel-properties',
+        'dock-panel-edits',
         'panel-ai-tools',
         'panel-score-source',
       ]);
@@ -155,5 +186,29 @@ describe('ActivityBar', () => {
       expect(screen.getByTestId('panel-ai-tools')).toBeDisabled();
       expect(screen.getByTestId('panel-score-source')).toBeDisabled();
     });
+  });
+
+  it('has an icon per dock panel, pressed while it shows, with its shortcut', () => {
+    setup('write', true, { dockPanel: 'properties' });
+    expect(screen.getByTestId('dock-panel-properties')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('dock-panel-instruments')).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Properties' })).toHaveAttribute('title', 'Properties (F8)');
+    expect(screen.getByRole('button', { name: 'Edits' })).toHaveAttribute('title', 'Edits');
+  });
+
+  it('presses Palettes while they are visible, docked or floating', () => {
+    setup('write', true, { dockPanel: null, palettesVisible: true });
+    expect(screen.getByTestId('dock-panel-palettes')).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('runs the panel’s command on a click, and disables the icons without a dock', () => {
+    const runs = setup('write');
+    fireEvent.click(screen.getByTestId('dock-panel-instruments'));
+    expect(runs.instruments).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByTestId('dock-panel-edits'));
+    expect(runs.edits).toHaveBeenCalledTimes(1);
+    cleanup();
+    setup('history', true, { dock: false });
+    expect(screen.getByTestId('dock-panel-palettes')).toBeDisabled();
   });
 });

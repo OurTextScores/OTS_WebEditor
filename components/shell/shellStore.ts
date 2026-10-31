@@ -7,6 +7,7 @@
  * without the shell reaching into its state.
  */
 import type { CommandId } from '../../lib/commands/types';
+import type { DockTab } from './useWorkspaceDock';
 
 export type PaletteMode = 'commands' | 'goto';
 
@@ -41,6 +42,10 @@ export interface ShellView {
   /** The AI Tools and Score source panels beside the score are open (the activity bar shows them pressed). */
   readonly aiToolsOpen: boolean;
   readonly musicXmlOpen: boolean;
+  /** The left dock's panel that is showing, if any (the activity bar shows its icon pressed). */
+  readonly dockPanel: DockTab | null;
+  /** The palettes are visible, docked or floating. */
+  readonly palettesVisible: boolean;
 }
 
 export const EMPTY_SHELL_VIEW: ShellView = {
@@ -59,6 +64,8 @@ export const EMPTY_SHELL_VIEW: ShellView = {
   hasScore: false,
   aiToolsOpen: false,
   musicXmlOpen: false,
+  dockPanel: null,
+  palettesVisible: false,
 };
 
 export interface ShellUiState {
