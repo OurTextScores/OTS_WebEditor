@@ -121,6 +121,8 @@ export interface StaffTextSwing {
 /** One of MuseScore's editable text styles (`getTextStyleCatalog`): its display name and style keys by property. */
 export interface TextStyleEntry {
   name: string;
+  /** The MSCX token an element's "style" property uses ("title", "staff"…). */
+  type: string;
   keys: Partial<Record<TextStyleProperty, string>>;
 }
 export type TextStyleProperty =

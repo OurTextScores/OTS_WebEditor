@@ -12,27 +12,7 @@
 #include "engraving/style/style.h"
 #include "engraving/style/defaultstyle.h"
 #include "engraving/style/textstyle.h"
-
-// "#RRGGBBAA": the alpha too (a text frame's fill is often transparent), which Color::toString leaves out.
-static std::string colorHex(const Color& c)
-{
-    char hex[10];
-    std::snprintf(hex, sizeof(hex), "#%02X%02X%02X%02X", c.red(), c.green(), c.blue(), c.alpha());
-    return hex;
-}
-static bool colorFromHex(const String& text, Color& out)
-{
-    const std::string s = text.toStdString();
-    if ((s.size() != 7 && s.size() != 9) || s[0] != '#') return false;
-    unsigned v[4] = { 0, 0, 0, 255 };
-    for (size_t i = 0; i * 2 + 1 < s.size(); ++i) {
-        const std::string byte = s.substr(1 + i * 2, 2);
-        if (byte.find_first_not_of("0123456789abcdefABCDEF") != std::string::npos) return false;
-        v[i] = static_cast<unsigned>(std::stoul(byte, nullptr, 16));
-    }
-    out = Color(int(v[0]), int(v[1]), int(v[2]), int(v[3]));
-    return true;
-}
+#include "colortokens.h"
 
 // Sets result[key] to the value as JSON; false, setting nothing, for a type the dialogs do not offer.
 static bool setStyleJson(JsonObject& result, const std::string& key, const engraving::PropertyValue& value,
@@ -182,7 +162,8 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* getStyleDefaults(uintptr_t score_ptr, const 
 }
 
 // MuseScore's Text styles page (EditStyle's textStyles list, editableTextStyles()): each style's display name and
-// its style keys by property, [{name, keys: {fontFace: "titleFontFace", …}}]. Properties a style does not have, or
+// its style keys by property, [{name, type, keys: {fontFace: "titleFontFace", …}}]; type is the MSCX token the
+// element property "style" uses. Properties a style does not have, or
 // keeps in a placeholder key ("dummy…"), are left out.
 EMSCRIPTEN_KEEPALIVE const uint8_t* getTextStyleCatalog(uintptr_t score_ptr, int excerptId)
 {
@@ -213,6 +194,7 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* getTextStyleCatalog(uintptr_t score_ptr, int
         }
         JsonObject entry;
         entry.set("name", score->getTextStyleUserName(tid).str);
+        entry.set("type", String::fromAscii(engraving::TConv::toXml(tid).ascii()));
         entry.set("keys", keys);
         styles.append(entry);
     }

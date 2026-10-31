@@ -4,6 +4,7 @@ export {
   INTERVAL_STEPS,
   INTERVAL_TYPES,
   NOTATION_PROPERTIES,
+  TEXT_PROPERTIES,
   notationPropertyNames,
   splitInterval,
   type NotationPropertyDescriptor,

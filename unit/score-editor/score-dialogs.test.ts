@@ -381,6 +381,7 @@ describe('Staff/System Text Properties: swing', () => {
 describe('Style: text styles (E08)', () => {
   const TITLE: TextStyleEntry = {
     name: 'Title',
+    type: 'title',
     keys: {
       fontFace: 'titleFontFace',
       fontSize: 'titleFontSize',

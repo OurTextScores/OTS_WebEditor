@@ -3,16 +3,30 @@ import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import {
   NOTATION_PROPERTIES,
+  TEXT_PROPERTIES,
   NotationPropertiesSection,
   notationPropertyNames,
   splitInterval,
   type NotationPropertiesModel,
 } from '../../components/score-editor/properties';
 
-const state = (value: string | null, def: string, mixed = false) => ({ value, default: def, mixed, applicableCount: 1 });
+const state = (value: string | null, def: string, mixed = false) => ({
+  value,
+  default: def,
+  mixed,
+  applicableCount: 1,
+});
 
-function model(elementType: string, values: NotationPropertiesModel['values']): NotationPropertiesModel {
-  return { group: NOTATION_PROPERTIES[elementType], values, set: vi.fn(async () => {}), supported: true };
+function model(
+  elementType: string,
+  values: NotationPropertiesModel['values'],
+): NotationPropertiesModel {
+  return {
+    group: NOTATION_PROPERTIES[elementType],
+    values,
+    set: vi.fn(async () => {}),
+    supported: true,
+  };
 }
 
 describe('notation property descriptors (E09)', () => {
@@ -34,7 +48,12 @@ describe('notation property descriptors (E09)', () => {
 
 describe('the notation section', () => {
   it('shows only the properties the selection has', () => {
-    render(<NotationPropertiesSection disabled={false} model={model('Ornament', { intervalAbove: state('second,auto', 'second,auto') })} />);
+    render(
+      <NotationPropertiesSection
+        disabled={false}
+        model={model('Ornament', { intervalAbove: state('second,auto', 'second,auto') })}
+      />,
+    );
     expect(screen.getByTestId('notation-intervalAbove-step')).toHaveValue('second');
     expect(screen.queryByTestId('notation-startOnUpperNote')).toBeNull();
   });
@@ -42,7 +61,9 @@ describe('the notation section', () => {
   it('sets an interval as the engine token, and resets a changed property to its default', () => {
     const m = model('Ornament', { intervalAbove: state('third,minor', 'second,auto') });
     render(<NotationPropertiesSection disabled={false} model={m} />);
-    fireEvent.change(screen.getByTestId('notation-intervalAbove-type'), { target: { value: 'major' } });
+    fireEvent.change(screen.getByTestId('notation-intervalAbove-type'), {
+      target: { value: 'major' },
+    });
     expect(m.set).toHaveBeenCalledWith('intervalAbove', 'third,major');
     fireEvent.click(screen.getByTestId('notation-intervalAbove-reset'));
     expect(m.set).toHaveBeenLastCalledWith('intervalAbove', null);
@@ -63,7 +84,9 @@ describe('the notation section', () => {
   });
 
   it('renders nothing for an element type without notation properties', () => {
-    const { container } = render(<NotationPropertiesSection disabled={false} model={model('Note', {})} />);
+    const { container } = render(
+      <NotationPropertiesSection disabled={false} model={model('Note', {})} />,
+    );
     expect(container).toBeEmptyDOMElement();
   });
 });
@@ -83,5 +106,95 @@ describe('number properties', () => {
     render(<NotationPropertiesSection disabled={false} model={m} />);
     fireEvent.blur(screen.getByTestId('notation-velocity'));
     expect(m.set).not.toHaveBeenCalled();
+  });
+});
+
+describe('text properties (Text section)', () => {
+  const textModel = (values: NotationPropertiesModel['values']): NotationPropertiesModel => ({
+    group: undefined,
+    text: TEXT_PROPERTIES,
+    textStyles: [
+      { value: 'staff', label: 'Staff text' },
+      { value: 'title', label: 'Title' },
+    ],
+    values,
+    set: vi.fn(async () => {}),
+    supported: true,
+  });
+
+  it('shows only the text properties the selection has, under Text', () => {
+    render(
+      <NotationPropertiesSection
+        model={textModel({ family: state('Edwin', 'Edwin'), size: state('10', '10') })}
+        disabled={false}
+      />,
+    );
+    expect(screen.getByTestId('text-properties')).toHaveTextContent('Text');
+    expect(screen.getByTestId('notation-family')).toHaveValue('Edwin');
+    expect(screen.queryByTestId('notation-frameType')).toBeNull();
+  });
+
+  it('toggles a font style flag into the bitmask, keeping the others', () => {
+    const model = textModel({ fontStyle: state('2', '0') });
+    render(<NotationPropertiesSection model={model} disabled={false} />);
+    expect(screen.getByTestId('notation-fontStyle-italic')).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(screen.getByTestId('notation-fontStyle-bold'));
+    expect(model.set).toHaveBeenCalledWith('fontStyle', '3');
+  });
+
+  it('writes alignment as "horizontal,vertical", the text style by its token, and a colour keeping its alpha', () => {
+    const model = textModel({
+      align: state('center,top', 'center,top'),
+      style: state('staff', 'staff'),
+      frameBgColor: state('#FFFFFF00', '#FFFFFF00'),
+      frameFgColor: state('#00000080', '#000000FF'),
+    });
+    render(<NotationPropertiesSection model={model} disabled={false} />);
+    fireEvent.change(screen.getByTestId('notation-align-vertical'), {
+      target: { value: 'bottom' },
+    });
+    expect(model.set).toHaveBeenCalledWith('align', 'center,bottom');
+    fireEvent.change(screen.getByTestId('notation-style'), { target: { value: 'title' } });
+    expect(model.set).toHaveBeenCalledWith('style', 'title');
+    // A transparent highlight becomes opaque once a colour is picked; a translucent border keeps its alpha.
+    // Moving in the picker (input) commits nothing; closing it (change) commits once.
+    fireEvent.input(screen.getByTestId('notation-frameBgColor'), { target: { value: '#ff0000' } });
+    expect(model.set).not.toHaveBeenCalledWith('frameBgColor', expect.anything());
+    fireEvent.change(screen.getByTestId('notation-frameBgColor'), { target: { value: '#ff0000' } });
+    expect(model.set).toHaveBeenCalledWith('frameBgColor', '#FF0000FF');
+    fireEvent.change(screen.getByTestId('notation-frameFgColor'), { target: { value: '#00ff00' } });
+    expect(model.set).toHaveBeenCalledWith('frameFgColor', '#00FF0080');
+  });
+
+  it('commits a font on Enter, and resets a property to its style', () => {
+    const model = textModel({ family: state('FreeSerif', 'Edwin') });
+    render(<NotationPropertiesSection model={model} disabled={false} />);
+    const input = screen.getByTestId('notation-family');
+    fireEvent.change(input, { target: { value: 'FreeSans' } });
+    fireEvent.blur(input);
+    expect(model.set).toHaveBeenCalledWith('family', 'FreeSans');
+    fireEvent.click(screen.getByTestId('notation-family-reset'));
+    expect(model.set).toHaveBeenCalledWith('family', null);
+  });
+
+  it('hides frame details while the text has no frame, as MuseScore does', () => {
+    const values = {
+      frameType: state('0', '0'),
+      frameWidth: state('0.1', '0.1'),
+      frameBgColor: state('#FFFFFF00', '#FFFFFF00'),
+    };
+    const { rerender } = render(
+      <NotationPropertiesSection model={textModel(values)} disabled={false} />,
+    );
+    expect(screen.getByTestId('notation-frameType')).toBeInTheDocument();
+    expect(screen.queryByTestId('notation-frameWidth')).toBeNull();
+    rerender(
+      <NotationPropertiesSection
+        model={textModel({ ...values, frameType: state('1', '0') })}
+        disabled={false}
+      />,
+    );
+    expect(screen.getByTestId('notation-frameWidth')).toBeInTheDocument();
+    expect(screen.getByTestId('notation-frameBgColor')).toBeInTheDocument();
   });
 });

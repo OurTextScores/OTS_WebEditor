@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #pragma once
+#include "colortokens.h"
 #include "global/serialization/json.h"
 #include "engraving/dom/spanner.h"
 #include "engraving/types/typesconv.h"
@@ -259,6 +260,17 @@ extern "C" EMSCRIPTEN_KEEPALIVE bool setSelectedElementProperty(uintptr_t score_
 // `centerBetweenStaves`, … Values travel as the engine's own MSCX tokens ("third,major", "allInStaff", "auto"), never
 // as numeric enums, and each comes with its default so a control can reset to style. Only the reviewed value types
 // below are offered; a property of any other type is reported unsupported (left out).
+// Alignment tokens: "horizontal,vertical" from these names (AlignH and AlignV as engraving numbers them).
+static const char16_t* const kAlignH[] = { u"left", u"right", u"center", u"justify" };
+static const char16_t* const kAlignV[] = { u"top", u"center", u"bottom", u"baseline" };
+static int alignIndex(const char16_t* const* names, const String& token)
+{
+    for (int i = 0; i < 4; ++i) {
+        if (token == names[i]) return i;
+    }
+    return -1;
+}
+
 static bool elementPropertyToToken(engraving::P_TYPE type, const engraving::PropertyValue& v, String& out)
 {
     switch (type) {
@@ -266,6 +278,24 @@ static bool elementPropertyToToken(engraving::P_TYPE type, const engraving::Prop
     case engraving::P_TYPE::INT: out = String::number(v.toInt()); return true;
     case engraving::P_TYPE::REAL: out = String::number(v.toReal()); return true;
     case engraving::P_TYPE::SPATIUM: out = String::number(v.value<engraving::Spatium>().val()); return true;
+    // Text properties (font family, colours, alignment, text style).
+    case engraving::P_TYPE::STRING: out = v.value<String>(); return true;
+    case engraving::P_TYPE::COLOR: out = String::fromStdString(colorHex(v.value<Color>())); return true;
+    case engraving::P_TYPE::ALIGN: {
+        const engraving::Align a = v.value<engraving::Align>();
+        const int h = int(a.horizontal), vv = int(a.vertical);
+        if (h < 0 || h > 3 || vv < 0 || vv > 3) return false;
+        out = String(kAlignH[h]) + u"," + String(kAlignV[vv]);
+        return true;
+    }
+    case engraving::P_TYPE::ALIGN_H: {
+        const int h = int(v.value<engraving::AlignH>());
+        if (h < 0 || h > 3) return false;
+        out = kAlignH[h];
+        return true;
+    }
+    case engraving::P_TYPE::TEXT_STYLE:
+        out = String::fromAscii(engraving::TConv::toXml(v.value<engraving::TextStyleType>()).ascii()); return true;
     case engraving::P_TYPE::AUTO_ON_OFF:
         out = String::fromAscii(engraving::TConv::toXml(v.value<engraving::AutoOnOff>()).ascii()); return true;
     case engraving::P_TYPE::VOICE_ASSIGNMENT:
@@ -294,6 +324,34 @@ static bool elementPropertyFromToken(engraving::P_TYPE type, const String& token
     case engraving::P_TYPE::REAL: { bool ok = false; const double d = token.toDouble(&ok); if (!ok) return false; out = d; return true; }
     case engraving::P_TYPE::SPATIUM: {
         bool ok = false; const double d = token.toDouble(&ok); if (!ok) return false; out = engraving::Spatium(d); return true;
+    }
+    case engraving::P_TYPE::STRING: out = token; return true;
+    case engraving::P_TYPE::COLOR: {
+        Color c;
+        if (!colorFromHex(token, c)) return false;
+        out = engraving::PropertyValue::fromValue(c);
+        return true;
+    }
+    case engraving::P_TYPE::ALIGN: {
+        const auto parts = token.split(u',');
+        if (parts.size() != 2) return false;
+        const int h = alignIndex(kAlignH, parts.at(0)), vv = alignIndex(kAlignV, parts.at(1));
+        if (h < 0 || vv < 0) return false;
+        out = engraving::PropertyValue(engraving::Align(engraving::AlignH(h), engraving::AlignV(vv)));
+        return true;
+    }
+    case engraving::P_TYPE::ALIGN_H: {
+        const int h = alignIndex(kAlignH, token);
+        if (h < 0) return false;
+        out = engraving::PropertyValue(engraving::AlignH(h));
+        return true;
+    }
+    case engraving::P_TYPE::TEXT_STYLE: {
+        const std::string ascii = token.toStdString();
+        const engraving::TextStyleType tid = engraving::TConv::fromXml(muse::AsciiStringView(ascii), engraving::TextStyleType::TEXT_TYPES);
+        if (tid == engraving::TextStyleType::TEXT_TYPES) return false;
+        out = engraving::PropertyValue(tid);
+        return true;
     }
     case engraving::P_TYPE::AUTO_ON_OFF:
         if (token != u"auto" && token != u"on" && token != u"off") return false;
@@ -415,8 +473,15 @@ EMSCRIPTEN_KEEPALIVE bool setElementPropertyValue(uintptr_t score_ptr, const cha
     score->startCmd(TranslatableString::untranslatable("Edit property"));
     for (size_t i = 0; i < applicable.size(); ++i) {
         auto [target, pid] = applicable[i];
-        if (reset) target->undoResetProperty(pid);
-        else target->undoChangeProperty(pid, values[i]);
+        if (reset) {
+            target->undoResetProperty(pid);
+        } else {
+            // A styled property changed here no longer follows its style, as in MuseScore's inspector: otherwise a
+            // text's font would come back from its text style at the next style change.
+            const auto flags = target->propertyFlags(pid);
+            target->undoChangeProperty(pid, values[i],
+                                       flags == engraving::PropertyFlags::STYLED ? engraving::PropertyFlags::UNSTYLED : flags);
+        }
     }
     score->endCmd();
     layoutLinked(score);

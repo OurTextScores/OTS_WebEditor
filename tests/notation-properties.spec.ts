@@ -1,5 +1,5 @@
 import { expect, test, type Page } from 'playwright/test';
-import { runCommand } from './helpers/commands';
+import { runCommand, runCommandAnsweringPrompt } from './helpers/commands';
 
 /**
  * Typed notation properties in the Properties panel (docs/private/MS47_EDITOR_OPPORTUNITIES_ROADMAP.md, E09 with
@@ -166,4 +166,34 @@ test('Ctrl+click reaches an l.v. tie under its note, and Delete then removes onl
   await runCommand(page, 'edit.delete');
   await expect(page.locator('svg .LaissezVibSegment')).toHaveCount(0, { timeout: 20_000 });
   await expect(page.locator('svg .Note')).toHaveCount(4);
+});
+
+test('a staff text’s font, size, bold and highlight are changed from the Text section, and reset', async ({ page }) => {
+  const note = await centre(page, 'svg .Note', 0);
+  await page.mouse.click(note.x, note.y);
+  await runCommandAnsweringPrompt(page, 'add.text.staff', 'Dolce');
+  await page.waitForSelector('svg .StaffText', { state: 'attached', timeout: 20_000 });
+
+  const text = await centre(page, 'svg .StaffText');
+  await page.mouse.click(text.x, text.y);
+  await expect.poll(() => selectedType(page)).toBe('StaffText');
+  if (!(await page.getByTestId('inspector-panel').isVisible())) await runCommand(page, 'view.panel.properties');
+  await expect(page.getByTestId('text-properties')).toBeVisible();
+  await expect(page.getByTestId('notation-style')).toHaveValue('staff');
+
+  await page.getByTestId('notation-family').fill('FreeSans');
+  await page.getByTestId('notation-family').press('Enter');
+  await expect.poll(() => propertyValue(page, 'family')).toBe('FreeSans');
+  await page.getByTestId('notation-size').fill('14');
+  await page.getByTestId('notation-size').press('Enter');
+  await expect.poll(() => propertyValue(page, 'size')).toBe('14');
+  await page.getByTestId('notation-fontStyle-bold').click();
+  await expect.poll(() => propertyValue(page, 'fontStyle')).toBe('1');
+  await page.getByTestId('notation-frameType').selectOption('1');
+  await expect.poll(() => propertyValue(page, 'frameType')).toBe('1');
+  await page.getByTestId('notation-frameBgColor').fill('#ffff00');
+  await expect.poll(() => propertyValue(page, 'frameBgColor')).toBe('#FFFF00FF');
+
+  await page.getByTestId('notation-size-reset').click();
+  await expect.poll(() => propertyValue(page, 'size')).toBe('10');
 });
