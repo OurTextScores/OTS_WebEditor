@@ -246,6 +246,17 @@ smoke matrix, browser-specific fixes, focused retests and remaining qualificatio
 [tracked inventory](PHASE10_EDITOR_SPECS.txt) can be passed to the resumable runner's `--specs-file`.
 Chromium runs on PRs; nightly/manual CI adds Firefox and WebKit across four shards.
 
+Manual browser workflow dispatch can select one browser and shard; leaving both set to `all`
+preserves the full matrix. In CI, the Playwright-managed Next.js development server preloads
+`scripts/diagnose-next-manifest.cjs`. If Next's manifest loader fails to parse a manifest it just
+read from the Playwright output directory, the server logs `[playwright-manifest-diagnostic]`
+with the path, bytes read, SHA-256, and current file metadata. It does not log file contents or
+retry the request. For the same CI server, webpack writes `next-font-manifest.json` to a temporary
+file and renames it over the old manifest once complete, avoiding reads of a truncated destination.
+The workaround is limited to that file in the Playwright output directory; write errors are still
+reported to webpack. Neither the workaround nor the diagnostic is active for production or non-CI development servers.
+It requires Playwright to start the server; an already-running server is not instrumented.
+
 ## Read-only score object hit snapshot
 
 Engines that export `hitTestScoreObject` advertise it on the score instance; older packages leave the method
