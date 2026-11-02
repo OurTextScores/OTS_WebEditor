@@ -79,7 +79,10 @@ static JsonObject contextElement(Score* score, engraving::EngravingItem* item, e
     JsonObject hit;
     hit.set("type", String::fromUtf8(item->typeName()));
     hit.set("selected", drawnAsSelected(item, selection) || inSelectedRange(selection, item, staffIdx));
-    hit.set("editable", item->isEditable());
+    // Whether Edit Element does something here: a text opens its editor, anything else needs grips (beginGripEdit).
+    // MuseScore offers it for every editable element, where desktop edit mode also takes keyboard nudges; OTS has
+    // only the editor and the grips, so it is not offered where it would do nothing.
+    hit.set("editable", item->isEditable() && (item->isTextBase() || (item->hasGrips() && item->gripsCount() > 0)));
     hit.set("staffIdx", staffIdx == muse::nidx ? JsonValue() : JsonValue(static_cast<int>(staffIdx)));
 
     bool drumStaff = false;

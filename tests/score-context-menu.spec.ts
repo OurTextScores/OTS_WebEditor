@@ -75,9 +75,11 @@ test('right-clicking a note selects it and opens the element menu', async ({ pag
 
   await expect(menu(page)).toBeVisible();
   await expect.poll(() => engineSelection(page)).toMatchObject({ range: false, count: 1, type: 'Note' });
-  for (const id of ['edit.cut', 'edit.copy', 'edit.paste', 'edit.swapClipboard', 'edit.delete', 'edit.element']) {
+  for (const id of ['edit.cut', 'edit.copy', 'edit.paste', 'edit.swapClipboard', 'edit.delete']) {
     await expect(page.getByTestId(`context-item-${id}`)).toBeVisible();
   }
+  // A note has no grips and no text: Edit Element would do nothing, so it is not offered.
+  await expect(page.getByTestId('context-item-edit.element')).toHaveCount(0);
   // Bar entries belong to the measure menu only.
   await expect(page.getByTestId('context-sub-insert-measures')).toHaveCount(0);
 
@@ -118,7 +120,8 @@ test('a right-click inside a selected range keeps the range', async ({ page }) =
   const note = await noteCentre(page, 1);
   await page.mouse.click(note.x, note.y, { button: 'right' });
   await expect(menu(page)).toBeVisible();
-  await expect(page.getByTestId('context-item-edit.element')).toBeVisible();
+  await expect(page.getByTestId('context-item-edit.copy')).toBeVisible();
+  await expect(page.getByTestId('context-sub-insert-measures')).toHaveCount(0);
   expect(await engineSelection(page)).toEqual(before);
 });
 
@@ -132,7 +135,9 @@ test('a right-click on blank paper keeps the selection and opens its menu', asyn
   await page.mouse.click(paper.x, paper.y, { button: 'right' });
 
   await expect(menu(page)).toBeVisible();
-  await expect(page.getByTestId('context-item-edit.element')).toBeVisible();
+  // The selected note's menu (MuseScore's currentElement fallback), not the page menu.
+  await expect(page.getByTestId('context-item-edit.copy')).toBeVisible();
+  await expect(page.getByTestId('context-item-format.pageSettings')).toHaveCount(0);
   expect(await engineSelection(page)).toMatchObject({ count: 1, type: 'Note' });
 });
 
@@ -263,4 +268,35 @@ test('a clef’s menu has no Edit Element: the engine says a clef is not editabl
   await expect.poll(async () => (await engineSelection(page)).type).toBe('Clef');
   await expect(page.getByTestId('context-item-edit.copy')).toBeVisible();
   await expect(page.getByTestId('context-item-edit.element')).toHaveCount(0);
+});
+
+test('Edit Element on the title frame, away from its text, gives its height handle, which resizes it', async ({ page }) => {
+  await page.goto('/?score=/test_scores/eight_bars_one_voice.musicxml');
+  await page.waitForSelector('svg .Note', { timeout: 60_000 });
+  const frameHeight = () =>
+    page.evaluate(async () => {
+      const w = window as unknown as { __webmscore: { getElementPropertyValues(n: string[]): Promise<Record<string, { value: string }>> } };
+      return Number((await w.__webmscore.getElementPropertyValues(['height'])).height?.value);
+    });
+
+  // The frame's left side, clear of the centred title: the frame's own menu.
+  const title = await page.locator('svg .Text').first().boundingBox();
+  const score = await page.locator('svg').first().boundingBox();
+  if (!title || !score) throw new Error('no title');
+  const point = { x: score.x + 40, y: title.y + title.height / 2 };
+  await page.mouse.click(point.x, point.y, { button: 'right' });
+  await expect(menu(page)).toBeVisible();
+  await expect.poll(async () => (await engineSelection(page)).type).toBe('VBox');
+  const before = await frameHeight();
+  await page.getByTestId('context-item-edit.element').click();
+
+  const grip = page.getByTestId('spanner-grip-0');
+  await expect(grip).toBeVisible();
+  const box = await grip.boundingBox();
+  if (!box) throw new Error('no grip');
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + 60, { steps: 6 });
+  await page.mouse.up();
+  await expect.poll(frameHeight).toBeGreaterThan(before);
 });

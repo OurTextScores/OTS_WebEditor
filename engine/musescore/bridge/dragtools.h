@@ -128,6 +128,12 @@ static bool gripCanDrag(const engraving::EngravingItem* element, int gripIndex)
         return false;
     }
 
+    // An arpeggio's top and bottom grips ask EditData::view() for the note under the pointer (Arpeggio::dragGrip);
+    // there is no view here, so only its middle grip (moving it) drags.
+    if (element->isArpeggio() && gripIndex != static_cast<int>(engraving::Grip::MIDDLE)) {
+        return false;
+    }
+
     // Note-anchored endpoints ask EditData::view() to locate a replacement note.
     // The headless web bridge has no MuseScoreView, so expose the grips for visual
     // parity but leave those two handles read-only. Shape and segment-anchored
@@ -546,6 +552,24 @@ extern "C" EMSCRIPTEN_KEEPALIVE const uint8_t* beginGripEdit(uintptr_t score_ptr
         scan.point = point;
         page->scanElements([&scan](engraving::EngravingItem* item) { scanGripEditTarget(&scan, item); });
         target = scan.target;
+    }
+    // Any other element MuseScore gives grips to (a frame's height, a beam's ends, a bracket, an image, a spacer, a
+    // tuplet bracket…), as its Edit Element does: the selected one, when the point is on it (Edit Element from its
+    // context menu), else the topmost at the point.
+    if (!target) {
+        auto hasEditGrips = [](engraving::EngravingItem* item) {
+            return item && !item->isLasso() && item->isEditable() && item->hasGrips() && item->gripsCount() > 0;
+        };
+        engraving::EngravingItem* selected = score->selection().element();
+        if (hasEditGrips(selected) && selected->pageBoundingRect().adjusted(-4, -4, 4, 4).contains(point)) {
+            target = selected;
+        }
+        if (!target) {
+            const auto items = page->items(point);
+            for (auto it = items.rbegin(); it != items.rend() && !target; ++it) {
+                if (hasEditGrips(*it)) target = *it;
+            }
+        }
     }
     if (!target) {
         return textResponse("null");
