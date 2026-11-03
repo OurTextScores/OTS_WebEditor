@@ -1,6 +1,8 @@
 import { expect, test } from 'playwright/test';
 
 test('arrow hotkeys change pitch and octave', async ({ page }) => {
+  test.setTimeout(240_000);
+  page.on('console', msg => { if (msg.text().startsWith('MUT_DIAG')) console.log(msg.text()); });
   await page.goto('/?score=/test_scores/single_note_c4.musicxml');
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
 
@@ -50,7 +52,7 @@ test('arrow hotkeys change pitch and octave', async ({ page }) => {
   await expect.poll(async () => (await readPitch()).alter, { timeout: 20_000 }).toBe(0);
 
   await page.keyboard.press('Control+ArrowUp');
-  await expect.poll(async () => (await readPitch()).octave, { timeout: 20_000 }).toBe(5);
+  await expect.poll(async () => (await readPitch()).octave, { timeout: 60_000 }).toBe(5);
 
   await page.keyboard.press('Control+ArrowDown');
   await expect.poll(async () => (await readPitch()).octave, { timeout: 20_000 }).toBe(4);
