@@ -1,3 +1,4 @@
+import { isMnxJson } from '../music-shape-checks';
 import { getScoreArtifact, type ScoreArtifact } from '../score-artifacts';
 import {
   computeScoreHash,
@@ -220,9 +221,10 @@ export async function resolveScoreContent(body: unknown): Promise<ScoreContentRe
     };
   }
   // If it doesn't look like XML, we still return it but flag it.
-  // Services like 'convert' support ABC and **kern input too.
+  // Services like 'convert' support ABC, **kern and MNX input too (MEI passes as XML).
   if (
     !looksLikeMusicXml(xml) &&
+    !isMnxJson(xml) &&
     !xml.includes('M:') &&
     !xml.includes('K:') &&
     !looksLikeKern(xml)
@@ -234,7 +236,7 @@ export async function resolveScoreContent(body: unknown): Promise<ScoreContentRe
       error: errorResult(
         400,
         'invalid_request',
-        'Input does not look like MusicXML, ABC, or **kern.',
+        'Input does not look like MusicXML, MEI, MNX, ABC, or **kern.',
       ),
     };
   }

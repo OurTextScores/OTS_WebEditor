@@ -199,7 +199,7 @@ describe('runMusicConvertService', () => {
 
     expect(result.status).toBe(400);
     expect(result.body).toMatchObject({
-      error: 'Missing or invalid output format. Use abc, musicxml, midi, kern, or mei.',
+      error: 'Missing or invalid output format. Use abc, musicxml, midi, kern, mei, or mnx.',
     });
   });
 
@@ -338,6 +338,33 @@ describe('runMusicConvertService', () => {
 
     expect(mocked.convertMusicNotation).toHaveBeenCalledWith(
       expect.objectContaining({ inputFormat: 'mei', outputFormat: 'musicxml' }),
+    );
+    expect(result.status).toBe(200);
+  });
+
+  it('infers MNX (JSON) and converts it', async () => {
+    const mnx = '{"mnx": {"version": 1}, "global": {"measures": []}, "parts": []}';
+    mocked.createScoreArtifact
+      .mockResolvedValueOnce({ id: 'input-mnx', format: 'mnx', content: mnx })
+      .mockResolvedValueOnce({
+        id: 'output-xml',
+        format: 'musicxml',
+        content: '<score-partwise version="3.1"></score-partwise>',
+      });
+    mocked.convertMusicNotation.mockResolvedValue({
+      inputFormat: 'mnx',
+      outputFormat: 'musicxml',
+      content: '<score-partwise version="3.1"></score-partwise>',
+      contentEncoding: 'utf8',
+      normalization: { schemaVersion: 'music-normalization@1', format: 'musicxml', actions: [] },
+      validation: { schemaVersion: 'music-validation@1', summary: { error: 0 } },
+      provenance: { tool: 'convertMusicNotation' },
+    });
+
+    const result = await runMusicConvertService({ outputFormat: 'musicxml', content: mnx });
+
+    expect(mocked.convertMusicNotation).toHaveBeenCalledWith(
+      expect.objectContaining({ inputFormat: 'mnx', outputFormat: 'musicxml' }),
     );
     expect(result.status).toBe(200);
   });

@@ -146,7 +146,7 @@ describe('runMusicPatchService', () => {
     expect(nonMusicXml.body).toMatchObject({
       error: {
         code: 'invalid_request',
-        message: 'Input does not look like MusicXML, ABC, or **kern.',
+        message: 'Input does not look like MusicXML, MEI, MNX, ABC, or **kern.',
       },
     });
     expect(malformedMusicXml.status).toBe(400);

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // A stand-in for MuseScore's command line (`mscore -o <output> <input>`) on the engine's Node build, for testing the
 // server conversions (lib/music-conversion.ts) where MuseScore is not installed: MUSIC_MUSESCORE_BIN_CANDIDATES
-// pointing here. The formats are the bridge's: input mscz, mscx, musicxml, xml, mxl, mei; output by extension.
+// pointing here. The formats are the bridge's: input mscz, mscx, musicxml, xml, mxl, mei, mnx; output by extension.
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -30,6 +30,7 @@ try {
   const score = await WebMscore.load(extension(input), fs.readFileSync(input));
   const writers = {
     mei: () => score.saveMei(),
+    mnx: () => score.saveMnx(),
     musicxml: () => score.saveXml(),
     xml: () => score.saveXml(),
     mxl: () => score.saveMxl(),

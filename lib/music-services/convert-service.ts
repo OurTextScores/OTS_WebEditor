@@ -16,6 +16,7 @@ import {
   resolveScoreContent,
 } from './score-request';
 import { type TraceContext } from '../trace-http';
+import { isMnxJson } from '../music-shape-checks';
 
 const MAX_CONVERT_INPUT_BYTES = Number(
   process.env.MUSIC_CONVERT_MAX_INPUT_BYTES || 10 * 1024 * 1024,
@@ -125,6 +126,9 @@ const inferTextFormat = (content: string) => {
   }
   if (looksLikeKern(trimmed)) {
     return 'kern' as const;
+  }
+  if (isMnxJson(trimmed)) {
+    return 'mnx' as const;
   }
   // MEI before MusicXML: both start with an XML declaration.
   if (/<mei\b[^>]*music-encoding\.org\/ns\/mei/.test(trimmed)) {
@@ -266,7 +270,9 @@ export async function runMusicConvertService(
   if (!outputFormat) {
     return {
       status: 400,
-      body: { error: 'Missing or invalid output format. Use abc, musicxml, midi, kern, or mei.' },
+      body: {
+        error: 'Missing or invalid output format. Use abc, musicxml, midi, kern, mei, or mnx.',
+      },
     };
   }
 

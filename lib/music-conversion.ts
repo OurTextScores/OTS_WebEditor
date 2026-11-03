@@ -5,11 +5,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { type TraceContext } from './trace-http';
 import { decodeMidiBase64, extractInvariantSnapshot } from './music-invariants';
+import { basicValidationChecks } from './music-shape-checks';
 
-export type MusicFormat = 'abc' | 'musicxml' | 'midi' | 'kern' | 'mei';
+export type MusicFormat = 'abc' | 'musicxml' | 'midi' | 'kern' | 'mei' | 'mnx';
 export type MusicContentEncoding = 'utf8' | 'base64';
 
-const MUSIC_FORMATS = new Set<MusicFormat>(['abc', 'musicxml', 'midi', 'kern', 'mei']);
+const MUSIC_FORMATS = new Set<MusicFormat>(['abc', 'musicxml', 'midi', 'kern', 'mei', 'mnx']);
 
 export const isMusicFormat = (value: unknown): value is MusicFormat =>
   typeof value === 'string' && MUSIC_FORMATS.has(value as MusicFormat);
@@ -186,6 +187,9 @@ export function normalizeMusicFormat(value: unknown): MusicFormat | null {
   }
   if (raw === 'mei') {
     return 'mei';
+  }
+  if (raw === 'mnx') {
+    return 'mnx';
   }
   return null;
 }
@@ -478,7 +482,7 @@ function normalizeAbcTextWithReport(text: string): {
 
 function normalizeMusicXmlTextWithReport(
   text: string,
-  format: 'musicxml' | 'mei' = 'musicxml',
+  format: InterchangeFormat = 'musicxml',
 ): {
   content: string;
   report: NormalizationReport;
@@ -493,8 +497,8 @@ function normalizeMusicXmlTextWithReport(
     applied: normalized !== text,
     message:
       normalized !== text
-        ? 'Normalized XML line endings/whitespace and ensured trailing newline.'
-        : 'No XML normalization changes were needed.',
+        ? `Normalized ${format === 'mnx' ? 'JSON' : 'XML'} line endings/whitespace and ensured trailing newline.`
+        : `No ${format === 'mnx' ? 'JSON' : 'XML'} normalization changes were needed.`,
   });
 
   return {
@@ -621,8 +625,8 @@ function normalizeTextForFormat(format: MusicFormat, text: string) {
   if (format === 'kern') {
     return normalizeKernTextWithReport(text);
   }
-  if (format === 'mei') {
-    return normalizeMusicXmlTextWithReport(text, 'mei');
+  if (format === 'mei' || format === 'mnx') {
+    return normalizeMusicXmlTextWithReport(text, format);
   }
   return normalizeMusicXmlTextWithReport(text);
 }
@@ -841,100 +845,6 @@ function buildValidationReport(checks: ValidationCheck[]): ValidationReport {
   };
 }
 
-const basicValidationChecks = (
-  format: MusicFormat,
-  content: string,
-  midiBytes?: Buffer | null,
-): ValidationCheck[] => {
-  const checks: ValidationCheck[] = [];
-  const trimmed = content.trim();
-  checks.push({
-    id: 'non-empty-output',
-    ok: trimmed.length > 0,
-    severity: 'error',
-    message:
-      trimmed.length > 0 ? 'Converter produced non-empty output.' : 'Converter output was empty.',
-  });
-
-  if (format === 'abc') {
-    checks.push({
-      id: 'abc-header-x',
-      ok: /(^|\n)X:\s*\d+/m.test(trimmed),
-      severity: 'warning',
-      message: /(^|\n)X:\s*\d+/m.test(trimmed)
-        ? 'ABC includes X: tune index header.'
-        : 'ABC is missing X: header (some downstream tools may expect it).',
-    });
-    checks.push({
-      id: 'abc-header-k',
-      ok: /(^|\n)K:\s*\S+/m.test(trimmed),
-      severity: 'error',
-      message: /(^|\n)K:\s*\S+/m.test(trimmed)
-        ? 'ABC includes K: key header.'
-        : 'ABC is missing K: key header.',
-    });
-  } else if (format === 'musicxml') {
-    checks.push({
-      id: 'musicxml-root',
-      ok: /<score-partwise\b|<score-timewise\b/.test(trimmed),
-      severity: 'error',
-      message: /<score-partwise\b|<score-timewise\b/.test(trimmed)
-        ? 'MusicXML root element detected.'
-        : 'MusicXML root element was not detected.',
-    });
-    checks.push({
-      id: 'xml-declaration',
-      ok: /^<\?xml\b/.test(trimmed),
-      severity: 'warning',
-      message: /^<\?xml\b/.test(trimmed)
-        ? 'XML declaration detected.'
-        : 'XML declaration is missing (usually acceptable, but atypical).',
-    });
-  } else if (format === 'mei') {
-    const hasRoot = /<mei\b[^>]*music-encoding\.org\/ns\/mei/.test(trimmed);
-    checks.push({
-      id: 'mei-root',
-      ok: hasRoot,
-      severity: 'error',
-      message: hasRoot ? 'MEI root element detected.' : 'MEI root element was not detected.',
-    });
-  } else if (format === 'midi') {
-    const resolvedMidiBytes = midiBytes === undefined ? decodeMidiBase64(trimmed) : midiBytes;
-    const hasHeader = Boolean(
-      resolvedMidiBytes &&
-      resolvedMidiBytes.length >= 4 &&
-      resolvedMidiBytes.subarray(0, 4).toString('ascii') === 'MThd',
-    );
-    checks.push({
-      id: 'midi-header',
-      ok: hasHeader,
-      severity: 'error',
-      message: hasHeader
-        ? 'MIDI header detected.'
-        : 'MIDI header (MThd) not detected; payload is not valid base64 MIDI.',
-    });
-  } else {
-    checks.push({
-      id: 'kern-spine',
-      ok: /(^|\n)\*\*kern(\s|$)/m.test(trimmed),
-      severity: 'error',
-      message: /(^|\n)\*\*kern(\s|$)/m.test(trimmed)
-        ? '**kern spine declaration detected.'
-        : '**kern spine declaration was not detected.',
-    });
-    checks.push({
-      id: 'kern-terminator',
-      ok: /(^|\n)\*-(\s|$)/m.test(trimmed),
-      severity: 'warning',
-      message: /(^|\n)\*-(\s|$)/m.test(trimmed)
-        ? '**kern spine terminator detected.'
-        : '**kern spine terminator was not detected.',
-    });
-  }
-
-  return checks;
-};
-
 async function buildValidationChecks(args: {
   inputFormat: MusicFormat;
   inputContent?: string;
@@ -990,14 +900,14 @@ async function buildValidationChecks(args: {
       ? 'musicxml'
       : outputFormat === 'midi'
         ? 'musicxml'
-        : outputFormat === 'kern' || outputFormat === 'mei'
+        : outputFormat === 'kern' || outputFormat === 'mei' || outputFormat === 'mnx'
           ? 'musicxml'
           : inputFormat === 'kern'
             ? 'kern'
             : inputFormat === 'midi'
               ? 'midi'
-              : inputFormat === 'mei'
-                ? 'mei'
+              : inputFormat === 'mei' || inputFormat === 'mnx'
+                ? inputFormat
                 : 'abc';
   const roundtripStepTimeoutMs = Math.max(5_000, Math.floor(timeoutMs / 2));
 
@@ -1279,8 +1189,8 @@ async function runRenderSmokeChecks(args: {
 
   const tempDir = await mkdtemp(join(tmpdir(), 'ots-music-render-smoke-'));
   try {
-    // MuseScore renders MEI itself; anything else here is MusicXML.
-    const xmlFormat = outputFormat === 'mei' ? 'mei' : 'musicxml';
+    // MuseScore renders MEI and MNX itself; anything else here is MusicXML.
+    const xmlFormat = outputFormat === 'mei' || outputFormat === 'mnx' ? outputFormat : 'musicxml';
     const xmlPath = join(tempDir, `smoke.${xmlFormat}`);
     const pdfPath = join(tempDir, 'smoke.pdf');
     await writeFile(xmlPath, normalizeTextForFormat(xmlFormat, outputContent).content, 'utf8');
@@ -1666,14 +1576,22 @@ async function convertXmlToKern(args: {
   }
 }
 
+/** Text formats MuseScore reads and writes itself. */
+type InterchangeFormat = 'musicxml' | 'mei' | 'mnx';
+const INTERCHANGE_NAMES: Record<InterchangeFormat, string> = {
+  musicxml: 'a MusicXML',
+  mei: 'an MEI',
+  mnx: 'an MNX',
+};
+
 /**
- * MusicXML <-> MEI through MuseScore's own MEI import and export (MuseScore 4.2+), the converter the editor uses
- * (roadmap E25). Both are text.
+ * MusicXML <-> MEI (MuseScore 4.2+, roadmap E25) and MusicXML <-> MNX (4.7+, E29) through MuseScore's own import and
+ * export, the converters the editor uses. All three are text.
  */
-async function convertXmlMei(args: {
+async function convertInterchange(args: {
   config: ConversionToolConfig;
-  inputFormat: 'musicxml' | 'mei';
-  outputFormat: 'musicxml' | 'mei';
+  inputFormat: InterchangeFormat;
+  outputFormat: InterchangeFormat;
   content: string;
   timeoutMs: number;
   filename?: string;
@@ -1702,9 +1620,7 @@ async function convertXmlMei(args: {
       outputFormat,
     });
     if (!(await fileExists(outputPath))) {
-      throw new Error(
-        `MuseScore did not produce ${outputFormat === 'mei' ? 'an MEI' : 'a MusicXML'} output file.`,
-      );
+      throw new Error(`MuseScore did not produce ${INTERCHANGE_NAMES[outputFormat]} output file.`);
     }
     const output = normalizeTextForFormat(outputFormat, await readFile(outputPath, 'utf8')).content;
     return { output, stderr: '' };
@@ -1764,11 +1680,13 @@ async function convertBetweenFormats(args: {
   if (inputFormat === 'musicxml' && outputFormat === 'kern') {
     return convertXmlToKern({ config, content, timeoutMs, filename });
   }
+  const viaMusicXml = (format: MusicFormat): format is 'mei' | 'mnx' =>
+    format === 'mei' || format === 'mnx';
   if (
-    (inputFormat === 'musicxml' && outputFormat === 'mei') ||
-    (inputFormat === 'mei' && outputFormat === 'musicxml')
+    (inputFormat === 'musicxml' && viaMusicXml(outputFormat)) ||
+    (viaMusicXml(inputFormat) && outputFormat === 'musicxml')
   ) {
-    return convertXmlMei({
+    return convertInterchange({
       config,
       inputFormat,
       outputFormat,
@@ -1797,8 +1715,8 @@ function sanitizeFilename(filename: string, fallbackFormat: MusicFormat) {
   if (fallbackFormat === 'kern') {
     return safe.endsWith('.krn') || safe.endsWith('.kern') ? safe : `${stripExtension(safe)}.krn`;
   }
-  if (fallbackFormat === 'mei') {
-    return safe.endsWith('.mei') ? safe : `${stripExtension(safe)}.mei`;
+  if (fallbackFormat === 'mei' || fallbackFormat === 'mnx') {
+    return safe.endsWith(`.${fallbackFormat}`) ? safe : `${stripExtension(safe)}.${fallbackFormat}`;
   }
   if (safe.endsWith('.xml') || safe.endsWith('.musicxml') || safe.endsWith('.mxl')) {
     return safe;

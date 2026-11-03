@@ -236,6 +236,44 @@ function extractMeiInvariantSnapshot(text: string): InvariantSnapshot {
   };
 }
 
+/**
+ * MNX (JSON): bars from the global measures, the first meter and key, parts, and pitched notes (every object with a
+ * pitch, chord members and grace notes included, as MusicXML counts them).
+ */
+function extractMnxInvariantSnapshot(text: string): InvariantSnapshot {
+  let doc: {
+    global?: {
+      measures?: Array<{ time?: { count?: number; unit?: number }; key?: { fifths?: number } }>;
+    };
+    parts?: unknown[];
+  };
+  try {
+    doc = JSON.parse(text);
+  } catch {
+    return {};
+  }
+  const measures = doc.global?.measures ?? [];
+  const time = measures.find((m) => m.time)?.time;
+  const key = measures.find((m) => m.key)?.key;
+  let noteCount = 0;
+  const visit = (value: unknown) => {
+    if (Array.isArray(value)) value.forEach(visit);
+    else if (value && typeof value === 'object') {
+      if ('pitch' in value) noteCount++;
+      Object.values(value).forEach(visit);
+    }
+  };
+  visit(doc.parts);
+  return {
+    estimatedMeasures: measures.length || undefined,
+    meter: time?.count && time?.unit ? `${time.count}/${time.unit}` : undefined,
+    // No key in the first measures is no key signature, as for MEI.
+    key: `fifths:${key?.fifths ?? 0}`,
+    partCount: doc.parts?.length || undefined,
+    noteCount: noteCount || undefined,
+  };
+}
+
 export function extractInvariantSnapshot(
   format: MusicFormat,
   content: string,
@@ -266,6 +304,10 @@ export function extractInvariantSnapshot(
 
   if (format === 'mei') {
     return extractMeiInvariantSnapshot(text);
+  }
+
+  if (format === 'mnx') {
+    return extractMnxInvariantSnapshot(text);
   }
 
   const measureCount = (text.match(/<measure\b/g) || []).length || undefined;
