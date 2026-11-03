@@ -227,15 +227,32 @@ test.describe('player video export to a chosen file', () => {
     page,
   }) => {
     test.setTimeout(240_000);
-    // Chromium's save picker needs a real dialog; stand in for it with a file in the origin-private file system, which
-    // supports the same createWritable() the export streams into.
+    // The picker needs a real dialog. A seekable in-memory file exercises the
+    // same streamed writes without requiring origin-private storage, which is
+    // unavailable in some Playwright browser builds.
     await page.addInitScript(() => {
       (window as unknown as Record<string, unknown>).showSaveFilePicker = async (options: {
         suggestedName: string;
       }) => {
-        const root = await navigator.storage.getDirectory();
-        const handle = await root.getFileHandle(options.suggestedName, { create: true });
-        (window as unknown as Record<string, unknown>).__pickedName = options.suggestedName;
+        let bytes = new Uint8Array(new ArrayBuffer(0));
+        let closed = false;
+        const handle = {
+          name: options.suggestedName,
+          createWritable: async () => new WritableStream({
+            write(chunk: { type: string; position: number; data: Uint8Array }) {
+              if (chunk.type !== 'write') throw new Error(`Unexpected write type: ${chunk.type}`);
+              const size = Math.max(bytes.length, chunk.position + chunk.data.length);
+              const next = new Uint8Array(new ArrayBuffer(size));
+              next.set(bytes);
+              next.set(chunk.data, chunk.position);
+              bytes = next;
+            },
+            close() { closed = true; },
+          }),
+          getFile: async () => new File([bytes], options.suggestedName),
+          isClosed: () => closed,
+        };
+        (window as unknown as Record<string, unknown>).__pickedFile = handle;
         return handle;
       };
     });
@@ -260,18 +277,21 @@ test.describe('player video export to a chosen file', () => {
     });
 
     const written = await page.evaluate(async () => {
-      const name = (window as unknown as { __pickedName: string }).__pickedName;
-      const root = await navigator.storage.getDirectory();
-      const file = await (await root.getFileHandle(name)).getFile();
+      const handle = (window as unknown as {
+        __pickedFile: { name: string; getFile(): Promise<File>; isClosed(): boolean };
+      }).__pickedFile;
+      const file = await handle.getFile();
       const head = new Uint8Array(await file.slice(0, 4).arrayBuffer());
       return {
-        name,
+        name: handle.name,
+        closed: handle.isClosed(),
         size: file.size,
         head: Array.from(head),
         bytes: Array.from(new Uint8Array(await file.arrayBuffer())),
       };
     });
     expect(written.name).toMatch(/\.(mp4|webm)$/);
+    expect(written.closed).toBe(true);
     expect(written.size).toBeGreaterThan(1_000);
     // EBML header of a WebM, or the start of an MP4 box size: a real container, not an empty file.
     expect(written.head.some((byte) => byte !== 0)).toBe(true);
