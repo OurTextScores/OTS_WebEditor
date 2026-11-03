@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { htmlToMarkup, htmlToPlain, markupOfTextElement, markupToHtml } from '../../components/score-editor/rich-text';
+import { htmlToMarkup, htmlToPlain, markupOfTextElement, markupToHtml, symChipHtml } from '../../components/score-editor/rich-text';
 
 const BASE = { family: 'Edwin', size: 10 };
 const editor = (html: string) => {
@@ -60,5 +60,15 @@ describe('MuseScore text markup ↔ editor HTML (E17)', () => {
   it('reads the markup inside an MSCX <text> (the selection’s copy data)', () => {
     const doc = new DOMParser().parseFromString('<Staff><StaffText><text><b>Dol</b>ce &amp; co</text></StaffText></Staff>', 'application/xml');
     expect(markupOfTextElement(doc.querySelector('text')!)).toBe('<b>Dol</b>ce &amp; co');
+  });
+});
+
+describe('music symbols in the editor (E17)', () => {
+  it('draws a symbol as its glyph where its code point is known, and saves it by name', () => {
+    const html = markupToHtml('<sym>dynamicForte</sym>', { dynamicForte: 0xe522 });
+    expect(html).toContain(String.fromCodePoint(0xe522));
+    expect(html).toContain('title="dynamicForte"');
+    expect(htmlToMarkup(editor(html), BASE)).toBe('<sym>dynamicForte</sym>');
+    expect(htmlToMarkup(editor(symChipHtml('segno', 0xe047)), BASE)).toBe('<sym>segno</sym>');
   });
 });

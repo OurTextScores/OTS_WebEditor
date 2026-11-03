@@ -2,6 +2,8 @@
 
 import React, { useRef, type RefObject } from 'react';
 import { Button } from '../../ui/Button';
+import { SpecialCharactersPicker } from './SpecialCharactersPicker';
+import { symChipHtml } from './textMarkup';
 
 /** Fonts OTS ships for scores (the engine's text fonts and each music font's text companion). */
 const FONTS = [
@@ -31,7 +33,7 @@ const controlClass = 'rounded border border-slate-300 bg-white px-1 py-0.5 text-
 
 /**
  * MuseScore's text toolbar for the inline editor (roadmap E17): bold, italic, underline, strikethrough, superscript,
- * subscript, font and size, on the selected part of the text. The buttons keep the focus in the editor; the font menu
+ * subscript, font and size, on the selected part of the text, and special characters at the caret. The buttons keep the focus in the editor; the font menu
  * and size field take it, so the editor's selection is saved when they are reached and restored before applying.
  */
 export function RichTextToolbar({
@@ -66,6 +68,25 @@ export function RichTextToolbar({
     document.execCommand('styleWithCSS', false, 'false');
     document.execCommand(command, false, value);
     onEdit();
+  };
+  /**
+   * A symbol chip at the caret, and the caret after it. Not insertHTML: that leaves the caret inside the chip, which is
+   * not editable, so what is typed or inserted next goes nowhere.
+   */
+  const insertChip = (html: string) => {
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount) return;
+    const range = selection.getRangeAt(0);
+    const holder = document.createElement('span');
+    holder.innerHTML = html;
+    const chip = holder.firstElementChild;
+    if (!chip) return;
+    range.deleteContents();
+    range.insertNode(chip);
+    range.setStartAfter(chip);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
   };
   /** Size in points: the browser's fontSize command only knows 1–7, so mark the text with 7 and turn that into points. */
   const applySize = (points: number) => {
@@ -106,6 +127,17 @@ export function RichTextToolbar({
           <span className={className}>{short}</span>
         </Button>
       ))}
+      <SpecialCharactersPicker
+        onOpen={save}
+        onInsert={(item, codes) => {
+          if (!restore()) return;
+          if (item.s !== undefined) insertChip(symChipHtml(item.s, codes[item.s]));
+          else document.execCommand('insertText', false, String.fromCodePoint(item.c));
+          // The next one goes after this one.
+          save();
+          onEdit();
+        }}
+      />
       <select
         aria-label="Font"
         data-testid="rich-text-font"

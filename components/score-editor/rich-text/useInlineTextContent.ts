@@ -1,6 +1,7 @@
 import { useEffect, useState, type RefObject } from 'react';
 import type { Score } from '../../../lib/webmscore-loader';
 import { hasTextElementClass } from '../selection-classes';
+import { loadSmuflCodes } from './specialCharacters';
 import { markupOfTextElement, markupToHtml, type BaseFont } from './textMarkup';
 
 const FALLBACK_FONT: BaseFont = { family: 'Edwin', size: 10 };
@@ -26,6 +27,17 @@ export function useInlineTextContent({
   const [selectedTextValue, setSelectedTextValue] = useState('');
   const [markup, setMarkup] = useState('');
   const [baseFont, setBaseFont] = useState<BaseFont>(FALLBACK_FONT);
+  // SMuFL code points, so the text's music symbols show as glyphs: loaded once, when an editor first opens.
+  const [codes, setCodes] = useState<Readonly<Record<string, number>> | undefined>(undefined);
+
+  useEffect(() => {
+    if (!editorOpen || codes) return;
+    let cancelled = false;
+    void loadSmuflCodes().then((loaded) => !cancelled && setCodes(loaded));
+    return () => {
+      cancelled = true;
+    };
+  }, [editorOpen, codes]);
 
   useEffect(() => {
     const shouldLoadText = hasTextElementClass(selectedElementClasses) || editorOpen;
@@ -81,7 +93,7 @@ export function useInlineTextContent({
     if (!editorOpen || editedRef.current) return;
     const node = contentRef.current;
     if (!node) return;
-    const html = markup ? markupToHtml(markup) : '';
+    const html = markup ? markupToHtml(markup, codes) : '';
     if (node.innerHTML !== html) node.innerHTML = html;
     node.focus();
     const selection = typeof window !== 'undefined' ? window.getSelection() : null;
@@ -92,7 +104,7 @@ export function useInlineTextContent({
       selection.removeAllRanges();
       selection.addRange(range);
     }
-  }, [editorOpen, markup, contentRef, editedRef]);
+  }, [editorOpen, markup, codes, contentRef, editedRef]);
 
   return { selectedTextValue, setSelectedTextValue, markup, baseFont };
 }

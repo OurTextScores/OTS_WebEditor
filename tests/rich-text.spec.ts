@@ -72,3 +72,23 @@ test('Ctrl+I in the editor italicises the selection', async ({ page }) => {
   await content.press('Control+Enter');
   await expect.poll(() => staffTextMarkup(page), { timeout: 20_000 }).toBe('<i>Dolce</i>');
 });
+
+test('special characters: a music symbol and an accented letter go in at the caret', async ({ page }) => {
+  await page.goto('/?score=/test_scores/four_measures.musicxml');
+  await page.waitForSelector('svg .Note', { timeout: 60_000 });
+  const note = await page.locator('svg .Note').first().boundingBox();
+  if (!note) throw new Error('no note');
+  await page.mouse.click(note.x + note.width / 2, note.y + note.height / 2);
+  await runCommandAnsweringPrompt(page, 'add.text.staff', 'Dolce');
+  const content = await openEditor(page);
+  await expect(content).toHaveText('Dolce');
+  await content.press('End');
+
+  await page.getByTestId('rich-text-special').click();
+  await page.getByTestId('special-sym-dynamicForte').click();
+  await page.getByTestId('special-char-233').click();
+  // The symbol shows as its glyph in the editor.
+  await expect(content.locator('[data-sym="dynamicForte"]')).toHaveText(String.fromCodePoint(0xe522));
+  await page.getByText('Save', { exact: true }).click();
+  await expect.poll(() => staffTextMarkup(page), { timeout: 20_000 }).toBe('Dolce<sym>dynamicForte</sym>é');
+});

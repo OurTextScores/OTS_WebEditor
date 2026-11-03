@@ -44,8 +44,19 @@ export function markupOfTextElement(text: Element): string {
     .trim();
 }
 
-/** Markup to the editor's HTML. Markup that does not parse is shown as its text. */
-export function markupToHtml(markup: string): string {
+/**
+ * A music symbol in the editor: a chip that is not edited, saved as `<sym>name</sym>`. With its SMuFL code point it
+ * shows the glyph in a music font (named in the tooltip), else the name.
+ */
+export function symChipHtml(name: string, code?: number): string {
+  const glyph = code
+    ? `<span style="font-family:'BravuraFallback'">${escapeHtml(String.fromCodePoint(code))}</span>`
+    : escapeHtml(name);
+  return `<span data-sym="${escapeHtml(name)}" contenteditable="false" class="rich-text-sym" title="${escapeHtml(name)}">${glyph}</span>`;
+}
+
+/** Markup to the editor's HTML (symbols drawn from `codes` where given). Markup that does not parse is shown as its text. */
+export function markupToHtml(markup: string, codes?: Readonly<Record<string, number>>): string {
   const doc = new DOMParser().parseFromString(`<data>${markup}</data>`, 'application/xml');
   const root = doc.documentElement;
   if (root.nodeName !== 'data' || doc.getElementsByTagName('parsererror').length) {
@@ -79,7 +90,7 @@ export function markupToHtml(markup: string): string {
     }
     if (name === 'sym') {
       const symbol = element.textContent ?? '';
-      return `<span data-sym="${escapeHtml(symbol)}" contenteditable="false" class="rich-text-sym">${escapeHtml(symbol)}</span>`;
+      return symChipHtml(symbol, codes?.[symbol]);
     }
     const inner = [...element.childNodes].map(walk).join('');
     return STYLE_TAGS.has(name) ? `<${name}>${inner}</${name}>` : inner;
