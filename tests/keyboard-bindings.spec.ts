@@ -145,6 +145,15 @@ test.describe('with a note selected', () => {
       // Undo and Redo only run when the engine's undo stack has something for them (Edit ▸ Undo is off on a fresh score).
       for (const prelude of PRELUDE[method] ?? []) await runCommand(page, prelude);
       await clear(page);
+      page.on('console', msg => { if (msg.text().startsWith('KEY_DIAG')) console.log(msg.text()); });
+      await page.evaluate(() => {
+        window.addEventListener('keydown', event => console.log('KEY_DIAG', JSON.stringify({
+          key: event.key, ctrl: event.ctrlKey, alt: event.altKey, shift: event.shiftKey,
+          altGraph: event.getModifierState('AltGraph'), prevented: event.defaultPrevented,
+          target: (event.target as Element)?.tagName, hasFocus: document.hasFocus(),
+          overlays: document.querySelectorAll('[role="dialog"], [role="alertdialog"], [role="menu"]').length,
+        })));
+      });
       await page.keyboard.press(key);
       await expect.poll(async () => (await firstCall(page))?.[0], { timeout: 10_000 }).toBe(method);
       if (args) expect((await firstCall(page))?.[1]).toEqual(args);
