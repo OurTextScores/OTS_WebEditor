@@ -64,7 +64,7 @@ jobs:
       - name: Playwright (shard ${{ matrix.shard }}/4)
         run: |
           if [ "$PLAYWRIGHT_BROWSER" = firefox ]; then
-            npx playwright test tests/keyboard-bindings.spec.ts -g 'ArrowUp -> pitchUp'
+            npx playwright test tests/hotkeys-arrows.spec.ts tests/keyboard-bindings.spec.ts -g 'arrow hotkeys change pitch and octave|ArrowUp -> pitchUp'
           else
             npx playwright test tests/video-export.spec.ts
           fi

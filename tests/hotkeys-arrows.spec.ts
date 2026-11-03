@@ -33,6 +33,15 @@ test('arrow hotkeys change pitch and octave', async ({ page }) => {
   await page.locator('svg .Note').first().click();
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
 
+  page.on('console', msg => { if (msg.text().startsWith('KEY_DIAG')) console.log(msg.text()); });
+  await page.evaluate(() => {
+    window.addEventListener('keydown', event => console.log('KEY_DIAG', JSON.stringify({
+      key: event.key, ctrl: event.ctrlKey, alt: event.altKey, shift: event.shiftKey,
+      altGraph: event.getModifierState('AltGraph'), prevented: event.defaultPrevented,
+      target: (event.target as Element)?.tagName, hasFocus: document.hasFocus(),
+      overlays: document.querySelectorAll('[role="dialog"], [role="alertdialog"], [role="menu"]').length,
+    })));
+  });
   await page.keyboard.press('ArrowUp');
   await expect.poll(async () => (await readPitch()).alter, { timeout: 20_000 }).toBe(1);
   await expect.poll(async () => (await readPitch()).octave, { timeout: 20_000 }).toBe(4);
