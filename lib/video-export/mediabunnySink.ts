@@ -49,6 +49,13 @@ export async function probeEncoders(size: {
   const video: VideoCodecName[] = [];
   const audio: AudioCodecName[] = [];
   if (typeof VideoEncoder === 'undefined') return { video, audio };
+  // Initialize the browser's media stack before WebCodecs. On headless WPE
+  // WebKit, calling VideoEncoder.isConfigSupported first can abort GStreamer
+  // initialization and terminate the web process. canPlayType is only a
+  // warm-up; the WebCodecs probe below remains the source of truth.
+  if (typeof document !== 'undefined') {
+    document.createElement('video').canPlayType('video/mp4; codecs="avc1.42001f"');
+  }
   for (const codec of videoCandidates) {
     if ((await getFirstEncodableVideoCodec([codec], size)) === codec) video.push(codec);
   }
