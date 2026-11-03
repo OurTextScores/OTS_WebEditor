@@ -34,6 +34,7 @@ jobs:
       PLAYWRIGHT_BROWSER: ${{ matrix.browser }}
       PLAYWRIGHT_PORT: '3013'
       CI: 'true'
+      GST_PLUGIN_FEATURE_RANK: 'openh264enc:0'
     steps:
       # The engine's WASM/data artifacts are Git LFS objects.
       - uses: actions/checkout@v4
@@ -57,6 +58,10 @@ jobs:
           pactl load-module module-null-sink sink_name=ci
       # The soundfont is served from a CDN in production and is not in git; the
       # playback specs load it from public/soundfonts like a local checkout.
+      - name: Inspect GStreamer encoders
+        run: |
+          sudo apt-get install -y gstreamer1.0-tools
+          gst-inspect-1.0 | grep -Ei '264.*enc|enc.*264|vp9.*enc|av1.*enc' || true
       - name: Soundfont
         run: |
           mkdir -p public/soundfonts
