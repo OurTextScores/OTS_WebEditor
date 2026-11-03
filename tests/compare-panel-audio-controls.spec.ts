@@ -5,6 +5,8 @@ import { runCommand } from './helpers/commands';
 // checkpoint) with its own independent play/pause/stop transport. Starting
 // playback on one panel must stop the other so only one voice plays at once.
 test('compare panels have independent play/pause/stop with mutual exclusion', async ({ page }) => {
+  // Firefox's Playwright build runs the WASM engine without its optimizing JIT.
+  test.setTimeout(240_000);
   page.on('dialog', (dialog) => {
     void dialog.dismiss();
   });
@@ -35,13 +37,13 @@ test('compare panels have independent play/pause/stop with mutual exclusion', as
 
   // Play left: left starts, stop-left becomes enabled, right stays idle.
   await playLeft.click();
-  await expect(playLeft).toHaveAttribute('title', /Pause/, { timeout: 10_000 });
+  await expect(playLeft).toHaveAttribute('title', /Pause/, { timeout: 60_000 });
   await expect(stopLeft).toBeEnabled();
   await expect(stopRight).toBeDisabled();
 
   // Play right while left is playing: right takes over, left is stopped (mutual exclusion).
   await playRight.click();
-  await expect(playRight).toHaveAttribute('title', /Pause/, { timeout: 10_000 });
+  await expect(playRight).toHaveAttribute('title', /Pause/, { timeout: 60_000 });
   await expect(stopRight).toBeEnabled();
   await expect(playLeft).toHaveAttribute('title', 'Play');
   await expect(stopLeft).toBeDisabled();
