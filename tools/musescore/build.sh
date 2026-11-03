@@ -30,7 +30,7 @@ stage_file() {
     if ! cmp -s "$1" "$2"; then cp "$1" "$2"; fi
 }
 stage_file "$engine_sources/cmake/EngineOnly.cmake" "$source_dir/spike/SpikeEngineOnly.cmake"
-for input in "$engine_sources/bridge/bridge.cpp" "$engine_sources/bridge/"*.h "$engine_tools/patch_lib.py"; do
+for input in "$engine_sources/bridge/"*.cpp "$engine_sources/bridge/"*.h "$engine_tools/patch_lib.py"; do
     stage_file "$input" "$source_dir/spike/$(basename "$input")"
 done
 stage_file "$engine_tools/metadata-probe.h" "$source_dir/spike/metadata-probe.h"

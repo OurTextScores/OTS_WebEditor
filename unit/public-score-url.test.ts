@@ -94,6 +94,21 @@ describe('detectScoreInputFormat', () => {
     ).toBe('musicxml');
   });
 
+  it('detects MNX by extension, and from its "mnx" root member in .json and extensionless data', () => {
+    const mnx = new TextEncoder().encode(
+      '{\n  "mnx": {\n    "version": 1\n  },\n  "global": {}\n}',
+    );
+    expect(detectScoreInputFormat('https://example.com/score.mnx')).toBe('mnx');
+    expect(detectScoreInputFormat('https://example.com/score.json', mnx)).toBe('mnx');
+    expect(detectScoreInputFormat('https://example.com/download?id=1', mnx)).toBe('mnx');
+    // MuseScore's own files put "global" first.
+    const globalFirst = new TextEncoder().encode('{"global": {}, "mnx": {"version": 1}}');
+    expect(detectScoreInputFormat('https://example.com/download?id=2', globalFirst)).toBe('mnx');
+    expect(
+      detectScoreInputFormat('https://example.com/data.json', new TextEncoder().encode('{"a": 1}')),
+    ).not.toBe('mnx');
+  });
+
   it('distinguishes compressed MusicXML from MSCZ using ZIP entry names', () => {
     const mxl = new Uint8Array([0x50, 0x4b, ...new TextEncoder().encode('META-INF/container.xml')]);
     // Classic MSCZ (pre-4.x): just a .mscx inside the zip

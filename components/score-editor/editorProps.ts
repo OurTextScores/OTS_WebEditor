@@ -90,6 +90,7 @@ export interface EditorCommandProps {
   onExportPng?: () => void;
   onExportMxl?: () => void;
   onExportMei?: () => void;
+  onExportMnx?: () => void;
   onExportMscz?: () => void;
   onExportMscx?: () => void;
   onExportMusicXml?: () => void;

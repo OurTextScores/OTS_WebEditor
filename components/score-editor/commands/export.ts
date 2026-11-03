@@ -57,6 +57,24 @@ export async function exportMei(core: EditorCore) {
   }
 }
 
+/** MNX (JSON) through MuseScore's MNX exporter (roadmap E29), with its defaults: beams exported, rest positions not. */
+export async function exportMnx(core: EditorCore) {
+  const { score } = core;
+  if (!score || !score.saveMnx) {
+    notifyError('MNX export is not available in this build.');
+    return;
+  }
+  try {
+    const mnx = await score.saveMnx();
+    downloadBlob(mnx, 'score.mnx', 'application/vnd.mnx+json');
+  } catch (err) {
+    console.error('Failed to export MNX', err);
+    notifyError(
+      `Unable to export MNX: ${err instanceof Error ? err.message : 'see console for details'}.`,
+    );
+  }
+}
+
 export async function exportMscz(core: EditorCore) {
   const { score } = core;
   if (!score || !score.saveMsc) {

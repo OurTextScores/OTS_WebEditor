@@ -80,6 +80,7 @@ export const MENUS: readonly MenuDefinition[] = [
         item('file.export.musicxml'),
         item('file.export.mxl'),
         item('file.export.mei'),
+        item('file.export.mnx'),
         item('file.export.abc'),
         item('file.export.midi'),
         item('file.export.audio'),

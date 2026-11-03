@@ -66,6 +66,30 @@ target_include_directories(ots_mei PUBLIC ${OTS_MEI_DIR} ${OTS_MEI_DIR}/internal
     ${PROJECT_SOURCE_DIR}/src/framework/global ${PROJECT_SOURCE_DIR}/src/engraving)
 target_link_libraries(ots_mei PRIVATE engraving muse::global)
 
+# MNX interchange (roadmap E29): upstream's importer and exporter on mnxdom, fetched at the commit upstream pins (it
+# fetches nlohmann::json, json-schema-validator and the W3C MNX schema in turn). As for MEI, the module's IoC
+# registration, reader and writer are left out; bridge/mnxio.cpp calls the importer and exporter. mnxdom and the
+# importer report bad input by throwing, so this code alone is built with exceptions, caught inside mnxio.cpp.
+include(FetchContent)
+set(mnxdom_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(mnxdom
+    GIT_REPOSITORY https://github.com/rpatters1/mnxdom.git
+    GIT_TAG        e7c947bf768caccf315426dcae0dfac02caf738b)
+FetchContent_MakeAvailable(mnxdom)
+set(OTS_MNX_DIR ${PROJECT_SOURCE_DIR}/src/importexport/mnx)
+file(GLOB OTS_MNX_SOURCES ${OTS_MNX_DIR}/internal/import/*.cpp ${OTS_MNX_DIR}/internal/export/*.cpp
+    ${OTS_MNX_DIR}/internal/shared/*.cpp)
+add_library(ots_mnx STATIC ${OTS_MNX_SOURCES} ${CMAKE_CURRENT_LIST_DIR}/mnxio.cpp)
+target_include_directories(ots_mnx PUBLIC ${CMAKE_CURRENT_LIST_DIR}
+    PRIVATE ${OTS_MNX_DIR} ${OTS_MNX_DIR}/internal ${PROJECT_BINARY_DIR} ${PROJECT_SOURCE_DIR}/src
+    ${PROJECT_SOURCE_DIR}/src/framework ${PROJECT_SOURCE_DIR}/src/framework/global ${PROJECT_SOURCE_DIR}/src/engraving)
+target_link_libraries(ots_mnx PRIVATE mnxdom engraving muse::global)
+if (OS_IS_WASM)
+    foreach(mnx_target ots_mnx mnxdom nlohmann_json_schema_validator)
+        target_compile_options(${mnx_target} PRIVATE -fexceptions)
+    endforeach()
+endif()
+
 # ENGRAVING_NO_INTERNAL drops these, but they are Qt-free and layout needs the SMuFL fonts provider
 target_sources(engraving PRIVATE
     ${PROJECT_SOURCE_DIR}/src/engraving/internal/engravingfont.cpp
@@ -103,7 +127,9 @@ set(MS47_PRELOAD_DIR "" CACHE PATH "Resources preloaded at /res by the browser p
 # browser package contract: ES module factory, MEMFS, preloaded resources)
 function(ms47_bridge_target target)
     add_executable(${target} ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/bridge.cpp)
-    target_link_libraries(${target} PRIVATE iex_musicxml ots_mei engraving muse::draw muse::global)
+    target_link_libraries(${target} PRIVATE iex_musicxml ots_mei ots_mnx engraving muse::draw muse::global)
+    # The exception runtime, for the MNX code (built with -fexceptions); the rest of the engine is built without.
+    target_link_options(${target} PRIVATE -fexceptions)
     if (MS47_WITH_PLAYBACK)
         target_link_libraries(${target} PRIVATE muse_audio_engine muse_audio_common muse::mpe embind)
         target_compile_definitions(${target} PRIVATE MS47_WITH_PLAYBACK)

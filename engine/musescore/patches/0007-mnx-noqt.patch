@@ -1,0 +1,26 @@
+diff --git a/src/importexport/mnx/internal/export/mnxexporter.cpp b/src/importexport/mnx/internal/export/mnxexporter.cpp
+index b44e500da4..a16d702cdc 100644
+--- a/src/importexport/mnx/internal/export/mnxexporter.cpp
++++ b/src/importexport/mnx/internal/export/mnxexporter.cpp
+@@ -103,7 +103,7 @@ muse::Ret MnxExporter::exportMnx()
+         const String msg = muse::TranslatableString(
+             "importexport/mnx",
+             "MNX export skipped because the score contains no exportable parts. (Tablature is not supported yet).").str;
+-        return muse::make_ret(muse::Ret::Code::NotSupported, msg);
++        return muse::make_ret(muse::Ret::Code::NotSupported, msg.toStdString());
+     }
+     createLayout(m_exportedStaves, "full-score");
+     /// @todo Creation of all layouts and scores, including excerpts. (Deferred to a future dev cycle.)
+diff --git a/src/importexport/mnx/internal/import/mnximporter.cpp b/src/importexport/mnx/internal/import/mnximporter.cpp
+index 07c3d7804b..4bae2cf0db 100644
+--- a/src/importexport/mnx/internal/import/mnximporter.cpp
++++ b/src/importexport/mnx/internal/import/mnximporter.cpp
+@@ -694,7 +694,7 @@ void MnxImporter::createVolta(engraving::Measure* measure, const mnx::global::En
+             if (!text.empty()) {
+                 text += u", ";
+             }
+-            text += String("%1").arg(number);
++            text += String(u"%1").arg(number);
+         }
+         text += u".";
+         volta->setText(text);

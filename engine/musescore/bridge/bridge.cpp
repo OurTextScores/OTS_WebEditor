@@ -19,6 +19,7 @@
 #include <cstring>
 #include <cstdlib>
 #include "meiio.h"
+#include "mnxio.h"
 
 // Keep the existing WasmRes ABI: LE uint32 error, byte count, bytes + NUL.
 static const uint8_t* response(const ByteArray& bytes, uint32_t error = 0) {
@@ -114,7 +115,7 @@ static ByteArray mxlRootfile(const ByteArray& archive) {
 EMSCRIPTEN_KEEPALIVE const uint8_t* load(const char* format, const uint8_t* data, size_t length, bool layout) {
     const double loadStartMs=emscripten_get_now();
     std::string ext(format);
-    if(ext != "mscz" && ext != "mscx" && ext != "musicxml" && ext != "xml" && ext != "mxl" && ext != "mei") return textResponse("Unsupported format", 1);
+    if(ext != "mscz" && ext != "mscx" && ext != "musicxml" && ext != "xml" && ext != "mxl" && ext != "mei" && ext != "mnx") return textResponse("Unsupported format", 1);
     auto project = EngravingProject::create(nullptr);
     const std::string path = "score."+ext;
     project->setFileInfoProvider(std::make_shared<LocalFileInfoProvider>(path));
@@ -134,7 +135,12 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* load(const char* format, const uint8_t* data
     }
     Ret loaded;
     StringList importWarnings;
-    if(ext == "mei") {
+    if(ext == "mnx") {
+        // MNX (roadmap E29): upstream's importer on mnxdom, as MuseScore's File > Open does it (mnxio.h)
+        String mnxError;
+        if(!otsmnx::importMnx(project->masterScore(),bytes,mnxError)) return textResponse(mnxError.toStdString().empty() ? "Could not read MNX" : mnxError.toStdString(),1);
+        loaded=project->setupMasterScore(true);
+    } else if(ext == "mei") {
         // MEI (roadmap E25): upstream's importer, as MuseScore's File > Open does it (meiio.h)
         loaded=otsmei::importMei(project->masterScore(),bytes,importWarnings) ? project->setupMasterScore(true) : make_ret(Ret::Code::UnknownError);
     } else if(ext == "mscz" || ext == "mscx") {
@@ -177,6 +183,13 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* saveXml(uintptr_t id,int excerpt) {
     auto* score=getScore(id,excerpt); if(!score) return textResponse("Invalid score or unsupported excerpt",1);
     ByteArray xml; io::Buffer buffer(&xml); buffer.open(io::IODevice::WriteOnly);
     mu::iex::musicxml::saveXml(score,&buffer); buffer.close(); return response(xml);
+}
+// MNX (roadmap E29): upstream's MnxExporter with MuseScore's export defaults (mnxio.h). MNX is JSON.
+EMSCRIPTEN_KEEPALIVE const uint8_t* saveMnx(uintptr_t id,int excerpt) {
+    auto* score=getScore(id,excerpt); if(!score) return textResponse("Invalid score or unsupported excerpt",1);
+    std::string json; String error;
+    if(!otsmnx::exportMnx(score,json,error)) return textResponse(error.isEmpty() ? "Could not write MNX" : error.toStdString(),1);
+    return response(ByteArray(json.c_str(), json.size()));
 }
 // MEI (roadmap E25): upstream's MeiExporter, writing the layout (system and page breaks) as MuseScore does.
 EMSCRIPTEN_KEEPALIVE const uint8_t* saveMei(uintptr_t id,int excerpt) {

@@ -1,0 +1,441 @@
+{
+  "upstream": "MuseScore 4.7.4 src/importexport/mnx/tests (mnx_tests.cpp); W3C examples from w3c/mnx at d513cf7a, the commit mnxdom e7c947bf pins",
+  "cases": [
+    {
+      "name": "altoFluteTrem",
+      "source": "project/altoFluteTrem.mnx",
+      "reference": "project/altoFluteTrem_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "altoFluteTremMissingKey",
+      "source": "project/altoFluteTremMissingKey.mnx",
+      "reference": "project/altoFluteTremMissingKey_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "barlineTypesWithShort",
+      "source": "project/barlineTypesWithShort.mnx",
+      "reference": "project/barlineTypesWithShort_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "bcl",
+      "source": "project/bcl.mnx",
+      "reference": "project/bcl_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "beamsOverBarlines",
+      "source": "project/beamsOverBarlines.mnx",
+      "reference": "project/beamsOverBarlines_ref.mscx",
+      "roundTrip": true,
+      "normalizeBeamMode": true
+    },
+    {
+      "name": "clarinet38",
+      "source": "project/clarinet38.mnx",
+      "reference": "project/clarinet38_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "clarinet38MissingTime",
+      "source": "project/clarinet38MissingTime.mnx",
+      "reference": "project/clarinet38MissingTime_ref.mscx",
+      "roundTrip": false,
+      "note": "MuseScore does not round-trip it"
+    },
+    {
+      "name": "enharmonicPart",
+      "source": "project/enharmonicPart.mnx",
+      "reference": "project/enharmonicPart_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "graceBeamed",
+      "source": "project/graceBeamed.mnx",
+      "reference": "project/graceBeamed_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "key56Wrapped56Edited",
+      "source": "project/key56Wrapped56Edited.mnx",
+      "reference": "project/key56Wrapped56Edited_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "key77",
+      "source": "project/key77.mnx",
+      "reference": "project/key77_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "key77Wrapped",
+      "source": "project/key77Wrapped.mnx",
+      "reference": "project/key77Wrapped_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "layoutBarlineStylesInstrument",
+      "source": "project/layoutBarlineStylesInstrument.mnx",
+      "reference": "project/layoutBarlineStylesInstrument_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "layoutBarlineStylesNested",
+      "source": "project/layoutBarlineStylesNested.mnx",
+      "reference": "project/layoutBarlineStylesNested_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "layoutBrackets",
+      "source": "project/layoutBrackets.mnx",
+      "reference": "project/layoutBrackets_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "measnumSequences",
+      "source": "project/measnumSequences.mnx",
+      "reference": "project/measnumSequences_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "multinoteTremolos",
+      "source": "project/multinoteTremolos.mnx",
+      "reference": "project/multinoteTremolos_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "multinoteTremolosAdv",
+      "source": "project/multinoteTremolosAdv.mnx",
+      "reference": "project/multinoteTremolosAdv_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "ottavas",
+      "source": "project/ottavas.mnx",
+      "reference": "project/ottavas_ref.mscx",
+      "roundTrip": false,
+      "note": "MuseScore does not round-trip it"
+    },
+    {
+      "name": "percussionKit",
+      "source": "project/percussionKit.mnx",
+      "reference": "project/percussionKit_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "restPosition",
+      "source": "project/restPosition.mnx",
+      "reference": "project/restPosition_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "tupletHiddenRest",
+      "source": "project/tupletHiddenRest.mnx",
+      "reference": "project/tupletHiddenRest_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "tupletNested",
+      "source": "project/tupletNested.mnx",
+      "reference": "project/tupletNested_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "tupletSimple",
+      "source": "project/tupletSimple.mnx",
+      "reference": "project/tupletSimple_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "accidentals",
+      "source": "w3c/accidentals.json",
+      "reference": "w3c/accidentals_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "articulations",
+      "source": "w3c/articulations.json",
+      "reference": "w3c/articulations_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "beam-hooks",
+      "source": "w3c/beam-hooks.json",
+      "reference": "w3c/beam-hooks_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "beams-across-barlines",
+      "source": "w3c/beams-across-barlines.json",
+      "reference": "w3c/beams-across-barlines_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "beams-inner-grace-notes",
+      "source": "w3c/beams-inner-grace-notes.json",
+      "reference": "w3c/beams-inner-grace-notes_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "beams-secondary-beam-breaks-implied",
+      "source": "w3c/beams-secondary-beam-breaks-implied.json",
+      "reference": "w3c/beams-secondary-beam-breaks-implied_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "beams-secondary-beam-breaks",
+      "source": "w3c/beams-secondary-beam-breaks.json",
+      "reference": "w3c/beams-secondary-beam-breaks_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "beams",
+      "source": "w3c/beams.json",
+      "reference": "w3c/beams_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "clef-changes",
+      "source": "w3c/clef-changes.json",
+      "reference": "w3c/clef-changes_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "dotted-notes",
+      "source": "w3c/dotted-notes.json",
+      "reference": "w3c/dotted-notes_ref.mscx",
+      "roundTrip": false,
+      "note": "MuseScore round-trips it without exported beams"
+    },
+    {
+      "name": "dynamics",
+      "source": "w3c/dynamics.json",
+      "reference": "w3c/dynamics_ref.mscx",
+      "roundTrip": false,
+      "note": "MuseScore does not round-trip it"
+    },
+    {
+      "name": "grace-note",
+      "source": "w3c/grace-note.json",
+      "reference": "w3c/grace-note_ref.mscx",
+      "roundTrip": false,
+      "note": "MuseScore round-trips it without exported beams"
+    },
+    {
+      "name": "grace-notes-beamed",
+      "source": "w3c/grace-notes-beamed.json",
+      "reference": "w3c/grace-notes-beamed_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "grand-staff",
+      "source": "w3c/grand-staff.json",
+      "reference": "w3c/grand-staff_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "hello-world",
+      "source": "w3c/hello-world.json",
+      "reference": "w3c/hello-world_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "jumps-dal-segno",
+      "source": "w3c/jumps-dal-segno.json",
+      "reference": "w3c/jumps-dal-segno_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "jumps-ds-al-fine",
+      "source": "w3c/jumps-ds-al-fine.json",
+      "reference": "w3c/jumps-ds-al-fine_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "key-signatures",
+      "source": "w3c/key-signatures.json",
+      "reference": "w3c/key-signatures_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "lyric-line-metadata",
+      "source": "w3c/lyric-line-metadata.json",
+      "reference": "w3c/lyric-line-metadata_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "lyrics-basic",
+      "source": "w3c/lyrics-basic.json",
+      "reference": "w3c/lyrics-basic_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "lyrics-multi-line",
+      "source": "w3c/lyrics-multi-line.json",
+      "reference": "w3c/lyrics-multi-line_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "multi-note-tremolos",
+      "source": "w3c/multi-note-tremolos.json",
+      "reference": "w3c/multi-note-tremolos_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "full-measure-rests",
+      "source": "w3c/full-measure-rests.json",
+      "reference": "w3c/full-measure-rests_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "multimeasure-rests",
+      "source": "w3c/multimeasure-rests.json",
+      "reference": "w3c/multimeasure-rests_ref.mscx",
+      "roundTrip": false,
+      "note": "MuseScore does not round-trip it"
+    },
+    {
+      "name": "multiple-layouts",
+      "source": "w3c/multiple-layouts.json",
+      "reference": "w3c/multiple-layouts_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "multiple-voices",
+      "source": "w3c/multiple-voices.json",
+      "reference": "w3c/multiple-voices_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "organ-layout",
+      "source": "w3c/organ-layout.json",
+      "reference": "w3c/organ-layout_ref.mscx",
+      "roundTrip": false,
+      "note": "MuseScore does not round-trip it"
+    },
+    {
+      "name": "ottavas-8va",
+      "source": "w3c/ottavas-8va.json",
+      "reference": "w3c/ottavas-8va_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "parts",
+      "source": "w3c/parts.json",
+      "reference": "w3c/parts_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "repeats-alternate-endings-advanced",
+      "source": "w3c/repeats-alternate-endings-advanced.json",
+      "reference": "w3c/repeats-alternate-endings-advanced_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "repeats-alternate-endings-simple",
+      "source": "w3c/repeats-alternate-endings-simple.json",
+      "reference": "w3c/repeats-alternate-endings-simple_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "repeats-implied-start-repeat",
+      "source": "w3c/repeats-implied-start-repeat.json",
+      "reference": "w3c/repeats-implied-start-repeat_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "repeats-more-once-repeated",
+      "source": "w3c/repeats-more-once-repeated.json",
+      "reference": "w3c/repeats-more-once-repeated_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "repeats",
+      "source": "w3c/repeats.json",
+      "reference": "w3c/repeats_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "rest-positions",
+      "source": "w3c/rest-positions.json",
+      "reference": "w3c/rest-positions_ref.mscx",
+      "roundTrip": false,
+      "note": "MuseScore round-trips it without exported beams; MuseScore round-trips it with exported rest positions"
+    },
+    {
+      "name": "single-note-tremolos",
+      "source": "w3c/single-note-tremolos.json",
+      "reference": "w3c/single-note-tremolos_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "slurs-chords",
+      "source": "w3c/slurs-chords.json",
+      "reference": "w3c/slurs-chords_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "slurs-targeting-specific-notes",
+      "source": "w3c/slurs-targeting-specific-notes.json",
+      "reference": "w3c/slurs-targeting-specific-notes_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "slurs",
+      "source": "w3c/slurs.json",
+      "reference": "w3c/slurs_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "tempo-markings",
+      "source": "w3c/tempo-markings.json",
+      "reference": "w3c/tempo-markings_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "three-note-chord-and-half-rest",
+      "source": "w3c/three-note-chord-and-half-rest.json",
+      "reference": "w3c/three-note-chord-and-half-rest_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "tie-target-type",
+      "source": "w3c/tie-target-type.json",
+      "reference": "w3c/tie-target-type_ref.mscx",
+      "roundTrip": false,
+      "note": "MuseScore round-trips it without exported beams"
+    },
+    {
+      "name": "ties",
+      "source": "w3c/ties.json",
+      "reference": "w3c/ties_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "time-signature-glyphs",
+      "source": "w3c/time-signature-glyphs.json",
+      "reference": "w3c/time-signature-glyphs_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "time-signatures",
+      "source": "w3c/time-signatures.json",
+      "reference": "w3c/time-signatures_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "tuplets",
+      "source": "w3c/tuplets.json",
+      "reference": "w3c/tuplets_ref.mscx",
+      "roundTrip": true
+    },
+    {
+      "name": "two-bar-c-major-scale",
+      "source": "w3c/two-bar-c-major-scale.json",
+      "reference": "w3c/two-bar-c-major-scale_ref.mscx",
+      "roundTrip": true
+    }
+  ]
+}

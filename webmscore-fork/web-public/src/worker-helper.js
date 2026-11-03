@@ -130,6 +130,7 @@ class WebMscoreW {
         if (!capabilities?.hitTestScoreObject) Object.defineProperty(instance, 'hitTestScoreObject', { value: undefined })
         if (!capabilities?.moveSelectedChordRestToStaff) Object.defineProperty(instance, 'moveSelectedChordRestToStaff', { value: undefined })
         if (!capabilities?.mei) Object.defineProperty(instance, 'saveMei', { value: undefined })
+        if (!capabilities?.mnx) Object.defineProperty(instance, 'saveMnx', { value: undefined })
         if (!capabilities?.textXml) Object.defineProperty(instance, 'setSelectedTextXml', { value: undefined })
         if (!capabilities?.lyricsEntry) {
             for (const name of ['startLyricsEntry', 'lyricsEntryCommit', 'endLyricsEntry']) Object.defineProperty(instance, name, { value: undefined })
@@ -728,6 +729,10 @@ class WebMscoreW {
      * Export score as compressed MusicXML file
      * @returns {Promise<Uint8Array>}
      */
+    saveMnx() {
+        return this.rpc('saveMnx')
+    }
+
     saveMei() {
         return this.rpc('saveMei')
     }

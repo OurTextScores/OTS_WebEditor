@@ -3,6 +3,7 @@ export type InputFileFormat =
   | 'mscx'
   | 'mxl'
   | 'mei'
+  | 'mnx'
   | 'musicxml'
   | 'xml'
   | 'midi'

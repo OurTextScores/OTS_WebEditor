@@ -90,11 +90,25 @@ function isMeiDocument(data?: Uint8Array): boolean {
   return /<mei[\s>]/.test(prefix) && prefix.includes('music-encoding.org/ns/mei');
 }
 
+/** An MNX document (roadmap E29): a JSON object with "mnx" (its version) and "global" members, in either order. */
+function isMnxDocument(data?: Uint8Array): boolean {
+  if (!data?.byteLength || data[0] !== 0x7b /* { */) return false;
+  try {
+    const doc: unknown = JSON.parse(new TextDecoder().decode(data));
+    return typeof doc === 'object' && doc !== null && 'mnx' in doc && 'global' in doc;
+  } catch {
+    return false;
+  }
+}
+
 /** Detects extensionless downloads (including Google Drive files) from their contents. */
 export function detectScoreInputFormat(source: string, data?: Uint8Array): InputFileFormat {
   const normalized = source.toLowerCase().split('#')[0].split('?')[0];
   if (normalized.endsWith('.mei') || (normalized.endsWith('.xml') && isMeiDocument(data))) {
     return 'mei';
+  }
+  if (normalized.endsWith('.mnx') || (normalized.endsWith('.json') && isMnxDocument(data))) {
+    return 'mnx';
   }
   if (normalized.endsWith('.xml') || normalized.endsWith('.musicxml')) {
     return 'musicxml';
@@ -145,6 +159,9 @@ export function detectScoreInputFormat(source: string, data?: Uint8Array): Input
     }
     if (isMeiDocument(data)) {
       return 'mei';
+    }
+    if (isMnxDocument(data)) {
+      return 'mnx';
     }
   }
 

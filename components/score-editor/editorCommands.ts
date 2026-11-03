@@ -1,3 +1,4 @@
+import { buildExportCommands } from './exportCommands';
 import { buildStaffMoveCommands } from './staffMoveCommands';
 import type { EditorCommandProps, MeasureInsertTarget } from './editorProps';
 import {
@@ -157,25 +158,6 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       },
     });
 
-  /** Test ids are the ribbon's, `btn-export-<suffix>` (but for current page audio). */
-  const exportCommand = (
-    suffix: string,
-    label: string,
-    key: ActionKey,
-    extraGate: () => boolean = () => true,
-    testId = `btn-export-${suffix}`,
-  ) =>
-    defineCommand({
-      id: `file.export.${suffix}`,
-      label,
-      testId,
-      keywords: ['export', 'download', 'save'],
-      enabled: (ctx) => ctx.hasScore && has(key) && extraGate(),
-      run: async () => {
-        await (p()[key] as (() => unknown) | undefined)?.();
-      },
-    });
-
   const headerText = (target: 'title' | 'subtitle' | 'composer' | 'lyricist', label: string) =>
     defineCommand<{ point?: { clientX: number; clientY: number } } | undefined>({
       id: `add.text.${target}`,
@@ -215,26 +197,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       opensDialog: true,
       keywords: ['diff', 'load scores to compare'],
     }),
-    exportCommand('mscz', 'Export MuseScore (.mscz)', 'onExportMscz'),
-    exportCommand('pdf', 'Export PDF', 'onExportPdf'),
-    exportCommand('svg', 'Export SVG', 'onExportSvg'),
-    exportCommand('png', 'Export PNG', 'onExportPng', () => Boolean(p().pngAvailable)),
-    exportCommand('mscx', 'Export MuseScore Uncompressed (.mscx)', 'onExportMscx'),
-    exportCommand('musicxml', 'Export MusicXML', 'onExportMusicXml'),
-    exportCommand('mxl', 'Export Compressed MusicXML (.mxl)', 'onExportMxl'),
-    exportCommand('mei', 'Export MEI', 'onExportMei'),
-    exportCommand('abc', 'Export ABC', 'onExportAbc'),
-    exportCommand('midi', 'Export MIDI', 'onExportMidi'),
-    exportCommand('audio', 'Export Audio (WAV)', 'onExportAudio', () =>
-      Boolean(p().audioAvailable && !p().audioBusy),
-    ),
-    exportCommand(
-      'pageAudio',
-      'Export Current Page Audio',
-      'onExportCurrentPageAudio',
-      () => Boolean(p().audioAvailable && !p().audioBusy),
-      'btn-export-current-page-audio',
-    ),
+    ...buildExportCommands(p),
     defineCommand({
       id: 'file.drive.upload',
       label: 'Upload to Google Drive',
