@@ -38,6 +38,23 @@ describe('shared score loader', () => {
     expect(inProcess.load).toHaveBeenCalledOnce();
   });
 
+  it("returns an MEI import's warnings, and none for other formats", async () => {
+    const loadProfile = vi.fn(async () => ({ importWarnings: ['Could not read <dir>'] }));
+    const score = fakeScore({ loadProfile });
+    const engine = fakeEngine(vi.fn(async () => score));
+
+    const mei = await loadScoreWithEngineFallback('mei', new Uint8Array([1]), {
+      loadWorker: async () => engine,
+    });
+    expect(mei.importWarnings).toEqual(['Could not read <dir>']);
+
+    const musicxml = await loadScoreWithEngineFallback('musicxml', new Uint8Array([1]), {
+      loadWorker: async () => engine,
+    });
+    expect(musicxml.importWarnings).toEqual([]);
+    expect(loadProfile).toHaveBeenCalledOnce();
+  });
+
   it('uses incremental first-page layout for a large supported score', async () => {
     const score = fakeScore({
       layoutUntilPageState: vi.fn(async () => ({

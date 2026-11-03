@@ -42,7 +42,7 @@ function Toast({ notice }: { notice: Notice }) {
       <div className="min-w-0 flex-1">
         <div className="font-semibold">{notice.title}</div>
         {notice.detail && (
-          <div className="mt-0.5 break-words text-xs opacity-80">{notice.detail}</div>
+          <div className="mt-0.5 whitespace-pre-line break-words text-xs opacity-80">{notice.detail}</div>
         )}
         {notice.action && (
           <button

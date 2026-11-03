@@ -28,3 +28,22 @@ test('opens an MEI file and exports it as MEI again', async ({ page }) => {
     [...text.matchAll(/<syl[^>]*>([^<]*)<\/syl>/g)].map((m) => m[1]);
   expect(syllables(exported)).toEqual(syllables(source));
 });
+
+test("shows the importer's problems with an MEI file that still opens", async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.goto('/');
+  // Not MEI Basic: MuseScore imports it, but reports that it may be incomplete.
+  const source = fs
+    .readFileSync(FIXTURE, 'utf8')
+    .replace('meiversion="5.1+basic"', 'meiversion="4.0.1"');
+  await page.getByTestId('open-score-input').setInputFiles({
+    name: 'not-basic.mei',
+    mimeType: 'application/mei+xml',
+    buffer: Buffer.from(source),
+  });
+  await page.waitForSelector('svg .Note', { timeout: 60_000 });
+  const notice = page.getByTestId('notice-warning');
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText('1 problem occurred and the import may be incomplete.');
+  await expect(notice).toContainText('does not seem to be a MEI Basic');
+});

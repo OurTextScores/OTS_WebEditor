@@ -302,6 +302,7 @@ import { decodeXmlData, normalizeXmlData } from './score-editor/musicxml';
 import { runWithTimeout } from './score-editor/async-timeout';
 import { parsePartsFromMetadata } from './score-editor/part-metadata';
 import { downloadBlob } from './score-editor/download-blob';
+import { notifyImportWarnings } from './score-editor/import-warnings';
 import { isEditableTarget } from './score-editor/editable-target';
 import { summarizeScoreId } from './score-editor/score-id';
 import { useNotaGenTool } from './score-editor/ai-tools/useNotaGenTool';
@@ -3478,6 +3479,7 @@ export default function ScoreEditor() {
       runSerialized: runSerializedScoreOperation,
       logStage: logLargeLoad,
     });
+    notifyImportWarnings(result.importWarnings);
     return { ...result, loadedScore: editorPlayback.guardScore(result.loadedScore) };
   };
 

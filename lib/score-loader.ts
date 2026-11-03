@@ -21,7 +21,20 @@ export type InitialScoreLoad = {
 
 export type ScoreLoadResult = InitialScoreLoad & {
   engineMode: 'worker' | 'in_process';
+  /** Problems the importer reported (MEI, roadmap E25): the score loaded but may be incomplete. */
+  importWarnings: string[];
 };
+
+/** The importer's warnings, which the engine keeps with the load profile (only MEI reports them). */
+async function readImportWarnings(score: Score, format: InputFileFormat): Promise<string[]> {
+  if (format !== 'mei' || !score.loadProfile) return [];
+  try {
+    const warnings = (await score.loadProfile())?.importWarnings;
+    return Array.isArray(warnings) ? warnings.map(String) : [];
+  } catch {
+    return [];
+  }
+}
 
 const directOperation: SerializedOperation = (operation) => operation();
 
@@ -215,7 +228,8 @@ export async function loadScoreWithEngineFallback(
     const engine = await (options.loadWorker ?? loadWebMscore)();
     options.logStage?.('worker-engine:ready');
     const result = await loadScoreWithInitialLayout(engine, format, data.slice(), loadOptions);
-    return { ...result, engineMode: 'worker' };
+    const importWarnings = await readImportWarnings(result.loadedScore, format);
+    return { ...result, engineMode: 'worker', importWarnings };
   } catch (workerError) {
     options.logStage?.('worker-engine:failed', workerError);
     console.warn('Worker webmscore load failed, retrying with in-process engine.', workerError);
@@ -223,7 +237,8 @@ export async function loadScoreWithEngineFallback(
     options.logStage?.('in-process-engine:ready');
     const result = await loadScoreWithInitialLayout(engine, format, data.slice(), loadOptions);
     options.logStage?.('in-process-engine:done');
-    return { ...result, engineMode: 'in_process' };
+    const importWarnings = await readImportWarnings(result.loadedScore, format);
+    return { ...result, engineMode: 'in_process', importWarnings };
   }
 }
 

@@ -199,7 +199,7 @@ describe('runMusicConvertService', () => {
 
     expect(result.status).toBe(400);
     expect(result.body).toMatchObject({
-      error: 'Missing or invalid output format. Use abc, musicxml, midi, or kern.',
+      error: 'Missing or invalid output format. Use abc, musicxml, midi, kern, or mei.',
     });
   });
 
@@ -312,6 +312,34 @@ describe('runMusicConvertService', () => {
       outputArtifact: { id: 'output-xml', format: 'musicxml' },
       content: '<score-partwise version="3.1"></score-partwise>',
     });
+  });
+
+  it('infers MEI (which starts with an XML declaration, like MusicXML) and converts it', async () => {
+    const mei =
+      '<?xml version="1.0" encoding="UTF-8"?>\n<mei xmlns="http://www.music-encoding.org/ns/mei" meiversion="5.1+basic"></mei>\n';
+    mocked.createScoreArtifact
+      .mockResolvedValueOnce({ id: 'input-mei', format: 'mei', content: mei })
+      .mockResolvedValueOnce({
+        id: 'output-xml',
+        format: 'musicxml',
+        content: '<score-partwise version="3.1"></score-partwise>',
+      });
+    mocked.convertMusicNotation.mockResolvedValue({
+      inputFormat: 'mei',
+      outputFormat: 'musicxml',
+      content: '<score-partwise version="3.1"></score-partwise>',
+      contentEncoding: 'utf8',
+      normalization: { schemaVersion: 'music-normalization@1', format: 'musicxml', actions: [] },
+      validation: { schemaVersion: 'music-validation@1', summary: { error: 0 } },
+      provenance: { tool: 'convertMusicNotation' },
+    });
+
+    const result = await runMusicConvertService({ outputFormat: 'musicxml', content: mei });
+
+    expect(mocked.convertMusicNotation).toHaveBeenCalledWith(
+      expect.objectContaining({ inputFormat: 'mei', outputFormat: 'musicxml' }),
+    );
+    expect(result.status).toBe(200);
   });
 
   it('infers Transcoda-style kern without an explicit spine declaration', async () => {

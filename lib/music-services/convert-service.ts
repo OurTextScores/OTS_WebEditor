@@ -126,6 +126,10 @@ const inferTextFormat = (content: string) => {
   if (looksLikeKern(trimmed)) {
     return 'kern' as const;
   }
+  // MEI before MusicXML: both start with an XML declaration.
+  if (/<mei\b[^>]*music-encoding\.org\/ns\/mei/.test(trimmed)) {
+    return 'mei' as const;
+  }
   if (/<score-partwise\b|<score-timewise\b|^\s*<\?xml\b/.test(trimmed)) {
     return 'musicxml' as const;
   }
@@ -262,7 +266,7 @@ export async function runMusicConvertService(
   if (!outputFormat) {
     return {
       status: 400,
-      body: { error: 'Missing or invalid output format. Use abc, musicxml, midi, or kern.' },
+      body: { error: 'Missing or invalid output format. Use abc, musicxml, midi, kern, or mei.' },
     };
   }
 

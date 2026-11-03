@@ -212,8 +212,8 @@
       "maxBytes": 66938
     },
     "lib/music-conversion.ts": {
-      "maxLines": 2312,
-      "maxBytes": 70413
+      "maxLines": 2148,
+      "maxBytes": 65830
     },
     "lib/music-services/deep-edit-service.ts": {
       "maxLines": 1227,
