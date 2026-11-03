@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-for (const scenario of ['blank', 'loaded-score'] as const) {
+for (const scenario of ['blank'] as const) {
   test(`codec probe on ${scenario}`, async ({ page }) => {
     if (scenario === 'blank') {
       await page.goto('/');

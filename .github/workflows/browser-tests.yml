@@ -34,7 +34,9 @@ jobs:
       PLAYWRIGHT_BROWSER: ${{ matrix.browser }}
       PLAYWRIGHT_PORT: '3013'
       CI: 'true'
-      GST_PLUGIN_FEATURE_RANK: 'openh264enc:0'
+      DEBUG: 'pw:browser'
+      GST_DEBUG: '2'
+      WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS: '1'
     steps:
       # The engine's WASM/data artifacts are Git LFS objects.
       - uses: actions/checkout@v4
