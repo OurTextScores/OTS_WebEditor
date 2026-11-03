@@ -23,7 +23,7 @@ concurrency:
 jobs:
   playwright:
     name: ${{ matrix.browser }} ${{ matrix.shard }}/4
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 90
     strategy:
       fail-fast: false
@@ -36,7 +36,6 @@ jobs:
       CI: 'true'
       DEBUG: 'pw:browser'
       GST_DEBUG: '2'
-      WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS: '1'
     steps:
       # The engine's WASM/data artifacts are Git LFS objects.
       - uses: actions/checkout@v4
