@@ -221,6 +221,7 @@ import { DragFeedbackOverlays } from './score-editor/canvas/DragFeedbackOverlays
 import { NoteInputOverlays } from './score-editor/canvas/NoteInputOverlays';
 import { EditOverlays } from './score-editor/canvas/EditOverlays';
 import { useLyricsEntry } from './score-editor/lyrics';
+import { useInlineTextContent } from './score-editor/rich-text';
 import { SelectionOverlays } from './score-editor/canvas/SelectionOverlays';
 import { InlineTextEditor } from './score-editor/canvas/InlineTextEditor';
 import { ChangeReviewThreadView } from './score-editor/compare/ChangeReviewThreadView';
@@ -441,7 +442,6 @@ export default function ScoreEditor() {
   const clampZoom = (value: number) => Math.min(Math.max(value, MIN_ZOOM), MAX_ZOOM);
   const [loading, setLoading] = useState(false);
             const [hasBackendHighlighting, setHasBackendHighlighting] = useState(false);
-    const [selectedTextValue, setSelectedTextValue] = useState('');
   const inlineTextContentRef = useRef<HTMLDivElement>(null);
   // Tracks whether the user has typed in the inline text editor this session, so
   // async loads of the element's current text don't clobber in-progress edits.
@@ -1447,80 +1447,13 @@ export default function ScoreEditor() {
     };
   }, [score, selectedElementClasses, setSelectedLayoutBreakSubtype]);
 
-  useEffect(() => {
-    const shouldLoadText =
-      hasTextElementClass(selectedElementClasses) || Boolean(textEditorPosition);
-    if (!score || !shouldLoadText) {
-      setSelectedTextValue('');
-      return;
-    }
-
-    let canceled = false;
-    const decoder = new TextDecoder();
-    const parser = typeof DOMParser !== 'undefined' ? new DOMParser() : null;
-
-    const updateText = async () => {
-      if (!score.selectionMimeData || !parser) {
-        setSelectedTextValue('');
-        return;
-      }
-      const data = await score.selectionMimeData?.();
-      if (canceled) {
-        return;
-      }
-      if (!data) {
-        setSelectedTextValue('');
-        return;
-      }
-      let decoded: string;
-      try {
-        decoded = decoder.decode(data);
-      } catch (decodeErr) {
-        console.warn('Failed to decode text selection MIME data', decodeErr);
-        setSelectedTextValue('');
-        return;
-      }
-      const doc = parser.parseFromString(decoded, 'application/xml');
-      const textNode = doc.querySelector('text');
-      const content = textNode?.textContent ?? '';
-      setSelectedTextValue(content.trim());
-    };
-
-    updateText();
-    return () => {
-      canceled = true;
-    };
-  }, [score, selectedElementClasses, textEditorPosition]);
-
-  // Reset the edited flag whenever the inline text editor opens or closes.
-  useEffect(() => {
-    inlineTextEditedRef.current = false;
-  }, [textEditorPosition]);
-
-  // Populate the (uncontrolled) inline editor from the selected element's text.
-  // Runs on open and again if the text loads asynchronously, but never once the
-  // user has started typing, so keystrokes are not reverted by a late load.
-  useEffect(() => {
-    if (!textEditorPosition || inlineTextEditedRef.current) {
-      return;
-    }
-    const node = inlineTextContentRef.current;
-    if (!node) {
-      return;
-    }
-    if (node.textContent !== selectedTextValue) {
-      node.textContent = selectedTextValue;
-    }
-    node.focus();
-    const selection = typeof window !== 'undefined' ? window.getSelection() : null;
-    if (selection && typeof document !== 'undefined') {
-      const range = document.createRange();
-      range.selectNodeContents(node);
-      range.collapse(false);
-      selection.removeAllRanges();
-      selection.addRange(range);
-    }
-  }, [textEditorPosition, selectedTextValue]);
+  const { selectedTextValue, setSelectedTextValue, baseFont } = useInlineTextContent({
+    score,
+    selectedElementClasses,
+    editorOpen: Boolean(textEditorPosition),
+    contentRef: inlineTextContentRef,
+    editedRef: inlineTextEditedRef,
+  });
 
   const refreshInspector = useCallback(async () => {
     const activeScore = scoreRef.current ?? score;
@@ -6545,7 +6478,7 @@ export default function ScoreEditor() {
   const handleSelectedTextChange = (value: string) => {
     setSelectedTextValue(value);
   };
-  const applySelectedTextValue = (value: string) => applySelectedText(core, value);
+  const applySelectedTextValue = (value: string, markup?: string) => applySelectedText(core, value, markup);
   const handleApplySelectedText = () => applySelectedTextValue(selectedTextValue);
   const handleSetInspectorProperty = async (
     propertyName: InspectorPropertyName,
@@ -8548,6 +8481,7 @@ export default function ScoreEditor() {
           contentRef={inlineTextContentRef}
           editedRef={inlineTextEditedRef}
           selectedTextValue={selectedTextValue}
+          baseFont={baseFont}
           onChange={handleSelectedTextChange}
           onApply={applySelectedTextValue}
           onClose={closeTextEditor}

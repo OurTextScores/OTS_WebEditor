@@ -49,6 +49,24 @@ EMSCRIPTEN_KEEPALIVE bool setSelectedText(uintptr_t id,const char* text,int exce
     else toTextBase(target)->undoChangeProperty(Pid::TEXT,TextBase::plainToXmlText(String::fromUtf8(text?text:"")));
     score->endCmd(); layoutLinked(score); return true;
 }
+// Sets the selected text from MuseScore's own markup (<b>, <i>, <u>, <s>, <sub>, <sup>, <font face/size/>, <sym>), so
+// per-span formatting survives an edit (roadmap E17); setSelectedText writes plain text. The markup is checked and
+// repaired by TextBase::validateText, as MuseScore does on paste; false, changing nothing, if it cannot be. Chord
+// symbols and figured bass parse their text and take no formatting: they keep the plain path.
+EMSCRIPTEN_KEEPALIVE bool setSelectedTextXml(uintptr_t id,const char* markup,int excerpt) {
+    auto* score=getScore(id,excerpt); if(!score) return false;
+    auto* target=score->selection().element();
+    if(!target || !target->isTextBase()) {
+        target=nullptr;
+        for(auto* item:score->selection().elements()) if(item && item->isTextBase()) { target=item; break; }
+    }
+    if(!target || target->isHarmony() || target->isFiguredBass()) return false;
+    String xml=String::fromUtf8(markup?markup:"");
+    if(!TextBase::validateText(xml)) return false;
+    score->startCmd(TranslatableString::untranslatable("Change text"));
+    if(toTextBase(target)->xmlText()!=xml) toTextBase(target)->undoChangeProperty(Pid::TEXT,xml);
+    score->endCmd(); layoutLinked(score); return true;
+}
 EMSCRIPTEN_KEEPALIVE bool addStaffText(uintptr_t id,const char* text,int excerpt) { return addStyledText(id,excerpt,text,TextStyleType::STAFF); }
 EMSCRIPTEN_KEEPALIVE bool addSystemText(uintptr_t id,const char* text,int excerpt) { return addStyledText(id,excerpt,text,TextStyleType::SYSTEM); }
 EMSCRIPTEN_KEEPALIVE bool addExpressionText(uintptr_t id,const char* text,int excerpt) { return addStyledText(id,excerpt,text,TextStyleType::EXPRESSION); }

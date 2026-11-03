@@ -164,10 +164,20 @@ export async function addFiguredBassText(core: EditorCore) {
   });
 }
 
-export function applySelectedText(core: EditorCore, value: string) {
+/**
+ * Writes the edited text. With `markup` (the inline editor's formatting as MuseScore markup) the per-span formatting is
+ * kept where the engine takes it (roadmap E17); chord symbols, figured bass and older engines take the plain text.
+ */
+export function applySelectedText(core: EditorCore, value: string, markup?: string) {
   const { ensureSelectionInWasm, performMutation, requireMutation } = core;
   return performMutation('set selected text', async () => {
     await ensureSelectionInWasm();
+    // Asked for only where the engine has it: requireMutation reports a missing method as an error.
+    const rich =
+      markup !== undefined && core.score?.setSelectedTextXml
+        ? requireMutation('setSelectedTextXml')
+        : null;
+    if (rich && (await rich(markup!))) return true;
     const fn = requireMutation('setSelectedText');
     if (!fn) {
       return false;

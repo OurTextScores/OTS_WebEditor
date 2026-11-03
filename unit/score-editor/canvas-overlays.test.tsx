@@ -353,6 +353,7 @@ describe('InlineTextEditor', () => {
       contentRef: { current: null as HTMLDivElement | null },
       editedRef: { current: false },
       selectedTextValue: 'Allegro',
+      baseFont: { family: 'Edwin', size: 10 },
       onChange: vi.fn(),
       onApply: vi.fn(async () => undefined),
       onClose: vi.fn(),
@@ -392,19 +393,35 @@ describe('InlineTextEditor', () => {
     fireEvent.keyDown(editable, { key: 'Escape' });
     expect(props.onClose).toHaveBeenCalledTimes(1);
     fireEvent.keyDown(editable, { key: 'Enter', ctrlKey: true });
-    expect(props.onApply).toHaveBeenLastCalledWith('Presto');
+    // The plain text, and the same as MuseScore markup (no formatting here).
+    expect(props.onApply).toHaveBeenLastCalledWith('Presto', 'Presto');
     fireEvent.keyDown(editable, { key: 'Enter', metaKey: true });
     expect(props.onApply).toHaveBeenCalledTimes(2);
     expect(props.onClose).toHaveBeenCalledTimes(3);
   });
 
-  it('Save applies what is typed (or the selected value when nothing is), Cancel just closes', () => {
+  it('Save applies what is typed, with its formatting as MuseScore markup; Cancel just closes', () => {
     const props = setup();
-    screen.getByTestId('inline-text-content').textContent = 'Presto';
+    screen.getByTestId('inline-text-content').innerHTML = '<b>Pres</b>to';
     fireEvent.click(screen.getByText('Save'));
-    expect(props.onApply).toHaveBeenCalledWith('Presto');
+    expect(props.onApply).toHaveBeenCalledWith('Presto', '<b>Pres</b>to');
     fireEvent.click(screen.getByText('Cancel'));
     expect(props.onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it('has the text toolbar, and takes Mod+B itself (not the score’s shortcut)', () => {
+    const props = setup();
+    expect(screen.getByRole('toolbar', { name: 'Text formatting' })).toBeInTheDocument();
+    expect(screen.getByTestId('rich-text-bold')).toHaveAccessibleName('Bold');
+    const exec = vi.fn(() => true);
+    Object.assign(document, { execCommand: exec });
+    const outer = vi.fn();
+    document.addEventListener('keydown', outer);
+    fireEvent.keyDown(screen.getByTestId('inline-text-content'), { key: 'b', ctrlKey: true });
+    document.removeEventListener('keydown', outer);
+    expect(exec).toHaveBeenCalledWith('bold');
+    expect(outer).not.toHaveBeenCalled();
+    expect(props.editedRef.current).toBe(true);
   });
 
   it('keeps pointer and click events inside the editor away from the score', () => {

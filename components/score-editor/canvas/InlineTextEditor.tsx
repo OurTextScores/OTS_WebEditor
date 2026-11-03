@@ -1,4 +1,5 @@
 import React from 'react';
+import { RichTextToolbar, htmlToMarkup, htmlToPlain, type BaseFont } from '../rich-text';
 
 type Props = {
   rect: { x: number; y: number; w: number; h: number };
@@ -6,22 +7,43 @@ type Props = {
   contentRef: React.RefObject<HTMLDivElement | null>;
   editedRef: React.RefObject<boolean>;
   selectedTextValue: string;
+  /** The text's own font: the markup's font switches are relative to it. */
+  baseFont: BaseFont;
   onChange: (value: string) => void;
-  onApply: (value: string) => Promise<unknown> | void;
+  /** The plain text, and the formatting as MuseScore markup (roadmap E17). */
+  onApply: (value: string, markup?: string) => Promise<unknown> | void;
   onClose: () => void;
 };
 
-/** Edits a piece of score text in place, over the score, at 100% size whatever the zoom. Ctrl/Cmd+Enter saves, Escape closes. */
+/**
+ * Edits a piece of score text in place, over the score, at 100% size whatever the zoom, with its formatting (bold,
+ * italic, fonts… per span, roadmap E17). Ctrl/Cmd+Enter saves, Escape closes; Ctrl/Cmd+B, I and U format.
+ */
 export function InlineTextEditor({
   rect: textEditorRect,
   zoom,
   contentRef: inlineTextContentRef,
   editedRef: inlineTextEditedRef,
   selectedTextValue,
+  baseFont,
   onChange: handleSelectedTextChange,
   onApply: applySelectedTextValue,
   onClose: closeTextEditor,
 }: Props) {
+  const save = () => {
+    const node = inlineTextContentRef.current;
+    void applySelectedTextValue(
+      node ? htmlToPlain(node) : selectedTextValue,
+      node ? htmlToMarkup(node, baseFont) : undefined,
+    );
+    closeTextEditor();
+  };
+  const markEdited = () => {
+    inlineTextEditedRef.current = true;
+    handleSelectedTextChange(
+      inlineTextContentRef.current ? htmlToPlain(inlineTextContentRef.current) : '',
+    );
+  };
   return (
     <div
       data-testid="inline-text-editor"
@@ -40,6 +62,7 @@ export function InlineTextEditor({
       onMouseDown={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
     >
+      <RichTextToolbar editorRef={inlineTextContentRef} onEdit={markEdited} />
       <div
         ref={inlineTextContentRef}
         data-testid="inline-text-content"
@@ -47,18 +70,25 @@ export function InlineTextEditor({
         aria-label="Edit score text"
         contentEditable
         suppressContentEditableWarning
-        onInput={(event) => {
-          inlineTextEditedRef.current = true;
-          handleSelectedTextChange(event.currentTarget.textContent ?? '');
-        }}
+        onInput={markEdited}
         onKeyDown={(event) => {
+          const mod = event.ctrlKey || event.metaKey;
+          const format =
+            mod && !event.altKey
+              ? { b: 'bold', i: 'italic', u: 'underline' }[event.key.toLowerCase()]
+              : undefined;
           if (event.key === 'Escape') {
             event.preventDefault();
             closeTextEditor();
-          } else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+          } else if (event.key === 'Enter' && mod) {
             event.preventDefault();
-            void applySelectedTextValue(event.currentTarget.textContent ?? '');
-            closeTextEditor();
+            save();
+          } else if (format) {
+            // The editor's own shortcuts, not the score's (Mod+B is a score command too).
+            event.preventDefault();
+            event.stopPropagation();
+            document.execCommand(format);
+            markEdited();
           }
         }}
         className="min-h-7 min-w-[150px] px-1 py-0.5 text-base text-slate-900 outline-none"
@@ -66,12 +96,7 @@ export function InlineTextEditor({
       <div className="flex justify-end gap-1 border-t border-slate-200 pt-1">
         <button
           type="button"
-          onClick={() => {
-            void applySelectedTextValue(
-              inlineTextContentRef.current?.textContent ?? selectedTextValue,
-            );
-            closeTextEditor();
-          }}
+          onClick={save}
           className="rounded bg-accent px-2 py-0.5 text-xs font-medium text-white hover:bg-accent-hover"
         >
           Save

@@ -311,6 +311,7 @@ class WebMscore {
         this.excerptId = -1
         if (!Module._hitTestScoreObject) Object.defineProperty(this, 'hitTestScoreObject', { value: undefined })
         if (!Module._moveSelectedChordRestToStaff) Object.defineProperty(this, 'moveSelectedChordRestToStaff', { value: undefined })
+        if (!Module._setSelectedTextXml) Object.defineProperty(this, 'setSelectedTextXml', { value: undefined })
         if (!Module._startLyricsEntry || !Module._lyricsEntryCommit || !Module._endLyricsEntry) {
             for (const name of ['startLyricsEntry', 'lyricsEntryCommit', 'endLyricsEntry']) Object.defineProperty(this, name, { value: undefined })
         }
@@ -583,6 +584,21 @@ class WebMscore {
      */
     async getTextStyleCatalog() {
         return JSON.parse(WasmRes.readText(Module.ccall('getTextStyleCatalog', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])))
+    }
+
+    /**
+     * Sets the selected text from MuseScore's markup (<b>, <i>, <u>, <s>, <sub>, <sup>, <font face/size/>, <sym>), keeping
+     * its per-span formatting; false for chord symbols, figured bass, or markup that cannot be repaired.
+     * @param {string} markup
+     * @returns {Promise<boolean>}
+     */
+    async setSelectedTextXml(markup) {
+        const strptr = getStrPtr(String(markup ?? ''))
+        try {
+            return Module.ccall('setSelectedTextXml', 'boolean', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
+        } finally {
+            freePtr(strptr)
+        }
     }
 
     /**

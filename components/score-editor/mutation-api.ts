@@ -35,6 +35,7 @@ export type MutationMethods = Pick<
   | 'setHarpPedalState'
   | 'setTimeSigProperties'
   | 'setStaffTextSwing'
+  | 'setSelectedTextXml'
   | 'changeInstrumentAt'
   | 'setStaffProperties'
   | 'addImageToFrame'
