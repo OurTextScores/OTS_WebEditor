@@ -62,7 +62,12 @@ jobs:
           mkdir -p public/soundfonts
           curl -fsSL --retry 3 -o public/soundfonts/default.sf3 https://cdn.ourtextscores.com/soundfonts/default.sf3
       - name: Playwright (shard ${{ matrix.shard }}/4)
-        run: npx playwright test tests/video-export.spec.ts
+        run: |
+          if [ "$PLAYWRIGHT_BROWSER" = firefox ]; then
+            npx playwright test tests/hotkeys-arrows.spec.ts tests/keyboard-bindings.spec.ts -g 'arrow hotkeys change pitch and octave|ArrowUp -> pitchUp'
+          else
+            npx playwright test tests/video-export.spec.ts
+          fi
         env:
           NODE_OPTIONS: --max-old-space-size=4096
       - name: Failure artifacts
