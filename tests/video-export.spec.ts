@@ -8,6 +8,8 @@ import { expect, test, type Page } from '@playwright/test';
 const hasWebCodecs = (page: Page) =>
   page.evaluate(async () => {
     if (typeof VideoEncoder !== 'function') return false;
+    // Match the application's media-stack initialization before WebCodecs.
+    document.createElement('video').canPlayType('video/mp4; codecs="avc1.42001f"');
     for (const codec of ['avc1.42001f', 'vp09.00.10.08', 'av01.0.04M.08']) {
       try {
         if ((await VideoEncoder.isConfigSupported({ codec, width: 640, height: 480 })).supported)
@@ -174,6 +176,7 @@ test.describe('player video export when the platform encoder rejects canvas fram
     // exports WebM instead, so the scenario does not apply there.
     const avc = await page.evaluate(async () => {
       try {
+        document.createElement('video').canPlayType('video/mp4; codecs="avc1.42001f"');
         const support = await VideoEncoder.isConfigSupported({
           codec: 'avc1.42001f',
           width: 640,
