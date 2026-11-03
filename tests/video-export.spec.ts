@@ -192,9 +192,17 @@ test.describe('player video export when the platform encoder rejects canvas fram
     await page.getByTestId('player-export-video').click();
     // Silent: this Linux Chromium has no AAC encoder, so only a silent video is offered as MP4.
     await page.getByRole('button', { name: 'Silent' }).click();
-    await expect(page.getByTestId('export-video-summary')).toContainText('MP4', {
+    const summary = page.getByTestId('export-video-summary');
+    await expect(summary).toContainText(/MP4|WEBM|cannot encode/i, {
       timeout: 15_000,
     });
+    // The raw WebCodecs check above uses a different configuration from the
+    // real export. Firefox may accept that check but select WebM at this size.
+    test.skip(
+      /WEBM/i.test((await summary.textContent()) || ''),
+      'The export configuration selects WebM; this regression requires H.264 MP4.',
+    );
+    await expect(summary).toContainText('MP4');
     const download = page.waitForEvent('download', { timeout: 180_000 });
     await page.getByTestId('export-video-start').click();
     const file = await download;
