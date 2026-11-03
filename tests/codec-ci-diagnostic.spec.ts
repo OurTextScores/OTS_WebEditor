@@ -8,6 +8,7 @@ for (const scenario of ['blank'] as const) {
       await page.goto('/?score=%2Ftest_scores%2Ftwo_chords.musicxml&embed=player');
       await expect(page.getByTestId('player-seek')).toBeEnabled({ timeout: 60000 });
     }
+    console.log('media warmup:', await page.evaluate(() => document.createElement('video').canPlayType('video/mp4; codecs=\"avc1.42001f\"')));
     for (const codec of ['avc1.42001f', 'vp09.00.10.08', 'av01.0.04M.08']) {
       const result = await page.evaluate(async (name) => {
         if (typeof VideoEncoder === 'undefined') return 'unavailable';
