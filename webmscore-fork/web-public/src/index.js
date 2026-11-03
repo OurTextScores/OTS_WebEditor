@@ -311,6 +311,7 @@ class WebMscore {
         this.excerptId = -1
         if (!Module._hitTestScoreObject) Object.defineProperty(this, 'hitTestScoreObject', { value: undefined })
         if (!Module._moveSelectedChordRestToStaff) Object.defineProperty(this, 'moveSelectedChordRestToStaff', { value: undefined })
+        if (!Module._saveMei) Object.defineProperty(this, 'saveMei', { value: undefined })
         if (!Module._setSelectedTextXml) Object.defineProperty(this, 'setSelectedTextXml', { value: undefined })
         if (!Module._startLyricsEntry || !Module._lyricsEntryCommit || !Module._endLyricsEntry) {
             for (const name of ['startLyricsEntry', 'lyricsEntryCommit', 'endLyricsEntry']) Object.defineProperty(this, name, { value: undefined })
@@ -1280,6 +1281,15 @@ class WebMscore {
      * Export score as compressed MusicXML file
      * @returns {Promise<Uint8Array>}
      */
+    /**
+     * Export score as MEI (MEI Basic), through MuseScore's MEI exporter (roadmap E25)
+     * @returns {Promise<Uint8Array>}
+     */
+    async saveMei() {
+        const dataptr = Module.ccall('saveMei', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])
+        return WasmRes.readData(dataptr)
+    }
+
     async saveMxl() {
         const dataptr = Module.ccall('saveMxl', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])
         return WasmRes.readData(dataptr)

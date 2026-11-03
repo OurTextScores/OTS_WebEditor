@@ -191,7 +191,8 @@ describe('ribbon migration manifest', () => {
       for (const entry of registered.values()) {
         if (isCommandFamily(entry) || !('testId' in entry) || !entry.testId) continue;
         // These commands were introduced after the ribbon was removed.
-        if (entry.id === 'format.staff.up' || entry.id === 'format.staff.down') continue;
+        if (['format.staff.up', 'format.staff.down', 'file.export.mei'].includes(entry.id))
+          continue;
         const resolved = resolveLegacyTestId(entry.testId);
         if (resolved?.commandId !== entry.id) {
           wrong.push(

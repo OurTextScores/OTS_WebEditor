@@ -79,6 +79,21 @@ describe('detectScoreInputFormat', () => {
     expect(detectScoreInputFormat('https://example.com/download?id=1', data)).toBe('musicxml');
   });
 
+  it('detects MEI by extension, and from its root element in .xml and extensionless data', () => {
+    const mei = new TextEncoder().encode(
+      '<?xml version="1.0"?><mei xmlns="http://www.music-encoding.org/ns/mei" meiversion="5.1+basic">',
+    );
+    expect(detectScoreInputFormat('https://example.com/score.mei')).toBe('mei');
+    expect(detectScoreInputFormat('https://example.com/score.xml', mei)).toBe('mei');
+    expect(detectScoreInputFormat('https://example.com/download?id=1', mei)).toBe('mei');
+    expect(
+      detectScoreInputFormat(
+        'https://example.com/score.xml',
+        new TextEncoder().encode('<score-partwise version="4.0">'),
+      ),
+    ).toBe('musicxml');
+  });
+
   it('distinguishes compressed MusicXML from MSCZ using ZIP entry names', () => {
     const mxl = new Uint8Array([0x50, 0x4b, ...new TextEncoder().encode('META-INF/container.xml')]);
     // Classic MSCZ (pre-4.x): just a .mscx inside the zip

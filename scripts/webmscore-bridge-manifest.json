@@ -13,6 +13,7 @@
       "engine/musescore/bridge/harmonyrealize.h",
       "engine/musescore/bridge/harptools.h",
       "engine/musescore/bridge/lyricsentry.h",
+      "engine/musescore/bridge/meiio.h",
       "engine/musescore/bridge/timesigtools.h",
       "engine/musescore/bridge/stafftextswing.h",
       "engine/musescore/bridge/inspector.h",

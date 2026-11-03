@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 
-const SCORE_FILE_ACCEPT = '.mscz,.mscx,.mxl,.xml,.musicxml';
+import { SCORE_FILE_ACCEPT } from './file-picker';
 
 export type CompareScoreLoaderDialogProps = {
   busy: boolean;

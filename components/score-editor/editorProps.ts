@@ -89,6 +89,7 @@ export interface EditorCommandProps {
   onExportPdf?: () => void;
   onExportPng?: () => void;
   onExportMxl?: () => void;
+  onExportMei?: () => void;
   onExportMscz?: () => void;
   onExportMscx?: () => void;
   onExportMusicXml?: () => void;

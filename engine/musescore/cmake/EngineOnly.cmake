@@ -50,6 +50,22 @@ endif()
 add_subdirectory(${PROJECT_SOURCE_DIR}/src/engraving spike_engraving)
 add_subdirectory(${PROJECT_SOURCE_DIR}/src/importexport/musicxml spike_musicxml)
 
+# MEI interchange (roadmap E25): upstream's converter, importer and exporter with the bundled libmei. The module's own
+# CMake would also build its IoC registration and file reader (dialogs, file system); the bridge calls the importer and
+# exporter directly and registers their configuration itself (bridge/meiio.h).
+set(OTS_MEI_DIR ${PROJECT_SOURCE_DIR}/src/importexport/mei)
+file(GLOB OTS_LIBMEI_SOURCES ${OTS_MEI_DIR}/thirdparty/libmei/*.cpp)
+add_library(ots_mei STATIC
+    ${OTS_MEI_DIR}/internal/meiconverter.cpp
+    ${OTS_MEI_DIR}/internal/meiexporter.cpp
+    ${OTS_MEI_DIR}/internal/meiimporter.cpp
+    ${OTS_LIBMEI_SOURCES}
+)
+target_include_directories(ots_mei PUBLIC ${OTS_MEI_DIR} ${OTS_MEI_DIR}/internal ${MUSE_FRAMEWORK_SRC_PATH}/global/thirdparty/pugixml
+    PRIVATE ${PROJECT_BINARY_DIR} ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/src/framework
+    ${PROJECT_SOURCE_DIR}/src/framework/global ${PROJECT_SOURCE_DIR}/src/engraving)
+target_link_libraries(ots_mei PRIVATE engraving muse::global)
+
 # ENGRAVING_NO_INTERNAL drops these, but they are Qt-free and layout needs the SMuFL fonts provider
 target_sources(engraving PRIVATE
     ${PROJECT_SOURCE_DIR}/src/engraving/internal/engravingfont.cpp
@@ -87,7 +103,7 @@ set(MS47_PRELOAD_DIR "" CACHE PATH "Resources preloaded at /res by the browser p
 # browser package contract: ES module factory, MEMFS, preloaded resources)
 function(ms47_bridge_target target)
     add_executable(${target} ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/bridge.cpp)
-    target_link_libraries(${target} PRIVATE iex_musicxml engraving muse::draw muse::global)
+    target_link_libraries(${target} PRIVATE iex_musicxml ots_mei engraving muse::draw muse::global)
     if (MS47_WITH_PLAYBACK)
         target_link_libraries(${target} PRIVATE muse_audio_engine muse_audio_common muse::mpe embind)
         target_compile_definitions(${target} PRIVATE MS47_WITH_PLAYBACK)

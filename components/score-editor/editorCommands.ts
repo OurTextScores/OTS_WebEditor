@@ -1,6 +1,5 @@
 import { buildStaffMoveCommands } from './staffMoveCommands';
-import type { MeasureInsertTarget } from './editorProps';
-import type { EditorCommandProps } from './editorProps';
+import type { EditorCommandProps, MeasureInsertTarget } from './editorProps';
 import {
   always,
   inNoteInput,
@@ -57,7 +56,7 @@ import {
 } from '../../lib/commands/types';
 import { confirmDialog } from '../shell/notices';
 import { openFilePicker } from '../shell/filePickers';
-import { pickFile } from './file-picker';
+import { pickFile, SCORE_FILE_ACCEPT } from './file-picker';
 
 /**
  * Every editor action as a command (SHELL_REDESIGN_DESIGN Phase 0).
@@ -158,12 +157,13 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       },
     });
 
+  /** Test ids are the ribbon's, `btn-export-<suffix>` (but for current page audio). */
   const exportCommand = (
     suffix: string,
     label: string,
     key: ActionKey,
-    testId: string,
     extraGate: () => boolean = () => true,
+    testId = `btn-export-${suffix}`,
   ) =>
     defineCommand({
       id: `file.export.${suffix}`,
@@ -206,7 +206,7 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
         // With no file, open the shell's own input: its change event runs this command again
         // with the file, so there is one place a score gets chosen.
         if (!file && openFilePicker('score')) return;
-        const chosen = file ?? (await pickFile('.mscz,.mscx,.mxl,.xml,.musicxml'));
+        const chosen = file ?? (await pickFile(SCORE_FILE_ACCEPT));
         if (chosen) p().onFileUpload(chosen);
       },
     }),
@@ -215,31 +215,25 @@ export function buildEditorCommands(getProps: GetProps): AnyCommand[] {
       opensDialog: true,
       keywords: ['diff', 'load scores to compare'],
     }),
-    exportCommand('mscz', 'Export MuseScore (.mscz)', 'onExportMscz', 'btn-export-mscz'),
-    exportCommand('pdf', 'Export PDF', 'onExportPdf', 'btn-export-pdf'),
-    exportCommand('svg', 'Export SVG', 'onExportSvg', 'btn-export-svg'),
-    exportCommand('png', 'Export PNG', 'onExportPng', 'btn-export-png', () =>
-      Boolean(p().pngAvailable),
-    ),
-    exportCommand(
-      'mscx',
-      'Export MuseScore Uncompressed (.mscx)',
-      'onExportMscx',
-      'btn-export-mscx',
-    ),
-    exportCommand('musicxml', 'Export MusicXML', 'onExportMusicXml', 'btn-export-musicxml'),
-    exportCommand('mxl', 'Export Compressed MusicXML (.mxl)', 'onExportMxl', 'btn-export-mxl'),
-    exportCommand('abc', 'Export ABC', 'onExportAbc', 'btn-export-abc'),
-    exportCommand('midi', 'Export MIDI', 'onExportMidi', 'btn-export-midi'),
-    exportCommand('audio', 'Export Audio (WAV)', 'onExportAudio', 'btn-export-audio', () =>
+    exportCommand('mscz', 'Export MuseScore (.mscz)', 'onExportMscz'),
+    exportCommand('pdf', 'Export PDF', 'onExportPdf'),
+    exportCommand('svg', 'Export SVG', 'onExportSvg'),
+    exportCommand('png', 'Export PNG', 'onExportPng', () => Boolean(p().pngAvailable)),
+    exportCommand('mscx', 'Export MuseScore Uncompressed (.mscx)', 'onExportMscx'),
+    exportCommand('musicxml', 'Export MusicXML', 'onExportMusicXml'),
+    exportCommand('mxl', 'Export Compressed MusicXML (.mxl)', 'onExportMxl'),
+    exportCommand('mei', 'Export MEI', 'onExportMei'),
+    exportCommand('abc', 'Export ABC', 'onExportAbc'),
+    exportCommand('midi', 'Export MIDI', 'onExportMidi'),
+    exportCommand('audio', 'Export Audio (WAV)', 'onExportAudio', () =>
       Boolean(p().audioAvailable && !p().audioBusy),
     ),
     exportCommand(
       'pageAudio',
       'Export Current Page Audio',
       'onExportCurrentPageAudio',
-      'btn-export-current-page-audio',
       () => Boolean(p().audioAvailable && !p().audioBusy),
+      'btn-export-current-page-audio',
     ),
     defineCommand({
       id: 'file.drive.upload',

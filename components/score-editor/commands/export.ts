@@ -41,6 +41,22 @@ export async function exportMxl(core: EditorCore) {
   }
 }
 
+/** MEI (MEI Basic) through MuseScore's MEI exporter (roadmap E25), with the layout's page and system breaks. */
+export async function exportMei(core: EditorCore) {
+  const { score } = core;
+  if (!score || !score.saveMei) {
+    notifyError('MEI export is not available in this build.');
+    return;
+  }
+  try {
+    const mei = await score.saveMei();
+    downloadBlob(mei, 'score.mei', 'application/mei+xml');
+  } catch (err) {
+    console.error('Failed to export MEI', err);
+    notifyError('Unable to export MEI. See console for details.');
+  }
+}
+
 export async function exportMscz(core: EditorCore) {
   const { score } = core;
   if (!score || !score.saveMsc) {

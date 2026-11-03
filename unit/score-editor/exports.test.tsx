@@ -39,7 +39,7 @@ describe('ScoreEditor: zoom and export bindings', () => {
     expect(wrapper).toHaveStyle({ transform: 'scale(1)' });
   });
 
-  it('exports PDF/PNG/MXL/MSCZ/MSCX/MusicXML/ABC/MIDI via Score methods', async () => {
+  it('exports PDF/PNG/MXL/MEI/MSCZ/MSCX/MusicXML/ABC/MIDI via Score methods', async () => {
     const user = userEvent.setup();
 
     const score = {
@@ -48,6 +48,7 @@ describe('ScoreEditor: zoom and export bindings', () => {
       savePdf: vi.fn(async () => new Uint8Array([1])),
       savePng: vi.fn(async () => new Uint8Array([2])),
       saveMxl: vi.fn(async () => new Uint8Array([3])),
+      saveMei: vi.fn(async () => new Uint8Array([6])),
       saveMsc: vi.fn(async () => new Uint8Array([4])),
       saveXml: vi.fn(async () =>
         new TextEncoder().encode(
@@ -103,6 +104,7 @@ describe('ScoreEditor: zoom and export bindings', () => {
     await expect(screen.findByTestId('png-export-page-input')).resolves.toHaveValue(1);
     await user.click(await screen.findByTestId('btn-confirm-export-png'));
     await runEditorCommand('btn-export-mxl');
+    await runEditorCommand('file.export.mei');
     await runEditorCommand('btn-export-mscz');
     await runEditorCommand('btn-export-mscx');
     await runEditorCommand('btn-export-musicxml');
@@ -112,6 +114,7 @@ describe('ScoreEditor: zoom and export bindings', () => {
     await waitFor(() => expect(score.savePdf).toHaveBeenCalled());
     await waitFor(() => expect(score.savePng).toHaveBeenCalledWith(0, true, true));
     await waitFor(() => expect(score.saveMxl).toHaveBeenCalled());
+    await waitFor(() => expect(score.saveMei).toHaveBeenCalled());
     await waitFor(() => expect(score.saveMsc).toHaveBeenCalledWith('mscz'));
     await waitFor(() => expect(score.saveMsc).toHaveBeenCalledWith('mscx'));
     await waitFor(() => expect(score.saveXml).toHaveBeenCalled());
@@ -159,6 +162,9 @@ describe('ScoreEditor: zoom and export bindings', () => {
 
     await runEditorCommand('btn-export-mxl');
     expect(noticeTitles()).toContain('MXL export is not available in this build.');
+
+    await runEditorCommand('file.export.mei');
+    expect(noticeTitles()).toContain('MEI export is not available in this build.');
 
     await runEditorCommand('btn-export-mscz');
     expect(noticeTitles()).toContain('MSCZ export is not available in this build.');

@@ -9,6 +9,7 @@ import { CommandPalette } from './CommandPalette';
 import { MenuBar } from './MenuBar';
 import { Transport } from './Transport';
 import { invokeCommand } from './invokeCommand';
+import { SCORE_FILE_ACCEPT } from '../score-editor/file-picker';
 import { registerFilePicker } from './filePickers';
 import { EmbedDialog } from './EmbedDialog';
 import { ShortcutsDialog } from './ShortcutsDialog';
@@ -103,7 +104,7 @@ export function ShellHeader({
           ref={scoreInput}
           data-testid="open-score-input"
           type="file"
-          accept=".mscz,.mscx,.mxl,.xml,.musicxml"
+          accept={SCORE_FILE_ACCEPT}
           className="hidden"
           onChange={onPicked('file.open')}
         />

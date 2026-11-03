@@ -158,6 +158,8 @@ export interface LyricsEntryPosition {
 }
 
 export interface ScoreDialogMethods {
+  /** MEI export through MuseScore's MEI exporter (roadmap E25). */
+  saveMei?: () => Promise<Uint8Array>;
   /** The selected text from MuseScore's markup, keeping per-span formatting (roadmap E17); false for chord symbols etc. */
   setSelectedTextXml?: (markup: string) => Promise<boolean> | boolean;
   /** Lyric entry (roadmap E17): start at the selection; commit a syllable and move (see LYRICS_ACTIONS); stop. */

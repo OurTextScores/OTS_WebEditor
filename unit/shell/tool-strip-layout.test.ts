@@ -22,6 +22,8 @@ const NEW_IDS = new Set([
   'btn-load-soundfont',
   // Embed on a website is new with the player's embed code.
   'btn-embed',
+  // MEI export is new with the 4.7 engine (roadmap E25).
+  'btn-export-mei',
   'dropdown-fermata',
   'dropdown-breath',
   'btn-tempo-open',

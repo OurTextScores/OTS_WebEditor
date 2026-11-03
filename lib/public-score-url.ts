@@ -83,9 +83,19 @@ function tailContainsAscii(data: Uint8Array, value: string): boolean {
   return false;
 }
 
+/** An MEI document (roadmap E25): its root element is <mei>, in the MEI namespace. */
+function isMeiDocument(data?: Uint8Array): boolean {
+  if (!data?.byteLength) return false;
+  const prefix = new TextDecoder().decode(data.subarray(0, Math.min(data.byteLength, 4096)));
+  return /<mei[\s>]/.test(prefix) && prefix.includes('music-encoding.org/ns/mei');
+}
+
 /** Detects extensionless downloads (including Google Drive files) from their contents. */
 export function detectScoreInputFormat(source: string, data?: Uint8Array): InputFileFormat {
   const normalized = source.toLowerCase().split('#')[0].split('?')[0];
+  if (normalized.endsWith('.mei') || (normalized.endsWith('.xml') && isMeiDocument(data))) {
+    return 'mei';
+  }
   if (normalized.endsWith('.xml') || normalized.endsWith('.musicxml')) {
     return 'musicxml';
   }
@@ -132,6 +142,9 @@ export function detectScoreInputFormat(source: string, data?: Uint8Array): Input
     }
     if (prefix.includes('<score-partwise') || prefix.includes('<score-timewise')) {
       return 'musicxml';
+    }
+    if (isMeiDocument(data)) {
+      return 'mei';
     }
   }
 

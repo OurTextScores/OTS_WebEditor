@@ -1,3 +1,6 @@
+/** The score files the editor opens (MEI since roadmap E25). */
+export const SCORE_FILE_ACCEPT = '.mscz,.mscx,.mxl,.xml,.musicxml,.mei';
+
 /** Opens the system file picker; resolves with the chosen file, or null if dismissed. */
 export function pickFile(accept: string): Promise<File | null> {
   return new Promise((resolve) => {

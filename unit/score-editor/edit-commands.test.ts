@@ -750,6 +750,7 @@ const TABLE: Row[] = [
   ],
   ['exports', 'exportPdf', [], { label: null, options: null, ensured: 0, engine: [['savePdf']] }],
   ['exports', 'exportMxl', [], { label: null, options: null, ensured: 0, engine: [['saveMxl']] }],
+  ['exports', 'exportMei', [], { label: null, options: null, ensured: 0, engine: [['saveMei']] }],
   [
     'exports',
     'exportMscz',

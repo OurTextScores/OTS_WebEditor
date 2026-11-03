@@ -1,0 +1,444 @@
+diff --git a/src/importexport/mei/internal/meiconverter.cpp b/src/importexport/mei/internal/meiconverter.cpp
+index 2fc33bd9f5..1cd7777cdd 100644
+--- a/src/importexport/mei/internal/meiconverter.cpp
++++ b/src/importexport/mei/internal/meiconverter.cpp
+@@ -699,7 +699,7 @@ void Convert::breathFromMEI(engraving::Breath* breath, const libmei::Breath& mei
+     engraving::SymId symId = engraving::SymId::breathMarkComma;
+ 
+     if (smufl && meiBreath.HasGlyphName()) {
+-        symId = engraving::SymNames::symIdByName(String(meiBreath.GetGlyphName().c_str()));
++        symId = engraving::SymNames::symIdByName(String::fromUtf8(meiBreath.GetGlyphName().c_str()));
+         if (symId == engraving::SymId::noSym) {
+             warning = true;
+         }
+@@ -757,7 +757,7 @@ void Convert::caesuraFromMEI(engraving::Breath* breath, const libmei::Caesura& m
+     engraving::SymId symId = engraving::SymId::caesura;
+ 
+     if (smufl && meiCeasura.HasGlyphName()) {
+-        symId = engraving::SymNames::symIdByName(String(meiCeasura.GetGlyphName().c_str()));
++        symId = engraving::SymNames::symIdByName(String::fromUtf8(meiCeasura.GetGlyphName().c_str()));
+         if (symId == engraving::SymId::noSym) {
+             warning = true;
+         }
+@@ -1413,12 +1413,12 @@ void Convert::endingFromMEI(engraving::Volta* volta, const libmei::Ending& meiEn
+     // @type used for storing endings
+     std::list<std::string> endings = Convert::getTypeValuesWithPrefix(meiEnding.GetType(), ENDING_REPEAT_TYPE);
+     for (std::string ending : endings) {
+-        volta->endings().push_back(String(ending.c_str()).toInt());
++        volta->endings().push_back(String::fromUtf8(ending.c_str()).toInt());
+     }
+ 
+     // @label
+     if (meiEnding.HasLabel()) {
+-        volta->setText(String(meiEnding.GetLabel().c_str()));
++        volta->setText(String::fromUtf8(meiEnding.GetLabel().c_str()));
+     }
+ 
+     // @lform
+@@ -1448,7 +1448,7 @@ libmei::Ending Convert::endingToMEI(const engraving::Volta* volta)
+     // @type used for storing endings
+     StringList endings;
+     for (int ending : volta->endings()) {
+-        endings << String("%1%2").arg(String(ENDING_REPEAT_TYPE)).arg(ending);
++        endings << String::fromUtf8("%1%2").arg(String::fromUtf8(ENDING_REPEAT_TYPE)).arg(ending);
+     }
+     meiEnding.SetType(endings.join(u" ").toStdString());
+ 
+@@ -1527,7 +1527,7 @@ void Convert::fermataFromMEI(engraving::Fermata* fermata, const libmei::Fermata&
+     engraving::SymId symId = engraving::SymId::fermataAbove;
+ 
+     if (smufl && meiFermata.HasGlyphName()) {
+-        symId = engraving::SymNames::symIdByName(String(meiFermata.GetGlyphName().c_str()));
++        symId = engraving::SymNames::symIdByName(String::fromUtf8(meiFermata.GetGlyphName().c_str()));
+         if (symId == engraving::SymId::noSym) {
+             warning = true;
+         }
+@@ -2196,7 +2196,7 @@ libmei::RepeatMark Convert::markerToMEI(const engraving::Marker* marker, String&
+         // Here we could use @glyph.auth and @glyph.name, but they are not included in MEI Basic
+         break;
+     case (engraving::MarkerType::TOCODASYM):
+-        text = "To 𝄌";
++        text = u"To 𝄌";
+         break;
+     default:
+         text = marker->plainText();
+@@ -2242,7 +2242,7 @@ Convert::MeasureStruct Convert::measureFromMEI(const libmei::Measure& meiMeasure
+     if (meiMeasure.HasType()) {
+         std::list<std::string> repeats = Convert::getTypeValuesWithPrefix(meiMeasure.GetType(), MEASURE_REPEAT_TYPE);
+         if (repeats.size() > 0) {
+-            measureSt.repeatCount = String(repeats.front().c_str()).toInt();
++            measureSt.repeatCount = String::fromUtf8(repeats.front().c_str()).toInt();
+             // make sure it is not smaller than 0
+             measureSt.repeatCount = std::max(0, measureSt.repeatCount);
+         }
+@@ -2271,7 +2271,7 @@ libmei::Measure Convert::measureToMEI(const engraving::Measure* measure, int& me
+ 
+     // @type used for storing measure repeat count
+     if (measure->repeatEnd() && (measure->repeatCount() != 0)) {
+-        meiMeasure.SetType(String(u"%1%2").arg(String(MEASURE_REPEAT_TYPE)).arg(measure->repeatCount()).toStdString());
++        meiMeasure.SetType(String(u"%1%2").arg(String::fromUtf8(MEASURE_REPEAT_TYPE)).arg(measure->repeatCount()).toStdString());
+     }
+ 
+     // @right
+@@ -2349,7 +2349,7 @@ Convert::OrnamStruct Convert::mordentFromMEI(engraving::Ornament* ornament, cons
+             symId = result->first;
+             // Otherwise get the symId from the @glyph.name
+         } else {
+-            symId = engraving::SymNames::symIdByName(String(meiMordent.GetGlyphName().c_str()));
++            symId = engraving::SymNames::symIdByName(String::fromUtf8(meiMordent.GetGlyphName().c_str()));
+         }
+         if (symId == engraving::SymId::noSym) {
+             warning = true;
+@@ -2657,14 +2657,14 @@ void Convert::ornamintervaleFromMEI(engraving::Ornament* ornament, const std::st
+     std::string value;
+ 
+     if (Convert::getTypeValueWithPrefix(meiType, INTERVAL_ABOVE, value)) {
+-        engraving::OrnamentInterval interval = engraving::TConv::fromXml(String(value.c_str()).replace(u':',
++        engraving::OrnamentInterval interval = engraving::TConv::fromXml(String::fromUtf8(value.c_str()).replace(u':',
+                                                                                                        u','),
+                                                                          engraving::DEFAULT_ORNAMENT_INTERVAL);
+         ornament->setIntervalAbove(interval);
+     }
+ 
+     if (Convert::getTypeValueWithPrefix(meiType, INTERVAL_BELOW, value)) {
+-        engraving::OrnamentInterval interval = engraving::TConv::fromXml(String(value.c_str()).replace(u':',
++        engraving::OrnamentInterval interval = engraving::TConv::fromXml(String::fromUtf8(value.c_str()).replace(u':',
+                                                                                                        u','),
+                                                                          engraving::DEFAULT_ORNAMENT_INTERVAL);
+         ornament->setIntervalBelow(interval);
+@@ -2679,12 +2679,12 @@ String Convert::ornamintervalToMEI(const engraving::Ornament* ornament)
+     if (ornament->hasIntervalAbove() && (ornament->intervalAbove().type != engraving::IntervalType::AUTO)) {
+         // Since a , is not valid in a type attribute, replace with :
+         String intervalStr = engraving::TConv::toXml(ornament->intervalAbove()).replace(u',', u':');
+-        typeList << String("%1%2").arg(String(INTERVAL_ABOVE)).arg(intervalStr);
++        typeList << String::fromUtf8("%1%2").arg(String::fromUtf8(INTERVAL_ABOVE)).arg(intervalStr);
+     }
+ 
+     if (ornament->hasIntervalBelow() && (ornament->intervalBelow().type != engraving::IntervalType::AUTO)) {
+         String intervalStr = engraving::TConv::toXml(ornament->intervalBelow()).replace(u',', u':');
+-        typeList << String("%1%2").arg(String(INTERVAL_BELOW)).arg(intervalStr);
++        typeList << String::fromUtf8("%1%2").arg(String::fromUtf8(INTERVAL_BELOW)).arg(intervalStr);
+     }
+ 
+     return typeList.join(u" ");
+@@ -3551,7 +3551,7 @@ Convert::OrnamStruct Convert::trillFromMEI(engraving::Ornament* ornament, const
+ 
+     // We give @glyph.name (or @glyph.num) priority over @form and @long
+     if (smufl && meiTrill.HasGlyphName()) {
+-        symId = engraving::SymNames::symIdByName(String(meiTrill.GetGlyphName().c_str()));
++        symId = engraving::SymNames::symIdByName(String::fromUtf8(meiTrill.GetGlyphName().c_str()));
+         if (symId == engraving::SymId::noSym) {
+             warning = true;
+         }
+@@ -3677,7 +3677,7 @@ Convert::OrnamStruct Convert::turnFromMEI(engraving::Ornament* ornament, const l
+ 
+     // We give @glyph.name (or @glyph.num) priority over @form and @long
+     if (smufl && meiTurn.HasGlyphName()) {
+-        symId = engraving::SymNames::symIdByName(String(meiTurn.GetGlyphName().c_str()));
++        symId = engraving::SymNames::symIdByName(String::fromUtf8(meiTurn.GetGlyphName().c_str()));
+         if (symId == engraving::SymId::noSym) {
+             warning = true;
+         }
+diff --git a/src/importexport/mei/internal/meiexporter.cpp b/src/importexport/mei/internal/meiexporter.cpp
+index a8001b0cac..6dba78c26e 100644
+--- a/src/importexport/mei/internal/meiexporter.cpp
++++ b/src/importexport/mei/internal/meiexporter.cpp
+@@ -2534,7 +2534,7 @@ bool MeiExporter::isNode(pugi::xml_node node, const String& name)
+         return false;
+     }
+ 
+-    String nodeName = String(node.name());
++    String nodeName = String::fromUtf8(node.name());
+     return nodeName == name;
+ }
+ 
+@@ -2727,7 +2727,7 @@ void MeiExporter::resetLayerIDs()
+ 
+ std::string MeiExporter::getSectionXmlId()
+ {
+-    return String("s%1").arg(++m_sectionCounter).toStdString();
++    return String::fromUtf8("s%1").arg(++m_sectionCounter).toStdString();
+ }
+ 
+ /**
+@@ -2753,7 +2753,7 @@ std::string MeiExporter::getStaffXmlId()
+ {
+     // Reset the layer counter when a new staff starts
+     m_layerCounter = 0;
+-    return String("m%1s%2").arg(m_measureCounter).arg(++m_staffCounter).toStdString();
++    return String::fromUtf8("m%1s%2").arg(m_measureCounter).arg(++m_staffCounter).toStdString();
+ }
+ 
+ /**
+@@ -2765,7 +2765,7 @@ std::string MeiExporter::getLayerXmlId()
+ {
+     // Reset the layer sub-counters when a new layer starts
+     this->resetLayerIDs();
+-    return String("m%1s%2l%3").arg(m_measureCounter).arg(m_staffCounter).arg(++m_layerCounter).toStdString();
++    return String::fromUtf8("m%1s%2l%3").arg(m_measureCounter).arg(m_staffCounter).arg(++m_layerCounter).toStdString();
+ }
+ 
+ /**
+@@ -2778,7 +2778,7 @@ std::string MeiExporter::getLayerXmlIdFor(layerElementCounter elementType)
+     if (MEI_COUNTER_BASED_IDS) {
+         // m (Measure) / s (Staff) / l (Layer) / ? Layer element type
+         // The layer element abbreviation is given in the MeiExporter::s_layerXmlIdMap
+-        id = String("m%1s%2l%3%4%5").arg(m_measureCounter).arg(m_staffCounter).arg(m_layerCounter).arg(MeiExporter::s_layerXmlIdMap.at(
++        id = String::fromUtf8("m%1s%2l%3%4%5").arg(m_measureCounter).arg(m_staffCounter).arg(m_layerCounter).arg(MeiExporter::s_layerXmlIdMap.at(
+                                                                                                            elementType)).arg(++(
+                                                                                                                                  m_layerCounterFor
+                                                                                                                                  .at(
+diff --git a/src/importexport/mei/internal/meiimporter.cpp b/src/importexport/mei/internal/meiimporter.cpp
+index 63ba60e962..9c8d24191f 100644
+--- a/src/importexport/mei/internal/meiimporter.cpp
++++ b/src/importexport/mei/internal/meiimporter.cpp
+@@ -125,15 +125,15 @@ bool MeiImporter::read(const muse::io::path_t& path)
+         path.toStdString().c_str(), (pugi::parse_comments | pugi::parse_default) & ~pugi::parse_eol);
+ 
+     if (!result) {
+-        LOGD() << "Cannot open file <" << qPrintable(path.toString()) << ">";
++        LOGD() << "Cannot open file <" << path.toStdString() << ">";
+         return false;
+     }
+ 
+     pugi::xml_node root = doc.first_child();
+ 
+     pugi::xml_attribute meiVersion = root.attribute("meiversion");
+-    if (!meiVersion || String(meiVersion.value()) != String(MEI_BASIC_VERSION)) {
+-        Convert::logs.push_back(String("The MEI file does not seem to be a MEI Basic version '%1' file").arg(String(MEI_BASIC_VERSION)));
++    if (!meiVersion || String::fromUtf8(meiVersion.value()) != String::fromUtf8(MEI_BASIC_VERSION)) {
++        Convert::logs.push_back(String::fromUtf8("The MEI file does not seem to be a MEI Basic version '%1' file").arg(String::fromUtf8(MEI_BASIC_VERSION)));
+     }
+ 
+     bool success = true;
+@@ -142,9 +142,9 @@ bool MeiImporter::read(const muse::io::path_t& path)
+ 
+     pugi::xml_attribute xmlId = root.attribute("xml:id");
+     bool hasRootXmlId = false;
+-    if (xmlId && !String(xmlId.value()).empty()) {
++    if (xmlId && !String::fromUtf8(xmlId.value()).empty()) {
+         hasRootXmlId = true;
+-        String xmlIdStr = String(xmlId.value());
++        String xmlIdStr = String::fromUtf8(xmlId.value());
+         if (xmlIdStr.startsWith(u"mscore-")) {
+             // Keep a global flag since we are going to read them only if mei@xml:id is given with mscore EID
+             m_hasMuseScoreIds = true;
+@@ -181,12 +181,12 @@ bool MeiImporter::read(const muse::io::path_t& path)
+ void MeiImporter::addLog(const std::string& msg, pugi::xml_node node)
+ {
+     String nodeStr = u"&lt;";
+-    nodeStr += String(node.name());
++    nodeStr += String::fromUtf8(node.name());
+     for (auto attribute : node.attributes()) {
+-        nodeStr += String(" %1='%2'").arg(String(attribute.name()), String(attribute.value()));
++        nodeStr += String::fromUtf8(" %1='%2'").arg(String::fromUtf8(attribute.name()), String::fromUtf8(attribute.value()));
+     }
+     nodeStr += u" /&gt;";
+-    Convert::logs.push_back(String("Could not convert the %1 from %2").arg(String::fromStdString(msg), nodeStr));
++    Convert::logs.push_back(String::fromUtf8("Could not convert the %1 from %2").arg(String::fromStdString(msg), nodeStr));
+ }
+ 
+ /**
+@@ -199,7 +199,7 @@ bool MeiImporter::isNode(pugi::xml_node node, const String& name)
+         return false;
+     }
+ 
+-    String nodeName = String(node.name());
++    String nodeName = String::fromUtf8(node.name());
+     return nodeName == name;
+ }
+ 
+@@ -605,7 +605,7 @@ std::string MeiImporter::xmlIdFrom(std::string dataURI)
+ {
+     // Basic check for the @stardid validity
+     if (dataURI.size() < 1 || dataURI.at(0) != '#') {
+-        Convert::logs.push_back(String("Could not convert the data.URI '%1'").arg(String::fromStdString(dataURI)));
++        Convert::logs.push_back(String::fromUtf8("Could not convert the data.URI '%1'").arg(String::fromStdString(dataURI)));
+         return "";
+     }
+     return dataURI.erase(0, 1);
+@@ -629,7 +629,7 @@ ControlElementPosition MeiImporter::findStart(const libmei::Element& meiElement,
+         std::string startId = this->xmlIdFrom(startIdAtt->GetStartid());
+         // The startid corresponding ChordRest should have been added to the m_startIdChordRests previously
+         if (!m_startIdChordRests.count(startId) || !m_startIdChordRests.at(startId)) {
+-            Convert::logs.push_back(String("Could not find element for @startid '%1'").arg(String::fromStdString(
++            Convert::logs.push_back(String::fromUtf8("Could not find element for @startid '%1'").arg(String::fromStdString(
+                                                                                                startIdAtt->GetStartid())));
+             return pos;
+         }
+@@ -679,7 +679,7 @@ ControlElementPosition MeiImporter::findEnd(pugi::xml_node controlNode, Spanner*
+         std::string endId = this->xmlIdFrom(startEndIdAtt.GetEndid());
+         // The @endid corresponding ChordRest should have been added to the m_endIdChordRests previously
+         if (!m_endIdChordRests.count(endId) || !m_endIdChordRests.at(endId)) {
+-            Convert::logs.push_back(String("Could not find element for @endid '%1'").arg(String::fromStdString(startEndIdAtt.GetEndid())));
++            Convert::logs.push_back(String::fromUtf8("Could not find element for @endid '%1'").arg(String::fromStdString(startEndIdAtt.GetEndid())));
+             return pos;
+         }
+         pos.chordRest = m_endIdChordRests.at(endId);
+@@ -749,7 +749,7 @@ Note* MeiImporter::findStartNote(const libmei::Element& meiElement)
+     std::string startId = this->xmlIdFrom(startIdAtt->GetStartid());
+     // The startid corresponding Note should have been added to the m_startIdNotes previously
+     if (!m_startIdNotes.count(startId) || !m_startIdNotes.at(startId)) {
+-        Convert::logs.push_back(String("Could not find note for @startid '%1'").arg(String::fromStdString(startIdAtt->GetStartid())));
++        Convert::logs.push_back(String::fromUtf8("Could not find note for @startid '%1'").arg(String::fromStdString(startIdAtt->GetStartid())));
+         return nullptr;
+     }
+     return m_startIdNotes.at(startId);
+@@ -773,7 +773,7 @@ Note* MeiImporter::findEndNote(pugi::xml_node controlNode)
+     std::string endId = this->xmlIdFrom(startEndIdAtt.GetEndid());
+     // The endid corresponding Note should have been added to the m_endIdNotes previously
+     if (!m_endIdNotes.count(endId) || !m_endIdNotes.at(endId)) {
+-        Convert::logs.push_back(String("Could not find note for @endid '%1'").arg(String::fromStdString(startEndIdAtt.GetEndid())));
++        Convert::logs.push_back(String::fromUtf8("Could not find note for @endid '%1'").arg(String::fromStdString(startEndIdAtt.GetEndid())));
+         return nullptr;
+     }
+     return m_endIdNotes.at(endId);
+@@ -799,7 +799,7 @@ const std::vector<ChordRest*> MeiImporter::findPlistChordRests(pugi::xml_node co
+         std::string plistValue = this->xmlIdFrom(id);
+         // The plist corresponding Note should have been added to the m_plistValueChordRests previously
+         if (!m_plistValueChordRests.count(plistValue) || !m_plistValueChordRests.at(plistValue)) {
+-            Convert::logs.push_back(String("Could not find note for @plist value '%1'").arg(String::fromStdString(id)));
++            Convert::logs.push_back(String::fromUtf8("Could not find note for @plist value '%1'").arg(String::fromStdString(id)));
+             continue;
+         }
+         plistChordRests.push_back(m_plistValueChordRests.at(plistValue));
+@@ -912,7 +912,7 @@ void MeiImporter::readXmlId(engraving::EngravingItem* item, const std::string& m
+         String valStr = xmlIdStr.remove(u"mscore-").replace('.', '/').replace('-', '+');
+         EID eid = EID::fromStdString(valStr.toStdString());
+         if (!eid.isValid()) {
+-            Convert::logs.push_back(String("A valid MuseScore ID could not be extracted from '%1'").arg(xmlIdStr));
++            Convert::logs.push_back(String::fromUtf8("A valid MuseScore ID could not be extracted from '%1'").arg(xmlIdStr));
+         } else {
+             item->setEID(eid);
+         }
+@@ -951,51 +951,51 @@ bool MeiImporter::readMeiHead(pugi::xml_node root)
+     pugi::xml_node firstTitleNode = root.select_node("//meiHead/fileDesc/titleStmt/title").node();
+     if (firstTitleNode) {
+         // assume the first title to be the main title
+-        m_score->setMetaTag(u"workTitle", String(firstTitleNode.text().as_string()));
++        m_score->setMetaTag(u"workTitle", String::fromUtf8(firstTitleNode.text().as_string()));
+     }
+     pugi::xpath_node_set workTitleNodes = root.select_nodes("//meiHead/fileDesc/titleStmt/title[@type]");
+     for (pugi::xpath_node workTitleNode : workTitleNodes) {
+-        const String type = String(workTitleNode.node().attribute("type").as_string());
++        const String type = String::fromUtf8(workTitleNode.node().attribute("type").as_string());
+         if (type == u"main") {
+             if (m_score->metaTag(u"workTitle").isEmpty()) {
+-                m_score->setMetaTag(u"workTitle", String(workTitleNode.node().text().as_string()));
++                m_score->setMetaTag(u"workTitle", String::fromUtf8(workTitleNode.node().text().as_string()));
+             }
+         } else if (type == u"subordinate") {
+-            m_score->setMetaTag(u"subtitle", String(workTitleNode.node().text().as_string()));
++            m_score->setMetaTag(u"subtitle", String::fromUtf8(workTitleNode.node().text().as_string()));
+         } else {
+             const String metaTag = type + u"Title";
+-            m_score->setMetaTag(metaTag, String(workTitleNode.node().text().as_string()));
++            m_score->setMetaTag(metaTag, String::fromUtf8(workTitleNode.node().text().as_string()));
+         }
+     }
+ 
+     // check for dedicated elements (only for import)
+     pugi::xml_node composer = root.select_node("//meiHead/fileDesc/titleStmt/composer").node();
+     if (composer) {
+-        m_score->setMetaTag(u"composer", String(composer.text().as_string()));
++        m_score->setMetaTag(u"composer", String::fromUtf8(composer.text().as_string()));
+     }
+     pugi::xml_node lyricist = root.select_node("//meiHead/fileDesc/titleStmt/lyricist").node();
+     if (lyricist) {
+-        m_score->setMetaTag(u"lyricist", String(lyricist.text().as_string()));
++        m_score->setMetaTag(u"lyricist", String::fromUtf8(lyricist.text().as_string()));
+     }
+     pugi::xml_node arranger = root.select_node("//meiHead/fileDesc/titleStmt/arranger").node();
+     if (arranger) {
+-        m_score->setMetaTag(u"arranger", String(arranger.text().as_string()));
++        m_score->setMetaTag(u"arranger", String::fromUtf8(arranger.text().as_string()));
+     }
+ 
+     StringList persNames;
+     // the creator types commonly found in MusicXML
+     persNames << u"arranger" << u"composer" << u"lyricist" << u"translator";
+     for (String tagName : persNames) {
+-        String xpath = String("//meiHead/fileDesc/titleStmt/respStmt/persName[@role='%1']").arg(tagName);
++        String xpath = String::fromUtf8("//meiHead/fileDesc/titleStmt/respStmt/persName[@role='%1']").arg(tagName);
+         pugi::xml_node persNameNode = root.select_node(xpath.toStdString().c_str()).node();
+         if (persNameNode) {
+-            m_score->setMetaTag(tagName, String(persNameNode.text().as_string()));
++            m_score->setMetaTag(tagName, String::fromUtf8(persNameNode.text().as_string()));
+         }
+     }
+ 
+     pugi::xml_node copyrightNode = root.select_node("//meiHead/fileDesc/pubStmt/availability").node();
+     if (copyrightNode) {
+-        m_score->setMetaTag(u"copyright", String(copyrightNode.text().as_string()));
++        m_score->setMetaTag(u"copyright", String::fromUtf8(copyrightNode.text().as_string()));
+     }
+ 
+     return true;
+@@ -1157,11 +1157,11 @@ bool MeiImporter::readLines(pugi::xml_node parentNode, StringList& lines, size_t
+         if (child.type() == pugi::node_pcdata) {
+             // This is the first time we are adding text to the current line - push it
+             if (lines.size() <= line) {
+-                lines.push_back(String(child.text().as_string()));
++                lines.push_back(String::fromUtf8(child.text().as_string()));
+             }
+             // If not, then concatenate it to the current line
+             else {
+-                lines.at(line) += String(child.text().as_string());
++                lines.at(line) += String::fromUtf8(child.text().as_string());
+             }
+         } else if (this->isNode(child, u"lb")) {
+             line += 1;
+@@ -1191,7 +1191,7 @@ bool MeiImporter::readLinesWithSmufl(pugi::xml_node parentNode, StringList& line
+     for (pugi::xml_node child : parentNode.children()) {
+         // Plain text, add it as is to the text block list
+         if (child.type() == pugi::node_pcdata) {
+-            lineBlocks.push_back(std::make_pair(false, String(child.text().as_string())));
++            lineBlocks.push_back(std::make_pair(false, String::fromUtf8(child.text().as_string())));
+         }
+         // A rend, check is the content is smufl
+         else if (this->isNode(child, u"rend")) {
+@@ -1199,7 +1199,7 @@ bool MeiImporter::readLinesWithSmufl(pugi::xml_node parentNode, StringList& line
+             meiRend.Read(child);
+             bool isSmufl = (meiRend.HasGlyphAuth() && meiRend.GetGlyphAuth() == SMUFL_AUTH);
+             // If smufl, add its text as smufl, otherwise as text
+-            lineBlocks.push_back(std::make_pair(isSmufl, String(child.first_child().text().as_string())));
++            lineBlocks.push_back(std::make_pair(isSmufl, String::fromUtf8(child.first_child().text().as_string())));
+         }
+         // A line break, already convert the current text blocks
+         else if (this->isNode(child, u"lb")) {
+@@ -1628,7 +1628,7 @@ bool MeiImporter::readLayers(pugi::xml_node parentNode, Measure* measure, int st
+     for (pugi::xpath_node xpathNode : layers) {
+         // We cannot have more than 4 voices in MuseScore
+         if (i >= VOICES) {
+-            Convert::logs.push_back(String("More than %1 layers in a staff in not supported. Their content will not be imported.").arg(
++            Convert::logs.push_back(String::fromUtf8("More than %1 layers in a staff in not supported. Their content will not be imported.").arg(
+                                         VOICES));
+             break;
+         }
+@@ -2188,7 +2188,7 @@ bool MeiImporter::readSyl(pugi::xml_node sylNode, Lyrics* lyrics, Convert::textW
+ 
+     Convert::sylFromMEI(lyrics, meiSyl, elision, warning);
+ 
+-    textBlocks.push_back(std::make_pair(false, String(sylNode.text().as_string())));
++    textBlocks.push_back(std::make_pair(false, String::fromUtf8(sylNode.text().as_string())));
+ 
+     return true;
+ }
+@@ -2321,7 +2321,7 @@ bool MeiImporter::readVerse(pugi::xml_node verseNode, Chord* chord)
+ 
+     for (pugi::xpath_node xpathNode : elements) {
+         if (xpathNode.node().name() == std::string("label")) {
+-            textBlocks.push_back(std::make_pair(false, String(xpathNode.node().text().as_string())));
++            textBlocks.push_back(std::make_pair(false, String::fromUtf8(xpathNode.node().text().as_string())));
+             textBlocks.push_back(std::make_pair(false, u"\u00A0"));
+             continue;
+         }
+@@ -2749,7 +2749,7 @@ bool MeiImporter::readGliss(pugi::xml_node glissNode, Measure* measure)
+     gliss->setParent(startNote);
+     gliss->setGlissandoStyle(startNote->part()->instrument(startNote->tick())->glissandoStyle());
+ 
+-    const String glissText = String(glissNode.text().as_string());
++    const String glissText = String::fromUtf8(glissNode.text().as_string());
+     gliss->setText(glissText);
+ 
+     m_score->addElement(gliss);
