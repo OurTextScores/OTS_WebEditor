@@ -326,6 +326,7 @@ EMSCRIPTEN_KEEPALIVE bool redo(uintptr_t id,int excerpt) {
 #include "harptools.h"
 #include "timesigtools.h"
 #include "stafftextswing.h"
+#include "lyricsentry.h"
 #include "objectgeometry.h"
 
 #include "selectiongeometry.h"

@@ -1,3 +1,4 @@
+import type { LyricsEntryModel } from '../lyrics';
 import { promptForText } from '../prompt-for-text';
 import type { EditorCore } from '../core';
 
@@ -43,7 +44,15 @@ export async function addExpressionText(core: EditorCore) {
   });
 }
 
-export async function addLyricText(core: EditorCore) {
+/** Add ▸ Text ▸ Lyrics: MuseScore's lyric entry where the engine has it (roadmap E17), else a one-line prompt. */
+export async function addLyricText(
+  core: EditorCore,
+  entry?: Pick<LyricsEntryModel, 'supported' | 'start'>,
+) {
+  if (entry?.supported) {
+    await entry.start();
+    return;
+  }
   const { ensureSelectionInWasm, performMutation, requireMutation } = core;
   const text = await promptForText('Lyrics text:');
   if (text === null) {

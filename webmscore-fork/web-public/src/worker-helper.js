@@ -129,6 +129,9 @@ class WebMscoreW {
         // presence as proof of a native export. Older packages omit this path.
         if (!capabilities?.hitTestScoreObject) Object.defineProperty(instance, 'hitTestScoreObject', { value: undefined })
         if (!capabilities?.moveSelectedChordRestToStaff) Object.defineProperty(instance, 'moveSelectedChordRestToStaff', { value: undefined })
+        if (!capabilities?.lyricsEntry) {
+            for (const name of ['startLyricsEntry', 'lyricsEntryCommit', 'endLyricsEntry']) Object.defineProperty(instance, name, { value: undefined })
+        }
         if (!capabilities?.textStyleCatalog) Object.defineProperty(instance, 'getTextStyleCatalog', { value: undefined })
         if (!capabilities?.styleDefaults) Object.defineProperty(instance, 'getStyleDefaults', { value: undefined })
         if (!capabilities?.staffTextSwing) {
@@ -357,6 +360,18 @@ class WebMscoreW {
 
     setHarpPedalState(state) {
         return this.rpc('setHarpPedalState', [state])
+    }
+
+    startLyricsEntry() {
+        return this.rpc('startLyricsEntry')
+    }
+
+    lyricsEntryCommit(text, action) {
+        return this.rpc('lyricsEntryCommit', [text, action])
+    }
+
+    endLyricsEntry() {
+        return this.rpc('endLyricsEntry')
     }
 
     getTextStyleCatalog() {

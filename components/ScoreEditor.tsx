@@ -219,7 +219,8 @@ import { ScoreGeometryInspection } from './score-editor/geometry-inspection';
 import { ChangeReviewBarOverlay } from './score-editor/canvas/ChangeReviewBarOverlay';
 import { DragFeedbackOverlays } from './score-editor/canvas/DragFeedbackOverlays';
 import { NoteInputOverlays } from './score-editor/canvas/NoteInputOverlays';
-import { GripHandles } from './score-editor/canvas/GripHandles';
+import { EditOverlays } from './score-editor/canvas/EditOverlays';
+import { useLyricsEntry } from './score-editor/lyrics';
 import { SelectionOverlays } from './score-editor/canvas/SelectionOverlays';
 import { InlineTextEditor } from './score-editor/canvas/InlineTextEditor';
 import { ChangeReviewThreadView } from './score-editor/compare/ChangeReviewThreadView';
@@ -1573,6 +1574,7 @@ export default function ScoreEditor() {
   const systemLockRevision = useMemo(() => ({ inspectorData, undoIndex }), [inspectorData, undoIndex]);
   const systemLocks = useSystemLocks(core, systemLockRevision);
   const notationProperties = useNotationProperties(core, inspectorData?.elementType, systemLockRevision);
+  const lyricsEntry = useLyricsEntry(core);
   useSelectionAnnouncer(inspectorData);
 
   const ensureScoreId = useCallback(
@@ -7087,7 +7089,6 @@ export default function ScoreEditor() {
 
   const handleAddExpressionText = () => addExpressionText(core);
 
-  const handleAddLyricText = () => addLyricText(core);
 
   const harmonyLabels: Record<HarmonyVariant, string> = {
     0: 'Chord symbol',
@@ -8525,8 +8526,9 @@ export default function ScoreEditor() {
         cursorColor={noteInputCursorColor}
         shadow={noteInputShadow}
       />
-      <GripHandles
+      <EditOverlays
         gripEdit={gripEdit}
+        lyricsEntry={lyricsEntry}
         currentPage={currentPage}
         zoom={zoom}
         engravingToOverlayPoint={engravingToOverlayPoint}
@@ -9337,7 +9339,7 @@ export default function ScoreEditor() {
     onAddStaffText: handleAddStaffText,
     onAddSystemText: handleAddSystemText,
     onAddExpressionText: handleAddExpressionText,
-    onAddLyricText: handleAddLyricText,
+    onAddLyricText: () => addLyricText(core, lyricsEntry),
     onAddHarmonyText: handleAddHarmonyText,
     onAddFingeringText: handleAddFingeringText,
     onAddLeftHandGuitarFingeringText: handleAddLeftHandGuitarFingeringText,

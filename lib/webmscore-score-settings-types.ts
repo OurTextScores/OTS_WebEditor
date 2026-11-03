@@ -145,7 +145,23 @@ export type TextStyleProperty =
   | 'position';
 
 /** Score methods behind the score dialogs that live outside `Score`'s own body (line budget). */
+/** Where lyric entry's text box goes (page coordinates) and the text there (`startLyricsEntry`). */
+export interface LyricsEntryPosition {
+  page: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  text: string;
+  /** 0 is the first verse. */
+  verse: number;
+}
+
 export interface ScoreDialogMethods {
+  /** Lyric entry (roadmap E17): start at the selection; commit a syllable and move (see LYRICS_ACTIONS); stop. */
+  startLyricsEntry?: () => Promise<LyricsEntryPosition | null>;
+  lyricsEntryCommit?: (text: string, action: number) => Promise<LyricsEntryPosition | null>;
+  endLyricsEntry?: () => Promise<boolean> | boolean;
   /** MuseScore's defaults for the named style keys (the Style dialog's reset). */
   getStyleDefaults?: (keys: string[]) => Promise<Record<string, StyleValue>>;
   /** MuseScore's Text styles page: each editable text style and its style keys by property (fontFace, color, …). */

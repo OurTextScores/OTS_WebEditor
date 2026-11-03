@@ -311,6 +311,9 @@ class WebMscore {
         this.excerptId = -1
         if (!Module._hitTestScoreObject) Object.defineProperty(this, 'hitTestScoreObject', { value: undefined })
         if (!Module._moveSelectedChordRestToStaff) Object.defineProperty(this, 'moveSelectedChordRestToStaff', { value: undefined })
+        if (!Module._startLyricsEntry || !Module._lyricsEntryCommit || !Module._endLyricsEntry) {
+            for (const name of ['startLyricsEntry', 'lyricsEntryCommit', 'endLyricsEntry']) Object.defineProperty(this, name, { value: undefined })
+        }
         if (!Module._getTextStyleCatalog) Object.defineProperty(this, 'getTextStyleCatalog', { value: undefined })
         if (!Module._getStyleDefaults) Object.defineProperty(this, 'getStyleDefaults', { value: undefined })
         if (!Module._getStaffTextSwing || !Module._setStaffTextSwing) {
@@ -547,21 +550,23 @@ class WebMscore {
     /**
      * Style values by MuseScore key name (`pageWidth`, `spatium`, …), raw as the engine stores them.
      * @param {string[]} keys
-     * @returns {Promise<Record<string, number | boolean | string>>} unknown or non-scalar keys left out
+     * @returns {Promise<Record<string, number | boolean | string>>} unknown or unsupported keys left out
      */
+    async getStyleValues(keys) {
+        const strptr = getStrPtr(JSON.stringify(keys || []))
+        try {
+            const dataptr = Module.ccall('getStyleValues', 'number', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
+            return JSON.parse(WasmRes.readText(dataptr))
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
     /**
      * MuseScore's default for each named style key, for the Style dialog's reset buttons.
      * @param {string[]} keys
      * @returns {Promise<Record<string, number | boolean | string>>}
      */
-    /**
-     * MuseScore's Text styles page: each editable text style's name and style keys by property.
-     * @returns {Promise<{name: string, keys: Record<string, string>}[]>}
-     */
-    async getTextStyleCatalog() {
-        return JSON.parse(WasmRes.readText(Module.ccall('getTextStyleCatalog', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])))
-    }
-
     async getStyleDefaults(keys) {
         const strptr = getStrPtr(JSON.stringify(keys || []))
         try {
@@ -572,14 +577,39 @@ class WebMscore {
         }
     }
 
-    async getStyleValues(keys) {
-        const strptr = getStrPtr(JSON.stringify(keys || []))
+    /**
+     * MuseScore's Text styles page: each editable text style's name, type token and style keys by property.
+     * @returns {Promise<{name: string, type: string, keys: Record<string, string>}[]>}
+     */
+    async getTextStyleCatalog() {
+        return JSON.parse(WasmRes.readText(Module.ccall('getTextStyleCatalog', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])))
+    }
+
+    /**
+     * Starts lyric entry at the selection (MuseScore's Add ▸ Text ▸ Lyrics): where the text box goes, or null.
+     * @returns {Promise<{page: number, x: number, y: number, w: number, h: number, text: string, verse: number} | null>}
+     */
+    async startLyricsEntry() {
+        return JSON.parse(WasmRes.readText(Module.ccall('startLyricsEntry', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])))
+    }
+
+    /**
+     * Writes the typed syllable and moves as the key asks (0 end, 1 next, 2 previous, 3 hyphen, 4 extender, 5 verse up,
+     * 6 verse down, 7 new verse); returns the next entry position or null.
+     * @returns {Promise<{page: number, x: number, y: number, w: number, h: number, text: string, verse: number} | null>}
+     */
+    async lyricsEntryCommit(text, action) {
+        const strptr = getStrPtr(String(text ?? ''))
         try {
-            const dataptr = Module.ccall('getStyleValues', 'number', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
-            return JSON.parse(WasmRes.readText(dataptr))
+            return JSON.parse(WasmRes.readText(Module.ccall('lyricsEntryCommit', 'number', ['number', 'number', 'number', 'number'], [this.scoreptr, strptr, action, this.excerptId])))
         } finally {
             freePtr(strptr)
         }
+    }
+
+    /** Stops lyric entry without writing anything. */
+    async endLyricsEntry() {
+        return Module.ccall('endLyricsEntry', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
     }
 
     /**
