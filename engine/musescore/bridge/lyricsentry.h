@@ -5,7 +5,7 @@
 // navigateToNextSyllable, addMelisma, navigateToLyricsVerse, addLyricsVerse) in src/notation, which the bridge does
 // not compile; the editor's text box stands in for MuseScore's in-place text cursor. Each key is one undoable edit:
 // the typed syllable is written (or removed, if emptied), the syllabic rules applied, and the entry moves on.
-// Left out: the partial dashes and extenders MuseScore draws across repeat jumps (PartialLyricsLine).
+// Across repeat jumps, dashes and extenders run into the jump and come back as partial lines after it, as in MuseScore.
 #include "global/serialization/json.h"
 #include "engraving/dom/chord.h"
 #include "engraving/dom/chordrest.h"
@@ -14,6 +14,7 @@
 #include "engraving/dom/measure.h"
 #include "engraving/dom/note.h"
 #include "engraving/dom/page.h"
+#include "global/containers.h"
 #include "engraving/dom/segment.h"
 #include "engraving/dom/staff.h"
 #include "engraving/dom/system.h"
@@ -193,57 +194,224 @@ static void moveByWord(bool back)
     g_state.pending = LyricsSyllabic::SINGLE;
 }
 
-// "-" (navigateToNextSyllable): a hyphen joins this syllable to the next note's.
-static void moveBySyllable()
+// A partial lyric line (an incoming dash or extender after a repeat jump) at the start of this note.
+static void addPartialLine(Score* score, ChordRest* at, bool melisma, engraving::Fraction ticks)
 {
-    ChordRest* cr = g_state.cr;
-    const auto track = cr->track();
-    ChordRest* next = chordRestAt(adjacentChord(cr->segment(), track), track);
-    if (!next) return;
-    Lyrics* from = fromLyrics(cr->segment(), track, g_state.verse, g_state.placement, false);
-    Lyrics* arrived = next->lyrics(g_state.verse, g_state.placement);
-    if (arrived) {
-        if (arrived->syllabic() == LyricsSyllabic::BEGIN) setSyllabic(arrived, LyricsSyllabic::MIDDLE);
-        else if (arrived->syllabic() == LyricsSyllabic::SINGLE) setSyllabic(arrived, LyricsSyllabic::END);
-    }
-    if (from) {
-        if (from->syllabic() == LyricsSyllabic::SINGLE) setSyllabic(from, LyricsSyllabic::BEGIN);
-        else if (from->syllabic() == LyricsSyllabic::END) setSyllabic(from, LyricsSyllabic::MIDDLE);
-        from->undoChangeProperty(Pid::LYRIC_TICKS, engraving::Fraction(0, 1));
-    }
-    g_state.cr = next;
-    g_state.pending = arrived ? arrived->syllabic() : LyricsSyllabic::END;
+    auto* line = engraving::Factory::createPartialLyricsLine(score->dummy());
+    line->setIsEndMelisma(melisma);
+    line->setVerse(g_state.verse);
+    line->setPlacement(g_state.placement);
+    line->setTick(at->tick());
+    line->setTicks(ticks);
+    line->setTrack(at->track());
+    line->setTrack2(at->track());
+    score->undoAddElement(line);
 }
 
-// "_" (addMelisma): an extender line carries the last syllable over the following notes.
-static void moveByMelisma()
+// MuseScore disallows a dash or extender between non-adjacent repeat sections (a 1st ending into the 2nd): the lyric
+// before the jump is then not continued.
+static Lyrics* unlessAcrossSections(Lyrics* from, ChordRest* to, engraving::track_idx_t track)
 {
-    ChordRest* cr = g_state.cr;
-    const auto track = cr->track();
-    Segment* segment = cr->segment();
-    const engraving::Fraction endTick = segment->tick();   // a previous melisma cannot extend beyond this point
-    ChordRest* next = chordRestAt(adjacentChord(segment, track), track);
-    Lyrics* here = cr->lyrics(g_state.verse, g_state.placement);
-    Lyrics* from = fromLyrics(segment, track, g_state.verse, g_state.placement, true);
-    if (from && from == here && next) {
-        here->undoChangeProperty(Pid::LYRIC_TICKS, Lyrics::TEMP_MELISMA_TICKS);   // a one-note melisma, for now
+    if (!from || !to) return from;
+    engraving::Measure* toMeasure = to->measure();
+    engraving::Measure* fromMeasure = from->measure();
+    if (toMeasure != fromMeasure && fromMeasure->lastChordRest(track) && fromMeasure->lastChordRest(track)->hasFollowingJumpItem()) {
+        const std::vector<engraving::Measure*> previous = engraving::findPreviousRepeatMeasures(toMeasure);
+        if (!previous.empty() && !muse::contains(previous, fromMeasure)) return nullptr;
     }
-    if (from && (from->syllabic() == LyricsSyllabic::BEGIN || from->syllabic() == LyricsSyllabic::MIDDLE)) {
-        setSyllabic(from, LyricsSyllabic::END);
+    return from;
+}
+
+// "-" (navigateToNextSyllable): a hyphen joins this syllable to the next note's. Across a repeat jump, the dash runs
+// into the jump (and comes back as an incoming partial dash after it).
+static void moveBySyllable(Score* score, Lyrics* here, bool typedEmpty)
+{
+    ChordRest* initialCR = g_state.cr;
+    const bool hasPrecedingRepeat = initialCR->hasPrecedingJumpItem();
+    const bool hasFollowingRepeat = initialCR->hasFollowingJumpItem();
+    const auto track = initialCR->track();
+    auto toLyricTrack = track;
+    Segment* segment = initialCR->segment();
+
+    // The next chord, in this track or (with this verse's lyric) another voice of the staff.
+    Segment* nextSegment = segment;
+    while ((nextSegment = nextSegment->next1(SegmentType::ChordRest))) {
+        engraving::EngravingItem* el = nextSegment->element(track);
+        if (!el || !el->isChord()) {
+            const auto strack = engraving::trackZeroVoice(track);
+            for (auto t = strack; t < strack + engraving::VOICES; ++t) {
+                auto* other = nextSegment->element(t);
+                if (other && other->isChord() && engraving::toChord(other)->lyrics(g_state.verse, g_state.placement)) {
+                    el = other;
+                    toLyricTrack = t;
+                    break;
+                }
+            }
+        }
+        if (el && el->isChord()) break;
     }
-    if (!next) {
-        if (from && from->segment()->tick() < endTick) {
-            from->undoChangeProperty(Pid::LYRIC_TICKS, std::max(endTick - from->segment()->tick(), Lyrics::TEMP_MELISMA_TICKS));
+    if (!engraving::segmentsAreAdjacent(segment, nextSegment)) nextSegment = nullptr;
+    if (!nextSegment && !hasFollowingRepeat && !hasPrecedingRepeat) return;
+
+    engraving::PartialLyricsLine* prevPartial = here ? engraving::findPrevPartialLyricsLineDash(here) : nullptr;
+    Lyrics* from = fromLyrics(segment, track, g_state.verse, g_state.placement, false);
+
+    if (!nextSegment) {
+        if (from && hasFollowingRepeat) {
+            // A dash with no syllable after it, into the repeat.
+            if (from->syllabic() == LyricsSyllabic::SINGLE) setSyllabic(from, LyricsSyllabic::BEGIN);
+            else if (from->syllabic() == LyricsSyllabic::END) setSyllabic(from, LyricsSyllabic::MIDDLE);
+            from->undoChangeProperty(Pid::LYRIC_TICKS, engraving::Fraction(0, 1));
+            return;
+        }
+        if (hasPrecedingRepeat) {
+            // An incoming dash from the repeat, ending at this note's syllable; the entry stays here.
+            addPartialLine(score, initialCR, false, engraving::Fraction(0, 1));
+            if (here) setSyllabic(here, LyricsSyllabic::END);
+            g_state.pending = LyricsSyllabic::END;
         }
         return;
     }
-    if (from && from->segment()->tick() < endTick) {
-        from->undoChangeProperty(Pid::LYRIC_TICKS, endTick - from->segment()->tick());
+
+    ChordRest* cr = chordRestAt(nextSegment, toLyricTrack);
+    Lyrics* arrived = cr ? cr->lyrics(g_state.verse, g_state.placement) : nullptr;
+    if (!arrived && !cr) return;
+    if (!arrived) {
+        const auto strack = engraving::trackZeroVoice(track);
+        for (auto t = strack; t < strack + engraving::VOICES && !arrived; ++t) {
+            if (t == track) continue;
+            if (ChordRest* other = chordRestAt(nextSegment, t)) {
+                if ((arrived = other->lyrics(g_state.verse, g_state.placement))) cr = other;
+            }
+        }
     }
+    // After a repeat with nothing to continue from, this is a partial dash at the start of the section.
+    if (hasPrecedingRepeat && !from) arrived = nullptr;
+    if (!arrived) cr = chordRestAt(nextSegment, track);
+    from = unlessAcrossSections(from, cr, track);
+
+    ChordRest* target = cr;
+    if (!arrived || hasPrecedingRepeat) {
+        // The entry stays here after a repeat when it is the incoming dash being typed (nothing typed yet).
+        if (hasPrecedingRepeat && !prevPartial && typedEmpty) target = initialCR;
+        g_state.pending = LyricsSyllabic::END;
+        if (Lyrics* existing = target->lyrics(g_state.verse, g_state.placement)) setSyllabic(existing, LyricsSyllabic::END);
+    } else {
+        // Arrived by a dash: it cannot be initial or isolated.
+        if (arrived->syllabic() == LyricsSyllabic::BEGIN) setSyllabic(arrived, LyricsSyllabic::MIDDLE);
+        else if (arrived->syllabic() == LyricsSyllabic::SINGLE) setSyllabic(arrived, LyricsSyllabic::END);
+        g_state.pending = arrived->syllabic();
+    }
+
+    if (from) {
+        // Left by a dash: it can have dashes on both sides but cannot be isolated or final, nor have an extender.
+        if (from->syllabic() == LyricsSyllabic::SINGLE) setSyllabic(from, LyricsSyllabic::BEGIN);
+        else if (from->syllabic() == LyricsSyllabic::END) setSyllabic(from, LyricsSyllabic::MIDDLE);
+        from->undoChangeProperty(Pid::LYRIC_TICKS, engraving::Fraction(0, 1));
+    } else if (hasPrecedingRepeat && !prevPartial) {
+        addPartialLine(score, initialCR, false, engraving::Fraction(0, 1));
+    } else if (prevPartial) {
+        prevPartial->undoMoveEnd(cr->tick() - prevPartial->tick2());
+        prevPartial->triggerLayout();
+    }
+    g_state.cr = target;
+}
+
+// "_" (addMelisma): an extender carries the last syllable over the following notes. Across a repeat jump it runs
+// into the jump, and comes back as an incoming partial extender after it.
+static void moveByMelisma(Score* score)
+{
+    ChordRest* initialCR = g_state.cr;
+    const bool hasPrecedingRepeat = initialCR->hasPrecedingJumpItem();
+    const auto track = initialCR->track();
+    Segment* segment = initialCR->segment();
+    const engraving::Fraction endTick = segment->tick();   // a previous melisma cannot extend beyond this point
+    ChordRest* next = chordRestAt(adjacentChord(segment, track), track);
+    Lyrics* here = initialCR->lyrics(g_state.verse, g_state.placement);
+
+    // The lyric (or partial extender) continued from: at this note or the last before it, stopping at a rest.
+    Lyrics* from = nullptr;
+    engraving::PartialLyricsLine* prevPartial = nullptr;
+    Segment* scan = segment;
+    while (scan && engraving::segmentsAreAdjacent(scan, segment)) {
+        if (ChordRest* cr = chordRestAt(scan, track)) {
+            if ((from = cr->lyrics(g_state.verse, g_state.placement))) break;
+            auto overlapping = score->spannerMap().findOverlapping(cr->tick().ticks(), cr->endTick().ticks());
+            for (auto& interval : overlapping) {
+                engraving::Spanner* sp = interval.value;
+                if (!sp->isPartialLyricsLine() || sp->staffIdx() != cr->staffIdx()) continue;
+                auto* line = engraving::toPartialLyricsLine(sp);
+                if (line->verse() != g_state.verse || line->placement() != g_state.placement || !line->isEndMelisma()) continue;
+                prevPartial = line;
+                break;
+            }
+            if (prevPartial) break;
+        }
+        scan = scan->prev1(SegmentType::ChordRest);
+        auto* e = scan ? scan->element(track) : nullptr;
+        if (e && !e->isChord()) break;
+    }
+
+    if (from && from == here && next) {
+        here->undoChangeProperty(Pid::LYRIC_TICKS, Lyrics::TEMP_MELISMA_TICKS);   // a one-note melisma, for now
+    }
+
+    // Where a partial extender being extended now ends (MuseScore's getPartialLyricLineEndSegment).
+    auto partialEnd = [&]() -> engraving::Fraction {
+        Segment* end = segment;
+        while (end && end->tick() < endTick) end = end->nextCR(track, true);
+        if (!end) return score->endTick();
+        engraving::EngravingItem* el = end->element(track);
+        if (end->tick() == endTick && el && el->isChord()) {
+            Segment* chordSeg = end;
+            engraving::Chord* chord = engraving::toChord(el);
+            end = chordSeg->nextCR(track, false);
+            if (!end || end->tick() > chord->endTick()) {
+                end = chordSeg;
+                while (end && end->tick() < chord->endTick()) end = end->nextCR(muse::nidx, true);
+            }
+        }
+        return end ? end->tick() : score->endTick();
+    };
+
+    if (!next) {
+        if (from) {
+            if (from->syllabic() == LyricsSyllabic::BEGIN || from->syllabic() == LyricsSyllabic::MIDDLE) {
+                setSyllabic(from, LyricsSyllabic::END);
+            }
+            if (from->segment()->tick() < endTick
+                || (endTick + initialCR->actualTicks() == segment->measure()->endTick() && initialCR->hasFollowingJumpItem())) {
+                from->undoChangeProperty(Pid::LYRIC_TICKS, std::max(endTick - from->segment()->tick(), Lyrics::TEMP_MELISMA_TICKS));
+            }
+        }
+        if (hasPrecedingRepeat && !prevPartial) {
+            addPartialLine(score, initialCR, true, initialCR->ticks());
+        } else if (prevPartial) {
+            prevPartial->undoMoveEnd(partialEnd() - prevPartial->tick2());
+        }
+        return;
+    }
+
+    from = unlessAcrossSections(from, next, track);
     Lyrics* arrived = next->lyrics(g_state.verse, g_state.placement);
     if (arrived) {
+        // Arrived under an extender: no dash before it.
         if (arrived->syllabic() == LyricsSyllabic::MIDDLE) setSyllabic(arrived, LyricsSyllabic::BEGIN);
         else if (arrived->syllabic() == LyricsSyllabic::END) setSyllabic(arrived, LyricsSyllabic::SINGLE);
+    }
+    if (from) {
+        // Left by an extender: isolated or final, and the melisma ends here.
+        if (from->syllabic() == LyricsSyllabic::BEGIN || from->syllabic() == LyricsSyllabic::MIDDLE) {
+            setSyllabic(from, LyricsSyllabic::END);
+        }
+        if (from->segment()->tick() < endTick) {
+            from->undoChangeProperty(Pid::LYRIC_TICKS, endTick - from->segment()->tick());
+        }
+    } else if (hasPrecedingRepeat && !prevPartial) {
+        addPartialLine(score, initialCR, true, initialCR->ticks());
+    } else if (prevPartial) {
+        prevPartial->undoMoveEnd(partialEnd() - prevPartial->tick2());
+        prevPartial->triggerLayout();
     }
     g_state.cr = next;
     g_state.pending = LyricsSyllabic::SINGLE;
@@ -310,8 +478,8 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* lyricsEntryCommit(uintptr_t score_ptr, const
     switch (action) {
     case NEXT: moveByWord(false); break;
     case PREVIOUS: moveByWord(true); break;
-    case SYLLABLE: moveBySyllable(); break;
-    case MELISMA: moveByMelisma(); break;
+    case SYLLABLE: moveBySyllable(score, here, xml.isEmpty()); break;
+    case MELISMA: moveByMelisma(score); break;
     case VERSE_UP:
         if (g_state.verse > 0) --g_state.verse;
         g_state.pending = LyricsSyllabic::SINGLE;
