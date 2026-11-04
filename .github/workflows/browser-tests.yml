@@ -73,7 +73,7 @@ jobs:
           mkdir -p public/soundfonts
           curl -fsSL --retry 3 -o public/soundfonts/default.sf3 https://cdn.ourtextscores.com/soundfonts/default.sf3
       - name: Playwright (shard ${{ matrix.shard }}/4)
-        run: npx playwright test tests/webkit-score-load-diagnostic.spec.ts
+        run: npx playwright test --shard=${{ matrix.shard }}/4
         env:
           NODE_OPTIONS: --max-old-space-size=4096
       - name: Failure artifacts

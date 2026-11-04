@@ -3478,6 +3478,7 @@ self.addEventListener('error', (event) => console.error('WORKER_DIAG error', eve
                   }
           }
       } catch (err) {
+          console.error('WORKER_DIAG RPC_ERROR', method, err?.stack || err);
           rpcErr(id, err);
       }
   };
