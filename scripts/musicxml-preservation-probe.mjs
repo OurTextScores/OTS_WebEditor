@@ -116,9 +116,14 @@ export const CASES = [
     name: 'harp-pedal-text',
     since: 'E21',
     select: note,
-    apply: (s) => s.addHarpPedalDiagram(true),
-    mscx: /<HarpPedalDiagram>[\s\S]*?<isDiagram>0/,
-    musicxml: /<harp-pedals>|<words>[^<]*[DCBEFGA][♭♮♯]/,
+    // A mixed setting, so the check is the pedals and not only the text form: D flat, C natural, B sharp, ...
+    apply: async (s) =>
+      (await s.addHarpPedalDiagram(true)) &&
+      s.setHarpPedalState({
+        pedals: ['flat', 'natural', 'sharp', 'natural', 'flat', 'natural', 'sharp'],
+      }),
+    mscx: /<isDiagram>0<\/isDiagram>\s*<pedalState>\s*<string name="0">0<\/string>\s*<string name="1">1<\/string>\s*<string name="2">2<\/string>\s*<string name="3">1<\/string>\s*<string name="4">0<\/string>/,
+    musicxml: /<words[^>]*>E♮ F♭ G♮ A♯\s*D♭ C♮ B♯/,
   },
   {
     name: 'tremolo',

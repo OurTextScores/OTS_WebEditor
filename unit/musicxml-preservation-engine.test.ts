@@ -48,11 +48,13 @@ const SURVIVES = [
   'note-parentheses',
   'accidental-brackets',
   'harp-pedal-diagram',
+  'harp-pedal-text',
   'tremolo',
   'measure-irregular',
   'measure-number-offset',
   'repeat-count',
   'lyrics-markup',
+  'staff-text-swing',
   'note-color',
   'chord-symbol',
   'dynamic',
@@ -67,15 +69,13 @@ const SURVIVES = [
   'slur',
 ];
 /**
- * Lost by MusicXML: braces on accidentals (MusicXML has parentheses and brackets only), harp pedals written as text
- * (the diagram survives), system locks (layout), a swing's ratio (import reads the word at the default ratio), and
- * Style dialog settings (the editor carries those across an applied edit: see the style-carry test below).
+ * Lost by MusicXML: braces on accidentals (MusicXML has parentheses and brackets only), system locks (layout), and
+ * Style dialog settings (the editor carries those across an applied edit: see the style-carry test below). A staff
+ * text's swing and harp pedals written as text survive since patch 0008.
  */
 const LOST = [
   'accidental-braces',
-  'harp-pedal-text',
   'system-lock',
-  'staff-text-swing',
   'style-staff-distance',
   'style-measure-number-interval',
   'style-multimeasure-rests',

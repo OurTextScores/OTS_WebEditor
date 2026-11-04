@@ -1,0 +1,105 @@
+--- a/src/importexport/musicxml/internal/export/exportmusicxml.cpp
++++ b/src/importexport/musicxml/internal/export/exportmusicxml.cpp
+@@ -5113,6 +5113,11 @@
+     directionTag(m_xml, m_attr, text);
+     wordsMetronome(m_xml, m_score->style(), text, offset);
+ 
++    // OTS (roadmap E23): a staff text's swing, as systemText writes a system text's
++    if (text->isStaffText() && toStaffTextBase(text)->swing()) {
++        swingSound(toStaffTextBase(text));
++    }
++
+     directionETag(m_xml, staff);
+ }
+ 
+@@ -5371,7 +5376,13 @@
+         }
+         m_xml.endElement();
+     } else {
+-        m_xml.tag("words", harpPedalAttrs, hpd->plainText());
++        // OTS (roadmap E23): standard flat, natural and sharp signs in place of the SMuFL text glyphs, which other
++        // readers cannot show; the importer reads either back as a harp pedal text diagram
++        String text = hpd->plainText();
++        text.replace(char16_t(0xED60), char16_t(0x266D));
++        text.replace(char16_t(0xED61), char16_t(0x266E));
++        text.replace(char16_t(0xED62), char16_t(0x266F));
++        m_xml.tag("words", harpPedalAttrs, text);
+     }
+     m_xml.endElement();
+     const int offset = calculateTimeDeltaInDivisions(hpd->tick(), tick(), m_div);
+--- a/src/importexport/musicxml/internal/import/importmusicxmlpass2.cpp
++++ b/src/importexport/musicxml/internal/import/importmusicxmlpass2.cpp
+@@ -3437,6 +3437,41 @@
+     }
+ }
+ 
++/**
++ OTS (roadmap E23): words that are exactly a harp pedal setting written as text, as the exporter writes a text-form
++ HarpPedalDiagram: each of the seven pedal steps once, each followed by a flat, natural or sharp (Unicode or the SMuFL
++ text glyphs). Fills `state` (indexed by HarpStringType).
++ */
++static bool harpPedalTextState(const String& plain, std::array<PedalPosition, HARP_STRING_NO>& state)
++{
++    static const String steps = u"DCBEFGA";
++    std::array<bool, HARP_STRING_NO> seen {};
++    int found = 0;
++    for (size_t i = 0; i < plain.size(); ++i) {
++        const char16_t c = plain.at(i).unicode();
++        if (c == u' ' || c == u'\n' || c == u'\t') {
++            continue;
++        }
++        const size_t step = steps.indexOf(Char(c));
++        if (step == muse::nidx || seen[step] || i + 1 >= plain.size()) {
++            return false;
++        }
++        const char16_t accidental = plain.at(++i).unicode();
++        if (accidental == 0x266D || accidental == 0xED60) {
++            state[step] = PedalPosition::FLAT;
++        } else if (accidental == 0x266E || accidental == 0xED61) {
++            state[step] = PedalPosition::NATURAL;
++        } else if (accidental == 0x266F || accidental == 0xED62) {
++            state[step] = PedalPosition::SHARP;
++        } else {
++            return false;
++        }
++        seen[step] = true;
++        ++found;
++    }
++    return found == HARP_STRING_NO;
++}
++
+ //---------------------------------------------------------
+ //   direction
+ //---------------------------------------------------------
+@@ -3609,16 +3644,30 @@
+                     technique = getPlayingTechnique();
+                 }
+                 isExpressionText = m_wordsText.contains(u"<i>") && m_metroText.empty() && placement() == u"below";
++                String plainWords = m_wordsText;
++                static const std::regex tags("(<.*?>)");
++                plainWords.remove(tags);
++                std::array<PedalPosition, HARP_STRING_NO> harpState {};
++                bool harpText = false;
+                 if (isExpressionText) {
+                     t = Factory::createExpression(m_score->dummy()->segment());
+                 } else if (m_systemDirection) {
+                     t = Factory::createSystemText(m_score->dummy()->segment());
+                 } else if (technique != PlayingTechniqueType::Undefined) {
+                     t = Factory::createPlayTechAnnotation(m_score->dummy()->segment(), technique, TextStyleType::STAFF);
++                } else if (m_metroText.empty() && harpPedalTextState(plainWords, harpState)) {
++                    // OTS (roadmap E23): a harp pedal setting written as text comes back as one
++                    HarpPedalDiagram* hpd = Factory::createHarpPedalDiagram(m_score->dummy()->segment());
++                    hpd->setIsDiagram(false);
++                    hpd->setPedalState(harpState);
++                    t = hpd;
++                    harpText = true;
+                 } else {
+                     t = Factory::createStaffText(m_score->dummy()->segment());
+                 }
+-                t->setXmlText(m_wordsText + m_metroText);
++                if (!harpText) {
++                    t->setXmlText(m_wordsText + m_metroText);
++                }
+             } else {
+                 t = Factory::createRehearsalMark(m_score->dummy()->segment());
+                 if (!m_rehearsalText.contains(u"<b>")) {

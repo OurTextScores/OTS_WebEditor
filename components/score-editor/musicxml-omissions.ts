@@ -3,18 +3,17 @@ import type { Score } from '../../lib/webmscore-loader';
 /**
  * What the score has that its MusicXML leaves out (roadmap E23). OTS's AI tools see the score as MusicXML, and an
  * applied edit reloads it from MusicXML. Style settings are carried across the reload (style-carry.ts); these are not,
- * and are reset by an applied edit (scripts/musicxml-preservation-probe.mjs measures it). The AI is told, so it does not
+ * and are reset by an applied edit (scripts/musicxml-preservation-probe.mjs measures it; swing ratios and text harp
+ * pedals survive since engine patch 0008). The AI is told, so it does not
  * contradict or "fix" them, and so is the user, when an applied edit resets them.
  */
 export type Omission = {
-  kind: 'systemLock' | 'swing' | 'harpPedalText' | 'accidentalBraces';
+  kind: 'systemLock' | 'accidentalBraces';
   count: number;
 };
 
 const LABELS: Record<Omission['kind'], (count: number) => string> = {
   systemLock: (n) => `${n} system lock${n === 1 ? '' : 's'} (measures kept together on a system)`,
-  swing: (n) => `${n} swing setting${n === 1 ? '' : 's'} with a ratio (MusicXML has only the word)`,
-  harpPedalText: (n) => `${n} harp pedal marking${n === 1 ? '' : 's'} written as text`,
   accidentalBraces: (n) => `${n} accidental${n === 1 ? '' : 's'} in braces`,
 };
 
@@ -24,11 +23,6 @@ const count = (text: string, pattern: RegExp) => (text.match(pattern) ?? []).len
 export function findMusicXmlOmissions(mscx: string): Omission[] {
   const found: Omission[] = [
     { kind: 'systemLock', count: count(mscx, /<systemLock>/g) },
-    { kind: 'swing', count: count(mscx, /<swing unit="[^"]+" ratio="\d+"\/>/g) },
-    {
-      kind: 'harpPedalText',
-      count: count(mscx, /<HarpPedalDiagram>\s*<isDiagram>0<\/isDiagram>/g),
-    },
     // AccidentalBracket 3 is a brace (1 parenthesis and 2 bracket are in MusicXML).
     {
       kind: 'accidentalBraces',
