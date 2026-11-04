@@ -1,6 +1,12 @@
 import { runCommand } from './helpers/commands';
 import { expect, test, type Page } from 'playwright/test';
 
+// The Playwright Firefox build runs the score engine without its optimizing WASM compiler.
+const ENGINE_TIMEOUT = process.env.PLAYWRIGHT_BROWSER === 'firefox' ? 60_000 : 10_000;
+test.beforeEach(async ({ browserName }) => {
+  test.slow(browserName === 'firefox', 'Firefox needs more time for native score operations');
+});
+
 /**
  * Pins what every editing key does *today*, at the engine boundary, so the keyboard layer can be
  * rebuilt (docs/private/COMMAND_REGISTRY_DESIGN_2026-10-02.md, W2) without changing behaviour by
@@ -146,7 +152,7 @@ test.describe('with a note selected', () => {
       for (const prelude of PRELUDE[method] ?? []) await runCommand(page, prelude);
       await clear(page);
       await page.keyboard.press(key);
-      await expect.poll(async () => (await firstCall(page))?.[0], { timeout: 10_000 }).toBe(method);
+      await expect.poll(async () => (await firstCall(page))?.[0], { timeout: ENGINE_TIMEOUT }).toBe(method);
       if (args) expect((await firstCall(page))?.[1]).toEqual(args);
     });
   }
@@ -156,7 +162,7 @@ test.describe('with a note selected', () => {
     await load(page, true);
     await clear(page);
     await page.keyboard.press('t');
-    await expect.poll(async () => (await firstCall(page))?.[0], { timeout: 10_000 }).toBe('addTie');
+    await expect.poll(async () => (await firstCall(page))?.[0], { timeout: ENGINE_TIMEOUT }).toBe('addTie');
   });
 });
 
@@ -176,7 +182,7 @@ test.describe('in note input', () => {
   const enter = async (page: Page) => {
     await load(page, true);
     await page.keyboard.press('n');
-    await expect(page.getByTestId('btn-note-input')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('btn-note-input')).toHaveAttribute('aria-pressed', 'true', { timeout: ENGINE_TIMEOUT });
     await clear(page);
   };
 
@@ -193,7 +199,7 @@ test.describe('in note input', () => {
     test(`${key} -> ${method}`, async ({ page }) => {
       await enter(page);
       await page.keyboard.press(key);
-      await expect.poll(async () => (await firstCall(page))?.[0], { timeout: 10_000 }).toBe(method);
+      await expect.poll(async () => (await firstCall(page))?.[0], { timeout: ENGINE_TIMEOUT }).toBe(method);
       expect((await firstCall(page))?.[1]).toEqual(args);
     });
   }
@@ -201,7 +207,7 @@ test.describe('in note input', () => {
   test('Escape leaves note input', async ({ page }) => {
     await enter(page);
     await page.keyboard.press('Escape');
-    await expect(page.getByTestId('btn-note-input')).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByTestId('btn-note-input')).toHaveAttribute('aria-pressed', 'false', { timeout: ENGINE_TIMEOUT });
   });
 
   test('arrows do not move the selection or the pitch', async ({ page }) => {
@@ -234,10 +240,10 @@ test.describe('Escape', () => {
         .some((command) => command.id === 'add.noteInput' && command.enabled),
     );
     await page.keyboard.press('n');
-    await expect(page.getByTestId('btn-note-input')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('btn-note-input')).toHaveAttribute('aria-pressed', 'true', { timeout: ENGINE_TIMEOUT });
 
     await page.keyboard.press('Escape');
-    await expect(page.getByTestId('btn-note-input')).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByTestId('btn-note-input')).toHaveAttribute('aria-pressed', 'false', { timeout: ENGINE_TIMEOUT });
     await expect(page.getByTestId('selection-overlay')).toBeVisible();
 
     await page.keyboard.press('Escape');
