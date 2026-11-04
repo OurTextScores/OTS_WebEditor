@@ -1,3 +1,4 @@
+import { SCORE_OPERATION_TIMEOUT } from './helpers/score-timeouts';
 import { expect, test, type Page } from 'playwright/test';
 import { runCommand } from './helpers/commands';
 
@@ -110,7 +111,7 @@ test('note input mode places a note on click and exits with Escape', async ({ pa
   await page.goto('/?score=/test_scores/single_note_c4.musicxml');
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
 
-  await expect.poll(async () => await countPitches(page), { timeout: 20_000 }).toBe(1);
+  await expect.poll(async () => await countPitches(page), { timeout: SCORE_OPERATION_TIMEOUT }).toBe(1);
 
   // Click the note first so the editor is fully interaction-ready.
   await page.locator('svg .Note').first().click();
@@ -139,7 +140,7 @@ test('note input mode places a note on click and exits with Escape', async ({ pa
   await expect(page.getByTestId('note-input-shadow')).toBeVisible();
   await page.mouse.click(placeX, placeY);
 
-  await expect.poll(async () => await countPitches(page), { timeout: 20_000 }).toBe(2);
+  await expect.poll(async () => await countPitches(page), { timeout: SCORE_OPERATION_TIMEOUT }).toBe(2);
   await expect(page.getByTestId('note-input-cursor')).toBeVisible();
   await expect
     .poll(
@@ -149,7 +150,7 @@ test('note input mode places a note on click and exits with Escape', async ({ pa
           (note) => note.step === 'E' && note.octave === 4 && note.type === 'quarter',
         );
       },
-      { timeout: 20_000 },
+      { timeout: SCORE_OPERATION_TIMEOUT },
     )
     .toBe(true);
 
@@ -184,7 +185,7 @@ test('N resolves a logical start and advances the input cursor without a prior c
   await page.keyboard.press('d');
   await expect
     .poll(async () => (await cursor.boundingBox())?.x ?? 0, {
-      timeout: 20_000,
+      timeout: SCORE_OPERATION_TIMEOUT,
     })
     .toBeGreaterThan(startBox.x);
   const afterFirstNoteBox = await cursor.boundingBox();
@@ -195,7 +196,7 @@ test('N resolves a logical start and advances the input cursor without a prior c
   await page.keyboard.press('e');
   await expect
     .poll(async () => (await cursor.boundingBox())?.x ?? 0, {
-      timeout: 20_000,
+      timeout: SCORE_OPERATION_TIMEOUT,
     })
     .toBeGreaterThan(afterFirstNoteBox.x);
   await expect
@@ -270,7 +271,7 @@ test('entering input mode from a rest places a note, not another rest', async ({
   await page.keyboard.press('5');
   expect(await putOneSpatiumAboveFirstNote(page)).toBe(true);
 
-  await expect.poll(async () => await countPitches(page), { timeout: 20_000 }).toBe(before + 1);
+  await expect.poll(async () => await countPitches(page), { timeout: SCORE_OPERATION_TIMEOUT }).toBe(before + 1);
 });
 
 test('toolbar duration and accidental configure the next note without editing the selection', async ({
@@ -281,6 +282,12 @@ test('toolbar duration and accidental configure the next note without editing th
   const note = page.locator('svg .Note').first();
   await note.click();
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
+  // Selection follow-up can still be running after its overlay appears.
+  await page.waitForFunction(() =>
+    (window as unknown as { __otsCommands?: { list(): { id: string; enabled: boolean }[] } })
+      .__otsCommands?.list().some((command) => command.id === 'add.noteInput' && command.enabled),
+    null, { timeout: SCORE_OPERATION_TIMEOUT },
+  );
   await page.keyboard.press('n');
   // The commands choose their handler from the editor's note-input state, so wait for the
   // 'n' to land first; a ribbon click used to take long enough that this was implicit.
@@ -300,7 +307,7 @@ test('toolbar duration and accidental configure the next note without editing th
         const notes = await readPitchedNotes(page);
         return notes.some((placed) => placed.alter === 1 && placed.type === 'half');
       },
-      { timeout: 20_000 },
+      { timeout: SCORE_OPERATION_TIMEOUT },
     )
     .toBe(true);
 });

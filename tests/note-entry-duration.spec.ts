@@ -1,3 +1,4 @@
+import { SCORE_OPERATION_TIMEOUT } from './helpers/score-timeouts';
 import { expect, test } from 'playwright/test';
 import { runCommand } from './helpers/commands';
 
@@ -58,7 +59,7 @@ const startNoteInput = async (page: import('playwright/test').Page) => {
     throw new Error('Expected a clickable note in the fixture.');
   }
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-  await page.getByTestId('selection-overlay').waitFor({ timeout: 20_000 });
+  await page.getByTestId('selection-overlay').waitFor({ timeout: SCORE_OPERATION_TIMEOUT });
   await runCommand(page, 'btn-note-input');
   await expect(page.getByTestId('btn-note-input')).toHaveAttribute('aria-pressed', 'true');
 };
@@ -77,7 +78,7 @@ test('enters a note at the duration chosen with the number keys', async ({ page 
   // A quarter at beat 1 replaces the head of bar 1 and leaves quarter + half behind it,
   // both still sounding the bar's original F.
   await expect
-    .poll(async () => contents(page), { timeout: 20_000 })
+    .poll(async () => contents(page), { timeout: SCORE_OPERATION_TIMEOUT })
     .toEqual({
       steps: 'DFFACE',
       types: ['quarter', 'quarter', 'half', 'whole', 'whole', 'whole'],
@@ -93,7 +94,7 @@ test('preserves the chosen duration across consecutive entries', async ({ page }
   await page.keyboard.press('7');
   await page.keyboard.press('d');
   await expect
-    .poll(async () => contents(page), { timeout: 20_000 })
+    .poll(async () => contents(page), { timeout: SCORE_OPERATION_TIMEOUT })
     .toEqual({
       steps: 'DACE',
       types: ['whole', 'whole', 'whole', 'whole'],
@@ -102,7 +103,7 @@ test('preserves the chosen duration across consecutive entries', async ({ page }
   await page.keyboard.press('7');
   await page.keyboard.press('d');
   await expect
-    .poll(async () => contents(page), { timeout: 20_000 })
+    .poll(async () => contents(page), { timeout: SCORE_OPERATION_TIMEOUT })
     .toEqual({
       steps: 'DDCE',
       types: ['whole', 'whole', 'whole', 'whole'],
@@ -117,7 +118,7 @@ test('applies a duration change made between entries', async ({ page }) => {
   await page.keyboard.press('7');
   await page.keyboard.press('d');
   await expect
-    .poll(async () => contents(page), { timeout: 20_000 })
+    .poll(async () => contents(page), { timeout: SCORE_OPERATION_TIMEOUT })
     .toMatchObject({ types: ['whole', 'whole', 'whole', 'whole'] });
 
   await page.keyboard.press('5');
@@ -125,7 +126,7 @@ test('applies a duration change made between entries', async ({ page }) => {
 
   // Bar 1 keeps its whole D; bar 2 takes a quarter D and splits the rest of its bar.
   await expect
-    .poll(async () => contents(page), { timeout: 20_000 })
+    .poll(async () => contents(page), { timeout: SCORE_OPERATION_TIMEOUT })
     .toEqual({
       steps: 'DDAACE',
       types: ['whole', 'quarter', 'quarter', 'half', 'whole', 'whole'],

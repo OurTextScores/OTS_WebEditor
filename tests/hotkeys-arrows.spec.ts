@@ -2,9 +2,6 @@ import { expect, test } from 'playwright/test';
 
 // Firefox's Playwright build uses a slower WASM interpreter for the score engine.
 const ENGINE_TIMEOUT = process.env.PLAYWRIGHT_BROWSER === 'firefox' ? 60_000 : 20_000;
-test.beforeEach(async ({ browserName }) => {
-  test.slow(browserName === 'firefox', 'Firefox needs more time for native score operations');
-});
 
 test('arrow hotkeys change pitch and octave', async ({ page }) => {
   await page.goto('/?score=/test_scores/single_note_c4.musicxml');
