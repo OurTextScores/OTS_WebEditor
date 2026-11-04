@@ -313,6 +313,7 @@ class WebMscore {
         if (!Module._moveSelectedChordRestToStaff) Object.defineProperty(this, 'moveSelectedChordRestToStaff', { value: undefined })
         if (!Module._saveMei) Object.defineProperty(this, 'saveMei', { value: undefined })
         if (!Module._saveMnx) Object.defineProperty(this, 'saveMnx', { value: undefined })
+        if (!Module._saveStyle || !Module._restoreStyle) for (const name of ['saveStyle', 'restoreStyle']) Object.defineProperty(this, name, { value: undefined })
         if (!Module._setSelectedTextXml) Object.defineProperty(this, 'setSelectedTextXml', { value: undefined })
         if (!Module._startLyricsEntry || !Module._lyricsEntryCommit || !Module._endLyricsEntry) {
             for (const name of ['startLyricsEntry', 'lyricsEntryCommit', 'endLyricsEntry']) Object.defineProperty(this, name, { value: undefined })
@@ -641,6 +642,29 @@ class WebMscore {
             return Module.ccall('setStyleValues', 'boolean', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
         } finally {
             freePtr(strptr)
+        }
+    }
+
+    /**
+     * The score's style as a MuseScore style file (.mss), as File > Save Style writes it (roadmap E23).
+     * @returns {Promise<Uint8Array>}
+     */
+    async saveStyle() {
+        const dataptr = Module.ccall('saveStyle', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])
+        return WasmRes.readData(dataptr)
+    }
+
+    /**
+     * Puts back a style saved by saveStyle as part of loading, with no undo step (roadmap E23).
+     * @param {Uint8Array} data
+     * @returns {Promise<boolean>}
+     */
+    async restoreStyle(data) {
+        const dataPtr = getTypedArrayPtr(data)
+        try {
+            return Module.ccall('restoreStyle', 'boolean', ['number', 'number', 'number', 'number'], [this.scoreptr, dataPtr, data.byteLength, this.excerptId])
+        } finally {
+            freePtr(dataPtr)
         }
     }
 

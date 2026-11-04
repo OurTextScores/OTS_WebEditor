@@ -37,6 +37,8 @@ export type HandleUrlLoad = (url: string, signal?: AbortSignal) => Promise<boole
 
 export type HandleFileUploadOptions = {
   preserveScoreId?: boolean;
+  /** A style saved before a MusicXML re-import of the same score, put back after it (style-carry.ts). */
+  carriedStyle?: Uint8Array | null;
   scoreIdOverride?: string;
   updateUrl?: boolean;
   createInitialCheckpoint?: boolean;

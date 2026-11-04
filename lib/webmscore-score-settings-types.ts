@@ -162,6 +162,10 @@ export interface ScoreDialogMethods {
   saveMei?: () => Promise<Uint8Array>;
   /** MNX (JSON) export through MuseScore's MNX exporter (roadmap E29). */
   saveMnx?: () => Promise<Uint8Array>;
+  /** The score's style as a MuseScore style file (.mss), every value but spatium (roadmap E23). */
+  saveStyle?: () => Promise<Uint8Array>;
+  /** Puts back a style saved by saveStyle as part of loading, with no undo step (roadmap E23). */
+  restoreStyle?: (data: Uint8Array) => Promise<boolean>;
   /** The selected text from MuseScore's markup, keeping per-span formatting (roadmap E17); false for chord symbols etc. */
   setSelectedTextXml?: (markup: string) => Promise<boolean> | boolean;
   /** Lyric entry (roadmap E17): start at the selection; commit a syllable and move (see LYRICS_ACTIONS); stop. */

@@ -352,6 +352,48 @@ test.describe('Assistant diff editor flow', () => {
     expect(pageErrors).toEqual([]);
   });
 
+  test("applying a proposal keeps the score's Style settings (roadmap E23)", async ({ page }) => {
+    // The proposal comes back as MusicXML, which keeps only the few style values it has; the editor carries the rest.
+    await page.route('**/api/music/patch', fulfillPatchFromRequestBase);
+    const STYLE = { staffDistance: 9, measureNumberSystem: false, measureNumberInterval: 2 };
+    const styleValues = () =>
+      page.evaluate(async (keys) => {
+        const score = (
+          window as typeof window & {
+            __webmscore?: { getStyleValues?: (keys: string[]) => Promise<Record<string, unknown>> };
+          }
+        ).__webmscore;
+        return (await score?.getStyleValues?.(keys)) ?? null;
+      }, Object.keys(STYLE));
+
+    await page.goto('/?score=/test_scores/three_notes_cde.musicxml');
+    await page.waitForSelector('svg .Note', { timeout: 60_000 });
+    await page.evaluate(async (values) => {
+      const score = (
+        window as typeof window & {
+          __webmscore?: { setStyleValues?: (values: Record<string, unknown>) => Promise<boolean> };
+        }
+      ).__webmscore;
+      await score?.setStyleValues?.(values);
+    }, STYLE);
+    expect(await styleValues()).toEqual(STYLE);
+
+    await runCommand(page, 'ai.open.assistant');
+    await page.getByPlaceholder('Enter model name').fill('gpt-test-model');
+    await page.getByPlaceholder('Paste your key').fill('test-key');
+    await page
+      .getByPlaceholder('Describe the change you want in the MusicXML.')
+      .fill('Change the first note to G.');
+    await page.getByRole('button', { name: 'Generate Patch' }).click();
+    await waitForDiffReviewReady(page);
+    await page.getByRole('button', { name: 'Apply All AI Changes' }).click();
+
+    await expect
+      .poll(async () => readLiveXml(page), { timeout: 20_000 })
+      .toContain('<step>G</step>');
+    expect(await styleValues()).toEqual(STYLE);
+  });
+
   test('patch generation shows its budget and can be cancelled', async ({ page }) => {
     let releasePatch: (() => void) | null = null;
     const patchPaused = new Promise<void>((resolve) => {

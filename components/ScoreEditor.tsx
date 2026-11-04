@@ -304,6 +304,7 @@ import { runWithTimeout } from './score-editor/async-timeout';
 import { parsePartsFromMetadata } from './score-editor/part-metadata';
 import { downloadBlob } from './score-editor/download-blob';
 import { notifyImportWarnings } from './score-editor/import-warnings';
+import { captureStyleForReload, restoreCarriedStyle } from './score-editor/style-carry';
 import { isEditableTarget } from './score-editor/editable-target';
 import { summarizeScoreId } from './score-editor/score-id';
 import { useNotaGenTool } from './score-editor/ai-tools/useNotaGenTool';
@@ -2744,7 +2745,9 @@ export default function ScoreEditor() {
     const file = new File([encoded], `${filenameBase}.musicxml`, { type: 'application/xml' });
     setXmlDirty(false);
     const applyStartedAt = Date.now();
+    const carriedStyle = await captureStyleForReload(score, checkpointState.currentXml, sourceXml);
     const applied = await handleFileUpload(file, {
+      carriedStyle,
       preserveScoreId: true,
       updateUrl: false,
       telemetrySource: options?.telemetrySource || 'xml_apply',
@@ -3792,6 +3795,7 @@ export default function ScoreEditor() {
         initialAvailablePages,
         engineMode: actualEngineMode,
       } = loadResult;
+      if (options?.carriedStyle) await restoreCarriedStyle(loadedScore, options.carriedStyle);
       engineMode = actualEngineMode;
       progressivePaging = nextProgressivePaging;
       progressiveHasMore = nextProgressiveHasMore;

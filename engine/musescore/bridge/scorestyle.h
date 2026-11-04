@@ -224,6 +224,38 @@ EMSCRIPTEN_KEEPALIVE bool setStyleValues(uintptr_t score_ptr, const char* values
 }
 
 // MuseScore's Load style: a .mss file replaces the score's style, as one undoable edit.
+// The score's style as a MuseScore style file (.mss: MStyle::write, every value but spatium), as File > Save Style
+// writes it. Roadmap E23: the editor carries it across a MusicXML re-import (an applied AI edit), which keeps only the
+// few values MusicXML has.
+EMSCRIPTEN_KEEPALIVE const uint8_t* saveStyle(uintptr_t score_ptr, int excerptId)
+{
+    auto* score = getScore(score_ptr, excerptId);
+    if (!score) return textResponse("Invalid score or excerpt", 1);
+    ByteArray bytes;
+    muse::io::Buffer buffer(&bytes);
+    if (!buffer.open(muse::io::IODevice::WriteOnly)) return textResponse("Could not write style", 1);
+    engraving::MStyle style = score->style();
+    style.write(&buffer);
+    buffer.close();
+    return response(bytes);
+}
+
+// A style saved by saveStyle put back as part of loading the score, not as an edit: no undo step, so undo after an
+// applied AI edit does not take the score's style away (roadmap E23). Spatium stays what the score has.
+EMSCRIPTEN_KEEPALIVE bool restoreStyle(uintptr_t score_ptr, const uint8_t* data, uint32_t size, int excerptId)
+{
+    auto* score = getScore(score_ptr, excerptId);
+    if (!score || !data || size == 0) return false;
+    engraving::MStyle style = score->style();
+    ByteArray bytes(reinterpret_cast<const char*>(data), size);
+    muse::io::Buffer buffer(&bytes);
+    if (!buffer.open(muse::io::IODevice::ReadOnly) || !style.read(&buffer)) return false;
+    score->setStyle(style);
+    score->setLayoutAll();
+    layoutLinked(score);
+    return true;
+}
+
 EMSCRIPTEN_KEEPALIVE bool loadStyle(uintptr_t score_ptr, const uint8_t* data, uint32_t size, int excerptId)
 {
     auto* score = getScore(score_ptr, excerptId);

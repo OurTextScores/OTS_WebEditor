@@ -131,6 +131,7 @@ class WebMscoreW {
         if (!capabilities?.moveSelectedChordRestToStaff) Object.defineProperty(instance, 'moveSelectedChordRestToStaff', { value: undefined })
         if (!capabilities?.mei) Object.defineProperty(instance, 'saveMei', { value: undefined })
         if (!capabilities?.mnx) Object.defineProperty(instance, 'saveMnx', { value: undefined })
+        if (!capabilities?.saveStyle) for (const name of ['saveStyle', 'restoreStyle']) Object.defineProperty(instance, name, { value: undefined })
         if (!capabilities?.textXml) Object.defineProperty(instance, 'setSelectedTextXml', { value: undefined })
         if (!capabilities?.lyricsEntry) {
             for (const name of ['startLyricsEntry', 'lyricsEntryCommit', 'endLyricsEntry']) Object.defineProperty(instance, name, { value: undefined })
@@ -447,6 +448,14 @@ class WebMscoreW {
 
     setStyleValues(values) {
         return this.rpc('setStyleValues', [values])
+    }
+
+    saveStyle() {
+        return this.rpc('saveStyle')
+    }
+
+    restoreStyle(data) {
+        return this.rpc('restoreStyle', [data])
     }
 
     loadStyle(data) {
