@@ -165,6 +165,7 @@ test('the export menu offers every format the ribbon did', async ({ page }) => {
     'btn-export-mxl',
     'btn-export-mei',
     'btn-export-mnx',
+    'btn-export-parts',
     'btn-export-abc',
     'btn-export-midi',
     'btn-export-audio',

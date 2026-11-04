@@ -197,6 +197,7 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
           exportItem('mxl', 'Compressed MusicXML (.mxl)', 'btn-export-mxl'),
           exportItem('mei', 'MEI', 'btn-export-mei'),
           exportItem('mnx', 'MNX', 'btn-export-mnx'),
+          exportItem('parts', 'All parts (PDF)', 'btn-export-parts'),
           exportItem('abc', 'ABC', 'btn-export-abc'),
           exportItem('midi', 'MIDI', 'btn-export-midi'),
           exportItem('audio', 'Audio (WAV)', 'btn-export-audio'),

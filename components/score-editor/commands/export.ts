@@ -1,5 +1,6 @@
 import { notifyError } from '../../shell/notices';
 import { downloadBlob } from '../download-blob';
+import { exportFileName } from '../parts';
 import type { EditorCore } from '../core';
 
 export async function exportSvg(core: EditorCore) {
@@ -7,7 +8,7 @@ export async function exportSvg(core: EditorCore) {
   if (!score) return;
   try {
     const svg = await runSerializedScoreOperation(() => score.saveSvg(0, true), 'saveSvg(export)');
-    downloadBlob(svg, 'score.svg', 'image/svg+xml');
+    downloadBlob(svg, exportFileName('svg'), 'image/svg+xml');
   } catch (err) {
     console.error('Failed to export SVG', err);
     notifyError('Unable to export SVG. See console for details.');
@@ -19,7 +20,7 @@ export async function exportPdf(core: EditorCore) {
   if (!score) return;
   try {
     const pdf = await score.savePdf();
-    downloadBlob(pdf, 'score.pdf', 'application/pdf');
+    downloadBlob(pdf, exportFileName('pdf'), 'application/pdf');
   } catch (err) {
     console.error('Failed to export PDF', err);
     notifyError('Unable to export PDF. See console for details.');
@@ -34,7 +35,7 @@ export async function exportMxl(core: EditorCore) {
   }
   try {
     const mxl = await score.saveMxl();
-    downloadBlob(mxl, 'score.mxl', 'application/vnd.recordare.musicxml');
+    downloadBlob(mxl, exportFileName('mxl'), 'application/vnd.recordare.musicxml');
   } catch (err) {
     console.error('Failed to export MXL', err);
     notifyError('Unable to export MXL. See console for details.');
@@ -50,7 +51,7 @@ export async function exportMei(core: EditorCore) {
   }
   try {
     const mei = await score.saveMei();
-    downloadBlob(mei, 'score.mei', 'application/mei+xml');
+    downloadBlob(mei, exportFileName('mei'), 'application/mei+xml');
   } catch (err) {
     console.error('Failed to export MEI', err);
     notifyError('Unable to export MEI. See console for details.');
@@ -66,7 +67,7 @@ export async function exportMnx(core: EditorCore) {
   }
   try {
     const mnx = await score.saveMnx();
-    downloadBlob(mnx, 'score.mnx', 'application/vnd.mnx+json');
+    downloadBlob(mnx, exportFileName('mnx'), 'application/vnd.mnx+json');
   } catch (err) {
     console.error('Failed to export MNX', err);
     notifyError(
@@ -83,7 +84,7 @@ export async function exportMscz(core: EditorCore) {
   }
   try {
     const mscz = await score.saveMsc('mscz');
-    downloadBlob(mscz, 'score.mscz', 'application/vnd.musescore.mscz');
+    downloadBlob(mscz, exportFileName('mscz'), 'application/vnd.musescore.mscz');
   } catch (err) {
     console.error('Failed to export MSCZ', err);
     notifyError('Unable to export MSCZ. See console for details.');
@@ -98,7 +99,7 @@ export async function exportMscx(core: EditorCore) {
   }
   try {
     const mscx = await score.saveMsc('mscx');
-    downloadBlob(mscx, 'score.mscx', 'application/xml');
+    downloadBlob(mscx, exportFileName('mscx'), 'application/xml');
   } catch (err) {
     console.error('Failed to export MSCX', err);
     notifyError('Unable to export MSCX. See console for details.');
@@ -113,7 +114,7 @@ export async function exportMusicXml(core: EditorCore) {
   }
   try {
     const xml = await runSerializedScoreOperation(() => score.saveXml!(), 'saveXml(export)');
-    downloadBlob(xml, 'score.musicxml', 'application/vnd.recordare.musicxml+xml');
+    downloadBlob(xml, exportFileName('musicxml'), 'application/vnd.recordare.musicxml+xml');
   } catch (err) {
     console.error('Failed to export MusicXML', err);
     notifyError('Unable to export MusicXML. See console for details.');
@@ -128,7 +129,7 @@ export async function exportMidi(core: EditorCore) {
   }
   try {
     const midi = await score.saveMidi(true, true);
-    downloadBlob(midi, 'score.mid', 'audio/midi');
+    downloadBlob(midi, exportFileName('mid'), 'audio/midi');
   } catch (err) {
     console.error('Failed to export MIDI', err);
     notifyError('Unable to export MIDI. See console for details.');

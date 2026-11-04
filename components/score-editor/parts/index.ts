@@ -7,4 +7,7 @@ export {
   type PartsSnapshot,
   type ScorePart,
 } from './partsStore';
+export { allPartsPdfArchive } from './exportAllParts';
+export { exportFileName, safeFileStem } from './partFileName';
+export { buildPartCommands } from './partCommands';
 export { useScoreParts } from './useScoreParts';

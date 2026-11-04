@@ -305,7 +305,7 @@ import { parsePartsFromMetadata } from './score-editor/part-metadata';
 import { downloadBlob } from './score-editor/download-blob';
 import { notifyImportWarnings } from './score-editor/import-warnings';
 import { captureForReload, reloadLossNotice, restoreForReload } from './score-editor/reload-carry';
-import { ensureFullScore, useScoreParts } from './score-editor/parts';
+import { ensureFullScore, exportFileName, useScoreParts } from './score-editor/parts';
 import { checkpointRestoreFile, nativeCheckpointFields } from './score-editor/checkpoint-native';
 import { readMusicXmlOmissions } from './score-editor/musicxml-omissions';
 import { isEditableTarget } from './score-editor/editable-target';
@@ -7510,7 +7510,7 @@ export default function ScoreEditor() {
         () => Promise.resolve(score.savePng!(pageIndex, true, true)),
         `savePng(export-page=${pageNumber})`,
       );
-      downloadBlob(png, `score-page-${pageNumber}.png`, 'image/png');
+      downloadBlob(png, exportFileName('png', `score-page-${pageNumber}`), 'image/png');
       setPngExportDialogOpen(false);
     } catch (err) {
       console.error('Failed to export PNG', err);
@@ -7531,7 +7531,7 @@ export default function ScoreEditor() {
     }
     try {
       const mscz = await score.saveMsc('mscz');
-      downloadBlob(mscz, 'score.mscz', 'application/vnd.musescore.mscz');
+      downloadBlob(mscz, exportFileName('mscz'), 'application/vnd.musescore.mscz');
       setGoogleDriveExportDialogOpen(true);
     } catch (err) {
       console.error('Failed to export score for Google Drive', err);
@@ -7641,7 +7641,7 @@ export default function ScoreEditor() {
       }
       await compareTransport.stopForEdit();
       const wav = await score.saveAudio('wav');
-      downloadBlob(wav, 'score.wav', 'audio/wav');
+      downloadBlob(wav, exportFileName('wav'), 'audio/wav');
     } catch (err) {
       console.error('Failed to export audio', err);
       notifyError('Unable to export audio. See console for details.');

@@ -25,6 +25,8 @@ const NEW_IDS = new Set([
   // MEI and MNX export are new with the 4.7 engine (roadmap E25, E29).
   'btn-export-mei',
   'btn-export-mnx',
+  // All parts is new with parts (roadmap E18).
+  'btn-export-parts',
   'dropdown-fermata',
   'dropdown-breath',
   'btn-tempo-open',

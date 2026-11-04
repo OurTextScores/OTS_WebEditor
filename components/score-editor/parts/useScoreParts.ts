@@ -1,14 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
-import { defineCommand } from '../../../lib/commands/types';
 import { useRegisterCommands } from '../../../lib/commands/useRegisterCommands';
 import type { Score } from '../../../lib/webmscore-loader';
 import { notifyError } from '../../shell/notices';
+import { downloadBlob } from '../download-blob';
+import { allPartsPdfArchive } from './exportAllParts';
+import { buildPartCommands } from './partCommands';
+import { safeFileStem } from './partFileName';
 import type { RefreshPageCount, RenderScore } from '../editor-types';
 import { getPartsSnapshot, setPartsSnapshot, subscribeToParts, type ScorePart } from './partsStore';
 
 type Serialized = <T>(operation: () => Promise<T>, label: string) => Promise<T>;
 
-type PartsInputs = {
+export type PartsInputs = {
   score: Score | null;
   runSerialized: Serialized;
   renderScore: RenderScore;
@@ -40,7 +43,7 @@ async function redraw(inputs: PartsInputs, target: Score) {
 }
 
 /** Shows the full score (-1) or a part, by its index. */
-async function show(inputs: PartsInputs, index: number) {
+export async function show(inputs: PartsInputs, index: number) {
   const { score: target, current, parts } = getPartsSnapshot();
   if (!target?.setExcerptId || index === current) return;
   if (index !== -1 && (index < 0 || index >= parts.length)) return;
@@ -51,7 +54,7 @@ async function show(inputs: PartsInputs, index: number) {
 }
 
 /** Makes one part per instrument (a score without parts), then shows the first. */
-async function generate(inputs: PartsInputs) {
+export async function generate(inputs: PartsInputs) {
   const target = getPartsSnapshot().score;
   if (!target?.generateExcerpts) return;
   try {
@@ -65,11 +68,28 @@ async function generate(inputs: PartsInputs) {
   }
 }
 
+/** Every part and the full score as PDFs, in one ZIP named for the score (slice 2). */
+export async function exportAllParts(inputs: PartsInputs) {
+  const target = getPartsSnapshot().score;
+  if (!target) return;
+  try {
+    const archive = await allPartsPdfArchive(target, inputs.runSerialized);
+    if (!archive) return;
+    const metadata = await Promise.resolve(target.metadata?.()).catch(() => null);
+    const title = typeof metadata?.title === 'string' ? metadata.title : '';
+    downloadBlob(archive, `${safeFileStem(title || 'score')} - parts.zip`, 'application/zip');
+  } catch (error) {
+    console.error('Failed to export the parts', error);
+    notifyError('Could not export the parts.');
+  }
+}
+
 /**
  * Parts in the editor (roadmap E18, slice 1): the live score's parts listed, one shown at a time, and parts made from
  * the instruments when the score has none. Showing a part points every engine call (drawing, selection, edits,
  * playback, export) at it; the parts are linked, so edits reach the full score and the other parts as in MuseScore.
- * Commands: `view.part.show` (argument: -1 for the full score, else the part's index) and `view.part.generate`.
+ * Commands: `view.part.show` (argument: -1 for the full score, else the part's index), `view.part.generate`, and
+ * `file.export.parts` (every part and the full score as PDFs, in one ZIP).
  */
 export function useScoreParts(inputs: PartsInputs) {
   const { score } = inputs;
@@ -105,24 +125,6 @@ export function useScoreParts(inputs: PartsInputs) {
   }, [current, storeScore, score]);
 
   // Made every render: useRegisterCommands keeps the latest behind stable registry entries.
-  const commands = [
-    defineCommand<number>({
-      id: 'view.part.show',
-      label: 'Show Part',
-      keywords: ['parts', 'excerpt', 'full score'],
-      enabled: (ctx) => ctx.hasScore && Boolean(getPartsSnapshot().score?.setExcerptId),
-      run: (_ctx, index) => show(inputs, Number(index)),
-    }),
-    defineCommand({
-      id: 'view.part.generate',
-      label: 'Make Parts from Instruments',
-      keywords: ['parts', 'excerpts', 'generate'],
-      enabled: (ctx) =>
-        ctx.hasScore &&
-        Boolean(getPartsSnapshot().score?.generateExcerpts) &&
-        getPartsSnapshot().parts.length === 0,
-      run: () => generate(inputs),
-    }),
-  ];
+  const commands = buildPartCommands(() => inputs);
   useRegisterCommands('global', commands);
 }

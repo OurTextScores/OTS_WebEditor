@@ -38,6 +38,7 @@ describe('menu tree', () => {
       'the Edits panel (its rows are the way to pick a point); the command is for the palette and scripting',
     'shell.escape': 'a key only: Escape closes the innermost open item, then clears the selection',
     'view.goto.page': 'reached through the palette (p3) and the Go to prompt',
+    'view.part.show': "the status bar's part selector, one entry per part of the score (View ▸ Parts has Full Score)",
     'view.goto.bar': 'reached through the palette (m125) and the Go to prompt',
     'view.goto.rehearsal': 'reached through the palette (rA) and the Go to prompt',
     'edit.element': 'the score context menu, F2 and double-click (MuseScore has no menu-bar entry)',

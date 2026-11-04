@@ -1,9 +1,11 @@
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
 import { expect, test, type Page } from 'playwright/test';
 import { runCommand } from './helpers/commands';
 
 // Parts (roadmap E18, slice 1): the status bar shows the full score or one part; parts are made from the instruments
-// when the score has none; an edit in a part reaches the full score (linked parts); and the whole-score tools return
-// to the full score before they read it.
+// when the score has none; an edit in a part reaches the full score (linked parts); the whole-score tools return to
+// the full score before they read it; and exports are of the shown part, or of all parts at once (slice 2).
 const SCORE = '/?score=/test_scores/two_staves_four_bars.musicxml'; // Violin and Cello
 
 async function centre(page: Page, selector: string, index = 0) {
@@ -84,4 +86,38 @@ test('the whole-score tools return to the full score before reading it', async (
   expect(content).toContain('<part-name>Violin</part-name>');
   expect(content).toContain('<part-name>Cello</part-name>');
   await expect(select).toHaveValue('-1');
+});
+
+test('exports the shown part, named for it, and all parts as one ZIP of PDFs', async ({ page }) => {
+  test.setTimeout(180_000);
+  const select = page.getByTestId('part-select');
+  await select.selectOption('generate');
+  await select.selectOption('1'); // Cello
+  const partStaves = await staffLines(page);
+
+  const pdfDownload = page.waitForEvent('download');
+  await runCommand(page, 'file.export.pdf');
+  const pdf = await pdfDownload;
+  expect(pdf.suggestedFilename()).toBe('score-Cello.pdf');
+  expect(
+    fs
+      .readFileSync((await pdf.path())!)
+      .subarray(0, 5)
+      .toString(),
+  ).toBe('%PDF-');
+
+  const zipDownload = page.waitForEvent('download');
+  await runCommand(page, 'file.export.parts');
+  const zip = await zipDownload;
+  expect(zip.suggestedFilename()).toMatch(/ - parts\.zip$/);
+  const file = (await zip.path())!;
+  expect(execFileSync('unzip', ['-t', file], { encoding: 'utf8' })).toContain('No errors detected');
+  const names = execFileSync('unzip', ['-Z1', file], { encoding: 'utf8' }).trim().split('\n');
+  expect(names).toEqual(['Score.pdf', 'Violin.pdf', 'Cello.pdf']);
+  for (const name of names) {
+    expect(execFileSync('unzip', ['-p', file, name]).subarray(0, 5).toString()).toBe('%PDF-');
+  }
+  // The view is still the Cello part.
+  await expect(select).toHaveValue('1');
+  expect(await staffLines(page)).toBe(partStaves);
 });

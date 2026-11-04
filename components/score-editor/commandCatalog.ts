@@ -3,6 +3,7 @@ import { buildShellOwnCommands, buildStatusBarCommands } from '../shell/shellCom
 import { buildContextMenuCommands } from './contextMenuCommands';
 import { buildNotationMarkCommands } from './notationMarkCommands';
 import { buildEditorCommands } from './editorCommands';
+import { buildPartCommands } from './parts';
 import { buildShellEditorCommands } from './shellCommands';
 
 /**
@@ -18,5 +19,6 @@ export function buildCommandCatalog(): AnyCommand[] {
     ...buildShellEditorCommands(() => ({}) as never),
     ...buildShellOwnCommands(),
     ...buildStatusBarCommands(),
+    ...buildPartCommands(() => ({}) as never),
   ];
 }

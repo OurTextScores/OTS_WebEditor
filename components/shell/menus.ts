@@ -81,6 +81,7 @@ export const MENUS: readonly MenuDefinition[] = [
         item('file.export.mxl'),
         item('file.export.mei'),
         item('file.export.mnx'),
+        item('file.export.parts'),
         item('file.export.abc'),
         item('file.export.midi'),
         item('file.export.audio'),
@@ -165,6 +166,9 @@ export const MENUS: readonly MenuDefinition[] = [
         item('view.zoom.fitWidth'),
         item('view.zoom.fitHeight'),
       ),
+      separator,
+      // Roadmap E18: the score's own parts are in the status bar's part selector.
+      submenu('Parts', item('view.part.full'), item('view.part.generate')),
       separator,
       item('view.panel.palettes'),
       item('view.panel.properties'),
