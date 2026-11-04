@@ -305,6 +305,7 @@ import { parsePartsFromMetadata } from './score-editor/part-metadata';
 import { downloadBlob } from './score-editor/download-blob';
 import { notifyImportWarnings } from './score-editor/import-warnings';
 import { captureStyleForReload, restoreCarriedStyle } from './score-editor/style-carry';
+import { checkpointRestoreFile, nativeCheckpointFields } from './score-editor/checkpoint-native';
 import { isEditableTarget } from './score-editor/editable-target';
 import { summarizeScoreId } from './score-editor/score-id';
 import { useNotaGenTool } from './score-editor/ai-tools/useNotaGenTool';
@@ -2715,6 +2716,7 @@ export default function ScoreEditor() {
         createdAt: Date.now(),
         format: 'musicxml',
         data: buffer,
+        ...(await nativeCheckpointFields(score, runSerializedScoreOperation)),
         size: currentData.byteLength,
         scoreId: activeScoreId,
         ...buildCheckpointMetadata(),
@@ -2925,6 +2927,7 @@ export default function ScoreEditor() {
           createdAt: Date.now(),
           format: 'musicxml',
           data: toOwnedArrayBuffer(xmlData),
+          ...(await nativeCheckpointFields(loadedScore, runSerializedScoreOperation)),
           size: xmlData.byteLength,
           scoreId: activeScoreId,
           ...buildCheckpointMetadata(),
@@ -5508,6 +5511,7 @@ export default function ScoreEditor() {
         createdAt: Date.now(),
         format: 'musicxml',
         data: buffer,
+        ...(await nativeCheckpointFields(score, runSerializedScoreOperation)),
         size: data.byteLength,
         scoreId: activeScoreId,
         ...buildCheckpointMetadata(),
@@ -5535,6 +5539,7 @@ export default function ScoreEditor() {
       getScoreXmlData,
       getScoreMusicXmlText,
       compareRightScore,
+      score,
       ensureScoreId,
       buildCheckpointMetadata,
       activeLaunchContext,
@@ -5551,6 +5556,7 @@ export default function ScoreEditor() {
       compareLeftLabel,
       compareRightLabel,
       compareRightScore,
+      score,
       getScoreXmlData,
       getScoreMusicXmlText,
       ensureScoreId,
@@ -5579,8 +5585,7 @@ export default function ScoreEditor() {
         notifyError('Checkpoint not found.');
         return;
       }
-      const filename = `${toSafeFilename(checkpoint.title)}.musicxml`;
-      const file = new File([new Uint8Array(record.data)], filename, { type: 'application/xml' });
+      const file = checkpointRestoreFile(record, toSafeFilename(checkpoint.title));
       await handleFileUpload(file, {
         preserveScoreId: true,
         updateUrl: false,

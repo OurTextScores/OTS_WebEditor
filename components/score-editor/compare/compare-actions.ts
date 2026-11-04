@@ -19,6 +19,7 @@ import type { CompareSide, CompareViewState } from './compare-types';
 import type { CompareClipboardEntry } from './useCompareClipboard';
 import type { CompareMutationOptions, RoleRecord } from './useCompareEditing';
 import type React from 'react';
+import { nativeCheckpointFields } from '../checkpoint-native';
 
 export type CompareOverwriteBlockContext = {
   compareSwapBusy: boolean;
@@ -83,6 +84,8 @@ export type SaveCompareCheckpointContext = {
     fallbackXml: string | null,
   ) => Promise<string | null>;
   compareRightScore: Score | null;
+  /** The live score, saved natively with a checkpoint of the current side (checkpoint-native.ts). */
+  score: Score | null;
   ensureScoreId: (fallbackPrefix: string) => string;
   buildCheckpointMetadata: (overrides?: {
     branchName?: string;
@@ -396,6 +399,7 @@ export async function saveCompareCheckpoint(
     getScoreXmlData,
     getScoreMusicXmlText,
     compareRightScore,
+    score,
     ensureScoreId,
     buildCheckpointMetadata,
     activeLaunchContext,
@@ -445,6 +449,7 @@ export async function saveCompareCheckpoint(
       createdAt: Date.now(),
       format: 'musicxml',
       data: toOwnedArrayBuffer(xmlData),
+      ...(await nativeCheckpointFields(targetIsCurrent ? score : compareRightScore)),
       size: xmlData.byteLength,
       scoreId: activeScoreId,
       ...buildCheckpointMetadata({

@@ -5,6 +5,8 @@ export type CheckpointRecord = {
   createdAt: number;
   format: 'musicxml';
   data: ArrayBuffer;
+  /** The score's MSCZ, which a restore loads (MusicXML loses Style and more); absent on older checkpoints. */
+  native?: ArrayBuffer;
   size: number;
   upstreamKind?: 'ourtextscores';
   workId?: string;
