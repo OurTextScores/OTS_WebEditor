@@ -1,5 +1,11 @@
 import { expect, test } from 'playwright/test';
 
+// Firefox's Playwright build uses a slower WASM interpreter for the score engine.
+const ENGINE_TIMEOUT = process.env.PLAYWRIGHT_BROWSER === 'firefox' ? 60_000 : 20_000;
+test.beforeEach(async ({ browserName }) => {
+  test.slow(browserName === 'firefox', 'Firefox needs more time for native score operations');
+});
+
 test('arrow hotkeys change pitch and octave', async ({ page }) => {
   await page.goto('/?score=/test_scores/single_note_c4.musicxml');
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
@@ -26,25 +32,25 @@ test('arrow hotkeys change pitch and octave', async ({ page }) => {
     });
   };
 
-  await expect.poll(async () => (await readPitch()).step, { timeout: 20_000 }).toBe('C');
-  await expect.poll(async () => (await readPitch()).alter, { timeout: 20_000 }).toBe(0);
-  await expect.poll(async () => (await readPitch()).octave, { timeout: 20_000 }).toBe(4);
+  await expect.poll(async () => (await readPitch()).step, { timeout: ENGINE_TIMEOUT }).toBe('C');
+  await expect.poll(async () => (await readPitch()).alter, { timeout: ENGINE_TIMEOUT }).toBe(0);
+  await expect.poll(async () => (await readPitch()).octave, { timeout: ENGINE_TIMEOUT }).toBe(4);
 
   await page.locator('svg .Note').first().click();
   await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
 
   await page.keyboard.press('ArrowUp');
-  await expect.poll(async () => (await readPitch()).alter, { timeout: 20_000 }).toBe(1);
-  await expect.poll(async () => (await readPitch()).octave, { timeout: 20_000 }).toBe(4);
+  await expect.poll(async () => (await readPitch()).alter, { timeout: ENGINE_TIMEOUT }).toBe(1);
+  await expect.poll(async () => (await readPitch()).octave, { timeout: ENGINE_TIMEOUT }).toBe(4);
 
   await page.keyboard.press('ArrowDown');
-  await expect.poll(async () => (await readPitch()).alter, { timeout: 20_000 }).toBe(0);
+  await expect.poll(async () => (await readPitch()).alter, { timeout: ENGINE_TIMEOUT }).toBe(0);
 
   await page.keyboard.press('Control+ArrowUp');
-  await expect.poll(async () => (await readPitch()).octave, { timeout: 20_000 }).toBe(5);
+  await expect.poll(async () => (await readPitch()).octave, { timeout: ENGINE_TIMEOUT }).toBe(5);
 
   await page.keyboard.press('Control+ArrowDown');
-  await expect.poll(async () => (await readPitch()).octave, { timeout: 20_000 }).toBe(4);
+  await expect.poll(async () => (await readPitch()).octave, { timeout: ENGINE_TIMEOUT }).toBe(4);
 });
 
 test('left and right keep navigating after a pitch change', async ({ page }) => {
@@ -80,7 +86,7 @@ test('left and right keep navigating after a pitch change', async ({ page }) => 
   await page.keyboard.press('ArrowRight');
   await expect
     .poll(async () => (await overlay.boundingBox())?.x ?? 0, {
-      timeout: 20_000,
+      timeout: ENGINE_TIMEOUT,
     })
     .toBeGreaterThan(firstBox.x);
   const secondBox = await overlay.boundingBox();
@@ -91,14 +97,14 @@ test('left and right keep navigating after a pitch change', async ({ page }) => 
   await page.keyboard.press('ArrowUp');
   await expect
     .poll(async () => (await readPitches())[1]?.alter, {
-      timeout: 20_000,
+      timeout: ENGINE_TIMEOUT,
     })
     .toBe(1);
 
   await page.keyboard.press('ArrowRight');
   await expect
     .poll(async () => (await overlay.boundingBox())?.x ?? 0, {
-      timeout: 20_000,
+      timeout: ENGINE_TIMEOUT,
     })
     .toBeGreaterThan(secondBox.x);
   const thirdBox = await overlay.boundingBox();
@@ -109,21 +115,21 @@ test('left and right keep navigating after a pitch change', async ({ page }) => 
   await page.keyboard.press('ArrowUp');
   await expect
     .poll(async () => (await readPitches())[2]?.step, {
-      timeout: 20_000,
+      timeout: ENGINE_TIMEOUT,
     })
     .toBe('F');
 
   await page.keyboard.press('ArrowLeft');
   await expect
     .poll(async () => (await overlay.boundingBox())?.x ?? Number.POSITIVE_INFINITY, {
-      timeout: 20_000,
+      timeout: ENGINE_TIMEOUT,
     })
     .toBeLessThan(thirdBox.x);
 
   await page.keyboard.press('ArrowDown');
   await expect
     .poll(async () => (await readPitches())[1]?.alter, {
-      timeout: 20_000,
+      timeout: ENGINE_TIMEOUT,
     })
     .toBe(0);
 });
