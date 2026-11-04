@@ -257,6 +257,10 @@ class WebMscoreW {
      * Generate excerpts from Parts (only parts that are visible) if no existing excerpts
      * @returns {Promise<void>}
      */
+    listExcerpts() {
+        return this.rpc('listExcerpts')
+    }
+
     generateExcerpts() {
         return this.rpc('generateExcerpts')
     }

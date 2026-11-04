@@ -158,6 +158,13 @@ export interface LyricsEntryPosition {
 }
 
 export interface ScoreDialogMethods {
+  /** Parts (roadmap E18): which score later calls act on, -1 the full score, else an index into listExcerpts. */
+  setExcerptId?: (id: number) => Promise<void> | void;
+  getExcerptId?: () => Promise<number> | number;
+  /** The score's parts, in excerptId order; empty when it has none. */
+  listExcerpts?: () => Promise<{ name: string; instruments: string[] }[]>;
+  /** Makes one part per instrument when the score has none. */
+  generateExcerpts?: () => Promise<void>;
   /** MEI export through MuseScore's MEI exporter (roadmap E25). */
   saveMei?: () => Promise<Uint8Array>;
   /** MNX (JSON) export through MuseScore's MNX exporter (roadmap E29). */

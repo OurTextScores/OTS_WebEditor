@@ -305,6 +305,7 @@ import { parsePartsFromMetadata } from './score-editor/part-metadata';
 import { downloadBlob } from './score-editor/download-blob';
 import { notifyImportWarnings } from './score-editor/import-warnings';
 import { captureForReload, reloadLossNotice, restoreForReload } from './score-editor/reload-carry';
+import { ensureFullScore, useScoreParts } from './score-editor/parts';
 import { checkpointRestoreFile, nativeCheckpointFields } from './score-editor/checkpoint-native';
 import { readMusicXmlOmissions } from './score-editor/musicxml-omissions';
 import { isEditableTarget } from './score-editor/editable-target';
@@ -2589,6 +2590,7 @@ export default function ScoreEditor() {
         return fallbackXml;
       }
       try {
+        await ensureFullScore(targetScore, runSerializedScoreOperation);
         const data = await runSerializedScoreOperation(() => targetScore.saveXml!(), 'saveXml');
         const decoded = await decodeXmlData(data);
         return decoded ?? fallbackXml;
@@ -2606,6 +2608,7 @@ export default function ScoreEditor() {
       notifyError('This build of webmscore does not expose "saveXml".');
       return null;
     }
+    await ensureFullScore(activeScore, runSerializedScoreOperation);
     const data = await runSerializedScoreOperation(() => activeScore.saveXml!(), 'saveXml');
     return await normalizeXmlData(data);
   }, [score, runSerializedScoreOperation, scoreRef]);
@@ -8144,6 +8147,7 @@ export default function ScoreEditor() {
   };
 
   gestureLateInputs.current = { updateNoteInputShadow, refreshScoreSpatium, clearEditorSelection, seekPlaybackFromClick: following.seekFromClick };
+  useScoreParts({ score, runSerialized: runSerializedScoreOperation, renderScore, refreshPageCount, clearSelection: clearEditorSelection });
 
     async function openTextEditorFromEvent(e: EditPointer) {
     if (!containerRef.current || !score) {

@@ -66,6 +66,24 @@ static bool readSfntFamily(const std::string& data, SfntFamily& out)
 
 extern "C" {
 
+// The score's parts (excerpts), in excerptId order (roadmap E18): [{"name", "instruments": [part names]}]. An empty
+// array when the score has none (generateExcerpts makes one per instrument).
+EMSCRIPTEN_KEEPALIVE const uint8_t* listExcerpts(uintptr_t score_ptr)
+{
+    auto* score = getScore(score_ptr);
+    if (!score) return textResponse("Invalid score", 1);
+    JsonArray list;
+    for (const auto* excerpt : score->masterScore()->excerpts()) {
+        JsonObject item;
+        item.set("name", excerpt->name().toStdString());
+        JsonArray instruments;
+        for (const auto* part : excerpt->parts()) instruments.append(part->partName().toStdString());
+        item.set("instruments", instruments);
+        list.append(item);
+    }
+    return response(JsonDocument(list).toJson(JsonDocument::Format::Compact));
+}
+
 // Generate excerpts from the parts if the score has none (4.00 semantics). Uses the same fake-undo initialisation
 // the 4.00 bridge did by hand: MasterScore::initAndAddExcerpt(excerpt, true).
 EMSCRIPTEN_KEEPALIVE void generateExcerpts(uintptr_t score_ptr)

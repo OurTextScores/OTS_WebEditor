@@ -23,6 +23,7 @@ import { Button } from '../ui/Button';
 import { IconButton } from '../ui/IconButton';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/Popover';
 import { invokeCommand } from './invokeCommand';
+import { PartSelect } from './PartSelect';
 import { buildStatusBarCommands } from './shellCommands';
 import { getNoticeSnapshot, markAllNoticesRead, subscribeToNotices, type Notice } from './notices';
 import { getShellUiState, subscribeToShellUi } from './shellStore';
@@ -128,6 +129,7 @@ export function StatusBar({ registry = defaultCommandRegistry }: { registry?: Co
       // a status bar above it would sit on top of the end of any tall menu.
       style={{ height: 'var(--shell-status-h, 32px)', zIndex: 'var(--ots-z-status)' }}
     >
+      <PartSelect registry={registry} disabled={!view.hasScore || view.preparing} />
       <IconButton
         label="Previous page"
         disabled={!hasPages || view.currentPage <= 0 || !enabled('view.goto.prevPage')}

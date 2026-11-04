@@ -371,6 +371,16 @@ class WebMscore {
     }
 
     /**
+     * The score's parts (excerpts) in excerptId order, each with its name and instruments (roadmap E18).
+     * @returns {Promise<{name: string, instruments: string[]}[]>}
+     */
+    async listExcerpts() {
+        if (!Module._listExcerpts) return []
+        const dataptr = Module.ccall('listExcerpts', 'number', ['number'], [this.scoreptr])
+        return JSON.parse(WasmRes.readText(dataptr))
+    }
+
+    /**
      * Generate excerpts from Parts (only parts that are visible) if no existing excerpts
      * @returns {Promise<void>}
      */
