@@ -73,7 +73,7 @@ jobs:
           mkdir -p public/soundfonts
           curl -fsSL --retry 3 -o public/soundfonts/default.sf3 https://cdn.ourtextscores.com/soundfonts/default.sf3
       - name: Playwright (shard ${{ matrix.shard }}/4)
-        run: npx playwright test tests/keyboard-bindings.spec.ts -g 'Shift\+(less-than|greater-than)' --repeat-each=3
+        run: npx playwright test --shard=${{ matrix.shard }}/4
         env:
           NODE_OPTIONS: --max-old-space-size=4096
       - name: Failure artifacts
