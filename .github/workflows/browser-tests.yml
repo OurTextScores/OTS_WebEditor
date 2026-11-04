@@ -47,10 +47,10 @@ jobs:
       CI: 'true'
     steps:
       # The engine's WASM/data artifacts are Git LFS objects.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           lfs: true
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -78,7 +78,7 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=4096
       - name: Failure artifacts
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: playwright-${{ matrix.browser }}-${{ matrix.shard }}
           path: test-results/

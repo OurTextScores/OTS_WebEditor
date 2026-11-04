@@ -2,7 +2,9 @@ import { runCommand } from './helpers/commands';
 import { expect, test, type Page } from 'playwright/test';
 
 // The Playwright Firefox build runs the score engine without its optimizing WASM compiler.
-const ENGINE_TIMEOUT = process.env.PLAYWRIGHT_BROWSER === 'firefox' ? 60_000 : 10_000;
+const ENGINE_TIMEOUT =
+  process.env.PLAYWRIGHT_BROWSER === 'firefox' ? 60_000 :
+    process.env.PLAYWRIGHT_BROWSER === 'webkit' ? 30_000 : 10_000;
 
 /**
  * Pins what every editing key does *today*, at the engine boundary, so the keyboard layer can be

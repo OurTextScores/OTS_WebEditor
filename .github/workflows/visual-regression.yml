@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         env:
           GIT_LFS_SKIP_SMUDGE: '1'
       - name: Fetch packaged engine assets
@@ -48,7 +48,7 @@ jobs:
             bash -c 'git config --global --add safe.directory /work && npm ci --ignore-scripts --no-audit --no-fund && bash tools/musescore/run-visual-ci.sh tools/musescore/visual-baseline visual-artifacts'
       - name: Upload visual review artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: engraving-visual-report
           path: visual-artifacts/
