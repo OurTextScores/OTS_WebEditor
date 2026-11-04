@@ -145,7 +145,9 @@ const WITH_SELECTION: [string, string, unknown[] | undefined][] = [
 
 test.describe('with a note selected', () => {
   for (const [key, method, args] of WITH_SELECTION) {
-    test(`${key} -> ${method}`, async ({ page }) => {
+    // Playwright sanitizes < and > to the same output path; distinct names retain failure traces.
+    const keyName = key.replace('<', 'less-than').replace('>', 'greater-than');
+    test(`${keyName} -> ${method}`, async ({ page }) => {
       await load(page, true);
       // Undo and Redo only run when the engine's undo stack has something for them (Edit ▸ Undo is off on a fresh score).
       for (const prelude of PRELUDE[method] ?? []) await runCommand(page, prelude);
