@@ -7,6 +7,9 @@ if (!['webpack', 'turbopack'].includes(PLAYWRIGHT_BUNDLER)) {
   throw new Error(`Unsupported PLAYWRIGHT_BUNDLER: ${PLAYWRIGHT_BUNDLER}`);
 }
 const PLAYWRIGHT_DIST_DIR = `.next-dev-playwright-${PLAYWRIGHT_PORT}-${PLAYWRIGHT_BUNDLER}`;
+// Playwright's Firefox build runs the score engine without its optimizing WASM
+// compiler. Keep the same assertions, but allow native operations to finish.
+const SLOW_FIREFOX = process.env.PLAYWRIGHT_BROWSER === 'firefox';
 
 export default defineConfig({
   testDir: './tests',
@@ -23,9 +26,9 @@ export default defineConfig({
   workers: 1,
   // `line` prints each failure with its error as it happens, not only after the whole run.
   reporter: process.env.CI ? 'dot' : 'line',
-  timeout: 2 * 60 * 1000,
+  timeout: (SLOW_FIREFOX ? 5 : 2) * 60 * 1000,
   expect: {
-    timeout: 10 * 1000,
+    timeout: (SLOW_FIREFOX ? 60 : 10) * 1000,
   },
   use: {
     baseURL: PLAYWRIGHT_BASE_URL,
