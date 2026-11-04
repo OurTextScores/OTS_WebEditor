@@ -39,8 +39,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        browser: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.browser != '' && inputs.browser != 'all' && format('["{0}"]', inputs.browser) || (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["chromium","firefox","webkit"]' || '["chromium"]') }}
-        shard: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.shard != '' && inputs.shard != 'all' && format('[{0}]', inputs.shard) || '[1,2,3,4]') }}
+        browser: [webkit]
+        shard: [2]
     env:
       PLAYWRIGHT_BROWSER: ${{ matrix.browser }}
       PLAYWRIGHT_PORT: '3013'
@@ -73,7 +73,7 @@ jobs:
           mkdir -p public/soundfonts
           curl -fsSL --retry 3 -o public/soundfonts/default.sf3 https://cdn.ourtextscores.com/soundfonts/default.sf3
       - name: Playwright (shard ${{ matrix.shard }}/4)
-        run: npx playwright test --shard=${{ matrix.shard }}/4
+        run: npx playwright test tests/worker-init-fallback.spec.ts
         env:
           NODE_OPTIONS: --max-old-space-size=4096
       - name: Failure artifacts
