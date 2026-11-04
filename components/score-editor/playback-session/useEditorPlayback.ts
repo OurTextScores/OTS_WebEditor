@@ -80,14 +80,10 @@ export function useEditorPlayback(options: Options) {
   const { start, stopAt, invalidate, stateRef } = transport;
   const { awaitRetirement } = transport;
   const beforeMutation = useCallback(async () => {
-    console.log('MUT_DIAG beforeMutation start', stateRef.current);
     cancelWarmup();
     if (!['idle', 'ended', 'unavailable'].includes(stateRef.current)) await stopAt(0);
-    console.log('MUT_DIAG stopped');
     await latest.current.beforeMutation?.();
-    console.log('MUT_DIAG compare stopped');
     await awaitRetirement();
-    console.log('MUT_DIAG retired');
     invalidate();
   }, [awaitRetirement, cancelWarmup, invalidate, stateRef, stopAt]);
   const guardScore = useCallback(

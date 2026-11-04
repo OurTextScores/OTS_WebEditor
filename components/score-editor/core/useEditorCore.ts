@@ -499,12 +499,9 @@ export function useEditorCore(ctx: EditorCoreContext) {
     mutationStartRef.current = new Promise<void>((resolve) => {
       releaseStart = resolve;
     });
-    console.log('MUT_DIAG wait previous', label);
     await previousStart;
-    console.log('MUT_DIAG previous done', label);
     try {
       await lateInputs.current.beforeMutation?.();
-      console.log('MUT_DIAG boundary done', label);
     } catch (err) {
       releaseStart();
       throw err;
@@ -528,7 +525,6 @@ export function useEditorCore(ctx: EditorCoreContext) {
     const allowSelectionFallback = !options?.skipSelectionFallback;
     const shouldPlaySelectionPreview = Boolean(options?.playSelectionPreview);
 
-    console.log('MUT_DIAG selection checked', label);
     const perf = startPerf(label);
     const generation = ++mutationGenerationRef.current;
     // Layout oracle (dev): skip the full relayout, then check afterwards whether it was needed.
