@@ -23,6 +23,7 @@ import type { AiScoreBridge } from './ai-score-bridge';
 import type { EditorTelemetryCounters } from './editor-types';
 import type { AiEditRequestHandle, AiEditWorkKind } from './useAiEditController';
 import type React from 'react';
+import { omissionsPromptSection } from './musicxml-omissions';
 
 export type RequestAiPatchContext = {
   aiEnabled: boolean;
@@ -183,6 +184,12 @@ export async function requestAiPatch(ctx: RequestAiPatchContext) {
       promptSections.push({
         title: 'Current MusicXML text',
         content: xmlContext,
+      });
+      // Roadmap E23: what the score has that the MusicXML leaves out.
+      const omissions = (await aiScoreBridge.getMusicXmlOmissions?.()) ?? [];
+      promptSections.push({
+        title: 'Not in the MusicXML',
+        content: omissionsPromptSection(omissions),
       });
     }
     const pdfAttachment = aiIncludePdf ? await aiScoreBridge.getScorePdf() : null;

@@ -394,6 +394,49 @@ test.describe('Assistant diff editor flow', () => {
     expect(await styleValues()).toEqual(STYLE);
   });
 
+  test('the AI is told what the MusicXML omits, and the user what an applied edit reset (roadmap E23)', async ({
+    page,
+  }) => {
+    let promptText = '';
+    await page.route('**/api/music/patch', async (route) => {
+      promptText = String(route.request().postDataJSON()?.promptText ?? '');
+      await fulfillPatchFromRequestBase(route);
+    });
+    await page.goto('/?score=/test_scores/three_notes_cde.musicxml');
+    await page.waitForSelector('svg .Note', { timeout: 60_000 });
+    // A system lock: MusicXML has nothing for it.
+    const locked = await page.evaluate(async () => {
+      const score = (
+        window as typeof window & {
+          __webmscore?: {
+            selectPartMeasureByIndex?: (part: number, measure: number) => Promise<unknown>;
+            setSystemLock?: (locked: boolean) => Promise<boolean>;
+          };
+        }
+      ).__webmscore;
+      await score?.selectPartMeasureByIndex?.(0, 0);
+      return score?.setSystemLock?.(true);
+    });
+    expect(locked).toBe(true);
+
+    await runCommand(page, 'ai.open.assistant');
+    await page.getByPlaceholder('Enter model name').fill('gpt-test-model');
+    await page.getByPlaceholder('Paste your key').fill('test-key');
+    await page
+      .getByPlaceholder('Describe the change you want in the MusicXML.')
+      .fill('Change the first note to G.');
+    await page.getByRole('button', { name: 'Generate Patch' }).click();
+    await waitForDiffReviewReady(page);
+    expect(promptText).toContain('Not in the MusicXML');
+    expect(promptText).toContain('Style settings');
+    expect(promptText).toContain('- 1 system lock (measures kept together on a system)');
+
+    await page.getByRole('button', { name: 'Apply All AI Changes' }).click();
+    await expect(
+      page.getByTestId('notice-warning').filter({ hasText: 'applied edit reset them' }),
+    ).toContainText('1 system lock', { timeout: 20_000 });
+  });
+
   test('patch generation shows its budget and can be cancelled', async ({ page }) => {
     let releasePatch: (() => void) | null = null;
     const patchPaused = new Promise<void>((resolve) => {

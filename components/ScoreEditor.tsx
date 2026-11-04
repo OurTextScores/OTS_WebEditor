@@ -306,6 +306,7 @@ import { downloadBlob } from './score-editor/download-blob';
 import { notifyImportWarnings } from './score-editor/import-warnings';
 import { captureStyleForReload, restoreCarriedStyle } from './score-editor/style-carry';
 import { checkpointRestoreFile, nativeCheckpointFields } from './score-editor/checkpoint-native';
+import { omissionsLossNotice, readMusicXmlOmissions } from './score-editor/musicxml-omissions';
 import { isEditableTarget } from './score-editor/editable-target';
 import { summarizeScoreId } from './score-editor/score-id';
 import { useNotaGenTool } from './score-editor/ai-tools/useNotaGenTool';
@@ -2748,6 +2749,7 @@ export default function ScoreEditor() {
     setXmlDirty(false);
     const applyStartedAt = Date.now();
     const carriedStyle = await captureStyleForReload(score, checkpointState.currentXml, sourceXml);
+    const omissions = await readMusicXmlOmissions(score, runSerializedScoreOperation);
     const applied = await handleFileUpload(file, {
       carriedStyle,
       preserveScoreId: true,
@@ -2755,6 +2757,8 @@ export default function ScoreEditor() {
       telemetrySource: options?.telemetrySource || 'xml_apply',
     });
     if (applied) {
+      const lossNotice = omissionsLossNotice(omissions);
+      if (lossNotice) notifyWarning(lossNotice);
       if (options?.enforceJazzHarmonyStyle) {
         await applyHarmonyDisplayInterpretation(scoreRef.current ?? score, false);
       }
@@ -3449,6 +3453,7 @@ export default function ScoreEditor() {
       getContextXml: resolveXmlContext,
       applyXml: (xml, telemetrySource) => applyXmlToScoreRef.current(xml, { telemetrySource }),
       getSelectionContext: resolveSelectionContext,
+      getMusicXmlOmissions: () => readMusicXmlOmissions(scoreRef.current ?? score, runSerializedScoreOperation),
       getPageSvgContext: resolveCurrentPageSvgContext,
       getPageImage: resolveCurrentPageImageAttachment,
       getScorePdf: resolveScorePdfAttachment,
