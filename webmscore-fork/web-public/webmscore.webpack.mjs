@@ -3,7 +3,10 @@ const libWasm = 'webmscore.lib.wasm'
 const libData = 'webmscore.lib.data'
 const libMem = 'webmscore.lib.mem.wasm'
 
-const WebMscoreWorker = function () { 
+const WebMscoreWorker = function () {
+self.addEventListener('unhandledrejection', (event) => console.error('WORKER_DIAG unhandled', event.reason?.stack || event.reason));
+self.addEventListener('error', (event) => console.error('WORKER_DIAG error', event.error?.stack || event.message));
+
 (function () {
 
   var Module$1 = (() => {
@@ -3428,7 +3431,8 @@ const WebMscoreWorker = function () {
   self.onmessage = async (e) => {
       /** @type {RPCReq} */
       const req = e.data;  // JSON-RPC
-      const { id, method, params } = req;
+      const { id, method, params } = req
+      if (['ready', 'load', 'setResourceBaseUrl'].includes(method)) console.log('WORKER_DIAG rpc', method);;
 
       try {
           switch (method) {
