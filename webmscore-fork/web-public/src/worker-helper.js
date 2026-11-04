@@ -450,6 +450,10 @@ class WebMscoreW {
         return this.rpc('setStyleValues', [values])
     }
 
+    restoreSystemLocks(ranges) {
+        return this.rpc('restoreSystemLocks', [ranges])
+    }
+
     saveStyle() {
         return this.rpc('saveStyle')
     }

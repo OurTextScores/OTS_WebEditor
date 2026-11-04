@@ -304,9 +304,9 @@ import { runWithTimeout } from './score-editor/async-timeout';
 import { parsePartsFromMetadata } from './score-editor/part-metadata';
 import { downloadBlob } from './score-editor/download-blob';
 import { notifyImportWarnings } from './score-editor/import-warnings';
-import { captureStyleForReload, restoreCarriedStyle } from './score-editor/style-carry';
+import { captureForReload, reloadLossNotice, restoreForReload } from './score-editor/reload-carry';
 import { checkpointRestoreFile, nativeCheckpointFields } from './score-editor/checkpoint-native';
-import { omissionsLossNotice, readMusicXmlOmissions } from './score-editor/musicxml-omissions';
+import { readMusicXmlOmissions } from './score-editor/musicxml-omissions';
 import { isEditableTarget } from './score-editor/editable-target';
 import { summarizeScoreId } from './score-editor/score-id';
 import { useNotaGenTool } from './score-editor/ai-tools/useNotaGenTool';
@@ -2748,16 +2748,15 @@ export default function ScoreEditor() {
     const file = new File([encoded], `${filenameBase}.musicxml`, { type: 'application/xml' });
     setXmlDirty(false);
     const applyStartedAt = Date.now();
-    const carriedStyle = await captureStyleForReload(score, checkpointState.currentXml, sourceXml);
-    const omissions = await readMusicXmlOmissions(score, runSerializedScoreOperation);
+    const carry = await captureForReload(score, checkpointState.currentXml, sourceXml, runSerializedScoreOperation);
     const applied = await handleFileUpload(file, {
-      carriedStyle,
+      carry,
       preserveScoreId: true,
       updateUrl: false,
       telemetrySource: options?.telemetrySource || 'xml_apply',
     });
     if (applied) {
-      const lossNotice = omissionsLossNotice(omissions);
+      const lossNotice = reloadLossNotice(carry);
       if (lossNotice) notifyWarning(lossNotice);
       if (options?.enforceJazzHarmonyStyle) {
         await applyHarmonyDisplayInterpretation(scoreRef.current ?? score, false);
@@ -3803,7 +3802,7 @@ export default function ScoreEditor() {
         initialAvailablePages,
         engineMode: actualEngineMode,
       } = loadResult;
-      if (options?.carriedStyle) await restoreCarriedStyle(loadedScore, options.carriedStyle);
+      if (options?.carry) await restoreForReload(loadedScore, options.carry);
       engineMode = actualEngineMode;
       progressivePaging = nextProgressivePaging;
       progressiveHasMore = nextProgressiveHasMore;

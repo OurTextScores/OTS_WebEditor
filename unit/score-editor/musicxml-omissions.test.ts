@@ -21,20 +21,18 @@ const MSCX = `<museScore><Score>
 </Score></museScore>`;
 
 describe('what the MusicXML leaves out (roadmap E23)', () => {
-  it('finds system locks and braced accidentals (swing and text harp pedals survive MusicXML), and nothing else', () => {
-    expect(findMusicXmlOmissions(MSCX)).toEqual([
-      { kind: 'systemLock', count: 2 },
-      { kind: 'accidentalBraces', count: 1 },
-    ]);
+  it('finds braced accidentals; system locks are carried and swing and text harp pedals survive MusicXML', () => {
+    expect(findMusicXmlOmissions(MSCX)).toEqual([{ kind: 'accidentalBraces', count: 1 }]);
     expect(findMusicXmlOmissions('<museScore><Score><Note/></Score></museScore>')).toEqual([]);
   });
 
   it('tells the AI about Style always, and lists what an applied edit resets', () => {
     const plain = omissionsPromptSection([]);
-    expect(plain).toMatch(/Style settings .* are not in the MusicXML\. They are kept/);
+    expect(plain).toMatch(
+      /Style settings .* and system locks .* are not in the MusicXML\. They are kept/,
+    );
     expect(plain).not.toMatch(/applied edit resets/);
     const section = omissionsPromptSection(findMusicXmlOmissions(MSCX));
-    expect(section).toContain('- 2 system locks (measures kept together on a system)');
     expect(section).toContain('- 1 accidental in braces');
     expect(section).not.toMatch(/swing|harp/);
   });
@@ -51,7 +49,7 @@ describe('what the MusicXML leaves out (roadmap E23)', () => {
     const run = vi.fn((operation: () => Promise<unknown>) => operation());
     await expect(
       readMusicXmlOmissions({ saveMsc } as unknown as Score, run as never),
-    ).resolves.toHaveLength(2);
+    ).resolves.toHaveLength(1);
     expect(saveMsc).toHaveBeenCalledWith('mscx');
     expect(run).toHaveBeenCalledWith(expect.any(Function), 'saveMsc(omissions)');
     await expect(readMusicXmlOmissions(null)).resolves.toEqual([]);

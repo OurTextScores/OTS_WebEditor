@@ -8,6 +8,7 @@
 //
 //   node scripts/musicxml-preservation-probe.mjs <case>     (prints JSON)
 //   node scripts/musicxml-preservation-probe.mjs --all      (every case, one process each; prints a summary)
+//   node scripts/musicxml-preservation-probe.mjs --lock-carry    (system locks: restoreSystemLocks after the re-import)
 //   node scripts/musicxml-preservation-probe.mjs --style-carry   (the editor's fix for style: saveStyle before the
 //                                                                  re-import, restoreStyle after, no undo step)
 import { execFileSync } from 'node:child_process';
@@ -347,6 +348,43 @@ if (arg === '--all') {
     }
   });
   console.log(JSON.stringify({ results }));
+  process.exit(0);
+}
+
+if (arg === '--lock-carry') {
+  const lib = createRequire(import.meta.url)(
+    path.join(root, 'webmscore-fork/web-public/webmscore.nodejs.cjs'),
+  );
+  const WebMscore = lib.default ?? lib;
+  await WebMscore.ready;
+  const log = console.log;
+  console.log = () => {};
+  const decode = (data) => (typeof data === 'string' ? data : new TextDecoder().decode(data));
+  const score = await WebMscore.load(
+    'musicxml',
+    fs.readFileSync(path.join(root, 'unit/fixtures/eight-bars.musicxml')),
+  );
+  await score.selectPartMeasureByIndex(0, 1);
+  await score.extendSelectionNextMeasure();
+  await score.setSystemLock(true);
+  await score.selectPartMeasureByIndex(0, 4);
+  await score.setSystemLock(true);
+  const locks = (await score.getSystemLockState()).locks;
+  const xml = decode(await score.saveXml());
+  score.destroy();
+  const back = await WebMscore.load('musicxml', new TextEncoder().encode(xml));
+  const report = { locks, lostByMusicXml: (await back.getSystemLockState()).locks };
+  // Off the score, reversed, and overlapping the first lock: skipped.
+  report.added = await back.restoreSystemLocks([
+    ...locks,
+    { startMeasure: 40, endMeasure: 41 },
+    { startMeasure: 6, endMeasure: 5 },
+    { startMeasure: 2, endMeasure: 3 },
+  ]);
+  report.afterRestore = (await back.getSystemLockState()).locks;
+  report.undoStepsAfterRestore = (await back.getUndoInfo()).size;
+  console.log = log;
+  console.log(JSON.stringify(report));
   process.exit(0);
 }
 

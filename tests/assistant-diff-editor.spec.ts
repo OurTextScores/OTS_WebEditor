@@ -394,7 +394,7 @@ test.describe('Assistant diff editor flow', () => {
     expect(await styleValues()).toEqual(STYLE);
   });
 
-  test('the AI is told what the MusicXML omits, and the user what an applied edit reset (roadmap E23)', async ({
+  test("the AI is told what the MusicXML omits, and a score's system locks are kept across an applied edit (roadmap E23)", async ({
     page,
   }) => {
     let promptText = '';
@@ -404,20 +404,29 @@ test.describe('Assistant diff editor flow', () => {
     });
     await page.goto('/?score=/test_scores/three_notes_cde.musicxml');
     await page.waitForSelector('svg .Note', { timeout: 60_000 });
-    // A system lock: MusicXML has nothing for it.
+    type LockScore = {
+      selectPartMeasureByIndex?: (part: number, measure: number) => Promise<unknown>;
+      setSystemLock?: (locked: boolean) => Promise<boolean>;
+      getSystemLockState?: () => Promise<{
+        locks: { startMeasure: number; endMeasure: number }[];
+      } | null>;
+    };
+    // A system lock: MusicXML has nothing for it, so the editor carries it.
     const locked = await page.evaluate(async () => {
-      const score = (
-        window as typeof window & {
-          __webmscore?: {
-            selectPartMeasureByIndex?: (part: number, measure: number) => Promise<unknown>;
-            setSystemLock?: (locked: boolean) => Promise<boolean>;
-          };
-        }
-      ).__webmscore;
+      const score = (window as typeof window & { __webmscore?: LockScore }).__webmscore;
       await score?.selectPartMeasureByIndex?.(0, 0);
       return score?.setSystemLock?.(true);
     });
     expect(locked).toBe(true);
+    const locks = () =>
+      page.evaluate(async () => {
+        const score = (window as typeof window & { __webmscore?: LockScore }).__webmscore;
+        try {
+          return (await score?.getSystemLockState?.())?.locks ?? null;
+        } catch {
+          return null; // while Apply swaps the score for a new one
+        }
+      });
 
     await runCommand(page, 'ai.open.assistant');
     await page.getByPlaceholder('Enter model name').fill('gpt-test-model');
@@ -428,13 +437,18 @@ test.describe('Assistant diff editor flow', () => {
     await page.getByRole('button', { name: 'Generate Patch' }).click();
     await waitForDiffReviewReady(page);
     expect(promptText).toContain('Not in the MusicXML');
-    expect(promptText).toContain('Style settings');
-    expect(promptText).toContain('- 1 system lock (measures kept together on a system)');
+    expect(promptText).toMatch(
+      /Style settings .* and system locks .* are not in the MusicXML\. They are kept/,
+    );
 
     await page.getByRole('button', { name: 'Apply All AI Changes' }).click();
+    await expect
+      .poll(async () => readLiveXml(page), { timeout: 20_000 })
+      .toContain('<step>G</step>');
+    await expect.poll(locks, { timeout: 20_000 }).toEqual([{ startMeasure: 0, endMeasure: 0 }]);
     await expect(
-      page.getByTestId('notice-warning').filter({ hasText: 'applied edit reset them' }),
-    ).toContainText('1 system lock', { timeout: 20_000 });
+      page.getByTestId('notice-warning').filter({ hasText: 'applied edit reset' }),
+    ).toHaveCount(0);
   });
 
   test('patch generation shows its budget and can be cancelled', async ({ page }) => {

@@ -108,6 +108,18 @@ describe.skipIf(!fs.existsSync(nodeBuild))('notation through a MusicXML round tr
     ).toEqual([...LOST].sort());
   });
 
+  it('puts system locks back after the re-import, without an undo step, skipping invalid ranges', () => {
+    const report = probe('--lock-carry');
+    expect(report.locks).toEqual([
+      { startMeasure: 1, endMeasure: 2 },
+      { startMeasure: 4, endMeasure: 4 },
+    ]);
+    expect(report.lostByMusicXml).toEqual([]);
+    expect(report.added).toBe(2);
+    expect(report.afterRestore).toEqual(report.locks);
+    expect(report.undoStepsAfterRestore).toBe(0);
+  });
+
   it('carries the Style settings across the re-import, without an undo step', () => {
     const report = probe('--style-carry');
     const set = {

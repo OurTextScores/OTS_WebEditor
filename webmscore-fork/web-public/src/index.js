@@ -488,6 +488,22 @@ class WebMscore {
         return JSON.parse(WasmRes.readText(ptr))
     }
 
+    /**
+     * Puts back system locks (measure-position ranges, as getSystemLockState reports them) as part of loading, with no
+     * undo step (roadmap E23). Returns how many were added.
+     * @param {{startMeasure: number, endMeasure: number}[]} ranges
+     * @returns {Promise<number>}
+     */
+    async restoreSystemLocks(ranges) {
+        if (!Module._restoreSystemLocks) return 0
+        const strptr = getStrPtr(JSON.stringify(ranges || []))
+        try {
+            return Module.ccall('restoreSystemLocks', 'number', ['number', 'number', 'number'], [this.scoreptr, strptr, this.excerptId])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
     async setSystemLock(locked) {
         if (typeof locked !== 'boolean' || !Module._setSystemLock) return false
         return Module.ccall('setSystemLock', 'boolean', ['number', 'number', 'number'], [this.scoreptr, Number(locked), this.excerptId])

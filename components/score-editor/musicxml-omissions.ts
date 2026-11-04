@@ -2,18 +2,18 @@ import type { Score } from '../../lib/webmscore-loader';
 
 /**
  * What the score has that its MusicXML leaves out (roadmap E23). OTS's AI tools see the score as MusicXML, and an
- * applied edit reloads it from MusicXML. Style settings are carried across the reload (style-carry.ts); these are not,
+ * applied edit reloads it from MusicXML. Style settings and system locks are carried across the reload (reload-carry.ts);
+ * these are not,
  * and are reset by an applied edit (scripts/musicxml-preservation-probe.mjs measures it; swing ratios and text harp
  * pedals survive since engine patch 0008). The AI is told, so it does not
  * contradict or "fix" them, and so is the user, when an applied edit resets them.
  */
 export type Omission = {
-  kind: 'systemLock' | 'accidentalBraces';
+  kind: 'accidentalBraces';
   count: number;
 };
 
 const LABELS: Record<Omission['kind'], (count: number) => string> = {
-  systemLock: (n) => `${n} system lock${n === 1 ? '' : 's'} (measures kept together on a system)`,
   accidentalBraces: (n) => `${n} accidental${n === 1 ? '' : 's'} in braces`,
 };
 
@@ -22,7 +22,6 @@ const count = (text: string, pattern: RegExp) => (text.match(pattern) ?? []).len
 /** The omissions in a score's MSCX. */
 export function findMusicXmlOmissions(mscx: string): Omission[] {
   const found: Omission[] = [
-    { kind: 'systemLock', count: count(mscx, /<systemLock>/g) },
     // AccidentalBracket 3 is a brace (1 parenthesis and 2 bracket are in MusicXML).
     {
       kind: 'accidentalBraces',
@@ -35,7 +34,7 @@ export function findMusicXmlOmissions(mscx: string): Omission[] {
 /** The prompt section for the AI: Style always, then what an applied edit would reset. */
 export function omissionsPromptSection(omissions: Omission[]): string {
   const lines = [
-    "The score's Style settings (page layout, spacing, measure numbering, fonts) are not in the MusicXML. They are kept when an edit is applied: do not try to set them in the MusicXML.",
+    "The score's Style settings (page layout, spacing, measure numbering, fonts) and system locks (measures kept together on a system) are not in the MusicXML. They are kept when an edit is applied: do not try to set them in the MusicXML.",
   ];
   if (omissions.length) {
     lines.push(

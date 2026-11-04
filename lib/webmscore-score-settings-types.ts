@@ -166,6 +166,8 @@ export interface ScoreDialogMethods {
   saveStyle?: () => Promise<Uint8Array>;
   /** Puts back a style saved by saveStyle as part of loading, with no undo step (roadmap E23). */
   restoreStyle?: (data: Uint8Array) => Promise<boolean>;
+  /** Puts back system locks as part of loading, with no undo step (roadmap E23); returns how many were added. */
+  restoreSystemLocks?: (ranges: { startMeasure: number; endMeasure: number }[]) => Promise<number>;
   /** The selected text from MuseScore's markup, keeping per-span formatting (roadmap E17); false for chord symbols etc. */
   setSelectedTextXml?: (markup: string) => Promise<boolean> | boolean;
   /** Lyric entry (roadmap E17): start at the selection; commit a syllable and move (see LYRICS_ACTIONS); stop. */

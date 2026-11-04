@@ -101,6 +101,40 @@ const uint8_t* getSystemLockState(uintptr_t id, int excerpt)
     return response(JsonDocument(result).toJson(JsonDocument::Format::Compact));
 }
 
+// Locks put back as part of loading the score, not as an edit: no undo step (roadmap E23). `json` is an array of
+// {"startMeasure","endMeasure"} measure positions, as getSystemLockState reports them; a range off the score, reversed,
+// or overlapping a lock already there is skipped. Returns how many were added.
+EMSCRIPTEN_KEEPALIVE
+int restoreSystemLocks(uintptr_t id, const char* json, int excerpt)
+{
+    auto* score = getScore(id, excerpt);
+    if (!score || !json) return 0;
+    std::vector<Measure*> measures;
+    for (auto* m = score->firstMeasure(); m; m = m->nextMeasure()) measures.push_back(m);
+    const JsonDocument doc = JsonDocument::fromJson(ByteArray(json));
+    if (!doc.isArray()) return 0;
+    int added = 0;
+    const JsonArray ranges = doc.rootArray();
+    for (size_t i = 0; i < ranges.size(); ++i) {
+        const JsonObject range = ranges.at(i).toObject();
+        const int start = range.value("startMeasure").toInt();
+        const int end = range.value("endMeasure").toInt();
+        if (start < 0 || end < start || end >= static_cast<int>(measures.size())) continue;
+        Measure* first = measures[start];
+        Measure* last = measures[end];
+        bool overlaps = false;
+        for (const auto* lock : score->systemLocks()->allLocks()) overlaps |= systemLockOverlaps(lock, first, last);
+        if (overlaps) continue;
+        score->addSystemLock(new SystemLock(first, last));
+        ++added;
+    }
+    if (added) {
+        score->setLayoutAll();
+        layoutLinked(score);
+    }
+    return added;
+}
+
 EMSCRIPTEN_KEEPALIVE
 bool setSystemLock(uintptr_t id, int locked, int excerpt)
 {

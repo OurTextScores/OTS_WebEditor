@@ -2,6 +2,7 @@ import type { CompareSide } from './compare/compare-types';
 import type { PerfHandle } from '../../lib/perf-trace';
 import { Score } from '../../lib/webmscore-loader';
 import type { SynthAudioBatchIterator } from '../../lib/webmscore-loader';
+import type { ReloadCarry } from './reload-carry';
 
 export type SynthBatchIterator = SynthAudioBatchIterator;
 
@@ -37,8 +38,8 @@ export type HandleUrlLoad = (url: string, signal?: AbortSignal) => Promise<boole
 
 export type HandleFileUploadOptions = {
   preserveScoreId?: boolean;
-  /** A style saved before a MusicXML re-import of the same score, put back after it (style-carry.ts). */
-  carriedStyle?: Uint8Array | null;
+  /** What a MusicXML re-import of the same score cannot hold, put back after it (reload-carry.ts). */
+  carry?: ReloadCarry;
   scoreIdOverride?: string;
   updateUrl?: boolean;
   createInitialCheckpoint?: boolean;
