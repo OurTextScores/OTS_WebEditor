@@ -118,10 +118,18 @@ class WebMscoreW {
      */
     static async load(format, data, fonts = [], doLayout = true) {
         const instance = new WebMscoreW()
-        const [_fonts] = await Promise.all([
-            fonts,
-            instance.rpc('ready')
-        ])
+        let _fonts
+        try {
+            [_fonts] = await Promise.all([
+                fonts,
+                instance.rpc('ready')
+            ])
+        } catch (error) {
+            // A failed initialization never produces a score that callers can destroy.
+            instance.worker.terminate()
+            URL.revokeObjectURL(instance.workerURL)
+            throw error
+        }
         await instance.rpc('setLogLevel', [_logLevel]) // default 0 (Off)
         if (_resourceBaseUrl) await instance.rpc('setResourceBaseUrl', [_resourceBaseUrl])   // before load: load fetches
         const capabilities = await instance.rpc('load', [format, data, _fonts, doLayout], [data.buffer, ..._fonts.map(f => f.buffer)])
