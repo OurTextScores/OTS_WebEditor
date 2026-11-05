@@ -78,6 +78,12 @@ jobs:
         run: npx playwright test --shard=${{ matrix.shard }}/4
         env:
           NODE_OPTIONS: --max-old-space-size=4096
+      - name: Capture runner resources
+        if: failure()
+        run: |
+          if [ -f scripts/capture-ci-resources.sh ]; then
+            bash scripts/capture-ci-resources.sh
+          fi
       - name: Failure artifacts
         if: failure()
         uses: actions/upload-artifact@v6
