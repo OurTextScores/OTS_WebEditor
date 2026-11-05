@@ -75,26 +75,36 @@ public:
         return faces.emplace(key,std::move(face)).first->second.get();
     }
 
+    // The face for a font, read from the font database once per key: fontData() copies the whole font file out of the
+    // virtual filesystem, so reading it per glyph run cost most of an SVG page (roadmap E05). A font that is not there
+    // is not remembered (on-demand fonts arrive later).
+    Face* face(const muse::draw::FontDataKey& key, muse::draw::Font::Type type) {
+        auto found=faces.find(key);
+        if (found!=faces.end()) return found->second.get();
+        auto db=muse::modularity::globalIoc()->resolve<muse::draw::IFontsDatabase>("spike");
+        const muse::draw::FontData data=db->fontData(key,type);
+        return data.valid() ? loadFace(key,data.data) : nullptr;
+    }
+    bool hasFont(const muse::draw::Font& font) { return face(muse::draw::dataKeyForFont(font),font.type())!=nullptr; }
+
     // Shape a run and hand each glyph's outline (font units, y up) to `glyph(outline, face, glyphId, x, y, scale)` at
     // its pen position. Characters the primary face lacks come from the font database's substitution faces (as the
     // Qt-free FontsEngine measures them, so drawing agrees with layout); glyphs no face has call `missing()` and are
     // skipped when it returns true, otherwise the run fails.
     template<class Glyph, class Missing>
     bool shape(const muse::draw::Font& font, const muse::PointF& at, const muse::String& text,
-               const muse::draw::FontData& data, double dpi, Glyph&& glyph, Missing&& missing) {
+               double dpi, Glyph&& glyph, Missing&& missing) {
         using namespace muse::draw;
         if (text.empty()) return true;
-        Face* primary=loadFace(dataKeyForFont(font),data.data);
+        Face* primary=face(dataKeyForFont(font),font.type());
         if (!primary || !primary->ft->units_per_EM) return false;
         std::vector<Face*> candidates { primary };
         auto db=muse::modularity::globalIoc()->resolve<IFontsDatabase>("spike");
         // As FontsEngine::fontFace: engraving text arrives as Unknown/Undefined and resolves as Text
         Font::Type type=font.type();
         if (type==Font::Type::Undefined || type==Font::Type::Unknown) type=Font::Type::Text;
-        for (const FontDataKey& key : db->substitutionFonts(type)) {
-            const FontData sub=db->fontData(key,type);
-            if (Face* f=sub.valid() ? loadFace(key,sub.data) : nullptr) candidates.push_back(f);
-        }
+        for (const FontDataKey& key : db->substitutionFonts(type))
+            if (Face* f=face(key,type)) candidates.push_back(f);
         const double pixels=font.pixelSize()>0 ? font.pixelSize() : font.pointSizeF()*dpi/72.0;
         const auto chars=text.toStdU32String();
         auto faceFor=[&](char32_t c) {
@@ -130,11 +140,11 @@ public:
     // One <path> per run, as the 4.00 SVG: every glyph's outline in run coordinates (no fonts in the document, tight
     // element boxes). Glyphs the face lacks are skipped and counted in `missing`.
     bool draw(const muse::draw::Font& font, const muse::PointF& at, const muse::String& text,
-              const muse::draw::FontData& data, double dpi, std::ostream& out, const std::string& attrs, size_t& missing) {
+              double dpi, std::ostream& out, const std::string& attrs, size_t& missing) {
         std::ostringstream d;
         d << std::setprecision(7);
         RunPath path { d };
-        const bool ok = shape(font,at,text,data,dpi,[&](FT_Outline* outline,const void*,unsigned,double x,double y,double scale) {
+        const bool ok = shape(font,at,text,dpi,[&](FT_Outline* outline,const void*,unsigned,double x,double y,double scale) {
             path.x=x; path.y=y; path.scale=scale;
             FT_Outline_Funcs callbacks {RunPath::move,RunPath::line,RunPath::conic,RunPath::cubic,0,0};
             if (FT_Outline_Decompose(outline,&callbacks,&path)) return false;

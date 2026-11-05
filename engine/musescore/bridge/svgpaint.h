@@ -151,11 +151,9 @@ public:
     void text(const Font& f, const Point& p, const muse::String& s) {
         using namespace muse::draw;
         if (s.empty()) return;
-        auto db=muse::modularity::globalIoc()->resolve<IFontsDatabase>("spike");
-        const auto data=db->fontData(dataKeyForFont(f),f.type());
-        if (!data.valid()) { failure="Missing SVG font "+f.family().id().toStdString(); return; }
+        if (!outlines.hasFont(f)) { failure="Missing SVG font "+f.family().id().toStdString(); return; }
         group(true);
-        if (!outlines.draw(f,p,s,data,deviceLogicalDpi(),out,classAttr()+" data-font=\""+escape(f.family().id().toStdString())+"\" data-text=\""+escape(s.toStdString())+"\"",missingGlyphs))
+        if (!outlines.draw(f,p,s,deviceLogicalDpi(),out,classAttr()+" data-font=\""+escape(f.family().id().toStdString())+"\" data-text=\""+escape(s.toStdString())+"\"",missingGlyphs))
             failure="Could not outline SVG font run";
         out << "</g></g></g>";
     }

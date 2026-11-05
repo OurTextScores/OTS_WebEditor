@@ -124,12 +124,10 @@ class PdfPaint : public muse::draw::BufferedPaintProvider {
     void text(const Font& f, const Point& p, const muse::String& s) {
         using namespace muse::draw;
         if (s.empty()) return;
-        auto db = muse::modularity::globalIoc()->resolve<IFontsDatabase>("spike");
-        const auto data = db->fontData(dataKeyForFont(f), f.type());
-        if (!data.valid()) { failure = "Missing PDF font " + f.family().id().toStdString(); return; }
+        if (!outlines.hasFont(f)) { failure = "Missing PDF font " + f.family().id().toStdString(); return; }
         // Text is filled with the pen colour, as the SVG writer and Qt do
         begin(true, false, pen().color());
-        const bool ok = outlines.shape(f, p, s, data, deviceLogicalDpi(),
+        const bool ok = outlines.shape(f, p, s, deviceLogicalDpi(),
             [&](FT_Outline* outline, const void* face, unsigned glyphId, double x, double y, double scale) {
                 auto key = std::make_pair(face, glyphId);   // per face: substitution faces reuse glyph ids
                 auto it = glyphPaths.find(key);

@@ -197,8 +197,12 @@ test('MuseScore export from a part view saves the whole project, parts included,
   page,
 }) => {
   const select = page.getByTestId('part-select');
+  const fullScoreStaves = await staffLines(page);
   await select.selectOption('generate');
   await select.selectOption('1');
+  await expect(select).toHaveValue('1');
+  // Counted once the part is drawn: one instrument, so fewer staves than the full score.
+  await expect.poll(() => staffLines(page)).toBeLessThan(fullScoreStaves);
   const partStaves = await staffLines(page);
   const download = page.waitForEvent('download');
   await runCommand(page, 'file.export.mscz');
@@ -208,7 +212,7 @@ test('MuseScore export from a part view saves the whole project, parts included,
   expect(names).toMatch(/\.mscx/);
   expect(names).toMatch(/Excerpts\//);
   await expect(select).toHaveValue('1');
-  expect(await staffLines(page)).toBe(partStaves);
+  await expect.poll(() => staffLines(page)).toBe(partStaves);
 });
 
 test('Manage Parts renames, creates, duplicates and deletes parts, and undo brings one back', async ({

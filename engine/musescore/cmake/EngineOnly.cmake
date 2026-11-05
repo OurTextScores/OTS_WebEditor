@@ -120,6 +120,7 @@ endif()
 
 if(OS_IS_WASM)
 option(MS47_BRIDGE_FAST_LINK "Skip Binaryen optimization while porting" OFF)
+option(MS47_PROFILING_FUNCS "Keep function names in the optimized WASM, for CPU profiles (never for release)" OFF)
 option(MS47_BROWSER "Also link the browser package webmscore.lib.{js,wasm,data}" ON)
 set(MS47_PRELOAD_DIR "" CACHE PATH "Resources preloaded at /res by the browser package (staged root minus lazy-resources.json)")
 
@@ -152,6 +153,9 @@ function(ms47_bridge_target target)
         --no-entry)
     if(MS47_BRIDGE_FAST_LINK)
         target_link_options(${target} PRIVATE -O0 -g2 --emit-symbol-map)
+    endif()
+    if(MS47_PROFILING_FUNCS)
+        target_link_options(${target} PRIVATE --profiling-funcs)
     endif()
 endfunction()
 
