@@ -649,6 +649,10 @@ class WebMscoreW {
         return this.rpc('warmupPlayback')
     }
 
+    memoryInfo() {
+        return this.rpc('memoryInfo')
+    }
+
     playbackDiagnostics() {
         return this.rpc('playbackDiagnostics')
     }

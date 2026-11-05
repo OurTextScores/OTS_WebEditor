@@ -1,6 +1,5 @@
 import { defineCommand, type AnyCommand } from '../../../lib/commands/types';
-import { getPartsSnapshot } from './partsStore';
-import { getPartsSnapshot as snapshot, setPartsSnapshot } from './partsStore';
+import { getPartsSnapshot, getPartsSnapshot as snapshot, setPartsSnapshot } from './partsStore';
 import {
   createPart,
   duplicatePart,
@@ -11,7 +10,7 @@ import {
   resetPart,
   show,
   type PartsInputs,
-} from './useScoreParts';
+} from './partActions';
 
 /**
  * The parts commands (roadmap E18): `view.part.show` (argument: -1 for the full score, else the part's index),

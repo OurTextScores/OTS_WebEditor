@@ -3,7 +3,8 @@ import { buildShellOwnCommands, buildStatusBarCommands } from '../shell/shellCom
 import { buildContextMenuCommands } from './contextMenuCommands';
 import { buildNotationMarkCommands } from './notationMarkCommands';
 import { buildEditorCommands } from './editorCommands';
-import { buildPartCommands } from './parts';
+// Not the parts barrel: it exports the parts hook, and the server-rendered Help page reads this catalog.
+import { buildPartCommands } from './parts/partCommands';
 import { buildShellEditorCommands } from './shellCommands';
 
 /**

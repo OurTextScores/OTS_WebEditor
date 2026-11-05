@@ -364,6 +364,8 @@ export interface Score extends ScoreDialogMethods {
     | null;
   warmupPlayback?: () => Promise<boolean>;
   playbackDiagnostics?: () => Promise<PlaybackDiagnostics | null>;
+  /** The engine's WASM heap; it only grows, so this is also its peak (roadmap E05). */
+  memoryInfo?: () => Promise<{ wasmHeapBytes: number }>;
   setPlaybackReuse?: (enabled: boolean) => Promise<boolean>;
   playbackCapabilities?: () => Promise<PlaybackCapabilities | null>;
   playbackTimeline?: () => Promise<PlaybackTimeline | null> | PlaybackTimeline | null;

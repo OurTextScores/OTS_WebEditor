@@ -1252,6 +1252,14 @@ class WebMscore {
         return !!Module.ccall('warmupPlayback', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
     }
 
+    /**
+     * The engine's memory (roadmap E05): the WASM heap only grows, so this is also its peak.
+     * @returns {Promise<{ wasmHeapBytes: number }>}
+     */
+    async memoryInfo() {
+        return { wasmHeapBytes: Module.HEAPU8.byteLength }
+    }
+
     /** @returns {Promise<import('../schemas').PlaybackDiagnostics | null>} Local diagnostics without score content. */
     async playbackDiagnostics() {
         if (typeof Module._playbackDiagnostics !== 'function') return null

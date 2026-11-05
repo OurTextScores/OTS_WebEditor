@@ -77,7 +77,8 @@
     "measurePositions": "JSON.parse over the native savePositions(false) result; no native export of its own.",
     "segmentPositions": "JSON.parse over the native savePositions(true) result; no native export of its own.",
     "titleFilenameSafe": "Sanitizes the native title() result in JS; no native export of its own.",
-    "setSoundFont": "Per-score method delegating to the module-level WebMscore.setSoundFont; the native export is module-level, not score-level."
+    "setSoundFont": "Per-score method delegating to the module-level WebMscore.setSoundFont; the native export is module-level, not score-level.",
+    "memoryInfo": "Reads Module.HEAPU8.byteLength in the worker (the WASM heap size, roadmap E05 measurements); no native call."
   },
   "typescriptOnlyMembers": {},
   "_typescriptOnlyMembersReason": "Members of the Score interface that intentionally have no bridge implementation. Should normally be empty: a declared method with no worker proxy is exactly the silent failure TD-05 exists to catch.",
