@@ -9,19 +9,21 @@ if (process.env.CI && process.env.NEXT_DIST_DIR) {
   const crypto = require('node:crypto');
   const root = path.resolve(process.env.NEXT_DIST_DIR) + path.sep;
   const fontManifest = path.join(root, 'dev', 'server', 'next-font-manifest.json');
+  const appDir = path.join(root, 'dev', 'server', 'app') + path.sep;
+  const isClientManifest = file => file.startsWith(appDir) && /_client-reference-manifest\.js$/.test(file);
   const readFileSync = fs.readFileSync;
   const writeFile = fs.writeFile;
   const parse = JSON.parse;
   let latest = null;
   let writeSequence = 0;
 
-  // Webpack emits this asset with fs.writeFile, which truncates the target
+  // Webpack emits these assets with fs.writeFile, which truncates the target
   // before writing. Keep the last complete manifest visible until the new one
   // is fully written, then replace it atomically on the same filesystem.
   fs.writeFile = function (file, data, ...rest) {
     const callback = rest.at(-1);
     const resolved = typeof file === 'string' ? path.resolve(file) : '';
-    if (resolved !== fontManifest || typeof callback !== 'function') {
+    if ((resolved !== fontManifest && !isClientManifest(resolved)) || typeof callback !== 'function') {
       return writeFile.call(this, file, data, ...rest);
     }
     const temp = `${resolved}.atomic-${process.pid}-${writeSequence++}`;
@@ -41,6 +43,12 @@ if (process.env.CI && process.env.NEXT_DIST_DIR) {
     const file = args[0];
     if (typeof file === 'string') {
       const resolved = path.resolve(file);
+      if (isClientManifest(resolved) && result.length === 0 &&
+          /next[\\/]dist[\\/]server[\\/]load-manifest\.external\.js/.test(new Error().stack || '')) {
+        console.error('[playwright-manifest-diagnostic]', JSON.stringify({
+          event: 'next_client_manifest_empty', path: resolved, bytesRead: 0, pid: process.pid,
+        }));
+      }
       if (resolved.startsWith(root) && /manifest[^/\\]*\.json$/i.test(path.basename(resolved))) {
         const text = typeof result === 'string' ? result : Buffer.isBuffer(result) ? result.toString('utf8') : null;
         latest = text === null ? null : { path: resolved, text };
