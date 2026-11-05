@@ -24,8 +24,9 @@ export default defineConfig({
     'music-api-smoke.spec.ts',
   ],
   workers: 1,
-  // `line` prints each failure with its error as it happens, not only after the whole run.
-  reporter: process.env.CI ? 'dot' : 'line',
+  // Name each CI test as it starts and finishes, including its duration. This
+  // identifies the active test if a long shard reaches the job limit.
+  reporter: process.env.CI ? [['dot'], ['./scripts/playwright-progress-reporter.ts']] : 'line',
   timeout: (SLOW_FIREFOX ? 5 : 2) * 60 * 1000,
   expect: {
     timeout: (SLOW_FIREFOX ? 60 : 10) * 1000,
