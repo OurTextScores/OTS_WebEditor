@@ -1,5 +1,6 @@
 import { expect, test, type Page } from './helpers/diagnostic-test';
 import type { BrowserScoreWindow } from './browser-score-types';
+import { waitForScoreViewStable } from './helpers/score-view';
 import { runCommand } from './helpers/commands';
 
 /**
@@ -40,6 +41,7 @@ const menu = (page: Page) => page.getByTestId('score-context-menu');
 async function open(page: Page) {
   await page.goto(SCORE);
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
+  await waitForScoreViewStable(page);
   await expect.poll(() => readPitches(page), { timeout: 20_000 }).toEqual(['F4', 'A4', 'C5', 'E5']);
 }
 

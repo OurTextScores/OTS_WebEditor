@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { expect, test, type Page } from './helpers/diagnostic-test';
 import type { BrowserScoreWindow } from './browser-score-types';
+import { waitForScoreViewStable } from './helpers/score-view';
 import { runCommand, runCommandAnsweringPrompt } from './helpers/commands';
 
 /**
@@ -32,6 +33,7 @@ const noteCount = async (page: Page) => ((await readXml(page)).match(/<note[ >]/
 async function open(page: Page) {
   await page.goto(SCORE);
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
+  await waitForScoreViewStable(page);
 }
 
 async function centre(page: Page, selector: string, index = 0) {
