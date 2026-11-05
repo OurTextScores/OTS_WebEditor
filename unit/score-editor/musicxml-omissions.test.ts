@@ -29,7 +29,7 @@ describe('what the MusicXML leaves out (roadmap E23)', () => {
   it('tells the AI about Style always, and lists what an applied edit resets', () => {
     const plain = omissionsPromptSection([]);
     expect(plain).toMatch(
-      /Style settings .* and system locks .* are not in the MusicXML\. They are kept/,
+      /Style settings .*, system locks .* and parts .* are not in the MusicXML\. They are kept/,
     );
     expect(plain).not.toMatch(/applied edit resets/);
     const section = omissionsPromptSection(findMusicXmlOmissions(MSCX));

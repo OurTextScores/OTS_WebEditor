@@ -169,6 +169,8 @@ export interface ScoreDialogMethods {
   removeExcerpt?: (index: number) => Promise<boolean>;
   duplicateExcerpt?: (index: number) => Promise<number>;
   resetExcerpt?: (index: number) => Promise<boolean>;
+  /** Puts back parts as part of loading, no undo step (slice 5); returns how many were added. */
+  restoreExcerpts?: (parts: { name: string; parts: number[] }[]) => Promise<number>;
   /** Makes one part per instrument when the score has none. */
   generateExcerpts?: () => Promise<void>;
   /** MEI export through MuseScore's MEI exporter (roadmap E25). */

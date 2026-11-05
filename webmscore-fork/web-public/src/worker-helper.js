@@ -203,6 +203,10 @@ class WebMscoreW {
         return this.rpc('renameExcerpt', [index, name])
     }
 
+    restoreExcerpts(parts) {
+        return this.rpc('restoreExcerpts', [parts])
+    }
+
     removeExcerpt(index) {
         return this.rpc('removeExcerpt', [index])
     }

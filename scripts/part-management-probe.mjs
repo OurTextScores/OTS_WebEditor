@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Managing parts (roadmap E18, slice 4), through the Node build: on public/test_scores/two_staves_four_bars.musicxml
 // (Violin and Cello) with parts made from the instruments, a part of both instruments created, renamed (an empty or
-// taken name refused), duplicated, reset (dropping its own style) and deleted, each one undoable edit. One JSON line.
+// taken name refused), duplicated, reset (dropping its own style) and deleted, each one undoable edit; then parts put
+// back on a fresh load (restoreExcerpts), with no undo step. One JSON line.
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -59,6 +60,19 @@ report.afterRemove = await names();
 // Undo the removal: the part comes back.
 await score.undo();
 report.afterUndo = await names();
+
+// Parts put back as part of loading (slice 5), on a fresh load: no undo step; a part with no instrument here skipped.
+const reloaded = await WebMscore.load(
+  'musicxml',
+  fs.readFileSync(path.join(root, 'public/test_scores/two_staves_four_bars.musicxml')),
+);
+report.restored = await reloaded.restoreExcerpts([
+  { name: 'Cello', parts: [1] },
+  { name: 'Gone', parts: [7] },
+  { name: 'Duo', parts: [1, 0, 1] },
+]);
+report.afterRestore = await reloaded.listExcerpts();
+report.restoreUndoSize = (await reloaded.getUndoInfo()).size;
 
 console.log = log;
 console.log(JSON.stringify(report));

@@ -64,4 +64,13 @@ describe.skipIf(!fs.existsSync(nodeBuild))('managing parts in the engine', () =>
     expect(report.afterRemove).toEqual(['Violin', 'Cello', 'Strings duo']);
     expect(report.afterUndo).toEqual(['Violin', 'Violin (copy)', 'Cello', 'Strings duo']);
   });
+
+  it('puts parts back as part of loading, with no undo step, skipping one with no instrument on the score', () => {
+    expect(report.restored).toBe(2);
+    expect(report.afterRestore).toEqual([
+      { name: 'Cello', instruments: ['Cello'], partIndices: [1] },
+      { name: 'Duo', instruments: ['Violin', 'Cello'], partIndices: [0, 1] },
+    ]);
+    expect(report.restoreUndoSize).toBe(0);
+  });
 });

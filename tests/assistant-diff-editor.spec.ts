@@ -394,6 +394,66 @@ test.describe('Assistant diff editor flow', () => {
     expect(await styleValues()).toEqual(STYLE);
   });
 
+  test("applying a proposal keeps the score's parts, each with its own style (roadmap E18)", async ({
+    page,
+  }) => {
+    // MusicXML has no parts: the editor makes them again on the reloaded score, from the same instruments.
+    await page.route('**/api/music/patch', fulfillPatchFromRequestBase);
+    type PartsScore = {
+      getStyleValues?: (keys: string[]) => Promise<Record<string, unknown>>;
+      setStyleValues?: (values: Record<string, unknown>) => Promise<boolean>;
+    };
+    const staffDistance = () =>
+      page.evaluate(async () => {
+        const score = (window as typeof window & { __webmscore?: PartsScore }).__webmscore;
+        return (await score?.getStyleValues?.(['staffDistance']))?.staffDistance ?? null;
+      });
+    const select = page.getByTestId('part-select');
+
+    await page.goto('/?score=/test_scores/two_staves_four_bars.musicxml'); // Violin and Cello
+    await page.waitForSelector('svg .Note', { timeout: 60_000 });
+    await select.selectOption('generate');
+    await expect(select).toHaveValue('0');
+    // The Cello part's own style.
+    await select.selectOption('1');
+    await expect(select).toHaveValue('1');
+    await page.evaluate(async () => {
+      const score = (window as typeof window & { __webmscore?: PartsScore }).__webmscore;
+      await score?.setStyleValues?.({ staffDistance: 9 });
+    });
+    expect(await staffDistance()).toBe(9);
+    await select.selectOption('-1');
+    await expect(select).toHaveValue('-1');
+
+    await runCommand(page, 'ai.open.assistant');
+    await page.getByPlaceholder('Enter model name').fill('gpt-test-model');
+    await page.getByPlaceholder('Paste your key').fill('test-key');
+    await page
+      .getByPlaceholder('Describe the change you want in the MusicXML.')
+      .fill('Change the first note to G.');
+    await page.getByRole('button', { name: 'Generate Patch' }).click();
+    await waitForDiffReviewReady(page);
+    await page.getByRole('button', { name: 'Apply All AI Changes' }).click();
+
+    await expect
+      .poll(async () => readLiveXml(page), { timeout: 20_000 })
+      .toContain('<step>G</step>');
+    await expect(select.locator('option')).toHaveText([
+      'Full score',
+      'Violin',
+      'Cello',
+      'Manage parts…',
+    ]);
+    await expect(select).toHaveValue('-1');
+    await select.selectOption('1');
+    await expect(select).toHaveValue('1');
+    await expect.poll(staffDistance).toBe(9);
+    // Each part has its own style back: the Violin part's is not the Cello part's.
+    await select.selectOption('0');
+    await expect(select).toHaveValue('0');
+    await expect.poll(staffDistance).not.toBe(9);
+  });
+
   test("the AI is told what the MusicXML omits, and a score's system locks are kept across an applied edit (roadmap E23)", async ({
     page,
   }) => {
@@ -438,7 +498,7 @@ test.describe('Assistant diff editor flow', () => {
     await waitForDiffReviewReady(page);
     expect(promptText).toContain('Not in the MusicXML');
     expect(promptText).toMatch(
-      /Style settings .* and system locks .* are not in the MusicXML\. They are kept/,
+      /Style settings .*, system locks .* and parts .* are not in the MusicXML\. They are kept/,
     );
 
     await page.getByRole('button', { name: 'Apply All AI Changes' }).click();

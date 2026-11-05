@@ -407,6 +407,20 @@ class WebMscore {
         }
     }
 
+    /**
+     * Puts back parts as part of loading, with no undo step (slice 5): [{name, parts: [indices into the score's parts]}].
+     * @returns {Promise<number>} how many were added
+     */
+    async restoreExcerpts(parts) {
+        if (!Module._restoreExcerpts) return 0
+        const strptr = getStrPtr(JSON.stringify(parts || []))
+        try {
+            return Module.ccall('restoreExcerpts', 'number', ['number', 'number'], [this.scoreptr, strptr])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
     /** Deletes a part (its score only). */
     async removeExcerpt(index) {
         if (!Module._removeExcerpt) return false

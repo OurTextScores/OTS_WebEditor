@@ -10,6 +10,8 @@ import { type Omission, omissionsLossNotice, readMusicXmlOmissions } from './mus
  *   setting would go back to MuseScore's defaults. Not carried when the edit changed <defaults>: then the new layout is
  *   the point of the edit.
  * - system locks, mapped onto the new score's measures (the edit may add, remove or change measures).
+ * - parts (roadmap E18), mapped onto the new score's instruments by name, each with its own style. Their part-only
+ *   layout breaks and unlinked changes are not kept.
  * What still cannot be carried is reported to the user (omissions, and locks whose measures the edit removed).
  */
 
@@ -50,8 +52,14 @@ export async function restoreCarriedStyle(score: Score, style: Uint8Array): Prom
 /** A system lock as measure positions (getSystemLockState's form). */
 export type LockRange = { startMeasure: number; endMeasure: number };
 
+/** A part to put back: its name, its instruments on the new score, and its own style. */
+export type CarriedPart = { name: string; parts: number[]; style: Uint8Array | null };
+
 export type ReloadCarry = {
   style: Uint8Array | null;
+  parts?: CarriedPart[];
+  /** Parts none of whose instruments is in the new score. */
+  droppedParts?: string[];
   systemLocks: LockRange[];
   /** Locks whose measures the edit removed. */
   droppedLocks: LockRange[];
@@ -105,6 +113,67 @@ export function mapSystemLocks(locks: LockRange[], map: (position: number) => nu
 
 type Serialized = <T>(operation: () => Promise<T>, label: string) => Promise<T>;
 
+/** The instruments of a MusicXML document, in order (its <part-name>s). */
+export function musicXmlInstrumentNames(xml: string): string[] {
+  return [
+    ...xml.matchAll(/<score-part\b[^>]*>[\s\S]*?<part-name\b[^>]*>([\s\S]*?)<\/part-name>/g),
+  ].map((m) => m[1].trim());
+}
+
+/**
+ * Where each of the live score's instruments is among the new score's, by name: the same position when the name is
+ * still there, else the first unused one with that name, else nowhere (null).
+ */
+export function instrumentMap(current: string[], next: string[]): (index: number) => number | null {
+  const used = new Set<number>();
+  const map = current.map((name, index) => {
+    if (next[index] === name && !used.has(index)) {
+      used.add(index);
+      return index;
+    }
+    return null;
+  });
+  current.forEach((name, index) => {
+    if (map[index] !== null) return;
+    const found = next.findIndex((candidate, at) => candidate === name && !used.has(at));
+    if (found >= 0) {
+      used.add(found);
+      map[index] = found;
+    }
+  });
+  return (index) => map[index] ?? null;
+}
+
+/** The live score's parts, for re-creating on the reloaded score (`nextXml`): mapped instruments and own style. */
+async function captureParts(score: Score, currentXml: string, nextXml: string, run: Serialized) {
+  if (!score.listExcerpts || !score.setExcerptId || !score.restoreExcerpts)
+    return { parts: [], droppedParts: [] };
+  const excerpts = await run(() => score.listExcerpts!(), 'listExcerpts');
+  if (!excerpts.length) return { parts: [], droppedParts: [] };
+  const map = instrumentMap(musicXmlInstrumentNames(currentXml), musicXmlInstrumentNames(nextXml));
+  const styles = await run(async () => {
+    const saved: (Uint8Array | null)[] = [];
+    try {
+      for (let index = 0; index < excerpts.length; index++) {
+        await score.setExcerptId!(index);
+        saved.push(score.saveStyle ? await score.saveStyle() : null);
+      }
+    } finally {
+      await score.setExcerptId!(-1);
+    }
+    return saved;
+  }, 'saveStyle(parts)');
+  const parts: CarriedPart[] = [];
+  const droppedParts: string[] = [];
+  excerpts.forEach((excerpt, index) => {
+    const mapped = (excerpt.partIndices ?? []).map(map).filter((at): at is number => at !== null);
+    if (mapped.length)
+      parts.push({ name: excerpt.name, parts: mapped, style: styles[index] ?? null });
+    else droppedParts.push(excerpt.name);
+  });
+  return { parts, droppedParts };
+}
+
 /** Everything to carry across re-importing `nextXml` in place of the live score (whose MusicXML is `currentXml`). */
 export async function captureForReload(
   score: Score,
@@ -122,15 +191,30 @@ export async function captureForReload(
   const { kept, dropped } = locks.length
     ? mapSystemLocks(locks, measurePositionMap(currentXml, nextXml))
     : { kept: [], dropped: [] };
+  let carriedParts: { parts: CarriedPart[]; droppedParts: string[] } = {
+    parts: [],
+    droppedParts: [],
+  };
+  try {
+    carriedParts = await captureParts(
+      score,
+      currentXml,
+      nextXml,
+      run ?? ((operation) => operation()),
+    );
+  } catch (error) {
+    console.warn('Could not read the parts to carry across the reload', error);
+  }
   return {
     style,
     systemLocks: kept,
     droppedLocks: dropped,
+    ...carriedParts,
     omissions: await readMusicXmlOmissions(score, run),
   };
 }
 
-/** Puts the carried style and system locks on the reloaded score, before it is first laid out for display. */
+/** Puts the carried style, system locks and parts on the reloaded score, before it is first laid out for display. */
 export async function restoreForReload(score: Score, carry: ReloadCarry): Promise<void> {
   if (carry.style) await restoreCarriedStyle(score, carry.style);
   if (carry.systemLocks.length && score.restoreSystemLocks) {
@@ -138,6 +222,25 @@ export async function restoreForReload(score: Score, carry: ReloadCarry): Promis
       await score.restoreSystemLocks(carry.systemLocks);
     } catch (error) {
       console.warn('Could not restore the carried system locks', error);
+    }
+  }
+  if (carry.parts?.length && score.restoreExcerpts && score.setExcerptId) {
+    try {
+      // Only when every part came back are the indices the carried ones, for their styles.
+      if (
+        (await score.restoreExcerpts(carry.parts.map(({ name, parts }) => ({ name, parts })))) ===
+        carry.parts.length
+      ) {
+        for (const [index, part] of carry.parts.entries()) {
+          if (!part.style) continue;
+          await score.setExcerptId(index);
+          await restoreCarriedStyle(score, part.style);
+        }
+      }
+    } catch (error) {
+      console.warn('Could not restore the carried parts', error);
+    } finally {
+      await score.setExcerptId(-1);
     }
   }
 }
@@ -148,5 +251,9 @@ export function reloadLossNotice(carry: ReloadCarry): string | null {
   const dropped = carry.droppedLocks.length
     ? `${carry.droppedLocks.length} system lock${carry.droppedLocks.length === 1 ? ' was' : 's were'} removed with the measures the edit deleted.`
     : null;
-  return [omitted, dropped].filter(Boolean).join(' ') || null;
+  const names = carry.droppedParts ?? [];
+  const parts = names.length
+    ? `The edited score has none of the instruments of the part${names.length === 1 ? '' : 's'} ${names.map((name) => `“${name}”`).join(', ')}, so ${names.length === 1 ? 'it was' : 'they were'} removed.`
+    : null;
+  return [omitted, dropped, parts].filter(Boolean).join(' ') || null;
 }

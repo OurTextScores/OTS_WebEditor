@@ -103,8 +103,12 @@ test('the whole-score tools return to the full score before reading it', async (
 test('exports the shown part, named for it, and all parts as one ZIP of PDFs', async ({ page }) => {
   test.setTimeout(180_000);
   const select = page.getByTestId('part-select');
+  const fullScoreStaves = await staffLines(page);
   await select.selectOption('generate');
   await select.selectOption('1'); // Cello
+  await expect(select).toHaveValue('1');
+  // Counted once the part is drawn: one instrument, so fewer staves than the full score.
+  await expect.poll(() => staffLines(page)).toBeLessThan(fullScoreStaves);
   const partStaves = await staffLines(page);
 
   const pdfDownload = page.waitForEvent('download');

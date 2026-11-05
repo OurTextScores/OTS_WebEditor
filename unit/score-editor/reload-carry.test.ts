@@ -3,9 +3,11 @@ import type { Score } from '../../lib/webmscore-loader';
 import {
   captureForReload,
   captureStyleForReload,
+  instrumentMap,
   mapSystemLocks,
   measurePositionMap,
   musicXmlDefaults,
+  musicXmlInstrumentNames,
   reloadLossNotice,
   restoreCarriedStyle,
   restoreForReload,
@@ -131,6 +133,8 @@ describe('style carried across a MusicXML re-import (roadmap E23)', () => {
         style,
         systemLocks: [{ startMeasure: 1, endMeasure: 1 }],
         droppedLocks: [{ startMeasure: 1, endMeasure: 1 }],
+        parts: [],
+        droppedParts: [],
         omissions: [],
       });
       await restoreForReload(score, carry);
@@ -140,6 +144,106 @@ describe('style carried across a MusicXML re-import (roadmap E23)', () => {
         '1 system lock was removed with the measures the edit deleted.',
       );
       expect(reloadLossNotice({ ...carry, droppedLocks: [] })).toBeNull();
+    });
+  });
+
+  describe('parts (roadmap E18)', () => {
+    const partList = (...names: string[]) =>
+      `<?xml version="1.0"?><score-partwise><part-list>${names
+        .map((name, i) => `<score-part id="P${i + 1}"><part-name>${name}</part-name></score-part>`)
+        .join('')}</part-list></score-partwise>`;
+
+    it("reads the instruments' names and maps them by name: in place, else the first unused match, else nowhere", () => {
+      expect(musicXmlInstrumentNames(partList('Violin', 'Cello'))).toEqual(['Violin', 'Cello']);
+      // A Viola inserted before the Cello; the Flute removed; two Violins keep their order.
+      const map = instrumentMap(
+        ['Violin', 'Violin', 'Flute', 'Cello'],
+        ['Violin', 'Violin', 'Viola', 'Cello'],
+      );
+      expect([0, 1, 2, 3].map(map)).toEqual([0, 1, null, 3]);
+      const moved = instrumentMap(['Flute', 'Cello'], ['Cello', 'Oboe', 'Flute']);
+      expect([0, 1].map(moved)).toEqual([2, 0]);
+    });
+
+    it('captures each part with its own style, re-creates them, and reports a part with no instrument left', async () => {
+      const styles = [new Uint8Array([10]), new Uint8Array([11]), new Uint8Array([12])];
+      let shown = -1;
+      const score = {
+        saveStyle: vi.fn(async () => (shown < 0 ? style : styles[shown])),
+        listExcerpts: vi.fn(async () => [
+          { name: 'Flute', instruments: ['Flute'], partIndices: [0] },
+          { name: 'Cello', instruments: ['Cello'], partIndices: [1] },
+          { name: 'Duo', instruments: ['Flute', 'Cello'], partIndices: [0, 1] },
+        ]),
+        setExcerptId: vi.fn(async (id: number) => {
+          shown = id;
+        }),
+        restoreExcerpts: vi.fn(async (parts: unknown[]) => parts.length),
+        restoreStyle: vi.fn(async () => true),
+      } as unknown as Score;
+      // The edit drops the Flute and adds an Oboe before the Cello.
+      const carry = await captureForReload(
+        score,
+        partList('Flute', 'Cello'),
+        partList('Oboe', 'Cello'),
+      );
+      expect(carry.parts).toEqual([
+        { name: 'Cello', parts: [1], style: styles[1] },
+        { name: 'Duo', parts: [1], style: styles[2] },
+      ]);
+      expect(carry.droppedParts).toEqual(['Flute']);
+      expect(shown).toBe(-1);
+
+      vi.mocked(score.restoreStyle!).mockClear();
+      await restoreForReload(score, carry);
+      expect(score.restoreExcerpts).toHaveBeenCalledWith([
+        { name: 'Cello', parts: [1] },
+        { name: 'Duo', parts: [1] },
+      ]);
+      // The full score's style, then each part's, with that part shown; the full score shown after.
+      expect(vi.mocked(score.restoreStyle!).mock.calls.map(([data]) => data)).toEqual([
+        style,
+        styles[1],
+        styles[2],
+      ]);
+      expect(
+        vi
+          .mocked(score.setExcerptId!)
+          .mock.calls.slice(-3)
+          .map(([id]) => id),
+      ).toEqual([0, 1, -1]);
+      expect(reloadLossNotice(carry)).toBe(
+        'The edited score has none of the instruments of the part “Flute”, so it was removed.',
+      );
+    });
+
+    it('puts no part styles back when not every part came back, and leaves a score without parts alone', async () => {
+      const score = {
+        setExcerptId: vi.fn(async () => {}),
+        restoreExcerpts: vi.fn(async () => 1),
+        restoreStyle: vi.fn(async () => true),
+      } as unknown as Score;
+      await restoreForReload(score, {
+        style: null,
+        systemLocks: [],
+        droppedLocks: [],
+        parts: [
+          { name: 'A', parts: [0], style },
+          { name: 'B', parts: [1], style },
+        ],
+        omissions: [],
+      });
+      expect(score.restoreStyle).not.toHaveBeenCalled();
+      expect(score.setExcerptId).toHaveBeenLastCalledWith(-1);
+
+      const plain = {
+        listExcerpts: vi.fn(async () => []),
+        setExcerptId: vi.fn(),
+        restoreExcerpts: vi.fn(),
+      };
+      const carry = await captureForReload(plain as unknown as Score, partList('A'), partList('A'));
+      expect(carry.parts).toEqual([]);
+      expect(plain.setExcerptId).not.toHaveBeenCalled();
     });
   });
 });

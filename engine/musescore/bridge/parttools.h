@@ -217,6 +217,47 @@ EMSCRIPTEN_KEEPALIVE bool resetExcerpt(uintptr_t score_ptr, int index)
     return true;
 }
 
+// Parts put back as part of loading the score, not as edits (roadmap E18, slice 5: an applied MusicXML edit reloads
+// the score, and MusicXML has no parts). `json` is [{"name", "parts": [indices into the score's parts]}]; a part with no
+// instrument on this score is skipped. No undo step, as generateExcerpts. Returns how many were added.
+EMSCRIPTEN_KEEPALIVE int restoreExcerpts(uintptr_t score_ptr, const char* json)
+{
+    auto* score = getScore(score_ptr);
+    if (!score || !json) return 0;
+    MasterScore* master = score->masterScore();
+    const JsonDocument doc = JsonDocument::fromJson(ByteArray(json));
+    if (!doc.isArray()) return 0;
+    const JsonArray list = doc.rootArray();
+    int added = 0;
+    for (size_t i = 0; i < list.size(); ++i) {
+        const JsonObject item = list.at(i).toObject();
+        const JsonArray indices = item.value("parts").toArray();
+        std::vector<Part*> parts;
+        for (size_t k = 0; k < indices.size(); ++k) {
+            const int index = indices.at(k).toInt();
+            if (index < 0 || index >= int(master->parts().size())) continue;
+            Part* part = master->parts()[index];
+            if (std::find(parts.begin(), parts.end(), part) == parts.end()) parts.push_back(part);
+        }
+        if (parts.empty()) continue;
+        std::sort(parts.begin(), parts.end(), [master](const Part* a, const Part* b) {
+            return muse::indexOf(master->parts(), a) < muse::indexOf(master->parts(), b);
+        });
+        String name = item.value("name").toString().trimmed();
+        if (name.isEmpty()) name = u"Part";
+        auto* excerpt = new engraving::Excerpt(master);
+        excerpt->setParts(parts);
+        excerpt->setName(engraving::formatUniqueExcerptName(name, excerptLowerNames(master)));
+        master->initAndAddExcerpt(excerpt, true);
+        ++added;
+    }
+    if (added) {
+        master->setExcerptsChanged(false);
+        layoutAllLinked(master);
+    }
+    return added;
+}
+
 // Generate excerpts from the parts if the score has none (4.00 semantics). Uses the same fake-undo initialisation
 // the 4.00 bridge did by hand: MasterScore::initAndAddExcerpt(excerpt, true).
 EMSCRIPTEN_KEEPALIVE void generateExcerpts(uintptr_t score_ptr)
