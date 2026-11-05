@@ -161,8 +161,14 @@ test('a left-click on a hairpin, then Delete, deletes the hairpin, not the note 
   await runCommand(page, 'add.line.hairpin', 0);
   await page.waitForSelector('svg .HairpinSegment', { timeout: 20_000 });
 
+  const currentNote = await centre(page, 'svg .Note', 0);
+  await page.mouse.click(currentNote.x, currentNote.y);
+  // Selection is asynchronous and re-renders the SVG. Wait for the note before
+  // measuring the hairpin again and sending the next click.
+  await expect.poll(async () => (await selectionReport(page)).selection)
+    .toEqual({ kind: 'single', type: 'Note' });
+  await expect(page.locator('svg .Note.selected').first()).toBeVisible();
   const hairpin = await centre(page, 'svg .HairpinSegment');
-  await page.mouse.click(note.x, note.y);
   await page.mouse.click(hairpin.x, hairpin.y);
   // The click selects the hairpin in the engine (it is selected as its spanner).
   await expect
