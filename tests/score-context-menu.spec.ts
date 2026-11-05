@@ -56,10 +56,16 @@ async function noteCentre(page: Page, index: number) {
 /** Empty staff space in bar `n` (0-based, 0..2): between its note and the next bar's. */
 async function barSpace(page: Page, bar: number) {
   const notes = page.locator('svg .Note');
-  const a = await notes.nth(bar).boundingBox();
-  const b = await notes.nth(bar + 1).boundingBox();
-  if (!a || !b) throw new Error('notes have no boxes');
-  return { x: (a.x + a.width + b.x) / 2, y: a.y + a.height / 2 };
+  let point: { x: number; y: number } | undefined;
+  // Edits replace the SVG asynchronously, so the notes may briefly have no boxes.
+  await expect.poll(async () => {
+    const a = await notes.nth(bar).boundingBox();
+    const b = await notes.nth(bar + 1).boundingBox();
+    if (!a || !b) return false;
+    point = { x: (a.x + a.width + b.x) / 2, y: a.y + a.height / 2 };
+    return true;
+  }, { timeout: 20_000 }).toBe(true);
+  return point!;
 }
 
 /** Blank paper well below the score's only system, still on screen: no element, no bar. */
