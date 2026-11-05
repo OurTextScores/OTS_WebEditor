@@ -119,6 +119,15 @@ test('Add Fretboard Diagram on a chord symbol puts it on a diagram of its chord'
 
 test('a frame’s Add ▸ Composer adds composer text to that frame', async ({ page }) => {
   await open(page, '/?score=/test_scores/credits_small_staff.musicxml');
+  // The first SVG can appear before fit-width runs. Wait for that scheduled zoom and
+  // its CSS transition before reading coordinates for the native frame hit-test.
+  await expect(page.getByText('Loading score...')).toBeHidden();
+  await page.evaluate(() => new Promise<void>((resolve) =>
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+  ));
+  const wrapper = await page.getByTestId('score-wrapper').elementHandle();
+  if (!wrapper) throw new Error('score wrapper not found');
+  await wrapper.waitForElementState('stable', { timeout: 20_000 });
   // Blank frame space level with the centred subtitle (the tallest text), at the staff's left
   // edge. The frame itself is not drawn in the SVG; the engine finds it from its layout.
   const texts = await page.locator('svg .Text').evaluateAll((nodes) =>
@@ -129,6 +138,7 @@ test('a frame’s Add ▸ Composer adds composer text to that frame', async ({ p
   const subtitle = texts.reduce((tallest, text) => (text.h > tallest.h ? text : tallest));
   await rightClick(page, { x: staff.x + 5, y: subtitle.y });
 
+  await expect(page.getByTestId('context-sub-add')).toBeVisible({ timeout: 10_000 });
   await page.getByTestId('context-sub-add').click();
   const run = page.getByTestId('context-item-add.frameText-composer').click();
   const input = page.getByTestId('prompt-dialog-input');
