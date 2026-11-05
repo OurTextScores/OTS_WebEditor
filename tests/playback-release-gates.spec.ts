@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 
 // Release escape hatches (design §18 Phase 9) are build-time, so this spec needs its own server:
 //   NEXT_PUBLIC_OTS_PLAYBACK_CURSOR=measure NEXT_PUBLIC_OTS_PLAYBACK_AUTOFOLLOW=0 PLAYWRIGHT_PORT=3014 \

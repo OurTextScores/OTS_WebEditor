@@ -1,4 +1,4 @@
-import { expect, test } from 'playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 import { runCommand } from './helpers/commands';
 
 const SCORE = '/?score=/test_scores/three_notes_cde.musicxml';

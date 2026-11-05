@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 import type { Score } from '../lib/webmscore-loader';
 
 test('worker returns a read-only note snapshot without changing selection or score', async ({ page }) => {

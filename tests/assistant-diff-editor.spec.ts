@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import { expect, test, type Page, type Route } from '@playwright/test';
+import { expect, test, type Page, type Route } from './helpers/diagnostic-test';
 import { AI_EDIT_EFFORT_PROFILES, type AiEditEffort } from '../lib/ai-edit-effort';
 import { computeMusicXmlIdentityHashServer } from '../lib/musicxml-identity-server';
 import { runCommand } from './helpers/commands';

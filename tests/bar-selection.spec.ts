@@ -1,5 +1,5 @@
 import { runCommand } from './helpers/commands';
-import { expect, test, type Page } from 'playwright/test';
+import { expect, test, type Page } from './helpers/diagnostic-test';
 
 /**
  * The first staff's box. The engine draws each staff line as its own zero-height polyline,

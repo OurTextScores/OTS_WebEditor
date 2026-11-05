@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 import { runCommand } from './helpers/commands';
 
 // Each compare panel shows a different Score instance (one live, one

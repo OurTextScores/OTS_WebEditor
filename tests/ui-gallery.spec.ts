@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 
 test('the UI gallery renders every primitive on the design tokens', async ({ page }) => {
   await page.goto('/dev/ui');

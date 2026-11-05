@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 import { runCommand } from './helpers/commands';
 
 test('loads two local score files into the compare workspace', async ({ page }) => {

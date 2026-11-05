@@ -1,4 +1,4 @@
-import { expect, test, type Page } from 'playwright/test';
+import { expect, test, type Page } from './helpers/diagnostic-test';
 import { runCommand } from './helpers/commands';
 
 const zoomLabel = (page: Page) => page.getByTestId('zoom-preset-trigger').innerText();

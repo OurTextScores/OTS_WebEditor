@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 import type { Score } from '../lib/webmscore-loader';
 
 test('worker applies transient tempo/repeat options to audio, timeline, positions and conversion', async ({

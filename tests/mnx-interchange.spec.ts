@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import { expect, test } from 'playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 import { runCommand } from './helpers/commands';
 
 // MNX interchange (roadmap E29): an .mnx file opens in the editor through MuseScore's MNX importer, and File ▸ Export ▸

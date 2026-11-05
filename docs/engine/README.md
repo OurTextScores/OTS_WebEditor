@@ -496,3 +496,10 @@ not a timeout: a slow request keeps running. The elapsed time is end-to-end, inc
 the worker's queue; it does not identify which native function is executing. Worker errors, message
 decoding failures, and deliberate worker termination reject outstanding requests and record their outcome.
 Browser termination or navigation can prevent a final record from being written.
+
+Playwright browser specs use `tests/helpers/diagnostic-test` so an unexpected failure attaches
+`worker-rpc-diagnostics` as JSON alongside its trace and keeps a uniquely named copy in
+`test-results/rpc-diagnostics/`, even if test output names collide. The attachment captures the failed test's
+open context and frames before teardown, with per-frame collection bounded to two seconds. It may
+be incomplete if a page has closed, navigated away, or stopped responding. New browser specs must
+import `test` from the shared fixture; CI checks this convention.

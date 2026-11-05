@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 import type { Score } from '../lib/webmscore-loader';
 
 const scoreState = async (page: import('@playwright/test').Page) => page.evaluate(async () => {

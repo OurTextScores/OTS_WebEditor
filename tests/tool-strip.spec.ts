@@ -1,4 +1,4 @@
-import { expect, test, type Page } from 'playwright/test';
+import { expect, test, type Page } from './helpers/diagnostic-test';
 import { waitForCommand, waitForCommandEnabled } from './helpers/commands';
 
 /** Counts calls to an engine method on the live score, so a click can be tied to what the engine was asked to do. */

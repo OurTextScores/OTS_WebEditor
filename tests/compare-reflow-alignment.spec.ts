@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 
 /**
  * Compare reflow must keep the two panes row-aligned.

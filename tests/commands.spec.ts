@@ -1,4 +1,4 @@
-import { expect, test } from 'playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 import { resolveCommandReference, runCommand } from './helpers/commands';
 
 type ScoreWindow = typeof window & {

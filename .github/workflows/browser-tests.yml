@@ -72,6 +72,8 @@ jobs:
         run: |
           mkdir -p public/soundfonts
           curl -fsSL --retry 3 -o public/soundfonts/default.sf3 https://cdn.ourtextscores.com/soundfonts/default.sf3
+      - name: Check diagnostics fixture coverage
+        run: node scripts/check-playwright-diagnostics.mjs
       - name: Playwright (shard ${{ matrix.shard }}/4)
         run: npx playwright test --shard=${{ matrix.shard }}/4
         env:

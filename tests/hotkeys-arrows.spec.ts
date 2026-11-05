@@ -1,4 +1,4 @@
-import { expect, test } from 'playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 
 // Firefox's Playwright build uses a slower WASM interpreter for the score engine.
 const ENGINE_TIMEOUT = process.env.PLAYWRIGHT_BROWSER === 'firefox' ? 60_000 : 20_000;

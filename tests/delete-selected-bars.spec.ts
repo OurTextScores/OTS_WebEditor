@@ -1,4 +1,4 @@
-import { expect, test } from 'playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 import type { BrowserScoreWindow } from './browser-score-types';
 import { runCommand, waitForCommandEnabled } from './helpers/commands';
 

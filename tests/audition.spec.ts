@@ -1,4 +1,4 @@
-import { expect, test, Page } from '@playwright/test';
+import { expect, test, Page } from './helpers/diagnostic-test';
 import { runCommand } from './helpers/commands';
 
 const SCORE_URL = '/?score=/test_scores/single_note_c4.musicxml';

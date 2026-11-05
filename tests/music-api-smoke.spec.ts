@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { type APIRequestContext, expect, test } from '@playwright/test';
+import { type APIRequestContext, expect, test } from './helpers/diagnostic-test';
 
 const SCALE_XML = readFileSync(
   resolve(__dirname, '../unit/fixtures/c-major-scale.musicxml'),

@@ -1,4 +1,4 @@
-import { expect, test } from 'playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 import { waitForCommand } from './helpers/commands';
 import { openMenuPath } from './helpers/commands';
 

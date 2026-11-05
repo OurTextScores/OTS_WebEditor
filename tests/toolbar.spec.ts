@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/diagnostic-test';
 import { runCommand, waitForCommandEnabled } from './helpers/commands';
 
 type ToolbarScoreWindow = typeof window & {

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from 'playwright/test';
+import { expect, test, type Page } from './helpers/diagnostic-test';
 import { runCommandAnsweringPrompt } from './helpers/commands';
 
 /**

@@ -1,4 +1,4 @@
-import { expect, test } from 'playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 
 test('falls back to the in-process engine when worker initialization fails', async ({ page }) => {
   await page.addInitScript(() => {

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 const HAS_OPENAI_KEY = Boolean(OPENAI_API_KEY);
