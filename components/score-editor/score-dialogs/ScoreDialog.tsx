@@ -6,6 +6,7 @@ import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react
 import { Button } from '../../ui/Button';
 import { IconButton } from '../../ui/IconButton';
 import { Dialog, DialogContent } from '../../ui/Dialog';
+import { getPartsSnapshot, subscribeToParts } from '../parts';
 import {
   DIALOG_SPECS,
   type DialogEngine,
@@ -216,6 +217,26 @@ function Field({
   );
 }
 
+/**
+ * Which score a layout dialog changes (roadmap E18): each part has its own style and page settings, so the Style and
+ * Page Settings dialogs say whether they apply to the part shown or to the full score.
+ */
+function LayoutScope() {
+  const { parts, current } = useSyncExternalStore(
+    subscribeToParts,
+    getPartsSnapshot,
+    getPartsSnapshot,
+  );
+  if (!parts.length) return null;
+  return (
+    <p className="mt-1 text-xs font-medium text-slate-600" data-testid="score-dialog-scope">
+      {current >= 0
+        ? `Applies to the ${parts[current]?.name ?? ''} part only.`
+        : 'Applies to the full score; each part has its own.'}
+    </p>
+  );
+}
+
 function DialogBody({
   open,
   engine,
@@ -273,6 +294,7 @@ function DialogBody({
       >
         {spec.description ?? `Edit ${spec.title}.`}
       </DialogPrimitive.Description>
+      {open.kind === 'style' || open.kind === 'pageSettings' ? <LayoutScope /> : null}
       <div className="mt-3 flex gap-3">
         {pages.length ? (
           <nav

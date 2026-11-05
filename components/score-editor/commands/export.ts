@@ -1,6 +1,6 @@
 import { notifyError } from '../../shell/notices';
 import { downloadBlob } from '../download-blob';
-import { exportFileName } from '../parts';
+import { exportFileName, withFullScore } from '../parts';
 import type { EditorCore } from '../core';
 
 export async function exportSvg(core: EditorCore) {
@@ -76,15 +76,18 @@ export async function exportMnx(core: EditorCore) {
   }
 }
 
+/** The project file: the full score with its parts, also from a part view (roadmap E18). */
 export async function exportMscz(core: EditorCore) {
-  const { score } = core;
+  const { score, runSerializedScoreOperation } = core;
   if (!score || !score.saveMsc) {
     notifyError('MSCZ export is not available in this build.');
     return;
   }
   try {
-    const mscz = await score.saveMsc('mscz');
-    downloadBlob(mscz, exportFileName('mscz'), 'application/vnd.musescore.mscz');
+    const mscz = await withFullScore(score, runSerializedScoreOperation, () =>
+      score.saveMsc!('mscz'),
+    );
+    downloadBlob(mscz, 'score.mscz', 'application/vnd.musescore.mscz');
   } catch (err) {
     console.error('Failed to export MSCZ', err);
     notifyError('Unable to export MSCZ. See console for details.');
@@ -92,14 +95,16 @@ export async function exportMscz(core: EditorCore) {
 }
 
 export async function exportMscx(core: EditorCore) {
-  const { score } = core;
+  const { score, runSerializedScoreOperation } = core;
   if (!score || !score.saveMsc) {
     notifyError('MSCX export is not available in this build.');
     return;
   }
   try {
-    const mscx = await score.saveMsc('mscx');
-    downloadBlob(mscx, exportFileName('mscx'), 'application/xml');
+    const mscx = await withFullScore(score, runSerializedScoreOperation, () =>
+      score.saveMsc!('mscx'),
+    );
+    downloadBlob(mscx, 'score.mscx', 'application/xml');
   } catch (err) {
     console.error('Failed to export MSCX', err);
     notifyError('Unable to export MSCX. See console for details.');

@@ -49,8 +49,11 @@ test('an edit in a part reaches the full score', async ({ page }) => {
   await select.selectOption('generate');
   await select.selectOption('1'); // Cello
   await expect(page.locator('svg .Dynamic')).toHaveCount(0);
+  await expect(select).toHaveValue('1');
+  await expect.poll(async () => (await staffLines(page)) > 0).toBe(true);
   const note = await centre(page, 'svg .Note', 1);
   await page.mouse.click(note.x, note.y);
+  await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
   await runCommand(page, 'add.mark.dynamic', 9);
   await expect(page.locator('svg .Dynamic')).toHaveCount(1, { timeout: 20_000 });
 
@@ -118,6 +121,79 @@ test('exports the shown part, named for it, and all parts as one ZIP of PDFs', a
     expect(execFileSync('unzip', ['-p', file, name]).subarray(0, 5).toString()).toBe('%PDF-');
   }
   // The view is still the Cello part.
+  await expect(select).toHaveValue('1');
+  expect(await staffLines(page)).toBe(partStaves);
+});
+
+test("a part's elements offer score and part synchronization; the full score's do not", async ({
+  page,
+}) => {
+  const select = page.getByTestId('part-select');
+  await select.selectOption('generate');
+  await select.selectOption('1'); // Cello
+  await expect(select).toHaveValue('1');
+  await expect.poll(async () => (await staffLines(page)) > 0).toBe(true);
+  const note = await centre(page, 'svg .Note', 1);
+  await page.mouse.click(note.x, note.y);
+  await page.getByTestId('selection-overlay').waitFor({ timeout: 10_000 });
+  await runCommand(page, 'add.mark.dynamic', 9);
+  await expect(page.locator('svg .Dynamic')).toHaveCount(1, { timeout: 20_000 });
+  const dynamic = await centre(page, 'svg .Dynamic');
+  await page.mouse.click(dynamic.x, dynamic.y);
+  await runCommand(page, 'view.panel.properties');
+
+  const sync = page.getByTestId('part-sync-properties');
+  await expect(sync).toContainText('Score and part synchronization');
+  const appearance = page.getByTestId('notation-appearanceLinkedToMaster');
+  await expect(appearance).toBeChecked();
+  await expect(page.getByTestId('notation-positionLinkedToMaster')).toBeChecked();
+  // Unlink it from the score, then synchronize it again.
+  // (A controlled checkbox: it shows the engine's value once the edit has run.)
+  await appearance.click();
+  await expect(appearance).not.toBeChecked();
+  await appearance.click();
+  await expect(appearance).toBeChecked();
+
+  const partStaves = await staffLines(page);
+  await select.selectOption('-1');
+  await expect.poll(() => staffLines(page)).toBeGreaterThan(partStaves);
+  const scoreDynamic = await centre(page, 'svg .Dynamic');
+  await page.mouse.click(scoreDynamic.x, scoreDynamic.y);
+  // The dynamic's own properties have loaded; the synchronization section is not among them.
+  await expect(page.getByTestId('notation-properties')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('part-sync-properties')).toHaveCount(0);
+});
+
+test('the Style dialog says which score it changes', async ({ page }) => {
+  const select = page.getByTestId('part-select');
+  await select.selectOption('generate');
+  await select.selectOption('1');
+  await runCommand(page, 'format.style');
+  await expect(page.getByTestId('score-dialog-scope')).toHaveText(
+    'Applies to the Cello part only.',
+  );
+  await page.keyboard.press('Escape');
+  await select.selectOption('-1');
+  await runCommand(page, 'format.style');
+  await expect(page.getByTestId('score-dialog-scope')).toHaveText(
+    'Applies to the full score; each part has its own.',
+  );
+});
+
+test('MuseScore export from a part view saves the whole project, parts included, and keeps the view', async ({
+  page,
+}) => {
+  const select = page.getByTestId('part-select');
+  await select.selectOption('generate');
+  await select.selectOption('1');
+  const partStaves = await staffLines(page);
+  const download = page.waitForEvent('download');
+  await runCommand(page, 'file.export.mscz');
+  const file = await download;
+  expect(file.suggestedFilename()).toBe('score.mscz');
+  const names = execFileSync('unzip', ['-Z1', (await file.path())!], { encoding: 'utf8' });
+  expect(names).toMatch(/\.mscx/);
+  expect(names).toMatch(/Excerpts\//);
   await expect(select).toHaveValue('1');
   expect(await staffLines(page)).toBe(partStaves);
 });

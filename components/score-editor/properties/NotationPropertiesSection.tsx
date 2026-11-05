@@ -195,7 +195,7 @@ function PropertyGroupSection({
 
 /**
  * The Properties panel's notation sections: the selection's own properties (ornament, dynamic, hairpin…), then its
- * text properties, each resettable to its style.
+ * text properties, each resettable to its style, then score and part synchronization (roadmap E18).
  */
 export function NotationPropertiesSection({
   model,
@@ -220,6 +220,14 @@ export function NotationPropertiesSection({
           model={model}
           disabled={disabled}
           testId="text-properties"
+        />
+      ) : null}
+      {model.sync ? (
+        <PropertyGroupSection
+          group={model.sync}
+          model={model}
+          disabled={disabled}
+          testId="part-sync-properties"
         />
       ) : null}
     </>

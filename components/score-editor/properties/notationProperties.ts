@@ -355,6 +355,39 @@ export const TEXT_PROPERTIES: {
 };
 export const TEXT_PROPERTY_NAMES = TEXT_PROPERTIES.properties.map((p) => p.name);
 
+/**
+ * MuseScore's "Score and part synchronization" (roadmap E18). In a part: whether the element follows the main score's
+ * position, style and appearance, and text (changing one in the part unlinks it; ticking it again takes the score's),
+ * and whether it is left out of the score. In the full score: whether it is left out of the parts. The engine reports
+ * each only where MuseScore's inspector offers it.
+ */
+export const PART_SYNC_PROPERTIES: {
+  readonly title: string;
+  readonly properties: readonly NotationPropertyDescriptor[];
+} = {
+  title: 'Score and part synchronization',
+  properties: [
+    { name: 'positionLinkedToMaster', label: 'Sync position with score', kind: 'boolean' },
+    {
+      name: 'appearanceLinkedToMaster',
+      label: 'Sync style/appearance with score',
+      kind: 'boolean',
+    },
+    { name: 'textLinkedToMaster', label: 'Sync text with score', kind: 'boolean' },
+    { name: 'excludeFromParts', label: 'Exclude from score', kind: 'boolean' },
+  ],
+};
+
+export const SCORE_SYNC_PROPERTIES: {
+  readonly title: string;
+  readonly properties: readonly NotationPropertyDescriptor[];
+} = {
+  title: 'Score and part synchronization',
+  properties: [{ name: 'excludeFromParts', label: 'Exclude from parts', kind: 'boolean' }],
+};
+
+export const SYNC_PROPERTY_NAMES = PART_SYNC_PROPERTIES.properties.map((p) => p.name);
+
 /** FontStyle's flags, in MuseScore's button order. */
 export const FONT_STYLE_FLAGS = [
   { bit: 1, label: 'Bold', short: 'B' },

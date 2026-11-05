@@ -397,11 +397,30 @@ static std::vector<engraving::Pid> pidsNamed(const String& name)
     return pids;
 }
 
+// Score and part synchronization (roadmap E18): every element answers these, but MuseScore's inspector
+// (PartsSettingsModel::requestElements) offers them only where they mean something: the links to the main score on an
+// element of a part (not a layout break or a fretboard diagram frame), the text link on text there, and "exclude"
+// where the element can be excluded from the other parts.
+static bool partSyncPropertyApplies(const engraving::EngravingItem* target, engraving::Pid pid)
+{
+    switch (pid) {
+    case engraving::Pid::POSITION_LINKED_TO_MASTER:
+    case engraving::Pid::APPEARANCE_LINKED_TO_MASTER:
+        return !target->score()->isMaster() && !target->isLayoutBreak() && !target->isFBox();
+    case engraving::Pid::TEXT_LINKED_TO_MASTER:
+        return !target->score()->isMaster() && target->isTextBase();
+    case engraving::Pid::EXCLUDE_FROM_OTHER_PARTS:
+        return target->canBeExcludedFromOtherParts();
+    default:
+        return true;
+    }
+}
+
 // The property of that name this element has, or Pid::END.
 static engraving::Pid elementPidNamed(const engraving::EngravingItem* target, const std::vector<engraving::Pid>& pids)
 {
     for (auto pid : pids) {
-        if (target->getProperty(pid).isValid()) return pid;
+        if (target->getProperty(pid).isValid() && partSyncPropertyApplies(target, pid)) return pid;
     }
     return engraving::Pid::END;
 }

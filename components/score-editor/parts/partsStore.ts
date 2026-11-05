@@ -51,3 +51,26 @@ export async function ensureFullScore(
   await run(() => Promise.resolve(score.setExcerptId!(-1)), 'setExcerptId(full score)');
   setPartsSnapshot({ current: -1 });
 }
+
+/**
+ * Runs `operation` on the full score and points the engine back at the part shown, in one serialized operation, so
+ * nothing is drawn in between and the view stays as it is. For what only exists for the whole project: the engine
+ * refuses to save a part as MSCZ/MSCX, which is the project file with all its parts anyway.
+ */
+export async function withFullScore<T>(
+  score: Score,
+  run: Serialized,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const { current } = snapshot;
+  if (snapshot.score !== score || current === -1 || !score.setExcerptId)
+    return run(operation, 'full score');
+  return run(async () => {
+    await score.setExcerptId!(-1);
+    try {
+      return await operation();
+    } finally {
+      await score.setExcerptId!(current);
+    }
+  }, 'full score');
+}

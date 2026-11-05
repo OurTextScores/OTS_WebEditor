@@ -1,8 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import type { ElementPropertyState } from '../../../lib/webmscore-loader';
 import type { EditorCore } from '../core';
+import { getPartsSnapshot, subscribeToParts } from '../parts';
 import {
   NOTATION_PROPERTIES,
+  PART_SYNC_PROPERTIES,
+  SCORE_SYNC_PROPERTIES,
+  SYNC_PROPERTY_NAMES,
   TEXT_PROPERTIES,
   TEXT_PROPERTY_NAMES,
   notationPropertyNames,
@@ -25,9 +29,20 @@ export function useNotationProperties(
     values: Record<string, ElementPropertyState>;
   }>({ key: '', values: {} });
   const [reload, setReload] = useState(0);
-  // Text properties are asked of every selection: the engine reports only what the selected elements have.
+  // Text and part synchronization properties are asked of every selection: the engine reports only what the selected
+  // elements have. Which score is shown (a part or the full score) is part of the key: the answers differ.
+  const showingPart = useSyncExternalStore(
+    subscribeToParts,
+    () => getPartsSnapshot().current !== -1,
+    () => false,
+  );
   const namesKey = elementType
-    ? [...notationPropertyNames(elementType), ...TEXT_PROPERTY_NAMES].join(',')
+    ? [
+        ...notationPropertyNames(elementType),
+        ...TEXT_PROPERTY_NAMES,
+        ...SYNC_PROPERTY_NAMES,
+        showingPart ? 'part' : 'score',
+      ].join(',')
     : '';
   // The score's text styles, for the Text style choice: read once per score.
   const [textStyles, setTextStyles] = useState<{ value: string; label: string }[]>([]);
@@ -51,7 +66,7 @@ export function useNotationProperties(
     const read = score?.getElementPropertyValues;
     if (!score || !read || !namesKey) return;
     void runSerializedScoreOperation(
-      () => read.call(score, namesKey.split(',')),
+      () => read.call(score, namesKey.split(',').slice(0, -1)),
       'read notation properties',
     ).then(
       (result) => !cancelled && setLoaded({ key: namesKey, values: result ?? {} }),
@@ -81,6 +96,7 @@ export function useNotationProperties(
   return {
     group,
     text: TEXT_PROPERTIES,
+    sync: showingPart ? PART_SYNC_PROPERTIES : SCORE_SYNC_PROPERTIES,
     textStyles,
     values,
     set,
@@ -98,6 +114,8 @@ export interface NotationPropertiesModel {
   group: PropertyGroup | undefined;
   /** Text properties, shown for whatever the selection has. */
   text?: PropertyGroup;
+  /** Score and part synchronization (roadmap E18): the part's links to the score, or exclusion from the parts. */
+  sync?: PropertyGroup;
   /** The Text style choice's options: the score's text styles. */
   textStyles?: readonly { value: string; label: string }[];
   values: Record<string, ElementPropertyState>;

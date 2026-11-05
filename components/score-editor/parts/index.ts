@@ -6,6 +6,7 @@ export {
   subscribeToParts,
   type PartsSnapshot,
   type ScorePart,
+  withFullScore,
 } from './partsStore';
 export { allPartsPdfArchive } from './exportAllParts';
 export { exportFileName, safeFileStem } from './partFileName';

@@ -305,7 +305,7 @@ import { parsePartsFromMetadata } from './score-editor/part-metadata';
 import { downloadBlob } from './score-editor/download-blob';
 import { notifyImportWarnings } from './score-editor/import-warnings';
 import { captureForReload, reloadLossNotice, restoreForReload } from './score-editor/reload-carry';
-import { ensureFullScore, exportFileName, useScoreParts } from './score-editor/parts';
+import { ensureFullScore, exportFileName, useScoreParts, withFullScore } from './score-editor/parts';
 import { checkpointRestoreFile, nativeCheckpointFields } from './score-editor/checkpoint-native';
 import { readMusicXmlOmissions } from './score-editor/musicxml-omissions';
 import { isEditableTarget } from './score-editor/editable-target';
@@ -7530,8 +7530,8 @@ export default function ScoreEditor() {
       return;
     }
     try {
-      const mscz = await score.saveMsc('mscz');
-      downloadBlob(mscz, exportFileName('mscz'), 'application/vnd.musescore.mscz');
+      const mscz = await withFullScore(score, runSerializedScoreOperation, () => score.saveMsc!('mscz'));
+      downloadBlob(mscz, 'score.mscz', 'application/vnd.musescore.mscz');
       setGoogleDriveExportDialogOpen(true);
     } catch (err) {
       console.error('Failed to export score for Google Drive', err);
