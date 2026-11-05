@@ -7210,8 +7210,6 @@ export default function ScoreEditor() {
     const { label, value, setValue, apply } = config[target];
     const promptScore = score;
     if (!promptScore) return;
-    // Background metadata loading can finish after the score becomes interactive.
-    // Read the engine directly so an early prompt never opens with stale header text.
     const initialValue = await headerTextForPrompt(
       target,
       value,

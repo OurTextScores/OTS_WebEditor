@@ -1,6 +1,6 @@
 import type { HeaderTextTarget } from './editorProps';
 
-/** Read the current engine metadata before opening a header prompt. */
+/** Background metadata can arrive after the score becomes interactive; do not prompt from stale state. */
 export async function headerTextForPrompt(
   target: HeaderTextTarget,
   fallback: string,
