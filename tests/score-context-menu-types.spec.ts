@@ -1,5 +1,6 @@
 import { expect, test, type Page } from './helpers/diagnostic-test';
 import type { BrowserScoreWindow } from './browser-score-types';
+import { waitForScoreViewStable } from './helpers/score-view';
 import { runCommand, runCommandAnsweringPrompt } from './helpers/commands';
 
 /**
@@ -24,6 +25,7 @@ const readPitches = async (page: Page): Promise<string[]> =>
 async function open(page: Page, url = FOUR_MEASURES) {
   await page.goto(url);
   await page.waitForSelector('svg .Note', { timeout: 60_000 });
+  await waitForScoreViewStable(page);
 }
 
 async function centre(page: Page, selector: string, index = 0) {
@@ -119,15 +121,6 @@ test('Add Fretboard Diagram on a chord symbol puts it on a diagram of its chord'
 
 test('a frame’s Add ▸ Composer adds composer text to that frame', async ({ page }) => {
   await open(page, '/?score=/test_scores/credits_small_staff.musicxml');
-  // The first SVG can appear before fit-width runs. Wait for that scheduled zoom and
-  // its CSS transition before reading coordinates for the native frame hit-test.
-  await expect(page.getByText('Loading score...')).toBeHidden();
-  await page.evaluate(() => new Promise<void>((resolve) =>
-    requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-  ));
-  const wrapper = await page.getByTestId('score-wrapper').elementHandle();
-  if (!wrapper) throw new Error('score wrapper not found');
-  await wrapper.waitForElementState('stable', { timeout: 20_000 });
   // Blank frame space level with the centred subtitle (the tallest text), at the staff's left
   // edge. The frame itself is not drawn in the SVG; the engine finds it from its layout.
   const texts = await page.locator('svg .Text').evaluateAll((nodes) =>
