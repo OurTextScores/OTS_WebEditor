@@ -36,6 +36,7 @@ import { ScoreContextMenu, useScoreContextMenu } from './score-editor/context-me
 import { NotationPropertiesSection, useNotationProperties } from './score-editor/properties';
 import { ScoreDialog, dialogEngineFor, openScoreDialog } from './score-editor/score-dialogs';
 import type { MeasureInsertTarget, HeaderTextTarget } from './score-editor/editorProps';
+import { headerTextForPrompt } from './score-editor/header-text-metadata';
 import { noPerf, startPerf, type PerfHandle } from '../lib/perf-trace';
 import { svgScreenMapping } from '../lib/svg-screen-matrix';
 import { confirmDialog, notifyError, notifyWarning, promptDialog } from './shell/notices';
@@ -7223,7 +7224,18 @@ export default function ScoreEditor() {
       },
     };
     const { label, value, setValue, apply } = config[target];
-    const text = await promptForText(label, value);
+    const promptScore = score;
+    if (!promptScore) return;
+    // Background metadata loading can finish after the score becomes interactive.
+    // Read the engine directly so an early prompt never opens with stale header text.
+    const initialValue = await headerTextForPrompt(
+      target,
+      value,
+      () => runSerializedScoreOperation(() => promptScore.metadata(), 'metadata(header-prompt)'),
+      (error) => console.warn('Failed to read score header metadata', error),
+    );
+    if (scoreRef.current !== promptScore) return;
+    const text = await promptForText(label, initialValue);
     if (text === null) {
       return;
     }
