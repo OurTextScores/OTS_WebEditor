@@ -1,4 +1,4 @@
-import { expect, test, type Page } from 'playwright/test';
+import { expect, test, type Page } from './helpers/diagnostic-test';
 
 // At small fit-zoom a staff space shrinks below the 4px drag threshold; use a large
 // viewport so the drag gesture distances are comfortably above it.

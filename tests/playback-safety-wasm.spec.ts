@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 import type { Score, SynthAudioBatchChunk } from '../lib/webmscore-loader';
 import { testSoundfont } from '../tools/musescore/soundfont-fixture.mjs';
 

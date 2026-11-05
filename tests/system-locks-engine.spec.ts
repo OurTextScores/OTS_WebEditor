@@ -1,4 +1,4 @@
-import { expect, test } from 'playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 import { runCommand } from './helpers/commands';
 
 // System locks end to end: the Properties UI (main) against the native 4.7 commands (engine-ms47-spike). Skipped on

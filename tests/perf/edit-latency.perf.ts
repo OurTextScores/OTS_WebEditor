@@ -1,6 +1,6 @@
 import { mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { expect, test, type Page } from 'playwright/test';
+import { expect, test, type Page } from '../helpers/diagnostic-test';
 
 /**
  * How long an edit takes on a long score, from the key (or pointer) to the first paint of the

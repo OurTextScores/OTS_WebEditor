@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { ALL_FORMATS, BufferSource, Input } from 'mediabunny';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './helpers/diagnostic-test';
 
 // Encoding needs WebCodecs (secure contexts only, so check on the app's page, not about:blank). Playwright's Linux WebKit build has none (real Safari does); there the app explains that it
 // cannot encode, which the last test checks.

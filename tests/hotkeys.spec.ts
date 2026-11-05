@@ -1,4 +1,4 @@
-import { expect, test } from 'playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 
 type HotkeyScoreWindow = typeof window & {
   __webmscore?: {

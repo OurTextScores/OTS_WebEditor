@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 
 const shouldIgnoreConsoleError = (text: string) =>
   text.includes('/api/analytics/events') ||

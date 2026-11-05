@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 
 /**
  * Alignment-driven compare highlighting: checkpoint compare and AI review.

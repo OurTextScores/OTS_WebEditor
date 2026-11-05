@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 
 /**
  * `setMeasureSpacer` — vertical padding below one staff of one measure.

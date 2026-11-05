@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/diagnostic-test';
 
 test('clicking empty space in a measure selects the measure', async ({ page }) => {
   await page.goto('/?score=/test_scores/three_notes_cde.musicxml');

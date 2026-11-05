@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
-import { expect, test, type Page } from 'playwright/test';
+import { expect, test, type Page } from './helpers/diagnostic-test';
 import { runCommand } from './helpers/commands';
 
 // Parts (roadmap E18, slice 1): the status bar shows the full score or one part; parts are made from the instruments

@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import { expect, test } from 'playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 import { runCommand } from './helpers/commands';
 
 // MEI interchange (roadmap E25): an .mei file opens in the editor through MuseScore's MEI importer, and File ▸ Export ▸

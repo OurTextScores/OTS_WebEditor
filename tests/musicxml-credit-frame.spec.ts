@@ -1,4 +1,4 @@
-import { expect, test } from 'playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 
 /**
  * A MusicXML file places its credits (title, composer, lyricist) by position, and the importer

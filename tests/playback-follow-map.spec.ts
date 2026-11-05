@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 import type { Score } from '../lib/webmscore-loader';
 
 type Probe = typeof window & { __webmscore: Score; __calls?: Record<string, number> };

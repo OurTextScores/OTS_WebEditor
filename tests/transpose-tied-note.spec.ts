@@ -1,5 +1,5 @@
 import { SCORE_OPERATION_TIMEOUT } from './helpers/score-timeouts';
-import { expect, test, type Page } from 'playwright/test';
+import { expect, test, type Page } from './helpers/diagnostic-test';
 import type { BrowserScoreWindow } from './browser-score-types';
 
 // Changing a tied note's octave moves the whole tie chain, as Up/Down do (it used to move only the clicked note)

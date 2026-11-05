@@ -1,5 +1,5 @@
 import { SCORE_OPERATION_TIMEOUT } from './helpers/score-timeouts';
-import { expect, test, type Page } from 'playwright/test';
+import { expect, test, type Page } from './helpers/diagnostic-test';
 import { runCommand } from './helpers/commands';
 
 /** Turning note input on waits for the selection, then several engine calls: slow engines need more than 10 s. */

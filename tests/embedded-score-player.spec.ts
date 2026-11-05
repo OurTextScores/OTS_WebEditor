@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 
 test.describe('embedded score player', () => {
   test('loads a score with a native playback timeline', async ({ page }) => {

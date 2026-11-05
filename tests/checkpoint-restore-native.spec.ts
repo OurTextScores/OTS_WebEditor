@@ -1,4 +1,4 @@
-import { expect, test, type Page } from 'playwright/test';
+import { expect, test, type Page } from './helpers/diagnostic-test';
 import { runCommand } from './helpers/commands';
 
 // Roadmap E23: a checkpoint keeps the score natively (MSCZ) as well as in MusicXML, and a restore loads the MSCZ, so

@@ -1,4 +1,4 @@
-import { expect, test } from 'playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 
 /**
  * The engine's note-level positions (`segmentPositions`) used to trap with "function signature mismatch" on most real

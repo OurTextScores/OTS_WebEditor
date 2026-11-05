@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 
 test('two player frames isolate commands, reject other sources, resize and dispose independently', async ({
   page,

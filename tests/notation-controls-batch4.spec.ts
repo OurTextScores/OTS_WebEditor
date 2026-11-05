@@ -1,4 +1,4 @@
-import { expect, test, type Page } from 'playwright/test';
+import { expect, test, type Page } from './helpers/diagnostic-test';
 import { runCommand } from './helpers/commands';
 
 test.use({ viewport: { width: 2400, height: 1600 } });

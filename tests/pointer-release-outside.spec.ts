@@ -1,4 +1,4 @@
-import { expect, test } from 'playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 
 /**
  * SECURITY_CORRECTNESS_FINDINGS L5: a drag-select released where the pointer cannot be

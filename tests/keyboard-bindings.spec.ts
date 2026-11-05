@@ -1,5 +1,5 @@
 import { runCommand } from './helpers/commands';
-import { expect, test, type Page } from 'playwright/test';
+import { expect, test, type Page } from './helpers/diagnostic-test';
 
 // The Playwright Firefox build runs the score engine without its optimizing WASM compiler.
 const ENGINE_TIMEOUT =

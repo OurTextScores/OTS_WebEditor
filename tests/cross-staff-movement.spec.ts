@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 import type { Score } from '../lib/webmscore-loader';
 
 test('worker moves a cross-staff note with undo and MusicXML export', async ({ page }) => {

@@ -1,5 +1,5 @@
 import { SCORE_OPERATION_TIMEOUT } from './helpers/score-timeouts';
-import { expect, test } from 'playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 import { runCommand } from './helpers/commands';
 
 type NoteEntryWindow = typeof window & {

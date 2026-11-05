@@ -1,4 +1,4 @@
-import { expect, test } from 'playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 
 // The help page's shortcut list is generated from the binding table (W2), so it names what the
 // keys really do.

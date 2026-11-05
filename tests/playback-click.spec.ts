@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 
 /** The engine's beat times, and the player's metronome and count-in on top of them. */
 test('the playback timeline carries beats, with repeats, a pickup and a tempo change in them', async ({

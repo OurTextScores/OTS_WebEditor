@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { expect, test, type Page } from 'playwright/test';
+import { expect, test, type Page } from './helpers/diagnostic-test';
 import type { BrowserScoreWindow } from './browser-score-types';
 import { runCommand, runCommandAnsweringPrompt } from './helpers/commands';
 

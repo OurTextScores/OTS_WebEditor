@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './helpers/diagnostic-test';
 import type { BrowserScoreWindow } from './browser-score-types';
 
 test('native timeline expands pickup, repeats, endings, and tempo changes', async ({ page }) => {
