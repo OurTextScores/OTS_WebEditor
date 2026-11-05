@@ -1,6 +1,6 @@
 import { expect, test } from './helpers/diagnostic-test';
 import type { BrowserScoreWindow } from './browser-score-types';
-import { runCommandAnsweringPrompt } from './helpers/commands';
+import { runCommandAnsweringPrompt, waitForCommandEnabled } from './helpers/commands';
 
 /**
  * The input/button pair this suite used to drive (input-title, input-subtitle,
@@ -19,6 +19,46 @@ test('the subtitle prompt is pre-filled from metadata', async ({ page }) => {
   // Cancelling leaves the score alone; what matters is what the prompt offered.
   const prefilled = await runCommandAnsweringPrompt(page, 'btn-text-subtitle', null);
   expect(prefilled).toContain('Bach: Cello Suite');
+});
+
+test('subtitle prompt waits for delayed score metadata', async ({ page }) => {
+  await page.addInitScript(() => {
+    const send = Worker.prototype.postMessage;
+    const state = window as unknown as {
+      __metadataHeld?: boolean;
+      __releaseMetadata?: () => void;
+    };
+    Worker.prototype.postMessage = function (message: unknown, transfer?: Transferable[] | StructuredSerializeOptions) {
+      const args = transfer === undefined ? [message] : [message, transfer];
+      const request = message as { method?: string } | null;
+      if (!state.__metadataHeld && request?.method === 'metadata') {
+        state.__metadataHeld = true;
+        state.__releaseMetadata = () => { Reflect.apply(send, this, args); };
+        return;
+      }
+      return Reflect.apply(send, this, args);
+    };
+  });
+  await page.goto('/?score=/test_scores/credits_small_staff.musicxml');
+  await page.waitForSelector('svg .Note', { timeout: 60_000 });
+  await page.waitForFunction(() => (window as unknown as { __metadataHeld?: boolean }).__metadataHeld, null, { timeout: 30_000 });
+  await waitForCommandEnabled(page, 'btn-text-subtitle', { timeout: 30_000 });
+  await page.evaluate(() => {
+    const state = window as unknown as {
+      __otsCommands: { run: (id: string) => Promise<string> };
+      __headerCommandStarted?: boolean;
+      __headerCommandResult?: string;
+    };
+    state.__headerCommandStarted = true;
+    void state.__otsCommands.run('add.text.subtitle').then((result) => { state.__headerCommandResult = result; });
+  });
+  // The command has started, but its first metadata response is held back.
+  await page.waitForTimeout(300);
+  await expect(page.getByTestId('prompt-dialog-input')).toHaveCount(0);
+  await page.evaluate(() => (window as unknown as { __releaseMetadata: () => void }).__releaseMetadata());
+  await expect(page.getByTestId('prompt-dialog-input')).toHaveValue('A small staff size', { timeout: 30_000 });
+  await page.getByTestId('prompt-dialog').getByRole('button', { name: 'Cancel' }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __headerCommandResult?: string }).__headerCommandResult)).toBe('ran');
 });
 
 test('title and subtitle persist after save and reload', async ({ page }) => {
