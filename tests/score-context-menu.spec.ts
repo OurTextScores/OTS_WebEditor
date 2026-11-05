@@ -173,8 +173,15 @@ test('Shift+F10 opens the menu at the selection', async ({ page }) => {
 
   await page.keyboard.press('Shift+F10');
   await expect(menu(page)).toBeVisible();
-  const box = await menu(page).boundingBox();
-  expect(Math.abs((box?.x ?? 0) - note.x)).toBeLessThan(60);
+  // The score may finish its fit-width transition after the initial click. Compare
+  // the menu with the selected note's current position, not the old click point.
+  await expect.poll(async () => {
+    const [box, currentNote] = await Promise.all([
+      menu(page).boundingBox(),
+      page.locator('svg .Note').nth(2).boundingBox(),
+    ]);
+    return box && currentNote ? Math.abs(box.x - (currentNote.x + currentNote.width / 2)) : Infinity;
+  }, { timeout: 10_000 }).toBeLessThan(60);
   await expect(page.getByTestId('context-item-edit.copy')).toBeVisible();
 });
 
