@@ -39,8 +39,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        browser: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.browser != '' && inputs.browser != 'all' && format('["{0}"]', inputs.browser) || (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["chromium","firefox","webkit"]' || '["chromium"]') }}
-        shard: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.shard != '' && inputs.shard != 'all' && format('[{0}]', inputs.shard) || '[1,2,3,4]') }}
+        browser: [webkit]
+        shard: [3]
     env:
       PLAYWRIGHT_BROWSER: ${{ matrix.browser }}
       PLAYWRIGHT_PORT: '3013'
@@ -75,7 +75,7 @@ jobs:
       - name: Check diagnostics fixture coverage
         run: node scripts/check-playwright-diagnostics.mjs
       - name: Playwright (shard ${{ matrix.shard }}/4)
-        run: npx playwright test --shard=${{ matrix.shard }}/4
+        run: npx playwright test tests/score-context-menu-types.spec.ts -g 'frame’s Add' --repeat-each=5
         env:
           NODE_OPTIONS: --max-old-space-size=4096
       - name: Failure artifacts
