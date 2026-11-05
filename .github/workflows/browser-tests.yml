@@ -39,8 +39,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        browser: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.browser != '' && inputs.browser != 'all' && format('["{0}"]', inputs.browser) || (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["chromium","firefox","webkit"]' || '["chromium"]') }}
-        shard: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.shard != '' && inputs.shard != 'all' && format('[{0}]', inputs.shard) || '[1,2,3,4]') }}
+        include:
+          - { browser: webkit, shard: 1 }
+          - { browser: webkit, shard: 2 }
+          - { browser: webkit, shard: 3 }
+          - { browser: webkit, shard: 4 }
+          - { browser: firefox, shard: 3 }
     env:
       PLAYWRIGHT_BROWSER: ${{ matrix.browser }}
       PLAYWRIGHT_PORT: '3013'
