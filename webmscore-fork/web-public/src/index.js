@@ -1988,6 +1988,24 @@ class WebMscore {
      * Move selection to the previous chord
      * @returns {Promise<boolean>}
      */
+    /**
+     * Alt+Up/Down (`top`: Ctrl+Alt+Up/Down): the note above or below in the chord, or its top or bottom note.
+     * @returns {Promise<boolean>} whether the selection moved
+     */
+    async selectNoteInChord(up, top = false) {
+        if (!Module._selectNoteInChord) return false
+        return Module.ccall('selectNoteInChord', 'boolean', ['number', 'boolean', 'boolean', 'number'], [this.scoreptr, !!up, !!top, this.excerptId])
+    }
+
+    /**
+     * R: the selection again, after itself (one undoable edit).
+     * @returns {Promise<boolean>} whether it could be repeated
+     */
+    async repeatSelection() {
+        if (!Module._repeatSelection) return false
+        return Module.ccall('repeatSelection', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
+    }
+
     async selectPrevChord() {
         return Module.ccall('selectPrevChord', 'boolean', ['number', 'number'], [this.scoreptr, this.excerptId])
     }

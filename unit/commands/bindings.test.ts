@@ -96,6 +96,22 @@ describe('conflict detection', () => {
     expect(findConflicts([b('S', 'global'), b('S', 'noteInput')])).toHaveLength(1);
   });
 
+  it('allows a later fallback binding on the same key, but not an earlier one', () => {
+    expect(
+      findConflicts([
+        b('Alt+ArrowUp', 'normal'),
+        { ...b('Alt+ArrowUp', 'normal'), fallback: true },
+      ]),
+    ).toEqual([]);
+    // The fallback must come after the binding it yields to: the router tries bindings in order
+    expect(
+      findConflicts([
+        { ...b('Alt+ArrowUp', 'normal'), fallback: true },
+        b('Alt+ArrowUp', 'normal'),
+      ]),
+    ).toHaveLength(1);
+  });
+
   it('allows the same key in contexts that never coexist', () => {
     expect(findConflicts([b('S', 'normal'), b('S', 'noteInput')])).toEqual([]);
     expect(findConflicts([b('S', 'normal'), b('S', 'noteInput'), b('S', 'edit')])).toHaveLength(2);

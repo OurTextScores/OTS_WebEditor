@@ -41,6 +41,12 @@ export interface Binding {
   readonly swallow?: boolean;
   /** MuseScore's action code (`shortcuts.xml`), for the parity report. */
   readonly desktop?: string;
+  /**
+   * Shares its key with the bindings before it and takes the key only when their commands are disabled (the router
+   * tries bindings in order). Desktop's narrower shortcut context, as data: Alt+Up moves within a chord on a single
+   * note, and a measure to the previous system on a range.
+   */
+  readonly fallback?: boolean;
 }
 
 export interface KeyCombo {
@@ -203,6 +209,7 @@ export function findConflicts(bindings: readonly Binding[]): string[] {
     for (let j = i + 1; j < bindings.length; j += 1) {
       const b = bindings[j];
       if (
+        !b.fallback &&
         slotOf(parseKeys(a.keys)) === slotOf(parseKeys(b.keys)) &&
         contextsOverlap(a.context, b.context)
       ) {
@@ -343,12 +350,20 @@ export const BINDINGS: readonly Binding[] = [
   key('Alt+Shift+E', 'edit.element', 'normal', { desktop: 'edit-element' }),
   key('Mod+Delete', 'tools.measures.removeSelected', 'normal', { desktop: 'time-delete' }),
   key('Mod+Backspace', 'tools.measures.removeSelected', 'normal', { desktop: 'time-delete' }),
+  // A single note or rest: within its chord; otherwise (a range) the measure to the next or previous system
+  key('Alt+ArrowUp', 'edit.select.noteAbove', 'normal', { desktop: 'up-chord' }),
+  key('Alt+ArrowDown', 'edit.select.noteBelow', 'normal', { desktop: 'down-chord' }),
   key('Alt+ArrowUp', 'format.measure.toPrevSystem', 'normal', {
     desktop: 'move-measure-to-prev-system',
+    fallback: true,
   }),
   key('Alt+ArrowDown', 'format.measure.toNextSystem', 'normal', {
     desktop: 'move-measure-to-next-system',
+    fallback: true,
   }),
+  key('Mod+Alt+ArrowUp', 'edit.select.chordTop', 'normal', { desktop: 'top-chord' }),
+  key('Mod+Alt+ArrowDown', 'edit.select.chordBottom', 'normal', { desktop: 'bottom-chord' }),
+  key('R', 'edit.repeatSelection', 'edit', { desktop: 'repeat-sel' }),
   key('Alt+S', 'format.system.fromSelection', 'normal', { desktop: 'make-into-system' }),
   key('ArrowUp', 'edit.pitch.up', 'normal', { desktop: 'pitch-up' }),
   key('ArrowDown', 'edit.pitch.down', 'normal', { desktop: 'pitch-down' }),

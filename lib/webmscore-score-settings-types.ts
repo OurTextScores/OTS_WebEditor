@@ -169,6 +169,10 @@ export interface ScoreDialogMethods {
   removeExcerpt?: (index: number) => Promise<boolean>;
   duplicateExcerpt?: (index: number) => Promise<number>;
   resetExcerpt?: (index: number) => Promise<boolean>;
+  /** Alt+Up/Down (`top`: Ctrl+Alt+Up/Down): the note above/below in the chord, or its top/bottom note (roadmap E11). */
+  selectNoteInChord?: (up: boolean, top?: boolean) => Promise<boolean>;
+  /** R: the selection again, after itself, as one undoable edit (roadmap E11). */
+  repeatSelection?: () => Promise<boolean>;
   /** Puts back parts as part of loading, no undo step (slice 5); returns how many were added. */
   restoreExcerpts?: (parts: { name: string; parts: number[] }[]) => Promise<number>;
   /** Makes one part per instrument when the score has none. */

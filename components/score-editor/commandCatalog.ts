@@ -1,9 +1,10 @@
 import type { AnyCommand } from '../../lib/commands/types';
 import { buildShellOwnCommands, buildStatusBarCommands } from '../shell/shellCommands';
+// Not the chord-selection or parts barrels: they export hooks, and the server-rendered Help page reads this catalog.
+import { buildChordSelectionCommands } from './chord-selection/chordSelectionCommands';
 import { buildContextMenuCommands } from './contextMenuCommands';
 import { buildNotationMarkCommands } from './notationMarkCommands';
 import { buildEditorCommands } from './editorCommands';
-// Not the parts barrel: it exports the parts hook, and the server-rendered Help page reads this catalog.
 import { buildPartCommands } from './parts/partCommands';
 import { buildShellEditorCommands } from './shellCommands';
 
@@ -21,5 +22,6 @@ export function buildCommandCatalog(): AnyCommand[] {
     ...buildShellOwnCommands(),
     ...buildStatusBarCommands(),
     ...buildPartCommands(() => ({}) as never),
+    ...buildChordSelectionCommands(() => ({}) as never),
   ];
 }

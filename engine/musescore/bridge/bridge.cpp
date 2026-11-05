@@ -359,6 +359,7 @@ EMSCRIPTEN_KEEPALIVE bool redo(uintptr_t id,int excerpt) {
 
 #include "noteinput.h"
 #include "chordedits.h"
+#include "chordselection.h"
 
 #include "measuredata.h"
 #include "measurerepeats.h"

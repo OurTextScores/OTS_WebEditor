@@ -968,6 +968,14 @@ class WebMscoreW {
      * Move selection to the previous chord
      * @returns {Promise<boolean>}
      */
+    selectNoteInChord(up, top) {
+        return this.rpc('selectNoteInChord', [up, top])
+    }
+
+    repeatSelection() {
+        return this.rpc('repeatSelection')
+    }
+
     selectPrevChord() {
         return this.rpc('selectPrevChord')
     }

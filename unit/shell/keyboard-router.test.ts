@@ -54,6 +54,22 @@ afterEach(() => {
 });
 
 describe('routeKeydown', () => {
+  it('gives a key to a fallback binding only when the binding before it is disabled (Alt+Up, roadmap E11)', async () => {
+    // A single note: within its chord, as desktop's up-chord
+    const single = setup({ selection: 'single' });
+    routeKeydown(keydown('ArrowUp', { altKey: true }), single.registry);
+    await flush();
+    expect(single.spies['edit.select.noteAbove']).toHaveBeenCalled();
+    expect(single.spies['format.measure.toPrevSystem']).not.toHaveBeenCalled();
+
+    // A range: the chord command is disabled, so the measure moves to the previous system
+    const range = setup({ selection: 'range' }, { 'edit.select.noteAbove': false });
+    routeKeydown(keydown('ArrowUp', { altKey: true }), range.registry);
+    await flush();
+    expect(range.spies['edit.select.noteAbove']).not.toHaveBeenCalled();
+    expect(range.spies['format.measure.toPrevSystem']).toHaveBeenCalled();
+  });
+
   it('runs the bound command with its argument and takes the key', async () => {
     const { registry, spies } = setup();
     const event = keydown('5');

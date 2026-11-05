@@ -68,6 +68,7 @@ With a selection, or in note input. Each acts on what is selected.
 | Voice: Voice 3 | `Ctrl/Cmd+Alt+3` |
 | Voice: Voice 4 | `Ctrl/Cmd+Alt+4` |
 | Insert Measures | `Ctrl/Cmd+B` |
+| Repeat Selection | `R` |
 
 ## Selection mode
 
@@ -80,8 +81,12 @@ With a selection, or in note input. Each acts on what is selected.
 | Page Break | `Ctrl/Cmd+Enter` |
 | Edit Element | `F2` · `Alt+Shift+E` |
 | Remove Selected Measures | `Ctrl/Cmd+Delete` · `Ctrl/Cmd+Backspace` |
+| Select Note Above | `Alt+ArrowUp` |
+| Select Note Below | `Alt+ArrowDown` |
 | Move Measure to Previous System | `Alt+ArrowUp` |
 | Move Measure to Next System | `Alt+ArrowDown` |
+| Select Top Note of Chord | `Ctrl/Cmd+Alt+ArrowUp` |
+| Select Bottom Note of Chord | `Ctrl/Cmd+Alt+ArrowDown` |
 | Create System from Selection | `Alt+S` |
 | Pitch Up | `ArrowUp` |
 | Pitch Down | `ArrowDown` |

@@ -327,6 +327,7 @@ import { comparePaneClick, compareScoreClick, refreshCompareSelectionGeometryImp
 import { acceptAllAiChanges, compareKeyboardShortcut, compareOverwriteBlock, saveCompareCheckpoint } from './score-editor/compare/compare-actions';
 import { sendDiffFeedback, updateAiOutputImpl } from './score-editor/ai-diff-feedback';
 import { buildNewScoreXmlImpl } from './score-editor/new-score';
+import { useChordSelection } from './score-editor/chord-selection';
 import { ensurePageIsLaidOutImpl, resolveSelectionContextImpl, scheduleBackgroundInitTasksImpl } from './score-editor/score-session';
 import { playSelectionPreviewImpl } from './score-editor/playback';
 import { useEditorPlayback, useTransportTimePublisher } from './score-editor/playback-session';
@@ -8125,6 +8126,7 @@ export default function ScoreEditor() {
   };
 
   gestureLateInputs.current = { updateNoteInputShadow, refreshScoreSpatium, clearEditorSelection, seekPlaybackFromClick: following.seekFromClick };
+  useChordSelection({ core, view: { goToPage, refreshSelectionFromSvg, playSelectionPreview } });
   useScoreParts({ score, undoIndex, runSerialized: runSerializedScoreOperation, renderScore, refreshPageCount, clearSelection: clearEditorSelection });
 
     async function openTextEditorFromEvent(e: EditPointer) {
