@@ -103,3 +103,54 @@ it('preserves the existing manifest and propagates replacement failures', async 
   expect(result.status, result.stderr).toBe(0);
   expect(result.stdout.trim().split('\n')).toEqual(['rename failed', '{"version":"old"}', 'next-font-manifest.json']);
 });
+
+it('keeps the previous client reference manifest readable during a replacement', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'ots-client-manifest-')); roots.push(root);
+  const dist = path.join(root, '.next-test');
+  const dir = path.join(dist, 'dev', 'server', 'app');
+  await mkdir(dir, { recursive: true });
+  const file = path.join(dir, 'page_client-reference-manifest.js');
+  await writeFile(file, 'globalThis.__RSC_MANIFEST = {"/page":{"version":"old"}};');
+  const preload = path.resolve('scripts/diagnose-next-manifest.cjs');
+  const loader = require.resolve('next/dist/server/load-manifest.external.js');
+  const source = `
+    const fs = require('node:fs');
+    const actualWrite = fs.writeFile;
+    fs.writeFile = function(file, data, ...rest) {
+      fs.writeFileSync(file, '');
+      setTimeout(() => actualWrite.call(this, file, data, ...rest), 50);
+    };
+    require(${JSON.stringify(preload)});
+    const loader = require(${JSON.stringify(loader)});
+    const file = ${JSON.stringify(file)};
+    fs.writeFile(file, 'globalThis.__RSC_MANIFEST = {"/page":{"version":"new"}};', error => {
+      if (error) throw error;
+      console.log('after', loader.evalManifest(file, false).__RSC_MANIFEST['/page'].version);
+    });
+    console.log('during', loader.evalManifest(file, false).__RSC_MANIFEST['/page'].version);
+  `;
+  const result = spawnSync(process.execPath, ['-e', source], {
+    env: { ...process.env, CI: 'true', NEXT_DIST_DIR: dist }, encoding: 'utf8',
+  });
+  expect(result.status, result.stderr).toBe(0);
+  expect(result.stdout.trim().split('\n')).toEqual(['during old', 'after new']);
+});
+
+it('identifies an empty client reference manifest read by Next', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'ots-empty-client-manifest-')); roots.push(root);
+  const dist = path.join(root, '.next-test');
+  const dir = path.join(dist, 'dev', 'server', 'app');
+  await mkdir(dir, { recursive: true });
+  const file = path.join(dir, 'page_client-reference-manifest.js');
+  await writeFile(file, '');
+  const preload = path.resolve('scripts/diagnose-next-manifest.cjs');
+  const loader = require.resolve('next/dist/server/load-manifest.external.js');
+  const source = `try { require(${JSON.stringify(loader)}).evalManifest(${JSON.stringify(file)}, false) } catch (e) { console.log(e.message) }`;
+  const result = spawnSync(process.execPath, [`--require=${preload}`, '-e', source], {
+    env: { ...process.env, CI: 'true', NEXT_DIST_DIR: dist }, encoding: 'utf8',
+  });
+  expect(result.status).toBe(0);
+  expect(result.stdout.trim()).toBe('Manifest file is empty');
+  const diagnostic = JSON.parse(result.stderr.split('[playwright-manifest-diagnostic] ')[1]);
+  expect(diagnostic).toMatchObject({ event: 'next_client_manifest_empty', path: file, bytesRead: 0 });
+});
