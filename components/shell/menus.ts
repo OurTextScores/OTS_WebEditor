@@ -168,7 +168,7 @@ export const MENUS: readonly MenuDefinition[] = [
       ),
       separator,
       // Roadmap E18: the score's own parts are in the status bar's part selector.
-      submenu('Parts', item('view.part.full'), item('view.part.generate')),
+      submenu('Parts', item('view.part.full'), item('view.part.generate'), item('view.part.manage')),
       separator,
       item('view.panel.palettes'),
       item('view.panel.properties'),

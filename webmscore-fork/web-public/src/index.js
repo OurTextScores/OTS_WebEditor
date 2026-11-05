@@ -381,6 +381,51 @@ class WebMscore {
     }
 
     /**
+     * Parts (roadmap E18): a new part with these of the full score's instruments (indices into its parts), its index.
+     * @param {string} name
+     * @param {number[]} partIndices
+     * @returns {Promise<number>} -1 when none
+     */
+    async createExcerpt(name, partIndices) {
+        if (!Module._createExcerpt) return -1
+        const strptr = getStrPtr(JSON.stringify({ name: String(name || ''), parts: partIndices || [] }))
+        try {
+            return Module.ccall('createExcerpt', 'number', ['number', 'number'], [this.scoreptr, strptr])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    /** Renames a part; false for an empty name or one another part has. */
+    async renameExcerpt(index, name) {
+        if (!Module._renameExcerpt) return false
+        const strptr = getStrPtr(String(name || ''))
+        try {
+            return Module.ccall('renameExcerpt', 'boolean', ['number', 'number', 'number'], [this.scoreptr, index, strptr])
+        } finally {
+            freePtr(strptr)
+        }
+    }
+
+    /** Deletes a part (its score only). */
+    async removeExcerpt(index) {
+        if (!Module._removeExcerpt) return false
+        return Module.ccall('removeExcerpt', 'boolean', ['number', 'number'], [this.scoreptr, index])
+    }
+
+    /** A copy of a part after it; its index, or -1. */
+    async duplicateExcerpt(index) {
+        if (!Module._duplicateExcerpt) return -1
+        return Module.ccall('duplicateExcerpt', 'number', ['number', 'number'], [this.scoreptr, index])
+    }
+
+    /** Makes a part again from the full score, dropping its own layout and part-only changes. */
+    async resetExcerpt(index) {
+        if (!Module._resetExcerpt) return false
+        return Module.ccall('resetExcerpt', 'boolean', ['number', 'number'], [this.scoreptr, index])
+    }
+
+    /**
      * Generate excerpts from Parts (only parts that are visible) if no existing excerpts
      * @returns {Promise<void>}
      */

@@ -195,6 +195,26 @@ class WebMscoreW {
      * Generate excerpts from Parts (only parts that are visible) if no existing excerpts
      * @returns {Promise<void>}
      */
+    createExcerpt(name, partIndices) {
+        return this.rpc('createExcerpt', [name, partIndices])
+    }
+
+    renameExcerpt(index, name) {
+        return this.rpc('renameExcerpt', [index, name])
+    }
+
+    removeExcerpt(index) {
+        return this.rpc('removeExcerpt', [index])
+    }
+
+    duplicateExcerpt(index) {
+        return this.rpc('duplicateExcerpt', [index])
+    }
+
+    resetExcerpt(index) {
+        return this.rpc('resetExcerpt', [index])
+    }
+
     listExcerpts() {
         return this.rpc('listExcerpts')
     }

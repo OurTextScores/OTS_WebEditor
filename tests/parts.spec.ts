@@ -27,12 +27,21 @@ test('makes parts from the instruments and shows each, with the full score one c
 }) => {
   const select = page.getByTestId('part-select');
   await expect(select).toHaveValue('-1');
-  await expect(select.locator('option')).toHaveText(['Full score', 'Make parts from instruments…']);
+  await expect(select.locator('option')).toHaveText([
+    'Full score',
+    'Make parts from instruments…',
+    'Manage parts…',
+  ]);
   const fullScoreStaves = await staffLines(page);
 
   await select.selectOption('generate');
   await expect(select).toHaveValue('0');
-  await expect(select.locator('option')).toHaveText(['Full score', 'Violin', 'Cello']);
+  await expect(select.locator('option')).toHaveText([
+    'Full score',
+    'Violin',
+    'Cello',
+    'Manage parts…',
+  ]);
   // One instrument: half the staves of the two-instrument score.
   await expect.poll(() => staffLines(page)).toBe(fullScoreStaves / 2);
 
@@ -196,4 +205,55 @@ test('MuseScore export from a part view saves the whole project, parts included,
   expect(names).toMatch(/Excerpts\//);
   await expect(select).toHaveValue('1');
   expect(await staffLines(page)).toBe(partStaves);
+});
+
+test('Manage Parts renames, creates, duplicates and deletes parts, and undo brings one back', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const select = page.getByTestId('part-select');
+  const options = () => select.locator('option').allTextContents();
+  const fullScoreStaves = await staffLines(page);
+  await select.selectOption('generate');
+  await expect(select).toHaveValue('0');
+
+  await select.selectOption('manage');
+  const dialog = page.getByTestId('manage-parts-dialog');
+  await expect(dialog).toBeVisible();
+  await expect(page.getByTestId('part-name-0')).toHaveValue('Violin');
+  await expect(page.getByTestId('part-name-1')).toHaveValue('Cello');
+
+  // Rename
+  await page.getByTestId('part-name-1').fill('Violoncello');
+  await page.getByTestId('part-name-1').press('Enter');
+  await expect.poll(options).toContain('Violoncello');
+
+  // A new part of both instruments: shown once made, with both staves.
+  await page.getByTestId('new-part-name').fill('Duo');
+  await page.getByTestId('new-part-instrument-0').check();
+  await page.getByTestId('new-part-instrument-1').check();
+  await page.getByTestId('btn-new-part').click();
+  await expect
+    .poll(options)
+    .toEqual(['Full score', 'Violin', 'Violoncello', 'Duo', 'Manage parts…']);
+  await expect(select).toHaveValue('2');
+  await expect.poll(() => staffLines(page)).toBe(fullScoreStaves);
+
+  // Duplicate the Violin part: the copy goes in after it.
+  await page.getByTestId('part-duplicate-0').click();
+  await expect
+    .poll(options)
+    .toEqual(['Full score', 'Violin', 'Violin (copy)', 'Violoncello', 'Duo', 'Manage parts…']);
+  // The part shown (Duo) is still shown, at its new index.
+  await expect(select).toHaveValue('3');
+
+  // Delete the copy, after confirming; undo brings it back.
+  await page.getByTestId('part-delete-1').click();
+  await page.getByTestId('dialog-confirm').click();
+  await expect.poll(options).not.toContain('Violin (copy)');
+  await expect(select).toHaveValue('2');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await runCommand(page, 'edit.undo');
+  await expect.poll(options).toContain('Violin (copy)');
 });

@@ -5,16 +5,23 @@ import type { Score } from '../../../lib/webmscore-loader';
  * so the status bar's selector reads it without props, and so the whole-score readers can return to the full score
  * before they export (ensureFullScore).
  */
-export type ScorePart = { name: string; instruments: string[] };
+export type ScorePart = {
+  name: string;
+  instruments: string[];
+  /** Which of the full score's instruments the part has (indices into its parts). */
+  partIndices?: number[];
+};
 
 export type PartsSnapshot = {
   readonly score: Score | null;
   readonly parts: readonly ScorePart[];
   /** -1 the full score, else an index into `parts` (the engine's excerptId). */
   readonly current: number;
+  /** Whether the Manage Parts dialog is open. */
+  readonly managing: boolean;
 };
 
-const EMPTY: PartsSnapshot = { score: null, parts: [], current: -1 };
+const EMPTY: PartsSnapshot = { score: null, parts: [], current: -1, managing: false };
 let snapshot: PartsSnapshot = EMPTY;
 const listeners = new Set<() => void>();
 

@@ -162,7 +162,13 @@ export interface ScoreDialogMethods {
   setExcerptId?: (id: number) => Promise<void> | void;
   getExcerptId?: () => Promise<number> | number;
   /** The score's parts, in excerptId order; empty when it has none. */
-  listExcerpts?: () => Promise<{ name: string; instruments: string[] }[]>;
+  listExcerpts?: () => Promise<{ name: string; instruments: string[]; partIndices: number[] }[]>;
+  /** Manage parts (slice 4), each one undoable command: create from the score's instruments (indices into its parts). */
+  createExcerpt?: (name: string, partIndices: number[]) => Promise<number>;
+  renameExcerpt?: (index: number, name: string) => Promise<boolean>;
+  removeExcerpt?: (index: number) => Promise<boolean>;
+  duplicateExcerpt?: (index: number) => Promise<number>;
+  resetExcerpt?: (index: number) => Promise<boolean>;
   /** Makes one part per instrument when the score has none. */
   generateExcerpts?: () => Promise<void>;
   /** MEI export through MuseScore's MEI exporter (roadmap E25). */

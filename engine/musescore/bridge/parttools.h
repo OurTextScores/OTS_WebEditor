@@ -14,6 +14,8 @@
 #include "engraving/dom/part.h"
 #include "engraving/editing/editstaff.h"
 #include "engraving/editing/editpart.h"
+#include "engraving/editing/editexcerpt.h"
+#include "engraving/dom/utils.h"
 #include "engraving/dom/stafftype.h"
 #include "engraving/dom/staff.h"
 #include "engraving/dom/instrchange.h"
@@ -77,11 +79,142 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* listExcerpts(uintptr_t score_ptr)
         JsonObject item;
         item.set("name", excerpt->name().toStdString());
         JsonArray instruments;
-        for (const auto* part : excerpt->parts()) instruments.append(part->partName().toStdString());
+        JsonArray partIndices;
+        const auto& scoreParts = score->masterScore()->parts();
+        for (const auto* part : excerpt->parts()) {
+            instruments.append(part->partName().toStdString());
+            const auto at = std::find(scoreParts.begin(), scoreParts.end(), part);
+            partIndices.append(at == scoreParts.end() ? -1 : int(at - scoreParts.begin()));
+        }
         item.set("instruments", instruments);
+        // Which of the full score's instruments (indices into its parts) the part has
+        item.set("partIndices", partIndices);
         list.append(item);
     }
     return response(JsonDocument(list).toJson(JsonDocument::Format::Compact));
+}
+
+// Managing parts (roadmap E18, slice 4), as MuseScore's Parts dialog does it (PartListModel, MasterNotation::
+// setExcerpts): each change is one undoable command on the master score; names are made unique the way MuseScore
+// makes them (formatUniqueExcerptName).
+static StringList excerptLowerNames(MasterScore* master, const engraving::Excerpt* except = nullptr)
+{
+    StringList names;
+    for (const auto* excerpt : master->excerpts()) {
+        if (excerpt != except) names.push_back(excerpt->name().toLower());
+    }
+    return names;
+}
+
+static engraving::Excerpt* excerptAt(MasterScore* master, int index)
+{
+    return index >= 0 && index < int(master->excerpts().size()) ? master->excerpts()[index] : nullptr;
+}
+
+static void finishExcerptChange(MasterScore* master)
+{
+    master->setExcerptsChanged(false);
+    master->endCmd();
+    layoutAllLinked(master);
+}
+
+// A new part with these of the full score's instruments ({"name", "parts": [indices into its parts]}). Returns the new
+// part's index, or -1 (no instruments, or an index off the score).
+EMSCRIPTEN_KEEPALIVE int createExcerpt(uintptr_t score_ptr, const char* json)
+{
+    auto* score = getScore(score_ptr);
+    if (!score || !json) return -1;
+    MasterScore* master = score->masterScore();
+    const JsonObject request = JsonDocument::fromJson(ByteArray(json)).rootObject();
+    const JsonArray indices = request.value("parts").toArray();
+    std::vector<Part*> parts;
+    for (size_t i = 0; i < indices.size(); ++i) {
+        const int index = indices.at(i).toInt();
+        if (index < 0 || index >= int(master->parts().size())) return -1;
+        Part* part = master->parts()[index];
+        if (std::find(parts.begin(), parts.end(), part) == parts.end()) parts.push_back(part);
+    }
+    if (parts.empty()) return -1;
+    // In the score's order, as MuseScore's parts list them
+    std::sort(parts.begin(), parts.end(), [master](const Part* a, const Part* b) {
+        return muse::indexOf(master->parts(), a) < muse::indexOf(master->parts(), b);
+    });
+    String name = request.value("name").toString().trimmed();
+    if (name.isEmpty()) name = u"Part";
+    auto* excerpt = new engraving::Excerpt(master);
+    excerpt->setParts(parts);
+    excerpt->setName(engraving::formatUniqueExcerptName(name, excerptLowerNames(master)));
+    master->startCmd(TranslatableString::untranslatable("Add part"));
+    master->initAndAddExcerpt(excerpt, false);
+    finishExcerptChange(master);
+    return int(muse::indexOf(master->excerpts(), excerpt));
+}
+
+// Renames a part. False for an empty name or one another part has (MuseScore's Parts dialog refuses both).
+EMSCRIPTEN_KEEPALIVE bool renameExcerpt(uintptr_t score_ptr, int index, const char* name)
+{
+    auto* score = getScore(score_ptr);
+    if (!score || !name) return false;
+    MasterScore* master = score->masterScore();
+    auto* excerpt = excerptAt(master, index);
+    const String title = String::fromUtf8(name).trimmed();
+    if (!excerpt || title.isEmpty() || excerptLowerNames(master, excerpt).contains(title.toLower())) return false;
+    if (title == excerpt->name()) return true;
+    master->startCmd(TranslatableString::untranslatable("Rename part"));
+    master->undo(new engraving::ChangeExcerptTitle(excerpt, title));
+    master->endCmd();
+    return true;
+}
+
+// Deletes a part (its score only: the music stays in the full score).
+EMSCRIPTEN_KEEPALIVE bool removeExcerpt(uintptr_t score_ptr, int index)
+{
+    auto* score = getScore(score_ptr);
+    if (!score) return false;
+    MasterScore* master = score->masterScore();
+    auto* excerpt = excerptAt(master, index);
+    if (!excerpt) return false;
+    master->startCmd(TranslatableString::untranslatable("Remove part"));
+    master->deleteExcerpt(excerpt);
+    finishExcerptChange(master);
+    return true;
+}
+
+// A copy of a part, with its layout and part-only changes, named "<name> (copy)", after it. Returns its index, or -1.
+EMSCRIPTEN_KEEPALIVE int duplicateExcerpt(uintptr_t score_ptr, int index)
+{
+    auto* score = getScore(score_ptr);
+    if (!score) return -1;
+    MasterScore* master = score->masterScore();
+    auto* source = excerptAt(master, index);
+    if (!source) return -1;
+    auto* copy = new engraving::Excerpt(*source);
+    copy->setName(engraving::formatUniqueExcerptName(source->name() + u" (copy)", excerptLowerNames(master)));
+    master->startCmd(TranslatableString::untranslatable("Duplicate part"));
+    master->initAndAddExcerpt(copy, false);
+    auto& excerpts = master->excerpts();
+    muse::moveItem(excerpts, muse::indexOf(excerpts, copy), size_t(index + 1));
+    finishExcerptChange(master);
+    return int(muse::indexOf(master->excerpts(), copy));
+}
+
+// Makes a part again from the full score, dropping its own layout and part-only changes (MasterNotation::resetExcerpt),
+// in its place in the list.
+EMSCRIPTEN_KEEPALIVE bool resetExcerpt(uintptr_t score_ptr, int index)
+{
+    auto* score = getScore(score_ptr);
+    if (!score) return false;
+    MasterScore* master = score->masterScore();
+    auto* old = excerptAt(master, index);
+    if (!old) return false;
+    master->startCmd(TranslatableString::untranslatable("Reset part"));
+    master->deleteExcerpt(old);
+    auto* fresh = new engraving::Excerpt(*old, false);
+    master->initAndAddExcerpt(fresh, false);
+    auto& excerpts = master->excerpts();
+    muse::moveItem(excerpts, muse::indexOf(excerpts, fresh), size_t(index));
+    finishExcerptChange(master);
+    return true;
 }
 
 // Generate excerpts from the parts if the score has none (4.00 semantics). Uses the same fake-undo initialisation

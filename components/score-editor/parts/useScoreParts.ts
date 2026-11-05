@@ -13,6 +13,8 @@ type Serialized = <T>(operation: () => Promise<T>, label: string) => Promise<T>;
 
 export type PartsInputs = {
   score: Score | null;
+  /** The undo position: an undo or redo can add or remove parts, so the list is read again. */
+  undoIndex?: number;
   runSerialized: Serialized;
   renderScore: RenderScore;
   refreshPageCount: RefreshPageCount;
@@ -68,6 +70,97 @@ export async function generate(inputs: PartsInputs) {
   }
 }
 
+/**
+ * Reads the parts again after a change to the list, and shows what should be shown: the part that was shown, at its
+ * new index (`shownAfter`), or the full score when it is gone. Redraws when a part is shown (its content may have
+ * changed: a reset).
+ */
+async function afterPartsChange(inputs: PartsInputs, shownAfter: number) {
+  const target = getPartsSnapshot().score;
+  if (!target) return;
+  const parts = await readParts(target, inputs.runSerialized);
+  const next = shownAfter >= 0 && shownAfter < parts.length ? shownAfter : -1;
+  if (next !== getPartsSnapshot().current || next !== -1) {
+    await inputs.runSerialized(() => Promise.resolve(target.setExcerptId?.(next)), 'setExcerptId');
+    drawnPart = next;
+    setPartsSnapshot({ parts, current: next });
+    await redraw(inputs, target);
+  } else {
+    setPartsSnapshot({ parts });
+  }
+}
+
+/**
+ * After an undo or redo: only when it changed the parts (made, removed, renamed one) is the list read into the store;
+ * the part shown stays shown if it is still there, else the full score is. Every other edit changes nothing here.
+ */
+async function refreshAfterUndo(inputs: PartsInputs) {
+  const target = getPartsSnapshot().score;
+  if (!target) return;
+  const parts = await readParts(target, inputs.runSerialized);
+  if (JSON.stringify(parts) === JSON.stringify(getPartsSnapshot().parts)) return;
+  const { current } = getPartsSnapshot();
+  if (current >= parts.length) await afterPartsChange(inputs, -1);
+  else setPartsSnapshot({ parts });
+}
+
+/** Manage parts (slice 4): a new part from the score's instruments, shown once made. */
+export async function createPart(inputs: PartsInputs, name: string, partIndices: number[]) {
+  const target = getPartsSnapshot().score;
+  if (!target?.createExcerpt) return;
+  const index = await inputs.runSerialized(
+    () => target.createExcerpt!(name, partIndices),
+    'createExcerpt',
+  );
+  if (index < 0) {
+    notifyError('Choose at least one instrument for the part.');
+    return;
+  }
+  await afterPartsChange(inputs, index);
+}
+
+export async function renamePart(inputs: PartsInputs, index: number, name: string) {
+  const target = getPartsSnapshot().score;
+  if (!target?.renameExcerpt) return;
+  const renamed = await inputs.runSerialized(
+    () => target.renameExcerpt!(index, name),
+    'renameExcerpt',
+  );
+  if (!renamed) notifyError('A part needs a name of its own.');
+  setPartsSnapshot({ parts: await readParts(target, inputs.runSerialized) });
+}
+
+export async function removePart(inputs: PartsInputs, index: number) {
+  const target = getPartsSnapshot().score;
+  if (!target?.removeExcerpt) return;
+  const { current } = getPartsSnapshot();
+  // The engine reads the part shown by its index: point it at the full score before the list changes under it.
+  await inputs.runSerialized(() => Promise.resolve(target.setExcerptId?.(-1)), 'setExcerptId');
+  await inputs.runSerialized(() => target.removeExcerpt!(index), 'removeExcerpt');
+  await afterPartsChange(inputs, current === index ? -1 : current > index ? current - 1 : current);
+}
+
+export async function duplicatePart(inputs: PartsInputs, index: number) {
+  const target = getPartsSnapshot().score;
+  if (!target?.duplicateExcerpt) return;
+  const { current } = getPartsSnapshot();
+  await inputs.runSerialized(() => Promise.resolve(target.setExcerptId?.(-1)), 'setExcerptId');
+  const copy = await inputs.runSerialized(
+    () => target.duplicateExcerpt!(index),
+    'duplicateExcerpt',
+  );
+  await afterPartsChange(inputs, copy >= 0 && current > index ? current + 1 : current);
+}
+
+export async function resetPart(inputs: PartsInputs, index: number) {
+  const target = getPartsSnapshot().score;
+  if (!target?.resetExcerpt) return;
+  const { current } = getPartsSnapshot();
+  await inputs.runSerialized(() => Promise.resolve(target.setExcerptId?.(-1)), 'setExcerptId');
+  await inputs.runSerialized(() => target.resetExcerpt!(index), 'resetExcerpt');
+  await afterPartsChange(inputs, current);
+}
+
 /** Every part and the full score as PDFs, in one ZIP named for the score (slice 2). */
 export async function exportAllParts(inputs: PartsInputs) {
   const target = getPartsSnapshot().score;
@@ -117,6 +210,13 @@ export function useScoreParts(inputs: PartsInputs) {
       live = false;
     };
   }, [score]);
+
+  // An undo or redo may have added or removed parts: read them again (keeping the part shown if it is still there).
+  const { undoIndex } = inputs;
+  useEffect(() => {
+    if (!score || undoIndex === undefined || getPartsSnapshot().score !== score) return;
+    void refreshAfterUndo(latest.current);
+  }, [undoIndex, score]);
 
   useEffect(() => {
     if (!score || storeScore !== score || drawnPart === current) return;

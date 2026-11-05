@@ -8147,7 +8147,7 @@ export default function ScoreEditor() {
   };
 
   gestureLateInputs.current = { updateNoteInputShadow, refreshScoreSpatium, clearEditorSelection, seekPlaybackFromClick: following.seekFromClick };
-  useScoreParts({ score, runSerialized: runSerializedScoreOperation, renderScore, refreshPageCount, clearSelection: clearEditorSelection });
+  useScoreParts({ score, undoIndex, runSerialized: runSerializedScoreOperation, renderScore, refreshPageCount, clearSelection: clearEditorSelection });
 
     async function openTextEditorFromEvent(e: EditPointer) {
     if (!containerRef.current || !score) {

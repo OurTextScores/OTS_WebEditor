@@ -10,5 +10,6 @@ export {
 } from './partsStore';
 export { allPartsPdfArchive } from './exportAllParts';
 export { exportFileName, safeFileStem } from './partFileName';
+export { ManagePartsDialog } from './ManagePartsDialog';
 export { buildPartCommands } from './partCommands';
 export { useScoreParts } from './useScoreParts';
