@@ -483,3 +483,16 @@ These scripts are diagnostic, not performance gates. The JSON records fixture an
 samples, p50/p95 and scope limitations. Main-page JS heap and DOM counters do not measure worker or WASM usage; the
 playback diagnostic's WASM heap number is capacity, not used memory. Use a controlled production build, more samples
 and representative devices before making product performance claims.
+
+## Browser worker RPC diagnostics
+
+The browser exposes `window.__webmscoreRpcDiagnostics` after the first worker request. `pending` contains
+active calls keyed by request ID; `recent` contains the last 200 completed calls. Each entry records the
+method, request ID, start and end timestamps (Unix milliseconds), elapsed milliseconds, and outcome. An
+error entry records the error name, but neither request arguments nor returned score data are retained.
+
+A warning identifies an operation that remains pending after 15 seconds. This is a diagnostic threshold,
+not a timeout: a slow request keeps running. The elapsed time is end-to-end, including time waiting in
+the worker's queue; it does not identify which native function is executing. Worker errors, message
+decoding failures, and deliberate worker termination reject outstanding requests and record their outcome.
+Browser termination or navigation can prevent a final record from being written.
