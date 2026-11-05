@@ -40,7 +40,7 @@ jobs:
       fail-fast: false
       matrix:
         browser: [webkit]
-        shard: [2]
+        shard: [3, 4]
     env:
       PLAYWRIGHT_BROWSER: ${{ matrix.browser }}
       PLAYWRIGHT_PORT: '3013'
@@ -73,7 +73,7 @@ jobs:
           mkdir -p public/soundfonts
           curl -fsSL --retry 3 -o public/soundfonts/default.sf3 https://cdn.ourtextscores.com/soundfonts/default.sf3
       - name: Playwright (shard ${{ matrix.shard }}/4)
-        run: npx playwright test tests/transpose-dragselect.spec.ts tests/score-context-menu.spec.ts -g 'drag selection marquee|Swap with Clipboard' --repeat-each=5
+        run: npx playwright test --shard=${{ matrix.shard }}/4
         env:
           NODE_OPTIONS: --max-old-space-size=4096
       - name: Failure artifacts
