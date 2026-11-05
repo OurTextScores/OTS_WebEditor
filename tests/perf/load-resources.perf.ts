@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { cpus, totalmem } from 'node:os';
 import { basename, resolve } from 'node:path';
-import { chromium, expect, test, type Browser, type Page } from 'playwright/test';
+import { chromium, expect, test, type Browser, type Page } from '../helpers/diagnostic-test';
 
 /**
  * Load time and resource use (roadmap E05): for a small, a long and a large score, how long the editor takes to open
