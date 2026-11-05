@@ -28,4 +28,10 @@ test('falls back to the in-process engine when worker initialization fails', asy
   expect(await page.evaluate(() => (window as unknown as { __injectedInitFailure?: boolean }).__injectedInitFailure)).toBe(true);
   expect(await page.evaluate(() => (window as unknown as { __failedWorkerTerminated?: boolean }).__failedWorkerTerminated)).toBe(true);
   expect(warnings.some((message) => message.includes('Worker webmscore load failed'))).toBe(true);
+  await expect.poll(() => page.evaluate(() => {
+    const store = (window as unknown as {
+      __webmscoreRpcDiagnostics?: { recent: Array<{ method: string; status: string }> };
+    }).__webmscoreRpcDiagnostics;
+    return store?.recent.some((call) => call.method === 'ready' && call.status === 'error');
+  })).toBe(true);
 });
