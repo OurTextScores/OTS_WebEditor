@@ -327,7 +327,7 @@ import { comparePaneClick, compareScoreClick, refreshCompareSelectionGeometryImp
 import { acceptAllAiChanges, compareKeyboardShortcut, compareOverwriteBlock, saveCompareCheckpoint } from './score-editor/compare/compare-actions';
 import { sendDiffFeedback, updateAiOutputImpl } from './score-editor/ai-diff-feedback';
 import { buildNewScoreXmlImpl } from './score-editor/new-score';
-import { ensurePageIsLaidOutImpl, openScoreSessionImpl, resolveSelectionContextImpl, scheduleBackgroundInitTasksImpl } from './score-editor/score-session';
+import { ensurePageIsLaidOutImpl, resolveSelectionContextImpl, scheduleBackgroundInitTasksImpl } from './score-editor/score-session';
 import { playSelectionPreviewImpl } from './score-editor/playback';
 import { useEditorPlayback, useTransportTimePublisher } from './score-editor/playback-session';
 import { usePlaybackOptionsSync } from '../lib/playback/use-playback-options';
@@ -422,11 +422,6 @@ export default function ScoreEditor() {
     };
   }, [activeLaunchContext]);
 
-    const [scoreSessionId, setScoreSessionId] = useState<string | null>(null);
-  const [scoreRevision, setScoreRevision] = useState<number>(0);
-  const lastSyncedXmlRef = useRef<string>('');
-  const lastSyncedRevisionRef = useRef<number>(-1);
-  const isSyncingRef = useRef<boolean>(false);
     const applyXmlToScoreRef = useRef<ApplyXmlToScore>(async () => false);
   const stopCompareSideAudioRef = useRef<StopCompareSideAudio>(async () => {});
   const [handleUrlLoad, handleUrlLoadRef] = useLatestCallbackFacade<HandleUrlLoad>(
@@ -2488,7 +2483,7 @@ export default function ScoreEditor() {
       return;
     }
     void refreshMeasurePositions(score, setChangeReviewMeasurePositions);
-  }, [currentPage, hostKind, score, scoreRevision]);
+  }, [currentPage, hostKind, score, undoIndex]);
   const changeReviewBarBoxes = useMemo(() => {
     if (!changeReviewMeasurePositions?.elements.length || !changeReviewScoreView) {
       return [];
@@ -2662,34 +2657,6 @@ export default function ScoreEditor() {
     return text;
   }, [xmlText, getScoreXmlData, setScoreDirtySinceXml]);
 
-  const openScoreSession = useCallback((xml?: string) => openScoreSessionImpl({
-      isSyncingRef,
-      scoreSessionId,
-      scoreRevision,
-      resolveXmlContext,
-      lastSyncedXmlRef,
-      lastSyncedRevisionRef,
-      activeLaunchContext,
-      setScoreSessionId,
-      setScoreRevision,
-    }, xml), [activeLaunchContext, resolveXmlContext, scoreSessionId, scoreRevision]);
-
-  // Automatically open/sync session when score changes (debounced)
-  useEffect(() => {
-    if (!score) {
-      setScoreSessionId(null);
-      setScoreRevision(0);
-      lastSyncedXmlRef.current = '';
-      lastSyncedRevisionRef.current = -1;
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      openScoreSession();
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [score, openScoreSession]);
 
       const ensureCheckpointBeforeApply = async () => {
     if (!isIndexedDbAvailable()) {
@@ -3044,16 +3011,17 @@ export default function ScoreEditor() {
     if (xmlDirty) {
       return;
     }
-    if (largeScoreSessionRef.current && xmlSidebarMode === 'closed') {
+    // Only for a panel that shows it: a whole-score MusicXML export takes seconds on a long score (E05).
+    if (!musicXmlOpen && xmlSidebarMode === 'closed') {
       if (!largeSessionXmlAutoloadDeferredLoggedRef.current) {
-        console.info('[large-load] xml-autoload:deferred');
+        console.info('[load] xml-autoload:deferred');
         largeSessionXmlAutoloadDeferredLoggedRef.current = true;
       }
       return;
     }
     largeSessionXmlAutoloadDeferredLoggedRef.current = false;
     void loadXmlFromScore();
-  }, [score, xmlDirty, xmlSidebarMode, loadXmlFromScore]);
+  }, [score, xmlDirty, xmlSidebarMode, musicXmlOpen, loadXmlFromScore]);
 
   useEffect(() => {
     const needsXmlForSidebarTab =
@@ -3062,10 +3030,10 @@ export default function ScoreEditor() {
       xmlSidebarTab === 'harmony' ||
       xmlSidebarTab === 'functional' ||
       xmlSidebarTab === 'mma';
-    if (needsXmlForSidebarTab && !xmlText.trim()) {
+    if (needsXmlForSidebarTab && xmlSidebarMode === 'open' && !xmlText.trim()) {
       void loadXmlFromScore();
     }
-  }, [xmlSidebarTab, aiIncludeXml, xmlText, loadXmlFromScore]);
+  }, [xmlSidebarTab, xmlSidebarMode, aiIncludeXml, xmlText, loadXmlFromScore]);
 
   const selectedAiModelDescriptor = useMemo(() => {
     const discovered = aiModelDescriptors.find(
@@ -9217,7 +9185,7 @@ export default function ScoreEditor() {
     return () => {
       cancelled = true;
     };
-  }, [hasSelection, score, scoreRevision, selectedElement, selectedPoint, selectionBoxes]);
+  }, [hasSelection, score, undoIndex, selectedElement, selectedPoint, selectionBoxes]);
 
   useEditorCommands({
     onNewScore: handleOpenNewScoreDialog,
