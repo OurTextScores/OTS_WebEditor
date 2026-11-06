@@ -164,4 +164,8 @@ test('with no score, opens the library', async ({ page: p }) => {
   await p.goto('/perform');
   await expect(p.getByTestId('performer-library')).toBeVisible({ timeout: 60_000 });
   await expect(p.getByRole('heading', { name: 'Setlists' })).toBeVisible();
+  // The user guide, from the library
+  await p.getByRole('link', { name: 'How to use Perform' }).click();
+  await expect(p.getByTestId('performer-guide')).toBeVisible({ timeout: 60_000 });
+  await expect(p.getByRole('heading', { name: 'Turn pages' })).toBeVisible();
 });

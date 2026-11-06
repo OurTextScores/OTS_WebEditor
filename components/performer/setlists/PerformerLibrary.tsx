@@ -117,6 +117,10 @@ export function PerformerLibrary() {
 
       <OfflineAppNote />
       <p className="text-sm text-slate-500">
+        <a className="underline" href={performHref({ guide: true })}>
+          How to use Perform
+        </a>
+        {' · '}
         <a className="underline" href={performHref({ selftest: true })}>
           Device self-test
         </a>

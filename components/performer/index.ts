@@ -6,3 +6,4 @@ export { halfViewOf } from './turning/halfPage';
 export { step } from './turning/turnMachine';
 export { PerformerLibrary } from './setlists/PerformerLibrary';
 export { SetlistPerformer } from './setlists/SetlistPerformer';
+export { PerformerGuide } from './guide/PerformerGuide';

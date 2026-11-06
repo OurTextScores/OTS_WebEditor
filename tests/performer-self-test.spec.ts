@@ -10,6 +10,7 @@ test('runs the automatic checks, logs pedal keys and puts everything in the repo
   const report = page.getByTestId('self-test-report');
   await expect(report).toContainText('"storage"', { timeout: 60_000 });
   await expect(report).toContainText('"wakeLock"');
+  await expect(report).toContainText('"offlineApp"');
   await expect(report).toContainText('"standalone": false');
 
   await page.keyboard.press('ArrowRight');

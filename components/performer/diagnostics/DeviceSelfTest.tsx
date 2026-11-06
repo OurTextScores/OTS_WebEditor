@@ -9,6 +9,7 @@ import {
   storage,
   wakeLock,
   type CheckResult,
+  offlineApp,
 } from './selfTestChecks';
 
 type KeyEntry = { key: string; code: string; focused: string; at: number };
@@ -51,6 +52,7 @@ export function DeviceSelfTest() {
         fullscreen: fullscreen(),
         wakeLock: await wakeLock(),
         storage: await storage(),
+        offlineApp: await offlineApp(),
       });
     })();
     const onKey = (event: KeyboardEvent) => {

@@ -89,3 +89,22 @@ export async function engineRun(scoreUrl: string): Promise<CheckResult> {
     };
   }
 }
+
+/** Whether the app is kept for offline use: the service worker controlling this page, and what it has cached. */
+export async function offlineApp(): Promise<CheckResult> {
+  if (!('serviceWorker' in navigator)) return { supported: false };
+  const registration = await navigator.serviceWorker.getRegistration().catch(() => undefined);
+  const cacheNames = await globalThis.caches?.keys().catch(() => [] as string[]);
+  const cached: Record<string, number> = {};
+  for (const name of cacheNames ?? []) {
+    if (name.startsWith('ots-perform-'))
+      cached[name] = (await (await caches.open(name)).keys()).length;
+  }
+  return {
+    supported: true,
+    registered: Boolean(registration),
+    scope: registration?.scope ?? null,
+    controlled: Boolean(navigator.serviceWorker.controller),
+    cachedFiles: cached,
+  };
+}
