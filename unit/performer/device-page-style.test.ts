@@ -41,3 +41,17 @@ describe('layout for the device (performer mode)', () => {
     expect(orientationOf({ width: 820, height: 1180 })).toBe('portrait');
   });
 });
+
+describe('the page SVG fills its box', () => {
+  it("replaces the root's fixed size with 100%, fitted by its viewBox", async () => {
+    const { fillingSvg } = await import('../../components/performer/view/pageSvgHeight');
+    const svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="2975.75px" height="4211.21px" viewBox="0 0 2975.75 4211.21"><rect width="100%"/></svg>';
+    const filled = fillingSvg(svg);
+    expect(filled).toContain(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2975.75 4211.21" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">',
+    );
+    // Only the root changes
+    expect(filled).toContain('<rect width="100%"/>');
+  });
+});

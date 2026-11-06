@@ -40,3 +40,5 @@ export const readPlayThrough = (scoreKey: string) =>
   read<boolean>(`playThrough.${scoreKey}`, false);
 export const writePlayThrough = (scoreKey: string, on: boolean) =>
   write(`playThrough.${scoreKey}`, on);
+export const readDrawWithFinger = () => read<boolean>('drawWithFinger', false);
+export const writeDrawWithFinger = (on: boolean) => write('drawWithFinger', on);

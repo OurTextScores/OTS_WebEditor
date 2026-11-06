@@ -41,6 +41,9 @@ export interface Placement {
   readonly space: number;
 }
 
+/** How far above or below a system a mark still belongs to it, in staff spaces (fingerings, text, cue marks). */
+const REACH_SPACES = 8;
+
 /** The staff bands inside a bar's box (its system), on its page. */
 const bandsOf = (geometry: PageGeometry, bar: PageBarBox) =>
   geometry.bands.filter(
@@ -83,14 +86,20 @@ export function anchorAt(
   y: number,
   withTick: boolean,
 ): { anchor: Anchor; placement: Placement } | null {
-  const bar = geometry.bars.find(
-    (candidate) =>
-      candidate.page === page &&
-      x >= candidate.x &&
-      x <= candidate.x + candidate.width &&
-      y >= candidate.y - candidate.height * 0.5 &&
-      y <= candidate.y + candidate.height * 1.5,
-  );
+  // The bar at this x whose system is nearest, within reach: marks go above and below the staves too
+  let bar: PageBarBox | null = null;
+  let distance = Infinity;
+  for (const candidate of geometry.bars) {
+    if (candidate.page !== page || x < candidate.x || x > candidate.x + candidate.width) continue;
+    const away =
+      y < candidate.y ? candidate.y - y : Math.max(0, y - (candidate.y + candidate.height));
+    const band = bandsOf(geometry, candidate)[0];
+    const reach = REACH_SPACES * (band ? band.height / 4 : candidate.height / 4);
+    if (away <= reach && away < distance) {
+      bar = candidate;
+      distance = away;
+    }
+  }
   if (!bar) return null;
   const bands = bandsOf(geometry, bar);
   if (!bands.length) return null;

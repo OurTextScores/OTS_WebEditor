@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { BarBox } from '../session/barBoxes';
+import { fillingSvg } from './pageSvgHeight';
 
 /** One page's SVG filling the surface, optionally clipped to a horizontal band (fractions of the page's height). */
 function PageLayer({
@@ -28,7 +29,7 @@ function PageLayer({
           : undefined
       }
       // The engine's SVG, sanitized (sanitizeEngineSvg) before it gets here
-      dangerouslySetInnerHTML={{ __html: svg }}
+      dangerouslySetInnerHTML={{ __html: fillingSvg(svg) }}
     />
   );
 }

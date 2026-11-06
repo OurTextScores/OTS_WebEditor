@@ -37,6 +37,9 @@ describe('anchoring annotations to the music', () => {
     expect(stamp.anchor).toEqual({ bar: 0, part: 1, tick: 480 });
     expect(stamp.placement.x).toBe(250);
     expect(anchorAt(layout(), 0, 20, 110, false)).toBeNull(); // left of the music
+    // Above the system (where fingerings and text go): still its bar, up to 8 staff spaces away
+    expect(anchorAt(layout(), 0, 300, 40, false)?.anchor).toEqual({ bar: 0, part: 0 });
+    expect(anchorAt(layout(), 0, 300, 10, false)).toBeNull(); // 9 spaces above: too far
   });
 
   it('places an anchor again after a relayout: wider bars and a lower system move it with its bar and beat', () => {

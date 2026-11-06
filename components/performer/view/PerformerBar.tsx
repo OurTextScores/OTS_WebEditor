@@ -24,6 +24,7 @@ export function PerformerBar({
   onHalfPages,
   onPlayThrough,
   onPedals,
+  onAnnotate,
   onDone,
 }: {
   title: string;
@@ -40,6 +41,7 @@ export function PerformerBar({
   onHalfPages: (on: boolean) => void;
   onPlayThrough: (on: boolean) => void;
   onPedals: () => void;
+  onAnnotate: () => void;
   onDone: () => void;
 }) {
   return (
@@ -114,6 +116,9 @@ export function PerformerBar({
         />
         Play-through
       </label>
+      <Button type="button" size="sm" data-testid="performer-annotate" onClick={onAnnotate}>
+        Annotate
+      </Button>
       <Button type="button" size="sm" data-testid="performer-pedals" onClick={onPedals}>
         Pedals…
       </Button>
