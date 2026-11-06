@@ -7,6 +7,8 @@ test.use({ viewport: { width: 1180, height: 820 }, hasTouch: true });
 const FIRST = '/test_scores/four_measures.musicxml';
 const SECOND = '/test_scores/lyrics_repeat_volta.musicxml';
 const page = (p: Page) => p.getByTestId('performer-page-svg');
+/** A test score as a file on this computer (what the file picker would hand over). */
+const fileOf = (score: string) => `public${score}`;
 
 async function waitForScore(p: Page) {
   await expect(page(p).locator('svg .Note').first()).toBeAttached({ timeout: 60_000 });
@@ -18,9 +20,9 @@ test('a setlist made in the library performs piece after piece', async ({ page: 
   await p.getByTestId('setlist-new-name').fill('Recital');
   await p.getByTestId('setlist-new').click();
   await expect(p.getByTestId('setlist-editor')).toBeVisible();
-  for (const score of [FIRST, SECOND]) {
-    await p.getByTestId('setlist-add-link').fill(score);
-    await p.getByTestId('setlist-add').click();
+  for (const [index, score] of [FIRST, SECOND].entries()) {
+    await p.getByTestId('setlist-add-file-input').setInputFiles(fileOf(score));
+    await expect(p.getByTestId('setlist').getByText(`${index + 1} piece`)).toBeVisible();
   }
   await expect(p.getByTestId('setlist').getByText('2 pieces')).toBeVisible();
   await expect(p.getByTestId('setlist-editor').getByRole('link')).toHaveText([
@@ -73,12 +75,15 @@ test('adds the open score to a setlist from the controls', async ({ page: p }) =
 test('a setlist made available offline opens its pieces without the network', async ({
   page: p,
 }) => {
+  // A score opened by its address (as OurTextScores' Perform button does), added to a new setlist
+  await p.goto(`/perform?score=${encodeURIComponent(FIRST)}`);
+  await waitForScore(p);
+  await p.keyboard.press('Escape');
+  await p.getByTestId('add-to-setlist').click();
+  await p.getByTestId('add-to-setlist-menu').getByRole('button', { name: 'New setlist' }).click();
   await p.goto('/perform');
   await expect(p.getByTestId('performer-library')).toBeVisible({ timeout: 60_000 });
-  await p.getByTestId('setlist-new-name').fill('Tour');
-  await p.getByTestId('setlist-new').click();
-  await p.getByTestId('setlist-add-link').fill(FIRST);
-  await p.getByTestId('setlist-add').click();
+  await p.getByTestId('setlist-edit').click();
   await expect(p.getByTestId('piece-offline')).toHaveText('Online only');
   await p.getByTestId('setlist-offline').click();
   await expect(p.getByTestId('piece-offline')).toHaveText('On device', { timeout: 30_000 });
@@ -86,5 +91,20 @@ test('a setlist made available offline opens its pieces without the network', as
   // The score's address no longer answers: the piece comes from the device
   await p.route(`**${FIRST}`, (route) => route.abort());
   await p.getByTestId('setlist-perform').click();
+  await waitForScore(p);
+});
+
+test('opens a score file from the device, and keeps it there', async ({ page: p }) => {
+  await p.goto('/perform');
+  await expect(p.getByTestId('performer-library')).toBeVisible({ timeout: 60_000 });
+  await p.getByTestId('library-open-file-input').setInputFiles(fileOf(SECOND));
+  await expect(p).toHaveURL(/score=local%3A/, { timeout: 30_000 });
+  await waitForScore(p);
+
+  // Listed on this device; it opens again from there, the file no longer needed
+  await p.goto('/perform');
+  const kept = p.getByTestId('device-score');
+  await expect(kept).toHaveText(/lyrics_repeat_volta/, { timeout: 30_000 });
+  await kept.getByRole('link').click();
   await waitForScore(p);
 });

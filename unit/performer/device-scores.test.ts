@@ -5,6 +5,7 @@ import {
   isLocalScore,
   newLocalKey,
 } from '../../components/performer/platform/scoreStore';
+import { keepScoreFile, pieceNameOf } from '../../components/performer/platform/scoreFiles';
 import { scoreBytes } from '../../components/performer/session/loadPerformerScore';
 import { makeAvailableOffline, offlineStates } from '../../components/performer/setlists/offline';
 import { addItem, newSetlist } from '../../components/performer/setlists/setlistModel';
@@ -61,5 +62,20 @@ describe('scores on the device', () => {
     expect(reports).toEqual(['0:fetching', '0:on-device', '1:fetching', '1:failed', '2:failed']);
     expect((await store.get('/one.mscz'))?.name).toBe('One');
     expect(await offlineStates(list, store)).toEqual(['on-device', 'online-only', 'online-only']);
+  });
+});
+
+describe('score files from the device', () => {
+  it('keeps a picked file as a local score named after the file', async () => {
+    const store = memoryScoreStore();
+    const xml = '<?xml version="1.0"?><score-partwise version="4.0"></score-partwise>';
+    const file = new File([xml], 'Bach Prelude.musicxml');
+    const kept = await keepScoreFile(file, store);
+    expect(isLocalScore(kept.key)).toBe(true);
+    expect(kept.name).toBe('Bach Prelude');
+    const stored = await store.get(kept.key);
+    expect(stored?.format).toBe('musicxml');
+    expect(new TextDecoder().decode(stored?.bytes)).toBe(xml);
+    expect(pieceNameOf('.mscz')).toBe('Untitled score');
   });
 });

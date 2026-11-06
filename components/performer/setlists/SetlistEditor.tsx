@@ -3,7 +3,9 @@
 import React, { useEffect, useState } from 'react';
 import { Button } from '../../ui/Button';
 import { performHref } from '../platform/performPath';
+import { keepScoreFile } from '../platform/scoreFiles';
 import { deviceScoreStore } from '../platform/scoreStore';
+import { ScoreFileButton } from './ScoreFileButton';
 import { makeAvailableOffline, offlineStates, storageEstimate, type OfflineState } from './offline';
 import { addItem, moveItem, removeItem, renameSetlist, type Setlist } from './setlistModel';
 
@@ -16,7 +18,7 @@ const OFFLINE_LABEL: Record<OfflineState, string> = {
   'online-only': 'Online only',
 };
 
-/** One setlist in the library: perform from any piece, reorder, remove, add a score by link, rename, delete. */
+/** One setlist in the library: perform from any piece, reorder, remove, add a score file, rename, delete. */
 export function SetlistEditor({
   setlist,
   onSave,
@@ -26,7 +28,6 @@ export function SetlistEditor({
   onSave: (setlist: Setlist) => void;
   onDelete: () => void;
 }) {
-  const [link, setLink] = useState('');
   const [name, setName] = useState(setlist.name);
   const [scores] = useState(deviceScoreStore);
   const [offline, setOffline] = useState<OfflineState[]>([]);
@@ -49,12 +50,10 @@ export function SetlistEditor({
   };
   /** Delete asks once more (its scores stay on the device either way). */
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const add = () => {
-    const score = link.trim();
-    if (!score) return;
-    const fallback = decodeURIComponent(score.split('/').pop() ?? score).replace(/\.[a-z]+$/i, '');
-    onSave(addItem(setlist, { score, name: fallback }));
-    setLink('');
+  /** A score file from the device: kept there (local:<id>) and added as the last piece. */
+  const addFile = async (file: File) => {
+    const kept = await keepScoreFile(file, scores);
+    onSave(addItem(setlist, { score: kept.key, name: kept.name }));
   };
   return (
     <div data-testid="setlist-editor" className="mt-3 space-y-3 border-t border-slate-200 pt-3">
@@ -96,7 +95,7 @@ export function SetlistEditor({
         ))}
         {!setlist.items.length && (
           <li className="text-slate-500">
-            No pieces yet: open a score and use “Add to setlist”, or add a link.
+            No pieces yet: add a score file, or open a score and use “Add to setlist”.
           </li>
         )}
       </ol>
@@ -115,18 +114,11 @@ export function SetlistEditor({
         </div>
       )}
       <div className="flex gap-2">
-        <input
-          aria-label="Score link"
-          data-testid="setlist-add-link"
-          className="h-8 flex-1 rounded border border-slate-300 px-2"
-          placeholder="Score link"
-          value={link}
-          onChange={(event) => setLink(event.target.value)}
-          onKeyDown={(event) => event.key === 'Enter' && add()}
+        <ScoreFileButton
+          label="Add a file…"
+          testId="setlist-add-file"
+          onFile={(file) => void addFile(file)}
         />
-        <Button type="button" size="sm" data-testid="setlist-add" onClick={add}>
-          Add
-        </Button>
       </div>
       <div className="flex gap-2">
         <input

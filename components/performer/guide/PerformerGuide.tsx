@@ -48,7 +48,8 @@ const SECTIONS: { title: string; items: string[] }[] = [
   {
     title: 'Setlists and offline',
     items: [
-      'In the library, make a setlist and add pieces (or choose “Add to setlist…” while a score is open).',
+      'Open a score file (MuseScore, MusicXML, MEI or MNX) with “Open a file…” in the library. It is kept on the iPad, under “On this device”.',
+      'In the library, make a setlist and add score files to it (or choose “Add to setlist…” while a score is open).',
       'Turning past the last page shows the next piece; turn again to go there.',
       'Before going somewhere without internet, choose Make available offline on the setlist. Each piece shows “On device” when saved.',
     ],

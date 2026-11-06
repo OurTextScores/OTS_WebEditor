@@ -5,7 +5,7 @@ import { Button } from '../../ui/Button';
 import { performHref } from '../platform/performPath';
 import { deviceScoreStore, isLocalScore, type StoredScore } from '../platform/scoreStore';
 
-/** Scores handed over from the editor (kept on this device only): perform or delete. */
+/** Scores kept on this device only (opened from a file, or handed over from the editor): perform or delete. */
 export function OnThisDevice() {
   const [store] = useState(deviceScoreStore);
   const [scores, setScores] = useState<StoredScore[]>([]);
@@ -28,7 +28,7 @@ export function OnThisDevice() {
   if (!scores.length) return null;
   return (
     <section className="space-y-2">
-      <h2 className="text-lg font-semibold">From the editor</h2>
+      <h2 className="text-lg font-semibold">On this device</h2>
       <ul className="space-y-1">
         {scores.map((score) => (
           <li key={score.key} data-testid="device-score" className="flex items-center gap-2">

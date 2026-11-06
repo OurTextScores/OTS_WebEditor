@@ -65,8 +65,7 @@ test('a setlist made available offline performs with the server gone', async ({ 
     );
     await p.getByTestId('setlist-new-name').fill('Airplane');
     await p.getByTestId('setlist-new').click();
-    await p.getByTestId('setlist-add-link').fill(SCORE);
-    await p.getByTestId('setlist-add').click();
+    await p.getByTestId('setlist-add-file-input').setInputFiles(`public${SCORE}`);
     await p.getByTestId('setlist-offline').click();
     await expect(p.getByTestId('piece-offline')).toHaveText('On device', { timeout: 30_000 });
 

@@ -3,7 +3,9 @@
 import React, { useState } from 'react';
 import { Button } from '../../ui/Button';
 import { performHref } from '../platform/performPath';
+import { keepScoreFile } from '../platform/scoreFiles';
 import { newSetlist } from './setlistModel';
+import { ScoreFileButton } from './ScoreFileButton';
 import { OnThisDevice } from './OnThisDevice';
 import { OfflineAppNote } from './OfflineAppNote';
 import { SetlistEditor } from './SetlistEditor';
@@ -17,7 +19,10 @@ export function PerformerLibrary() {
   const { setlists, save, remove } = useSetlists();
   const [open, setOpen] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
-  const [link, setLink] = useState('');
+  const openFile = async (file: File) => {
+    const kept = await keepScoreFile(file);
+    window.location.assign(performHref({ score: kept.key }));
+  };
   const create = async () => {
     const setlist = newSetlist(newName);
     await save(setlist);
@@ -95,24 +100,16 @@ export function PerformerLibrary() {
 
       <section className="space-y-2">
         <h2 className="text-lg font-semibold">Open a score</h2>
-        <form
-          className="flex gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (link.trim()) window.location.assign(performHref({ score: link.trim() }));
-          }}
-        >
-          <input
-            aria-label="Score link to open"
-            className="h-8 flex-1 rounded border border-slate-300 px-2"
-            placeholder="Score link"
-            value={link}
-            onChange={(event) => setLink(event.target.value)}
-          />
-          <Button type="submit" size="sm">
-            Open
-          </Button>
-        </form>
+        <p className="text-sm text-slate-600">
+          A MuseScore, MusicXML, MEI or MNX file from this device. It is kept here, so it opens
+          offline and can go in a setlist.
+        </p>
+        <ScoreFileButton
+          label="Open a file…"
+          testId="library-open-file"
+          variant="primary"
+          onFile={(file) => void openFile(file)}
+        />
       </section>
 
       <OfflineAppNote />
