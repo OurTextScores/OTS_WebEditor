@@ -737,6 +737,10 @@ class WebMscoreW {
      * @param {'mscz' | 'mscx'} format 
      * @returns {Promise<Uint8Array>}
      */
+    unrolledMsc() {
+        return this.rpc('unrolledMsc')
+    }
+
     saveMsc(format = 'mscz') {
         return this.rpc('saveMsc', [format])
     }

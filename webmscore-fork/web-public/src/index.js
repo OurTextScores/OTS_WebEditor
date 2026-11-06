@@ -1427,6 +1427,16 @@ class WebMscore {
      * @param {'mscz' | 'mscx'} format 
      * @returns {Promise<Uint8Array>}
      */
+    /**
+     * The score with its repeats written out (desktop's Unroll repeats), as MSCZ bytes to load as a second score;
+     * performer mode's Play-through view. The full score only; this score is left as it was.
+     * @returns {Promise<Uint8Array>}
+     */
+    async unrolledMsc() {
+        const dataptr = Module.ccall('unrolledMsc', 'number', ['number'], [this.scoreptr])
+        return WasmRes.readData(dataptr)
+    }
+
     async saveMsc(format = 'mscz') {
         const dataptr = Module.ccall('saveMsc', 'number', ['number', 'boolean', 'number'], [this.scoreptr, format == 'mscz', this.excerptId])
         return WasmRes.readData(dataptr)

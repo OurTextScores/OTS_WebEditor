@@ -31,6 +31,7 @@
       "engine/musescore/bridge/noteinput.h",
       "engine/musescore/bridge/parttools.h",
       "engine/musescore/bridge/pdfpaint.h",
+      "engine/musescore/bridge/playthrough.h",
       "engine/musescore/bridge/pitchduration.h",
       "engine/musescore/bridge/playbackoptions.h",
       "engine/musescore/bridge/playbacktimeline.h",

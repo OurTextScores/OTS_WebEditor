@@ -36,3 +36,7 @@ export const writeHalfPages = (scoreKey: string, orientation: string, on: boolea
   write(`half.${orientation}.${scoreKey}`, on);
 export const readPedals = <T>(fallback: T) => read<T>('pedals', fallback);
 export const writePedals = (mapping: unknown) => write('pedals', mapping);
+export const readPlayThrough = (scoreKey: string) =>
+  read<boolean>(`playThrough.${scoreKey}`, false);
+export const writePlayThrough = (scoreKey: string, on: boolean) =>
+  write(`playThrough.${scoreKey}`, on);

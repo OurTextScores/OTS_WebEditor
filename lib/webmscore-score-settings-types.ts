@@ -173,6 +173,8 @@ export interface ScoreDialogMethods {
   selectNoteInChord?: (up: boolean, top?: boolean) => Promise<boolean>;
   /** R: the selection again, after itself, as one undoable edit (roadmap E11). */
   repeatSelection?: () => Promise<boolean>;
+  /** The score with its repeats written out, as MSCZ bytes to load as a second score (performer Play-through). */
+  unrolledMsc?: () => Promise<Uint8Array>;
   /** Where the selected range would land if dropped at the page point, as boxes; [] when it cannot (roadmap E11). */
   rangeDropPreview?: (
     pageNumber: number,

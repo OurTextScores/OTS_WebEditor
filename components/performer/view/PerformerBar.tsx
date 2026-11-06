@@ -7,7 +7,7 @@ import { stepStaffScale } from '../session/devicePageStyle';
 
 /**
  * The performer's controls, shown only on request (the view is locked while performing): the piece, the page, the
- * part, the staff size, half-page turns, the pedal setup, and Done to go back to performing.
+ * part, the staff size, half-page turns, the Play-through view (repeats written out), the pedal setup, and Done.
  */
 export function PerformerBar({
   title,
@@ -17,10 +17,12 @@ export function PerformerBar({
   part,
   staffScale,
   halfPages,
+  playThrough,
   wakeLockNote,
   onPart,
   onStaffScale,
   onHalfPages,
+  onPlayThrough,
   onPedals,
   onDone,
 }: {
@@ -31,10 +33,12 @@ export function PerformerBar({
   part: number;
   staffScale: number;
   halfPages: boolean;
+  playThrough: boolean;
   wakeLockNote: string | null;
   onPart: (part: number) => void;
   onStaffScale: (scale: number) => void;
   onHalfPages: (on: boolean) => void;
+  onPlayThrough: (on: boolean) => void;
   onPedals: () => void;
   onDone: () => void;
 }) {
@@ -97,6 +101,18 @@ export function PerformerBar({
           onChange={(event) => onHalfPages(event.target.checked)}
         />
         Half pages
+      </label>
+      <label
+        className="flex items-center gap-1.5"
+        title="The score with its repeats written out, in playing order"
+      >
+        <input
+          type="checkbox"
+          data-testid="performer-play-through"
+          checked={playThrough}
+          onChange={(event) => onPlayThrough(event.target.checked)}
+        />
+        Play-through
       </label>
       <Button type="button" size="sm" data-testid="performer-pedals" onClick={onPedals}>
         Pedals…

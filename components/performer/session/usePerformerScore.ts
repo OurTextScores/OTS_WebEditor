@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Score, StaffSystemBand } from '../../../lib/webmscore-loader';
 import { sanitizeEngineSvg } from '../../../lib/sanitize-svg';
-import { loadScoreFromUrl } from '../../../lib/score-loader';
+import { barBoxesOf, type BarBox } from './barBoxes';
+import { loadPerformerScore } from './loadPerformerScore';
 import { readPart, readStaffScale, writePart, writeStaffScale } from '../platform/deviceSettings';
 import { devicePageStyle, orientationOf, type Viewport } from './devicePageStyle';
 
@@ -14,6 +15,8 @@ export type PerformerPart = { readonly index: number; readonly name: string };
 
 export interface PerformerScoreState {
   readonly status: 'loading' | 'ready' | 'error';
+  /** Counts the scores loaded: a new one (the Play-through view's) is laid out afresh. */
+  readonly loads: number;
   readonly error: string | null;
   readonly title: string;
   readonly parts: readonly PerformerPart[];
@@ -25,10 +28,17 @@ export interface PerformerScoreState {
   readonly nextSvg: string | null;
   /** Where each part's staves sit in each system of each page (for half-page splits), for the current layout. */
   readonly bands: readonly StaffSystemBand[];
+  /** Written bars (measure indices) in playing order; in the Play-through view, bar i shows written bar [i]. */
+  readonly playedBars: readonly number[];
+  /** Each bar's box on its page, as fractions of the page (for taps on repeat signs and highlighting a bar). */
+  readonly bars: readonly BarBox[];
 }
+
+export type { BarBox };
 
 const INITIAL: PerformerScoreState = {
   status: 'loading',
+  loads: 0,
   error: null,
   title: '',
   parts: [],
@@ -38,6 +48,8 @@ const INITIAL: PerformerScoreState = {
   svg: null,
   nextSvg: null,
   bands: [],
+  playedBars: [],
+  bars: [],
 };
 
 /** One engine call at a time, in order: the worker engine has one score state. */
@@ -52,8 +64,15 @@ function serialQueue() {
 
 const LAYOUT_DEBOUNCE_MS = 150;
 
-/** Key the component that uses this by `scoreUrl`: a different score starts from a fresh state. */
-export function usePerformerScore(scoreUrl: string | null, viewport: Viewport) {
+/**
+ * Key the component that uses this by `scoreUrl` and `playThrough`: a different score or view starts afresh. With
+ * `playThrough` the score shown is the one with its repeats written out (the engine's Unroll repeats).
+ */
+export function usePerformerScore(
+  scoreUrl: string | null,
+  viewport: Viewport,
+  playThrough = false,
+) {
   const [state, setState] = useState<PerformerScoreState>(INITIAL);
   const scoreRef = useRef<Score | null>(null);
   // Stable for the hook's life (a lazy initial state: `serialQueue` makes the queue function)
@@ -113,20 +132,14 @@ export function usePerformerScore(scoreUrl: string | null, viewport: Viewport) {
     const controller = new AbortController();
     void (async () => {
       try {
-        // Eager layout: performer mode lays the whole score out for the device anyway
-        const { loadedScore } = await loadScoreFromUrl(scoreUrl, {
-          signal: controller.signal,
-          progressiveEnabled: false,
-        });
-        if (controller.signal.aborted) {
-          loadedScore.destroy();
-          return;
-        }
-        scoreRef.current = loadedScore;
-        const metadata = await run(() => loadedScore.metadata()).catch(
+        const loaded = await loadPerformerScore(scoreUrl, playThrough, run, controller.signal);
+        if (!loaded) return;
+        const { score: active, playedBars } = loaded;
+        scoreRef.current = active;
+        const metadata = await run(() => active.metadata()).catch(
           () => ({}) as Record<string, unknown>,
         );
-        const excerpts = await run(() => Promise.resolve(loadedScore.listExcerpts?.() ?? [])).catch(
+        const excerpts = await run(() => Promise.resolve(active.listExcerpts?.() ?? [])).catch(
           () => [],
         );
         const savedPart = readPart(scoreUrl);
@@ -138,7 +151,9 @@ export function usePerformerScore(scoreUrl: string | null, viewport: Viewport) {
               : 'Untitled score',
           parts: excerpts.map((excerpt, index) => ({ index, name: excerpt.name })),
           part: savedPart >= 0 && savedPart < excerpts.length ? savedPart : -1,
+          playedBars,
           status: 'ready',
+          loads: previous.loads + 1,
         }));
       } catch (error) {
         if (controller.signal.aborted) return;
@@ -154,7 +169,7 @@ export function usePerformerScore(scoreUrl: string | null, viewport: Viewport) {
       scoreRef.current?.destroy();
       scoreRef.current = null;
     };
-  }, [scoreUrl, run]);
+  }, [scoreUrl, playThrough, run]);
 
   // The staff size: chosen on this visit, else remembered for this score and orientation on this device
   const orientation = orientationOf(viewport);
@@ -168,7 +183,7 @@ export function usePerformerScore(scoreUrl: string | null, viewport: Viewport) {
   });
 
   // Lay out for the device whenever the part, the size or the viewport changes (debounced for rotation and resize)
-  const { status, part } = state;
+  const { status, part, loads } = state;
   useEffect(() => {
     const target = scoreRef.current;
     if (status !== 'ready' || !target) return;
@@ -191,17 +206,20 @@ export function usePerformerScore(scoreUrl: string | null, viewport: Viewport) {
         const bands = await run(() => Promise.resolve(target.staffSystemBands?.() ?? [])).catch(
           () => [],
         );
+        const positions = await run(() => target.measurePositions()).catch(() => null);
         if (generation !== layoutGeneration.current) return;
+        const bars = barBoxesOf(positions);
         setState((previous) => ({
           ...previous,
           pageCount,
           bands: Array.isArray(bands) ? bands : [],
+          bars,
         }));
         await show(page);
       })();
     }, LAYOUT_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
-  }, [status, part, staffScale, viewport, run, show]);
+  }, [status, loads, part, staffScale, viewport, run, show]);
 
   const goToPage = useCallback(
     (page: number) => {
@@ -209,6 +227,15 @@ export function usePerformerScore(scoreUrl: string | null, viewport: Viewport) {
       void show(page);
     },
     [show, state.page, state.pageCount],
+  );
+
+  /** Turns to the page that holds `bar` (a measure index of the score shown). */
+  const goToBar = useCallback(
+    (bar: number) => {
+      const box = state.bars.find((candidate) => candidate.index === bar);
+      if (box && box.page !== state.page) void show(box.page);
+    },
+    [show, state.bars, state.page],
   );
 
   const setPart = useCallback(
@@ -230,5 +257,5 @@ export function usePerformerScore(scoreUrl: string | null, viewport: Viewport) {
   const shown: PerformerScoreState = scoreUrl
     ? state
     : { ...INITIAL, status: 'error', error: 'No score was given to perform.' };
-  return { state: shown, staffScale, goToPage, setPart, setStaffScale };
+  return { state: shown, staffScale, goToPage, goToBar, setPart, setStaffScale };
 }

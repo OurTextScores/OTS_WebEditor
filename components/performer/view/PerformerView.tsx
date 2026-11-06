@@ -1,7 +1,16 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { readHalfPages, readPedals, writeHalfPages, writePedals } from '../platform/deviceSettings';
+import {
+  readHalfPages,
+  readPedals,
+  readPlayThrough,
+  writeHalfPages,
+  writePedals,
+  writePlayThrough,
+} from '../platform/deviceSettings';
+import { JUMP_TEXT_SELECTOR, REPEAT_SIGN_SELECTOR } from '../repeats/repeatTap';
+import { usePerformerRepeats } from '../repeats/usePerformerRepeats';
 import { useWakeLock } from '../platform/wakeLock';
 import { orientationOf } from '../session/devicePageStyle';
 import { usePerformerScore } from '../session/usePerformerScore';
@@ -10,6 +19,8 @@ import { PedalSetup } from '../turning/PedalSetup';
 import { DEFAULT_PEDALS, turnForPedal, type PedalMapping } from '../turning/pedalMapping';
 import { step, type TurnEvent, type TurnState } from '../turning/turnMachine';
 import { PerformerBar } from './PerformerBar';
+import { PerformerPages } from './PerformerPages';
+import { viewBoxHeight } from './pageSvgHeight';
 import { useAvailableArea } from './useAvailableArea';
 
 /** A second turn sooner than this is a bounce or a nervous tap. */
@@ -18,42 +29,6 @@ const TURN_DEBOUNCE_MS = 300;
 const LONG_PRESS_MS = 600;
 /** The share of the height, from the top, where a long press opens the controls. */
 const CONTROLS_BAND = 0.2;
-
-/** The page's height in its own coordinates (the SVG's viewBox), for the half-page split. */
-function viewBoxHeight(svg: string | null): number | null {
-  const match = svg?.match(/viewBox="[\d.\-]+\s+[\d.\-]+\s+[\d.\-]+\s+([\d.]+)"/);
-  return match ? Number(match[1]) : null;
-}
-
-/** One page's SVG filling the surface, optionally clipped to a horizontal band (fractions of the page's height). */
-function PageLayer({
-  svg,
-  page,
-  from = 0,
-  to = 1,
-  testId,
-}: {
-  svg: string;
-  page: number;
-  from?: number;
-  to?: number;
-  testId: string;
-}) {
-  return (
-    <div
-      data-testid={testId}
-      data-page={page}
-      className="absolute inset-0 [&>svg]:h-full [&>svg]:w-full"
-      style={
-        from > 0 || to < 1
-          ? { clipPath: `inset(${from * 100}% 0 ${(1 - to) * 100}% 0)` }
-          : undefined
-      }
-      // The engine's SVG, sanitized (sanitizeEngineSvg) before it gets here
-      dangerouslySetInnerHTML={{ __html: svg }}
-    />
-  );
-}
 
 /**
  * Performer mode's page surface: the score laid out for the screen, locked while performing. Pedal keys and taps only
@@ -64,12 +39,18 @@ function PageLayer({
 export function PerformerView({ scoreUrl }: { scoreUrl: string | null }) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const area = useAvailableArea(surfaceRef);
-  const { state, staffScale, goToPage, setPart, setStaffScale } = usePerformerScore(scoreUrl, area);
+  const scoreKey = scoreUrl ?? '';
+  const [playThrough, setPlayThrough] = useState(() => readPlayThrough(scoreKey));
+  const { state, staffScale, goToPage, goToBar, setPart, setStaffScale } = usePerformerScore(
+    scoreUrl,
+    area,
+    playThrough,
+  );
+  const repeats = usePerformerRepeats({ state, playThrough, goToBar });
   const [controlsOpen, setControlsOpen] = useState(false);
   const [pedalSetupOpen, setPedalSetupOpen] = useState(false);
   const [half, setHalf] = useState(false);
   const orientation = orientationOf(area);
-  const scoreKey = scoreUrl ?? '';
   const [halfChoice, setHalfChoice] = useState<Record<string, boolean>>({});
   const halfPages = halfChoice[orientation] ?? readHalfPages(scoreKey, orientation);
   const [pedals, setPedals] = useState<PedalMapping>(() => readPedals(DEFAULT_PEDALS));
@@ -130,6 +111,18 @@ export function PerformerView({ scoreUrl }: { scoreUrl: string | null }) {
     const rect = event.currentTarget.getBoundingClientRect();
     const x = (event.clientX - rect.left) / rect.width;
     const y = (event.clientY - rect.top) / rect.height;
+    // A repeat sign: jump where the music goes next (the written view, a whole page shown)
+    const pageBox = event.currentTarget
+      .querySelector('[data-testid="performer-page-svg"]')
+      ?.getBoundingClientRect();
+    if (pageBox && !showingHalf) {
+      const tapped = event.target as Element | null;
+      const onSign = Boolean(tapped?.closest(REPEAT_SIGN_SELECTOR));
+      const onJumpText = Boolean(tapped?.closest(JUMP_TEXT_SELECTOR));
+      const fx = (event.clientX - pageBox.left) / pageBox.width;
+      const fy = (event.clientY - pageBox.top) / pageBox.height;
+      if (repeats.jumpOnTap(onSign, onJumpText, fx, fy)) return;
+    }
     if (y < CONTROLS_BAND) {
       // A long press here opens the controls; a short one is still a turn, on release
       pressTimer.current = window.setTimeout(() => {
@@ -155,9 +148,6 @@ export function PerformerView({ scoreUrl }: { scoreUrl: string | null }) {
     wakeLock === 'refused' || wakeLock === 'unsupported'
       ? 'The screen may lock: set Auto-Lock to Never in Settings ▸ Display & Brightness.'
       : null;
-
-  const splitAt = halfView && pageHeight ? halfView.split / pageHeight : 0;
-  const nextTopAt = halfView && pageHeight ? halfView.nextTop / pageHeight : 0;
 
   return (
     <div
@@ -193,31 +183,18 @@ export function PerformerView({ scoreUrl }: { scoreUrl: string | null }) {
             {state.error}
           </div>
         )}
-        {state.status === 'ready' && state.svg && !showingHalf && (
-          <PageLayer svg={state.svg} page={state.page} testId="performer-page-svg" />
-        )}
-        {state.status === 'ready' && state.svg && showingHalf && state.nextSvg && (
-          <>
-            {/* The bottom of this page, still being played, and the top of the next above it */}
-            <PageLayer
-              svg={state.svg}
-              page={state.page}
-              from={splitAt}
-              testId="performer-page-svg"
-            />
-            <PageLayer
-              svg={state.nextSvg}
-              page={state.page + 1}
-              to={nextTopAt}
-              testId="performer-next-top"
-            />
-            <div
-              aria-hidden
-              data-testid="performer-half-divider"
-              className="pointer-events-none absolute inset-x-0 text-slate-400"
-              style={{ top: `${splitAt * 100}%`, borderTop: '2px dashed currentColor' }}
-            />
-          </>
+        {state.status === 'ready' && state.svg && (
+          <PerformerPages
+            svg={state.svg}
+            nextSvg={state.nextSvg}
+            page={state.page}
+            half={
+              showingHalf && halfView && pageHeight
+                ? { split: halfView.split / pageHeight, nextTop: halfView.nextTop / pageHeight }
+                : null
+            }
+            flash={repeats.flash}
+          />
         )}
       </div>
       {controlsOpen && state.status === 'ready' && (
@@ -229,6 +206,7 @@ export function PerformerView({ scoreUrl }: { scoreUrl: string | null }) {
           part={state.part}
           staffScale={staffScale}
           halfPages={halfPages}
+          playThrough={playThrough}
           wakeLockNote={wakeLockNote}
           onPart={setPart}
           onStaffScale={setStaffScale}
@@ -236,6 +214,12 @@ export function PerformerView({ scoreUrl }: { scoreUrl: string | null }) {
             writeHalfPages(scoreKey, orientation, on);
             setHalfChoice((previous) => ({ ...previous, [orientation]: on }));
             if (!on) setHalf(false);
+          }}
+          onPlayThrough={(on) => {
+            repeats.rememberPlace();
+            writePlayThrough(scoreKey, on);
+            setHalf(false);
+            setPlayThrough(on);
           }}
           onPedals={() => setPedalSetupOpen(true)}
           onDone={() => {
