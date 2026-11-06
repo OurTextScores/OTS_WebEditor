@@ -85,6 +85,27 @@ test('rotating the screen lays the score out again for the new shape', async ({ 
   await expect.poll(svgSize, { timeout: 30_000 }).toBeLessThan(1); // portrait page
 });
 
+test("chooses a part from the score's parts, and remembers it", async ({ page: p }) => {
+  await open(p, '/test_scores/two_staves_parts.mscz'); // Violin and Cello, with a part each
+  const staves = () => page(p).locator('svg .StaffLines').count();
+  const fullScore = await staves();
+
+  const box = (await p.getByTestId('performer-surface').boundingBox())!;
+  await p.mouse.move(box.x + box.width / 2, box.y + 30);
+  await p.mouse.down();
+  await p.waitForTimeout(800);
+  await p.mouse.up();
+  const part = p.getByTestId('performer-part');
+  await expect(part.locator('option')).toHaveText(['Full score', 'Violin', 'Cello']);
+  await part.selectOption({ label: 'Cello' });
+  // One instrument: fewer staves on the page than the full score's
+  await expect.poll(staves, { timeout: 30_000 }).toBeLessThan(fullScore);
+
+  await p.reload();
+  await expect(page(p)).toBeVisible({ timeout: 60_000 });
+  await expect.poll(staves, { timeout: 30_000 }).toBeLessThan(fullScore);
+});
+
 test('says so when there is no score to perform', async ({ page: p }) => {
   await p.goto('/perform');
   // Scoped: Next.js adds a route announcer with the same role
