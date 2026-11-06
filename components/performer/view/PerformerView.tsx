@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   readHalfPages,
   readPedals,
@@ -12,6 +12,10 @@ import {
 import { AnnotateTools } from '../annotations/AnnotateTools';
 import { AnnotationLayer } from '../annotations/AnnotationLayer';
 import { MarksBackup } from '../annotations/MarksBackup';
+import { resolvePublicScoreUrl } from '../../../lib/public-score-url';
+import { AddToSetlist } from '../setlists/AddToSetlist';
+import { SetlistCard } from '../setlists/SetlistCard';
+import { useSetlistEdge, type SetlistNav } from '../setlists/useSetlistEdge';
 import { useAnnotateMode } from '../annotations/useAnnotateMode';
 import { usePerformerRepeats } from '../repeats/usePerformerRepeats';
 import { useWakeLock } from '../platform/wakeLock';
@@ -19,12 +23,13 @@ import { orientationOf } from '../session/devicePageStyle';
 import { usePerformerScore } from '../session/usePerformerScore';
 import { halfViewOf } from '../turning/halfPage';
 import { PedalSetup } from '../turning/PedalSetup';
-import { DEFAULT_PEDALS, turnForPedal, type PedalMapping } from '../turning/pedalMapping';
+import { DEFAULT_PEDALS, type PedalMapping } from '../turning/pedalMapping';
 import { step, type TurnEvent, type TurnState } from '../turning/turnMachine';
 import { PerformerBar } from './PerformerBar';
 import { PerformerPages } from './PerformerPages';
 import { viewBoxHeight } from './pageSvgHeight';
 import { useAvailableArea } from './useAvailableArea';
+import { usePedalKeys } from './usePedalKeys';
 import { useSurfacePointer } from './useSurfacePointer';
 
 /** A second turn sooner than this is a bounce or a nervous tap. */
@@ -36,7 +41,14 @@ const TURN_DEBOUNCE_MS = 300;
  * split between systems: the top of the next page above the bottom of this one, then the next page. The controls open
  * with a long press near the top or a two-finger tap (Escape on a keyboard).
  */
-export function PerformerView({ scoreUrl }: { scoreUrl: string | null }) {
+export function PerformerView({
+  scoreUrl,
+  setlist = null,
+}: {
+  scoreUrl: string | null;
+  /** In a setlist: a turn past the end of the piece offers the next one. */
+  setlist?: SetlistNav | null;
+}) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const area = useAvailableArea(surfaceRef);
   const scoreKey = scoreUrl ?? '';
@@ -48,6 +60,7 @@ export function PerformerView({ scoreUrl }: { scoreUrl: string | null }) {
   );
   const repeats = usePerformerRepeats({ state, playThrough, goToBar });
   const annotate = useAnnotateMode({ state, scoreKey, playThrough });
+  const edge = useSetlistEdge(setlist, state.status === 'ready', resolvePublicScoreUrl);
   const [controlsOpen, setControlsOpen] = useState(false);
   const [pedalSetupOpen, setPedalSetupOpen] = useState(false);
   const [half, setHalf] = useState(false);
@@ -76,35 +89,21 @@ export function PerformerView({ scoreUrl }: { scoreUrl: string | null }) {
       halfPages,
       canHalf: (page) => page === state.page && Boolean(halfView && state.nextSvg),
     });
+    if (to.page === from.page && to.half === from.half) {
+      edge.atEdge(event); // past the end of a piece: the setlist's next one
+      return;
+    }
+    edge.clear();
     setHalf(to.half);
     if (to.page !== from.page) goToPage(to.page);
   };
 
-  // Keys: on the document (pedals send them to whatever has focus); the surface keeps focus as a fallback for
-  // browsers that only deliver keys to a focused element
-  const latestTurn = useRef(turn);
-  const latestPedals = useRef(pedals);
-  useEffect(() => {
-    latestTurn.current = turn;
-    latestPedals.current = pedals;
+  usePedalKeys({
+    surface: surfaceRef,
+    pedals,
+    turn,
+    toggleControls: () => setControlsOpen((open) => !open),
   });
-  useEffect(() => {
-    surfaceRef.current?.focus({ preventScroll: true });
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setControlsOpen((open) => !open);
-        return;
-      }
-      const target = event.target as HTMLElement | null;
-      if (target?.closest('select, input, textarea, button')) return;
-      const direction = turnForPedal(event, latestPedals.current);
-      if (!direction) return;
-      event.preventDefault();
-      latestTurn.current(direction);
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, []);
 
   const surfacePointer = useSurfacePointer({
     controlsOpen,
@@ -178,6 +177,7 @@ export function PerformerView({ scoreUrl }: { scoreUrl: string | null }) {
           />
         )}
       </div>
+      {edge.card && <SetlistCard card={edge.card} onGo={edge.go} onStay={edge.clear} />}
       {annotate.active && (
         <AnnotateTools
           mode={annotate}
@@ -217,7 +217,12 @@ export function PerformerView({ scoreUrl }: { scoreUrl: string | null }) {
             setHalf(false);
             annotate.setActive(true);
           }}
-          extra={<MarksBackup store={annotate.store} onRestored={annotate.reload} />}
+          extra={
+            <>
+              <AddToSetlist score={scoreKey} name={state.title} />
+              <MarksBackup store={annotate.store} onRestored={annotate.reload} />
+            </>
+          }
           onDone={() => {
             setControlsOpen(false);
             setPedalSetupOpen(false);

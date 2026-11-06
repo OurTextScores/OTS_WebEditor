@@ -160,13 +160,8 @@ test('a pedal can be taught its key', async ({ page: p }) => {
   await expect(page(p)).toHaveAttribute('data-page', '1');
 });
 
-test('says so when there is no score to perform', async ({ page: p }) => {
+test('with no score, opens the library', async ({ page: p }) => {
   await p.goto('/perform');
-  // Scoped: Next.js adds a route announcer with the same role
-  await expect(p.getByTestId('performer').getByRole('alert')).toContainText(
-    'No score was given to perform.',
-    {
-      timeout: 60_000,
-    },
-  );
+  await expect(p.getByTestId('performer-library')).toBeVisible({ timeout: 60_000 });
+  await expect(p.getByRole('heading', { name: 'Setlists' })).toBeVisible();
 });

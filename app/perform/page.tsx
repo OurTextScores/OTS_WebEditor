@@ -11,6 +11,14 @@ const PerformerView = dynamic(() => import('@/components/performer').then((m) =>
     <div className="flex h-screen items-center justify-center text-slate-500">Loading…</div>
   ),
 });
+const PerformerLibrary = dynamic(
+  () => import('@/components/performer').then((m) => m.PerformerLibrary),
+  { ssr: false },
+);
+const SetlistPerformer = dynamic(
+  () => import('@/components/performer').then((m) => m.SetlistPerformer),
+  { ssr: false },
+);
 const DeviceSelfTest = dynamic(
   () => import('@/components/performer').then((m) => m.DeviceSelfTest),
   {
@@ -21,13 +29,18 @@ const DeviceSelfTest = dynamic(
 function Perform() {
   const params = useSearchParams();
   if (params.has('selftest')) return <DeviceSelfTest />;
+  const setlist = params.get('setlist');
+  if (setlist)
+    return <SetlistPerformer setlistId={setlist} item={Number(params.get('item') ?? 0) || 0} />;
   const score = params.get('score');
+  if (!score) return <PerformerLibrary />;
   // A different score starts the view afresh
   return <PerformerView key={score ?? ''} scoreUrl={score} />;
 }
 
 /**
- * Performer mode: `/perform?score=<url>`, and the device self-test at `/perform?selftest`
+ * Performer mode: the library at `/perform`, a score at `/perform?score=<url>`, a setlist's piece at
+ * `/perform?setlist=<id>&item=<n>`, and the device self-test at `/perform?selftest`
  * (docs/private/PERFORMER_MODE_IMPLEMENTATION_PLAN_2026-11-05.md). Every performer view stays at this path: the
  * engine's worker resolves its WASM and data relative to the page, so a nested route (/perform/x) cannot load it.
  */
