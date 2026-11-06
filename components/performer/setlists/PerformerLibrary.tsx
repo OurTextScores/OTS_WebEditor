@@ -5,6 +5,7 @@ import { Button } from '../../ui/Button';
 import { performHref } from '../platform/performPath';
 import { newSetlist } from './setlistModel';
 import { OnThisDevice } from './OnThisDevice';
+import { OfflineAppNote } from './OfflineAppNote';
 import { SetlistEditor } from './SetlistEditor';
 import { useSetlists } from './useSetlists';
 
@@ -113,6 +114,7 @@ export function PerformerLibrary() {
         </form>
       </section>
 
+      <OfflineAppNote />
       <p className="text-sm text-slate-500">
         <a className="underline" href={performHref({ selftest: true })}>
           Device self-test

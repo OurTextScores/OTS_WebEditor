@@ -2,7 +2,8 @@
 
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
+import { registerPerformWorker } from '@/components/performer/platform/serviceWorker';
 
 // The engine needs the browser (WASM, workers): no server rendering
 const PerformerView = dynamic(() => import('@/components/performer').then((m) => m.PerformerView), {
@@ -45,6 +46,10 @@ function Perform() {
  * engine's worker resolves its WASM and data relative to the page, so a nested route (/perform/x) cannot load it.
  */
 export default function PerformPage() {
+  // Offline: the perform app's service worker (production builds)
+  useEffect(() => {
+    void registerPerformWorker();
+  }, []);
   return (
     <Suspense fallback={null}>
       <Perform />
