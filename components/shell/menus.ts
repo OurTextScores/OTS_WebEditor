@@ -276,6 +276,7 @@ export const MENUS: readonly MenuDefinition[] = [
       ),
       submenu(
         'Marks',
+        item('add.mark.dynamicEntry'),
         family('add.mark.dynamic', 'Dynamics'),
         family('add.mark.articulation', 'Articulations'),
         family('add.mark.ornament', 'Ornaments'),

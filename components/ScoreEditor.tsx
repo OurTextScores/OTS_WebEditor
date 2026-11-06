@@ -327,6 +327,7 @@ import { comparePaneClick, compareScoreClick, refreshCompareSelectionGeometryImp
 import { acceptAllAiChanges, compareKeyboardShortcut, compareOverwriteBlock, saveCompareCheckpoint } from './score-editor/compare/compare-actions';
 import { sendDiffFeedback, updateAiOutputImpl } from './score-editor/ai-diff-feedback';
 import { buildNewScoreXmlImpl } from './score-editor/new-score';
+import { DynamicEntryPopup } from './score-editor/dynamic-entry';
 import { useChordSelection } from './score-editor/chord-selection';
 import { ensurePageIsLaidOutImpl, resolveSelectionContextImpl, scheduleBackgroundInitTasksImpl } from './score-editor/score-session';
 import { playSelectionPreviewImpl } from './score-editor/playback';
@@ -8381,6 +8382,7 @@ export default function ScoreEditor() {
   const renderCanvas = (insets: WorkspaceInsets) => (
     <>
     <ScoreContextMenu menu={scoreContextMenu.menu} onClose={scoreContextMenu.close} />
+    <DynamicEntryPopup />
     <ScoreDialog
       engine={dialogEngine}
       onApply={(kind, apply) => applyScoreDialog(core, { setHasBackendHighlighting, refreshSelectionFromSvg }, kind, apply)}
