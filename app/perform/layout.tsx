@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import '@/components/performer/performer.css';
 
 /** The embed build is a static export under /score-editor; metadata links are not basePath-prefixed by Next. */
 const base = process.env.NEXT_PUBLIC_BUILD_MODE === 'embed' ? '/score-editor' : '';

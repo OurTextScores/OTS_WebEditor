@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Button } from '../../ui/Button';
+import type { PerformerDisplay } from '../platform/deviceSettings';
 import type { PerformerPart } from '../session/usePerformerScore';
 import { stepStaffScale } from '../session/devicePageStyle';
 
@@ -18,11 +19,13 @@ export function PerformerBar({
   staffScale,
   halfPages,
   playThrough,
+  display,
   wakeLockNote,
   onPart,
   onStaffScale,
   onHalfPages,
   onPlayThrough,
+  onDisplay,
   onPedals,
   onAnnotate,
   extra,
@@ -36,11 +39,13 @@ export function PerformerBar({
   staffScale: number;
   halfPages: boolean;
   playThrough: boolean;
+  display: PerformerDisplay;
   wakeLockNote: string | null;
   onPart: (part: number) => void;
   onStaffScale: (scale: number) => void;
   onHalfPages: (on: boolean) => void;
   onPlayThrough: (on: boolean) => void;
+  onDisplay: (display: PerformerDisplay) => void;
   onPedals: () => void;
   onAnnotate: () => void;
   /** More controls (the marks backup), before Done. */
@@ -50,6 +55,9 @@ export function PerformerBar({
   return (
     <div
       data-testid="performer-bar"
+      data-performer-controls
+      role="toolbar"
+      aria-label="Performer controls"
       className="absolute inset-x-0 top-0 z-10 flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white/95 px-4 py-2 text-sm text-slate-800 shadow-sm"
       style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}
     >
@@ -119,6 +127,17 @@ export function PerformerBar({
         />
         Play-through
       </label>
+      <select
+        aria-label="Display"
+        data-testid="performer-display"
+        className="h-8 rounded border border-slate-300 bg-white px-2"
+        value={display}
+        onChange={(event) => onDisplay(event.target.value as PerformerDisplay)}
+      >
+        <option value="normal">Normal</option>
+        <option value="high-contrast">High contrast</option>
+        <option value="dark">Dark</option>
+      </select>
       <Button type="button" size="sm" data-testid="performer-annotate" onClick={onAnnotate}>
         Annotate
       </Button>

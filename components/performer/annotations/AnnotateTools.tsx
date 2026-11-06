@@ -52,6 +52,9 @@ export function AnnotateTools({ mode, onDone }: { mode: AnnotateMode; onDone: ()
     <>
       <div
         data-testid="annotate-tools"
+        data-performer-controls
+        role="toolbar"
+        aria-label="Annotation tools"
         className="absolute inset-x-0 top-0 z-10 flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white/95 px-3 py-2 text-sm text-slate-800 shadow-sm"
         style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}
       >

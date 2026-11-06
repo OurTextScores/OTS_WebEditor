@@ -1,0 +1,32 @@
+/*
+ * Performer mode (docs/private/PERFORMER_MODE_IMPLEMENTATION_PLAN_2026-11-05.md, Phase 6): controls sized for a finger
+ * on an iPad (44 px, Apple's minimum touch target) wherever performer controls are shown, and the display options for
+ * the page (high contrast; dark, the page inverted, for a dim stage). Colour names only (the palette guard).
+ */
+[data-performer-controls] button,
+[data-performer-controls] select,
+[data-performer-controls] input[type='text'],
+[data-performer-controls] input:not([type]) {
+  min-height: 44px;
+}
+[data-performer-controls] button {
+  min-width: 44px;
+  font-size: 0.9375rem;
+}
+[data-performer-controls] label {
+  min-height: 44px;
+}
+[data-performer-controls] input[type='checkbox'] {
+  width: 22px;
+  height: 22px;
+}
+
+[data-display='high-contrast'] [data-page-layer] {
+  filter: grayscale(1) contrast(2.5);
+}
+[data-display='dark'] {
+  background: black;
+}
+[data-display='dark'] [data-page-layer] {
+  filter: invert(1);
+}

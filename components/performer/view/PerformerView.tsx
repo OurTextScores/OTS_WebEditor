@@ -2,18 +2,14 @@
 
 import React, { useMemo, useRef, useState } from 'react';
 import {
-  readHalfPages,
   readPedals,
   readPlayThrough,
-  writeHalfPages,
   writePedals,
   writePlayThrough,
 } from '../platform/deviceSettings';
 import { AnnotateTools } from '../annotations/AnnotateTools';
 import { AnnotationLayer } from '../annotations/AnnotationLayer';
-import { MarksBackup } from '../annotations/MarksBackup';
 import { resolvePublicScoreUrl } from '../../../lib/public-score-url';
-import { AddToSetlist } from '../setlists/AddToSetlist';
 import { SetlistCard } from '../setlists/SetlistCard';
 import { useSetlistEdge, type SetlistNav } from '../setlists/useSetlistEdge';
 import { useAnnotateMode } from '../annotations/useAnnotateMode';
@@ -31,6 +27,9 @@ import { viewBoxHeight } from './pageSvgHeight';
 import { useAvailableArea } from './useAvailableArea';
 import { usePedalKeys } from './usePedalKeys';
 import { useSurfacePointer } from './useSurfacePointer';
+import { BarExtras } from './BarExtras';
+import { useDisplay, useHalfPages } from './useViewChoices';
+import { ScreenReaderTurns } from './ScreenReaderTurns';
 
 /** A second turn sooner than this is a bounce or a nervous tap. */
 const TURN_DEBOUNCE_MS = 300;
@@ -62,11 +61,11 @@ export function PerformerView({
   const annotate = useAnnotateMode({ state, scoreKey, playThrough });
   const edge = useSetlistEdge(setlist, state.status === 'ready', resolvePublicScoreUrl);
   const [controlsOpen, setControlsOpen] = useState(false);
+  const [display, setDisplay] = useDisplay();
   const [pedalSetupOpen, setPedalSetupOpen] = useState(false);
   const [half, setHalf] = useState(false);
   const orientation = orientationOf(area);
-  const [halfChoice, setHalfChoice] = useState<Record<string, boolean>>({});
-  const halfPages = halfChoice[orientation] ?? readHalfPages(scoreKey, orientation);
+  const [halfPages, setHalfPages] = useHalfPages(scoreKey, orientation);
   const [pedals, setPedals] = useState<PedalMapping>(() => readPedals(DEFAULT_PEDALS));
   const wakeLock = useWakeLock(state.status === 'ready');
   const lastTurn = useRef(0);
@@ -123,6 +122,7 @@ export function PerformerView({
       className="fixed inset-0 select-none overflow-hidden bg-white"
       data-testid="performer"
       data-half={showingHalf ? 'true' : 'false'}
+      data-display={display}
       style={{
         paddingTop: 'env(safe-area-inset-top)',
         paddingBottom: 'env(safe-area-inset-bottom)',
@@ -177,6 +177,14 @@ export function PerformerView({
           />
         )}
       </div>
+      {state.status === 'ready' && (
+        <ScreenReaderTurns
+          page={state.page}
+          pageCount={state.pageCount}
+          onTurn={turn}
+          onControls={() => setControlsOpen(true)}
+        />
+      )}
       {edge.card && <SetlistCard card={edge.card} onGo={edge.go} onStay={edge.clear} />}
       {annotate.active && (
         <AnnotateTools
@@ -197,12 +205,13 @@ export function PerformerView({
           staffScale={staffScale}
           halfPages={halfPages}
           playThrough={playThrough}
+          display={display}
+          onDisplay={setDisplay}
           wakeLockNote={wakeLockNote}
           onPart={setPart}
           onStaffScale={setStaffScale}
           onHalfPages={(on) => {
-            writeHalfPages(scoreKey, orientation, on);
-            setHalfChoice((previous) => ({ ...previous, [orientation]: on }));
+            setHalfPages(on);
             if (!on) setHalf(false);
           }}
           onPlayThrough={(on) => {
@@ -217,12 +226,7 @@ export function PerformerView({
             setHalf(false);
             annotate.setActive(true);
           }}
-          extra={
-            <>
-              <AddToSetlist score={scoreKey} name={state.title} />
-              <MarksBackup store={annotate.store} onRestored={annotate.reload} />
-            </>
-          }
+          extra={<BarExtras score={scoreKey} title={state.title} marks={annotate} />}
           onDone={() => {
             setControlsOpen(false);
             setPedalSetupOpen(false);

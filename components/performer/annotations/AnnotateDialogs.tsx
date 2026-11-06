@@ -21,6 +21,7 @@ export function EraseScopeDialog({ mode }: { mode: AnnotateMode }) {
       aria-modal="true"
       aria-labelledby="erase-scope-title"
       data-testid="erase-scope"
+      data-performer-controls
       className="absolute left-1/2 top-24 z-20 w-80 -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-800 shadow-lg"
     >
       <p id="erase-scope-title" className="mb-3">

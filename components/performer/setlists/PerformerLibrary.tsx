@@ -27,6 +27,7 @@ export function PerformerLibrary() {
   return (
     <main
       data-testid="performer-library"
+      data-performer-controls
       className="mx-auto max-w-2xl space-y-8 p-6 text-slate-800"
     >
       <h1 className="text-2xl font-semibold">Perform</h1>

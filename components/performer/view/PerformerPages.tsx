@@ -22,6 +22,7 @@ function PageLayer({
     <div
       data-testid={testId}
       data-page={page}
+      data-page-layer
       className="absolute inset-0 [&>svg]:h-full [&>svg]:w-full"
       style={
         from > 0 || to < 1

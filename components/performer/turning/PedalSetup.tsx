@@ -59,6 +59,7 @@ export function PedalSetup({
       role="dialog"
       aria-label="Pedals"
       data-testid="pedal-setup"
+      data-performer-controls
       className="absolute inset-x-4 top-16 z-20 mx-auto max-w-md space-y-3 rounded border border-slate-200 bg-white p-4 text-sm text-slate-800 shadow-modal"
     >
       <div className="font-semibold">Pedals</div>

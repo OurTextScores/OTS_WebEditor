@@ -18,6 +18,7 @@ export function SetlistCard({
     <div
       role="status"
       data-testid="setlist-card"
+      data-performer-controls
       className="absolute bottom-8 left-1/2 z-10 flex -translate-x-1/2 items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-slate-800 shadow-lg"
       onPointerDown={(event) => event.stopPropagation()}
     >

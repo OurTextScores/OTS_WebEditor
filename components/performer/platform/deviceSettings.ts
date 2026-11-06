@@ -42,3 +42,12 @@ export const writePlayThrough = (scoreKey: string, on: boolean) =>
   write(`playThrough.${scoreKey}`, on);
 export const readDrawWithFinger = () => read<boolean>('drawWithFinger', false);
 export const writeDrawWithFinger = (on: boolean) => write('drawWithFinger', on);
+
+/** How the page is shown: as engraved, in high contrast, or dark (inverted, for a dim stage). Per device. */
+export type PerformerDisplay = 'normal' | 'high-contrast' | 'dark';
+const systemDisplay = (): PerformerDisplay =>
+  typeof window !== 'undefined' && window.matchMedia?.('(prefers-contrast: more)').matches
+    ? 'high-contrast'
+    : 'normal';
+export const readDisplay = () => read<PerformerDisplay>('display', systemDisplay());
+export const writeDisplay = (display: PerformerDisplay) => write('display', display);
