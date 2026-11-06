@@ -1,11 +1,20 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '../../ui/Button';
+import { performHref } from '../platform/performPath';
+import { deviceScoreStore } from '../platform/scoreStore';
+import { makeAvailableOffline, offlineStates, storageEstimate, type OfflineState } from './offline';
 import { addItem, moveItem, removeItem, renameSetlist, type Setlist } from './setlistModel';
 
-const performHref = (setlist: Setlist, item: number) =>
-  `/perform?setlist=${encodeURIComponent(setlist.id)}&item=${item}`;
+const pieceHref = (setlist: Setlist, item: number) => performHref({ setlist: setlist.id, item });
+
+const OFFLINE_LABEL: Record<OfflineState, string> = {
+  'on-device': 'On device',
+  fetching: 'Saving…',
+  failed: 'Not saved',
+  'online-only': 'Online only',
+};
 
 /** One setlist in the library: perform from any piece, reorder, remove, add a score by link, rename, delete. */
 export function SetlistEditor({
@@ -19,6 +28,25 @@ export function SetlistEditor({
 }) {
   const [link, setLink] = useState('');
   const [name, setName] = useState(setlist.name);
+  const [scores] = useState(deviceScoreStore);
+  const [offline, setOffline] = useState<OfflineState[]>([]);
+  const [storage, setStorage] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    void offlineStates(setlist, scores).then((states) => live && setOffline(states));
+    return () => {
+      live = false;
+    };
+  }, [setlist, scores]);
+  const saveOffline = async () => {
+    await makeAvailableOffline(setlist, scores, (index, state) =>
+      setOffline((states) => states.map((value, at) => (at === index ? state : value))),
+    );
+    const estimate = await storageEstimate();
+    setStorage(
+      estimate ? `${estimate.usedMb} MB used of ${estimate.quotaMb} MB on this device.` : null,
+    );
+  };
   /** Delete asks once more (its scores stay on the device either way). */
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const add = () => {
@@ -34,12 +62,12 @@ export function SetlistEditor({
         {setlist.items.map((item, index) => (
           <li key={`${item.score}:${index}`} className="flex items-center gap-2">
             <span className="w-6 text-right text-slate-400">{index + 1}.</span>
-            <a
-              className="flex-1 truncate text-blue-700 underline"
-              href={performHref(setlist, index)}
-            >
+            <a className="flex-1 truncate text-accent underline" href={pieceHref(setlist, index)}>
               {item.name}
             </a>
+            <span data-testid="piece-offline" className="text-xs text-slate-500">
+              {offline[index] ? OFFLINE_LABEL[offline[index]] : ''}
+            </span>
             <Button
               type="button"
               size="sm"
@@ -72,6 +100,20 @@ export function SetlistEditor({
           </li>
         )}
       </ol>
+      {setlist.items.length > 0 && (
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            data-testid="setlist-offline"
+            disabled={offline.includes('fetching')}
+            onClick={() => void saveOffline()}
+          >
+            Make available offline
+          </Button>
+          {storage && <span className="text-xs text-slate-500">{storage}</span>}
+        </div>
+      )}
       <div className="flex gap-2">
         <input
           aria-label="Score link"

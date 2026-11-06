@@ -33,31 +33,43 @@ export async function addFrameText(core: EditorCore, kind: FrameTextKind) {
   const label = FRAME_TEXT_KINDS[kind].label;
   const text = await promptForText(`${label}:`);
   if (text === null) return;
-  return performMutation(`add frame ${label.toLowerCase()}`, async () => {
-    const fn = requireMutation('addFrameText');
-    if (!fn) return false;
-    return fn(kind, text);
-  }, ENGINE_SELECTION);
+  return performMutation(
+    `add frame ${label.toLowerCase()}`,
+    async () => {
+      const fn = requireMutation('addFrameText');
+      if (!fn) return false;
+      return fn(kind, text);
+    },
+    ENGINE_SELECTION,
+  );
 }
 
 /** A diagram of each selected chord symbol's chord, with the symbol moved onto it. */
 export function addFretboardForHarmony(core: EditorCore) {
   const { performMutation, requireMutation } = core;
-  return performMutation('add fretboard diagram', async () => {
-    const fn = requireMutation('addFretboardDiagramForHarmony');
-    if (!fn) return false;
-    return fn();
-  }, ENGINE_SELECTION);
+  return performMutation(
+    'add fretboard diagram',
+    async () => {
+      const fn = requireMutation('addFretboardDiagramForHarmony');
+      if (!fn) return false;
+      return fn();
+    },
+    ENGINE_SELECTION,
+  );
 }
 
 /** Snap to previous (0) or next (1) for the selected hairpins and gradual tempo changes. */
 export function toggleSnap(core: EditorCore, which: 0 | 1) {
   const { performMutation, requireMutation } = core;
-  return performMutation(which === 0 ? 'toggle snap to previous' : 'toggle snap to next', async () => {
-    const fn = requireMutation('toggleSnap');
-    if (!fn) return false;
-    return fn(which);
-  }, ENGINE_SELECTION);
+  return performMutation(
+    which === 0 ? 'toggle snap to previous' : 'toggle snap to next',
+    async () => {
+      const fn = requireMutation('toggleSnap');
+      if (!fn) return false;
+      return fn(which);
+    },
+    ENGINE_SELECTION,
+  );
 }
 
 /** Note input's right-click: the note at the point becomes a rest, as put-note's opposite. */
@@ -87,12 +99,15 @@ export function toggleLaissezVib(core: EditorCore) {
 /** Encloses the selection: 0 brackets, 1 parentheses (a toggle on notes), 2 braces, as MuseScore's actions. */
 export function addBrackets(core: EditorCore, kind: 0 | 1 | 2) {
   const { ensureSelectionInWasm, performMutation, requireMutation } = core;
-  return performMutation(kind === 1 ? 'add parentheses' : kind === 2 ? 'add braces' : 'add brackets', async () => {
-    await ensureSelectionInWasm();
-    const fn = requireMutation('addBrackets');
-    if (!fn) return false;
-    return fn(kind);
-  });
+  return performMutation(
+    kind === 1 ? 'add parentheses' : kind === 2 ? 'add braces' : 'add brackets',
+    async () => {
+      await ensureSelectionInWasm();
+      const fn = requireMutation('addBrackets');
+      if (!fn) return false;
+      return fn(kind);
+    },
+  );
 }
 
 /** A harp pedal diagram (asText: its text form) on the selected note or rest; it is then selected. */

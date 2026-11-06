@@ -69,3 +69,22 @@ test('adds the open score to a setlist from the controls', async ({ page: p }) =
   await p.goto('/perform');
   await expect(p.getByTestId('setlist').getByText('1 piece')).toBeVisible({ timeout: 60_000 });
 });
+
+test('a setlist made available offline opens its pieces without the network', async ({
+  page: p,
+}) => {
+  await p.goto('/perform');
+  await expect(p.getByTestId('performer-library')).toBeVisible({ timeout: 60_000 });
+  await p.getByTestId('setlist-new-name').fill('Tour');
+  await p.getByTestId('setlist-new').click();
+  await p.getByTestId('setlist-add-link').fill(FIRST);
+  await p.getByTestId('setlist-add').click();
+  await expect(p.getByTestId('piece-offline')).toHaveText('Online only');
+  await p.getByTestId('setlist-offline').click();
+  await expect(p.getByTestId('piece-offline')).toHaveText('On device', { timeout: 30_000 });
+
+  // The score's address no longer answers: the piece comes from the device
+  await p.route(`**${FIRST}`, (route) => route.abort());
+  await p.getByTestId('setlist-perform').click();
+  await waitForScore(p);
+});

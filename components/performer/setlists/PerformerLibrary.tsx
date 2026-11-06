@@ -2,7 +2,9 @@
 
 import React, { useState } from 'react';
 import { Button } from '../../ui/Button';
+import { performHref } from '../platform/performPath';
 import { newSetlist } from './setlistModel';
+import { OnThisDevice } from './OnThisDevice';
 import { SetlistEditor } from './SetlistEditor';
 import { useSetlists } from './useSetlists';
 
@@ -54,8 +56,8 @@ export function PerformerLibrary() {
                 {setlist.items.length > 0 && (
                   <a
                     data-testid="setlist-perform"
-                    className="rounded bg-blue-600 px-3 py-1 text-sm font-medium text-white"
-                    href={`/perform?setlist=${encodeURIComponent(setlist.id)}&item=0`}
+                    className="rounded bg-accent px-3 py-1 text-sm font-medium text-white"
+                    href={performHref({ setlist: setlist.id, item: 0 })}
                   >
                     Perform
                   </a>
@@ -87,14 +89,15 @@ export function PerformerLibrary() {
         </div>
       </section>
 
+      <OnThisDevice />
+
       <section className="space-y-2">
         <h2 className="text-lg font-semibold">Open a score</h2>
         <form
           className="flex gap-2"
           onSubmit={(event) => {
             event.preventDefault();
-            if (link.trim())
-              window.location.assign(`/perform?score=${encodeURIComponent(link.trim())}`);
+            if (link.trim()) window.location.assign(performHref({ score: link.trim() }));
           }}
         >
           <input
@@ -111,7 +114,7 @@ export function PerformerLibrary() {
       </section>
 
       <p className="text-sm text-slate-500">
-        <a className="underline" href="/perform?selftest">
+        <a className="underline" href={performHref({ selftest: true })}>
           Device self-test
         </a>
       </p>

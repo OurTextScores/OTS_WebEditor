@@ -22,7 +22,10 @@ const LABELS: Record<ScoreDialogKind, string> = {
  */
 export async function applyScoreDialog(
   core: Pick<EditorCore, 'performMutation' | 'runSerializedScoreOperation'>,
-  refresh: { setHasBackendHighlighting: (value: boolean) => void; refreshSelectionFromSvg: () => Promise<void> },
+  refresh: {
+    setHasBackendHighlighting: (value: boolean) => void;
+    refreshSelectionFromSvg: () => Promise<void>;
+  },
   kind: ScoreDialogKind,
   apply: () => Promise<boolean>,
 ) {
@@ -33,11 +36,17 @@ export async function applyScoreDialog(
     await refresh.refreshSelectionFromSvg();
     return true;
   }
-  return core.performMutation(LABELS[kind], apply, { skipWasmReselect: true, skipSelectionFallback: true });
+  return core.performMutation(LABELS[kind], apply, {
+    skipWasmReselect: true,
+    skipSelectionFallback: true,
+  });
 }
 
 /** Load Style: a MuseScore style file (.mss) replaces the score's style, as one undoable edit. */
-export async function loadStyleFile(core: Pick<EditorCore, 'performMutation' | 'requireMutation'>, file: File) {
+export async function loadStyleFile(
+  core: Pick<EditorCore, 'performMutation' | 'requireMutation'>,
+  file: File,
+) {
   const data = new Uint8Array(await file.arrayBuffer());
   return core.performMutation('load style', async () => {
     const fn = core.requireMutation('loadStyle');
@@ -47,7 +56,10 @@ export async function loadStyleFile(core: Pick<EditorCore, 'performMutation' | '
 }
 
 /** Add ▸ Image: an image file into the selected frame, typed by its extension. */
-export async function addImageToFrame(core: Pick<EditorCore, 'performMutation' | 'requireMutation'>, file: File) {
+export async function addImageToFrame(
+  core: Pick<EditorCore, 'performMutation' | 'requireMutation'>,
+  file: File,
+) {
   const suffix = file.name.split('.').pop()?.toLowerCase() ?? '';
   const data = new Uint8Array(await file.arrayBuffer());
   return core.performMutation(

@@ -29,6 +29,15 @@ export function buildExportCommands(getProps: () => EditorCommandProps): AnyComm
   const audioIdle = () => Boolean(getProps().audioAvailable && !getProps().audioBusy);
 
   return [
+    defineCommand({
+      id: 'file.perform',
+      label: 'Perform',
+      keywords: ['perform', 'performer', 'stage', 'ipad', 'page turn', 'setlist', 'concert'],
+      enabled: (ctx) => ctx.hasScore && Boolean(getProps().onPerform),
+      run: () => {
+        getProps().onPerform?.();
+      },
+    }),
     exportCommand('mscz', 'Export MuseScore (.mscz)', 'onExportMscz'),
     exportCommand('pdf', 'Export PDF', 'onExportPdf'),
     exportCommand('svg', 'Export SVG', 'onExportSvg'),

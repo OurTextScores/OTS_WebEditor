@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PerformerView } from '../view/PerformerView';
+import { performHref } from '../platform/performPath';
 import type { Setlist } from './setlistModel';
 import { deviceSetlistStore } from './setlistStore';
 
@@ -31,7 +32,7 @@ export function SetlistPerformer({ setlistId, item }: { setlistId: string; item:
         className="flex h-screen flex-col items-center justify-center gap-3 text-slate-600"
       >
         This setlist or piece is not on this device.
-        <a className="text-blue-700 underline" href="/perform">
+        <a className="text-accent underline" href={performHref()}>
           Back to the library
         </a>
       </div>

@@ -92,6 +92,8 @@ export interface EditorCommandProps {
   onExportMei?: () => void;
   onExportMnx?: () => void;
   onExportMscz?: () => void;
+  /** File ▸ Perform: the score, with unsaved edits, opened in performer mode. */
+  onPerform?: () => void;
   onExportMscx?: () => void;
   onExportMusicXml?: () => void;
   onExportAbc?: () => void;

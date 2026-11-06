@@ -1,4 +1,5 @@
 export * from './export';
+export * from './perform';
 export * from './marks-and-lines';
 export * from './measures';
 export * from './pitch-and-duration';

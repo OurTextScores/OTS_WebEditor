@@ -201,11 +201,10 @@ export async function setInputDuration(core: EditorCore, durationType: number, m
   }
   // Input by duration enters a note, so it is an edit: redraw, undo history and the playback guard.
   if (method === INPUT_BY_DURATION) {
-    await core.performMutation(
-      'enter note',
-      () => Promise.resolve(fn.call(score, durationType)),
-      { skipWasmReselect: true, skipSelectionFallback: true },
-    );
+    await core.performMutation('enter note', () => Promise.resolve(fn.call(score, durationType)), {
+      skipWasmReselect: true,
+      skipSelectionFallback: true,
+    });
     return;
   }
   try {

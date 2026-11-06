@@ -87,6 +87,7 @@ export const MENUS: readonly MenuDefinition[] = [
         item('file.export.audio'),
         item('file.export.pageAudio'),
       ),
+      item('file.perform'),
       item('file.drive.upload'),
       item('file.shareLink'),
       item('file.embed'),
