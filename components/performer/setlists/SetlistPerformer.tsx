@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PerformerView } from '../view/PerformerView';
-import { performHref } from '../platform/performPath';
+import { isEmbedBuild, performHref } from '../platform/performPath';
 import type { Setlist } from './setlistModel';
 import { deviceSetlistStore } from './setlistStore';
 
@@ -47,8 +47,12 @@ export function SetlistPerformer({ setlistId, item }: { setlistId: string; item:
         index: item,
         names: setlist.items.map((entry) => entry.name),
         scores: setlist.items.map((entry) => entry.score),
-        go: (index) =>
-          router.replace(`/perform?setlist=${encodeURIComponent(setlistId)}&item=${index}`),
+        go: (index) => {
+          // The embed build's host serves perform.html and 404s the router's extensionless URL on a reload
+          if (isEmbedBuild())
+            window.location.replace(performHref({ setlist: setlistId, item: index }));
+          else router.replace(`/perform?setlist=${encodeURIComponent(setlistId)}&item=${index}`);
+        },
       }}
     />
   );

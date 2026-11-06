@@ -2,14 +2,22 @@
   "name": "OTS Perform",
   "short_name": "Perform",
   "description": "Perform from OTS scores: page turns, half pages, annotations, setlists.",
-  "start_url": "/perform",
-  "scope": "/perform",
+  "start_url": "../perform",
+  "scope": "../perform",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#ffffff",
   "theme_color": "#ffffff",
   "icons": [
-    { "src": "/perform/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/perform/icon-512.png", "sizes": "512x512", "type": "image/png" }
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
   ]
 }

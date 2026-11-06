@@ -162,6 +162,27 @@ Safe sync command:
 rsync -a --delete --exclude 'soundfonts/' out/ ../OurTextScores/frontend/public/score-editor/
 ```
 
+## Hosting Performer Mode (`perform.html`)
+
+The embed build includes performer mode, the installable iPad score reader: `out/perform.html` (served at
+`/score-editor/perform.html`), its manifest and icons in `out/perform/`, and its service worker `out/perform-sw.js`.
+Link to it as `/score-editor/perform.html?score=<score URL>`; with no query it opens the performer's library
+(setlists, scores handed over from the editor).
+
+What the host must do:
+
+- Serve `perform-sw.js` as JavaScript from `/score-editor/perform-sw.js` (it registers with scope
+  `/score-editor/perform`, which covers `perform.html`). Avoid long cache lifetimes on it, so an updated worker is
+  picked up.
+- Serve `webmscore.lib.wasm` as `application/wasm`, and `perform/manifest.webmanifest` as
+  `application/manifest+json` (or JSON).
+- Nothing else: no rewrites are needed. The page always addresses itself as `perform.html`.
+
+The service worker keeps the app and the engine on the device so performer mode opens with no network; a new
+release reaches a device at its next launch (never under an open performance). Scores are kept by performer mode
+itself (IndexedDB) when a setlist is made available offline. Checked by `tests/performer-embed.spec.ts`
+(`npm run build:embed && PLAYWRIGHT_EMBED=1 npx playwright test tests/performer-embed.spec.ts`).
+
 ## Vendoring into OurTextScores
 
 OurTextScores embeds this editor in two separate ways:

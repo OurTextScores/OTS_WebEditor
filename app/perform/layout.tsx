@@ -1,12 +1,15 @@
 import type { Metadata, Viewport } from 'next';
 
+/** The embed build is a static export under /score-editor; metadata links are not basePath-prefixed by Next. */
+const base = process.env.NEXT_PUBLIC_BUILD_MODE === 'embed' ? '/score-editor' : '';
+
 /** Performer mode is its own installable web app (scope /perform), full screen on iPad (standalone). */
 export const metadata: Metadata = {
   title: 'OTS Perform',
   description: 'Perform from OTS scores: page turns, half pages, annotations, setlists.',
-  manifest: '/perform/manifest.webmanifest',
+  manifest: `${base}/perform/manifest.webmanifest`,
   appleWebApp: { capable: true, title: 'OTS Perform', statusBarStyle: 'black-translucent' },
-  icons: { apple: '/perform/apple-touch-icon.png' },
+  icons: { apple: `${base}/perform/apple-touch-icon.png` },
 };
 
 export const viewport: Viewport = {

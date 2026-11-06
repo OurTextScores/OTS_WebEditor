@@ -59,4 +59,13 @@ try {
 if (result.error) {
   throw result.error;
 }
+if (result.status === 0) {
+  // Performer mode's manifest: in the static export the perform page is perform.html (the host 404s /perform)
+  const manifestPath = path.join(root, 'out', 'perform', 'manifest.webmanifest');
+  if (fs.existsSync(manifestPath)) {
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    manifest.start_url = '../perform.html';
+    fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  }
+}
 process.exit(result.status ?? 1);
