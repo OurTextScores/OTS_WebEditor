@@ -137,3 +137,19 @@ describe('repeated marks in Play-through', () => {
     expect(unplacedOf([lost, here], layout(), null).map((a) => a.id)).toEqual(['lost']);
   });
 });
+
+describe('stamp glyphs', () => {
+  it('places a glyph so the middle of its box lands on the point', async () => {
+    const { STAMPS, stampOf, stampOrigin } =
+      await import('../../components/performer/annotations/stampGlyphs');
+    const mf = stampOf('dynamicMF')!;
+    expect(mf.char).toBe('');
+    // Box [-0.03, -0.77, 2.83, 1.68] spaces; 10 page units a space: the middle is 1.4 right and 0.455 up of the origin
+    const origin = stampOrigin(mf, 100, 200, 10);
+    expect(origin.fontSize).toBe(40);
+    expect(origin.x).toBeCloseTo(100 - 14);
+    expect(origin.y).toBeCloseTo(200 + 4.55);
+    expect(stampOf('4')).toBeNull(); // a mark saved as plain text before glyph stamps
+    expect(new Set(STAMPS.map((stamp) => stamp.id)).size).toBe(STAMPS.length);
+  });
+});

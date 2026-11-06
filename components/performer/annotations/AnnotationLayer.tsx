@@ -3,6 +3,7 @@
 import React from 'react';
 import { fromSpaces, type PageGeometry } from './pageGeometry';
 import { inkPath, type DrawnAnnotation } from './annotationPlacement';
+import { MUSIC_FONT, stampOf, stampOrigin } from './stampGlyphs';
 
 /**
  * The performer's annotations over the page: an SVG in the page's own units laid over the page's SVG, so each mark
@@ -45,10 +46,33 @@ export function AnnotationLayer({
         }
         const [dx, dy] = annotation.points[0] ?? [0, 0];
         const [x, y] = fromSpaces(placement, dx, dy);
+        const stamp = annotation.kind === 'stamp' ? stampOf(annotation.content) : null;
+        if (stamp?.font === 'music') {
+          // An engraved glyph, its middle on the point it was put at
+          const origin = stampOrigin(stamp, x, y, placement.space);
+          return (
+            <text
+              key={key}
+              data-annotation={annotation.id}
+              data-stamp={stamp.id}
+              data-center={`${x.toFixed(1)} ${y.toFixed(1)}`}
+              x={origin.x}
+              y={origin.y}
+              fill={annotation.style.color}
+              fillOpacity={annotation.style.opacity}
+              fontSize={origin.fontSize}
+              fontFamily={MUSIC_FONT}
+            >
+              {stamp.char}
+            </text>
+          );
+        }
         return (
           <text
             key={key}
             data-annotation={annotation.id}
+            data-stamp={stamp?.id}
+            data-center={`${x.toFixed(1)} ${y.toFixed(1)}`}
             x={x}
             y={y}
             fill={annotation.style.color}
@@ -58,7 +82,7 @@ export function AnnotationLayer({
             textAnchor="middle"
             dominantBaseline="central"
           >
-            {annotation.content}
+            {stamp ? stamp.char : annotation.content}
           </text>
         );
       })}

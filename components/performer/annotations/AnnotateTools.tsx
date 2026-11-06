@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { Button } from '../../ui/Button';
 import { EraseScopeDialog, UnplacedTray } from './AnnotateDialogs';
-import { COLORS, STAMPS, type AnnotationTool } from './annotationTools';
+import { COLORS, type AnnotationTool } from './annotationTools';
+import { StampPalette } from './StampPalette';
 import type { useAnnotateMode } from './useAnnotateMode';
 
 type AnnotateMode = ReturnType<typeof useAnnotateMode>;
@@ -71,21 +72,6 @@ export function AnnotateTools({ mode, onDone }: { mode: AnnotateMode; onDone: ()
             {item.label}
           </Button>
         ))}
-        {mode.tool === 'stamp' && (
-          <select
-            aria-label="Stamp"
-            data-testid="annotate-stamp-choice"
-            className="h-8 rounded border border-slate-300 bg-white px-2"
-            value={mode.stamp}
-            onChange={(event) => mode.setStamp(event.target.value)}
-          >
-            {STAMPS.map((glyph) => (
-              <option key={glyph} value={glyph}>
-                {glyph}
-              </option>
-            ))}
-          </select>
-        )}
         <span className="flex items-center gap-1" role="radiogroup" aria-label="Colour">
           {COLORS.map((swatch) => (
             <Button
@@ -137,6 +123,7 @@ export function AnnotateTools({ mode, onDone }: { mode: AnnotateMode; onDone: ()
           Done
         </Button>
       </div>
+      {mode.tool === 'stamp' && <StampPalette stamp={mode.stamp} onStamp={mode.setStamp} />}
       <EraseScopeDialog mode={mode} />
       <TextEntry
         key={mode.textEntry ? `${mode.textEntry.clientX},${mode.textEntry.clientY}` : 'none'}

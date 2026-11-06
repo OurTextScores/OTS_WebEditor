@@ -7,7 +7,7 @@ import {
   unplacedOf,
   type DrawnAnnotation,
 } from './annotationPlacement';
-import { COLORS, STAMPS, type AnnotationTool } from './annotationTools';
+import { COLORS, type AnnotationTool } from './annotationTools';
 import { useAnnotationInput } from './useAnnotationInput';
 import { useAnnotations } from './useAnnotations';
 
@@ -24,7 +24,7 @@ export function useAnnotateMode(input: {
   const { state, scoreKey, playThrough } = input;
   const [active, setActive] = useState(false);
   const [tool, setTool] = useState<AnnotationTool>('pen');
-  const [stamp, setStamp] = useState<string>(STAMPS[0]);
+  const [stamp, setStamp] = useState<string>('fingering1');
   const [color, setColor] = useState<string>(COLORS[0]);
   const [drawWithFinger, setDrawWithFingerState] = useState(readDrawWithFinger);
   /** A text annotation being typed: where (screen point) and how to add it. */

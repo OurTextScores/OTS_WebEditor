@@ -30,3 +30,10 @@
 [data-display='dark'] [data-page-layer] {
   filter: invert(1);
 }
+
+/* The stamps' music font: the score's own (Leland); Bravura (BravuraFallback, globals.css) for glyphs it lacks. */
+@font-face {
+  font-family: 'PerformMusic';
+  src: url('../../webmscore-fork/fonts/leland/Leland.woff2') format('woff2');
+  font-display: block;
+}

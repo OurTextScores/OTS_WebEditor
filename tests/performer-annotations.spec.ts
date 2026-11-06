@@ -35,14 +35,14 @@ const centre = async (locator: ReturnType<Page['locator']>) => {
 };
 
 /**
- * Where a text mark (stamp or text) is anchored on screen: its x/y through the overlay's transform. (WebKit reports an
- * SVG text's bounding box differently from Chromium; the anchor point is the same in both.)
+ * Where a stamp or text mark was put, on screen: its data-center (the point it was placed at, page units) through the
+ * overlay's transform. (A glyph's own box depends on the font; the point does not.)
  */
 const markAt = (locator: ReturnType<Page['locator']>) =>
   locator.evaluate((element) => {
     const svg = (element as SVGTextElement).ownerSVGElement!;
-    const at = new DOMPoint(Number(element.getAttribute('x')), Number(element.getAttribute('y')));
-    const point = at.matrixTransform(svg.getScreenCTM()!);
+    const [x, y] = (element.getAttribute('data-center') ?? '0 0').split(' ').map(Number);
+    const point = new DOMPoint(x, y).matrixTransform(svg.getScreenCTM()!);
     return { x: point.x, y: point.y };
   });
 
@@ -63,10 +63,10 @@ test('draws, stamps and writes on the score, undoes, erases, and keeps the marks
 
   // A fingering stamp above a note: it lands where it was put
   await p.getByTestId('annotate-stamp').click();
-  await p.getByTestId('annotate-stamp-choice').selectOption('4');
+  await p.getByTestId('annotate-stamp-fingering4').click();
   const stampAt = await centre(page(p).locator('svg .Note').nth(5));
   await p.mouse.click(stampAt.x, stampAt.y - 25);
-  const stamp = p.getByTestId('annotation-layer').locator('text', { hasText: '4' });
+  const stamp = p.getByTestId('annotation-layer').locator('[data-stamp="fingering4"]');
   await expect(stamp).toHaveCount(1);
   const placed = await markAt(stamp);
   expect(Math.abs(placed.x - stampAt.x)).toBeLessThan(20);
@@ -93,19 +93,22 @@ test('draws, stamps and writes on the score, undoes, erases, and keeps the marks
   await p.getByTestId('annotate-done').click();
   await p.reload();
   await expect(page(p).locator('svg .Note').first()).toBeAttached({ timeout: 60_000 });
-  await expect(p.getByTestId('annotation-layer').locator('text', { hasText: '4' })).toHaveCount(1, {
-    timeout: 30_000,
-  });
+  await expect(p.getByTestId('annotation-layer').locator('[data-stamp="fingering4"]')).toHaveCount(
+    1,
+    {
+      timeout: 30_000,
+    },
+  );
 });
 
 test('a stamp stays on its note when the music is laid out again larger', async ({ page: p }) => {
   await open(p);
   await startAnnotating(p);
   await p.getByTestId('annotate-stamp').click();
-  await p.getByTestId('annotate-stamp-choice').selectOption('2');
+  await p.getByTestId('annotate-stamp-fingering2').click();
   const firstAt = await centre(page(p).locator('svg .Note').first());
   await p.mouse.click(firstAt.x, firstAt.y - 20);
-  const stamp = p.getByTestId('annotation-layer').locator('text', { hasText: '2' });
+  const stamp = p.getByTestId('annotation-layer').locator('[data-stamp="fingering2"]');
   await expect(stamp).toHaveCount(1);
   await p.getByTestId('annotate-done').click();
 
@@ -142,10 +145,10 @@ test('in Play-through a mark shows at each repeat; erasing one asks all or only 
 
   await startAnnotating(p);
   await p.getByTestId('annotate-stamp').click();
-  await p.getByTestId('annotate-stamp-choice').selectOption('3');
+  await p.getByTestId('annotate-stamp-fingering3').click();
   const firstAt = await centre(page(p).locator('svg .Note').first());
   await p.mouse.click(firstAt.x, firstAt.y - 20);
-  const stamps = p.getByTestId('annotation-layer').locator('text', { hasText: '3' });
+  const stamps = p.getByTestId('annotation-layer').locator('[data-stamp="fingering3"]');
   await expect(stamps).toHaveCount(2);
 
   // Erase the second play's copy: asked, and only that one goes
@@ -170,10 +173,10 @@ test('marks can be backed up to a file and restored from it', async ({ page: p }
   await open(p);
   await startAnnotating(p);
   await p.getByTestId('annotate-stamp').click();
-  await p.getByTestId('annotate-stamp-choice').selectOption('5');
+  await p.getByTestId('annotate-stamp-fingering5').click();
   const firstAt = await centre(page(p).locator('svg .Note').first());
   await p.mouse.click(firstAt.x, firstAt.y - 20);
-  const stamp = p.getByTestId('annotation-layer').locator('text', { hasText: '5' });
+  const stamp = p.getByTestId('annotation-layer').locator('[data-stamp="fingering5"]');
   await expect(stamp).toHaveCount(1);
   await p.getByTestId('annotate-done').click();
 
@@ -199,4 +202,44 @@ test('marks can be backed up to a file and restored from it', async ({ page: p }
   await expect(p.getByTestId('marks-note')).toContainText('Restored 1 mark');
   await p.getByTestId('performer-done').click();
   await expect(stamp).toHaveCount(1);
+});
+
+test('stamps are engraved glyphs from the music font, centred where they are put', async ({
+  page: p,
+}) => {
+  await open(p);
+  await startAnnotating(p);
+  await p.getByTestId('annotate-stamp').click();
+  // The palette shows the glyphs themselves
+  await expect(p.getByTestId('annotate-stamps').getByRole('radio', { name: 'mf' })).toBeVisible();
+  await p.getByTestId('annotate-stamp-dynamicMF').click();
+  const below = await centre(page(p).locator('svg .Note').nth(3));
+  const at = { x: below.x, y: below.y + 60 };
+  await p.mouse.click(at.x, at.y);
+  const mf = p.getByTestId('annotation-layer').locator('[data-stamp="dynamicMF"]');
+  await expect(mf).toHaveCount(1);
+  await expect(mf).toHaveText('');
+  expect(await p.evaluate(() => document.fonts.check('16px PerformMusic', ''))).toBe(true);
+  await p.evaluate(() => document.fonts.ready);
+  // The glyph's ink, as this browser's font draws it (canvas measureText on the same font), is centred on the tap.
+  // (An SVG text's box is the glyph's ink in Chromium but the font's line box in WebKit, so it is not used.)
+  const ink = await mf.evaluate((element) => {
+    const text = element as SVGTextElement;
+    const size = Number(text.getAttribute('font-size'));
+    const context = document.createElement('canvas').getContext('2d')!;
+    context.font = `${size}px PerformMusic`;
+    const metrics = context.measureText(text.textContent ?? '');
+    const x =
+      Number(text.getAttribute('x')) +
+      (metrics.actualBoundingBoxRight - metrics.actualBoundingBoxLeft) / 2;
+    const y =
+      Number(text.getAttribute('y')) -
+      (metrics.actualBoundingBoxAscent - metrics.actualBoundingBoxDescent) / 2;
+    const point = new DOMPoint(x, y).matrixTransform(text.ownerSVGElement!.getScreenCTM()!);
+    return { x: point.x, y: point.y };
+  });
+  expect(Math.abs(ink.x - at.x)).toBeLessThan(3);
+  expect(Math.abs(ink.y - at.y)).toBeLessThan(3);
+  // Shown in the screenshot of the tools, for a look: test-results/
+  await p.screenshot({ path: test.info().outputPath('stamps.png') });
 });

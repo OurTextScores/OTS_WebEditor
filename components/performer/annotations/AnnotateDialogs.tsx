@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Button } from '../../ui/Button';
 import type { Annotation } from './annotationModel';
+import { stampOf } from './stampGlyphs';
 import type { useAnnotateMode } from './useAnnotateMode';
 
 type AnnotateMode = ReturnType<typeof useAnnotateMode>;
@@ -10,7 +11,7 @@ type AnnotateMode = ReturnType<typeof useAnnotateMode>;
 const describe = (annotation: Annotation) =>
   annotation.kind === 'ink'
     ? `Drawing, bar ${annotation.anchor.bar + 1}`
-    : `“${annotation.content}”, bar ${annotation.anchor.bar + 1}`;
+    : `“${stampOf(annotation.content)?.label ?? annotation.content}”, bar ${annotation.anchor.bar + 1}`;
 
 /** In Play-through, erasing a mark that is repeated: at all its occurrences, or only the one tapped? */
 export function EraseScopeDialog({ mode }: { mode: AnnotateMode }) {
