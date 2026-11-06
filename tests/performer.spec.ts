@@ -106,6 +106,60 @@ test("chooses a part from the score's parts, and remembers it", async ({ page: p
   await expect.poll(staves, { timeout: 30_000 }).toBeLessThan(fullScore);
 });
 
+async function openControls(p: Page) {
+  const box = (await p.getByTestId('performer-surface').boundingBox())!;
+  await p.mouse.move(box.x + box.width / 2, box.y + 30);
+  await p.mouse.down();
+  await p.waitForTimeout(800);
+  await p.mouse.up();
+  await expect(p.getByTestId('performer-bar')).toBeVisible();
+}
+
+test('half-page turns: the top of the next page above the bottom of this one, then the next page', async ({
+  page: p,
+}) => {
+  await open(p);
+  await openControls(p);
+  await p.getByTestId('performer-half-pages').check();
+  await p.getByTestId('performer-done').click();
+  const view = p.getByTestId('performer');
+
+  await p.keyboard.press('ArrowRight');
+  await expect(view).toHaveAttribute('data-half', 'true');
+  await expect(page(p)).toHaveAttribute('data-page', '0'); // the bottom of page 1, still being played
+  await expect(p.getByTestId('performer-next-top')).toHaveAttribute('data-page', '1');
+  await expect(p.getByTestId('performer-half-divider')).toBeVisible();
+  // The split is between systems: some way down the page, not at an edge
+  const top = await p
+    .getByTestId('performer-half-divider')
+    .evaluate((el) => parseFloat((el as HTMLElement).style.top));
+  expect(top).toBeGreaterThan(20);
+  expect(top).toBeLessThan(85);
+
+  await p.waitForTimeout(400);
+  await p.keyboard.press('ArrowRight');
+  await expect(view).toHaveAttribute('data-half', 'false');
+  await expect(page(p)).toHaveAttribute('data-page', '1');
+  await p.waitForTimeout(400);
+  await p.keyboard.press('ArrowLeft');
+  await expect(page(p)).toHaveAttribute('data-page', '0');
+  await expect(view).toHaveAttribute('data-half', 'false');
+});
+
+test('a pedal can be taught its key', async ({ page: p }) => {
+  await open(p);
+  await openControls(p);
+  await p.getByTestId('performer-pedals').click();
+  await p.getByTestId('pedal-set-next').click();
+  await expect(p.getByTestId('pedal-set-next')).toHaveText('Press the pedal…');
+  await p.keyboard.press('b');
+  await expect(p.getByTestId('pedal-keys-next')).toContainText('b');
+  await p.getByTestId('pedal-done').click();
+  await p.getByTestId('performer-done').click();
+  await p.keyboard.press('b');
+  await expect(page(p)).toHaveAttribute('data-page', '1');
+});
+
 test('says so when there is no score to perform', async ({ page: p }) => {
   await p.goto('/perform');
   // Scoped: Next.js adds a route announcer with the same role

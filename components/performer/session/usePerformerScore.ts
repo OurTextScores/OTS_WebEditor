@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { Score } from '../../../lib/webmscore-loader';
+import type { Score, StaffSystemBand } from '../../../lib/webmscore-loader';
 import { sanitizeEngineSvg } from '../../../lib/sanitize-svg';
 import { loadScoreFromUrl } from '../../../lib/score-loader';
 import { readPart, readStaffScale, writePart, writeStaffScale } from '../platform/deviceSettings';
@@ -21,6 +21,10 @@ export interface PerformerScoreState {
   readonly pageCount: number;
   readonly page: number;
   readonly svg: string | null;
+  /** The next page's SVG once it is prepared (half-page turns show its top), else null. */
+  readonly nextSvg: string | null;
+  /** Where each part's staves sit in each system of each page (for half-page splits), for the current layout. */
+  readonly bands: readonly StaffSystemBand[];
 }
 
 const INITIAL: PerformerScoreState = {
@@ -32,6 +36,8 @@ const INITIAL: PerformerScoreState = {
   pageCount: 0,
   page: 0,
   svg: null,
+  nextSvg: null,
+  bands: [],
 };
 
 /** One engine call at a time, in order: the worker engine has one score state. */
@@ -75,14 +81,26 @@ export function usePerformerScore(scoreUrl: string | null, viewport: Viewport) {
       const generation = layoutGeneration.current;
       const svg = await renderPage(target, page);
       if (generation !== layoutGeneration.current) return;
-      setState((previous) => ({ ...previous, page, svg }));
+      setState((previous) => ({
+        ...previous,
+        page,
+        svg,
+        nextSvg: cache.current.get(page + 1) ?? null,
+      }));
       // The neighbours, ready for the next turn; anything further away is dropped
       for (const key of [...cache.current.keys()])
         if (Math.abs(key - page) > 1) cache.current.delete(key);
       const count = await run(() => Promise.resolve(target.npages?.() ?? 1));
       for (const neighbour of [page + 1, page - 1]) {
         if (neighbour >= 0 && neighbour < count && generation === layoutGeneration.current) {
-          void renderPage(target, neighbour).catch(() => {});
+          void renderPage(target, neighbour)
+            .then((rendered) => {
+              if (neighbour !== page + 1 || generation !== layoutGeneration.current) return;
+              setState((previous) =>
+                previous.page === page ? { ...previous, nextSvg: rendered } : previous,
+              );
+            })
+            .catch(() => {});
         }
       }
     },
@@ -170,7 +188,15 @@ export function usePerformerScore(scoreUrl: string | null, viewport: Viewport) {
           pageCount - 1,
           Math.round(anchorFraction * Math.max(0, pageCount - 1)),
         );
-        setState((previous) => ({ ...previous, pageCount }));
+        const bands = await run(() => Promise.resolve(target.staffSystemBands?.() ?? [])).catch(
+          () => [],
+        );
+        if (generation !== layoutGeneration.current) return;
+        setState((previous) => ({
+          ...previous,
+          pageCount,
+          bands: Array.isArray(bands) ? bands : [],
+        }));
         await show(page);
       })();
     }, LAYOUT_DEBOUNCE_MS);

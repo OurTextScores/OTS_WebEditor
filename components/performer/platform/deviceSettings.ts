@@ -29,3 +29,10 @@ export const writeStaffScale = (scoreKey: string, orientation: string, scale: nu
   write(`staff.${orientation}.${scoreKey}`, scale);
 export const readPart = (scoreKey: string) => read<number>(`part.${scoreKey}`, -1);
 export const writePart = (scoreKey: string, part: number) => write(`part.${scoreKey}`, part);
+
+export const readHalfPages = (scoreKey: string, orientation: string) =>
+  read<boolean>(`half.${orientation}.${scoreKey}`, false);
+export const writeHalfPages = (scoreKey: string, orientation: string, on: boolean) =>
+  write(`half.${orientation}.${scoreKey}`, on);
+export const readPedals = <T>(fallback: T) => read<T>('pedals', fallback);
+export const writePedals = (mapping: unknown) => write('pedals', mapping);

@@ -7,7 +7,7 @@ import { stepStaffScale } from '../session/devicePageStyle';
 
 /**
  * The performer's controls, shown only on request (the view is locked while performing): the piece, the page, the
- * part, the staff size, and Done to go back to performing.
+ * part, the staff size, half-page turns, the pedal setup, and Done to go back to performing.
  */
 export function PerformerBar({
   title,
@@ -16,9 +16,12 @@ export function PerformerBar({
   parts,
   part,
   staffScale,
+  halfPages,
   wakeLockNote,
   onPart,
   onStaffScale,
+  onHalfPages,
+  onPedals,
   onDone,
 }: {
   title: string;
@@ -27,9 +30,12 @@ export function PerformerBar({
   parts: readonly PerformerPart[];
   part: number;
   staffScale: number;
+  halfPages: boolean;
   wakeLockNote: string | null;
   onPart: (part: number) => void;
   onStaffScale: (scale: number) => void;
+  onHalfPages: (on: boolean) => void;
+  onPedals: () => void;
   onDone: () => void;
 }) {
   return (
@@ -83,6 +89,18 @@ export function PerformerBar({
           A+
         </Button>
       </span>
+      <label className="flex items-center gap-1.5">
+        <input
+          type="checkbox"
+          data-testid="performer-half-pages"
+          checked={halfPages}
+          onChange={(event) => onHalfPages(event.target.checked)}
+        />
+        Half pages
+      </label>
+      <Button type="button" size="sm" data-testid="performer-pedals" onClick={onPedals}>
+        Pedals…
+      </Button>
       {wakeLockNote && <span className="text-xs text-amber-700">{wakeLockNote}</span>}
       <Button
         type="button"
