@@ -5,6 +5,7 @@ import { Button } from '../../ui/Button';
 import { EraseScopeDialog, UnplacedTray } from './AnnotateDialogs';
 import { COLORS, type AnnotationTool } from './annotationTools';
 import { StampPalette } from './StampPalette';
+import { MarksHistoryPanel } from './MarksHistoryPanel';
 import type { useAnnotateMode } from './useAnnotateMode';
 
 type AnnotateMode = ReturnType<typeof useAnnotateMode>;
@@ -112,6 +113,12 @@ export function AnnotateTools({ mode, onDone }: { mode: AnnotateMode; onDone: ()
         <Button type="button" size="sm" disabled={!mode.canRedo} onClick={mode.redo}>
           Redo
         </Button>
+        <MarksHistoryPanel
+          history={mode.history}
+          onUndo={mode.undo}
+          onRedo={mode.redo}
+          onJump={mode.jump}
+        />
         <UnplacedTray mode={mode} />
         <Button
           type="button"

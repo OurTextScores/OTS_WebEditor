@@ -243,3 +243,36 @@ test('stamps are engraved glyphs from the music font, centred where they are put
   // Shown in the screenshot of the tools, for a look: test-results/
   await p.screenshot({ path: test.info().outputPath('stamps.png') });
 });
+
+test('undo and redo with the editor keys, and the history goes back to any step', async ({
+  page: p,
+}) => {
+  await open(p);
+  await startAnnotating(p);
+  await p.getByTestId('annotate-stamp').click();
+  await p.getByTestId('annotate-stamp-dynamicPiano').click();
+  const first = await centre(page(p).locator('svg .Note').nth(3));
+  await p.mouse.click(first.x, first.y + 60);
+  await p.getByTestId('annotate-stamp-dynamicForte').click();
+  const second = await centre(page(p).locator('svg .Note').nth(12));
+  await p.mouse.click(second.x, second.y + 60);
+  await expect(marks(p)).toHaveCount(2);
+
+  await p.keyboard.press('ControlOrMeta+z');
+  await expect(marks(p)).toHaveCount(1);
+  await p.keyboard.press('ControlOrMeta+Shift+z');
+  await expect(marks(p)).toHaveCount(2);
+
+  // The history: newest first, then the marks as opened
+  await p.getByTestId('annotate-history').click();
+  const panel = p.getByTestId('annotate-history-panel');
+  await expect(panel.locator('[data-edit-row]')).toHaveText([
+    /Stamp f, bar \d+/,
+    /Stamp p, bar \d+/,
+    'Original',
+  ]);
+  await panel.getByText('Original').click();
+  await expect(marks(p)).toHaveCount(0);
+  await panel.getByText(/Stamp f/).click();
+  await expect(marks(p)).toHaveCount(2);
+});

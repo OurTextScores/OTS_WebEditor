@@ -10,6 +10,8 @@ import {
 import { COLORS, type AnnotationTool } from './annotationTools';
 import { useAnnotationInput } from './useAnnotationInput';
 import { useAnnotations } from './useAnnotations';
+import { useUndoKeys } from './useUndoKeys';
+import { describeMark } from './annotationHistory';
 
 /**
  * Annotate mode for the perform view (Phase 4): whether it is on, the chosen tool, stamp and colour, "draw with
@@ -46,6 +48,8 @@ export function useAnnotateMode(input: {
     [store.annotations, state.geometry, state.page, playedBars],
   );
 
+  useUndoKeys(store.undo, store.redo);
+
   const unplaced = useMemo(
     () => (state.geometry ? unplacedOf(store.annotations, state.geometry, playedBars) : []),
     [store.annotations, state.geometry, playedBars],
@@ -56,7 +60,12 @@ export function useAnnotateMode(input: {
     if (!eraseScope) return;
     const { annotation, occurrence } = eraseScope.drawn;
     if (scope === 'all' || occurrence === null) void store.remove(annotation);
-    else void store.replace(annotation, hiddenAtOccurrence(annotation, occurrence));
+    else
+      void store.replace(
+        annotation,
+        hiddenAtOccurrence(annotation, occurrence),
+        `Erase at one repeat: ${describeMark(annotation)}`,
+      );
     setEraseScope(null);
   };
 
@@ -105,6 +114,8 @@ export function useAnnotateMode(input: {
     reload: store.reload,
     removeUnplaced: store.remove,
     undo: store.undo,
+    jump: store.jump,
+    history: store.history,
     redo: store.redo,
     canUndo: store.canUndo,
     canRedo: store.canRedo,
