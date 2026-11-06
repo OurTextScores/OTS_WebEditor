@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Score, StaffSystemBand } from '../../../lib/webmscore-loader';
 import { sanitizeEngineSvg } from '../../../lib/sanitize-svg';
+import { pageGeometryOf, type PageGeometry } from '../annotations/pageGeometry';
 import { barBoxesOf, type BarBox } from './barBoxes';
 import { loadPerformerScore } from './loadPerformerScore';
 import { readPart, readStaffScale, writePart, writeStaffScale } from '../platform/deviceSettings';
@@ -32,6 +33,8 @@ export interface PerformerScoreState {
   readonly playedBars: readonly number[];
   /** Each bar's box on its page, as fractions of the page (for taps on repeat signs and highlighting a bar). */
   readonly bars: readonly BarBox[];
+  /** The laid-out music in the page's own units (bars, beats, staff bands), for anchoring annotations. */
+  readonly geometry: PageGeometry | null;
 }
 
 export type { BarBox };
@@ -50,6 +53,7 @@ const INITIAL: PerformerScoreState = {
   bands: [],
   playedBars: [],
   bars: [],
+  geometry: null,
 };
 
 /** One engine call at a time, in order: the worker engine has one score state. */
@@ -208,12 +212,16 @@ export function usePerformerScore(
         );
         const positions = await run(() => target.measurePositions()).catch(() => null);
         if (generation !== layoutGeneration.current) return;
+        const segments = await run(() => target.segmentPositions()).catch(() => null);
+        if (generation !== layoutGeneration.current) return;
         const bars = barBoxesOf(positions);
+        const geometry = pageGeometryOf(positions, segments, Array.isArray(bands) ? bands : []);
         setState((previous) => ({
           ...previous,
           pageCount,
           bands: Array.isArray(bands) ? bands : [],
           bars,
+          geometry,
         }));
         await show(page);
       })();
