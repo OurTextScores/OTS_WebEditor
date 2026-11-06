@@ -968,6 +968,14 @@ class WebMscoreW {
      * Move selection to the previous chord
      * @returns {Promise<boolean>}
      */
+    rangeDropPreview(pageNumber, x, y, preserveMeasureAlignment) {
+        return this.rpc('rangeDropPreview', [pageNumber, x, y, preserveMeasureAlignment])
+    }
+
+    dropRangeAt(pageNumber, x, y, preserveMeasureAlignment) {
+        return this.rpc('dropRangeAt', [pageNumber, x, y, preserveMeasureAlignment])
+    }
+
     selectNoteInChord(up, top) {
         return this.rpc('selectNoteInChord', [up, top])
     }

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import type { RefreshPageCount, RenderScore } from '../editor-types';
 import type { MutableRefObject } from 'react';
 import type { EditorCore } from '../core';
+import { startRangeDrop } from '../range-drop';
 import { handleScoreClickImpl } from './score-click';
 import { performDragSelection } from './marquee-selection';
 import { usePointerGestureRefs } from './pointer-gesture';
@@ -122,6 +123,10 @@ export function useCanvasGestures(ctx: CanvasGesturesContext) {
 
   const handleScorePointerDown = (e: React.PointerEvent) => {
     if (!interactionReady) {
+      return;
+    }
+    // Alt with a range selected: a copy of the range goes where the pointer is released (roadmap E11)
+    if (startRangeDrop(core, e)) {
       return;
     }
     if (e.button !== 0) {

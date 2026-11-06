@@ -173,6 +173,20 @@ export interface ScoreDialogMethods {
   selectNoteInChord?: (up: boolean, top?: boolean) => Promise<boolean>;
   /** R: the selection again, after itself, as one undoable edit (roadmap E11). */
   repeatSelection?: () => Promise<boolean>;
+  /** Where the selected range would land if dropped at the page point, as boxes; [] when it cannot (roadmap E11). */
+  rangeDropPreview?: (
+    pageNumber: number,
+    x: number,
+    y: number,
+    preserveMeasureAlignment?: boolean,
+  ) => Promise<{ page: number; x: number; y: number; width: number; height: number }[]>;
+  /** A copy of the selected range pasted where it would land at the page point: one undoable edit (roadmap E11). */
+  dropRangeAt?: (
+    pageNumber: number,
+    x: number,
+    y: number,
+    preserveMeasureAlignment?: boolean,
+  ) => Promise<boolean>;
   /** Puts back parts as part of loading, no undo step (slice 5); returns how many were added. */
   restoreExcerpts?: (parts: { name: string; parts: number[] }[]) => Promise<number>;
   /** Makes one part per instrument when the score has none. */
@@ -202,6 +216,8 @@ export interface ScoreDialogMethods {
   getTimeSigProperties?: () => Promise<Partial<TimeSigProperties>>;
   /** groups: the rows, or 'default' for MuseScore's defaults. Applies to the time signature on every staff. */
   setTimeSigProperties?: (
-    values: Partial<Omit<TimeSigProperties, 'groups' | 'defaultGroups'>> & { groups?: BeamGroupRows | 'default' },
+    values: Partial<Omit<TimeSigProperties, 'groups' | 'defaultGroups'>> & {
+      groups?: BeamGroupRows | 'default';
+    },
   ) => Promise<boolean> | boolean;
 }

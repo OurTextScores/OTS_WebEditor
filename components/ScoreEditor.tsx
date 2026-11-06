@@ -327,6 +327,7 @@ import { comparePaneClick, compareScoreClick, refreshCompareSelectionGeometryImp
 import { acceptAllAiChanges, compareKeyboardShortcut, compareOverwriteBlock, saveCompareCheckpoint } from './score-editor/compare/compare-actions';
 import { sendDiffFeedback, updateAiOutputImpl } from './score-editor/ai-diff-feedback';
 import { buildNewScoreXmlImpl } from './score-editor/new-score';
+import { RangeDropPreview } from './score-editor/range-drop';
 import { DynamicEntryPopup } from './score-editor/dynamic-entry';
 import { useChordSelection } from './score-editor/chord-selection';
 import { ensurePageIsLaidOutImpl, resolveSelectionContextImpl, scheduleBackgroundInitTasksImpl } from './score-editor/score-session';
@@ -8470,6 +8471,7 @@ export default function ScoreEditor() {
         engravingToOverlayPoint={engravingToOverlayPoint}
         onGripPointerDown={handleGripPointerDown}
       />
+      <RangeDropPreview page={currentPage} />
       <SelectionOverlays
         secondaryBoxes={secondarySelectionBoxes}
         selectionBoxes={selectionBoxes}

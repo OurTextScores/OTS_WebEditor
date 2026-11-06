@@ -41,6 +41,7 @@
       "engine/musescore/bridge/scoresignatures.h",
       "engine/musescore/bridge/scoretext.h",
       "engine/musescore/bridge/selection.h",
+      "engine/musescore/bridge/rangedrop.h",
       "engine/musescore/bridge/selectiongeometry.h",
       "engine/musescore/bridge/spannertools.h",
       "engine/musescore/bridge/systemlocks.h",

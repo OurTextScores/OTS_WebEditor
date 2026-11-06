@@ -356,6 +356,7 @@ EMSCRIPTEN_KEEPALIVE bool redo(uintptr_t id,int excerpt) {
 #include "objectgeometry.h"
 
 #include "selectiongeometry.h"
+#include "rangedrop.h"
 
 #include "noteinput.h"
 #include "chordedits.h"

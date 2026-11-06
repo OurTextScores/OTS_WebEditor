@@ -1992,6 +1992,27 @@ class WebMscore {
      * Alt+Up/Down (`top`: Ctrl+Alt+Up/Down): the note above or below in the chord, or its top or bottom note.
      * @returns {Promise<boolean>} whether the selection moved
      */
+    /**
+     * Where the selected range would land if dropped at the page point: its boxes, or [] when it cannot go there.
+     * @returns {Promise<{ page: number, x: number, y: number, width: number, height: number }[]>}
+     */
+    async rangeDropPreview(pageNumber, x, y, preserveMeasureAlignment = true) {
+        if (!Module._rangeDropPreview) return []
+        const dataptr = Module.ccall('rangeDropPreview', 'number', ['number', 'number', 'number', 'number', 'boolean', 'number'],
+            [this.scoreptr, pageNumber, x, y, !!preserveMeasureAlignment, this.excerptId])
+        return JSON.parse(WasmRes.readText(dataptr))
+    }
+
+    /**
+     * A copy of the selected range pasted where it would land at the page point (one undoable "Copy range").
+     * @returns {Promise<boolean>}
+     */
+    async dropRangeAt(pageNumber, x, y, preserveMeasureAlignment = true) {
+        if (!Module._dropRangeAt) return false
+        return Module.ccall('dropRangeAt', 'boolean', ['number', 'number', 'number', 'number', 'boolean', 'number'],
+            [this.scoreptr, pageNumber, x, y, !!preserveMeasureAlignment, this.excerptId])
+    }
+
     async selectNoteInChord(up, top = false) {
         if (!Module._selectNoteInChord) return false
         return Module.ccall('selectNoteInChord', 'boolean', ['number', 'boolean', 'boolean', 'number'], [this.scoreptr, !!up, !!top, this.excerptId])

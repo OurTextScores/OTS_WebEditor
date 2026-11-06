@@ -79,6 +79,86 @@ static engraving::staff_idx_t rangeLastVisibleStaffIdx(const engraving::System* 
     return muse::nidx;
 }
 
+// The boxes a range covers, one per system section (as desktop's ScoreRangeUtilities::boundingArea), appended to `json`
+// as {page, x, y, width, height}: the range selection's boxes, and where a dropped range would land (rangedrop.h).
+static void appendRangeBoxes(const engraving::Score* score, const engraving::Segment* startSeg,
+                             const engraving::Segment* endSeg, engraving::staff_idx_t staffStart,
+                             engraving::staff_idx_t staffEnd, String& json, bool& first)
+{
+    if (startSeg && endSeg && startSeg->tick() <= endSeg->tick()) {
+        for (const RangeSection& section : splitRangeBySections(startSeg, endSeg)) {
+            if (!section.system || !section.startSegment || !section.endSegment) {
+                continue;
+            }
+
+            const auto firstStaff = rangeFirstVisibleStaffIdx(score, section.system, staffStart);
+            const auto lastStaff = rangeLastVisibleStaffIdx(section.system, staffEnd);
+            if (firstStaff == muse::nidx || lastStaff == muse::nidx || firstStaff > lastStaff) {
+                continue;
+            }
+
+            const engraving::SysStaff* segmentFirstStaff = section.system->staff(firstStaff);
+            const engraving::SysStaff* segmentLastStaff = section.system->staff(lastStaff);
+            const engraving::Staff* scoreFirstStaff = score->staff(firstStaff);
+            const engraving::Staff* scoreLastStaff = score->staff(lastStaff);
+            if (!segmentFirstStaff || !segmentLastStaff || !scoreFirstStaff || !scoreLastStaff) {
+                continue;
+            }
+
+            const engraving::Fraction zeroTick = engraving::Fraction(0, 1);
+            const double standardStaffHeight = 4 * scoreFirstStaff->spatium(zeroTick);
+            const double firstStaffHeight = scoreFirstStaff->staffHeight();
+            const double lastStaffHeight = scoreLastStaff->staffHeight();
+
+            // Short staves (e.g. single-line percussion) are centred within the
+            // height a standard 5-line staff would occupy, so the rectangle stays
+            // a consistent size rather than collapsing onto the lines.
+            double topY = 0.0;
+            if (firstStaffHeight < standardStaffHeight) {
+                topY -= 0.5 * (standardStaffHeight - firstStaffHeight);
+            }
+            double bottomY = lastStaffHeight;
+            if (lastStaffHeight < standardStaffHeight) {
+                bottomY += 0.5 * (standardStaffHeight - lastStaffHeight);
+            }
+
+            double x1 = section.startSegment->pagePos().x();
+            const double x2 = section.endSegment->pageBoundingRect().right();
+            const double padding = 0.5 * scoreFirstStaff->spatium(startSeg->tick());
+            const double y1 = topY + segmentFirstStaff->y() + section.startSegment->pagePos().y() - padding;
+            const double y2 = bottomY + segmentLastStaff->y() + section.endSegment->pagePos().y() + padding;
+
+            // Starting on a measure's first segment selects the whole bar, so the
+            // rectangle should begin at the barline rather than at the first note.
+            if (section.startSegment->measure()->firstEnabled() == section.startSegment) {
+                x1 = section.startSegment->measure()->pagePos().x();
+            }
+
+            int pageNumber = 0;
+            const auto* page = section.system->page();
+            const auto& pages = score->pages();
+            for (size_t i = 0; i < pages.size(); ++i) {
+                if (page == pages[i]) {
+                    pageNumber = static_cast<int>(i);
+                    break;
+                }
+            }
+
+            if (!first) {
+                json += u",";
+            }
+            first = false;
+
+            json += String(u"{\"page\":%1,\"x\":%2,\"y\":%3,\"width\":%4,\"height\":%5}")
+                .arg(pageNumber)
+                .arg(toAbi(x1))
+                .arg(toAbi(y1))
+                .arg(toAbi(x2 - x1))
+                .arg(toAbi(y2 - y1));
+        }
+    }
+}
+
 extern "C" {
 
 EMSCRIPTEN_KEEPALIVE const uint8_t* getSelectionBoundingBox(uintptr_t score_ptr, int excerptId)
@@ -152,78 +232,7 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* getSelectionBoundingBoxes(uintptr_t score_pt
             endSeg = score->lastSegment();
         }
 
-        if (startSeg && endSeg && startSeg->tick() <= endSeg->tick()) {
-            for (const RangeSection& section : splitRangeBySections(startSeg, endSeg)) {
-                if (!section.system || !section.startSegment || !section.endSegment) {
-                    continue;
-                }
-
-                const auto firstStaff = rangeFirstVisibleStaffIdx(score, section.system, staffStart);
-                const auto lastStaff = rangeLastVisibleStaffIdx(section.system, staffEnd);
-                if (firstStaff == muse::nidx || lastStaff == muse::nidx || firstStaff > lastStaff) {
-                    continue;
-                }
-
-                const engraving::SysStaff* segmentFirstStaff = section.system->staff(firstStaff);
-                const engraving::SysStaff* segmentLastStaff = section.system->staff(lastStaff);
-                const engraving::Staff* scoreFirstStaff = score->staff(firstStaff);
-                const engraving::Staff* scoreLastStaff = score->staff(lastStaff);
-                if (!segmentFirstStaff || !segmentLastStaff || !scoreFirstStaff || !scoreLastStaff) {
-                    continue;
-                }
-
-                const engraving::Fraction zeroTick = engraving::Fraction(0, 1);
-                const double standardStaffHeight = 4 * scoreFirstStaff->spatium(zeroTick);
-                const double firstStaffHeight = scoreFirstStaff->staffHeight();
-                const double lastStaffHeight = scoreLastStaff->staffHeight();
-
-                // Short staves (e.g. single-line percussion) are centred within the
-                // height a standard 5-line staff would occupy, so the rectangle stays
-                // a consistent size rather than collapsing onto the lines.
-                double topY = 0.0;
-                if (firstStaffHeight < standardStaffHeight) {
-                    topY -= 0.5 * (standardStaffHeight - firstStaffHeight);
-                }
-                double bottomY = lastStaffHeight;
-                if (lastStaffHeight < standardStaffHeight) {
-                    bottomY += 0.5 * (standardStaffHeight - lastStaffHeight);
-                }
-
-                double x1 = section.startSegment->pagePos().x();
-                const double x2 = section.endSegment->pageBoundingRect().right();
-                const double padding = 0.5 * scoreFirstStaff->spatium(startSeg->tick());
-                const double y1 = topY + segmentFirstStaff->y() + section.startSegment->pagePos().y() - padding;
-                const double y2 = bottomY + segmentLastStaff->y() + section.endSegment->pagePos().y() + padding;
-
-                // Starting on a measure's first segment selects the whole bar, so the
-                // rectangle should begin at the barline rather than at the first note.
-                if (section.startSegment->measure()->firstEnabled() == section.startSegment) {
-                    x1 = section.startSegment->measure()->pagePos().x();
-                }
-
-                int pageNumber = 0;
-                const auto* page = section.system->page();
-                const auto& pages = score->pages();
-                for (size_t i = 0; i < pages.size(); ++i) {
-                    if (page == pages[i]) {
-                        pageNumber = static_cast<int>(i);
-                        break;
-                    }
-                }
-
-                if (!first) {
-                    json += u",";
-                }
-                first = false;
-
-                json += String(u"{\"page\":%1,\"x\":%2,\"y\":%3,\"width\":%4,\"height\":%5}")
-                    .arg(pageNumber)
-                    .arg(toAbi(x1))
-                    .arg(toAbi(y1))
-                    .arg(toAbi(x2 - x1))
-                    .arg(toAbi(y2 - y1));
-            }
-        }
+        appendRangeBoxes(score, startSeg, endSeg, staffStart, staffEnd, json, first);
     } else {
         // Handle list selections (individual elements)
         const auto& elements = sel.elements();
