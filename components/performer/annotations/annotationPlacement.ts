@@ -55,3 +55,39 @@ export function hits(drawn: DrawnAnnotation, x: number, y: number, tolerance = 1
     return Math.abs(px - x) <= pad && Math.abs(py - y) <= pad;
   });
 }
+
+/** At how many Play-through occurrences an annotation shows (its bar's plays, less those it is hidden at). */
+export function occurrencesShown(annotation: Annotation, playedBars: readonly number[]): number {
+  let count = 0;
+  playedBars.forEach((written, occurrence) => {
+    if (written === annotation.anchor.bar && showsAt(annotation, occurrence)) count += 1;
+  });
+  return count;
+}
+
+/** The annotation hidden at one Play-through occurrence ("only this one" erased); it stays at the others. */
+export function hiddenAtOccurrence(annotation: Annotation, occurrence: number): Annotation {
+  return {
+    ...annotation,
+    hiddenAt: [...new Set([...(annotation.hiddenAt ?? []), occurrence])].sort((a, b) => a - b),
+  };
+}
+
+/**
+ * The annotations that cannot be placed in this layout (their bar or part is no longer in the score, e.g. after the
+ * score changed): listed in a tray instead of lost.
+ */
+export function unplacedOf(
+  annotations: readonly Annotation[],
+  geometry: PageGeometry,
+  playedBars: readonly number[] | null,
+): Annotation[] {
+  return annotations.filter((annotation) => {
+    if (!playedBars) return showsAt(annotation, null) && !placeAnchor(geometry, annotation.anchor);
+    return !playedBars.some(
+      (written, occurrence) =>
+        written === annotation.anchor.bar &&
+        placeAnchor(geometry, annotation.anchor, occurrence) !== null,
+    );
+  });
+}

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { newAnnotationId, type Annotation } from './annotationModel';
 import { INK, type AnnotationTool } from './annotationTools';
-import { drawnOnPage, hits } from './annotationPlacement';
+import { drawnOnPage, hits, occurrencesShown, type DrawnAnnotation } from './annotationPlacement';
 import { anchorAt, toSpaces, type PageGeometry } from './pageGeometry';
 
 type Point = { x: number; y: number; pressure: number };
@@ -20,6 +20,8 @@ export interface AnnotationInputOptions {
   readonly scorePart: number;
   readonly add: (annotation: Annotation) => unknown;
   readonly remove: (annotation: Annotation) => unknown;
+  /** Asks whether to erase a mark at all its `count` Play-through occurrences or only at the one tapped. */
+  readonly askEraseScope: (drawn: DrawnAnnotation, count: number) => void;
   /** Asks for a text annotation's words at a screen point; `place` adds it with them. */
   readonly askText: (
     at: { clientX: number; clientY: number },
@@ -68,7 +70,15 @@ export function useAnnotationInput(options: AnnotationInputOptions) {
       options.page,
       options.playedBars,
     ).find((drawn) => hits(drawn, point.x, point.y));
-    if (target) void options.remove(target.annotation);
+    if (!target) return;
+    const count = options.playedBars ? occurrencesShown(target.annotation, options.playedBars) : 1;
+    if (target.occurrence !== null && count > 1) {
+      // Written out through repeats: ask (and stop erasing until answered)
+      stroke.current = null;
+      options.askEraseScope(target, count);
+      return;
+    }
+    void options.remove(target.annotation);
   };
 
   /** The anchor for a mark starting at `point`: in Play-through, the written bar of that occurrence. */

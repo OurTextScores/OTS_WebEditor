@@ -125,3 +125,43 @@ test('a stamp stays on its note when the music is laid out again larger', async 
     )
     .toBe(true);
 });
+
+test('in Play-through a mark shows at each repeat; erasing one asks all or only this one', async ({
+  page: p,
+}) => {
+  // Played 1, 2, 1, 3: bar 1 is written out twice
+  await p.goto(`/perform?score=${encodeURIComponent('/test_scores/lyrics_repeat_volta.musicxml')}`);
+  await expect(page(p).locator('svg .Note').first()).toBeAttached({ timeout: 60_000 });
+  const writtenNotes = await page(p).locator('svg .Note').count();
+  await openControls(p);
+  await p.getByTestId('performer-play-through').check();
+  await p.getByTestId('performer-done').click();
+  await expect
+    .poll(() => page(p).locator('svg .Note').count(), { timeout: 60_000 })
+    .toBeGreaterThan(writtenNotes);
+
+  await startAnnotating(p);
+  await p.getByTestId('annotate-stamp').click();
+  await p.getByTestId('annotate-stamp-choice').selectOption('3');
+  const firstAt = await centre(page(p).locator('svg .Note').first());
+  await p.mouse.click(firstAt.x, firstAt.y - 20);
+  const stamps = p.getByTestId('annotation-layer').locator('text', { hasText: '3' });
+  await expect(stamps).toHaveCount(2);
+
+  // Erase the second play's copy: asked, and only that one goes
+  await p.getByTestId('annotate-eraser').click();
+  const second = await markAt(stamps.nth(1));
+  await p.mouse.click(second.x, second.y);
+  await expect(p.getByTestId('erase-scope')).toBeVisible();
+  await p.getByTestId('erase-only-here').click();
+  await expect(stamps).toHaveCount(1);
+  const left = await markAt(stamps.first());
+  expect(Math.abs(left.x - firstAt.x)).toBeLessThan(20);
+
+  // The last copy: nothing to ask, it goes
+  await p.mouse.click(left.x, left.y);
+  await expect(p.getByTestId('erase-scope')).toHaveCount(0);
+  await expect(stamps).toHaveCount(0);
+  await p.getByTestId('annotate-undo').click();
+  await expect(stamps).toHaveCount(1);
+});

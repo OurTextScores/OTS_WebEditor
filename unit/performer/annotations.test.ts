@@ -99,3 +99,41 @@ describe('annotations in the Play-through view', () => {
     expect((await store.all()).map((a) => a.id)).toEqual(['a2']);
   });
 });
+
+describe('repeated marks in Play-through', () => {
+  const mark = (extra: Partial<Annotation> = {}): Annotation => ({
+    id: 'a',
+    scoreKey: 's',
+    scorePart: 0,
+    kind: 'stamp',
+    anchor: { bar: 1, part: 0 },
+    points: [[0, 0, 1]],
+    style: { color: 'black', width: 0, opacity: 1 },
+    content: '4',
+    createdAt: 0,
+    ...extra,
+  });
+  // Bars played 0, 1, 0, 1, 2: written bar 1 is occurrences 1 and 3
+  const played = [0, 1, 0, 1, 2];
+
+  it('counts the occurrences a mark shows at, and hides it at one only', async () => {
+    const { occurrencesShown, hiddenAtOccurrence } =
+      await import('../../components/performer/annotations/annotationPlacement');
+    expect(occurrencesShown(mark(), played)).toBe(2);
+    const hidden = hiddenAtOccurrence(mark(), 3);
+    expect(hidden.hiddenAt).toEqual([3]);
+    expect(occurrencesShown(hidden, played)).toBe(1);
+    expect(showsAt(hidden, 1)).toBe(true);
+    expect(showsAt(hidden, 3)).toBe(false);
+    expect(showsAt(hidden, null)).toBe(true); // the written view still has it
+    expect(hiddenAtOccurrence(hidden, 3).hiddenAt).toEqual([3]);
+  });
+
+  it('lists marks whose bar is not in the layout as unplaced', async () => {
+    const { unplacedOf } =
+      await import('../../components/performer/annotations/annotationPlacement');
+    const lost = mark({ id: 'lost', anchor: { bar: 99, part: 0 } });
+    const here = mark({ id: 'here', anchor: { bar: 0, part: 0 } });
+    expect(unplacedOf([lost, here], layout(), null).map((a) => a.id)).toEqual(['lost']);
+  });
+});

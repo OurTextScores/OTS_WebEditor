@@ -1,7 +1,12 @@
 import { useMemo, useState } from 'react';
 import { readDrawWithFinger, writeDrawWithFinger } from '../platform/deviceSettings';
 import type { PerformerScoreState } from '../session/usePerformerScore';
-import { drawnOnPage } from './annotationPlacement';
+import {
+  drawnOnPage,
+  hiddenAtOccurrence,
+  unplacedOf,
+  type DrawnAnnotation,
+} from './annotationPlacement';
 import { COLORS, STAMPS, type AnnotationTool } from './annotationTools';
 import { useAnnotationInput } from './useAnnotationInput';
 import { useAnnotations } from './useAnnotations';
@@ -29,6 +34,10 @@ export function useAnnotateMode(input: {
     place: (text: string) => void;
   } | null>(null);
   const store = useAnnotations(scoreKey, state.part);
+  /** A mark being erased in Play-through that shows at several occurrences: all of them, or only this one? */
+  const [eraseScope, setEraseScope] = useState<{ drawn: DrawnAnnotation; count: number } | null>(
+    null,
+  );
   const playedBars = playThrough ? state.playedBars : null;
 
   const drawn = useMemo(
@@ -36,6 +45,20 @@ export function useAnnotateMode(input: {
       state.geometry ? drawnOnPage(store.annotations, state.geometry, state.page, playedBars) : [],
     [store.annotations, state.geometry, state.page, playedBars],
   );
+
+  const unplaced = useMemo(
+    () => (state.geometry ? unplacedOf(store.annotations, state.geometry, playedBars) : []),
+    [store.annotations, state.geometry, playedBars],
+  );
+
+  /** Answers the erase question: every occurrence (the mark goes), or only the tapped one (hidden there). */
+  const eraseAt = (scope: 'all' | 'one') => {
+    if (!eraseScope) return;
+    const { annotation, occurrence } = eraseScope.drawn;
+    if (scope === 'all' || occurrence === null) void store.remove(annotation);
+    else void store.replace(annotation, hiddenAtOccurrence(annotation, occurrence));
+    setEraseScope(null);
+  };
 
   const pointer = useAnnotationInput({
     geometry: state.geometry,
@@ -50,6 +73,7 @@ export function useAnnotateMode(input: {
     scorePart: state.part,
     add: store.add,
     remove: store.remove,
+    askEraseScope: (drawn, count) => setEraseScope({ drawn, count }),
     askText: (at, place) => setTextEntry({ ...at, place }),
   });
 
@@ -73,6 +97,11 @@ export function useAnnotateMode(input: {
     pointer,
     textEntry,
     setTextEntry,
+    eraseScope,
+    eraseAt,
+    cancelErase: () => setEraseScope(null),
+    unplaced,
+    removeUnplaced: store.remove,
     undo: store.undo,
     redo: store.redo,
     canUndo: store.canUndo,

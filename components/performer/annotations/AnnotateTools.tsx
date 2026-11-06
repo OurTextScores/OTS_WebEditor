@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Button } from '../../ui/Button';
+import { EraseScopeDialog, UnplacedTray } from './AnnotateDialogs';
 import { COLORS, STAMPS, type AnnotationTool } from './annotationTools';
 import type { useAnnotateMode } from './useAnnotateMode';
 
@@ -122,6 +123,7 @@ export function AnnotateTools({ mode, onDone }: { mode: AnnotateMode; onDone: ()
         <Button type="button" size="sm" disabled={!mode.canRedo} onClick={mode.redo}>
           Redo
         </Button>
+        <UnplacedTray mode={mode} />
         <Button
           type="button"
           size="sm"
@@ -132,6 +134,7 @@ export function AnnotateTools({ mode, onDone }: { mode: AnnotateMode; onDone: ()
           Done
         </Button>
       </div>
+      <EraseScopeDialog mode={mode} />
       <TextEntry
         key={mode.textEntry ? `${mode.textEntry.clientX},${mode.textEntry.clientY}` : 'none'}
         mode={mode}
