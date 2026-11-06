@@ -101,6 +101,8 @@ export function useAnnotateMode(input: {
     eraseAt,
     cancelErase: () => setEraseScope(null),
     unplaced,
+    store: store.store,
+    reload: store.reload,
     removeUnplaced: store.remove,
     undo: store.undo,
     redo: store.redo,

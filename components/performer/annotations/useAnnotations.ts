@@ -14,6 +14,8 @@ export function useAnnotations(scoreKey: string, scorePart: number, store?: Anno
   const undoStack = useRef<Change[]>([]);
   const redoStack = useRef<Change[]>([]);
   const [history, setHistory] = useState({ canUndo: false, canRedo: false });
+  /** Bumped to read the store again (after a restore). */
+  const [revision, setRevision] = useState(0);
 
   useEffect(() => {
     let live = true;
@@ -28,7 +30,7 @@ export function useAnnotations(scoreKey: string, scorePart: number, store?: Anno
     return () => {
       live = false;
     };
-  }, [storeInstance, scoreKey, scorePart]);
+  }, [storeInstance, scoreKey, scorePart, revision]);
 
   const apply = useCallback(
     async (change: Change) => {
@@ -81,5 +83,17 @@ export function useAnnotations(scoreKey: string, scorePart: number, store?: Anno
     void apply(change);
   }, [apply]);
 
-  return { annotations, add, remove, replace, undo, redo, ...history, store: storeInstance };
+  const reload = useCallback(() => setRevision((value) => value + 1), []);
+
+  return {
+    annotations,
+    add,
+    remove,
+    replace,
+    undo,
+    redo,
+    ...history,
+    store: storeInstance,
+    reload,
+  };
 }

@@ -165,3 +165,38 @@ test('in Play-through a mark shows at each repeat; erasing one asks all or only 
   await p.getByTestId('annotate-undo').click();
   await expect(stamps).toHaveCount(1);
 });
+
+test('marks can be backed up to a file and restored from it', async ({ page: p }) => {
+  await open(p);
+  await startAnnotating(p);
+  await p.getByTestId('annotate-stamp').click();
+  await p.getByTestId('annotate-stamp-choice').selectOption('5');
+  const firstAt = await centre(page(p).locator('svg .Note').first());
+  await p.mouse.click(firstAt.x, firstAt.y - 20);
+  const stamp = p.getByTestId('annotation-layer').locator('text', { hasText: '5' });
+  await expect(stamp).toHaveCount(1);
+  await p.getByTestId('annotate-done').click();
+
+  await openControls(p);
+  const downloading = p.waitForEvent('download');
+  await p.getByTestId('marks-backup').click();
+  const download = await downloading;
+  expect(download.suggestedFilename()).toMatch(/^ots-perform-marks-\d{4}-\d{2}-\d{2}\.json$/);
+  const file = await download.path();
+  await expect(p.getByTestId('marks-note')).toContainText('Backed up 1 mark');
+  await p.getByTestId('performer-done').click();
+
+  // Erased here; the backup brings it back
+  await startAnnotating(p);
+  await p.getByTestId('annotate-eraser').click();
+  const at = await markAt(stamp);
+  await p.mouse.click(at.x, at.y);
+  await expect(stamp).toHaveCount(0);
+  await p.getByTestId('annotate-done').click();
+
+  await openControls(p);
+  await p.getByTestId('marks-restore-file').setInputFiles(file);
+  await expect(p.getByTestId('marks-note')).toContainText('Restored 1 mark');
+  await p.getByTestId('performer-done').click();
+  await expect(stamp).toHaveCount(1);
+});

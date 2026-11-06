@@ -11,6 +11,7 @@ import {
 } from '../platform/deviceSettings';
 import { AnnotateTools } from '../annotations/AnnotateTools';
 import { AnnotationLayer } from '../annotations/AnnotationLayer';
+import { MarksBackup } from '../annotations/MarksBackup';
 import { useAnnotateMode } from '../annotations/useAnnotateMode';
 import { usePerformerRepeats } from '../repeats/usePerformerRepeats';
 import { useWakeLock } from '../platform/wakeLock';
@@ -216,6 +217,7 @@ export function PerformerView({ scoreUrl }: { scoreUrl: string | null }) {
             setHalf(false);
             annotate.setActive(true);
           }}
+          extra={<MarksBackup store={annotate.store} onRestored={annotate.reload} />}
           onDone={() => {
             setControlsOpen(false);
             setPedalSetupOpen(false);

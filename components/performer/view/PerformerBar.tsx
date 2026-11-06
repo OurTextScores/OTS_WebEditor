@@ -25,6 +25,7 @@ export function PerformerBar({
   onPlayThrough,
   onPedals,
   onAnnotate,
+  extra,
   onDone,
 }: {
   title: string;
@@ -42,6 +43,8 @@ export function PerformerBar({
   onPlayThrough: (on: boolean) => void;
   onPedals: () => void;
   onAnnotate: () => void;
+  /** More controls (the marks backup), before Done. */
+  extra?: React.ReactNode;
   onDone: () => void;
 }) {
   return (
@@ -122,6 +125,7 @@ export function PerformerBar({
       <Button type="button" size="sm" data-testid="performer-pedals" onClick={onPedals}>
         Pedals…
       </Button>
+      {extra}
       {wakeLockNote && <span className="text-xs text-amber-700">{wakeLockNote}</span>}
       <Button
         type="button"
