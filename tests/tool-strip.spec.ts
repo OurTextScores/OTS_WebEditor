@@ -228,10 +228,8 @@ test('the palette says why a command is unavailable (gate reasons reach the live
   await open(page, false);
   await page.keyboard.press('Control+Shift+P');
   await page.getByTestId('palette-input').fill('delete');
-  const row = page
-    .getByTestId('palette-row')
-    .filter({ hasText: /^Delete/ })
-    .first();
+  // The delete-selection command itself (Delete Part, from Manage Parts, matches 'delete' too)
+  const row = page.locator('[data-testid="palette-row"][data-command-id="edit.delete"]');
   await expect(row).toHaveAttribute('aria-disabled', 'true');
   await expect(row.getByTestId('palette-row-reason')).toHaveText('Select something first');
 });
