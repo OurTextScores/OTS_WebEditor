@@ -27,13 +27,23 @@ describe('ZIP of stored files (roadmap E18 part export)', () => {
     try {
       const file = path.join(dir, 'parts.zip');
       fs.writeFileSync(file, archive);
-      // unzip -t checks every entry's CRC; -p prints one entry's bytes
+      // unzip -t checks every entry's CRC
       expect(execFileSync('unzip', ['-t', file], { encoding: 'utf8' })).toContain(
         'No errors detected',
       );
-      expect(execFileSync('unzip', ['-p', file, 'Violoncelle é.pdf'], { encoding: 'utf8' })).toBe(
-        '%PDF-1.4 cello',
+      // Another reader sees the UTF-8 names: Python's zipfile, answering in ASCII-escaped JSON so the terminal's
+      // encoding cannot get in the way. (unzip itself matches non-ASCII names by its build and locale: CI's could not
+      // find 'Violoncelle é.pdf' that a local unzip found.)
+      const names = JSON.parse(
+        execFileSync(
+          'python3',
+          ['-c', 'import json,sys,zipfile; print(json.dumps(zipfile.ZipFile(sys.argv[1]).namelist()))', file],
+          { encoding: 'utf8' },
+        ),
       );
+      expect(names).toEqual(entries.map((entry) => entry.name));
+      // -p prints that entry's bytes, chosen with an ASCII pattern
+      expect(execFileSync('unzip', ['-p', file, 'Violoncelle*'], { encoding: 'utf8' })).toBe('%PDF-1.4 cello');
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
