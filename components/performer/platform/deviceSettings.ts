@@ -55,3 +55,7 @@ export const writeDisplay = (display: PerformerDisplay) => write('display', disp
 /** Reflow: the score laid out for this screen (breaks ignored), or as engraved. Per score; reflowed by default. */
 export const readReflow = (scoreKey: string) => read<boolean>(`reflow.${scoreKey}`, true);
 export const writeReflow = (scoreKey: string, on: boolean) => write(`reflow.${scoreKey}`, on);
+
+/** The ink colour last chosen (a swatch name or a picked colour), per device. */
+export const readInkColor = (fallback: string) => read<string>('inkColor', fallback);
+export const writeInkColor = (color: string) => write('inkColor', color);

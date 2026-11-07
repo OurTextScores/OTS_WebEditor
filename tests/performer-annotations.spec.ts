@@ -321,3 +321,21 @@ test('marks are saved as made; a checkpoint brings them back', async ({ page: p 
     'Before restoring “Before the concert”',
   );
 });
+
+test('any colour from the colour picker, remembered on the device', async ({ page: p }) => {
+  await open(p);
+  await startAnnotating(p);
+  await p.getByTestId('annotate-color-custom').fill('#ff8800');
+  const at = await centre(page(p).locator('svg .Note').nth(30));
+  await p.mouse.move(at.x, at.y);
+  await p.mouse.down();
+  for (let i = 1; i <= 6; i += 1) await p.mouse.move(at.x + i * 15, at.y);
+  await p.mouse.up();
+  await expect(marks(p)).toHaveCount(1);
+  await expect(marks(p).first()).toHaveAttribute('stroke', '#ff8800');
+
+  await p.reload();
+  await expect(page(p).locator('svg .Note').first()).toBeAttached({ timeout: 60_000 });
+  await startAnnotating(p);
+  await expect(p.getByTestId('annotate-color-custom')).toHaveValue('#ff8800');
+});

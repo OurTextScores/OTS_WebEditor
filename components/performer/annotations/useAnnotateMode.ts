@@ -1,5 +1,10 @@
 import { useMemo, useState } from 'react';
-import { readDrawWithFinger, writeDrawWithFinger } from '../platform/deviceSettings';
+import {
+  readDrawWithFinger,
+  readInkColor,
+  writeDrawWithFinger,
+  writeInkColor,
+} from '../platform/deviceSettings';
 import type { PerformerScoreState } from '../session/usePerformerScore';
 import {
   drawnOnPage,
@@ -27,7 +32,11 @@ export function useAnnotateMode(input: {
   const [active, setActive] = useState(false);
   const [tool, setTool] = useState<AnnotationTool>('pen');
   const [stamp, setStamp] = useState<string>('fingering1');
-  const [color, setColor] = useState<string>(COLORS[0]);
+  const [color, setColorState] = useState<string>(() => readInkColor(COLORS[0]));
+  const setColor = (next: string) => {
+    writeInkColor(next);
+    setColorState(next);
+  };
   const [drawWithFinger, setDrawWithFingerState] = useState(readDrawWithFinger);
   /** A text annotation being typed: where (screen point) and how to add it. */
   const [textEntry, setTextEntry] = useState<{

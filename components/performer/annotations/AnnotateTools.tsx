@@ -5,6 +5,7 @@ import { Button } from '../../ui/Button';
 import { EraseScopeDialog, UnplacedTray } from './AnnotateDialogs';
 import { COLORS, type AnnotationTool } from './annotationTools';
 import { StampPalette } from './StampPalette';
+import { ColourPicker } from './ColourPicker';
 import { MarksHistoryPanel } from './MarksHistoryPanel';
 import type { useAnnotateMode } from './useAnnotateMode';
 
@@ -92,6 +93,7 @@ export function AnnotateTools({ mode, onDone }: { mode: AnnotateMode; onDone: ()
               onClick={() => mode.setColor(swatch)}
             />
           ))}
+          <ColourPicker color={mode.color} onColor={mode.setColor} />
         </span>
         <label className="flex items-center gap-1.5">
           <input
