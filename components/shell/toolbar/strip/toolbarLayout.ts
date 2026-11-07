@@ -16,7 +16,6 @@ import {
   ListFilter,
   Music2,
   Metronome,
-  MonitorPlay,
   Pause,
   Wind,
   PanelsTopLeft,
@@ -29,6 +28,7 @@ import {
   Type,
   type LucideIcon,
 } from 'lucide-react';
+import { PerformIcon } from '../../icons/performIcon';
 import type { CommandId } from '../../../../lib/commands/types';
 import {
   arpeggioOptions,
@@ -181,7 +181,7 @@ export const STRIP_GROUPS: readonly StripGroup[] = [
         kind: 'command',
         testId: 'btn-perform',
         label: 'Open in Performance Mode',
-        icon: MonitorPlay,
+        icon: PerformIcon,
         commandId: 'file.perform',
       },
     ],

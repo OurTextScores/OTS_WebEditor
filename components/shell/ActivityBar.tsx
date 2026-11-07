@@ -3,7 +3,7 @@
 import type { LucideIcon } from 'lucide-react';
 import React, { useRef, useSyncExternalStore } from 'react';
 import { defaultCommandRegistry, type CommandRegistry } from '../../lib/commands/registry';
-import { ACTIVITIES, DOCK_PANELS, PANEL_TOGGLES } from './activities';
+import { ACTIVITIES, DOCK_PANELS, LAUNCHERS, PANEL_TOGGLES } from './activities';
 import { invokeCommand } from './invokeCommand';
 import { getShellUiState, subscribeToShellUi } from './shellStore';
 import { useToolbarCommands } from './toolbar/useToolbarCommands';
@@ -14,8 +14,8 @@ import type { OtsActiveActivity } from './workspaceMode';
  * the current one pressed; each runs its `shell.activity.*` command, so the palette and the
  * menus reach the same switches. Below a divider are the left dock's panels (Palettes,
  * Instruments, Properties, Edits), one icon each, and below another the panels beside the score
- * (AI Tools, Score source), each pressed while its panel is open. Arrow keys move focus along the
- * whole strip.
+ * (AI Tools, Score source), each pressed while its panel is open; last, Open in Performance Mode. Arrow keys move
+ * focus along the whole strip.
  */
 export function ActivityBar({
   active,
@@ -30,7 +30,7 @@ export function ActivityBar({
   // panel does, however it was closed (its own X as well as this button): a command's `checked`
   // is only read when something else re-renders the bar.
   const { view } = useSyncExternalStore(subscribeToShellUi, getShellUiState, getShellUiState);
-  const total = ACTIVITIES.length + DOCK_PANELS.length + PANEL_TOGGLES.length;
+  const total = ACTIVITIES.length + DOCK_PANELS.length + PANEL_TOGGLES.length + LAUNCHERS.length;
 
   const onKeyDown = (event: React.KeyboardEvent, index: number) => {
     const step = event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0;
@@ -101,6 +101,24 @@ export function ActivityBar({
           />
         );
       })}
+      <span aria-hidden="true" className="my-1 h-px w-6 shrink-0 bg-slate-200" />
+      {LAUNCHERS.map(({ id, label, icon, commandId }, offset) => {
+        const index = ACTIVITIES.length + DOCK_PANELS.length + PANEL_TOGGLES.length + offset;
+        return (
+          <BarButton
+            key={id}
+            testId={`launcher-${id}`}
+            label={label}
+            icon={icon}
+            disabled={!registry.has(commandId) || !tools.enabled(commandId)}
+            register={(element) => {
+              buttons.current[index] = element;
+            }}
+            onClick={() => void invokeCommand(commandId, undefined, registry)}
+            onKeyDown={(event) => onKeyDown(event, index)}
+          />
+        );
+      })}
     </nav>
   );
 }
@@ -122,7 +140,8 @@ function BarButton({
   /** The tooltip: the label, with a shortcut where there is one. */
   title?: string;
   icon: LucideIcon;
-  pressed: boolean;
+  /** Pressed while its activity or panel is on; absent for a launcher (not a toggle). */
+  pressed?: boolean;
   disabled: boolean;
   register: (element: HTMLButtonElement | null) => void;
   onClick: () => void;

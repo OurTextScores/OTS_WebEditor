@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { CommandId } from '../../lib/commands/types';
+import { PerformIcon } from './icons/performIcon';
 import type { ShellView } from './shellStore';
 import type { DockTab } from './useWorkspaceDock';
 import type { OtsActiveActivity } from './workspaceMode';
@@ -102,5 +103,26 @@ export const PANEL_TOGGLES: readonly PanelToggleDefinition[] = [
     icon: FileCode,
     commandId: 'view.panel.scoreSource',
     openKey: 'musicXmlOpen',
+  },
+];
+
+/**
+ * Places the editor hands the score to, at the bottom of the bar: not activities or panels (nothing in the editor
+ * stays pressed), each runs its command. Performer mode opens the score in a new tab (File ▸ Open in Performance
+ * Mode).
+ */
+export interface LauncherDefinition {
+  readonly id: string;
+  readonly label: string;
+  readonly icon: LucideIcon;
+  readonly commandId: CommandId;
+}
+
+export const LAUNCHERS: readonly LauncherDefinition[] = [
+  {
+    id: 'perform',
+    label: 'Open in Performance Mode',
+    icon: PerformIcon,
+    commandId: 'file.perform',
   },
 ];

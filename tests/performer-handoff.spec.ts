@@ -47,3 +47,20 @@ test('the editor has Open in Performance Mode on its toolbar', async ({ page }) 
   await expect(page.getByTestId('btn-perform')).toBeAttached();
   await expect(page.getByTestId('btn-perform')).toHaveAccessibleName(/Open in Performance Mode/);
 });
+
+test("the editor's left bar opens the score in performance mode", async ({ page, context }) => {
+  await page.goto('/?score=/test_scores/four_measures.musicxml');
+  await page.waitForSelector('svg .Note', { timeout: 60_000 });
+  const launcher = page.getByTestId('launcher-perform');
+  await expect(launcher).toBeEnabled();
+  await page.screenshot({ path: test.info().outputPath('editor-perform-icons.png') });
+  const opening = context.waitForEvent('page');
+  await launcher.click();
+  const perform = await opening;
+  await expect(perform).toHaveURL(/\/perform\?score=local%3A/, { timeout: 30_000 });
+  await expect(perform.getByTestId('performer-page-svg').locator('svg .Note').first()).toBeAttached(
+    {
+      timeout: 60_000,
+    },
+  );
+});

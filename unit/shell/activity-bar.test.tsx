@@ -20,6 +20,7 @@ function setup(
     dockPanel?: 'palettes' | 'instruments' | 'properties' | 'edits' | null;
     palettesVisible?: boolean;
     dock?: boolean;
+    hasScore?: boolean;
   } = {},
 ) {
   resetShellUiForTests();
@@ -31,7 +32,10 @@ function setup(
     palettesVisible: Boolean(panels.palettesVisible),
   });
   const registry = new CommandRegistry();
-  registry.setContextSource(() => ({ ...DEFAULT_COMMAND_CONTEXT, hasScore: true }));
+  registry.setContextSource(() => ({
+    ...DEFAULT_COMMAND_CONTEXT,
+    hasScore: panels.hasScore !== false,
+  }));
   const runs = {
     write: vi.fn(),
     compare: vi.fn(),
@@ -42,6 +46,7 @@ function setup(
     instruments: vi.fn(),
     properties: vi.fn(),
     edits: vi.fn(),
+    perform: vi.fn(),
   };
   if (withCommands) {
     registry.register('global', [
@@ -65,6 +70,12 @@ function setup(
       ).map(([key, id]) =>
         defineCommand({ id, label: key, enabled: () => panels.dock !== false, run: runs[key] }),
       ),
+      defineCommand({
+        id: 'file.perform',
+        label: 'Open in Performance Mode',
+        enabled: (ctx) => ctx.hasScore,
+        run: runs.perform,
+      }),
       defineCommand({
         id: 'view.panel.scoreSource',
         label: 'Score Source',
@@ -113,16 +124,17 @@ describe('ActivityBar', () => {
       'dock-panel-edits',
       'panel-ai-tools',
       'panel-score-source',
+      'launcher-perform',
     ];
     screen.getByTestId(order[0]).focus();
     for (let i = 1; i < order.length; i += 1) {
       fireEvent.keyDown(screen.getByTestId(order[i - 1]), { key: 'ArrowDown' });
       expect(screen.getByTestId(order[i])).toHaveFocus();
     }
-    fireEvent.keyDown(screen.getByTestId('panel-score-source'), { key: 'ArrowDown' });
+    fireEvent.keyDown(screen.getByTestId('launcher-perform'), { key: 'ArrowDown' });
     expect(screen.getByTestId('activity-write')).toHaveFocus();
     fireEvent.keyDown(screen.getByTestId('activity-write'), { key: 'ArrowUp' });
-    expect(screen.getByTestId('panel-score-source')).toHaveFocus();
+    expect(screen.getByTestId('launcher-perform')).toHaveFocus();
   });
 
   it('disables an activity whose command is not registered', () => {
@@ -147,6 +159,7 @@ describe('ActivityBar', () => {
         'dock-panel-edits',
         'panel-ai-tools',
         'panel-score-source',
+        'launcher-perform',
       ]);
     });
 
@@ -192,7 +205,10 @@ describe('ActivityBar', () => {
     setup('write', true, { dockPanel: 'properties' });
     expect(screen.getByTestId('dock-panel-properties')).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByTestId('dock-panel-instruments')).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByRole('button', { name: 'Properties' })).toHaveAttribute('title', 'Properties (F8)');
+    expect(screen.getByRole('button', { name: 'Properties' })).toHaveAttribute(
+      'title',
+      'Properties (F8)',
+    );
     expect(screen.getByRole('button', { name: 'Edits' })).toHaveAttribute('title', 'Edits');
   });
 
@@ -210,5 +226,20 @@ describe('ActivityBar', () => {
     cleanup();
     setup('history', true, { dock: false });
     expect(screen.getByTestId('dock-panel-palettes')).toBeDisabled();
+  });
+
+  it('ends with Open in Performance Mode: a launcher, not a toggle, that needs a score', () => {
+    const runs = setup('write');
+    const perform = screen.getByTestId('launcher-perform');
+    expect(perform).toHaveAccessibleName('Open in Performance Mode');
+    expect(perform).not.toHaveAttribute('aria-pressed');
+    expect(perform.querySelector('svg')).toBeTruthy();
+    fireEvent.click(perform);
+    expect(runs.perform).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables Open in Performance Mode with no score open', () => {
+    setup('write', true, { hasScore: false });
+    expect(screen.getByTestId('launcher-perform')).toBeDisabled();
   });
 });
