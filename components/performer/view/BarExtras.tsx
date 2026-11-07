@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { MarksBackup } from '../annotations/MarksBackup';
+import { MarksCheckpoints } from '../annotations/MarksCheckpoints';
 import type { AnnotationStore } from '../annotations/annotationStore';
 import { AddToSetlist } from '../setlists/AddToSetlist';
 import { editorHref } from '../platform/editorLink';
@@ -29,6 +30,7 @@ export function BarExtras({
         Open in Editor
       </Button>
       <AddToSetlist score={score} name={title} />
+      <MarksCheckpoints scoreKey={score} marks={marks.store} onRestored={marks.reload} />
       <MarksBackup store={marks.store} onRestored={marks.reload} />
     </>
   );

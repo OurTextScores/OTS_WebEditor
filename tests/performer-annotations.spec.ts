@@ -191,7 +191,7 @@ test('marks can be backed up to a file and restored from it', async ({ page: p }
   const download = await downloading;
   expect(download.suggestedFilename()).toMatch(/^ots-perform-marks-\d{4}-\d{2}-\d{2}\.json$/);
   const file = await download.path();
-  await expect(p.getByTestId('marks-note')).toContainText('Backed up 1 mark');
+  await expect(p.getByTestId('marks-note')).toContainText('Exported 1 mark');
   await p.getByTestId('performer-done').click();
 
   // Erased here; the backup brings it back
@@ -204,7 +204,7 @@ test('marks can be backed up to a file and restored from it', async ({ page: p }
 
   await openControls(p);
   await p.getByTestId('marks-restore-file').setInputFiles(file);
-  await expect(p.getByTestId('marks-note')).toContainText('Restored 1 mark');
+  await expect(p.getByTestId('marks-note')).toContainText('Imported 1 mark');
   await p.getByTestId('performer-done').click();
   await expect(stamp).toHaveCount(1);
 });
@@ -280,4 +280,44 @@ test('undo and redo with the editor keys, and the history goes back to any step'
   await expect(marks(p)).toHaveCount(0);
   await panel.getByText(/Stamp f/).click();
   await expect(marks(p)).toHaveCount(2);
+});
+
+test('marks are saved as made; a checkpoint brings them back', async ({ page: p }) => {
+  await open(p);
+  await startAnnotating(p);
+  await p.getByTestId('annotate-stamp').click();
+  await p.getByTestId('annotate-stamp-dynamicPiano').click();
+  const at = await centre(page(p).locator('svg .Note').nth(3));
+  await p.mouse.click(at.x, at.y + 60);
+  await expect(marks(p)).toHaveCount(1);
+  await p.getByTestId('annotate-done').click();
+
+  await openControls(p);
+  await p.getByTestId('marks-checkpoints').click();
+  await p.getByTestId('checkpoint-name').fill('Before the concert');
+  await p.getByTestId('checkpoint-save').click();
+  await expect(p.getByTestId('checkpoint')).toHaveCount(1);
+  await p.getByTestId('performer-done').click();
+
+  // Erased, then the checkpoint restored
+  await startAnnotating(p);
+  await p.getByTestId('annotate-eraser').click();
+  const mark = await markAt(
+    p.getByTestId('annotation-layer').locator('[data-stamp="dynamicPiano"]'),
+  );
+  await p.mouse.click(mark.x, mark.y);
+  await expect(marks(p)).toHaveCount(0);
+  await p.getByTestId('annotate-done').click();
+  await openControls(p);
+  await p.getByTestId('marks-checkpoints').click();
+  await p
+    .getByTestId('checkpoint')
+    .filter({ hasText: 'Before the concert' })
+    .getByTestId('checkpoint-restore')
+    .click();
+  await expect(marks(p)).toHaveCount(1);
+  await expect(p.getByTestId('checkpoint')).toHaveCount(2);
+  await expect(p.getByTestId('checkpoint').first()).toContainText(
+    'Before restoring “Before the concert”',
+  );
 });

@@ -1,11 +1,14 @@
 /*
  * Performer mode's device storage: one IndexedDB database, `ots-perform`, with a store per kind of record
- * (annotations, scores kept on the device, setlists). Each store is used through a small Table; tests and browsers
+ * (annotations, scores kept on the device, setlists, checkpoints of a score's marks). Each store is used through a small Table; tests and browsers
  * without IndexedDB use the in-memory one.
  */
 
 const DB_NAME = 'ots-perform';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
+
+/** The database's stores (object stores). */
+export type StoreName = 'annotations' | 'scores' | 'setlists' | 'checkpoints';
 
 export interface Table<T> {
   get(key: string): Promise<T | undefined>;
@@ -42,6 +45,12 @@ function connect(): Promise<IDBDatabase> {
           db.createObjectStore('scores', { keyPath: 'key' });
           db.createObjectStore('setlists', { keyPath: 'id' });
         }
+        if (event.oldVersion < 3) {
+          db.createObjectStore('checkpoints', { keyPath: 'id' }).createIndex(
+            'scoreKey',
+            'scoreKey',
+          );
+        }
       };
       open.onsuccess = () => {
         // Another tab opening a newer version: let it, and reopen next time
@@ -58,7 +67,7 @@ function connect(): Promise<IDBDatabase> {
   return database;
 }
 
-export function indexedDbTable<T>(store: 'annotations' | 'scores' | 'setlists'): Table<T> {
+export function indexedDbTable<T>(store: StoreName): Table<T> {
   const tx = async (mode: IDBTransactionMode) =>
     (await connect()).transaction(store, mode).objectStore(store);
   return {
@@ -88,9 +97,6 @@ export function memoryTable<T>(keyOf: (record: T) => string, initial: T[] = []):
 }
 
 /** The table for this browser: IndexedDB where there is one, otherwise in memory (lost on reload). */
-export function deviceTable<T>(
-  store: 'annotations' | 'scores' | 'setlists',
-  keyOf: (record: T) => string,
-): Table<T> {
+export function deviceTable<T>(store: StoreName, keyOf: (record: T) => string): Table<T> {
   return typeof indexedDB === 'undefined' ? memoryTable(keyOf) : indexedDbTable<T>(store);
 }

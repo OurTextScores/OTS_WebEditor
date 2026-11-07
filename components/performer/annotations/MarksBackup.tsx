@@ -6,9 +6,9 @@ import { backupFileName, backupOf, parseBackup } from './annotationBackup';
 import type { AnnotationStore } from './annotationStore';
 
 /**
- * Back up every mark on this device to a file, or restore marks from one (merged: a mark already here is replaced by
- * the backup's copy, others are kept). Marks live only on the device until sync exists; this is how they move or
- * survive a cleared browser.
+ * Export every mark on this device to a file, or import marks from one (merged: a mark already here is replaced by
+ * the file's copy, others are kept). Marks are saved on the device as they are made; until sync exists, this file is
+ * how they move to another device or survive a cleared browser.
  */
 export function MarksBackup({
   store,
@@ -29,7 +29,7 @@ export function MarksBackup({
     link.download = backupFileName();
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    setNote(`Backed up ${annotations.length} mark${annotations.length === 1 ? '' : 's'}.`);
+    setNote(`Exported ${annotations.length} mark${annotations.length === 1 ? '' : 's'}.`);
   };
 
   const restore = async (file: File) => {
@@ -42,14 +42,14 @@ export function MarksBackup({
     onRestored();
     const skipped = parsed.skipped ? ` (${parsed.skipped} damaged, skipped)` : '';
     setNote(
-      `Restored ${parsed.annotations.length} mark${parsed.annotations.length === 1 ? '' : 's'}${skipped}.`,
+      `Imported ${parsed.annotations.length} mark${parsed.annotations.length === 1 ? '' : 's'}${skipped}.`,
     );
   };
 
   return (
     <>
       <Button type="button" size="sm" data-testid="marks-backup" onClick={() => void backUp()}>
-        Back up marks
+        Export marks
       </Button>
       <Button
         type="button"
@@ -57,7 +57,7 @@ export function MarksBackup({
         data-testid="marks-restore"
         onClick={() => fileInput.current?.click()}
       >
-        Restore marks…
+        Import marks…
       </Button>
       <input
         ref={fileInput}

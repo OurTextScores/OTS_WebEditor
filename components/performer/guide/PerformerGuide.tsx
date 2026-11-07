@@ -57,8 +57,9 @@ const SECTIONS: { title: string; items: string[] }[] = [
   {
     title: 'Keep your marks safe',
     items: [
-      'Your marks and setlists are kept on this iPad only. Use “Back up marks” in the controls now and then, and keep the file (for example in Files or iCloud Drive).',
-      '“Restore marks…” brings them back, also on another iPad.',
+      'Your marks are saved on this iPad as you make them: there is nothing to save.',
+      'Checkpoints… keeps the marks as they are now under a name (“Before the concert”), to go back to later. Restoring one keeps the marks from before it as a checkpoint too.',
+      'Export marks writes them all to a file (keep it in Files or iCloud Drive); Import marks… brings them back, also on another iPad.',
     ],
   },
 ];
