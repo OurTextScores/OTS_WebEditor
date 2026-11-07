@@ -1,3 +1,4 @@
+import type { BarSignature } from './barSignatures';
 /*
  * Performer annotations (Phase 4): marks a performer adds over the score, kept apart from it (never score edits) and
  * stored on the device. Each is anchored to the music, not to the page, so it follows relayout, the staff size, the
@@ -17,8 +18,13 @@ export interface Anchor {
   readonly bar: number;
   /** The part (index of its staff band in the system). */
   readonly part: number;
-  /** For stamps and text: the beat (written tick) it sits at; absent for ink (the bar's left edge). */
+  /**
+   * For stamps and text: the beat it sits at, in ticks from the bar's start (the same in every view and after the bar
+   * moves); absent for ink (the bar's left edge).
+   */
   readonly tick?: number;
+  /** What the bar looked like when the mark was made, to find it again if bars are inserted or removed. */
+  readonly signature?: BarSignature;
 }
 
 export interface AnnotationStyle {
@@ -49,6 +55,8 @@ export interface Annotation {
    * performer sees only the engraved notation.
    */
   readonly engravedIn?: string;
+  /** Reviewed and kept as a mark (Phase 7b): not offered for review again. */
+  readonly reviewedAt?: string;
   readonly createdAt: number;
 }
 

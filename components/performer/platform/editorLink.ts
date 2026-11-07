@@ -4,10 +4,11 @@ import { deviceScoreStore, isLocalScore, type ScoreStore } from './scoreStore';
 /**
  * The editor's address for a score the performer has open: `/?score=…` in the server build, the embed build's
  * `/score-editor/index.html?score=…` (its host serves the .html file). A score kept on the device (`local:<id>`) is
- * passed by its key: the editor reads it from the same device store (`localScoreFile`).
+ * passed by its key: the editor reads it from the same device store (`localScoreFile`). With `review`, the editor opens
+ * its rehearsal-marks review.
  */
-export function editorHref(score: string, embed = isEmbedBuild()): string {
-  const query = new URLSearchParams({ score }).toString();
+export function editorHref(score: string, embed = isEmbedBuild(), review = false): string {
+  const query = new URLSearchParams({ score, ...(review ? { review: '1' } : {}) }).toString();
   return embed ? `/score-editor/index.html?${query}` : `/?${query}`;
 }
 

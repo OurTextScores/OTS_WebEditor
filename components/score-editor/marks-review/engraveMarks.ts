@@ -1,10 +1,47 @@
 import type { Annotation } from '../../performer/annotations/annotationModel';
 import type { AnnotationStore } from '../../performer/annotations/annotationStore';
 import type { EngravingMark } from '../../performer/engraving/stampEngraving';
+import { readBarSignatures, remapAnchor } from '../../performer/annotations/barSignatures';
 import type { ScoreStore, StoredScore } from '../../performer/platform/scoreStore';
 import type { EditorCore } from '../core';
 import { getPartsSnapshot, withFullScore } from '../parts';
 import type { ReviewDecision, ReviewItem } from './reviewItems';
+
+/** The open score's (or part's) bars: their signatures and first ticks, by bar index. */
+async function barsOf(score: NonNullable<EditorCore['score']>) {
+  const signatures = await readBarSignatures(
+    async (partIndex) => (await score.measureSignatures?.(partIndex)) ?? [],
+  );
+  const positions = await score.measurePositions().catch(() => null);
+  const ticks: (number | undefined)[] = [];
+  for (const element of positions?.elements ?? []) ticks[element.id] = element.writtenTick;
+  return { signatures, ticks };
+}
+
+/**
+ * Where a reviewed mark goes in the score open here: its bar found again by its signature (bars may have been inserted
+ * or removed since it was made), and its beat (ticks from the bar's start) made absolute. A mark whose bar has changed
+ * is not engraved (it could land on the wrong music).
+ */
+export function placeMark(
+  mark: EngravingMark,
+  annotation: Annotation,
+  bars: { signatures: readonly string[]; ticks: readonly (number | undefined)[] },
+): { engine?: Omit<EngravingMark, 'bar'>; anchor: Annotation['anchor']; reason?: string } {
+  const { anchor, status } = remapAnchor(annotation.anchor, bars.signatures);
+  if (status === 'changed')
+    return { anchor, reason: 'its bar has changed since the mark was made' };
+  const start = bars.ticks[anchor.bar];
+  if (start === undefined) return { anchor, reason: 'its bar is not in this score' };
+  const engine = {
+    kind: mark.kind,
+    subtype: mark.subtype,
+    staff: mark.staff,
+    tick: start + mark.tick,
+    y: mark.y,
+  };
+  return { engine, anchor };
+}
 
 export interface EngraveOutcome {
   readonly engraved: Annotation[];
@@ -55,10 +92,22 @@ export async function engraveMarks(input: {
         try {
           for (const [part, entries] of byPart) {
             if (score.setExcerptId && part !== viewing) await score.setExcerptId(part);
-            const results = await score.addElementsAt!(entries.map((entry) => entry.mark));
-            entries.forEach((entry, index) => {
+            // Each mark at its bar in this score (found again if bars moved), its beat made absolute
+            const bars = await barsOf(score);
+            const placed = entries.map((entry) => ({
+              entry,
+              ...placeMark(entry.mark, entry.item.annotation, bars),
+            }));
+            for (const { entry, reason } of placed) {
+              if (reason) declined.push({ annotation: entry.item.annotation, reason });
+            }
+            const sendable = placed.filter((candidate) => candidate.engine);
+            const results = sendable.length
+              ? await score.addElementsAt!(sendable.map((candidate) => candidate.engine!))
+              : [];
+            sendable.forEach(({ entry, anchor }, index) => {
               const result = results[index];
-              if (result?.ok) engraved.push(entry.item.annotation);
+              if (result?.ok) engraved.push({ ...entry.item.annotation, anchor });
               else
                 declined.push({
                   annotation: entry.item.annotation,
@@ -80,6 +129,11 @@ export async function engraveMarks(input: {
     .filter((item) => decisions.get(item.annotation.id) === 'delete')
     .map((item) => item.annotation);
   for (const annotation of deleted) await marks.remove(annotation.id);
+  // Kept as marks: reviewed, not offered again
+  for (const item of items) {
+    if (decisions.get(item.annotation.id) === 'keep')
+      await marks.put({ ...item.annotation, reviewedAt: version });
+  }
 
   if (engraved.length) {
     const bytes = await withFullScore(score, core.runSerializedScoreOperation, () =>

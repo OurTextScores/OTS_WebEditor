@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   readDrawWithFinger,
   readInkColor,
@@ -16,6 +16,7 @@ import { COLORS, type AnnotationTool } from './annotationTools';
 import { useAnnotationInput } from './useAnnotationInput';
 import { useAnnotations } from './useAnnotations';
 import { useUndoKeys } from './useUndoKeys';
+import { placedMarks } from './barSignatures';
 import { describeMark } from './annotationHistory';
 
 /**
@@ -51,17 +52,27 @@ export function useAnnotateMode(input: {
   );
   const playedBars = playThrough ? state.playedBars : null;
 
+  // Marks where their bars are now (bars inserted or removed since: found again by their signature), saved there
+  const placed = useMemo(
+    () => placedMarks(store.annotations, state.barSignatures),
+    [store.annotations, state.barSignatures],
+  );
+  const marksStore = store.store;
+  useEffect(() => {
+    for (const annotation of placed)
+      if (!store.annotations.includes(annotation)) void marksStore.put(annotation);
+  }, [placed, store.annotations, marksStore]);
+
   const drawn = useMemo(
-    () =>
-      state.geometry ? drawnOnPage(store.annotations, state.geometry, state.page, playedBars) : [],
-    [store.annotations, state.geometry, state.page, playedBars],
+    () => (state.geometry ? drawnOnPage(placed, state.geometry, state.page, playedBars) : []),
+    [placed, state.geometry, state.page, playedBars],
   );
 
   useUndoKeys(store.undo, store.redo);
 
   const unplaced = useMemo(
-    () => (state.geometry ? unplacedOf(store.annotations, state.geometry, playedBars) : []),
-    [store.annotations, state.geometry, playedBars],
+    () => (state.geometry ? unplacedOf(placed, state.geometry, playedBars) : []),
+    [placed, state.geometry, playedBars],
   );
 
   /** Answers the erase question: every occurrence (the mark goes), or only the tapped one (hidden there). */
@@ -82,7 +93,8 @@ export function useAnnotateMode(input: {
     geometry: state.geometry,
     page: state.page,
     playedBars,
-    annotations: store.annotations,
+    annotations: placed,
+    barSignatures: state.barSignatures,
     tool,
     stamp,
     color,

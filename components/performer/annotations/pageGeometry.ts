@@ -69,7 +69,7 @@ export function placeAnchor(
     // the last of them, is the one a mark at that beat belongs to
     const segment = geometry.segments.findLast(
       (candidate) =>
-        candidate.tick === anchor.tick &&
+        candidate.tick === (bar.tick ?? 0) + anchor.tick! &&
         candidate.page === bar.page &&
         candidate.x >= bar.x &&
         candidate.x <= bar.x + bar.width,
@@ -126,7 +126,10 @@ export function anchorAt(
           (s.tick >= bar!.tick && (nextTick === undefined || s.tick < nextTick))),
     );
     if (inBar.length)
-      tick = inBar.reduce((best, s) => (Math.abs(s.x - x) < Math.abs(best.x - x) ? s : best)).tick;
+      // Kept from the bar's start, so it is the same beat in every view (a repeat written out has other ticks)
+      tick =
+        inBar.reduce((best, s) => (Math.abs(s.x - x) < Math.abs(best.x - x) ? s : best)).tick -
+        (bar.tick ?? 0);
   }
   const anchor: Anchor = {
     bar: bar.index,

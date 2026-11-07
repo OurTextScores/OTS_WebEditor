@@ -6,6 +6,8 @@ export interface EngravingMark {
   readonly kind: 'dynamic' | 'fingering' | 'articulation' | 'fermata' | 'breath' | 'accidental';
   readonly subtype: string;
   readonly staff: number;
+  /** The written bar, and the beat in ticks from its start (the editor makes it absolute, in the score it has open). */
+  readonly bar: number;
   readonly tick: number;
   /** Staff spaces below the top staff line where the stamp was put (negative: above the staff). */
   readonly y: number;
@@ -67,7 +69,12 @@ export function proposeEngraving(annotation: Annotation): EngravingProposal {
   }
   if (anchor.tick === undefined)
     return { engrave: null, label: 'Not at a beat', reason: 'unplaced' };
-  const base = { staff: anchor.part, tick: anchor.tick, y: annotation.points[0]?.[1] ?? 0 };
+  const base = {
+    staff: anchor.part,
+    bar: anchor.bar,
+    tick: anchor.tick,
+    y: annotation.points[0]?.[1] ?? 0,
+  };
   const id = stamp.id;
   if (DYNAMICS[id])
     return {

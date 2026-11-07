@@ -41,6 +41,11 @@ function isAnnotation(value: unknown): value is Annotation {
     isNumber(anchor.bar) &&
     isNumber(anchor.part) &&
     (anchor.tick === undefined || isNumber(anchor.tick)) &&
+    (anchor.signature === undefined ||
+      (typeof anchor.signature === 'object' &&
+        anchor.signature !== null &&
+        typeof (anchor.signature as Record<string, unknown>).bar === 'string' &&
+        typeof (anchor.signature as Record<string, unknown>).context === 'string')) &&
     Array.isArray(a.points) &&
     a.points.every(
       (point) => Array.isArray(point) && point.length === 3 && point.every(isNumber),
@@ -53,6 +58,7 @@ function isAnnotation(value: unknown): value is Annotation {
     (a.hiddenAt === undefined || (Array.isArray(a.hiddenAt) && a.hiddenAt.every(isNumber))) &&
     (a.onlyAt === undefined || isNumber(a.onlyAt)) &&
     (a.engravedIn === undefined || typeof a.engravedIn === 'string') &&
+    (a.reviewedAt === undefined || typeof a.reviewedAt === 'string') &&
     isNumber(a.createdAt)
   );
 }

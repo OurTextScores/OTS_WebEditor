@@ -3,6 +3,7 @@ import { newAnnotationId, type Annotation } from './annotationModel';
 import { INK, type AnnotationTool } from './annotationTools';
 import { drawnOnPage, hits, occurrencesShown, type DrawnAnnotation } from './annotationPlacement';
 import { anchorAt, toSpaces, type PageGeometry } from './pageGeometry';
+import { signatureAt } from './barSignatures';
 
 type Point = { x: number; y: number; pressure: number };
 
@@ -12,6 +13,8 @@ export interface AnnotationInputOptions {
   /** The Play-through view's playing order (bar i is written bar [i]), or null in the written view. */
   readonly playedBars: readonly number[] | null;
   readonly annotations: readonly Annotation[];
+  /** The written score's bar signatures: each new mark remembers its bar's. */
+  readonly barSignatures: readonly string[];
   readonly tool: AnnotationTool;
   readonly stamp: string;
   readonly color: string;
@@ -89,7 +92,11 @@ export function useAnnotationInput(options: AnnotationInputOptions) {
     if (!found) return null;
     const bar = options.playedBars ? options.playedBars[found.anchor.bar] : found.anchor.bar;
     if (bar === undefined) return null;
-    return { anchor: { ...found.anchor, bar }, placement: found.placement };
+    const signature = signatureAt(options.barSignatures, bar);
+    return {
+      anchor: { ...found.anchor, bar, ...(signature ? { signature } : {}) },
+      placement: found.placement,
+    };
   };
 
   const base = (kind: Annotation['kind']) => ({

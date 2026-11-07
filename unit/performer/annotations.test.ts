@@ -29,6 +29,27 @@ const layout = (barWidth = 400, top = 100): PageGeometry => ({
 });
 
 describe('anchoring annotations to the music', () => {
+  it("keeps a beat from its bar's start: the same beat in a repeat written out (other ticks)", () => {
+    const geometry: PageGeometry = {
+      ...layout(),
+      bars: [
+        { index: 0, page: 0, x: 100, y: 100, width: 400, height: 200, tick: 0 },
+        { index: 1, page: 0, x: 500, y: 100, width: 400, height: 200, tick: 7680 },
+      ],
+      segments: [
+        { tick: 0, page: 0, x: 130 },
+        { tick: 480, page: 0, x: 250 },
+        { tick: 7680, page: 0, x: 530 },
+        { tick: 7680 + 480, page: 0, x: 650 },
+      ],
+    };
+    // Put on the second beat of bar 1 (the second time through): kept as 480 from the bar's start
+    const found = anchorAt(geometry, 0, 645, 110, true)!;
+    expect(found.anchor).toMatchObject({ bar: 1, tick: 480 });
+    // The same beat in bar 0 (the first time through)
+    expect(placeAnchor(geometry, { bar: 0, part: 0, tick: 480 })?.x).toBe(250);
+  });
+
   it("takes a stamp's beat from its own bar, not a lower system's segment at the same x", () => {
     const base = layout();
     const geometry: PageGeometry = {

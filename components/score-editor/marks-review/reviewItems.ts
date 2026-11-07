@@ -9,10 +9,10 @@ export interface ReviewItem {
   readonly proposal: EngravingProposal;
 }
 
-/** The marks to review for a score: not yet engraved, in score order (part, bar, beat). */
+/** The marks to review for a score: not engraved and not reviewed before, in score order (part, bar, beat). */
 export function reviewItemsOf(annotations: readonly Annotation[]): ReviewItem[] {
   return annotations
-    .filter((annotation) => !annotation.engravedIn)
+    .filter((annotation) => !annotation.engravedIn && !annotation.reviewedAt)
     .map((annotation) => ({ annotation, proposal: proposeEngraving(annotation) }))
     .sort(
       (a, b) =>

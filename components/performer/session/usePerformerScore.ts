@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import type { Score, StaffSystemBand } from '../../../lib/webmscore-loader';
 import { sanitizeEngineSvg } from '../../../lib/sanitize-svg';
 import { pageGeometryOf, type PageGeometry } from '../annotations/pageGeometry';
+import { cachedBarSignatures, type SignatureCache } from './cachedBarSignatures';
 import { barBoxesOf, type BarBox } from './barBoxes';
 import { loadPerformerScore } from './loadPerformerScore';
 import { readPart, readStaffScale, writePart, writeStaffScale } from '../platform/deviceSettings';
@@ -35,6 +36,8 @@ export interface PerformerScoreState {
   readonly bars: readonly BarBox[];
   /** The laid-out music in the page's own units (bars, beats, staff bands), for anchoring annotations. */
   readonly geometry: PageGeometry | null;
+  /** The written score's bar signatures (for the part shown), to keep marks on their bars when bars change. */
+  readonly barSignatures: readonly string[];
 }
 
 export type { BarBox };
@@ -54,6 +57,7 @@ const INITIAL: PerformerScoreState = {
   playedBars: [],
   bars: [],
   geometry: null,
+  barSignatures: [],
 };
 
 /** One engine call at a time, in order: the worker engine has one score state. */
@@ -84,6 +88,10 @@ export function usePerformerScore(
   const scoreRef = useRef<Score | null>(null);
   // Reflowing: the parts (excerpt ids) whose line and page breaks are already removed on this loaded copy
   const unbroken = useRef<Set<number>>(new Set());
+  // The bar signatures, read once per loaded score and part (they do not change with the layout)
+  const signaturesFor = useRef<SignatureCache>({ key: '', signatures: [] });
+  // The playing order, for the written score's signatures in Play-through (read in the layout effect)
+  const playedBarsRef = useRef<readonly number[]>([]);
   // Stable for the hook's life (a lazy initial state: `serialQueue` makes the queue function)
   const [run] = useState(serialQueue);
   // Rendered pages for the current layout: current, next and previous (a layout or part change clears them)
@@ -189,6 +197,9 @@ export function usePerformerScore(
   // Where the reader is, for keeping their place across a relayout (read when the layout changes, not tracked)
   const position = useRef({ page: 0, pageCount: 0 });
   useLayoutEffect(() => {
+    playedBarsRef.current = state.playedBars;
+  });
+  useLayoutEffect(() => {
     position.current = { page: state.page, pageCount: state.pageCount };
   });
 
@@ -227,6 +238,13 @@ export function usePerformerScore(
         if (generation !== layoutGeneration.current) return;
         const segments = await run(() => target.segmentPositions()).catch(() => null);
         if (generation !== layoutGeneration.current) return;
+        signaturesFor.current = await cachedBarSignatures(
+          signaturesFor.current,
+          `${loads}:${part}`,
+          (partIndex) => run(() => Promise.resolve(target.measureSignatures?.(partIndex) ?? [])),
+          playThrough ? playedBarsRef.current : null,
+        );
+        if (generation !== layoutGeneration.current) return;
         const bars = barBoxesOf(positions);
         const geometry = pageGeometryOf(positions, segments, Array.isArray(bands) ? bands : []);
         setState((previous) => ({
@@ -235,12 +253,13 @@ export function usePerformerScore(
           bands: Array.isArray(bands) ? bands : [],
           bars,
           geometry,
+          barSignatures: signaturesFor.current.signatures,
         }));
         await show(page);
       })();
     }, LAYOUT_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
-  }, [status, loads, part, staffScale, viewport, reflow, run, show]);
+  }, [status, loads, part, staffScale, viewport, reflow, playThrough, run, show]);
 
   const goToPage = useCallback(
     (page: number) => {

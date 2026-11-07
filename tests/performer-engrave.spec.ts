@@ -1,3 +1,4 @@
+import { runCommand } from './helpers/commands';
 import { expect, test, type Page } from './helpers/diagnostic-test';
 
 // Performer mode, Phase 7a: stamps made in performer mode are reviewed in the editor and engraved; performer mode then
@@ -44,17 +45,12 @@ test('stamps reviewed in the editor become notation, and performer mode shows th
   // Open in Editor: the marks wait for review
   await p.keyboard.press('Escape');
   const opening = context.waitForEvent('page');
+  await expect(p.getByTestId('performer-open-editor')).toHaveText('Review 2 marks in editor');
   await p.getByTestId('performer-open-editor').click();
   const editor = await opening;
   await expect(editor.locator('svg .Note').first()).toBeAttached({ timeout: 60_000 });
   const editorDynamicsBefore = await editor.locator('svg .Dynamic').count();
-  await expect(editor.getByTestId('marks-review-notice')).toHaveText(
-    '2 rehearsal marks to review',
-    {
-      timeout: 30_000,
-    },
-  );
-  await editor.getByTestId('marks-review-notice').click();
+  // Opened to review: the review is already open
   const review = editor.getByTestId('marks-review');
   await expect(review.getByTestId('marks-review-item')).toHaveCount(2);
   const watch = review.getByTestId('marks-review-item').filter({ hasText: 'Watch' });
@@ -95,4 +91,60 @@ test('stamps reviewed in the editor become notation, and performer mode shows th
     .toBe(dynamicsBefore + 1);
   await expect(stampOf(p, 'dynamicMF')).toHaveCount(0);
   await expect(stampOf(p, 'watch')).toHaveCount(1);
+  // Reviewed: nothing waits now (the reminder was kept)
+  await p.keyboard.press('Escape');
+  await expect(p.getByTestId('performer-open-editor')).toHaveText('Open in Editor');
 });
+
+test('a mark finds its bar again after bars are inserted before it', async ({
+  page: p,
+  context,
+}) => {
+  test.setTimeout(240_000);
+  await p.goto(`/perform?score=${encodeURIComponent('/test_scores/four_measures.musicxml')}`);
+  await expect(pageSvg(p).locator('svg .Note').first()).toBeAttached({ timeout: 60_000 });
+  const surface = (await p.getByTestId('performer-surface').boundingBox())!;
+  await p.mouse.move(surface.x + surface.width / 2, surface.y + 10);
+  await p.mouse.down();
+  await p.waitForTimeout(800);
+  await p.mouse.up();
+  await p.getByTestId('performer-annotate').click();
+  await p.getByTestId('annotate-stamp').click();
+  // Under the last note: bar 4
+  await stampAt(p, 'dynamicMF', (await pageSvg(p).locator('svg .Note').count()) - 1, 60);
+  await p.getByTestId('annotate-done').click();
+  await p.keyboard.press('Escape');
+  const opening = context.waitForEvent('page');
+  await p.getByTestId('performer-open-editor').click();
+  const editor = await opening;
+  await expect(editor.getByTestId('marks-review')).toBeVisible({ timeout: 60_000 });
+  await editor.keyboard.press('Escape');
+
+  // Two bars inserted at the beginning, then the review
+  await runCommand(editor, 'add.measures', { count: 2, target: 'beginning' });
+  await expect.poll(() => barCount(editor), { timeout: 30_000 }).toBe(6);
+  await runCommand(editor, 'file.reviewMarks');
+  const review = editor.getByTestId('marks-review');
+  await review.getByTestId('marks-review-engrave').click();
+  await expect(review.getByTestId('marks-review-outcome')).toContainText('Engraved 1', {
+    timeout: 30_000,
+  });
+  // In bar 6 (index 5): where bar 4 went
+  expect(await dynamicBars(editor)).toEqual([5]);
+});
+
+/** The editor's score as MSCX: the first staff's measures. */
+const measuresOf = (editor: Page) =>
+  editor.evaluate(async () => {
+    const score = (
+      window as unknown as { __webmscore?: { saveMsc: (f: string) => Promise<Uint8Array> } }
+    ).__webmscore!;
+    const xml = new TextDecoder().decode(await score.saveMsc('mscx'));
+    const staff = xml.slice(xml.indexOf('<Staff id="1">', xml.indexOf('</Part>')));
+    return staff.slice(0, staff.indexOf('</Staff>')).split('<Measure').slice(1);
+  });
+const barCount = async (editor: Page) => (await measuresOf(editor)).length;
+const dynamicBars = async (editor: Page) =>
+  (await measuresOf(editor)).flatMap((measure, index) =>
+    measure.includes('<Dynamic>') ? [index] : [],
+  );

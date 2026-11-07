@@ -2,7 +2,7 @@
 
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { useSearchParams } from 'next/navigation';
-import React, { useSyncExternalStore } from 'react';
+import React, { useEffect, useSyncExternalStore } from 'react';
 import { defaultCommandRegistry } from '../../../lib/commands/registry';
 import { describeMark } from '../../performer/annotations/annotationHistory';
 import { Button } from '../../ui/Button';
@@ -30,12 +30,19 @@ export function MarksReview({
 }: {
   core: Pick<EditorCore, 'score' | 'performMutation' | 'runSerializedScoreOperation'>;
 }) {
-  const scoreKey = useSearchParams().get('score');
+  const params = useSearchParams();
+  const scoreKey = params.get('score');
+  const askedToReview = params.get('review') === '1';
   const open = useSyncExternalStore(subscribeToMarksReview, isMarksReviewOpen, () => false);
   const review = useMarksReview(core, scoreKey);
   const { items, decisions, outcome } = review;
   const toEngrave = items.filter((item) => decisions.get(item.annotation.id) === 'engrave').length;
   const toDelete = items.filter((item) => decisions.get(item.annotation.id) === 'delete').length;
+  // Opened from performer mode's "Review N marks in editor": the review opens once the marks are in
+  const hasItems = items.length > 0;
+  useEffect(() => {
+    if (askedToReview && hasItems) setMarksReviewOpen(true);
+  }, [askedToReview, hasItems]);
 
   return (
     <>
@@ -131,10 +138,10 @@ export function MarksReview({
               size="sm"
               variant="primary"
               data-testid="marks-review-engrave"
-              disabled={review.busy || (!toEngrave && !toDelete)}
+              disabled={review.busy || !hasItems}
               onClick={() => void review.engrave()}
             >
-              {toEngrave ? `Engrave ${toEngrave}` : 'Apply'}
+              {toEngrave ? `Engrave ${toEngrave}` : toDelete ? 'Apply' : 'Done reviewing'}
             </Button>
           </div>
         </DialogContent>
