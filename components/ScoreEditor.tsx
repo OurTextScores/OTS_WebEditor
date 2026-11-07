@@ -282,6 +282,7 @@ import {
 } from './score-editor/compare/useCompareEditing';
 import { type CompareScoreRole } from '../lib/compare-user-edit-diff';
 import { type NoteInputCursorRect, type SelectionBox, type SelectionFallback } from './score-editor/selection-types';
+import { localScoreFile } from './performer/platform/editorLink';
 import { type ApplyXmlToScore, type EditorTelemetryCounters, type EditorTraceContext, type EnsureSoundFontLoaded, type HandleFileUpload, type HandleUrlLoad, type InstrumentTemplateGroup, type PartSummary, type RefreshPageCount, type RenderScore, type StopCompareSideAudio, type SynthBatchIterator } from './score-editor/editor-types';
 import { type MutationMethods, hasMutationApi } from './score-editor/mutation-api';
 import { type CompareViewState, type PartAlignment } from './score-editor/compare/compare-types';
@@ -3200,6 +3201,12 @@ export default function ScoreEditor() {
         const hasSessionRestore =
           typeof window !== 'undefined' && Boolean(sessionStorage.getItem('openInEditor'));
         const scoreUrl = searchParams.get('score');
+        // A score performer mode keeps on this device (local:<id>, from its Open in Editor)
+        const localFile = scoreUrl ? await localScoreFile(scoreUrl) : null;
+        if (localFile) {
+          await handleFileUpload(localFile, { updateUrl: false, telemetrySource: 'performer' });
+          return;
+        }
         if (scoreUrl) {
           await handleUrlLoad(scoreUrl, abortController.signal);
           return;

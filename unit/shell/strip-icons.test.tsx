@@ -30,6 +30,8 @@ const menus = controls.filter((control): control is StripMenu => control.kind ==
 const CHROME = new Set([
   'btn-create-share-link',
   'btn-embed',
+  // Open in Performance Mode: app chrome too (a lucide icon), like Embed.
+  'btn-perform',
   'dropdown-export',
   'btn-select-all',
   'dropdown-selection-filter',

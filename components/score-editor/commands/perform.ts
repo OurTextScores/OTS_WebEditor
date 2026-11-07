@@ -9,7 +9,7 @@ import {
 } from '../../performer/platform/scoreStore';
 
 /**
- * File ▸ Perform (performer mode, plan §8 / Phase 5.5): hands the current score, with its unsaved edits and all its
+ * File ▸ Open in Performance Mode (performer mode, plan §8 / Phase 5.5): hands the current score, with its unsaved edits and all its
  * parts, to the perform page. It is kept on this device (the perform library lists it under "On this device") and
  * opened in a new tab at `/perform?score=local:<id>`. The tab is opened at once, on the click: Safari blocks a
  * window.open made after an await.

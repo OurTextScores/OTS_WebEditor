@@ -31,7 +31,7 @@ export function buildExportCommands(getProps: () => EditorCommandProps): AnyComm
   return [
     defineCommand({
       id: 'file.perform',
-      label: 'Perform',
+      label: 'Open in Performance Mode',
       keywords: ['perform', 'performer', 'stage', 'ipad', 'page turn', 'setlist', 'concert'],
       enabled: (ctx) => ctx.hasScore && Boolean(getProps().onPerform),
       run: () => {

@@ -22,6 +22,8 @@ const NEW_IDS = new Set([
   'btn-load-soundfont',
   // Embed on a website is new with the player's embed code.
   'btn-embed',
+  // Open in Performance Mode is new with performer mode.
+  'btn-perform',
   // MEI and MNX export are new with the 4.7 engine (roadmap E25, E29).
   'btn-export-mei',
   'btn-export-mnx',
