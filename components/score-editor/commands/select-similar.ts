@@ -20,10 +20,7 @@ const MODE: Record<SimilarScope, 0 | 1 | 2> = { all: 0, staff: 1, range: 2 };
  */
 export async function selectSimilar(
   core: Pick<EditorCore, 'requireMutation' | 'runSerializedScoreOperation'>,
-  refresh: {
-    setHasBackendHighlighting: (value: boolean) => void;
-    refreshSelectionFromSvg: () => Promise<void>;
-  },
+  refresh: { setHasBackendHighlighting: (value: boolean) => void; refreshSelectionFromSvg: () => Promise<void> },
   scope: SimilarScope,
   at?: SimilarPattern,
 ): Promise<boolean> {
