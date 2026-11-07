@@ -43,4 +43,11 @@ describe.skipIf(!fs.existsSync(nodeBuild))('the score with its repeats written o
     expect(report.unrolledPlayed).toEqual([0, 1, 2, 3]);
     expect(report.playedAfter).toEqual([0, 1, 0, 2]);
   });
+
+  it("removes the engraver's line and page breaks for reflow", () => {
+    expect(report.systemsAsEngraved).toBe(8);
+    expect(report.breaksRemoved).toBeGreaterThanOrEqual(7);
+    expect(report.lineBreaksAfter).toBe(0);
+    expect(report.systemsReflowed).toBeLessThan(8);
+  });
 });

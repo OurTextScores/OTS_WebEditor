@@ -51,3 +51,7 @@ const systemDisplay = (): PerformerDisplay =>
     : 'normal';
 export const readDisplay = () => read<PerformerDisplay>('display', systemDisplay());
 export const writeDisplay = (display: PerformerDisplay) => write('display', display);
+
+/** Reflow: the score laid out for this screen (breaks ignored), or as engraved. Per score; reflowed by default. */
+export const readReflow = (scoreKey: string) => read<boolean>(`reflow.${scoreKey}`, true);
+export const writeReflow = (scoreKey: string, on: boolean) => write(`reflow.${scoreKey}`, on);

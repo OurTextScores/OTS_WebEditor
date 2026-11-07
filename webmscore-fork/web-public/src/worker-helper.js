@@ -615,6 +615,10 @@ class WebMscoreW {
      * @param {boolean[]} breaks
      * @returns {Promise<boolean>}
      */
+    removeLayoutBreaks() {
+        return this.rpc('removeLayoutBreaks')
+    }
+
     setMeasureLineBreaks(breaks) {
         return this.rpc('setMeasureLineBreaks', [breaks])
     }

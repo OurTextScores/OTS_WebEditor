@@ -1196,6 +1196,14 @@ class WebMscore {
      * @param {boolean[]} breaks
      * @returns {Promise<boolean>}
      */
+    /**
+     * Removes every line and page break (section breaks stay), for performer mode's reflow on its own copy.
+     * @returns {Promise<number>} how many were removed, or -1
+     */
+    async removeLayoutBreaks() {
+        return Module.ccall('removeLayoutBreaks', 'number', ['number', 'number'], [this.scoreptr, this.excerptId])
+    }
+
     async setMeasureLineBreaks(breaks) {
         const payload = JSON.stringify(Array.isArray(breaks) ? breaks : [])
         const payloadPtr = getStrPtr(payload)

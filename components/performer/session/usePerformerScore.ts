@@ -70,15 +70,20 @@ const LAYOUT_DEBOUNCE_MS = 150;
 
 /**
  * Key the component that uses this by `scoreUrl` and `playThrough`: a different score or view starts afresh. With
- * `playThrough` the score shown is the one with its repeats written out (the engine's Unroll repeats).
+ * `playThrough` the score shown is the one with its repeats written out (the engine's Unroll repeats). With `reflow`
+ * the music is laid out for the screen at the chosen size, ignoring the engraver's line and page breaks; without it,
+ * the pages are as engraved, scaled to fit. Changing either loads the score again (a fresh copy).
  */
 export function usePerformerScore(
   scoreUrl: string | null,
   viewport: Viewport,
   playThrough = false,
+  reflow = true,
 ) {
   const [state, setState] = useState<PerformerScoreState>(INITIAL);
   const scoreRef = useRef<Score | null>(null);
+  // Reflowing: the parts (excerpt ids) whose line and page breaks are already removed on this loaded copy
+  const unbroken = useRef<Set<number>>(new Set());
   // Stable for the hook's life (a lazy initial state: `serialQueue` makes the queue function)
   const [run] = useState(serialQueue);
   // Rendered pages for the current layout: current, next and previous (a layout or part change clears them)
@@ -140,6 +145,7 @@ export function usePerformerScore(
         if (!loaded) return;
         const { score: active, playedBars } = loaded;
         scoreRef.current = active;
+        unbroken.current = new Set();
         const metadata = await run(() => active.metadata()).catch(
           () => ({}) as Record<string, unknown>,
         );
@@ -173,7 +179,7 @@ export function usePerformerScore(
       scoreRef.current?.destroy();
       scoreRef.current = null;
     };
-  }, [scoreUrl, playThrough, run]);
+  }, [scoreUrl, playThrough, reflow, run]);
 
   // The staff size: chosen on this visit, else remembered for this score and orientation on this device
   const orientation = orientationOf(viewport);
@@ -197,8 +203,15 @@ export function usePerformerScore(
         const { page: before, pageCount: countBefore } = position.current;
         const anchorFraction = countBefore > 1 ? before / (countBefore - 1) : 0;
         await run(() => Promise.resolve(target.setExcerptId?.(part)));
-        const style = devicePageStyle(viewport, staffScale);
-        if (style) await run(() => Promise.resolve(target.setStyleValues?.(style)));
+        if (reflow) {
+          // Laid out for the screen: the engraver's line and page breaks no longer apply
+          if (!unbroken.current.has(part)) {
+            unbroken.current.add(part);
+            await run(() => Promise.resolve(target.removeLayoutBreaks?.())).catch(() => -1);
+          }
+          const style = devicePageStyle(viewport, staffScale);
+          if (style) await run(() => Promise.resolve(target.setStyleValues?.(style)));
+        }
         if (generation !== layoutGeneration.current) return;
         cache.current.clear();
         const pageCount = await run(() => Promise.resolve(target.npages?.() ?? 1));
@@ -227,7 +240,7 @@ export function usePerformerScore(
       })();
     }, LAYOUT_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
-  }, [status, loads, part, staffScale, viewport, run, show]);
+  }, [status, loads, part, staffScale, viewport, reflow, run, show]);
 
   const goToPage = useCallback(
     (page: number) => {

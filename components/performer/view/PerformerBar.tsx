@@ -19,12 +19,14 @@ export function PerformerBar({
   staffScale,
   halfPages,
   playThrough,
+  reflow,
   display,
   wakeLockNote,
   onPart,
   onStaffScale,
   onHalfPages,
   onPlayThrough,
+  onReflow,
   onDisplay,
   onPedals,
   onAnnotate,
@@ -39,12 +41,14 @@ export function PerformerBar({
   staffScale: number;
   halfPages: boolean;
   playThrough: boolean;
+  reflow: boolean;
   display: PerformerDisplay;
   wakeLockNote: string | null;
   onPart: (part: number) => void;
   onStaffScale: (scale: number) => void;
   onHalfPages: (on: boolean) => void;
   onPlayThrough: (on: boolean) => void;
+  onReflow: (on: boolean) => void;
   onDisplay: (display: PerformerDisplay) => void;
   onPedals: () => void;
   onAnnotate: () => void;
@@ -88,24 +92,42 @@ export function PerformerBar({
           type="button"
           size="sm"
           aria-label="Smaller music"
+          disabled={!reflow}
           data-testid="performer-smaller"
           onClick={() => onStaffScale(stepStaffScale(staffScale, -1))}
         >
           A−
         </Button>
-        <span className="w-12 text-center tabular-nums" data-testid="performer-size">
-          {Math.round(staffScale * 100)}%
+        <span
+          className="text-center tabular-nums"
+          style={{ minWidth: '3rem' }}
+          data-testid="performer-size"
+        >
+          {reflow ? `${Math.round(staffScale * 100)}%` : 'As engraved'}
         </span>
         <Button
           type="button"
           size="sm"
           aria-label="Larger music"
+          disabled={!reflow}
           data-testid="performer-larger"
           onClick={() => onStaffScale(stepStaffScale(staffScale, 1))}
         >
           A+
         </Button>
       </span>
+      <label
+        className="flex items-center gap-1.5"
+        title="Lay the music out for this screen, ignoring the score's line and page breaks"
+      >
+        <input
+          type="checkbox"
+          data-testid="performer-reflow"
+          checked={reflow}
+          onChange={(event) => onReflow(event.target.checked)}
+        />
+        Reflow
+      </label>
       <label className="flex items-center gap-1.5">
         <input
           type="checkbox"

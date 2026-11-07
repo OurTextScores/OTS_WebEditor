@@ -61,4 +61,29 @@ EMSCRIPTEN_KEEPALIVE const uint8_t* unrolledMsc(uintptr_t id)
     return response(bytes);
 }
 
+
+// Performer mode's reflow: the score laid out for the device ignores the engraver's line and page breaks (section
+// breaks, which separate movements, stay). On the perform view's own read-only copy, never saved. Returns how many
+// breaks were removed.
+EMSCRIPTEN_KEEPALIVE int removeLayoutBreaks(uintptr_t id, int excerpt)
+{
+    auto* score = getScore(id, excerpt);
+    if (!score) return -1;
+    int removed = 0;
+    score->startCmd(TranslatableString::untranslatable("Remove line and page breaks"));
+    for (engraving::MeasureBase* measure = score->first(); measure; measure = measure->next()) {
+        if (measure->lineBreak()) {
+            measure->undoSetLineBreak(false);
+            ++removed;
+        }
+        if (measure->pageBreak()) {
+            measure->undoSetPageBreak(false);
+            ++removed;
+        }
+    }
+    score->endCmd();
+    layoutLinked(score);
+    return removed;
+}
+
 }

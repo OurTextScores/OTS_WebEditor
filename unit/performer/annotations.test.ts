@@ -29,6 +29,35 @@ const layout = (barWidth = 400, top = 100): PageGeometry => ({
 });
 
 describe('anchoring annotations to the music', () => {
+  it("takes a stamp's beat from its own bar, not a lower system's segment at the same x", () => {
+    const base = layout();
+    const geometry: PageGeometry = {
+      ...base,
+      bars: [
+        { ...base.bars[0], tick: 0 },
+        { ...base.bars[1], tick: 1920 },
+        // Bar 2 on the next system down, its segments at the same x as bar 0's
+        { index: 2, page: 0, x: 100, y: 500, width: 400, height: 200, tick: 3840 },
+      ],
+      segments: [
+        { tick: 0, page: 0, x: 130 },
+        { tick: 1920, page: 0, x: 430 },
+        { tick: 3840 + 240, page: 0, x: 141 },
+      ],
+    };
+    // Tapped above bar 0 at x 140: the nearest segment by x is bar 2's, but the beat is bar 0's
+    expect(anchorAt(geometry, 0, 140, 90, true)?.anchor).toEqual({ bar: 0, part: 0, tick: 0 });
+  });
+
+  it("puts a mark at a system's first beat on the note, not on the clef sharing its tick", () => {
+    const withHeader = layout();
+    const geometry = {
+      ...withHeader,
+      segments: [{ tick: 0, page: 0, x: 105 }, ...withHeader.segments],
+    };
+    expect(placeAnchor(geometry, { bar: 0, part: 0, tick: 0 })?.x).toBe(130);
+  });
+
   it('anchors a mark to the bar under it and the nearest staff, and a stamp to the nearest beat', () => {
     const ink = anchorAt(layout(), 0, 300, 110, false)!;
     expect(ink.anchor).toEqual({ bar: 0, part: 0 });

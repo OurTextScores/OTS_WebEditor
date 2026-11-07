@@ -169,3 +169,26 @@ test('with no score, opens the library', async ({ page: p }) => {
   await expect(p.getByTestId('performer-guide')).toBeVisible({ timeout: 60_000 });
   await expect(p.getByRole('heading', { name: 'Turn pages' })).toBeVisible();
 });
+
+test('reflow is optional: reflowed, the line breaks are ignored; as engraved, they are kept', async ({
+  page: p,
+}) => {
+  // A line break after every bar: eight systems as engraved
+  await p.goto(`/perform?score=${encodeURIComponent('/test_scores/eight_bars_line_breaks.mscz')}`);
+  const svg = p.getByTestId('performer-page-svg');
+  await expect(svg.locator('svg .Note').first()).toBeAttached({ timeout: 60_000 });
+  // One clef starts each system of this one-staff score
+  const systems = () => svg.locator('svg .Clef').count();
+  await expect.poll(systems, { timeout: 30_000 }).toBeLessThan(8);
+
+  await p.keyboard.press('Escape');
+  await p.getByTestId('performer-reflow').uncheck();
+  await expect.poll(systems, { timeout: 60_000 }).toBe(8);
+  await expect(p.getByTestId('performer-larger')).toBeDisabled();
+  await expect(p.getByTestId('performer-size')).toHaveText('As engraved');
+
+  // Remembered for this score
+  await p.reload();
+  await expect(svg.locator('svg .Note').first()).toBeAttached({ timeout: 60_000 });
+  await expect.poll(systems, { timeout: 30_000 }).toBe(8);
+});

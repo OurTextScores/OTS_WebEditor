@@ -12,6 +12,8 @@ export interface PageBarBox {
   readonly y: number;
   readonly width: number;
   readonly height: number;
+  /** The bar's first tick (written), when the engine gives it: its segments run to the next bar's. */
+  readonly tick?: number;
 }
 export interface PageSegment {
   readonly tick: number;
@@ -63,7 +65,9 @@ export function placeAnchor(
   if (!band) return null;
   let x = bar.x;
   if (anchor.tick !== undefined) {
-    const segment = geometry.segments.find(
+    // Several segments can share a tick (a system's clef, key and time signature, then its first note): the note's,
+    // the last of them, is the one a mark at that beat belongs to
+    const segment = geometry.segments.findLast(
       (candidate) =>
         candidate.tick === anchor.tick &&
         candidate.page === bar.page &&
@@ -110,8 +114,16 @@ export function anchorAt(
   );
   let tick: number | undefined;
   if (withTick) {
+    // This bar's own segments: by tick when known (its tick up to the next bar's), since a lower system's segments
+    // can share the same x on the page
+    const nextTick = geometry.bars.find((candidate) => candidate.index === bar!.index + 1)?.tick;
     const inBar = geometry.segments.filter(
-      (s) => s.page === page && s.x >= bar.x && s.x <= bar.x + bar.width,
+      (s) =>
+        s.page === page &&
+        s.x >= bar!.x &&
+        s.x <= bar!.x + bar!.width &&
+        (bar!.tick === undefined ||
+          (s.tick >= bar!.tick && (nextTick === undefined || s.tick < nextTick))),
     );
     if (inBar.length)
       tick = inBar.reduce((best, s) => (Math.abs(s.x - x) < Math.abs(best.x - x) ? s : best)).tick;
@@ -168,6 +180,7 @@ export function pageGeometryOf(
         y: element.y,
         width: element.sx,
         height: element.sy,
+        tick: element.writtenTick,
       })),
     segments: (segments?.elements ?? [])
       .filter((element) => element.page >= 0 && element.writtenTick !== undefined)

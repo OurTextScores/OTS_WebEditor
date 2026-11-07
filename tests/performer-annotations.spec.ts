@@ -30,6 +30,8 @@ async function startAnnotating(p: Page) {
 }
 
 const centre = async (locator: ReturnType<Page['locator']>) => {
+  // A page drawn again (a relayout) replaces its elements: wait for the one asked for to be on screen
+  await expect(locator).toBeVisible();
   const box = (await locator.boundingBox())!;
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 };
@@ -120,7 +122,10 @@ test('a stamp stays on its note when the music is laid out again larger', async 
     .poll(
       async () => {
         if ((await stamp.count()) !== 1) return false;
-        const noteAt = await centre(page(p).locator('svg .Note').first());
+        // Read while the page may be drawn again: a missing box is "not yet"
+        const box = await page(p).locator('svg .Note').first().boundingBox();
+        if (!box) return false;
+        const noteAt = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
         const mark = await markAt(stamp);
         return Math.abs(mark.x - noteAt.x) < 25 && mark.y < noteAt.y && noteAt.y - mark.y < 60;
       },

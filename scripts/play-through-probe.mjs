@@ -31,6 +31,15 @@ report.unrolledBars = (await unrolled.measurePositions()).elements.length;
 report.unrolledPlayed = (await unrolled.playbackTimeline()).occurrences.map((o) => o.measureIndex);
 // The original is left as it was: its playing order unchanged
 report.playedAfter = (await score.playbackTimeline()).occurrences.map((o) => o.measureIndex);
+// Reflow: the engraver's line and page breaks removed (eight_bars_line_breaks.mscz: a line break after each bar)
+const broken = await WebMscore.load(
+  'mscz',
+  fs.readFileSync(path.join(root, 'public/test_scores/eight_bars_line_breaks.mscz')),
+);
+report.systemsAsEngraved = (await broken.staffSystemBands()).length;
+report.breaksRemoved = await broken.removeLayoutBreaks();
+report.lineBreaksAfter = (await broken.measureLineBreaks()).filter(Boolean).length;
+report.systemsReflowed = (await broken.staffSystemBands()).length;
 console.log = log;
 console.log(JSON.stringify(report));
 process.exit(0);

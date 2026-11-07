@@ -1,12 +1,7 @@
 'use client';
 
 import React, { useMemo, useRef, useState } from 'react';
-import {
-  readPedals,
-  readPlayThrough,
-  writePedals,
-  writePlayThrough,
-} from '../platform/deviceSettings';
+import { readPedals, writePedals } from '../platform/deviceSettings';
 import { AnnotateTools } from '../annotations/AnnotateTools';
 import { AnnotationLayer } from '../annotations/AnnotationLayer';
 import { resolvePublicScoreUrl } from '../../../lib/public-score-url';
@@ -28,7 +23,7 @@ import { useAvailableArea } from './useAvailableArea';
 import { usePedalKeys } from './usePedalKeys';
 import { useSurfacePointer } from './useSurfacePointer';
 import { BarExtras } from './BarExtras';
-import { useDisplay, useHalfPages } from './useViewChoices';
+import { useDisplay, useHalfPages, usePlayThrough, useReflow } from './useViewChoices';
 import { ScreenReaderTurns } from './ScreenReaderTurns';
 
 /** A second turn sooner than this is a bounce or a nervous tap. */
@@ -51,11 +46,13 @@ export function PerformerView({
   const surfaceRef = useRef<HTMLDivElement>(null);
   const area = useAvailableArea(surfaceRef);
   const scoreKey = scoreUrl ?? '';
-  const [playThrough, setPlayThrough] = useState(() => readPlayThrough(scoreKey));
+  const [playThrough, setPlayThrough] = usePlayThrough(scoreKey);
+  const [reflow, setReflow] = useReflow(scoreKey);
   const { state, staffScale, goToPage, goToBar, setPart, setStaffScale } = usePerformerScore(
     scoreUrl,
     area,
     playThrough,
+    reflow,
   );
   const repeats = usePerformerRepeats({ state, playThrough, goToBar });
   const annotate = useAnnotateMode({ state, scoreKey, playThrough });
@@ -77,6 +74,21 @@ export function PerformerView({
   );
   // Shown half turned only while the half view is possible (a relayout or a page change can end it)
   const showingHalf = half && halfPages && Boolean(halfView && state.nextSvg);
+
+  /** Done (controls or annotating): the music alone again, with the keys going to it. */
+  const backToMusic = () => {
+    setControlsOpen(false);
+    setPedalSetupOpen(false);
+    annotate.setActive(false);
+    surfaceRef.current?.focus({ preventScroll: true });
+  };
+
+  /** Play-through or reflow switched: the score loads again; come back to the same written bar, whole pages. */
+  const switchView = (apply: () => void) => {
+    repeats.rememberPlace();
+    setHalf(false);
+    apply();
+  };
 
   const turn = (event: TurnEvent) => {
     const now = performance.now();
@@ -186,15 +198,7 @@ export function PerformerView({
         />
       )}
       {edge.card && <SetlistCard card={edge.card} onGo={edge.go} onStay={edge.clear} />}
-      {annotate.active && (
-        <AnnotateTools
-          mode={annotate}
-          onDone={() => {
-            annotate.setActive(false);
-            surfaceRef.current?.focus({ preventScroll: true });
-          }}
-        />
-      )}
+      {annotate.active && <AnnotateTools mode={annotate} onDone={backToMusic} />}
       {controlsOpen && state.status === 'ready' && (
         <PerformerBar
           title={state.title}
@@ -205,6 +209,8 @@ export function PerformerView({
           staffScale={staffScale}
           halfPages={halfPages}
           playThrough={playThrough}
+          reflow={reflow}
+          onReflow={(on) => switchView(() => setReflow(on))}
           display={display}
           onDisplay={setDisplay}
           wakeLockNote={wakeLockNote}
@@ -214,12 +220,7 @@ export function PerformerView({
             setHalfPages(on);
             if (!on) setHalf(false);
           }}
-          onPlayThrough={(on) => {
-            repeats.rememberPlace();
-            writePlayThrough(scoreKey, on);
-            setHalf(false);
-            setPlayThrough(on);
-          }}
+          onPlayThrough={(on) => switchView(() => setPlayThrough(on))}
           onPedals={() => setPedalSetupOpen(true)}
           onAnnotate={() => {
             setControlsOpen(false);
@@ -227,11 +228,7 @@ export function PerformerView({
             annotate.setActive(true);
           }}
           extra={<BarExtras score={scoreKey} title={state.title} marks={annotate} />}
-          onDone={() => {
-            setControlsOpen(false);
-            setPedalSetupOpen(false);
-            surfaceRef.current?.focus({ preventScroll: true });
-          }}
+          onDone={backToMusic}
         />
       )}
       {pedalSetupOpen && (

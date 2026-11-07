@@ -175,6 +175,8 @@ export interface ScoreDialogMethods {
   repeatSelection?: () => Promise<boolean>;
   /** The score with its repeats written out, as MSCZ bytes to load as a second score (performer Play-through). */
   unrolledMsc?: () => Promise<Uint8Array>;
+  /** Removes every line and page break (section breaks stay): performer mode's reflow, on its own copy. */
+  removeLayoutBreaks?: () => Promise<number>;
   /** Where the selected range would land if dropped at the page point, as boxes; [] when it cannot (roadmap E11). */
   rangeDropPreview?: (
     pageNumber: number,
