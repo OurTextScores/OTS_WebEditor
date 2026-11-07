@@ -177,6 +177,10 @@ export interface ScoreDialogMethods {
   unrolledMsc?: () => Promise<Uint8Array>;
   /** Removes every line and page break (section breaks stay): performer mode's reflow, on its own copy. */
   removeLayoutBreaks?: () => Promise<number>;
+  /** Engraves marks at musical positions in one undoable command (performer mode's reviewed stamps, Phase 7a). */
+  addElementsAt?: (
+    marks: { kind: string; subtype: string; staff: number; tick: number; y: number }[],
+  ) => Promise<{ ok: boolean; reason?: string }[]>;
   /** Where the selected range would land if dropped at the page point, as boxes; [] when it cannot (roadmap E11). */
   rangeDropPreview?: (
     pageNumber: number,

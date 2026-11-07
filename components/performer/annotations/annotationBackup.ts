@@ -52,6 +52,7 @@ function isAnnotation(value: unknown): value is Annotation {
     (a.content === undefined || typeof a.content === 'string') &&
     (a.hiddenAt === undefined || (Array.isArray(a.hiddenAt) && a.hiddenAt.every(isNumber))) &&
     (a.onlyAt === undefined || isNumber(a.onlyAt)) &&
+    (a.engravedIn === undefined || typeof a.engravedIn === 'string') &&
     isNumber(a.createdAt)
   );
 }

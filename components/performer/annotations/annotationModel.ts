@@ -44,6 +44,11 @@ export interface Annotation {
   readonly hiddenAt?: readonly number[];
   /** Shown at this occurrence only ("only this one" edited: a copy for one occurrence). */
   readonly onlyAt?: number;
+  /**
+   * Engraved into the score (Phase 7): when, and the version it went into. Its written form is then hidden: the
+   * performer sees only the engraved notation.
+   */
+  readonly engravedIn?: string;
   readonly createdAt: number;
 }
 
@@ -54,6 +59,7 @@ export function newAnnotationId(): string {
 
 /** Whether `annotation` shows at Play-through occurrence `occurrence` (always, in the written view: null). */
 export function showsAt(annotation: Annotation, occurrence: number | null): boolean {
+  if (annotation.engravedIn) return false; // engraved: the notation shows instead
   if (occurrence === null) return annotation.onlyAt === undefined;
   if (annotation.onlyAt !== undefined) return annotation.onlyAt === occurrence;
   return !(annotation.hiddenAt ?? []).includes(occurrence);

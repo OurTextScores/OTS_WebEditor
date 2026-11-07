@@ -333,6 +333,7 @@ EMSCRIPTEN_KEEPALIVE bool redo(uintptr_t id,int excerpt) {
 
 #include "scoreexports.h"
 #include "playthrough.h"
+#include "performermarks.h"
 
 #include "pitchduration.h"
 #include "notationmarks.h"

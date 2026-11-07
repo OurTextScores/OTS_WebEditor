@@ -1,5 +1,6 @@
 import { defineCommand, type AnyCommand } from '../../lib/commands/types';
 import type { EditorCommandProps } from './editorProps';
+import { openMarksReview } from './marks-review';
 
 type ExportKey = Extract<keyof EditorCommandProps, `onExport${string}`>;
 
@@ -37,6 +38,14 @@ export function buildExportCommands(getProps: () => EditorCommandProps): AnyComm
       run: () => {
         getProps().onPerform?.();
       },
+    }),
+    defineCommand({
+      id: 'file.reviewMarks',
+      label: 'Review Rehearsal Marks',
+      opensDialog: true,
+      keywords: ['rehearsal', 'marks', 'annotations', 'stamps', 'engrave', 'performer', 'review'],
+      enabled: (ctx) => ctx.hasScore,
+      run: openMarksReview,
     }),
     exportCommand('mscz', 'Export MuseScore (.mscz)', 'onExportMscz'),
     exportCommand('pdf', 'Export PDF', 'onExportPdf'),

@@ -615,6 +615,10 @@ class WebMscoreW {
      * @param {boolean[]} breaks
      * @returns {Promise<boolean>}
      */
+    addElementsAt(marks) {
+        return this.rpc('addElementsAt', [marks])
+    }
+
     removeLayoutBreaks() {
         return this.rpc('removeLayoutBreaks')
     }

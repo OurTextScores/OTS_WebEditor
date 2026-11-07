@@ -1197,6 +1197,24 @@ class WebMscore {
      * @returns {Promise<boolean>}
      */
     /**
+     * Engraves a list of marks at musical positions in one undoable command (performer mode's reviewed stamps).
+     * @param {Array<{kind: string, subtype: string, staff: number, tick: number, y: number}>} marks
+     * @returns {Promise<Array<{ok: boolean, reason?: string}>>}
+     */
+    async addElementsAt(marks) {
+        const payload = JSON.stringify(Array.isArray(marks) ? marks : [])
+        const payloadPtr = getStrPtr(payload)
+        const dataptr = Module.ccall(
+            'addElementsAt',
+            'number',
+            ['number', 'number', 'number', 'number'],
+            [this.scoreptr, payloadPtr, payload.length, this.excerptId]
+        )
+        freePtr(payloadPtr)
+        return JSON.parse(WasmRes.readText(dataptr))
+    }
+
+    /**
      * Removes every line and page break (section breaks stay), for performer mode's reflow on its own copy.
      * @returns {Promise<number>} how many were removed, or -1
      */

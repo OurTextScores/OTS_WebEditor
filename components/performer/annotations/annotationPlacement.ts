@@ -83,6 +83,7 @@ export function unplacedOf(
   playedBars: readonly number[] | null,
 ): Annotation[] {
   return annotations.filter((annotation) => {
+    if (annotation.engravedIn) return false; // engraved: nothing to place
     if (!playedBars) return showsAt(annotation, null) && !placeAnchor(geometry, annotation.anchor);
     return !playedBars.some(
       (written, occurrence) =>

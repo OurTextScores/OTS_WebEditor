@@ -283,6 +283,7 @@ import {
 import { type CompareScoreRole } from '../lib/compare-user-edit-diff';
 import { type NoteInputCursorRect, type SelectionBox, type SelectionFallback } from './score-editor/selection-types';
 import { localScoreFile } from './performer/platform/editorLink';
+import { MarksReview } from './score-editor/marks-review';
 import { type ApplyXmlToScore, type EditorTelemetryCounters, type EditorTraceContext, type EnsureSoundFontLoaded, type HandleFileUpload, type HandleUrlLoad, type InstrumentTemplateGroup, type PartSummary, type RefreshPageCount, type RenderScore, type StopCompareSideAudio, type SynthBatchIterator } from './score-editor/editor-types';
 import { type MutationMethods, hasMutationApi } from './score-editor/mutation-api';
 import { type CompareViewState, type PartAlignment } from './score-editor/compare/compare-types';
@@ -9388,7 +9389,7 @@ export default function ScoreEditor() {
 
   const mode = buildWorkspaceMode(kind, {
     nodes: {
-      header: <ShellHeader title={scoreTitle} dirty={scoreDirtySinceCheckpoint} />,
+      header: <><ShellHeader title={scoreTitle} dirty={scoreDirtySinceCheckpoint} /><MarksReview core={core} /></>,
       writeToolbar: <WriteToolbars noteInputMethod={noteInputMethod} />,
       historyToolbar: <HistoryToolbar />,
       compareToolbar: compareView ? (
