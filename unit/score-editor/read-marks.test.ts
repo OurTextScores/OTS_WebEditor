@@ -53,6 +53,11 @@ describe('the bars sent with a mark', () => {
     expect(prompt).toContain('bar 2, 240 ticks');
     expect(prompt).toContain('BARS');
   });
+
+  it('tells the model whether ink spans notes or sits at one', () => {
+    expect(readPrompt(ink(), '')).toContain('spans from bar 2 (0 ticks in) to bar 3 (480 ticks in)');
+    expect(readPrompt(ink({ extent: undefined }), '')).toContain('at a single note');
+  });
 });
 
 describe('the model’s answer as a proposal', () => {

@@ -37,7 +37,14 @@ K is one of:
 - "articulation": V one of accent staccato tenuto marcato
 - "fingering": V a single digit 0-5
 - "none": the mark is a personal reminder (an eye, an arrow, a circle, "watch", a name) or cannot be read; V ""
-S is only for "text" (otherwise ""). C is your confidence from 0 to 1. W is at most 12 words saying why.`;
+S is only for "text" (otherwise ""). C is your confidence from 0 to 1. W is at most 12 words saying why.
+Reading hints:
+- The gap between two staff lines is one staff space. Hairpins and slurs span several notes (you are told when the ink
+  spans notes); a small wedge (under about 1.5 spaces) at one note is an accent, a short dash a tenuto, a dot staccato.
+- A tick, check mark, comma or apostrophe above the staff between notes is a breath mark ("comma"); "//" is "caesura".
+- A wavy or zigzag line, arrows, circles, eyeglasses, boxes and underlines are reminders ("none").
+- "text" is only for words a publisher would print in the part. Notes to self ("bow!", "listen", "count", names,
+  exclamations, instructions about the rehearsal) are "none".`;
 
 const DYNAMICS = new Set(['ppp', 'pp', 'p', 'mp', 'mf', 'f', 'ff', 'fff', 'fp', 'sf', 'sfz']);
 const ARTICULATIONS: Record<string, string> = {
@@ -70,10 +77,16 @@ export function readPrompt(annotation: Annotation, bars: string): string {
       ? `, ${annotation.anchor.tick} ticks (480 per quarter) into the bar`
       : '') +
     `, staff ${annotation.anchor.part + 1}.`;
+  const extent = annotation.extent;
+  const span = extent
+    ? extent.start.bar === extent.end.bar && extent.start.tick === extent.end.tick
+      ? 'The ink is at a single note.'
+      : `The ink spans from bar ${extent.start.bar + 1} (${extent.start.tick} ticks in) to bar ${extent.end.bar + 1} (${extent.end.tick} ticks in).`
+    : 'The ink is at a single note.';
   const what =
     annotation.kind === 'text'
       ? `The performer typed: "${annotation.content ?? ''}"`
-      : 'The performer drew the ink in the image.';
+      : `The performer drew the ink in the image. ${span}`;
   return `${what}\n${where}\n\nMusicXML of those bars:\n${bars}`;
 }
 
