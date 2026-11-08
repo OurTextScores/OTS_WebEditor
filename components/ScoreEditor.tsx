@@ -9411,8 +9411,6 @@ export default function ScoreEditor() {
           }
           closeLabel={isAiCompareMode ? 'Done - Close' : 'Close'}
           onClose={handleCloseCompareView}
-          gutterCollapsed={compareGutterCollapsed}
-          onToggleGutter={toggleCompareGutter}
         />
       ) : null,
       floatingPalettes: palettesOpen ? (

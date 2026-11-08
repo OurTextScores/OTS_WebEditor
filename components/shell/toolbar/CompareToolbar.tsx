@@ -1,8 +1,6 @@
 'use client';
 
 import React, { type ReactNode } from 'react';
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
-import { IconButton } from '@/components/ui/IconButton';
 
 /**
  * The Compare mode toolbar (SHELL_REDESIGN_DESIGN §8.2): which two scores are on screen, the
@@ -15,8 +13,6 @@ export function CompareToolbar({
   actions,
   closeLabel,
   onClose,
-  gutterCollapsed,
-  onToggleGutter,
 }: {
   leftLabel: string;
   rightLabel: string;
@@ -24,9 +20,6 @@ export function CompareToolbar({
   actions?: ReactNode;
   closeLabel: string;
   onClose: () => void;
-  /** The gutter between the panes; omit both to hide the toggle. */
-  gutterCollapsed?: boolean;
-  onToggleGutter?: () => void;
 }) {
   return (
     <div
@@ -43,20 +36,6 @@ export function CompareToolbar({
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {actions}
-        {onToggleGutter && (
-          <IconButton
-            data-testid="compare-gutter-toggle"
-            label={gutterCollapsed ? 'Show comparison gutter' : 'Hide comparison gutter'}
-            aria-pressed={!gutterCollapsed}
-            onClick={onToggleGutter}
-          >
-            {gutterCollapsed ? (
-              <PanelLeftOpen className="h-4 w-4" aria-hidden />
-            ) : (
-              <PanelLeftClose className="h-4 w-4" aria-hidden />
-            )}
-          </IconButton>
-        )}
         <button
           type="button"
           data-testid="compare-close"

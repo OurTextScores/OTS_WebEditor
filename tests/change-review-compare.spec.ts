@@ -159,6 +159,25 @@ const exportedPartCount = async (page: import('@playwright/test').Page, side: 'l
 };
 
 test.describe('Change review compare panes', () => {
+  test('collapses the gutter from above it, with no shell toolbar to hold the toggle', async ({
+    page,
+  }) => {
+    await openChangeReviewCompare(page);
+    const gutter = page.getByTestId('compare-gutter');
+    const toggle = gutter.getByTestId('compare-gutter-toggle');
+    await expect(toggle).toBeVisible();
+    // The toggle sits above the review threads, not over them.
+    const toggleBox = (await toggle.boundingBox())!;
+    const scrollBox = (await gutter.getByTestId('compare-gutter-scroll').boundingBox())!;
+    expect(toggleBox.y + toggleBox.height).toBeLessThanOrEqual(scrollBox.y);
+
+    await toggle.click();
+    await expect(gutter).toHaveAttribute('data-collapsed', 'true');
+    await expect(gutter.getByTestId('compare-gutter-scroll')).toBeHidden();
+    await toggle.click();
+    await expect(gutter.getByTestId('compare-gutter-scroll')).toBeVisible();
+  });
+
   test('renders the base revision on the left and the head revision on the right', async ({
     page,
   }) => {

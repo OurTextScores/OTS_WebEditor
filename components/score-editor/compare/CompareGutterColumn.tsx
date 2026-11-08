@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useState, type ReactNode, type RefObject } from 'react';
-import { PanelLeftOpen } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { IconButton } from '@/components/ui/IconButton';
 
 const STORAGE_KEY = 'ots.compare.gutterCollapsed';
@@ -43,8 +43,8 @@ export type CompareGutterColumnProps = {
 };
 
 /**
- * The column between the two compare panes. Collapsed, it is a thin strip with a
- * show button (the Compare toolbar carries the hide/show toggle too). The content
+ * The column between the two compare panes, with a hide/show toggle above it.
+ * Collapsed, it is a thin strip holding just that toggle. The content
  * stays mounted while collapsed, only hidden, so the scroll-sync listeners bound to
  * `scrollRef` survive the toggle; a hidden element ignores scrollTop, so on expand
  * the gutter re-adopts the pane's position.
@@ -69,18 +69,27 @@ export function CompareGutterColumn({
     <div
       data-testid="compare-gutter"
       data-collapsed={collapsed ? 'true' : 'false'}
-      className={`flex min-h-0 flex-none flex-col gap-2 ${collapsed ? 'w-8 items-center rounded border border-slate-200 bg-slate-50 pt-1' : `items-stretch ${width === null ? 'w-44' : ''}`}`}
+      className={`flex min-h-0 flex-none flex-col gap-2 ${collapsed ? 'w-8 items-center' : `items-stretch ${width === null ? 'w-44' : ''}`}`}
       style={collapsed || width === null ? undefined : { width: `${width}px` }}
     >
-      {collapsed && (
+      {/* Above the gutter, not in the shell toolbar: hosted views (change review) have no toolbar. */}
+      <div
+        className={`flex items-center text-xs font-semibold uppercase tracking-wide text-slate-500 ${collapsed ? 'justify-center' : 'justify-between'}`}
+      >
+        {!collapsed && <span>Changes</span>}
         <IconButton
-          data-testid="compare-gutter-expand"
-          label="Show comparison gutter"
+          data-testid="compare-gutter-toggle"
+          label={collapsed ? 'Show comparison gutter' : 'Hide comparison gutter'}
+          aria-expanded={!collapsed}
           onClick={onToggle}
         >
-          <PanelLeftOpen className="h-4 w-4" aria-hidden />
+          {collapsed ? (
+            <PanelLeftOpen className="h-4 w-4" aria-hidden />
+          ) : (
+            <PanelLeftClose className="h-4 w-4" aria-hidden />
+          )}
         </IconButton>
-      )}
+      </div>
       <div className={collapsed ? 'hidden' : 'contents'}>
         {header}
         <div
