@@ -231,7 +231,7 @@ test('handwriting the rules cannot read is read by the editor’s AI model, and 
   context,
 }) => {
   test.setTimeout(240_000);
-  const requests: { promptText: string; image: unknown; model: string; apiKey: string }[] = [];
+  const requests: { promptText: string; imageBase64: string; model: string; apiKey: string }[] = [];
   await context.route('**/api/llm/openai/models', (route) =>
     route.fulfill({ status: 200, body: JSON.stringify({ models: ['gpt-test-model'] }) }),
   );
@@ -267,7 +267,15 @@ test('handwriting the rules cannot read is read by the editor’s AI model, and 
     await p.getByTestId('annotate-text-input').fill(words);
     await p.getByTestId('annotate-text-input').press('Enter');
   }
-  await expect(p.getByTestId('annotation-layer').locator('[data-annotation]')).toHaveCount(2);
+  // A zigzag under the first notes: no rule reads it, so it goes to the model as a picture
+  await p.getByTestId('annotate-pen').click();
+  const first = (await pageSvg(p).locator('svg .Note').nth(1).boundingBox())!;
+  await p.mouse.move(first.x, first.y + 60);
+  await p.mouse.down();
+  for (let step = 1; step <= 12; step += 1)
+    await p.mouse.move(first.x + step * 8, first.y + 60 + (step % 2 ? 10 : -10));
+  await p.mouse.up();
+  await expect(p.getByTestId('annotation-layer').locator('[data-annotation]')).toHaveCount(3);
   await p.getByTestId('annotate-done').click();
 
   await p.keyboard.press('Escape');
@@ -276,9 +284,9 @@ test('handwriting the rules cannot read is read by the editor’s AI model, and 
   const editor = await opening;
   const review = editor.getByTestId('marks-review');
   await expect(review).toBeVisible({ timeout: 60_000 });
-  await expect(review.getByTestId('marks-review-item')).toHaveCount(2);
+  await expect(review.getByTestId('marks-review-item')).toHaveCount(3);
   // No model or key yet: nothing is sent, and the panel says how to set one
-  await expect(review.getByTestId('marks-review-ai-setup')).toContainText('2 handwritten marks');
+  await expect(review.getByTestId('marks-review-ai-setup')).toContainText('3 handwritten marks');
   await editor.keyboard.press('Escape');
 
   await runCommand(editor, 'ai.open.assistant');
@@ -292,8 +300,31 @@ test('handwriting the rules cannot read is read by the editor’s AI model, and 
   await expect(
     items.filter({ hasText: 'AI: Expression text “très doux” (92% · French for very soft)' }),
   ).toHaveCount(1);
-  await expect(items.filter({ hasText: 'AI: a reminder, stays a mark' })).toHaveCount(1);
-  expect(requests).toHaveLength(2);
+  await expect(items.filter({ hasText: 'AI: a reminder, stays a mark' })).toHaveCount(2);
+  expect(requests).toHaveLength(3);
+  // The ink went as the printed bars with the stroke over them in blue (not the black-on-bare-staff fallback)
+  const picture = requests.find((request) => request.imageBase64)!;
+  const pixels = await editor.evaluate(async (base64) => {
+    const image = new Image();
+    image.src = `data:image/png;base64,${base64}`;
+    await image.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const context = canvas.getContext('2d')!;
+    context.drawImage(image, 0, 0);
+    const data = context.getImageData(0, 0, image.width, image.height).data;
+    let blue = 0;
+    let black = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 2] > 150 && data[i] < 120) blue += 1;
+      else if (data[i] < 60 && data[i + 1] < 60 && data[i + 2] < 60) black += 1;
+    }
+    return { blue, black };
+  }, picture.imageBase64);
+  expect(pixels.blue).toBeGreaterThan(50); // the ink
+  expect(pixels.black).toBeGreaterThan(500); // the printed music
+  expect(requests.filter((request) => request.imageBase64)).toHaveLength(1);
   expect(requests[0]).toMatchObject({ model: 'gpt-test-model', apiKey: 'test-key' });
   expect(requests[0].promptText).toContain('<measure');
   await expect(review.getByTestId('marks-review-read-ai')).toHaveCount(0);

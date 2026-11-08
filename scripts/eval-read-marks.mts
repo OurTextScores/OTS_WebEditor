@@ -4,19 +4,29 @@
  * the rule recognisers leave for the model: sloppy shapes, small symbols, digits, reminders, and words outside the
  * word list. Ink is synthesised with seeded jitter and drawn the way the app draws it (a stroke on a five-line staff).
  *
- *   OPENAI_API_KEY=… node scripts/eval-read-marks.mts [model …] [--out dir]
+ *   OPENAI_API_KEY=… node --import ./scripts/ts-resolve-hook.mjs scripts/eval-read-marks.mts [model …] [--music] [--out dir]
+ *
+ * --music draws ink over the printed bars (markImage.ts, as the editor does), rendered by the engine in Node and
+ * rasterised by Playwright's Chromium; without it, ink is drawn on a bare staff.
  *
  * Calls the provider directly (not the app's proxy). Costs a few cents per model.
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import zlib from 'node:zlib';
+import { chromium } from '@playwright/test';
+import { composeMarkPicture } from '../components/score-editor/marks-review/markImage.ts';
+import { pageGeometryOf, placeAnchor } from '../components/performer/annotations/pageGeometry.ts';
 import {
   barsXml,
   proposalFromReading,
   readPrompt,
   READ_SYSTEM_PROMPT,
 } from '../components/score-editor/marks-review/readMarks.ts';
+
+// The engine's Node build replaces the global fetch while it loads: keep the real one for the provider
+const providerFetch = globalThis.fetch;
 
 type Point = [number, number, number];
 type Expect = { kind: string; value?: string; style?: string };
@@ -372,7 +382,7 @@ async function ask(model: string, prompt: string, image: Buffer | null): Promise
       type: 'image_url',
       image_url: { url: `data:image/png;base64,${image.toString('base64')}` },
     });
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await providerFetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -398,6 +408,8 @@ async function ask(model: string, prompt: string, image: Buffer | null): Promise
 const args = process.argv.slice(2);
 const outIndex = args.indexOf('--out');
 const outDir = outIndex >= 0 ? args.splice(outIndex, 2)[1] : null;
+const musicIndex = args.indexOf('--music');
+const music = musicIndex >= 0 && Boolean(args.splice(musicIndex, 1));
 const models = args.length ? args : ['gpt-5.4-mini'];
 if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not set');
 const root = path.dirname(path.dirname(new URL(import.meta.url).pathname));
@@ -407,6 +419,57 @@ const scoreXml = fs.readFileSync(
 );
 if (outDir) fs.mkdirSync(outDir, { recursive: true });
 
+/** Ink over the printed bars: the engine lays out the score, markImage composes, Chromium rasterises. */
+async function musicRenderer() {
+  const lib = createRequire(import.meta.url)(
+    path.join(root, 'webmscore-fork/web-public/webmscore.nodejs.cjs'),
+  );
+  const engine = lib.default ?? lib;
+  await engine.ready;
+  const log = console.log;
+  const warn = console.warn;
+  console.log = console.warn = () => {};
+  const score = await engine.load(
+    'musicxml',
+    fs.readFileSync(path.join(root, 'public/test_scores/eight_bars_one_voice.musicxml')),
+  );
+  const geometry = pageGeometryOf(
+    JSON.parse(await score.savePositions(false)),
+    JSON.parse(await score.savePositions(true)),
+    (await score.staffSystemBands?.()) ?? [],
+  );
+  console.log = log;
+  console.warn = warn;
+  if (!geometry) throw new Error('no page geometry from the engine');
+  const svgs = new Map<number, string>();
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
+  return {
+    async render(annotation: Parameters<typeof composeMarkPicture>[2]): Promise<Buffer | null> {
+      const placement = placeAnchor(geometry, annotation.anchor);
+      if (!placement) return null;
+      if (!svgs.has(placement.page))
+        svgs.set(placement.page, await score.saveSvg(placement.page, true));
+      const picture = composeMarkPicture(
+        svgs.get(placement.page)!,
+        geometry,
+        annotation,
+        annotation.anchor.part,
+      );
+      if (!picture) return null;
+      await page.setViewportSize({ width: picture.width, height: picture.height });
+      await page.setContent(
+        `<html><body style="margin:0;background:#fff">${picture.svg}</body></html>`,
+      );
+      return page.screenshot({
+        clip: { x: 0, y: 0, width: picture.width, height: picture.height },
+      });
+    },
+    close: () => browser.close(),
+  };
+}
+const renderer = music ? await musicRenderer() : null;
+
 const matches = (answer: Record<string, unknown>, accept: Expect[]) =>
   accept.some(
     (e) =>
@@ -415,25 +478,38 @@ const matches = (answer: Record<string, unknown>, accept: Expect[]) =>
       (e.style === undefined || answer.style === e.style),
   );
 
+const annotationOf = (fixture: Fixture, index: number) =>
+  ({
+    id: `f${index}`,
+    scoreKey: 'eval',
+    scorePart: -1,
+    kind: fixture.ink ? 'ink' : 'text',
+    content: fixture.text,
+    anchor: { bar: 2, part: 0, tick: 0 },
+    points: fixture.ink ?? [[0, 6, 1]],
+    style: { color: 'black', width: 0.2, opacity: 1 },
+    createdAt: 0,
+    ...(fixture.extent ? { extent: { start: { bar: 2, tick: 0 }, end: { bar: 3, tick: 0 } } } : {}),
+  }) as const;
+
+// Pictures first (one browser page), then the requests in parallel
+const images: (Buffer | null)[] = [];
+for (const [index, fixture] of FIXTURES.entries()) {
+  if (!fixture.ink) images.push(null);
+  else
+    images.push(
+      (renderer ? await renderer.render(annotationOf(fixture, index) as never) : null) ??
+        inkPng(fixture.ink),
+    );
+}
+await renderer?.close();
+
 const summary: Record<string, unknown> = {};
 for (const model of models) {
   const rows = await Promise.all(
     FIXTURES.map(async (fixture, index) => {
-      const annotation = {
-        id: `f${index}`,
-        scoreKey: 'eval',
-        scorePart: -1,
-        kind: fixture.ink ? 'ink' : 'text',
-        content: fixture.text,
-        anchor: { bar: 2, part: 0, tick: 0 },
-        points: fixture.ink ?? [[0, 6, 1]],
-        style: { color: 'black', width: 0.2, opacity: 1 },
-        createdAt: 0,
-        ...(fixture.extent
-          ? { extent: { start: { bar: 2, tick: 0 }, end: { bar: 3, tick: 0 } } }
-          : {}),
-      } as const;
-      const image = fixture.ink ? inkPng(fixture.ink) : null;
+      const annotation = annotationOf(fixture, index);
+      const image = images[index];
       if (image && outDir)
         fs.writeFileSync(path.join(outDir, `${String(index).padStart(2, '0')}.png`), image);
       const started = Date.now();
@@ -453,8 +529,9 @@ for (const model of models) {
       return {
         fixture: fixture.name,
         ok: matches(parsed, fixture.accept),
-        answer:
-          `${parsed.kind ?? '?'} ${parsed.value ?? ''}${parsed.style ? ` (${parsed.style})` : ''} ${parsed.confidence ?? ''}`.trim(),
+        answer: answer.startsWith('ERROR')
+          ? answer.slice(0, 160)
+          : `${parsed.kind ?? '?'} ${parsed.value ?? ''}${parsed.style ? ` (${parsed.style})` : ''} ${parsed.confidence ?? ''}`.trim(),
         proposal: proposal.label,
         ms: Date.now() - started,
       };

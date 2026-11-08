@@ -3,6 +3,8 @@ import { deviceAnnotationStore } from '../../performer/annotations/annotationSto
 import { deviceScoreStore } from '../../performer/platform/scoreStore';
 import type { EditorCore } from '../core';
 import { decodeScoreXml } from '../../../lib/webmscore-loader';
+import { editorLayout, musicImage } from './markImage';
+import { getPartsSnapshot } from '../parts';
 import { readMark, type MarksReader } from './readMarks';
 import { engraveMarks, restoreBeforeEngraving, type EngraveOutcome } from './engraveMarks';
 import {
@@ -79,8 +81,16 @@ export function useMarksReview(
     setReading({ done: 0, total: targets.length });
     try {
       const xml = await decodeScoreXml(await score.saveXml());
+      // Ink is shown to the model over the printed bars, as laid out here
+      const layout = targets.some((item) => item.annotation.kind === 'ink')
+        ? await editorLayout(score).catch(() => null)
+        : null;
+      const viewing = getPartsSnapshot().score === score ? getPartsSnapshot().current : -1;
       for (const [index, item] of targets.entries()) {
-        const proposal = await readMark(reader, item.annotation, xml);
+        const picture = layout
+          ? await musicImage(layout, item.annotation, viewing).catch(() => null)
+          : null;
+        const proposal = await readMark(reader, item.annotation, xml, picture);
         setItems((previous) =>
           previous.map((candidate) =>
             candidate.annotation.id === item.annotation.id

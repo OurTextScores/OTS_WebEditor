@@ -22,8 +22,9 @@ export interface MarksReader {
 }
 
 export const READ_SYSTEM_PROMPT = `You read musicians' handwritten rehearsal marks on sheet music.
-You are given one mark: either typed text, or an ink drawing (an image: five grey staff lines, the ink in black, drawn
-where the performer drew it relative to the staff), and the MusicXML of the bars it is written in.
+You are given one mark: either typed text, or an ink drawing as an image, and the MusicXML of the bars it is written in.
+The image is either the printed bars with the performer's ink drawn over them in blue, or (when the printed music is not
+available) the ink in black on five grey staff lines, where the performer drew it relative to the staff.
 Say what notation the mark means, in exactly this JSON (no prose, no code fences):
 {"kind": K, "value": V, "style": S, "confidence": C, "why": W}
 K is one of:
@@ -234,6 +235,8 @@ export async function readMark(
   reader: MarksReader,
   annotation: Annotation,
   scoreXml: string,
+  /** The printed bars with the ink over them (markImage.ts); the bare-staff drawing when absent. */
+  picture: { mediaType: 'image/png'; base64: string } | null = null,
 ): Promise<EngravingProposal> {
   const key = `${reader.cacheKey}:${annotation.id}`;
   const cached = cache.get(key);
@@ -248,7 +251,7 @@ export async function readMark(
     const answer = await reader.read({
       systemPrompt: READ_SYSTEM_PROMPT,
       promptText: readPrompt(annotation, bars),
-      image: inkImage(annotation),
+      image: picture ?? inkImage(annotation),
     });
     const proposal = proposalFromReading(annotation, answer);
     cache.set(key, proposal);
