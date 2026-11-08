@@ -375,33 +375,69 @@ function inkPng(points: Point[]): Buffer {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+/** One request to the provider the model belongs to (claude-* Anthropic, gemini-* Google, otherwise OpenAI). */
 async function ask(model: string, prompt: string, image: Buffer | null): Promise<string> {
-  const content: unknown[] = [{ type: 'text', text: prompt }];
-  if (image)
-    content.push({
-      type: 'image_url',
-      image_url: { url: `data:image/png;base64,${image.toString('base64')}` },
+  const base64 = image?.toString('base64');
+  const post = async (url: string, headers: Record<string, string>, body: unknown) => {
+    const response = await providerFetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify(body),
     });
-  const response = await providerFetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
+    const data = (await response.json()) as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+    if (!response.ok) throw new Error(data.error?.message ?? String(response.status));
+    return data;
+  };
+  if (model.startsWith('claude-')) {
+    const content: unknown[] = [];
+    if (base64)
+      content.push({
+        type: 'image',
+        source: { type: 'base64', media_type: 'image/png', data: base64 },
+      });
+    content.push({ type: 'text', text: prompt });
+    const data = await post(
+      'https://api.anthropic.com/v1/messages',
+      { 'x-api-key': process.env.ANTHROPIC_API_KEY ?? '', 'anthropic-version': '2023-06-01' },
+      {
+        model,
+        max_tokens: 1000,
+        system: READ_SYSTEM_PROMPT,
+        messages: [{ role: 'user', content }],
+      },
+    );
+    return (data.content ?? []).map((block: { text?: string }) => block.text ?? '').join('');
+  }
+  if (model.startsWith('gemini-')) {
+    const parts: unknown[] = [{ text: prompt }];
+    if (base64) parts.push({ inline_data: { mime_type: 'image/png', data: base64 } });
+    const data = await post(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+      { 'x-goog-api-key': process.env.GEMINI_API_KEY ?? '' },
+      {
+        system_instruction: { parts: [{ text: READ_SYSTEM_PROMPT }] },
+        contents: [{ role: 'user', parts }],
+      },
+    );
+    return (data.candidates?.[0]?.content?.parts ?? [])
+      .map((part: { text?: string }) => part.text ?? '')
+      .join('');
+  }
+  const content: unknown[] = [{ type: 'text', text: prompt }];
+  if (base64)
+    content.push({ type: 'image_url', image_url: { url: `data:image/png;base64,${base64}` } });
+  const data = await post(
+    'https://api.openai.com/v1/chat/completions',
+    { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+    {
       model,
       messages: [
         { role: 'system', content: READ_SYSTEM_PROMPT },
         { role: 'user', content },
       ],
       max_completion_tokens: 2000,
-    }),
-  });
-  const data = (await response.json()) as {
-    choices?: { message?: { content?: string } }[];
-    error?: { message: string };
-  };
-  if (!response.ok) throw new Error(data.error?.message ?? String(response.status));
+    },
+  );
   return data.choices?.[0]?.message?.content ?? '';
 }
 
@@ -411,7 +447,8 @@ const outDir = outIndex >= 0 ? args.splice(outIndex, 2)[1] : null;
 const musicIndex = args.indexOf('--music');
 const music = musicIndex >= 0 && Boolean(args.splice(musicIndex, 1));
 const models = args.length ? args : ['gpt-5.4-mini'];
-if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not set');
+const recordIndex = args.indexOf('--record');
+const recordFile = recordIndex >= 0 ? args.splice(recordIndex, 2)[1] : null;
 const root = path.dirname(path.dirname(new URL(import.meta.url).pathname));
 const scoreXml = fs.readFileSync(
   path.join(root, 'public/test_scores/eight_bars_one_voice.musicxml'),
@@ -532,6 +569,8 @@ for (const model of models) {
         answer: answer.startsWith('ERROR')
           ? answer.slice(0, 160)
           : `${parsed.kind ?? '?'} ${parsed.value ?? ''}${parsed.style ? ` (${parsed.style})` : ''} ${parsed.confidence ?? ''}`.trim(),
+        accept: fixture.accept,
+        raw: answer,
         proposal: proposal.label,
         ms: Date.now() - started,
       };
@@ -546,3 +585,32 @@ for (const model of models) {
   summary[model] = { correct, total: rows.length, rows };
 }
 if (outDir) fs.writeFileSync(path.join(outDir, 'summary.json'), JSON.stringify(summary, null, 2));
+// The answers as a regression set (unit/score-editor/read-marks-recorded.test.ts replays them without a provider)
+if (recordFile) {
+  const previous = fs.existsSync(recordFile)
+    ? JSON.parse(fs.readFileSync(recordFile, 'utf8'))
+    : { recordings: [] };
+  const mode = music ? 'music' : 'staff';
+  const recordings = (previous.recordings as { model: string; mode: string }[]).filter(
+    (entry) => !(models.includes(entry.model) && entry.mode === mode),
+  );
+  for (const model of models) {
+    const { rows } = summary[model] as {
+      rows: { fixture: string; accept: Expect[]; raw: string; ok: boolean }[];
+    };
+    for (const row of rows)
+      if (!row.raw.startsWith('ERROR'))
+        recordings.push({
+          model,
+          mode,
+          fixture: row.fixture,
+          accept: row.accept,
+          answer: row.raw,
+          correct: row.ok,
+        });
+  }
+  fs.writeFileSync(
+    recordFile,
+    `${JSON.stringify({ recordedAt: new Date().toISOString().slice(0, 10), recordings }, null, 1)}\n`,
+  );
+}

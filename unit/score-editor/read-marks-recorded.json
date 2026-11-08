@@ -1,0 +1,3880 @@
+{
+ "recordedAt": "2026-11-08",
+ "recordings": [
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "hairpin with a hooked start",
+   "accept": [
+    {
+     "kind": "hairpin",
+     "value": "cresc"
+    }
+   ],
+   "answer": "{\"kind\":\"hairpin\",\"value\":\"cresc\",\"style\":\"\",\"confidence\":0.95,\"why\":\"Blue wedge opens to the right under several notes\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "diminuendo drawn in two arms with an overlap",
+   "accept": [
+    {
+     "kind": "hairpin",
+     "value": "dim"
+    }
+   ],
+   "answer": "{\"kind\":\"hairpin\",\"value\":\"dim\",\"style\":\"\",\"confidence\":0.93,\"why\":\"Closing wedge spanning multiple notes indicates diminuendo\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "slur with a tail flick",
+   "accept": [
+    {
+     "kind": "slur"
+    }
+   ],
+   "answer": "{\"kind\":\"slur\",\"value\":\"\",\"style\":\"\",\"confidence\":0.95,\"why\":\"Curved arc spans multiple notes above staff\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "eyeglasses (watch)",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.95,\"why\":\"Eyeglasses-like reminder, not standard notation\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "arrow pointing right",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.99,\"why\":\"Arrow is a personal reminder, not standard notation\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "circle around a note",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.93,\"why\":\"Blue oval/circle around note is a reminder\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "breath tick above the staff",
+   "accept": [
+    {
+     "kind": "breath"
+    }
+   ],
+   "answer": "{\"kind\":\"breath\",\"value\":\"comma\",\"style\":\"\",\"confidence\":0.78,\"why\":\"Blue check mark above staff suggests breath comma\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "fermata: arc with a dot scribbled in",
+   "accept": [
+    {
+     "kind": "fermata"
+    }
+   ],
+   "answer": "{\"kind\":\"fermata\",\"value\":\"\",\"style\":\"\",\"confidence\":0.78,\"why\":\"Arc with central dot above the note\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "handwritten p below the staff",
+   "accept": [
+    {
+     "kind": "dynamic",
+     "value": "p"
+    }
+   ],
+   "answer": "{\"kind\":\"dynamic\",\"value\":\"p\",\"style\":\"\",\"confidence\":0.98,\"why\":\"Blue lowercase p dynamic below the note\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "fingering 3 above a note",
+   "accept": [
+    {
+     "kind": "fingering",
+     "value": "3"
+    }
+   ],
+   "answer": "{\"kind\":\"fingering\",\"value\":\"3\",\"style\":\"\",\"confidence\":0.98,\"why\":\"Single digit 3 above the note\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "small accent wedge over a note",
+   "accept": [
+    {
+     "kind": "articulation",
+     "value": "accent"
+    }
+   ],
+   "answer": "{\"kind\":\"articulation\",\"value\":\"accent\",\"style\":\"\",\"confidence\":0.93,\"why\":\"Small blue greater-than wedge above a single note\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "wavy line (reminder)",
+   "accept": [
+    {
+     "kind": "none"
+    },
+    {
+     "kind": "text"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.93,\"why\":\"Wavy line is a reminder, not listed notation\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "crsc. (misspelt)",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "hairpin"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"cresc.\",\"style\":\"expression\",\"confidence\":0.93,\"why\":\"Abbreviation crsc. clearly indicates crescendo text\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "dolcissimo",
+   "accept": [
+    {
+     "kind": "text",
+     "value": "dolcissimo",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"dolcissimo\",\"style\":\"expression\",\"confidence\":0.99,\"why\":\"Typed expressive direction meaning very sweetly\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "sul G",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"sul G\",\"style\":\"technique\",\"confidence\":0.99,\"why\":\"String indication to play on G string\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "rall. molto",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"rall. molto\",\"style\":\"tempo\",\"confidence\":0.99,\"why\":\"Typed tempo modification rallentando molto.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "watch Anna",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.99,\"why\":\"Personal reminder with name, not publishable notation\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "breathe",
+   "accept": [
+    {
+     "kind": "breath"
+    },
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"breath\",\"value\":\"comma\",\"style\":\"\",\"confidence\":0.78,\"why\":\"Typed breathe indicates a breath before the entry\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "subito p",
+   "accept": [
+    {
+     "kind": "dynamic",
+     "value": "p"
+    },
+    {
+     "kind": "text",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\":\"dynamic\",\"value\":\"p\",\"style\":\"\",\"confidence\":0.96,\"why\":\"Typed subito p indicates sudden piano dynamic\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "mute on",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"mute on\",\"style\":\"technique\",\"confidence\":0.93,\"why\":\"Instruction to use mute is a performance technique\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "slower",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"slower\",\"style\":\"tempo\",\"confidence\":0.95,\"why\":\"Typed tempo instruction to play more slowly\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "più f",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "dynamic",
+     "value": "f"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"più f\",\"style\":\"expression\",\"confidence\":0.96,\"why\":\"Typed expressive instruction combining più with forte dynamic\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "fingering 1 typed",
+   "accept": [
+    {
+     "kind": "fingering",
+     "value": "1"
+    }
+   ],
+   "answer": "{\"kind\":\"fingering\",\"value\":\"1\",\"style\":\"\",\"confidence\":0.99,\"why\":\"Single digit marking indicates fingering\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "bow!",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.99,\"why\":\"“bow!” is a personal rehearsal reminder\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "held-out: tenuto dash",
+   "accept": [
+    {
+     "kind": "articulation",
+     "value": "tenuto"
+    }
+   ],
+   "answer": "{\"kind\":\"articulation\",\"value\":\"tenuto\",\"style\":\"\",\"confidence\":0.91,\"why\":\"Short horizontal dash at one note indicates tenuto.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "held-out: staccato dot",
+   "accept": [
+    {
+     "kind": "articulation",
+     "value": "staccato"
+    }
+   ],
+   "answer": "{\"kind\":\"articulation\",\"value\":\"staccato\",\"style\":\"\",\"confidence\":0.86,\"why\":\"Small dot at a single note indicates staccato\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "held-out: slur below the notes",
+   "accept": [
+    {
+     "kind": "slur"
+    }
+   ],
+   "answer": "{\"kind\":\"slur\",\"value\":\"\",\"style\":\"\",\"confidence\":0.95,\"why\":\"Curved arc under adjacent notes indicates a slur\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "held-out: box around a bar",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.95,\"why\":\"Blue box is a reminder, not standard notation\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "held-out: tranquillo",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"tranquillo\",\"style\":\"expression\",\"confidence\":0.99,\"why\":\"Typed expressive character word to engrave\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "held-out: on the D string",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"on the D string\",\"style\":\"technique\",\"confidence\":0.93,\"why\":\"String-specific playing instruction suitable as technique text\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "held-out: check tuning",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.98,\"why\":\"Personal reminder, not standard printed notation\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "music",
+   "fixture": "held-out: lunga",
+   "accept": [
+    {
+     "kind": "fermata"
+    },
+    {
+     "kind": "text",
+     "style": "tempo"
+    },
+    {
+     "kind": "text",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"lunga\",\"style\":\"expression\",\"confidence\":0.82,\"why\":\"Italian expressive instruction meaning long\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "hairpin with a hooked start",
+   "accept": [
+    {
+     "kind": "hairpin",
+     "value": "cresc"
+    }
+   ],
+   "answer": "{\"kind\": \"hairpin\", \"value\": \"cresc\", \"style\": \"\", \"confidence\": 0.9, \"why\": \"Wedge opening rightward below staff spanning several notes\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "diminuendo drawn in two arms with an overlap",
+   "accept": [
+    {
+     "kind": "hairpin",
+     "value": "dim"
+    }
+   ],
+   "answer": "{\"kind\": \"hairpin\", \"value\": \"dim\", \"style\": \"\", \"confidence\": 0.8, \"why\": \"Closing wedge about six spaces wide under several notes\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "slur with a tail flick",
+   "accept": [
+    {
+     "kind": "slur"
+    }
+   ],
+   "answer": "{\"kind\": \"slur\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.85, \"why\": \"Arc spanning first three notes of bar 3, above staff\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "eyeglasses (watch)",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.93, \"why\": \"Eyeglasses drawn above staff: a 'watch' reminder, not notation.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "arrow pointing right",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.93, \"why\": \"A rightward arrow above the staff is a personal reminder.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "circle around a note",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.85, \"why\": \"Oval circle drawn around first note is a personal reminder.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "breath tick above the staff",
+   "accept": [
+    {
+     "kind": "breath"
+    }
+   ],
+   "answer": "{\"kind\": \"breath\", \"value\": \"comma\", \"style\": \"\", \"confidence\": 0.8, \"why\": \"Check-mark tick above staff at barline start signals a breath\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "fermata: arc with a dot scribbled in",
+   "accept": [
+    {
+     "kind": "fermata"
+    }
+   ],
+   "answer": "{\"kind\": \"fermata\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.8, \"why\": \"Arc with dot-like stroke above first note: hastily drawn fermata\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "handwritten p below the staff",
+   "accept": [
+    {
+     "kind": "dynamic",
+     "value": "p"
+    }
+   ],
+   "answer": "{\"kind\": \"dynamic\", \"value\": \"p\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Clear handwritten 'p' below the first note of the bar\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "fingering 3 above a note",
+   "accept": [
+    {
+     "kind": "fingering",
+     "value": "3"
+    }
+   ],
+   "answer": "{\"kind\": \"fingering\", \"value\": \"3\", \"style\": \"\", \"confidence\": 0.88, \"why\": \"Single digit 3 written above the first note\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "small accent wedge over a note",
+   "accept": [
+    {
+     "kind": "articulation",
+     "value": "accent"
+    }
+   ],
+   "answer": "{\"kind\": \"articulation\", \"value\": \"accent\", \"style\": \"\", \"confidence\": 0.88, \"why\": \"Small closed wedge above a single note is an accent.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "wavy line (reminder)",
+   "accept": [
+    {
+     "kind": "none"
+    },
+    {
+     "kind": "text"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.85, \"why\": \"Wavy line above staff is a personal reminder, not notation.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "crsc. (misspelt)",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "hairpin"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"cresc.\", \"style\": \"expression\", \"confidence\": 0.9, \"why\": \"Misspelled abbreviation of cresc.; rising line supports crescendo\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "dolcissimo",
+   "accept": [
+    {
+     "kind": "text",
+     "value": "dolcissimo",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"dolcissimo\", \"style\": \"expression\", \"confidence\": 0.95, \"why\": \"Standard Italian expression marking meaning very sweetly, printed in parts.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "sul G",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"sul G\", \"style\": \"technique\", \"confidence\": 0.93, \"why\": \"Standard string technique instruction: play on the G string.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "rall. molto",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"rall. molto\", \"style\": \"tempo\", \"confidence\": 0.93, \"why\": \"Rallentando molto is a printed tempo-change instruction.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "watch Anna",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.97, \"why\": \"Personal reminder to watch a colleague; names are not engraved\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "breathe",
+   "accept": [
+    {
+     "kind": "breath"
+    },
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"breath\", \"value\": \"comma\", \"style\": \"\", \"confidence\": 0.7, \"why\": \"Typed \\\"breathe\\\" at bar start indicates a breath mark here.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "subito p",
+   "accept": [
+    {
+     "kind": "dynamic",
+     "value": "p"
+    },
+    {
+     "kind": "text",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"subito p\", \"style\": \"expression\", \"confidence\": 0.8, \"why\": \"Standard printed marking: sudden piano; subito needs text, not bare dynamic\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "mute on",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"con sord.\", \"style\": \"technique\", \"confidence\": 0.82, \"why\": \"\\\"Mute on\\\" is a technique instruction, engraved as con sord.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "slower",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"slower\", \"style\": \"tempo\", \"confidence\": 0.72, \"why\": \"Tempo change word; English editions print 'slower' as a tempo marking.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "più f",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "dynamic",
+     "value": "f"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"più f\", \"style\": \"expression\", \"confidence\": 0.85, \"why\": \"Printed modifier 'più f' is expression text, not a plain dynamic.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "fingering 1 typed",
+   "accept": [
+    {
+     "kind": "fingering",
+     "value": "1"
+    }
+   ],
+   "answer": "{\"kind\": \"fingering\", \"value\": \"1\", \"style\": \"\", \"confidence\": 0.85, \"why\": \"Single digit typed at a note start reads as fingering.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "bow!",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.93, \"why\": \"\\\"bow!\\\" is a note-to-self reminder, not printed notation.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "held-out: tenuto dash",
+   "accept": [
+    {
+     "kind": "articulation",
+     "value": "tenuto"
+    }
+   ],
+   "answer": "{\"kind\": \"articulation\", \"value\": \"tenuto\", \"style\": \"\", \"confidence\": 0.8, \"why\": \"Short horizontal dash above the first note indicates tenuto.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "held-out: staccato dot",
+   "accept": [
+    {
+     "kind": "articulation",
+     "value": "staccato"
+    }
+   ],
+   "answer": "{\"kind\": \"articulation\", \"value\": \"staccato\", \"style\": \"\", \"confidence\": 0.6, \"why\": \"Single small dot placed above one note reads as staccato\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "held-out: slur below the notes",
+   "accept": [
+    {
+     "kind": "slur"
+    }
+   ],
+   "answer": "{\"kind\": \"slur\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.85, \"why\": \"Curved arc beneath two notes joining them, below the staff.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "held-out: box around a bar",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.93, \"why\": \"A drawn box around notes is a personal reminder.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "held-out: tranquillo",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"tranquillo\", \"style\": \"expression\", \"confidence\": 0.8, \"why\": \"Italian character marking a publisher prints; describes mood, not tempo change\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "held-out: on the D string",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"sul D\", \"style\": \"technique\", \"confidence\": 0.75, \"why\": \"String indication is a printable technique instruction, conventionally 'sul D'\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "held-out: check tuning",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.93, \"why\": \"Personal reminder to check tuning, not publishable notation\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "music",
+   "fixture": "held-out: lunga",
+   "accept": [
+    {
+     "kind": "fermata"
+    },
+    {
+     "kind": "text",
+     "style": "tempo"
+    },
+    {
+     "kind": "text",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"lunga\", \"style\": \"tempo\", \"confidence\": 0.6, \"why\": \"Italian 'long', printed timing instruction, often with a held note\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "hairpin with a hooked start",
+   "accept": [
+    {
+     "kind": "hairpin",
+     "value": "cresc"
+    }
+   ],
+   "answer": "{\"kind\":\"hairpin\",\"value\":\"cresc\",\"style\":\"\",\"confidence\":0.93,\"why\":\"Wedge opens left to right, spanning several notes below the staff.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "diminuendo drawn in two arms with an overlap",
+   "accept": [
+    {
+     "kind": "hairpin",
+     "value": "dim"
+    }
+   ],
+   "answer": "The ink is a wedge that opens to the left and closes to the right, running from x≈100 to x≈245. It is about 145 px wide. A staff space is about 23 px, so that is roughly 6 spaces, and it covers several notes. A wedge that closes toward the right is a diminuendo.\n\n{\"kind\": \"hairpin\", \"value\": \"dim\", \"style\": \"\", \"confidence\": 0.93, \"why\": \"Wedge opens left and closes right across several notes: diminuendo.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "slur with a tail flick",
+   "accept": [
+    {
+     "kind": "slur"
+    }
+   ],
+   "answer": "{\"kind\":\"slur\",\"value\":\"\",\"style\":\"\",\"confidence\":0.9,\"why\":\"Arc over first three notes of bar 3, joining several notes\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "eyeglasses (watch)",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.97, \"why\": \"Drawn eyeglasses above the staff are a 'watch out' reminder, not notation.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "arrow pointing right",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.93,\"why\":\"Arrow drawn above the staff is a personal reminder, not notation.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "circle around a note",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.9, \"why\": \"A circle drawn around a note is a personal reminder, not notation.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "breath tick above the staff",
+   "accept": [
+    {
+     "kind": "breath"
+    }
+   ],
+   "answer": "{\"kind\": \"breath\", \"value\": \"comma\", \"style\": \"\", \"confidence\": 0.8, \"why\": \"Check-mark tick drawn above the staff at a note, read as a breath mark.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "fermata: arc with a dot scribbled in",
+   "accept": [
+    {
+     "kind": "fermata"
+    }
+   ],
+   "answer": "The ink is an arch above the staff with a small hook at its right end, drawn over the first note. That looks like a fermata: a dome with a dot beneath it. The dot appears as the small blob inside the arc.\n\n{\"kind\": \"fermata\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.82, \"why\": \"Dome-shaped arc with a dot underneath, above a single note\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "handwritten p below the staff",
+   "accept": [
+    {
+     "kind": "dynamic",
+     "value": "p"
+    }
+   ],
+   "answer": "{\"kind\": \"dynamic\", \"value\": \"p\", \"style\": \"\", \"confidence\": 0.96, \"why\": \"Handwritten letter p below the staff at the first note.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "fingering 3 above a note",
+   "accept": [
+    {
+     "kind": "fingering",
+     "value": "3"
+    }
+   ],
+   "answer": "The ink is a blue digit \"3\" above the first note, which matches a fingering. A \"3\" over a single note is most likely finger 3.\n\n{\"kind\": \"fingering\", \"value\": \"3\", \"style\": \"\", \"confidence\": 0.85, \"why\": \"Digit 3 written above a single note reads as a fingering.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "small accent wedge over a note",
+   "accept": [
+    {
+     "kind": "articulation",
+     "value": "accent"
+    }
+   ],
+   "answer": "{\"kind\":\"articulation\",\"value\":\"accent\",\"style\":\"\",\"confidence\":0.93,\"why\":\"Small wedge about 1.5 spaces wide, drawn above a single note.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "wavy line (reminder)",
+   "accept": [
+    {
+     "kind": "none"
+    },
+    {
+     "kind": "text"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.93,\"why\":\"Wavy line above the staff is a reminder, not standard notation.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "crsc. (misspelt)",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "hairpin"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"cresc.\", \"style\": \"expression\", \"confidence\": 0.9, \"why\": \"Typed 'crsc.' is an abbreviation of crescendo, an expression text.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "dolcissimo",
+   "accept": [
+    {
+     "kind": "text",
+     "value": "dolcissimo",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"dolcissimo\", \"style\": \"expression\", \"confidence\": 0.93, \"why\": \"Typed expressive word 'dolcissimo', a standard printed expression marking.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "sul G",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"sul G\", \"style\": \"technique\", \"confidence\": 0.93, \"why\": \"Typed 'sul G' is a string-playing instruction, printed as technique text.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "rall. molto",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"rall. molto\", \"style\": \"tempo\", \"confidence\": 0.95, \"why\": \"Typed 'rall. molto' is a tempo instruction a publisher would print.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "watch Anna",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.96,\"why\":\"'watch Anna' is a personal reminder to the performer, not printed notation.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "breathe",
+   "accept": [
+    {
+     "kind": "breath"
+    },
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"breath\", \"value\": \"comma\", \"style\": \"\", \"confidence\": 0.8, \"why\": \"Typed 'breathe' asks for a breath mark; comma is the standard notation.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "subito p",
+   "accept": [
+    {
+     "kind": "dynamic",
+     "value": "p"
+    },
+    {
+     "kind": "text",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"subito p\", \"style\": \"expression\", \"confidence\": 0.8, \"why\": \"Typed 'subito p' is a printable expression direction, not a bare dynamic.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "mute on",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"mute\", \"style\": \"technique\", \"confidence\": 0.85, \"why\": \"Typed 'mute on' is a playing-technique instruction; engraved as 'mute'.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "slower",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"rit.\", \"style\": \"tempo\", \"confidence\": 0.6, \"why\": \"Typed 'slower' is a tempo instruction; engraved form is rit.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "più f",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "dynamic",
+     "value": "f"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"più f\", \"style\": \"expression\", \"confidence\": 0.8, \"why\": \"Typed 'più f' is a printed expression direction meaning 'more loud'.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "fingering 1 typed",
+   "accept": [
+    {
+     "kind": "fingering",
+     "value": "1"
+    }
+   ],
+   "answer": "{\"kind\": \"fingering\", \"value\": \"1\", \"style\": \"\", \"confidence\": 0.9, \"why\": \"Typed single digit 1 at first note of bar 3, a finger number\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "bow!",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.9, \"why\": \"\\\"bow!\\\" with an exclamation is a personal note to self, not engraved text\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "held-out: tenuto dash",
+   "accept": [
+    {
+     "kind": "articulation",
+     "value": "tenuto"
+    }
+   ],
+   "answer": "The ink is a short horizontal dash, about 30 px wide. A staff space is about 24 px, so it is roughly 1.2 spaces long. It sits above the staff at the first note of bar 3. A short dash at one note reads as a tenuto. It is above the staff rather than on the notehead, but the length and shape still fit a tenuto better than a breath mark or any other reading.\n\n{\"kind\":\"articulation\",\"value\":\"tenuto\",\"style\":\"\",\"confidence\":0.7,\"why\":\"short horizontal dash over a single note\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "held-out: staccato dot",
+   "accept": [
+    {
+     "kind": "articulation",
+     "value": "staccato"
+    }
+   ],
+   "answer": "The ink is a single small dot above the staff, over the first note of bar 3. A dot at one note reads as staccato. It sits well above the staff rather than beside the notehead, which makes it slightly less certain.\n\n{\"kind\": \"articulation\", \"value\": \"staccato\", \"style\": \"\", \"confidence\": 0.6, \"why\": \"Single small dot at one note, read as staccato.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "held-out: slur below the notes",
+   "accept": [
+    {
+     "kind": "slur"
+    }
+   ],
+   "answer": "{\"kind\": \"slur\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.9, \"why\": \"U-shaped arc under the first two notes joins them\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "held-out: box around a bar",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.9, \"why\": \"A box drawn around notes is a personal reminder, not notation.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "held-out: tranquillo",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"tranquillo\", \"style\": \"expression\", \"confidence\": 0.85, \"why\": \"Typed character word, a standard expression marking printed in parts\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "held-out: on the D string",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"on the D string\", \"style\": \"technique\", \"confidence\": 0.7, \"why\": \"Typed instruction naming which string to play on; a technique direction.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "held-out: check tuning",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.9,\"why\":\"'check tuning' is a personal reminder to self, not engraved notation\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "music",
+   "fixture": "held-out: lunga",
+   "accept": [
+    {
+     "kind": "fermata"
+    },
+    {
+     "kind": "text",
+     "style": "tempo"
+    },
+    {
+     "kind": "text",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"lunga\", \"style\": \"tempo\", \"confidence\": 0.6, \"why\": \"Italian term 'lunga' (long pause) is a tempo-related fermata word, typed as text.\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "hairpin with a hooked start",
+   "accept": [
+    {
+     "kind": "hairpin",
+     "value": "cresc"
+    }
+   ],
+   "answer": "{\"kind\": \"hairpin\", \"value\": \"cresc\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Opening wedge below the staff indicates a crescendo hairpin.\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "diminuendo drawn in two arms with an overlap",
+   "accept": [
+    {
+     "kind": "hairpin",
+     "value": "dim"
+    }
+   ],
+   "answer": "{\"kind\": \"hairpin\", \"value\": \"dim\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Closing wedge below notes indicates a diminuendo hairpin.\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "slur with a tail flick",
+   "accept": [
+    {
+     "kind": "slur"
+    }
+   ],
+   "answer": "{\"kind\": \"slur\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Handwritten curved arc over notes indicating a slur.\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "eyeglasses (watch)",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.99, \"why\": \"eyeglasses icon is a personal reminder to watch or pay attention\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "arrow pointing right",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.98, \"why\": \"Drawn arrow above staff is a performer reminder\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "circle around a note",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Circled note is a personal reminder mark\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "breath tick above the staff",
+   "accept": [
+    {
+     "kind": "breath"
+    }
+   ],
+   "answer": "{\"kind\": \"breath\", \"value\": \"comma\", \"style\": \"\", \"confidence\": 0.9, \"why\": \"Check mark above staff indicates a breath mark\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "fermata: arc with a dot scribbled in",
+   "accept": [
+    {
+     "kind": "fermata"
+    }
+   ],
+   "answer": "{\"kind\": \"fermata\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Arc with dot drawn above the first note indicates a fermata.\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "handwritten p below the staff",
+   "accept": [
+    {
+     "kind": "dynamic",
+     "value": "p"
+    }
+   ],
+   "answer": "{\"kind\": \"dynamic\", \"value\": \"p\", \"style\": \"\", \"confidence\": 0.99, \"why\": \"Handwritten piano dynamic marking beneath the first note\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "fingering 3 above a note",
+   "accept": [
+    {
+     "kind": "fingering",
+     "value": "3"
+    }
+   ],
+   "answer": "{\"kind\": \"fingering\", \"value\": \"3\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Digit 3 above the note indicates a fingering.\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "small accent wedge over a note",
+   "accept": [
+    {
+     "kind": "articulation",
+     "value": "accent"
+    }
+   ],
+   "answer": "{\"kind\": \"articulation\", \"value\": \"accent\", \"style\": \"\", \"confidence\": 0.99, \"why\": \"Small horizontal wedge above the note indicates an accent articulation.\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "wavy line (reminder)",
+   "accept": [
+    {
+     "kind": "none"
+    },
+    {
+     "kind": "text"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Wavy line is a performer reminder mark.\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "crsc. (misspelt)",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "hairpin"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"cresc.\", \"style\": \"expression\", \"confidence\": 0.95, \"why\": \"Typo for crescendo expression mark\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "dolcissimo",
+   "accept": [
+    {
+     "kind": "text",
+     "value": "dolcissimo",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"dolcissimo\", \"style\": \"expression\", \"confidence\": 1.0, \"why\": \"Expression instruction meaning very sweetly\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "sul G",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"sul G\", \"style\": \"technique\", \"confidence\": 1.0, \"why\": \"sul G is a standard string technique instruction\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "rall. molto",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"rall. molto\", \"style\": \"tempo\", \"confidence\": 1.0, \"why\": \"Standard tempo marking indicating a strong rallentando\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "watch Anna",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 1.0, \"why\": \"Personal rehearsal reminder\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "breathe",
+   "accept": [
+    {
+     "kind": "breath"
+    },
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.9, \"why\": \"Personal reminder to self rather than printed notation\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "subito p",
+   "accept": [
+    {
+     "kind": "dynamic",
+     "value": "p"
+    },
+    {
+     "kind": "text",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"subito p\", \"style\": \"expression\", \"confidence\": 0.95, \"why\": \"Expressive dynamic instruction typed as text.\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "mute on",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"mute on\", \"style\": \"technique\", \"confidence\": 0.95, \"why\": \"Performance technique instruction to apply mute\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "slower",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"slower\", \"style\": \"tempo\", \"confidence\": 0.9, \"why\": \"English tempo instruction to play slower\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "più f",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "dynamic",
+     "value": "f"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"più f\", \"style\": \"expression\", \"confidence\": 0.95, \"why\": \"Standard musical expression marking indicating more loudly\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "fingering 1 typed",
+   "accept": [
+    {
+     "kind": "fingering",
+     "value": "1"
+    }
+   ],
+   "answer": "{\"kind\": \"fingering\", \"value\": \"1\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Digit 1 on the first note represents fingering.\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "bow!",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 1.0, \"why\": \"Personal reminder note to self\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "held-out: tenuto dash",
+   "accept": [
+    {
+     "kind": "articulation",
+     "value": "tenuto"
+    }
+   ],
+   "answer": "{\"kind\": \"articulation\", \"value\": \"tenuto\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Short horizontal line above the note indicates a tenuto mark.\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "held-out: staccato dot",
+   "accept": [
+    {
+     "kind": "articulation",
+     "value": "staccato"
+    }
+   ],
+   "answer": "{\"kind\": \"articulation\", \"value\": \"staccato\", \"style\": \"\", \"confidence\": 0.9, \"why\": \"A single dot above the note indicates staccato.\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "held-out: slur below the notes",
+   "accept": [
+    {
+     "kind": "slur"
+    }
+   ],
+   "answer": "{\"kind\": \"slur\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Curved arc drawn underneath first two quarter notes indicating a slur\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "held-out: box around a bar",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Box drawn around notes is a performer reminder\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "held-out: tranquillo",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"tranquillo\", \"style\": \"expression\", \"confidence\": 1.0, \"why\": \"Tranquillo is a standard Italian musical expression marking\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "held-out: on the D string",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"on the D string\", \"style\": \"technique\", \"confidence\": 0.95, \"why\": \"Technique instruction specifying which string to play on\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "held-out: check tuning",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Personal rehearsal note to self, not standard notation to engrave\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "music",
+   "fixture": "held-out: lunga",
+   "accept": [
+    {
+     "kind": "fermata"
+    },
+    {
+     "kind": "text",
+     "style": "tempo"
+    },
+    {
+     "kind": "text",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"lunga\", \"style\": \"tempo\", \"confidence\": 0.9, \"why\": \"Standard Italian tempo/duration marking indicating a sustained hold or pause\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "hairpin with a hooked start",
+   "accept": [
+    {
+     "kind": "hairpin",
+     "value": "cresc"
+    }
+   ],
+   "answer": "{\"kind\":\"hairpin\",\"value\":\"cresc\",\"style\":\"\",\"confidence\":0.96,\"why\":\"Wedge opens from narrow left to wide right.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "diminuendo drawn in two arms with an overlap",
+   "accept": [
+    {
+     "kind": "hairpin",
+     "value": "dim"
+    }
+   ],
+   "answer": "{\"kind\":\"hairpin\",\"value\":\"cresc\",\"style\":\"\",\"confidence\":0.99,\"why\":\"Opening wedge from note 3 to bar 4 start\"}",
+   "correct": false
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "slur with a tail flick",
+   "accept": [
+    {
+     "kind": "slur"
+    }
+   ],
+   "answer": "{\"kind\":\"slur\",\"value\":\"\",\"style\":\"\",\"confidence\":0.98,\"why\":\"Blue arc connects the notes across the barline.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "eyeglasses (watch)",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.97,\"why\":\"Circle-like reminder mark, not standard notation.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "arrow pointing right",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.99,\"why\":\"Arrow is a personal reminder, not standard notation.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "circle around a note",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.98,\"why\":\"Blue oval circles the note as a reminder, not standard notation.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "breath tick above the staff",
+   "accept": [
+    {
+     "kind": "breath"
+    }
+   ],
+   "answer": "{\"kind\":\"articulation\",\"value\":\"accent\",\"style\":\"\",\"confidence\":0.97,\"why\":\"Small V-shaped mark above note indicates accent.\"}",
+   "correct": false
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "fermata: arc with a dot scribbled in",
+   "accept": [
+    {
+     "kind": "fermata"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.98,\"why\":\"Blue curved mark is a personal reminder, not standard notation.\"}",
+   "correct": false
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "handwritten p below the staff",
+   "accept": [
+    {
+     "kind": "dynamic",
+     "value": "p"
+    }
+   ],
+   "answer": "{\"kind\":\"dynamic\",\"value\":\"p\",\"style\":\"\",\"confidence\":0.99,\"why\":\"Blue lowercase p under the note indicates piano.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "fingering 3 above a note",
+   "accept": [
+    {
+     "kind": "fingering",
+     "value": "3"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.92,\"why\":\"Blue marking is just the printed measure number, not an annotation.\"}",
+   "correct": false
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "small accent wedge over a note",
+   "accept": [
+    {
+     "kind": "articulation",
+     "value": "accent"
+    }
+   ],
+   "answer": "{\"kind\":\"articulation\",\"value\":\"accent\",\"style\":\"\",\"confidence\":0.98,\"why\":\"Small angled mark above single note, shaped like accent.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "wavy line (reminder)",
+   "accept": [
+    {
+     "kind": "none"
+    },
+    {
+     "kind": "text"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.98,\"why\":\"Wavy line is a personal reminder, not standard notation.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "crsc. (misspelt)",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "hairpin"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"cresc.\",\"style\":\"expression\",\"confidence\":0.93,\"why\":\"Typed abbreviation for crescendo, common expression marking.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "dolcissimo",
+   "accept": [
+    {
+     "kind": "text",
+     "value": "dolcissimo",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"dolcissimo\",\"style\":\"expression\",\"confidence\":0.99,\"why\":\"Italian expressive direction; publisher-style marking.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "sul G",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"sul G\",\"style\":\"technique\",\"confidence\":0.98,\"why\":\"Common string instruction; printed music term, not a reminder.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "rall. molto",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"rall. molto\",\"style\":\"tempo\",\"confidence\":0.99,\"why\":\"Typed tempo instruction; standard rallentando molto.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "watch Anna",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.98,\"why\":\"Typed reminder, not engraved notation\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "breathe",
+   "accept": [
+    {
+     "kind": "breath"
+    },
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.98,\"why\":\"Typed note is a personal reminder, not printed musical text.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "subito p",
+   "accept": [
+    {
+     "kind": "dynamic",
+     "value": "p"
+    },
+    {
+     "kind": "text",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"subito p\",\"style\":\"expression\",\"confidence\":0.99,\"why\":\"Typed dynamic instruction; publisher would print it.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "mute on",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"mute on\",\"style\":\"technique\",\"confidence\":0.99,\"why\":\"Typed performer instruction; mute is a technique marking.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "slower",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"slower\",\"style\":\"tempo\",\"confidence\":0.99,\"why\":\"Tempo instruction; performer typed a standard musical term.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "più f",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "dynamic",
+     "value": "f"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"più f\",\"style\":\"expression\",\"confidence\":0.95,\"why\":\"Typed performance instruction; commonly means progressively louder.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "fingering 1 typed",
+   "accept": [
+    {
+     "kind": "fingering",
+     "value": "1"
+    }
+   ],
+   "answer": "{\"kind\":\"fingering\",\"value\":\"1\",\"style\":\"\",\"confidence\":0.98,\"why\":\"Typed single digit near note; standard fingering mark.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "bow!",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.99,\"why\":\"Typed note to self, not publisher text\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "held-out: tenuto dash",
+   "accept": [
+    {
+     "kind": "articulation",
+     "value": "tenuto"
+    }
+   ],
+   "answer": "{\"kind\":\"articulation\",\"value\":\"tenuto\",\"style\":\"\",\"confidence\":0.86,\"why\":\"Short horizontal dash above a single note.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "held-out: staccato dot",
+   "accept": [
+    {
+     "kind": "articulation",
+     "value": "staccato"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.97,\"why\":\"Single blue dot above staff looks like a reminder mark.\"}",
+   "correct": false
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "held-out: slur below the notes",
+   "accept": [
+    {
+     "kind": "slur"
+    }
+   ],
+   "answer": "{\"kind\":\"slur\",\"value\":\"\",\"style\":\"\",\"confidence\":0.98,\"why\":\"Curved line joins two notes across barline, spanning several notes.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "held-out: box around a bar",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.99,\"why\":\"Blue box is a personal reminder, not standard notation.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "held-out: tranquillo",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"tranquillo\",\"style\":\"expression\",\"confidence\":0.99,\"why\":\"Common expressive instruction; not a reminder or technique.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "held-out: on the D string",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"on the D string\",\"style\":\"technique\",\"confidence\":0.98,\"why\":\"String indication for playing technique, not a score word\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "held-out: check tuning",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.98,\"why\":\"Personal reminder, not engraved performance text\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "mode": "music",
+   "fixture": "held-out: lunga",
+   "accept": [
+    {
+     "kind": "fermata"
+    },
+    {
+     "kind": "text",
+     "style": "tempo"
+    },
+    {
+     "kind": "text",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"lunga\",\"style\":\"expression\",\"confidence\":0.98,\"why\":\"Italian word; likely an expression instruction.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "hairpin with a hooked start",
+   "accept": [
+    {
+     "kind": "hairpin",
+     "value": "cresc"
+    }
+   ],
+   "answer": "{\"kind\":\"hairpin\",\"value\":\"cresc\",\"style\":\"\",\"confidence\":0.95,\"why\":\"Wedge opens to the right across notes\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "diminuendo drawn in two arms with an overlap",
+   "accept": [
+    {
+     "kind": "hairpin",
+     "value": "dim"
+    }
+   ],
+   "answer": "{\"kind\":\"hairpin\",\"value\":\"dim\",\"style\":\"\",\"confidence\":0.93,\"why\":\"Wedge closes to the right across notes\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "slur with a tail flick",
+   "accept": [
+    {
+     "kind": "slur"
+    }
+   ],
+   "answer": "{\"kind\":\"slur\",\"value\":\"\",\"style\":\"\",\"confidence\":0.88,\"why\":\"Long curved arc spanning several notes\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "eyeglasses (watch)",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.95,\"why\":\"Looks like eyeglasses, a personal reminder\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "arrow pointing right",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.97,\"why\":\"Right-pointing arrow is a personal reminder\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "circle around a note",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"fingering\",\"value\":\"0\",\"style\":\"\",\"confidence\":0.72,\"why\":\"Oval zero-like mark at a single note\"}",
+   "correct": false
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "breath tick above the staff",
+   "accept": [
+    {
+     "kind": "breath"
+    }
+   ],
+   "answer": "{\"kind\":\"breath\",\"value\":\"comma\",\"style\":\"\",\"confidence\":0.78,\"why\":\"Check mark above staff indicates breath comma\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "fermata: arc with a dot scribbled in",
+   "accept": [
+    {
+     "kind": "fermata"
+    }
+   ],
+   "answer": "{\"kind\":\"fermata\",\"value\":\"\",\"style\":\"\",\"confidence\":0.86,\"why\":\"Arch with central dot above one note\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "handwritten p below the staff",
+   "accept": [
+    {
+     "kind": "dynamic",
+     "value": "p"
+    }
+   ],
+   "answer": "{\"kind\":\"dynamic\",\"value\":\"p\",\"style\":\"\",\"confidence\":0.96,\"why\":\"Clear lowercase p dynamic marking\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "fingering 3 above a note",
+   "accept": [
+    {
+     "kind": "fingering",
+     "value": "3"
+    }
+   ],
+   "answer": "{\"kind\":\"fingering\",\"value\":\"3\",\"style\":\"\",\"confidence\":0.98,\"why\":\"Single digit 3 above the note\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "small accent wedge over a note",
+   "accept": [
+    {
+     "kind": "articulation",
+     "value": "accent"
+    }
+   ],
+   "answer": "{\"kind\":\"articulation\",\"value\":\"accent\",\"style\":\"\",\"confidence\":0.95,\"why\":\"Small greater-than wedge at a single note\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "wavy line (reminder)",
+   "accept": [
+    {
+     "kind": "none"
+    },
+    {
+     "kind": "text"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.95,\"why\":\"Wavy line is a personal reminder, not standard notation\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "crsc. (misspelt)",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "hairpin"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"cresc.\",\"style\":\"expression\",\"confidence\":0.93,\"why\":\"Typed abbreviation means crescendo expression.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "dolcissimo",
+   "accept": [
+    {
+     "kind": "text",
+     "value": "dolcissimo",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"dolcissimo\",\"style\":\"expression\",\"confidence\":0.99,\"why\":\"Typed expressive marking dolcissimo\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "sul G",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"sul G\",\"style\":\"technique\",\"confidence\":0.99,\"why\":\"String technique indication to play on G string\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "rall. molto",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"rall. molto\",\"style\":\"tempo\",\"confidence\":1,\"why\":\"Typed tempo indication rallentando molto\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "watch Anna",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.99,\"why\":\"Personal reminder with name, not publishable notation\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "breathe",
+   "accept": [
+    {
+     "kind": "breath"
+    },
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.72,\"why\":\"Typed self-reminder, not standard printed notation\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "subito p",
+   "accept": [
+    {
+     "kind": "dynamic",
+     "value": "p"
+    },
+    {
+     "kind": "text",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\":\"dynamic\",\"value\":\"p\",\"style\":\"\",\"confidence\":0.95,\"why\":\"Typed subito piano dynamic.\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "mute on",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"mute on\",\"style\":\"technique\",\"confidence\":0.95,\"why\":\"Technique instruction to use mute\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "slower",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"slower\",\"style\":\"tempo\",\"confidence\":0.93,\"why\":\"Typed tempo instruction indicating reduced speed\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "più f",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "dynamic",
+     "value": "f"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"più f\",\"style\":\"expression\",\"confidence\":0.98,\"why\":\"Typed expressive dynamic text\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "fingering 1 typed",
+   "accept": [
+    {
+     "kind": "fingering",
+     "value": "1"
+    }
+   ],
+   "answer": "{\"kind\":\"fingering\",\"value\":\"1\",\"style\":\"\",\"confidence\":0.99,\"why\":\"Single digit 1 indicates fingering\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "bow!",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.99,\"why\":\"“bow!” is a rehearsal note to self\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "held-out: tenuto dash",
+   "accept": [
+    {
+     "kind": "articulation",
+     "value": "tenuto"
+    }
+   ],
+   "answer": "{\"kind\":\"articulation\",\"value\":\"tenuto\",\"style\":\"\",\"confidence\":0.91,\"why\":\"Short horizontal dash at one note\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "held-out: staccato dot",
+   "accept": [
+    {
+     "kind": "articulation",
+     "value": "staccato"
+    }
+   ],
+   "answer": "{\"kind\":\"fingering\",\"value\":\"0\",\"style\":\"\",\"confidence\":0.86,\"why\":\"Small open circle above a single note reads as 0 fingering.\"}",
+   "correct": false
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "held-out: slur below the notes",
+   "accept": [
+    {
+     "kind": "slur"
+    }
+   ],
+   "answer": "{\"kind\":\"slur\",\"value\":\"\",\"style\":\"\",\"confidence\":0.95,\"why\":\"Curved arc spans multiple notes like a slur\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "held-out: box around a bar",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.98,\"why\":\"Large box is a personal reminder, not notation\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "held-out: tranquillo",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"tranquillo\",\"style\":\"expression\",\"confidence\":0.99,\"why\":\"Typed expressive word appropriate for engraving\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "held-out: on the D string",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"on the D string\",\"style\":\"technique\",\"confidence\":0.95,\"why\":\"String playing instruction suitable as technique text\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "held-out: check tuning",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.99,\"why\":\"Personal reminder, not standard engraved notation\"}",
+   "correct": true
+  },
+  {
+   "model": "gpt-5.5",
+   "mode": "staff",
+   "fixture": "held-out: lunga",
+   "accept": [
+    {
+     "kind": "fermata"
+    },
+    {
+     "kind": "text",
+     "style": "tempo"
+    },
+    {
+     "kind": "text",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"lunga\",\"style\":\"expression\",\"confidence\":0.86,\"why\":\"Typed Italian expressive indication meaning long.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "hairpin with a hooked start",
+   "accept": [
+    {
+     "kind": "hairpin",
+     "value": "cresc"
+    }
+   ],
+   "answer": "{\"kind\": \"hairpin\", \"value\": \"cresc\", \"style\": \"\", \"confidence\": 0.93, \"why\": \"Wedge opening rightward below staff spanning bar 3 notes\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "diminuendo drawn in two arms with an overlap",
+   "accept": [
+    {
+     "kind": "hairpin",
+     "value": "dim"
+    }
+   ],
+   "answer": "{\"kind\": \"hairpin\", \"value\": \"dim\", \"style\": \"\", \"confidence\": 0.85, \"why\": \"Closing wedge below staff spanning bar 3 into bar 4\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "slur with a tail flick",
+   "accept": [
+    {
+     "kind": "slur"
+    }
+   ],
+   "answer": "{\"kind\": \"slur\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.55, \"why\": \"Arc spans notes bar 3 to 4; trailing tick may mark a breath\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "eyeglasses (watch)",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Eyeglasses drawn above staff are a 'watch' reminder.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "arrow pointing right",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.93, \"why\": \"Arrow above staff is a personal reminder, not notation.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "circle around a note",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.9, \"why\": \"Oval circle drawn around a note is a personal reminder\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "breath tick above the staff",
+   "accept": [
+    {
+     "kind": "breath"
+    }
+   ],
+   "answer": "{\"kind\": \"breath\", \"value\": \"comma\", \"confidence\": 0.8, \"why\": \"Check-mark tick above staff at bar start indicates breath mark\", \"style\": \"\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "fermata: arc with a dot scribbled in",
+   "accept": [
+    {
+     "kind": "fermata"
+    }
+   ],
+   "answer": "{\"kind\": \"fermata\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.75, \"why\": \"Arc above staff with a dot under it at one note\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "handwritten p below the staff",
+   "accept": [
+    {
+     "kind": "dynamic",
+     "value": "p"
+    }
+   ],
+   "answer": "{\"kind\": \"dynamic\", \"value\": \"p\", \"style\": \"\", \"confidence\": 0.93, \"why\": \"Clear handwritten letter p below the staff at bar start\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "fingering 3 above a note",
+   "accept": [
+    {
+     "kind": "fingering",
+     "value": "3"
+    }
+   ],
+   "answer": "{\"kind\": \"fingering\", \"value\": \"3\", \"style\": \"\", \"confidence\": 0.85, \"why\": \"Single digit 3 written above the staff at one note\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "wavy line (reminder)",
+   "accept": [
+    {
+     "kind": "none"
+    },
+    {
+     "kind": "text"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.8, \"why\": \"Wavy line above staff is a personal reminder, not notation.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "crsc. (misspelt)",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "hairpin"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"cresc.\", \"style\": \"expression\", \"confidence\": 0.9, \"why\": \"Misspelled abbreviation of cresc.; rising line supports crescendo\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "dolcissimo",
+   "accept": [
+    {
+     "kind": "text",
+     "value": "dolcissimo",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"dolcissimo\", \"style\": \"expression\", \"confidence\": 0.95, \"why\": \"Standard Italian expression marking meaning very sweetly; publisher-printable.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "sul G",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"sul G\", \"style\": \"technique\", \"confidence\": 0.93, \"why\": \"String indication: play on the G string, a published technique marking\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "rall. molto",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"rall. molto\", \"style\": \"tempo\", \"confidence\": 0.93, \"why\": \"Rallentando molto is a standard printed tempo indication.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "watch Anna",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.97, \"why\": \"Personal reminder to watch a colleague, not publishable notation\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "breathe",
+   "accept": [
+    {
+     "kind": "breath"
+    },
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"breath\", \"value\": \"comma\", \"style\": \"\", \"confidence\": 0.7, \"why\": \"Typed 'breathe' at a bar start indicates a breath mark\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "subito p",
+   "accept": [
+    {
+     "kind": "dynamic",
+     "value": "p"
+    },
+    {
+     "kind": "text",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"subito p\", \"style\": \"expression\", \"confidence\": 0.8, \"why\": \"Printed dynamic instruction with 'subito'; plain p would lose the qualifier\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "mute on",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"con sord.\", \"style\": \"technique\", \"confidence\": 0.85, \"why\": \"\\\"Mute on\\\" is a technique instruction, engraved as con sord.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "slower",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"slower\", \"style\": \"tempo\", \"confidence\": 0.72, \"why\": \"Tempo-change instruction a publisher could print, like rit.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "più f",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "dynamic",
+     "value": "f"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"più f\", \"style\": \"expression\", \"confidence\": 0.86, \"why\": \"Typed 'più f' is printed expression text, not a single dynamic.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "fingering 1 typed",
+   "accept": [
+    {
+     "kind": "fingering",
+     "value": "1"
+    }
+   ],
+   "answer": "{\"kind\": \"fingering\", \"value\": \"1\", \"style\": \"\", \"confidence\": 0.85, \"why\": \"Single digit typed at a note start reads as fingering.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "bow!",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.9, \"why\": \"\\\"bow!\\\" is a note-to-self reminder, not publishable text.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "held-out: tenuto dash",
+   "accept": [
+    {
+     "kind": "articulation",
+     "value": "tenuto"
+    }
+   ],
+   "answer": "{\"kind\": \"articulation\", \"value\": \"tenuto\", \"style\": \"\", \"confidence\": 0.72, \"why\": \"Short horizontal dash above a single note indicates tenuto.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "held-out: staccato dot",
+   "accept": [
+    {
+     "kind": "articulation",
+     "value": "staccato"
+    }
+   ],
+   "answer": "{\"kind\": \"articulation\", \"value\": \"staccato\", \"style\": \"\", \"confidence\": 0.7, \"why\": \"Small dot above staff at a single note indicates staccato.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "held-out: slur below the notes",
+   "accept": [
+    {
+     "kind": "slur"
+    }
+   ],
+   "answer": "{\"kind\": \"slur\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.85, \"why\": \"Curved arc below staff spanning notes from bar 3 to bar 4\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "held-out: box around a bar",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.85, \"why\": \"A box drawn around the staff is a reminder.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "held-out: tranquillo",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"tranquillo\", \"style\": \"tempo\", \"confidence\": 0.8, \"why\": \"Tranquillo is a printed character/tempo indication meaning calm.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "held-out: on the D string",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"on the D string\", \"style\": \"technique\", \"confidence\": 0.8, \"why\": \"String indication is a printed technique instruction, like sul D\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "held-out: check tuning",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.93, \"why\": \"Personal rehearsal reminder about intonation, not printed notation\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-opus-5-5",
+   "mode": "staff",
+   "fixture": "held-out: lunga",
+   "accept": [
+    {
+     "kind": "fermata"
+    },
+    {
+     "kind": "text",
+     "style": "tempo"
+    },
+    {
+     "kind": "text",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"lunga\", \"style\": \"tempo\", \"confidence\": 0.6, \"why\": \"Italian 'long', a printed timing indication, usually paired with fermatas\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "hairpin with a hooked start",
+   "accept": [
+    {
+     "kind": "hairpin",
+     "value": "cresc"
+    }
+   ],
+   "answer": "{\"kind\":\"hairpin\",\"value\":\"cresc\",\"style\":\"\",\"confidence\":0.93,\"why\":\"Wedge opens left to right, spanning bars 3 to 4: crescendo.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "diminuendo drawn in two arms with an overlap",
+   "accept": [
+    {
+     "kind": "hairpin",
+     "value": "dim"
+    }
+   ],
+   "answer": "{\"kind\":\"hairpin\",\"value\":\"dim\",\"style\":\"\",\"confidence\":0.93,\"why\":\"Wedge opens at left and closes to a point at right, spanning bars 3-4.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "slur with a tail flick",
+   "accept": [
+    {
+     "kind": "slur"
+    }
+   ],
+   "answer": "{\"kind\": \"slur\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.8, \"why\": \"Long arc over several notes from bar 3 to bar 4, with a small tick at the end.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "eyeglasses (watch)",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.97, \"why\": \"Eyeglasses drawing is a 'watch' reminder, not notation.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "arrow pointing right",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.9, \"why\": \"An arrow drawn above the staff is a personal reminder, not notation.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "circle around a note",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.93,\"why\":\"A circle drawn around a single note is a personal reminder, not notation.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "breath tick above the staff",
+   "accept": [
+    {
+     "kind": "breath"
+    }
+   ],
+   "answer": "{\"kind\": \"breath\", \"value\": \"comma\", \"style\": \"\", \"confidence\": 0.6, \"why\": \"Small check-mark tick drawn above the staff, reads as a breath mark\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "fermata: arc with a dot scribbled in",
+   "accept": [
+    {
+     "kind": "fermata"
+    }
+   ],
+   "answer": "The ink is an arc with a small loop and a hooked tail, drawn above the staff. It looks like a fermata dome with a dot, but the tail and the angular shape make that uncertain. It could also be a stylised eye or a dial, which would be a reminder. The dome with a dot underneath is the typical fermata shape, and it sits above the staff at a single note, so I read it as a fermata.\n\n{\"kind\": \"fermata\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.6, \"why\": \"Dome arc with a dot, drawn above the staff at one note\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "handwritten p below the staff",
+   "accept": [
+    {
+     "kind": "dynamic",
+     "value": "p"
+    }
+   ],
+   "answer": "{\"kind\":\"dynamic\",\"value\":\"p\",\"style\":\"\",\"confidence\":0.95,\"why\":\"Handwritten letter p with descender, placed below the staff at a single note.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "fingering 3 above a note",
+   "accept": [
+    {
+     "kind": "fingering",
+     "value": "3"
+    }
+   ],
+   "answer": "{\"kind\": \"fingering\", \"value\": \"3\", \"style\": \"\", \"confidence\": 0.9, \"why\": \"A single digit 3 written above one note reads as a fingering.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "small accent wedge over a note",
+   "accept": [
+    {
+     "kind": "articulation",
+     "value": "accent"
+    }
+   ],
+   "answer": "The ink is a small \">\" wedge, about 1.5 staff spaces wide, at a single note. That makes it an accent.\n\n{\"kind\": \"articulation\", \"value\": \"accent\", \"style\": \"\", \"confidence\": 0.93, \"why\": \"Small '>' shape at a single note is an accent.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "wavy line (reminder)",
+   "accept": [
+    {
+     "kind": "none"
+    },
+    {
+     "kind": "text"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.85, \"why\": \"Wavy line above the staff is a reminder, not standard notation.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "crsc. (misspelt)",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "hairpin"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"cresc.\", \"style\": \"expression\", \"confidence\": 0.93, \"why\": \"Typed 'crsc.' is a shorthand for crescendo, engraved as cresc.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "dolcissimo",
+   "accept": [
+    {
+     "kind": "text",
+     "value": "dolcissimo",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"dolcissimo\", \"style\": \"expression\", \"confidence\": 0.95, \"why\": \"Typed expressive word a publisher would print in the part\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "sul G",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"sul G\", \"style\": \"technique\", \"confidence\": 0.95, \"why\": \"Typed 'sul G' is a string-playing instruction, engraved as technique text.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "rall. molto",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"rall. molto\", \"style\": \"tempo\", \"confidence\": 0.95, \"why\": \"Typed 'rall. molto' is a tempo instruction a publisher would print.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "watch Anna",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\":\"none\",\"value\":\"\",\"style\":\"\",\"confidence\":0.96,\"why\":\"'watch Anna' is a personal reminder naming a person, not printed notation\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "breathe",
+   "accept": [
+    {
+     "kind": "breath"
+    },
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"breath\", \"value\": \"comma\", \"style\": \"\", \"confidence\": 0.85, \"why\": \"Typed 'breathe' asks for a breath mark at the start of bar 3.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "subito p",
+   "accept": [
+    {
+     "kind": "dynamic",
+     "value": "p"
+    },
+    {
+     "kind": "text",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\": \"dynamic\", \"value\": \"p\", \"style\": \"\", \"confidence\": 0.8, \"why\": \"Typed 'subito p' is a piano dynamic; 'subito' is not a separate dynamic value, so p is used.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "mute on",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"mute\", \"style\": \"technique\", \"confidence\": 0.8, \"why\": \"Typed 'mute on' is a playing-technique instruction; engraved as 'mute'.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "slower",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"rit.\", \"style\": \"tempo\", \"confidence\": 0.6, \"why\": \"Typed 'slower' is a tempo instruction; engraved convention is rit.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "più f",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "dynamic",
+     "value": "f"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"più f\", \"style\": \"expression\", \"confidence\": 0.8, \"why\": \"Typed 'più f' is a printed expression marking meaning 'louder'.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "fingering 1 typed",
+   "accept": [
+    {
+     "kind": "fingering",
+     "value": "1"
+    }
+   ],
+   "answer": "{\"kind\": \"fingering\", \"value\": \"1\", \"style\": \"\", \"confidence\": 0.9, \"why\": \"Typed single digit 1 at the first note of bar 3, a finger number.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "bow!",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.9, \"why\": \"\\\"bow!\\\" with an exclamation is a personal note to self, not engraved text\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "held-out: tenuto dash",
+   "accept": [
+    {
+     "kind": "articulation",
+     "value": "tenuto"
+    }
+   ],
+   "answer": "{\"kind\": \"articulation\", \"value\": \"tenuto\", \"style\": \"\", \"confidence\": 0.8, \"why\": \"Short horizontal dash above a single note reads as a tenuto.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "held-out: staccato dot",
+   "accept": [
+    {
+     "kind": "articulation",
+     "value": "staccato"
+    }
+   ],
+   "answer": "The ink is a tiny dot, well under one staff space, placed above the staff at a single note. A dot at one note reads as staccato. The dot is small and sits far above the staff, so it could also be a stray mark, which lowers my confidence a little.\n\n{\"kind\": \"articulation\", \"value\": \"staccato\", \"style\": \"\", \"confidence\": 0.6, \"why\": \"Small single dot at one note reads as staccato.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "held-out: slur below the notes",
+   "accept": [
+    {
+     "kind": "slur"
+    }
+   ],
+   "answer": "{\"kind\":\"slur\",\"value\":\"\",\"style\":\"\",\"confidence\":0.9,\"why\":\"U-shaped arc below the staff spanning from bar 3 into bar 4 notes\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "held-out: box around a bar",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.93, \"why\": \"A box drawn around the note is a personal reminder, not notation.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "held-out: tranquillo",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"tranquillo\", \"style\": \"expression\", \"confidence\": 0.8, \"why\": \"Typed character word, a standard expressive marking a publisher would print.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "held-out: on the D string",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"on the D string\", \"style\": \"technique\", \"confidence\": 0.8, \"why\": \"Typed instruction naming which string to play on; a technique direction a publisher would print.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "held-out: check tuning",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.93, \"why\": \"\\\"check tuning\\\" is a personal reminder, not a printed part marking.\"}",
+   "correct": true
+  },
+  {
+   "model": "claude-sonnet-5-5",
+   "mode": "staff",
+   "fixture": "held-out: lunga",
+   "accept": [
+    {
+     "kind": "fermata"
+    },
+    {
+     "kind": "text",
+     "style": "tempo"
+    },
+    {
+     "kind": "text",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\":\"text\",\"value\":\"lunga\",\"style\":\"tempo\",\"confidence\":0.6,\"why\":\"Typed 'lunga' is a long-pause marking, usually printed as a tempo/fermata text.\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "hairpin with a hooked start",
+   "accept": [
+    {
+     "kind": "hairpin",
+     "value": "cresc"
+    }
+   ],
+   "answer": "{\"kind\": \"hairpin\", \"value\": \"cresc\", \"style\": \"\", \"confidence\": 0.98, \"why\": \"Opening wedge below the staff indicating crescendo\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "diminuendo drawn in two arms with an overlap",
+   "accept": [
+    {
+     "kind": "hairpin",
+     "value": "dim"
+    }
+   ],
+   "answer": "{\"kind\": \"hairpin\", \"value\": \"dim\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Closing wedge below staff spanning a measure is a diminuendo hairpin.\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "slur with a tail flick",
+   "accept": [
+    {
+     "kind": "slur"
+    }
+   ],
+   "answer": "{\"kind\": \"slur\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Curved arc spanning across notes from bar 3 into bar 4\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "eyeglasses (watch)",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.99, \"why\": \"Eyeglasses are a performer reminder to look or watch.\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "arrow pointing right",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Rightward arrow is a personal reminder mark\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "circle around a note",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Drawn circle around a note is a personal reminder mark.\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "breath tick above the staff",
+   "accept": [
+    {
+     "kind": "breath"
+    }
+   ],
+   "answer": "{\"kind\": \"breath\", \"value\": \"comma\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Check mark above staff before note represents a breath mark\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "fermata: arc with a dot scribbled in",
+   "accept": [
+    {
+     "kind": "fermata"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.85, \"why\": \"Eye symbol above note is a reminder to watch conductor\"}",
+   "correct": false
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "handwritten p below the staff",
+   "accept": [
+    {
+     "kind": "dynamic",
+     "value": "p"
+    }
+   ],
+   "answer": "{\"kind\": \"dynamic\", \"value\": \"p\", \"style\": \"\", \"confidence\": 0.98, \"why\": \"Handwritten dynamic mark p below the staff\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "fingering 3 above a note",
+   "accept": [
+    {
+     "kind": "fingering",
+     "value": "3"
+    }
+   ],
+   "answer": "{\"kind\": \"fingering\", \"value\": \"3\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Digit 3 above the staff indicates third finger fingering\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "small accent wedge over a note",
+   "accept": [
+    {
+     "kind": "articulation",
+     "value": "accent"
+    }
+   ],
+   "answer": "{\"kind\": \"articulation\", \"value\": \"accent\", \"style\": \"\", \"confidence\": 0.98, \"why\": \"Small wedge above the staff at a single note indicates an accent.\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "wavy line (reminder)",
+   "accept": [
+    {
+     "kind": "none"
+    },
+    {
+     "kind": "text"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Wavy line is a rehearsal reminder\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "crsc. (misspelt)",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "hairpin"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"cresc.\", \"style\": \"expression\", \"confidence\": 0.95, \"why\": \"Typo for crescendo expression mark\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "dolcissimo",
+   "accept": [
+    {
+     "kind": "text",
+     "value": "dolcissimo",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"dolcissimo\", \"style\": \"expression\", \"confidence\": 1.0, \"why\": \"standard expression marking meaning very sweetly\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "sul G",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"sul G\", \"style\": \"technique\", \"confidence\": 0.95, \"why\": \"Standard string technique instruction to play on the G string\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "rall. molto",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"rall. molto\", \"style\": \"tempo\", \"confidence\": 0.98, \"why\": \"Tempo indication for rallentando molto\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "watch Anna",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 1.0, \"why\": \"Personal rehearsal reminder to watch another performer\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "breathe",
+   "accept": [
+    {
+     "kind": "breath"
+    },
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Personal reminder to breathe, not standard engraved notation\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "subito p",
+   "accept": [
+    {
+     "kind": "dynamic",
+     "value": "p"
+    },
+    {
+     "kind": "text",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"subito p\", \"style\": \"expression\", \"confidence\": 0.95, \"why\": \"Typed dynamic expression mark not in standard single-symbol dynamic list\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "mute on",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"mute on\", \"style\": \"technique\", \"confidence\": 0.95, \"why\": \"Performance technique instruction indicating to apply a mute\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "slower",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"slower\", \"style\": \"tempo\", \"confidence\": 0.85, \"why\": \"Tempo indication indicating a slower tempo\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "più f",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "dynamic",
+     "value": "f"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"più f\", \"style\": \"expression\", \"confidence\": 0.95, \"why\": \"Typed dynamic expression mark indicating more forte\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "fingering 1 typed",
+   "accept": [
+    {
+     "kind": "fingering",
+     "value": "1"
+    }
+   ],
+   "answer": "{\"kind\": \"fingering\", \"value\": \"1\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Single digit at note indicates fingering\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "bow!",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Personal reminder not intended for published engraving\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "held-out: tenuto dash",
+   "accept": [
+    {
+     "kind": "articulation",
+     "value": "tenuto"
+    }
+   ],
+   "answer": "{\"kind\": \"articulation\", \"value\": \"tenuto\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Short horizontal dash above the note indicates a tenuto mark.\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "held-out: staccato dot",
+   "accept": [
+    {
+     "kind": "articulation",
+     "value": "staccato"
+    }
+   ],
+   "answer": "{\"kind\": \"fingering\", \"value\": \"0\", \"style\": \"\", \"confidence\": 0.9, \"why\": \"Small circle above note indicates open string fingering 0.\"}",
+   "correct": false
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "held-out: slur below the notes",
+   "accept": [
+    {
+     "kind": "slur"
+    }
+   ],
+   "answer": "{\"kind\": \"slur\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Curved arc below staff spanning notes indicates a slur.\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "held-out: box around a bar",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.95, \"why\": \"Box drawn around musical material is a rehearsal reminder\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "held-out: tranquillo",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "expression"
+    },
+    {
+     "kind": "text",
+     "style": "tempo"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"tranquillo\", \"style\": \"expression\", \"confidence\": 1.0, \"why\": \"Standard Italian expression mark meaning calmly\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "held-out: on the D string",
+   "accept": [
+    {
+     "kind": "text",
+     "style": "technique"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"on the D string\", \"style\": \"technique\", \"confidence\": 0.95, \"why\": \"String indication specifying performance on the D string\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "held-out: check tuning",
+   "accept": [
+    {
+     "kind": "none"
+    }
+   ],
+   "answer": "{\"kind\": \"none\", \"value\": \"\", \"style\": \"\", \"confidence\": 0.98, \"why\": \"Personal reminder to check tuning, not standard musical notation\"}",
+   "correct": true
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "mode": "staff",
+   "fixture": "held-out: lunga",
+   "accept": [
+    {
+     "kind": "fermata"
+    },
+    {
+     "kind": "text",
+     "style": "tempo"
+    },
+    {
+     "kind": "text",
+     "style": "expression"
+    }
+   ],
+   "answer": "{\"kind\": \"text\", \"value\": \"lunga\", \"style\": \"tempo\", \"confidence\": 0.9, \"why\": \"Musical term indicating a long sustain or hold, affecting timing.\"}",
+   "correct": true
+  }
+ ]
+}
