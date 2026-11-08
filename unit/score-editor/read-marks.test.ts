@@ -122,14 +122,14 @@ describe('reading a mark', () => {
   beforeEach(() => clearReadingCache());
 
   it('asks once per model and mark, sending the bars it is in', async () => {
-    const read = vi.fn(async () => answer({ kind: 'fermata' }));
+    const read = vi.fn<MarksReader['read']>(async () => answer({ kind: 'fermata' }));
     const reader: MarksReader = { label: 'x', cacheKey: 'openai:m', read };
     const first = await readMark(reader, ink(), XML);
     const second = await readMark(reader, ink(), XML);
     expect(first.engrave).toMatchObject({ kind: 'fermata' });
     expect(second).toBe(first);
     expect(read).toHaveBeenCalledTimes(1);
-    expect(read.mock.calls[0][0].promptText).toContain('<measure number="3">c</measure>');
+    expect(read.mock.calls[0]?.[0].promptText).toContain('<measure number="3">c</measure>');
     await readMark({ ...reader, cacheKey: 'openai:other' }, ink(), XML);
     expect(read).toHaveBeenCalledTimes(2);
   });
