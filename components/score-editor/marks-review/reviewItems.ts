@@ -7,6 +7,8 @@ export type ReviewDecision = 'engrave' | 'keep' | 'delete';
 export interface ReviewItem {
   readonly annotation: Annotation;
   readonly proposal: EngravingProposal;
+  /** The proposal came from the editor's AI model (Phase 7c-2): the reviewer chooses Engrave themselves. */
+  readonly readByAi?: boolean;
 }
 
 /** The marks to review for a score: not engraved and not reviewed before, in score order (part, bar, beat). */

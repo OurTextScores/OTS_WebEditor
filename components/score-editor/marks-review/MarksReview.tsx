@@ -9,6 +9,7 @@ import { Button } from '../../ui/Button';
 import { Dialog, DialogContent } from '../../ui/Dialog';
 import type { EditorCore } from '../core';
 import { isMarksReviewOpen, setMarksReviewOpen, subscribeToMarksReview } from './marksReviewStore';
+import { marksReaderFor } from './readMarks';
 import type { ReviewDecision } from './reviewItems';
 import { useMarksReview } from './useMarksReview';
 
@@ -27,14 +28,32 @@ const partName = (part: number) => (part < 0 ? 'Full score' : `Part ${part + 1}`
  */
 export function MarksReview({
   core,
+  ai,
 }: {
   core: Pick<EditorCore, 'score' | 'performMutation' | 'runSerializedScoreOperation'>;
+  /** The editor's AI settings: with a model and key, handwriting can be read (Phase 7c-2). */
+  ai?: {
+    aiEnabled: boolean;
+    aiProvider: string;
+    aiApiKey: string;
+    aiModel: string;
+    requestAiText: Parameters<typeof marksReaderFor>[0]['request'];
+  };
 }) {
+  const reader = ai
+    ? marksReaderFor({
+        enabled: ai.aiEnabled,
+        provider: ai.aiProvider,
+        apiKey: ai.aiApiKey,
+        model: ai.aiModel,
+        request: ai.requestAiText,
+      })
+    : null;
   const params = useSearchParams();
   const scoreKey = params.get('score');
   const askedToReview = params.get('review') === '1';
   const open = useSyncExternalStore(subscribeToMarksReview, isMarksReviewOpen, () => false);
-  const review = useMarksReview(core, scoreKey);
+  const review = useMarksReview(core, scoreKey, reader);
   const { items, decisions, outcome } = review;
   const toEngrave = items.filter((item) => decisions.get(item.annotation.id) === 'engrave').length;
   const toDelete = items.filter((item) => decisions.get(item.annotation.id) === 'delete').length;
@@ -105,6 +124,36 @@ export function MarksReview({
             ))}
             {!items.length && <li className="text-sm text-slate-500">No marks waiting.</li>}
           </ul>
+          {review.unread.length > 0 && (
+            <div
+              data-testid="marks-review-ai"
+              className="mt-3 flex items-center gap-3 rounded border border-slate-200 p-2 text-xs text-slate-600"
+            >
+              {reader ? (
+                <>
+                  <span className="flex-1">
+                    {review.reading
+                      ? `Reading ${review.reading.done + 1} of ${review.reading.total}…`
+                      : `Sends ${review.unread.length === 1 ? 'that mark' : 'those marks'} and the bars ${review.unread.length === 1 ? 'it is' : 'they are'} in to ${reader.label}, with your key. You still choose what to engrave.`}
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    data-testid="marks-review-read-ai"
+                    disabled={Boolean(review.reading)}
+                    onClick={() => void review.readWithAi()}
+                  >
+                    Read {review.unread.length} with AI
+                  </Button>
+                </>
+              ) : (
+                <span data-testid="marks-review-ai-setup">
+                  {review.unread.length} handwritten mark{review.unread.length === 1 ? '' : 's'}{' '}
+                  could be read by AI: choose a model and enter your key in the AI panel.
+                </span>
+              )}
+            </div>
+          )}
           {outcome && (
             <div
               role="status"

@@ -149,7 +149,10 @@ const dynamicBars = async (editor: Page) =>
     measure.includes('<Dynamic>') ? [index] : [],
   );
 
-test('a drawn hairpin and known words engrave as notation (no model needed)', async ({ page: p, context }) => {
+test('a drawn hairpin and known words engrave as notation (no model needed)', async ({
+  page: p,
+  context,
+}) => {
   test.setTimeout(240_000);
   await openPerformer(p);
   const surface = (await p.getByTestId('performer-surface').boundingBox())!;
@@ -205,10 +208,14 @@ test('a drawn hairpin and known words engrave as notation (no model needed)', as
   await expect(items.filter({ hasText: 'Expression text “dolce”' })).toHaveCount(1);
   await expect(items.filter({ hasText: 'Technique text “pizz.”' })).toHaveCount(1);
   await review.getByTestId('marks-review-engrave').click();
-  await expect(review.getByTestId('marks-review-outcome')).toContainText('Engraved 3', { timeout: 30_000 });
+  await expect(review.getByTestId('marks-review-outcome')).toContainText('Engraved 3', {
+    timeout: 30_000,
+  });
 
   const engraved = await editor.evaluate(async () => {
-    const score = (window as unknown as { __webmscore: { saveMsc: (f: string) => Promise<Uint8Array> } }).__webmscore;
+    const score = (
+      window as unknown as { __webmscore: { saveMsc: (f: string) => Promise<Uint8Array> } }
+    ).__webmscore;
     const xml = new TextDecoder().decode(await score.saveMsc('mscx'));
     return {
       hairpins: (xml.match(/<HairPin>/g) ?? []).length,
@@ -217,4 +224,98 @@ test('a drawn hairpin and known words engrave as notation (no model needed)', as
     };
   });
   expect(engraved).toEqual({ hairpins: 1, dolce: true, pizz: true });
+});
+
+test('handwriting the rules cannot read is read by the editor’s AI model, and engraves only when chosen', async ({
+  page: p,
+  context,
+}) => {
+  test.setTimeout(240_000);
+  const requests: { promptText: string; image: unknown; model: string; apiKey: string }[] = [];
+  await context.route('**/api/llm/openai/models', (route) =>
+    route.fulfill({ status: 200, body: JSON.stringify({ models: ['gpt-test-model'] }) }),
+  );
+  await context.route('**/api/llm/openai', async (route) => {
+    const body = route.request().postDataJSON() as (typeof requests)[number];
+    requests.push(body);
+    const reply = body.promptText.includes('très doux')
+      ? {
+          kind: 'text',
+          value: 'très doux',
+          style: 'expression',
+          confidence: 0.92,
+          why: 'French for very soft',
+        }
+      : { kind: 'none', value: '', style: '', confidence: 0.8, why: 'a reminder to look up' };
+    await route.fulfill({ status: 200, body: JSON.stringify({ text: JSON.stringify(reply) }) });
+  });
+
+  await openPerformer(p);
+  const surface = (await p.getByTestId('performer-surface').boundingBox())!;
+  await p.mouse.move(surface.x + surface.width / 2, surface.y + 10);
+  await p.mouse.down();
+  await p.waitForTimeout(800);
+  await p.mouse.up();
+  await p.getByTestId('performer-annotate').click();
+  for (const [index, words] of [
+    [3, 'très doux'],
+    [8, 'look at Anna'],
+  ] as const) {
+    await p.getByTestId('annotate-text').click();
+    const at = (await pageSvg(p).locator('svg .Note').nth(index).boundingBox())!;
+    await p.mouse.click(at.x + at.width / 2, at.y + at.height / 2 + 45);
+    await p.getByTestId('annotate-text-input').fill(words);
+    await p.getByTestId('annotate-text-input').press('Enter');
+  }
+  await expect(p.getByTestId('annotation-layer').locator('[data-annotation]')).toHaveCount(2);
+  await p.getByTestId('annotate-done').click();
+
+  await p.keyboard.press('Escape');
+  const opening = context.waitForEvent('page');
+  await p.getByTestId('performer-open-editor').click();
+  const editor = await opening;
+  const review = editor.getByTestId('marks-review');
+  await expect(review).toBeVisible({ timeout: 60_000 });
+  await expect(review.getByTestId('marks-review-item')).toHaveCount(2);
+  // No model or key yet: nothing is sent, and the panel says how to set one
+  await expect(review.getByTestId('marks-review-ai-setup')).toContainText('2 handwritten marks');
+  await editor.keyboard.press('Escape');
+
+  await runCommand(editor, 'ai.open.assistant');
+  await editor.getByPlaceholder('Enter model name').fill('gpt-test-model');
+  await editor.getByPlaceholder('Paste your key').fill('test-key');
+  await runCommand(editor, 'file.reviewMarks');
+  await expect(review.getByTestId('marks-review-ai')).toContainText('openai · gpt-test-model');
+  expect(requests).toHaveLength(0);
+  await review.getByTestId('marks-review-read-ai').click();
+  const items = review.getByTestId('marks-review-item');
+  await expect(
+    items.filter({ hasText: 'AI: Expression text “très doux” (92% · French for very soft)' }),
+  ).toHaveCount(1);
+  await expect(items.filter({ hasText: 'AI: a reminder, stays a mark' })).toHaveCount(1);
+  expect(requests).toHaveLength(2);
+  expect(requests[0]).toMatchObject({ model: 'gpt-test-model', apiKey: 'test-key' });
+  expect(requests[0].promptText).toContain('<measure');
+  await expect(review.getByTestId('marks-review-read-ai')).toHaveCount(0);
+
+  // Read, not chosen: the reviewer picks Engrave for the reading they accept
+  const doux = items.filter({ hasText: 'très doux' });
+  await expect(doux.getByRole('radio', { name: 'Keep as mark' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await doux.getByRole('radio', { name: 'Engrave' }).click();
+  await review.getByTestId('marks-review-engrave').click();
+  await expect(review.getByTestId('marks-review-outcome')).toContainText('Engraved 1', {
+    timeout: 30_000,
+  });
+  const engraved = await editor.evaluate(async () => {
+    const score = (
+      window as unknown as { __webmscore: { saveMsc: (f: string) => Promise<Uint8Array> } }
+    ).__webmscore;
+    return /<Expression>[\s\S]*?<text>très doux<\/text>/.test(
+      new TextDecoder().decode(await score.saveMsc('mscx')),
+    );
+  });
+  expect(engraved).toBe(true);
 });

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { deviceAnnotationStore } from '../../performer/annotations/annotationStore';
 import { deviceScoreStore } from '../../performer/platform/scoreStore';
 import type { EditorCore } from '../core';
+import { decodeScoreXml } from '../../../lib/webmscore-loader';
+import { readMark, type MarksReader } from './readMarks';
 import { engraveMarks, restoreBeforeEngraving, type EngraveOutcome } from './engraveMarks';
 import {
   defaultDecision,
@@ -17,6 +19,7 @@ import {
 export function useMarksReview(
   core: Pick<EditorCore, 'score' | 'performMutation' | 'runSerializedScoreOperation'>,
   scoreKey: string | null,
+  reader: MarksReader | null = null,
 ) {
   const [stores] = useState(() => ({ marks: deviceAnnotationStore(), scores: deviceScoreStore() }));
   const [items, setItems] = useState<ReviewItem[]>([]);
@@ -24,6 +27,7 @@ export function useMarksReview(
   const [revision, setRevision] = useState(0);
   const [outcome, setOutcome] = useState<EngraveOutcome | null>(null);
   const [busy, setBusy] = useState(false);
+  const [reading, setReading] = useState<{ done: number; total: number } | null>(null);
   const hasScore = Boolean(core.score);
 
   useEffect(() => {
@@ -58,6 +62,39 @@ export function useMarksReview(
     }
   };
 
+  /** The marks the rules could not read and the model has not read yet. */
+  const unread = items.filter(
+    (item) =>
+      !item.proposal.engrave &&
+      'reason' in item.proposal &&
+      item.proposal.reason === 'needs-interpretation' &&
+      !item.readByAi,
+  );
+
+  /** Reads the handwriting with the editor's AI model, one mark at a time; the reviewer still decides each. */
+  const readWithAi = async () => {
+    const score = core.score;
+    if (!reader || !score?.saveXml || !unread.length) return;
+    const targets = unread;
+    setReading({ done: 0, total: targets.length });
+    try {
+      const xml = await decodeScoreXml(await score.saveXml());
+      for (const [index, item] of targets.entries()) {
+        const proposal = await readMark(reader, item.annotation, xml);
+        setItems((previous) =>
+          previous.map((candidate) =>
+            candidate.annotation.id === item.annotation.id
+              ? { ...candidate, proposal, readByAi: true }
+              : candidate,
+          ),
+        );
+        setReading({ done: index + 1, total: targets.length });
+      }
+    } finally {
+      setReading(null);
+    }
+  };
+
   /** Undo engraving: the editor's Undo for the notation, then the marks and the performer's copy as they were. */
   const undo = async (undoNotation: () => Promise<unknown> | unknown) => {
     if (!outcome || !scoreKey) return;
@@ -67,5 +104,5 @@ export function useMarksReview(
     setRevision((value) => value + 1);
   };
 
-  return { items, decisions, decide, engrave, undo, outcome, busy };
+  return { items, decisions, decide, engrave, undo, outcome, busy, unread, readWithAi, reading };
 }

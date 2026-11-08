@@ -9389,7 +9389,7 @@ export default function ScoreEditor() {
 
   const mode = buildWorkspaceMode(kind, {
     nodes: {
-      header: <><ShellHeader title={scoreTitle} dirty={scoreDirtySinceCheckpoint} /><MarksReview core={core} /></>,
+      header: <><ShellHeader title={scoreTitle} dirty={scoreDirtySinceCheckpoint} /><MarksReview core={core} ai={{ aiEnabled, aiProvider, aiApiKey, aiModel, requestAiText }} /></>,
       writeToolbar: <WriteToolbars noteInputMethod={noteInputMethod} />,
       historyToolbar: <HistoryToolbar />,
       compareToolbar: compareView ? (
