@@ -13,6 +13,12 @@ import type { BarSignature } from './barSignatures';
 
 export type AnnotationKind = 'ink' | 'stamp' | 'text';
 
+/** A position in the music: a written bar and a beat (ticks from its start). */
+export interface MusicPosition {
+  readonly bar: number;
+  readonly tick: number;
+}
+
 export interface Anchor {
   /** The written bar (measure index). */
   readonly bar: number;
@@ -55,6 +61,12 @@ export interface Annotation {
    * performer sees only the engraved notation.
    */
   readonly engravedIn?: string;
+  /**
+   * Ink only: where the stroke starts and ends in the music (its leftmost and rightmost points: bar, and beat in ticks
+   * from the bar's start), taken from the layout it was drawn on, so a hairpin or slur can be engraved between those
+   * notes in any other layout (Phase 7c). Absent for ink drawn before this, or off the music.
+   */
+  readonly extent?: { readonly start: MusicPosition; readonly end: MusicPosition };
   /** Reviewed and kept as a mark (Phase 7b): not offered for review again. */
   readonly reviewedAt?: string;
   readonly createdAt: number;

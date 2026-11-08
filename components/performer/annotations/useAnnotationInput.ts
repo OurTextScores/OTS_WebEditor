@@ -180,9 +180,22 @@ export function useAnnotationInput(options: AnnotationInputOptions) {
     const found = anchorFor(points[0], false);
     if (!found) return;
     const ink = INK[options.tool];
+    // Where the stroke starts and ends in the music, from this layout (for engraving a hairpin or slur later)
+    const leftmost = points.reduce((best, p) => (p.x < best.x ? p : best));
+    const rightmost = points.reduce((best, p) => (p.x > best.x ? p : best));
+    const from = anchorFor(leftmost, true);
+    const to = anchorFor(rightmost, true);
+    const extent =
+      from?.anchor.tick !== undefined && to?.anchor.tick !== undefined
+        ? {
+            start: { bar: from.anchor.bar, tick: from.anchor.tick },
+            end: { bar: to.anchor.bar, tick: to.anchor.tick },
+          }
+        : undefined;
     void options.add({
       ...base('ink'),
       anchor: found.anchor,
+      ...(extent ? { extent } : {}),
       points: points.map((p) => {
         const [dx, dy] = toSpaces(found.placement, p.x, p.y);
         return [

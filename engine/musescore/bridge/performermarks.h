@@ -7,6 +7,11 @@
 #include "engraving/dom/factory.h"
 #include "engraving/dom/fermata.h"
 #include "engraving/dom/fingering.h"
+#include "engraving/dom/expression.h"
+#include "engraving/dom/hairpin.h"
+#include "engraving/dom/slur.h"
+#include "engraving/dom/stafftext.h"
+#include "engraving/dom/systemtext.h"
 #include "engraving/dom/note.h"
 #include "engraving/dom/pitchspelling.h"
 #include "engraving/dom/segment.h"
@@ -17,7 +22,8 @@
 // marks at musical positions (staff, tick, and the stamp's height for choosing a note and a side) in one undoable
 // command, so the editor does not rebuild placement in TypeScript (the bridge design rule).
 //
-// Input (JSON array): { "kind": "dynamic"|"fingering"|"articulation"|"fermata"|"breath"|"accidental",
+// Input (JSON array): { "kind": "dynamic"|"fingering"|"articulation"|"fermata"|"breath"|"accidental"|"hairpin"|"slur"|
+//   "text", (hairpin and slur also take "endTick"; text takes "style": "expression"|"technique"|"tempo")
 //   "subtype": <dynamic type text "mf", digit "3", or a SMuFL name "stringsUpBow">, "staff": <staff index in the score
 //   or part>, "tick": <written tick>, "y": <staff spaces below the top staff line; negative is above> }.
 // Output (JSON array, same order): { "ok": true } or { "ok": false, "reason": "..." }.
@@ -80,8 +86,41 @@ static String add(Score* score, const JsonObject& mark)
     const String subtype = mark.value("subtype").toString();
     const double y = mark.value("y").toDouble();
     const bool above = y < 2.0; // above the middle line
-    ChordRest* chordRest = chordRestAt(score, mark.value("staff").toInt(), mark.value("tick").toInt());
+    const int staff = mark.value("staff").toInt();
+    ChordRest* chordRest = chordRestAt(score, staff, mark.value("tick").toInt());
     if (!chordRest) return u"no note or rest at that beat";
+
+    if (kind == "hairpin" || kind == "slur") {
+        ChordRest* end = chordRestAt(score, staff, mark.value("endTick").toInt());
+        if (!end) return u"no note or rest where it ends";
+        if (end->tick() < chordRest->tick()) std::swap(chordRest, end);
+        if (kind == "hairpin") {
+            // addHairpin spans a range selection when there is one: make it span exactly these notes
+            score->deselectAll();
+            Hairpin* hairpin = score->addHairpin(
+                subtype == u"dim" ? HairpinType::DIM_HAIRPIN : HairpinType::CRESC_HAIRPIN, chordRest, end);
+            if (!hairpin) return u"could not add the hairpin";
+            if (above) hairpin->undoChangeProperty(Pid::PLACEMENT, PlacementV::ABOVE);
+            return u"";
+        }
+        if (!chordRest->isChord() || !end->isChord()) return u"slurs join notes";
+        if (end == chordRest) return u"a slur needs two notes";
+        return score->addSlur(chordRest, end, nullptr) ? u"" : u"could not add the slur";
+    }
+    if (kind == "text") {
+        if (subtype.isEmpty()) return u"no words";
+        const std::string style = mark.value("style").toString().toStdString();
+        Segment* segment = chordRest->segment();
+        TextBase* text = nullptr;
+        if (style == "tempo") text = Factory::createSystemText(segment);
+        else if (style == "technique") text = Factory::createStaffText(segment, TextStyleType::STAFF);
+        else text = Factory::createExpression(segment);
+        text->setXmlText(TextBase::plainToXmlText(subtype));
+        text->setParent(segment);
+        text->setTrack(style == "tempo" ? 0 : trackZeroVoice(chordRest->track()));
+        score->undoAddElement(text);
+        return u"";
+    }
 
     if (kind == "dynamic") {
         DynamicType type;

@@ -39,6 +39,24 @@ const report = {
   fermatas: count(/<Fermata>/g),
   breaths: count(/<Breath>/g),
 };
+// Phase 7c's kinds, on a fresh copy: a crescendo hairpin over bar 1, a slur over two notes, and text of each style
+const shapes = await WebMscore.load('mscz', fs.readFileSync(path.join(root, 'public/test_scores/bach_orig.mscz')));
+report.shapeResults = await shapes.addElementsAt([
+  { kind: 'hairpin', subtype: 'cresc', staff: 0, tick: 0, endTick: 1800, y: 6 },
+  { kind: 'slur', subtype: '', staff: 0, tick: 0, endTick: 240, y: -2 },
+  { kind: 'text', subtype: 'dolce', style: 'expression', staff: 0, tick: 480, y: 6 },
+  { kind: 'text', subtype: 'pizz.', style: 'technique', staff: 0, tick: 960, y: -2 },
+  { kind: 'text', subtype: 'rit.', style: 'tempo', staff: 0, tick: 1920, y: -3 },
+  { kind: 'slur', subtype: '', staff: 0, tick: 0, endTick: 0, y: -2 },
+]);
+const shapesXml = new TextDecoder().decode(await shapes.saveMsc('mscx'));
+const countIn = (pattern) => (shapesXml.match(pattern) ?? []).length;
+report.hairpins = countIn(/<HairPin>/g);
+report.slurs = countIn(/<Slur>/g);
+report.expressions = countIn(/<Expression>[\s\S]*?<text>dolce<\/text>/g);
+report.staffTexts = countIn(/<StaffText>[\s\S]*?<text>pizz\.<\/text>/g);
+report.systemTexts = countIn(/<SystemText>[\s\S]*?<text>rit\.<\/text>/g);
+
 // One undo removes them all
 await score.undo?.();
 const undone = new TextDecoder().decode(await score.saveMsc('mscx'));

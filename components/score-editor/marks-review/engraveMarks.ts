@@ -27,21 +27,40 @@ export function placeMark(
   mark: EngravingMark,
   annotation: Annotation,
   bars: { signatures: readonly string[]; ticks: readonly (number | undefined)[] },
-): { engine?: Omit<EngravingMark, 'bar'>; anchor: Annotation['anchor']; reason?: string } {
+): { engine?: EngineMark; anchor: Annotation['anchor']; reason?: string } {
   const { anchor, status } = remapAnchor(annotation.anchor, bars.signatures);
   if (status === 'changed')
     return { anchor, reason: 'its bar has changed since the mark was made' };
-  const start = bars.ticks[anchor.bar];
+  // The mark's bars move as its anchor's did (an ink stroke can start or end in another bar than its anchor)
+  const shift = anchor.bar - annotation.anchor.bar;
+  const start = bars.ticks[mark.bar + shift];
   if (start === undefined) return { anchor, reason: 'its bar is not in this score' };
-  const engine = {
+  const engine: EngineMark = {
     kind: mark.kind,
     subtype: mark.subtype,
     staff: mark.staff,
     tick: start + mark.tick,
     y: mark.y,
+    ...(mark.style ? { style: mark.style } : {}),
   };
+  if (mark.endBar !== undefined && mark.endTick !== undefined) {
+    const end = bars.ticks[mark.endBar + shift];
+    if (end === undefined) return { anchor, reason: 'where it ends is not in this score' };
+    engine.endTick = end + mark.endTick;
+  }
   return { engine, anchor };
 }
+
+/** What addElementsAt takes for one mark: absolute ticks. */
+type EngineMark = {
+  kind: EngravingMark['kind'];
+  subtype: string;
+  staff: number;
+  tick: number;
+  y: number;
+  endTick?: number;
+  style?: EngravingMark['style'];
+};
 
 export interface EngraveOutcome {
   readonly engraved: Annotation[];

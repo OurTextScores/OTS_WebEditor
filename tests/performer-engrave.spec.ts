@@ -148,3 +148,73 @@ const dynamicBars = async (editor: Page) =>
   (await measuresOf(editor)).flatMap((measure, index) =>
     measure.includes('<Dynamic>') ? [index] : [],
   );
+
+test('a drawn hairpin and known words engrave as notation (no model needed)', async ({ page: p, context }) => {
+  test.setTimeout(240_000);
+  await openPerformer(p);
+  const surface = (await p.getByTestId('performer-surface').boundingBox())!;
+  await p.mouse.move(surface.x + surface.width / 2, surface.y + 10);
+  await p.mouse.down();
+  await p.waitForTimeout(800);
+  await p.mouse.up();
+  await p.getByTestId('performer-annotate').click();
+
+  // A "<" under notes 2 to 6 of the first system, in one stroke: right-top, left apex, right-bottom
+  const from = (await pageSvg(p).locator('svg .Note').nth(2).boundingBox())!;
+  const to = (await pageSvg(p).locator('svg .Note').nth(6).boundingBox())!;
+  const below = Math.max(from.y, to.y) + 45;
+  const corners: [number, number][] = [
+    [to.x, below - 8],
+    [from.x, below],
+    [to.x, below + 8],
+  ];
+  await p.mouse.move(...corners[0]);
+  await p.mouse.down();
+  for (let c = 1; c < corners.length; c += 1) {
+    for (let s = 1; s <= 10; s += 1) {
+      const x = corners[c - 1][0] + ((corners[c][0] - corners[c - 1][0]) * s) / 10;
+      const y = corners[c - 1][1] + ((corners[c][1] - corners[c - 1][1]) * s) / 10;
+      await p.mouse.move(x, y);
+    }
+  }
+  await p.mouse.up();
+
+  // Two known words
+  for (const [index, words, dy] of [
+    [9, 'dolce', 45],
+    [12, 'pizz.', -30],
+  ] as const) {
+    await p.getByTestId('annotate-text').click();
+    const at = (await pageSvg(p).locator('svg .Note').nth(index).boundingBox())!;
+    await p.mouse.click(at.x + at.width / 2, at.y + at.height / 2 + dy);
+    await p.getByTestId('annotate-text-input').fill(words);
+    await p.getByTestId('annotate-text-input').press('Enter');
+  }
+  await expect(p.getByTestId('annotation-layer').locator('[data-annotation]')).toHaveCount(3);
+  await p.getByTestId('annotate-done').click();
+
+  await p.keyboard.press('Escape');
+  const opening = context.waitForEvent('page');
+  await p.getByTestId('performer-open-editor').click();
+  const editor = await opening;
+  const review = editor.getByTestId('marks-review');
+  await expect(review).toBeVisible({ timeout: 60_000 });
+  const items = review.getByTestId('marks-review-item');
+  await expect(items).toHaveCount(3);
+  await expect(items.filter({ hasText: 'Crescendo hairpin' })).toHaveCount(1);
+  await expect(items.filter({ hasText: 'Expression text “dolce”' })).toHaveCount(1);
+  await expect(items.filter({ hasText: 'Technique text “pizz.”' })).toHaveCount(1);
+  await review.getByTestId('marks-review-engrave').click();
+  await expect(review.getByTestId('marks-review-outcome')).toContainText('Engraved 3', { timeout: 30_000 });
+
+  const engraved = await editor.evaluate(async () => {
+    const score = (window as unknown as { __webmscore: { saveMsc: (f: string) => Promise<Uint8Array> } }).__webmscore;
+    const xml = new TextDecoder().decode(await score.saveMsc('mscx'));
+    return {
+      hairpins: (xml.match(/<HairPin>/g) ?? []).length,
+      dolce: /<Expression>[\s\S]*?<text>dolce<\/text>/.test(xml),
+      pizz: /<StaffText>[\s\S]*?<text>pizz\.<\/text>/.test(xml),
+    };
+  });
+  expect(engraved).toEqual({ hairpins: 1, dolce: true, pizz: true });
+});

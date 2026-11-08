@@ -59,4 +59,17 @@ describe.skipIf(!fs.existsSync(nodeBuild))('engraving stamps at musical position
     expect(report.courtesyTick).toBeGreaterThan(0);
     expect(report.courtesyBracketed).toBe(true);
   });
+
+  it('engraves hairpins, slurs and text of each style (Phase 7c)', () => {
+    expect(report.shapeResults).toEqual([
+      { ok: true },
+      { ok: true },
+      { ok: true },
+      { ok: true },
+      { ok: true },
+      { ok: false, reason: 'a slur needs two notes' },
+    ]);
+    expect(report).toMatchObject({ hairpins: 1, expressions: 1, staffTexts: 1, systemTexts: 1 });
+    expect(report.slurs).toBeGreaterThanOrEqual(1);
+  });
 });

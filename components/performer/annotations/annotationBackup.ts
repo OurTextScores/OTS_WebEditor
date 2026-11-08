@@ -26,6 +26,17 @@ export const backupFileName = (now = new Date()) =>
 const isNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
 
+const isPosition = (value: unknown) =>
+  !!value &&
+  typeof value === 'object' &&
+  isNumber((value as Record<string, unknown>).bar) &&
+  isNumber((value as Record<string, unknown>).tick);
+const isExtent = (value: unknown) =>
+  !!value &&
+  typeof value === 'object' &&
+  isPosition((value as Record<string, unknown>).start) &&
+  isPosition((value as Record<string, unknown>).end);
+
 /** Whether a value read from a backup is a usable annotation (a damaged one is skipped, not stored). */
 function isAnnotation(value: unknown): value is Annotation {
   if (!value || typeof value !== 'object') return false;
@@ -59,6 +70,7 @@ function isAnnotation(value: unknown): value is Annotation {
     (a.onlyAt === undefined || isNumber(a.onlyAt)) &&
     (a.engravedIn === undefined || typeof a.engravedIn === 'string') &&
     (a.reviewedAt === undefined || typeof a.reviewedAt === 'string') &&
+    (a.extent === undefined || isExtent(a.extent)) &&
     isNumber(a.createdAt)
   );
 }

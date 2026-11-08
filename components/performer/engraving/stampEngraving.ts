@@ -1,9 +1,20 @@
 import type { Annotation } from '../annotations/annotationModel';
 import { stampOf } from '../annotations/stampGlyphs';
+import { recogniseInk } from './inkShapes';
+import { readText } from './textWords';
 
 /** What the engine engraves for one mark (addElementsAt's input). */
 export interface EngravingMark {
-  readonly kind: 'dynamic' | 'fingering' | 'articulation' | 'fermata' | 'breath' | 'accidental';
+  readonly kind:
+    | 'dynamic'
+    | 'fingering'
+    | 'articulation'
+    | 'fermata'
+    | 'breath'
+    | 'accidental'
+    | 'hairpin'
+    | 'slur'
+    | 'text';
   readonly subtype: string;
   readonly staff: number;
   /** The written bar, and the beat in ticks from its start (the editor makes it absolute, in the score it has open). */
@@ -11,6 +22,11 @@ export interface EngravingMark {
   readonly tick: number;
   /** Staff spaces below the top staff line where the stamp was put (negative: above the staff). */
   readonly y: number;
+  /** Hairpins and slurs: where they end (a written bar, and ticks from its start). */
+  readonly endBar?: number;
+  readonly endTick?: number;
+  /** Text: expression, technique or tempo. */
+  readonly style?: 'expression' | 'technique' | 'tempo';
 }
 
 /** A mark's proposed engraving (Phase 7a: stamps, by rule), or why it stays a mark. */
@@ -51,13 +67,8 @@ const ACCIDENTALS = new Set(['accidentalSharp', 'accidentalFlat', 'accidentalNat
  * spelled that way); the cue arrow and glasses stay marks. Ink and text need interpreting (Phase 7c).
  */
 export function proposeEngraving(annotation: Annotation): EngravingProposal {
-  if (annotation.kind !== 'stamp') {
-    return {
-      engrave: null,
-      label: 'Stays a mark (handwriting is read in a later phase)',
-      reason: 'needs-interpretation',
-    };
-  }
+  if (annotation.kind === 'ink') return proposeInk(annotation);
+  if (annotation.kind === 'text') return proposeText(annotation);
   const stamp = stampOf(annotation.content);
   const { anchor } = annotation;
   if (!stamp || stamp.font === 'text' || stamp.id === 'arrowBlackRight') {
@@ -101,4 +112,61 @@ export function proposeEngraving(annotation: Annotation): EngravingProposal {
     };
   }
   return { engrave: null, label: `Stays a mark (${stamp.label})`, reason: 'reminder' };
+}
+
+const NEEDS_READING = 'Needs reading (handwriting: Interpret with AI)';
+
+/** Ink: a clear hairpin or slur between the notes the stroke spans; anything else needs reading. */
+function proposeInk(annotation: Annotation): EngravingProposal {
+  const shape = recogniseInk(annotation.points);
+  const extent = annotation.extent;
+  if (!shape || !extent)
+    return { engrave: null, label: NEEDS_READING, reason: 'needs-interpretation' };
+  const ys = annotation.points.map((point) => point[1]);
+  const y = ys.reduce((sum, value) => sum + value, 0) / ys.length;
+  const base = {
+    staff: annotation.anchor.part,
+    bar: extent.start.bar,
+    tick: extent.start.tick,
+    endBar: extent.end.bar,
+    endTick: extent.end.tick,
+    y,
+  };
+  if (shape.kind === 'hairpin') {
+    return {
+      engrave: { ...base, kind: 'hairpin', subtype: shape.subtype },
+      label: shape.subtype === 'cresc' ? 'Crescendo hairpin' : 'Diminuendo hairpin',
+    };
+  }
+  return { engrave: { ...base, kind: 'slur', subtype: '' }, label: 'Slur' };
+}
+
+/** Text: a dynamic, or a well-known expression, technique or tempo word; anything else needs reading. */
+function proposeText(annotation: Annotation): EngravingProposal {
+  const meaning = readText(annotation.content);
+  const { anchor } = annotation;
+  if (!meaning || anchor.tick === undefined) {
+    return { engrave: null, label: NEEDS_READING, reason: 'needs-interpretation' };
+  }
+  const base = {
+    staff: anchor.part,
+    bar: anchor.bar,
+    tick: anchor.tick,
+    y: annotation.points[0]?.[1] ?? 0,
+  };
+  if (meaning.kind === 'dynamic') {
+    return {
+      engrave: { ...base, kind: 'dynamic', subtype: meaning.subtype },
+      label: `Dynamic ${meaning.subtype}`,
+    };
+  }
+  const kindLabel = {
+    expression: 'Expression text',
+    technique: 'Technique text',
+    tempo: 'Tempo text',
+  }[meaning.style];
+  return {
+    engrave: { ...base, kind: 'text', subtype: meaning.text, style: meaning.style },
+    label: `${kindLabel} “${meaning.text}”`,
+  };
 }
