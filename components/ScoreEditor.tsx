@@ -231,6 +231,10 @@ import { InlineTextEditor } from './score-editor/canvas/InlineTextEditor';
 import { ChangeReviewThreadView } from './score-editor/compare/ChangeReviewThreadView';
 import { CompareDiffGutter } from './score-editor/compare/CompareDiffGutter';
 import {
+  CompareGutterColumn,
+  useCompareGutterCollapsed,
+} from './score-editor/compare/CompareGutterColumn';
+import {
   ScannerFindingRows,
   type FindingRowsFinding
 } from './score-editor/compare/ScannerFindingRows';
@@ -762,6 +766,7 @@ export default function ScoreEditor() {
   const compareLeftScrollRef = useRef<HTMLDivElement>(null);
   const compareRightScrollRef = useRef<HTMLDivElement>(null);
   const compareGutterScrollRef = useRef<HTMLDivElement>(null);
+  const [compareGutterCollapsed, toggleCompareGutter] = useCompareGutterCollapsed();
   const compareScrollSyncRef = useRef(false);
   const compareRightRenderInFlightRef = useRef(false);
     const [leftSidebarTab, setLeftSidebarTab] = useState<LeftSidebarTab>('checkpoints');
@@ -8972,124 +8977,120 @@ export default function ScoreEditor() {
                             container: compareLeftContainerRef,
                           }}
                         />
-                        <div
-                          className={`flex min-h-0 flex-none flex-col items-stretch gap-2 ${isAiCompareMode || isChangeReviewCompareMode ? '' : 'w-44'}`}
-                          style={
-                            isAiCompareMode || isChangeReviewCompareMode
-                              ? { width: `${aiDiffGutterWidth}px` }
-                              : undefined
+                        <CompareGutterColumn
+                          collapsed={compareGutterCollapsed}
+                          onToggle={toggleCompareGutter}
+                          scrollRef={compareGutterScrollRef}
+                          scrollSourceRef={compareLeftScrollRef}
+                          width={isAiCompareMode || isChangeReviewCompareMode ? aiDiffGutterWidth : null}
+                          header={
+                            isAiCompareMode && (
+                              <CompareMeasureComments
+                                model={{
+                                  threads: aiMeasureThreads,
+                                  focusedAnchor: aiFocusedMeasureAnchor,
+                                  draft: aiMeasureThreadDraft,
+                                }}
+                                actions={{
+                                  focusAnchor: setAiFocusedMeasureAnchor,
+                                  changeDraft: setAiMeasureThreadDraft,
+                                  addComment: handleAddAiMeasureComment,
+                                  removeComment: handleRemoveAiMeasureComment,
+                                }}
+                              />
+                            )
                           }
                         >
-                          {isAiCompareMode && (
-                            <CompareMeasureComments
-                              model={{
-                                threads: aiMeasureThreads,
-                                focusedAnchor: aiFocusedMeasureAnchor,
-                                draft: aiMeasureThreadDraft,
-                              }}
-                              actions={{
-                                focusAnchor: setAiFocusedMeasureAnchor,
-                                changeDraft: setAiMeasureThreadDraft,
-                                addComment: handleAddAiMeasureComment,
-                                removeComment: handleRemoveAiMeasureComment,
-                              }}
-                            />
+                          {isChangeReviewCompareMode && changeReviewLoading && (
+                            <div className="rounded border border-dashed border-slate-200 bg-white px-2 py-2 text-center text-caption text-slate-500">
+                              Loading review threads...
+                            </div>
                           )}
-                          <div
-                            ref={compareGutterScrollRef}
-                            className="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-x-visible overflow-y-auto rounded border border-slate-200 bg-slate-50 p-2 text-caption text-slate-500"
-                          >
-                            {isChangeReviewCompareMode && changeReviewLoading && (
-                              <div className="rounded border border-dashed border-slate-200 bg-white px-2 py-2 text-center text-caption text-slate-500">
-                                Loading review threads...
-                              </div>
-                            )}
-                            {isChangeReviewCompareMode && changeReviewError && (
-                              <div className="rounded border border-rose-200 bg-rose-50 px-2 py-2 text-caption text-rose-700">
-                                {changeReviewError}
-                              </div>
-                            )}
-                            {isChangeReviewCompareMode && changeReviewActionError && (
-                              <div className="rounded border border-rose-200 bg-rose-50 px-2 py-2 text-caption text-rose-700">
-                                {changeReviewActionError}
-                              </div>
-                            )}
-                            {compareAlignmentLoading && (
-                              <div className="rounded border border-dashed border-slate-200 bg-white px-2 py-2 text-center text-caption text-slate-500">
-                                Aligning measures...
-                              </div>
-                            )}
-                            <CompareDiffGutter
-                              mode={{ isAiCompareMode, isChangeReviewCompareMode, hosted }}
-                              panes={{
-                                left: {
-                                  bounds: compareLeftBounds,
-                                  measurePositions: compareLeftMeasurePositions,
-                                  parts: compareLeftParts,
-                                  score: compareLeftScore,
-                                },
-                                right: {
-                                  bounds: compareRightBounds,
-                                  measurePositions: compareRightMeasurePositions,
-                                  parts: compareRightPartsDisplay,
-                                  score: compareRightScoreDisplay,
-                                },
-                              }}
-                              layout={{
-                                partCount: comparePartCount,
-                                rowHeight: compareGutterRowHeight,
-                                trackHeight: compareGutterTrackHeight,
-                                headerSpacerHeight: compareHeaderSpacerHeight,
-                                regionRefs: compareGutterRegionRefs,
-                                alignmentByPart: compareAlignmentByPart,
-                                alignmentLoading: compareAlignmentLoading,
-                                signatures: compareSignatures,
-                                resolvePartBounds: compareResolvePartBounds,
-                              }}
-                              diff={{
-                                blockContentSignature: aiDiffBlockContentSignature,
-                                blockErrors: aiDiffBlockErrors,
-                                feedbackBusy: aiDiffFeedbackBusy,
-                                bindCommentTextarea: bindAiDiffCommentTextarea,
-                                clearBlockError: clearAiDiffBlockError,
-                                commitBlockComment: commitAiDiffBlockComment,
-                                editBlockComment: editAiDiffBlockComment,
-                                onAcceptBlock: handleAcceptAiDiffBlock,
-                                onBlockCommentInput: handleAiDiffBlockCommentInput,
-                                onCommentResize: handleAiDiffCommentResize,
-                                resolveReview: resolveAiDiffReview,
-                                setBlockStatus: setAiDiffBlockStatus,
-                              }}
-                              review={{
-                                actionBusy: changeReviewActionBusy,
-                                barsForGutter: changeReviewCompareBarsForGutter,
-                                detail: changeReviewDetail,
-                                focusedAnchorId: changeReviewFocusedAnchorId,
-                                loading: changeReviewLoading,
-                                newThreadAnchorId: changeReviewNewThreadAnchorId,
-                                newThreadContent: changeReviewNewThreadContent,
-                                regionsInMeasureOrder: changeReviewRegionsInMeasureOrder,
-                                threadsByAnchor: changeReviewThreadsByAnchor,
-                                renderThread: renderChangeReviewThread,
-                                createThread: createChangeReviewThread,
-                                setFocusedAnchorId: setChangeReviewFocusedAnchorId,
-                                setNewThreadAnchorId: setChangeReviewNewThreadAnchorId,
-                                setNewThreadContent: setChangeReviewNewThreadContent,
-                              }}
-                              blocks={{
-                                buildMismatchBlocks,
-                                comments: compareBlockComments,
-                                setComments: setCompareBlockComments,
-                                focusedKey: compareFocusedBlockKey,
-                                setFocusedKey: setCompareFocusedBlockKey,
-                                editBusy: compareEditBusy,
-                                swapBusy: compareSwapBusy,
-                                rightError: compareRightError,
-                                onOverwrite: handleCompareOverwriteBlock,
-                              }}
-                            />
-                          </div>
-                        </div>
+                          {isChangeReviewCompareMode && changeReviewError && (
+                            <div className="rounded border border-rose-200 bg-rose-50 px-2 py-2 text-caption text-rose-700">
+                              {changeReviewError}
+                            </div>
+                          )}
+                          {isChangeReviewCompareMode && changeReviewActionError && (
+                            <div className="rounded border border-rose-200 bg-rose-50 px-2 py-2 text-caption text-rose-700">
+                              {changeReviewActionError}
+                            </div>
+                          )}
+                          {compareAlignmentLoading && (
+                            <div className="rounded border border-dashed border-slate-200 bg-white px-2 py-2 text-center text-caption text-slate-500">
+                              Aligning measures...
+                            </div>
+                          )}
+                          <CompareDiffGutter
+                            mode={{ isAiCompareMode, isChangeReviewCompareMode, hosted }}
+                            panes={{
+                              left: {
+                                bounds: compareLeftBounds,
+                                measurePositions: compareLeftMeasurePositions,
+                                parts: compareLeftParts,
+                                score: compareLeftScore,
+                              },
+                              right: {
+                                bounds: compareRightBounds,
+                                measurePositions: compareRightMeasurePositions,
+                                parts: compareRightPartsDisplay,
+                                score: compareRightScoreDisplay,
+                              },
+                            }}
+                            layout={{
+                              partCount: comparePartCount,
+                              rowHeight: compareGutterRowHeight,
+                              trackHeight: compareGutterTrackHeight,
+                              headerSpacerHeight: compareHeaderSpacerHeight,
+                              regionRefs: compareGutterRegionRefs,
+                              alignmentByPart: compareAlignmentByPart,
+                              alignmentLoading: compareAlignmentLoading,
+                              signatures: compareSignatures,
+                              resolvePartBounds: compareResolvePartBounds,
+                            }}
+                            diff={{
+                              blockContentSignature: aiDiffBlockContentSignature,
+                              blockErrors: aiDiffBlockErrors,
+                              feedbackBusy: aiDiffFeedbackBusy,
+                              bindCommentTextarea: bindAiDiffCommentTextarea,
+                              clearBlockError: clearAiDiffBlockError,
+                              commitBlockComment: commitAiDiffBlockComment,
+                              editBlockComment: editAiDiffBlockComment,
+                              onAcceptBlock: handleAcceptAiDiffBlock,
+                              onBlockCommentInput: handleAiDiffBlockCommentInput,
+                              onCommentResize: handleAiDiffCommentResize,
+                              resolveReview: resolveAiDiffReview,
+                              setBlockStatus: setAiDiffBlockStatus,
+                            }}
+                            review={{
+                              actionBusy: changeReviewActionBusy,
+                              barsForGutter: changeReviewCompareBarsForGutter,
+                              detail: changeReviewDetail,
+                              focusedAnchorId: changeReviewFocusedAnchorId,
+                              loading: changeReviewLoading,
+                              newThreadAnchorId: changeReviewNewThreadAnchorId,
+                              newThreadContent: changeReviewNewThreadContent,
+                              regionsInMeasureOrder: changeReviewRegionsInMeasureOrder,
+                              threadsByAnchor: changeReviewThreadsByAnchor,
+                              renderThread: renderChangeReviewThread,
+                              createThread: createChangeReviewThread,
+                              setFocusedAnchorId: setChangeReviewFocusedAnchorId,
+                              setNewThreadAnchorId: setChangeReviewNewThreadAnchorId,
+                              setNewThreadContent: setChangeReviewNewThreadContent,
+                            }}
+                            blocks={{
+                              buildMismatchBlocks,
+                              comments: compareBlockComments,
+                              setComments: setCompareBlockComments,
+                              focusedKey: compareFocusedBlockKey,
+                              setFocusedKey: setCompareFocusedBlockKey,
+                              editBusy: compareEditBusy,
+                              swapBusy: compareSwapBusy,
+                              rightError: compareRightError,
+                              onOverwrite: handleCompareOverwriteBlock,
+                            }}
+                          />
+                        </CompareGutterColumn>
                         <CompareScorePane
                           model={{
                             side: 'right',
@@ -9410,6 +9411,8 @@ export default function ScoreEditor() {
           }
           closeLabel={isAiCompareMode ? 'Done - Close' : 'Close'}
           onClose={handleCloseCompareView}
+          gutterCollapsed={compareGutterCollapsed}
+          onToggleGutter={toggleCompareGutter}
         />
       ) : null,
       floatingPalettes: palettesOpen ? (
